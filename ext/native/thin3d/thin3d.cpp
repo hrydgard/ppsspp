@@ -77,7 +77,7 @@ static const char * const glsl_vsCol =
 static const char * const hlslVsCol =
 "struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
 "struct VS_OUTPUT { float4 Position : POSITION; float4 Color0 : COLOR0; };\n"
-"float4x4 WorldViewProj;\n"
+"float4x4 WorldViewProj : register(c0);\n"
 "VS_OUTPUT main(VS_INPUT input) {\n"
 "  VS_OUTPUT output;\n"
 "  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
@@ -101,6 +101,10 @@ static const char * const vulkan_vsCol =
 "   gl_Position = myBufferVals.WorldViewProj * pos;\n"
 "}\n";
 
+static const UniformBufferDesc vsColDesc{ { { 0, UniformType::MATRIX4X4, 0 } } };
+struct VsColUB {
+	float WorldViewProj[16];
+};
 
 static const char * const glsl_vsTexCol =
 "attribute vec3 Position;\n"
@@ -118,7 +122,7 @@ static const char * const glsl_vsTexCol =
 static const char * const hlslVsTexCol =
 "struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
 "struct VS_OUTPUT { float4 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
-"float4x4 WorldViewProj;\n"
+"float4x4 WorldViewProj : register(c0);\n"
 "VS_OUTPUT main(VS_INPUT input) {\n"
 "  VS_OUTPUT output;\n"
 "  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
@@ -146,6 +150,10 @@ static const char * const vulkan_vsTexCol =
 "   gl_Position = myBufferVals.WorldViewProj * pos;\n"
 "}\n";
 
+static const UniformBufferDesc vsTexColDesc{ { { 0, UniformType::MATRIX4X4, 0 } } };
+struct VsTexColUB {
+	float WorldViewProj[16];
+};
 
 void DrawContext::CreatePresets() {
 	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShaderModule(ShaderStage::VERTEX, glsl_vsTexCol, hlslVsTexCol, vulkan_vsTexCol);
@@ -154,8 +162,8 @@ void DrawContext::CreatePresets() {
 	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShaderModule(ShaderStage::FRAGMENT, glsl_fsTexCol, hlslFsTexCol, vulkan_fsTexCol);
 	fsPresets_[FS_COLOR_2D] = CreateShaderModule(ShaderStage::FRAGMENT, glsl_fsCol, hlslFsCol, vulkan_fsCol);
 
-	ssPresets_[SS_TEXTURE_COLOR_2D] = CreateShaderSet(vsPresets_[VS_TEXTURE_COLOR_2D], fsPresets_[FS_TEXTURE_COLOR_2D]);
-	ssPresets_[SS_COLOR_2D] = CreateShaderSet(vsPresets_[VS_COLOR_2D], fsPresets_[FS_COLOR_2D]);
+	ssPresets_[SS_TEXTURE_COLOR_2D] = CreateShaderSet({ {vsPresets_[VS_TEXTURE_COLOR_2D], fsPresets_[FS_TEXTURE_COLOR_2D]} });
+	ssPresets_[SS_COLOR_2D] = CreateShaderSet({{vsPresets_[VS_COLOR_2D], fsPresets_[FS_COLOR_2D]}});
 }
 
 DrawContext::~DrawContext() {

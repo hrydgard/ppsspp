@@ -335,8 +335,9 @@ public:
 		ubo_ = new uint8_t[uboSize_];
 	}
 	~VKShaderSet() {
-		vshader->Release();
-		fshader->Release();
+		for (auto iter : shaders) {
+			iter->Release();
+		}
 		delete[] ubo_;
 	}
 	bool Link();
@@ -355,8 +356,7 @@ public:
 		return uboSize_;
 	}
 
-	VKShaderModule *vshader;
-	VKShaderModule *fshader;
+	std::vector<VKShaderModule *> shaders;
 
 private:
 	uint8_t *ubo_;
@@ -412,7 +412,7 @@ public:
 	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
-	ShaderSet *CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) override;
+	ShaderSet *CreateShaderSet(const ShaderSetDesc &desc) override;
 	// The implementation makes the choice of which shader code to use.
 	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
@@ -859,22 +859,19 @@ VkPipeline VKContext::GetOrCreatePipeline() {
 		return iter->second;
 	}
 
-	VkPipelineShaderStageCreateInfo stages[2];
-	stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	stages[0].pNext = nullptr;
-	stages[0].pSpecializationInfo = nullptr;
-	stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-	stages[0].module = curShaderSet_->vshader->Get();
-	stages[0].pName = "main";
-	stages[0].flags = 0;
-
-	stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	stages[1].pNext = nullptr;
-	stages[1].pSpecializationInfo = nullptr;
-	stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	stages[1].module = curShaderSet_->fshader->Get();
-	stages[1].pName = "main";
-	stages[1].flags = 0;
+	std::vector<VkPipelineShaderStageCreateInfo> stages;
+	stages.resize(curShaderSet_->shaders.size());
+	int i = 0;
+	for (auto &iter : curShaderSet_->shaders) {
+		VkPipelineShaderStageCreateInfo &stage = stages[i++];
+		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		stage.pNext = nullptr;
+		stage.pSpecializationInfo = nullptr;
+		stage.stage = StageToVulkan(iter->GetStage());
+		stage.module = iter->Get();
+		stage.pName = "main";
+		stage.flags = 0;
+	}
 
 	VkPipelineColorBlendStateCreateInfo colorBlend;
 	VkPipelineColorBlendAttachmentState attachment0;
@@ -915,8 +912,8 @@ VkPipeline VKContext::GetOrCreatePipeline() {
 	VkGraphicsPipelineCreateInfo info = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	info.pNext = nullptr;
 	info.flags = 0;
-	info.stageCount = 2;
-	info.pStages = stages;
+	info.stageCount = (uint32_t)stages.size();
+	info.pStages = stages.data();
 	info.pColorBlendState = &colorBlend;
 	info.pDepthStencilState = &depthStencil;
 	info.pDynamicState = &dynamicInfo;
@@ -1038,16 +1035,16 @@ Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DVKBuffer(size, usageFlags);
 }
 
-ShaderSet *VKContext::CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) {
-	if (!vshader || !fshader) {
-		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
+ShaderSet *VKContext::CreateShaderSet(const ShaderSetDesc &desc) {
+	if (!desc.shaders.size()) {
+		ELOG("ShaderSet requires at least one shader");
 		return NULL;
 	}
 	VKShaderSet *shaderSet = new VKShaderSet();
-	vshader->AddRef();
-	fshader->AddRef();
-	shaderSet->vshader = static_cast<VKShaderModule *>(vshader);
-	shaderSet->fshader = static_cast<VKShaderModule *>(fshader);
+	for (auto iter : desc.shaders) {
+		iter->AddRef();
+		shaderSet->shaders.push_back(static_cast<VKShaderModule *>(iter));
+	}
 	if (shaderSet->Link()) {
 		return shaderSet;
 	} else {

@@ -458,7 +458,7 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	ShaderSet *CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) override;
+	ShaderSet *CreateShaderSet(const ShaderSetDesc &desc) override;
 	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
 	Texture *CreateTexture() override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
@@ -543,14 +543,20 @@ ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, const char *gls
 	}
 }
 
-ShaderSet *D3D9Context::CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) {
-	if (!vshader || !fshader) {
-		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
+ShaderSet *D3D9Context::CreateShaderSet(const ShaderSetDesc &desc) {
+	if (!desc.shaders.size()) {
+		ELOG("ShaderSet requires at least one shader");
 		return NULL;
 	}
 	D3D9ShaderSet *shaderSet = new D3D9ShaderSet(device_);
-	shaderSet->vshader = static_cast<D3D9ShaderModule *>(vshader);
-	shaderSet->pshader = static_cast<D3D9ShaderModule *>(fshader);
+	for (auto iter : desc.shaders) {
+		if (iter->GetStage() == ShaderStage::FRAGMENT) {
+			shaderSet->pshader = static_cast<D3D9ShaderModule *>(iter);
+		}
+		else if (iter->GetStage() == ShaderStage::VERTEX) {
+			shaderSet->vshader = static_cast<D3D9ShaderModule *>(iter);
+		}
+	}
 	return shaderSet;
 }
 

@@ -364,8 +364,9 @@ public:
 	}
 	~OpenGLShaderSet() {
 		unregister_gl_resource_holder(this);
-		vshader->Release();
-		fshader->Release();
+		for (auto iter : shaders) {
+			iter->Release();
+		}
 		glDeleteProgram(program_);
 	}
 	bool Link();
@@ -380,18 +381,19 @@ public:
 
 	void GLLost() override {
 		program_ = 0;
-		vshader->Unset();
-		fshader->Unset();
+		for (auto iter : shaders) {
+			iter->Unset();
+		}
 	}
 
 	void GLRestore() override {
-		vshader->Compile(vshader->GetSource().c_str());
-		fshader->Compile(fshader->GetSource().c_str());
+		for (auto iter : shaders) {
+			iter->Compile(iter->GetSource().c_str());
+		}
 		Link();
 	}
 
-	OpenGLShaderModule *vshader;
-	OpenGLShaderModule *fshader;
+	std::vector<OpenGLShaderModule *> shaders;
 
 private:
 	GLuint program_;
@@ -408,7 +410,7 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	ShaderSet *CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) override;
+	ShaderSet *CreateShaderSet(const ShaderSetDesc &desc) override;
 	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
@@ -804,16 +806,16 @@ Buffer *OpenGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new OpenGLBuffer(size, usageFlags);
 }
 
-ShaderSet *OpenGLContext::CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) {
-	if (!vshader || !fshader) {
-		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
+ShaderSet *OpenGLContext::CreateShaderSet(const ShaderSetDesc &desc) {
+	if (!desc.shaders.size()) {
+		ELOG("ShaderSet requires at least one shader");
 		return NULL;
 	}
 	OpenGLShaderSet *shaderSet = new OpenGLShaderSet();
-	vshader->AddRef();
-	fshader->AddRef();
-	shaderSet->vshader = static_cast<OpenGLShaderModule *>(vshader);
-	shaderSet->fshader = static_cast<OpenGLShaderModule *>(fshader);
+	for (auto iter : desc.shaders) {
+		iter->AddRef();
+		shaderSet->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
+	}
 	if (shaderSet->Link()) {
 		return shaderSet;
 	} else {
@@ -848,8 +850,9 @@ ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, const char *g
 
 bool OpenGLShaderSet::Link() {
 	program_ = glCreateProgram();
-	glAttachShader(program_, vshader->GetShader());
-	glAttachShader(program_, fshader->GetShader());
+	for (auto iter : shaders) {
+		glAttachShader(program_, iter->GetShader());
+	}
 
 	// Bind all the common vertex data points. Mismatching ones will be ignored.
 	glBindAttribLocation(program_, SEM_POSITION, "Position");

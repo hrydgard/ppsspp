@@ -336,6 +336,24 @@ enum class ShaderLanguage {
 	HLSL_D3D11,
 };
 
+enum class UniformType : int8_t {
+	FLOAT, FLOAT2, FLOAT3, FLOAT4,
+	MATRIX4X4,
+};
+
+// For emulation of uniform buffers on D3D9/GL
+struct UniformDesc {
+	int16_t offset;
+	UniformType type;
+	int8_t reg;  // For D3D
+
+	// TODO: Support array elements etc.
+};
+
+struct UniformBufferDesc {
+	std::vector<UniformDesc> uniforms;
+};
+
 class ShaderModule : public RefCountedObject {
 public:
 	virtual ShaderStage GetStage() const = 0;
@@ -343,7 +361,7 @@ public:
 
 class ShaderSet : public RefCountedObject {
 public:
-	// TODO: Make some faster way of doing these. Support uniform buffers (and fake them on GL 2.0?)
+	// TODO: Use a uniform-buffer based interface instead.
 	virtual void SetVector(const char *name, float *value, int n) = 0;
 	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
 };
@@ -417,6 +435,10 @@ struct RasterStateDesc {
 	Facing facing;
 };
 
+struct ShaderSetDesc {
+	std::vector<ShaderModule *> shaders;
+};
+
 class DrawContext : public RefCountedObject {
 public:
 	virtual ~DrawContext();
@@ -428,7 +450,7 @@ public:
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
-	virtual ShaderSet *CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) = 0;
+	virtual ShaderSet *CreateShaderSet(const ShaderSetDesc &desc) = 0;
 	virtual InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) = 0;
 
 	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
