@@ -781,7 +781,7 @@ again:
 	return info;
 }
 
-void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Draw::Thin3DContext *thin3d, Draw::Thin3DTexture *&tex, double &loadTime) {
+void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Draw::Thin3DContext *thin3d, Draw::Texture *&tex, double &loadTime) {
 	using namespace Draw;
 	if (textureData.size()) {
 		if (!tex) {

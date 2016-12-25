@@ -117,7 +117,7 @@ static UI::Theme ui_theme;
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-Draw::Thin3DTexture *uiTexture;
+Draw::Texture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;

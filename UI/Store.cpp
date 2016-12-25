@@ -84,7 +84,7 @@ private:
 	std::shared_ptr<http::Download> download_;
 
 	std::string textureData_;
-	Draw::Thin3DTexture *texture_;
+	Draw::Texture *texture_;
 	bool textureFailed_;
 	float fixedSizeW_;
 	float fixedSizeH_;

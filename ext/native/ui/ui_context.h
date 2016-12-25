@@ -11,12 +11,12 @@
 
 namespace Draw {
 	class Thin3DContext;
-	class Thin3DShaderSet;
-	class Thin3DDepthStencilState;
-	class Thin3DTexture;
+	class ShaderSet;
+	class DepthStencilState;
+	class Texture;
 	class BlendState;
-	class Thin3DSamplerState;
-	class Thin3DRasterState;
+	class SamplerState;
+	class RasterState;
 }
 
 class Texture;
@@ -36,7 +36,7 @@ public:
 	UIContext();
 	~UIContext();
 
-	void Init(Draw::Thin3DContext *thin3d, Draw::Thin3DShaderSet *uiShaderTex, Draw::Thin3DShaderSet *uiShaderNoTex, Draw::Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+	void Init(Draw::Thin3DContext *thin3d, Draw::ShaderSet *uiShaderTex, Draw::ShaderSet *uiShaderNoTex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
 
 	void Begin();
 	void BeginNoTex();
@@ -86,13 +86,13 @@ private:
 	TextDrawer *textDrawer_;
 
 	Draw::Thin3DContext *thin3D_;
-	Draw::Thin3DDepthStencilState *depth_;
-	Draw::Thin3DSamplerState *sampler_;
-	Draw::Thin3DRasterState *rasterNoCull_;
+	Draw::DepthStencilState *depth_;
+	Draw::SamplerState *sampler_;
+	Draw::RasterState *rasterNoCull_;
 	Draw::BlendState *blendNormal_;
-	Draw::Thin3DShaderSet *uishader_;
-	Draw::Thin3DShaderSet *uishadernotex_;
-	Draw::Thin3DTexture *uitexture_;
+	Draw::ShaderSet *uishader_;
+	Draw::ShaderSet *uishadernotex_;
+	Draw::Texture *uitexture_;
 
 	DrawBuffer *uidrawbuffer_;
 	DrawBuffer *uidrawbufferTop_;

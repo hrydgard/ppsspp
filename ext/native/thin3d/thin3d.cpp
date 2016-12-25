@@ -244,7 +244,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 	return *num_levels > 0;
 }
 
-bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type) {
+bool Texture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type) {
 	int width[16], height[16];
 	uint8_t *image[16] = { nullptr };
 
@@ -275,7 +275,7 @@ bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Image
 	return true;
 }
 
-bool Thin3DTexture::LoadFromFile(const std::string &filename, ImageFileType type) {
+bool Texture::LoadFromFile(const std::string &filename, ImageFileType type) {
 	filename_ = "";
 	size_t fileSize;
 	uint8_t *buffer = VFSReadFile(filename.c_str(), &fileSize);
@@ -292,8 +292,8 @@ bool Thin3DTexture::LoadFromFile(const std::string &filename, ImageFileType type
 	return retval;
 }
 
-Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, ImageFileType type) {
-	Thin3DTexture *tex = CreateTexture();
+Texture *Thin3DContext::CreateTextureFromFile(const char *filename, ImageFileType type) {
+	Texture *tex = CreateTexture();
 	if (!tex->LoadFromFile(filename, type)) {
 		tex->Release();
 		return NULL;
@@ -302,7 +302,7 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, ImageF
 }
 
 // TODO: Remove the code duplication between this and LoadFromFileData
-Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType type) {
+Texture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType type) {
 	int width[16], height[16];
 	int num_levels = 0;
 	int zim_flags = 0;
@@ -313,7 +313,7 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int
 		return NULL;
 	}
 
-	Thin3DTexture *tex = CreateTexture(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
+	Texture *tex = CreateTexture(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
 	for (int i = 0; i < num_levels; i++) {
 		tex->SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
 		free(image[i]);

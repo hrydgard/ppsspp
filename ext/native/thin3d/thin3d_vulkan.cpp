@@ -146,7 +146,7 @@ public:
 	}
 };
 
-class Thin3DVKDepthStencilState : public Thin3DDepthStencilState {
+class Thin3DVKDepthStencilState : public DepthStencilState {
 public:
 	bool depthTestEnabled;
 	bool depthWriteEnabled;
@@ -163,7 +163,7 @@ public:
 	}
 };
 
-class Thin3DVKRasterState : public Thin3DRasterState {
+class Thin3DVKRasterState : public RasterState {
 public:
 	Thin3DVKRasterState(VulkanContext *vulkan, const T3DRasterStateDesc &desc) {
 		cullFace = desc.cull;
@@ -189,7 +189,7 @@ public:
 
 // Very simplistic buffer that will simply copy its contents into our "pushbuffer" when it's time to draw,
 // to avoid synchronization issues.
-class Thin3DVKBuffer : public Thin3DBuffer {
+class Thin3DVKBuffer : public Buffer {
 public:
 	Thin3DVKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
 		data_ = new uint8_t[size];
@@ -221,7 +221,7 @@ private:
 
 // Not registering this as a resource holder, instead ShaderSet is registered. It will
 // invoke Compile again to recreate the shader then link them together.
-class Thin3DVKShader : public Thin3DShader {
+class Thin3DVKShader : public Shader {
 public:
 	Thin3DVKShader(ShaderStage stage) : module_(VK_NULL_HANDLE), ok_(false) {
 		stage_ = stage == ShaderStage::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT : VK_SHADER_STAGE_VERTEX_BIT;
@@ -307,11 +307,11 @@ public:
 		return false;
 	}
 
-	std::vector<Thin3DVertexComponent> components_;
+	std::vector<VertexComponent> components_;
 	int stride_;
 };
 
-class Thin3DVKShaderSet : public Thin3DShaderSet {
+class Thin3DVKShaderSet : public ShaderSet {
 public:
 	Thin3DVKShaderSet() {
 		// HACK! Hardcoded
@@ -390,15 +390,15 @@ public:
 	Thin3DVKContext(VulkanContext *vulkan);
 	virtual ~Thin3DVKContext();
 
-	Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) override;
+	DepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
-	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
-	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
-	Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) override;
-	Thin3DRasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
-	Thin3DTexture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
-	Thin3DTexture *CreateTexture() override;
+	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
+	ShaderSet *CreateShaderSet(Shader *vshader, Shader *fshader) override;
+	Thin3DVertexFormat *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) override;
+	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
+	RasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
+	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
+	Texture *CreateTexture() override;
 
 	// Bound state objects
 	void SetBlendState(BlendState *state) override {
@@ -407,19 +407,19 @@ public:
 	}
 
 	// Bound state objects
-	void SetDepthStencilState(Thin3DDepthStencilState *state) override {
+	void SetDepthStencilState(DepthStencilState *state) override {
 		Thin3DVKDepthStencilState *s = static_cast<Thin3DVKDepthStencilState *>(state);
 		curDepthStencilState_ = s;
 	}
 
 	// Bound state objects
-	void SetRasterState(Thin3DRasterState *state) override {
+	void SetRasterState(RasterState *state) override {
 		Thin3DVKRasterState *s = static_cast<Thin3DVKRasterState *>(state);
 		curRasterState_ = s;
 	}
 
 	// The implementation makes the choice of which shader code to use.
-	Thin3DShader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	Shader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorEnabled(bool enable) override {
 		scissorEnabled_ = enable;
@@ -430,14 +430,14 @@ public:
 
 	void SetViewports(int count, Viewport *viewports) override;
 
-	void BindTextures(int start, int count, Thin3DTexture **textures) override;
+	void BindTextures(int start, int count, Texture **textures) override;
 
-	void SetSamplerStates(int start, int count, Thin3DSamplerState **state) override;
+	void SetSamplerStates(int start, int count, SamplerState **state) override;
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -532,9 +532,9 @@ VkFormat FormatToVulkan(DataFormat fmt, int *bpp) {
 	}
 }
 
-class Thin3DVKSamplerState : public Thin3DSamplerState {
+class Thin3DVKSamplerState : public SamplerState {
 public:
-	Thin3DVKSamplerState(VulkanContext *vulkan, const T3DSamplerStateDesc &desc) : vulkan_(vulkan) {
+	Thin3DVKSamplerState(VulkanContext *vulkan, const SamplerStateDesc &desc) : vulkan_(vulkan) {
 		VkSamplerCreateInfo s = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 		s.addressModeU = desc.wrapS == TextureAddressMode::REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 		s.addressModeV = desc.wrapT == TextureAddressMode::REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -557,15 +557,15 @@ private:
 	VkSampler sampler_;
 };
 
-Thin3DSamplerState *Thin3DVKContext::CreateSamplerState(const T3DSamplerStateDesc &desc) {
+SamplerState *Thin3DVKContext::CreateSamplerState(const SamplerStateDesc &desc) {
 	return new Thin3DVKSamplerState(vulkan_, desc);
 }
 
-Thin3DRasterState *Thin3DVKContext::CreateRasterState(const T3DRasterStateDesc &desc) {
+RasterState *Thin3DVKContext::CreateRasterState(const T3DRasterStateDesc &desc) {
 	return new Thin3DVKRasterState(vulkan_, desc);
 }
 
-void Thin3DVKContext::SetSamplerStates(int start, int count, Thin3DSamplerState **state) {
+void Thin3DVKContext::SetSamplerStates(int start, int count, SamplerState **state) {
 	for (int i = start; i < start + count; i++) {
 		boundSamplers_[i] = (Thin3DVKSamplerState *)state[i];
 	}
@@ -578,7 +578,7 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-class Thin3DVKTexture : public Thin3DTexture {
+class Thin3DVKTexture : public Texture {
 public:
 	Thin3DVKTexture(VulkanContext *vulkan) : vulkan_(vulkan), vkTex_(nullptr) {
 	}
@@ -953,18 +953,18 @@ void Thin3DVKContext::DirtyDynamicState() {
 	viewportDirty_ = true;
 }
 
-Thin3DVertexFormat *Thin3DVKContext::CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) {
+Thin3DVertexFormat *Thin3DVKContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
 	Thin3DVKVertexFormat *fmt = new Thin3DVKVertexFormat();
 	fmt->components_ = components;
 	fmt->stride_ = stride;
 	return fmt;
 }
 
-Thin3DTexture *Thin3DVKContext::CreateTexture() {
+Texture *Thin3DVKContext::CreateTexture() {
 	return new Thin3DVKTexture(vulkan_);
 }
 
-Thin3DTexture *Thin3DVKContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
+Texture *Thin3DVKContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
 	return new Thin3DVKTexture(vulkan_, type, format, width, height, depth, mipLevels);
 }
 
@@ -985,7 +985,7 @@ void Thin3DVKTexture::Finalize(int zim_flags) {
 	// TODO
 }
 
-Thin3DDepthStencilState *Thin3DVKContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) {
+DepthStencilState *Thin3DVKContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) {
 	Thin3DVKDepthStencilState *ds = new Thin3DVKDepthStencilState();
 	ds->depthTestEnabled = depthTestEnabled;
 	ds->depthWriteEnabled = depthWriteEnabled;
@@ -1007,11 +1007,11 @@ BlendState *Thin3DVKContext::CreateBlendState(const BlendStateDesc &desc) {
 	return bs;
 }
 
-Thin3DBuffer *Thin3DVKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
+Buffer *Thin3DVKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DVKBuffer(size, usageFlags);
 }
 
-Thin3DShaderSet *Thin3DVKContext::CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) {
+ShaderSet *Thin3DVKContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
 	if (!vshader || !fshader) {
 		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
 		return NULL;
@@ -1029,13 +1029,13 @@ Thin3DShaderSet *Thin3DVKContext::CreateShaderSet(Thin3DShader *vshader, Thin3DS
 	}
 }
 
-void Thin3DVKContext::BindTextures(int start, int count, Thin3DTexture **textures) {
+void Thin3DVKContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
 		boundTextures_[i] = static_cast<Thin3DVKTexture *>(textures[i]);
 	}
 }
 
-Thin3DShader *Thin3DVKContext::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+Shader *Thin3DVKContext::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
 	Thin3DVKShader *shader = new Thin3DVKShader(stage);
 	if (shader->Compile(vulkan_, vulkan_source)) {
 		return shader;
@@ -1091,7 +1091,7 @@ inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	}
 }
 
-void Thin3DVKContext::Draw(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {
+void Thin3DVKContext::Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
@@ -1114,7 +1114,7 @@ void Thin3DVKContext::Draw(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVer
 	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
 }
 
-void Thin3DVKContext::DrawIndexed(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) {
+void Thin3DVKContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
@@ -1143,7 +1143,7 @@ void Thin3DVKContext::DrawIndexed(Primitive prim, Thin3DShaderSet *shaderSet, Th
 	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
 }
 
-void Thin3DVKContext::DrawUP(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
+void Thin3DVKContext::DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
 	ApplyDynamicState();
 
 	curPrim_ = PrimToVK(prim);

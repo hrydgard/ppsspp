@@ -15,7 +15,7 @@
 DrawBuffer ui_draw2d;
 DrawBuffer ui_draw2d_front;
 
-void UIBegin(Draw::Thin3DShaderSet *shaderSet) {
+void UIBegin(Draw::ShaderSet *shaderSet) {
 	ui_draw2d.Begin(shaderSet);
 	ui_draw2d_front.Begin(shaderSet);
 }

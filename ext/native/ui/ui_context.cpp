@@ -23,7 +23,7 @@ UIContext::~UIContext() {
 	blendNormal_->Release();
 }
 
-void UIContext::Init(Draw::Thin3DContext *thin3d, Draw::Thin3DShaderSet *uishader, Draw::Thin3DShaderSet *uishadernotex, Draw::Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+void UIContext::Init(Draw::Thin3DContext *thin3d, Draw::ShaderSet *uishader, Draw::ShaderSet *uishadernotex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 	using namespace Draw;
 	thin3d_ = thin3d;
 	blendNormal_ = thin3d_->CreateBlendState({ true, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });

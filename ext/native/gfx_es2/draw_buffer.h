@@ -43,7 +43,7 @@ enum {
 };
 
 namespace Draw {
-	class Thin3DShaderSet;
+	class ShaderSet;
 }
 
 enum DrawBufferPrimitiveMode {
@@ -63,7 +63,7 @@ public:
 	DrawBuffer();
 	~DrawBuffer();
 
-	void Begin(Draw::Thin3DShaderSet *shaders, DrawBufferPrimitiveMode mode = DBMODE_NORMAL);
+	void Begin(Draw::ShaderSet *shaders, DrawBufferPrimitiveMode mode = DBMODE_NORMAL);
 	void End();
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
@@ -158,9 +158,9 @@ private:
 	Matrix4x4 drawMatrix_;
 
 	Draw::Thin3DContext *t3d_;
-	Draw::Thin3DBuffer *vbuf_;
+	Draw::Buffer *vbuf_;
 	Draw::Thin3DVertexFormat *vformat_;
-	Draw::Thin3DShaderSet *shaderSet_;
+	Draw::ShaderSet *shaderSet_;
 
 	Vertex *verts_;
 	int count_;

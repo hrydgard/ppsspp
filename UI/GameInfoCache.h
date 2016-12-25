@@ -27,7 +27,7 @@
 
 namespace Draw {
 	class Thin3DContext;
-	class Thin3DTexture;
+	class Texture;
 }
 class PrioritizedWorkQueue;
 
@@ -142,11 +142,11 @@ public:
 
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;
-	Draw::Thin3DTexture *iconTexture;
+	Draw::Texture *iconTexture;
 	std::string pic0TextureData;
-	Draw::Thin3DTexture *pic0Texture;
+	Draw::Texture *pic0Texture;
 	std::string pic1TextureData;
-	Draw::Thin3DTexture *pic1Texture;
+	Draw::Texture *pic1Texture;
 
 	std::string sndFileData;
 
@@ -202,7 +202,7 @@ public:
 private:
 	void Init();
 	void Shutdown();
-	void SetupTexture(GameInfo *info, std::string &textureData, Draw::Thin3DContext *thin3d, Draw::Thin3DTexture *&tex, double &loadTime);
+	void SetupTexture(GameInfo *info, std::string &textureData, Draw::Thin3DContext *thin3d, Draw::Texture *&tex, double &loadTime);
 
 	// Maps ISO path to info.
 	std::map<std::string, GameInfo *> info_;

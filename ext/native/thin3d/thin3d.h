@@ -128,20 +128,20 @@ enum class Primitive {
 	TRIANGLE_STRIP_ADJ,
 };
 
-enum T3DVertexShaderPreset : int {
+enum VertexShaderPreset : int {
 	VS_COLOR_2D,
 	VS_TEXTURE_COLOR_2D,
 	VS_MAX_PRESET,
 };
 
-enum T3DFragmentShaderPreset : int {
+enum FragmentShaderPreset : int {
 	FS_COLOR_2D,
 	FS_TEXTURE_COLOR_2D,
 	FS_MAX_PRESET,
 };
 
 // Predefined full shader setups.
-enum T3DShaderSetPreset : int {
+enum ShaderSetPreset : int {
 	SS_COLOR_2D,
 	SS_TEXTURE_COLOR_2D,
 	SS_MAX_PRESET,
@@ -235,21 +235,21 @@ class BlendState : public Thin3DObject {
 public:
 };
 
-class Thin3DSamplerState : public Thin3DObject {
+class SamplerState : public Thin3DObject {
 public:
 };
 
-class Thin3DDepthStencilState : public Thin3DObject {
+class DepthStencilState : public Thin3DObject {
 public:
 };
 
-class Thin3DBuffer : public Thin3DObject {
+class Buffer : public Thin3DObject {
 public:
 	virtual void SetData(const uint8_t *data, size_t size) = 0;
 	virtual void SubData(const uint8_t *data, size_t offset, size_t size) = 0;
 };
 
-class Thin3DTexture : public Thin3DObject {
+class Texture : public Thin3DObject {
 public:
 	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT);
 	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type = ImageFileType::DETECT);
@@ -267,9 +267,9 @@ protected:
 	int width_, height_, depth_;
 };
 
-struct Thin3DVertexComponent {
-	Thin3DVertexComponent() : name(nullptr), type(DataFormat::UNKNOWN), semantic(255), offset(255) {}
-	Thin3DVertexComponent(const char *name, Semantic semantic, DataFormat dataType, uint8_t offset) {
+struct VertexComponent {
+	VertexComponent() : name(nullptr), type(DataFormat::UNKNOWN), semantic(255), offset(255) {}
+	VertexComponent(const char *name, Semantic semantic, DataFormat dataType, uint8_t offset) {
 		this->name = name;
 		this->semantic = semantic;
 		this->type = dataType;
@@ -286,18 +286,18 @@ public:
 	virtual bool RequiresBuffer() = 0;
 };
 
-class Thin3DShader : public Thin3DObject {
+class Shader : public Thin3DObject {
 public:
 };
 
-class Thin3DShaderSet : public Thin3DObject {
+class ShaderSet : public Thin3DObject {
 public:
 	// TODO: Make some faster way of doing these. Support uniform buffers (and fake them on GL 2.0?)
 	virtual void SetVector(const char *name, float *value, int n) = 0;
 	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
 };
 
-class Thin3DRasterState : public Thin3DObject {
+class RasterState : public Thin3DObject {
 public:
 };
 
@@ -332,7 +332,7 @@ struct BlendStateDesc {
 	// int colorMask;
 };
 
-struct T3DSamplerStateDesc {
+struct SamplerStateDesc {
 	TextureFilter magFilt;
 	TextureFilter minFilt;
 	TextureFilter mipFilt;
@@ -363,37 +363,37 @@ public:
 
 	virtual std::vector<std::string> GetFeatureList() { return std::vector<std::string>(); }
 
-	virtual Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) = 0;
+	virtual DepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) = 0;
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
-	virtual Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) = 0;
-	virtual Thin3DRasterState *CreateRasterState(const T3DRasterStateDesc &desc) = 0;
-	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
-	virtual Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) = 0;
-	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) = 0;
+	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
+	virtual RasterState *CreateRasterState(const T3DRasterStateDesc &desc) = 0;
+	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
+	virtual ShaderSet *CreateShaderSet(Shader *vshader, Shader *fshader) = 0;
+	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) = 0;
 
-	virtual Thin3DTexture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
-	virtual Thin3DTexture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
+	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
 
 	// Common Thin3D function, uses CreateTexture
-	Thin3DTexture *CreateTextureFromFile(const char *filename, ImageFileType fileType);
-	Thin3DTexture *CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType fileType);
+	Texture *CreateTextureFromFile(const char *filename, ImageFileType fileType);
+	Texture *CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
-	Thin3DShader *GetVshaderPreset(T3DVertexShaderPreset preset) { return fsPresets_[preset]; }
-	Thin3DShader *GetFshaderPreset(T3DFragmentShaderPreset preset) { return vsPresets_[preset]; }
-	Thin3DShaderSet *GetShaderSetPreset(T3DShaderSetPreset preset) { return ssPresets_[preset]; }
+	Shader *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }
+	Shader *GetFshaderPreset(FragmentShaderPreset preset) { return vsPresets_[preset]; }
+	ShaderSet *GetShaderSetPreset(ShaderSetPreset preset) { return ssPresets_[preset]; }
 
 	// The implementation makes the choice of which shader code to use.
-	virtual Thin3DShader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
+	virtual Shader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	virtual void SetBlendState(BlendState *state) = 0;
-	virtual void SetSamplerStates(int start, int count, Thin3DSamplerState **state) = 0;
-	virtual void SetDepthStencilState(Thin3DDepthStencilState *state) = 0;
-	virtual void SetRasterState(Thin3DRasterState *state) = 0;
+	virtual void SetSamplerStates(int start, int count, SamplerState **state) = 0;
+	virtual void SetDepthStencilState(DepthStencilState *state) = 0;
+	virtual void SetRasterState(RasterState *state) = 0;
 
-	virtual void BindTextures(int start, int count, Thin3DTexture **textures) = 0;
-	void BindTexture(int stage, Thin3DTexture *texture) {
+	virtual void BindTextures(int start, int count, Texture **textures) = 0;
+	void BindTexture(int stage, Texture *texture) {
 		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
 
@@ -403,9 +403,9 @@ public:
 	virtual void SetViewports(int count, Viewport *viewports) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
-	virtual void Draw(Primitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(Primitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) = 0;
-	virtual void DrawUP(Primitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, const void *vdata, int vertexCount) = 0;
+	virtual void Draw(Primitive prim, ShaderSet *pipeline, Thin3DVertexFormat *format, Buffer *vdata, int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(Primitive prim, ShaderSet *pipeline, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
+	virtual void DrawUP(Primitive prim, ShaderSet *pipeline, Thin3DVertexFormat *format, const void *vdata, int vertexCount) = 0;
 	
 	// Render pass management. Default implementations here.
 	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
@@ -426,9 +426,9 @@ public:
 protected:
 	void CreatePresets();
 
-	Thin3DShader *vsPresets_[VS_MAX_PRESET];
-	Thin3DShader *fsPresets_[FS_MAX_PRESET];
-	Thin3DShaderSet *ssPresets_[SS_MAX_PRESET];
+	Shader *vsPresets_[VS_MAX_PRESET];
+	Shader *fsPresets_[FS_MAX_PRESET];
+	ShaderSet *ssPresets_[SS_MAX_PRESET];
 
 	int targetWidth_;
 	int targetHeight_;

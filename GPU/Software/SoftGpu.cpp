@@ -43,13 +43,13 @@ FormatBuffer depthbuf;
 u32 clut[4096];
 
 static Draw::Thin3DVertexFormat *vformat = nullptr;
-static Draw::Thin3DDepthStencilState *depth = nullptr;
-static Draw::Thin3DRasterState *rasterNoCull = nullptr;
+static Draw::DepthStencilState *depth = nullptr;
+static Draw::RasterState *rasterNoCull = nullptr;
 static Draw::BlendState *blendstateOff = nullptr;
-static Draw::Thin3DSamplerState *samplerNearest = nullptr;
-static Draw::Thin3DSamplerState *samplerLinear = nullptr;
-static Draw::Thin3DBuffer *vdata = nullptr;
-static Draw::Thin3DBuffer *idata = nullptr;
+static Draw::SamplerState *samplerNearest = nullptr;
+static Draw::SamplerState *samplerLinear = nullptr;
+static Draw::Buffer *vdata = nullptr;
+static Draw::Buffer *idata = nullptr;
 
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::Thin3DContext *_thin3D)
 	: gfxCtx_(gfxCtx), thin3d(_thin3D)
@@ -57,12 +57,12 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::Thin3DContext *_thin3D)
 	using namespace Draw;
 	fbTex = thin3d->CreateTexture(LINEAR2D, DataFormat::R8A8G8B8_UNORM, 480, 272, 1, 1);
 
-	std::vector<Thin3DVertexComponent> components;
-	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, DataFormat::FLOATx3, 0));
-	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::FLOATx2, 12));
-	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, DataFormat::UNORM8x4, 20));
+	std::vector<VertexComponent> components;
+	components.push_back(VertexComponent("Position", SEM_POSITION, DataFormat::FLOATx3, 0));
+	components.push_back(VertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::FLOATx2, 12));
+	components.push_back(VertexComponent("Color0", SEM_COLOR0, DataFormat::UNORM8x4, 20));
 
-	Thin3DShader *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
+	Shader *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 	vformat = thin3d->CreateVertexFormat(components, 24, vshader);
 
 	vdata = thin3d->CreateBuffer(24 * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
@@ -135,7 +135,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	Viewport viewport = {0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f};
 	thin3d->SetViewports(1, &viewport);
 	thin3d->SetBlendState(blendstateOff);
-	Thin3DSamplerState *sampler;
+	SamplerState *sampler;
 	if (g_Config.iBufFilter == SCALE_NEAREST) {
 		sampler = samplerNearest;
 	} else {
@@ -232,7 +232,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	idata->SetData((const uint8_t *)indexes, sizeof(indexes));
 
 	thin3d->BindTexture(0, fbTex);
-	Thin3DShaderSet *texColor = thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D);
+	ShaderSet *texColor = thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D);
 
 	static const float identity4x4[16] = {
 		1.0f, 0.0f, 0.0f, 0.0f,

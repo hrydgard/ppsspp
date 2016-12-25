@@ -47,7 +47,7 @@ typedef struct {
 class ShaderManager;
 namespace Draw {
 	class Thin3DContext;
-	class Thin3DTexture;
+	class Texture;
 }
 
 class SoftGPU : public GPUCommon {
@@ -107,7 +107,7 @@ private:
 	GEBufferFormat displayFormat_;
 
 	GraphicsContext *gfxCtx_;
-	Draw::Thin3DTexture *fbTex;
+	Draw::Texture *fbTex;
 	Draw::Thin3DContext *thin3d;
 	std::vector<u32> fbTexBuffer;
 };

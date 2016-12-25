@@ -41,12 +41,12 @@ void DrawBuffer::Init(Draw::Thin3DContext *t3d) {
 	t3d_ = t3d;
 	inited_ = true;
 
-	std::vector<Thin3DVertexComponent> components;
-	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, DataFormat::FLOATx3, 0));
-	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::FLOATx2, 12));
-	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, DataFormat::UNORM8x4, 20));
+	std::vector<VertexComponent> components;
+	components.push_back(VertexComponent("Position", SEM_POSITION, DataFormat::FLOATx3, 0));
+	components.push_back(VertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::FLOATx2, 12));
+	components.push_back(VertexComponent("Color0", SEM_COLOR0, DataFormat::UNORM8x4, 20));
 
-	Thin3DShader *vshader = t3d_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
+	Shader *vshader = t3d_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 
 	vformat_ = t3d_->CreateVertexFormat(components, 24, vshader);
 	if (vformat_->RequiresBuffer()) {
@@ -65,7 +65,7 @@ void DrawBuffer::Shutdown() {
 	inited_ = false;
 }
 
-void DrawBuffer::Begin(Draw::Thin3DShaderSet *program, DrawBufferPrimitiveMode dbmode) {
+void DrawBuffer::Begin(Draw::ShaderSet *program, DrawBufferPrimitiveMode dbmode) {
 	shaderSet_ = program;
 	count_ = 0;
 	mode_ = dbmode;

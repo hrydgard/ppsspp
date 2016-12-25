@@ -15,7 +15,7 @@
 
 namespace Draw {
 	class Thin3DContext;
-	class Thin3DTexture;
+	class Texture;
 }
 
 #ifdef USING_QT_UI
@@ -23,7 +23,7 @@ namespace Draw {
 #endif
 
 struct TextStringEntry {
-	Draw::Thin3DTexture *texture;
+	Draw::Texture *texture;
 	int width;
 	int height;
 	int bmWidth;
