@@ -254,12 +254,29 @@ private:
 	size_t knownSize_;
 };
 
+GLuint ShaderStageToOpenGL(ShaderStage stage) {
+	switch (stage) {
+	case ShaderStage::VERTEX: return GL_VERTEX_SHADER;
+	case ShaderStage::COMPUTE: return GL_COMPUTE_SHADER;
+	case ShaderStage::EVALUATION: return GL_TESS_EVALUATION_SHADER;
+	case ShaderStage::CONTROL: return GL_TESS_CONTROL_SHADER;
+	case ShaderStage::GEOMETRY: return GL_GEOMETRY_SHADER;
+	case ShaderStage::FRAGMENT:
+	default:
+		return GL_FRAGMENT_SHADER;
+	}
+}
+
 // Not registering this as a resource holder, instead ShaderSet is registered. It will
 // invoke Compile again to recreate the shader then link them together.
-class OpenGLShader : public Shader {
+class OpenGLShaderModule : public ShaderModule {
 public:
-	OpenGLShader(ShaderStage stage) : shader_(0), type_(0) {
-		type_ = stage == ShaderStage::FRAGMENT ? GL_FRAGMENT_SHADER : GL_VERTEX_SHADER;
+	OpenGLShaderModule(ShaderStage stage) : stage_(stage), shader_(0) {
+		glstage_ = ShaderStageToOpenGL(stage);
+	}
+
+	~OpenGLShaderModule() {
+		glDeleteShader(shader_);
 	}
 
 	bool Compile(const char *source);
@@ -271,25 +288,25 @@ public:
 	void Unset() {
 		shader_ = 0;
 	}
-
-	~OpenGLShader() {
-		glDeleteShader(shader_);
+	ShaderStage GetStage() const override {
+		return stage_;
 	}
 
 private:
+	ShaderStage stage_;
 	GLuint shader_;
-	GLuint type_;
+	GLuint glstage_;
 	bool ok_;
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool OpenGLShader::Compile(const char *source) {
+bool OpenGLShaderModule::Compile(const char *source) {
 	source_ = source;
-	shader_ = glCreateShader(type_);
+	shader_ = glCreateShader(glstage_);
 
 	std::string temp;
 	// Add the prelude on automatically for fragment shaders.
-	if (type_ == GL_FRAGMENT_SHADER) {
+	if (glstage_ == GL_FRAGMENT_SHADER) {
 		temp = std::string(glsl_fragment_prelude) + source;
 		source = temp.c_str();
 	}
@@ -306,7 +323,7 @@ bool OpenGLShader::Compile(const char *source) {
 		infoLog[len] = '\0';
 		glDeleteShader(shader_);
 		shader_ = 0;
-		ILOG("%s Shader compile error:\n%s", type_ == GL_FRAGMENT_SHADER ? "Fragment" : "Vertex", infoLog);
+		ILOG("%s Shader compile error:\n%s", glstage_ == GL_FRAGMENT_SHADER ? "Fragment" : "Vertex", infoLog);
 	}
 	ok_ = success != 0;
 	return ok_;
@@ -373,8 +390,8 @@ public:
 		Link();
 	}
 
-	OpenGLShader *vshader;
-	OpenGLShader *fshader;
+	OpenGLShaderModule *vshader;
+	OpenGLShaderModule *fshader;
 
 private:
 	GLuint program_;
@@ -389,10 +406,10 @@ public:
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
-	RasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
+	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	ShaderSet *CreateShaderSet(Shader *vshader, Shader *fshader) override;
-	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) override;
+	ShaderSet *CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) override;
+	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
 
@@ -435,7 +452,7 @@ public:
 		rs->Apply();
 	}
 
-	Shader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorEnabled(bool enable) override {
 		if (enable) {
@@ -514,7 +531,7 @@ OpenGLContext::~OpenGLContext() {
 	samplerStates_.clear();
 }
 
-InputLayout *OpenGLContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
+InputLayout *OpenGLContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) {
 	OpenGLVertexFormat *fmt = new OpenGLVertexFormat();
 	fmt->components_ = components;
 	fmt->stride_ = stride;
@@ -754,7 +771,7 @@ SamplerState *OpenGLContext::CreateSamplerState(const SamplerStateDesc &desc) {
 	return samps;
 }
 
-RasterState *OpenGLContext::CreateRasterState(const T3DRasterStateDesc &desc) {
+RasterState *OpenGLContext::CreateRasterState(const RasterStateDesc &desc) {
 	OpenGLRasterState *rs = new OpenGLRasterState();
 	if (desc.cull == CullMode::NONE) {
 		rs->cullEnable = GL_FALSE;
@@ -787,7 +804,7 @@ Buffer *OpenGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new OpenGLBuffer(size, usageFlags);
 }
 
-ShaderSet *OpenGLContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
+ShaderSet *OpenGLContext::CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) {
 	if (!vshader || !fshader) {
 		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
 		return NULL;
@@ -795,8 +812,8 @@ ShaderSet *OpenGLContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
 	OpenGLShaderSet *shaderSet = new OpenGLShaderSet();
 	vshader->AddRef();
 	fshader->AddRef();
-	shaderSet->vshader = static_cast<OpenGLShader *>(vshader);
-	shaderSet->fshader = static_cast<OpenGLShader *>(fshader);
+	shaderSet->vshader = static_cast<OpenGLShaderModule *>(vshader);
+	shaderSet->fshader = static_cast<OpenGLShaderModule *>(fshader);
 	if (shaderSet->Link()) {
 		return shaderSet;
 	} else {
@@ -819,8 +836,8 @@ void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 }
 
 
-Shader *OpenGLContext::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	OpenGLShader *shader = new OpenGLShader(stage);
+ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+	OpenGLShaderModule *shader = new OpenGLShaderModule(stage);
 	if (shader->Compile(glsl_source)) {
 		return shader;
 	} else {

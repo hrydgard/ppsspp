@@ -148,11 +148,11 @@ static const char * const vulkan_vsTexCol =
 
 
 void DrawContext::CreatePresets() {
-	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(ShaderStage::VERTEX, glsl_vsTexCol, hlslVsTexCol, vulkan_vsTexCol);
-	vsPresets_[VS_COLOR_2D] = CreateShader(ShaderStage::VERTEX, glsl_vsCol, hlslVsCol, vulkan_vsCol);
+	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShaderModule(ShaderStage::VERTEX, glsl_vsTexCol, hlslVsTexCol, vulkan_vsTexCol);
+	vsPresets_[VS_COLOR_2D] = CreateShaderModule(ShaderStage::VERTEX, glsl_vsCol, hlslVsCol, vulkan_vsCol);
 
-	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShader(ShaderStage::FRAGMENT, glsl_fsTexCol, hlslFsTexCol, vulkan_fsTexCol);
-	fsPresets_[FS_COLOR_2D] = CreateShader(ShaderStage::FRAGMENT, glsl_fsCol, hlslFsCol, vulkan_fsCol);
+	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShaderModule(ShaderStage::FRAGMENT, glsl_fsTexCol, hlslFsTexCol, vulkan_fsTexCol);
+	fsPresets_[FS_COLOR_2D] = CreateShaderModule(ShaderStage::FRAGMENT, glsl_fsCol, hlslFsCol, vulkan_fsCol);
 
 	ssPresets_[SS_TEXTURE_COLOR_2D] = CreateShaderSet(vsPresets_[VS_TEXTURE_COLOR_2D], fsPresets_[FS_TEXTURE_COLOR_2D]);
 	ssPresets_[SS_COLOR_2D] = CreateShaderSet(vsPresets_[VS_COLOR_2D], fsPresets_[FS_COLOR_2D]);

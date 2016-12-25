@@ -46,7 +46,7 @@ void DrawBuffer::Init(Draw::DrawContext *t3d) {
 	components.push_back(VertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12));
 	components.push_back(VertexComponent("Color0", SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20));
 
-	Shader *vshader = t3d_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
+	ShaderModule *vshader = t3d_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 
 	vformat_ = t3d_->CreateVertexFormat(components, 24, vshader);
 	if (vformat_->RequiresBuffer()) {

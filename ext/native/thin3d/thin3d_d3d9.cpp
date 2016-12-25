@@ -249,10 +249,10 @@ private:
 	int stride_;
 };
 
-class D3D9Shader : public Shader {
+class D3D9ShaderModule : public ShaderModule {
 public:
-	D3D9Shader(ShaderStage stage) : stage_(stage), vshader_(NULL), pshader_(NULL), constantTable_(NULL) {}
-	~D3D9Shader() {
+	D3D9ShaderModule(ShaderStage stage) : stage_(stage), vshader_(NULL), pshader_(NULL), constantTable_(NULL) {}
+	~D3D9ShaderModule() {
 		if (vshader_)
 			vshader_->Release();
 		if (pshader_)
@@ -270,6 +270,7 @@ public:
 	}
 	void SetVector(LPDIRECT3DDEVICE9 device, const char *name, float *value, int n);
 	void SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]);
+	ShaderStage GetStage() const override { return stage_; }
 
 private:
 	ShaderStage stage_;
@@ -281,8 +282,8 @@ private:
 class D3D9ShaderSet : public ShaderSet {
 public:
 	D3D9ShaderSet(LPDIRECT3DDEVICE9 device) : device_(device) {}
-	D3D9Shader *vshader;
-	D3D9Shader *pshader;
+	D3D9ShaderModule *vshader;
+	D3D9ShaderModule *pshader;
 	void Apply(LPDIRECT3DDEVICE9 device);
 	void SetVector(const char *name, float *value, int n) { vshader->SetVector(device_, name, value, n); pshader->SetVector(device_, name, value, n); }
 	void SetMatrix4x4(const char *name, const float value[16]) { vshader->SetMatrix4x4(device_, name, value); }  // pshaders don't usually have matrices
@@ -455,13 +456,13 @@ public:
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc);
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
-	RasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
+	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	ShaderSet *CreateShaderSet(Shader *vshader, Shader *fshader) override;
-	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) override;
+	ShaderSet *CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) override;
+	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
 	Texture *CreateTexture() override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
-	Shader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	void SetBlendState(BlendState *state) {
@@ -532,8 +533,8 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 D3D9Context::~D3D9Context() {
 }
 
-Shader *D3D9Context::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	D3D9Shader *shader = new D3D9Shader(stage);
+ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+	D3D9ShaderModule *shader = new D3D9ShaderModule(stage);
 	if (shader->Compile(device_, hlsl_source)) {
 		return shader;
 	} else {
@@ -542,14 +543,14 @@ Shader *D3D9Context::CreateShader(ShaderStage stage, const char *glsl_source, co
 	}
 }
 
-ShaderSet *D3D9Context::CreateShaderSet(Shader *vshader, Shader *fshader) {
+ShaderSet *D3D9Context::CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) {
 	if (!vshader || !fshader) {
 		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
 		return NULL;
 	}
 	D3D9ShaderSet *shaderSet = new D3D9ShaderSet(device_);
-	shaderSet->vshader = static_cast<D3D9Shader *>(vshader);
-	shaderSet->pshader = static_cast<D3D9Shader *>(fshader);
+	shaderSet->vshader = static_cast<D3D9ShaderModule *>(vshader);
+	shaderSet->pshader = static_cast<D3D9ShaderModule *>(fshader);
 	return shaderSet;
 }
 
@@ -561,7 +562,7 @@ DepthStencilState *D3D9Context::CreateDepthStencilState(const DepthStencilStateD
 	return ds;
 }
 
-InputLayout *D3D9Context::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
+InputLayout *D3D9Context::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) {
 	Thin3DDX9VertexFormat *fmt = new Thin3DDX9VertexFormat(device_, components, stride);
 	return fmt;
 }
@@ -589,7 +590,7 @@ SamplerState *D3D9Context::CreateSamplerState(const SamplerStateDesc &desc) {
 	return samps;
 }
 
-RasterState *D3D9Context::CreateRasterState(const T3DRasterStateDesc &desc) {
+RasterState *D3D9Context::CreateRasterState(const RasterStateDesc &desc) {
 	D3D9RasterState *rs = new D3D9RasterState();
 	rs->cullMode = D3DCULL_NONE;
 	if (desc.cull == CullMode::NONE) {
@@ -766,7 +767,7 @@ void D3D9Context::SetViewports(int count, Viewport *viewports) {
 	device_->SetViewport(&vp);
 }
 
-bool D3D9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source) {
+bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const char *source) {
 	LPD3DXMACRO defines = NULL;
 	LPD3DXINCLUDE includes = NULL;
 	DWORD flags = 0;
@@ -815,14 +816,14 @@ bool D3D9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source) {
 	return true;
 }
 
-void D3D9Shader::SetVector(LPDIRECT3DDEVICE9 device, const char *name, float *value, int n) {
+void D3D9ShaderModule::SetVector(LPDIRECT3DDEVICE9 device, const char *name, float *value, int n) {
 	D3DXHANDLE handle = constantTable_->GetConstantByName(NULL, name);
 	if (handle) {
 		constantTable_->SetFloatArray(device, handle, value, n);
 	}
 }
 
-void D3D9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]) {
+void D3D9ShaderModule::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]) {
 	D3DXHANDLE handle = constantTable_->GetConstantByName(NULL, name);
 	if (handle) {
 		constantTable_->SetFloatArray(device, handle, value, 16);

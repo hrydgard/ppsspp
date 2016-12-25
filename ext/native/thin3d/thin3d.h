@@ -318,21 +318,6 @@ public:
 	virtual bool RequiresBuffer() = 0;
 };
 
-class Shader : public RefCountedObject {
-public:
-};
-
-class ShaderSet : public RefCountedObject {
-public:
-	// TODO: Make some faster way of doing these. Support uniform buffers (and fake them on GL 2.0?)
-	virtual void SetVector(const char *name, float *value, int n) = 0;
-	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
-};
-
-class RasterState : public RefCountedObject {
-public:
-};
-
 enum class ShaderStage {
 	VERTEX,
 	FRAGMENT,
@@ -349,6 +334,22 @@ enum class ShaderLanguage {
 	GLSL_VULKAN,
 	HLSL_D3D9,
 	HLSL_D3D11,
+};
+
+class ShaderModule : public RefCountedObject {
+public:
+	virtual ShaderStage GetStage() const = 0;
+};
+
+class ShaderSet : public RefCountedObject {
+public:
+	// TODO: Make some faster way of doing these. Support uniform buffers (and fake them on GL 2.0?)
+	virtual void SetVector(const char *name, float *value, int n) = 0;
+	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
+};
+
+class RasterState : public RefCountedObject {
+public:
 };
 
 struct DepthStencilStateDesc {
@@ -411,7 +412,7 @@ enum class Facing {
 	CW,
 };
 
-struct T3DRasterStateDesc {
+struct RasterStateDesc {
 	CullMode cull;
 	Facing facing;
 };
@@ -425,10 +426,10 @@ public:
 	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
-	virtual RasterState *CreateRasterState(const T3DRasterStateDesc &desc) = 0;
+	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
-	virtual ShaderSet *CreateShaderSet(Shader *vshader, Shader *fshader) = 0;
-	virtual InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) = 0;
+	virtual ShaderSet *CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) = 0;
+	virtual InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) = 0;
 
 	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
 	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
@@ -438,12 +439,12 @@ public:
 	Texture *CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
-	Shader *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }
-	Shader *GetFshaderPreset(FragmentShaderPreset preset) { return vsPresets_[preset]; }
+	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }
+	ShaderModule *GetFshaderPreset(FragmentShaderPreset preset) { return vsPresets_[preset]; }
 	ShaderSet *GetShaderSetPreset(ShaderSetPreset preset) { return ssPresets_[preset]; }
 
 	// The implementation makes the choice of which shader code to use.
-	virtual Shader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
+	virtual ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	virtual void SetBlendState(BlendState *state) = 0;
@@ -485,8 +486,8 @@ public:
 protected:
 	void CreatePresets();
 
-	Shader *vsPresets_[VS_MAX_PRESET];
-	Shader *fsPresets_[FS_MAX_PRESET];
+	ShaderModule *vsPresets_[VS_MAX_PRESET];
+	ShaderModule *fsPresets_[FS_MAX_PRESET];
 	ShaderSet *ssPresets_[SS_MAX_PRESET];
 
 	int targetWidth_;

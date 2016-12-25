@@ -62,7 +62,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 	components.push_back(VertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12));
 	components.push_back(VertexComponent("Color0", SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20));
 
-	Shader *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
+	ShaderModule *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 	vformat = thin3d->CreateVertexFormat(components, 24, vshader);
 
 	vdata = thin3d->CreateBuffer(24 * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
@@ -75,7 +75,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 
-	T3DRasterStateDesc rasterDesc{};
+	RasterStateDesc rasterDesc{};
 	rasterNoCull = thin3d->CreateRasterState(rasterDesc);
 
 	framebufferDirty_ = true;

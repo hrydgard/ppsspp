@@ -165,7 +165,7 @@ public:
 
 class VKRasterState : public RasterState {
 public:
-	VKRasterState(VulkanContext *vulkan, const T3DRasterStateDesc &desc) {
+	VKRasterState(VulkanContext *vulkan, const RasterStateDesc &desc) {
 		cullFace = desc.cull;
 		frontFace = desc.facing;
 	}
@@ -219,36 +219,52 @@ private:
 	size_t dataSize_;
 };
 
+VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
+	switch (stage) {
+	case ShaderStage::VERTEX: return VK_SHADER_STAGE_VERTEX_BIT;
+	case ShaderStage::GEOMETRY: return VK_SHADER_STAGE_GEOMETRY_BIT;
+	case ShaderStage::COMPUTE: return VK_SHADER_STAGE_COMPUTE_BIT;
+	case ShaderStage::EVALUATION: return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+	case ShaderStage::CONTROL: return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+	default:
+	case ShaderStage::FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
+	}
+}
+
 // Not registering this as a resource holder, instead ShaderSet is registered. It will
 // invoke Compile again to recreate the shader then link them together.
-class VKShader : public Shader {
+class VKShaderModule : public ShaderModule {
 public:
-	VKShader(ShaderStage stage) : module_(VK_NULL_HANDLE), ok_(false) {
-		stage_ = stage == ShaderStage::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT : VK_SHADER_STAGE_VERTEX_BIT;
+	VKShaderModule(ShaderStage stage) : module_(VK_NULL_HANDLE), ok_(false), stage_(stage) {
+		vkstage_ = StageToVulkan(stage);
 	}
 	bool Compile(VulkanContext *vulkan, const char *source);
 	const std::string &GetSource() const { return source_; }
-	~VKShader() {
+	~VKShaderModule() {
 		if (module_) {
 			vkDestroyShaderModule(device_, module_, nullptr);
 		}
 	}
 	VkShaderModule Get() const { return module_; }
+	ShaderStage GetStage() const override {
+		return stage_;
+	}
 
 private:
 	VkDevice device_;
 	VkShaderModule module_;
-	VkShaderStageFlagBits stage_;
+	VkShaderStageFlagBits vkstage_;
 	bool ok_;
+	ShaderStage stage_;
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool VKShader::Compile(VulkanContext *vulkan, const char *source) {
+bool VKShaderModule::Compile(VulkanContext *vulkan, const char *source) {
 	// We'll need this to free it later.
 	device_ = vulkan->GetDevice();
 	this->source_ = source;
 	std::vector<uint32_t> spirv;
-	if (!GLSLtoSPV(stage_, source, spirv)) {
+	if (!GLSLtoSPV(vkstage_, source, spirv)) {
 		return false;
 	}
 
@@ -339,8 +355,8 @@ public:
 		return uboSize_;
 	}
 
-	VKShader *vshader;
-	VKShader *fshader;
+	VKShaderModule *vshader;
+	VKShaderModule *fshader;
 
 private:
 	uint8_t *ubo_;
@@ -393,10 +409,13 @@ public:
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	ShaderSet *CreateShaderSet(Shader *vshader, Shader *fshader) override;
-	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) override;
+	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
-	RasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
+	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
+	ShaderSet *CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) override;
+	// The implementation makes the choice of which shader code to use.
+	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
 
@@ -417,9 +436,6 @@ public:
 		VKRasterState *s = static_cast<VKRasterState *>(state);
 		curRasterState_ = s;
 	}
-
-	// The implementation makes the choice of which shader code to use.
-	Shader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorEnabled(bool enable) override {
 		scissorEnabled_ = enable;
@@ -572,7 +588,7 @@ SamplerState *VKContext::CreateSamplerState(const SamplerStateDesc &desc) {
 	return new VKSamplerState(vulkan_, desc);
 }
 
-RasterState *VKContext::CreateRasterState(const T3DRasterStateDesc &desc) {
+RasterState *VKContext::CreateRasterState(const RasterStateDesc &desc) {
 	return new VKRasterState(vulkan_, desc);
 }
 
@@ -964,7 +980,7 @@ void VKContext::DirtyDynamicState() {
 	viewportDirty_ = true;
 }
 
-InputLayout *VKContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
+InputLayout *VKContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) {
 	VKVertexFormat *fmt = new VKVertexFormat();
 	fmt->components_ = components;
 	fmt->stride_ = stride;
@@ -1022,7 +1038,7 @@ Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DVKBuffer(size, usageFlags);
 }
 
-ShaderSet *VKContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
+ShaderSet *VKContext::CreateShaderSet(ShaderModule *vshader, ShaderModule *fshader) {
 	if (!vshader || !fshader) {
 		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
 		return NULL;
@@ -1030,8 +1046,8 @@ ShaderSet *VKContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
 	VKShaderSet *shaderSet = new VKShaderSet();
 	vshader->AddRef();
 	fshader->AddRef();
-	shaderSet->vshader = static_cast<VKShader *>(vshader);
-	shaderSet->fshader = static_cast<VKShader *>(fshader);
+	shaderSet->vshader = static_cast<VKShaderModule *>(vshader);
+	shaderSet->fshader = static_cast<VKShaderModule *>(fshader);
 	if (shaderSet->Link()) {
 		return shaderSet;
 	} else {
@@ -1046,8 +1062,8 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
-Shader *VKContext::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	VKShader *shader = new VKShader(stage);
+ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+	VKShaderModule *shader = new VKShaderModule(stage);
 	if (shader->Compile(vulkan_, vulkan_source)) {
 		return shader;
 	} else {
