@@ -160,19 +160,56 @@ enum TextureType : uint8_t {
 };
 
 enum class DataFormat : uint8_t {
-	UNKNOWN,
-	LUMINANCE,
+	UNDEFINED,
+
+	R8_UNORM,
+	R8G8_UNORM,
+	R8G8B8_UNORM,
+
 	R8G8B8A8_UNORM,
+	R8G8B8A8_UNORM_SRGB,
+
+	R8G8B8A8_SNORM,
+	R8G8B8A8_UINT,
+	R8G8B8A8_SINT,
+
+	R4G4_UNORM,
 	R4G4B4A4_UNORM,
+
+	R16_FLOAT,
+	R16G16_FLOAT,
+	R16G16B16A16_FLOAT,
+
+	R32_FLOAT,
 	R32G32_FLOAT,
 	R32G32B32_FLOAT,
 	R32G32B32A32_FLOAT,
 
-	DXT1,
-	ETC1,  // Needs simulation on many platforms
+	// Block compression formats.
+	// These are modern names for DXT and friends, now patent free.
+	// https://msdn.microsoft.com/en-us/library/bb694531.aspx
+	BC1_RGBA_UNORM_BLOCK,
+	BC1_RGBA_SRGB_BLOCK,
+	BC2_UNORM_BLOCK,  // 4-bit straight alpha + DXT1 color. Usually not worth using
+	BC2_SRGB_BLOCK,
+	BC3_UNORM_BLOCK,  // 3-bit alpha with 2 ref values (+ magic) + DXT1 color
+	BC3_SRGB_BLOCK,
+	BC4_UNORM_BLOCK,  // 1-channel, same storage as BC3 alpha
+	BC4_SNORM_BLOCK,
+	BC5_UNORM_BLOCK,  // 2-channel RG, each has same storage as BC3 alpha
+	BC5_SNORM_BLOCK,
+	BC6H_UFLOAT_BLOCK,  // TODO
+	BC6H_SFLOAT_BLOCK,
+	BC7_UNORM_BLOCK,    // Highly advanced, very expensive to compress, very good quality.
+	BC7_SRGB_BLOCK,
+
+	ETC1,
+
+	S8,
 	D16,
-	D24S8,
-	D24X8,
+	D24_S8,
+	D32F,
+	D32F_S8,
 };
 
 enum ImageFileType {
@@ -263,7 +300,7 @@ protected:
 };
 
 struct VertexComponent {
-	VertexComponent() : name(nullptr), type(DataFormat::UNKNOWN), semantic(255), offset(255) {}
+	VertexComponent() : name(nullptr), type(DataFormat::UNDEFINED), semantic(255), offset(255) {}
 	VertexComponent(const char *name, Semantic semantic, DataFormat dataType, uint8_t offset) {
 		this->name = name;
 		this->semantic = semantic;

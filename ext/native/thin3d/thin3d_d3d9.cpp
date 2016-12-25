@@ -316,7 +316,7 @@ D3DFORMAT FormatToD3D(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::R4G4B4A4_UNORM: return D3DFMT_A4R4G4B4;
-	case DataFormat::D24S8: return D3DFMT_D24S8;
+	case DataFormat::D24_S8: return D3DFMT_D24S8;
 	case DataFormat::D16: return D3DFMT_D16;
 	default: return D3DFMT_UNKNOWN;
 	}

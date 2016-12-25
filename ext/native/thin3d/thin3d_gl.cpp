@@ -1027,7 +1027,7 @@ void OpenGLVertexFormat::Apply(const void *base) {
 			case DataFormat::R8G8B8A8_UNORM:
 				glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case DataFormat::UNKNOWN:
+			case DataFormat::UNDEFINED:
 			default:
 				ELOG("Thin3DGLVertexFormat: Invalid or unknown component type applied.");
 				break;

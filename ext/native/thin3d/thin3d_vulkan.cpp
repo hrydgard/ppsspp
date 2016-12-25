@@ -526,7 +526,7 @@ VkFormat FormatToVulkan(DataFormat fmt, int *bpp) {
 	switch (fmt) {
 	case DataFormat::R8G8B8A8_UNORM: *bpp = 32; return VK_FORMAT_R8G8B8A8_UNORM;
 	case DataFormat::R4G4B4A4_UNORM: *bpp = 16; return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
-	case DataFormat::D24S8: *bpp = 32; return VK_FORMAT_D24_UNORM_S8_UINT;
+	case DataFormat::D24_S8: *bpp = 32; return VK_FORMAT_D24_UNORM_S8_UINT;
 	case DataFormat::D16: *bpp = 16; return VK_FORMAT_D16_UNORM;
 	default: return VK_FORMAT_UNDEFINED;
 	}

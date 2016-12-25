@@ -180,7 +180,7 @@ static DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
 	case ZIM_ETC1: return DataFormat::ETC1;
 	case ZIM_RGBA8888: return DataFormat::R8G8B8A8_UNORM;
-	case ZIM_LUMINANCE: return DataFormat::LUMINANCE;
+	case ZIM_LUMINANCE: return DataFormat::R8_UNORM;
 	default: return DataFormat::R8G8B8A8_UNORM;
 	}
 }
