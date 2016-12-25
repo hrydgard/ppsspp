@@ -968,6 +968,8 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 }
 
 void EmuScreen::render() {
+	using namespace Draw;
+
 	if (invalid_) {
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.

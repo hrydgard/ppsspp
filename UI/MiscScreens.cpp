@@ -432,6 +432,8 @@ bool LogoScreen::key(const KeyInput &key) {
 }
 
 void LogoScreen::render() {
+	using namespace Draw;
+
 	UIScreen::render();
 	UIContext &dc = *screenManager()->getUIContext();
 

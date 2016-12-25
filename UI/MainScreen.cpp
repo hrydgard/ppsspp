@@ -174,7 +174,7 @@ private:
 
 void GameButton::Draw(UIContext &dc) {
 	GameInfo *ginfo = g_gameInfoCache->GetInfo(dc.GetThin3DContext(), gamePath_, 0);
-	Thin3DTexture *texture = 0;
+	Draw::Thin3DTexture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 

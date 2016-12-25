@@ -50,7 +50,7 @@ struct TextDrawerContext {
 	int *pBitmapBits;
 };
 
-TextDrawer::TextDrawer(Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
+TextDrawer::TextDrawer(Draw::Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(nullptr) {
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 
@@ -215,6 +215,7 @@ void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bo
 }
 
 void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+	using namespace Draw;
 	if (!strlen(str))
 		return;
 

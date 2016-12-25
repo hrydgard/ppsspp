@@ -42,7 +42,9 @@ enum {
 	FLAG_WRAP_TEXT = 8192,
 };
 
-class Thin3DShaderSet;
+namespace Draw {
+	class Thin3DShaderSet;
+}
 
 enum DrawBufferPrimitiveMode {
 	DBMODE_NORMAL = 0,
@@ -61,11 +63,11 @@ public:
 	DrawBuffer();
 	~DrawBuffer();
 
-	void Begin(Thin3DShaderSet *shaders, DrawBufferPrimitiveMode mode = DBMODE_NORMAL);
+	void Begin(Draw::Thin3DShaderSet *shaders, DrawBufferPrimitiveMode mode = DBMODE_NORMAL);
 	void End();
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
-	void Init(Thin3DContext *t3d);
+	void Init(Draw::Thin3DContext *t3d);
 	void Shutdown();
 
 	int Count() const { return count_; }
@@ -155,10 +157,10 @@ private:
 
 	Matrix4x4 drawMatrix_;
 
-	Thin3DContext *t3d_;
-	Thin3DBuffer *vbuf_;
-	Thin3DVertexFormat *vformat_;
-	Thin3DShaderSet *shaderSet_;
+	Draw::Thin3DContext *t3d_;
+	Draw::Thin3DBuffer *vbuf_;
+	Draw::Thin3DVertexFormat *vformat_;
+	Draw::Thin3DShaderSet *shaderSet_;
 
 	Vertex *verts_;
 	int count_;

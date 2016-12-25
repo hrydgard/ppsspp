@@ -23,7 +23,8 @@ UIContext::~UIContext() {
 	blendNormal_->Release();
 }
 
-void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DShaderSet *uishadernotex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+void UIContext::Init(Draw::Thin3DContext *thin3d, Draw::Thin3DShaderSet *uishader, Draw::Thin3DShaderSet *uishadernotex, Draw::Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+	using namespace Draw;
 	thin3d_ = thin3d;
 	blendNormal_ = thin3d_->CreateBlendState({ true, T3DBlendFactor::SRC_ALPHA, T3DBlendFactor::ONE_MINUS_SRC_ALPHA });
 	sampler_ = thin3d_->CreateSamplerState({ T3DTextureFilter::LINEAR, T3DTextureFilter::LINEAR,T3DTextureFilter::LINEAR });

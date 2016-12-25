@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <stdio.h>
+#include <cstdio>
 #include <vector>
 #include <string>
 #include <map>
@@ -42,6 +42,8 @@
 // Vertex data lives in a separate namespace (location = 0, 1, etc)
 
 #include "Common/Vulkan/VulkanLoader.h"
+
+namespace Draw {
 
 // This can actually be replaced with a cast as the values are in the right order.
 static const VkCompareOp compToVK[] = {
@@ -1192,3 +1194,5 @@ std::vector<std::string> Thin3DVKContext::GetFeatureList() {
 
 	return features;
 }
+
+}  // namespace Draw

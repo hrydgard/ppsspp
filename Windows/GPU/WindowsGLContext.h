@@ -3,7 +3,9 @@
 #include "Common/CommonWindows.h"
 #include "Windows/GPU/WindowsGraphicsContext.h"
 
-class Thin3DContext;
+namespace Draw {
+	class Thin3DContext;
+}
 
 class WindowsGLContext : public WindowsGraphicsContext {
 public:
@@ -19,7 +21,7 @@ public:
 
 	void Resize() override;
 
-	Thin3DContext *CreateThin3DContext() override;
+	Draw::Thin3DContext *CreateThin3DContext() override;
 
 private:
 	HDC hDC;     // Private GDI Device Context

@@ -9,13 +9,16 @@
 // Everything you need to draw a UI collected into a single unit that can be passed around.
 // Everything forward declared so this header is safe everywhere.
 
-class Thin3DContext;
-class Thin3DShaderSet;
-class Thin3DDepthStencilState;
-class Thin3DTexture;
-class Thin3DBlendState;
-class Thin3DSamplerState;
-class Thin3DRasterState;
+namespace Draw {
+	class Thin3DContext;
+	class Thin3DShaderSet;
+	class Thin3DDepthStencilState;
+	class Thin3DTexture;
+	class Thin3DBlendState;
+	class Thin3DSamplerState;
+	class Thin3DRasterState;
+}
+
 class Texture;
 class DrawBuffer;
 class TextDrawer;
@@ -33,7 +36,7 @@ public:
 	UIContext();
 	~UIContext();
 
-	void Init(Thin3DContext *thin3d, Thin3DShaderSet *uiShaderTex, Thin3DShaderSet *uiShaderNoTex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+	void Init(Draw::Thin3DContext *thin3d, Draw::Thin3DShaderSet *uiShaderTex, Draw::Thin3DShaderSet *uiShaderNoTex, Draw::Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
 
 	void Begin();
 	void BeginNoTex();
@@ -71,10 +74,10 @@ public:
 	// in dps, like dp_xres and dp_yres
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
-	Thin3DContext *GetThin3DContext() { return thin3d_; }
+	Draw::Thin3DContext *GetThin3DContext() { return thin3d_; }
 
 private:
-	Thin3DContext *thin3d_;
+	Draw::Thin3DContext *thin3d_;
 	Bounds bounds_;
 
 	float fontScaleX_;
@@ -82,14 +85,14 @@ private:
 	UI::FontStyle *fontStyle_;
 	TextDrawer *textDrawer_;
 
-	Thin3DContext *thin3D_;
-	Thin3DDepthStencilState *depth_;
-	Thin3DSamplerState *sampler_;
-	Thin3DRasterState *rasterNoCull_;
-	Thin3DBlendState *blendNormal_;
-	Thin3DShaderSet *uishader_;
-	Thin3DShaderSet *uishadernotex_;
-	Thin3DTexture *uitexture_;
+	Draw::Thin3DContext *thin3D_;
+	Draw::Thin3DDepthStencilState *depth_;
+	Draw::Thin3DSamplerState *sampler_;
+	Draw::Thin3DRasterState *rasterNoCull_;
+	Draw::Thin3DBlendState *blendNormal_;
+	Draw::Thin3DShaderSet *uishader_;
+	Draw::Thin3DShaderSet *uishadernotex_;
+	Draw::Thin3DTexture *uitexture_;
 
 	DrawBuffer *uidrawbuffer_;
 	DrawBuffer *uidrawbufferTop_;

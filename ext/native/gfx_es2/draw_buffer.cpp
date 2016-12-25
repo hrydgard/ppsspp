@@ -32,7 +32,9 @@ DrawBuffer::~DrawBuffer() {
 	delete [] verts_;
 }
 
-void DrawBuffer::Init(Thin3DContext *t3d) {
+void DrawBuffer::Init(Draw::Thin3DContext *t3d) {
+	using namespace Draw;
+
 	if (inited_)
 		return;
 
@@ -63,7 +65,7 @@ void DrawBuffer::Shutdown() {
 	inited_ = false;
 }
 
-void DrawBuffer::Begin(Thin3DShaderSet *program, DrawBufferPrimitiveMode dbmode) {
+void DrawBuffer::Begin(Draw::Thin3DShaderSet *program, DrawBufferPrimitiveMode dbmode) {
 	shaderSet_ = program;
 	count_ = 0;
 	mode_ = dbmode;
@@ -74,6 +76,7 @@ void DrawBuffer::End() {
 }
 
 void DrawBuffer::Flush(bool set_blend_state) {
+	using namespace Draw;
 	if (!shaderSet_) {
 		ELOG("No program set!");
 		return;

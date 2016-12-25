@@ -730,7 +730,7 @@ void GameInfoCache::WaitUntilDone(GameInfo *info) {
 
 
 // Runs on the main thread.
-GameInfo *GameInfoCache::GetInfo(Thin3DContext *thin3d, const std::string &gamePath, int wantFlags) {
+GameInfo *GameInfoCache::GetInfo(Draw::Thin3DContext *thin3d, const std::string &gamePath, int wantFlags) {
 	GameInfo *info = 0;
 
 	auto iter = info_.find(gamePath);
@@ -781,7 +781,8 @@ again:
 	return info;
 }
 
-void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Thin3DContext *thin3d, Thin3DTexture *&tex, double &loadTime) {
+void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Draw::Thin3DContext *thin3d, Draw::Thin3DTexture *&tex, double &loadTime) {
+	using namespace Draw;
 	if (textureData.size()) {
 		if (!tex) {
 			tex = thin3d->CreateTextureFromFileData((const uint8_t *)textureData.data(), (int)textureData.size(), T3DImageType::DETECT);

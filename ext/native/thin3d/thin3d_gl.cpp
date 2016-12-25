@@ -12,6 +12,8 @@
 #include "gfx_es2/gpu_features.h"
 #include "gfx/gl_lost_manager.h"
 
+namespace Draw {
+
 static const unsigned short compToGL[] = {
 	GL_NEVER,
 	GL_LESS,
@@ -1039,3 +1041,5 @@ void Thin3DGLVertexFormat::Unapply() {
 		glBindVertexArray(0);
 	}
 }
+
+}  // namespace Draw

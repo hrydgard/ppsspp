@@ -98,7 +98,9 @@ extern GPUStatistics gpuStats;
 extern GPUInterface *gpu;
 extern GPUDebugInterface *gpuDebug;
 
-class Thin3DContext;
+namespace Draw {
+	class Thin3DContext;
+}
 
-bool GPU_Init(GraphicsContext *ctx, Thin3DContext *thin3d);
+bool GPU_Init(GraphicsContext *ctx, Draw::Thin3DContext *thin3d);
 void GPU_Shutdown();

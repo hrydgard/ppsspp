@@ -15,8 +15,8 @@ void D3D11Context::SwapBuffers() {
 	swapChain_->Present(0, 0);
 }
 
-Thin3DContext *D3D11Context::CreateThin3DContext() {
-	return T3DCreateD3D11Context();  // device_, context_);
+Draw::Thin3DContext *D3D11Context::CreateThin3DContext() {
+	return Draw::T3DCreateD3D11Context();  // device_, context_);
 }
 
 static void GetRes(HWND hWnd, int &xres, int &yres) {

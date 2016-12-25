@@ -314,6 +314,8 @@ const char *GetCompilerABI() {
 }
 
 void SystemInfoScreen::CreateViews() {
+	using namespace Draw;
+	
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
 	I18NCategory *di = GetI18NCategory("Dialog");
 

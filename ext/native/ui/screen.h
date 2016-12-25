@@ -36,7 +36,10 @@ enum DialogResult {
 
 class ScreenManager;
 class UIContext;
-class Thin3DContext;
+
+namespace Draw {
+	class Thin3DContext;
+}
 
 class Screen {
 public:
@@ -99,8 +102,8 @@ public:
 	void setUIContext(UIContext *context) { uiContext_ = context; }
 	UIContext *getUIContext() { return uiContext_; }
 
-	void setThin3DContext(Thin3DContext *context) { thin3DContext_ = context; }
-	Thin3DContext *getThin3DContext() { return thin3DContext_; }
+	void setThin3DContext(Draw::Thin3DContext *context) { thin3DContext_ = context; }
+	Draw::Thin3DContext *getThin3DContext() { return thin3DContext_; }
 
 	void render();
 	void resized();
@@ -136,7 +139,7 @@ private:
 
 	Screen *nextScreen_;
 	UIContext *uiContext_;
-	Thin3DContext *thin3DContext_;
+	Draw::Thin3DContext *thin3DContext_;
 
 	const Screen *dialogFinished_;
 	DialogResult dialogResult_;

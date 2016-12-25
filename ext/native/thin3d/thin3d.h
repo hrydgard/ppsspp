@@ -15,6 +15,19 @@
 
 class Matrix4x4;
 
+#ifdef _WIN32
+
+struct IDirect3DDevice9;
+struct IDirect3D9;
+struct IDirect3DDevice9Ex;
+struct IDirect3D9Ex;
+
+#endif
+
+class VulkanContext;
+
+namespace Draw {
+
 enum T3DBlendEquation : int {
 	ADD,
 	SUBTRACT,
@@ -414,14 +427,10 @@ private:
 Thin3DContext *T3DCreateGLContext();
 
 #ifdef _WIN32
-struct IDirect3DDevice9;
-struct IDirect3D9;
-struct IDirect3DDevice9Ex;
-struct IDirect3D9Ex;
 Thin3DContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
 #endif
 
-class VulkanContext;
-
 Thin3DContext *T3DCreateVulkanContext(VulkanContext *context);
 Thin3DContext *T3DCreateD3D11Context();
+
+}  // namespace Draw

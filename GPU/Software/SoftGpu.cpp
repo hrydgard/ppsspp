@@ -42,18 +42,19 @@ FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
 
-static Thin3DVertexFormat *vformat = nullptr;
-static Thin3DDepthStencilState *depth = nullptr;
-static Thin3DRasterState *rasterNoCull = nullptr;
-static Thin3DBlendState *blendstateOff = nullptr;
-static Thin3DSamplerState *samplerNearest = nullptr;
-static Thin3DSamplerState *samplerLinear = nullptr;
-static Thin3DBuffer *vdata = nullptr;
-static Thin3DBuffer *idata = nullptr;
+static Draw::Thin3DVertexFormat *vformat = nullptr;
+static Draw::Thin3DDepthStencilState *depth = nullptr;
+static Draw::Thin3DRasterState *rasterNoCull = nullptr;
+static Draw::Thin3DBlendState *blendstateOff = nullptr;
+static Draw::Thin3DSamplerState *samplerNearest = nullptr;
+static Draw::Thin3DSamplerState *samplerLinear = nullptr;
+static Draw::Thin3DBuffer *vdata = nullptr;
+static Draw::Thin3DBuffer *idata = nullptr;
 
-SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Thin3DContext *_thin3D)
+SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::Thin3DContext *_thin3D)
 	: gfxCtx_(gfxCtx), thin3d(_thin3D)
 {
+	using namespace Draw;
 	fbTex = thin3d->CreateTexture(LINEAR2D, T3DDataFormat::R8A8G8B8_UNORM, 480, 272, 1, 1);
 
 	std::vector<Thin3DVertexComponent> components;
@@ -124,6 +125,8 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
+	using namespace Draw;
+
 	if (!thin3d)
 		return;
 	float dstwidth = (float)PSP_CoreParameter().pixelWidth;

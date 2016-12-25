@@ -1,4 +1,4 @@
-#include <string.h>
+#include <cstring>
 #include <thin3d/thin3d.h>
 
 #include "base/logging.h"
@@ -6,6 +6,8 @@
 #include "image/png_load.h"
 #include "file/vfs.h"
 #include "ext/jpge/jpgd.h"
+
+namespace Draw {
 
 // ================================== PIXEL/FRAGMENT SHADERS
 
@@ -320,3 +322,5 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int
 	tex->Finalize(zim_flags);
 	return tex;
 }
+
+}  // namespace Draw

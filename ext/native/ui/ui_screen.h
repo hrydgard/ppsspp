@@ -6,7 +6,9 @@
 #include "ui/viewgroup.h"
 
 class I18NCategory;
-class Thin3DContext;
+namespace Draw {
+	class Thin3DContext;
+}
 
 class UIScreen : public Screen {
 public:

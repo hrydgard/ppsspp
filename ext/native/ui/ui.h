@@ -61,7 +61,7 @@ private:
 
 
 // Call at start of frame
-void UIBegin(Thin3DShaderSet *shaderSet);
+void UIBegin(Draw::Thin3DShaderSet *shaderSet);
 
 // Call at end of frame.
 

@@ -512,6 +512,7 @@ GPU_DX9::~GPU_DX9() {
 
 // Needs to be called on GPU thread, not reporting thread.
 void GPU_DX9::BuildReportingInfo() {
+	using namespace Draw;
 	Thin3DContext *thin3d = gfxCtx_->CreateThin3DContext();
 
 	reportingPrimaryInfo_ = thin3d->GetInfoString(T3DInfo::VENDORSTRING);

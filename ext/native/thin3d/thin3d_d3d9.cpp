@@ -1,6 +1,6 @@
 #include <vector>
-#include <stdio.h>
-#include <inttypes.h>
+#include <cstdio>
+#include <cstdint>
 
 #ifdef _DEBUG
 #define D3D_DEBUG_INFO
@@ -19,6 +19,8 @@
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/d3dx9_loader.h"
+
+namespace Draw {
 
 // Could be declared as u8
 static const D3DCMPFUNC compareToD3D9[] = {
@@ -502,7 +504,8 @@ private:
 	char shadeLangVersion_[64];
 };
 
-Thin3DDX9Context::Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx) : d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx) {
+Thin3DDX9Context::Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
+	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx) {
 	CreatePresets();
 	d3d->GetAdapterIdentifier(adapterId, 0, &identifier_);
 	if (!FAILED(device->GetDeviceCaps(&caps_))) {
@@ -820,3 +823,5 @@ Thin3DContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int ada
 	}
 	return new Thin3DDX9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
+
+}  // namespace Draw

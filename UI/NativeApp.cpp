@@ -117,7 +117,7 @@ static UI::Theme ui_theme;
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-Thin3DTexture *uiTexture;
+Draw::Thin3DTexture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
@@ -139,7 +139,7 @@ struct PendingMessage {
 
 static recursive_mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
-static Thin3DContext *thin3d;
+static Draw::Thin3DContext *thin3d;
 static UIContext *uiContext;
 static std::vector<std::string> inputboxValue;
 
@@ -147,7 +147,7 @@ static std::vector<std::string> inputboxValue;
 WindowsAudioBackend *winAudioBackend;
 #endif
 
-Thin3DContext *GetThin3D() {
+Draw::Thin3DContext *GetThin3D() {
 	return thin3d;
 }
 
@@ -524,6 +524,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 }
 
 void NativeInitGraphics(GraphicsContext *graphicsContext) {
+	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
 	thin3d = graphicsContext->CreateThin3DContext();
 
