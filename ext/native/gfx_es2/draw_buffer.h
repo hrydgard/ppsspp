@@ -159,7 +159,7 @@ private:
 
 	Draw::DrawContext *t3d_;
 	Draw::Buffer *vbuf_;
-	Draw::Thin3DVertexFormat *vformat_;
+	Draw::InputLayout *vformat_;
 	Draw::ShaderSet *shaderSet_;
 
 	Vertex *verts_;

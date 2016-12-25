@@ -229,7 +229,7 @@ private:
 };
 
 
-class Thin3DDX9VertexFormat : public Thin3DVertexFormat {
+class Thin3DDX9VertexFormat : public InputLayout {
 public:
 	Thin3DDX9VertexFormat(LPDIRECT3DDEVICE9 device, const std::vector<VertexComponent> &components, int stride);
 	~Thin3DDX9VertexFormat() {
@@ -452,13 +452,13 @@ public:
 	Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
 	~Thin3DDX9Context();
 
-	DepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare);
+	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc);
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	ShaderSet *CreateShaderSet(Shader *vshader, Shader *fshader) override;
-	Thin3DVertexFormat *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) override;
+	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) override;
 	Texture *CreateTexture() override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Shader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
@@ -490,9 +490,9 @@ public:
 	void SetScissorRect(int left, int top, int width, int height);
 	void SetViewports(int count, Viewport *viewports);
 
-	void Draw(Primitive prim, ShaderSet *pipeline, Thin3DVertexFormat *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, ShaderSet *pipeline, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, ShaderSet *pipeline, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, ShaderSet *pipeline, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
 	std::string GetInfoString(InfoField info) const override {
@@ -553,15 +553,15 @@ ShaderSet *Thin3DDX9Context::CreateShaderSet(Shader *vshader, Shader *fshader) {
 	return shaderSet;
 }
 
-DepthStencilState *Thin3DDX9Context::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) {
+DepthStencilState *Thin3DDX9Context::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
 	Thin3DDX9DepthStencilState *ds = new Thin3DDX9DepthStencilState();
-	ds->depthCompare = compareToD3D9[depthCompare];
-	ds->depthTestEnabled = depthTestEnabled;
-	ds->depthWriteEnabled = depthWriteEnabled;
+	ds->depthTestEnabled = desc.depthTestEnabled;
+	ds->depthWriteEnabled = desc.depthWriteEnabled;
+	ds->depthCompare = compareToD3D9[(int)desc.depthCompare];
 	return ds;
 }
 
-Thin3DVertexFormat *Thin3DDX9Context::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
+InputLayout *Thin3DDX9Context::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
 	Thin3DDX9VertexFormat *fmt = new Thin3DDX9VertexFormat(device_, components, stride);
 	return fmt;
 }
@@ -569,12 +569,12 @@ Thin3DVertexFormat *Thin3DDX9Context::CreateVertexFormat(const std::vector<Verte
 BlendState *Thin3DDX9Context::CreateBlendState(const BlendStateDesc &desc) {
 	Thin3DDX9BlendState *bs = new Thin3DDX9BlendState();
 	bs->enabled = desc.enabled;
-	bs->eqCol = blendEqToD3D9[desc.eqCol];
-	bs->srcCol = blendFactorToD3D9[desc.srcCol];
-	bs->dstCol = blendFactorToD3D9[desc.dstCol];
-	bs->eqAlpha = blendEqToD3D9[desc.eqAlpha];
-	bs->srcAlpha = blendFactorToD3D9[desc.srcAlpha];
-	bs->dstAlpha = blendFactorToD3D9[desc.dstAlpha];
+	bs->eqCol = blendEqToD3D9[(int)desc.eqCol];
+	bs->srcCol = blendFactorToD3D9[(int)desc.srcCol];
+	bs->dstCol = blendFactorToD3D9[(int)desc.dstCol];
+	bs->eqAlpha = blendEqToD3D9[(int)desc.eqAlpha];
+	bs->srcAlpha = blendFactorToD3D9[(int)desc.srcAlpha];
+	bs->dstAlpha = blendFactorToD3D9[(int)desc.dstAlpha];
 	// Ignore logic ops, we don't support them in D3D9
 	return bs;
 }
@@ -696,7 +696,7 @@ void Thin3DDX9ShaderSet::Apply(LPDIRECT3DDEVICE9 device) {
 	pshader->Apply(device);
 }
 
-void Thin3DDX9Context::Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, int vertexCount, int offset) {
+void Thin3DDX9Context::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
 	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
@@ -707,7 +707,7 @@ void Thin3DDX9Context::Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFo
 	device_->DrawPrimitive(primToD3D9[(int)prim], offset, vertexCount / 3);
 }
 
-void Thin3DDX9Context::DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void Thin3DDX9Context::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 	Thin3DDX9Buffer *ibuf = static_cast<Thin3DDX9Buffer *>(idata);
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
@@ -720,7 +720,7 @@ void Thin3DDX9Context::DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DV
 	device_->DrawIndexedPrimitive(primToD3D9[(int)prim], 0, 0, vertexCount, 0, vertexCount / PrimCountDivisor(prim));
 }
 
-void Thin3DDX9Context::DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
+void Thin3DDX9Context::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
 	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
 

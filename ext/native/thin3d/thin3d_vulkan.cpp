@@ -281,7 +281,7 @@ inline VkFormat ConvertVertexDataTypeToVk(DataFormat type) {
 	}
 }
 
-class Thin3DVKVertexFormat : public Thin3DVertexFormat {
+class Thin3DVKVertexFormat : public InputLayout {
 public:
 	void ToVulkan(VkPipelineVertexInputStateCreateInfo *info, VkVertexInputAttributeDescription *attrDescs, VkVertexInputBindingDescription *bindDescs) {
 		memset(info, 0, sizeof(*info));
@@ -390,11 +390,11 @@ public:
 	Thin3DVKContext(VulkanContext *vulkan);
 	virtual ~Thin3DVKContext();
 
-	DepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) override;
+	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	ShaderSet *CreateShaderSet(Shader *vshader, Shader *fshader) override;
-	Thin3DVertexFormat *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) override;
+	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
@@ -435,9 +435,9 @@ public:
 	void SetSamplerStates(int start, int count, SamplerState **state) override;
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -953,7 +953,7 @@ void Thin3DVKContext::DirtyDynamicState() {
 	viewportDirty_ = true;
 }
 
-Thin3DVertexFormat *Thin3DVKContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
+InputLayout *Thin3DVKContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
 	Thin3DVKVertexFormat *fmt = new Thin3DVKVertexFormat();
 	fmt->components_ = components;
 	fmt->stride_ = stride;
@@ -985,23 +985,23 @@ void Thin3DVKTexture::Finalize(int zim_flags) {
 	// TODO
 }
 
-DepthStencilState *Thin3DVKContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) {
+DepthStencilState *Thin3DVKContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
 	Thin3DVKDepthStencilState *ds = new Thin3DVKDepthStencilState();
-	ds->depthTestEnabled = depthTestEnabled;
-	ds->depthWriteEnabled = depthWriteEnabled;
-	ds->depthComp = compToVK[depthCompare];
+	ds->depthTestEnabled = desc.depthTestEnabled;
+	ds->depthWriteEnabled = desc.depthWriteEnabled;
+	ds->depthComp = compToVK[(int)desc.depthCompare];
 	return ds;
 }
 
 BlendState *Thin3DVKContext::CreateBlendState(const BlendStateDesc &desc) {
 	Thin3DVKBlendState *bs = new Thin3DVKBlendState();
 	bs->blendEnabled = desc.enabled;
-	bs->eqCol = blendEqToGL[desc.eqCol];
-	bs->srcCol = blendFactorToVk[desc.srcCol];
-	bs->dstColor = blendFactorToVk[desc.dstCol];
-	bs->eqAlpha = blendEqToGL[desc.eqAlpha];
-	bs->srcAlpha = blendFactorToVk[desc.srcAlpha];
-	bs->dstAlpha = blendFactorToVk[desc.dstAlpha];
+	bs->eqCol = blendEqToGL[(int)desc.eqCol];
+	bs->srcCol = blendFactorToVk[(int)desc.srcCol];
+	bs->dstColor = blendFactorToVk[(int)desc.dstCol];
+	bs->eqAlpha = blendEqToGL[(int)desc.eqAlpha];
+	bs->srcAlpha = blendFactorToVk[(int)desc.srcAlpha];
+	bs->dstAlpha = blendFactorToVk[(int)desc.dstAlpha];
 	bs->logicEnabled = desc.logicEnabled;
 	bs->logicOp = logicOpToVK[(int)desc.logicOp];
 	return bs;
@@ -1091,7 +1091,7 @@ inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	}
 }
 
-void Thin3DVKContext::Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, int vertexCount, int offset) {
+void Thin3DVKContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
@@ -1114,7 +1114,7 @@ void Thin3DVKContext::Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFor
 	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
 }
 
-void Thin3DVKContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void Thin3DVKContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
@@ -1143,7 +1143,7 @@ void Thin3DVKContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVe
 	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
 }
 
-void Thin3DVKContext::DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
+void Thin3DVKContext::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
 	ApplyDynamicState();
 
 	curPrim_ = PrimToVK(prim);

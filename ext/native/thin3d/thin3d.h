@@ -31,7 +31,7 @@ namespace Draw {
 // Useful in UBOs
 typedef int bool32;
 
-enum BlendOp : int {
+enum class BlendOp : int {
 	ADD,
 	SUBTRACT,
 	REV_SUBTRACT,
@@ -39,7 +39,7 @@ enum BlendOp : int {
 	MAX,
 };
 
-enum Comparison : int {
+enum class Comparison : int {
 	NEVER,
 	LESS,
 	EQUAL,
@@ -282,7 +282,7 @@ struct VertexComponent {
 	uint8_t offset;
 };
 
-class Thin3DVertexFormat : public RefCountedObject {
+class InputLayout : public RefCountedObject {
 public:
 	virtual bool RequiresBuffer() = 0;
 };
@@ -318,6 +318,13 @@ enum class ShaderLanguage {
 	GLSL_VULKAN,
 	HLSL_D3D9,
 	HLSL_D3D11,
+};
+
+struct DepthStencilStateDesc {
+	bool depthTestEnabled;
+	bool depthWriteEnabled;
+	Comparison depthCompare;
+	// Ignore stencil
 };
 
 struct BlendStateDesc {
@@ -364,13 +371,13 @@ public:
 
 	virtual std::vector<std::string> GetFeatureList() { return std::vector<std::string>(); }
 
-	virtual DepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) = 0;
+	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const T3DRasterStateDesc &desc) = 0;
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual ShaderSet *CreateShaderSet(Shader *vshader, Shader *fshader) = 0;
-	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) = 0;
+	virtual InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) = 0;
 
 	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
 	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
@@ -404,9 +411,9 @@ public:
 	virtual void SetViewports(int count, Viewport *viewports) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
-	virtual void Draw(Primitive prim, ShaderSet *pipeline, Thin3DVertexFormat *format, Buffer *vdata, int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(Primitive prim, ShaderSet *pipeline, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
-	virtual void DrawUP(Primitive prim, ShaderSet *pipeline, Thin3DVertexFormat *format, const void *vdata, int vertexCount) = 0;
+	virtual void Draw(Primitive prim, ShaderSet *pipeline, InputLayout *format, Buffer *vdata, int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(Primitive prim, ShaderSet *pipeline, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
+	virtual void DrawUP(Primitive prim, ShaderSet *pipeline, InputLayout *format, const void *vdata, int vertexCount) = 0;
 	
 	// Render pass management. Default implementations here.
 	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {

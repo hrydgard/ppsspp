@@ -27,8 +27,8 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::ShaderSet *uishader, Draw:
 	using namespace Draw;
 	thin3d_ = thin3d;
 	blendNormal_ = thin3d_->CreateBlendState({ true, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
-	sampler_ = thin3d_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR,TextureFilter::LINEAR });
-	depth_ = thin3d_->CreateDepthStencilState(false, false, Comparison::LESS);
+	sampler_ = thin3d_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
+	depth_ = thin3d_->CreateDepthStencilState({ false, false, Comparison::LESS });
 	T3DRasterStateDesc desc;
 	desc.cull = CullMode::NONE;
 	desc.facing = Facing::CCW;

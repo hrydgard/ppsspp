@@ -42,7 +42,7 @@ FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
 
-static Draw::Thin3DVertexFormat *vformat = nullptr;
+static Draw::InputLayout *vformat = nullptr;
 static Draw::DepthStencilState *depth = nullptr;
 static Draw::RasterState *rasterNoCull = nullptr;
 static Draw::BlendState *blendstateOff = nullptr;
@@ -67,7 +67,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 
 	vdata = thin3d->CreateBuffer(24 * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	idata = thin3d->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
-	depth = thin3d->CreateDepthStencilState(false, false, Comparison::LESS);
+	depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
 	blendstateOff = thin3d->CreateBlendState({ false });
 	samplerNearest = thin3d->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
 	samplerLinear = thin3d->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });

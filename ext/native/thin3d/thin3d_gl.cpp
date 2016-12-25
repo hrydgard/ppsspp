@@ -310,7 +310,7 @@ bool Thin3DGLShader::Compile(const char *source) {
 	return ok_;
 }
 
-class Thin3DGLVertexFormat : public Thin3DVertexFormat, GfxResourceHolder {
+class Thin3DGLVertexFormat : public InputLayout, GfxResourceHolder {
 public:
 	~Thin3DGLVertexFormat();
 
@@ -384,13 +384,13 @@ public:
 	Thin3DGLContext();
 	virtual ~Thin3DGLContext();
 
-	DepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) override;
+	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	ShaderSet *CreateShaderSet(Shader *vshader, Shader *fshader) override;
-	Thin3DVertexFormat *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) override;
+	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
 
@@ -460,9 +460,9 @@ public:
 	void BindTextures(int start, int count, Texture **textures) override;
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	std::string GetInfoString(InfoField info) const override {
@@ -512,7 +512,7 @@ Thin3DGLContext::~Thin3DGLContext() {
 	samplerStates_.clear();
 }
 
-Thin3DVertexFormat *Thin3DGLContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
+InputLayout *Thin3DGLContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
 	Thin3DGLVertexFormat *fmt = new Thin3DGLVertexFormat();
 	fmt->components_ = components;
 	fmt->stride_ = stride;
@@ -719,23 +719,23 @@ void Thin3DGLVertexFormat::GLRestore() {
 	Compile();
 }
 
-DepthStencilState *Thin3DGLContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) {
+DepthStencilState *Thin3DGLContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
 	Thin3DGLDepthStencilState *ds = new Thin3DGLDepthStencilState();
-	ds->depthTestEnabled = depthTestEnabled;
-	ds->depthWriteEnabled = depthWriteEnabled;
-	ds->depthComp = compToGL[depthCompare];
+	ds->depthTestEnabled = desc.depthTestEnabled;
+	ds->depthWriteEnabled = desc.depthWriteEnabled;
+	ds->depthComp = compToGL[(int)desc.depthCompare];
 	return ds;
 }
 
 BlendState *Thin3DGLContext::CreateBlendState(const BlendStateDesc &desc) {
 	Thin3DGLBlendState *bs = new Thin3DGLBlendState();
 	bs->enabled = desc.enabled;
-	bs->eqCol = blendEqToGL[desc.eqCol];
-	bs->srcCol = blendFactorToGL[desc.srcCol];
-	bs->dstCol = blendFactorToGL[desc.dstCol];
-	bs->eqAlpha = blendEqToGL[desc.eqAlpha];
-	bs->srcAlpha = blendFactorToGL[desc.srcAlpha];
-	bs->dstAlpha = blendFactorToGL[desc.dstAlpha];
+	bs->eqCol = blendEqToGL[(int)desc.eqCol];
+	bs->srcCol = blendFactorToGL[(int)desc.srcCol];
+	bs->dstCol = blendFactorToGL[(int)desc.dstCol];
+	bs->eqAlpha = blendEqToGL[(int)desc.eqAlpha];
+	bs->srcAlpha = blendFactorToGL[(int)desc.srcAlpha];
+	bs->dstAlpha = blendFactorToGL[(int)desc.dstAlpha];
 #ifndef USING_GLES2
 	bs->logicEnabled = desc.logicEnabled;
 	bs->logicOp = logicOpToGL[(int)desc.logicOp];
@@ -919,7 +919,7 @@ void Thin3DGLShaderSet::Unapply() {
 	glUseProgram(0);
 }
 
-void Thin3DGLContext::Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, int vertexCount, int offset) {
+void Thin3DGLContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	Thin3DGLShaderSet *ss = static_cast<Thin3DGLShaderSet *>(shaderSet);
 	Thin3DGLBuffer *vbuf = static_cast<Thin3DGLBuffer *>(vdata);
 	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
@@ -934,7 +934,7 @@ void Thin3DGLContext::Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFor
 	fmt->Unapply();
 }
 
-void Thin3DGLContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void Thin3DGLContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	Thin3DGLShaderSet *ss = static_cast<Thin3DGLShaderSet *>(shaderSet);
 	Thin3DGLBuffer *vbuf = static_cast<Thin3DGLBuffer *>(vdata);
 	Thin3DGLBuffer *ibuf = static_cast<Thin3DGLBuffer *>(idata);
@@ -952,7 +952,7 @@ void Thin3DGLContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVe
 	fmt->Unapply();
 }
 
-void Thin3DGLContext::DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
+void Thin3DGLContext::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
 	Thin3DGLShaderSet *ss = static_cast<Thin3DGLShaderSet *>(shaderSet);
 	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
 
