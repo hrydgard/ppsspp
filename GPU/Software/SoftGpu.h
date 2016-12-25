@@ -46,13 +46,13 @@ typedef struct {
 
 class ShaderManager;
 namespace Draw {
-	class Thin3DContext;
+	class DrawContext;
 	class Texture;
 }
 
 class SoftGPU : public GPUCommon {
 public:
-	SoftGPU(GraphicsContext *gfxCtx, Draw::Thin3DContext *_thin3D);
+	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D);
 	~SoftGPU();
 	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
@@ -108,6 +108,6 @@ private:
 
 	GraphicsContext *gfxCtx_;
 	Draw::Texture *fbTex;
-	Draw::Thin3DContext *thin3d;
+	Draw::DrawContext *thin3d;
 	std::vector<u32> fbTexBuffer;
 };

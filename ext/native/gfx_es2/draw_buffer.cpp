@@ -32,7 +32,7 @@ DrawBuffer::~DrawBuffer() {
 	delete [] verts_;
 }
 
-void DrawBuffer::Init(Draw::Thin3DContext *t3d) {
+void DrawBuffer::Init(Draw::DrawContext *t3d) {
 	using namespace Draw;
 
 	if (inited_)

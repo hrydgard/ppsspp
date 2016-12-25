@@ -50,7 +50,7 @@ struct TextDrawerContext {
 	int *pBitmapBits;
 };
 
-TextDrawer::TextDrawer(Draw::Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(nullptr) {
+TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(nullptr) {
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 
@@ -300,7 +300,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 #else
 
-TextDrawer::TextDrawer(Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
+TextDrawer::TextDrawer(DrawContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 }

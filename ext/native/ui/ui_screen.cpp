@@ -59,7 +59,7 @@ void UIScreen::update(InputState &input) {
 }
 
 void UIScreen::preRender() {
-	Draw::Thin3DContext *thin3d = screenManager()->getThin3DContext();
+	Draw::DrawContext *thin3d = screenManager()->getThin3DContext();
 	if (!thin3d) {
 		return;
 	}

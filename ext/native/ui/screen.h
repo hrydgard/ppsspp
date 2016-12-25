@@ -38,7 +38,7 @@ class ScreenManager;
 class UIContext;
 
 namespace Draw {
-	class Thin3DContext;
+	class DrawContext;
 }
 
 class Screen {
@@ -102,8 +102,8 @@ public:
 	void setUIContext(UIContext *context) { uiContext_ = context; }
 	UIContext *getUIContext() { return uiContext_; }
 
-	void setThin3DContext(Draw::Thin3DContext *context) { thin3DContext_ = context; }
-	Draw::Thin3DContext *getThin3DContext() { return thin3DContext_; }
+	void setThin3DContext(Draw::DrawContext *context) { thin3DContext_ = context; }
+	Draw::DrawContext *getThin3DContext() { return thin3DContext_; }
 
 	void render();
 	void resized();
@@ -139,7 +139,7 @@ private:
 
 	Screen *nextScreen_;
 	UIContext *uiContext_;
-	Draw::Thin3DContext *thin3DContext_;
+	Draw::DrawContext *thin3DContext_;
 
 	const Screen *dialogFinished_;
 	DialogResult dialogResult_;

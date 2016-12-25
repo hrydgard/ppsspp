@@ -147,7 +147,7 @@ static const char * const vulkan_vsTexCol =
 "}\n";
 
 
-void Thin3DContext::CreatePresets() {
+void DrawContext::CreatePresets() {
 	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(ShaderStage::VERTEX, glsl_vsTexCol, hlslVsTexCol, vulkan_vsTexCol);
 	vsPresets_[VS_COLOR_2D] = CreateShader(ShaderStage::VERTEX, glsl_vsCol, hlslVsCol, vulkan_vsCol);
 
@@ -158,7 +158,7 @@ void Thin3DContext::CreatePresets() {
 	ssPresets_[SS_COLOR_2D] = CreateShaderSet(vsPresets_[VS_COLOR_2D], fsPresets_[FS_COLOR_2D]);
 }
 
-Thin3DContext::~Thin3DContext() {
+DrawContext::~DrawContext() {
 	for (int i = 0; i < VS_MAX_PRESET; i++) {
 		if (vsPresets_[i]) {
 			vsPresets_[i]->Release();
@@ -292,7 +292,7 @@ bool Texture::LoadFromFile(const std::string &filename, ImageFileType type) {
 	return retval;
 }
 
-Texture *Thin3DContext::CreateTextureFromFile(const char *filename, ImageFileType type) {
+Texture *DrawContext::CreateTextureFromFile(const char *filename, ImageFileType type) {
 	Texture *tex = CreateTexture();
 	if (!tex->LoadFromFile(filename, type)) {
 		tex->Release();
@@ -302,7 +302,7 @@ Texture *Thin3DContext::CreateTextureFromFile(const char *filename, ImageFileTyp
 }
 
 // TODO: Remove the code duplication between this and LoadFromFileData
-Texture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType type) {
+Texture *DrawContext::CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType type) {
 	int width[16], height[16];
 	int num_levels = 0;
 	int zim_flags = 0;

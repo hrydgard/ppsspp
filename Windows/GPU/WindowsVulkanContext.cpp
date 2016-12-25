@@ -206,7 +206,7 @@ void WindowsVulkanContext::Shutdown() {
 	finalize_glslang();
 }
 
-Draw::Thin3DContext *WindowsVulkanContext::CreateThin3DContext() {
+Draw::DrawContext *WindowsVulkanContext::CreateThin3DContext() {
 	return Draw::T3DCreateVulkanContext(g_Vulkan);
 }
 

@@ -83,26 +83,18 @@ static const unsigned short logicOpToGL[] = {
 };
 #endif
 
-inline GLuint PrimToGL(Primitive prim) {
-	switch (prim) {
-	case Primitive::POINT_LIST: return GL_POINTS;
-	case Primitive::LINE_LIST: return GL_LINES;
-	case Primitive::LINE_LIST_ADJ: return GL_LINES_ADJACENCY;
-	case Primitive::LINE_STRIP: return GL_LINE_STRIP;
-	case Primitive::LINE_STRIP_ADJ: return GL_LINE_STRIP_ADJACENCY;
-	case Primitive::TRIANGLE_LIST: return GL_TRIANGLES;
-	case Primitive::TRIANGLE_LIST_ADJ: return GL_TRIANGLES_ADJACENCY;
-	case Primitive::TRIANGLE_STRIP: return GL_TRIANGLE_STRIP;
-	case Primitive::TRIANGLE_STRIP_ADJ: return GL_TRIANGLES_ADJACENCY;
-	case Primitive::TRIANGLE_FAN: return GL_TRIANGLE_FAN;
-	case Primitive::PATCH_LIST: return GL_PATCHES;
-	default: return GL_POINTS;
-	}
-}
 static const unsigned short primToGL[] = {
 	GL_POINTS,
 	GL_LINES,
+	GL_LINE_STRIP,
 	GL_TRIANGLES,
+	GL_TRIANGLE_STRIP,
+	GL_TRIANGLE_FAN,
+	GL_PATCHES,
+	GL_LINES_ADJACENCY,
+	GL_LINE_STRIP_ADJACENCY,
+	GL_TRIANGLES_ADJACENCY,
+	GL_TRIANGLE_STRIP_ADJACENCY,
 };
 
 static const char *glsl_fragment_prelude =
@@ -387,7 +379,7 @@ private:
 	std::map<std::string, UniformInfo> uniforms_;
 };
 
-class Thin3DGLContext : public Thin3DContext {
+class Thin3DGLContext : public DrawContext {
 public:
 	Thin3DGLContext();
 	virtual ~Thin3DGLContext();
@@ -936,7 +928,7 @@ void Thin3DGLContext::Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFor
 	fmt->Apply();
 	ss->Apply();
 
-	glDrawArrays(PrimToGL(prim), offset, vertexCount);
+	glDrawArrays(primToGL[(int)prim], offset, vertexCount);
 
 	ss->Unapply();
 	fmt->Unapply();
@@ -954,7 +946,7 @@ void Thin3DGLContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVe
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
 	ibuf->Bind();
 
-	glDrawElements(PrimToGL(prim), vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
+	glDrawElements(primToGL[(int)prim], vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	
 	ss->Unapply();
 	fmt->Unapply();
@@ -969,7 +961,7 @@ void Thin3DGLContext::DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertexF
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glDrawArrays(PrimToGL(prim), 0, vertexCount);
+	glDrawArrays(primToGL[(int)prim], 0, vertexCount);
 
 	ss->Unapply();
 	fmt->Unapply();
@@ -998,7 +990,7 @@ void Thin3DGLContext::Clear(int mask, uint32_t colorval, float depthVal, int ste
 	glClear(glMask);
 }
 
-Thin3DContext *T3DCreateGLContext() {
+DrawContext *T3DCreateGLContext() {
 	return new Thin3DGLContext();
 }
 

@@ -68,16 +68,20 @@ static const D3DTEXTUREFILTERTYPE texFilterToD3D9[] = {
 	D3DTEXF_LINEAR,
 };
 
-inline D3DPRIMITIVETYPE PrimToD3D9(Primitive prim) {
-	switch (prim) {
-	case Primitive::POINT_LIST: return D3DPT_POINTLIST;
-	case Primitive::LINE_LIST: return D3DPT_LINELIST;
-	case Primitive::LINE_STRIP: return D3DPT_LINESTRIP;
-	case Primitive::TRIANGLE_LIST: return D3DPT_TRIANGLELIST;
-	case Primitive::TRIANGLE_STRIP: return D3DPT_TRIANGLESTRIP;
-	case Primitive::TRIANGLE_FAN: return D3DPT_TRIANGLEFAN;
-	}
-}
+static const D3DPRIMITIVETYPE primToD3D9[] = {
+	D3DPT_POINTLIST,
+	D3DPT_LINELIST,
+	D3DPT_LINESTRIP,
+	D3DPT_TRIANGLELIST,
+	D3DPT_TRIANGLESTRIP,
+	D3DPT_TRIANGLEFAN,
+	// These aren't available.
+	D3DPT_POINTLIST,  // tess
+	D3DPT_POINTLIST,  // geom ... 
+	D3DPT_POINTLIST,
+	D3DPT_POINTLIST,
+	D3DPT_POINTLIST,
+};
 
 inline int PrimCountDivisor(Primitive prim) {
 	switch (prim) {
@@ -443,7 +447,7 @@ void Thin3DDX9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
 	}
 }
 
-class Thin3DDX9Context : public Thin3DContext {
+class Thin3DDX9Context : public DrawContext {
 public:
 	Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
 	~Thin3DDX9Context();
@@ -700,7 +704,7 @@ void Thin3DDX9Context::Draw(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFo
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ss->Apply(device_);
 	fmt->Apply(device_);
-	device_->DrawPrimitive(PrimToD3D9(prim), offset, vertexCount / 3);
+	device_->DrawPrimitive(primToD3D9[(int)prim], offset, vertexCount / 3);
 }
 
 void Thin3DDX9Context::DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
@@ -713,7 +717,7 @@ void Thin3DDX9Context::DrawIndexed(Primitive prim, ShaderSet *shaderSet, Thin3DV
 	fmt->Apply(device_);
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ibuf->BindAsIndexBuf(device_);
-	device_->DrawIndexedPrimitive(PrimToD3D9(prim), 0, 0, vertexCount, 0, vertexCount / PrimCountDivisor(prim));
+	device_->DrawIndexedPrimitive(primToD3D9[(int)prim], 0, 0, vertexCount, 0, vertexCount / PrimCountDivisor(prim));
 }
 
 void Thin3DDX9Context::DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
@@ -722,7 +726,7 @@ void Thin3DDX9Context::DrawUP(Primitive prim, ShaderSet *shaderSet, Thin3DVertex
 
 	ss->Apply(device_);
 	fmt->Apply(device_);
-	device_->DrawPrimitiveUP(PrimToD3D9(prim), vertexCount / 3, vdata, fmt->GetStride());
+	device_->DrawPrimitiveUP(primToD3D9[(int)prim], vertexCount / 3, vdata, fmt->GetStride());
 }
 
 static uint32_t SwapRB(uint32_t c) {
@@ -825,7 +829,7 @@ void Thin3DDX9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, c
 	}
 }
 
-Thin3DContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx) {
+DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx) {
 	int d3dx_ver = LoadD3DX9Dynamic();
 	if (!d3dx_ver) {
 		ELOG("Failed to load D3DX9!");

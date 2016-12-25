@@ -2,7 +2,7 @@
 
 namespace Draw {
 
-Thin3DContext *T3DCreateD3D11Context() {
+DrawContext *T3DCreateD3D11Context() {
 	return nullptr;
 }
 

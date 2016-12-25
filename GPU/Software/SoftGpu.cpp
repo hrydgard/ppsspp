@@ -51,7 +51,7 @@ static Draw::SamplerState *samplerLinear = nullptr;
 static Draw::Buffer *vdata = nullptr;
 static Draw::Buffer *idata = nullptr;
 
-SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::Thin3DContext *_thin3D)
+SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 	: gfxCtx_(gfxCtx), thin3d(_thin3D)
 {
 	using namespace Draw;

@@ -991,7 +991,7 @@ void EmuScreen::render() {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	if (!useBufferedRendering) {
-		Thin3DContext *thin3d = screenManager()->getThin3DContext();
+		DrawContext *thin3d = screenManager()->getThin3DContext();
 		thin3d->Clear(ClearFlag::COLOR | ClearFlag::DEPTH | ClearFlag::STENCIL, 0xFF000000, 0.0f, 0);
 
 		Viewport viewport;
@@ -1032,7 +1032,7 @@ void EmuScreen::render() {
 		fbo_unbind();
 
 	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {
-		Thin3DContext *thin3d = screenManager()->getThin3DContext();
+		DrawContext *thin3d = screenManager()->getThin3DContext();
 
 		// This sets up some important states but not the viewport.
 		screenManager()->getUIContext()->Begin();

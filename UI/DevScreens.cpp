@@ -353,7 +353,7 @@ void SystemInfoScreen::CreateViews() {
 #endif
 	deviceSpecs->Add(new ItemHeader("GPU Information"));
 
-	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+	DrawContext *thin3d = screenManager()->getThin3DContext();
 
 	deviceSpecs->Add(new InfoItem("3D API", thin3d->GetInfoString(InfoField::APINAME)));
 	deviceSpecs->Add(new InfoItem("Vendor", std::string(thin3d->GetInfoString(InfoField::VENDORSTRING)) + " (" + thin3d->GetInfoString(InfoField::VENDOR) + ")"));

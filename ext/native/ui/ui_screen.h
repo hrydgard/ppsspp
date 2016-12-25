@@ -7,7 +7,7 @@
 
 class I18NCategory;
 namespace Draw {
-	class Thin3DContext;
+	class DrawContext;
 }
 
 class UIScreen : public Screen {

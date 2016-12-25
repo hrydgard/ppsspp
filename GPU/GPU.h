@@ -99,8 +99,8 @@ extern GPUInterface *gpu;
 extern GPUDebugInterface *gpuDebug;
 
 namespace Draw {
-	class Thin3DContext;
+	class DrawContext;
 }
 
-bool GPU_Init(GraphicsContext *ctx, Draw::Thin3DContext *thin3d);
+bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *thin3d);
 void GPU_Shutdown();

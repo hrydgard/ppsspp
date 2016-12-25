@@ -24,7 +24,7 @@
 #include <d3d9.h>
 
 namespace Draw {
-	class Thin3DContext;
+	class DrawContext;
 }
 
 class D3D9Context : public WindowsGraphicsContext {
@@ -39,7 +39,7 @@ public:
 
 	void Resize() override;
 
-	Draw::Thin3DContext *CreateThin3DContext() override;
+	Draw::DrawContext *CreateThin3DContext() override;
 
 private:
 	bool has9Ex;

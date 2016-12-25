@@ -120,6 +120,7 @@ enum class Primitive {
 	TRIANGLE_LIST,
 	TRIANGLE_STRIP,
 	TRIANGLE_FAN,
+	// Tesselation shader only
 	PATCH_LIST,
 	// These are for geometry shaders only.
 	LINE_LIST_ADJ,
@@ -207,10 +208,10 @@ struct Viewport {
 	float MaxDepth;
 };
 
-class Thin3DObject {
+class RefCountedObject {
 public:
-	Thin3DObject() : refcount_(1) {}
-	virtual ~Thin3DObject() {}
+	RefCountedObject() : refcount_(1) {}
+	virtual ~RefCountedObject() {}
 
 	// TODO: Reconsider this annoying ref counting stuff.
 	virtual void AddRef() { refcount_++; }
@@ -231,25 +232,25 @@ private:
 	int refcount_;
 };
 
-class BlendState : public Thin3DObject {
+class BlendState : public RefCountedObject {
 public:
 };
 
-class SamplerState : public Thin3DObject {
+class SamplerState : public RefCountedObject {
 public:
 };
 
-class DepthStencilState : public Thin3DObject {
+class DepthStencilState : public RefCountedObject {
 public:
 };
 
-class Buffer : public Thin3DObject {
+class Buffer : public RefCountedObject {
 public:
 	virtual void SetData(const uint8_t *data, size_t size) = 0;
 	virtual void SubData(const uint8_t *data, size_t offset, size_t size) = 0;
 };
 
-class Texture : public Thin3DObject {
+class Texture : public RefCountedObject {
 public:
 	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT);
 	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type = ImageFileType::DETECT);
@@ -281,23 +282,23 @@ struct VertexComponent {
 	uint8_t offset;
 };
 
-class Thin3DVertexFormat : public Thin3DObject {
+class Thin3DVertexFormat : public RefCountedObject {
 public:
 	virtual bool RequiresBuffer() = 0;
 };
 
-class Shader : public Thin3DObject {
+class Shader : public RefCountedObject {
 public:
 };
 
-class ShaderSet : public Thin3DObject {
+class ShaderSet : public RefCountedObject {
 public:
 	// TODO: Make some faster way of doing these. Support uniform buffers (and fake them on GL 2.0?)
 	virtual void SetVector(const char *name, float *value, int n) = 0;
 	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
 };
 
-class RasterState : public Thin3DObject {
+class RasterState : public RefCountedObject {
 public:
 };
 
@@ -357,9 +358,9 @@ struct T3DRasterStateDesc {
 	Facing facing;
 };
 
-class Thin3DContext : public Thin3DObject {
+class DrawContext : public RefCountedObject {
 public:
-	virtual ~Thin3DContext();
+	virtual ~DrawContext();
 
 	virtual std::vector<std::string> GetFeatureList() { return std::vector<std::string>(); }
 
@@ -436,13 +437,13 @@ protected:
 private:
 };
 
-Thin3DContext *T3DCreateGLContext();
+DrawContext *T3DCreateGLContext();
 
 #ifdef _WIN32
-Thin3DContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
+DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
 #endif
 
-Thin3DContext *T3DCreateVulkanContext(VulkanContext *context);
-Thin3DContext *T3DCreateD3D11Context();
+DrawContext *T3DCreateVulkanContext(VulkanContext *context);
+DrawContext *T3DCreateD3D11Context();
 
 }  // namespace Draw

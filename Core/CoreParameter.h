@@ -35,7 +35,7 @@ class FileLoader;
 
 class GraphicsContext;
 namespace Draw {
-	class Thin3DContext;
+	class DrawContext;
 }
 
 // PSP_CoreParameter()
@@ -46,7 +46,7 @@ struct CoreParameter {
 	GPUCore gpuCore;
 
 	GraphicsContext *graphicsContext;  // TODO: Find a better place.
-	Draw::Thin3DContext *thin3d;
+	Draw::DrawContext *thin3d;
 	bool enableSound;  // there aren't multiple sound cores.
 
 	std::string fileToStart;

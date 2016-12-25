@@ -26,7 +26,7 @@
 #include "Core/Loaders.h"
 
 namespace Draw {
-	class Thin3DContext;
+	class DrawContext;
 	class Texture;
 }
 class PrioritizedWorkQueue;
@@ -192,7 +192,7 @@ public:
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
-	GameInfo *GetInfo(Draw::Thin3DContext *thin3d, const std::string &gamePath, int wantFlags);
+	GameInfo *GetInfo(Draw::DrawContext *thin3d, const std::string &gamePath, int wantFlags);
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
 	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
@@ -202,7 +202,7 @@ public:
 private:
 	void Init();
 	void Shutdown();
-	void SetupTexture(GameInfo *info, std::string &textureData, Draw::Thin3DContext *thin3d, Draw::Texture *&tex, double &loadTime);
+	void SetupTexture(GameInfo *info, std::string &textureData, Draw::DrawContext *thin3d, Draw::Texture *&tex, double &loadTime);
 
 	// Maps ISO path to info.
 	std::map<std::string, GameInfo *> info_;

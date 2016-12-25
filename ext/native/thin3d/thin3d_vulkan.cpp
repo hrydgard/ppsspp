@@ -385,7 +385,7 @@ struct DescriptorSetKey {
 	}
 };
 
-class Thin3DVKContext : public Thin3DContext {
+class Thin3DVKContext : public DrawContext {
 public:
 	Thin3DVKContext(VulkanContext *vulkan);
 	virtual ~Thin3DVKContext();
@@ -1182,7 +1182,7 @@ void Thin3DVKContext::Clear(int mask, uint32_t colorval, float depthVal, int ste
 	}
 }
 
-Thin3DContext *T3DCreateVulkanContext(VulkanContext *vulkan) {
+DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan) {
 	return new Thin3DVKContext(vulkan);
 }
 

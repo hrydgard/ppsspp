@@ -139,7 +139,7 @@ struct PendingMessage {
 
 static recursive_mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
-static Draw::Thin3DContext *thin3d;
+static Draw::DrawContext *thin3d;
 static UIContext *uiContext;
 static std::vector<std::string> inputboxValue;
 
@@ -147,7 +147,7 @@ static std::vector<std::string> inputboxValue;
 WindowsAudioBackend *winAudioBackend;
 #endif
 
-Draw::Thin3DContext *GetThin3D() {
+Draw::DrawContext *GetThin3D() {
 	return thin3d;
 }
 

@@ -23,7 +23,7 @@
 #include "Windows/GPU/WindowsGraphicsContext.h"
 #include <d3d11.h>
 
-class Thin3DContext;
+class DrawContext;
 
 class D3D11Context : public WindowsGraphicsContext {
 public:
@@ -37,7 +37,7 @@ public:
 
 	void Resize() override;
 
-	Draw::Thin3DContext *CreateThin3DContext() override;
+	Draw::DrawContext *CreateThin3DContext() override;
 
 private:
 	ID3D11Device *device_;

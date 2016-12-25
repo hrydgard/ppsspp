@@ -67,7 +67,7 @@ public:
 	void End();
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
-	void Init(Draw::Thin3DContext *t3d);
+	void Init(Draw::DrawContext *t3d);
 	void Shutdown();
 
 	int Count() const { return count_; }
@@ -157,7 +157,7 @@ private:
 
 	Matrix4x4 drawMatrix_;
 
-	Draw::Thin3DContext *t3d_;
+	Draw::DrawContext *t3d_;
 	Draw::Buffer *vbuf_;
 	Draw::Thin3DVertexFormat *vformat_;
 	Draw::ShaderSet *shaderSet_;

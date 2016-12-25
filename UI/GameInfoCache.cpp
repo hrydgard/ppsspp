@@ -730,7 +730,7 @@ void GameInfoCache::WaitUntilDone(GameInfo *info) {
 
 
 // Runs on the main thread.
-GameInfo *GameInfoCache::GetInfo(Draw::Thin3DContext *thin3d, const std::string &gamePath, int wantFlags) {
+GameInfo *GameInfoCache::GetInfo(Draw::DrawContext *thin3d, const std::string &gamePath, int wantFlags) {
 	GameInfo *info = 0;
 
 	auto iter = info_.find(gamePath);
@@ -781,7 +781,7 @@ again:
 	return info;
 }
 
-void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Draw::Thin3DContext *thin3d, Draw::Texture *&tex, double &loadTime) {
+void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Draw::DrawContext *thin3d, Draw::Texture *&tex, double &loadTime) {
 	using namespace Draw;
 	if (textureData.size()) {
 		if (!tex) {

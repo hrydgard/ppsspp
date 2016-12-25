@@ -10,7 +10,7 @@
 // Everything forward declared so this header is safe everywhere.
 
 namespace Draw {
-	class Thin3DContext;
+	class DrawContext;
 	class ShaderSet;
 	class DepthStencilState;
 	class Texture;
@@ -36,7 +36,7 @@ public:
 	UIContext();
 	~UIContext();
 
-	void Init(Draw::Thin3DContext *thin3d, Draw::ShaderSet *uiShaderTex, Draw::ShaderSet *uiShaderNoTex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+	void Init(Draw::DrawContext *thin3d, Draw::ShaderSet *uiShaderTex, Draw::ShaderSet *uiShaderNoTex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
 
 	void Begin();
 	void BeginNoTex();
@@ -74,10 +74,10 @@ public:
 	// in dps, like dp_xres and dp_yres
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
-	Draw::Thin3DContext *GetThin3DContext() { return thin3d_; }
+	Draw::DrawContext *GetThin3DContext() { return thin3d_; }
 
 private:
-	Draw::Thin3DContext *thin3d_;
+	Draw::DrawContext *thin3d_;
 	Bounds bounds_;
 
 	float fontScaleX_;
@@ -85,7 +85,7 @@ private:
 	UI::FontStyle *fontStyle_;
 	TextDrawer *textDrawer_;
 
-	Draw::Thin3DContext *thin3D_;
+	Draw::DrawContext *thin3D_;
 	Draw::DepthStencilState *depth_;
 	Draw::SamplerState *sampler_;
 	Draw::RasterState *rasterNoCull_;

@@ -14,7 +14,7 @@
 #include "gfx_es2/draw_buffer.h"
 
 namespace Draw {
-	class Thin3DContext;
+	class DrawContext;
 	class Texture;
 }
 
@@ -49,7 +49,7 @@ struct TextDrawerFontContext;
 
 class TextDrawer {
 public:
-	TextDrawer(Draw::Thin3DContext *thin3d);
+	TextDrawer(Draw::DrawContext *thin3d);
 	~TextDrawer();
 
 	uint32_t SetFont(const char *fontName, int size, int flags);
@@ -65,7 +65,7 @@ public:
 	void OncePerFrame();
 
 private:
-	Draw::Thin3DContext *thin3d_;
+	Draw::DrawContext *thin3d_;
 
 	void WrapString(std::string &out, const char *str, float maxWidth);
 
