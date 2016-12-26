@@ -21,6 +21,8 @@ struct IDirect3DDevice9;
 struct IDirect3D9;
 struct IDirect3DDevice9Ex;
 struct IDirect3D9Ex;
+struct ID3D11Device;
+struct ID3D11DeviceContext;
 
 #endif
 
@@ -30,14 +32,6 @@ namespace Draw {
 
 // Useful in UBOs
 typedef int bool32;
-
-enum class BlendOp : int {
-	ADD,
-	SUBTRACT,
-	REV_SUBTRACT,
-	MIN,
-	MAX,
-};
 
 enum class Comparison : int {
 	NEVER,
@@ -70,18 +64,33 @@ enum class LogicOp : int {
 	LOGIC_OR_INVERTED,
 };
 
-enum BlendFactor : int {
+enum class BlendOp : int {
+	ADD,
+	SUBTRACT,
+	REV_SUBTRACT,
+	MIN,
+	MAX,
+};
+
+enum class BlendFactor : uint8_t {
 	ZERO,
 	ONE,
 	SRC_COLOR,
-	SRC_ALPHA,
 	ONE_MINUS_SRC_COLOR,
-	ONE_MINUS_SRC_ALPHA,
 	DST_COLOR,
-	DST_ALPHA,
 	ONE_MINUS_DST_COLOR,
+	SRC_ALPHA,
+	ONE_MINUS_SRC_ALPHA,
+	DST_ALPHA,
 	ONE_MINUS_DST_ALPHA,
-	FIXED_COLOR,
+	CONSTANT_COLOR,
+	ONE_MINUS_CONSTANT_COLOR,
+	CONSTANT_ALPHA,
+	ONE_MINUS_CONSTANT_ALPHA,
+	SRC1_COLOR,
+	ONE_MINUS_SRC1_COLOR,
+	SRC1_ALPHA,
+	ONE_MINUS_SRC1_ALPHA,
 };
 
 enum class StencilOp {
@@ -520,7 +529,6 @@ public:
 		Clear(0xF, colorval, depthVal, stencilVal);
 	}
 	virtual void End() {}
-	
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
 	
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.
@@ -548,6 +556,6 @@ DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapt
 #endif
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *context);
-DrawContext *T3DCreateD3D11Context();
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context);
 
 }  // namespace Draw

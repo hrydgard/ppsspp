@@ -51,6 +51,8 @@ static const GLushort glBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	GL_ONE_MINUS_CONSTANT_COLOR,
 	GL_CONSTANT_ALPHA,
 	GL_ONE_MINUS_CONSTANT_ALPHA,
+	GL_SRC1_COLOR,
+	GL_ONE_MINUS_SRC1_COLOR,
 #if !defined(USING_GLES2)   // TODO: Remove when we have better headers
 	GL_SRC1_ALPHA,
 	GL_ONE_MINUS_SRC1_ALPHA,
