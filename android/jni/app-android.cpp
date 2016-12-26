@@ -79,9 +79,9 @@ public:
 	void SwapBuffers() override;
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
-	Thin3DContext *CreateThin3DContext() override {
+	Draw::DrawContext *CreateThin3DContext() override {
 		CheckGLExtensions();
-		return T3DCreateGLContext();
+		return Draw::T3DCreateGLContext();
 	}
 
 private:
@@ -145,9 +145,9 @@ public:
 	void SwapBuffers() override {}
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
-	Thin3DContext *CreateThin3DContext() override {
+	Draw::DrawContext *CreateThin3DContext() override {
 		CheckGLExtensions();
-		return T3DCreateGLContext();
+		return Draw::T3DCreateGLContext();
 	}
 };
 
@@ -166,8 +166,8 @@ public:
 
 	void *GetAPIContext() override { return g_Vulkan; }
 
-	Thin3DContext *CreateThin3DContext() override {
-		return T3DCreateVulkanContext(g_Vulkan);
+	Draw::DrawContext *CreateThin3DContext() override {
+		return Draw::T3DCreateVulkanContext(g_Vulkan);
 	}
 };
 

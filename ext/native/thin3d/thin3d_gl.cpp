@@ -48,17 +48,33 @@ static const unsigned short blendFactorToGL[] = {
 	GL_ONE_MINUS_CONSTANT_COLOR,
 	GL_CONSTANT_ALPHA,
 	GL_ONE_MINUS_CONSTANT_ALPHA,
+#if !defined(USING_GLES2)   // TODO: Remove when we have better headers
 	GL_SRC1_COLOR,
 	GL_ONE_MINUS_SRC1_COLOR,
 	GL_SRC1_ALPHA,
 	GL_ONE_MINUS_SRC1_ALPHA,
+#elif !defined(IOS)
+	GL_SRC1_COLOR_EXT,
+	GL_ONE_MINUS_SRC1_COLOR_EXT,
+	GL_SRC1_ALPHA_EXT,
+	GL_ONE_MINUS_SRC1_ALPHA_EXT,
+#else
+	GL_INVALID_ENUM,
+	GL_INVALID_ENUM,
+	GL_INVALID_ENUM,
+	GL_INVALID_ENUM,
+#endif
 };
 
 static const unsigned short texWrapToGL[] = {
 	GL_REPEAT,
 	GL_MIRRORED_REPEAT,
 	GL_CLAMP_TO_EDGE,
+#if !defined(USING_GLES2)
 	GL_CLAMP_TO_BORDER,
+#else
+	GL_REPEAT,
+#endif
 };
 
 static const unsigned short texFilterToGL[] = {
@@ -112,11 +128,25 @@ static const unsigned short primToGL[] = {
 	GL_TRIANGLES,
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,
+#if !defined(USING_GLES2)   // TODO: Remove when we have better headers
 	GL_PATCHES,
 	GL_LINES_ADJACENCY,
 	GL_LINE_STRIP_ADJACENCY,
 	GL_TRIANGLES_ADJACENCY,
 	GL_TRIANGLE_STRIP_ADJACENCY,
+#elif !defined(IOS)
+	GL_POINTS,
+	GL_POINTS,
+	GL_POINTS,
+	GL_POINTS,
+	GL_POINTS,
+#else
+	GL_POINTS,
+	GL_POINTS,
+	GL_POINTS,
+	GL_POINTS,
+	GL_POINTS,
+#endif
 };
 
 static const char *glsl_fragment_prelude =
@@ -294,10 +324,12 @@ private:
 GLuint ShaderStageToOpenGL(ShaderStage stage) {
 	switch (stage) {
 	case ShaderStage::VERTEX: return GL_VERTEX_SHADER;
+#ifndef USING_GLES2
 	case ShaderStage::COMPUTE: return GL_COMPUTE_SHADER;
 	case ShaderStage::EVALUATION: return GL_TESS_EVALUATION_SHADER;
 	case ShaderStage::CONTROL: return GL_TESS_CONTROL_SHADER;
 	case ShaderStage::GEOMETRY: return GL_GEOMETRY_SHADER;
+#endif
 	case ShaderStage::FRAGMENT:
 	default:
 		return GL_FRAGMENT_SHADER;
