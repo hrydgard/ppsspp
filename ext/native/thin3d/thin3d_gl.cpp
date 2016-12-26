@@ -330,9 +330,9 @@ bool OpenGLShaderModule::Compile(const char *source) {
 	return ok_;
 }
 
-class OpenGLVertexFormat : public InputLayout, GfxResourceHolder {
+class OpenGLInputLayout : public InputLayout, GfxResourceHolder {
 public:
-	~OpenGLVertexFormat();
+	~OpenGLInputLayout();
 
 	void Apply(const void *base = nullptr);
 	void Unapply();
@@ -343,7 +343,8 @@ public:
 		return id_ != 0;
 	}
 
-	std::vector<VertexComponent> components_;
+	InputLayoutDesc desc;
+
 	int semanticsMask_;  // Fast way to check what semantics to enable/disable.
 	int stride_;
 	GLuint id_;
@@ -411,7 +412,7 @@ public:
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreatePipeline(const PipelineDesc &desc) override;
-	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
+	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
 
@@ -529,10 +530,9 @@ OpenGLContext::~OpenGLContext() {
 	samplerStates_.clear();
 }
 
-InputLayout *OpenGLContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) {
-	OpenGLVertexFormat *fmt = new OpenGLVertexFormat();
-	fmt->components_ = components;
-	fmt->stride_ = stride;
+InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
+	OpenGLInputLayout *fmt = new OpenGLInputLayout();
+	fmt->desc = desc;
 	fmt->Compile();
 	return fmt;
 }
@@ -705,18 +705,18 @@ void Thin3DGLTexture::Finalize(int zim_flags) {
 }
 
 
-OpenGLVertexFormat::~OpenGLVertexFormat() {
+OpenGLInputLayout::~OpenGLInputLayout() {
 	if (id_) {
 		glDeleteVertexArrays(1, &id_);
 	}
 }
-void OpenGLVertexFormat::Compile() {
-	int sem = 0;
-	for (int i = 0; i < (int)components_.size(); i++) {
-		sem |= 1 << components_[i].semantic;
+
+void OpenGLInputLayout::Compile() {
+	int semMask = 0;
+	for (int i = 0; i < (int)desc.attributes.size(); i++) {
+		semMask |= 1 << desc.attributes[i].location;
 	}
-	semanticsMask_ = sem;
-	// TODO : Compute stride as well?
+	semanticsMask_ = semMask;
 
 	if (gl_extensions.ARB_vertex_array_object && gl_extensions.IsCoreContext) {
 		glGenVertexArrays(1, &id_);
@@ -727,11 +727,11 @@ void OpenGLVertexFormat::Compile() {
 	lastBase_ = -1;
 }
 
-void OpenGLVertexFormat::GLLost() {
+void OpenGLInputLayout::GLLost() {
 	id_ = 0;
 }
 
-void OpenGLVertexFormat::GLRestore() {
+void OpenGLInputLayout::GLRestore() {
 	Compile();
 }
 
@@ -938,7 +938,7 @@ void OpenGLPipeline::Unapply() {
 
 void OpenGLContext::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
-	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
+	OpenGLInputLayout *fmt = static_cast<OpenGLInputLayout *>(format);
 
 	vbuf->Bind();
 	fmt->Apply();
@@ -953,7 +953,7 @@ void OpenGLContext::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int
 void OpenGLContext::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
 	OpenGLBuffer *ibuf = static_cast<OpenGLBuffer *>(idata);
-	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
+	OpenGLInputLayout *fmt = static_cast<OpenGLInputLayout *>(format);
 
 	vbuf->Bind();
 	fmt->Apply();
@@ -968,7 +968,7 @@ void OpenGLContext::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vda
 }
 
 void OpenGLContext::DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) {
-	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
+	OpenGLInputLayout *fmt = static_cast<OpenGLInputLayout *>(format);
 
 	fmt->Apply(vdata);
 	curPipeline_->Apply();
@@ -1008,7 +1008,7 @@ DrawContext *T3DCreateGLContext() {
 	return new OpenGLContext();
 }
 
-void OpenGLVertexFormat::Apply(const void *base) {
+void OpenGLInputLayout::Apply(const void *base) {
 	if (id_ != 0) {
 		glBindVertexArray(id_);
 	}
@@ -1026,19 +1026,20 @@ void OpenGLVertexFormat::Apply(const void *base) {
 
 	intptr_t b = (intptr_t)base;
 	if (b != lastBase_) {
-		for (size_t i = 0; i < components_.size(); i++) {
-			switch (components_[i].type) {
+		for (size_t i = 0; i < desc.attributes.size(); i++) {
+			size_t stride = desc.bindings[desc.attributes[i].binding].stride;
+			switch (desc.attributes[i].format) {
 			case DataFormat::R32G32_FLOAT:
-				glVertexAttribPointer(components_[i].semantic, 2, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
+				glVertexAttribPointer(desc.attributes[i].location, 2, GL_FLOAT, GL_FALSE, stride, (void *)(b + (intptr_t)desc.attributes[i].offset));
 				break;
 			case DataFormat::R32G32B32_FLOAT:
-				glVertexAttribPointer(components_[i].semantic, 3, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
+				glVertexAttribPointer(desc.attributes[i].location, 3, GL_FLOAT, GL_FALSE, stride, (void *)(b + (intptr_t)desc.attributes[i].offset));
 				break;
 			case DataFormat::R32G32B32A32_FLOAT:
-				glVertexAttribPointer(components_[i].semantic, 4, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
+				glVertexAttribPointer(desc.attributes[i].location, 4, GL_FLOAT, GL_FALSE, stride, (void *)(b + (intptr_t)desc.attributes[i].offset));
 				break;
 			case DataFormat::R8G8B8A8_UNORM:
-				glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(b + (intptr_t)components_[i].offset));
+				glVertexAttribPointer(desc.attributes[i].location, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, (void *)(b + (intptr_t)desc.attributes[i].offset));
 				break;
 			case DataFormat::UNDEFINED:
 			default:
@@ -1052,7 +1053,7 @@ void OpenGLVertexFormat::Apply(const void *base) {
 	}
 }
 
-void OpenGLVertexFormat::Unapply() {
+void OpenGLInputLayout::Unapply() {
 	if (id_ == 0) {
 		for (int i = 0; i < (int)SEM_MAX; i++) {
 			if (semanticsMask_ & (1 << i)) {

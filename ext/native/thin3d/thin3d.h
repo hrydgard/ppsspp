@@ -299,18 +299,21 @@ protected:
 	int width_, height_, depth_;
 };
 
-struct VertexComponent {
-	VertexComponent() : name(nullptr), type(DataFormat::UNDEFINED), semantic(255), offset(255) {}
-	VertexComponent(const char *name, Semantic semantic, DataFormat dataType, uint8_t offset) {
-		this->name = name;
-		this->semantic = semantic;
-		this->type = dataType;
-		this->offset = offset;
-	}
-	const char *name;
-	uint8_t semantic;
-	DataFormat type;
-	uint8_t offset;
+struct BindingDesc {
+	int stride;
+	bool instanceRate;
+};
+
+struct AttributeDesc {
+	int binding;
+	int location;  // corresponds to semantic
+	DataFormat format;
+	int offset;
+};
+
+struct InputLayoutDesc {
+	std::vector<BindingDesc> bindings;
+	std::vector<AttributeDesc> attributes;
 };
 
 class InputLayout : public RefCountedObject {
@@ -451,7 +454,7 @@ public:
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Pipeline *CreatePipeline(const PipelineDesc &desc) = 0;
-	virtual InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) = 0;
+	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
 
 	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
 	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;

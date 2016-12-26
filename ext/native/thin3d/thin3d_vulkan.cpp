@@ -297,34 +297,15 @@ inline VkFormat ConvertVertexDataTypeToVk(DataFormat type) {
 	}
 }
 
-class VKVertexFormat : public InputLayout {
+class VKInputLayout : public InputLayout {
 public:
-	void ToVulkan(VkPipelineVertexInputStateCreateInfo *info, VkVertexInputAttributeDescription *attrDescs, VkVertexInputBindingDescription *bindDescs) {
-		memset(info, 0, sizeof(*info));
-		info->sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		for (uint32_t i = 0; i < components_.size(); i++) {
-			attrDescs[i].binding = 0;
-			attrDescs[i].format = ConvertVertexDataTypeToVk(components_[i].type);
-			attrDescs[i].location = (int)components_[i].semantic;
-			attrDescs[i].offset = components_[i].offset;
-		}
-		bindDescs[0].binding = 0;
-		bindDescs[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		bindDescs[0].stride = stride_;
-
-		info->vertexAttributeDescriptionCount = (uint32_t)components_.size();
-		info->pVertexAttributeDescriptions = attrDescs;
-		info->vertexBindingDescriptionCount = 1;
-		info->pVertexBindingDescriptions = bindDescs;
-		info->flags = 0;
-	}
-
 	bool RequiresBuffer() {
 		return false;
 	}
 
-	std::vector<VertexComponent> components_;
-	int stride_;
+	std::vector<VkVertexInputBindingDescription> bindings;
+	std::vector<VkVertexInputAttributeDescription> attributes;
+	VkPipelineVertexInputStateCreateInfo visc;
 };
 
 class VKPipeline : public Pipeline {
@@ -409,7 +390,7 @@ public:
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
+	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Pipeline *CreatePipeline(const PipelineDesc &desc) override;
@@ -490,7 +471,7 @@ private:
 	VKDepthStencilState *curDepthStencilState_;
 	VKPipeline *curPipeline_;
 	VkPrimitiveTopology curPrim_;
-	VKVertexFormat *curVertexFormat_;
+	VKInputLayout *curInputLayout_;
 	VKRasterState *curRasterState_; 
 
 	// We keep a pipeline state cache.
@@ -532,13 +513,54 @@ private:
 	VulkanPushBuffer *push_;
 };
 
-VkFormat FormatToVulkan(DataFormat fmt, int *bpp) {
-	switch (fmt) {
-	case DataFormat::R8G8B8A8_UNORM: *bpp = 32; return VK_FORMAT_R8G8B8A8_UNORM;
-	case DataFormat::R4G4B4A4_UNORM: *bpp = 16; return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
-	case DataFormat::D24_S8: *bpp = 32; return VK_FORMAT_D24_UNORM_S8_UINT;
-	case DataFormat::D16: *bpp = 16; return VK_FORMAT_D16_UNORM;
-	default: return VK_FORMAT_UNDEFINED;
+int GetBpp(VkFormat format) {
+	switch (format) {
+	case VK_FORMAT_R8G8B8A8_UNORM:
+		return 32;
+	case VK_FORMAT_R4G4B4A4_UNORM_PACK16:
+		return 16;
+	case VK_FORMAT_D24_UNORM_S8_UINT:
+		return 32;
+	case VK_FORMAT_D16_UNORM:
+		return 16;
+	default:
+		return 0;
+	}
+}
+
+VkFormat DataFormatToVulkan(DataFormat format) {
+	switch (format) {
+	case DataFormat::D16: return VK_FORMAT_D16_UNORM;
+	case DataFormat::D32F: return VK_FORMAT_D32_SFLOAT;
+	case DataFormat::D32F_S8: return VK_FORMAT_D32_SFLOAT_S8_UINT;
+	case DataFormat::S8: return VK_FORMAT_S8_UINT;
+	case DataFormat::R16_FLOAT: return VK_FORMAT_R16_SFLOAT;
+	case DataFormat::R16G16_FLOAT: return VK_FORMAT_R16G16_SFLOAT;
+	case DataFormat::R16G16B16A16_FLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
+	case DataFormat::R8_UNORM: return VK_FORMAT_R8_UNORM;
+	case DataFormat::R8G8_UNORM: return VK_FORMAT_R8G8_UNORM;
+	case DataFormat::R8G8B8_UNORM: return VK_FORMAT_R8G8B8_UNORM;
+	case DataFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
+	case DataFormat::R4G4_UNORM: return VK_FORMAT_R4G4_UNORM_PACK8;
+	case DataFormat::R4G4B4A4_UNORM: return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
+	case DataFormat::R32_FLOAT: return VK_FORMAT_R32_SFLOAT;
+	case DataFormat::R32G32_FLOAT: return VK_FORMAT_R32G32_SFLOAT;
+	case DataFormat::R32G32B32_FLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
+	case DataFormat::R32G32B32A32_FLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
+
+	case DataFormat::BC1_RGBA_UNORM_BLOCK: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+	case DataFormat::BC2_UNORM_BLOCK: return VK_FORMAT_BC2_UNORM_BLOCK;
+	case DataFormat::BC3_UNORM_BLOCK: return VK_FORMAT_BC3_UNORM_BLOCK;
+	case DataFormat::BC4_UNORM_BLOCK: return VK_FORMAT_BC4_UNORM_BLOCK;
+	case DataFormat::BC4_SNORM_BLOCK: return VK_FORMAT_BC4_SNORM_BLOCK;
+	case DataFormat::BC5_UNORM_BLOCK: return VK_FORMAT_BC5_UNORM_BLOCK;
+	case DataFormat::BC5_SNORM_BLOCK: return VK_FORMAT_BC5_SNORM_BLOCK;
+	case DataFormat::BC6H_SFLOAT_BLOCK: return VK_FORMAT_BC6H_SFLOAT_BLOCK;
+	case DataFormat::BC6H_UFLOAT_BLOCK: return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+	case DataFormat::BC7_UNORM_BLOCK: return VK_FORMAT_BC7_UNORM_BLOCK;
+	case DataFormat::BC7_SRGB_BLOCK:  return VK_FORMAT_BC7_SRGB_BLOCK;
+	default:
+		return VK_FORMAT_UNDEFINED;
 	}
 }
 
@@ -873,11 +895,6 @@ VkPipeline VKContext::GetOrCreatePipeline() {
 	VkPipelineDepthStencilStateCreateInfo depthStencil;
 	curDepthStencilState_->ToVulkan(&depthStencil);
 
-	VkPipelineVertexInputStateCreateInfo vertex;
-	VkVertexInputAttributeDescription attrDescs[4];
-	VkVertexInputBindingDescription bindDescs[1];
-	curVertexFormat_->ToVulkan(&vertex, attrDescs, bindDescs);
-
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	inputAssembly.topology = curPrim_;
 	inputAssembly.primitiveRestartEnable = false;
@@ -913,7 +930,7 @@ VkPipeline VKContext::GetOrCreatePipeline() {
 	info.pInputAssemblyState = &inputAssembly;
 	info.pTessellationState = nullptr;
 	info.pMultisampleState = &ms;
-	info.pVertexInputState = &vertex;
+	info.pVertexInputState = &curInputLayout_->visc;
 	info.pRasterizationState = &raster;
 	info.pViewportState = &vs;  // Must set viewport and scissor counts even if we set the actual state dynamically.
 	info.layout = pipelineLayout_;
@@ -966,11 +983,28 @@ void VKContext::DirtyDynamicState() {
 	viewportDirty_ = true;
 }
 
-InputLayout *VKContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) {
-	VKVertexFormat *fmt = new VKVertexFormat();
-	fmt->components_ = components;
-	fmt->stride_ = stride;
-	return fmt;
+InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
+	VKInputLayout *vl = new VKInputLayout();
+	vl->visc = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
+	vl->visc.flags = 0;
+	vl->visc.vertexAttributeDescriptionCount = (uint32_t)desc.attributes.size();
+	vl->visc.vertexBindingDescriptionCount = (uint32_t)desc.bindings.size();
+	vl->bindings.resize(vl->visc.vertexBindingDescriptionCount);
+	vl->attributes.resize(vl->visc.vertexAttributeDescriptionCount);
+	vl->visc.pVertexBindingDescriptions = vl->bindings.data();
+	vl->visc.pVertexAttributeDescriptions = vl->attributes.data();
+	for (size_t i = 0; i < desc.attributes.size(); i++) {
+		vl->attributes[i].binding = (uint32_t)desc.attributes[i].binding;
+		vl->attributes[i].format = DataFormatToVulkan(desc.attributes[i].format);
+		vl->attributes[i].location = desc.attributes[i].location;
+		vl->attributes[i].offset = desc.attributes[i].offset;
+	}
+	for (size_t i = 0; i < desc.bindings.size(); i++) {
+		vl->bindings[i].inputRate = desc.bindings[i].instanceRate ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
+		vl->bindings[i].binding = (uint32_t)i;
+		vl->bindings[i].stride = desc.bindings[i].stride;
+	}
+	return vl;
 }
 
 Texture *VKContext::CreateTexture() {
@@ -982,8 +1016,8 @@ Texture *VKContext::CreateTexture(TextureType type, DataFormat format, int width
 }
 
 void VKTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-	int bpp;
-	VkFormat vulkanFormat = FormatToVulkan(format_, &bpp);
+	VkFormat vulkanFormat = DataFormatToVulkan(format_);
+	int bpp = GetBpp(vulkanFormat);
 	int bytesPerPixel = bpp / 8;
 	vkTex_->Create(width, height, vulkanFormat);
 	int rowPitch;
@@ -1108,7 +1142,7 @@ void VKContext::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int ver
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
-	curVertexFormat_ = (VKVertexFormat *)format;
+	curInputLayout_ = (VKInputLayout *)format;
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
 
 	VkBuffer vulkanVbuf;
@@ -1130,7 +1164,7 @@ void VKContext::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, 
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
-	curVertexFormat_ = (VKVertexFormat *)format;
+	curInputLayout_ = (VKInputLayout *)format;
 
 	Thin3DVKBuffer *ibuf = static_cast<Thin3DVKBuffer *>(idata);
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
@@ -1158,10 +1192,10 @@ void VKContext::DrawUP(Primitive prim, InputLayout *format, const void *vdata, i
 	ApplyDynamicState();
 
 	curPrim_ = PrimToVK(prim);
-	curVertexFormat_ = (VKVertexFormat *)format;
+	curInputLayout_ = (VKInputLayout *)format;
 
 	VkBuffer vulkanVbuf, vulkanUBObuf;
-	size_t vbBindOffset = push_->Push(vdata, vertexCount * curVertexFormat_->stride_, &vulkanVbuf);
+	size_t vbBindOffset = push_->Push(vdata, vertexCount * curInputLayout_->bindings[0].stride, &vulkanVbuf);
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
 	VkPipeline pipeline = GetOrCreatePipeline();

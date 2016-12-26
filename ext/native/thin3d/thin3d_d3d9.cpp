@@ -96,7 +96,7 @@ static const int primCountDivisor[] = {
 	1,
 };
 
-class Thin3DDX9DepthStencilState : public DepthStencilState {
+class D3D9DepthStencilState : public DepthStencilState {
 public:
 	BOOL depthTestEnabled;
 	BOOL depthWriteEnabled;
@@ -230,24 +230,25 @@ private:
 };
 
 
-class Thin3DDX9VertexFormat : public InputLayout {
+class D3D9InputLayout : public InputLayout {
 public:
-	Thin3DDX9VertexFormat(LPDIRECT3DDEVICE9 device, const std::vector<VertexComponent> &components, int stride);
-	~Thin3DDX9VertexFormat() {
+	D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc &desc);
+	~D3D9InputLayout() {
 		if (decl_) {
 			decl_->Release();
 		}
 	}
-	int GetStride() const { return stride_; }
+	int GetStride(int binding) const { return stride_[binding]; }
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		device->SetVertexDeclaration(decl_);
 	}
 	bool RequiresBuffer() override {
 		return false;
 	}
+
 private:
 	LPDIRECT3DVERTEXDECLARATION9 decl_;
-	int stride_;
+	int stride_[4];
 };
 
 class D3D9ShaderModule : public ShaderModule {
@@ -460,7 +461,7 @@ public:
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreatePipeline(const PipelineDesc &desc) override;
-	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
+	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	Texture *CreateTexture() override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
@@ -471,7 +472,7 @@ public:
 		bs->Apply(device_);
 	}
 	void SetDepthStencilState(DepthStencilState *state) override {
-		Thin3DDX9DepthStencilState *bs = static_cast<Thin3DDX9DepthStencilState *>(state);
+		D3D9DepthStencilState *bs = static_cast<D3D9DepthStencilState *>(state);
 		bs->Apply(device_);
 	}
 	void SetRasterState(RasterState *state) override {
@@ -565,15 +566,15 @@ Pipeline *D3D9Context::CreatePipeline(const PipelineDesc &desc) {
 }
 
 DepthStencilState *D3D9Context::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
-	Thin3DDX9DepthStencilState *ds = new Thin3DDX9DepthStencilState();
+	D3D9DepthStencilState *ds = new D3D9DepthStencilState();
 	ds->depthTestEnabled = desc.depthTestEnabled;
 	ds->depthWriteEnabled = desc.depthWriteEnabled;
 	ds->depthCompare = compareToD3D9[(int)desc.depthCompare];
 	return ds;
 }
 
-InputLayout *D3D9Context::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) {
-	Thin3DDX9VertexFormat *fmt = new Thin3DDX9VertexFormat(device_, components, stride);
+InputLayout *D3D9Context::CreateInputLayout(const InputLayoutDesc &desc) {
+	D3D9InputLayout *fmt = new D3D9InputLayout(device_, desc);
 	return fmt;
 }
 
@@ -676,26 +677,29 @@ static int VertexDataTypeToD3DType(DataFormat type) {
 	}
 }
 
-Thin3DDX9VertexFormat::Thin3DDX9VertexFormat(LPDIRECT3DDEVICE9 device, const std::vector<VertexComponent> &components, int stride) : decl_(NULL) {
-	D3DVERTEXELEMENT9 *elements = new D3DVERTEXELEMENT9[components.size() + 1];
+D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc &desc) : decl_(NULL) {
+	D3DVERTEXELEMENT9 *elements = new D3DVERTEXELEMENT9[desc.attributes.size() + 1];
 	size_t i;
-	for (i = 0; i < components.size(); i++) {
-		elements[i].Stream = 0;
-		elements[i].Offset = components[i].offset;
+	for (i = 0; i < desc.attributes.size(); i++) {
+		elements[i].Stream = desc.attributes[i].binding;
+		elements[i].Offset = desc.attributes[i].offset;
 		elements[i].Method = D3DDECLMETHOD_DEFAULT;
-		SemanticToD3D9UsageAndIndex(components[i].semantic, &elements[i].Usage, &elements[i].UsageIndex);
-		elements[i].Type = VertexDataTypeToD3DType(components[i].type);
+		SemanticToD3D9UsageAndIndex(desc.attributes[i].location, &elements[i].Usage, &elements[i].UsageIndex);
+		elements[i].Type = VertexDataTypeToD3DType(desc.attributes[i].format);
 	}
 	D3DVERTEXELEMENT9 end = D3DDECL_END();
 	// Zero the last one.
 	memcpy(&elements[i], &end, sizeof(elements[i]));
+
+	for (i = 0; i < desc.bindings.size(); i++) {
+		stride_[i] = desc.bindings[i].stride;
+	}
 
 	HRESULT hr = device->CreateVertexDeclaration(elements, &decl_);
 	if (FAILED(hr)) {
 		ELOG("Error creating vertex decl");
 	}
 	delete[] elements;
-	stride_ = stride;
 }
 
 Buffer *D3D9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
@@ -709,9 +713,9 @@ void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device) {
 
 void D3D9Context::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
-	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
+	D3D9InputLayout *fmt = static_cast<D3D9InputLayout *>(format);
 
-	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
+	vbuf->BindAsVertexBuf(device_, fmt->GetStride(9), offset);
 	curPipeline_->Apply(device_);
 	fmt->Apply(device_);
 	device_->DrawPrimitive(primToD3D9[(int)prim], offset, vertexCount / 3);
@@ -720,21 +724,21 @@ void D3D9Context::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int v
 void D3D9Context::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 	Thin3DDX9Buffer *ibuf = static_cast<Thin3DDX9Buffer *>(idata);
-	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
+	D3D9InputLayout *fmt = static_cast<D3D9InputLayout *>(format);
 
 	curPipeline_->Apply(device_);
 	fmt->Apply(device_);
-	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
+	vbuf->BindAsVertexBuf(device_, fmt->GetStride(0), offset);
 	ibuf->BindAsIndexBuf(device_);
 	device_->DrawIndexedPrimitive(primToD3D9[(int)prim], 0, 0, vertexCount, 0, vertexCount / primCountDivisor[(int)prim]);
 }
 
 void D3D9Context::DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) {
-	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
+	D3D9InputLayout *fmt = static_cast<D3D9InputLayout *>(format);
 
 	curPipeline_->Apply(device_);
 	fmt->Apply(device_);
-	device_->DrawPrimitiveUP(primToD3D9[(int)prim], vertexCount / 3, vdata, fmt->GetStride());
+	device_->DrawPrimitiveUP(primToD3D9[(int)prim], vertexCount / 3, vdata, fmt->GetStride(0));
 }
 
 static uint32_t SwapRB(uint32_t c) {

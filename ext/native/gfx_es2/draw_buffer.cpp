@@ -41,14 +41,18 @@ void DrawBuffer::Init(Draw::DrawContext *t3d) {
 	t3d_ = t3d;
 	inited_ = true;
 
-	std::vector<VertexComponent> components;
-	components.push_back(VertexComponent("Position", SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0));
-	components.push_back(VertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12));
-	components.push_back(VertexComponent("Color0", SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20));
+	InputLayoutDesc desc = {
+		{
+			{sizeof(Vertex), false},
+		},
+		{
+			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
+			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
+			{ 0, SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
+		},
+	};
 
-	ShaderModule *vshader = t3d_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
-
-	vformat_ = t3d_->CreateVertexFormat(components, 24, vshader);
+	vformat_ = t3d_->CreateInputLayout(desc);
 	if (vformat_->RequiresBuffer()) {
 		vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	} else {
