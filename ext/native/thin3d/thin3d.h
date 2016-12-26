@@ -136,13 +136,6 @@ enum FragmentShaderPreset : int {
 	FS_MAX_PRESET,
 };
 
-// Predefined full shader setups.
-enum ShaderSetPreset : int {
-	SS_COLOR_2D,
-	SS_TEXTURE_COLOR_2D,
-	SS_MAX_PRESET,
-};
-
 enum ClearFlag : int {
 	COLOR = 1,
 	DEPTH = 2,
@@ -453,7 +446,7 @@ public:
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
-	virtual Pipeline *CreatePipeline(const PipelineDesc &desc) = 0;
+	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
 
 	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
@@ -466,7 +459,6 @@ public:
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }
 	ShaderModule *GetFshaderPreset(FragmentShaderPreset preset) { return vsPresets_[preset]; }
-	Pipeline *GetShaderSetPreset(ShaderSetPreset preset) { return ssPresets_[preset]; }
 
 	// The implementation makes the choice of which shader code to use.
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
@@ -514,7 +506,6 @@ protected:
 
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];
-	Pipeline *ssPresets_[SS_MAX_PRESET];
 
 	int targetWidth_;
 	int targetHeight_;

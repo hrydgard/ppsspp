@@ -140,6 +140,8 @@ struct PendingMessage {
 static recursive_mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
 static Draw::DrawContext *thin3d;
+static Draw::Pipeline *colorPipeline;
+static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
 static std::vector<std::string> inputboxValue;
 
@@ -592,7 +594,13 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 
-	uiContext->Init(thin3d, thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), thin3d->GetShaderSetPreset(SS_COLOR_2D), uiTexture, &ui_draw2d, &ui_draw2d_front);
+	PipelineDesc colorDesc{ { thin3d->GetVshaderPreset(VS_COLOR_2D), thin3d->GetFshaderPreset(FS_COLOR_2D) } };
+	PipelineDesc texColorDesc{ { thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D), thin3d->GetFshaderPreset(FS_TEXTURE_COLOR_2D) } };
+
+	colorPipeline = thin3d->CreateGraphicsPipeline(colorDesc);
+	texColorPipeline = thin3d->CreateGraphicsPipeline(texColorDesc);
+
+	uiContext->Init(thin3d, texColorPipeline, colorPipeline, uiTexture, &ui_draw2d, &ui_draw2d_front);
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
@@ -627,6 +635,9 @@ void NativeShutdownGraphics() {
 
 	ui_draw2d.Shutdown();
 	ui_draw2d_front.Shutdown();
+
+	colorPipeline->Release();
+	texColorPipeline->Release();
 
 	// TODO: Reconsider this annoying ref counting stuff.
 	if (thin3d->Release()) {

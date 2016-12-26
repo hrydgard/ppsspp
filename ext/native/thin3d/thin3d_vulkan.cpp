@@ -231,7 +231,7 @@ VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 	}
 }
 
-// Not registering this as a resource holder, instead ShaderSet is registered. It will
+// Not registering this as a resource holder, instead the pipeline is registered. It will
 // invoke Compile again to recreate the shader then link them together.
 class VKShaderModule : public ShaderModule {
 public:
@@ -347,7 +347,7 @@ private:
 struct PipelineKey {
 	VKDepthStencilState *depthStencil;
 	VKBlendState *blend;
-	VKPipeline *shaderSet;
+	VKPipeline *pipeline;
 	VkPrimitiveTopology topology;
 	VKRasterState *raster;
 
@@ -356,7 +356,7 @@ struct PipelineKey {
 	bool operator < (const PipelineKey &other) const {
 		if (depthStencil < other.depthStencil) return true; else if (depthStencil > other.depthStencil) return false;
 		if (blend < other.blend) return true; else if (blend > other.blend) return false;
-		if (shaderSet < other.shaderSet) return true; else if (shaderSet > other.shaderSet) return false;
+		if (pipeline < other.pipeline) return true; else if (pipeline > other.pipeline) return false;
 		if (topology < other.topology) return true; else if (topology > other.topology) return false;
 		if (raster < other.raster) return true; else if (raster > other.raster) return false;
 		// etc etc
@@ -393,7 +393,7 @@ public:
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
-	Pipeline *CreatePipeline(const PipelineDesc &desc) override;
+	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	// The implementation makes the choice of which shader code to use.
 	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
@@ -865,7 +865,7 @@ VkPipeline VKContext::GetOrCreatePipeline() {
 	PipelineKey key;
 	key.blend = curBlendState_;
 	key.depthStencil = curDepthStencilState_;
-	key.shaderSet = curPipeline_;
+	key.pipeline = curPipeline_;
 	key.topology = curPrim_;
 	key.raster = curRasterState_;
 
@@ -1058,20 +1058,20 @@ Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DVKBuffer(size, usageFlags);
 }
 
-Pipeline *VKContext::CreatePipeline(const PipelineDesc &desc) {
+Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	if (!desc.shaders.size()) {
-		ELOG("ShaderSet requires at least one shader");
+		ELOG("Pipeline requires at least one shader");
 		return NULL;
 	}
-	VKPipeline *shaderSet = new VKPipeline();
+	VKPipeline *pipeline = new VKPipeline();
 	for (auto iter : desc.shaders) {
 		iter->AddRef();
-		shaderSet->shaders.push_back(static_cast<VKShaderModule *>(iter));
+		pipeline->shaders.push_back(static_cast<VKShaderModule *>(iter));
 	}
-	if (shaderSet->Link()) {
-		return shaderSet;
+	if (pipeline->Link()) {
+		return pipeline;
 	} else {
-		delete shaderSet;
+		delete pipeline;
 		return NULL;
 	}
 }

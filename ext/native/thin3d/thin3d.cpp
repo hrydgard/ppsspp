@@ -161,26 +161,14 @@ void DrawContext::CreatePresets() {
 
 	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShaderModule(ShaderStage::FRAGMENT, glsl_fsTexCol, hlslFsTexCol, vulkan_fsTexCol);
 	fsPresets_[FS_COLOR_2D] = CreateShaderModule(ShaderStage::FRAGMENT, glsl_fsCol, hlslFsCol, vulkan_fsCol);
-
-	ssPresets_[SS_TEXTURE_COLOR_2D] = CreatePipeline({ {vsPresets_[VS_TEXTURE_COLOR_2D], fsPresets_[FS_TEXTURE_COLOR_2D]} });
-	ssPresets_[SS_COLOR_2D] = CreatePipeline({{vsPresets_[VS_COLOR_2D], fsPresets_[FS_COLOR_2D]}});
 }
 
 DrawContext::~DrawContext() {
 	for (int i = 0; i < VS_MAX_PRESET; i++) {
-		if (vsPresets_[i]) {
-			vsPresets_[i]->Release();
-		}
+		vsPresets_[i]->Release();
 	}
 	for (int i = 0; i < FS_MAX_PRESET; i++) {
-		if (fsPresets_[i]) {
-			fsPresets_[i]->Release();
-		}
-	}
-	for (int i = 0; i < SS_MAX_PRESET; i++) {
-		if (ssPresets_[i]) {
-			ssPresets_[i]->Release();
-		}
+		fsPresets_[i]->Release();
 	}
 }
 

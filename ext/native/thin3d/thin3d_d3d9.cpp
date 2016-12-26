@@ -460,7 +460,7 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	Pipeline *CreatePipeline(const PipelineDesc &desc) override;
+	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	Texture *CreateTexture() override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
@@ -548,21 +548,21 @@ ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, const char *gls
 	}
 }
 
-Pipeline *D3D9Context::CreatePipeline(const PipelineDesc &desc) {
+Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	if (!desc.shaders.size()) {
-		ELOG("ShaderSet requires at least one shader");
+		ELOG("Pipeline requires at least one shader");
 		return NULL;
 	}
-	D3D9Pipeline *shaderSet = new D3D9Pipeline(device_);
+	D3D9Pipeline *pipeline = new D3D9Pipeline(device_);
 	for (auto iter : desc.shaders) {
 		if (iter->GetStage() == ShaderStage::FRAGMENT) {
-			shaderSet->pshader = static_cast<D3D9ShaderModule *>(iter);
+			pipeline->pshader = static_cast<D3D9ShaderModule *>(iter);
 		}
 		else if (iter->GetStage() == ShaderStage::VERTEX) {
-			shaderSet->vshader = static_cast<D3D9ShaderModule *>(iter);
+			pipeline->vshader = static_cast<D3D9ShaderModule *>(iter);
 		}
 	}
-	return shaderSet;
+	return pipeline;
 }
 
 DepthStencilState *D3D9Context::CreateDepthStencilState(const DepthStencilStateDesc &desc) {

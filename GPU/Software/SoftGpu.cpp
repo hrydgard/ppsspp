@@ -78,6 +78,10 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 	samplerNearest = thin3d->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
 	samplerLinear = thin3d->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
 
+	PipelineDesc pipelineDesc;
+	pipelineDesc.shaders = { thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D), thin3d->GetFshaderPreset(FS_TEXTURE_COLOR_2D) };
+	texColor = thin3d->CreateGraphicsPipeline(pipelineDesc);
+
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 
@@ -100,6 +104,9 @@ void SoftGPU::DeviceRestore() {
 }
 
 SoftGPU::~SoftGPU() {
+	texColor->Release();
+	texColor = nullptr;
+
 	vformat->Release();
 	vformat = nullptr;
 	fbTex->Release();
@@ -238,7 +245,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	idata->SetData((const uint8_t *)indexes, sizeof(indexes));
 
 	thin3d->BindTexture(0, fbTex);
-	Pipeline *texColor = thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D);
 
 	static const float identity4x4[16] = {
 		1.0f, 0.0f, 0.0f, 0.0f,

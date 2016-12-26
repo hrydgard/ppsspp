@@ -268,7 +268,7 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 	}
 }
 
-// Not registering this as a resource holder, instead ShaderSet is registered. It will
+// Not registering this as a resource holder, instead Pipeline is registered. It will
 // invoke Compile again to recreate the shader then link them together.
 class OpenGLShaderModule : public ShaderModule {
 public:
@@ -411,7 +411,7 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	Pipeline *CreatePipeline(const PipelineDesc &desc) override;
+	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
@@ -802,20 +802,20 @@ Buffer *OpenGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new OpenGLBuffer(size, usageFlags);
 }
 
-Pipeline *OpenGLContext::CreatePipeline(const PipelineDesc &desc) {
+Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	if (!desc.shaders.size()) {
-		ELOG("ShaderSet requires at least one shader");
+		ELOG("Pipeline requires at least one shader");
 		return NULL;
 	}
-	OpenGLPipeline *shaderSet = new OpenGLPipeline();
+	OpenGLPipeline *pipeline = new OpenGLPipeline();
 	for (auto iter : desc.shaders) {
 		iter->AddRef();
-		shaderSet->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
+		pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
 	}
-	if (shaderSet->Link()) {
-		return shaderSet;
+	if (pipeline->Link()) {
+		return pipeline;
 	} else {
-		delete shaderSet;
+		delete pipeline;
 		return NULL;
 	}
 }
@@ -1027,7 +1027,7 @@ void OpenGLInputLayout::Apply(const void *base) {
 	intptr_t b = (intptr_t)base;
 	if (b != lastBase_) {
 		for (size_t i = 0; i < desc.attributes.size(); i++) {
-			size_t stride = desc.bindings[desc.attributes[i].binding].stride;
+			GLsizei stride = (GLsizei)desc.bindings[desc.attributes[i].binding].stride;
 			switch (desc.attributes[i].format) {
 			case DataFormat::R32G32_FLOAT:
 				glVertexAttribPointer(desc.attributes[i].location, 2, GL_FLOAT, GL_FALSE, stride, (void *)(b + (intptr_t)desc.attributes[i].offset));
