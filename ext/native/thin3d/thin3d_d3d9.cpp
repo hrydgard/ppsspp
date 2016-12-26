@@ -470,6 +470,10 @@ public:
 	D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
 	~D3D9Context();
 
+	const DeviceCaps &GetDeviceCaps() const override {
+		return caps_;
+	}
+
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
@@ -520,20 +524,24 @@ private:
 	LPDIRECT3DDEVICE9EX deviceEx_;
 	int adapterId_;
 	D3DADAPTER_IDENTIFIER9 identifier_;
-	D3DCAPS9 caps_;
+	D3DCAPS9 d3dCaps_;
 	char shadeLangVersion_[64];
 	D3D9Pipeline *curPipeline_;
+	DeviceCaps caps_;
 };
 
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
-	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx) {
+	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx), caps_{} {
 	CreatePresets();
 	d3d->GetAdapterIdentifier(adapterId, 0, &identifier_);
-	if (!FAILED(device->GetDeviceCaps(&caps_))) {
-		sprintf(shadeLangVersion_, "PS: %04x VS: %04x", caps_.PixelShaderVersion & 0xFFFF, caps_.VertexShaderVersion & 0xFFFF);
+	if (!FAILED(device->GetDeviceCaps(&d3dCaps_))) {
+		sprintf(shadeLangVersion_, "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
 	} else {
 		strcpy(shadeLangVersion_, "N/A");
 	}
+	caps_.multiViewport = false;
+	caps_.anisoSupported = true;
+	caps_.depthRangeMinusOneToOne = false;
 }
 
 D3D9Context::~D3D9Context() {

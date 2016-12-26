@@ -360,6 +360,10 @@ public:
 	VKContext(VulkanContext *vulkan);
 	virtual ~VKContext();
 
+	const DeviceCaps &GetDeviceCaps() const override {
+		return caps_;
+	}
+
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
@@ -411,7 +415,7 @@ public:
 
 	VkDescriptorSet GetOrCreateDescriptorSet(VkBuffer buffer);
 
-	std::vector<std::string> GetFeatureList() override;
+	std::vector<std::string> GetFeatureList() const override;
 
 private:
 	void ApplyDynamicState();
@@ -455,6 +459,8 @@ private:
 
 	int frameNum_;
 	VulkanPushBuffer *push_;
+
+	DeviceCaps caps_;
 };
 
 int GetBpp(VkFormat format) {
@@ -613,7 +619,13 @@ private:
 };
 
 VKContext::VKContext(VulkanContext *vulkan)
-	: viewportDirty_(false), scissorDirty_(false), vulkan_(vulkan), frameNum_(0) {
+	: viewportDirty_(false), scissorDirty_(false), vulkan_(vulkan), frameNum_(0), caps_{} {
+	caps_.anisoSupported = vulkan->GetFeaturesAvailable().samplerAnisotropy != 0;
+	caps_.geometryShaderSupported = vulkan->GetFeaturesAvailable().geometryShader != 0;
+	caps_.tesselationShaderSupported = vulkan->GetFeaturesAvailable().tessellationShader != 0;
+	caps_.multiViewport = vulkan->GetFeaturesAvailable().multiViewport != 0;
+	caps_.dualSourceBlend = vulkan->GetFeaturesAvailable().dualSrcBlend != 0;
+
 	device_ = vulkan->GetDevice();
 
 	queue_ = vulkan->GetGraphicsQueue();
@@ -1139,9 +1151,10 @@ void AddFeature(std::vector<std::string> &features, const char *name, VkBool32 a
 	features.push_back(buf);
 }
 
-std::vector<std::string> VKContext::GetFeatureList() {
+std::vector<std::string> VKContext::GetFeatureList() const {
 	const VkPhysicalDeviceFeatures &available = vulkan_->GetFeaturesAvailable();
 	const VkPhysicalDeviceFeatures &enabled = vulkan_->GetFeaturesEnabled();
+
 	std::vector<std::string> features;
 	AddFeature(features, "dualSrcBlend", available.dualSrcBlend, enabled.dualSrcBlend);
 	AddFeature(features, "logicOp", available.logicOp, enabled.logicOp);

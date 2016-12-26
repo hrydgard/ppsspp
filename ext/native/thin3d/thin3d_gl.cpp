@@ -419,6 +419,10 @@ public:
 	OpenGLContext();
 	virtual ~OpenGLContext();
 
+	const DeviceCaps &GetDeviceCaps() const override {
+		return caps_;
+	}
+
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
@@ -508,10 +512,12 @@ public:
 
 	std::vector<OpenGLSamplerState *> samplerStates_;
 	OpenGLPipeline *curPipeline_;
+	DeviceCaps caps_;
 };
 
 OpenGLContext::OpenGLContext() {
 	CreatePresets();
+	// TODO: Detect caps
 }
 
 OpenGLContext::~OpenGLContext() {

@@ -436,11 +436,24 @@ struct PipelineDesc {
 	RasterState *raster;
 };
 
+struct DeviceCaps {
+	DataFormat preferredDepthBufferFormat;
+	DataFormat preferredShadowMapFormatLow;
+	DataFormat preferredShadowMapFormatHigh;
+	bool anisoSupported;
+	bool depthRangeMinusOneToOne;  // OpenGL style depth
+	bool geometryShaderSupported;
+	bool tesselationShaderSupported;
+	bool multiViewport;
+	bool dualSourceBlend;
+};
+
 class DrawContext : public RefCountedObject {
 public:
 	virtual ~DrawContext();
 
-	virtual std::vector<std::string> GetFeatureList() { return std::vector<std::string>(); }
+	virtual const DeviceCaps &GetDeviceCaps() const = 0;
+	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
 
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;
