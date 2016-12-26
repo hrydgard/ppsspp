@@ -42,10 +42,6 @@ FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
 
-static Draw::InputLayout *vformat = nullptr;
-static Draw::DepthStencilState *depth = nullptr;
-static Draw::RasterState *rasterNoCull = nullptr;
-static Draw::BlendState *blendstateOff = nullptr;
 static Draw::SamplerState *samplerNearest = nullptr;
 static Draw::SamplerState *samplerLinear = nullptr;
 static Draw::Buffer *vdata = nullptr;
@@ -69,24 +65,27 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 	};
 
 	ShaderModule *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
-	vformat = thin3d->CreateInputLayout(desc);
 
 	vdata = thin3d->CreateBuffer(24 * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	idata = thin3d->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
-	depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
-	blendstateOff = thin3d->CreateBlendState({ false });
+
+	InputLayout *inputLayout = thin3d->CreateInputLayout(desc);
+	DepthStencilState *depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
+	BlendState *blendstateOff = thin3d->CreateBlendState({ false });
+	RasterState *rasterNoCull = thin3d->CreateRasterState({});
+
 	samplerNearest = thin3d->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
 	samplerLinear = thin3d->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
 
-	PipelineDesc pipelineDesc;
-	pipelineDesc.shaders = { thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D), thin3d->GetFshaderPreset(FS_TEXTURE_COLOR_2D) };
+	PipelineDesc pipelineDesc{
+		Primitive::TRIANGLE_LIST,
+		{ thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D), thin3d->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
+		inputLayout, depth, blendstateOff, rasterNoCull
+	};
 	texColor = thin3d->CreateGraphicsPipeline(pipelineDesc);
 
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
-
-	RasterStateDesc rasterDesc{};
-	rasterNoCull = thin3d->CreateRasterState(rasterDesc);
 
 	framebufferDirty_ = true;
 	// TODO: Is there a default?
@@ -107,8 +106,6 @@ SoftGPU::~SoftGPU() {
 	texColor->Release();
 	texColor = nullptr;
 
-	vformat->Release();
-	vformat = nullptr;
 	fbTex->Release();
 	fbTex = nullptr;
 
@@ -116,12 +113,6 @@ SoftGPU::~SoftGPU() {
 	vdata = nullptr;
 	idata->Release();
 	idata = nullptr;
-	depth->Release();
-	depth = nullptr;
-	rasterNoCull->Release();
-	rasterNoCull = nullptr;
-	blendstateOff->Release();
-	blendstateOff = nullptr;
 	samplerNearest->Release();
 	samplerNearest = nullptr;
 	samplerLinear->Release();
@@ -147,7 +138,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 	Viewport viewport = {0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f};
 	thin3d->SetViewports(1, &viewport);
-	thin3d->SetBlendState(blendstateOff);
 	SamplerState *sampler;
 	if (g_Config.iBufFilter == SCALE_NEAREST) {
 		sampler = samplerNearest;
@@ -155,8 +145,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		sampler = samplerLinear;
 	}
 	thin3d->BindSamplerStates(0, 1, &sampler);
-	thin3d->SetDepthStencilState(depth);
-	thin3d->SetRasterState(rasterNoCull);
 	thin3d->SetScissorRect(0, 0, dstwidth, dstheight);
 
 	float u0 = 0.0f;
@@ -255,7 +243,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 	texColor->SetMatrix4x4("WorldViewProj", identity4x4);
 	thin3d->BindPipeline(texColor);
-	thin3d->DrawIndexed(Primitive::TRIANGLE_LIST, vformat, vdata, idata, 6, 0);
+	thin3d->DrawIndexed(vdata, idata, 6, 0);
 }
 
 void SoftGPU::CopyDisplayToOutput()

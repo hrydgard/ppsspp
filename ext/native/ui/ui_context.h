@@ -86,10 +86,7 @@ private:
 	TextDrawer *textDrawer_;
 
 	Draw::DrawContext *thin3D_;
-	Draw::DepthStencilState *depth_;
 	Draw::SamplerState *sampler_;
-	Draw::RasterState *rasterNoCull_;
-	Draw::BlendState *blendNormal_;
 	Draw::Pipeline *ui_pipeline_;
 	Draw::Pipeline *ui_pipeline_notex_;
 	Draw::Texture *uitexture_;

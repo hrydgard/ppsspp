@@ -242,9 +242,6 @@ public:
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		device->SetVertexDeclaration(decl_);
 	}
-	bool RequiresBuffer() override {
-		return false;
-	}
 
 private:
 	LPDIRECT3DVERTEXDECLARATION9 decl_;
@@ -284,8 +281,26 @@ private:
 class D3D9Pipeline : public Pipeline {
 public:
 	D3D9Pipeline(LPDIRECT3DDEVICE9 device) : device_(device) {}
+	~D3D9Pipeline() {
+		if (depthStencil) depthStencil->Release();
+		if (blend) blend->Release();
+		if (raster) raster->Release();
+		if (inputLayout) inputLayout->Release();
+	}
+	bool RequiresBuffer() override {
+		return false;
+	}
+
 	D3D9ShaderModule *vshader;
 	D3D9ShaderModule *pshader;
+
+	D3DPRIMITIVETYPE prim;
+	int primDivisor;
+	D3D9InputLayout *inputLayout = nullptr;
+	D3D9DepthStencilState *depthStencil = nullptr;
+	D3D9BlendState *blend = nullptr;
+	D3D9RasterState *raster = nullptr;
+
 	void Apply(LPDIRECT3DDEVICE9 device);
 	void SetVector(const char *name, float *value, int n) { vshader->SetVector(device_, name, value, n); pshader->SetVector(device_, name, value, n); }
 	void SetMatrix4x4(const char *name, const float value[16]) { vshader->SetMatrix4x4(device_, name, value); }  // pshaders don't usually have matrices
@@ -466,20 +481,6 @@ public:
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
-	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
-	void SetBlendState(BlendState *state) override {
-		D3D9BlendState *bs = static_cast<D3D9BlendState *>(state);
-		bs->Apply(device_);
-	}
-	void SetDepthStencilState(DepthStencilState *state) override {
-		D3D9DepthStencilState *bs = static_cast<D3D9DepthStencilState *>(state);
-		bs->Apply(device_);
-	}
-	void SetRasterState(RasterState *state) override {
-		D3D9RasterState *bs = static_cast<D3D9RasterState *>(state);
-		bs->Apply(device_);
-	}
-
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		for (int i = 0; i < count; ++i) {
@@ -495,9 +496,9 @@ public:
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
 
-	void Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) override;
+	void Draw(Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
 	std::string GetInfoString(InfoField info) const override {
@@ -562,6 +563,16 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			pipeline->vshader = static_cast<D3D9ShaderModule *>(iter);
 		}
 	}
+	pipeline->prim = primToD3D9[(int)desc.prim];
+	pipeline->primDivisor = primCountDivisor[(int)desc.prim];
+	pipeline->depthStencil = (D3D9DepthStencilState *)desc.depthStencil;
+	pipeline->blend = (D3D9BlendState *)desc.blend;
+	pipeline->raster = (D3D9RasterState *)desc.raster;
+	pipeline->inputLayout = (D3D9InputLayout *)desc.inputLayout;
+	pipeline->depthStencil->AddRef();
+	pipeline->blend->AddRef();
+	pipeline->raster->AddRef();
+	pipeline->inputLayout->AddRef();
 	return pipeline;
 }
 
@@ -709,36 +720,35 @@ Buffer *D3D9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
 void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device) {
 	vshader->Apply(device);
 	pshader->Apply(device);
+	blend->Apply(device);
+	depthStencil->Apply(device);
+	raster->Apply(device);
 }
 
-void D3D9Context::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
+void D3D9Context::Draw(Buffer *vdata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
-	D3D9InputLayout *fmt = static_cast<D3D9InputLayout *>(format);
 
-	vbuf->BindAsVertexBuf(device_, fmt->GetStride(9), offset);
+	vbuf->BindAsVertexBuf(device_, curPipeline_->inputLayout->GetStride(9), offset);
 	curPipeline_->Apply(device_);
-	fmt->Apply(device_);
-	device_->DrawPrimitive(primToD3D9[(int)prim], offset, vertexCount / 3);
+	curPipeline_->inputLayout->Apply(device_);
+	device_->DrawPrimitive(curPipeline_->prim, offset, vertexCount / 3);
 }
 
-void D3D9Context::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void D3D9Context::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 	Thin3DDX9Buffer *ibuf = static_cast<Thin3DDX9Buffer *>(idata);
-	D3D9InputLayout *fmt = static_cast<D3D9InputLayout *>(format);
 
 	curPipeline_->Apply(device_);
-	fmt->Apply(device_);
-	vbuf->BindAsVertexBuf(device_, fmt->GetStride(0), offset);
+	curPipeline_->inputLayout->Apply(device_);
+	vbuf->BindAsVertexBuf(device_, curPipeline_->inputLayout->GetStride(0), offset);
 	ibuf->BindAsIndexBuf(device_);
-	device_->DrawIndexedPrimitive(primToD3D9[(int)prim], 0, 0, vertexCount, 0, vertexCount / primCountDivisor[(int)prim]);
+	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, 0, vertexCount / curPipeline_->primDivisor);
 }
 
-void D3D9Context::DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) {
-	D3D9InputLayout *fmt = static_cast<D3D9InputLayout *>(format);
-
+void D3D9Context::DrawUP(const void *vdata, int vertexCount) {
 	curPipeline_->Apply(device_);
-	fmt->Apply(device_);
-	device_->DrawPrimitiveUP(primToD3D9[(int)prim], vertexCount / 3, vdata, fmt->GetStride(0));
+	curPipeline_->inputLayout->Apply(device_);
+	device_->DrawPrimitiveUP(curPipeline_->prim, vertexCount / 3, vdata, curPipeline_->inputLayout->GetStride(0));
 }
 
 static uint32_t SwapRB(uint32_t c) {

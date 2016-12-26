@@ -16,23 +16,12 @@ UIContext::UIContext()
 UIContext::~UIContext() {
 	delete fontStyle_;
 	delete textDrawer_;
-	// Not releasing blend_, it's a preset. Should really make them AddRef, though..
-	depth_->Release();
-	sampler_->Release();
-	rasterNoCull_->Release();
-	blendNormal_->Release();
 }
 
 void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 	using namespace Draw;
 	thin3d_ = thin3d;
-	blendNormal_ = thin3d_->CreateBlendState({ true, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
 	sampler_ = thin3d_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
-	depth_ = thin3d_->CreateDepthStencilState({ false, false, Comparison::LESS });
-	RasterStateDesc desc;
-	desc.cull = CullMode::NONE;
-	desc.facing = Facing::CCW;
-	rasterNoCull_ = thin3d_->CreateRasterState(desc);
 	ui_pipeline_ = uipipe;
 	ui_pipeline_notex_ = uipipenotex;
 	uitexture_ = uitexture;
@@ -46,18 +35,13 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 }
 
 void UIContext::Begin() {
-	thin3d_->SetBlendState(blendNormal_);
 	thin3d_->BindSamplerStates(0, 1, &sampler_);
-	thin3d_->SetDepthStencilState(depth_);
-	thin3d_->SetRasterState(rasterNoCull_);
 	thin3d_->BindTexture(0, uitexture_);
 	UIBegin(ui_pipeline_);
 }
 
 void UIContext::BeginNoTex() {
-	thin3d_->SetBlendState(blendNormal_);
 	thin3d_->BindSamplerStates(0, 1, &sampler_);
-	thin3d_->SetRasterState(rasterNoCull_);
 	UIBegin(ui_pipeline_notex_);
 }
 

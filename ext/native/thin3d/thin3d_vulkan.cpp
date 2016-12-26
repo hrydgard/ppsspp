@@ -119,7 +119,6 @@ static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
 	f[3] = ((u >> 24) & 0xFF) * (1.0f / 255.0f);
 }
 
-
 class VKBlendState : public BlendState {
 public:
 	bool blendEnabled;
@@ -128,7 +127,7 @@ public:
 	bool logicEnabled;
 	VkLogicOp logicOp;
 
-	void ToVulkan(VkPipelineColorBlendStateCreateInfo *info, VkPipelineColorBlendAttachmentState *attachments) {
+	void ToVulkan(VkPipelineColorBlendStateCreateInfo *info, VkPipelineColorBlendAttachmentState *attachments) const {
 		memset(info, 0, sizeof(*info));
 		info->sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 		info->attachmentCount = 1;
@@ -152,7 +151,7 @@ public:
 	bool depthWriteEnabled;
 	VkCompareOp depthComp;
 
-	void ToVulkan(VkPipelineDepthStencilStateCreateInfo *info) {
+	void ToVulkan(VkPipelineDepthStencilStateCreateInfo *info) const {
 		memset(info, 0, sizeof(*info));
 		info->sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 		info->depthCompareOp = depthComp;
@@ -172,7 +171,7 @@ public:
 	Facing frontFace;
 	CullMode cullFace;
 
-	void ToVulkan(VkPipelineRasterizationStateCreateInfo *info) {
+	void ToVulkan(VkPipelineRasterizationStateCreateInfo *info) const {
 		memset(info, 0, sizeof(*info));
 		info->sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 		info->frontFace = frontFace == Facing::CCW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
@@ -299,10 +298,6 @@ inline VkFormat ConvertVertexDataTypeToVk(DataFormat type) {
 
 class VKInputLayout : public InputLayout {
 public:
-	bool RequiresBuffer() {
-		return false;
-	}
-
 	std::vector<VkVertexInputBindingDescription> bindings;
 	std::vector<VkVertexInputAttributeDescription> attributes;
 	VkPipelineVertexInputStateCreateInfo visc;
@@ -316,12 +311,8 @@ public:
 		ubo_ = new uint8_t[uboSize_];
 	}
 	~VKPipeline() {
-		for (auto iter : shaders) {
-			iter->Release();
-		}
 		delete[] ubo_;
 	}
-	bool Link();
 
 	// Returns the binding offset, and the VkBuffer to bind.
 	size_t PushUBO(VulkanPushBuffer *buf, VulkanContext *vulkan, VkBuffer *vkbuf) {
@@ -336,35 +327,17 @@ public:
 	int GetUBOSize() const {
 		return uboSize_;
 	}
+	bool RequiresBuffer() {
+		return false;
+	}
 
-	std::vector<VKShaderModule *> shaders;
+	VkPipeline vkpipeline;
+	int stride[4];
 
 private:
 	uint8_t *ubo_;
 	int uboSize_;
 };
-
-struct PipelineKey {
-	VKDepthStencilState *depthStencil;
-	VKBlendState *blend;
-	VKPipeline *pipeline;
-	VkPrimitiveTopology topology;
-	VKRasterState *raster;
-
-	// etc etc
-
-	bool operator < (const PipelineKey &other) const {
-		if (depthStencil < other.depthStencil) return true; else if (depthStencil > other.depthStencil) return false;
-		if (blend < other.blend) return true; else if (blend > other.blend) return false;
-		if (pipeline < other.pipeline) return true; else if (pipeline > other.pipeline) return false;
-		if (topology < other.topology) return true; else if (topology > other.topology) return false;
-		if (raster < other.raster) return true; else if (raster > other.raster) return false;
-		// etc etc
-		return false;
-	}
-};
-
-
 
 class VKTexture;
 class VKSamplerState;
@@ -400,26 +373,7 @@ public:
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
 
-	// Bound state objects
-	void SetBlendState(BlendState *state) override {
-		VKBlendState *s = static_cast<VKBlendState *>(state);
-		curBlendState_ = s;
-	}
-
-	// Bound state objects
-	void SetDepthStencilState(DepthStencilState *state) override {
-		VKDepthStencilState *s = static_cast<VKDepthStencilState *>(state);
-		curDepthStencilState_ = s;
-	}
-
-	// Bound state objects
-	void SetRasterState(RasterState *state) override {
-		VKRasterState *s = static_cast<VKRasterState *>(state);
-		curRasterState_ = s;
-	}
-
 	void SetScissorRect(int left, int top, int width, int height) override;
-
 	void SetViewports(int count, Viewport *viewports) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
@@ -429,9 +383,9 @@ public:
 	}
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) override;
+	void Draw(Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(const void *vdata, int vertexCount) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -455,7 +409,6 @@ public:
 		}
 	}
 
-	VkPipeline GetOrCreatePipeline();
 	VkDescriptorSet GetOrCreateDescriptorSet(VkBuffer buffer);
 
 	std::vector<std::string> GetFeatureList() override;
@@ -466,16 +419,7 @@ private:
 
 	VulkanContext *vulkan_;
 
-	// These are used to compose the pipeline cache key.
-	VKBlendState *curBlendState_;
-	VKDepthStencilState *curDepthStencilState_;
 	VKPipeline *curPipeline_;
-	VkPrimitiveTopology curPrim_;
-	VKInputLayout *curInputLayout_;
-	VKRasterState *curRasterState_; 
-
-	// We keep a pipeline state cache.
-	std::map<PipelineKey, VkPipeline> pipelines_;
 
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
@@ -744,9 +688,6 @@ VKContext::VKContext(VulkanContext *vulkan)
 }
 
 VKContext::~VKContext() {
-	for (auto x : pipelines_) {
-		vkDestroyPipeline(device_, x.second, nullptr);
-	}
 	vkDestroyCommandPool(device_, cmdPool_, nullptr);
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < 2; i++) {
@@ -861,51 +802,46 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	return descSet;
 }
 
-VkPipeline VKContext::GetOrCreatePipeline() {
-	PipelineKey key;
-	key.blend = curBlendState_;
-	key.depthStencil = curDepthStencilState_;
-	key.pipeline = curPipeline_;
-	key.topology = curPrim_;
-	key.raster = curRasterState_;
-
-	auto iter = pipelines_.find(key);
-	if (iter != pipelines_.end()) {
-		return iter->second;
+Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
+	VKPipeline *pipeline = new VKPipeline();
+	VKInputLayout *input = (VKInputLayout *)desc.inputLayout;
+	VKBlendState *blend = (VKBlendState *)desc.blend;
+	VKDepthStencilState *depth = (VKDepthStencilState *)desc.depthStencil;
+	VKRasterState *raster = (VKRasterState *)desc.raster;
+	for (int i = 0; i < input->bindings.size(); i++) {
+		pipeline->stride[i] = input->bindings[i].stride;
 	}
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
-	stages.resize(curPipeline_->shaders.size());
+	stages.resize(desc.shaders.size());
 	int i = 0;
-	for (auto &iter : curPipeline_->shaders) {
+	for (auto &iter : desc.shaders) {
+		VKShaderModule *vkshader = (VKShaderModule *)iter;
 		VkPipelineShaderStageCreateInfo &stage = stages[i++];
 		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		stage.pNext = nullptr;
 		stage.pSpecializationInfo = nullptr;
-		stage.stage = StageToVulkan(iter->GetStage());
-		stage.module = iter->Get();
+		stage.stage = StageToVulkan(vkshader->GetStage());
+		stage.module = vkshader->Get();
 		stage.pName = "main";
 		stage.flags = 0;
 	}
 
 	VkPipelineColorBlendStateCreateInfo colorBlend;
 	VkPipelineColorBlendAttachmentState attachment0;
-	curBlendState_->ToVulkan(&colorBlend, &attachment0);
+	blend->ToVulkan(&colorBlend, &attachment0);
 
 	VkPipelineDepthStencilStateCreateInfo depthStencil;
-	curDepthStencilState_->ToVulkan(&depthStencil);
+	depth->ToVulkan(&depthStencil);
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
-	inputAssembly.topology = curPrim_;
+	inputAssembly.topology = primToVK[(int)desc.prim];
 	inputAssembly.primitiveRestartEnable = false;
 
 	VkDynamicState dynamics[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 	VkPipelineDynamicStateCreateInfo dynamicInfo = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	dynamicInfo.dynamicStateCount = ARRAY_SIZE(dynamics);
 	dynamicInfo.pDynamicStates = dynamics;
-
-	VkPipelineRasterizationStateCreateInfo raster;
-	curRasterState_->ToVulkan(&raster);
 
 	VkPipelineMultisampleStateCreateInfo ms = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
 	ms.pNext = nullptr;
@@ -919,6 +855,9 @@ VkPipeline VKContext::GetOrCreatePipeline() {
 	vs.pViewports = nullptr;  // dynamic
 	vs.pScissors = nullptr;  // dynamic
 
+	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
+	raster->ToVulkan(&rs);
+
 	VkGraphicsPipelineCreateInfo info = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	info.pNext = nullptr;
 	info.flags = 0;
@@ -930,22 +869,20 @@ VkPipeline VKContext::GetOrCreatePipeline() {
 	info.pInputAssemblyState = &inputAssembly;
 	info.pTessellationState = nullptr;
 	info.pMultisampleState = &ms;
-	info.pVertexInputState = &curInputLayout_->visc;
-	info.pRasterizationState = &raster;
+	info.pVertexInputState = &input->visc;
+	info.pRasterizationState = &rs;
 	info.pViewportState = &vs;  // Must set viewport and scissor counts even if we set the actual state dynamically.
 	info.layout = pipelineLayout_;
 	info.subpass = 0;
 	info.renderPass = vulkan_->GetSurfaceRenderPass();
 
 	// OK, need to create a new pipeline.
-	VkPipeline pipeline;
-	VkResult result = vkCreateGraphicsPipelines(device_, pipelineCache_, 1, &info, nullptr, &pipeline);
+	VkResult result = vkCreateGraphicsPipelines(device_, pipelineCache_, 1, &info, nullptr, &pipeline->vkpipeline);
 	if (result != VK_SUCCESS) {
 		ELOG("Failed to create graphics pipeline");
-		return VK_NULL_HANDLE;
+		delete pipeline;
+		return nullptr;
 	}
-	
-	pipelines_.insert(std::make_pair(key, pipeline));
 	return pipeline;
 }
 
@@ -1058,24 +995,6 @@ Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DVKBuffer(size, usageFlags);
 }
 
-Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
-	if (!desc.shaders.size()) {
-		ELOG("Pipeline requires at least one shader");
-		return NULL;
-	}
-	VKPipeline *pipeline = new VKPipeline();
-	for (auto iter : desc.shaders) {
-		iter->AddRef();
-		pipeline->shaders.push_back(static_cast<VKShaderModule *>(iter));
-	}
-	if (pipeline->Link()) {
-		return pipeline;
-	} else {
-		delete pipeline;
-		return NULL;
-	}
-}
-
 void VKContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i]);
@@ -1091,11 +1010,6 @@ ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, const char *glsl_
 		shader->Release();
 		return nullptr;
 	}
-}
-
-bool VKPipeline::Link() {
-	// There is no link step. However, we will create and cache Pipeline objects in the device context.
-	return true;
 }
 
 int VKPipeline::GetUniformLoc(const char *name) {
@@ -1138,11 +1052,9 @@ inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	}
 }
 
-void VKContext::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
+void VKContext::Draw(Buffer *vdata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
-	curPrim_ = PrimToVK(prim);
-	curInputLayout_ = (VKInputLayout *)format;
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
 
 	VkBuffer vulkanVbuf;
@@ -1150,8 +1062,7 @@ void VKContext::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int ver
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
 
-	VkPipeline vkpipeline = GetOrCreatePipeline();
-	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, vkpipeline);
+	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, curPipeline_->vkpipeline);
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
 	VkBuffer buffers[1] = { vulkanVbuf };
@@ -1160,12 +1071,9 @@ void VKContext::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int ver
 	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
 }
 
-void VKContext::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void VKContext::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
-	curPrim_ = PrimToVK(prim);
-	curInputLayout_ = (VKInputLayout *)format;
-
 	Thin3DVKBuffer *ibuf = static_cast<Thin3DVKBuffer *>(idata);
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
 
@@ -1174,8 +1082,7 @@ void VKContext::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, 
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
 	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), &vulkanIbuf);
 
-	VkPipeline pipeline = GetOrCreatePipeline();
-	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, curPipeline_->vkpipeline);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
@@ -1188,18 +1095,14 @@ void VKContext::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, 
 	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
 }
 
-void VKContext::DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) {
+void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	ApplyDynamicState();
 
-	curPrim_ = PrimToVK(prim);
-	curInputLayout_ = (VKInputLayout *)format;
-
 	VkBuffer vulkanVbuf, vulkanUBObuf;
-	size_t vbBindOffset = push_->Push(vdata, vertexCount * curInputLayout_->bindings[0].stride, &vulkanVbuf);
+	size_t vbBindOffset = push_->Push(vdata, vertexCount * curPipeline_->stride[0], &vulkanVbuf);
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
-	VkPipeline pipeline = GetOrCreatePipeline();
-	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, curPipeline_->vkpipeline);
 
 	VkBuffer buffers[1] = { vulkanVbuf };
 	VkDeviceSize offsets[1] = { vbBindOffset };

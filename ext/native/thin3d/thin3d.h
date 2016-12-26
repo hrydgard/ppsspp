@@ -309,10 +309,7 @@ struct InputLayoutDesc {
 	std::vector<AttributeDesc> attributes;
 };
 
-class InputLayout : public RefCountedObject {
-public:
-	virtual bool RequiresBuffer() = 0;
-};
+class InputLayout : public RefCountedObject { };
 
 enum class ShaderStage {
 	VERTEX,
@@ -360,17 +357,16 @@ public:
 	// TODO: Use a uniform-buffer based interface instead.
 	virtual void SetVector(const char *name, float *value, int n) = 0;
 	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
+	virtual bool RequiresBuffer() = 0;
 };
 
-class RasterState : public RefCountedObject {
-public:
-};
+class RasterState : public RefCountedObject {};
 
 struct DepthStencilStateDesc {
 	bool depthTestEnabled;
 	bool depthWriteEnabled;
 	Comparison depthCompare;
-	// Ignore stencil
+	// Ignore stencil for now, will need soon.
 };
 
 struct BlendStateDesc {
@@ -432,7 +428,12 @@ struct RasterStateDesc {
 };
 
 struct PipelineDesc {
+	Primitive prim;
 	std::vector<ShaderModule *> shaders;
+	InputLayout *inputLayout;
+	DepthStencilState *depthStencil;
+	BlendState *blend;
+	RasterState *raster;
 };
 
 class DrawContext : public RefCountedObject {
@@ -441,16 +442,14 @@ public:
 
 	virtual std::vector<std::string> GetFeatureList() { return std::vector<std::string>(); }
 
+	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
-	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
+	// virtual ComputePipeline CreateComputePipeline(const ComputePipelineDesc &desc) = 0
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
-
-	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
-	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
 
 	// Common Thin3D function, uses CreateTexture
 	Texture *CreateTextureFromFile(const char *filename, ImageFileType fileType);
@@ -460,30 +459,30 @@ public:
 	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }
 	ShaderModule *GetFshaderPreset(FragmentShaderPreset preset) { return vsPresets_[preset]; }
 
+	// Resources
+	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
+	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
+	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
+
 	// The implementation makes the choice of which shader code to use.
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
 
-	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
-	virtual void SetBlendState(BlendState *state) = 0;
-	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
-	virtual void SetDepthStencilState(DepthStencilState *state) = 0;
-	virtual void SetRasterState(RasterState *state) = 0;
+	// Dynamic state
+	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
+	virtual void SetViewports(int count, Viewport *viewports) = 0;
 
+	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void BindTextures(int start, int count, Texture **textures) = 0;
 	void BindTexture(int stage, Texture *texture) {
 		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
 
-	// Raster state
-	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
-	virtual void SetViewports(int count, Viewport *viewports) = 0;
-
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
-	virtual void Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
-	virtual void DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) = 0;
+	virtual void Draw(Buffer *vdata, int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
+	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Render pass management. Default implementations here.
 	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
@@ -509,8 +508,6 @@ protected:
 
 	int targetWidth_;
 	int targetHeight_;
-
-private:
 };
 
 DrawContext *T3DCreateGLContext();

@@ -339,7 +339,7 @@ public:
 	void Compile();
 	void GLRestore() override;
 	void GLLost() override;
-	bool RequiresBuffer() override {
+	bool RequiresBuffer() {
 		return id_ != 0;
 	}
 
@@ -369,8 +369,16 @@ public:
 			iter->Release();
 		}
 		glDeleteProgram(program_);
+		if (depthStencil) depthStencil->Release();
+		if (blend) blend->Release();
+		if (raster) raster->Release();
+		if (inputLayout) inputLayout->Release();
 	}
-	bool Link();
+	bool RequiresBuffer() override {
+		return inputLayout->RequiresBuffer();
+	}
+
+	bool LinkShaders();
 
 	void Apply();
 	void Unapply();
@@ -391,10 +399,15 @@ public:
 		for (auto iter : shaders) {
 			iter->Compile(iter->GetSource().c_str());
 		}
-		Link();
+		LinkShaders();
 	}
 
+	GLuint prim;
 	std::vector<OpenGLShaderModule *> shaders;
+	OpenGLInputLayout *inputLayout = nullptr;
+	OpenGLDepthStencilState *depthStencil = nullptr;
+	OpenGLBlendState *blend = nullptr;
+	OpenGLRasterState *raster = nullptr;
 
 private:
 	GLuint program_;
@@ -416,12 +429,6 @@ public:
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
 
-	// Bound state objects
-	void SetBlendState(BlendState *state) override {
-		OpenGLBlendState *s = static_cast<OpenGLBlendState *>(state);
-		s->Apply();
-	}
-
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		if (samplerStates_.size() < (size_t)(start + count)) {
 			samplerStates_.resize(start + count);
@@ -441,18 +448,6 @@ public:
 				s->Apply(false, true);
 			}
 		}
-
-	}
-
-	// Bound state objects
-	void SetDepthStencilState(DepthStencilState *state) override {
-		OpenGLDepthStencilState *s = static_cast<OpenGLDepthStencilState *>(state);
-		s->Apply();
-	}
-
-	void SetRasterState(RasterState *state) override {
-		OpenGLRasterState *rs = static_cast<OpenGLRasterState *>(state);
-		rs->Apply();
 	}
 
 	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
@@ -472,14 +467,12 @@ public:
 	}
 
 	void BindTextures(int start, int count, Texture **textures) override;
-	void BindPipeline(Pipeline *pipeline) {
-		curPipeline_ = (OpenGLPipeline *)pipeline;
-	}
+	void BindPipeline(Pipeline *pipeline) override;
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) override;
+	void Draw(Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	std::string GetInfoString(InfoField info) const override {
@@ -812,7 +805,17 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		iter->AddRef();
 		pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
 	}
-	if (pipeline->Link()) {
+	if (pipeline->LinkShaders()) {
+		// Build the rest of the virtual pipeline object.
+		pipeline->prim = primToGL[(int)desc.prim];
+		pipeline->depthStencil = (OpenGLDepthStencilState *)desc.depthStencil;
+		pipeline->blend = (OpenGLBlendState *)desc.blend;
+		pipeline->raster = (OpenGLRasterState *)desc.raster;
+		pipeline->inputLayout = (OpenGLInputLayout *)desc.inputLayout;
+		pipeline->depthStencil->AddRef();
+		pipeline->blend->AddRef();
+		pipeline->raster->AddRef();
+		pipeline->inputLayout->AddRef();
 		return pipeline;
 	} else {
 		delete pipeline;
@@ -844,7 +847,7 @@ ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, const char *g
 	}
 }
 
-bool OpenGLPipeline::Link() {
+bool OpenGLPipeline::LinkShaders() {
 	program_ = glCreateProgram();
 	for (auto iter : shaders) {
 		glAttachShader(program_, iter->GetShader());
@@ -936,49 +939,52 @@ void OpenGLPipeline::Unapply() {
 	glUseProgram(0);
 }
 
-void OpenGLContext::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
-	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
-	OpenGLInputLayout *fmt = static_cast<OpenGLInputLayout *>(format);
-
-	vbuf->Bind();
-	fmt->Apply();
-	curPipeline_->Apply();
-
-	glDrawArrays(primToGL[(int)prim], offset, vertexCount);
-
-	curPipeline_->Unapply();
-	fmt->Unapply();
+void OpenGLContext::BindPipeline(Pipeline *pipeline) {
+	curPipeline_ = (OpenGLPipeline *)pipeline;
+	curPipeline_->blend->Apply();
+	curPipeline_->depthStencil->Apply();
+	curPipeline_->raster->Apply();
 }
 
-void OpenGLContext::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void OpenGLContext::Draw(Buffer *vdata, int vertexCount, int offset) {
 	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
-	OpenGLBuffer *ibuf = static_cast<OpenGLBuffer *>(idata);
-	OpenGLInputLayout *fmt = static_cast<OpenGLInputLayout *>(format);
 
 	vbuf->Bind();
-	fmt->Apply();
+	curPipeline_->inputLayout->Apply();
+	curPipeline_->Apply();
+
+	glDrawArrays(curPipeline_->prim, offset, vertexCount);
+
+	curPipeline_->Unapply();
+	curPipeline_->inputLayout->Unapply();
+}
+
+void OpenGLContext::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
+	OpenGLBuffer *ibuf = static_cast<OpenGLBuffer *>(idata);
+
+	vbuf->Bind();
+	curPipeline_->inputLayout->Apply();
 	curPipeline_->Apply();
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
 	ibuf->Bind();
 
-	glDrawElements(primToGL[(int)prim], vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
+	glDrawElements(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	
 	curPipeline_->Unapply();
-	fmt->Unapply();
+	curPipeline_->inputLayout->Unapply();
 }
 
-void OpenGLContext::DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) {
-	OpenGLInputLayout *fmt = static_cast<OpenGLInputLayout *>(format);
-
-	fmt->Apply(vdata);
+void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
+	curPipeline_->inputLayout->Apply(vdata);
 	curPipeline_->Apply();
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glDrawArrays(primToGL[(int)prim], 0, vertexCount);
+	glDrawArrays(curPipeline_->prim, 0, vertexCount);
 
 	curPipeline_->Unapply();
-	fmt->Unapply();
+	curPipeline_->inputLayout->Unapply();
 }
 
 void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {

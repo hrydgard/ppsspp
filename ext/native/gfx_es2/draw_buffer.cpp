@@ -32,7 +32,7 @@ DrawBuffer::~DrawBuffer() {
 	delete [] verts_;
 }
 
-void DrawBuffer::Init(Draw::DrawContext *t3d) {
+void DrawBuffer::Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline) {
 	using namespace Draw;
 
 	if (inited_)
@@ -41,9 +41,18 @@ void DrawBuffer::Init(Draw::DrawContext *t3d) {
 	t3d_ = t3d;
 	inited_ = true;
 
+	if (pipeline->RequiresBuffer()) {
+		vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	} else {
+		vbuf_ = nullptr;
+	}
+}
+
+Draw::InputLayout *DrawBuffer::CreateInputLayout(Draw::DrawContext *t3d) {
+	using namespace Draw;
 	InputLayoutDesc desc = {
 		{
-			{sizeof(Vertex), false},
+			{ sizeof(Vertex), false },
 		},
 		{
 			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
@@ -52,27 +61,19 @@ void DrawBuffer::Init(Draw::DrawContext *t3d) {
 		},
 	};
 
-	vformat_ = t3d_->CreateInputLayout(desc);
-	if (vformat_->RequiresBuffer()) {
-		vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
-	} else {
-		vbuf_ = nullptr;
-	}
+	return t3d->CreateInputLayout(desc);
 }
 
 void DrawBuffer::Shutdown() {
 	if (vbuf_) {
 		vbuf_->Release();
 	}
-	vformat_->Release();
-
 	inited_ = false;
 }
 
-void DrawBuffer::Begin(Draw::Pipeline *program, DrawBufferPrimitiveMode dbmode) {
+void DrawBuffer::Begin(Draw::Pipeline *program) {
 	pipeline_ = program;
 	count_ = 0;
-	mode_ = dbmode;
 }
 
 void DrawBuffer::End() {
@@ -94,9 +95,9 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	if (vbuf_) {
 		vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
 		int offset = 0;
-		t3d_->Draw(mode_ == DBMODE_NORMAL ? Primitive::TRIANGLE_LIST : Primitive::LINE_LIST, vformat_, vbuf_, count_, offset);
+		t3d_->Draw(vbuf_, count_, offset);
 	} else {
-		t3d_->DrawUP(mode_ == DBMODE_NORMAL ? Primitive::TRIANGLE_LIST : Primitive::LINE_LIST, vformat_, (const void *)verts_, count_);
+		t3d_->DrawUP((const void *)verts_, count_);
 	}
 	count_ = 0;
 }

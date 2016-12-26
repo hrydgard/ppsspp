@@ -315,11 +315,10 @@ const char *GetCompilerABI() {
 
 void SystemInfoScreen::CreateViews() {
 	using namespace Draw;
-	
+	using namespace UI;
+
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
 	I18NCategory *di = GetI18NCategory("Dialog");
-
-	using namespace UI;
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));

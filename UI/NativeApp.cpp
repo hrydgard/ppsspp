@@ -578,9 +578,6 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_theme.popupTitle.fgColor = 0xFF59BEE3;
 #endif
 
-	ui_draw2d.Init(thin3d);
-	ui_draw2d_front.Init(thin3d);
-
 	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", ImageFileType::ZIM);
 	if (!uiTexture) {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
@@ -594,13 +591,38 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 
-	PipelineDesc colorDesc{ { thin3d->GetVshaderPreset(VS_COLOR_2D), thin3d->GetFshaderPreset(FS_COLOR_2D) } };
-	PipelineDesc texColorDesc{ { thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D), thin3d->GetFshaderPreset(FS_TEXTURE_COLOR_2D) } };
+	Draw::InputLayout *inputLayout = ui_draw2d.CreateInputLayout(thin3d);
+	Draw::BlendState *blendNormal = thin3d->CreateBlendState({ true, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
+	Draw::DepthStencilState *depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
+	Draw::RasterState *rasterNoCull = thin3d->CreateRasterState({});
+
+	PipelineDesc colorDesc{
+		Primitive::TRIANGLE_LIST,
+		{ thin3d->GetVshaderPreset(VS_COLOR_2D), thin3d->GetFshaderPreset(FS_COLOR_2D) },
+		inputLayout, depth, blendNormal, rasterNoCull
+	};
+	PipelineDesc texColorDesc{
+		Primitive::TRIANGLE_LIST,
+		{ thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D), thin3d->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
+		inputLayout, depth, blendNormal, rasterNoCull
+	};
 
 	colorPipeline = thin3d->CreateGraphicsPipeline(colorDesc);
 	texColorPipeline = thin3d->CreateGraphicsPipeline(texColorDesc);
 
+	inputLayout->Release();
+	rasterNoCull->Release();
+	blendNormal->Release();
+	depth->Release();
+
+	ui_draw2d.Init(thin3d, texColorPipeline);
+	ui_draw2d_front.Init(thin3d, texColorPipeline);
+
 	uiContext->Init(thin3d, texColorPipeline, colorPipeline, uiTexture, &ui_draw2d, &ui_draw2d_front);
+	RasterStateDesc desc;
+	desc.cull = CullMode::NONE;
+	desc.facing = Facing::CCW;
+
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 

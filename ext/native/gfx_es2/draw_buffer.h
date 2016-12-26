@@ -63,12 +63,15 @@ public:
 	DrawBuffer();
 	~DrawBuffer();
 
-	void Begin(Draw::Pipeline *shaders, DrawBufferPrimitiveMode mode = DBMODE_NORMAL);
+	void Begin(Draw::Pipeline *pipeline);
 	void End();
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
-	void Init(Draw::DrawContext *t3d);
+	void Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline);
 	void Shutdown();
+
+	// So that callers can create appropriate pipelines.
+	Draw::InputLayout *CreateInputLayout(Draw::DrawContext *t3d);
 
 	int Count() const { return count_; }
 
@@ -159,7 +162,6 @@ private:
 
 	Draw::DrawContext *t3d_;
 	Draw::Buffer *vbuf_;
-	Draw::InputLayout *vformat_;
 	Draw::Pipeline *pipeline_;
 
 	Vertex *verts_;
