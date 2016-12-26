@@ -646,6 +646,7 @@ BlendState *D3D9Context::CreateBlendState(const BlendStateDesc &desc) {
 	bs->eqAlpha = blendEqToD3D9[(int)desc.eqAlpha];
 	bs->srcAlpha = blendFactorToD3D9[(int)desc.srcAlpha];
 	bs->dstAlpha = blendFactorToD3D9[(int)desc.dstAlpha];
+	bs->colorMask = desc.colorMask;
 	// Ignore logic ops, we don't support them in D3D9
 	return bs;
 }
