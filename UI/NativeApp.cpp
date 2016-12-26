@@ -592,7 +592,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	uiContext->theme = &ui_theme;
 
 	Draw::InputLayout *inputLayout = ui_draw2d.CreateInputLayout(thin3d);
-	Draw::BlendState *blendNormal = thin3d->CreateBlendState({ true, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
+	Draw::BlendState *blendNormal = thin3d->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
 	Draw::DepthStencilState *depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
 	Draw::RasterState *rasterNoCull = thin3d->CreateRasterState({});
 

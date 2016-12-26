@@ -125,6 +125,7 @@ public:
 	D3DBLENDOP eqCol, eqAlpha;
 	D3DBLEND srcCol, srcAlpha, dstCol, dstAlpha;
 	uint32_t fixedColor;
+	uint32_t colorMask;
 
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		device->SetRenderState(D3DRS_ALPHABLENDENABLE, (DWORD)enabled);
@@ -134,6 +135,7 @@ public:
 		device->SetRenderState(D3DRS_DESTBLEND, dstCol);
 		device->SetRenderState(D3DRS_SRCBLENDALPHA, srcAlpha);
 		device->SetRenderState(D3DRS_DESTBLENDALPHA, dstAlpha);
+		device->SetRenderState(D3DRS_COLORWRITEENABLE, colorMask);
 		// device->SetRenderState(, fixedColor);
 	}
 };

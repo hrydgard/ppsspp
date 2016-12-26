@@ -58,7 +58,7 @@ static const VkCompareOp compToVK[] = {
 };
 
 // So can this.
-static const VkBlendOp blendEqToGL[] = {
+static const VkBlendOp blendEqToVk[] = {
 	VK_BLEND_OP_ADD,
 	VK_BLEND_OP_SUBTRACT,
 	VK_BLEND_OP_REVERSE_SUBTRACT,
@@ -121,28 +121,8 @@ static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
 
 class VKBlendState : public BlendState {
 public:
-	bool blendEnabled;
-	VkBlendOp eqCol, eqAlpha;
-	VkBlendFactor srcCol, srcAlpha, dstColor, dstAlpha;
-	bool logicEnabled;
-	VkLogicOp logicOp;
-
-	void ToVulkan(VkPipelineColorBlendStateCreateInfo *info, VkPipelineColorBlendAttachmentState *attachments) const {
-		memset(info, 0, sizeof(*info));
-		info->sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		info->attachmentCount = 1;
-		info->logicOp = logicOp;
-		info->logicOpEnable = logicEnabled;
-		attachments[0].blendEnable = blendEnabled;
-		attachments[0].colorBlendOp = eqCol;
-		attachments[0].alphaBlendOp = eqAlpha;
-		attachments[0].colorWriteMask = 0xF;
-		attachments[0].dstAlphaBlendFactor = dstAlpha;
-		attachments[0].dstColorBlendFactor = dstColor;
-		attachments[0].srcAlphaBlendFactor = srcAlpha;
-		attachments[0].srcColorBlendFactor = srcCol;
-		info->pAttachments = attachments;
-	}
+	VkPipelineColorBlendStateCreateInfo info{};
+	std::vector<VkPipelineColorBlendAttachmentState> attachments;
 };
 
 class VKDepthStencilState : public DepthStencilState {
@@ -839,10 +819,6 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		stage.flags = 0;
 	}
 
-	VkPipelineColorBlendStateCreateInfo colorBlend;
-	VkPipelineColorBlendAttachmentState attachment0;
-	blend->ToVulkan(&colorBlend, &attachment0);
-
 	VkPipelineDepthStencilStateCreateInfo depthStencil;
 	depth->ToVulkan(&depthStencil);
 
@@ -875,7 +851,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	info.flags = 0;
 	info.stageCount = (uint32_t)stages.size();
 	info.pStages = stages.data();
-	info.pColorBlendState = &colorBlend;
+	info.pColorBlendState = &blend->info;
 	info.pDepthStencilState = &depthStencil;
 	info.pDynamicState = &dynamicInfo;
 	info.pInputAssemblyState = &inputAssembly;
@@ -991,15 +967,20 @@ DepthStencilState *VKContext::CreateDepthStencilState(const DepthStencilStateDes
 
 BlendState *VKContext::CreateBlendState(const BlendStateDesc &desc) {
 	VKBlendState *bs = new VKBlendState();
-	bs->blendEnabled = desc.enabled;
-	bs->eqCol = blendEqToGL[(int)desc.eqCol];
-	bs->srcCol = blendFactorToVk[(int)desc.srcCol];
-	bs->dstColor = blendFactorToVk[(int)desc.dstCol];
-	bs->eqAlpha = blendEqToGL[(int)desc.eqAlpha];
-	bs->srcAlpha = blendFactorToVk[(int)desc.srcAlpha];
-	bs->dstAlpha = blendFactorToVk[(int)desc.dstAlpha];
-	bs->logicEnabled = desc.logicEnabled;
-	bs->logicOp = logicOpToVK[(int)desc.logicOp];
+	bs->info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	bs->info.attachmentCount = 1;
+	bs->info.logicOp = logicOpToVK[(int)desc.logicOp];
+	bs->info.logicOpEnable = desc.logicEnabled;
+	bs->attachments.resize(1);
+	bs->attachments[0].blendEnable = desc.enabled;
+	bs->attachments[0].colorBlendOp = blendEqToVk[(int)desc.eqCol];
+	bs->attachments[0].alphaBlendOp = blendEqToVk[(int)desc.eqAlpha];
+	bs->attachments[0].colorWriteMask = desc.colorMask;
+	bs->attachments[0].dstAlphaBlendFactor = blendFactorToVk[(int)desc.dstAlpha];
+	bs->attachments[0].dstColorBlendFactor = blendFactorToVk[(int)desc.dstCol];
+	bs->attachments[0].srcAlphaBlendFactor = blendFactorToVk[(int)desc.srcAlpha];
+	bs->attachments[0].srcColorBlendFactor = blendFactorToVk[(int)desc.srcCol];
+	bs->info.pAttachments = bs->attachments.data();
 	return bs;
 }
 

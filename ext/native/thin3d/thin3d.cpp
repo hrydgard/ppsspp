@@ -9,6 +9,20 @@
 
 namespace Draw {
 
+bool RefCountedObject::Release() {
+	if (refcount_ > 0 && refcount_ < 10000) {
+		refcount_--;
+		if (refcount_ == 0) {
+			delete this;
+			return true;
+		}
+	}
+	else {
+		ELOG("Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
+	}
+	return false;
+}
+
 // ================================== PIXEL/FRAGMENT SHADERS
 
 // The Vulkan ones can be re-used with modern GL later if desired, as they're just GLSL.

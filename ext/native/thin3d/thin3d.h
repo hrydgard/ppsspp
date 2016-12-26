@@ -237,20 +237,8 @@ public:
 	RefCountedObject() : refcount_(1) {}
 	virtual ~RefCountedObject() {}
 
-	// TODO: Reconsider this annoying ref counting stuff.
-	virtual void AddRef() { refcount_++; }
-	virtual bool Release() {
-		if (refcount_ > 0 && refcount_ < 10000) {
-			refcount_--;
-			if (refcount_ == 0) {
-				delete this;
-				return true;
-			}
-		} else {
-			ELOG("Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
-		}
-		return false;
-	}
+	void AddRef() { refcount_++; }
+	bool Release();
 
 private:
 	int refcount_;
@@ -371,6 +359,7 @@ struct DepthStencilStateDesc {
 
 struct BlendStateDesc {
 	bool enabled;
+	int colorMask;
 	BlendFactor srcCol;
 	BlendFactor dstCol;
 	BlendOp eqCol;
@@ -379,7 +368,13 @@ struct BlendStateDesc {
 	BlendOp eqAlpha;
 	bool logicEnabled;
 	LogicOp logicOp;
-	// int colorMask;
+};
+
+enum {
+	COLOR_MASK_R = 1,
+	COLOR_MASK_G = 2,
+	COLOR_MASK_B = 4,
+	COLOR_MASK_A = 8,
 };
 
 enum BorderColor {

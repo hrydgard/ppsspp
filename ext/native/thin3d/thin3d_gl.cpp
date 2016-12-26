@@ -109,7 +109,7 @@ public:
 	GLuint srcCol, srcAlpha, dstCol, dstAlpha;
 	bool logicEnabled;
 	GLuint logicOp;
-	// int maskBits;
+	int colorMask;
 	// uint32_t fixedColor;
 
 	void Apply() {
@@ -120,10 +120,8 @@ public:
 		} else {
 			glDisable(GL_BLEND);
 		}
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		// glColorMask(maskBits & 1, (maskBits >> 1) & 1, (maskBits >> 2) & 1, (maskBits >> 3) & 1);
-		// glBlendColor(fixedColor);
-		
+		glColorMask(colorMask & 1, (colorMask >> 1) & 1, (colorMask >> 2) & 1, (colorMask >> 3) & 1);
+
 #if !defined(USING_GLES2)
 		if (logicEnabled) {
 			glEnable(GL_COLOR_LOGIC_OP);
@@ -755,6 +753,7 @@ BlendState *OpenGLContext::CreateBlendState(const BlendStateDesc &desc) {
 	bs->logicEnabled = desc.logicEnabled;
 	bs->logicOp = logicOpToGL[(int)desc.logicOp];
 #endif
+	bs->colorMask = desc.colorMask;
 	return bs;
 }
 

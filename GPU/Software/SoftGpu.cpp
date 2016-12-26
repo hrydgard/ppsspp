@@ -71,7 +71,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 
 	InputLayout *inputLayout = thin3d->CreateInputLayout(desc);
 	DepthStencilState *depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
-	BlendState *blendstateOff = thin3d->CreateBlendState({ false });
+	BlendState *blendstateOff = thin3d->CreateBlendState({ false, 0xF });
 	RasterState *rasterNoCull = thin3d->CreateRasterState({});
 
 	samplerNearest = thin3d->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
