@@ -83,6 +83,17 @@ static const unsigned short logicOpToGL[] = {
 };
 #endif
 
+static const GLuint stencilOpToGL[8] = {
+	GL_KEEP,
+	GL_ZERO,
+	GL_REPLACE,
+	GL_INCR,
+	GL_DECR,
+	GL_INVERT,
+	GL_INCR_WRAP,
+	GL_DECR_WRAP,
+};
+
 static const unsigned short primToGL[] = {
 	GL_POINTS,
 	GL_LINES,
@@ -166,7 +177,15 @@ public:
 	bool depthTestEnabled;
 	bool depthWriteEnabled;
 	GLuint depthComp;
-	// bool stencilTestEnabled; TODO
+	// TODO: Two-sided
+	GLboolean stencilEnabled;
+	GLuint stencilFail;
+	GLuint stencilZFail;
+	GLuint stencilPass;
+	GLuint stencilCompareOp;
+	uint8_t stencilReference;
+	uint8_t stencilCompareMask;
+	uint8_t stencilWriteMask;
 
 	void Apply() {
 		if (depthTestEnabled) {
@@ -175,6 +194,14 @@ public:
 			glDepthMask(depthWriteEnabled);
 		} else {
 			glDisable(GL_DEPTH_TEST);
+		}
+		if (stencilEnabled) {
+			glEnable(GL_STENCIL_TEST);
+			glStencilOpSeparate(GL_FRONT_AND_BACK, stencilFail, stencilZFail, stencilPass);
+			glStencilFuncSeparate(GL_FRONT_AND_BACK, stencilCompareOp, stencilReference, stencilCompareMask);
+			glStencilMaskSeparate(GL_FRONT_AND_BACK, stencilWriteMask);
+		} else {
+			glDisable(GL_STENCIL_TEST);
 		}
 		glDisable(GL_STENCIL_TEST);
 	}
@@ -737,6 +764,14 @@ DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStat
 	ds->depthTestEnabled = desc.depthTestEnabled;
 	ds->depthWriteEnabled = desc.depthWriteEnabled;
 	ds->depthComp = compToGL[(int)desc.depthCompare];
+	ds->stencilEnabled = desc.stencilEnabled;
+	ds->stencilCompareOp = compToGL[(int)desc.front.compareOp];
+	ds->stencilPass = stencilOpToGL[(int)desc.front.passOp];
+	ds->stencilFail = stencilOpToGL[(int)desc.front.failOp];
+	ds->stencilZFail = stencilOpToGL[(int)desc.front.depthFailOp];
+	ds->stencilWriteMask = desc.front.writeMask;
+	ds->stencilReference = desc.front.reference;
+	ds->stencilCompareMask = desc.front.compareMask;
 	return ds;
 }
 

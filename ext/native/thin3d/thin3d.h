@@ -84,6 +84,17 @@ enum BlendFactor : int {
 	FIXED_COLOR,
 };
 
+enum class StencilOp {
+	KEEP = 0,
+	ZERO = 1,
+	REPLACE = 2,
+	INCREMENT_AND_CLAMP = 3,
+	DECREMENT_AND_CLAMP = 4,
+	INVERT = 5,
+	INCREMENT_AND_WRAP = 6,
+	DECREMENT_AND_WRAP = 7,
+};
+
 enum class TextureFilter : int {
 	NEAREST,
 	LINEAR,
@@ -205,6 +216,57 @@ enum class DataFormat : uint8_t {
 	D32F_S8,
 };
 
+enum class ShaderStage {
+	VERTEX,
+	FRAGMENT,
+	GEOMETRY,
+	CONTROL,  // HULL
+	EVALUATION,  // DOMAIN
+	COMPUTE,
+};
+
+enum class CullMode : uint8_t {
+	NONE,
+	FRONT,
+	BACK,
+	FRONT_AND_BACK,  // Not supported on D3D9
+};
+
+enum class Facing {
+	CCW,
+	CW,
+};
+
+enum BorderColor {
+	DONT_CARE,
+	TRANSPARENT_BLACK,
+	OPAQUE_BLACK,
+	OPAQUE_WHITE,
+};
+
+enum {
+	COLOR_MASK_R = 1,
+	COLOR_MASK_G = 2,
+	COLOR_MASK_B = 4,
+	COLOR_MASK_A = 8,
+};
+
+enum class TextureAddressMode {
+	REPEAT,
+	REPEAT_MIRROR,
+	CLAMP_TO_EDGE,
+	CLAMP_TO_BORDER,
+};
+
+enum class ShaderLanguage {
+	GLSL_ES_200,
+	GLSL_ES_300,
+	GLSL_410,
+	GLSL_VULKAN,
+	HLSL_D3D9,
+	HLSL_D3D11,
+};
+
 enum ImageFileType {
 	PNG,
 	JPEG,
@@ -299,24 +361,6 @@ struct InputLayoutDesc {
 
 class InputLayout : public RefCountedObject { };
 
-enum class ShaderStage {
-	VERTEX,
-	FRAGMENT,
-	GEOMETRY,
-	CONTROL,  // HULL
-	EVALUATION,  // DOMAIN
-	COMPUTE,
-};
-
-enum class ShaderLanguage {
-	GLSL_ES_200,
-	GLSL_ES_300,
-	GLSL_410,
-	GLSL_VULKAN,
-	HLSL_D3D9,
-	HLSL_D3D11,
-};
-
 enum class UniformType : int8_t {
 	FLOAT, FLOAT2, FLOAT3, FLOAT4,
 	MATRIX4X4,
@@ -350,11 +394,23 @@ public:
 
 class RasterState : public RefCountedObject {};
 
+struct StencilSide {
+	StencilOp failOp;
+	StencilOp passOp;
+	StencilOp depthFailOp;
+	Comparison compareOp;
+	uint8_t compareMask;
+	uint8_t writeMask;
+	uint8_t reference;
+};
+
 struct DepthStencilStateDesc {
 	bool depthTestEnabled;
 	bool depthWriteEnabled;
 	Comparison depthCompare;
-	// Ignore stencil for now, will need soon.
+	bool stencilEnabled;
+	StencilSide front;
+	StencilSide back;
 };
 
 struct BlendStateDesc {
@@ -370,27 +426,6 @@ struct BlendStateDesc {
 	LogicOp logicOp;
 };
 
-enum {
-	COLOR_MASK_R = 1,
-	COLOR_MASK_G = 2,
-	COLOR_MASK_B = 4,
-	COLOR_MASK_A = 8,
-};
-
-enum BorderColor {
-	DONT_CARE,
-	TRANSPARENT_BLACK,
-	OPAQUE_BLACK,
-	OPAQUE_WHITE,
-};
-
-enum class TextureAddressMode {
-	REPEAT,
-	REPEAT_MIRROR,
-	CLAMP_TO_EDGE,
-	CLAMP_TO_BORDER,
-};
-
 struct SamplerStateDesc {
 	TextureFilter magFilter;
 	TextureFilter minFilter;
@@ -403,18 +438,6 @@ struct SamplerStateDesc {
 	bool shadowCompareEnabled;
 	Comparison shadowCompareFunc;
 	BorderColor borderColor;
-};
-
-enum class CullMode : uint8_t {
-	NONE,
-	FRONT,
-	BACK,
-	FRONT_AND_BACK,  // Not supported on D3D9
-};
-
-enum class Facing {
-	CCW,
-	CW,
 };
 
 struct RasterStateDesc {

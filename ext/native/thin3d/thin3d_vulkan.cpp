@@ -112,6 +112,18 @@ static const VkPrimitiveTopology primToVK[] = {
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY,
 };
 
+
+static const VkStencilOp stencilOpToVK[8] = {
+	VK_STENCIL_OP_KEEP,
+	VK_STENCIL_OP_ZERO,
+	VK_STENCIL_OP_REPLACE,
+	VK_STENCIL_OP_INCREMENT_AND_CLAMP,
+	VK_STENCIL_OP_DECREMENT_AND_CLAMP,
+	VK_STENCIL_OP_INVERT,
+	VK_STENCIL_OP_INCREMENT_AND_WRAP,
+	VK_STENCIL_OP_DECREMENT_AND_WRAP,
+};
+
 static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
 	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
 	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
@@ -121,25 +133,13 @@ static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
 
 class VKBlendState : public BlendState {
 public:
-	VkPipelineColorBlendStateCreateInfo info{};
+	VkPipelineColorBlendStateCreateInfo info{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
 	std::vector<VkPipelineColorBlendAttachmentState> attachments;
 };
 
 class VKDepthStencilState : public DepthStencilState {
 public:
-	bool depthTestEnabled;
-	bool depthWriteEnabled;
-	VkCompareOp depthComp;
-
-	void ToVulkan(VkPipelineDepthStencilStateCreateInfo *info) const {
-		memset(info, 0, sizeof(*info));
-		info->sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-		info->depthCompareOp = depthComp;
-		info->depthTestEnable = depthTestEnabled;
-		info->depthWriteEnable = depthWriteEnabled;
-		info->stencilTestEnable = false;
-		info->depthBoundsTestEnable = false;
-	}
+	VkPipelineDepthStencilStateCreateInfo info{ VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
 };
 
 class VKRasterState : public RasterState {
@@ -819,9 +819,6 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		stage.flags = 0;
 	}
 
-	VkPipelineDepthStencilStateCreateInfo depthStencil;
-	depth->ToVulkan(&depthStencil);
-
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	inputAssembly.topology = primToVK[(int)desc.prim];
 	inputAssembly.primitiveRestartEnable = false;
@@ -852,7 +849,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	info.stageCount = (uint32_t)stages.size();
 	info.pStages = stages.data();
 	info.pColorBlendState = &blend->info;
-	info.pDepthStencilState = &depthStencil;
+	info.pDepthStencilState = &depth->info;
 	info.pDynamicState = &dynamicInfo;
 	info.pInputAssemblyState = &inputAssembly;
 	info.pTessellationState = nullptr;
@@ -957,11 +954,27 @@ void VKTexture::Finalize(int zim_flags) {
 	// TODO
 }
 
+inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {
+	dest.compareMask = src.compareMask;
+	dest.reference = src.reference;
+	dest.writeMask = src.writeMask;
+	dest.compareOp = compToVK[(int)src.compareOp];
+	dest.failOp = stencilOpToVK[(int)src.failOp];
+	dest.passOp = stencilOpToVK[(int)src.passOp];
+	dest.depthFailOp = stencilOpToVK[(int)src.depthFailOp];
+}
+
 DepthStencilState *VKContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
 	VKDepthStencilState *ds = new VKDepthStencilState();
-	ds->depthTestEnabled = desc.depthTestEnabled;
-	ds->depthWriteEnabled = desc.depthWriteEnabled;
-	ds->depthComp = compToVK[(int)desc.depthCompare];
+	ds->info.depthCompareOp = compToVK[(int)desc.depthCompare];
+	ds->info.depthTestEnable = desc.depthTestEnabled;
+	ds->info.depthWriteEnable = desc.depthWriteEnabled;
+	ds->info.stencilTestEnable = false;
+	ds->info.depthBoundsTestEnable = false;
+	if (ds->info.stencilTestEnable) {
+		CopySide(ds->info.front, desc.front);
+		CopySide(ds->info.back, desc.back);
+	}
 	return ds;
 }
 

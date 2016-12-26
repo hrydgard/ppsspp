@@ -83,6 +83,17 @@ static const D3DPRIMITIVETYPE primToD3D9[] = {
 	D3DPT_POINTLIST,
 };
 
+static const D3DSTENCILOP stencilOpToD3D9[] = {
+	D3DSTENCILOP_KEEP,
+	D3DSTENCILOP_ZERO,
+	D3DSTENCILOP_REPLACE,
+	D3DSTENCILOP_INCRSAT,
+	D3DSTENCILOP_DECRSAT,
+	D3DSTENCILOP_INVERT,
+	D3DSTENCILOP_INCR,
+	D3DSTENCILOP_DECR,
+};
+
 static const int primCountDivisor[] = {
 	1,
 	2,
@@ -101,11 +112,30 @@ public:
 	BOOL depthTestEnabled;
 	BOOL depthWriteEnabled;
 	D3DCMPFUNC depthCompare;
-
+	BOOL stencilEnabled;
+	D3DSTENCILOP stencilFail;
+	D3DSTENCILOP stencilZFail;
+	D3DSTENCILOP stencilPass;
+	D3DCMPFUNC stencilCompareOp;
+	uint8_t stencilReference;
+	uint8_t stencilCompareMask;
+	uint8_t stencilWriteMask;
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		device->SetRenderState(D3DRS_ZENABLE, depthTestEnabled);
-		device->SetRenderState(D3DRS_ZWRITEENABLE, depthWriteEnabled);
-		device->SetRenderState(D3DRS_ZFUNC, depthCompare);
+		if (depthTestEnabled) {
+			device->SetRenderState(D3DRS_ZWRITEENABLE, depthWriteEnabled);
+			device->SetRenderState(D3DRS_ZFUNC, depthCompare);
+		}
+		device->SetRenderState(D3DRS_STENCILENABLE, stencilEnabled);
+		if (stencilEnabled) {
+			device->SetRenderState(D3DRS_STENCILFAIL, stencilFail);
+			device->SetRenderState(D3DRS_STENCILZFAIL, stencilZFail);
+			device->SetRenderState(D3DRS_STENCILPASS, stencilPass);
+			device->SetRenderState(D3DRS_STENCILFUNC, stencilCompareOp);
+			device->SetRenderState(D3DRS_STENCILMASK, stencilCompareMask);
+			device->SetRenderState(D3DRS_STENCILREF, stencilReference);
+			device->SetRenderState(D3DRS_STENCILWRITEMASK, stencilWriteMask);
+		}
 	}
 };
 
@@ -591,6 +621,14 @@ DepthStencilState *D3D9Context::CreateDepthStencilState(const DepthStencilStateD
 	ds->depthTestEnabled = desc.depthTestEnabled;
 	ds->depthWriteEnabled = desc.depthWriteEnabled;
 	ds->depthCompare = compareToD3D9[(int)desc.depthCompare];
+	ds->stencilEnabled = desc.stencilEnabled;
+	ds->stencilCompareOp = compareToD3D9[(int)desc.front.compareOp];
+	ds->stencilPass = stencilOpToD3D9[(int)desc.front.passOp];
+	ds->stencilFail = stencilOpToD3D9[(int)desc.front.failOp];
+	ds->stencilZFail = stencilOpToD3D9[(int)desc.front.depthFailOp];
+	ds->stencilWriteMask = desc.front.writeMask;
+	ds->stencilReference = desc.front.reference;
+	ds->stencilCompareMask = desc.front.compareMask;
 	return ds;
 }
 
