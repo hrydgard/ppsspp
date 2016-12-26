@@ -11,7 +11,7 @@
 
 namespace Draw {
 	class DrawContext;
-	class ShaderSet;
+	class Pipeline;
 	class DepthStencilState;
 	class Texture;
 	class BlendState;
@@ -36,7 +36,7 @@ public:
 	UIContext();
 	~UIContext();
 
-	void Init(Draw::DrawContext *thin3d, Draw::ShaderSet *uiShaderTex, Draw::ShaderSet *uiShaderNoTex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+	void Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
 
 	void Begin();
 	void BeginNoTex();
@@ -90,8 +90,8 @@ private:
 	Draw::SamplerState *sampler_;
 	Draw::RasterState *rasterNoCull_;
 	Draw::BlendState *blendNormal_;
-	Draw::ShaderSet *uishader_;
-	Draw::ShaderSet *uishadernotex_;
+	Draw::Pipeline *ui_pipeline_;
+	Draw::Pipeline *ui_pipeline_notex_;
 	Draw::Texture *uitexture_;
 
 	DrawBuffer *uidrawbuffer_;

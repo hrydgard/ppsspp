@@ -115,6 +115,7 @@ public:
 
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		device->SetRenderState(D3DRS_CULLMODE, cullMode);
+		device->SetRenderState(D3DRS_SCISSORTESTENABLE, TRUE);
 	}
 };
 
@@ -279,9 +280,9 @@ private:
 	LPD3DXCONSTANTTABLE constantTable_;
 };
 
-class D3D9ShaderSet : public ShaderSet {
+class D3D9Pipeline : public Pipeline {
 public:
-	D3D9ShaderSet(LPDIRECT3DDEVICE9 device) : device_(device) {}
+	D3D9Pipeline(LPDIRECT3DDEVICE9 device) : device_(device) {}
 	D3D9ShaderModule *vshader;
 	D3D9ShaderModule *pshader;
 	void Apply(LPDIRECT3DDEVICE9 device);
@@ -453,47 +454,46 @@ public:
 	D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
 	~D3D9Context();
 
-	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc);
+	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	ShaderSet *CreateShaderSet(const ShaderSetDesc &desc) override;
+	Pipeline *CreatePipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
 	Texture *CreateTexture() override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
-	void SetBlendState(BlendState *state) {
+	void SetBlendState(BlendState *state) override {
 		D3D9BlendState *bs = static_cast<D3D9BlendState *>(state);
 		bs->Apply(device_);
 	}
-	void SetSamplerStates(int start, int count, SamplerState **states) {
+	void SetSamplerStates(int start, int count, SamplerState **states) override {
 		for (int i = 0; i < count; ++i) {
 			D3D9SamplerState *s = static_cast<D3D9SamplerState *>(states[start + i]);
 			s->Apply(device_, start + i);
 		}
 	}
-	void SetDepthStencilState(DepthStencilState *state) {
+	void SetDepthStencilState(DepthStencilState *state) override {
 		Thin3DDX9DepthStencilState *bs = static_cast<Thin3DDX9DepthStencilState *>(state);
 		bs->Apply(device_);
 	}
-	void SetRasterState(RasterState *state) {
+	void SetRasterState(RasterState *state) override {
 		D3D9RasterState *bs = static_cast<D3D9RasterState *>(state);
 		bs->Apply(device_);
 	}
 
-	void BindTextures(int start, int count, Texture **textures);
+	void BindTextures(int start, int count, Texture **textures) override;
 
 	// Raster state
-	void SetScissorEnabled(bool enable);
-	void SetScissorRect(int left, int top, int width, int height);
-	void SetViewports(int count, Viewport *viewports);
+	void SetScissorRect(int left, int top, int width, int height) override;
+	void SetViewports(int count, Viewport *viewports) override;
 
-	void Draw(Primitive prim, ShaderSet *pipeline, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, ShaderSet *pipeline, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, Pipeline *pipeline, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, Pipeline *pipeline, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
 	std::string GetInfoString(InfoField info) const override {
@@ -543,12 +543,12 @@ ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, const char *gls
 	}
 }
 
-ShaderSet *D3D9Context::CreateShaderSet(const ShaderSetDesc &desc) {
+Pipeline *D3D9Context::CreatePipeline(const PipelineDesc &desc) {
 	if (!desc.shaders.size()) {
 		ELOG("ShaderSet requires at least one shader");
 		return NULL;
 	}
-	D3D9ShaderSet *shaderSet = new D3D9ShaderSet(device_);
+	D3D9Pipeline *shaderSet = new D3D9Pipeline(device_);
 	for (auto iter : desc.shaders) {
 		if (iter->GetStage() == ShaderStage::FRAGMENT) {
 			shaderSet->pshader = static_cast<D3D9ShaderModule *>(iter);
@@ -698,15 +698,15 @@ Buffer *D3D9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DDX9Buffer(device_, size, usageFlags);
 }
 
-void D3D9ShaderSet::Apply(LPDIRECT3DDEVICE9 device) {
+void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device) {
 	vshader->Apply(device);
 	pshader->Apply(device);
 }
 
-void D3D9Context::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
+void D3D9Context::Draw(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
-	D3D9ShaderSet *ss = static_cast<D3D9ShaderSet*>(shaderSet);
+	D3D9Pipeline *ss = static_cast<D3D9Pipeline*>(shaderSet);
 
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ss->Apply(device_);
@@ -714,11 +714,11 @@ void D3D9Context::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format
 	device_->DrawPrimitive(primToD3D9[(int)prim], offset, vertexCount / 3);
 }
 
-void D3D9Context::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void D3D9Context::DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 	Thin3DDX9Buffer *ibuf = static_cast<Thin3DDX9Buffer *>(idata);
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
-	D3D9ShaderSet *ss = static_cast<D3D9ShaderSet*>(shaderSet);
+	D3D9Pipeline *ss = static_cast<D3D9Pipeline*>(shaderSet);
 
 	ss->Apply(device_);
 	fmt->Apply(device_);
@@ -727,9 +727,9 @@ void D3D9Context::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout 
 	device_->DrawIndexedPrimitive(primToD3D9[(int)prim], 0, 0, vertexCount, 0, vertexCount / primCountDivisor[(int)prim]);
 }
 
-void D3D9Context::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
+void D3D9Context::DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
-	D3D9ShaderSet *ss = static_cast<D3D9ShaderSet*>(shaderSet);
+	D3D9Pipeline *ss = static_cast<D3D9Pipeline*>(shaderSet);
 
 	ss->Apply(device_);
 	fmt->Apply(device_);
@@ -747,10 +747,6 @@ void D3D9Context::Clear(int mask, uint32_t colorval, float depthVal, int stencil
 	if (mask & ClearFlag::STENCIL) d3dMask |= D3DCLEAR_STENCIL;
 
 	device_->Clear(0, NULL, d3dMask, (D3DCOLOR)SwapRB(colorval), depthVal, stencilVal);
-}
-
-void D3D9Context::SetScissorEnabled(bool enable) {
-	device_->SetRenderState(D3DRS_SCISSORTESTENABLE, enable);
 }
 
 void D3D9Context::SetScissorRect(int left, int top, int width, int height) {

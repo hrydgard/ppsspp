@@ -144,7 +144,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	thin3d->SetSamplerStates(0, 1, &sampler);
 	thin3d->SetDepthStencilState(depth);
 	thin3d->SetRasterState(rasterNoCull);
-	thin3d->SetScissorEnabled(false);
+	thin3d->SetScissorRect(0, 0, dstwidth, dstheight);
 
 	float u0 = 0.0f;
 	float u1;
@@ -232,7 +232,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	idata->SetData((const uint8_t *)indexes, sizeof(indexes));
 
 	thin3d->BindTexture(0, fbTex);
-	ShaderSet *texColor = thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D);
+	Pipeline *texColor = thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D);
 
 	static const float identity4x4[16] = {
 		1.0f, 0.0f, 0.0f, 0.0f,

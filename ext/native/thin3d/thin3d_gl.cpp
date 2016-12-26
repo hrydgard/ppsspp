@@ -192,6 +192,7 @@ public:
 		glEnable(GL_CULL_FACE);
 		glFrontFace(frontFace);
 		glCullFace(cullMode);
+		glEnable(GL_SCISSOR_TEST);
 	}
 
 	GLboolean cullEnable;
@@ -354,15 +355,14 @@ struct UniformInfo {
 	int loc_;
 };
 
-// TODO: Fold BlendState into this? Seems likely to be right for DX12 etc.
 // TODO: Add Uniform Buffer support.
-class OpenGLShaderSet : public ShaderSet, GfxResourceHolder {
+class OpenGLPipeline : public Pipeline, GfxResourceHolder {
 public:
-	OpenGLShaderSet() {
+	OpenGLPipeline() {
 		program_ = 0;
 		register_gl_resource_holder(this);
 	}
-	~OpenGLShaderSet() {
+	~OpenGLPipeline() {
 		unregister_gl_resource_holder(this);
 		for (auto iter : shaders) {
 			iter->Release();
@@ -410,7 +410,7 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	ShaderSet *CreateShaderSet(const ShaderSetDesc &desc) override;
+	Pipeline *CreatePipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
@@ -456,14 +456,6 @@ public:
 
 	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
-	void SetScissorEnabled(bool enable) override {
-		if (enable) {
-			glEnable(GL_SCISSOR_TEST);
-		} else {
-			glDisable(GL_SCISSOR_TEST);
-		}
-	}
-
 	void SetScissorRect(int left, int top, int width, int height) override {
 		glScissor(left, targetHeight_ - (top + height), width, height);
 	}
@@ -481,9 +473,9 @@ public:
 	void BindTextures(int start, int count, Texture **textures) override;
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	std::string GetInfoString(InfoField info) const override {
@@ -806,12 +798,12 @@ Buffer *OpenGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new OpenGLBuffer(size, usageFlags);
 }
 
-ShaderSet *OpenGLContext::CreateShaderSet(const ShaderSetDesc &desc) {
+Pipeline *OpenGLContext::CreatePipeline(const PipelineDesc &desc) {
 	if (!desc.shaders.size()) {
 		ELOG("ShaderSet requires at least one shader");
 		return NULL;
 	}
-	OpenGLShaderSet *shaderSet = new OpenGLShaderSet();
+	OpenGLPipeline *shaderSet = new OpenGLPipeline();
 	for (auto iter : desc.shaders) {
 		iter->AddRef();
 		shaderSet->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
@@ -848,7 +840,7 @@ ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, const char *g
 	}
 }
 
-bool OpenGLShaderSet::Link() {
+bool OpenGLPipeline::Link() {
 	program_ = glCreateProgram();
 	for (auto iter : shaders) {
 		glAttachShader(program_, iter->GetShader());
@@ -897,7 +889,7 @@ bool OpenGLShaderSet::Link() {
 	return true;
 }
 
-int OpenGLShaderSet::GetUniformLoc(const char *name) {
+int OpenGLPipeline::GetUniformLoc(const char *name) {
 	auto iter = uniforms_.find(name);
 	int loc = -1;
 	if (iter != uniforms_.end()) {
@@ -911,7 +903,7 @@ int OpenGLShaderSet::GetUniformLoc(const char *name) {
 	return loc;
 }
 
-void OpenGLShaderSet::SetVector(const char *name, float *value, int n) {
+void OpenGLPipeline::SetVector(const char *name, float *value, int n) {
 	glUseProgram(program_);
 	int loc = GetUniformLoc(name);
 	if (loc != -1) {
@@ -924,7 +916,7 @@ void OpenGLShaderSet::SetVector(const char *name, float *value, int n) {
 	}
 }
 
-void OpenGLShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
+void OpenGLPipeline::SetMatrix4x4(const char *name, const float value[16]) {
 	glUseProgram(program_);
 	int loc = GetUniformLoc(name);
 	if (loc != -1) {
@@ -932,16 +924,16 @@ void OpenGLShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
 	}
 }
 
-void OpenGLShaderSet::Apply() {
+void OpenGLPipeline::Apply() {
 	glUseProgram(program_);
 }
 
-void OpenGLShaderSet::Unapply() {
+void OpenGLPipeline::Unapply() {
 	glUseProgram(0);
 }
 
-void OpenGLContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
-	OpenGLShaderSet *ss = static_cast<OpenGLShaderSet *>(shaderSet);
+void OpenGLContext::Draw(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
+	OpenGLPipeline *ss = static_cast<OpenGLPipeline *>(shaderSet);
 	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
 	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
 
@@ -955,8 +947,8 @@ void OpenGLContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *form
 	fmt->Unapply();
 }
 
-void OpenGLContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
-	OpenGLShaderSet *ss = static_cast<OpenGLShaderSet *>(shaderSet);
+void OpenGLContext::DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+	OpenGLPipeline *ss = static_cast<OpenGLPipeline *>(shaderSet);
 	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
 	OpenGLBuffer *ibuf = static_cast<OpenGLBuffer *>(idata);
 	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
@@ -973,8 +965,8 @@ void OpenGLContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayou
 	fmt->Unapply();
 }
 
-void OpenGLContext::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
-	OpenGLShaderSet *ss = static_cast<OpenGLShaderSet *>(shaderSet);
+void OpenGLContext::DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
+	OpenGLPipeline *ss = static_cast<OpenGLPipeline *>(shaderSet);
 	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
 
 	fmt->Apply(vdata);

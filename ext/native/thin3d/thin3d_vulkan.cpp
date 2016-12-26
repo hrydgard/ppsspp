@@ -327,14 +327,14 @@ public:
 	int stride_;
 };
 
-class VKShaderSet : public ShaderSet {
+class VKPipeline : public Pipeline {
 public:
-	VKShaderSet() {
+	VKPipeline() {
 		// HACK! Hardcoded
 		uboSize_ = 16 * sizeof(float);  // WorldViewProj
 		ubo_ = new uint8_t[uboSize_];
 	}
-	~VKShaderSet() {
+	~VKPipeline() {
 		for (auto iter : shaders) {
 			iter->Release();
 		}
@@ -366,7 +366,7 @@ private:
 struct PipelineKey {
 	VKDepthStencilState *depthStencil;
 	VKBlendState *blend;
-	VKShaderSet *shaderSet;
+	VKPipeline *shaderSet;
 	VkPrimitiveTopology topology;
 	VKRasterState *raster;
 
@@ -412,7 +412,7 @@ public:
 	InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
-	ShaderSet *CreateShaderSet(const ShaderSetDesc &desc) override;
+	Pipeline *CreatePipeline(const PipelineDesc &desc) override;
 	// The implementation makes the choice of which shader code to use.
 	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
@@ -437,11 +437,6 @@ public:
 		curRasterState_ = s;
 	}
 
-	void SetScissorEnabled(bool enable) override {
-		scissorEnabled_ = enable;
-		scissorDirty_ = true;
-	}
-
 	void SetScissorRect(int left, int top, int width, int height) override;
 
 	void SetViewports(int count, Viewport *viewports) override;
@@ -451,9 +446,9 @@ public:
 	void SetSamplerStates(int start, int count, SamplerState **state) override;
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -491,7 +486,7 @@ private:
 	// These are used to compose the pipeline cache key.
 	VKBlendState *curBlendState_;
 	VKDepthStencilState *curDepthStencilState_;
-	VKShaderSet *curShaderSet_;
+	VKPipeline *curPipeline_;
 	VkPrimitiveTopology curPrim_;
 	VKVertexFormat *curVertexFormat_;
 	VKRasterState *curRasterState_; 
@@ -513,9 +508,6 @@ private:
 	VkViewport viewport_;
 	bool scissorDirty_;
 	VkRect2D scissor_;
-	bool scissorEnabled_;
-
-	VkRect2D noScissor_;  // Simply a scissor covering the screen.
 
 	enum {MAX_BOUND_TEXTURES = 1};
 	VKTexture *boundTextures_[MAX_BOUND_TEXTURES];
@@ -658,11 +650,10 @@ VKContext::VKContext(VulkanContext *vulkan)
 
 	queue_ = vulkan->GetGraphicsQueue();
 	queueFamilyIndex_ = vulkan->GetGraphicsQueueFamilyIndex();
-	noScissor_.offset.x = 0;
-	noScissor_.offset.y = 0;
-	noScissor_.extent.width = pixel_xres;
-	noScissor_.extent.height = pixel_yres;
-	scissor_ = noScissor_;
+	scissor_.offset.x = 0;
+	scissor_.offset.y = 0;
+	scissor_.extent.width = pixel_xres;
+	scissor_.extent.height = pixel_yres;
 	viewport_.x = 0;
 	viewport_.y = 0;
 	viewport_.width = pixel_xres;
@@ -769,8 +760,8 @@ void VKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencil
 	VkResult result = vkResetDescriptorPool(device_, frame->descriptorPool, 0);
 	assert(result == VK_SUCCESS);
 
-	noScissor_.extent.width = pixel_xres;
-	noScissor_.extent.height = pixel_yres;
+	scissor_.extent.width = pixel_xres;
+	scissor_.extent.height = pixel_yres;
 	scissorDirty_ = true;
 	viewportDirty_ = true;
 }
@@ -812,7 +803,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	VkDescriptorBufferInfo bufferDesc;
 	bufferDesc.buffer = buf;
 	bufferDesc.offset = 0;
-	bufferDesc.range = curShaderSet_->GetUBOSize();
+	bufferDesc.range = curPipeline_->GetUBOSize();
 
 	VkDescriptorImageInfo imageDesc;
 	imageDesc.imageView = boundTextures_[0]->GetImageView();
@@ -850,7 +841,7 @@ VkPipeline VKContext::GetOrCreatePipeline() {
 	PipelineKey key;
 	key.blend = curBlendState_;
 	key.depthStencil = curDepthStencilState_;
-	key.shaderSet = curShaderSet_;
+	key.shaderSet = curPipeline_;
 	key.topology = curPrim_;
 	key.raster = curRasterState_;
 
@@ -860,9 +851,9 @@ VkPipeline VKContext::GetOrCreatePipeline() {
 	}
 
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
-	stages.resize(curShaderSet_->shaders.size());
+	stages.resize(curPipeline_->shaders.size());
 	int i = 0;
-	for (auto &iter : curShaderSet_->shaders) {
+	for (auto &iter : curPipeline_->shaders) {
 		VkPipelineShaderStageCreateInfo &stage = stages[i++];
 		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		stage.pNext = nullptr;
@@ -959,11 +950,7 @@ void VKContext::SetViewports(int count, Viewport *viewports) {
 
 void VKContext::ApplyDynamicState() {
 	if (scissorDirty_) {
-		if (scissorEnabled_) {
-			vkCmdSetScissor(cmd_, 0, 1, &scissor_);
-		} else {
-			vkCmdSetScissor(cmd_, 0, 1, &noScissor_);
-		}
+		vkCmdSetScissor(cmd_, 0, 1, &scissor_);
 		scissorDirty_ = false;
 	}
 	if (viewportDirty_) {
@@ -1035,12 +1022,12 @@ Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DVKBuffer(size, usageFlags);
 }
 
-ShaderSet *VKContext::CreateShaderSet(const ShaderSetDesc &desc) {
+Pipeline *VKContext::CreatePipeline(const PipelineDesc &desc) {
 	if (!desc.shaders.size()) {
 		ELOG("ShaderSet requires at least one shader");
 		return NULL;
 	}
-	VKShaderSet *shaderSet = new VKShaderSet();
+	VKPipeline *shaderSet = new VKPipeline();
 	for (auto iter : desc.shaders) {
 		iter->AddRef();
 		shaderSet->shaders.push_back(static_cast<VKShaderModule *>(iter));
@@ -1070,12 +1057,12 @@ ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, const char *glsl_
 	}
 }
 
-bool VKShaderSet::Link() {
+bool VKPipeline::Link() {
 	// There is no link step. However, we will create and cache Pipeline objects in the device context.
 	return true;
 }
 
-int VKShaderSet::GetUniformLoc(const char *name) {
+int VKPipeline::GetUniformLoc(const char *name) {
 	int loc = -1;
 
 	// HACK! As we only use one uniform we hardcode it.
@@ -1086,11 +1073,11 @@ int VKShaderSet::GetUniformLoc(const char *name) {
 	return loc;
 }
 
-void VKShaderSet::SetVector(const char *name, float *value, int n) {
+void VKPipeline::SetVector(const char *name, float *value, int n) {
 	// TODO: Implement
 }
 
-void VKShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
+void VKPipeline::SetMatrix4x4(const char *name, const float value[16]) {
 	int loc = GetUniformLoc(name);
 	if (loc != -1) {
 		memcpy(ubo_ + loc, value, 16 * sizeof(float));
@@ -1115,21 +1102,21 @@ inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	}
 }
 
-void VKContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
+void VKContext::Draw(Primitive prim, Pipeline *pipeline, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
-	curShaderSet_ = (VKShaderSet *)shaderSet;
+	curPipeline_ = (VKPipeline *)pipeline;
 	curVertexFormat_ = (VKVertexFormat *)format;
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
 
 	VkBuffer vulkanVbuf;
 	VkBuffer vulkanUBObuf;
-	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_, &vulkanUBObuf);
+	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
 
-	VkPipeline pipeline = GetOrCreatePipeline();
-	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	VkPipeline vkpipeline = GetOrCreatePipeline();
+	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, vkpipeline);
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
 	VkBuffer buffers[1] = { vulkanVbuf };
@@ -1138,18 +1125,18 @@ void VKContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, 
 	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
 }
 
-void VKContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void VKContext::DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
-	curShaderSet_ = (VKShaderSet *)shaderSet;
+	curPipeline_ = (VKPipeline *)shaderSet;
 	curVertexFormat_ = (VKVertexFormat *)format;
 
 	Thin3DVKBuffer *ibuf = static_cast<Thin3DVKBuffer *>(idata);
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
 
 	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
-	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_, &vulkanUBObuf);
+	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
 	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), &vulkanIbuf);
 
@@ -1167,16 +1154,16 @@ void VKContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *f
 	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
 }
 
-void VKContext::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
+void VKContext::DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
 	ApplyDynamicState();
 
 	curPrim_ = PrimToVK(prim);
-	curShaderSet_ = (VKShaderSet *)shaderSet;
+	curPipeline_ = (VKPipeline *)shaderSet;
 	curVertexFormat_ = (VKVertexFormat *)format;
 
 	VkBuffer vulkanVbuf, vulkanUBObuf;
 	size_t vbBindOffset = push_->Push(vdata, vertexCount * curVertexFormat_->stride_, &vulkanVbuf);
-	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_, &vulkanUBObuf);
+	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
 	VkPipeline pipeline = GetOrCreatePipeline();
 	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);

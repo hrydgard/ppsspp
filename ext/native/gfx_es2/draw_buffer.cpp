@@ -65,7 +65,7 @@ void DrawBuffer::Shutdown() {
 	inited_ = false;
 }
 
-void DrawBuffer::Begin(Draw::ShaderSet *program, DrawBufferPrimitiveMode dbmode) {
+void DrawBuffer::Begin(Draw::Pipeline *program, DrawBufferPrimitiveMode dbmode) {
 	shaderSet_ = program;
 	count_ = 0;
 	mode_ = dbmode;

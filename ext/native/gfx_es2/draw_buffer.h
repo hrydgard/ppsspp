@@ -43,7 +43,7 @@ enum {
 };
 
 namespace Draw {
-	class ShaderSet;
+	class Pipeline;
 }
 
 enum DrawBufferPrimitiveMode {
@@ -63,7 +63,7 @@ public:
 	DrawBuffer();
 	~DrawBuffer();
 
-	void Begin(Draw::ShaderSet *shaders, DrawBufferPrimitiveMode mode = DBMODE_NORMAL);
+	void Begin(Draw::Pipeline *shaders, DrawBufferPrimitiveMode mode = DBMODE_NORMAL);
 	void End();
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
@@ -160,7 +160,7 @@ private:
 	Draw::DrawContext *t3d_;
 	Draw::Buffer *vbuf_;
 	Draw::InputLayout *vformat_;
-	Draw::ShaderSet *shaderSet_;
+	Draw::Pipeline *shaderSet_;
 
 	Vertex *verts_;
 	int count_;

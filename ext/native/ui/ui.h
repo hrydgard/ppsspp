@@ -61,7 +61,7 @@ private:
 
 
 // Call at start of frame
-void UIBegin(Draw::ShaderSet *shaderSet);
+void UIBegin(Draw::Pipeline *shaderSet);
 
 // Call at end of frame.
 

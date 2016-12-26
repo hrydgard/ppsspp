@@ -6,7 +6,7 @@
 #include "gfx_es2/draw_text.h"
 
 UIContext::UIContext()
-	: uishader_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {
+	: ui_pipeline_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 	fontStyle_ = new UI::FontStyle();
@@ -23,7 +23,7 @@ UIContext::~UIContext() {
 	blendNormal_->Release();
 }
 
-void UIContext::Init(Draw::DrawContext *thin3d, Draw::ShaderSet *uishader, Draw::ShaderSet *uishadernotex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 	using namespace Draw;
 	thin3d_ = thin3d;
 	blendNormal_ = thin3d_->CreateBlendState({ true, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
@@ -33,8 +33,8 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::ShaderSet *uishader, Draw:
 	desc.cull = CullMode::NONE;
 	desc.facing = Facing::CCW;
 	rasterNoCull_ = thin3d_->CreateRasterState(desc);
-	uishader_ = uishader;
-	uishadernotex_ = uishadernotex;
+	ui_pipeline_ = uipipe;
+	ui_pipeline_notex_ = uipipenotex;
 	uitexture_ = uitexture;
 	uidrawbuffer_ = uidrawbuffer;
 	uidrawbufferTop_ = uidrawbufferTop;
@@ -51,15 +51,14 @@ void UIContext::Begin() {
 	thin3d_->SetDepthStencilState(depth_);
 	thin3d_->SetRasterState(rasterNoCull_);
 	thin3d_->BindTexture(0, uitexture_);
-	thin3d_->SetScissorEnabled(false);
-	UIBegin(uishader_);
+	UIBegin(ui_pipeline_);
 }
 
 void UIContext::BeginNoTex() {
 	thin3d_->SetBlendState(blendNormal_);
 	thin3d_->SetSamplerStates(0, 1, &sampler_);
 	thin3d_->SetRasterState(rasterNoCull_);
-	UIBegin(uishadernotex_);
+	UIBegin(ui_pipeline_notex_);
 }
 
 void UIContext::RebindTexture() const {
@@ -114,9 +113,9 @@ void UIContext::ActivateTopScissor() {
 		int w = scale * bounds.w;
 		int h = scale * bounds.h;
 		thin3d_->SetScissorRect(x, y, w, h);
-		thin3d_->SetScissorEnabled(true);
-	} else {
-		thin3d_->SetScissorEnabled(false);
+	}
+	else {
+		thin3d_->SetScissorRect(bounds_.x, bounds_.y, bounds_.w, bounds_.h);
 	}
 }
 

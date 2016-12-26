@@ -359,7 +359,7 @@ public:
 	virtual ShaderStage GetStage() const = 0;
 };
 
-class ShaderSet : public RefCountedObject {
+class Pipeline : public RefCountedObject {
 public:
 	// TODO: Use a uniform-buffer based interface instead.
 	virtual void SetVector(const char *name, float *value, int n) = 0;
@@ -435,7 +435,7 @@ struct RasterStateDesc {
 	Facing facing;
 };
 
-struct ShaderSetDesc {
+struct PipelineDesc {
 	std::vector<ShaderModule *> shaders;
 };
 
@@ -450,7 +450,7 @@ public:
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
-	virtual ShaderSet *CreateShaderSet(const ShaderSetDesc &desc) = 0;
+	virtual Pipeline *CreatePipeline(const PipelineDesc &desc) = 0;
 	virtual InputLayout *CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, ShaderModule *vshader) = 0;
 
 	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
@@ -463,7 +463,7 @@ public:
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }
 	ShaderModule *GetFshaderPreset(FragmentShaderPreset preset) { return vsPresets_[preset]; }
-	ShaderSet *GetShaderSetPreset(ShaderSetPreset preset) { return ssPresets_[preset]; }
+	Pipeline *GetShaderSetPreset(ShaderSetPreset preset) { return ssPresets_[preset]; }
 
 	// The implementation makes the choice of which shader code to use.
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
@@ -480,14 +480,13 @@ public:
 	}  // from sampler 0 and upwards
 
 	// Raster state
-	virtual void SetScissorEnabled(bool enable) = 0;
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
 	virtual void SetViewports(int count, Viewport *viewports) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
-	virtual void Draw(Primitive prim, ShaderSet *pipeline, InputLayout *format, Buffer *vdata, int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(Primitive prim, ShaderSet *pipeline, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
-	virtual void DrawUP(Primitive prim, ShaderSet *pipeline, InputLayout *format, const void *vdata, int vertexCount) = 0;
+	virtual void Draw(Primitive prim, Pipeline *pipeline, InputLayout *format, Buffer *vdata, int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(Primitive prim, Pipeline *pipeline, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
+	virtual void DrawUP(Primitive prim, Pipeline *pipeline, InputLayout *format, const void *vdata, int vertexCount) = 0;
 	
 	// Render pass management. Default implementations here.
 	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
@@ -510,7 +509,7 @@ protected:
 
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];
-	ShaderSet *ssPresets_[SS_MAX_PRESET];
+	Pipeline *ssPresets_[SS_MAX_PRESET];
 
 	int targetWidth_;
 	int targetHeight_;
