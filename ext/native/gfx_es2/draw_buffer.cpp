@@ -66,7 +66,7 @@ void DrawBuffer::Shutdown() {
 }
 
 void DrawBuffer::Begin(Draw::Pipeline *program, DrawBufferPrimitiveMode dbmode) {
-	shaderSet_ = program;
+	pipeline_ = program;
 	count_ = 0;
 	mode_ = dbmode;
 }
@@ -77,7 +77,7 @@ void DrawBuffer::End() {
 
 void DrawBuffer::Flush(bool set_blend_state) {
 	using namespace Draw;
-	if (!shaderSet_) {
+	if (!pipeline_) {
 		ELOG("No program set!");
 		return;
 	}
@@ -85,14 +85,14 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	if (count_ == 0)
 		return;
 
-	shaderSet_->SetMatrix4x4("WorldViewProj", drawMatrix_.getReadPtr());
-
+	pipeline_->SetMatrix4x4("WorldViewProj", drawMatrix_.getReadPtr());
+	t3d_->BindPipeline(pipeline_);
 	if (vbuf_) {
 		vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
 		int offset = 0;
-		t3d_->Draw(mode_ == DBMODE_NORMAL ? Primitive::TRIANGLE_LIST : Primitive::LINE_LIST, shaderSet_, vformat_, vbuf_, count_, offset);
+		t3d_->Draw(mode_ == DBMODE_NORMAL ? Primitive::TRIANGLE_LIST : Primitive::LINE_LIST, vformat_, vbuf_, count_, offset);
 	} else {
-		t3d_->DrawUP(mode_ == DBMODE_NORMAL ? Primitive::TRIANGLE_LIST : Primitive::LINE_LIST, shaderSet_, vformat_, (const void *)verts_, count_);
+		t3d_->DrawUP(mode_ == DBMODE_NORMAL ? Primitive::TRIANGLE_LIST : Primitive::LINE_LIST, vformat_, (const void *)verts_, count_);
 	}
 	count_ = 0;
 }

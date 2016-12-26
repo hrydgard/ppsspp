@@ -421,7 +421,7 @@ public:
 		s->Apply();
 	}
 
-	void SetSamplerStates(int start, int count, SamplerState **states) override {
+	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		if (samplerStates_.size() < (size_t)(start + count)) {
 			samplerStates_.resize(start + count);
 		}
@@ -471,11 +471,14 @@ public:
 	}
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindPipeline(Pipeline *pipeline) {
+		curPipeline_ = (OpenGLPipeline *)pipeline;
+	}
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	std::string GetInfoString(InfoField info) const override {
@@ -510,6 +513,7 @@ public:
 	}
 
 	std::vector<OpenGLSamplerState *> samplerStates_;
+	OpenGLPipeline *curPipeline_;
 };
 
 OpenGLContext::OpenGLContext() {
@@ -932,51 +936,48 @@ void OpenGLPipeline::Unapply() {
 	glUseProgram(0);
 }
 
-void OpenGLContext::Draw(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
-	OpenGLPipeline *ss = static_cast<OpenGLPipeline *>(shaderSet);
+void OpenGLContext::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
 	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
 
 	vbuf->Bind();
 	fmt->Apply();
-	ss->Apply();
+	curPipeline_->Apply();
 
 	glDrawArrays(primToGL[(int)prim], offset, vertexCount);
 
-	ss->Unapply();
+	curPipeline_->Unapply();
 	fmt->Unapply();
 }
 
-void OpenGLContext::DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
-	OpenGLPipeline *ss = static_cast<OpenGLPipeline *>(shaderSet);
+void OpenGLContext::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
 	OpenGLBuffer *ibuf = static_cast<OpenGLBuffer *>(idata);
 	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
 
 	vbuf->Bind();
 	fmt->Apply();
-	ss->Apply();
+	curPipeline_->Apply();
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
 	ibuf->Bind();
 
 	glDrawElements(primToGL[(int)prim], vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	
-	ss->Unapply();
+	curPipeline_->Unapply();
 	fmt->Unapply();
 }
 
-void OpenGLContext::DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
-	OpenGLPipeline *ss = static_cast<OpenGLPipeline *>(shaderSet);
+void OpenGLContext::DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) {
 	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
 
 	fmt->Apply(vdata);
-	ss->Apply();
+	curPipeline_->Apply();
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glDrawArrays(primToGL[(int)prim], 0, vertexCount);
 
-	ss->Unapply();
+	curPipeline_->Unapply();
 	fmt->Unapply();
 }
 

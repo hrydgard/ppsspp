@@ -47,7 +47,7 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 
 void UIContext::Begin() {
 	thin3d_->SetBlendState(blendNormal_);
-	thin3d_->SetSamplerStates(0, 1, &sampler_);
+	thin3d_->BindSamplerStates(0, 1, &sampler_);
 	thin3d_->SetDepthStencilState(depth_);
 	thin3d_->SetRasterState(rasterNoCull_);
 	thin3d_->BindTexture(0, uitexture_);
@@ -56,7 +56,7 @@ void UIContext::Begin() {
 
 void UIContext::BeginNoTex() {
 	thin3d_->SetBlendState(blendNormal_);
-	thin3d_->SetSamplerStates(0, 1, &sampler_);
+	thin3d_->BindSamplerStates(0, 1, &sampler_);
 	thin3d_->SetRasterState(rasterNoCull_);
 	UIBegin(ui_pipeline_notex_);
 }

@@ -470,12 +470,6 @@ public:
 		D3D9BlendState *bs = static_cast<D3D9BlendState *>(state);
 		bs->Apply(device_);
 	}
-	void SetSamplerStates(int start, int count, SamplerState **states) override {
-		for (int i = 0; i < count; ++i) {
-			D3D9SamplerState *s = static_cast<D3D9SamplerState *>(states[start + i]);
-			s->Apply(device_, start + i);
-		}
-	}
 	void SetDepthStencilState(DepthStencilState *state) override {
 		Thin3DDX9DepthStencilState *bs = static_cast<Thin3DDX9DepthStencilState *>(state);
 		bs->Apply(device_);
@@ -486,14 +480,23 @@ public:
 	}
 
 	void BindTextures(int start, int count, Texture **textures) override;
+	void BindSamplerStates(int start, int count, SamplerState **states) override {
+		for (int i = 0; i < count; ++i) {
+			D3D9SamplerState *s = static_cast<D3D9SamplerState *>(states[start + i]);
+			s->Apply(device_, start + i);
+		}
+	}
+	void BindPipeline(Pipeline *pipeline) {
+		curPipeline_ = (D3D9Pipeline *)pipeline;
+	}
 
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
 
-	void Draw(Primitive prim, Pipeline *pipeline, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, Pipeline *pipeline, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
 	std::string GetInfoString(InfoField info) const override {
@@ -517,6 +520,7 @@ private:
 	D3DADAPTER_IDENTIFIER9 identifier_;
 	D3DCAPS9 caps_;
 	char shadeLangVersion_[64];
+	D3D9Pipeline *curPipeline_;
 };
 
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
@@ -703,35 +707,32 @@ void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device) {
 	pshader->Apply(device);
 }
 
-void D3D9Context::Draw(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
+void D3D9Context::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
-	D3D9Pipeline *ss = static_cast<D3D9Pipeline*>(shaderSet);
 
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
-	ss->Apply(device_);
+	curPipeline_->Apply(device_);
 	fmt->Apply(device_);
 	device_->DrawPrimitive(primToD3D9[(int)prim], offset, vertexCount / 3);
 }
 
-void D3D9Context::DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void D3D9Context::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 	Thin3DDX9Buffer *ibuf = static_cast<Thin3DDX9Buffer *>(idata);
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
-	D3D9Pipeline *ss = static_cast<D3D9Pipeline*>(shaderSet);
 
-	ss->Apply(device_);
+	curPipeline_->Apply(device_);
 	fmt->Apply(device_);
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ibuf->BindAsIndexBuf(device_);
 	device_->DrawIndexedPrimitive(primToD3D9[(int)prim], 0, 0, vertexCount, 0, vertexCount / primCountDivisor[(int)prim]);
 }
 
-void D3D9Context::DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
+void D3D9Context::DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) {
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
-	D3D9Pipeline *ss = static_cast<D3D9Pipeline*>(shaderSet);
 
-	ss->Apply(device_);
+	curPipeline_->Apply(device_);
 	fmt->Apply(device_);
 	device_->DrawPrimitiveUP(primToD3D9[(int)prim], vertexCount / 3, vdata, fmt->GetStride());
 }

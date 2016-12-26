@@ -141,7 +141,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	} else {
 		sampler = samplerLinear;
 	}
-	thin3d->SetSamplerStates(0, 1, &sampler);
+	thin3d->BindSamplerStates(0, 1, &sampler);
 	thin3d->SetDepthStencilState(depth);
 	thin3d->SetRasterState(rasterNoCull);
 	thin3d->SetScissorRect(0, 0, dstwidth, dstheight);
@@ -242,7 +242,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	};
 
 	texColor->SetMatrix4x4("WorldViewProj", identity4x4);
-	thin3d->DrawIndexed(Primitive::TRIANGLE_LIST, texColor, vformat, vdata, idata, 6, 0);
+	thin3d->BindPipeline(texColor);
+	thin3d->DrawIndexed(Primitive::TRIANGLE_LIST, vformat, vdata, idata, 6, 0);
 }
 
 void SoftGPU::CopyDisplayToOutput()

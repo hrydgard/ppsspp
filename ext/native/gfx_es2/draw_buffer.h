@@ -160,7 +160,7 @@ private:
 	Draw::DrawContext *t3d_;
 	Draw::Buffer *vbuf_;
 	Draw::InputLayout *vformat_;
-	Draw::Pipeline *shaderSet_;
+	Draw::Pipeline *pipeline_;
 
 	Vertex *verts_;
 	int count_;

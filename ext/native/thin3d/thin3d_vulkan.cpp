@@ -441,14 +441,16 @@ public:
 
 	void SetViewports(int count, Viewport *viewports) override;
 
+	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
-
-	void SetSamplerStates(int start, int count, SamplerState **state) override;
+	void BindPipeline(Pipeline *pipeline) override {
+		curPipeline_ = (VKPipeline *)pipeline;
+	}
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
-	void DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -584,7 +586,7 @@ RasterState *VKContext::CreateRasterState(const RasterStateDesc &desc) {
 	return new VKRasterState(vulkan_, desc);
 }
 
-void VKContext::SetSamplerStates(int start, int count, SamplerState **state) {
+void VKContext::BindSamplerStates(int start, int count, SamplerState **state) {
 	for (int i = start; i < start + count; i++) {
 		boundSamplers_[i] = (VKSamplerState *)state[i];
 	}
@@ -1102,11 +1104,10 @@ inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	}
 }
 
-void VKContext::Draw(Primitive prim, Pipeline *pipeline, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
+void VKContext::Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
-	curPipeline_ = (VKPipeline *)pipeline;
 	curVertexFormat_ = (VKVertexFormat *)format;
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
 
@@ -1125,11 +1126,10 @@ void VKContext::Draw(Primitive prim, Pipeline *pipeline, InputLayout *format, Bu
 	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
 }
 
-void VKContext::DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void VKContext::DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
-	curPipeline_ = (VKPipeline *)shaderSet;
 	curVertexFormat_ = (VKVertexFormat *)format;
 
 	Thin3DVKBuffer *ibuf = static_cast<Thin3DVKBuffer *>(idata);
@@ -1154,11 +1154,10 @@ void VKContext::DrawIndexed(Primitive prim, Pipeline *shaderSet, InputLayout *fo
 	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
 }
 
-void VKContext::DrawUP(Primitive prim, Pipeline *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
+void VKContext::DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) {
 	ApplyDynamicState();
 
 	curPrim_ = PrimToVK(prim);
-	curPipeline_ = (VKPipeline *)shaderSet;
 	curVertexFormat_ = (VKVertexFormat *)format;
 
 	VkBuffer vulkanVbuf, vulkanUBObuf;

@@ -470,7 +470,7 @@ public:
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	virtual void SetBlendState(BlendState *state) = 0;
-	virtual void SetSamplerStates(int start, int count, SamplerState **state) = 0;
+	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void SetDepthStencilState(DepthStencilState *state) = 0;
 	virtual void SetRasterState(RasterState *state) = 0;
 
@@ -483,10 +483,12 @@ public:
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
 	virtual void SetViewports(int count, Viewport *viewports) = 0;
 
+	virtual void BindPipeline(Pipeline *pipeline) = 0;
+
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
-	virtual void Draw(Primitive prim, Pipeline *pipeline, InputLayout *format, Buffer *vdata, int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(Primitive prim, Pipeline *pipeline, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
-	virtual void DrawUP(Primitive prim, Pipeline *pipeline, InputLayout *format, const void *vdata, int vertexCount) = 0;
+	virtual void Draw(Primitive prim, InputLayout *format, Buffer *vdata, int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(Primitive prim, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
+	virtual void DrawUP(Primitive prim, InputLayout *format, const void *vdata, int vertexCount) = 0;
 	
 	// Render pass management. Default implementations here.
 	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
