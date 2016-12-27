@@ -68,7 +68,17 @@ private:
 	ID3D11DeviceContext *context_;
 	D3D11Pipeline *curPipeline_;
 	DeviceCaps caps_;
+
+	D3D11BlendState *curBlend_ = nullptr;
+	D3D11DepthStencilState *curDepth_ = nullptr;
+	D3D11RasterState *curRaster_ = nullptr;
+	ID3D11InputLayout *curInputLayout_ = nullptr;
+
+	// Dynamic state
 	float blendFactor_[4];
+	bool blendFactorDirty_ = false;
+	uint8_t stencilRef_;
+	bool stencilRefDirty_;
 };
 
 
@@ -113,13 +123,33 @@ static const D3D11_COMPARISON_FUNC compareToD3D11[] = {
 	D3D11_COMPARISON_ALWAYS
 };
 
+static const D3D11_STENCIL_OP stencilOpToD3D11[] = {
+	D3D11_STENCIL_OP_KEEP,
+	D3D11_STENCIL_OP_ZERO,
+	D3D11_STENCIL_OP_REPLACE,
+	D3D11_STENCIL_OP_INCR_SAT,
+	D3D11_STENCIL_OP_DECR_SAT,
+	D3D11_STENCIL_OP_INVERT,
+	D3D11_STENCIL_OP_INCR,
+	D3D11_STENCIL_OP_DECR,
+};
+
+inline void CopyStencilSide(D3D11_DEPTH_STENCILOP_DESC &side, const StencilSide &input) {
+	side.StencilFunc = compareToD3D11[(int)input.compareOp];
+	side.StencilDepthFailOp = stencilOpToD3D11[(int)input.depthFailOp];
+	side.StencilFailOp = stencilOpToD3D11[(int)input.failOp];
+	side.StencilPassOp = stencilOpToD3D11[(int)input.passOp];
+}
+
 DepthStencilState *D3D11DrawContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
 	D3D11DepthStencilState *ds = new D3D11DepthStencilState();
 	D3D11_DEPTH_STENCIL_DESC d3ddesc{};
 	d3ddesc.DepthEnable = desc.depthTestEnabled;
 	d3ddesc.DepthWriteMask = desc.depthWriteEnabled ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
 	d3ddesc.DepthFunc = compareToD3D11[(int)desc.depthCompare];
-	// ...
+	d3ddesc.StencilEnable = desc.stencilEnabled;
+	CopyStencilSide(d3ddesc.FrontFace, desc.front);
+	CopyStencilSide(d3ddesc.BackFace, desc.back);
 	if (SUCCEEDED(device_->CreateDepthStencilState(&d3ddesc, &ds->dss)))
 		return ds;
 	delete ds;
@@ -273,6 +303,17 @@ public:
 	D3D11RasterState *raster;
 };
 
+class D3D11ShaderModule {
+public:
+	std::vector<uint8_t> byteCode_;
+};
+
+ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
+	// ...
+
+	return nullptr;
+}
+
 Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	D3D11Pipeline *dPipeline = new D3D11Pipeline();
 	dPipeline->blend = (D3D11BlendState *)desc.blend;
@@ -283,11 +324,24 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	dPipeline->depth->AddRef();
 	dPipeline->input->AddRef();
 	dPipeline->raster->AddRef();
-	// Can finally create the input layout
 
+	std::vector<D3D11ShaderModule *> shaders;
+	D3D11ShaderModule *vshader = nullptr;
+	for (auto iter : desc.shaders) {
+		shaders.push_back((D3D11ShaderModule *)iter);
+		if (iter->GetStage() == ShaderStage::VERTEX)
+			vshader = (D3D11ShaderModule *)iter;
+	}
+
+	if (!vshader) {
+		// No vertex shader - no graphics
+		dPipeline->Release();
+		return nullptr;
+	}
+	// Can finally create the input layout
 	auto &inputDesc = dPipeline->input->desc;
 	std::vector<D3D11_INPUT_ELEMENT_DESC> elements;
-	device_->CreateInputLayout(elements.data(), elements.size(), shaderBytecode, shaderBytecodeSize, &dPipeline->il);
+	device_->CreateInputLayout(elements.data(), elements.size(), vshader->byteCode_.data(), vshader->byteCode_.size(), &dPipeline->il);
 	return dPipeline;
 }
 
@@ -297,19 +351,36 @@ void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
 }
 
 void D3D11DrawContext::ApplyCurrentState() {
-	
+	if (curBlend_ != curPipeline_->blend || blendFactorDirty_) {
+		context_->OMSetBlendState(curPipeline_->blend->bs, blendFactor_, 0);
+		curBlend_ = curPipeline_->blend;
+		blendFactorDirty_ = false;
+	}
+	if (curDepth_ != curPipeline_->depth || stencilRefDirty_) {
+		context_->OMSetDepthStencilState(curPipeline_->depth->dss, stencilRef_);
+		curDepth_ = curPipeline_->depth;
+		stencilRefDirty_ = false;
+	}
+	if (curRaster_ != curPipeline_->raster) {
+		context_->RSSetState(curPipeline_->raster->rs);
+		curRaster_ = curPipeline_->raster;
+	}
+	if (curInputLayout_ != curPipeline_->il) {
+		context_->IASetInputLayout(curPipeline_->il);
+		curInputLayout_ = curPipeline_->il;
+	}
 }
 
 void D3D11DrawContext::Draw(Buffer *vdata, int vertexCount, int offset) {
-
+	ApplyCurrentState();
 }
 
 void D3D11DrawContext::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
-
+	ApplyCurrentState();
 }
 
 void D3D11DrawContext::DrawUP(const void *vdata, int vertexCount) {
-
+	ApplyCurrentState();
 }
 
 #endif
