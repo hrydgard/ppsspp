@@ -490,6 +490,13 @@ public:
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
 	}
+	uint32_t GetSupportedShaderLanguages() const override {
+#if defined(USING_GLES2)
+		return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_ES_300;
+#else
+		return (uint32_t)ShaderLanguage::GLSL_410;
+#endif
+	}
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
@@ -498,6 +505,8 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
 
@@ -521,8 +530,6 @@ public:
 			}
 		}
 	}
-
-	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorRect(int left, int top, int width, int height) override {
 		glScissor(left, targetHeight_ - (top + height), width, height);

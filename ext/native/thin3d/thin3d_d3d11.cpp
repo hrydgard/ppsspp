@@ -16,6 +16,9 @@ public:
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
 	}
+	uint32_t GetSupportedShaderLanguages() const override {
+		return (uint32_t)ShaderLanguage::HLSL_D3D11 | (uint32_t)ShaderLanguage::HLSL_D3D11_BYTECODE;
+	}
 
 	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;

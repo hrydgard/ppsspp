@@ -352,6 +352,9 @@ public:
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
 	}
+	uint32_t GetSupportedShaderLanguages() const override {
+		return (uint32_t)ShaderLanguage::GLSL_VULKAN | (uint32_t)ShaderLanguage::SPIRV_VULKAN;
+	}
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
@@ -360,7 +363,6 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
-	// The implementation makes the choice of which shader code to use.
 	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;

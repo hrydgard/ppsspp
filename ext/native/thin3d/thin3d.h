@@ -268,12 +268,17 @@ enum class TextureAddressMode {
 };
 
 enum class ShaderLanguage {
-	GLSL_ES_200,
-	GLSL_ES_300,
-	GLSL_410,
-	GLSL_VULKAN,
-	HLSL_D3D9,
-	HLSL_D3D11,
+	GLSL_ES_200 = 1,
+	GLSL_ES_300 = 2,
+	GLSL_410 = 4,
+	GLSL_VULKAN = 8,
+	SPIRV_VULKAN = 16,
+	HLSL_D3D9 = 32,
+	HLSL_D3D11 = 64,
+	HLSL_D3D9_BYTECODE = 128,
+	HLSL_D3D11_BYTECODE = 256,
+	METAL = 512,
+	METAL_BYTECODE = 1024,
 };
 
 enum ImageFileType {
@@ -481,6 +486,8 @@ public:
 
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
+
+	virtual uint32_t GetSupportedShaderLanguages() const = 0;
 
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;

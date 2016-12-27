@@ -514,7 +514,11 @@ public:
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
 	}
+	uint32_t GetSupportedShaderLanguages() const override {
+		return (uint32_t)ShaderLanguage::HLSL_D3D9 | (uint32_t)ShaderLanguage::HLSL_D3D9_BYTECODE;
+	}
 
+	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
@@ -524,7 +528,6 @@ public:
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	Texture *CreateTexture() override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
