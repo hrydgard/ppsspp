@@ -736,6 +736,7 @@ list(APPEND NativeAppSource
 	UI/InstallZipScreen.cpp
 	UI/ProfilerDraw.cpp
 	UI/ui_atlas.cpp
+	UI/TextureUtil.cpp
 	UI/ComboKeyMappingScreen.cpp)
 
 if(ANDROID)

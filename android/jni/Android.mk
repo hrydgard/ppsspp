@@ -415,6 +415,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/OnScreenDisplay.cpp \
   $(SRC)/UI/ProfilerDraw.cpp \
   $(SRC)/UI/NativeApp.cpp \
+  $(SRC)/UI/TextureUtil.cpp \
   $(SRC)/UI/ComboKeyMappingScreen.cpp
 
 ifneq ($(SKIPAPP),1)
