@@ -588,7 +588,7 @@ public:
 	}
 
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
-	void Finalize(int zim_flags) override;
+	void Finalize() override {}
 	void AutoGenMipmaps() override {}
 
 	VkImageView GetImageView() { return vkTex_->GetImageView(); }
@@ -963,10 +963,6 @@ void VKTexture::SetImageData(int x, int y, int z, int width, int height, int dep
 		memcpy(dstData + rowPitch * y, data + stride * y, width * bytesPerPixel);
 	}
 	vkTex_->Unlock();
-}
-
-void VKTexture::Finalize(int zim_flags) {
-	// TODO
 }
 
 inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {

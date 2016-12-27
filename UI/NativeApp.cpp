@@ -90,6 +90,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/TiltEventProcessor.h"
 #include "UI/BackgroundAudio.h"
+#include "UI/TextureUtil.h"
 
 #if !defined(MOBILE_DEVICE)
 #include "Common/KeyMap.h"
@@ -117,7 +118,7 @@ static UI::Theme ui_theme;
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-Draw::Texture *uiTexture;
+ManagedTexture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
@@ -578,7 +579,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_theme.popupTitle.fgColor = 0xFF59BEE3;
 #endif
 
-	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", ImageFileType::ZIM);
+	uiTexture = CreateTextureFromFile(thin3d, "ui_atlas.zim", ImageFileType::ZIM);
 	if (!uiTexture) {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
@@ -618,7 +619,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_draw2d.Init(thin3d, texColorPipeline);
 	ui_draw2d_front.Init(thin3d, texColorPipeline);
 
-	uiContext->Init(thin3d, texColorPipeline, colorPipeline, uiTexture, &ui_draw2d, &ui_draw2d_front);
+	uiContext->Init(thin3d, texColorPipeline, colorPipeline, &ui_draw2d, &ui_draw2d_front);
 	RasterStateDesc desc;
 	desc.cull = CullMode::NONE;
 	desc.frontFace = Facing::CCW;
@@ -648,9 +649,8 @@ void NativeShutdownGraphics() {
 	delete g_gameInfoCache;
 	g_gameInfoCache = nullptr;
 
-	if (uiTexture->Release()) {
-		uiTexture = nullptr;
-	}
+	delete uiTexture;
+	uiTexture = nullptr;
 
 	delete uiContext;
 	uiContext = NULL;
@@ -737,6 +737,8 @@ void DrawDownloadsOverlay(UIContext &dc) {
 
 void NativeRender(GraphicsContext *graphicsContext) {
 	g_GameManager.Update();
+	// If uitexture gets reloaded, make sure we use the latest one.
+	uiContext->FrameSetup(uiTexture->GetTexture());
 
 	float xres = dp_xres;
 	float yres = dp_yres;

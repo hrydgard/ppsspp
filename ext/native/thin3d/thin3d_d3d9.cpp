@@ -359,7 +359,7 @@ public:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps() override {}
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
-	void Finalize(int zim_flags) override {}
+	void Finalize() override {}
 
 private:
 	LPDIRECT3DDEVICE9 device_;

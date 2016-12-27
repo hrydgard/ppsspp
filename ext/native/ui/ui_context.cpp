@@ -18,13 +18,12 @@ UIContext::~UIContext() {
 	delete textDrawer_;
 }
 
-void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 	using namespace Draw;
 	thin3d_ = thin3d;
 	sampler_ = thin3d_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
 	ui_pipeline_ = uipipe;
 	ui_pipeline_notex_ = uipipenotex;
-	uitexture_ = uitexture;
 	uidrawbuffer_ = uidrawbuffer;
 	uidrawbufferTop_ = uidrawbufferTop;
 #if defined(_WIN32) || defined(USING_QT_UI)
@@ -32,6 +31,10 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 #else
 	textDrawer_ = nullptr;
 #endif
+}
+
+void UIContext::FrameSetup(Draw::Texture *uiTexture) {
+	uitexture_ = uiTexture;
 }
 
 void UIContext::Begin() {

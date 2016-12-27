@@ -290,7 +290,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 			}
 		}
 		entry->texture->SetImageData(0, 0, 0, entry->bmWidth, entry->bmHeight, 1, 0, entry->bmWidth * 2, (const uint8_t *)bitmapData);
-		entry->texture->Finalize(0);
+		entry->texture->Finalize();
 		delete [] bitmapData;
 
 		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);

@@ -22,6 +22,7 @@
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
+#include "UI/TextureUtil.h"
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
@@ -95,7 +96,7 @@ private:
 	uint32_t color_;
 	UI::ImageSizeMode sizeMode_;
 
-	Draw::Texture *texture_;
+	ManagedTexture *texture_;
 	bool textureFailed_;
 	bool textureAutoGen_;
 	float fixedSizeW_;

@@ -6,6 +6,10 @@ namespace Draw {
 
 #if 0
 
+// A problem is that we can't get the D3Dcompiler.dll without using a later SDK than 7.1, which was the last that
+// supported XP. A possible solution might be here:
+// https://tedwvc.wordpress.com/2014/01/01/how-to-target-xp-with-vc2012-or-vc2013-and-continue-to-use-the-windows-8-x-sdk/
+
 class D3D11Pipeline;
 
 class D3D11DrawContext : public DrawContext {
@@ -308,7 +312,7 @@ public:
 	std::vector<uint8_t> byteCode_;
 };
 
-ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
+ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
 	// ...
 
 	return nullptr;
@@ -369,6 +373,22 @@ void D3D11DrawContext::ApplyCurrentState() {
 		context_->IASetInputLayout(curPipeline_->il);
 		curInputLayout_ = curPipeline_->il;
 	}
+}
+
+class D3D11Buffer : public Buffer {
+public:
+	ID3D11Buffer *buf;
+	
+	virtual void SetData(const uint8_t *data, size_t size) override {
+		
+	}
+	virtual void SubData(const uint8_t *data, size_t offset, size_t size) override {
+		
+	}
+};
+
+Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
+	D3D11Buffer *b = new D3D11Buffer();
 }
 
 void D3D11DrawContext::Draw(Buffer *vdata, int vertexCount, int offset) {

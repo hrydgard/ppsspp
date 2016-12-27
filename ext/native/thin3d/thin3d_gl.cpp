@@ -4,7 +4,6 @@
 #include <map>
 
 #include "base/logging.h"
-#include "image/zim_load.h"
 #include "math/dataconv.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
@@ -542,7 +541,7 @@ public:
 	}
 
 	void SetViewports(int count, Viewport *viewports) override {
-		// TODO: Add support for multiple viewports.
+		// TODO: Use glViewportArrayv.
 		glViewport(viewports[0].TopLeftX, viewports[0].TopLeftY, viewports[0].Width, viewports[0].Height);
 #if defined(USING_GLES2)
 		glDepthRangef(viewports[0].MinDepth, viewports[0].MaxDepth);
@@ -702,20 +701,9 @@ public:
 	}
 
 	void GLRestore() override {
-		if (!filename_.empty()) {
-			if (LoadFromFile(filename_.c_str())) {
-				ILOG("Reloaded lost texture %s", filename_.c_str());
-			} else {
-				ELOG("Failed to reload lost texture %s", filename_.c_str());
-				tex_ = 0;
-			}
-		} else {
-			WLOG("Texture %p cannot be restored - has no filename", this);
-			tex_ = 0;
-		}
 	}
 
-	void Finalize(int zim_flags) override;
+	void Finalize() override;
 
 private:
 	GLuint tex_;
@@ -784,10 +772,9 @@ bool isPowerOf2(int n) {
 	return n == 1 || (n & (n - 1)) == 0;
 }
 
-void Thin3DGLTexture::Finalize(int zim_flags) {
-	canWrap_ = (zim_flags & ZIM_CLAMP) || !isPowerOf2(width_) || !isPowerOf2(height_);
+void Thin3DGLTexture::Finalize() {
+	canWrap_ = !isPowerOf2(width_) || !isPowerOf2(height_);
 }
-
 
 OpenGLInputLayout::~OpenGLInputLayout() {
 	if (id_) {

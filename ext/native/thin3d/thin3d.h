@@ -281,14 +281,6 @@ enum class ShaderLanguage {
 	METAL_BYTECODE = 1024,
 };
 
-enum ImageFileType {
-	PNG,
-	JPEG,
-	ZIM,
-	DETECT,
-	TYPE_UNKNOWN,
-};
-
 enum InfoField {
 	APINAME,
 	APIVERSION,
@@ -340,19 +332,15 @@ public:
 
 class Texture : public RefCountedObject {
 public:
-	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT);
-	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type = ImageFileType::DETECT);
-
 	virtual bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
 	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
 	virtual void AutoGenMipmaps() = 0;
-	virtual void Finalize(int zim_flags) = 0;  // TODO: Tidy up
+	virtual void Finalize() = 0;  // TODO: Tidy up
 
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Depth() { return depth_; }
 protected:
-	std::string filename_;  // Textures that are loaded from files can reload themselves automatically.
 	int width_, height_, depth_;
 };
 
@@ -496,10 +484,6 @@ public:
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
 	// virtual ComputePipeline CreateComputePipeline(const ComputePipelineDesc &desc) = 0
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
-
-	// Common Thin3D function, uses CreateTexture
-	Texture *CreateTextureFromFile(const char *filename, ImageFileType fileType);
-	Texture *CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }

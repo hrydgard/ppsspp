@@ -33,6 +33,7 @@
 #include "Core/Util/GameManager.h"
 #include "UI/EmuScreen.h"
 #include "UI/Store.h"
+#include "UI/TextureUtil.h"
 
 const std::string storeBaseUrl = "http://store.ppsspp.org/";
 
@@ -84,7 +85,7 @@ private:
 	std::shared_ptr<http::Download> download_;
 
 	std::string textureData_;
-	Draw::Texture *texture_;
+	ManagedTexture *texture_;
 	bool textureFailed_;
 	float fixedSizeW_;
 	float fixedSizeH_;
@@ -116,7 +117,7 @@ void HttpImageFileView::SetFilename(std::string filename) {
 		textureFailed_ = false;
 		path_ = filename;
 		if (texture_) {
-			texture_->Release();
+			delete texture_;
 			texture_ = nullptr;
 		}
 	}
@@ -142,7 +143,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 	}
 
 	if (!textureData_.empty()) {
-		texture_ = dc.GetThin3DContext()->CreateTextureFromFileData((const uint8_t *)(textureData_.data()), (int)textureData_.size(), DETECT);
+		texture_ = CreateTextureFromFileData(dc.GetThin3DContext(), (const uint8_t *)(textureData_.data()), (int)textureData_.size(), DETECT);
 		if (!texture_)
 			textureFailed_ = true;
 		textureData_.clear();
@@ -156,7 +157,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 	// TODO: involve sizemode
 	if (texture_) {
 		dc.Flush();
-		dc.GetThin3DContext()->BindTexture(0, texture_);
+		dc.GetThin3DContext()->BindTexture(0, texture_->GetTexture());
 		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
 		dc.Flush();
 		dc.RebindTexture();

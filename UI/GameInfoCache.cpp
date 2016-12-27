@@ -40,6 +40,7 @@
 #include "Core/Util/GameManager.h"
 #include "Core/Config.h"
 #include "UI/GameInfoCache.h"
+#include "UI/TextureUtil.h"
 
 GameInfoCache *g_gameInfoCache;
 
@@ -781,11 +782,11 @@ again:
 	return info;
 }
 
-void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Draw::DrawContext *thin3d, Draw::Texture *&tex, double &loadTime) {
+void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Draw::DrawContext *thin3d, ManagedTexture *&tex, double &loadTime) {
 	using namespace Draw;
 	if (textureData.size()) {
 		if (!tex) {
-			tex = thin3d->CreateTextureFromFileData((const uint8_t *)textureData.data(), (int)textureData.size(), ImageFileType::DETECT);
+			tex = CreateTextureFromFileData(thin3d, (const uint8_t *)textureData.data(), (int)textureData.size(), ImageFileType::DETECT);
 			if (tex) {
 				loadTime = time_now_d();
 			}
