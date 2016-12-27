@@ -66,8 +66,7 @@ std::thread adhocServerThread;
 
 // Crosslink database for cross region Adhoc play
 std::vector<db_crosslink> crosslinks;
-
-static const std::vector<db_crosslink> default_crosslinks{
+static const db_crosslink default_crosslinks[] = {
 	// Ace Combat X2 - Joint Assault
 	{ "ULES01408", "ULUS10511" },
 	{ "NPJH50263", "ULUS10511" },
@@ -303,7 +302,7 @@ static const std::vector<db_crosslink> default_crosslinks{
 };
 
 std::vector<db_productid> productids;
-static const std::vector<db_productid> default_productids {
+static const db_productid default_productids[] = {
 	{ "ULUS10511", "Ace Combat X2 - Joint Assault" },
 	{ "ULUS10245", "Alien Syndrome" },
 	{ "NPUH10023", "Armored Core 3 Portable" },
@@ -482,8 +481,8 @@ int server_loop(int server);
 
 void __AdhocServerInit() {
 	// Database Product name will update if new game region played on my server to list possible crosslinks
-	productids = default_productids;
-	crosslinks = default_crosslinks;
+	productids = std::vector<db_productid>(default_productids, default_productids + ARRAY_SIZE(default_productids));
+	crosslinks = std::vector<db_crosslink>(default_crosslinks, default_crosslinks + ARRAY_SIZE(default_crosslinks));
 }
 
 /**
