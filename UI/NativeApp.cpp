@@ -621,7 +621,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	uiContext->Init(thin3d, texColorPipeline, colorPipeline, uiTexture, &ui_draw2d, &ui_draw2d_front);
 	RasterStateDesc desc;
 	desc.cull = CullMode::NONE;
-	desc.facing = Facing::CCW;
+	desc.frontFace = Facing::CCW;
 
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);

@@ -540,6 +540,7 @@ public:
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
+	void SetBlendFactor(float color[4]) override;
 
 	void Draw(Buffer *vdata, int vertexCount, int offset) override;
 	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
@@ -676,7 +677,7 @@ RasterState *D3D9Context::CreateRasterState(const RasterStateDesc &desc) {
 	if (desc.cull == CullMode::NONE) {
 		return rs;
 	}
-	switch (desc.facing) {
+	switch (desc.frontFace) {
 	case Facing::CW:
 		switch (desc.cull) {
 		case CullMode::FRONT: rs->cullMode = D3DCULL_CCW; break;
@@ -840,6 +841,14 @@ void D3D9Context::SetViewports(int count, Viewport *viewports) {
 	vp.MinZ = viewports[0].MinDepth;
 	vp.MaxZ = viewports[0].MaxDepth;
 	device_->SetViewport(&vp);
+}
+
+void D3D9Context::SetBlendFactor(float color[4]) {
+	uint32_t r = (uint32_t)(color[0] * 255.0f);
+	uint32_t g = (uint32_t)(color[1] * 255.0f);
+	uint32_t b = (uint32_t)(color[2] * 255.0f);
+	uint32_t a = (uint32_t)(color[3] * 255.0f);
+	device_->SetRenderState(D3DRS_BLENDFACTOR, r | (g << 8) | (b << 16) | (a << 24));
 }
 
 bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const char *source) {

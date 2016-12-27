@@ -451,7 +451,7 @@ struct SamplerStateDesc {
 
 struct RasterStateDesc {
 	CullMode cull;
-	Facing facing;
+	Facing frontFace;
 };
 
 struct PipelineDesc {
@@ -510,6 +510,7 @@ public:
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
 	virtual void SetViewports(int count, Viewport *viewports) = 0;
+	virtual void SetBlendFactor(float color[4]) = 0;
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void BindTextures(int start, int count, Texture **textures) = 0;

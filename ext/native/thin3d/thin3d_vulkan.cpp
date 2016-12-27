@@ -155,7 +155,7 @@ class VKRasterState : public RasterState {
 public:
 	VKRasterState(VulkanContext *vulkan, const RasterStateDesc &desc) {
 		cullFace = desc.cull;
-		frontFace = desc.facing;
+		frontFace = desc.frontFace;
 	}
 	Facing frontFace;
 	CullMode cullFace;
@@ -368,6 +368,7 @@ public:
 
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
+	void SetBlendFactor(float color[4]) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -896,6 +897,10 @@ void VKContext::SetViewports(int count, Viewport *viewports) {
 	viewport_.minDepth = viewports[0].MinDepth;
 	viewport_.maxDepth = viewports[0].MaxDepth;
 	viewportDirty_ = true;
+}
+
+void VKContext::SetBlendFactor(float color[4]) {
+	vkCmdSetBlendConstants(cmd_, color);
 }
 
 void VKContext::ApplyDynamicState() {

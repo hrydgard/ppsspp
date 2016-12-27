@@ -538,6 +538,10 @@ public:
 #endif
 	}
 
+	void SetBlendFactor(float color[4]) override {
+		glBlendColor(color[0], color[1], color[2], color[3]);
+	}
+
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindPipeline(Pipeline *pipeline) override;
 
@@ -852,7 +856,7 @@ RasterState *OpenGLContext::CreateRasterState(const RasterStateDesc &desc) {
 		return rs;
 	}
 	rs->cullEnable = GL_TRUE;
-	switch (desc.facing) {
+	switch (desc.frontFace) {
 	case Facing::CW:
 		rs->frontFace = GL_CW;
 		break;
