@@ -300,7 +300,7 @@ public:
 		if (constantTable_)
 			constantTable_->Release();
 	}
-	bool Compile(LPDIRECT3DDEVICE9 device, const char *source);
+	bool Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size);
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		if (stage_ == ShaderStage::FRAGMENT) {
 			device->SetPixelShader(pshader_);
@@ -518,7 +518,7 @@ public:
 		return (uint32_t)ShaderLanguage::HLSL_D3D9 | (uint32_t)ShaderLanguage::HLSL_D3D9_BYTECODE;
 	}
 
-	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
@@ -592,9 +592,9 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 D3D9Context::~D3D9Context() {
 }
 
-ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size) {
 	D3D9ShaderModule *shader = new D3D9ShaderModule(stage);
-	if (shader->Compile(device_, hlsl_source)) {
+	if (shader->Compile(device_, data, size)) {
 		return shader;
 	} else {
 		delete shader;
@@ -854,12 +854,13 @@ void D3D9Context::SetBlendFactor(float color[4]) {
 	device_->SetRenderState(D3DRS_BLENDFACTOR, r | (g << 8) | (b << 16) | (a << 24));
 }
 
-bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const char *source) {
+bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size) {
 	LPD3DXMACRO defines = NULL;
 	LPD3DXINCLUDE includes = NULL;
 	DWORD flags = 0;
 	LPD3DXBUFFER codeBuffer;
 	LPD3DXBUFFER errorBuffer;
+	const char *source = (const char *)data;
 	const char *profile = stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0";
 	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, &constantTable_);
 	if (FAILED(hr)) {

@@ -20,7 +20,6 @@ public:
 		return (uint32_t)ShaderLanguage::HLSL_D3D11 | (uint32_t)ShaderLanguage::HLSL_D3D11_BYTECODE;
 	}
 
-	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
@@ -30,6 +29,7 @@ public:
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	Texture *CreateTexture() override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;

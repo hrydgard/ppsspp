@@ -226,7 +226,7 @@ public:
 	VKShaderModule(ShaderStage stage) : module_(VK_NULL_HANDLE), ok_(false), stage_(stage) {
 		vkstage_ = StageToVulkan(stage);
 	}
-	bool Compile(VulkanContext *vulkan, const char *source);
+	bool Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size);
 	const std::string &GetSource() const { return source_; }
 	~VKShaderModule() {
 		if (module_) {
@@ -247,12 +247,12 @@ private:
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool VKShaderModule::Compile(VulkanContext *vulkan, const char *source) {
+bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size) {
 	// We'll need this to free it later.
 	device_ = vulkan->GetDevice();
-	this->source_ = source;
+	this->source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
-	if (!GLSLtoSPV(vkstage_, source, spirv)) {
+	if (!GLSLtoSPV(vkstage_, source_.c_str(), spirv)) {
 		return false;
 	}
 
@@ -270,7 +270,6 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, const char *source) {
 	} else {
 		ok_ = false;
 	}
-
 	return ok_;
 }
 
@@ -363,7 +362,7 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
@@ -1023,12 +1022,12 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
-ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size) {
 	VKShaderModule *shader = new VKShaderModule(stage);
-	if (shader->Compile(vulkan_, vulkan_source)) {
+	if (shader->Compile(vulkan_, language, data, size)) {
 		return shader;
 	} else {
-		ELOG("Failed to compile shader: %s", vulkan_source);
+		ELOG("Failed to compile shader: %s", (const char *)data);
 		shader->Release();
 		return nullptr;
 	}

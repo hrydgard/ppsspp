@@ -348,7 +348,7 @@ public:
 		glDeleteShader(shader_);
 	}
 
-	bool Compile(const char *source);
+	bool Compile(ShaderLanguage language, const uint8_t *data, size_t dataSize);
 	GLuint GetShader() const {
 		return shader_;
 	}
@@ -357,30 +357,36 @@ public:
 	void Unset() {
 		shader_ = 0;
 	}
+	ShaderLanguage GetLanguage() {
+		return language_;
+	}
 	ShaderStage GetStage() const override {
 		return stage_;
 	}
 
 private:
 	ShaderStage stage_;
+	ShaderLanguage language_;
 	GLuint shader_;
 	GLuint glstage_;
 	bool ok_;
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool OpenGLShaderModule::Compile(const char *source) {
-	source_ = source;
+bool OpenGLShaderModule::Compile(ShaderLanguage language, const uint8_t *data, size_t dataSize) {
+	source_ = std::string((const char *)data);
 	shader_ = glCreateShader(glstage_);
+	language_ = language;
 
 	std::string temp;
 	// Add the prelude on automatically for fragment shaders.
 	if (glstage_ == GL_FRAGMENT_SHADER) {
-		temp = std::string(glsl_fragment_prelude) + source;
-		source = temp.c_str();
+		temp = std::string(glsl_fragment_prelude) + source_;
+		source_ = temp.c_str();
 	}
 
-	glShaderSource(shader_, 1, &source, nullptr);
+	const char *code = source_.c_str();
+	glShaderSource(shader_, 1, &code, nullptr);
 	glCompileShader(shader_);
 	GLint success = 0;
 	glGetShaderiv(shader_, GL_COMPILE_STATUS, &success);
@@ -465,7 +471,7 @@ public:
 
 	void GLRestore() override {
 		for (auto iter : shaders) {
-			iter->Compile(iter->GetSource().c_str());
+			iter->Compile(iter->GetLanguage(), (const uint8_t *)iter->GetSource().c_str(), iter->GetSource().size());
 		}
 		LinkShaders();
 	}
@@ -494,7 +500,7 @@ public:
 #if defined(USING_GLES2)
 		return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_ES_300;
 #else
-		return (uint32_t)ShaderLanguage::GLSL_410;
+		return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_410;
 #endif
 	}
 
@@ -505,7 +511,7 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Texture *CreateTexture() override;
@@ -931,9 +937,9 @@ void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 }
 
 
-ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
 	OpenGLShaderModule *shader = new OpenGLShaderModule(stage);
-	if (shader->Compile(glsl_source)) {
+	if (shader->Compile(language, data, dataSize)) {
 		return shader;
 	} else {
 		shader->Release();

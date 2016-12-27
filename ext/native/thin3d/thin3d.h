@@ -494,7 +494,6 @@ public:
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
-	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 	// virtual ComputePipeline CreateComputePipeline(const ComputePipelineDesc &desc) = 0
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
 
@@ -510,9 +509,8 @@ public:
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
 	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
-
-	// The implementation makes the choice of which shader code to use.
-	virtual ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
+	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
+	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
