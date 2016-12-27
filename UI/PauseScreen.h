@@ -95,7 +95,7 @@ private:
 	uint32_t color_;
 	UI::ImageSizeMode sizeMode_;
 
-	Thin3DTexture *texture_;
+	Draw::Texture *texture_;
 	bool textureFailed_;
 	bool textureAutoGen_;
 	float fixedSizeW_;

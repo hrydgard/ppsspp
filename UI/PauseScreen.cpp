@@ -76,6 +76,7 @@ void AsyncImageFileView::SetFilename(std::string filename) {
 }
 
 void AsyncImageFileView::Draw(UIContext &dc) {
+	using namespace Draw;
 	if (!texture_ && !textureFailed_ && !filename_.empty()) {
 		texture_ = dc.GetThin3DContext()->CreateTextureFromFile(filename_.c_str(), DETECT);
 		if (!texture_)

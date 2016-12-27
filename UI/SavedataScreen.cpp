@@ -154,7 +154,7 @@ static std::string CleanSaveString(std::string str) {
 
 void SavedataButton::Draw(UIContext &dc) {
 	GameInfo *ginfo = g_gameInfoCache->GetInfo(dc.GetThin3DContext(), savePath_, GAMEINFO_WANTSIZE);
-	Thin3DTexture *texture = 0;
+	Draw::Texture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 

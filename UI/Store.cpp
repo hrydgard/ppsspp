@@ -84,7 +84,7 @@ private:
 	std::shared_ptr<http::Download> download_;
 
 	std::string textureData_;
-	Thin3DTexture *texture_;
+	Draw::Texture *texture_;
 	bool textureFailed_;
 	float fixedSizeW_;
 	float fixedSizeH_;
@@ -135,6 +135,7 @@ void HttpImageFileView::DownloadCompletedCallback(http::Download &download) {
 }
 
 void HttpImageFileView::Draw(UIContext &dc) {
+	using namespace Draw;
 	if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
 		download_ = downloader_->StartDownloadWithCallback(path_, "", std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1));
 		download_->SetHidden(true);

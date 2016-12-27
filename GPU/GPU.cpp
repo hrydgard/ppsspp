@@ -46,7 +46,7 @@ static void SetGPU(T *obj) {
 #undef new
 #endif
 
-bool GPU_Init(GraphicsContext *ctx, Thin3DContext *thin3d) {
+bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *thin3d) {
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPUCORE_NULL:
 		SetGPU(new NullGPU());

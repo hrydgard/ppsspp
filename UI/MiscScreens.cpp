@@ -432,6 +432,8 @@ bool LogoScreen::key(const KeyInput &key) {
 }
 
 void LogoScreen::render() {
+	using namespace Draw;
+
 	UIScreen::render();
 	UIContext &dc = *screenManager()->getUIContext();
 
@@ -473,7 +475,7 @@ void LogoScreen::render() {
 	}
 
 #ifdef _WIN32
-	dc.DrawText(screenManager()->getThin3DContext()->GetInfoString(T3DInfo::APINAME).c_str(), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(screenManager()->getThin3DContext()->GetInfoString(InfoField::APINAME).c_str(), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #endif
 
 	dc.End();
