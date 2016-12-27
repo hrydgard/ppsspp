@@ -497,8 +497,14 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		// TODO: Special case no-resample case (and 2x and 0.5x) for speed, it's not uncommon
 		int16_t temp[PSP_SAS_MAX_GRAIN + 2];
 
-		// Two passes: First read, then resample.
+		// Sanity check sampleFrac. Should be at most 2 samples ahead, if more then something has gone wrong (pitch
+		// cannot legally be more than 2x, though games might do more so we leave a margin...).
+		// In the future we should figure out all these cases.
 		u32 sampleFrac = voice.sampleFrac;
+		if (sampleFrac > PSP_SAS_PITCH_BASE * 4)
+			sampleFrac = 0;
+
+		// Two passes: First read, then resample.
 		temp[0] = voice.resampleHist[0];
 		temp[1] = voice.resampleHist[1];
 
