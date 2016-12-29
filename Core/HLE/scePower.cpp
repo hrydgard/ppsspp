@@ -57,6 +57,8 @@ static int powerCbSlots[numberOfCBPowerSlots];
 static std::vector<VolatileWaitingThread> volatileWaitingThreads;
 
 // Should this belong here, or in CoreTiming?
+static int RealpllFreq = 222;
+static int RealbusFreq = 111;
 static int pllFreq = 222;
 static int busFreq = 111;
 
@@ -73,10 +75,12 @@ void __PowerInit() {
 		pllFreq = 222;
 		busFreq = 111;
 	}
+	RealpllFreq = 222;
+	RealbusFreq = 111;
 }
 
 void __PowerDoState(PointerWrap &p) {
-	auto s = p.Section("scePower", 1);
+	auto s = p.Section("scePower",1,2);
 	if (!s)
 		return;
 
@@ -355,20 +359,10 @@ static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 
 static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 	if (g_Config.iLockedCPUSpeed > 0) {
-		INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i): locked by user config at %i, %i, %i", pllfreq, cpufreq, busfreq, g_Config.iLockedCPUSpeed, g_Config.iLockedCPUSpeed, busFreq);
 	}
 	else {
-		if (cpufreq == 0 || cpufreq > 333) {
-			WARN_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i): invalid frequency", pllfreq, cpufreq, busfreq);
-			return SCE_KERNEL_ERROR_INVALID_VALUE;
 		}
-		// TODO: More restrictions.
-		CoreTiming::SetClockFrequencyMHz(cpufreq);
-		pllFreq = pllfreq;
-		busFreq = busfreq;
-		INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
 	}
-	return hleDelayResult(0, "scepower set clockFrequency", 150000);
 }
 
 static u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
