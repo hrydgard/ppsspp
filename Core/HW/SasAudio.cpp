@@ -503,7 +503,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 
 		int voicePitch = voice.pitch;
 		u32 sampleFrac = voice.sampleFrac;
-		int samplesToRead = (sampleFrac + voicePitch * (grainSize - delay)) >> PSP_SAS_PITCH_BASE_SHIFT;
+		int samplesToRead = (sampleFrac + voicePitch * std::max(0, grainSize - delay)) >> PSP_SAS_PITCH_BASE_SHIFT;
 		if (samplesToRead > ARRAY_SIZE(mixTemp_) - 2) {
 			PanicAlert("Too many samples to read! This shouldn't happen.");
 		}
