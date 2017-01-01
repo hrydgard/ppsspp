@@ -427,7 +427,7 @@ static u32 scePowerSetBusClockFrequency(u32 busfreq) {
 		}
 		// TODO: It seems related to other frequencies, though.
 		busFreq = busfreq;
-		INFO_LOG(HLE,"scePowerSetBusClockFrequency(%i)", busfreq);
+		INFO_LOG_REPORT_ONCE(SetBusClockFrequency,HLE,"scePowerSetBusClockFrequency(%i)", busfreq);
 	}
 	return 0;
 }
