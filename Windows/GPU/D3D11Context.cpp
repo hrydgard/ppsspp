@@ -60,6 +60,8 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	};
 	UINT numFeatureLevels = ARRAYSIZE(featureLevels);
 
+	// Temporarily commenting out until we can dynamically load D3D11CreateDevice.
+	/*
 	for (UINT driverTypeIndex = 0; driverTypeIndex < numDriverTypes; driverTypeIndex++) {
 		driverType_ = driverTypes[driverTypeIndex];
 		hr = D3D11CreateDevice(nullptr, driverType_, nullptr, createDeviceFlags, featureLevels, numFeatureLevels,
@@ -74,6 +76,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		if (SUCCEEDED(hr))
 			break;
 	}
+	*/
 	if (FAILED(hr))
 		return false;
 
