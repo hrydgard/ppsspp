@@ -395,6 +395,7 @@ struct GPUgstate {
 	bool isSkinningEnabled() const { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
 
 	GEPatchPrimType getPatchPrimitiveType() const { return static_cast<GEPatchPrimType>(patchprimitive & 3); }
+	bool isPatchNormalsReversed() const { return patchfacing & 1; }
 
 	// Transfers
 	u32 getTransferSrcAddress() const { return (transfersrc & 0xFFFFF0) | ((transfersrcw & 0xFF0000) << 8); }
@@ -501,6 +502,14 @@ struct GPUStateCache {
 	int skipDrawReason;
 
 	UVScale uv;
+
+	bool bezier;
+	bool spline;
+	int bezier_count_u;
+	int spline_count_u;
+	int spline_count_v;
+	int spline_type_u;
+	int spline_type_v;
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
