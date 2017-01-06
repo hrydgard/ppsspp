@@ -280,6 +280,9 @@ void GameSettingsScreen::CreateViews() {
 	});
 	beziersChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
+	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
+	tessellationHW->SetEnabledPtr(&vtxCacheEnable_); // Same as Vertex Cache(!g_Config.bSoftwareRendering && g_Config.bHardwareTransform)
+
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gr->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Scaling")));
