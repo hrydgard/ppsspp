@@ -781,6 +781,31 @@ void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int 
 	}
 }
 
+class IndexConverter {
+private:
+	union {
+		const void *indices;
+		const u8 *indices8;
+		const u16 *indices16;
+		const u32 *indices32;
+	};
+	u32 indexType;
+public:
+	IndexConverter(u32 vertType, const void *indices) : indices(indices), indexType(vertType & GE_VTYPE_IDX_MASK) {}
+
+	inline u32 convert(u32 index) const {
+		switch (indexType) {
+		case GE_VTYPE_IDX_8BIT:
+			return indices8[index];
+		case GE_VTYPE_IDX_16BIT:
+			return indices16[index];
+		case GE_VTYPE_IDX_32BIT:
+			return indices32[index];
+		}
+		return index;
+	}
+};
+
 // This maps GEPatchPrimType to GEPrimitiveType.
 const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
 
@@ -790,11 +815,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
-	bool indices_16bit = (vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	bool indices_32bit = (vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
-	const u8 *indices8 = (const u8 *)indices;
-	const u16 *indices16 = (const u16 *)indices;
-	const u32 *indices32 = (const u32 *)indices;
+	IndexConverter idxConv(vertType, indices);
 	if (indices)
 		GetIndexBounds(indices, count_u * count_v, vertType, &index_lower_bound, &index_upper_bound);
 
@@ -825,19 +846,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 
 	// Make an array of pointers to the control points, to get rid of indices.
 	for (int idx = 0; idx < count_u * count_v; idx++) {
-		if (indices) {
-			u32 ind;
-			if (indices_32bit) {
-				ind = indices32[idx];
-			} else if (indices_16bit) {
-				ind = indices16[idx];
-			} else {
-				ind = indices8[idx];
-			}
-			points[idx] = simplified_control_points + ind;
-		} else {
-			points[idx] = simplified_control_points + idx;
-		}
+		points[idx] = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
 	}
 
 	int count = 0;
@@ -890,11 +899,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
-	bool indices_16bit = (vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	bool indices_32bit = (vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
-	const u8 *indices8 = (const u8 *)indices;
-	const u16 *indices16 = (const u16 *)indices;
-	const u32 *indices32 = (const u32 *)indices;
+	IndexConverter idxConv(vertType, indices);
 	if (indices)
 		GetIndexBounds(indices, count_u*count_v, vertType, &index_lower_bound, &index_upper_bound);
 
@@ -931,19 +936,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 			BezierPatch& patch = patches[patch_u + patch_v * num_patches_u];
 			for (int point = 0; point < 16; ++point) {
 				int idx = (patch_u * 3 + point % 4) + (patch_v * 3 + point / 4) * count_u;
-				if (indices) {
-					u32 ind;
-					if (indices_32bit) {
-						ind = indices32[idx];
-					} else if (indices_16bit) {
-						ind = indices16[idx];
-					} else {
-						ind = indices8[idx];
-					}
-					patch.points[point] = simplified_control_points + ind;
-				} else {
-					patch.points[point] = simplified_control_points + idx;
-				}
+				patch.points[point] = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
 			}
 			patch.u_index = patch_u * 3;
 			patch.v_index = patch_v * 3;
