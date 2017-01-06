@@ -212,6 +212,7 @@ public:
 	bool bDisableSlowFramebufEffects;
 	bool bFragmentTestCache;
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
+	bool bHardwareTessellation;
 	std::string sPostShaderName;  // Off for off.
 	bool bGfxDebugOutput;
 
