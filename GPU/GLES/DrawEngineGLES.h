@@ -272,4 +272,18 @@ private:
 
 	bool fboTexNeedBind_;
 	bool fboTexBound_;
+
+	// Hardware tessellation
+	class TessellationDataTransferGLES : public TessellationDataTransfer {
+	private:
+		int data_tex[3];
+	public:
+		TessellationDataTransferGLES() : TessellationDataTransfer(), data_tex() {
+			glGenTextures(3, (GLuint*)data_tex);
+		}
+		~TessellationDataTransferGLES() {
+			glDeleteTextures(3, (GLuint*)data_tex); 
+		}
+		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+	};
 };

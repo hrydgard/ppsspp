@@ -406,7 +406,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *ctx)
 	framebufferManager_ = framebufferManagerGL_;
 	textureCacheGL_ = new TextureCache();
 	textureCache_ = textureCacheGL_;
-	drawEngineCommon_ = &drawEngine_;
 
 	drawEngine_.SetShaderManager(shaderManager_);
 	drawEngine_.SetTextureCache(textureCacheGL_);
@@ -983,6 +982,155 @@ void GPU_GLES::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 			shaderManager_->DirtyUniform(gstate_c.deferredVertTypeDirty);
 			gstate_c.deferredVertTypeDirty = 0;
 		}
+	}
+}
+
+void GPU_GLES::Execute_Bezier(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManagerGL_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	int bz_ucount = op & 0xFF;
+	int bz_vcount = (op >> 8) & 0xFF;
+	bool computeNormals = gstate.isLightingEnabled();
+	bool patchFacing = gstate.patchfacing & 1;
+
+	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.bezier = true;
+		if (gstate_c.bezier_count_u != bz_ucount) {
+			shaderManager_->DirtyUniform(DIRTY_BEZIERCOUNTU);
+			gstate_c.bezier_count_u = bz_ucount;
+		}
+	}
+
+	int bytesRead = 0;
+	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+	
+	gstate_c.bezier = false;
+
+	// After drawing, we advance pointers - see SubmitPrim which does the same.
+	int count = bz_ucount * bz_vcount;
+	AdvanceVerts(gstate.vertType, count, bytesRead);
+}
+
+void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManagerGL_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	int sp_ucount = op & 0xFF;
+	int sp_vcount = (op >> 8) & 0xFF;
+	int sp_utype = (op >> 16) & 0x3;
+	int sp_vtype = (op >> 18) & 0x3;
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	bool computeNormals = gstate.isLightingEnabled();
+	bool patchFacing = gstate.patchfacing & 1;
+	u32 vertType = gstate.vertType;
+
+	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.spline = true;
+		if (gstate_c.spline_count_u != sp_ucount) {
+			shaderManager_->DirtyUniform(DIRTY_SPLINECOUNTU);
+			gstate_c.spline_count_u = sp_ucount;
+		}
+		if (gstate_c.spline_count_v != sp_vcount) {
+			shaderManager_->DirtyUniform(DIRTY_SPLINECOUNTV);
+			gstate_c.spline_count_v = sp_vcount;
+		}
+		if (gstate_c.spline_type_u != sp_utype) {
+			shaderManager_->DirtyUniform(DIRTY_SPLINETYPEU);
+			gstate_c.spline_type_u = sp_utype;
+		}
+		if (gstate_c.spline_type_v != sp_vtype) {
+			shaderManager_->DirtyUniform(DIRTY_SPLINETYPEV);
+			gstate_c.spline_type_v = sp_vtype;
+		}
+	}
+
+	int bytesRead = 0;
+	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
+	
+	gstate_c.spline = false;
+
+	// After drawing, we advance pointers - see SubmitPrim which does the same.
+	int count = sp_ucount * sp_vcount;
+	AdvanceVerts(gstate.vertType, count, bytesRead);
+}
+
+void GPU_GLES::Execute_BoundingBox(u32 op, u32 diff) {
+	// Just resetting, nothing to bound.
+	const u32 data = op & 0x00FFFFFF;
+	if (data == 0) {
+		// TODO: Should this set the bboxResult?  Let's set it true for now.
+		currentList->bboxResult = true;
+		return;
+	}
+	if (((data & 7) == 0) && data <= 64) {  // Sanity check
+		void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+		if (gstate.vertType & GE_VTYPE_IDX_MASK) {
+			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
+			// Data seems invalid. Let's assume the box test passed.
+			currentList->bboxResult = true;
+			return;
+		}
+
+		// Test if the bounding box is within the drawing region.
+		currentList->bboxResult = drawEngine_.TestBoundingBox(control_points, data, gstate.vertType);
+	} else {
+		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
+		// Data seems invalid. Let's assume the box test passed.
+		currentList->bboxResult = true;
 	}
 }
 

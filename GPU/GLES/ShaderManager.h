@@ -110,6 +110,14 @@ public:
 	int u_lightdiffuse[4];  // each light consist of vec4[3]
 	int u_lightspecular[4];  // attenuation
 	int u_lightambient[4];  // attenuation
+
+	int u_tess_pos_tex;
+	int u_tess_tex_tex;
+	int u_tess_col_tex;
+	int u_spline_count_u;
+	int u_spline_count_v;
+	int u_spline_type_u;
+	int u_spline_type_v;
 };
 
 enum {
