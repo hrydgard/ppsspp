@@ -413,7 +413,7 @@ void LinkedShader::stop() {
 }
 
 void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
-	u32 dirty = dirtyUniforms & availableUniforms;
+	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 	if (!dirty)
 		return;
@@ -707,7 +707,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 }
 
 ShaderManager::ShaderManager()
-		: lastShader_(nullptr), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0), diskCacheDirty_(false) {
+		: lastShader_(nullptr), globalDirty_(DIRTY_ALL), shaderSwitchDirty_(0), diskCacheDirty_(false) {
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
@@ -731,7 +731,7 @@ void ShaderManager::Clear() {
 	linkedShaderCache_.clear();
 	fsCache_.clear();
 	vsCache_.clear();
-	globalDirty_ = 0xFFFFFFFF;
+	globalDirty_ = DIRTY_ALL;
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	DirtyShader();
@@ -747,7 +747,7 @@ void ShaderManager::DirtyShader() {
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	DirtyLastShader();
-	globalDirty_ = 0xFFFFFFFF;
+	globalDirty_ = DIRTY_ALL;
 	shaderSwitchDirty_ = 0;
 }
 
@@ -847,7 +847,7 @@ LinkedShader *ShaderManager::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 
 	// Okay, we have both shaders. Let's see if there's a linked one.
 	LinkedShader *ls = nullptr;
 
-	u32 switchDirty = shaderSwitchDirty_;
+	u64 switchDirty = shaderSwitchDirty_;
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
 		iter->ls->dirtyUniforms |= switchDirty;
