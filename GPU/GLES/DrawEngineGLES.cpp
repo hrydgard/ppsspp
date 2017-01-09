@@ -1117,47 +1117,47 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
 	// Position
 	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_1D, data_tex[0]);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glBindTexture(GL_TEXTURE_2D, data_tex[0]);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	if (prevSize < size) {
-		glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, size, 0, GL_RGB, GL_FLOAT, (GLfloat*)pos);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, size, 1, 0, GL_RGB, GL_FLOAT, (GLfloat*)pos);
 		prevSize = size;
 	} else {
-		glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RGB, GL_FLOAT, (GLfloat*)pos);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, 1, GL_RGB, GL_FLOAT, (GLfloat*)pos);
 	}
 
 	// Texcoords
 	if (hasTexCoords) {
 		glActiveTexture(GL_TEXTURE4);
-		glBindTexture(GL_TEXTURE_1D, data_tex[1]);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+		glBindTexture(GL_TEXTURE_2D, data_tex[1]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		if (prevSizeTex < size) {
-			glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, size, 0, GL_RGB, GL_FLOAT, (GLfloat*)tex);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, size, 1, 0, GL_RGB, GL_FLOAT, (GLfloat*)tex);
 			prevSizeTex = size;
 		} else {
-			glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RGB, GL_FLOAT, (GLfloat*)tex);
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, 1, GL_RGB, GL_FLOAT, (GLfloat*)tex);
 		}
 	}
 
 	// Color
 	glActiveTexture(GL_TEXTURE5);
-	glBindTexture(GL_TEXTURE_1D, data_tex[2]);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glBindTexture(GL_TEXTURE_2D, data_tex[2]);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	int sizeColor = hasColor ? size : 1;
 	if (prevSizeCol < sizeColor) {
-		glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA32F, sizeColor, 0, GL_RGBA, GL_FLOAT, (GLfloat*)col);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, sizeColor, 1, 0, GL_RGBA, GL_FLOAT, (GLfloat*)col);
 		prevSizeCol = sizeColor;
 	} else {
-		glTexSubImage1D(GL_TEXTURE_1D, 0, 0, sizeColor, GL_RGBA, GL_FLOAT, (GLfloat*)col);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sizeColor, 1, GL_RGBA, GL_FLOAT, (GLfloat*)col);
 	}
 
 	glActiveTexture(GL_TEXTURE0);
