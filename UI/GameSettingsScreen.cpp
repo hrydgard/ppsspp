@@ -278,9 +278,14 @@ void GameSettingsScreen::CreateViews() {
 		}
 		return UI::EVENT_CONTINUE;
 	});
-	beziersChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
+	beziersChoice->SetDisabledPtr(&bezierChoiceDisable_);
 
 	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
+	tessellationHW->OnClick.Add([=](EventParams &e) {
+		bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
+		return UI::EVENT_CONTINUE;
+	});
 	tessellationHW->SetEnabledPtr(&vtxCacheEnable_); // Same as Vertex Cache(!g_Config.bSoftwareRendering && g_Config.bHardwareTransform)
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
@@ -718,6 +723,7 @@ UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
 	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
 	return UI::EVENT_DONE;
 }
 
