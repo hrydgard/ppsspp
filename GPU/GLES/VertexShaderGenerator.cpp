@@ -327,9 +327,9 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 
 	// Hardware tessellation
 	if (doBezier || doSpline) {
-		WRITE(p, "uniform sampler1D u_tess_pos_tex;\n");
-		WRITE(p, "uniform sampler1D u_tess_tex_tex;\n");
-		WRITE(p, "uniform sampler1D u_tess_col_tex;\n");
+		WRITE(p, "uniform sampler2D u_tess_pos_tex;\n");
+		WRITE(p, "uniform sampler2D u_tess_tex_tex;\n");
+		WRITE(p, "uniform sampler2D u_tess_col_tex;\n");
 
 		WRITE(p, "uniform int u_spline_count_u;\n");
 
@@ -453,7 +453,8 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 				WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
 				WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
 				WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
-				WRITE(p, "      int index = (i + v%s) * u_spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
+				WRITE(p, "      int idx = (i + v%s) * u_spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
+				WRITE(p, "      ivec2 index = ivec2(idx, 0);\n");
 				WRITE(p, "      _pos[i * 4 + j] = texelFetch(u_tess_pos_tex, index, 0).xyz;\n");
 				if (doTexture && hasTexcoord && hasTexcoordTess)
 					WRITE(p, "      _tex[i * 4 + j] = texelFetch(u_tess_tex_tex, index, 0).xy;\n");
@@ -487,7 +488,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 					if (hasColorTess)
 						WRITE(p, "  vec4 col = tess_sample(_col, weights);\n");
 					else
-						WRITE(p, "  vec4 col = texelFetch(u_tess_col_tex, 0, 0).rgba;\n");
+						WRITE(p, "  vec4 col = texelFetch(u_tess_col_tex, ivec2(0, 0), 0).rgba;\n");
 				}
 				if (hasNormal) {
 					// Curved surface is probably always need to compute normal(not sampling from control points)
