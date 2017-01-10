@@ -87,7 +87,7 @@ void DrawProfile(UIContext &ui) {
 
 		// So they don't move horizontally, we always measure.
 		float w = 0.0f, h = 0.0f;
-		ui.MeasureText(ui.GetFontStyle(), name, &w, &h);
+		ui.MeasureText(ui.GetFontStyle(), 1.0f, 1.0f, name, &w, &h);
 		if (w > legendWidth) {
 			legendWidth = w;
 		}
