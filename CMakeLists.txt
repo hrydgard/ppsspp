@@ -960,8 +960,8 @@ if(ANDROID)
 endif()
 
 target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
-if(TARGET glew)
-  target_link_libraries(native glew)
+if(TARGET Ext::GLEW)
+  target_link_libraries(native Ext::GLEW)
 endif()
 
 if(ANDROID)
