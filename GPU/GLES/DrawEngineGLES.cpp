@@ -1113,6 +1113,7 @@ void DrawEngineGLES::DecimateBuffers() {
 bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
+
 void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
 #ifdef USING_GLES2
 #define GL_TEXTURE_1D GL_TEXTURE_2D
