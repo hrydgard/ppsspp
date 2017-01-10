@@ -271,4 +271,16 @@ private:
 	bool fboTexBound_;
 
 	DrawEngineVulkanStats stats_;
+
+	// Hardware tessellation
+	class TessellationDataTransferVulkan : public TessellationDataTransfer {
+	private:
+		int data_tex[3];
+	public:
+		TessellationDataTransferVulkan() : TessellationDataTransfer(), data_tex() {
+		}
+		~TessellationDataTransferVulkan() {
+		}
+		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+	};
 };
