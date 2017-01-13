@@ -40,24 +40,15 @@ public:
 	// This gets called on startup and when we get back from settings.
 	void CheckGPUFeatures();
 
-	void InitClear() override;
-	void Reinitialize() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void Execute_Generic(u32 op, u32 diff);
 	void ExecuteOp(u32 op, u32 diff) override;
 
 	void ReapplyGfxStateInternal() override;
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
-	void CopyDisplayToOutput() override;
 	void BeginFrame() override;
 	void GetStats(char *buffer, size_t bufsize) override;
-	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
-	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
-	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
-	bool PerformMemorySet(u32 dest, u8 v, int size) override;
-	bool PerformMemoryDownload(u32 dest, int size) override;
-	bool PerformMemoryUpload(u32 dest, int size) override;
-	bool PerformStencilUpload(u32 dest, int size) override;
+
 	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore() override;
@@ -65,12 +56,10 @@ public:
 	void DumpNextFrame() override;
 	void DoState(PointerWrap &p) override;
 
-	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
-	void Resized() override;
 	void ClearShaderCache() override;
 	void CleanupBeforeUI() override;
 	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
-		return textureCache_.DecodeTexture(dest, state);
+		return textureCacheGL_->DecodeTexture(dest, state);
 	}
 	bool FramebufferDirty() override;
 	bool FramebufferReallyDirty() override;
@@ -160,7 +149,6 @@ public:
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
-	void ProcessEvent(GPUEvent ev) override;
 	void FastLoadBoneMatrix(u32 target) override;
 	void FinishDeferred() override;
 
@@ -168,30 +156,26 @@ private:
 	void Flush() {
 		drawEngine_.Flush();
 	}
-	void DoBlockTransfer(u32 skipDrawReason);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
-	void InitClearInternal();
-	void BeginFrameInternal();
-	void CopyDisplayToOutputInternal();
-	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
-	void PerformMemorySetInternal(u32 dest, u8 v, int size);
-	void PerformStencilUploadInternal(u32 dest, int size);
-	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
-	void ReinitializeInternal();
+
+	void InitClearInternal() override;
+	void BeginFrameInternal() override;
+	void CopyDisplayToOutputInternal() override;
+	void ReinitializeInternal() override;
+
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
 
 	static CommandInfo cmdInfo_[256];
 
-	FramebufferManager framebufferManager_;
-	TextureCache textureCache_;
+	FramebufferManager *framebufferManagerGL_;
+	TextureCache *textureCacheGL_;
 	DepalShaderCache depalShaderCache_;
 	DrawEngineGLES drawEngine_;
 	FragmentTestCache fragmentTestCache_;
 	ShaderManager *shaderManager_;
 
-	bool resized_;
 	int lastVsync_;
 
 	std::string reportingPrimaryInfo_;

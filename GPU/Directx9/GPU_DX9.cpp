@@ -85,10 +85,11 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that dirty texture scaling.
 	{ GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexMapMode },
-	{ GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexScaleU },
-	{ GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexScaleV },
-	{ GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexOffsetU },
-	{ GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexOffsetV },
+
+	{ GE_CMD_TEXSCALEU, FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexScaleU },
+	{ GE_CMD_TEXSCALEV, FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexScaleV },
+	{ GE_CMD_TEXOFFSETU, FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexOffsetU },
+	{ GE_CMD_TEXOFFSETV, FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexOffsetV },
 
 	// Changes that dirty the current texture. Really should be possible to avoid executing these if we compile
 	// by adding some more flags.
@@ -393,21 +394,26 @@ static const CommandTableEntry commandTable[] = {
 GPU_DX9::CommandInfo GPU_DX9::cmdInfo_[256];
 
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx)
-: resized_(false), gfxCtx_(gfxCtx) {
+: gfxCtx_(gfxCtx) {
 	lastVsync_ = g_Config.bVSync ? 1 : 0;
 	dxstate.SetVSyncInterval(g_Config.bVSync);
 
+	framebufferManagerDX9_ = new FramebufferManagerDX9();
+	framebufferManager_ = framebufferManagerDX9_;
+	textureCacheDX9_ = new TextureCacheDX9();
+	textureCache_ = textureCacheDX9_;
+
 	shaderManager_ = new ShaderManagerDX9();
 	drawEngine_.SetShaderManager(shaderManager_);
-	drawEngine_.SetTextureCache(&textureCache_);
-	drawEngine_.SetFramebufferManager(&framebufferManager_);
-	framebufferManager_.Init();
-	framebufferManager_.SetTextureCache(&textureCache_);
-	framebufferManager_.SetShaderManager(shaderManager_);
-	framebufferManager_.SetTransformDrawEngine(&drawEngine_);
-	textureCache_.SetFramebufferManager(&framebufferManager_);
-	textureCache_.SetDepalShaderCache(&depalShaderCache_);
-	textureCache_.SetShaderManager(shaderManager_);
+	drawEngine_.SetTextureCache(textureCacheDX9_);
+	drawEngine_.SetFramebufferManager(framebufferManagerDX9_);
+	framebufferManagerDX9_->Init();
+	framebufferManagerDX9_->SetTextureCache(textureCacheDX9_);
+	framebufferManagerDX9_->SetShaderManager(shaderManager_);
+	framebufferManagerDX9_->SetTransformDrawEngine(&drawEngine_);
+	textureCacheDX9_->SetFramebufferManager(framebufferManagerDX9_);
+	textureCacheDX9_->SetDepalShaderCache(&depalShaderCache_);
+	textureCacheDX9_->SetShaderManager(shaderManager_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -446,22 +452,10 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx)
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
 	dxstate.Restore();
-	textureCache_.NotifyConfigChanged();
+	textureCache_->NotifyConfigChanged();
 }
 
 void GPU_DX9::UpdateCmdInfo() {
-	if (g_Config.bPrescaleUV) {
-		cmdInfo_[GE_CMD_TEXSCALEU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXSCALEV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXOFFSETU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXOFFSETV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-	} else {
-		cmdInfo_[GE_CMD_TEXSCALEU].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXSCALEV].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXOFFSETU].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXOFFSETV].flags |= FLAG_FLUSHBEFOREONCHANGE;
-	}
-
 	if (g_Config.bSoftwareSkinning) {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPU_DX9::Execute_VertexTypeSkinning;
@@ -511,17 +505,18 @@ void GPU_DX9::CheckGPUFeatures() {
 }
 
 GPU_DX9::~GPU_DX9() {
-	framebufferManager_.DestroyAllFBOs(true);
+	framebufferManagerDX9_->DestroyAllFBOs(true);
 	shaderManager_->ClearCache(true);
 	delete shaderManager_;
 }
 
 // Needs to be called on GPU thread, not reporting thread.
 void GPU_DX9::BuildReportingInfo() {
-	Thin3DContext *thin3d = gfxCtx_->CreateThin3DContext();
+	using namespace Draw;
+	DrawContext *thin3d = gfxCtx_->CreateThin3DContext();
 
-	reportingPrimaryInfo_ = thin3d->GetInfoString(T3DInfo::VENDORSTRING);
-	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION) + " - " + thin3d->GetInfoString(T3DInfo::SHADELANGVERSION);
+	reportingPrimaryInfo_ = thin3d->GetInfoString(InfoField::VENDORSTRING);
+	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION) + " - " + thin3d->GetInfoString(InfoField::SHADELANGVERSION);
 
 	thin3d->Release();
 }
@@ -530,16 +525,12 @@ void GPU_DX9::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	shaderManager_->ClearCache(false);
-	textureCache_.Clear(false);
-	framebufferManager_.DeviceLost();
+	textureCacheDX9_->Clear(false);
+	framebufferManagerDX9_->DeviceLost();
 }
 
 void GPU_DX9::DeviceRestore() {
 	// Nothing needed.
-}
-
-void GPU_DX9::InitClear() {
-	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
 }
 
 void GPU_DX9::InitClearInternal() {
@@ -568,7 +559,7 @@ void GPU_DX9::BeginFrameInternal() {
 	if (resized_) {
 		UpdateCmdInfo();
 		drawEngine_.Resized();
-		textureCache_.NotifyConfigChanged();
+		textureCacheDX9_->NotifyConfigChanged();
 		resized_ = false;
 	}
 
@@ -581,7 +572,7 @@ void GPU_DX9::BeginFrameInternal() {
 		lastVsync_ = desiredVSyncInterval;
 	}
 
-	textureCache_.StartFrame();
+	textureCacheDX9_->StartFrame();
 	drawEngine_.DecimateTrackedVertexArrays();
 	depalShaderCache_.Decimate();
 	// fragmentTestCache_.Decimate();
@@ -595,12 +586,12 @@ void GPU_DX9::BeginFrameInternal() {
 	}
 	shaderManager_->DirtyShader();
 
-	framebufferManager_.BeginFrame();
+	framebufferManagerDX9_->BeginFrame();
 }
 
 void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	host->GPUNotifyDisplay(framebuf, stride, format);
-	framebufferManager_.SetDisplayFramebuffer(framebuf, stride, format);
+	framebufferManagerDX9_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 bool GPU_DX9::FramebufferDirty() {
@@ -611,7 +602,7 @@ bool GPU_DX9::FramebufferDirty() {
 		// Allow it to process fully before deciding if it's dirty.
 		SyncThread();
 	}
-	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
 		vfb->dirtyAfterDisplay = false;
@@ -628,7 +619,7 @@ bool GPU_DX9::FramebufferReallyDirty() {
 		SyncThread();
 	}
 
-	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
 		vfb->reallyDirtyAfterDisplay = false;
@@ -637,18 +628,14 @@ bool GPU_DX9::FramebufferReallyDirty() {
 	return true;
 }
 
-void GPU_DX9::CopyDisplayToOutput() {
-	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
-}
-
 void GPU_DX9::CopyDisplayToOutputInternal() {
 	dxstate.depthWrite.set(true);
 	dxstate.colorMask.set(true, true, true, true);
 
 	drawEngine_.Flush();
 
-	framebufferManager_.CopyDisplayToOutput();
-	framebufferManager_.EndFrame();
+	framebufferManagerDX9_->CopyDisplayToOutput();
+	framebufferManagerDX9_->EndFrame();
 
 	// shaderManager_->EndFrame();
 	shaderManager_->DirtyLastShader();
@@ -682,41 +669,6 @@ void GPU_DX9::FastRunLoop(DisplayList &list) {
 void GPU_DX9::FinishDeferred() {
 	// This finishes reading any vertex data that is pending.
 	drawEngine_.FinishDeferred();
-}
-
-void GPU_DX9::ProcessEvent(GPUEvent ev) {
-	switch (ev.type) {
-	case GPU_EVENT_INIT_CLEAR:
-		InitClearInternal();
-		break;
-
-	case GPU_EVENT_BEGIN_FRAME:
-		BeginFrameInternal();
-		break;
-
-	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
-		CopyDisplayToOutputInternal();
-		break;
-
-	case GPU_EVENT_INVALIDATE_CACHE:
-		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
-		break;
-
-	case GPU_EVENT_FB_MEMCPY:
-		PerformMemoryCopyInternal(ev.fb_memcpy.dst, ev.fb_memcpy.src, ev.fb_memcpy.size);
-		break;
-
-	case GPU_EVENT_FB_MEMSET:
-		PerformMemorySetInternal(ev.fb_memset.dst, ev.fb_memset.v, ev.fb_memset.size);
-		break;
-
-	case GPU_EVENT_FB_STENCIL_UPLOAD:
-		PerformStencilUploadInternal(ev.fb_stencil_upload.dst, ev.fb_stencil_upload.size);
-		break;
-
-	default:
-		GPUCommon::ProcessEvent(ev);
-	}
 }
 
 inline void GPU_DX9::CheckFlushOp(int cmd, u32 diff) {
@@ -798,7 +750,7 @@ void GPU_DX9::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	// This also make skipping drawing very effective.
-	framebufferManager_.SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		drawEngine_.SetupVertexDecoder(gstate.vertType);
 		// Rough estimate, not sure what's correct.
@@ -846,7 +798,7 @@ void GPU_DX9::Execute_Prim(u32 op, u32 diff) {
 
 void GPU_DX9::Execute_Bezier(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_.SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -889,7 +841,7 @@ void GPU_DX9::Execute_Bezier(u32 op, u32 diff) {
 
 void GPU_DX9::Execute_Spline(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_.SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -1071,7 +1023,7 @@ void GPU_DX9::Execute_TexLevel(u32 op, u32 diff) {
 
 void GPU_DX9::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-	textureCache_.LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
+	textureCacheDX9_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 	// This could be used to "dirty" textures with clut.
 }
 
@@ -1887,8 +1839,8 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		gpuStats.numVertsSubmitted,
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
-		(int)framebufferManager_.NumVFBs(),
-		(int)textureCache_.NumLoadedTextures(),
+		(int)framebufferManagerDX9_->NumVFBs(),
+		(int)textureCacheDX9_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
 		shaderManager_->NumVertexShaders(),
@@ -1896,231 +1848,8 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 	);
 }
 
-void GPU_DX9::DoBlockTransfer(u32 skipDrawReason) {
-	// TODO: This is used a lot to copy data around between render targets and textures,
-	// and also to quickly load textures from RAM to VRAM. So we should do checks like the following:
-	//  * Does dstBasePtr point to an existing texture? If so maybe reload it immediately.
-	//
-	//  * Does srcBasePtr point to a render target, and dstBasePtr to a texture? If so
-	//    either copy between rt and texture or reassign the texture to point to the render target
-	//
-	// etc....
-
-	u32 srcBasePtr = gstate.getTransferSrcAddress();
-	u32 srcStride = gstate.getTransferSrcStride();
-
-	u32 dstBasePtr = gstate.getTransferDstAddress();
-	u32 dstStride = gstate.getTransferDstStride();
-
-	int srcX = gstate.getTransferSrcX();
-	int srcY = gstate.getTransferSrcY();
-
-	int dstX = gstate.getTransferDstX();
-	int dstY = gstate.getTransferDstY();
-
-	int width = gstate.getTransferWidth();
-	int height = gstate.getTransferHeight();
-
-	int bpp = gstate.getTransferBpp();
-
-	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
-
-	if (!Memory::IsValidAddress(srcBasePtr)) {
-		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad source transfer address %08x!", srcBasePtr);
-		return;
-	}
-
-	if (!Memory::IsValidAddress(dstBasePtr)) {
-		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
-		return;
-	}
-
-	// Check that the last address of both source and dest are valid addresses
-
-	u32 srcLastAddr = srcBasePtr + ((height - 1 + srcY) * srcStride + (srcX + width - 1)) * bpp;
-	u32 dstLastAddr = dstBasePtr + ((height - 1 + dstY) * dstStride + (dstX + width - 1)) * bpp;
-
-	if (!Memory::IsValidAddress(srcLastAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bottom-right corner of source of block transfer is at an invalid address: %08x", srcLastAddr);
-		return;
-	}
-	if (!Memory::IsValidAddress(dstLastAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bottom-right corner of destination of block transfer is at an invalid address: %08x", srcLastAddr);
-		return;
-	}
-
-	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
-	if (!framebufferManager_.NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
-		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
-		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
-		// entirely by walking a couple of pointers...
-		if (srcStride == dstStride && (u32)width == srcStride) {
-			// Common case in God of War, let's do it all in one chunk.
-			u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-			const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-			u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
-			memcpy(dst, src, width * height * bpp);
-		} else {
-			for (int y = 0; y < height; y++) {
-				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
-				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
-
-				const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-				u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
-				memcpy(dst, src, width * bpp);
-			}
-		}
-
-		textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
-		framebufferManager_.NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
-	}
-
-	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
-
-	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
-	cyclesExecuted += ((height * width * bpp) * 16) / 10;
-}
-
-void GPU_DX9::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
-	GPUEvent ev(GPU_EVENT_INVALIDATE_CACHE);
-	ev.invalidate_cache.addr = addr;
-	ev.invalidate_cache.size = size;
-	ev.invalidate_cache.type = type;
-	ScheduleEvent(ev);
-}
-
-void GPU_DX9::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
-	if (size > 0)
-		textureCache_.Invalidate(addr, size, type);
-	else
-		textureCache_.InvalidateAll(type);
-
-	if (type != GPU_INVALIDATE_ALL && framebufferManager_.MayIntersectFramebuffer(addr)) {
-		// If we're doing block transfers, we shouldn't need this, and it'll only confuse us.
-		// Vempire invalidates (with writeback) after drawing, but before blitting.
-		if (!g_Config.bBlockTransferGPU || type == GPU_INVALIDATE_SAFE) {
-			framebufferManager_.UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
-		}
-	}
-}
-
-void GPU_DX9::NotifyVideoUpload(u32 addr, int size, int width, int format) {
-	if (Memory::IsVRAMAddress(addr)) {
-		framebufferManager_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
-	}
-	textureCache_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
-	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
-}
-
-void GPU_DX9::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
-	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
-		// We use a little hack for Download/Upload using a VRAM mirror.
-		// Since they're identical we don't need to copy.
-		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
-			Memory::Memcpy(dest, src, size);
-		}
-	}
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-}
-
-void GPU_DX9::PerformMemorySetInternal(u32 dest, u8 v, int size) {
-	if (!framebufferManager_.NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
-		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	}
-}
-
-void GPU_DX9::PerformStencilUploadInternal(u32 dest, int size) {
-	framebufferManager_.NotifyStencilUpload(dest, size);
-}
-
-bool GPU_DX9::PerformMemoryCopy(u32 dest, u32 src, int size) {
-	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
-			ev.fb_memcpy.dst = dest;
-			ev.fb_memcpy.src = src;
-			ev.fb_memcpy.size = size;
-			ScheduleEvent(ev);
-
-			// This is a memcpy, so we need to wait for it to complete.
-			SyncThread();
-		} else {
-			PerformMemoryCopyInternal(dest, src, size);
-		}
-		return true;
-	}
-
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	return false;
-}
-
-bool GPU_DX9::PerformMemorySet(u32 dest, u8 v, int size) {
-	// This may indicate a memset, usually to 0, of a framebuffer.
-	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
-		Memory::Memset(dest, v, size);
-
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMSET);
-			ev.fb_memset.dst = dest;
-			ev.fb_memset.v = v;
-			ev.fb_memset.size = size;
-			ScheduleEvent(ev);
-
-			// We don't need to wait for the framebuffer to be updated.
-		} else {
-			PerformMemorySetInternal(dest, v, size);
-		}
-		return true;
-	}
-
-	// Or perhaps a texture, let's invalidate.
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	return false;
-}
-
-bool GPU_DX9::PerformMemoryDownload(u32 dest, int size) {
-	// Cheat a bit to force a download of the framebuffer.
-	// VRAM + 0x00400000 is simply a VRAM mirror.
-	if (Memory::IsVRAMAddress(dest)) {
-		return PerformMemoryCopy(dest ^ 0x00400000, dest, size);
-	}
-	return false;
-}
-
-bool GPU_DX9::PerformMemoryUpload(u32 dest, int size) {
-	// Cheat a bit to force an upload of the framebuffer.
-	// VRAM + 0x00400000 is simply a VRAM mirror.
-	if (Memory::IsVRAMAddress(dest)) {
-		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
-	}
-	return false;
-}
-
-bool GPU_DX9::PerformStencilUpload(u32 dest, int size) {
-	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
-			ev.fb_stencil_upload.dst = dest;
-			ev.fb_stencil_upload.size = size;
-			ScheduleEvent(ev);
-		} else {
-			PerformStencilUploadInternal(dest, size);
-		}
-		return true;
-	}
-	return false;
-}
-
 void GPU_DX9::ClearCacheNextFrame() {
-	textureCache_.ClearNextFrame();
-}
-
-void GPU_DX9::Resized() {
-	resized_ = true;
-	framebufferManager_.Resized();
+	textureCacheDX9_->ClearNextFrame();
 }
 
 void GPU_DX9::ClearShaderCache() {
@@ -2128,7 +1857,7 @@ void GPU_DX9::ClearShaderCache() {
 }
 
 std::vector<FramebufferInfo> GPU_DX9::GetFramebufferList() {
-	return framebufferManager_.GetFramebufferList();
+	return framebufferManagerDX9_->GetFramebufferList();
 }
 
 void GPU_DX9::DoState(PointerWrap &p) {
@@ -2137,25 +1866,25 @@ void GPU_DX9::DoState(PointerWrap &p) {
 	// TODO: Some of these things may not be necessary.
 	// None of these are necessary when saving.
 	if (p.mode == p.MODE_READ) {
-		textureCache_.Clear(true);
+		textureCacheDX9_->Clear(true);
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		framebufferManager_.DestroyAllFBOs(true);
+		framebufferManagerDX9_->DestroyAllFBOs(true);
 		shaderManager_->ClearCache(true);
 	}
 }
 
 bool GPU_DX9::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
-	return framebufferManager_.GetCurrentFramebuffer(buffer, type, maxRes);
+	return framebufferManagerDX9_->GetCurrentFramebuffer(buffer, type, maxRes);
 }
 
 bool GPU_DX9::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-	return framebufferManager_.GetCurrentDepthbuffer(buffer);
+	return framebufferManagerDX9_->GetCurrentDepthbuffer(buffer);
 }
 
 bool GPU_DX9::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-	return framebufferManager_.GetCurrentStencilbuffer(buffer);
+	return framebufferManagerDX9_->GetCurrentStencilbuffer(buffer);
 }
 
 bool GPU_DX9::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
@@ -2163,8 +1892,8 @@ bool GPU_DX9::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 		return false;
 	}
 
-	textureCache_.SetTexture(true);
-	textureCache_.ApplyTexture();
+	textureCacheDX9_->SetTexture(true);
+	textureCacheDX9_->ApplyTexture();
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -2248,7 +1977,7 @@ bool GPU_DX9::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 }
 
 bool GPU_DX9::GetCurrentClut(GPUDebugBuffer &buffer) {
-	return textureCache_.GetCurrentClutBuffer(buffer);
+	return textureCacheDX9_->GetCurrentClutBuffer(buffer);
 }
 
 bool GPU_DX9::GetOutputFramebuffer(GPUDebugBuffer &buffer) {

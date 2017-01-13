@@ -13,6 +13,6 @@
 [submodule "ext/armips"]
 	path = ext/armips
 	url = https://github.com/Kingcom/armips
-[submodule "ext/ppsspp-glslang"]
+[submodule "ext/glslang"]
 	path = ext/glslang
-	url = https://github.com/hrydgard/ppsspp-glslang.git
+	url = https://github.com/hrydgard/glslang.git

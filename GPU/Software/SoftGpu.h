@@ -19,6 +19,7 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "thin3d/thin3d.h"
 
 typedef struct {
 	union {
@@ -45,12 +46,10 @@ typedef struct {
 } FormatBuffer;
 
 class ShaderManager;
-class Thin3DContext;
-class Thin3DTexture;
 
 class SoftGPU : public GPUCommon {
 public:
-	SoftGPU(GraphicsContext *gfxCtx, Thin3DContext *_thin3D);
+	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D);
 	~SoftGPU();
 	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
@@ -105,7 +104,8 @@ private:
 	GEBufferFormat displayFormat_;
 
 	GraphicsContext *gfxCtx_;
-	Thin3DTexture *fbTex;
-	Thin3DContext *thin3d;
+	Draw::Texture *fbTex;
+	Draw::DrawContext *thin3d;
+	Draw::Pipeline *texColor;
 	std::vector<u32> fbTexBuffer;
 };

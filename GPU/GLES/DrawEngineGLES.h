@@ -268,7 +268,7 @@ private:
 	int decodeCounter_;
 	u32 dcid_;
 
-	UVScale *uvScale;
+	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
 
 	bool fboTexNeedBind_;
 	bool fboTexBound_;

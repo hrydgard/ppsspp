@@ -294,7 +294,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		// Ignore.
 		return;
 	}
-	if (replacedInfo.addr > 0x05000000 && replacedInfo.addr < 0x08800000) {
+	if (replacedInfo.addr > 0x05000000 && replacedInfo.addr < PSP_GetKernelMemoryEnd()) {
 		// Don't save the PPGe texture.
 		return;
 	}

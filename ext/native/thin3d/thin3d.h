@@ -15,15 +15,25 @@
 
 class Matrix4x4;
 
-enum T3DBlendEquation : int {
-	ADD,
-	SUBTRACT,
-	REV_SUBTRACT,
-	MIN,
-	MAX,
-};
+#ifdef _WIN32
 
-enum T3DComparison : int {
+struct IDirect3DDevice9;
+struct IDirect3D9;
+struct IDirect3DDevice9Ex;
+struct IDirect3D9Ex;
+struct ID3D11Device;
+struct ID3D11DeviceContext;
+
+#endif
+
+class VulkanContext;
+
+namespace Draw {
+
+// Useful in UBOs
+typedef int bool32;
+
+enum class Comparison : int {
 	NEVER,
 	LESS,
 	EQUAL,
@@ -35,7 +45,7 @@ enum T3DComparison : int {
 };
 
 // Had to prefix with LOGIC, too many clashes
-enum T3DLogicOp : int {
+enum class LogicOp : int {
 	LOGIC_CLEAR,
 	LOGIC_SET,
 	LOGIC_COPY,
@@ -54,31 +64,52 @@ enum T3DLogicOp : int {
 	LOGIC_OR_INVERTED,
 };
 
-enum T3DBlendFactor : int {
+enum class BlendOp : int {
+	ADD,
+	SUBTRACT,
+	REV_SUBTRACT,
+	MIN,
+	MAX,
+};
+
+enum class BlendFactor : uint8_t {
 	ZERO,
 	ONE,
 	SRC_COLOR,
-	SRC_ALPHA,
 	ONE_MINUS_SRC_COLOR,
-	ONE_MINUS_SRC_ALPHA,
 	DST_COLOR,
-	DST_ALPHA,
 	ONE_MINUS_DST_COLOR,
+	SRC_ALPHA,
+	ONE_MINUS_SRC_ALPHA,
+	DST_ALPHA,
 	ONE_MINUS_DST_ALPHA,
-	FIXED_COLOR,
+	CONSTANT_COLOR,
+	ONE_MINUS_CONSTANT_COLOR,
+	CONSTANT_ALPHA,
+	ONE_MINUS_CONSTANT_ALPHA,
+	SRC1_COLOR,
+	ONE_MINUS_SRC1_COLOR,
+	SRC1_ALPHA,
+	ONE_MINUS_SRC1_ALPHA,
 };
 
-enum T3DTextureWrap : int {
-	REPEAT,
-	CLAMP,
+enum class StencilOp {
+	KEEP = 0,
+	ZERO = 1,
+	REPLACE = 2,
+	INCREMENT_AND_CLAMP = 3,
+	DECREMENT_AND_CLAMP = 4,
+	INVERT = 5,
+	INCREMENT_AND_WRAP = 6,
+	DECREMENT_AND_WRAP = 7,
 };
 
-enum T3DTextureFilter : int {
+enum class TextureFilter : int {
 	NEAREST,
 	LINEAR,
 };
 
-enum T3DBufferUsage : int {
+enum BufferUsageFlag : int {
 	VERTEXDATA = 1,
 	INDEXDATA = 2,
 	GENERIC = 4,
@@ -86,15 +117,7 @@ enum T3DBufferUsage : int {
 	DYNAMIC = 16,
 };
 
-enum T3DVertexDataType : uint8_t {
-	INVALID,
-	FLOATx2,
-	FLOATx3,
-	FLOATx4,
-	UNORM8x4,
-};
-
-enum T3DSemantic : int {
+enum Semantic : int {
 	SEM_POSITION,
 	SEM_COLOR0,
 	SEM_TEXCOORD0,
@@ -105,52 +128,41 @@ enum T3DSemantic : int {
 	SEM_MAX,
 };
 
-enum T3DPrimitive : int {
-	PRIM_POINTS,
-	PRIM_LINES,
-	PRIM_TRIANGLES,
+enum class Primitive {
+	POINT_LIST,
+	LINE_LIST,
+	LINE_STRIP,
+	TRIANGLE_LIST,
+	TRIANGLE_STRIP,
+	TRIANGLE_FAN,
+	// Tesselation shader only
+	PATCH_LIST,
+	// These are for geometry shaders only.
+	LINE_LIST_ADJ,
+	LINE_STRIP_ADJ,
+	TRIANGLE_LIST_ADJ,
+	TRIANGLE_STRIP_ADJ,
 };
 
-enum T3DVertexShaderPreset : int {
+enum VertexShaderPreset : int {
 	VS_COLOR_2D,
 	VS_TEXTURE_COLOR_2D,
 	VS_MAX_PRESET,
 };
 
-enum T3DFragmentShaderPreset : int {
+enum FragmentShaderPreset : int {
 	FS_COLOR_2D,
 	FS_TEXTURE_COLOR_2D,
 	FS_MAX_PRESET,
 };
 
-// Predefined full shader setups.
-enum T3DShaderSetPreset : int {
-	SS_COLOR_2D,
-	SS_TEXTURE_COLOR_2D,
-	SS_MAX_PRESET,
-};
-
-enum T3DBlendStatePreset : int {
-	BS_OFF,
-	BS_STANDARD_ALPHA,
-	BS_PREMUL_ALPHA,
-	BS_ADDITIVE,
-	BS_MAX_PRESET,
-};
-
-enum T3DSamplerStatePreset : int {
-	SAMPS_NEAREST,
-	SAMPS_LINEAR,
-	SAMPS_MAX_PRESET,
-};
-
-enum T3DClear : int {
+enum ClearFlag : int {
 	COLOR = 1,
 	DEPTH = 2,
 	STENCIL = 4,
 };
 
-enum T3DTextureType : uint8_t {
+enum TextureType : uint8_t {
 	UNKNOWN,
 	LINEAR1D,
 	LINEAR2D,
@@ -160,29 +172,111 @@ enum T3DTextureType : uint8_t {
 	ARRAY2D,
 };
 
-enum T3DImageFormat : uint8_t {
-	IMG_UNKNOWN,
-	LUMINANCE,
-	RGBA8888,
-	RGBA4444,
-	DXT1,
-	ETC1,  // Needs simulation on many platforms
+enum class DataFormat : uint8_t {
+	UNDEFINED,
+
+	R8_UNORM,
+	R8G8_UNORM,
+	R8G8B8_UNORM,
+
+	R8G8B8A8_UNORM,
+	R8G8B8A8_UNORM_SRGB,
+
+	R8G8B8A8_SNORM,
+	R8G8B8A8_UINT,
+	R8G8B8A8_SINT,
+
+	R4G4_UNORM,
+	R4G4B4A4_UNORM,
+
+	R16_FLOAT,
+	R16G16_FLOAT,
+	R16G16B16A16_FLOAT,
+
+	R32_FLOAT,
+	R32G32_FLOAT,
+	R32G32B32_FLOAT,
+	R32G32B32A32_FLOAT,
+
+	// Block compression formats.
+	// These are modern names for DXT and friends, now patent free.
+	// https://msdn.microsoft.com/en-us/library/bb694531.aspx
+	BC1_RGBA_UNORM_BLOCK,
+	BC1_RGBA_SRGB_BLOCK,
+	BC2_UNORM_BLOCK,  // 4-bit straight alpha + DXT1 color. Usually not worth using
+	BC2_SRGB_BLOCK,
+	BC3_UNORM_BLOCK,  // 3-bit alpha with 2 ref values (+ magic) + DXT1 color
+	BC3_SRGB_BLOCK,
+	BC4_UNORM_BLOCK,  // 1-channel, same storage as BC3 alpha
+	BC4_SNORM_BLOCK,
+	BC5_UNORM_BLOCK,  // 2-channel RG, each has same storage as BC3 alpha
+	BC5_SNORM_BLOCK,
+	BC6H_UFLOAT_BLOCK,  // TODO
+	BC6H_SFLOAT_BLOCK,
+	BC7_UNORM_BLOCK,    // Highly advanced, very expensive to compress, very good quality.
+	BC7_SRGB_BLOCK,
+
+	ETC1,
+
+	S8,
 	D16,
-	D24S8,
-	D24X8,
+	D24_S8,
+	D32F,
+	D32F_S8,
 };
 
-enum T3DRenderState : uint8_t {
-	CULL_MODE,
+enum class ShaderStage {
+	VERTEX,
+	FRAGMENT,
+	GEOMETRY,
+	CONTROL,  // HULL
+	EVALUATION,  // DOMAIN
+	COMPUTE,
 };
 
-enum T3DCullMode : uint8_t {
-	NO_CULL,
-	CW,
+enum class CullMode : uint8_t {
+	NONE,
+	FRONT,
+	BACK,
+	FRONT_AND_BACK,  // Not supported on D3D9
+};
+
+enum class Facing {
 	CCW,
+	CW,
 };
 
-enum T3DImageType {
+enum BorderColor {
+	DONT_CARE,
+	TRANSPARENT_BLACK,
+	OPAQUE_BLACK,
+	OPAQUE_WHITE,
+};
+
+enum {
+	COLOR_MASK_R = 1,
+	COLOR_MASK_G = 2,
+	COLOR_MASK_B = 4,
+	COLOR_MASK_A = 8,
+};
+
+enum class TextureAddressMode {
+	REPEAT,
+	REPEAT_MIRROR,
+	CLAMP_TO_EDGE,
+	CLAMP_TO_BORDER,
+};
+
+enum class ShaderLanguage {
+	GLSL_ES_200,
+	GLSL_ES_300,
+	GLSL_410,
+	GLSL_VULKAN,
+	HLSL_D3D9,
+	HLSL_D3D11,
+};
+
+enum ImageFileType {
 	PNG,
 	JPEG,
 	ZIM,
@@ -190,7 +284,7 @@ enum T3DImageType {
 	TYPE_UNKNOWN,
 };
 
-enum T3DInfo {
+enum InfoField {
 	APINAME,
 	APIVERSION,
 	VENDORSTRING,
@@ -200,7 +294,7 @@ enum T3DInfo {
 };
 
 // Binary compatible with D3D11 viewport.
-struct T3DViewport {
+struct Viewport {
 	float TopLeftX;
 	float TopLeftY;
 	float Width;
@@ -209,54 +303,42 @@ struct T3DViewport {
 	float MaxDepth;
 };
 
-class Thin3DObject {
+class RefCountedObject {
 public:
-	Thin3DObject() : refcount_(1) {}
-	virtual ~Thin3DObject() {}
+	RefCountedObject() : refcount_(1) {}
+	virtual ~RefCountedObject() {}
 
-	// TODO: Reconsider this annoying ref counting stuff.
-	virtual void AddRef() { refcount_++; }
-	virtual bool Release() {
-		if (refcount_ > 0 && refcount_ < 10000) {
-			refcount_--;
-			if (refcount_ == 0) {
-				delete this;
-				return true;
-			}
-		} else {
-			ELOG("Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
-		}
-		return false;
-	}
+	void AddRef() { refcount_++; }
+	bool Release();
 
 private:
 	int refcount_;
 };
 
-class Thin3DBlendState : public Thin3DObject {
+class BlendState : public RefCountedObject {
 public:
 };
 
-class Thin3DSamplerState : public Thin3DObject {
+class SamplerState : public RefCountedObject {
 public:
 };
 
-class Thin3DDepthStencilState : public Thin3DObject {
+class DepthStencilState : public RefCountedObject {
 public:
 };
 
-class Thin3DBuffer : public Thin3DObject {
+class Buffer : public RefCountedObject {
 public:
 	virtual void SetData(const uint8_t *data, size_t size) = 0;
 	virtual void SubData(const uint8_t *data, size_t offset, size_t size) = 0;
 };
 
-class Thin3DTexture : public Thin3DObject {
+class Texture : public RefCountedObject {
 public:
-	bool LoadFromFile(const std::string &filename, T3DImageType type = T3DImageType::DETECT);
-	bool LoadFromFileData(const uint8_t *data, size_t dataSize, T3DImageType type = T3DImageType::DETECT);
+	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT);
+	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type = ImageFileType::DETECT);
 
-	virtual bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
 	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
 	virtual void AutoGenMipmaps() = 0;
 	virtual void Finalize(int zim_flags) = 0;  // TODO: Tidy up
@@ -269,117 +351,184 @@ protected:
 	int width_, height_, depth_;
 };
 
-struct Thin3DVertexComponent {
-	Thin3DVertexComponent() : name(nullptr), type(T3DVertexDataType::INVALID), semantic(255), offset(255) {}
-	Thin3DVertexComponent(const char *name, T3DSemantic semantic, T3DVertexDataType dataType, uint8_t offset) {
-		this->name = name;
-		this->semantic = semantic;
-		this->type = dataType;
-		this->offset = offset;
-	}
-	const char *name;
-	T3DVertexDataType type;
-	uint8_t semantic;
-	uint8_t offset;
+struct BindingDesc {
+	int stride;
+	bool instanceRate;
 };
 
-class Thin3DVertexFormat : public Thin3DObject {
+struct AttributeDesc {
+	int binding;
+	int location;  // corresponds to semantic
+	DataFormat format;
+	int offset;
+};
+
+struct InputLayoutDesc {
+	std::vector<BindingDesc> bindings;
+	std::vector<AttributeDesc> attributes;
+};
+
+class InputLayout : public RefCountedObject { };
+
+enum class UniformType : int8_t {
+	FLOAT, FLOAT2, FLOAT3, FLOAT4,
+	MATRIX4X4,
+};
+
+// For emulation of uniform buffers on D3D9/GL
+struct UniformDesc {
+	int16_t offset;
+	UniformType type;
+	int8_t reg;  // For D3D
+
+	// TODO: Support array elements etc.
+};
+
+struct UniformBufferDesc {
+	std::vector<UniformDesc> uniforms;
+};
+
+class ShaderModule : public RefCountedObject {
 public:
+	virtual ShaderStage GetStage() const = 0;
+};
+
+class Pipeline : public RefCountedObject {
+public:
+	// TODO: Use a uniform-buffer based interface instead.
+	virtual void SetVector(const char *name, float *value, int n) = 0;
+	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
 	virtual bool RequiresBuffer() = 0;
 };
 
-class Thin3DShader : public Thin3DObject {
-public:
+class RasterState : public RefCountedObject {};
+
+struct StencilSide {
+	StencilOp failOp;
+	StencilOp passOp;
+	StencilOp depthFailOp;
+	Comparison compareOp;
+	uint8_t compareMask;
+	uint8_t writeMask;
+	uint8_t reference;
 };
 
-class Thin3DShaderSet : public Thin3DObject {
-public:
-	// TODO: Make some faster way of doing these. Support uniform buffers (and fake them on GL 2.0?)
-	virtual void SetVector(const char *name, float *value, int n) = 0;
-	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
+struct DepthStencilStateDesc {
+	bool depthTestEnabled;
+	bool depthWriteEnabled;
+	Comparison depthCompare;
+	bool stencilEnabled;
+	StencilSide front;
+	StencilSide back;
 };
 
-struct T3DBlendStateDesc {
+struct BlendStateDesc {
 	bool enabled;
-	T3DBlendEquation eqCol;
-	T3DBlendFactor srcCol;
-	T3DBlendFactor dstCol;
-	T3DBlendEquation eqAlpha;
-	T3DBlendFactor srcAlpha;
-	T3DBlendFactor dstAlpha;
+	int colorMask;
+	BlendFactor srcCol;
+	BlendFactor dstCol;
+	BlendOp eqCol;
+	BlendFactor srcAlpha;
+	BlendFactor dstAlpha;
+	BlendOp eqAlpha;
 	bool logicEnabled;
-	T3DLogicOp logicOp;
-	// int colorMask;
+	LogicOp logicOp;
 };
 
-struct T3DSamplerStateDesc {
-	T3DTextureWrap wrapS;
-	T3DTextureWrap wrapT;
-	T3DTextureFilter magFilt;
-	T3DTextureFilter minFilt;
-	T3DTextureFilter mipFilt;
+struct SamplerStateDesc {
+	TextureFilter magFilter;
+	TextureFilter minFilter;
+	TextureFilter mipFilter;
+	float maxAniso;
+	TextureAddressMode wrapU;
+	TextureAddressMode wrapV;
+	TextureAddressMode wrapW;
+	float maxLod;
+	bool shadowCompareEnabled;
+	Comparison shadowCompareFunc;
+	BorderColor borderColor;
 };
 
-class Thin3DContext : public Thin3DObject {
+struct RasterStateDesc {
+	CullMode cull;
+	Facing facing;
+};
+
+struct PipelineDesc {
+	Primitive prim;
+	std::vector<ShaderModule *> shaders;
+	InputLayout *inputLayout;
+	DepthStencilState *depthStencil;
+	BlendState *blend;
+	RasterState *raster;
+};
+
+struct DeviceCaps {
+	DataFormat preferredDepthBufferFormat;
+	DataFormat preferredShadowMapFormatLow;
+	DataFormat preferredShadowMapFormatHigh;
+	bool anisoSupported;
+	bool depthRangeMinusOneToOne;  // OpenGL style depth
+	bool geometryShaderSupported;
+	bool tesselationShaderSupported;
+	bool multiViewport;
+	bool dualSourceBlend;
+};
+
+class DrawContext : public RefCountedObject {
 public:
-	virtual ~Thin3DContext();
+	virtual ~DrawContext();
 
-	virtual std::vector<std::string> GetFeatureList() { return std::vector<std::string>(); }
+	virtual const DeviceCaps &GetDeviceCaps() const = 0;
+	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
 
-	virtual Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) = 0;
-	virtual Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) = 0;
-	virtual Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) = 0;
-	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
-	virtual Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) = 0;
-	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) = 0;
-
-	virtual Thin3DTexture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
-	virtual Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;
+	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
+	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;
+	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
+	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
+	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
+	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
+	// virtual ComputePipeline CreateComputePipeline(const ComputePipelineDesc &desc) = 0
+	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
 
 	// Common Thin3D function, uses CreateTexture
-	Thin3DTexture *CreateTextureFromFile(const char *filename, T3DImageType fileType);
-	Thin3DTexture *CreateTextureFromFileData(const uint8_t *data, int size, T3DImageType fileType);
+	Texture *CreateTextureFromFile(const char *filename, ImageFileType fileType);
+	Texture *CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
-	Thin3DBlendState *GetBlendStatePreset(T3DBlendStatePreset preset) { return bsPresets_[preset]; }
-	Thin3DSamplerState *GetSamplerStatePreset(T3DSamplerStatePreset preset) { return sampsPresets_[preset]; }
-	Thin3DShader *GetVshaderPreset(T3DVertexShaderPreset preset) { return fsPresets_[preset]; }
-	Thin3DShader *GetFshaderPreset(T3DFragmentShaderPreset preset) { return vsPresets_[preset]; }
-	Thin3DShaderSet *GetShaderSetPreset(T3DShaderSetPreset preset) { return ssPresets_[preset]; }
+	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }
+	ShaderModule *GetFshaderPreset(FragmentShaderPreset preset) { return vsPresets_[preset]; }
+
+	// Resources
+	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
+	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
+	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
 
 	// The implementation makes the choice of which shader code to use.
-	virtual Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
-	virtual Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
+	virtual ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
 
-	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
-	virtual void SetBlendState(Thin3DBlendState *state) = 0;
-	virtual void SetSamplerStates(int start, int count, Thin3DSamplerState **state) = 0;
-	virtual void SetDepthStencilState(Thin3DDepthStencilState *state) = 0;
-	virtual void SetTextures(int start, int count, Thin3DTexture **textures) = 0;
+	// Dynamic state
+	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
+	virtual void SetViewports(int count, Viewport *viewports) = 0;
 
-	void SetTexture(int stage, Thin3DTexture *texture) {
-		SetTextures(stage, 1, &texture);
+	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
+	virtual void BindTextures(int start, int count, Texture **textures) = 0;
+	void BindTexture(int stage, Texture *texture) {
+		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
 
-	// Raster state
-	virtual void SetScissorEnabled(bool enable) = 0;
-	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
-	virtual void SetViewports(int count, T3DViewport *viewports) = 0;
-
-	// Single render states that aren't worth state blocks. May have to convert some of these state blocks on D3D11 though...
-	virtual void SetRenderState(T3DRenderState rs, uint32_t value) = 0;
+	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
-	virtual void Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) = 0;
-	virtual void DrawUP(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, const void *vdata, int vertexCount) = 0;
+	virtual void Draw(Buffer *vdata, int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
+	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Render pass management. Default implementations here.
 	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
 		Clear(0xF, colorval, depthVal, stencilVal);
 	}
 	virtual void End() {}
-	
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
 	
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.
@@ -388,33 +537,25 @@ public:
 		targetHeight_ = h;
 	}
 
-	virtual std::string GetInfoString(T3DInfo info) const = 0;
+	virtual std::string GetInfoString(InfoField info) const = 0;
 
 protected:
 	void CreatePresets();
 
-	Thin3DShader *vsPresets_[VS_MAX_PRESET];
-	Thin3DShader *fsPresets_[FS_MAX_PRESET];
-	Thin3DBlendState *bsPresets_[BS_MAX_PRESET];
-	Thin3DShaderSet *ssPresets_[SS_MAX_PRESET];
-	Thin3DSamplerState *sampsPresets_[SAMPS_MAX_PRESET];
+	ShaderModule *vsPresets_[VS_MAX_PRESET];
+	ShaderModule *fsPresets_[FS_MAX_PRESET];
 
 	int targetWidth_;
 	int targetHeight_;
-
-private:
 };
 
-Thin3DContext *T3DCreateGLContext();
+DrawContext *T3DCreateGLContext();
 
 #ifdef _WIN32
-struct IDirect3DDevice9;
-struct IDirect3D9;
-struct IDirect3DDevice9Ex;
-struct IDirect3D9Ex;
-Thin3DContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
+DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context);
 #endif
 
-class VulkanContext;
+DrawContext *T3DCreateVulkanContext(VulkanContext *context);
 
-Thin3DContext *T3DCreateVulkanContext(VulkanContext *context);
+}  // namespace Draw

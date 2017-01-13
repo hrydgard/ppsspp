@@ -131,13 +131,17 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 		return false;
 	if (msgCode == 7 && startsWith(pMsg, "You cannot transition the layout"))
 		return false;
-	//if (msgCode == 43 && startsWith(pMsg, "At Draw time the active render"))
-	//	return false;
+	// This seems like a bogus result when submitting two command buffers in one go, one creating the image, the other one using it.
+	if (msgCode == 6 && startsWith(pMsg, "Cannot submit cmd buffer using image"))
+		return false;
 	if (msgCode == 44 && startsWith(pMsg, "At Draw time the active render"))
+		return false;
+	if (msgCode == 11)
 		return false;
 
 #ifdef _WIN32
-	OutputDebugStringA(message.str().c_str());
+	std::string msg = message.str();
+	OutputDebugStringA(msg.c_str());
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
 		if (options->breakOnError) {
 			DebugBreak();
@@ -203,8 +207,8 @@ void WindowsVulkanContext::Shutdown() {
 	finalize_glslang();
 }
 
-Thin3DContext *WindowsVulkanContext::CreateThin3DContext() {
-	return T3DCreateVulkanContext(g_Vulkan);
+Draw::DrawContext *WindowsVulkanContext::CreateThin3DContext() {
+	return Draw::T3DCreateVulkanContext(g_Vulkan);
 }
 
 void WindowsVulkanContext::SwapBuffers() {

@@ -1,4 +1,4 @@
-#include <string.h>
+#include <cstring>
 #include <thin3d/thin3d.h>
 
 #include "base/logging.h"
@@ -6,6 +6,22 @@
 #include "image/png_load.h"
 #include "file/vfs.h"
 #include "ext/jpge/jpgd.h"
+
+namespace Draw {
+
+bool RefCountedObject::Release() {
+	if (refcount_ > 0 && refcount_ < 10000) {
+		refcount_--;
+		if (refcount_ == 0) {
+			delete this;
+			return true;
+		}
+	}
+	else {
+		ELOG("Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
+	}
+	return false;
+}
 
 // ================================== PIXEL/FRAGMENT SHADERS
 
@@ -75,7 +91,7 @@ static const char * const glsl_vsCol =
 static const char * const hlslVsCol =
 "struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
 "struct VS_OUTPUT { float4 Position : POSITION; float4 Color0 : COLOR0; };\n"
-"float4x4 WorldViewProj;\n"
+"float4x4 WorldViewProj : register(c0);\n"
 "VS_OUTPUT main(VS_INPUT input) {\n"
 "  VS_OUTPUT output;\n"
 "  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
@@ -99,6 +115,10 @@ static const char * const vulkan_vsCol =
 "   gl_Position = myBufferVals.WorldViewProj * pos;\n"
 "}\n";
 
+static const UniformBufferDesc vsColDesc{ { { 0, UniformType::MATRIX4X4, 0 } } };
+struct VsColUB {
+	float WorldViewProj[16];
+};
 
 static const char * const glsl_vsTexCol =
 "attribute vec3 Position;\n"
@@ -116,7 +136,7 @@ static const char * const glsl_vsTexCol =
 static const char * const hlslVsTexCol =
 "struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
 "struct VS_OUTPUT { float4 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
-"float4x4 WorldViewProj;\n"
+"float4x4 WorldViewProj : register(c0);\n"
 "VS_OUTPUT main(VS_INPUT input) {\n"
 "  VS_OUTPUT output;\n"
 "  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
@@ -144,73 +164,38 @@ static const char * const vulkan_vsTexCol =
 "   gl_Position = myBufferVals.WorldViewProj * pos;\n"
 "}\n";
 
+static const UniformBufferDesc vsTexColDesc{ { { 0, UniformType::MATRIX4X4, 0 } } };
+struct VsTexColUB {
+	float WorldViewProj[16];
+};
 
-void Thin3DContext::CreatePresets() {
-	// Build prebuilt objects
-	T3DBlendStateDesc off = { false };
-	T3DBlendStateDesc additive = { true, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ONE, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ZERO };
-	T3DBlendStateDesc standard_alpha = { true, T3DBlendEquation::ADD, T3DBlendFactor::SRC_ALPHA, T3DBlendFactor::ONE_MINUS_SRC_ALPHA, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ZERO };
-	T3DBlendStateDesc premul_alpha = { true, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ONE_MINUS_SRC_ALPHA, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ZERO };
+void DrawContext::CreatePresets() {
+	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShaderModule(ShaderStage::VERTEX, glsl_vsTexCol, hlslVsTexCol, vulkan_vsTexCol);
+	vsPresets_[VS_COLOR_2D] = CreateShaderModule(ShaderStage::VERTEX, glsl_vsCol, hlslVsCol, vulkan_vsCol);
 
-	bsPresets_[BS_OFF] = CreateBlendState(off);
-	bsPresets_[BS_ADDITIVE] = CreateBlendState(additive);
-	bsPresets_[BS_STANDARD_ALPHA] = CreateBlendState(standard_alpha);
-	bsPresets_[BS_PREMUL_ALPHA] = CreateBlendState(premul_alpha);
-
-	T3DSamplerStateDesc nearest = { CLAMP, CLAMP, NEAREST, NEAREST, NEAREST };
-	T3DSamplerStateDesc linear = { CLAMP, CLAMP, LINEAR, LINEAR, NEAREST };
-
-	sampsPresets_[SAMPS_NEAREST] = CreateSamplerState(nearest);
-	sampsPresets_[SAMPS_LINEAR] = CreateSamplerState(linear);
-
-	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateVertexShader(glsl_vsTexCol, hlslVsTexCol, vulkan_vsTexCol);
-	vsPresets_[VS_COLOR_2D] = CreateVertexShader(glsl_vsCol, hlslVsCol, vulkan_vsCol);
-
-	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateFragmentShader(glsl_fsTexCol, hlslFsTexCol, vulkan_fsTexCol);
-	fsPresets_[FS_COLOR_2D] = CreateFragmentShader(glsl_fsCol, hlslFsCol, vulkan_fsCol);
-
-	ssPresets_[SS_TEXTURE_COLOR_2D] = CreateShaderSet(vsPresets_[VS_TEXTURE_COLOR_2D], fsPresets_[FS_TEXTURE_COLOR_2D]);
-	ssPresets_[SS_COLOR_2D] = CreateShaderSet(vsPresets_[VS_COLOR_2D], fsPresets_[FS_COLOR_2D]);
+	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShaderModule(ShaderStage::FRAGMENT, glsl_fsTexCol, hlslFsTexCol, vulkan_fsTexCol);
+	fsPresets_[FS_COLOR_2D] = CreateShaderModule(ShaderStage::FRAGMENT, glsl_fsCol, hlslFsCol, vulkan_fsCol);
 }
 
-Thin3DContext::~Thin3DContext() {
+DrawContext::~DrawContext() {
 	for (int i = 0; i < VS_MAX_PRESET; i++) {
-		if (vsPresets_[i]) {
-			vsPresets_[i]->Release();
-		}
+		vsPresets_[i]->Release();
 	}
 	for (int i = 0; i < FS_MAX_PRESET; i++) {
-		if (fsPresets_[i]) {
-			fsPresets_[i]->Release();
-		}
-	}
-	for (int i = 0; i < BS_MAX_PRESET; i++) {
-		if (bsPresets_[i]) {
-			bsPresets_[i]->Release();
-		}
-	}
-	for (int i = 0; i < SS_MAX_PRESET; i++) {
-		if (ssPresets_[i]) {
-			ssPresets_[i]->Release();
-		}
-	}
-	for (int i = 0; i < SAMPS_MAX_PRESET; i++) {
-		if (sampsPresets_[i]) {
-			sampsPresets_[i]->Release();
-		}
+		fsPresets_[i]->Release();
 	}
 }
 
-static T3DImageFormat ZimToT3DFormat(int zim) {
+static DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
-	case ZIM_ETC1: return T3DImageFormat::ETC1;
-	case ZIM_RGBA8888: return T3DImageFormat::RGBA8888;
-	case ZIM_LUMINANCE: return T3DImageFormat::LUMINANCE;
-	default: return T3DImageFormat::RGBA8888;
+	case ZIM_ETC1: return DataFormat::ETC1;
+	case ZIM_RGBA8888: return DataFormat::R8G8B8A8_UNORM;
+	case ZIM_LUMINANCE: return DataFormat::R8_UNORM;
+	default: return DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
-static T3DImageType DetectImageFileType(const uint8_t *data, size_t size) {
+static ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
 	if (!memcmp(data, "ZIMG", 4)) {
 		return ZIM;
 	} else if (!memcmp(data, "\x89\x50\x4E\x47", 4)) {
@@ -222,7 +207,7 @@ static T3DImageType DetectImageFileType(const uint8_t *data, size_t size) {
 	}
 }
 
-static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType type, int width[16], int height[16], int *num_levels, T3DImageFormat *fmt, uint8_t *image[16], int *zim_flags) {
+static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType type, int width[16], int height[16], int *num_levels, DataFormat *fmt, uint8_t *image[16], int *zim_flags) {
 	if (type == DETECT) {
 		type = DetectImageFileType(data, size);
 	}
@@ -245,7 +230,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType typ
 	case PNG:
 		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
 			*num_levels = 1;
-			*fmt = RGBA8888;
+			*fmt = DataFormat::R8G8B8A8_UNORM;
 		}
 		break;
 
@@ -255,7 +240,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType typ
 			unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(data, (int)size, &width[0], &height[0], &actual_components, 4);
 			if (jpegBuf) {
 				*num_levels = 1;
-				*fmt = RGBA8888;
+				*fmt = DataFormat::R8G8B8A8_UNORM;
 				image[0] = (uint8_t *)jpegBuf;
 			}
 		}
@@ -269,13 +254,13 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType typ
 	return *num_levels > 0;
 }
 
-bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, T3DImageType type) {
+bool Texture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type) {
 	int width[16], height[16];
 	uint8_t *image[16] = { nullptr };
 
 	int num_levels;
 	int zim_flags;
-	T3DImageFormat fmt;
+	DataFormat fmt;
 
 	if (!LoadTextureLevels(data, dataSize, type, width, height, &num_levels, &fmt, image, &zim_flags)) {
 		return false;
@@ -300,7 +285,7 @@ bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, T3DIm
 	return true;
 }
 
-bool Thin3DTexture::LoadFromFile(const std::string &filename, T3DImageType type) {
+bool Texture::LoadFromFile(const std::string &filename, ImageFileType type) {
 	filename_ = "";
 	size_t fileSize;
 	uint8_t *buffer = VFSReadFile(filename.c_str(), &fileSize);
@@ -317,8 +302,8 @@ bool Thin3DTexture::LoadFromFile(const std::string &filename, T3DImageType type)
 	return retval;
 }
 
-Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, T3DImageType type) {
-	Thin3DTexture *tex = CreateTexture();
+Texture *DrawContext::CreateTextureFromFile(const char *filename, ImageFileType type) {
+	Texture *tex = CreateTexture();
 	if (!tex->LoadFromFile(filename, type)) {
 		tex->Release();
 		return NULL;
@@ -327,18 +312,18 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, T3DIma
 }
 
 // TODO: Remove the code duplication between this and LoadFromFileData
-Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int size, T3DImageType type) {
+Texture *DrawContext::CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType type) {
 	int width[16], height[16];
 	int num_levels = 0;
 	int zim_flags = 0;
-	T3DImageFormat fmt;
+	DataFormat fmt;
 	uint8_t *image[16] = { nullptr };
 
 	if (!LoadTextureLevels(data, size, type, width, height, &num_levels, &fmt, image, &zim_flags)) {
 		return NULL;
 	}
 
-	Thin3DTexture *tex = CreateTexture(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
+	Texture *tex = CreateTexture(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
 	for (int i = 0; i < num_levels; i++) {
 		tex->SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
 		free(image[i]);
@@ -347,3 +332,5 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int
 	tex->Finalize(zim_flags);
 	return tex;
 }
+
+}  // namespace Draw

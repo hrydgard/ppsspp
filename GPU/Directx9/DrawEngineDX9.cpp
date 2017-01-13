@@ -89,12 +89,8 @@ DrawEngineDX9::DrawEngineDX9()
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
 		dcid_(0),
-		uvScale(0),
 		fboTexNeedBind_(false),
 		fboTexBound_(false) {
-
-	memset(&decOptions_, 0, sizeof(decOptions_));
-	decOptions_.expandAllUVtoFloat = true;
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
 
@@ -108,9 +104,6 @@ DrawEngineDX9::DrawEngineDX9()
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 
-	if (g_Config.bPrescaleUV) {
-		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
-	}
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
@@ -128,8 +121,6 @@ DrawEngineDX9::~DrawEngineDX9() {
 			decl->second->Release();
 		}
 	}
-
-	delete [] uvScale;
 }
 
 void DrawEngineDX9::InitDeviceObjects() {
@@ -305,9 +296,7 @@ void DrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, in
 		dc.indexUpperBound = vertexCount - 1;
 	}
 
-	if (uvScale) {
-		uvScale[numDrawCalls] = gstate_c.uv;
-	}
+	uvScale[numDrawCalls] = gstate_c.uv;
 
 	numDrawCalls++;
 	vertexCountInDrawCalls += vertexCount;
@@ -327,18 +316,13 @@ void DrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, in
 }
 
 void DrawEngineDX9::DecodeVerts() {
-	if (uvScale) {
-		const UVScale origUV = gstate_c.uv;
-		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-			gstate_c.uv = uvScale[decodeCounter_];
-			DecodeVertsStep();
-		}
-		gstate_c.uv = origUV;
-	} else {
-		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-			DecodeVertsStep();
-		}
+	const UVScale origUV = gstate_c.uv;
+	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+		gstate_c.uv = uvScale[decodeCounter_];
+		DecodeVertsStep();
 	}
+	gstate_c.uv = origUV;
+
 	// Sanity check
 	if (indexGen.Prim() < 0) {
 		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
@@ -373,26 +357,15 @@ void DrawEngineDX9::DecodeVertsStep() {
 		//    Expand the lower and upper bounds as we go.
 		int lastMatch = i;
 		const int total = numDrawCalls;
-		if (uvScale) {
-			for (int j = i + 1; j < total; ++j) {
-				if (drawCalls[j].verts != dc.verts)
-					break;
-				if (memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
-					break;
+		for (int j = i + 1; j < total; ++j) {
+			if (drawCalls[j].verts != dc.verts)
+				break;
+			if (memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
+				break;
 
-				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-				lastMatch = j;
-			}
-		} else {
-			for (int j = i + 1; j < total; ++j) {
-				if (drawCalls[j].verts != dc.verts)
-					break;
-
-				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-				lastMatch = j;
-			}
+			indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+			indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+			lastMatch = j;
 		}
 
 		// 2. Loop through the drawcalls, translating indices as we go.
@@ -918,13 +891,6 @@ void DrawEngineDX9::Resized() {
 		delete iter->second;
 	}
 	decoderMap_.clear();
-
-	if (g_Config.bPrescaleUV && !uvScale) {
-		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
-	} else if (!g_Config.bPrescaleUV && uvScale) {
-		delete uvScale;
-		uvScale = 0;
-	}
 }
 
 bool DrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {

@@ -33,16 +33,16 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	// Lights
 	if (id.Bit(VS_BIT_LIGHTING_ENABLE)) {
 		desc << "Light: ";
-		for (int i = 0; i < 4; i++) {
-			if (id.Bit(VS_BIT_LIGHT0_ENABLE + i) || (uvgMode == GE_TEXMAP_ENVIRONMENT_MAP && (ls0 == i || ls1 == i))) {
-				desc << i << ": ";
-				desc << "c:" << id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2) << " t:" << id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2) << " ";
-			}
+	}
+	for (int i = 0; i < 4; i++) {
+		bool enabled = id.Bit(VS_BIT_LIGHT0_ENABLE + i) && id.Bit(VS_BIT_LIGHTING_ENABLE);
+		if (enabled || (uvgMode == GE_TEXMAP_ENVIRONMENT_MAP && (ls0 == i || ls1 == i))) {
+			desc << i << ": ";
+			desc << "c:" << id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2) << " t:" << id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2) << " ";
 		}
 	}
 	if (id.Bits(VS_BIT_MATERIAL_UPDATE, 3)) desc << "MatUp:" << id.Bits(VS_BIT_MATERIAL_UPDATE, 3) << " ";
 	if (id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc << "WScale " << id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2) << " ";
-	if (id.Bits(VS_BIT_TEXCOORD_FMTSCALE, 2)) desc << "TCScale " << id.Bits(VS_BIT_TEXCOORD_FMTSCALE, 2) << " ";
 	if (id.Bit(VS_BIT_FLATSHADE)) desc << "Flat ";
 
 	// TODO: More...
@@ -119,11 +119,6 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		id.SetBit(VS_BIT_HAS_TEXCOORD, hasTexcoord);
-		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
-			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, (vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT);  // two bits
-		} else {
-			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, 3);  // float - no scaling
-		}
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);

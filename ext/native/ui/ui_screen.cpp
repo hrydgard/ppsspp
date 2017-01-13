@@ -59,13 +59,13 @@ void UIScreen::update(InputState &input) {
 }
 
 void UIScreen::preRender() {
-	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+	Draw::DrawContext *thin3d = screenManager()->getThin3DContext();
 	if (!thin3d) {
 		return;
 	}
 	thin3d->Begin(true, 0xFF000000, 0.0f, 0);
 
-	T3DViewport viewport;
+	Draw::Viewport viewport;
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
 	viewport.Width = pixel_xres;
@@ -77,7 +77,7 @@ void UIScreen::preRender() {
 }
 
 void UIScreen::postRender() {
-	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+	auto thin3d = screenManager()->getThin3DContext();
 	if (!thin3d) {
 		return;
 	}

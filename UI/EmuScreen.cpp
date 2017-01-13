@@ -968,6 +968,8 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 }
 
 void EmuScreen::render() {
+	using namespace Draw;
+
 	if (invalid_) {
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
@@ -989,10 +991,10 @@ void EmuScreen::render() {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	if (!useBufferedRendering) {
-		Thin3DContext *thin3d = screenManager()->getThin3DContext();
-		thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
+		DrawContext *thin3d = screenManager()->getThin3DContext();
+		thin3d->Clear(ClearFlag::COLOR | ClearFlag::DEPTH | ClearFlag::STENCIL, 0xFF000000, 0.0f, 0);
 
-		T3DViewport viewport;
+		Viewport viewport;
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
 		viewport.Width = pixel_xres;
@@ -1030,12 +1032,12 @@ void EmuScreen::render() {
 		fbo_unbind();
 
 	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {
-		Thin3DContext *thin3d = screenManager()->getThin3DContext();
+		DrawContext *thin3d = screenManager()->getThin3DContext();
 
 		// This sets up some important states but not the viewport.
 		screenManager()->getUIContext()->Begin();
 
-		T3DViewport viewport;
+		Viewport viewport;
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
 		viewport.Width = pixel_xres;

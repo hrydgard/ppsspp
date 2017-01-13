@@ -50,7 +50,7 @@ struct TextDrawerContext {
 	int *pBitmapBits;
 };
 
-TextDrawer::TextDrawer(Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
+TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(nullptr) {
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 
@@ -215,6 +215,7 @@ void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bo
 }
 
 void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+	using namespace Draw;
 	if (!strlen(str))
 		return;
 
@@ -270,7 +271,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		entry->bmWidth = (size.cx + 3) & ~3;
 		entry->bmHeight = (size.cy + 3) & ~3;
 		entry->lastUsedFrame = frameCount_;
-		entry->texture = thin3d_->CreateTexture(LINEAR2D, RGBA4444, entry->bmWidth, entry->bmHeight, 1, 1);
+		entry->texture = thin3d_->CreateTexture(LINEAR2D, DataFormat::R4G4B4A4_UNORM, entry->bmWidth, entry->bmHeight, 1, 1);
 
 		// Convert the bitmap to a gl-compatible array of pixels.
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
@@ -287,7 +288,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		cache_[entryHash] = entry;
 	}
 
-	thin3d_->SetTexture(0, entry->texture);
+	thin3d_->BindTexture(0, entry->texture);
 
 	// Okay, the texture is bound, let's draw.
 	float w = entry->bmWidth * fontScaleX_;
@@ -299,7 +300,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 #else
 
-TextDrawer::TextDrawer(Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
+TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 }
@@ -383,6 +384,7 @@ void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bo
 }
 
 void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+	using namespace Draw;
 	if (!strlen(str))
 		return;
 
@@ -398,7 +400,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	if (iter != cache_.end()) {
 		entry = iter->second;
 		entry->lastUsedFrame = frameCount_;
-		thin3d_->SetTexture(0, entry->texture);
+		thin3d_->BindTexture(0, entry->texture);
 	} else {
 		QFont *font = fontMap_.find(fontHash_)->second;
 		QFontMetrics fm(*font);
@@ -421,7 +423,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		entry->bmWidth = entry->width = image.width();
 		entry->bmHeight = entry->height = image.height();
 		entry->lastUsedFrame = frameCount_;
-		entry->texture = thin3d_->CreateTexture(LINEAR2D, RGBA4444, entry->bmWidth, entry->bmHeight, 1, 0);
+		entry->texture = thin3d_->CreateTexture(LINEAR2D, DataFormat::R4G4B4A4_UNORM, entry->bmWidth, entry->bmHeight, 1, 0);
 
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
 		for (int x = 0; x < entry->bmWidth; x++) {

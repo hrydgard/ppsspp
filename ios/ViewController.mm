@@ -36,9 +36,9 @@
 
 class IOSDummyGraphicsContext : public DummyGraphicsContext {
 public:
-    Thin3DContext *CreateThin3DContext() override {
+    Draw::DrawContext *CreateThin3DContext() override {
         CheckGLExtensions();
-        return T3DCreateGLContext();
+        return Draw::T3DCreateGLContext();
     }
 };
 
@@ -148,8 +148,7 @@ static GraphicsContext *graphicsContext;
 	self.view.multipleTouchEnabled = YES;
 	self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
 	
-	if (!self.context)
-	{
+	if (!self.context) {
 		self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
 	}
 
@@ -159,6 +158,9 @@ static GraphicsContext *graphicsContext;
 	[EAGLContext setCurrentContext:self.context];
 	self.preferredFramesPerSecond = 60;
 
+	// Might be useful for a speed boot, sacrificing resolution:
+	// view.contentScaleFactor = 1.0;
+
 	float scale = [UIScreen mainScreen].scale;
 	
 	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
@@ -167,8 +169,7 @@ static GraphicsContext *graphicsContext;
 
 	CGSize size = [[UIApplication sharedApplication].delegate window].frame.size;
 
-	if (size.height > size.width)
-		{
+	if (size.height > size.width) {
 		float h = size.height;
 		size.height = size.width;
 		size.width = h;

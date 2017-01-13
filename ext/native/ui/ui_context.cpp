@@ -6,7 +6,7 @@
 #include "gfx_es2/draw_text.h"
 
 UIContext::UIContext()
-	: uishader_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {
+	: ui_pipeline_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 	fontStyle_ = new UI::FontStyle();
@@ -16,18 +16,14 @@ UIContext::UIContext()
 UIContext::~UIContext() {
 	delete fontStyle_;
 	delete textDrawer_;
-	// Not releasing blend_, it's a preset. Should really make them AddRef, though..
-	depth_->Release();
 }
 
-void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DShaderSet *uishadernotex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+	using namespace Draw;
 	thin3d_ = thin3d;
-	blend_ = thin3d_->GetBlendStatePreset(T3DBlendStatePreset::BS_STANDARD_ALPHA);
-	sampler_ = thin3d_->GetSamplerStatePreset(T3DSamplerStatePreset::SAMPS_LINEAR);
-	depth_ = thin3d_->CreateDepthStencilState(false, false, T3DComparison::LESS);
-
-	uishader_ = uishader;
-	uishadernotex_ = uishadernotex;
+	sampler_ = thin3d_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
+	ui_pipeline_ = uipipe;
+	ui_pipeline_notex_ = uipipenotex;
 	uitexture_ = uitexture;
 	uidrawbuffer_ = uidrawbuffer;
 	uidrawbufferTop_ = uidrawbufferTop;
@@ -39,25 +35,18 @@ void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DSha
 }
 
 void UIContext::Begin() {
-	thin3d_->SetBlendState(blend_);
-	thin3d_->SetSamplerStates(0, 1, &sampler_);
-	thin3d_->SetDepthStencilState(depth_);
-	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
-	thin3d_->SetTexture(0, uitexture_);
-	thin3d_->SetScissorEnabled(false);
-	UIBegin(uishader_);
+	thin3d_->BindSamplerStates(0, 1, &sampler_);
+	thin3d_->BindTexture(0, uitexture_);
+	UIBegin(ui_pipeline_);
 }
 
 void UIContext::BeginNoTex() {
-	thin3d_->SetBlendState(blend_);
-	thin3d_->SetSamplerStates(0, 1, &sampler_);
-	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
-
-	UIBegin(uishadernotex_);
+	thin3d_->BindSamplerStates(0, 1, &sampler_);
+	UIBegin(ui_pipeline_notex_);
 }
 
 void UIContext::RebindTexture() const {
-	thin3d_->SetTexture(0, uitexture_);
+	thin3d_->BindTexture(0, uitexture_);
 }
 
 void UIContext::Flush() {
@@ -108,9 +97,9 @@ void UIContext::ActivateTopScissor() {
 		int w = scale * bounds.w;
 		int h = scale * bounds.h;
 		thin3d_->SetScissorRect(x, y, w, h);
-		thin3d_->SetScissorEnabled(true);
-	} else {
-		thin3d_->SetScissorEnabled(false);
+	}
+	else {
+		thin3d_->SetScissorRect(bounds_.x, bounds_.y, bounds_.w, bounds_.h);
 	}
 }
 

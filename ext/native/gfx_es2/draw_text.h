@@ -13,15 +13,17 @@
 #include "base/basictypes.h"
 #include "gfx_es2/draw_buffer.h"
 
-class Thin3DContext;
-class Thin3DTexture;
+namespace Draw {
+	class DrawContext;
+	class Texture;
+}
 
 #ifdef USING_QT_UI
 #include <QtGui/QFont>
 #endif
 
 struct TextStringEntry {
-	Thin3DTexture *texture;
+	Draw::Texture *texture;
 	int width;
 	int height;
 	int bmWidth;
@@ -47,7 +49,7 @@ struct TextDrawerFontContext;
 
 class TextDrawer {
 public:
-	TextDrawer(Thin3DContext *thin3d);
+	TextDrawer(Draw::DrawContext *thin3d);
 	~TextDrawer();
 
 	uint32_t SetFont(const char *fontName, int size, int flags);
@@ -63,7 +65,7 @@ public:
 	void OncePerFrame();
 
 private:
-	Thin3DContext *thin3d_;
+	Draw::DrawContext *thin3d_;
 
 	void WrapString(std::string &out, const char *str, float maxWidth);
 

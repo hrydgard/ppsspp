@@ -9,13 +9,14 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \
   $(LOCAL_PATH)/../../ext \
+  $(LOCAL_PATH)/../../ext/snappy \
   $(LOCAL_PATH)/$(NATIVE)/base \
   $(LOCAL_PATH)/$(NATIVE)/ext \
   $(LOCAL_PATH)/$(NATIVE)/ext/libzip \
   $(LOCAL_PATH)/$(NATIVE) \
   $(LOCAL_PATH)
 
-LOCAL_STATIC_LIBRARIES := native libzip glslang
+LOCAL_STATIC_LIBRARIES := native libzip glslang-build
 LOCAL_LDLIBS := -lz -landroid -lGLESv2 -lOpenSLES -lEGL -ldl -llog -latomic
 ifneq ($(NDK_DEBUG),1)
   # Prettier stack traces are nice on other platforms.

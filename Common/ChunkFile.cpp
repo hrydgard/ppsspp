@@ -16,6 +16,7 @@
 // http://code.google.com/p/dolphin-emu/
 
 #include <cstring>
+#include <snappy-c.h>
 
 #include "ChunkFile.h"
 

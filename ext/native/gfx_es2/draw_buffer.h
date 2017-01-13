@@ -42,7 +42,9 @@ enum {
 	FLAG_WRAP_TEXT = 8192,
 };
 
-class Thin3DShaderSet;
+namespace Draw {
+	class Pipeline;
+}
 
 enum DrawBufferPrimitiveMode {
 	DBMODE_NORMAL = 0,
@@ -61,12 +63,15 @@ public:
 	DrawBuffer();
 	~DrawBuffer();
 
-	void Begin(Thin3DShaderSet *shaders, DrawBufferPrimitiveMode mode = DBMODE_NORMAL);
+	void Begin(Draw::Pipeline *pipeline);
 	void End();
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
-	void Init(Thin3DContext *t3d);
+	void Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline);
 	void Shutdown();
+
+	// So that callers can create appropriate pipelines.
+	Draw::InputLayout *CreateInputLayout(Draw::DrawContext *t3d);
 
 	int Count() const { return count_; }
 
@@ -155,10 +160,9 @@ private:
 
 	Matrix4x4 drawMatrix_;
 
-	Thin3DContext *t3d_;
-	Thin3DBuffer *vbuf_;
-	Thin3DVertexFormat *vformat_;
-	Thin3DShaderSet *shaderSet_;
+	Draw::DrawContext *t3d_;
+	Draw::Buffer *vbuf_;
+	Draw::Pipeline *pipeline_;
 
 	Vertex *verts_;
 	int count_;

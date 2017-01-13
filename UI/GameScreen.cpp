@@ -185,7 +185,7 @@ void GameScreen::update(InputState &input) {
 
 	I18NCategory *ga = GetI18NCategory("Game");
 
-	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+	Draw::DrawContext *thin3d = screenManager()->getThin3DContext();
 
 	GameInfo *info = g_gameInfoCache->GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 

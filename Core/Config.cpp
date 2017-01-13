@@ -730,7 +730,6 @@ static ConfigSetting debuggerSettings[] = {
 };
 
 static ConfigSetting speedHackSettings[] = {
-	ReportedConfigSetting("PrescaleUVCoords", &g_Config.bPrescaleUV, true, true, true),
 	ReportedConfigSetting("DisableAlphaTest", &g_Config.bDisableAlphaTest, false, true, true),
 
 	ConfigSetting(false),

@@ -145,7 +145,7 @@
     <ClCompile Include="GEDebugger\TabVertices.cpp">
       <Filter>Windows\GE Debugger</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\native\ext\glew\glew.c" />
+    <ClCompile Include="..\ext\glew\glew.c" />
     <ClCompile Include="MainWindowMenu.cpp">
       <Filter>Windows\UI</Filter>
     </ClCompile>
@@ -188,6 +188,9 @@
     </ClCompile>
     <ClCompile Include="..\Qt\Debugger\ctrlvfpuview.cpp">
       <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\D3D11Context.cpp">
+      <Filter>Windows\System</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -345,6 +348,9 @@
     </ClInclude>
     <ClInclude Include="..\Qt\Debugger\ctrlregisterlist.h">
       <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\D3D11Context.h">
+      <Filter>Windows\System</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
