@@ -365,7 +365,6 @@ public:
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
-	Texture *CreateTexture() override;
 
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
@@ -564,9 +563,6 @@ enum class TextureState {
 
 class VKTexture : public Texture {
 public:
-	VKTexture(VulkanContext *vulkan) : vulkan_(vulkan), vkTex_(nullptr) {
-	}
-
 	VKTexture(VulkanContext *vulkan, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels)
 		: vulkan_(vulkan), format_(format), mipLevels_(mipLevels) {
 		Create(type, format, width, height, depth, mipLevels);
@@ -942,10 +938,6 @@ InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
 		vl->bindings[i].stride = desc.bindings[i].stride;
 	}
 	return vl;
-}
-
-Texture *VKContext::CreateTexture() {
-	return new VKTexture(vulkan_);
 }
 
 Texture *VKContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {

@@ -13,9 +13,8 @@ enum ImageFileType {
 
 class ManagedTexture : public GfxResourceHolder {
 public:
-	ManagedTexture(Draw::DrawContext *draw) : draw_(draw) {
+	ManagedTexture(Draw::DrawContext *draw) : draw_(draw), texture_(nullptr) {
 		register_gl_resource_holder(this);
-		texture_ = draw->CreateTexture();
 	}
 	~ManagedTexture() {
 		unregister_gl_resource_holder(this);

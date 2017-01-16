@@ -513,7 +513,6 @@ public:
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
-	Texture *CreateTexture() override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		if (samplerStates_.size() < (size_t)(start + count)) {
@@ -636,18 +635,9 @@ GLuint TypeToTarget(TextureType type) {
 	}
 }
 
-class Thin3DGLTexture : public Texture, GfxResourceHolder {
+class OpenGLTexture : public Texture, GfxResourceHolder {
 public:
-	Thin3DGLTexture() : tex_(0), target_(0) {
-		generatedMips_ = false;
-		canWrap_ = true;
-		width_ = 0;
-		height_ = 0;
-		depth_ = 0;
-		glGenTextures(1, &tex_);
-		register_gl_resource_holder(this);
-	}
-	Thin3DGLTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
+	OpenGLTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
 		generatedMips_ = false;
 		canWrap_ = true;
 		width_ = width;
@@ -656,7 +646,7 @@ public:
 		glGenTextures(1, &tex_);
 		register_gl_resource_holder(this);
 	}
-	~Thin3DGLTexture() {
+	~OpenGLTexture() {
 		unregister_gl_resource_holder(this);
 		Destroy();
 	}
@@ -715,15 +705,11 @@ private:
 	bool canWrap_;
 };
 
-Texture *OpenGLContext::CreateTexture() {
-	return new Thin3DGLTexture();
-}
-
 Texture *OpenGLContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	return new Thin3DGLTexture(type, format, width, height, depth, mipLevels);
+	return new OpenGLTexture(type, format, width, height, depth, mipLevels);
 }
 
-void Thin3DGLTexture::AutoGenMipmaps() {
+void OpenGLTexture::AutoGenMipmaps() {
 	if (!generatedMips_) {
 		Bind();
 		glGenerateMipmap(target_);
@@ -733,7 +719,7 @@ void Thin3DGLTexture::AutoGenMipmaps() {
 	}
 }
 
-void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
+void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	int internalFormat;
 	int format;
 	int type;
@@ -772,7 +758,7 @@ bool isPowerOf2(int n) {
 	return n == 1 || (n & (n - 1)) == 0;
 }
 
-void Thin3DGLTexture::Finalize() {
+void OpenGLTexture::Finalize() {
 	canWrap_ = !isPowerOf2(width_) || !isPowerOf2(height_);
 }
 
@@ -912,7 +898,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 
 void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
-		Thin3DGLTexture *glTex = static_cast<Thin3DGLTexture *>(textures[i]);
+		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i]);
 		glActiveTexture(GL_TEXTURE0 + i);
 		glTex->Bind();
 

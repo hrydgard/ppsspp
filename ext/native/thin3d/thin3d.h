@@ -491,7 +491,6 @@ public:
 
 	// Resources
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
-	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
 	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;

@@ -351,8 +351,6 @@ private:
 
 class D3D9Texture : public Texture {
 public:
-	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx) : device_(device), deviceEx_(deviceEx), type_(TextureType::UNKNOWN), fmt_(D3DFMT_UNKNOWN), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
-	}
 	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels);
 	~D3D9Texture();
 	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
@@ -526,7 +524,6 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
-	Texture *CreateTexture() override;
 	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -693,11 +690,6 @@ RasterState *D3D9Context::CreateRasterState(const RasterStateDesc &desc) {
 		}
 	}
 	return rs;
-}
-
-Texture *D3D9Context::CreateTexture() {
-	D3D9Texture *tex = new D3D9Texture(device_, deviceEx_);
-	return tex;
 }
 
 Texture *D3D9Context::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {

@@ -92,7 +92,11 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		ELOG("Invalid num_levels: %d. Falling back to one. Image: %dx%d", num_levels, width[0], height[0]);
 		num_levels = 1;
 	}
-	texture_->Create(Draw::LINEAR2D, fmt, width[0], height[0], 1, num_levels);
+
+	if (texture_)
+		delete texture_;
+
+	texture_ = draw_->CreateTexture(Draw::LINEAR2D, fmt, width[0], height[0], 1, num_levels);
 	for (int i = 0; i < num_levels; i++) {
 		if (image[i]) {
 			texture_->SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
