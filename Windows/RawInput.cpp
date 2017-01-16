@@ -20,6 +20,7 @@
 #include <vector>
 #include "base/NativeApp.h"
 
+#include "base/display.h"
 #include "Common/Log.h"
 #include "input/input_state.h"
 #include "Windows/RawInput.h"
@@ -202,8 +203,8 @@ namespace WindowsRawInput {
 		KeyInput key;
 		key.deviceId = DEVICE_ID_MOUSE;
 
-		mouseDeltaX += raw->data.mouse.lLastX;
-		mouseDeltaY += raw->data.mouse.lLastY;
+		g_mouseDeltaX += raw->data.mouse.lLastX;
+		g_mouseDeltaY += raw->data.mouse.lLastY;
 
 		if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN) {
 			key.flags = KEY_DOWN;

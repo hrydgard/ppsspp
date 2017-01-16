@@ -130,12 +130,21 @@ bool Core_GetPowerSaving() {
 	return powerSaving;
 }
 
+// TODO: Feels like this belongs elsewhere.
 bool UpdateScreenScale(int width, int height, bool smallWindow) {
-	g_dpi = 72;
+#ifdef _WIN32
+	// Use legacy DPI handling, because we still compile as XP compatible we don't get the new SDK, unless
+	// we do unholy tricks.
+	HDC screenDC = GetDC(nullptr);
+	double hPixelsPerInch = GetDeviceCaps(screenDC, LOGPIXELSY);
+	ReleaseDC(nullptr, screenDC);
+
+	g_dpi = hPixelsPerInch;
+	g_dpi_scale = 96.0f / g_dpi;
+#else
+	g_dpi = 96;
 	g_dpi_scale = 1.0f;
-	if (smallWindow) {
-		g_dpi_scale = 2.0f;
-	}
+#endif
 
 	pixel_in_dps = 1.0f / g_dpi_scale;
 
