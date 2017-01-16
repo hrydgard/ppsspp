@@ -37,7 +37,7 @@ float TextDrawerWordWrapper::MeasureWidth(const char *str, size_t bytes) {
 #include <Windows.h>
 
 enum {
-	MAX_TEXT_WIDTH = 1024,
+	MAX_TEXT_WIDTH = 4096,
 	MAX_TEXT_HEIGHT = 512
 };
 
