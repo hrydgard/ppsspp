@@ -586,7 +586,7 @@ void GameSettingsScreen::CreateViews() {
 	auto separateCPUThread = new CheckBox(&g_Config.bSeparateCPUThread, sy->T("Multithreaded (experimental)"));
 	systemSettings->Add(separateCPUThread);
 	separateCPUThread->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(sy->T("Mulithreaded Tip", "Not always faster, causes glitches/crashing"), e.v);
+		settingInfo_->Show(sy->T("Multithreaded Tip", "Not always faster, causes glitches/crashing"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, sy->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
