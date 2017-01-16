@@ -1,3 +1,4 @@
+#include "base/display.h"
 #include "base/logging.h"
 #include "base/stringutil.h"
 #include "thin3d/thin3d.h"
@@ -51,6 +52,7 @@ struct TextDrawerContext {
 };
 
 TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(nullptr) {
+	// These probably shouldn't be state.
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 
@@ -73,16 +75,11 @@ TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(nullpt
 }
 
 TextDrawer::~TextDrawer() {
-	for (auto iter : cache_) {
+	for (auto &iter : cache_) {
 		if (iter.second->texture)
 			iter.second->texture->Release();
-		delete iter.second;
 	}
 	cache_.clear();
-
-	for (auto iter : sizeCache_) {
-		delete iter.second;
-	}
 	sizeCache_.clear();
 
 	for (auto iter = fontMap_.begin(); iter != fontMap_.end(); ++iter) {
@@ -118,6 +115,7 @@ uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 
 	float textScale = 1.0f;
 
+	// TODO: Should the 72 really be 96? Oh well...
 	INT nHeight = -MulDiv( size, (INT)(GetDeviceCaps(ctx_->hDC, LOGPIXELSY) * textScale), 72 );
 	int dwBold = FW_LIGHT; ///FW_BOLD
 	font->hFont = CreateFont(nHeight, 0, 0, 0, dwBold, 0,
@@ -147,7 +145,7 @@ void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) 
 	TextMeasureEntry *entry;
 	auto iter = sizeCache_.find(entryHash);
 	if (iter != sizeCache_.end()) {
-		entry = iter->second;
+		entry = iter->second.get();
 	} else {
 		auto iter = fontMap_.find(fontHash_);
 		if (iter != fontMap_.end()) {
@@ -161,12 +159,12 @@ void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) 
 		entry = new TextMeasureEntry();
 		entry->width = size.cx;
 		entry->height = size.cy;
-		sizeCache_[entryHash] = entry;
+		sizeCache_[entryHash] = std::unique_ptr<TextMeasureEntry>(entry);
 	}
 
 	entry->lastUsedFrame = frameCount_;
-	*w = entry->width * fontScaleX_;
-	*h = entry->height * fontScaleY_;
+	*w = entry->width * fontScaleX_ * g_dpi_scale;
+	*h = entry->height * fontScaleY_ * g_dpi_scale;
 }
 
 void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
@@ -192,7 +190,7 @@ void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bo
 		TextMeasureEntry *entry;
 		auto iter = sizeCache_.find(entryHash);
 		if (iter != sizeCache_.end()) {
-			entry = iter->second;
+			entry = iter->second.get();
 		} else {
 			SIZE size;
 			std::wstring wstr = ConvertUTF8ToWString(lines[i].length() == 0 ? " " : lines[i]);
@@ -201,7 +199,7 @@ void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bo
 			entry = new TextMeasureEntry();
 			entry->width = size.cx;
 			entry->height = size.cy;
-			sizeCache_[entryHash] = entry;
+			sizeCache_[entryHash] = std::unique_ptr<TextMeasureEntry>(entry);
 		}
 		entry->lastUsedFrame = frameCount_;
 
@@ -210,8 +208,8 @@ void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bo
 		}
 		total_h += entry->height * fontScaleY_;
 	}
-	*w = total_w;
-	*h = total_h;
+	*w = total_w * g_dpi_scale;
+	*h = total_h * g_dpi_scale;
 }
 
 void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
@@ -228,7 +226,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 	auto iter = cache_.find(entryHash);
 	if (iter != cache_.end()) {
-		entry = iter->second;
+		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
 	} else {
 		// Render the string to our bitmap and save to a GL texture.
@@ -285,14 +283,14 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		entry->texture->Finalize(0);
 		delete [] bitmapData;
 
-		cache_[entryHash] = entry;
+		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);
 	}
 
 	thin3d_->BindTexture(0, entry->texture);
 
 	// Okay, the texture is bound, let's draw.
-	float w = entry->bmWidth * fontScaleX_;
-	float h = entry->bmHeight * fontScaleY_;
+	float w = entry->bmWidth * fontScaleX_ * g_dpi_scale;
+	float h = entry->bmHeight * fontScaleY_ * g_dpi_scale;
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
 	target.Flush(true);
@@ -306,16 +304,11 @@ TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(NULL) 
 }
 
 TextDrawer::~TextDrawer() {
-	for (auto iter : cache_) {
+	for (auto &iter : cache_) {
 		if (iter.second->texture)
 			iter.second->texture->Release();
-		delete iter.second;
 	}
 	cache_.clear();
-
-	for (auto iter : sizeCache_) {
-		delete iter.second;
-	}
 	sizeCache_.clear();
 }
 
@@ -398,7 +391,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 	auto iter = cache_.find(entryHash);
 	if (iter != cache_.end()) {
-		entry = iter->second;
+		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
 		thin3d_->BindTexture(0, entry->texture);
 	} else {
@@ -436,7 +429,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 		delete [] bitmapData;
 
-		cache_[entryHash] = entry;
+		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);
 	}
 	float w = entry->bmWidth * fontScaleX_;
 	float h = entry->bmHeight * fontScaleY_;
@@ -489,7 +482,6 @@ void TextDrawer::OncePerFrame() {
 			if (frameCount_ - iter->second->lastUsedFrame > 100) {
 				if (iter->second->texture)
 					iter->second->texture->Release();
-				delete iter->second;
 				cache_.erase(iter++);
 			} else {
 				iter++;
@@ -498,7 +490,6 @@ void TextDrawer::OncePerFrame() {
 
 		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
 			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				delete iter->second;
 				sizeCache_.erase(iter++);
 			} else {
 				iter++;

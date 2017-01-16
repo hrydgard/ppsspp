@@ -9,6 +9,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 
 #include "base/basictypes.h"
 #include "gfx_es2/draw_buffer.h"
@@ -82,6 +83,6 @@ private:
 
 	uint32_t fontHash_;
 	// The key is the CityHash of the string xor the fontHash_.
-	std::map<uint32_t, TextStringEntry *> cache_;
-	std::map<uint32_t, TextMeasureEntry *> sizeCache_;
+	std::map<uint32_t, std::unique_ptr<TextStringEntry> > cache_;
+	std::map<uint32_t, std::unique_ptr<TextMeasureEntry> > sizeCache_;
 };

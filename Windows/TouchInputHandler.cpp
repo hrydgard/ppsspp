@@ -4,6 +4,7 @@
 
 #include <algorithm>
 
+#include "base/display.h"
 #include "Common/CommonWindows.h"
 #include "input/input_state.h"
 #include "base/NativeApp.h"
@@ -71,8 +72,8 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 				}
 
 				POINT point;
-				point.x = TOUCH_COORD_TO_PIXEL(inputs[i].x);
-				point.y = TOUCH_COORD_TO_PIXEL(inputs[i].y);
+				point.x = (float)(TOUCH_COORD_TO_PIXEL(inputs[i].x)) * g_dpi_scale;
+				point.y = (float)(TOUCH_COORD_TO_PIXEL(inputs[i].y)) * g_dpi_scale;
 
 				if (ScreenToClient(hWnd, &point)){
 					if (inputs[i].dwFlags & TOUCHEVENTF_DOWN)

@@ -28,6 +28,7 @@
 #include <map>
 #include <string>
 
+#include "base/display.h"
 #include "base/NativeApp.h"
 #include "Globals.h"
 
@@ -207,8 +208,8 @@ namespace MainWindow
 		// Can't take this from config as it will not be set if windows is maximized.
 		RECT rc;
 		GetWindowRect(hwndMain, &rc);
-		int width = rc.right - rc.left;
-		int height = rc.bottom - rc.top;
+		int width = (int)((rc.right - rc.left) * g_dpi_scale);
+		int height = (int)((rc.bottom - rc.top) * g_dpi_scale);
 		return g_Config.IsPortrait() ? (height < 480 + 80) : (width < 480 + 80);
 	} 
 
@@ -516,8 +517,6 @@ namespace MainWindow
 	}
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-		// Only apply a factor > 1 in windowed mode.
-		int factor = !IsZoomed(GetHWND()) && !g_Config.bFullScreen && IsWindowSmall() ? 2 : 1;
 		static bool firstErase = true;
 
 		switch (message) {
@@ -555,8 +554,8 @@ namespace MainWindow
 					input_state.mouse_valid = true;
 					input_state.pointer_down[0] = true;
 
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * g_dpi_scale;
+					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * g_dpi_scale;
 				}
 
 				TouchInput touch;
@@ -598,8 +597,8 @@ namespace MainWindow
 
 				{
 					lock_guard guard(input_state.lock);
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * g_dpi_scale;
+					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * g_dpi_scale;
 				}
 
 				if (wParam & MK_LBUTTON) {
@@ -622,8 +621,8 @@ namespace MainWindow
 				{
 					lock_guard guard(input_state.lock);
 					input_state.pointer_down[0] = false;
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * g_dpi_scale;
+					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * g_dpi_scale;
 				}
 				TouchInput touch;
 				touch.id = 0;
