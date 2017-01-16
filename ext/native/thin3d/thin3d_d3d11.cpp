@@ -31,8 +31,7 @@ public:
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
-	Texture *CreateTexture() override;
-	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
+	Texture *CreateTexture(const TextureDesc &desc) override;
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -307,7 +306,25 @@ public:
 	D3D11RasterState *raster;
 };
 
-class D3D11ShaderModule {
+class D3D11Texture : public Texture {
+public:
+	D3D11Texture() {}
+	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
+	void AutoGenMipmaps() override {}
+	void Finalize() override {}
+};
+
+Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
+	D3D11Texture *tex = new D3D11Texture();
+
+	// ....
+
+	return tex;
+}
+
+
+class D3D11ShaderModule : public ShaderModule {
 public:
 	std::vector<uint8_t> byteCode_;
 };

@@ -512,7 +512,7 @@ public:
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
-	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
+	Texture *CreateTexture(const TextureDesc &desc) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		if (samplerStates_.size() < (size_t)(start + count)) {
@@ -622,45 +622,33 @@ InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
 GLuint TypeToTarget(TextureType type) {
 	switch (type) {
 #ifndef USING_GLES2
-	case LINEAR1D: return GL_TEXTURE_1D;
+	case TextureType::LINEAR1D: return GL_TEXTURE_1D;
 #endif
-	case LINEAR2D: return GL_TEXTURE_2D;
-	case LINEAR3D: return GL_TEXTURE_3D;
-	case CUBE: return GL_TEXTURE_CUBE_MAP;
+	case TextureType::LINEAR2D: return GL_TEXTURE_2D;
+	case TextureType::LINEAR3D: return GL_TEXTURE_3D;
+	case TextureType::CUBE: return GL_TEXTURE_CUBE_MAP;
 #ifndef USING_GLES2
-	case ARRAY1D: return GL_TEXTURE_1D_ARRAY;
+	case TextureType::ARRAY1D: return GL_TEXTURE_1D_ARRAY;
 #endif
-	case ARRAY2D: return GL_TEXTURE_2D_ARRAY;
+	case TextureType::ARRAY2D: return GL_TEXTURE_2D_ARRAY;
 	default: return GL_NONE;
 	}
 }
 
 class OpenGLTexture : public Texture, GfxResourceHolder {
 public:
-	OpenGLTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
+	OpenGLTexture(const TextureDesc &desc) : tex_(0), target_(TypeToTarget(desc.type)), format_(desc.format), mipLevels_(desc.mipLevels) {
 		generatedMips_ = false;
 		canWrap_ = true;
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
+		width_ = desc.width;
+		height_ = desc.height;
+		depth_ = desc.depth;
 		glGenTextures(1, &tex_);
 		register_gl_resource_holder(this);
 	}
 	~OpenGLTexture() {
 		unregister_gl_resource_holder(this);
 		Destroy();
-	}
-
-	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override {
-		generatedMips_ = false;
-		canWrap_ = true;
-		format_ = format;
-		target_ = TypeToTarget(type);
-		mipLevels_ = mipLevels;
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
-		return true;
 	}
 
 	void Destroy() {
@@ -670,6 +658,7 @@ public:
 			generatedMips_ = false;
 		}
 	}
+
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps() override;
 
@@ -705,8 +694,8 @@ private:
 	bool canWrap_;
 };
 
-Texture *OpenGLContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	return new OpenGLTexture(type, format, width, height, depth, mipLevels);
+Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
+	return new OpenGLTexture(desc);
 }
 
 void OpenGLTexture::AutoGenMipmaps() {

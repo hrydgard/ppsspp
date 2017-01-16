@@ -364,7 +364,7 @@ public:
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
-	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
+	Texture *CreateTexture(const TextureDesc &desc) override;
 
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
@@ -563,24 +563,13 @@ enum class TextureState {
 
 class VKTexture : public Texture {
 public:
-	VKTexture(VulkanContext *vulkan, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels)
-		: vulkan_(vulkan), format_(format), mipLevels_(mipLevels) {
-		Create(type, format, width, height, depth, mipLevels);
+	VKTexture(VulkanContext *vulkan, const TextureDesc &desc)
+		: vulkan_(vulkan), format_(desc.format), mipLevels_(desc.mipLevels) {
+		Create(desc);
 	}
 
 	~VKTexture() {
 		Destroy();
-	}
-
-	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override {
-		format_ = format;
-		mipLevels_ = mipLevels;
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
-		vkTex_ = new VulkanTexture(vulkan_);
-		// We don't actually do anything here.
-		return true;
 	}
 
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
@@ -590,6 +579,17 @@ public:
 	VkImageView GetImageView() { return vkTex_->GetImageView(); }
 
 private:
+	bool Create(const TextureDesc &desc) {
+		format_ = desc.format;
+		mipLevels_ = desc.mipLevels;
+		width_ = desc.width;
+		height_ = desc.height;
+		depth_ = desc.depth;
+		vkTex_ = new VulkanTexture(vulkan_);
+		// We don't actually do anything here.
+		return true;
+	}
+
 	void Destroy() {
 		if (vkTex_) {
 			vkTex_->Destroy();
@@ -940,8 +940,8 @@ InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	return vl;
 }
 
-Texture *VKContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	return new VKTexture(vulkan_, type, format, width, height, depth, mipLevels);
+Texture *VKContext::CreateTexture(const TextureDesc &desc) {
+	return new VKTexture(vulkan_, desc);
 }
 
 void VKTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {

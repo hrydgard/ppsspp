@@ -51,9 +51,16 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 	: gfxCtx_(gfxCtx), thin3d(_thin3D)
 {
 	using namespace Draw;
-	fbTex = thin3d->CreateTexture(LINEAR2D, DataFormat::R8G8B8A8_UNORM, 480, 272, 1, 1);
+	TextureDesc desc{};
+	desc.type = TextureType::LINEAR2D;
+	desc.format = DataFormat::R8G8B8A8_UNORM;
+	desc.width = 480;
+	desc.height = 272;
+	desc.depth = 1;
+	desc.mipLevels = 1;
+	fbTex = thin3d->CreateTexture(desc);
 
-	InputLayoutDesc desc = {
+	InputLayoutDesc inputDesc = {
 		{
 			{ 24, false },
 		},
@@ -69,7 +76,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 	vdata = thin3d->CreateBuffer(24 * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	idata = thin3d->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
-	InputLayout *inputLayout = thin3d->CreateInputLayout(desc);
+	InputLayout *inputLayout = thin3d->CreateInputLayout(inputDesc);
 	DepthStencilState *depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
 	BlendState *blendstateOff = thin3d->CreateBlendState({ false, 0xF });
 	RasterState *rasterNoCull = thin3d->CreateRasterState({});

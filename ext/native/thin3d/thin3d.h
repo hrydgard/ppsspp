@@ -162,7 +162,7 @@ enum ClearFlag : int {
 	STENCIL = 4,
 };
 
-enum TextureType : uint8_t {
+enum class TextureType : uint8_t {
 	UNKNOWN,
 	LINEAR1D,
 	LINEAR2D,
@@ -332,7 +332,6 @@ public:
 
 class Texture : public RefCountedObject {
 public:
-	virtual bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
 	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
 	virtual void AutoGenMipmaps() = 0;
 	virtual void Finalize() = 0;  // TODO: Tidy up
@@ -468,6 +467,15 @@ struct DeviceCaps {
 	bool dualSourceBlend;
 };
 
+struct TextureDesc {
+	TextureType type;
+	DataFormat format;
+	int width;
+	int height;
+	int depth;
+	int mipLevels;
+};
+
 class DrawContext : public RefCountedObject {
 public:
 	virtual ~DrawContext();
@@ -491,7 +499,7 @@ public:
 
 	// Resources
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
-	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual Texture *CreateTexture(const TextureDesc &desc) = 0;
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 

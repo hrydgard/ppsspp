@@ -351,15 +351,15 @@ private:
 
 class D3D9Texture : public Texture {
 public:
-	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels);
+	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc);
 	~D3D9Texture();
-	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps() override {}
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
 	void Finalize() override {}
 
 private:
+	bool Create(const TextureDesc &desc);
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
 	TextureType type_;
@@ -379,9 +379,9 @@ D3DFORMAT FormatToD3D(DataFormat fmt) {
 	}
 }
 
-D3D9Texture::D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels)
-	: device_(device), deviceEx_(deviceEx), type_(type), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
-	Create(type, format, width, height, depth, mipLevels);
+D3D9Texture::D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc)
+	: device_(device), deviceEx_(deviceEx), tex_(nullptr), volTex_(nullptr), cubeTex_(nullptr) {
+	Create(desc);
 }
 
 D3D9Texture::~D3D9Texture() {
@@ -396,13 +396,13 @@ D3D9Texture::~D3D9Texture() {
 	}
 }
 
-bool D3D9Texture::Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	width_ = width;
-	height_ = height;
-	depth_ = depth;
-	type_ = type;
+bool D3D9Texture::Create(const TextureDesc &desc) {
+	width_ = desc.width;
+	height_ = desc.height;
+	depth_ = desc.depth;
+	type_ = desc.type;
 	tex_ = NULL;
-	fmt_ = FormatToD3D(format);
+	fmt_ = FormatToD3D(desc.format);
 	HRESULT hr = E_FAIL;
 
 	D3DPOOL pool = D3DPOOL_MANAGED;
@@ -411,16 +411,16 @@ bool D3D9Texture::Create(TextureType type, DataFormat format, int width, int hei
 		pool = D3DPOOL_DEFAULT;
 		usage = D3DUSAGE_DYNAMIC;
 	}
-	switch (type) {
-	case LINEAR1D:
-	case LINEAR2D:
-		hr = device_->CreateTexture(width, height, mipLevels, usage, fmt_, pool, &tex_, NULL);
+	switch (type_) {
+	case TextureType::LINEAR1D:
+	case TextureType::LINEAR2D:
+		hr = device_->CreateTexture(desc.width, desc.height, desc.mipLevels, usage, fmt_, pool, &tex_, NULL);
 		break;
-	case LINEAR3D:
-		hr = device_->CreateVolumeTexture(width, height, depth, mipLevels, usage, fmt_, pool, &volTex_, NULL);
+	case TextureType::LINEAR3D:
+		hr = device_->CreateVolumeTexture(desc.width, desc.height, desc.depth, desc.mipLevels, usage, fmt_, pool, &volTex_, NULL);
 		break;
-	case CUBE:
-		hr = device_->CreateCubeTexture(width, mipLevels, usage, fmt_, pool, &cubeTex_, NULL);
+	case TextureType::CUBE:
+		hr = device_->CreateCubeTexture(desc.width, desc.mipLevels, usage, fmt_, pool, &cubeTex_, NULL);
 		break;
 	}
 	if (FAILED(hr)) {
@@ -451,7 +451,7 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 	}
 
 	switch (type_) {
-	case LINEAR2D:
+	case TextureType::LINEAR2D:
 	{
 		D3DLOCKED_RECT rect;
 		if (x == 0 && y == 0) {
@@ -489,16 +489,16 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 
 void D3D9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
 	switch (type_) {
-	case LINEAR1D:
-	case LINEAR2D:
+	case TextureType::LINEAR1D:
+	case TextureType::LINEAR2D:
 		device->SetTexture(sampler, tex_);
 		break;
 
-	case LINEAR3D:
+	case TextureType::LINEAR3D:
 		device->SetTexture(sampler, volTex_);
 		break;
 
-	case CUBE:
+	case TextureType::CUBE:
 		device->SetTexture(sampler, cubeTex_);
 		break;
 	}
@@ -524,7 +524,7 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
-	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
+	Texture *CreateTexture(const TextureDesc &desc) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
@@ -692,8 +692,8 @@ RasterState *D3D9Context::CreateRasterState(const RasterStateDesc &desc) {
 	return rs;
 }
 
-Texture *D3D9Context::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	D3D9Texture *tex = new D3D9Texture(device_, deviceEx_, type, format, width, height, depth, mipLevels);
+Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
+	D3D9Texture *tex = new D3D9Texture(device_, deviceEx_, desc);
 	return tex;
 }
 

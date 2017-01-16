@@ -279,7 +279,15 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		entry->bmWidth = (size.cx + 3) & ~3;
 		entry->bmHeight = (size.cy + 3) & ~3;
 		entry->lastUsedFrame = frameCount_;
-		entry->texture = thin3d_->CreateTexture(LINEAR2D, DataFormat::R4G4B4A4_UNORM, entry->bmWidth, entry->bmHeight, 1, 1);
+
+		TextureDesc desc{};
+		desc.type = TextureType::LINEAR2D;
+		desc.format = DataFormat::R4G4B4A4_UNORM;
+		desc.width = entry->bmWidth;
+		desc.height = entry->bmHeight;
+		desc.depth = 1;
+		desc.mipLevels = 1;
+		entry->texture = thin3d_->CreateTexture(desc);
 
 		// Convert the bitmap to a gl-compatible array of pixels.
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
