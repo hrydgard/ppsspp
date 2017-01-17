@@ -68,11 +68,13 @@ public:
 private:
 	Draw::DrawContext *thin3d_;
 
+	void ClearCache();
 	void WrapString(std::string &out, const char *str, float maxWidth);
 
 	int frameCount_;
 	float fontScaleX_;
 	float fontScaleY_;
+	float last_dpi_scale_;
 
 	TextDrawerContext *ctx_;
 #ifdef USING_QT_UI

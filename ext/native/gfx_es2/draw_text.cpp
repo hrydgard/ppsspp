@@ -55,6 +55,7 @@ TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(nullpt
 	// These probably shouldn't be state.
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
+	last_dpi_scale_ = g_dpi_scale;
 
 	ctx_ = new TextDrawerContext();
 	ctx_->hDC = CreateCompatibleDC(NULL);
@@ -75,12 +76,7 @@ TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(nullpt
 }
 
 TextDrawer::~TextDrawer() {
-	for (auto &iter : cache_) {
-		if (iter.second->texture)
-			iter.second->texture->Release();
-	}
-	cache_.clear();
-	sizeCache_.clear();
+	ClearCache();
 
 	for (auto iter = fontMap_.begin(); iter != fontMap_.end(); ++iter) {
 		DeleteObject(iter->second->hFont);
@@ -304,12 +300,7 @@ TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(NULL) 
 }
 
 TextDrawer::~TextDrawer() {
-	for (auto &iter : cache_) {
-		if (iter.second->texture)
-			iter.second->texture->Release();
-	}
-	cache_.clear();
-	sizeCache_.clear();
+	ClearCache();
 }
 
 uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
@@ -441,6 +432,15 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 #endif
 
+void TextDrawer::ClearCache() {
+	for (auto &iter : cache_) {
+		if (iter.second->texture)
+			iter.second->texture->Release();
+	}
+	cache_.clear();
+	sizeCache_.clear();
+}
+
 void TextDrawer::WrapString(std::string &out, const char *str, float maxW) {
 	TextDrawerWordWrapper wrapper(this, str, maxW);
 	out = wrapper.Wrapped();
@@ -476,7 +476,13 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bound
 
 void TextDrawer::OncePerFrame() {
 	frameCount_++;
-	// Use a prime number to reduce clashing with other rhythms
+	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
+	if (g_dpi_scale != last_dpi_scale_) {
+		last_dpi_scale_ = g_dpi_scale;
+		ClearCache();
+	}
+
+	// Drop old strings. Use a prime number to reduce clashing with other rhythms
 	if (frameCount_ % 23 == 0) {
 		for (auto iter = cache_.begin(); iter != cache_.end();) {
 			if (frameCount_ - iter->second->lastUsedFrame > 100) {
