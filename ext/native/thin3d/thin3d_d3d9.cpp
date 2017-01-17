@@ -782,7 +782,7 @@ void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device) {
 void D3D9Context::Draw(Buffer *vdata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 
-	vbuf->BindAsVertexBuf(device_, curPipeline_->inputLayout->GetStride(9), offset);
+	vbuf->BindAsVertexBuf(device_, curPipeline_->inputLayout->GetStride(0), offset);
 	curPipeline_->Apply(device_);
 	curPipeline_->inputLayout->Apply(device_);
 	device_->DrawPrimitive(curPipeline_->prim, offset, vertexCount / 3);
