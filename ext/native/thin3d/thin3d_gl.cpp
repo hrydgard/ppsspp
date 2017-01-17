@@ -251,6 +251,7 @@ public:
 class OpenGLRasterState : public RasterState {
 public:
 	void Apply() {
+		glEnable(GL_SCISSOR_TEST);
 		if (!cullEnable) {
 			glDisable(GL_CULL_FACE);
 			return;
@@ -258,7 +259,6 @@ public:
 		glEnable(GL_CULL_FACE);
 		glFrontFace(frontFace);
 		glCullFace(cullMode);
-		glEnable(GL_SCISSOR_TEST);
 	}
 
 	GLboolean cullEnable;

@@ -37,6 +37,7 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 void UIContext::Begin() {
 	thin3d_->BindSamplerStates(0, 1, &sampler_);
 	thin3d_->BindTexture(0, uitexture_);
+	ActivateTopScissor();
 	UIBegin(ui_pipeline_);
 }
 
@@ -89,18 +90,19 @@ Bounds UIContext::GetScissorBounds() {
 }
 
 void UIContext::ActivateTopScissor() {
+	Bounds bounds;
 	if (scissorStack_.size()) {
-		const Bounds &bounds = scissorStack_.back();
-		float scale = pixel_in_dps;
-		int x = scale * bounds.x;
-		int y = scale * bounds.y;
-		int w = scale * bounds.w;
-		int h = scale * bounds.h;
-		thin3d_->SetScissorRect(x, y, w, h);
+		bounds = scissorStack_.back();
 	}
 	else {
-		thin3d_->SetScissorRect(bounds_.x, bounds_.y, bounds_.w, bounds_.h);
+		bounds = bounds_;
 	}
+	float scale = pixel_in_dps;
+	int x = scale * bounds.x;
+	int y = scale * bounds.y;
+	int w = scale * bounds.w;
+	int h = scale * bounds.h;
+	thin3d_->SetScissorRect(x, y, w, h);
 }
 
 void UIContext::SetFontScale(float scaleX, float scaleY) {
