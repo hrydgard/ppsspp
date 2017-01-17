@@ -194,7 +194,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		fbTex->SetImageData(0, 0, 0, srcwidth, srcheight, 1, 0, srcwidth * 4, (const uint8_t *)&fbTexBuffer[0]);
 		u1 = 1.0f;
 	}
-	fbTex->Finalize();
 
 	float x, y, w, h;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);

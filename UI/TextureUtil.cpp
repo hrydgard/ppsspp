@@ -105,18 +105,14 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 	desc.height = height[0];
 	desc.depth = 1;
 	desc.mipLevels = num_levels;
+	for (int i = 0; i < num_levels; i++) {
+		desc.initData.push_back(image[i]);
+	}
 	texture_ = draw_->CreateTexture(desc);
 	for (int i = 0; i < num_levels; i++) {
-		if (image[i]) {
-			texture_->SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
+		if (image[i])
 			free(image[i]);
-		}
-		else {
-			ELOG("Missing image level %i", i);
-		}
 	}
-
-	texture_->Finalize();
 	return true;
 }
 

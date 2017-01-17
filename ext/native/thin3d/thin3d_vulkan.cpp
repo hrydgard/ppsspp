@@ -589,8 +589,6 @@ public:
 	}
 
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
-	void Finalize() override {}
-	void AutoGenMipmaps() override {}
 
 	VkImageView GetImageView() { return vkTex_->GetImageView(); }
 
@@ -602,7 +600,11 @@ private:
 		height_ = desc.height;
 		depth_ = desc.depth;
 		vkTex_ = new VulkanTexture(vulkan_);
-		// We don't actually do anything here.
+		if (desc.initData.size()) {
+			for (int i = 0; i < desc.initData.size(); i++) {
+				this->SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
+			}
+		}
 		return true;
 	}
 
@@ -962,6 +964,9 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 
 void VKTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
+	if (stride == 0) {
+		stride = width * DataFormatSizeInBytes(format_);
+	}
 	int bpp = GetBpp(vulkanFormat);
 	int bytesPerPixel = bpp / 8;
 	vkTex_->Create(width, height, vulkanFormat);

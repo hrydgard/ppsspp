@@ -70,7 +70,7 @@ class PrioritizedWorkQueue;
 class AsyncImageFileView : public UI::Clickable {
 public:
 	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0)
-		: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(NULL), textureFailed_(false), textureAutoGen_(true), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
+		: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(nullptr), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
 	~AsyncImageFileView() {
 		delete texture_;
 	}
@@ -83,7 +83,6 @@ public:
 	void SetOverlayText(std::string text) { text_ = text; }
 	void SetFixedSize(float fixW, float fixH) { fixedSizeW_ = fixW; fixedSizeH_ = fixH; }
 	void SetCanBeFocused(bool can) { canFocus_ = can; }
-	void SetAutoGenMipmaps(bool a) { textureAutoGen_ = a; }
 
 	bool CanBeFocused() const override { return canFocus_; }
 
@@ -98,7 +97,6 @@ private:
 
 	ManagedTexture *texture_;
 	bool textureFailed_;
-	bool textureAutoGen_;
 	float fixedSizeW_;
 	float fixedSizeH_;
 };

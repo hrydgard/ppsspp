@@ -653,6 +653,10 @@ GLuint TypeToTarget(TextureType type) {
 	}
 }
 
+inline bool isPowerOf2(int n) {
+	return n == 1 || (n & (n - 1)) == 0;
+}
+
 class OpenGLTexture : public Texture, GfxResourceHolder {
 public:
 	OpenGLTexture(const TextureDesc &desc) : tex_(0), target_(TypeToTarget(desc.type)), format_(desc.format), mipLevels_(desc.mipLevels) {
@@ -661,8 +665,23 @@ public:
 		width_ = desc.width;
 		height_ = desc.height;
 		depth_ = desc.depth;
+		canWrap_ = !isPowerOf2(width_) || !isPowerOf2(height_);
+
 		glGenTextures(1, &tex_);
 		register_gl_resource_holder(this);
+
+		if (!desc.initData.size())
+			return;
+
+		int level = 0;
+		for (auto data : desc.initData) {
+			SetImageData(0, 0, 0, width_, height_, depth_, level, 0, data);
+			width_ = (width_ + 1) /2;
+			height_ = (height_ + 1) /2;
+			level++;
+		}
+		if (desc.initData.size() < desc.mipLevels)
+			AutoGenMipmaps();
 	}
 	~OpenGLTexture() {
 		unregister_gl_resource_holder(this);
@@ -678,7 +697,7 @@ public:
 	}
 
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
-	void AutoGenMipmaps() override;
+	void AutoGenMipmaps();
 
 	bool HasMips() {
 		return mipLevels_ > 1 || generatedMips_;
@@ -699,8 +718,6 @@ public:
 
 	void GLRestore() override {
 	}
-
-	void Finalize() override;
 
 private:
 	GLuint tex_;
@@ -744,11 +761,6 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	default:
 		return;
 	}
-	if (level == 0) {
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
-	}
 
 	Bind();
 	switch (target_) {
@@ -761,13 +773,6 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	}
 }
 
-bool isPowerOf2(int n) {
-	return n == 1 || (n & (n - 1)) == 0;
-}
-
-void OpenGLTexture::Finalize() {
-	canWrap_ = !isPowerOf2(width_) || !isPowerOf2(height_);
-}
 
 OpenGLInputLayout::~OpenGLInputLayout() {
 	if (id_) {

@@ -193,11 +193,6 @@ void SavedataButton::Draw(UIContext &dc) {
 		float nw = h * tw / th;
 		x += (w - nw) / 2.0f;
 		w = nw;
-
-		if (texture->Width() >= w * 2 || texture->Height() >= h * 2) {
-			// Better to use mipmaps, then.  This is probably a large savestate screenshot.
-			texture->AutoGenMipmaps();
-		}
 	}
 
 	int txOffset = down_ ? 4 : 0;

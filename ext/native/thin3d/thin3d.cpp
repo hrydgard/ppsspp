@@ -5,6 +5,33 @@
 
 namespace Draw {
 
+size_t DataFormatSizeInBytes(DataFormat fmt) {
+	switch (fmt) {
+	case DataFormat::R8_UNORM: return 1;
+	case DataFormat::R8G8_UNORM: return 2;
+	case DataFormat::R8G8B8_UNORM: return 3;
+
+	case DataFormat::R4G4B4A4_UNORM: return 2;
+
+	case DataFormat::R8G8B8A8_UNORM:
+	case DataFormat::R8G8B8A8_UNORM_SRGB: return 4;
+
+	case DataFormat::R8G8B8A8_SNORM: return 4;
+	case DataFormat::R8G8B8A8_UINT: return 4;
+	case DataFormat::R8G8B8A8_SINT: return 4;
+	case DataFormat::R16_FLOAT: return 2;
+	case DataFormat::R16G16_FLOAT: return 4;
+	case DataFormat::R16G16B16A16_FLOAT: return 8;
+	case DataFormat::R32_FLOAT: return 4;
+	case DataFormat::R32G32_FLOAT: return 8;
+	case DataFormat::R32G32B32_FLOAT: return 12;
+	case DataFormat::R32G32B32A32_FLOAT: return 16;
+
+	default:
+		return 0;
+	}
+}
+
 bool RefCountedObject::Release() {
 	if (refcount_ > 0 && refcount_ < 10000) {
 		refcount_--;

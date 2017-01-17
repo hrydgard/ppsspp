@@ -81,8 +81,6 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 		texture_ = CreateTextureFromFile(dc.GetThin3DContext(), filename_.c_str(), DETECT);
 		if (!texture_)
 			textureFailed_ = true;
-		else if (textureAutoGen_) // TODO: Iffy
-			texture_->GetTexture()->AutoGenMipmaps();
 	}
 
 	if (HasFocus()) {

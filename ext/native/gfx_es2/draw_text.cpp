@@ -280,14 +280,6 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		entry->bmHeight = (size.cy + 3) & ~3;
 		entry->lastUsedFrame = frameCount_;
 
-		TextureDesc desc{};
-		desc.type = TextureType::LINEAR2D;
-		desc.format = DataFormat::R4G4B4A4_UNORM;
-		desc.width = entry->bmWidth;
-		desc.height = entry->bmHeight;
-		desc.depth = 1;
-		desc.mipLevels = 1;
-		entry->texture = thin3d_->CreateTexture(desc);
 
 		// Convert the bitmap to a gl-compatible array of pixels.
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
@@ -297,8 +289,16 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 				bitmapData[entry->bmWidth * y + x] = (bAlpha) | 0xfff0;
 			}
 		}
-		entry->texture->SetImageData(0, 0, 0, entry->bmWidth, entry->bmHeight, 1, 0, entry->bmWidth * 2, (const uint8_t *)bitmapData);
-		entry->texture->Finalize();
+
+		TextureDesc desc{};
+		desc.type = TextureType::LINEAR2D;
+		desc.format = DataFormat::R4G4B4A4_UNORM;
+		desc.width = entry->bmWidth;
+		desc.height = entry->bmHeight;
+		desc.depth = 1;
+		desc.mipLevels = 1;
+		desc.initData.push_back((uint8_t *)bitmapData);
+		entry->texture = thin3d_->CreateTexture(desc);
 		delete [] bitmapData;
 
 		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);

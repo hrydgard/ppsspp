@@ -333,8 +333,6 @@ public:
 class Texture : public RefCountedObject {
 public:
 	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
-	virtual void AutoGenMipmaps() = 0;
-	virtual void Finalize() = 0;  // TODO: Tidy up
 
 	int Width() { return width_; }
 	int Height() { return height_; }
@@ -474,6 +472,7 @@ struct TextureDesc {
 	int height;
 	int depth;
 	int mipLevels;
+	std::vector<uint8_t *> initData;
 };
 
 class DrawContext : public RefCountedObject {
@@ -500,6 +499,7 @@ public:
 	// Resources
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Texture *CreateTexture(const TextureDesc &desc) = 0;
+
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 
@@ -548,6 +548,8 @@ protected:
 	int targetWidth_;
 	int targetHeight_;
 };
+
+size_t DataFormatSizeInBytes(DataFormat fmt);
 
 DrawContext *T3DCreateGLContext();
 
