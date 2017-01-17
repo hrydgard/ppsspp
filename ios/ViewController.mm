@@ -36,9 +36,9 @@
 
 class IOSDummyGraphicsContext : public DummyGraphicsContext {
 public:
-    Thin3DContext *CreateThin3DContext() override {
+    Draw::DrawContext *CreateThin3DContext() override {
         CheckGLExtensions();
-        return T3DCreateGLContext();
+        return Draw::T3DCreateGLContext();
     }
 };
 

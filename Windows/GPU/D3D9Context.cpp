@@ -27,8 +27,8 @@ void D3D9Context::SwapBuffers() {
 	}
 }
 
-Thin3DContext *D3D9Context::CreateThin3DContext() {
-	return T3DCreateDX9Context(d3d, d3dEx, adapterId, device, deviceEx);
+Draw::DrawContext *D3D9Context::CreateThin3DContext() {
+	return Draw::T3DCreateDX9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
 
 typedef HRESULT (__stdcall *DIRECT3DCREATE9EX)(UINT, IDirect3D9Ex**);

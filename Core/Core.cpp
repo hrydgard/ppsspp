@@ -130,13 +130,40 @@ bool Core_GetPowerSaving() {
 	return powerSaving;
 }
 
-bool UpdateScreenScale(int width, int height, bool smallWindow) {
-	g_dpi = 72;
-	g_dpi_scale = 1.0f;
-	if (smallWindow) {
-		g_dpi_scale = 2.0f;
-	}
+#ifdef _WIN32
+static int ScreenDPI() {
+	HDC screenDC = GetDC(nullptr);
+	int dotsPerInch = GetDeviceCaps(screenDC, LOGPIXELSY);
+	ReleaseDC(nullptr, screenDC);
+	return dotsPerInch;
+}
+#endif
 
+static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
+	// Can't take this from config as it will not be set if windows is maximized.
+	int w = (int)(pixelWidth * g_dpi_scale);
+	int h = (int)(pixelHeight * g_dpi_scale);
+	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
+}
+
+// TODO: Feels like this belongs elsewhere.
+bool UpdateScreenScale(int width, int height) {
+	bool smallWindow;
+#ifdef _WIN32
+	// Use legacy DPI handling, because we still compile as XP compatible we don't get the new SDK, unless
+	// we do unholy tricks.
+
+	g_dpi = ScreenDPI();
+	g_dpi_scale = 96.0f / g_dpi;
+#else
+	g_dpi = 96;
+	g_dpi_scale = 1.0f;
+#endif
+	smallWindow = IsWindowSmall(width, height);
+	if (smallWindow) {
+		g_dpi /= 2;
+		g_dpi_scale *= 2.0f;
+	}
 	pixel_in_dps = 1.0f / g_dpi_scale;
 
 	int new_dp_xres = width * g_dpi_scale;

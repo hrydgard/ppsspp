@@ -21,8 +21,8 @@
 #include <list>
 #include <memory>
 
-extern float mouseDeltaX;
-extern float mouseDeltaY;
+extern float g_mouseDeltaX;
+extern float g_mouseDeltaY;
 
 class GraphicsContext;
 

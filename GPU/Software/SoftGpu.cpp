@@ -42,27 +42,47 @@ FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
 
-static Thin3DVertexFormat *vformat = nullptr;
-static Thin3DDepthStencilState *depth = nullptr;
-static Thin3DBuffer *vdata = nullptr;
-static Thin3DBuffer *idata = nullptr;
+static Draw::SamplerState *samplerNearest = nullptr;
+static Draw::SamplerState *samplerLinear = nullptr;
+static Draw::Buffer *vdata = nullptr;
+static Draw::Buffer *idata = nullptr;
 
-SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Thin3DContext *_thin3D)
+SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 	: gfxCtx_(gfxCtx), thin3d(_thin3D)
 {
-	fbTex = thin3d->CreateTexture(LINEAR2D, RGBA8888, 480, 272, 1, 1);
+	using namespace Draw;
+	fbTex = thin3d->CreateTexture(LINEAR2D, DataFormat::R8G8B8A8_UNORM, 480, 272, 1, 1);
 
-	std::vector<Thin3DVertexComponent> components;
-	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, FLOATx3, 0));
-	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, FLOATx2, 12));
-	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, UNORM8x4, 20));
+	InputLayoutDesc desc = {
+		{
+			{ 24, false },
+		},
+		{
+			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
+			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
+			{ 0, SEM_COLOR0, DataFormat::R32G32B32_FLOAT, 20 },
+		},
+	};
 
-	Thin3DShader *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
-	vformat = thin3d->CreateVertexFormat(components, 24, vshader);
+	ShaderModule *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 
-	vdata = thin3d->CreateBuffer(24 * 4, T3DBufferUsage::DYNAMIC | T3DBufferUsage::VERTEXDATA);
-	idata = thin3d->CreateBuffer(sizeof(int) * 6, T3DBufferUsage::DYNAMIC | T3DBufferUsage::INDEXDATA);
-	depth = thin3d->CreateDepthStencilState(false, false, T3DComparison::LESS);
+	vdata = thin3d->CreateBuffer(24 * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	idata = thin3d->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
+
+	InputLayout *inputLayout = thin3d->CreateInputLayout(desc);
+	DepthStencilState *depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
+	BlendState *blendstateOff = thin3d->CreateBlendState({ false, 0xF });
+	RasterState *rasterNoCull = thin3d->CreateRasterState({});
+
+	samplerNearest = thin3d->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
+	samplerLinear = thin3d->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
+
+	PipelineDesc pipelineDesc{
+		Primitive::TRIANGLE_LIST,
+		{ thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D), thin3d->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
+		inputLayout, depth, blendstateOff, rasterNoCull
+	};
+	texColor = thin3d->CreateGraphicsPipeline(pipelineDesc);
 
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
@@ -83,8 +103,9 @@ void SoftGPU::DeviceRestore() {
 }
 
 SoftGPU::~SoftGPU() {
-	vformat->Release();
-	vformat = nullptr;
+	texColor->Release();
+	texColor = nullptr;
+
 	fbTex->Release();
 	fbTex = nullptr;
 
@@ -92,8 +113,10 @@ SoftGPU::~SoftGPU() {
 	vdata = nullptr;
 	idata->Release();
 	idata = nullptr;
-	depth->Release();
-	depth = nullptr;
+	samplerNearest->Release();
+	samplerNearest = nullptr;
+	samplerLinear->Release();
+	samplerLinear = nullptr;
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -105,27 +128,24 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 }
 
 // Copies RGBA8 data from RAM to the currently bound render target.
-void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
-{
+void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
+	using namespace Draw;
+
 	if (!thin3d)
 		return;
 	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
 	float dstheight = (float)PSP_CoreParameter().pixelHeight;
 
-	T3DViewport viewport = {0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f};
+	Viewport viewport = {0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f};
 	thin3d->SetViewports(1, &viewport);
-
-	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_OFF));
-	Thin3DSamplerState *sampler;
+	SamplerState *sampler;
 	if (g_Config.iBufFilter == SCALE_NEAREST) {
-		sampler = thin3d->GetSamplerStatePreset(T3DSamplerStatePreset::SAMPS_NEAREST);
+		sampler = samplerNearest;
 	} else {
-		sampler = thin3d->GetSamplerStatePreset(T3DSamplerStatePreset::SAMPS_LINEAR);
+		sampler = samplerLinear;
 	}
-	thin3d->SetSamplerStates(0, 1, &sampler);
-	thin3d->SetDepthStencilState(depth);
-	thin3d->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
-	thin3d->SetScissorEnabled(false);
+	thin3d->BindSamplerStates(0, 1, &sampler);
+	thin3d->SetScissorRect(0, 0, dstwidth, dstheight);
 
 	float u0 = 0.0f;
 	float u1;
@@ -212,8 +232,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	int indexes[] = {0, 1, 2, 0, 2, 3};
 	idata->SetData((const uint8_t *)indexes, sizeof(indexes));
 
-	thin3d->SetTexture(0, fbTex);
-	Thin3DShaderSet *texColor = thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D);
+	thin3d->BindTexture(0, fbTex);
 
 	static const float identity4x4[16] = {
 		1.0f, 0.0f, 0.0f, 0.0f,
@@ -223,7 +242,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	};
 
 	texColor->SetMatrix4x4("WorldViewProj", identity4x4);
-	thin3d->DrawIndexed(T3DPrimitive::PRIM_TRIANGLES, texColor, vformat, vdata, idata, 6, 0);
+	thin3d->BindPipeline(texColor);
+	thin3d->DrawIndexed(vdata, idata, 6, 0);
 }
 
 void SoftGPU::CopyDisplayToOutput()

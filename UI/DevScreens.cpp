@@ -314,10 +314,11 @@ const char *GetCompilerABI() {
 }
 
 void SystemInfoScreen::CreateViews() {
+	using namespace Draw;
+	using namespace UI;
+
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
 	I18NCategory *di = GetI18NCategory("Dialog");
-
-	using namespace UI;
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
@@ -351,11 +352,11 @@ void SystemInfoScreen::CreateViews() {
 #endif
 	deviceSpecs->Add(new ItemHeader("GPU Information"));
 
-	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+	DrawContext *thin3d = screenManager()->getThin3DContext();
 
-	deviceSpecs->Add(new InfoItem("3D API", thin3d->GetInfoString(T3DInfo::APINAME)));
-	deviceSpecs->Add(new InfoItem("Vendor", std::string(thin3d->GetInfoString(T3DInfo::VENDORSTRING)) + " (" + thin3d->GetInfoString(T3DInfo::VENDOR) + ")"));
-	deviceSpecs->Add(new InfoItem("Model", thin3d->GetInfoString(T3DInfo::RENDERER)));
+	deviceSpecs->Add(new InfoItem("3D API", thin3d->GetInfoString(InfoField::APINAME)));
+	deviceSpecs->Add(new InfoItem("Vendor", std::string(thin3d->GetInfoString(InfoField::VENDORSTRING)) + " (" + thin3d->GetInfoString(InfoField::VENDOR) + ")"));
+	deviceSpecs->Add(new InfoItem("Model", thin3d->GetInfoString(InfoField::RENDERER)));
 #ifdef _WIN32
 	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
@@ -387,12 +388,12 @@ void SystemInfoScreen::CreateViews() {
 			apiVersion = StringFromFormat("v%d.%d.%d", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
 		}
 	} else {
-		apiVersion = thin3d->GetInfoString(T3DInfo::APIVERSION);
+		apiVersion = thin3d->GetInfoString(InfoField::APIVERSION);
 		if (apiVersion.size() > 30)
 			apiVersion.resize(30);
 	}
 	deviceSpecs->Add(new InfoItem("API Version", apiVersion));
-	deviceSpecs->Add(new InfoItem("Shading Language", thin3d->GetInfoString(T3DInfo::SHADELANGVERSION)));
+	deviceSpecs->Add(new InfoItem("Shading Language", thin3d->GetInfoString(InfoField::SHADELANGVERSION)));
 
 #ifdef __ANDROID__
 	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);

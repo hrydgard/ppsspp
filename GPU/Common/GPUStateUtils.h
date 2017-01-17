@@ -2,6 +2,8 @@
 
 #include "GPU/ge_constants.h"
 
+// TODO: Replace enums and structs with same from thin3d.h, for convenient mapping.
+
 enum StencilValueType {
 	STENCIL_VALUE_UNIFORM,
 	STENCIL_VALUE_ZERO,
@@ -86,6 +88,8 @@ enum class BlendFactor : uint8_t {
 	ONE_MINUS_CONSTANT_COLOR,
 	CONSTANT_ALPHA,
 	ONE_MINUS_CONSTANT_ALPHA,
+	SRC1_COLOR,
+	ONE_MINUS_SRC1_COLOR,
 	SRC1_ALPHA,
 	ONE_MINUS_SRC1_ALPHA,
 	INVALID,

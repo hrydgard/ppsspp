@@ -493,26 +493,30 @@ void SasInstance::MixVoice(SasVoice &voice) {
 				++delay;
 		}
 
-		// Resample to the correct pitch, writing exactly "grainSize" samples.
+		// Resample to the correct pitch, writing exactly "grainSize" samples. We need a buffer that can
+		// fit 4x that, as the max pitch is 0x4000.
 		// TODO: Special case no-resample case (and 2x and 0.5x) for speed, it's not uncommon
-		int16_t temp[PSP_SAS_MAX_GRAIN + 2];
 
 		// Two passes: First read, then resample.
-		u32 sampleFrac = voice.sampleFrac;
-		temp[0] = voice.resampleHist[0];
-		temp[1] = voice.resampleHist[1];
+		mixTemp_[0] = voice.resampleHist[0];
+		mixTemp_[1] = voice.resampleHist[1];
 
-		int samplesToRead = (sampleFrac + voice.pitch * (grainSize - delay)) >> PSP_SAS_PITCH_BASE_SHIFT;
-		voice.ReadSamples(&temp[2], samplesToRead);
+		int voicePitch = voice.pitch;
+		u32 sampleFrac = voice.sampleFrac;
+		int samplesToRead = (sampleFrac + voicePitch * std::max(0, grainSize - delay)) >> PSP_SAS_PITCH_BASE_SHIFT;
+		if (samplesToRead > ARRAY_SIZE(mixTemp_) - 2) {
+			PanicAlert("Too many samples to read! This shouldn't happen.");
+		}
+		voice.ReadSamples(&mixTemp_[2], samplesToRead);
 		int tempPos = 2 + samplesToRead;
 
 		for (int i = delay; i < grainSize; i++) {
-			const int16_t *s = temp + (sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
+			const int16_t *s = mixTemp_ + (sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
 
 			// Linear interpolation. Good enough. Need to make resampleHist bigger if we want more.
 			int f = sampleFrac & PSP_SAS_PITCH_MASK;
 			int sample = (s[0] * (PSP_SAS_PITCH_MASK - f) + s[1] * f) >> PSP_SAS_PITCH_BASE_SHIFT;
-			sampleFrac += voice.pitch;
+			sampleFrac += voicePitch;
 
 			// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
 			// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
@@ -533,8 +537,8 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			sendBuffer[i * 2 + 1] += sample * voice.effectRight >> 12;
 		}
 
-		voice.resampleHist[0] = temp[tempPos - 2];
-		voice.resampleHist[1] = temp[tempPos - 1];
+		voice.resampleHist[0] = mixTemp_[tempPos - 2];
+		voice.resampleHist[1] = mixTemp_[tempPos - 1];
 
 		voice.sampleFrac = sampleFrac - (tempPos - 2) * PSP_SAS_PITCH_BASE;;
 

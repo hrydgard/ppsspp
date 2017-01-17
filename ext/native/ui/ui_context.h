@@ -9,12 +9,16 @@
 // Everything you need to draw a UI collected into a single unit that can be passed around.
 // Everything forward declared so this header is safe everywhere.
 
-class Thin3DContext;
-class Thin3DShaderSet;
-class Thin3DDepthStencilState;
-class Thin3DTexture;
-class Thin3DBlendState;
-class Thin3DSamplerState;
+namespace Draw {
+	class DrawContext;
+	class Pipeline;
+	class DepthStencilState;
+	class Texture;
+	class BlendState;
+	class SamplerState;
+	class RasterState;
+}
+
 class Texture;
 class DrawBuffer;
 class TextDrawer;
@@ -32,7 +36,7 @@ public:
 	UIContext();
 	~UIContext();
 
-	void Init(Thin3DContext *thin3d, Thin3DShaderSet *uiShaderTex, Thin3DShaderSet *uiShaderNoTex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+	void Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
 
 	void Begin();
 	void BeginNoTex();
@@ -70,10 +74,10 @@ public:
 	// in dps, like dp_xres and dp_yres
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
-	Thin3DContext *GetThin3DContext() { return thin3d_; }
+	Draw::DrawContext *GetThin3DContext() { return thin3d_; }
 
 private:
-	Thin3DContext *thin3d_;
+	Draw::DrawContext *thin3d_;
 	Bounds bounds_;
 
 	float fontScaleX_;
@@ -81,13 +85,11 @@ private:
 	UI::FontStyle *fontStyle_;
 	TextDrawer *textDrawer_;
 
-	Thin3DContext *thin3D_;
-	Thin3DDepthStencilState *depth_;
-	Thin3DBlendState *blend_;
-	Thin3DSamplerState *sampler_;
-	Thin3DShaderSet *uishader_;
-	Thin3DShaderSet *uishadernotex_;
-	Thin3DTexture *uitexture_;
+	Draw::DrawContext *thin3D_;
+	Draw::SamplerState *sampler_;
+	Draw::Pipeline *ui_pipeline_;
+	Draw::Pipeline *ui_pipeline_notex_;
+	Draw::Texture *uitexture_;
 
 	DrawBuffer *uidrawbuffer_;
 	DrawBuffer *uidrawbufferTop_;

@@ -117,7 +117,7 @@ static UI::Theme ui_theme;
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-Thin3DTexture *uiTexture;
+Draw::Texture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
@@ -139,7 +139,9 @@ struct PendingMessage {
 
 static recursive_mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
-static Thin3DContext *thin3d;
+static Draw::DrawContext *thin3d;
+static Draw::Pipeline *colorPipeline;
+static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
 static std::vector<std::string> inputboxValue;
 
@@ -147,7 +149,7 @@ static std::vector<std::string> inputboxValue;
 WindowsAudioBackend *winAudioBackend;
 #endif
 
-Thin3DContext *GetThin3D() {
+Draw::DrawContext *GetThin3D() {
 	return thin3d;
 }
 
@@ -524,6 +526,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 }
 
 void NativeInitGraphics(GraphicsContext *graphicsContext) {
+	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
 	thin3d = graphicsContext->CreateThin3DContext();
 
@@ -575,10 +578,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_theme.popupTitle.fgColor = 0xFF59BEE3;
 #endif
 
-	ui_draw2d.Init(thin3d);
-	ui_draw2d_front.Init(thin3d);
-
-	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", T3DImageType::ZIM);
+	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", ImageFileType::ZIM);
 	if (!uiTexture) {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
@@ -591,7 +591,38 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 
-	uiContext->Init(thin3d, thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), thin3d->GetShaderSetPreset(SS_COLOR_2D), uiTexture, &ui_draw2d, &ui_draw2d_front);
+	Draw::InputLayout *inputLayout = ui_draw2d.CreateInputLayout(thin3d);
+	Draw::BlendState *blendNormal = thin3d->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
+	Draw::DepthStencilState *depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
+	Draw::RasterState *rasterNoCull = thin3d->CreateRasterState({});
+
+	PipelineDesc colorDesc{
+		Primitive::TRIANGLE_LIST,
+		{ thin3d->GetVshaderPreset(VS_COLOR_2D), thin3d->GetFshaderPreset(FS_COLOR_2D) },
+		inputLayout, depth, blendNormal, rasterNoCull
+	};
+	PipelineDesc texColorDesc{
+		Primitive::TRIANGLE_LIST,
+		{ thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D), thin3d->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
+		inputLayout, depth, blendNormal, rasterNoCull
+	};
+
+	colorPipeline = thin3d->CreateGraphicsPipeline(colorDesc);
+	texColorPipeline = thin3d->CreateGraphicsPipeline(texColorDesc);
+
+	inputLayout->Release();
+	rasterNoCull->Release();
+	blendNormal->Release();
+	depth->Release();
+
+	ui_draw2d.Init(thin3d, texColorPipeline);
+	ui_draw2d_front.Init(thin3d, texColorPipeline);
+
+	uiContext->Init(thin3d, texColorPipeline, colorPipeline, uiTexture, &ui_draw2d, &ui_draw2d_front);
+	RasterStateDesc desc;
+	desc.cull = CullMode::NONE;
+	desc.facing = Facing::CCW;
+
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
@@ -626,6 +657,9 @@ void NativeShutdownGraphics() {
 
 	ui_draw2d.Shutdown();
 	ui_draw2d_front.Shutdown();
+
+	colorPipeline->Release();
+	texColorPipeline->Release();
 
 	// TODO: Reconsider this annoying ref counting stuff.
 	if (thin3d->Release()) {

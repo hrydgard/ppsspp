@@ -23,6 +23,7 @@
 #include <shellapi.h>
 #include <mmsystem.h>
 
+#include "base/display.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "base/NativeApp.h"
@@ -367,8 +368,7 @@ std::vector<std::wstring> GetWideCmdLine() {
 	return wideArgs;
 }
 
-int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
-{
+int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
 	setCurrentThreadName("Main");
 
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);

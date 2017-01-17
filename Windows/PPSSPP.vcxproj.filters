@@ -189,6 +189,9 @@
     <ClCompile Include="..\Qt\Debugger\ctrlvfpuview.cpp">
       <Filter>Other Platforms\Qt\Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="GPU\D3D11Context.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -345,6 +348,9 @@
     </ClInclude>
     <ClInclude Include="..\Qt\Debugger\ctrlregisterlist.h">
       <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\D3D11Context.h">
+      <Filter>Windows\System</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

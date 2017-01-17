@@ -24,10 +24,13 @@
 #include "objbase.h"
 #include "objidl.h"
 #include "shlguid.h"
+#pragma warning(push)
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
 #include "shlobj.h"
+#pragma warning(pop)
 
 // native stuff
+#include "base/display.h"
 #include "base/NativeApp.h"
 #include "file/file_util.h"
 #include "input/input_state.h"
@@ -47,6 +50,7 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
 #include "Windows/GPU/D3D9Context.h"
+#include "Windows/GPU/D3D11Context.h"
 
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -61,8 +65,8 @@
 
 static const int numCPUs = 1;
 
-float mouseDeltaX = 0;
-float mouseDeltaY = 0;
+float g_mouseDeltaX = 0;
+float g_mouseDeltaY = 0;
 
 static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
@@ -73,8 +77,8 @@ WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindo
 		mainWindow_(mainWindow),
 		displayWindow_(displayWindow)
 {
-	mouseDeltaX = 0;
-	mouseDeltaY = 0;
+	g_mouseDeltaX = 0;
+	g_mouseDeltaY = 0;
 
 	//add first XInput device to respond
 	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
@@ -112,6 +116,9 @@ bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx
 		break;
 	case GPU_BACKEND_DIRECT3D9:
 		graphicsContext = new D3D9Context();
+		break;
+	case GPU_BACKEND_DIRECT3D11:
+		graphicsContext = new D3D11Context();
 		break;
 	case GPU_BACKEND_VULKAN:
 		graphicsContext = new WindowsVulkanContext();
@@ -197,12 +204,14 @@ void WindowsHost::PollControllers(InputState &input_state) {
 			doPad = false;
 	}
 
-	mouseDeltaX *= 0.9f;
-	mouseDeltaY *= 0.9f;
+	g_mouseDeltaX *= 0.9f;
+	g_mouseDeltaY *= 0.9f;
 
 	// TODO: Tweak!
-	float mx = std::max(-1.0f, std::min(1.0f, mouseDeltaX * 0.01f));
-	float my = std::max(-1.0f, std::min(1.0f, mouseDeltaY * 0.01f));
+	float scaleFactor = g_dpi_scale * 0.01f;
+
+	float mx = std::max(-1.0f, std::min(1.0f, g_mouseDeltaX * scaleFactor));
+	float my = std::max(-1.0f, std::min(1.0f, g_mouseDeltaY * scaleFactor));
 	AxisInput axisX, axisY;
 	axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
 	axisX.deviceId = DEVICE_ID_MOUSE;

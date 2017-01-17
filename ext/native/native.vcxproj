@@ -683,6 +683,7 @@
     <ClCompile Include="gfx\gl_debug_log.cpp" />
     <ClCompile Include="gfx\gl_lost_manager.cpp" />
     <ClCompile Include="gfx\texture_atlas.cpp" />
+    <ClCompile Include="thin3d\thin3d_d3d11.cpp" />
     <ClCompile Include="util\text\wrap_text.cpp" />
     <ClCompile Include="gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="gfx_es2\draw_text.cpp" />

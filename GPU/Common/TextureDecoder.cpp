@@ -109,7 +109,7 @@ u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
 			u32 x32[4];
 			u16 x16[8];
 		};
-		u32x4_u16x8 cursor = {0, 0, 0, 0};
+		u32x4_u16x8 cursor{};
 		u32x4_u16x8 cursor2;
 		static const u16 update[8] = {0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U};
 

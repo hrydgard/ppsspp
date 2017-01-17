@@ -748,6 +748,9 @@
     <ClCompile Include="util\text\wrap_text.cpp">
       <Filter>util</Filter>
     </ClCompile>
+    <ClCompile Include="thin3d\thin3d_d3d11.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">

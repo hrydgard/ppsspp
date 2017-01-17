@@ -75,7 +75,7 @@ std::string WordWrapper::Wrapped() {
 }
 
 void WordWrapper::WrapBeforeWord() {
-	if (x_ + wordWidth_ > maxW_) {
+	if (x_ + wordWidth_ > maxW_ && out_.size() > 0) {
 		if (IsShy(out_[out_.size() - 1])) {
 			// Soft hyphen, replace it with a real hyphen since we wrapped at it.
 			// TODO: There's an edge case here where the hyphen might not fit.

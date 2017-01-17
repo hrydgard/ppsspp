@@ -136,9 +136,12 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 		return false;
 	if (msgCode == 44 && startsWith(pMsg, "At Draw time the active render"))
 		return false;
+	if (msgCode == 11)
+		return false;
 
 #ifdef _WIN32
-	OutputDebugStringA(message.str().c_str());
+	std::string msg = message.str();
+	OutputDebugStringA(msg.c_str());
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
 		if (options->breakOnError) {
 			DebugBreak();
@@ -204,8 +207,8 @@ void WindowsVulkanContext::Shutdown() {
 	finalize_glslang();
 }
 
-Thin3DContext *WindowsVulkanContext::CreateThin3DContext() {
-	return T3DCreateVulkanContext(g_Vulkan);
+Draw::DrawContext *WindowsVulkanContext::CreateThin3DContext() {
+	return Draw::T3DCreateVulkanContext(g_Vulkan);
 }
 
 void WindowsVulkanContext::SwapBuffers() {

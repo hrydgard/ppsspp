@@ -21,15 +21,13 @@
 
 #include "Common/CommonWindows.h"
 #include "Windows/GPU/WindowsGraphicsContext.h"
-#include <d3d9.h>
+#include <d3d11.h>
 
-namespace Draw {
-	class DrawContext;
-}
+class DrawContext;
 
-class D3D9Context : public WindowsGraphicsContext {
+class D3D11Context : public WindowsGraphicsContext {
 public:
-	D3D9Context() : has9Ex(false), d3d(nullptr), d3dEx(nullptr), adapterId(-1), device(nullptr), deviceEx(nullptr), hDC(nullptr), hWnd(nullptr), hD3D9(nullptr), pp{} {
+	D3D11Context() : adapterId(-1), hDC(nullptr), hWnd_(nullptr), hD3D11(nullptr) {
 	}
 
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
@@ -42,15 +40,19 @@ public:
 	Draw::DrawContext *CreateThin3DContext() override;
 
 private:
-	bool has9Ex;
-	LPDIRECT3D9 d3d;
-	LPDIRECT3D9EX d3dEx;
+	ID3D11Device *device_;
+	ID3D11DeviceContext *context_;
+	IDXGISwapChain *swapChain_ = nullptr;
+	ID3D11RenderTargetView *renderTargetView_ = nullptr;
+	ID3D11Texture2D *depthStencilTex_ = nullptr;
+	ID3D11DepthStencilView *depthStencilView_ = nullptr;
+
+	D3D_DRIVER_TYPE driverType_;
+	D3D_FEATURE_LEVEL featureLevel_ = D3D_FEATURE_LEVEL_11_0;
 	int adapterId;
-	LPDIRECT3DDEVICE9 device;
-	LPDIRECT3DDEVICE9EX deviceEx;
 	HDC hDC;     // Private GDI Device Context
-	HWND hWnd;   // Holds Our Window Handle
-	HMODULE hD3D9;
-	D3DPRESENT_PARAMETERS pp;
+	HWND hWnd_;   // Holds Our Window Handle
+	HMODULE hD3D11;
+	// D3DPRESENT_PARAMETERS pp;
 };
 

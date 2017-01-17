@@ -31,7 +31,8 @@
   </trustInfo>
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
-      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <!-- Should really use True/PM (per-monitor) here but as we are XP-compatible, we don't have access to the headers. -->
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">True</dpiAware>
     </windowsSettings>
   </application>
 </assembly>
