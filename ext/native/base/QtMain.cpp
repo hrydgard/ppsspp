@@ -210,8 +210,7 @@ QString MainUI::InputBoxGetQString(QString title, QString defaultValue)
 
 void MainUI::resizeGL(int w, int h)
 {
-    bool smallWindow = g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
-    if (UpdateScreenScale(w, h, smallWindow)) {
+    if (UpdateScreenScale(w, h)) {
         NativeMessageReceived("gpu resized", "");
     }
     xscale = w / this->width();
