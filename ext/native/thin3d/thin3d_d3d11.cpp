@@ -42,6 +42,8 @@ public:
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
 	void BindPipeline(Pipeline *pipeline) override;
+	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override;
+	void BindIndexBuffer(Buffer *indexBuffer, int offset) override;
 
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
@@ -50,8 +52,8 @@ public:
 		memcpy(blendFactor_, color, sizeof(float) * 4);
 	}
 
-	void Draw(Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void Draw(int vertexCount, int offset) override;
+	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
@@ -458,11 +460,16 @@ Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return b;
 }
 
-void D3D11DrawContext::Draw(Buffer *vdata, int vertexCount, int offset) {
+void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) {
+}
+void D3D11DrawContext::BindIndexBuffer(Buffer *indexBuffer, int offset) {
+}
+
+void D3D11DrawContext::Draw(int vertexCount, int offset) {
 	ApplyCurrentState();
 }
 
-void D3D11DrawContext::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void D3D11DrawContext::DrawIndexed(int vertexCount, int offset) {
 	ApplyCurrentState();
 }
 

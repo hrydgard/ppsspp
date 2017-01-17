@@ -250,7 +250,9 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 	texColor->SetMatrix4x4("WorldViewProj", identity4x4);
 	thin3d->BindPipeline(texColor);
-	thin3d->DrawIndexed(vdata, idata, 6, 0);
+	thin3d->BindVertexBuffers(0, 1, &vdata, nullptr);
+	thin3d->BindIndexBuffer(idata, 0);
+	thin3d->DrawIndexed(6, 0);
 }
 
 void SoftGPU::CopyDisplayToOutput()

@@ -284,13 +284,13 @@ public:
 	}
 
 	void SetData(const uint8_t *data, size_t size) override {
-		Bind();
+		Bind(0);
 		glBufferData(target_, size, data, usage_);
 		knownSize_ = size;
 	}
 
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
-		Bind();
+		Bind(0);
 		if (size + offset > knownSize_) {
 			// Allocate the buffer.
 			glBufferData(target_, size + offset, NULL, usage_);
@@ -298,7 +298,8 @@ public:
 		}
 		glBufferSubData(target_, offset, size, data);
 	}
-	void Bind() {
+	void Bind(int offset) {
+		// TODO: Can't support offset using ES 2.0
 		glBindBuffer(target_, buffer_);
 	}
 
@@ -555,11 +556,22 @@ public:
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindPipeline(Pipeline *pipeline) override;
+	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+		for (int i = 0; i < count; i++) {
+			curVBuffers_[i + start] = (OpenGLBuffer  *)buffers[i];
+			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
+		}
+	}
+	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
+		curIBuffer_ = (OpenGLBuffer  *)indexBuffer;
+		curIBufferOffset_ = offset;
+	}
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void Draw(int vertexCount, int offset) override;
+	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
+
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	std::string GetInfoString(InfoField info) const override {
@@ -594,8 +606,14 @@ public:
 	}
 
 	std::vector<OpenGLSamplerState *> samplerStates_;
-	OpenGLPipeline *curPipeline_;
 	DeviceCaps caps_;
+	
+	// Bound state
+	OpenGLPipeline *curPipeline_;
+	OpenGLBuffer *curVBuffers_[4];
+	int curVBufferOffsets_[4];
+	OpenGLBuffer *curIBuffer_;
+	int curIBufferOffset_;
 };
 
 OpenGLContext::OpenGLContext() {
@@ -1008,10 +1026,8 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_->raster->Apply();
 }
 
-void OpenGLContext::Draw(Buffer *vdata, int vertexCount, int offset) {
-	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
-
-	vbuf->Bind();
+void OpenGLContext::Draw(int vertexCount, int offset) {
+	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
 	curPipeline_->Apply();
 
@@ -1021,15 +1037,12 @@ void OpenGLContext::Draw(Buffer *vdata, int vertexCount, int offset) {
 	curPipeline_->inputLayout->Unapply();
 }
 
-void OpenGLContext::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
-	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
-	OpenGLBuffer *ibuf = static_cast<OpenGLBuffer *>(idata);
-
-	vbuf->Bind();
+void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
+	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
 	curPipeline_->Apply();
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
-	ibuf->Bind();
+	curIBuffer_->Bind(curIBufferOffset_);
 
 	glDrawElements(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	

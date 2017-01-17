@@ -94,8 +94,9 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	t3d_->BindPipeline(pipeline_);
 	if (vbuf_) {
 		vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
+		t3d_->BindVertexBuffers(0, 1, &vbuf_, nullptr);
 		int offset = 0;
-		t3d_->Draw(vbuf_, count_, offset);
+		t3d_->Draw(count_, offset);
 	} else {
 		t3d_->DrawUP((const void *)verts_, count_);
 	}

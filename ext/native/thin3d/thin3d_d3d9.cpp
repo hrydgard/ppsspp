@@ -193,18 +193,20 @@ public:
 	}
 };
 
-class Thin3DDX9Buffer : public Buffer {
+// Simulate a simple buffer type like the other backends have, use the usage flags to create the right internal type.
+class D3D9Buffer : public Buffer {
 public:
-	Thin3DDX9Buffer(LPDIRECT3DDEVICE9 device, size_t size, uint32_t flags) : vbuffer_(nullptr), ibuffer_(nullptr), maxSize_(size) {
+	D3D9Buffer(LPDIRECT3DDEVICE9 device, size_t size, uint32_t flags) : vbuffer_(nullptr), ibuffer_(nullptr), maxSize_(size) {
 		if (flags & BufferUsageFlag::INDEXDATA) {
 			DWORD usage = D3DUSAGE_DYNAMIC;
 			device->CreateIndexBuffer((UINT)size, usage, D3DFMT_INDEX32, D3DPOOL_DEFAULT, &ibuffer_, NULL);
-		} else {
+		}
+		else {
 			DWORD usage = D3DUSAGE_DYNAMIC;
 			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_DEFAULT, &vbuffer_, NULL);
 		}
 	}
-	virtual ~Thin3DDX9Buffer() override {
+	virtual ~D3D9Buffer() override {
 		if (ibuffer_) {
 			ibuffer_->Release();
 		}
@@ -255,21 +257,12 @@ public:
 			}
 		}
 	}
-	void BindAsVertexBuf(LPDIRECT3DDEVICE9 device, int vertexSize, int offset = 0) {
-		if (vbuffer_)
-			device->SetStreamSource(0, vbuffer_, offset, vertexSize);
-	}
-	void BindAsIndexBuf(LPDIRECT3DDEVICE9 device) {
-		if (ibuffer_)
-			device->SetIndices(ibuffer_);
-	}
 
-private:
+public:
 	LPDIRECT3DVERTEXBUFFER9 vbuffer_;
 	LPDIRECT3DINDEXBUFFER9 ibuffer_;
 	size_t maxSize_;
 };
-
 
 class D3D9InputLayout : public InputLayout {
 public:
@@ -533,7 +526,18 @@ public:
 			s->Apply(device_, start + i);
 		}
 	}
-	void BindPipeline(Pipeline *pipeline) {
+	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+		for (int i = 0; i < count; i++) {
+			curVBuffers_[i + start] = (D3D9Buffer *)buffers[i];
+			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
+		}
+	}
+	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
+		curIBuffer_ = (D3D9Buffer *)indexBuffer;
+		curIBufferOffset_ = offset;
+	}
+
+	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (D3D9Pipeline *)pipeline;
 	}
 
@@ -542,8 +546,8 @@ public:
 	void SetViewports(int count, Viewport *viewports) override;
 	void SetBlendFactor(float color[4]) override;
 
-	void Draw(Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void Draw(int vertexCount, int offset) override;
+	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
@@ -568,8 +572,14 @@ private:
 	D3DADAPTER_IDENTIFIER9 identifier_;
 	D3DCAPS9 d3dCaps_;
 	char shadeLangVersion_[64];
-	D3D9Pipeline *curPipeline_;
 	DeviceCaps caps_;
+
+	// Bound state
+	D3D9Pipeline *curPipeline_;
+	D3D9Buffer *curVBuffers_[4];
+	int curVBufferOffsets_[4];
+	D3D9Buffer *curIBuffer_;
+	int curIBufferOffset_;
 };
 
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
@@ -768,7 +778,7 @@ D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc
 }
 
 Buffer *D3D9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
-	return new Thin3DDX9Buffer(device_, size, usageFlags);
+	return new D3D9Buffer(device_, size, usageFlags);
 }
 
 void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device) {
@@ -779,23 +789,21 @@ void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device) {
 	raster->Apply(device);
 }
 
-void D3D9Context::Draw(Buffer *vdata, int vertexCount, int offset) {
-	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
-
-	vbuf->BindAsVertexBuf(device_, curPipeline_->inputLayout->GetStride(0), offset);
+void D3D9Context::Draw(int vertexCount, int offset) {
+	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
 	curPipeline_->Apply(device_);
 	curPipeline_->inputLayout->Apply(device_);
 	device_->DrawPrimitive(curPipeline_->prim, offset, vertexCount / 3);
 }
 
-void D3D9Context::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
-	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
-	Thin3DDX9Buffer *ibuf = static_cast<Thin3DDX9Buffer *>(idata);
+void D3D9Context::DrawIndexed(int vertexCount, int offset) {
+	D3D9Buffer *vbuf = static_cast<D3D9Buffer *>(curVBuffers_[0]);
+	D3D9Buffer *ibuf = static_cast<D3D9Buffer *>(curIBuffer_);
 
 	curPipeline_->Apply(device_);
 	curPipeline_->inputLayout->Apply(device_);
-	vbuf->BindAsVertexBuf(device_, curPipeline_->inputLayout->GetStride(0), offset);
-	ibuf->BindAsIndexBuf(device_);
+	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
+	device_->SetIndices(curIBuffer_->ibuffer_);
 	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, 0, vertexCount / curPipeline_->primDivisor);
 }
 

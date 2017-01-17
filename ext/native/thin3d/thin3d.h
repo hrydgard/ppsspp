@@ -510,6 +510,9 @@ public:
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void BindTextures(int start, int count, Texture **textures) = 0;
+	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) = 0;
+	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
+
 	void BindTexture(int stage, Texture *texture) {
 		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
@@ -517,8 +520,8 @@ public:
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
-	virtual void Draw(Buffer *vdata, int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
+	virtual void Draw(int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(int vertexCount, int offset) = 0;
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Render pass management. Default implementations here.

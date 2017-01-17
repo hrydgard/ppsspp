@@ -177,12 +177,12 @@ public:
 
 // Very simplistic buffer that will simply copy its contents into our "pushbuffer" when it's time to draw,
 // to avoid synchronization issues.
-class Thin3DVKBuffer : public Buffer {
+class VKBuffer : public Buffer {
 public:
-	Thin3DVKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
+	VKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
 		data_ = new uint8_t[size];
 	}
-	~Thin3DVKBuffer() override {
+	~VKBuffer() override {
 		delete[] data_;
 	}
 
@@ -202,7 +202,7 @@ public:
 	size_t GetSize() const { return dataSize_; }
 	const uint8_t *GetData() const { return data_; }
 
-private:
+private: 
 	uint8_t *data_;
 	size_t dataSize_;
 };
@@ -376,9 +376,21 @@ public:
 		curPipeline_ = (VKPipeline *)pipeline;
 	}
 
+	// TODO: Make VKBuffers proper buffers, and do a proper binding model. This is just silly.
+	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+		for (int i = 0; i < count; i++) {
+			curVBuffers_[i + start] = (VKBuffer *)buffers[i];
+			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
+		}
+	}
+	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
+		curIBuffer_ = (VKBuffer *)indexBuffer;
+		curIBufferOffset_ = offset;
+	}
+
 	// TODO: Add more sophisticated draws.
-	void Draw(Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void Draw(int vertexCount, int offset) override;
+	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
@@ -414,6 +426,10 @@ private:
 	VulkanContext *vulkan_;
 
 	VKPipeline *curPipeline_;
+	VKBuffer *curVBuffers_[4];
+	int curVBufferOffsets_[4];
+	VKBuffer *curIBuffer_;
+	int curIBufferOffset_;
 
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
@@ -1001,7 +1017,7 @@ BlendState *VKContext::CreateBlendState(const BlendStateDesc &desc) {
 }
 
 Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
-	return new Thin3DVKBuffer(size, usageFlags);
+	return new VKBuffer(size, usageFlags);
 }
 
 void VKContext::BindTextures(int start, int count, Texture **textures) {
@@ -1061,10 +1077,10 @@ inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	}
 }
 
-void VKContext::Draw(Buffer *vdata, int vertexCount, int offset) {
+void VKContext::Draw(int vertexCount, int offset) {
 	ApplyDynamicState();
 	
-	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
+	VKBuffer *vbuf = curVBuffers_[0];
 
 	VkBuffer vulkanVbuf;
 	VkBuffer vulkanUBObuf;
@@ -1080,11 +1096,11 @@ void VKContext::Draw(Buffer *vdata, int vertexCount, int offset) {
 	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
 }
 
-void VKContext::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void VKContext::DrawIndexed(int vertexCount, int offset) {
 	ApplyDynamicState();
 	
-	Thin3DVKBuffer *ibuf = static_cast<Thin3DVKBuffer *>(idata);
-	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
+	VKBuffer *ibuf = static_cast<VKBuffer *>(curIBuffer_);
+	VKBuffer *vbuf = static_cast<VKBuffer *>(curVBuffers_[0]);
 
 	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
