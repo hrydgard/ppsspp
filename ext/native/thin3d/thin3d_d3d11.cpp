@@ -11,6 +11,11 @@ namespace Draw {
 // https://tedwvc.wordpress.com/2014/01/01/how-to-target-xp-with-vc2012-or-vc2013-and-continue-to-use-the-windows-8-x-sdk/
 
 class D3D11Pipeline;
+class D3D11BlendState;
+class D3D11DepthStencilState;
+class D3D11SamplerState;
+class D3D11RasterState;
+
 
 class D3D11DrawContext : public DrawContext {
 public:
@@ -36,9 +41,7 @@ public:
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
-	void BindPipeline(Pipeline *pipeline) {
-		curPipeline_ = (D3D11Pipeline *)pipeline;
-	}
+	void BindPipeline(Pipeline *pipeline) override;
 
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
@@ -136,6 +139,19 @@ static const D3D11_STENCIL_OP stencilOpToD3D11[] = {
 	D3D11_STENCIL_OP_INCR,
 	D3D11_STENCIL_OP_DECR,
 };
+
+DXGI_FORMAT dataFormatToD3D11(DataFormat format) {
+	switch (format) {
+	case DataFormat::R32_FLOAT: return DXGI_FORMAT_R32_FLOAT;
+	case DataFormat::R32G32_FLOAT: return DXGI_FORMAT_R32G32_FLOAT;
+	case DataFormat::R32G32B32_FLOAT: return DXGI_FORMAT_R32G32B32_FLOAT;
+	case DataFormat::R32G32B32A32_FLOAT: return DXGI_FORMAT_R32G32B32A32_FLOAT;
+	case DataFormat::R8G8B8A8_UNORM: return DXGI_FORMAT_R8G8B8A8_UNORM;
+	case DataFormat::ETC1:
+	default:
+		return DXGI_FORMAT_UNKNOWN;
+	}
+}
 
 inline void CopyStencilSide(D3D11_DEPTH_STENCILOP_DESC &side, const StencilSide &input) {
 	side.StencilFunc = compareToD3D11[(int)input.compareOp];
@@ -263,7 +279,7 @@ SamplerState *D3D11DrawContext::CreateSamplerState(const SamplerStateDesc &desc)
 	d3ddesc.AddressW = taddrToD3D11[(int)desc.wrapW];
 	// TODO: Needs improvement
 	d3ddesc.Filter = desc.magFilter == TextureFilter::LINEAR ? D3D11_FILTER_MIN_MAG_MIP_LINEAR : D3D11_FILTER_MIN_MAG_MIP_POINT;
-	d3ddesc.MaxAnisotropy = desc.maxAniso;
+	d3ddesc.MaxAnisotropy = (UINT)desc.maxAniso;
 	d3ddesc.ComparisonFunc = compareToD3D11[(int)desc.shadowCompareFunc];
 	if (SUCCEEDED(device_->CreateSamplerState(&d3ddesc, &ss->ss)))
 		return ss;
@@ -274,12 +290,44 @@ SamplerState *D3D11DrawContext::CreateSamplerState(const SamplerStateDesc &desc)
 // Input layout creation is delayed to pipeline creation, as we need the vertex shader bytecode.
 class D3D11InputLayout : public InputLayout {
 public:
+	D3D11InputLayout() {}
 	InputLayoutDesc desc;
+	std::vector<D3D11_INPUT_ELEMENT_DESC> elements;
+	std::vector<int> strides;
 };
+
+const char *semanticToD3D11(int semantic, UINT *index) {
+	*index = 0;
+	switch (semantic) {
+	case SEM_POSITION: return "POSITION";
+	case SEM_COLOR0: *index = 0; return "COLOR";
+	case SEM_TEXCOORD0: *index = 0; return "TEXCOORD";
+	case SEM_TEXCOORD1: *index = 1; return "TEXCOORD";
+	case SEM_NORMAL: return "NORMAL";
+	case SEM_TANGENT: return "TANGENT";
+	case SEM_BINORMAL: return "BINORMAL"; // really BITANGENT
+	default: return "UNKNOWN";
+	}
+}
 
 InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	D3D11InputLayout *inputLayout = new D3D11InputLayout();
 	inputLayout->desc = desc;
+
+	// Translate to D3D11 elements;
+	for (size_t i = 0; i < desc.attributes.size(); i++) {
+		D3D11_INPUT_ELEMENT_DESC el;
+		el.AlignedByteOffset = desc.attributes[i].offset;
+		el.Format = dataFormatToD3D11(desc.attributes[i].format);
+		el.InstanceDataStepRate = desc.bindings[desc.attributes[i].binding].instanceRate ? 1 : 0;
+		el.InputSlot = desc.attributes[i].binding;
+		el.SemanticName = semanticToD3D11(desc.attributes[i].location, &el.SemanticIndex);
+		el.InputSlotClass = desc.bindings[desc.attributes[i].binding].instanceRate ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
+		inputLayout->elements.push_back(el);
+	}
+	for (size_t i = 0; i < desc.bindings.size(); i++) {
+		inputLayout->strides.push_back(desc.bindings[i].stride);
+	}
 	return inputLayout;
 }
 
@@ -309,7 +357,6 @@ public:
 class D3D11Texture : public Texture {
 public:
 	D3D11Texture() {}
-	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps() override {}
 	void Finalize() override {}
@@ -359,10 +406,11 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		dPipeline->Release();
 		return nullptr;
 	}
+
 	// Can finally create the input layout
 	auto &inputDesc = dPipeline->input->desc;
-	std::vector<D3D11_INPUT_ELEMENT_DESC> elements;
-	device_->CreateInputLayout(elements.data(), elements.size(), vshader->byteCode_.data(), vshader->byteCode_.size(), &dPipeline->il);
+	const std::vector<D3D11_INPUT_ELEMENT_DESC> &elements = dPipeline->input->elements;
+	device_->CreateInputLayout(elements.data(), (UINT)elements.size(), vshader->byteCode_.data(), vshader->byteCode_.size(), &dPipeline->il);
 	return dPipeline;
 }
 
@@ -406,6 +454,8 @@ public:
 
 Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	D3D11Buffer *b = new D3D11Buffer();
+
+	return b;
 }
 
 void D3D11DrawContext::Draw(Buffer *vdata, int vertexCount, int offset) {
