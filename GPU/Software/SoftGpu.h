@@ -96,7 +96,7 @@ protected:
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
 
 private:
-	void CopyDisplayToOutputInternal();
+	void CopyDisplayToOutputInternal() override;
 
 	bool framebufferDirty_;
 	u32 displayFramebuf_;

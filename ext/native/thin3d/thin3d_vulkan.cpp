@@ -316,7 +316,7 @@ public:
 	int GetUBOSize() const {
 		return uboSize_;
 	}
-	bool RequiresBuffer() {
+	bool RequiresBuffer() override {
 		return false;
 	}
 
