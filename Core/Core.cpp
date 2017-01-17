@@ -130,12 +130,14 @@ bool Core_GetPowerSaving() {
 	return powerSaving;
 }
 
+#ifdef _WIN32
 static int ScreenDPI() {
 	HDC screenDC = GetDC(nullptr);
 	int dotsPerInch = GetDeviceCaps(screenDC, LOGPIXELSY);
 	ReleaseDC(nullptr, screenDC);
 	return dotsPerInch;
 }
+#endif
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	// Can't take this from config as it will not be set if windows is maximized.

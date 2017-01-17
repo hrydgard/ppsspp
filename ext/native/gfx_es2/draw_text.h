@@ -78,9 +78,9 @@ private:
 	float last_dpi_scale_;
 
 	TextDrawerContext *ctx_;
-#ifdef USING_QT_UI
+#if defined(USING_QT_UI)
 	std::map<uint32_t, QFont *> fontMap_;
-#else
+#elif defined(_WIN32)
 	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
 #endif
 
