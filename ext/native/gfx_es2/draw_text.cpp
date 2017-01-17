@@ -41,8 +41,32 @@ enum {
 	MAX_TEXT_HEIGHT = 512
 };
 
-struct TextDrawerFontContext {
+class TextDrawerFontContext {
+public:
+	~TextDrawerFontContext() {
+		Destroy();
+	}
+
+	void Create() {
+		if (hFont) {
+			Destroy();
+		}
+		// TODO: Should the 72 really be 96? Oh well...
+		int nHeight = -MulDiv(height, g_dpi, 72);
+		hFont = CreateFont(nHeight, 0, 0, 0, bold, 0,
+			FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+			CLIP_DEFAULT_PRECIS, PROOF_QUALITY,
+			VARIABLE_PITCH, fname.c_str());
+	}
+	void Destroy() {
+		DeleteObject(hFont);
+		hFont = 0;
+	}
+
 	HFONT hFont;
+	std::wstring fname;
+	int height;
+	int bold;
 };
 
 struct TextDrawerContext {
@@ -55,6 +79,7 @@ TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(nullpt
 	// These probably shouldn't be state.
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
+	last_dpi_scale_ = g_dpi_scale;
 
 	ctx_ = new TextDrawerContext();
 	ctx_->hDC = CreateCompatibleDC(NULL);
@@ -75,22 +100,12 @@ TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(nullpt
 }
 
 TextDrawer::~TextDrawer() {
-	for (auto &iter : cache_) {
-		if (iter.second->texture)
-			iter.second->texture->Release();
-	}
-	cache_.clear();
-	sizeCache_.clear();
+	ClearCache();
 
-	for (auto iter = fontMap_.begin(); iter != fontMap_.end(); ++iter) {
-		DeleteObject(iter->second->hFont);
-		delete iter->second;
-	}
 	fontMap_.clear();
 
 	DeleteObject(ctx_->hbmBitmap);
 	DeleteDC(ctx_->hDC);
-
 	delete ctx_;
 }
 
@@ -112,17 +127,12 @@ uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 		fname = L"Tahoma";
 
 	TextDrawerFontContext *font = new TextDrawerFontContext();
+	font->bold = FW_LIGHT;
+	font->height = size;
+	font->fname = fname;
+	font->Create();
 
-	float textScale = 1.0f;
-
-	// TODO: Should the 72 really be 96? Oh well...
-	INT nHeight = -MulDiv( size, (INT)(GetDeviceCaps(ctx_->hDC, LOGPIXELSY) * textScale), 72 );
-	int dwBold = FW_LIGHT; ///FW_BOLD
-	font->hFont = CreateFont(nHeight, 0, 0, 0, dwBold, 0,
-		FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-		CLIP_DEFAULT_PRECIS, PROOF_QUALITY,
-		VARIABLE_PITCH, fname.c_str());
-	fontMap_[fontHash] = font;
+	fontMap_[fontHash] = std::unique_ptr<TextDrawerFontContext>(font);
 	fontHash_ = fontHash;
 	return fontHash;
 }
@@ -296,6 +306,12 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	target.Flush(true);
 }
 
+void TextDrawer::RecreateFonts() {
+	for (auto &iter : fontMap_) {
+		iter.second->Create();
+	}
+}
+
 #else
 
 TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
@@ -304,12 +320,7 @@ TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(NULL) 
 }
 
 TextDrawer::~TextDrawer() {
-	for (auto &iter : cache_) {
-		if (iter.second->texture)
-			iter.second->texture->Release();
-	}
-	cache_.clear();
-	sizeCache_.clear();
+	ClearCache();
 }
 
 uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
@@ -337,6 +348,10 @@ uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 }
 
 void TextDrawer::SetFont(uint32_t fontHandle) {
+
+}
+
+void TextDrawer::RecreateFonts() {
 
 }
 
@@ -441,6 +456,15 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 #endif
 
+void TextDrawer::ClearCache() {
+	for (auto &iter : cache_) {
+		if (iter.second->texture)
+			iter.second->texture->Release();
+	}
+	cache_.clear();
+	sizeCache_.clear();
+}
+
 void TextDrawer::WrapString(std::string &out, const char *str, float maxW) {
 	TextDrawerWordWrapper wrapper(this, str, maxW);
 	out = wrapper.Wrapped();
@@ -476,7 +500,14 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bound
 
 void TextDrawer::OncePerFrame() {
 	frameCount_++;
-	// Use a prime number to reduce clashing with other rhythms
+	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
+	if (g_dpi_scale != last_dpi_scale_) {
+		last_dpi_scale_ = g_dpi_scale;
+		ClearCache();
+		RecreateFonts();
+	}
+
+	// Drop old strings. Use a prime number to reduce clashing with other rhythms
 	if (frameCount_ % 23 == 0) {
 		for (auto iter = cache_.begin(); iter != cache_.end();) {
 			if (frameCount_ - iter->second->lastUsedFrame > 100) {

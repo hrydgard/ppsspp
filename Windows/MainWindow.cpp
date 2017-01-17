@@ -204,15 +204,6 @@ namespace MainWindow
 		rcOuter.top = g_Config.iWindowY;
 	}
 
-	static bool IsWindowSmall() {
-		// Can't take this from config as it will not be set if windows is maximized.
-		RECT rc;
-		GetWindowRect(hwndMain, &rc);
-		int width = (int)((rc.right - rc.left) * g_dpi_scale);
-		int height = (int)((rc.bottom - rc.top) * g_dpi_scale);
-		return g_Config.IsPortrait() ? (height < 480 + 80) : (width < 480 + 80);
-	} 
-
 	void SetWindowSize(int zoom) {
 		AssertCurrentThreadName("Main");
 		RECT rc, rcOuter;
@@ -281,7 +272,7 @@ namespace MainWindow
 			PSP_CoreParameter().pixelHeight = height;
 		}
 
-		if (UpdateScreenScale(width, height, IsWindowSmall())) {
+		if (UpdateScreenScale(width, height)) {
 			NativeMessageReceived("gpu resized", "");
 		}
 
