@@ -272,7 +272,6 @@ void GameSettingsScreen::CreateViews() {
 	beziersChoice->OnChoice.Add([=](EventParams &e) {
 		if (g_Config.iSplineBezierQuality != 0) {
 			settingInfo_->Show(gr->T("LowCurves Tip", "This option will significantly improve/reduce the quality of rendered splines and bezier curves"), e.v);
-
 		}
 		return UI::EVENT_CONTINUE;
 	});
