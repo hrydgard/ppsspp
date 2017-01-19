@@ -354,6 +354,7 @@ public:
 	uint32_t GetSupportedShaderLanguages() const override {
 		return (uint32_t)ShaderLanguage::GLSL_VULKAN | (uint32_t)ShaderLanguage::SPIRV_VULKAN;
 	}
+	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
@@ -1198,6 +1199,37 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	}
 
 	return features;
+}
+
+uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
+	// TODO: Actually do proper checks
+	switch (fmt) {
+	case DataFormat::B8G8R8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE;
+	case DataFormat::B4G4R4A4_UNORM:
+	case DataFormat::R4G4B4A4_UNORM:
+		return 0;
+	case DataFormat::A4B4G4R4_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
+
+	case DataFormat::R8G8B8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
+
+	case DataFormat::R32_FLOAT:
+	case DataFormat::R32G32_FLOAT:
+	case DataFormat::R32G32B32_FLOAT:
+	case DataFormat::R32G32B32A32_FLOAT:
+		return FMT_INPUTLAYOUT;
+
+	case DataFormat::R8_UNORM:
+		return 0;
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+	case DataFormat::BC2_UNORM_BLOCK:
+	case DataFormat::BC3_UNORM_BLOCK:
+		return FMT_TEXTURE;
+	default:
+		return 0;
+	}
 }
 
 }  // namespace Draw

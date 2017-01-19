@@ -518,6 +518,7 @@ public:
 	uint32_t GetSupportedShaderLanguages() const override {
 		return (uint32_t)ShaderLanguage::HLSL_D3D9 | (uint32_t)ShaderLanguage::HLSL_D3D9_BYTECODE;
 	}
+	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
@@ -936,5 +937,35 @@ DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapt
 	}
 	return new D3D9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
+
+// Only partial implementation!
+uint32_t D3D9Context::GetDataFormatSupport(DataFormat fmt) const {
+	switch (fmt) {
+	case DataFormat::B8G8R8A8_UNORM:
+	case DataFormat::B4G4R4A4_UNORM:  // native support
+		return FMT_RENDERTARGET | FMT_TEXTURE;
+	case DataFormat::A4B4G4R4_UNORM:
+		return FMT_TEXTURE;  // emulated support
+
+	case DataFormat::R8G8B8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
+
+	case DataFormat::R32_FLOAT:
+	case DataFormat::R32G32_FLOAT:
+	case DataFormat::R32G32B32_FLOAT:
+	case DataFormat::R32G32B32A32_FLOAT:
+		return FMT_INPUTLAYOUT;
+
+	case DataFormat::R8_UNORM:
+		return 0;
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+	case DataFormat::BC2_UNORM_BLOCK:
+	case DataFormat::BC3_UNORM_BLOCK:
+		return FMT_TEXTURE;
+	default:
+		return 0;
+	}
+}
+
 
 }  // namespace Draw

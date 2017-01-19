@@ -181,13 +181,16 @@ enum class DataFormat : uint8_t {
 
 	R8G8B8A8_UNORM,
 	R8G8B8A8_UNORM_SRGB,
+	B8G8R8A8_UNORM,  // D3D style
 
 	R8G8B8A8_SNORM,
 	R8G8B8A8_UINT,
 	R8G8B8A8_SINT,
 
 	R4G4_UNORM,
-	R4G4B4A4_UNORM,
+	A4B4G4R4_UNORM,  // This is the one OpenGL ES supports
+	R4G4B4A4_UNORM,  // Supported by Vulkan, as is the below
+	B4G4R4A4_UNORM,  // This is the one D3D supports
 
 	R16_FLOAT,
 	R16G16_FLOAT,
@@ -279,6 +282,12 @@ enum class ShaderLanguage {
 	HLSL_D3D11_BYTECODE = 256,
 	METAL = 512,
 	METAL_BYTECODE = 1024,
+};
+
+enum FormatSupport {
+	FMT_RENDERTARGET = 1,
+	FMT_TEXTURE = 2,
+	FMT_INPUTLAYOUT = 4,
 };
 
 enum InfoField {
@@ -480,6 +489,7 @@ public:
 	virtual ~DrawContext();
 
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
+	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
 
 	virtual uint32_t GetSupportedShaderLanguages() const = 0;
