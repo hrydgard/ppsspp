@@ -482,11 +482,12 @@ uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {
 	switch (fmt) {
 	case DataFormat::B8G8R8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE;
-	case DataFormat::B4G4R4A4_UNORM:
-	case DataFormat::R4G4B4A4_UNORM:
+
+	// D3D11 has no support for 4-bit component formats.
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
+	case DataFormat::A4B4G4R4_UNORM_PACK16:
 		return 0;
-	case DataFormat::A4B4G4R4_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
 
 	case DataFormat::R8G8B8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;

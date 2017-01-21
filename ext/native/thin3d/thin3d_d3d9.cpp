@@ -116,6 +116,31 @@ static const int primCountDivisor[] = {
 	1,
 };
 
+D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
+	switch (fmt) {
+	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
+	case DataFormat::R4G4B4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
+	case DataFormat::B4G4R4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // native
+	case DataFormat::A4B4G4R4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
+	case DataFormat::R5G6B5_UNORM_PACK16: return D3DFMT_R5G6B5;
+	case DataFormat::A1R5G5B5_UNORM_PACK16: return D3DFMT_A1R5G5B5;
+	case DataFormat::D24_S8: return D3DFMT_D24S8;
+	case DataFormat::D16: return D3DFMT_D16;
+	default: return D3DFMT_UNKNOWN;
+	}
+}
+
+static int FormatToD3DDeclType(DataFormat type) {
+	switch (type) {
+	case DataFormat::R32_FLOAT: return D3DDECLTYPE_FLOAT1;
+	case DataFormat::R32G32_FLOAT: return D3DDECLTYPE_FLOAT2;
+	case DataFormat::R32G32B32_FLOAT: return D3DDECLTYPE_FLOAT3;
+	case DataFormat::R32G32B32A32_FLOAT: return D3DDECLTYPE_FLOAT4;
+	case DataFormat::R8G8B8A8_UNORM: return D3DDECLTYPE_UBYTE4N;  // D3DCOLOR has a different byte ordering.
+	default: return D3DDECLTYPE_UNUSED;
+	}
+}
+
 class D3D9DepthStencilState : public DepthStencilState {
 public:
 	BOOL depthTestEnabled;
@@ -355,21 +380,11 @@ private:
 	LPDIRECT3DDEVICE9EX deviceEx_;
 	TextureType type_;
 	DataFormat format_;
-	D3DFORMAT fmt_;
+	D3DFORMAT d3dfmt_;
 	LPDIRECT3DTEXTURE9 tex_;
 	LPDIRECT3DVOLUMETEXTURE9 volTex_;
 	LPDIRECT3DCUBETEXTURE9 cubeTex_;
 };
-
-D3DFORMAT FormatToD3D(DataFormat fmt) {
-	switch (fmt) {
-	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
-	case DataFormat::R4G4B4A4_UNORM: return D3DFMT_A4R4G4B4;
-	case DataFormat::D24_S8: return D3DFMT_D24S8;
-	case DataFormat::D16: return D3DFMT_D16;
-	default: return D3DFMT_UNKNOWN;
-	}
-}
 
 D3D9Texture::D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc)
 	: device_(device), deviceEx_(deviceEx), tex_(nullptr), volTex_(nullptr), cubeTex_(nullptr) {
@@ -395,7 +410,7 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 	type_ = desc.type;
 	format_ = desc.format;
 	tex_ = NULL;
-	fmt_ = FormatToD3D(desc.format);
+	d3dfmt_ = FormatToD3DFMT(desc.format);
 	HRESULT hr = E_FAIL;
 
 	D3DPOOL pool = D3DPOOL_MANAGED;
@@ -407,13 +422,13 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 	switch (type_) {
 	case TextureType::LINEAR1D:
 	case TextureType::LINEAR2D:
-		hr = device_->CreateTexture(desc.width, desc.height, desc.mipLevels, usage, fmt_, pool, &tex_, NULL);
+		hr = device_->CreateTexture(desc.width, desc.height, desc.mipLevels, usage, d3dfmt_, pool, &tex_, NULL);
 		break;
 	case TextureType::LINEAR3D:
-		hr = device_->CreateVolumeTexture(desc.width, desc.height, desc.depth, desc.mipLevels, usage, fmt_, pool, &volTex_, NULL);
+		hr = device_->CreateVolumeTexture(desc.width, desc.height, desc.depth, desc.mipLevels, usage, d3dfmt_, pool, &volTex_, NULL);
 		break;
 	case TextureType::CUBE:
-		hr = device_->CreateCubeTexture(desc.width, desc.mipLevels, usage, fmt_, pool, &cubeTex_, NULL);
+		hr = device_->CreateCubeTexture(desc.width, desc.mipLevels, usage, d3dfmt_, pool, &cubeTex_, NULL);
 		break;
 	}
 	if (FAILED(hr)) {
@@ -429,20 +444,15 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 	return true;
 }
 
-inline uint16_t Shuffle4444(uint16_t x) {
-	return (x << 12) | (x >> 4);
-}
-
 // Just switches R and G.
 inline uint32_t Shuffle8888(uint32_t x) {
 	return (x & 0xFF00FF00) | ((x >> 16) & 0xFF) | ((x << 16) & 0xFF0000);
 }
 
-
 void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-	if (!tex_) {
+	if (!tex_)
 		return;
-	}
+
 	if (level == 0) {
 		width_ = width;
 		height_ = height;
@@ -450,7 +460,7 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 	}
 
 	if (!stride) {
-		stride = width * DataFormatSizeInBytes(format_);
+		stride = width * (int)DataFormatSizeInBytes(format_);
 	}
 
 	switch (type_) {
@@ -459,23 +469,30 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 		D3DLOCKED_RECT rect;
 		if (x == 0 && y == 0) {
 			tex_->LockRect(level, &rect, NULL, 0);
-
 			for (int i = 0; i < height; i++) {
 				uint8_t *dest = (uint8_t *)rect.pBits + rect.Pitch * i;
 				const uint8_t *source = data + stride * i;
 				int j;
-				switch (fmt_) {
-				case D3DFMT_A4R4G4B4:
-					// This is backwards from OpenGL so we need to shuffle around a bit.
+				switch (format_) {
+				case DataFormat::B4G4R4A4_UNORM_PACK16:  // We emulate support for this format.
 					for (j = 0; j < width; j++) {
-						((uint16_t *)dest)[j] = Shuffle4444(((uint16_t *)source)[j]);
+						uint16_t color = ((const uint16_t *)source)[j];
+						((uint16_t *)dest)[j] = (color << 12) | (color >> 4);
 					}
 					break;
+				case DataFormat::A4B4G4R4_UNORM_PACK16:
+					// Native
+					memcpy(dest, source, j * sizeof(uint16_t));
+					break;
 
-				case D3DFMT_A8R8G8B8:
+				case DataFormat::R8G8B8A8_UNORM:
 					for (j = 0; j < width; j++) {
 						((uint32_t *)dest)[j] = Shuffle8888(((uint32_t *)source)[j]);
 					}
+					break;
+
+				case DataFormat::B8G8R8A8_UNORM:
+					memcpy(dest, source, sizeof(uint32_t) * width);
 					break;
 				}
 			}
@@ -753,16 +770,6 @@ static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) 
 	}
 }
 
-static int VertexDataTypeToD3DType(DataFormat type) {
-	switch (type) {
-	case DataFormat::R32G32_FLOAT: return D3DDECLTYPE_FLOAT2;
-	case DataFormat::R32G32B32_FLOAT: return D3DDECLTYPE_FLOAT3;
-	case DataFormat::R32G32B32A32_FLOAT: return D3DDECLTYPE_FLOAT4;
-	case DataFormat::R8G8B8A8_UNORM: return D3DDECLTYPE_UBYTE4N;  // D3DCOLOR?
-	default: return D3DDECLTYPE_UNUSED;
-	}
-}
-
 D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc &desc) : decl_(NULL) {
 	D3DVERTEXELEMENT9 *elements = new D3DVERTEXELEMENT9[desc.attributes.size() + 1];
 	size_t i;
@@ -771,7 +778,7 @@ D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc
 		elements[i].Offset = desc.attributes[i].offset;
 		elements[i].Method = D3DDECLMETHOD_DEFAULT;
 		SemanticToD3D9UsageAndIndex(desc.attributes[i].location, &elements[i].Usage, &elements[i].UsageIndex);
-		elements[i].Type = VertexDataTypeToD3DType(desc.attributes[i].format);
+		elements[i].Type = FormatToD3DDeclType(desc.attributes[i].format);
 	}
 	D3DVERTEXELEMENT9 end = D3DDECL_END();
 	// Zero the last one.
@@ -942,10 +949,16 @@ DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapt
 uint32_t D3D9Context::GetDataFormatSupport(DataFormat fmt) const {
 	switch (fmt) {
 	case DataFormat::B8G8R8A8_UNORM:
-	case DataFormat::B4G4R4A4_UNORM:  // native support
 		return FMT_RENDERTARGET | FMT_TEXTURE;
-	case DataFormat::A4B4G4R4_UNORM:
+
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
+		return 0;
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
 		return FMT_TEXTURE;  // emulated support
+	case DataFormat::R5G6B5_UNORM_PACK16:
+	case DataFormat::A1R5G5B5_UNORM_PACK16:
+	case DataFormat::A4B4G4R4_UNORM_PACK16:
+		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
 
 	case DataFormat::R8G8B8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;

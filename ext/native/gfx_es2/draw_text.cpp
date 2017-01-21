@@ -280,27 +280,53 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		entry->bmHeight = (size.cy + 3) & ~3;
 		entry->lastUsedFrame = frameCount_;
 
+		DataFormat texFormat;
+		// For our purposes these are equivalent, so just choose the supported one. D3D can emulate them.
+		if (thin3d_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
+			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+		else if (thin3d_->GetDataFormatSupport(Draw::DataFormat::R4G4B4A4_UNORM_PACK16) & FMT_TEXTURE)
+			texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
+		else
+			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 
-		// Convert the bitmap to a gl-compatible array of pixels.
-		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
-		for (int y = 0; y < entry->bmHeight; y++) {
-			for (int x = 0; x < entry->bmWidth; x++) {
-				BYTE bAlpha = (BYTE)((ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff) >> 4);
-				bitmapData[entry->bmWidth * y + x] = (bAlpha) | 0xfff0;
+		// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
+		// because we need white. Well, we could using swizzle, but not all our backends support that.
+		TextureDesc desc{};
+		uint32_t *bitmapData32 = nullptr;
+		uint16_t *bitmapData16 = nullptr;
+		if (texFormat == Draw::DataFormat::R8G8B8A8_UNORM) {
+			// We need a full 32-bit format :(
+			bitmapData32 = new uint32_t[entry->bmWidth * entry->bmHeight];
+			for (int y = 0; y < entry->bmHeight; y++) {
+				for (int x = 0; x < entry->bmWidth; x++) {
+					uint8_t bAlpha = (uint8_t)(ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff);
+					bitmapData32[entry->bmWidth * y + x] = (bAlpha) | 0xffffff00;
+				}
 			}
+			desc.initData.push_back((uint8_t *)bitmapData32);
+		}
+		else {
+			bitmapData16 = new uint16_t[entry->bmWidth * entry->bmHeight];
+			for (int y = 0; y < entry->bmHeight; y++) {
+				for (int x = 0; x < entry->bmWidth; x++) {
+					uint8_t bAlpha = (uint8_t)((ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff) >> 4);
+					bitmapData16[entry->bmWidth * y + x] = (bAlpha) | 0xfff0;
+				}
+			}
+			desc.initData.push_back((uint8_t *)bitmapData16);
 		}
 
-		TextureDesc desc{};
 		desc.type = TextureType::LINEAR2D;
-		desc.format = DataFormat::R4G4B4A4_UNORM;
+		desc.format = texFormat;
 		desc.width = entry->bmWidth;
 		desc.height = entry->bmHeight;
 		desc.depth = 1;
 		desc.mipLevels = 1;
-		desc.initData.push_back((uint8_t *)bitmapData);
 		entry->texture = thin3d_->CreateTexture(desc);
-		delete [] bitmapData;
-
+		if (bitmapData16)
+			delete[] bitmapData16;
+		if (bitmapData32)
+			delete[] bitmapData32;
 		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);
 	}
 
@@ -439,7 +465,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		entry->bmWidth = entry->width = image.width();
 		entry->bmHeight = entry->height = image.height();
 		entry->lastUsedFrame = frameCount_;
-		entry->texture = thin3d_->CreateTexture(LINEAR2D, DataFormat::R4G4B4A4_UNORM, entry->bmWidth, entry->bmHeight, 1, 0);
+		entry->texture = thin3d_->CreateTexture(LINEAR2D, DataFormat::R4G4B4A4_UNORM_PACK16, entry->bmWidth, entry->bmHeight, 1, 0);
 
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
 		for (int x = 0; x < entry->bmWidth; x++) {

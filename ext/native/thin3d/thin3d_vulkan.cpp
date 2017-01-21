@@ -113,8 +113,9 @@ static const VkPrimitiveTopology primToVK[] = {
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
+	// Tesselation shader primitive.
 	VK_PRIMITIVE_TOPOLOGY_PATCH_LIST,
-	// These are for geometry shaders only.
+	// The rest are for geometry shaders only.
 	VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY,
 	VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY,
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY,
@@ -470,11 +471,18 @@ private:
 	DeviceCaps caps_;
 };
 
-int GetBpp(VkFormat format) {
+static int GetBpp(VkFormat format) {
 	switch (format) {
 	case VK_FORMAT_R8G8B8A8_UNORM:
+	case VK_FORMAT_B8G8R8A8_UNORM:
 		return 32;
 	case VK_FORMAT_R4G4B4A4_UNORM_PACK16:
+	case VK_FORMAT_B4G4R4A4_UNORM_PACK16:
+	case VK_FORMAT_R5G5B5A1_UNORM_PACK16:
+	case VK_FORMAT_R5G6B5_UNORM_PACK16:
+	case VK_FORMAT_B5G5R5A1_UNORM_PACK16:
+	case VK_FORMAT_B5G6R5_UNORM_PACK16:
+	case VK_FORMAT_A1R5G5B5_UNORM_PACK16:
 		return 16;
 	case VK_FORMAT_D24_UNORM_S8_UINT:
 		return 32;
@@ -498,8 +506,14 @@ VkFormat DataFormatToVulkan(DataFormat format) {
 	case DataFormat::R8G8_UNORM: return VK_FORMAT_R8G8_UNORM;
 	case DataFormat::R8G8B8_UNORM: return VK_FORMAT_R8G8B8_UNORM;
 	case DataFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
-	case DataFormat::R4G4_UNORM: return VK_FORMAT_R4G4_UNORM_PACK8;
-	case DataFormat::R4G4B4A4_UNORM: return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
+	case DataFormat::R4G4_UNORM_PACK8: return VK_FORMAT_R4G4_UNORM_PACK8;
+	case DataFormat::R4G4B4A4_UNORM_PACK16: return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
+	case DataFormat::B4G4R4A4_UNORM_PACK16: return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
+	case DataFormat::R5G5B5A1_UNORM_PACK16: return VK_FORMAT_R5G5B5A1_UNORM_PACK16;
+	case DataFormat::B5G5R5A1_UNORM_PACK16: return VK_FORMAT_B5G5R5A1_UNORM_PACK16;
+	case DataFormat::R5G6B5_UNORM_PACK16: return VK_FORMAT_R5G6B5_UNORM_PACK16;
+	case DataFormat::B5G6R5_UNORM_PACK16: return VK_FORMAT_B5G6R5_UNORM_PACK16;
+	case DataFormat::A1R5G5B5_UNORM_PACK16: return VK_FORMAT_A1R5G5B5_UNORM_PACK16;
 	case DataFormat::R32_FLOAT: return VK_FORMAT_R32_SFLOAT;
 	case DataFormat::R32G32_FLOAT: return VK_FORMAT_R32G32_SFLOAT;
 	case DataFormat::R32G32B32_FLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
@@ -966,7 +980,7 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 void VKTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
 	if (stride == 0) {
-		stride = width * DataFormatSizeInBytes(format_);
+		stride = width * (int)DataFormatSizeInBytes(format_);
 	}
 	int bpp = GetBpp(vulkanFormat);
 	int bytesPerPixel = bpp / 8;
@@ -1206,11 +1220,15 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	switch (fmt) {
 	case DataFormat::B8G8R8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE;
-	case DataFormat::B4G4R4A4_UNORM:
-	case DataFormat::R4G4B4A4_UNORM:
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
+		// This is the one that's guaranteed to be supported.
+		// A four-component, 16-bit packed unsigned normalized format that has a 4-bit B component in bits 12..15, a 4-bit
+		// G component in bits 8..11, a 4 - bit R component in bits 4..7, and a 4 - bit A component in bits 0..3
+		return FMT_RENDERTARGET | FMT_TEXTURE;
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
 		return 0;
-	case DataFormat::A4B4G4R4_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
+	case DataFormat::A4B4G4R4_UNORM_PACK16:
+		return 0;
 
 	case DataFormat::R8G8B8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
@@ -1222,7 +1240,8 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 		return FMT_INPUTLAYOUT;
 
 	case DataFormat::R8_UNORM:
-		return 0;
+		return FMT_TEXTURE;
+
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 	case DataFormat::BC2_UNORM_BLOCK:
 	case DataFormat::BC3_UNORM_BLOCK:

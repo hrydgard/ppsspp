@@ -754,11 +754,20 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case DataFormat::R4G4B4A4_UNORM:
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
 		break;
+
+#if 0
+	case DataFormat::A4B4G4R4_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+		break;
+#endif
+
 	default:
 		return;
 	}
@@ -1156,11 +1165,12 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 	switch (fmt) {
 	case DataFormat::B8G8R8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE;
-	case DataFormat::B4G4R4A4_UNORM:
-	case DataFormat::R4G4B4A4_UNORM:
-		return 0;
-	case DataFormat::A4B4G4R4_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
+		return FMT_RENDERTARGET | FMT_TEXTURE;
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
+		return 0;  // native support
+	case DataFormat::A4B4G4R4_UNORM_PACK16:
+		return 0;  // Can support this if _REV formats are supported.
 
 	case DataFormat::R8G8B8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;

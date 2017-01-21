@@ -11,7 +11,14 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 	case DataFormat::R8G8_UNORM: return 2;
 	case DataFormat::R8G8B8_UNORM: return 3;
 
-	case DataFormat::R4G4B4A4_UNORM: return 2;
+	case DataFormat::R4G4B4A4_UNORM_PACK16: return 2;
+	case DataFormat::B4G4R4A4_UNORM_PACK16: return 2;
+	case DataFormat::A4B4G4R4_UNORM_PACK16: return 2;
+	case DataFormat::R5G5B5A1_UNORM_PACK16: return 2;
+	case DataFormat::B5G5R5A1_UNORM_PACK16: return 2;
+	case DataFormat::R5G6B5_UNORM_PACK16: return 2;
+	case DataFormat::B5G6R5_UNORM_PACK16: return 2;
+	case DataFormat::A1R5G5B5_UNORM_PACK16: return 2;
 
 	case DataFormat::R8G8B8A8_UNORM:
 	case DataFormat::R8G8B8A8_UNORM_SRGB: return 4;
