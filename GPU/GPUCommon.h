@@ -16,6 +16,7 @@ typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
+class DrawEngineCommon;
 
 class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface {
 public:
@@ -78,6 +79,10 @@ public:
 	void Execute_Call(u32 op, u32 diff);
 	void Execute_Ret(u32 op, u32 diff);
 	void Execute_End(u32 op, u32 diff);
+
+	void Execute_Bezier(u32 op, u32 diff);
+	void Execute_Spline(u32 op, u32 diff);
+	void Execute_BoundingBox(u32 op, u32 diff);
 
 	u64 GetTickEstimate() override {
 #if defined(_M_X64) || defined(__ANDROID__)
@@ -200,6 +205,7 @@ protected:
 
 	FramebufferManagerCommon *framebufferManager_;
 	TextureCacheCommon *textureCache_;
+	DrawEngineCommon *drawEngineCommon_;
 
 	typedef std::list<int> DisplayListQueue;
 

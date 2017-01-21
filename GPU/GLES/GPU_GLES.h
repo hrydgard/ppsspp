@@ -89,9 +89,6 @@ public:
 	void Execute_Vaddr(u32 op, u32 diff);
 	void Execute_Iaddr(u32 op, u32 diff);
 	void Execute_Prim(u32 op, u32 diff);
-	void Execute_Bezier(u32 op, u32 diff);
-	void Execute_Spline(u32 op, u32 diff);
-	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 	void Execute_Region(u32 op, u32 diff);

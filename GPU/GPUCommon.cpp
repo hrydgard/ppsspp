@@ -23,6 +23,7 @@
 #include "Core/MemMapHelpers.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"
 
 GPUCommon::GPUCommon() :
 	dumpNextFrame_(false),
@@ -1032,6 +1033,123 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 	default:
 		DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
 		break;
+	}
+}
+
+void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	int bz_ucount = op & 0xFF;
+	int bz_vcount = (op >> 8) & 0xFF;
+	bool computeNormals = gstate.isLightingEnabled();
+	bool patchFacing = gstate.patchfacing & 1;
+	int bytesRead = 0;
+	drawEngineCommon_->SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+
+	// After drawing, we advance pointers - see SubmitPrim which does the same.
+	int count = bz_ucount * bz_vcount;
+	AdvanceVerts(gstate.vertType, count, bytesRead);
+}
+
+void GPUCommon::Execute_Spline(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	int sp_ucount = op & 0xFF;
+	int sp_vcount = (op >> 8) & 0xFF;
+	int sp_utype = (op >> 16) & 0x3;
+	int sp_vtype = (op >> 18) & 0x3;
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	bool computeNormals = gstate.isLightingEnabled();
+	bool patchFacing = gstate.patchfacing & 1;
+	u32 vertType = gstate.vertType;
+	int bytesRead = 0;
+	drawEngineCommon_->SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
+
+	// After drawing, we advance pointers - see SubmitPrim which does the same.
+	int count = sp_ucount * sp_vcount;
+	AdvanceVerts(gstate.vertType, count, bytesRead);
+}
+
+void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
+	// Just resetting, nothing to check bounds for.
+	const u32 data = op & 0x00FFFFFF;
+	if (data == 0) {
+		// TODO: Should this set the bboxResult?  Let's set it true for now.
+		currentList->bboxResult = true;
+		return;
+	}
+	if (((data & 7) == 0) && data <= 64) {  // Sanity check
+		void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+		if (gstate.vertType & GE_VTYPE_IDX_MASK) {
+			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
+			// Data seems invalid. Let's assume the box test passed.
+			currentList->bboxResult = true;
+			return;
+		}
+
+		// Test if the bounding box is within the drawing region.
+		if (control_points) {
+			currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, data, gstate.vertType);
+		}
+	} else {
+		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
+		// Data seems invalid. Let's assume the box test passed.
+		currentList->bboxResult = true;
 	}
 }
 
