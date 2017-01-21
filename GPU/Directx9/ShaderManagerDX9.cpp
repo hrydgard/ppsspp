@@ -204,7 +204,7 @@ void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
 
 void ShaderManagerDX9::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
 	const u32 col[4] = {
-		data[0] >> 8, data[1] >> 8, data[2] >> 8, 0
+		data[0] << 8, data[1] << 8, data[2] << 8, 0
 	};
 	pD3Ddevice->SetVertexShaderConstantF(creg, (const float *)&col[0], 1);
 }
