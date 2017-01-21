@@ -45,7 +45,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/FBO.h"
-#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceSas.h"

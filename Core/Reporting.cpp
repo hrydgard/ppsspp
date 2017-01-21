@@ -32,7 +32,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"

@@ -36,11 +36,11 @@
 #include "GPU/Common/FramebufferCommon.h"
 
 #include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
-#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/TextureCacheGLES.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -401,10 +401,10 @@ GPU_GLES::GPU_GLES(GraphicsContext *ctx)
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
-	shaderManager_ = new ShaderManager();
-	framebufferManagerGL_ = new FramebufferManager();
+	shaderManager_ = new ShaderManagerGLES();
+	framebufferManagerGL_ = new FramebufferManagerGLES();
 	framebufferManager_ = framebufferManagerGL_;
-	textureCacheGL_ = new TextureCache();
+	textureCacheGL_ = new TextureCacheGLES();
 	textureCache_ = textureCacheGL_;
 
 	drawEngine_.SetShaderManager(shaderManager_);
@@ -2207,7 +2207,7 @@ bool GPU_GLES::GetCurrentClut(GPUDebugBuffer &buffer) {
 }
 
 bool GPU_GLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	return FramebufferManager::GetOutputFramebuffer(buffer);
+	return FramebufferManagerGLES::GetOutputFramebuffer(buffer);
 }
 
 bool GPU_GLES::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {

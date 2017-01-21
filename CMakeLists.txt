@@ -1058,33 +1058,33 @@ if(ARMV7)
 endif()
 
 set(GPU_GLES
-	GPU/GLES/DepalettizeShader.cpp
-	GPU/GLES/DepalettizeShader.h
+	GPU/GLES/DepalettizeShaderGLES.cpp
+	GPU/GLES/DepalettizeShaderGLES.h
 	GPU/GLES/FBO.cpp
 	GPU/GLES/FBO.h
 	GPU/GLES/GPU_GLES.cpp
 	GPU/GLES/GPU_GLES.h
 	GPU/GLES/GLStateCache.cpp
 	GPU/GLES/GLStateCache.h
-	GPU/GLES/FragmentShaderGenerator.cpp
-	GPU/GLES/FragmentShaderGenerator.h
-	GPU/GLES/FragmentTestCache.cpp
-	GPU/GLES/FragmentTestCache.h
-	GPU/GLES/Framebuffer.cpp
-	GPU/GLES/Framebuffer.h
-	GPU/GLES/ShaderManager.cpp
-	GPU/GLES/ShaderManager.h
-	GPU/GLES/StateMapping.cpp
-	GPU/GLES/StateMapping.h
-	GPU/GLES/StencilBuffer.cpp
-	GPU/GLES/TextureCache.cpp
-	GPU/GLES/TextureCache.h
-	GPU/GLES/TextureScaler.cpp
-	GPU/GLES/TextureScaler.h
+	GPU/GLES/FragmentShaderGeneratorGLES.cpp
+	GPU/GLES/FragmentShaderGeneratorGLES.h
+	GPU/GLES/FragmentTestCacheGLES.cpp
+	GPU/GLES/FragmentTestCacheGLES.h
+	GPU/GLES/FramebufferGLES.cpp
+	GPU/GLES/FramebufferGLES.h
+	GPU/GLES/ShaderManagerGLES.cpp
+	GPU/GLES/ShaderManagerGLES.h
+	GPU/GLES/StateMappingGLES.cpp
+	GPU/GLES/StateMappingGLES.h
+	GPU/GLES/StencilBufferGLES.cpp
+	GPU/GLES/TextureCacheGLES.cpp
+	GPU/GLES/TextureCacheGLES.h
+	GPU/GLES/TextureScalerGLES.cpp
+	GPU/GLES/TextureScalerGLES.h
 	GPU/GLES/DrawEngineGLES.cpp
 	GPU/GLES/DrawEngineGLES.h
-	GPU/GLES/VertexShaderGenerator.cpp
-	GPU/GLES/VertexShaderGenerator.h
+	GPU/GLES/VertexShaderGeneratorGLES.cpp
+	GPU/GLES/VertexShaderGeneratorGLES.h
 )
 
 set(GPU_VULKAN

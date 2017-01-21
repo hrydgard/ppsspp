@@ -45,7 +45,7 @@ typedef struct {
 	}
 } FormatBuffer;
 
-class ShaderManager;
+class ShaderManagerGLES;
 
 class SoftGPU : public GPUCommon {
 public:

@@ -83,11 +83,11 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/FragmentTestCache.h"
-#include "GPU/GLES/StateMapping.h"
-#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/FragmentTestCacheGLES.h"
+#include "GPU/GLES/StateMappingGLES.h"
+#include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
 
 extern const GLuint glprim[8] = {

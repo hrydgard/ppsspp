@@ -20,7 +20,7 @@
 #include "Common/CommonTypes.h"
 #include "GPU/Common/TextureScalerCommon.h"
 
-class TextureScalerVulkan : public TextureScaler {
+class TextureScalerVulkan : public TextureScalerCommon {
 protected:
 	void ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) override;
 	int BytesPerPixel(u32 format) override;

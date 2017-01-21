@@ -25,13 +25,13 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/FBO.h"
-#include "GPU/GLES/TextureScaler.h"
+#include "GPU/GLES/TextureScalerGLES.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
-class FramebufferManager;
-class DepalShaderCache;
-class ShaderManager;
+class FramebufferManagerGLES;
+class DepalShaderCacheGLES;
+class ShaderManagerGLES;
 class DrawEngineGLES;
 
 inline bool UseBGRA8888() {
@@ -42,10 +42,10 @@ inline bool UseBGRA8888() {
 	return false;
 }
 
-class TextureCache : public TextureCacheCommon {
+class TextureCacheGLES : public TextureCacheCommon {
 public:
-	TextureCache();
-	~TextureCache();
+	TextureCacheGLES();
+	~TextureCacheGLES();
 
 	void SetTexture(bool force = false);
 	virtual bool SetOffsetTexture(u32 offset) override;
@@ -56,13 +56,13 @@ public:
 	void InvalidateAll(GPUInvalidationType type) override;
 	void ClearNextFrame();
 
-	void SetFramebufferManager(FramebufferManager *fbManager) {
+	void SetFramebufferManager(FramebufferManagerGLES *fbManager) {
 		framebufferManager_ = fbManager;
 	}
-	void SetDepalShaderCache(DepalShaderCache *dpCache) {
+	void SetDepalShaderCache(DepalShaderCacheGLES *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
-	void SetShaderManager(ShaderManager *sm) {
+	void SetShaderManager(ShaderManagerGLES *sm) {
 		shaderManager_ = sm;
 	}
 	void SetTransformDrawEngine(DrawEngineGLES *td) {
@@ -115,7 +115,7 @@ private:
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;
 
-	TextureScalerGL scaler;
+	TextureScalerGLES scaler;
 
 	u32 clutHash_;
 
@@ -126,9 +126,9 @@ private:
 	int texelsScaledThisFrame_;
 	int timesInvalidatedAllThisFrame_;
 
-	FramebufferManager *framebufferManager_;
-	DepalShaderCache *depalShaderCache_;
-	ShaderManager *shaderManager_;
+	FramebufferManagerGLES *framebufferManager_;
+	DepalShaderCacheGLES *depalShaderCache_;
+	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *transformDraw_;
 
 	const char *nextChangeReason_;

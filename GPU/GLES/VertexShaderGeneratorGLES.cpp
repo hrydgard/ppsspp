@@ -29,8 +29,8 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
-#include "GPU/GLES/VertexShaderGenerator.h"
-#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/VertexShaderGeneratorGLES.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 

@@ -24,20 +24,20 @@
 #include "gfx/gl_common.h"
 
 #include "GPU/Common/TextureScalerCommon.h"
-#include "GPU/GLES/TextureScaler.h"
+#include "GPU/GLES/TextureScalerGLES.h"
 #include "Common/ColorConv.h"
 #include "Common/Log.h"
 #include "Common/ThreadPools.h"
 
-int TextureScalerGL::BytesPerPixel(u32 format) {
+int TextureScalerGLES::BytesPerPixel(u32 format) {
 	return (format == GL_UNSIGNED_BYTE) ? 4 : 2;
 }
 
-u32 TextureScalerGL::Get8888Format() {
+u32 TextureScalerGLES::Get8888Format() {
 	return GL_UNSIGNED_BYTE;
 }
 
-void TextureScalerGL::ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) {
+void TextureScalerGLES::ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) {
 	switch(format) {
 	case GL_UNSIGNED_BYTE:
 		dest = source; // already fine

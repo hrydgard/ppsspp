@@ -22,10 +22,10 @@
 
 #include <vector>
 
-class TextureScaler {
+class TextureScalerCommon {
 public:
-	TextureScaler();
-	~TextureScaler();
+	TextureScalerCommon();
+	~TextureScalerCommon();
 
 	void ScaleAlways(u32 *out, u32 *src, u32 &dstFmt, int &width, int &height, int factor);
 	bool Scale(u32 *&data, u32 &dstfmt, int &width, int &height, int factor);

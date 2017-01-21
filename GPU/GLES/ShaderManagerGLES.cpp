@@ -39,9 +39,9 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "Framebuffer.h"
+#include "FramebufferManagerGLES.h"
 
 Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform)
 	  : failed_(false), useHWTransform_(useHWTransform) {
@@ -756,18 +756,18 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	}
 }
 
-ShaderManager::ShaderManager()
+ShaderManagerGLES::ShaderManagerGLES()
 		: lastShader_(nullptr), globalDirty_(DIRTY_ALL), shaderSwitchDirty_(0), diskCacheDirty_(false) {
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 }
 
-ShaderManager::~ShaderManager() {
+ShaderManagerGLES::~ShaderManagerGLES() {
 	delete [] codeBuffer_;
 }
 
-void ShaderManager::Clear() {
+void ShaderManagerGLES::Clear() {
 	DirtyLastShader();
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		delete iter->ls;
@@ -787,12 +787,12 @@ void ShaderManager::Clear() {
 	DirtyShader();
 }
 
-void ShaderManager::ClearCache(bool deleteThem) {
+void ShaderManagerGLES::ClearCache(bool deleteThem) {
 	// TODO: Recreate all from the diskcache when we come back.
 	Clear();
 }
 
-void ShaderManager::DirtyShader() {
+void ShaderManagerGLES::DirtyShader() {
 	// Forget the last shader ID
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
@@ -801,27 +801,27 @@ void ShaderManager::DirtyShader() {
 	shaderSwitchDirty_ = 0;
 }
 
-void ShaderManager::DirtyLastShader() { // disables vertex arrays
+void ShaderManagerGLES::DirtyLastShader() { // disables vertex arrays
 	if (lastShader_)
 		lastShader_->stop();
 	lastShader_ = nullptr;
 	lastVShaderSame_ = false;
 }
 
-Shader *ShaderManager::CompileFragmentShader(ShaderID FSID) {
+Shader *ShaderManagerGLES::CompileFragmentShader(ShaderID FSID) {
 	if (!GenerateFragmentShader(FSID, codeBuffer_)) {
 		return nullptr;
 	}
 	return new Shader(codeBuffer_, GL_FRAGMENT_SHADER, false);
 }
 
-Shader *ShaderManager::CompileVertexShader(ShaderID VSID) {
+Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
 	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
 	GenerateVertexShader(VSID, codeBuffer_);
 	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
 }
 
-Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
+Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
 	if (globalDirty_) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= globalDirty_;
@@ -873,7 +873,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID)
 	return vs;
 }
 
-LinkedShader *ShaderManager::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim) {
 	ShaderID FSID;
 	ComputeFragmentShaderID(&FSID);
 	if (lastVShaderSame_ && FSID == lastFSID_) {
@@ -935,7 +935,7 @@ std::string Shader::GetShaderString(DebugShaderStringType type, ShaderID id) con
 	}
 }
 
-std::vector<std::string> ShaderManager::DebugGetShaderIDs(DebugShaderType type) {
+std::vector<std::string> ShaderManagerGLES::DebugGetShaderIDs(DebugShaderType type) {
 	std::string id;
 	std::vector<std::string> ids;
 	switch (type) {
@@ -961,7 +961,7 @@ std::vector<std::string> ShaderManager::DebugGetShaderIDs(DebugShaderType type) 
 	return ids;
 }
 
-std::string ShaderManager::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
 	ShaderID shaderId;
 	shaderId.FromString(id);
 	switch (type) {
@@ -1010,7 +1010,7 @@ struct CacheHeader {
 	int numLinkedPrograms;
 };
 
-void ShaderManager::LoadAndPrecompile(const std::string &filename) {
+void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 	File::IOFile f(filename, "rb");
 	if (!f.IsOpen()) {
 		return;
@@ -1075,7 +1075,7 @@ void ShaderManager::LoadAndPrecompile(const std::string &filename) {
 	diskCacheDirty_ = false;
 }
 
-void ShaderManager::Save(const std::string &filename) {
+void ShaderManagerGLES::Save(const std::string &filename) {
 	if (!diskCacheDirty_) {
 		return;
 	}
