@@ -132,11 +132,13 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		id.SetBit(VS_BIT_HAS_TEXCOORD, hasTexcoord);
 
-		id.SetBit(VS_BIT_BEZIER, doBezier);
-		id.SetBit(VS_BIT_SPLINE, doSpline);
-		id.SetBit(VS_BIT_HAS_COLOR_TESS, hasColorTess);
-		id.SetBit(VS_BIT_HAS_TEXCOORD_TESS, hasTexcoordTess);
-		id.SetBit(VS_BIT_NORM_REVERSE_TESS, gstate.isPatchNormalsReversed());
+		if (g_Config.bHardwareTessellation) {
+			id.SetBit(VS_BIT_BEZIER, doBezier);
+			id.SetBit(VS_BIT_SPLINE, doSpline);
+			id.SetBit(VS_BIT_HAS_COLOR_TESS, hasColorTess);
+			id.SetBit(VS_BIT_HAS_TEXCOORD_TESS, hasTexcoordTess);
+			id.SetBit(VS_BIT_NORM_REVERSE_TESS, gstate.isPatchNormalsReversed());
+		}
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
