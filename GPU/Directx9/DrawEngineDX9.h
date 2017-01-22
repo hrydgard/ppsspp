@@ -246,6 +246,18 @@ private:
 
 	bool fboTexNeedBind_;
 	bool fboTexBound_;
+
+	// Hardware tessellation
+	class TessellationDataTransferDX9 : public TessellationDataTransfer {
+	private:
+		int data_tex[3];
+	public:
+		TessellationDataTransferDX9() : TessellationDataTransfer(), data_tex() {
+		}
+		~TessellationDataTransferDX9() {
+		}
+		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+	};
 };
 
 }  // namespace

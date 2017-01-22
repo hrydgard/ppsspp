@@ -87,4 +87,17 @@ protected:
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;
+
+	// Hardware tessellation
+	int numPatches;
+	class TessellationDataTransfer {
+	protected:
+		int prevSize;
+		int prevSizeTex;
+		int prevSizeCol;
+	public:
+		// Send spline/bezier's control points to vertex shader through floating point texture.
+		virtual void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) = 0;
+	};
+	TessellationDataTransfer *tessDataTransfer;
 };

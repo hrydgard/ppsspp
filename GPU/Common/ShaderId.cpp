@@ -45,6 +45,12 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	if (id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc << "WScale " << id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2) << " ";
 	if (id.Bit(VS_BIT_FLATSHADE)) desc << "Flat ";
 
+	if (id.Bit(VS_BIT_BEZIER)) desc << "Bezier ";
+	if (id.Bit(VS_BIT_SPLINE)) desc << "Spline ";
+	if (id.Bit(VS_BIT_HAS_COLOR_TESS)) desc << "TessC ";
+	if (id.Bit(VS_BIT_HAS_TEXCOORD_TESS)) desc << "TessT ";
+	if (id.Bit(VS_BIT_NORM_REVERSE_TESS)) desc << "TessRevN ";
+
 	// TODO: More...
 
 	return desc.str();
@@ -59,6 +65,12 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
 	bool hasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0;
+
+	bool doBezier = gstate_c.bezier;
+	bool doSpline = gstate_c.spline;
+	bool hasColorTess = (gstate.vertType & GE_VTYPE_COL_MASK) != 0 && (doBezier || doSpline);
+	bool hasTexcoordTess = (gstate.vertType & GE_VTYPE_TC_MASK) != 0 && (doBezier || doSpline);
+
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	// lmode: && !isModeThrough!?
@@ -119,6 +131,14 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		id.SetBit(VS_BIT_HAS_TEXCOORD, hasTexcoord);
+
+		if (g_Config.bHardwareTessellation) {
+			id.SetBit(VS_BIT_BEZIER, doBezier);
+			id.SetBit(VS_BIT_SPLINE, doSpline);
+			id.SetBit(VS_BIT_HAS_COLOR_TESS, hasColorTess);
+			id.SetBit(VS_BIT_HAS_TEXCOORD_TESS, hasTexcoordTess);
+			id.SetBit(VS_BIT_NORM_REVERSE_TESS, gstate.isPatchNormalsReversed());
+		}
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);

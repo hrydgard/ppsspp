@@ -493,6 +493,7 @@ static ConfigSetting graphicsSettings[] = {
 	// Not really a graphics setting...
 	ReportedConfigSetting("TimerHack", &g_Config.bTimerHack, &DefaultTimerHack, true, true),
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, true, true),
+	ReportedConfigSetting("HardwareTessellation", &g_Config.bHardwareTessellation, false, true, true),
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off", true, true),
 
 	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true, true, true),

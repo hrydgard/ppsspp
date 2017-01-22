@@ -92,6 +92,8 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
+
+	tessDataTransfer = new TessellationDataTransferVulkan();
 }
 
 void DrawEngineVulkan::InitDeviceObjects() {
@@ -194,6 +196,8 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
 	DestroyDeviceObjects();
+
+	delete tessDataTransfer;
 }
 
 void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
@@ -900,4 +904,8 @@ void DrawEngineVulkan::Resized() {
 
 bool DrawEngineVulkan::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
+}
+
+void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords)
+{
 }
