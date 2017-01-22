@@ -1070,8 +1070,8 @@ set(GPU_GLES
 	GPU/GLES/FragmentShaderGeneratorGLES.h
 	GPU/GLES/FragmentTestCacheGLES.cpp
 	GPU/GLES/FragmentTestCacheGLES.h
-	GPU/GLES/FramebufferGLES.cpp
-	GPU/GLES/FramebufferGLES.h
+	GPU/GLES/FramebufferManagerGLES.cpp
+	GPU/GLES/FramebufferManagerGLES.h
 	GPU/GLES/ShaderManagerGLES.cpp
 	GPU/GLES/ShaderManagerGLES.h
 	GPU/GLES/StateMappingGLES.cpp
