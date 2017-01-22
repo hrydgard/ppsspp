@@ -223,22 +223,24 @@ static void spline_knot(int n, int type, float *knot) {
 	}
 }
 
+// Prepare mesh of one patch for "Instanced Tessellation".
 static void TessellateSplinePatchHardware(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch) {
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
 
+	float inv_u = 1.0f / (float)spatch.tess_u;
+	float inv_v = 1.0f / (float)spatch.tess_v;
+
+	// Generating simple input vertices for the spline-computing vertex shader.
 	for (int tile_v = 0; tile_v < spatch.tess_v + 1; ++tile_v) {
 		for (int tile_u = 0; tile_u < spatch.tess_u + 1; ++tile_u) {
-			float u = ((float)tile_u / (float)spatch.tess_u);
-			float v = ((float)tile_v / (float)spatch.tess_v);
-
 			SimpleVertex &vert = vertices[tile_v * (spatch.tess_u + 1) + tile_u];
+			vert.pos.x = (float)tile_u * inv_u;
+			vert.pos.y = (float)tile_v * inv_v;
 
-			vert.pos.x = u;
-			vert.pos.y = v;
-
+			// TODO: Move to shader uniform and unify this method spline and bezier if necessary.
 			// For compute normal
-			vert.nrm.x = 1.0f / (float)spatch.tess_u;
-			vert.nrm.y = 1.0f / (float)spatch.tess_v;
+			vert.nrm.x = inv_u;
+			vert.nrm.y = inv_v;
 		}
 	}
 
@@ -800,18 +802,20 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 	dest += (tess_u + 1) * (tess_v + 1) * sizeof(SimpleVertex);
 }
 
+// Prepare mesh of one patch for "Instanced Tessellation".
 static void TesselateBezierPatchHardware(u8 *&dest, u16 *indices, int &count, int tess_u, int tess_v, GEPatchPrimType primType) {
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
 
+	float inv_u = 1.0f / (float)tess_u;
+	float inv_v = 1.0f / (float)tess_v;
+
+	// Generating simple input vertices for the bezier-computing vertex shader.
 	for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
 		for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
-			float u = ((float)tile_u / (float)tess_u);
-			float v = ((float)tile_v / (float)tess_v);
-
 			SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
-			vert.pos.x = u;
-			vert.pos.y = v;
+			vert.pos.x = (float)tile_u * inv_u;
+			vert.pos.y = (float)tile_v * inv_v;
 		}
 	}
 
