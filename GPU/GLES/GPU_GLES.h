@@ -172,7 +172,7 @@ private:
 	DepalShaderCacheGLES depalShaderCache_;
 	DrawEngineGLES drawEngine_;
 	FragmentTestCacheGLES fragmentTestCache_;
-	ShaderManagerGLES *shaderManager_;
+	ShaderManagerGLES *shaderManagerGL_;
 
 	int lastVsync_;
 

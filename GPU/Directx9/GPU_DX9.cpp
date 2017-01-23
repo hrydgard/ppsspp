@@ -398,23 +398,24 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx)
 	lastVsync_ = g_Config.bVSync ? 1 : 0;
 	dxstate.SetVSyncInterval(g_Config.bVSync);
 
+	shaderManagerDX9_ = new ShaderManagerDX9();
 	framebufferManagerDX9_ = new FramebufferManagerDX9();
 	framebufferManager_ = framebufferManagerDX9_;
 	textureCacheDX9_ = new TextureCacheDX9();
 	textureCache_ = textureCacheDX9_;
 	drawEngineCommon_ = &drawEngine_;
+	shaderManager_ = shaderManagerDX9_;
 
-	shaderManager_ = new ShaderManagerDX9();
-	drawEngine_.SetShaderManager(shaderManager_);
+	drawEngine_.SetShaderManager(shaderManagerDX9_);
 	drawEngine_.SetTextureCache(textureCacheDX9_);
 	drawEngine_.SetFramebufferManager(framebufferManagerDX9_);
 	framebufferManagerDX9_->Init();
 	framebufferManagerDX9_->SetTextureCache(textureCacheDX9_);
-	framebufferManagerDX9_->SetShaderManager(shaderManager_);
+	framebufferManagerDX9_->SetShaderManager(shaderManagerDX9_);
 	framebufferManagerDX9_->SetTransformDrawEngine(&drawEngine_);
 	textureCacheDX9_->SetFramebufferManager(framebufferManagerDX9_);
 	textureCacheDX9_->SetDepalShaderCache(&depalShaderCache_);
-	textureCacheDX9_->SetShaderManager(shaderManager_);
+	textureCacheDX9_->SetShaderManager(shaderManagerDX9_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -507,8 +508,8 @@ void GPU_DX9::CheckGPUFeatures() {
 
 GPU_DX9::~GPU_DX9() {
 	framebufferManagerDX9_->DestroyAllFBOs(true);
-	shaderManager_->ClearCache(true);
-	delete shaderManager_;
+	shaderManagerDX9_->ClearCache(true);
+	delete shaderManagerDX9_;
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -525,7 +526,7 @@ void GPU_DX9::BuildReportingInfo() {
 void GPU_DX9::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
-	shaderManager_->ClearCache(false);
+	shaderManagerDX9_->ClearCache(false);
 	textureCacheDX9_->Clear(false);
 	framebufferManagerDX9_->DeviceLost();
 }
@@ -585,7 +586,7 @@ void GPU_DX9::BeginFrameInternal() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
-	shaderManager_->DirtyShader();
+	shaderManagerDX9_->DirtyShader();
 
 	framebufferManagerDX9_->BeginFrame();
 }
@@ -639,7 +640,7 @@ void GPU_DX9::CopyDisplayToOutputInternal() {
 	framebufferManagerDX9_->EndFrame();
 
 	// shaderManager_->EndFrame();
-	shaderManager_->DirtyLastShader();
+	shaderManagerDX9_->DirtyLastShader();
 
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
@@ -1807,8 +1808,8 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheDX9_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
-		shaderManager_->NumVertexShaders(),
-		shaderManager_->NumFragmentShaders()
+		shaderManagerDX9_->NumVertexShaders(),
+		shaderManagerDX9_->NumFragmentShaders()
 	);
 }
 
@@ -1817,7 +1818,7 @@ void GPU_DX9::ClearCacheNextFrame() {
 }
 
 void GPU_DX9::ClearShaderCache() {
-	shaderManager_->ClearCache(true);
+	shaderManagerDX9_->ClearCache(true);
 }
 
 std::vector<FramebufferInfo> GPU_DX9::GetFramebufferList() {
@@ -1835,7 +1836,7 @@ void GPU_DX9::DoState(PointerWrap &p) {
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		framebufferManagerDX9_->DestroyAllFBOs(true);
-		shaderManager_->ClearCache(true);
+		shaderManagerDX9_->ClearCache(true);
 	}
 }
 
@@ -1956,7 +1957,7 @@ std::vector<std::string> GPU_DX9::DebugGetShaderIDs(DebugShaderType type) {
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderIDs();
 	} else {
-		return shaderManager_->DebugGetShaderIDs(type);
+		return shaderManagerDX9_->DebugGetShaderIDs(type);
 	}
 }
 
@@ -1964,7 +1965,7 @@ std::string GPU_DX9::DebugGetShaderString(std::string id, DebugShaderType type, 
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
 	} else {
-		return shaderManager_->DebugGetShaderString(id, type, stringType);
+		return shaderManagerDX9_->DebugGetShaderString(id, type, stringType);
 	}
 }
 

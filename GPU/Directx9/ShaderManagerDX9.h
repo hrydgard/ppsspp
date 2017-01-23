@@ -76,7 +76,7 @@ protected:
 	ShaderID id_;
 };
 
-class ShaderManagerDX9 {
+class ShaderManagerDX9 : public ShaderManagerCommon {
 public:
 	ShaderManagerDX9();
 	~ShaderManagerDX9();
@@ -84,9 +84,6 @@ public:
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
 	VSShader *ApplyShader(int prim, u32 vertType);
 	void DirtyShader();
-	void DirtyUniform(u64 what) {
-		globalDirty_ |= what;
-	}
 	void DirtyLastShader();
 
 	int NumVertexShaders() const { return (int)vsCache_.size(); }
@@ -119,7 +116,6 @@ private:
 	ShaderID lastFSID_;
 	ShaderID lastVSID_;
 
-	u64 globalDirty_;
 	char *codeBuffer_;
 
 	VSShader *lastVShader_;

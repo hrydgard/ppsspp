@@ -505,7 +505,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 	}
 }
 
-ShaderManagerDX9::ShaderManagerDX9() : lastVShader_(nullptr), lastPShader_(nullptr), globalDirty_(0xFFFFFFFF) {
+ShaderManagerDX9::ShaderManagerDX9() : lastVShader_(nullptr), lastPShader_(nullptr) {
 	codeBuffer_ = new char[16384];
 }
 

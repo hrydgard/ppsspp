@@ -397,24 +397,25 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
-	shaderManager_ = new ShaderManagerVulkan(vulkan_);
+	shaderManagerVulkan_ = new ShaderManagerVulkan(vulkan_);
 	pipelineManager_ = new PipelineManagerVulkan(vulkan_);
 	framebufferManagerVulkan_ = new FramebufferManagerVulkan(vulkan_);
 	framebufferManager_ = framebufferManagerVulkan_;
 	textureCacheVulkan_ = new TextureCacheVulkan(vulkan_);
 	textureCache_ = textureCacheVulkan_;
 	drawEngineCommon_ = &drawEngine_;
+	shaderManager_ = shaderManagerVulkan_;
 
 	drawEngine_.SetTextureCache(textureCacheVulkan_);
 	drawEngine_.SetFramebufferManager(framebufferManagerVulkan_);
-	drawEngine_.SetShaderManager(shaderManager_);
+	drawEngine_.SetShaderManager(shaderManagerVulkan_);
 	drawEngine_.SetPipelineManager(pipelineManager_);
 	framebufferManagerVulkan_->Init();
 	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetDepalShaderCache(&depalShaderCache_);
-	textureCacheVulkan_->SetShaderManager(shaderManager_);
+	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
 	textureCacheVulkan_->SetTransformDrawEngine(&drawEngine_);
 
 	// Sanity check gstate
@@ -458,7 +459,7 @@ GPU_Vulkan::~GPU_Vulkan() {
 	framebufferManagerVulkan_->DestroyAllFBOs(true);
 	depalShaderCache_.Clear();
 	delete pipelineManager_;
-	delete shaderManager_;
+	delete shaderManagerVulkan_;
 }
 
 void GPU_Vulkan::CheckGPUFeatures() {
@@ -506,7 +507,7 @@ void GPU_Vulkan::BeginHostFrame() {
 
 	framebufferManagerVulkan_->BeginFrameVulkan();
 
-	shaderManager_->DirtyShader();
+	shaderManagerVulkan_->DirtyShader();
 	shaderManager_->DirtyUniform(DIRTY_ALL);
 
 	if (dumpNextFrame_) {
@@ -686,7 +687,7 @@ void GPU_Vulkan::CopyDisplayToOutputInternal() {
 	// Flush anything left over.
 	drawEngine_.Flush(curCmd_);
 
-	shaderManager_->DirtyLastShader();
+	shaderManagerVulkan_->DirtyLastShader();
 
 	framebufferManagerVulkan_->CopyDisplayToOutput();
 
@@ -1850,7 +1851,7 @@ void GPU_Vulkan::DeviceLost() {
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
 	depalShaderCache_.Clear();
-	shaderManager_->ClearShaders();
+	shaderManagerVulkan_->ClearShaders();
 }
 
 void GPU_Vulkan::DeviceRestore() {
@@ -1863,7 +1864,7 @@ void GPU_Vulkan::DeviceRestore() {
 	drawEngine_.DeviceRestore(vulkan_);
 	pipelineManager_->DeviceRestore(vulkan_);
 	textureCacheVulkan_->DeviceRestore(vulkan_);
-	shaderManager_->DeviceRestore(vulkan_);
+	shaderManagerVulkan_->DeviceRestore(vulkan_);
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
@@ -1897,8 +1898,8 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheVulkan_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
-		shaderManager_->GetNumVertexShaders(),
-		shaderManager_->GetNumFragmentShaders(),
+		shaderManagerVulkan_->GetNumVertexShaders(),
+		shaderManagerVulkan_->GetNumFragmentShaders(),
 		pipelineManager_->GetNumPipelines(),
 		drawStats.pushUBOSpaceUsed,
 		drawStats.pushVertexSpaceUsed,
@@ -1930,7 +1931,7 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		framebufferManagerVulkan_->DestroyAllFBOs(true);
-		shaderManager_->ClearShaders();
+		shaderManagerVulkan_->ClearShaders();
 		pipelineManager_->Clear();
 	}
 }
@@ -1953,7 +1954,7 @@ std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
 	} else if (type == SHADER_TYPE_PIPELINE) {
 		return pipelineManager_->DebugGetObjectIDs(type);
 	} else {
-		return shaderManager_->DebugGetShaderIDs(type);
+		return shaderManagerVulkan_->DebugGetShaderIDs(type);
 	}
 }
 
@@ -1963,6 +1964,6 @@ std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType typ
 	} else if (type == SHADER_TYPE_PIPELINE) {
 		return pipelineManager_->DebugGetObjectString(id, type, stringType);
 	} else {
-		return shaderManager_->DebugGetShaderString(id, type, stringType);
+		return shaderManagerVulkan_->DebugGetShaderString(id, type, stringType);
 	}
 }

@@ -401,24 +401,25 @@ GPU_GLES::GPU_GLES(GraphicsContext *ctx)
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
-	shaderManager_ = new ShaderManagerGLES();
+	shaderManagerGL_ = new ShaderManagerGLES();
 	framebufferManagerGL_ = new FramebufferManagerGLES();
 	framebufferManager_ = framebufferManagerGL_;
 	textureCacheGL_ = new TextureCacheGLES();
 	textureCache_ = textureCacheGL_;
 	drawEngineCommon_ = &drawEngine_;
+	shaderManager_ = shaderManagerGL_;
 
-	drawEngine_.SetShaderManager(shaderManager_);
+	drawEngine_.SetShaderManager(shaderManagerGL_);
 	drawEngine_.SetTextureCache(textureCacheGL_);
 	drawEngine_.SetFramebufferManager(framebufferManagerGL_);
 	drawEngine_.SetFragmentTestCache(&fragmentTestCache_);
 	framebufferManagerGL_->Init();
 	framebufferManagerGL_->SetTextureCache(textureCacheGL_);
-	framebufferManagerGL_->SetShaderManager(shaderManager_);
+	framebufferManagerGL_->SetShaderManager(shaderManagerGL_);
 	framebufferManagerGL_->SetTransformDrawEngine(&drawEngine_);
 	textureCacheGL_->SetFramebufferManager(framebufferManagerGL_);
 	textureCacheGL_->SetDepalShaderCache(&depalShaderCache_);
-	textureCacheGL_->SetShaderManager(shaderManager_);
+	textureCacheGL_->SetShaderManager(shaderManagerGL_);
 	textureCacheGL_->SetTransformDrawEngine(&drawEngine_);
 	fragmentTestCache_.SetTextureCache(textureCacheGL_);
 
@@ -470,20 +471,20 @@ GPU_GLES::GPU_GLES(GraphicsContext *ctx)
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + g_paramSFO.GetValueString("DISC_ID") + ".glshadercache";
-		shaderManager_->LoadAndPrecompile(shaderCachePath_);
+		shaderManagerGL_->LoadAndPrecompile(shaderCachePath_);
 	}
 }
 
 GPU_GLES::~GPU_GLES() {
 	framebufferManagerGL_->DestroyAllFBOs(true);
-	shaderManager_->ClearCache(true);
+	shaderManagerGL_->ClearCache(true);
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
 	if (!shaderCachePath_.empty()) {
-		shaderManager_->Save(shaderCachePath_);
+		shaderManagerGL_->Save(shaderCachePath_);
 	}
-	delete shaderManager_;
-	shaderManager_ = nullptr;
+	delete shaderManagerGL_;
+	shaderManagerGL_ = nullptr;
 
 #ifdef _WIN32
 	gfxCtx_->SwapInterval(0);
@@ -652,7 +653,7 @@ void GPU_GLES::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	// TransformDraw has registered as a GfxResourceHolder.
-	shaderManager_->ClearCache(false);
+	shaderManagerGL_->ClearCache(false);
 	textureCacheGL_->Clear(false);
 	fragmentTestCache_.Clear(false);
 	depalShaderCache_.Clear();
@@ -760,10 +761,10 @@ void GPU_GLES::BeginFrameInternal() {
 
 	// Save the cache from time to time. TODO: How often?
 	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 1023) == 0) {
-		shaderManager_->Save(shaderCachePath_);
+		shaderManagerGL_->Save(shaderCachePath_);
 	}
 
-	shaderManager_->DirtyShader();
+	shaderManagerGL_->DirtyShader();
 
 	// Not sure if this is really needed.
 	shaderManager_->DirtyUniform(DIRTY_ALL);
@@ -811,7 +812,7 @@ void GPU_GLES::CopyDisplayToOutputInternal() {
 	framebufferManagerGL_->RebindFramebuffer();
 	drawEngine_.Flush();
 
-	shaderManager_->DirtyLastShader();
+	shaderManagerGL_->DirtyLastShader();
 
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -2090,9 +2091,9 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheGL_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
-		shaderManager_->NumVertexShaders(),
-		shaderManager_->NumFragmentShaders(),
-		shaderManager_->NumPrograms());
+		shaderManagerGL_->NumVertexShaders(),
+		shaderManagerGL_->NumFragmentShaders(),
+		shaderManagerGL_->NumPrograms());
 }
 
 void GPU_GLES::ClearCacheNextFrame() {
@@ -2100,12 +2101,12 @@ void GPU_GLES::ClearCacheNextFrame() {
 }
 
 void GPU_GLES::ClearShaderCache() {
-	shaderManager_->ClearCache(true);
+	shaderManagerGL_->ClearCache(true);
 }
 
 void GPU_GLES::CleanupBeforeUI() {
 	// Clear any enabled vertex arrays.
-	shaderManager_->DirtyLastShader();
+	shaderManagerGL_->DirtyLastShader();
 	glstate.arrayBuffer.bind(0);
 	glstate.elementArrayBuffer.bind(0);
 }
@@ -2127,7 +2128,7 @@ void GPU_GLES::DoState(PointerWrap &p) {
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		framebufferManagerGL_->DestroyAllFBOs(true);
-		shaderManager_->ClearCache(true);
+		shaderManagerGL_->ClearCache(true);
 	}
 }
 
@@ -2216,7 +2217,7 @@ std::vector<std::string> GPU_GLES::DebugGetShaderIDs(DebugShaderType type) {
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderIDs();
 	} else {
-		return shaderManager_->DebugGetShaderIDs(type);
+		return shaderManagerGL_->DebugGetShaderIDs(type);
 	}
 }
 
@@ -2224,6 +2225,6 @@ std::string GPU_GLES::DebugGetShaderString(std::string id, DebugShaderType type,
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
 	} else {
-		return shaderManager_->DebugGetShaderString(id, type, stringType);
+		return shaderManagerGL_->DebugGetShaderString(id, type, stringType);
 	}
 }

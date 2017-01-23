@@ -163,7 +163,7 @@ private:
 	TextureCacheDX9 *textureCacheDX9_;
 	DepalShaderCacheDX9 depalShaderCache_;
 	DrawEngineDX9 drawEngine_;
-	ShaderManagerDX9 *shaderManager_;
+	ShaderManagerDX9 *shaderManagerDX9_;
 
 	static CommandInfo cmdInfo_[256];
 

@@ -162,7 +162,7 @@ private:
 	DrawEngineVulkan drawEngine_;
 
 	// Manages shaders and UBO data
-	ShaderManagerVulkan *shaderManager_;
+	ShaderManagerVulkan *shaderManagerVulkan_;
 
 	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;

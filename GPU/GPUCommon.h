@@ -207,6 +207,7 @@ protected:
 	FramebufferManagerCommon *framebufferManager_;
 	TextureCacheCommon *textureCache_;
 	DrawEngineCommon *drawEngineCommon_;
+	ShaderManagerCommon *shaderManager_;
 
 	typedef std::list<int> DisplayListQueue;
 

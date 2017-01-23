@@ -748,7 +748,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 }
 
 ShaderManagerGLES::ShaderManagerGLES()
-		: lastShader_(nullptr), globalDirty_(DIRTY_ALL), shaderSwitchDirty_(0), diskCacheDirty_(false) {
+		: lastShader_(nullptr), shaderSwitchDirty_(0), diskCacheDirty_(false) {
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
