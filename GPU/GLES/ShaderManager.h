@@ -55,8 +55,8 @@ public:
 	bool useHWTransform_;
 
 	uint32_t program;
-	u32 availableUniforms;
-	u32 dirtyUniforms;
+	u64 availableUniforms;
+	u64 dirtyUniforms;
 
 	// Present attributes in the shader.
 	int attrMask;  // 1 << ATTR_ ... or-ed together.
@@ -110,52 +110,66 @@ public:
 	int u_lightdiffuse[4];  // each light consist of vec4[3]
 	int u_lightspecular[4];  // attenuation
 	int u_lightambient[4];  // attenuation
+
+	int u_tess_pos_tex;
+	int u_tess_tex_tex;
+	int u_tess_col_tex;
+	int u_spline_count_u;
+	int u_spline_count_v;
+	int u_spline_type_u;
+	int u_spline_type_v;
 };
 
-enum {
-	DIRTY_PROJMATRIX = (1 << 0),
-	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
-	DIRTY_FOGCOLOR = (1 << 2),
-	DIRTY_FOGCOEF = (1 << 3),
-	DIRTY_TEXENV = (1 << 4),
-	DIRTY_ALPHACOLORREF = (1 << 5),
+enum : uint64_t {
+	DIRTY_PROJMATRIX = 1ULL << 0,
+	DIRTY_PROJTHROUGHMATRIX = 1ULL << 1,
+	DIRTY_FOGCOLOR = 1ULL << 2,
+	DIRTY_FOGCOEF = 1ULL << 3,
+	DIRTY_TEXENV = 1ULL << 4,
+	DIRTY_ALPHACOLORREF = 1ULL << 5,
 
 	// 1 << 6 is free! Wait, not anymore...
-	DIRTY_STENCILREPLACEVALUE = (1 << 6),
+	DIRTY_STENCILREPLACEVALUE = 1ULL << 6,
 
-	DIRTY_ALPHACOLORMASK = (1 << 7),
-	DIRTY_LIGHT0 = (1 << 8),
-	DIRTY_LIGHT1 = (1 << 9),
-	DIRTY_LIGHT2 = (1 << 10),
-	DIRTY_LIGHT3 = (1 << 11),
+	DIRTY_ALPHACOLORMASK = 1ULL << 7,
+	DIRTY_LIGHT0 = 1ULL << 8,
+	DIRTY_LIGHT1 = 1ULL << 9,
+	DIRTY_LIGHT2 = 1ULL << 10,
+	DIRTY_LIGHT3 = 1ULL << 11,
 
-	DIRTY_MATDIFFUSE = (1 << 12),
-	DIRTY_MATSPECULAR = (1 << 13),
-	DIRTY_MATEMISSIVE = (1 << 14),
-	DIRTY_AMBIENT = (1 << 15),
-	DIRTY_MATAMBIENTALPHA = (1 << 16),
+	DIRTY_MATDIFFUSE = 1ULL << 12,
+	DIRTY_MATSPECULAR = 1ULL << 13,
+	DIRTY_MATEMISSIVE = 1ULL << 14,
+	DIRTY_AMBIENT = 1ULL << 15,
+	DIRTY_MATAMBIENTALPHA = 1ULL << 16,
 
-	DIRTY_SHADERBLEND = (1 << 17),  // Used only for in-shader blending.
+	DIRTY_SHADERBLEND = 1ULL << 17,  // Used only for in-shader blending.
 
-	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
+	DIRTY_UVSCALEOFFSET = 1ULL << 18,  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
 
 	// Texclamp is fairly rare so let's share it's bit with DIRTY_DEPTHRANGE.
-	DIRTY_TEXCLAMP = (1 << 19),
-	DIRTY_DEPTHRANGE = (1 << 19),
+	DIRTY_TEXCLAMP = 1ULL << 19,
+	DIRTY_DEPTHRANGE = 1ULL << 19,
 
-	DIRTY_WORLDMATRIX = (1 << 21),
-	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
-	DIRTY_TEXMATRIX = (1 << 23),
-	DIRTY_BONEMATRIX0 = (1 << 24),
-	DIRTY_BONEMATRIX1 = (1 << 25),
-	DIRTY_BONEMATRIX2 = (1 << 26),
-	DIRTY_BONEMATRIX3 = (1 << 27),
-	DIRTY_BONEMATRIX4 = (1 << 28),
-	DIRTY_BONEMATRIX5 = (1 << 29),
-	DIRTY_BONEMATRIX6 = (1 << 30),
-	DIRTY_BONEMATRIX7 = (1 << 31),
+	DIRTY_WORLDMATRIX = 1ULL << 21,
+	DIRTY_VIEWMATRIX = 1ULL << 22,  // Maybe we'll fold this into projmatrix eventually
+	DIRTY_TEXMATRIX = 1ULL << 23,
+	DIRTY_BONEMATRIX0 = 1ULL << 24,
+	DIRTY_BONEMATRIX1 = 1ULL << 25,
+	DIRTY_BONEMATRIX2 = 1ULL << 26,
+	DIRTY_BONEMATRIX3 = 1ULL << 27,
+	DIRTY_BONEMATRIX4 = 1ULL << 28,
+	DIRTY_BONEMATRIX5 = 1ULL << 29,
+	DIRTY_BONEMATRIX6 = 1ULL << 30,
+	DIRTY_BONEMATRIX7 = 1ULL << 31,
 
-	DIRTY_ALL = 0xFFFFFFFF
+	DIRTY_BEZIERCOUNTU = 1ULL << 32,  // Used only for hardware tessellation
+	DIRTY_SPLINECOUNTU = 1ULL << 33,  // Used only for hardware tessellation
+	DIRTY_SPLINECOUNTV = 1ULL << 34,  // Used only for hardware tessellation
+	DIRTY_SPLINETYPEU = 1ULL << 35,  // Used only for hardware tessellation
+	DIRTY_SPLINETYPEV = 1ULL << 36,  // Used only for hardware tessellation
+
+	DIRTY_ALL = 0xFFFFFFFFFFFFFFFF
 };
 
 // Real public interface
@@ -191,7 +205,7 @@ public:
 	LinkedShader *ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim);
 
 	void DirtyShader();
-	void DirtyUniform(u32 what) {
+	void DirtyUniform(u64 what) {
 		globalDirty_ |= what;
 	}
 	void DirtyLastShader();  // disables vertex arrays
@@ -229,8 +243,8 @@ private:
 	ShaderID lastVSID_;
 
 	LinkedShader *lastShader_;
-	u32 globalDirty_;
-	u32 shaderSwitchDirty_;
+	u64 globalDirty_;
+	u64 shaderSwitchDirty_;
 	char *codeBuffer_;
 
 	typedef std::map<ShaderID, Shader *> FSCache;

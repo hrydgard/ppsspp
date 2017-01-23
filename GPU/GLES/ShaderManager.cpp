@@ -229,6 +229,17 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 		sprintf(temp, "u_lightspecular%i", i);
 		u_lightspecular[i] = glGetUniformLocation(program, temp);
 	}
+	if (gstate_c.bezier || gstate_c.spline) {
+		u_tess_pos_tex = glGetUniformLocation(program, "u_tess_pos_tex");
+		u_tess_tex_tex = glGetUniformLocation(program, "u_tess_tex_tex");
+		u_tess_col_tex = glGetUniformLocation(program, "u_tess_col_tex");
+		u_spline_count_u = glGetUniformLocation(program, "u_spline_count_u");
+		if (gstate_c.spline) {
+			u_spline_count_v = glGetUniformLocation(program, "u_spline_count_v");
+			u_spline_type_u = glGetUniformLocation(program, "u_spline_type_u");
+			u_spline_type_v = glGetUniformLocation(program, "u_spline_type_v");
+		}
+	}
 
 	attrMask = 0;
 	if (-1 != glGetAttribLocation(program, "position")) attrMask |= 1 << ATTR_POSITION;
@@ -282,6 +293,14 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 				u_lightpos[i] != -1)
 			availableUniforms |= DIRTY_LIGHT0 << i;
 	}
+	if (gstate_c.bezier) {
+		if (u_spline_count_u != -1) availableUniforms |= DIRTY_BEZIERCOUNTU;
+	} else if (gstate_c.spline) {
+		if (u_spline_count_u != -1) availableUniforms |= DIRTY_SPLINECOUNTU;
+		if (u_spline_count_v != -1) availableUniforms |= DIRTY_SPLINECOUNTV;
+		if (u_spline_type_u != -1) availableUniforms |= DIRTY_SPLINETYPEU;
+		if (u_spline_type_v != -1) availableUniforms |= DIRTY_SPLINETYPEV;
+	}
 
 	glUseProgram(program);
 
@@ -289,6 +308,11 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 	glUniform1i(u_tex, 0);
 	glUniform1i(u_fbotex, 1);
 	glUniform1i(u_testtex, 2);
+	if (gstate_c.bezier || gstate_c.spline) {
+		glUniform1i(u_tess_pos_tex, 3); // Texture unit 3
+		glUniform1i(u_tess_tex_tex, 4); // Texture unit 4
+		glUniform1i(u_tess_col_tex, 5); // Texture unit 5
+	}
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
 }
@@ -413,7 +437,7 @@ void LinkedShader::stop() {
 }
 
 void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
-	u32 dirty = dirtyUniforms & availableUniforms;
+	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 	if (!dirty)
 		return;
@@ -537,10 +561,22 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		const float widthFactor = (float)w * invW;
 		const float heightFactor = (float)h * invH;
 		float uvscaleoff[4];
-		uvscaleoff[0] = widthFactor;
-		uvscaleoff[1] = heightFactor;
-		uvscaleoff[2] = 0.0f;
-		uvscaleoff[3] = 0.0f;
+		if (gstate_c.bezier || gstate_c.spline) {
+			// TODO: Move somewhere or fix properly
+			// Fix temporarily avoid texture scaling bug with hardware tessellation.
+			// This issue occurs probably since rev 9d7983e.
+			static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+			const float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+			uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
+			uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
+			uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
+			uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
+		} else {
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+		}
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 
@@ -704,10 +740,24 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 			if (u_lightspecular[i] != -1) SetColorUniform3(u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
 		}
 	}
+
+	if (gstate_c.bezier) {
+		if (dirty & DIRTY_BEZIERCOUNTU)
+			glUniform1i(u_spline_count_u, gstate_c.bezier_count_u);
+	} else if (gstate_c.spline) {
+		if (dirty & DIRTY_SPLINECOUNTU)
+			glUniform1i(u_spline_count_u, gstate_c.spline_count_u);
+		if (dirty & DIRTY_SPLINECOUNTV)
+			glUniform1i(u_spline_count_v, gstate_c.spline_count_v);
+		if (dirty & DIRTY_SPLINETYPEU)
+			glUniform1i(u_spline_type_u, gstate_c.spline_type_u);
+		if (dirty & DIRTY_SPLINETYPEV)
+			glUniform1i(u_spline_type_v, gstate_c.spline_type_v);
+	}
 }
 
 ShaderManager::ShaderManager()
-		: lastShader_(nullptr), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0), diskCacheDirty_(false) {
+		: lastShader_(nullptr), globalDirty_(DIRTY_ALL), shaderSwitchDirty_(0), diskCacheDirty_(false) {
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
@@ -731,7 +781,7 @@ void ShaderManager::Clear() {
 	linkedShaderCache_.clear();
 	fsCache_.clear();
 	vsCache_.clear();
-	globalDirty_ = 0xFFFFFFFF;
+	globalDirty_ = DIRTY_ALL;
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	DirtyShader();
@@ -747,7 +797,7 @@ void ShaderManager::DirtyShader() {
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	DirtyLastShader();
-	globalDirty_ = 0xFFFFFFFF;
+	globalDirty_ = DIRTY_ALL;
 	shaderSwitchDirty_ = 0;
 }
 
@@ -847,7 +897,7 @@ LinkedShader *ShaderManager::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 
 	// Okay, we have both shaders. Let's see if there's a linked one.
 	LinkedShader *ls = nullptr;
 
-	u32 switchDirty = shaderSwitchDirty_;
+	u64 switchDirty = shaderSwitchDirty_;
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
 		iter->ls->dirtyUniforms |= switchDirty;
