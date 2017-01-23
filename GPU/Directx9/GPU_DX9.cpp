@@ -754,7 +754,7 @@ void GPU_DX9::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	// This also make skipping drawing very effective.
-	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		drawEngine_.SetupVertexDecoder(gstate.vertType);
 		// Rough estimate, not sure what's correct.
@@ -801,7 +801,7 @@ void GPU_DX9::Execute_Prim(u32 op, u32 diff) {
 
 void GPU_DX9::Execute_Bezier(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -844,7 +844,7 @@ void GPU_DX9::Execute_Bezier(u32 op, u32 diff) {
 
 void GPU_DX9::Execute_Spline(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -889,7 +889,7 @@ void GPU_DX9::Execute_Spline(u32 op, u32 diff) {
 }
 
 void GPU_DX9::Execute_ViewportType(u32 op, u32 diff) {
-	gstate_c.framebufChanged = true;
+	gstate_c.Dirty(DIRTY_FRAMEBUF);
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 	switch (op >> 24) {
 	case GE_CMD_VIEWPORTZSCALE:
@@ -900,17 +900,17 @@ void GPU_DX9::Execute_ViewportType(u32 op, u32 diff) {
 }
 
 void GPU_DX9::Execute_Region(u32 op, u32 diff) {
-	gstate_c.framebufChanged = true;
+	gstate_c.Dirty(DIRTY_FRAMEBUF);
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
 void GPU_DX9::Execute_Scissor(u32 op, u32 diff) {
-	gstate_c.framebufChanged = true;
+	gstate_c.Dirty(DIRTY_FRAMEBUF);
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
 void GPU_DX9::Execute_FramebufType(u32 op, u32 diff) {
-	gstate_c.framebufChanged = true;
+	gstate_c.Dirty(DIRTY_FRAMEBUF);
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 

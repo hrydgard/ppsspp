@@ -778,7 +778,7 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	// This also makes skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		drawEngine_.SetupVertexDecoder(gstate.vertType);
@@ -829,7 +829,7 @@ void GPU_Vulkan::Execute_VertexType(u32 op, u32 diff) {
 
 void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -872,7 +872,7 @@ void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 
 void GPU_Vulkan::Execute_Spline(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -917,27 +917,27 @@ void GPU_Vulkan::Execute_Spline(u32 op, u32 diff) {
 }
 
 void GPU_Vulkan::Execute_Region(u32 op, u32 diff) {
-	gstate_c.framebufChanged = true;
+	gstate_c.Dirty(DIRTY_FRAMEBUF);
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
 void GPU_Vulkan::Execute_Scissor(u32 op, u32 diff) {
-	gstate_c.framebufChanged = true;
+	gstate_c.Dirty(DIRTY_FRAMEBUF);
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
 void GPU_Vulkan::Execute_FramebufType(u32 op, u32 diff) {
-	gstate_c.framebufChanged = true;
+	gstate_c.Dirty(DIRTY_FRAMEBUF);
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
 void GPU_Vulkan::Execute_ViewportType(u32 op, u32 diff) {
-	gstate_c.framebufChanged = true;
+	gstate_c.Dirty(DIRTY_FRAMEBUF);
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
 void GPU_Vulkan::Execute_ViewportZType(u32 op, u32 diff) {
-	gstate_c.framebufChanged = true;
+	gstate_c.Dirty(DIRTY_FRAMEBUF);
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 	gstate_c.DirtyUniform(DIRTY_DEPTHRANGE);
 }

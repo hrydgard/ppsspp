@@ -1071,7 +1071,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -1114,7 +1114,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 
 void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;

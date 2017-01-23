@@ -1962,7 +1962,7 @@ void FramebufferManagerGLES::FlushBeforeCopy() {
 	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
 	// all the irrelevant state checking it'll use to decide what to do. Should
 	// do something more focused here.
-	SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	transformDraw_->Flush();
 }
 

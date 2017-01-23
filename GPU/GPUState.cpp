@@ -219,7 +219,6 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		textureChanged = TEXCHANGE_UPDATED;
 		textureFullAlpha = old.textureFullAlpha;
 		vertexFullAlpha = old.vertexFullAlpha;
-		framebufChanged = old.framebufChanged;
 		skipDrawReason = old.skipDrawReason;
 		uv = old.uv;
 	} else {
@@ -230,6 +229,7 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		p.Do(textureChanged);
 		p.Do(textureFullAlpha);
 		p.Do(vertexFullAlpha);
+		bool framebufChanged;  // legacy
 		p.Do(framebufChanged);
 
 		p.Do(skipDrawReason);

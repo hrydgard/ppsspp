@@ -492,8 +492,17 @@ struct GPUStateCache {
 	void DirtyUniform(u64 what) {
 		dirty |= what;
 	}
+	void Dirty(u64 what) {
+		dirty |= what;
+	}
 	void CleanUniforms() {
 		dirty &= ~DIRTY_ALL_UNIFORMS;
+	}
+	void Clean(u64 what) {
+		dirty &= ~what;
+	}
+	bool IsDirty(u64 what) const {
+		return (dirty & what) != 0ULL;
 	}
 
 	u32 featureFlags;
@@ -508,7 +517,6 @@ struct GPUStateCache {
 	bool textureFullAlpha;
 	bool textureSimpleAlpha;
 	bool vertexFullAlpha;
-	bool framebufChanged;
 
 	int skipDrawReason;
 
