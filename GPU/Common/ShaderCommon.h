@@ -94,11 +94,6 @@ enum : uint64_t {
 
 class ShaderManagerCommon {
 public:
-	ShaderManagerCommon() : globalDirty_(DIRTY_ALL) {}
+	ShaderManagerCommon() {}
 	virtual ~ShaderManagerCommon() {}
-	void DirtyUniform(u64 what) {
-		globalDirty_ |= what;
-	}
-protected:
-	uint64_t globalDirty_;
 };

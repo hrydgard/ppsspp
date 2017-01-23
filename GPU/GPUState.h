@@ -23,6 +23,7 @@
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "Common/Common.h"
+#include "GPU/Common/ShaderCommon.h"
 
 class PointerWrap;
 
@@ -487,12 +488,21 @@ struct KnownVertexBounds {
 
 struct GPUStateCache {
 	bool Supports(int flag) { return (featureFlags & flag) != 0; }
+	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
+	void DirtyUniform(u64 what) {
+		dirty |= what;
+	}
+	void CleanUniforms() {
+		dirty &= ~DIRTY_ALL_UNIFORMS;
+	}
 
 	u32 featureFlags;
 
 	u32 vertexAddr;
 	u32 indexAddr;
 	u32 offsetAddr;
+
+	uint64_t dirty;
 
 	u8 textureChanged;
 	bool textureFullAlpha;

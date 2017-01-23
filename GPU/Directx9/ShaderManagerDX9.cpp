@@ -522,7 +522,7 @@ void ShaderManagerDX9::Clear() {
 	}
 	fsCache_.clear();
 	vsCache_.clear();
-	globalDirty_ = 0xFFFFFFFF;
+	gstate_c.DirtyUniform(DIRTY_ALL_UNIFORMS);
 	lastFSID_.clear();
 	lastVSID_.clear();
 	DirtyShader();
@@ -539,7 +539,7 @@ void ShaderManagerDX9::DirtyShader() {
 	lastVSID_.clear();
 	lastVShader_ = nullptr;
 	lastPShader_ = nullptr;
-	globalDirty_ = 0xFFFFFFFF;
+	gstate_c.DirtyUniform(DIRTY_ALL_UNIFORMS);
 }
 
 void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
@@ -557,10 +557,11 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastPShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
-		if (globalDirty_) {
-			PSUpdateUniforms(globalDirty_);
-			VSUpdateUniforms(globalDirty_);
-			globalDirty_ = 0;
+		uint64_t dirtyUniforms = gstate_c.GetDirtyUniforms();
+		if (dirtyUniforms) {
+			PSUpdateUniforms(dirtyUniforms);
+			VSUpdateUniforms(dirtyUniforms);
+			gstate_c.CleanUniforms();
 		}
 		return lastVShader_;	// Already all set.
 	}
@@ -608,10 +609,11 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 
 	lastFSID_ = FSID;
 
-	if (globalDirty_) {
-		PSUpdateUniforms(globalDirty_);
-		VSUpdateUniforms(globalDirty_);
-		globalDirty_ = 0;
+	uint64_t dirtyUniforms = gstate_c.GetDirtyUniforms();
+	if (dirtyUniforms) {
+		PSUpdateUniforms(dirtyUniforms);
+		VSUpdateUniforms(dirtyUniforms);
+		gstate_c.CleanUniforms();
 	}
 
 	pD3Ddevice->SetPixelShader(fs->shader);

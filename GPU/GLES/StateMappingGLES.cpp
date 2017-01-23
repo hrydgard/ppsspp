@@ -144,7 +144,7 @@ bool DrawEngineGLES::ApplyShaderBlending() {
 
 	fboTexNeedBind_ = true;
 
-	shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+	gstate_c.DirtyUniform(DIRTY_SHADERBLEND);
 	return true;
 }
 
@@ -166,7 +166,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		if (gstate_c.needShaderTexClamp) {
 			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
 			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
-			shaderManager_->DirtyUniform(DIRTY_TEXCLAMP);
+			gstate_c.DirtyUniform(DIRTY_TEXCLAMP);
 		}
 	}
 
@@ -207,7 +207,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
 			glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha]);
 		if (blendState.dirtyShaderBlend) {
-			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+			gstate_c.DirtyUniform(DIRTY_SHADERBLEND);
 		}
 		if (blendState.useBlendColor) {
 			uint32_t color = blendState.blendColor;
@@ -368,10 +368,10 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	glstate.depthRange.set(vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax);
 
 	if (vpAndScissor.dirtyProj) {
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
 	}
 	if (vpAndScissor.dirtyDepth) {
-		shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
+		gstate_c.DirtyUniform(DIRTY_DEPTHRANGE);
 	}
 }
 

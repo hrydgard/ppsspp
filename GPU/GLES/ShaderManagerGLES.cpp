@@ -314,7 +314,7 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 		glUniform1i(u_tess_col_tex, 5); // Texture unit 5
 	}
 	// The rest, use the "dirty" mechanism.
-	dirtyUniforms = DIRTY_ALL;
+	dirtyUniforms = DIRTY_ALL_UNIFORMS;
 }
 
 LinkedShader::~LinkedShader() {
@@ -772,7 +772,7 @@ void ShaderManagerGLES::Clear() {
 	linkedShaderCache_.clear();
 	fsCache_.clear();
 	vsCache_.clear();
-	globalDirty_ = DIRTY_ALL;
+	gstate_c.DirtyUniform(DIRTY_ALL_UNIFORMS);
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	DirtyShader();
@@ -788,7 +788,7 @@ void ShaderManagerGLES::DirtyShader() {
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	DirtyLastShader();
-	globalDirty_ = DIRTY_ALL;
+	gstate_c.DirtyUniform(DIRTY_ALL_UNIFORMS);
 	shaderSwitchDirty_ = 0;
 }
 
@@ -813,11 +813,12 @@ Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
 }
 
 Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
-	if (globalDirty_) {
+	uint64_t dirty = gstate_c.GetDirtyUniforms();
+	if (dirty) {
 		if (lastShader_)
-			lastShader_->dirtyUniforms |= globalDirty_;
-		shaderSwitchDirty_ |= globalDirty_;
-		globalDirty_ = 0;
+			lastShader_->dirtyUniforms |= dirty;
+		shaderSwitchDirty_ |= dirty;
+		gstate_c.CleanUniforms();
 	}
 
 	bool useHWTransform = CanUseHardwareTransform(prim);

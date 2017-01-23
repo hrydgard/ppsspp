@@ -409,7 +409,7 @@ void ShaderManagerVulkan::Clear() {
 void ShaderManagerVulkan::ClearShaders() {
 	Clear();
 	DirtyShader();
-	DirtyUniform(0xFFFFFFFF);
+	gstate_c.DirtyUniform(DIRTY_ALL_UNIFORMS);
 }
 
 void ShaderManagerVulkan::DirtyShader() {
@@ -426,13 +426,13 @@ void ShaderManagerVulkan::DirtyLastShader() { // disables vertex arrays
 }
 
 uint32_t ShaderManagerVulkan::UpdateUniforms() {
-	uint32_t dirty = globalDirty_;
-	if (globalDirty_) {
+	uint32_t dirty = gstate_c.GetDirtyUniforms();
+	if (dirty != 0) {
 		BaseUpdateUniforms(dirty);
 		LightUpdateUniforms(dirty);
 		BoneUpdateUniforms(dirty);
 	}
-	globalDirty_ = 0;
+	gstate_c.CleanUniforms();
 	return dirty;
 }
 

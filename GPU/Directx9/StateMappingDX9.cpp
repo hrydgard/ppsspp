@@ -111,7 +111,7 @@ bool DrawEngineDX9::ApplyShaderBlending() {
 
 	fboTexNeedBind_ = true;
 
-	shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+	gstate_c.DirtyUniform(DIRTY_SHADERBLEND);
 	return true;
 }
 
@@ -131,7 +131,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		if (gstate_c.needShaderTexClamp) {
 			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
 			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
-			shaderManager_->DirtyUniform(DIRTY_TEXCLAMP);
+			gstate_c.DirtyUniform(DIRTY_TEXCLAMP);
 		}
 	}
 
@@ -174,7 +174,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			dxBlendFactorLookup[(size_t)blendState.srcColor], dxBlendFactorLookup[(size_t)blendState.dstColor],
 			dxBlendFactorLookup[(size_t)blendState.srcAlpha], dxBlendFactorLookup[(size_t)blendState.dstAlpha]);
 		if (blendState.dirtyShaderBlend) {
-			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+			gstate_c.DirtyUniform(DIRTY_SHADERBLEND);
 		}
 		if (blendState.useBlendColor) {
 			dxstate.blendColor.setDWORD(blendState.blendColor);
@@ -297,10 +297,10 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 	dxstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH, depthMin, depthMax);
 	if (vpAndScissor.dirtyProj) {
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
 	}
 	if (vpAndScissor.dirtyDepth) {
-		shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
+		gstate_c.DirtyUniform(DIRTY_DEPTHRANGE);
 	}
 }
 

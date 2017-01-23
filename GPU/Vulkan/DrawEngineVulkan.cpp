@@ -637,7 +637,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		if (gstate_c.needShaderTexClamp) {
 			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
 			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
-			shaderManager_->DirtyUniform(DIRTY_TEXCLAMP);
+			gstate_c.DirtyUniform(DIRTY_TEXCLAMP);
 		}
 	}
 
