@@ -1290,7 +1290,8 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_LAC0:
 	case GE_CMD_LDC0:
 	case GE_CMD_LSC0:
-		shaderManager_->DirtyUniform(DIRTY_LIGHT0);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_LIGHT0);
 		break;
 
 	case GE_CMD_LX1:case GE_CMD_LY1:case GE_CMD_LZ1:
@@ -1301,7 +1302,8 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_LAC1:
 	case GE_CMD_LDC1:
 	case GE_CMD_LSC1:
-		shaderManager_->DirtyUniform(DIRTY_LIGHT1);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_LIGHT1);
 		break;
 	case GE_CMD_LX2:case GE_CMD_LY2:case GE_CMD_LZ2:
 	case GE_CMD_LDX2:case GE_CMD_LDY2:case GE_CMD_LDZ2:
@@ -1311,7 +1313,8 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_LAC2:
 	case GE_CMD_LDC2:
 	case GE_CMD_LSC2:
-		shaderManager_->DirtyUniform(DIRTY_LIGHT2);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_LIGHT2);
 		break;
 	case GE_CMD_LX3:case GE_CMD_LY3:case GE_CMD_LZ3:
 	case GE_CMD_LDX3:case GE_CMD_LDY3:case GE_CMD_LDZ3:
@@ -1321,7 +1324,8 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_LAC3:
 	case GE_CMD_LDC3:
 	case GE_CMD_LSC3:
-		shaderManager_->DirtyUniform(DIRTY_LIGHT3);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_LIGHT3);
 		break;
 
 	case GE_CMD_VIEWPORTXSCALE:
@@ -1330,7 +1334,8 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTYCENTER:
 	case GE_CMD_VIEWPORTZSCALE:
 	case GE_CMD_VIEWPORTZCENTER:
-		Execute_ViewportType(op, diff);
+		if (diff)
+			Execute_ViewportType(op, diff);
 		break;
 
 	case GE_CMD_LIGHTENABLE0:

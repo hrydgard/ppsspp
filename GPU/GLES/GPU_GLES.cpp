@@ -408,6 +408,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *ctx)
 	textureCache_ = textureCacheGL_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerGL_;
+	drawEngineCommon_ = &drawEngine_;
 
 	drawEngine_.SetShaderManager(shaderManagerGL_);
 	drawEngine_.SetTextureCache(textureCacheGL_);
