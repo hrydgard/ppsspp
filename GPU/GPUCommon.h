@@ -96,6 +96,8 @@ public:
 	void Execute_BoneMtxNum(u32 op, u32 diff);
 	void Execute_BoneMtxData(u32 op, u32 diff);
 
+	int EstimatePerVertexCost();
+
 	// Note: Not virtual!
 	inline void Flush();
 

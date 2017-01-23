@@ -88,6 +88,35 @@ void GPUCommon::Reinitialize() {
 	ScheduleEvent(GPU_EVENT_REINITIALIZE);
 }
 
+int GPUCommon::EstimatePerVertexCost() {
+	// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
+	// runs in parallel with transform.
+
+	// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
+
+	// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
+	// went too fast and starts doing all the work over again).
+
+	int cost = 20;
+	if (gstate.isLightingEnabled()) {
+		cost += 10;
+
+		for (int i = 0; i < 4; i++) {
+			if (gstate.isLightChanEnabled(i))
+				cost += 10;
+		}
+	}
+
+	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
+		cost += 20;
+	}
+	int morphCount = gstate.getNumMorphWeights();
+	if (morphCount > 1) {
+		cost += 5 * morphCount;
+	}
+	return cost;
+}
+
 void GPUCommon::PopDLQueue() {
 	easy_guard guard(listLock);
 	if(!dlQueue.empty()) {

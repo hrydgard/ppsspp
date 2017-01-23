@@ -784,8 +784,7 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		drawEngine_.SetupVertexDecoder(gstate.vertType);
 		// Rough estimate, not sure what's correct.
-		int vertexCost = drawEngine_.EstimatePerVertexCost();
-		cyclesExecuted += vertexCost * count;
+		cyclesExecuted += EstimatePerVertexCost() * count;
 		return;
 	}
 
@@ -813,7 +812,7 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 	int bytesRead = 0;
 	drawEngine_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
 
-	int vertexCost = drawEngine_.EstimatePerVertexCost();
+	int vertexCost = EstimatePerVertexCost();
 	gpuStats.vertexGPUCycles += vertexCost * count;
 	cyclesExecuted += vertexCost * count;
 
