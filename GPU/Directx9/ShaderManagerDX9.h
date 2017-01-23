@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+#include <cstdint>
 
 #include "base/basictypes.h"
 #include "Globals.h"
@@ -34,7 +35,7 @@ class PSShader;
 class VSShader;
 
 // Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
-enum {
+enum DirtyFlag : uint64_t {
 	DIRTY_PROJMATRIX = (1 << 0),
 	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
 	DIRTY_FOGCOLOR = (1 << 2),
@@ -70,9 +71,9 @@ enum {
 	DIRTY_BONEMATRIX4 = (1 << 28),
 	DIRTY_BONEMATRIX5 = (1 << 29),
 	DIRTY_BONEMATRIX6 = (1 << 30),
-	DIRTY_BONEMATRIX7 = (1 << 31),
+	DIRTY_BONEMATRIX7 = (1ULL << 31),
 
-	DIRTY_ALL = 0xFFFFFFFF
+	DIRTY_ALL = 0xFFFFFFFFFFFFFFFFULL
 };
 
 // Real public interface
@@ -125,7 +126,7 @@ public:
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
 	VSShader *ApplyShader(int prim, u32 vertType);
 	void DirtyShader();
-	void DirtyUniform(u32 what) {
+	void DirtyUniform(u64 what) {
 		globalDirty_ |= what;
 	}
 	void DirtyLastShader();
@@ -137,8 +138,8 @@ public:
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 private:
-	void PSUpdateUniforms(u32 dirtyUniforms);
-	void VSUpdateUniforms(u32 dirtyUniforms);
+	void PSUpdateUniforms(u64 dirtyUniforms);
+	void VSUpdateUniforms(u64 dirtyUniforms);
 	void PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
 	void PSSetColorUniform3(int creg, u32 color);
 	void PSSetFloat(int creg, float value);
@@ -160,7 +161,7 @@ private:
 	ShaderID lastFSID_;
 	ShaderID lastVSID_;
 
-	u32 globalDirty_;
+	u64 globalDirty_;
 	char *codeBuffer_;
 
 	VSShader *lastVShader_;

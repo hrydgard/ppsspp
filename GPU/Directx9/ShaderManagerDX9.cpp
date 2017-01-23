@@ -272,7 +272,7 @@ static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
-void ShaderManagerDX9::PSUpdateUniforms(u32 dirtyUniforms) {
+void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		PSSetColorUniform3(CONST_PS_TEXENV, gstate.texenvcolor);
 	}
@@ -324,7 +324,7 @@ void ShaderManagerDX9::PSUpdateUniforms(u32 dirtyUniforms) {
 	}
 }
 
-void ShaderManagerDX9::VSUpdateUniforms(u32 dirtyUniforms) {
+void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 	// Update any dirty uniforms before we draw
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
