@@ -335,7 +335,7 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_GLES::Execute_LoadClut},
-	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, 0, &GPU_GLES::Execute_BlockTransferStart},
+	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_BlockTransferStart},
 
 	// We don't use the dither table.
 	{GE_CMD_DITH0},
@@ -1512,16 +1512,6 @@ void GPU_GLES::Execute_BoneMtxData(u32 op, u32 diff) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 }
 
-void GPU_GLES::Execute_BlockTransferStart(u32 op, u32 diff) {
-	// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
-	// Can we skip this on SkipDraw?
-	DoBlockTransfer(gstate_c.skipDrawReason);
-
-	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
-}
-
 void GPU_GLES::Execute_Generic(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
@@ -1543,7 +1533,6 @@ void GPU_GLES::Execute_Generic(u32 op, u32 diff) {
 		Execute_Prim(op, diff);
 		break;
 
-	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		Execute_Bezier(op, diff);
 		break;
@@ -1692,7 +1681,7 @@ void GPU_GLES::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TRANSFERSIZE:
 		break;
 
-	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
+	case GE_CMD_TRANSFERSTART:
 		Execute_BlockTransferStart(op, diff);
 		break;
 

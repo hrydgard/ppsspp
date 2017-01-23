@@ -83,6 +83,7 @@ public:
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_BoundingBox(u32 op, u32 diff);
+	void Execute_BlockTransferStart(u32 op, u32 diff);
 
 	u64 GetTickEstimate() override {
 #if defined(_M_X64) || defined(__ANDROID__)

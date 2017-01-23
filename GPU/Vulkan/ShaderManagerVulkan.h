@@ -31,7 +31,7 @@
 void ConvertProjMatrixToVulkan(Matrix4x4 & in);
 
 // Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
-enum {
+enum : uint64_t {
 	DIRTY_PROJMATRIX = (1 << 0),
 	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
 	DIRTY_FOGCOLOR = (1 << 2),
@@ -67,7 +67,7 @@ enum {
 	DIRTY_BONEMATRIX4 = (1 << 28),
 	DIRTY_BONEMATRIX5 = (1 << 29),
 	DIRTY_BONEMATRIX6 = (1 << 30),
-	DIRTY_BONEMATRIX7 = (1 << 31),
+	DIRTY_BONEMATRIX7 = (1ULL << 31),
 
 	DIRTY_BASE_UNIFORMS = 
 		DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
@@ -76,9 +76,9 @@ enum {
 	DIRTY_LIGHT_UNIFORMS =
 		DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
 		DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
-	DIRTY_BONE_UNIFORMS = 0xFF000000,
+	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
-	DIRTY_ALL = 0xFFFFFFFF
+	DIRTY_ALL = 0xFFFFFFFFFFFFFFFFULL
 };
 
 // TODO: Split into two structs, one for software transform and one for hardware transform, to save space.
@@ -244,7 +244,7 @@ public:
 
 	uint32_t UpdateUniforms();
 
-	void DirtyUniform(u32 what) {
+	void DirtyUniform(uint64_t what) {
 		globalDirty_ |= what;
 	}
 
@@ -275,8 +275,8 @@ private:
 
 	char *codeBuffer_;
 
-	uint32_t globalDirty_;
-	uint32_t uboAlignment_;
+	uint64_t globalDirty_;
+	uint64_t uboAlignment_;
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base;
 	UB_VS_Lights ub_lights;

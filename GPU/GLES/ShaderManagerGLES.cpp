@@ -547,12 +547,6 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
 
-	// Texturing
-
-	// If this dirty check is changed to true, Frontier Gate Boost works in texcoord speedhack mode.
-	// This means that it's not a flushing issue.
-	// It uses GE_TEXMAP_TEXTURE_MATRIX with GE_PROJMAP_UV a lot.
-	// Can't figure out why it doesn't dirty at the right points though...
 	if (dirty & DIRTY_UVSCALEOFFSET) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
 		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
@@ -562,13 +556,10 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		const float heightFactor = (float)h * invH;
 		float uvscaleoff[4];
 		if (gstate_c.bezier || gstate_c.spline) {
-			// TODO: Move somewhere or fix properly
-			// Fix temporarily avoid texture scaling bug with hardware tessellation.
-			// This issue occurs probably since rev 9d7983e.
-			static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-			const float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-			uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
-			uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
+			// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
+			// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
+			uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
+			uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
 			uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
 			uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
 		} else {

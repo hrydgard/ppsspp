@@ -332,7 +332,7 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, &GPU_DX9::Execute_LoadClut},
-	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC},
+	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, &GPU_DX9::Execute_BlockTransferStart},
 
 	// We don't use the dither table.
 	{GE_CMD_DITH0},
@@ -1311,7 +1311,6 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 		Execute_Prim(op, diff);
 		break;
 
-		// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		Execute_Bezier(op, diff);
 		break;
@@ -1452,17 +1451,9 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TRANSFERSIZE:
 		break;
 
-	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
-		{
-			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-			// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
-			// Can we skip this entirely on SkipDraw? It skips some things internally.
-			DoBlockTransfer(gstate_c.skipDrawReason);
-
-			// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-			gstate_c.textureChanged = TEXCHANGE_UPDATED;
-			break;
-		}
+	case GE_CMD_TRANSFERSTART:
+		Execute_BlockTransferStart(op, diff);
+		break;
 
 	case GE_CMD_TEXSIZE0:
 		Execute_TexSize0(op, diff);

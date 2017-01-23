@@ -1153,6 +1153,16 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	}
 }
 
+void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
+	// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
+	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
+	// Can we skip this on SkipDraw?
+	DoBlockTransfer(gstate_c.skipDrawReason);
+
+	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+}
+
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 	const u32 cmd = op >> 24;
 
