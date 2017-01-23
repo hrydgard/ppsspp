@@ -34,48 +34,6 @@ namespace DX9 {
 class PSShader;
 class VSShader;
 
-// Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
-enum DirtyFlag : uint64_t {
-	DIRTY_PROJMATRIX = (1 << 0),
-	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
-	DIRTY_FOGCOLOR = (1 << 2),
-	DIRTY_FOGCOEF = (1 << 3),
-	DIRTY_TEXENV = (1 << 4),
-	DIRTY_ALPHACOLORREF = (1 << 5),
-	DIRTY_STENCILREPLACEVALUE = (1 << 6),
-
-	DIRTY_ALPHACOLORMASK = (1 << 7),
-	DIRTY_LIGHT0 = (1 << 8),
-	DIRTY_LIGHT1 = (1 << 9),
-	DIRTY_LIGHT2 = (1 << 10),
-	DIRTY_LIGHT3 = (1 << 11),
-
-	DIRTY_MATDIFFUSE = (1 << 12),
-	DIRTY_MATSPECULAR = (1 << 13),
-	DIRTY_MATEMISSIVE = (1 << 14),
-	DIRTY_AMBIENT = (1 << 15),
-	DIRTY_MATAMBIENTALPHA = (1 << 16),
-	DIRTY_SHADERBLEND = (1 << 17),  // Used only for in-shader blending.
-	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
-	DIRTY_TEXCLAMP = (1 << 19),
-
-	DIRTY_DEPTHRANGE = (1 << 20),
-
-	DIRTY_WORLDMATRIX = (1 << 21),
-	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
-	DIRTY_TEXMATRIX = (1 << 23),
-	DIRTY_BONEMATRIX0 = (1 << 24),
-	DIRTY_BONEMATRIX1 = (1 << 25),
-	DIRTY_BONEMATRIX2 = (1 << 26),
-	DIRTY_BONEMATRIX3 = (1 << 27),
-	DIRTY_BONEMATRIX4 = (1 << 28),
-	DIRTY_BONEMATRIX5 = (1 << 29),
-	DIRTY_BONEMATRIX6 = (1 << 30),
-	DIRTY_BONEMATRIX7 = (1ULL << 31),
-
-	DIRTY_ALL = 0xFFFFFFFFFFFFFFFFULL
-};
-
 // Real public interface
 
 class PSShader {
