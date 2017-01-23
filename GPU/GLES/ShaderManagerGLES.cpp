@@ -547,12 +547,6 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
 
-	// Texturing
-
-	// If this dirty check is changed to true, Frontier Gate Boost works in texcoord speedhack mode.
-	// This means that it's not a flushing issue.
-	// It uses GE_TEXMAP_TEXTURE_MATRIX with GE_PROJMAP_UV a lot.
-	// Can't figure out why it doesn't dirty at the right points though...
 	if (dirty & DIRTY_UVSCALEOFFSET) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
 		const float invH = 1.0f / (float)gstate_c.curTextureHeight;

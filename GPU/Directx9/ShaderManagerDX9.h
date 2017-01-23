@@ -137,8 +137,8 @@ public:
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 private:
-	void PSUpdateUniforms(int dirtyUniforms);
-	void VSUpdateUniforms(int dirtyUniforms);
+	void PSUpdateUniforms(u32 dirtyUniforms);
+	void VSUpdateUniforms(u32 dirtyUniforms);
 	void PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
 	void PSSetColorUniform3(int creg, u32 color);
 	void PSSetFloat(int creg, float value);

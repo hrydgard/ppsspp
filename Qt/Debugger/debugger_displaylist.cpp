@@ -674,7 +674,7 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			return QString("Block Transfer Rect Size: %1 x %2").arg(w).arg(h);
 		}
 
-	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
+	case GE_CMD_TRANSFERSTART:
 		{
 		return QString("Block Transfer Start : %1").arg(data ? "32-bit texel size" : "16-bit texel size");
 		}

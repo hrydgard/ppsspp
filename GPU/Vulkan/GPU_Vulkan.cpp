@@ -1301,16 +1301,6 @@ void GPU_Vulkan::Execute_BoneMtxData(u32 op, u32 diff) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 }
 
-void GPU_Vulkan::Execute_BlockTransferStart(u32 op, u32 diff) {
-	// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
-	// Can we skip this on SkipDraw?
-	DoBlockTransfer(gstate_c.skipDrawReason);
-
-	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
-}
-
 void GPU_Vulkan::Execute_Generic(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
@@ -1332,7 +1322,6 @@ void GPU_Vulkan::Execute_Generic(u32 op, u32 diff) {
 		Execute_Prim(op, diff);
 		break;
 
-		// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		Execute_Bezier(op, diff);
 		break;
@@ -1481,7 +1470,7 @@ void GPU_Vulkan::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TRANSFERSIZE:
 		break;
 
-	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
+	case GE_CMD_TRANSFERSTART:
 		Execute_BlockTransferStart(op, diff);
 		break;
 
