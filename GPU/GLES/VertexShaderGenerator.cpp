@@ -337,11 +337,11 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 		for (int i = 2; i <= 4; i++) {
 			// Define 3 types vec2, vec3, vec4
 			WRITE(p, "vec%d tess_sample(in vec%d points[16], in vec2 weights[4]) {\n", i, i);
-			WRITE(p, "  vec%d pos = vec%d(0);\n", i, i);
+			WRITE(p, "  vec%d pos = vec%d(0.0);\n", i, i);
 			WRITE(p, "  for (int i = 0; i < 4; ++i) {\n");
 			WRITE(p, "    for (int j = 0; j < 4; ++j) {\n");
 			WRITE(p, "      float f = weights[j].x * weights[i].y;\n");
-			WRITE(p, "      if (f != 0)\n");
+			WRITE(p, "      if (f != 0.0)\n");
 			WRITE(p, "        pos = pos + f * points[i * 4 + j];\n");
 			WRITE(p, "    }\n");
 			WRITE(p, "  }\n");
@@ -395,13 +395,13 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 			WRITE(p, "  vec2 f31 = t1 / (knot[3] - knot[1]);\n");
 			WRITE(p, "  vec2 f42 = t2 / (knot[4] - knot[2]);\n");
 			WRITE(p, "  vec2 f32 = t2 / (knot[3] - knot[2]);\n");
-			WRITE(p, "  vec2 a = (1 - f30)*(1 - f31);\n");
+			WRITE(p, "  vec2 a = (1.0 - f30)*(1.0 - f31);\n");
 			WRITE(p, "  vec2 b = (f31*f41);\n");
-			WRITE(p, "  vec2 c = (1 - f41)*(1 - f42);\n");
+			WRITE(p, "  vec2 c = (1.0 - f41)*(1.0 - f42);\n");
 			WRITE(p, "  vec2 d = (f42*f52);\n");
 			WRITE(p, "  weights[0] = a - (a*f32);\n");
-			WRITE(p, "  weights[1] = 1 - a - b + ((a + b + c - 1)*f32);\n");
-			WRITE(p, "  weights[2] = b + ((1 - b - c - d)*f32);\n");
+			WRITE(p, "  weights[1] = vec2(1.0) - a - b + ((a + b + c - vec2(1.0))*f32);\n");
+			WRITE(p, "  weights[2] = b + ((vec2(1.0) - b - c - d)*f32);\n");
 			WRITE(p, "  weights[3] = d*f32;\n");
 			WRITE(p, "}\n");
 		}
@@ -467,9 +467,9 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 				WRITE(p, "  vec2 weights[4];\n");
 				if (doBezier) {
 					// Bernstein 3D
-					WRITE(p, "  weights[0] = (1 - tess_pos) * (1 - tess_pos) * (1 - tess_pos);\n");
-					WRITE(p, "  weights[1] = 3 * tess_pos * (1 - tess_pos) * (1 - tess_pos);\n");
-					WRITE(p, "  weights[2] = 3 * tess_pos * tess_pos * (1 - tess_pos);\n");
+					WRITE(p, "  weights[0] = (1.0 - tess_pos) * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
+					WRITE(p, "  weights[1] = 3.0 * tess_pos * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
+					WRITE(p, "  weights[2] = 3.0 * tess_pos * tess_pos * (1.0 - tess_pos);\n");
 					WRITE(p, "  weights[3] = tess_pos * tess_pos * tess_pos;\n");
 				} else if (doSpline) {
 					WRITE(p, "  ivec2 spline_num_patches = ivec2(u_spline_count_u - 3, u_spline_count_v - 3);\n");
@@ -496,10 +496,10 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 					if (doBezier) {
 						// Bernstein derivative
 						WRITE(p, "  vec2 bernderiv[4];\n");
-						WRITE(p, "  bernderiv[0] = -3 * (tess_pos - 1) * (tess_pos - 1); \n");
-						WRITE(p, "  bernderiv[1] = 9 * tess_pos * tess_pos - 12 * tess_pos + 3; \n");
-						WRITE(p, "  bernderiv[2] = 3 * (2 - 3 * tess_pos) * tess_pos; \n");
-						WRITE(p, "  bernderiv[3] = 3 * tess_pos * tess_pos; \n");
+						WRITE(p, "  bernderiv[0] = -3.0 * (tess_pos - 1.0) * (tess_pos - 1.0); \n");
+						WRITE(p, "  bernderiv[1] = 9.0 * tess_pos * tess_pos - 12.0 * tess_pos + 3.0; \n");
+						WRITE(p, "  bernderiv[2] = 3.0 * (2.0 - 3.0 * tess_pos) * tess_pos; \n");
+						WRITE(p, "  bernderiv[3] = 3.0 * tess_pos * tess_pos; \n");
 
 						WRITE(p, "  vec2 bernderiv_u[4];\n");
 						WRITE(p, "  vec2 bernderiv_v[4];\n");
@@ -511,8 +511,8 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 						WRITE(p, "  vec3 du = tess_sample(_pos, bernderiv_u);\n");
 						WRITE(p, "  vec3 dv = tess_sample(_pos, bernderiv_v);\n");
 					} else if (doSpline) {
-						WRITE(p, "  vec2 tess_next_u = vec2(normal.x, 0);\n");
-						WRITE(p, "  vec2 tess_next_v = vec2(0, normal.y);\n");
+						WRITE(p, "  vec2 tess_next_u = vec2(normal.x, 0.0);\n");
+						WRITE(p, "  vec2 tess_next_v = vec2(0.0, normal.y);\n");
 						// Right
 						WRITE(p, "  vec2 tess_pos_r = tess_pos + tess_next_u;\n");
 						WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
