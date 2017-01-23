@@ -84,5 +84,21 @@ enum : uint64_t {
 	DIRTY_SPLINETYPEV = 1ULL << 36,
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
+
+	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFFULL,
+
+	// Now we can add further dirty flags that are not uniforms.
+
 	DIRTY_ALL = 0xFFFFFFFFFFFFFFFF
+};
+
+class ShaderManagerCommon {
+public:
+	ShaderManagerCommon() : globalDirty_(DIRTY_ALL) {}
+	virtual ~ShaderManagerCommon() {}
+	void DirtyUniform(u64 what) {
+		globalDirty_ |= what;
+	}
+protected:
+	uint64_t globalDirty_;
 };

@@ -85,6 +85,22 @@ public:
 	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 
+	void Execute_WorldMtxNum(u32 op, u32 diff);
+	void Execute_WorldMtxData(u32 op, u32 diff);
+	void Execute_ViewMtxNum(u32 op, u32 diff);
+	void Execute_ViewMtxData(u32 op, u32 diff);
+	void Execute_ProjMtxNum(u32 op, u32 diff);
+	void Execute_ProjMtxData(u32 op, u32 diff);
+	void Execute_TgenMtxNum(u32 op, u32 diff);
+	void Execute_TgenMtxData(u32 op, u32 diff);
+	void Execute_BoneMtxNum(u32 op, u32 diff);
+	void Execute_BoneMtxData(u32 op, u32 diff);
+
+	int EstimatePerVertexCost();
+
+	// Note: Not virtual!
+	inline void Flush();
+
 	u64 GetTickEstimate() override {
 #if defined(_M_X64) || defined(__ANDROID__)
 		return curTickEst_;
@@ -207,6 +223,7 @@ protected:
 	FramebufferManagerCommon *framebufferManager_;
 	TextureCacheCommon *textureCache_;
 	DrawEngineCommon *drawEngineCommon_;
+	ShaderManagerCommon *shaderManager_;
 
 	typedef std::list<int> DisplayListQueue;
 

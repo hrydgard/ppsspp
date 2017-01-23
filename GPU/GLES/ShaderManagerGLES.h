@@ -140,7 +140,7 @@ private:
 	bool isFragment_;
 };
 
-class ShaderManagerGLES {
+class ShaderManagerGLES : public ShaderManagerCommon {
 public:
 	ShaderManagerGLES();
 	~ShaderManagerGLES();
@@ -153,9 +153,6 @@ public:
 	LinkedShader *ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim);
 
 	void DirtyShader();
-	void DirtyUniform(u64 what) {
-		globalDirty_ |= what;
-	}
 	void DirtyLastShader();  // disables vertex arrays
 
 	int NumVertexShaders() const { return (int)vsCache_.size(); }
@@ -191,7 +188,6 @@ private:
 	ShaderID lastVSID_;
 
 	LinkedShader *lastShader_;
-	u64 globalDirty_;
 	u64 shaderSwitchDirty_;
 	char *codeBuffer_;
 

@@ -157,7 +157,7 @@ static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invert
 }
 
 ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
-	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), globalDirty_(0xFFFFFFFF) {
+	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr) {
 	codeBuffer_ = new char[16384];
 	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
 	memset(&ub_base, 0, sizeof(ub_base));

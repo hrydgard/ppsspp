@@ -184,7 +184,7 @@ protected:
 
 class VulkanPushBuffer;
 
-class ShaderManagerVulkan {
+class ShaderManagerVulkan : public ShaderManagerCommon {
 public:
 	ShaderManagerVulkan(VulkanContext *vulkan);
 	~ShaderManagerVulkan();
@@ -203,10 +203,6 @@ public:
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 	uint32_t UpdateUniforms();
-
-	void DirtyUniform(uint64_t what) {
-		globalDirty_ |= what;
-	}
 
 	// TODO: Avoid copying these buffers if same as last draw, can still point to it assuming we're still in the same pushbuffer.
 	// Applies dirty changes and copies the buffer.
@@ -235,7 +231,6 @@ private:
 
 	char *codeBuffer_;
 
-	uint64_t globalDirty_;
 	uint64_t uboAlignment_;
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base;

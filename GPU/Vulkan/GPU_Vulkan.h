@@ -117,14 +117,6 @@ public:
 	void Execute_AlphaTest(u32 op, u32 diff);
 	void Execute_StencilTest(u32 op, u32 diff);
 	void Execute_ColorRef(u32 op, u32 diff);
-	void Execute_WorldMtxNum(u32 op, u32 diff);
-	void Execute_WorldMtxData(u32 op, u32 diff);
-	void Execute_ViewMtxNum(u32 op, u32 diff);
-	void Execute_ViewMtxData(u32 op, u32 diff);
-	void Execute_ProjMtxNum(u32 op, u32 diff);
-	void Execute_ProjMtxData(u32 op, u32 diff);
-	void Execute_TgenMtxNum(u32 op, u32 diff);
-	void Execute_TgenMtxData(u32 op, u32 diff);
 	void Execute_BoneMtxNum(u32 op, u32 diff);
 	void Execute_BoneMtxData(u32 op, u32 diff);
 
@@ -162,7 +154,7 @@ private:
 	DrawEngineVulkan drawEngine_;
 
 	// Manages shaders and UBO data
-	ShaderManagerVulkan *shaderManager_;
+	ShaderManagerVulkan *shaderManagerVulkan_;
 
 	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;
