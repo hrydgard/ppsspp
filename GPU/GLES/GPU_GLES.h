@@ -137,7 +137,6 @@ public:
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
-	void FastLoadBoneMatrix(u32 target) override;
 	void FinishDeferred() override;
 
 private:

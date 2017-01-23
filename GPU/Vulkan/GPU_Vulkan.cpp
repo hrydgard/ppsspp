@@ -319,7 +319,7 @@ static const CommandTableEntry commandTable[] = {
 	{ GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BJump },  // EXECUTE
 	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_BoundingBox }, // + FLUSHBEFORE when we implement... or not, do we need to?
 
-																																					 // Changing the vertex type requires us to flush.
+	// Changing the vertex type requires us to flush.
 	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPU_Vulkan::Execute_VertexType },
 
 	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_Bezier },
@@ -348,8 +348,8 @@ static const CommandTableEntry commandTable[] = {
 	{ GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_ProjMtxData },
 	{ GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_TgenMtxNum },
 	{ GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_TgenMtxData },
-	{ GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BoneMtxNum },
-	{ GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_BoneMtxData },
+	{ GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_Vulkan::Execute_BoneMtxNum },
+	{ GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_BoneMtxData },
 
 	// Vertex Screen/Texture/Color
 	{ GE_CMD_VSCX, FLAG_EXECUTE },
@@ -1095,6 +1095,52 @@ void GPU_Vulkan::Execute_StencilTest(u32 op, u32 diff) {
 
 void GPU_Vulkan::Execute_ColorRef(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+}
+
+void GPU_Vulkan::Execute_BoneMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
+	const int end = 12 * 8 - (op & 0x7F);
+	int i = 0;
+
+	// If we can't use software skinning, we have to flush and dirty.
+	while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+		const u32 newVal = src[i] << 8;
+		if (dst[i] != newVal) {
+			Flush();
+			dst[i] = newVal;
+		}
+		if (++i >= end) {
+			break;
+		}
+	}
+
+	const int numPlusCount = (op & 0x7F) + i;
+	for (int num = op & 0x7F; num < numPlusCount; num += 12) {
+		shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+	}
+
+	const int count = i;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void GPU_Vulkan::Execute_BoneMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.boneMatrixNumber & 0x7F;
+	u32 newVal = op << 8;
+	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
+		// Bone matrices should NOT flush when software skinning is enabled!
+		Flush();
+		shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+		((u32 *)gstate.boneMatrix)[num] = newVal;
+	}
+	num++;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 }
 
 void GPU_Vulkan::Execute_Generic(u32 op, u32 diff) {

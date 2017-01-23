@@ -664,6 +664,7 @@ void GPU_GLES::DeviceLost() {
 void GPU_GLES::DeviceRestore() {
 	ILOG("GPU_GLES: DeviceRestore");
 
+	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
 }
 
@@ -1819,23 +1820,6 @@ void GPU_GLES::Execute_Generic(u32 op, u32 diff) {
 		GPUCommon::ExecuteOp(op, diff);
 		break;
 	}
-}
-
-void GPU_GLES::FastLoadBoneMatrix(u32 target) {
-	const int num = gstate.boneMatrixNumber & 0x7F;
-	const int mtxNum = num / 12;
-	uint32_t uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
-	if ((num - 12 * mtxNum) != 0) {
-		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
-	}
-
-	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-		Flush();
-		shaderManager_->DirtyUniform(uniformsToDirty);
-	} else {
-		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
-	}
-	gstate.FastLoadBoneMatrix(target);
 }
 
 void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
