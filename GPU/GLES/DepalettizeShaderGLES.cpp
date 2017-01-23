@@ -20,8 +20,8 @@
 #include "base/logging.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
-#include "DepalettizeShader.h"
-#include "GPU/GLES/TextureCache.h"
+#include "DepalettizeShaderGLES.h"
+#include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/GLStateCache.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
@@ -90,7 +90,7 @@ static bool CheckShaderCompileSuccess(GLuint shader, const char *code) {
 	}
 }
 
-DepalShaderCache::DepalShaderCache() {
+DepalShaderCacheGLES::DepalShaderCacheGLES() {
 	// Pre-build the vertex program
 	useGL3_ = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
 
@@ -98,11 +98,11 @@ DepalShaderCache::DepalShaderCache() {
 	vertexShader_ = 0;
 }
 
-DepalShaderCache::~DepalShaderCache() {
+DepalShaderCacheGLES::~DepalShaderCacheGLES() {
 	Clear();
 }
 
-bool DepalShaderCache::CreateVertexShader() {
+bool DepalShaderCacheGLES::CreateVertexShader() {
 	if (vertexShaderFailed_) {
 		return false;
 	}
@@ -121,11 +121,11 @@ bool DepalShaderCache::CreateVertexShader() {
 	return !vertexShaderFailed_;
 }
 
-u32 DepalShaderCache::GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
+u32 DepalShaderCacheGLES::GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
 	return (gstate.clutformat & 0xFFFFFF) | (pixelFormat << 24);
 }
 
-GLuint DepalShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut) {
+GLuint DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut) {
 	const u32 realClutID = clutID ^ clutFormat;
 
 	auto oldtex = texCache_.find(realClutID);
@@ -161,7 +161,7 @@ GLuint DepalShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 cl
 	return tex->texture;
 }
 
-void DepalShaderCache::Clear() {
+void DepalShaderCacheGLES::Clear() {
 	for (auto shader = cache_.begin(); shader != cache_.end(); ++shader) {
 		glDeleteShader(shader->second->fragShader);
 		if (shader->second->program) {
@@ -181,7 +181,7 @@ void DepalShaderCache::Clear() {
 	}
 }
 
-void DepalShaderCache::Decimate() {
+void DepalShaderCacheGLES::Decimate() {
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ) {
 		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.numFlips) {
 			glDeleteTextures(1, &tex->second->texture);
@@ -193,7 +193,7 @@ void DepalShaderCache::Decimate() {
 	}
 }
 
-DepalShader *DepalShaderCache::GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
+DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
 	u32 id = GenerateShaderID(clutFormat, pixelFormat);
 
 	auto shader = cache_.find(id);

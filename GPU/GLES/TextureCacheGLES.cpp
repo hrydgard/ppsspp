@@ -31,11 +31,11 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/TextureCache.h"
-#include "GPU/GLES/Framebuffer.h"
-#include "GPU/GLES/FragmentShaderGenerator.h"
-#include "GPU/GLES/DepalettizeShader.h"
-#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/TextureCacheGLES.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/GLES/DepalettizeShaderGLES.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/Common/TextureDecoder.h"
 
@@ -70,7 +70,7 @@
 
 #define INVALID_TEX -1
 
-TextureCache::TextureCache() : secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), texelsScaledThisFrame_(0) {
+TextureCacheGLES::TextureCacheGLES() : secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -81,11 +81,11 @@ TextureCache::TextureCache() : secondCacheSizeEstimate_(0), clearCacheNextFrame_
 	nextTexture_ = nullptr;
 }
 
-TextureCache::~TextureCache() {
+TextureCacheGLES::~TextureCacheGLES() {
 	Clear(true);
 }
 
-void TextureCache::Clear(bool delete_them) {
+void TextureCacheGLES::Clear(bool delete_them) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	lastBoundTexture = INVALID_TEX;
 	if (delete_them) {
@@ -113,7 +113,7 @@ void TextureCache::Clear(bool delete_them) {
 	videos_.clear();
 }
 
-void TextureCache::DeleteTexture(TexCache::iterator it) {
+void TextureCacheGLES::DeleteTexture(TexCache::iterator it) {
 	glDeleteTextures(1, &it->second.textureName);
 	auto fbInfo = fbTexInfo_.find(it->first);
 	if (fbInfo != fbTexInfo_.end()) {
@@ -125,7 +125,7 @@ void TextureCache::DeleteTexture(TexCache::iterator it) {
 }
 
 // Removes old textures.
-void TextureCache::Decimate() {
+void TextureCacheGLES::Decimate() {
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -169,7 +169,7 @@ void TextureCache::Decimate() {
 	DecimateVideos();
 }
 
-void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
+void TextureCacheGLES::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	// If we're hashing every use, without backoff, then this isn't needed.
 	if (!g_Config.bTextureBackoffCache) {
 		return;
@@ -213,7 +213,7 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	}
 }
 
-void TextureCache::InvalidateAll(GPUInvalidationType /*unused*/) {
+void TextureCacheGLES::InvalidateAll(GPUInvalidationType /*unused*/) {
 	// If we're hashing every use, without backoff, then this isn't needed.
 	if (!g_Config.bTextureBackoffCache) {
 		return;
@@ -234,11 +234,11 @@ void TextureCache::InvalidateAll(GPUInvalidationType /*unused*/) {
 	}
 }
 
-void TextureCache::ClearNextFrame() {
+void TextureCacheGLES::ClearNextFrame() {
 	clearCacheNextFrame_ = true;
 }
 
-bool TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
+bool TextureCacheGLES::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	AttachedFramebufferInfo fbInfo = {0};
@@ -376,7 +376,7 @@ static const GLuint MagFiltGL[2] = {
 };
 
 // This should not have to be done per texture! OpenGL is silly yo
-void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
+void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	int minFilt;
 	int magFilt;
 	bool sClamp;
@@ -430,7 +430,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	}
 }
 
-void TextureCache::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
+void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
 	int minFilt;
 	int magFilt;
 	bool sClamp;
@@ -481,7 +481,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 	}
 }
 
-void TextureCache::StartFrame() {
+void TextureCacheGLES::StartFrame() {
 	lastBoundTexture = INVALID_TEX;
 	timesInvalidatedAllThisFrame_ = 0;
 
@@ -501,7 +501,7 @@ static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
 
-static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCache::TexCacheEntry *entry) {
+static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCacheGLES::TexCacheEntry *entry) {
 	if (replacer.Enabled()) {
 		return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
 	}
@@ -520,7 +520,7 @@ static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, in
 	}
 }
 
-void TextureCache::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
+void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
 	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
 	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
 	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
@@ -561,7 +561,7 @@ void TextureCache::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, b
 	clutLastFormat_ = gstate.clutformat;
 }
 
-inline u32 TextureCache::GetCurrentClutHash() {
+inline u32 TextureCacheGLES::GetCurrentClutHash() {
 	return clutHash_;
 }
 
@@ -607,7 +607,7 @@ bool SetDebugTexture() {
 }
 #endif
 
-void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+void TextureCacheGLES::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	_dbg_assert_msg_(G3D, framebuffer != nullptr, "Framebuffer must not be null.");
 
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
@@ -644,7 +644,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 	nextNeedsRebuild_ = false;
 }
 
-void TextureCache::ApplyTexture() {
+void TextureCacheGLES::ApplyTexture() {
 	TexCacheEntry *entry = nextTexture_;
 	if (entry == nullptr) {
 		return;
@@ -700,7 +700,7 @@ void TextureCache::ApplyTexture() {
 	}
 }
 
-void TextureCache::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
+void TextureCacheGLES::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
 	framebufferManager_->DownloadFramebufferForClut(clutAddr, bytes);
 }
 
@@ -836,7 +836,7 @@ protected:
 	int renderH_;
 };
 
-void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	DepalShader *depal = nullptr;
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
@@ -885,7 +885,7 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 	lastBoundTexture = INVALID_TEX;
 }
 
-bool TextureCache::SetOffsetTexture(u32 offset) {
+bool TextureCacheGLES::SetOffsetTexture(u32 offset) {
 	if (g_Config.iRenderingMode != FB_BUFFERED_MODE) {
 		return false;
 	}
@@ -948,7 +948,7 @@ GLenum ToGLESFormat(ReplacedTextureFormat fmt) {
 	}
 }
 
-void TextureCache::SetTexture(bool force) {
+void TextureCacheGLES::SetTexture(bool force) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
@@ -1159,7 +1159,7 @@ void TextureCache::SetTexture(bool force) {
 	nextNeedsRebuild_= true;
 }
 
-bool TextureCache::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
+bool TextureCacheGLES::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
 	bool hashFail = false;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
@@ -1222,7 +1222,7 @@ bool TextureCache::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
 	return true;
 }
 
-bool TextureCache::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
+bool TextureCacheGLES::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
 	bool replaceImages = false;
 
 	cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
@@ -1261,7 +1261,7 @@ bool TextureCache::HandleTextureChange(TexCacheEntry *const entry, const char *r
 	return replaceImages;
 }
 
-void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
+void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
@@ -1440,7 +1440,7 @@ void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) 
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 }
 
-u32 TextureCache::AllocTextureName() {
+u32 TextureCacheGLES::AllocTextureName() {
 	if (nameCache_.empty()) {
 		nameCache_.resize(TEXCACHE_NAME_CACHE_SIZE);
 		glGenTextures(TEXCACHE_NAME_CACHE_SIZE, &nameCache_[0]);
@@ -1450,7 +1450,7 @@ u32 TextureCache::AllocTextureName() {
 	return name;
 }
 
-GLenum TextureCache::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
+GLenum TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
 	switch (format) {
 	case GE_TFMT_CLUT4:
 	case GE_TFMT_CLUT8:
@@ -1472,7 +1472,7 @@ GLenum TextureCache::GetDestFormat(GETextureFormat format, GEPaletteFormat clutF
 	}
 }
 
-void *TextureCache::DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, GLenum dstFmt, int scaleFactor, int *bufwout) {
+void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, GLenum dstFmt, int scaleFactor, int *bufwout) {
 	void *finalBuf = nullptr;
 	u32 texaddr = gstate.getTextureAddress(level);
 	int bufw = GetTextureBufw(level, texaddr, format);
@@ -1504,7 +1504,7 @@ void *TextureCache::DecodeTextureLevelOld(GETextureFormat format, GEPaletteForma
 	return finalBuf;
 }
 
-TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
+TextureCacheGLES::TexCacheEntry::Status TextureCacheGLES::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -1525,7 +1525,7 @@ TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(const u32 *pixelDat
 	return (TexCacheEntry::Status)res;
 }
 
-void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {
+void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	bool useUnpack = false;
@@ -1639,7 +1639,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 }
 
 // Only used by Qt UI?
-bool TextureCache::DecodeTexture(u8* output, const GPUgstate &state) {
+bool TextureCacheGLES::DecodeTexture(u8* output, const GPUgstate &state) {
 	GPUgstate oldState = gstate;
 	gstate = state;
 

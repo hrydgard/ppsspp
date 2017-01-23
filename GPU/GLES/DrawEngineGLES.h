@@ -25,17 +25,17 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/GLES/FragmentShaderGenerator.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
 class LinkedShader;
-class ShaderManager;
-class TextureCache;
-class FramebufferManager;
+class ShaderManagerGLES;
+class TextureCacheGLES;
+class FramebufferManagerGLES;
 class FramebufferManagerCommon;
 class TextureCacheCommon;
-class FragmentTestCache;
+class FragmentTestCacheGLES;
 struct TransformedVertex;
 
 struct DecVtxFormat;
@@ -114,16 +114,16 @@ public:
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 
-	void SetShaderManager(ShaderManager *shaderManager) {
+	void SetShaderManager(ShaderManagerGLES *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
-	void SetTextureCache(TextureCache *textureCache) {
+	void SetTextureCache(TextureCacheGLES *textureCache) {
 		textureCache_ = textureCache;
 	}
-	void SetFramebufferManager(FramebufferManager *fbManager) {
+	void SetFramebufferManager(FramebufferManagerGLES *fbManager) {
 		framebufferManager_ = fbManager;
 	}
-	void SetFragmentTestCache(FragmentTestCache *testCache) {
+	void SetFragmentTestCache(FragmentTestCacheGLES *testCache) {
 		fragmentTestCache_ = testCache;
 	}
 	void RestoreVAO();
@@ -253,10 +253,10 @@ private:
 	GLuint sharedVao_;
 
 	// Other
-	ShaderManager *shaderManager_;
-	TextureCache *textureCache_;
-	FramebufferManager *framebufferManager_;
-	FragmentTestCache *fragmentTestCache_;
+	ShaderManagerGLES *shaderManager_;
+	TextureCacheGLES *textureCache_;
+	FramebufferManagerGLES *framebufferManager_;
+	FragmentTestCacheGLES *fragmentTestCache_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];

@@ -50,7 +50,7 @@
 #include "Core/Reporting.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 
 #if defined(_WIN32)
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers

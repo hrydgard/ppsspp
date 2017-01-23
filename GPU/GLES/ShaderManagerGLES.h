@@ -23,8 +23,8 @@
 
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
-#include "GPU/GLES/VertexShaderGenerator.h"
-#include "GPU/GLES/FragmentShaderGenerator.h"
+#include "GPU/GLES/VertexShaderGeneratorGLES.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 
 class Shader;
 
@@ -192,10 +192,10 @@ private:
 	bool isFragment_;
 };
 
-class ShaderManager {
+class ShaderManagerGLES {
 public:
-	ShaderManager();
-	~ShaderManager();
+	ShaderManagerGLES();
+	~ShaderManagerGLES();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
 

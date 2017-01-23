@@ -36,10 +36,10 @@ public:
 };
 
 // Caches both shaders and palette textures.
-class DepalShaderCache {
+class DepalShaderCacheGLES {
 public:
-	DepalShaderCache();
-	~DepalShaderCache();
+	DepalShaderCacheGLES();
+	~DepalShaderCacheGLES();
 
 	// This also uploads the palette and binds the correct texture.
 	DepalShader *GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);

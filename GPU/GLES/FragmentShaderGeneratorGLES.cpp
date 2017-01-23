@@ -25,9 +25,9 @@
 #include "Core/Config.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/ShaderId.h"
-#include "GPU/GLES/FragmentShaderGenerator.h"
-#include "GPU/GLES/Framebuffer.h"
-#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 

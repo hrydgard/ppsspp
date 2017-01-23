@@ -34,9 +34,9 @@
 #include "Core/Config.h"
 
 struct GLSLProgram;
-class TextureCache;
+class TextureCacheGLES;
 class DrawEngineGLES;
-class ShaderManager;
+class ShaderManagerGLES;
 
 // Simple struct for asynchronous PBO readbacks
 struct AsyncPBO {
@@ -60,15 +60,15 @@ struct CardboardSettings {
 	float screenHeight;
 };
 
-class FramebufferManager : public FramebufferManagerCommon {
+class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:
-	FramebufferManager();
-	~FramebufferManager();
+	FramebufferManagerGLES();
+	~FramebufferManagerGLES();
 
-	void SetTextureCache(TextureCache *tc) {
+	void SetTextureCache(TextureCacheGLES *tc) {
 		textureCache_ = tc;
 	}
-	void SetShaderManager(ShaderManager *sm) {
+	void SetShaderManager(ShaderManagerGLES *sm) {
 		shaderManager_ = sm;
 	}
 	void SetTransformDrawEngine(DrawEngineGLES *td) {
@@ -164,8 +164,8 @@ private:
 	int pixelDeltaLoc_;
 	int deltaLoc_;
 
-	TextureCache *textureCache_;
-	ShaderManager *shaderManager_;
+	TextureCacheGLES *textureCache_;
+	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *transformDraw_;
 
 	// Used by post-processing shader

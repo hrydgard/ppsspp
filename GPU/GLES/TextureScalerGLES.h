@@ -20,7 +20,7 @@
 #include "Common/CommonTypes.h"
 #include "GPU/Common/TextureScalerCommon.h"
 
-class TextureScalerGL : public TextureScaler {
+class TextureScalerGLES : public TextureScalerCommon {
 	void ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) override;
 	int BytesPerPixel(u32 format) override;
 	u32 Get8888Format() override;

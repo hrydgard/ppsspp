@@ -20,7 +20,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
 
-class ShaderManager;
+class ShaderManagerGLES;
 
 class NullGPU : public GPUCommon {
 public:

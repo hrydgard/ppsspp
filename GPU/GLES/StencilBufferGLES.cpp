@@ -18,9 +18,9 @@
 #include "gfx_es2/glsl_program.h"
 #include "Core/Reporting.h"
 #include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/Framebuffer.h"
-#include "GPU/GLES/ShaderManager.h"
-#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
+#include "GPU/GLES/TextureCacheGLES.h"
 
 static const char *gles_prefix =
 "#version 100\n"
@@ -89,7 +89,7 @@ static u8 StencilBits8888(const u8 *ptr8, u32 numPixels) {
 	return bits >> 24;
 }
 
-bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
+bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
 	if (!MayIntersectFramebuffer(addr)) {
 		return false;
 	}

@@ -22,13 +22,13 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GLES/FBO.h"
-#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/TextureCache.h"
-#include "GPU/GLES/DepalettizeShader.h"
-#include "GPU/GLES/FragmentTestCache.h"
+#include "GPU/GLES/TextureCacheGLES.h"
+#include "GPU/GLES/DepalettizeShaderGLES.h"
+#include "GPU/GLES/FragmentTestCacheGLES.h"
 
-class ShaderManager;
+class ShaderManagerGLES;
 class LinkedShader;
 class GraphicsContext;
 
@@ -168,12 +168,12 @@ private:
 
 	static CommandInfo cmdInfo_[256];
 
-	FramebufferManager *framebufferManagerGL_;
-	TextureCache *textureCacheGL_;
-	DepalShaderCache depalShaderCache_;
+	FramebufferManagerGLES *framebufferManagerGL_;
+	TextureCacheGLES *textureCacheGL_;
+	DepalShaderCacheGLES depalShaderCache_;
 	DrawEngineGLES drawEngine_;
-	FragmentTestCache fragmentTestCache_;
-	ShaderManager *shaderManager_;
+	FragmentTestCacheGLES fragmentTestCache_;
+	ShaderManagerGLES *shaderManager_;
 
 	int lastVsync_;
 

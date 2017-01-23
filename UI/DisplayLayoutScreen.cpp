@@ -28,7 +28,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "DisplayLayoutEditor.h"
-#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 
 static const int leftColumnWidth = 200;
 static const float orgRatio = 1.764706f;
