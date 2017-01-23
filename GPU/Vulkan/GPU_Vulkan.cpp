@@ -340,16 +340,16 @@ static const CommandTableEntry commandTable[] = {
 	{ GE_CMD_DITH3 },
 
 	// These handle their own flushing.
-	{ GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_Vulkan::Execute_WorldMtxNum },
-	{ GE_CMD_WORLDMATRIXDATA,   FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_WorldMtxData },
-	{ GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_Vulkan::Execute_ViewMtxNum },
-	{ GE_CMD_VIEWMATRIXDATA,    FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_ViewMtxData },
-	{ GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_Vulkan::Execute_ProjMtxNum },
-	{ GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_ProjMtxData },
-	{ GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_Vulkan::Execute_TgenMtxNum },
-	{ GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_TgenMtxData },
-	{ GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_Vulkan::Execute_BoneMtxNum },
-	{ GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_BoneMtxData },
+	{ GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_WorldMtxNum },
+	{ GE_CMD_WORLDMATRIXDATA,   FLAG_EXECUTE, 0, &GPUCommon::Execute_WorldMtxData },
+	{ GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_ViewMtxNum },
+	{ GE_CMD_VIEWMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_ViewMtxData },
+	{ GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_ProjMtxNum },
+	{ GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_ProjMtxData },
+	{ GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_TgenMtxNum },
+	{ GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_TgenMtxData },
+	{ GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BoneMtxNum },
+	{ GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_BoneMtxData },
 
 	// Vertex Screen/Texture/Color
 	{ GE_CMD_VSCX, FLAG_EXECUTE },
@@ -1096,210 +1096,6 @@ void GPU_Vulkan::Execute_StencilTest(u32 op, u32 diff) {
 
 void GPU_Vulkan::Execute_ColorRef(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
-}
-
-void GPU_Vulkan::Execute_WorldMtxNum(u32 op, u32 diff) {
-	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
-	const int end = 12 - (op & 0xF);
-	int i = 0;
-
-	while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
-		}
-		if (++i >= end) {
-			break;
-		}
-	}
-
-	const int count = i;
-	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op + count) & 0xF);
-
-	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
-	currentList->pc += count * 4;
-}
-
-void GPU_Vulkan::Execute_WorldMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.worldmtxnum & 0xF;
-	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.worldMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
-	}
-	num++;
-	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
-}
-
-void GPU_Vulkan::Execute_ViewMtxNum(u32 op, u32 diff) {
-	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
-	const int end = 12 - (op & 0xF);
-	int i = 0;
-
-	while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
-		}
-		if (++i >= end) {
-			break;
-		}
-	}
-
-	const int count = i;
-	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op + count) & 0xF);
-
-	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
-	currentList->pc += count * 4;
-}
-
-void GPU_Vulkan::Execute_ViewMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.viewmtxnum & 0xF;
-	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.viewMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
-	}
-	num++;
-	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
-}
-
-void GPU_Vulkan::Execute_ProjMtxNum(u32 op, u32 diff) {
-	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
-	const int end = 16 - (op & 0xF);
-	int i = 0;
-
-	while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-		}
-		if (++i >= end) {
-			break;
-		}
-	}
-
-	const int count = i;
-	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0xF);
-
-	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
-	currentList->pc += count * 4;
-}
-
-void GPU_Vulkan::Execute_ProjMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.projmtxnum & 0xF;
-	u32 newVal = op << 8;
-	if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.projMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-	}
-	num++;
-	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
-}
-
-void GPU_Vulkan::Execute_TgenMtxNum(u32 op, u32 diff) {
-	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
-	const int end = 12 - (op & 0xF);
-	int i = 0;
-
-	while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
-		}
-		if (++i >= end) {
-			break;
-		}
-	}
-
-	const int count = i;
-	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op + count) & 0xF);
-
-	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
-	currentList->pc += count * 4;
-}
-
-void GPU_Vulkan::Execute_TgenMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.texmtxnum & 0xF;
-	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.tgenMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
-	}
-	num++;
-	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
-}
-
-void GPU_Vulkan::Execute_BoneMtxNum(u32 op, u32 diff) {
-	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
-	const int end = 12 * 8 - (op & 0x7F);
-	int i = 0;
-
-	while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-		}
-		if (++i >= end) {
-			break;
-		}
-	}
-
-	const int numPlusCount = (op & 0x7F) + i;
-	for (int num = op & 0x7F; num < numPlusCount; num += 12) {
-		shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-	}
-
-	const int count = i;
-	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
-
-	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
-	currentList->pc += count * 4;
-}
-
-void GPU_Vulkan::Execute_BoneMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.boneMatrixNumber & 0x7F;
-	u32 newVal = op << 8;
-	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
-		Flush();
-		shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-		((u32 *)gstate.boneMatrix)[num] = newVal;
-	}
-	num++;
-	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 }
 
 void GPU_Vulkan::Execute_Generic(u32 op, u32 diff) {

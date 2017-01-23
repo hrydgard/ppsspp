@@ -130,16 +130,6 @@ public:
 	void Execute_AlphaTest(u32 op, u32 diff);
 	void Execute_StencilTest(u32 op, u32 diff);
 	void Execute_ColorRef(u32 op, u32 diff);
-	void Execute_WorldMtxNum(u32 op, u32 diff);
-	void Execute_WorldMtxData(u32 op, u32 diff);
-	void Execute_ViewMtxNum(u32 op, u32 diff);
-	void Execute_ViewMtxData(u32 op, u32 diff);
-	void Execute_ProjMtxNum(u32 op, u32 diff);
-	void Execute_ProjMtxData(u32 op, u32 diff);
-	void Execute_TgenMtxNum(u32 op, u32 diff);
-	void Execute_TgenMtxData(u32 op, u32 diff);
-	void Execute_BoneMtxNum(u32 op, u32 diff);
-	void Execute_BoneMtxData(u32 op, u32 diff);
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
