@@ -515,22 +515,18 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 						WRITE(p, "  vec2 tess_next_v = vec2(0.0, normal.y);\n");
 						// Right
 						WRITE(p, "  vec2 tess_pos_r = tess_pos + tess_next_u;\n");
-						WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
 						WRITE(p, "  spline_weight(tess_pos_r + patch_pos, knots, weights);\n");
 						WRITE(p, "  vec3 pos_r = tess_sample(_pos, weights);\n");
 						// Left
 						WRITE(p, "  vec2 tess_pos_l = tess_pos - tess_next_u;\n");
-						WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
 						WRITE(p, "  spline_weight(tess_pos_l + patch_pos, knots, weights);\n");
 						WRITE(p, "  vec3 pos_l = tess_sample(_pos, weights);\n");
 						// Down
 						WRITE(p, "  vec2 tess_pos_d = tess_pos + tess_next_v;\n");
-						WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
 						WRITE(p, "  spline_weight(tess_pos_d + patch_pos, knots, weights);\n");
 						WRITE(p, "  vec3 pos_d = tess_sample(_pos, weights);\n");
 						// Up
 						WRITE(p, "  vec2 tess_pos_u = tess_pos - tess_next_v;\n");
-						WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
 						WRITE(p, "  spline_weight(tess_pos_u + patch_pos, knots, weights);\n");
 						WRITE(p, "  vec3 pos_u = tess_sample(_pos, weights);\n");
 
