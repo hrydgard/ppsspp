@@ -171,7 +171,7 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 		key.destColor = vkBlendFactorLookup[(size_t)blendState.dstColor];
 		key.destAlpha = vkBlendFactorLookup[(size_t)blendState.dstAlpha];
 		if (blendState.dirtyShaderBlend) {
-			shaderManager->DirtyUniform(DIRTY_SHADERBLEND);
+			gstate_c.Dirty(DIRTY_SHADERBLEND);
 		}
 		dynState.useBlendColor = blendState.useBlendColor;
 		if (blendState.useBlendColor) {
@@ -310,7 +310,7 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 	vp.minDepth = vpAndScissor.depthRangeMin;
 	vp.maxDepth = vpAndScissor.depthRangeMax;
 	if (vpAndScissor.dirtyProj) {
-		shaderManager->DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 
 	VkRect2D &scissor = dynState.scissor;
@@ -325,6 +325,6 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 	if (depthMin < 0.0f) depthMin = 0.0f;
 	if (depthMax > 1.0f) depthMax = 1.0f;
 	if (vpAndScissor.dirtyDepth) {
-		shaderManager->DirtyUniform(DIRTY_DEPTHRANGE);
+		gstate_c.Dirty(DIRTY_DEPTHRANGE);
 	}
 }

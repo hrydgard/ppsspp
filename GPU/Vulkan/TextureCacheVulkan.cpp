@@ -968,7 +968,7 @@ void TextureCacheVulkan::SetTexture() {
 			// Always rehash in this case, if one changed the rest all probably did.
 			rehash = true;
 			entry->status &= ~TexCacheEntry::STATUS_CLUT_RECHECK;
-		} else if ((gstate_c.textureChanged & TEXCHANGE_UPDATED) == 0) {
+		} else if (!gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE)) {
 			// Okay, just some parameter change - the data didn't change, no need to rehash.
 			rehash = false;
 		}

@@ -4,6 +4,7 @@
 #include "base/mutex.h"
 #include "base/timeutil.h"
 #include "Common/ColorConv.h"
+#include "Core/Reporting.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
@@ -787,7 +788,8 @@ void GPUCommon::ProcessDLQueueInternal() {
 	UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
 
 	// Game might've written new texture data.
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 
 	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
@@ -1071,7 +1073,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -1114,7 +1116,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 
 void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -1193,7 +1195,7 @@ void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
 	DoBlockTransfer(gstate_c.skipDrawReason);
 
 	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
@@ -1208,7 +1210,7 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 		if (dst[i] != newVal) {
 			Flush();
 			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
+			gstate_c.Dirty(DIRTY_WORLDMATRIX);
 		}
 		if (++i >= end) {
 			break;
@@ -1230,7 +1232,7 @@ void GPUCommon::Execute_WorldMtxData(u32 op, u32 diff) {
 	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.worldMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
+		gstate_c.Dirty(DIRTY_WORLDMATRIX);
 	}
 	num++;
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
@@ -1248,7 +1250,7 @@ void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
 		if (dst[i] != newVal) {
 			Flush();
 			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+			gstate_c.Dirty(DIRTY_VIEWMATRIX);
 		}
 		if (++i >= end) {
 			break;
@@ -1270,7 +1272,7 @@ void GPUCommon::Execute_ViewMtxData(u32 op, u32 diff) {
 	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.viewMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+		gstate_c.Dirty(DIRTY_VIEWMATRIX);
 	}
 	num++;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
@@ -1288,7 +1290,7 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 		if (dst[i] != newVal) {
 			Flush();
 			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
 		}
 		if (++i >= end) {
 			break;
@@ -1310,7 +1312,7 @@ void GPUCommon::Execute_ProjMtxData(u32 op, u32 diff) {
 	if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.projMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 	num++;
 	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
@@ -1328,7 +1330,7 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 		if (dst[i] != newVal) {
 			Flush();
 			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+			gstate_c.Dirty(DIRTY_TEXMATRIX);
 		}
 		if (++i >= end) {
 			break;
@@ -1350,7 +1352,7 @@ void GPUCommon::Execute_TgenMtxData(u32 op, u32 diff) {
 	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.tgenMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+		gstate_c.Dirty(DIRTY_TEXMATRIX);
 	}
 	num++;
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
@@ -1378,7 +1380,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 
 		const int numPlusCount = (op & 0x7F) + i;
 		for (int num = op & 0x7F; num < numPlusCount; num += 12) {
-			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 		}
 	} else {
 		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
@@ -1410,7 +1412,7 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 		// Bone matrices should NOT flush when software skinning is enabled!
 		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 			Flush();
-			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 		} else {
 			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
 		}
@@ -1418,6 +1420,10 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 	}
 	num++;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+}
+
+void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {
+	gstate_c.morphWeights[(op >> 24) - GE_CMD_MORPHWEIGHT0] = getFloat24(op);
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {
@@ -1462,7 +1468,89 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	default:
-		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
+		DEBUG_LOG(G3D, "DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
+		break;
+	}
+}
+
+void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
+	switch (op >> 24) {
+	case GE_CMD_VSCX:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vscx, G3D, "Unsupported Vertex Screen Coordinate X : %06x", op);
+		break;
+
+	case GE_CMD_VSCY:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vscy, G3D, "Unsupported Vertex Screen Coordinate Y : %06x", op);
+		break;
+
+	case GE_CMD_VSCZ:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vscz, G3D, "Unsupported Vertex Screen Coordinate Z : %06x", op);
+		break;
+
+	case GE_CMD_VTCS:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vtcs, G3D, "Unsupported Vertex Texture Coordinate S : %06x", op);
+		break;
+
+	case GE_CMD_VTCT:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vtct, G3D, "Unsupported Vertex Texture Coordinate T : %06x", op);
+		break;
+
+	case GE_CMD_VTCQ:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vtcq, G3D, "Unsupported Vertex Texture Coordinate Q : %06x", op);
+		break;
+
+	case GE_CMD_VCV:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vcv, G3D, "Unsupported Vertex Color Value : %06x", op);
+		break;
+
+	case GE_CMD_VAP:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vap, G3D, "Unsupported Vertex Alpha and Primitive : %06x", op);
+		break;
+
+	case GE_CMD_VFC:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vfc, G3D, "Unsupported Vertex Fog Coefficient : %06x", op);
+		break;
+
+	case GE_CMD_VSCV:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vscv, G3D, "Unsupported Vertex Secondary Color Value : %06x", op);
+		break;
+
+	case GE_CMD_UNKNOWN_03:
+	case GE_CMD_UNKNOWN_0D:
+	case GE_CMD_UNKNOWN_11:
+	case GE_CMD_UNKNOWN_29:
+	case GE_CMD_UNKNOWN_34:
+	case GE_CMD_UNKNOWN_35:
+	case GE_CMD_UNKNOWN_39:
+	case GE_CMD_UNKNOWN_4E:
+	case GE_CMD_UNKNOWN_4F:
+	case GE_CMD_UNKNOWN_52:
+	case GE_CMD_UNKNOWN_59:
+	case GE_CMD_UNKNOWN_5A:
+	case GE_CMD_UNKNOWN_B6:
+	case GE_CMD_UNKNOWN_B7:
+	case GE_CMD_UNKNOWN_D1:
+	case GE_CMD_UNKNOWN_ED:
+	case GE_CMD_UNKNOWN_EF:
+	case GE_CMD_UNKNOWN_FA:
+	case GE_CMD_UNKNOWN_FB:
+	case GE_CMD_UNKNOWN_FC:
+	case GE_CMD_UNKNOWN_FD:
+	case GE_CMD_UNKNOWN_FE:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);
+		break;
+	default:
 		break;
 	}
 }
@@ -1477,7 +1565,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 
 	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 		Flush();
-		shaderManager_->DirtyUniform(uniformsToDirty);
+		gstate_c.Dirty(uniformsToDirty);
 	} else {
 		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
 	}

@@ -23,6 +23,7 @@
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "Common/Common.h"
+#include "GPU/Common/ShaderCommon.h"
 
 class PointerWrap;
 
@@ -440,12 +441,6 @@ struct UVScale {
 	float uOff, vOff;
 };
 
-enum TextureChangeReason {
-	TEXCHANGE_UNCHANGED = 0x00,
-	TEXCHANGE_UPDATED = 0x01,
-	TEXCHANGE_PARAMSONLY = 0x02,
-};
-
 #define FLAG_BIT(x) (1 << x)
 
 // Some of these are OpenGL-specific even though this file is neutral, unfortunately.
@@ -487,6 +482,19 @@ struct KnownVertexBounds {
 
 struct GPUStateCache {
 	bool Supports(int flag) { return (featureFlags & flag) != 0; }
+	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
+	void Dirty(u64 what) {
+		dirty |= what;
+	}
+	void CleanUniforms() {
+		dirty &= ~DIRTY_ALL_UNIFORMS;
+	}
+	void Clean(u64 what) {
+		dirty &= ~what;
+	}
+	bool IsDirty(u64 what) const {
+		return (dirty & what) != 0ULL;
+	}
 
 	u32 featureFlags;
 
@@ -494,23 +502,15 @@ struct GPUStateCache {
 	u32 indexAddr;
 	u32 offsetAddr;
 
-	u8 textureChanged;
+	uint64_t dirty;
+
 	bool textureFullAlpha;
 	bool textureSimpleAlpha;
 	bool vertexFullAlpha;
-	bool framebufChanged;
 
 	int skipDrawReason;
 
 	UVScale uv;
-
-	bool bezier;
-	bool spline;
-	int bezier_count_u;
-	int spline_count_u;
-	int spline_count_v;
-	int spline_type_u;
-	int spline_type_v;
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
@@ -544,6 +544,14 @@ struct GPUStateCache {
 	u32 curRTRenderWidth;
 	u32 curRTRenderHeight;
 	u32 curRTOffsetX;
+
+	bool bezier;
+	bool spline;
+	int bezier_count_u;
+	int spline_count_u;
+	int spline_count_v;
+	int spline_type_u;
+	int spline_type_v;
 
 	u32 getRelativeAddress(u32 data) const;
 	void Reset();

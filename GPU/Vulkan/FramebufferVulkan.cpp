@@ -646,7 +646,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferCreated(VirtualFramebuffer
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 	// ugly...
 	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 }
 
@@ -695,7 +695,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 
 	// ugly...
 	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 }
 
@@ -709,7 +709,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 
 	// ugly...
 	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 }
 
@@ -1628,7 +1628,7 @@ void FramebufferManagerVulkan::FlushBeforeCopy() {
 	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
 	// all the irrelevant state checking it'll use to decide what to do. Should
 	// do something more focused here.
-	SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	drawEngine_->Flush(curCmd_);
 }
 

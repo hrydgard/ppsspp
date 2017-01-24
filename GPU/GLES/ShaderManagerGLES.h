@@ -55,8 +55,8 @@ public:
 	bool useHWTransform_;
 
 	uint32_t program;
-	u64 availableUniforms;
-	u64 dirtyUniforms;
+	uint64_t availableUniforms;
+	uint64_t dirtyUniforms;
 
 	// Present attributes in the shader.
 	int attrMask;  // 1 << ATTR_ ... or-ed together.

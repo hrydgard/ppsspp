@@ -87,6 +87,11 @@ enum : uint64_t {
 
 	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFFULL,
 
+	// Other dirty elements that aren't uniforms!
+	DIRTY_FRAMEBUF = 1ULL << 40,
+	DIRTY_TEXTURE_IMAGE = 1ULL << 41,
+	DIRTY_TEXTURE_PARAMS = 1ULL << 42,
+
 	// Now we can add further dirty flags that are not uniforms.
 
 	DIRTY_ALL = 0xFFFFFFFFFFFFFFFF
@@ -94,11 +99,6 @@ enum : uint64_t {
 
 class ShaderManagerCommon {
 public:
-	ShaderManagerCommon() : globalDirty_(DIRTY_ALL) {}
+	ShaderManagerCommon() {}
 	virtual ~ShaderManagerCommon() {}
-	void DirtyUniform(u64 what) {
-		globalDirty_ |= what;
-	}
-protected:
-	uint64_t globalDirty_;
 };

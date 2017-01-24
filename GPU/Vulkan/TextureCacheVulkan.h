@@ -121,7 +121,7 @@ public:
 
 	void ForgetLastTexture() {
 		lastBoundTexture = nullptr;
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 
 	void ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler);

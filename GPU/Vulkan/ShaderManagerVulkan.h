@@ -202,7 +202,7 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
-	uint32_t UpdateUniforms();
+	uint64_t UpdateUniforms();
 
 	// TODO: Avoid copying these buffers if same as last draw, can still point to it assuming we're still in the same pushbuffer.
 	// Applies dirty changes and copies the buffer.
@@ -215,9 +215,9 @@ public:
 	uint32_t PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf);
 
 private:
-	void BaseUpdateUniforms(int dirtyUniforms);
-	void LightUpdateUniforms(int dirtyUniforms);
-	void BoneUpdateUniforms(int dirtyUniforms);
+	void BaseUpdateUniforms(uint64_t dirtyUniforms);
+	void LightUpdateUniforms(uint64_t dirtyUniforms);
+	void BoneUpdateUniforms(uint64_t dirtyUniforms);
 
 	void Clear();
 
