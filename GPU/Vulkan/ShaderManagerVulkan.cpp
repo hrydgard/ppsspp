@@ -286,6 +286,11 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 		CopyFloat3(ub_base.fogCoef_stencil, fogcoef_stencil);
 	}
 
+	// Note - this one is not in lighting but in transformCommon as it has uses beyond lighting
+	if (dirtyUniforms & DIRTY_MATAMBIENTALPHA) {
+		Uint8x3ToFloat4_AlphaUint8(ub_base.matAmbient, gstate.materialambient, gstate.getMaterialAmbientA());
+	}
+
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
@@ -336,10 +341,6 @@ void ShaderManagerVulkan::LightUpdateUniforms(int dirtyUniforms) {
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
 		Uint8x3ToFloat4_AlphaUint8(ub_lights.ambientColor, gstate.ambientcolor, gstate.getAmbientA());
-	}
-	if (dirtyUniforms & DIRTY_MATAMBIENTALPHA) {
-		// Note - this one is not in lighting but in transformCommon as it has uses beyond lighting
-		Uint8x3ToFloat4_AlphaUint8(ub_base.matAmbient, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
 	if (dirtyUniforms & DIRTY_MATDIFFUSE) {
 		Uint8x3ToFloat4(ub_lights.materialDiffuse, gstate.materialdiffuse);

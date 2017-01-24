@@ -292,6 +292,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_LSC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_Light3Param},
 
 	// Ignored commands
+	{GE_CMD_CLIPENABLE, 0},
 	{GE_CMD_TEXFLUSH, 0},
 	{GE_CMD_TEXLODSLOPE, 0},
 	{GE_CMD_TEXSYNC, 0},

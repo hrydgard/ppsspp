@@ -102,12 +102,12 @@ void Vulkan2D::InitDeviceObjects() {
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[1];
-	dpTypes[0].descriptorCount = 200;
+	dpTypes[0].descriptorCount = 1500;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
-	dp.maxSets = 200;
+	dp.maxSets = 1500;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 	for (int i = 0; i < 2; i++) {
