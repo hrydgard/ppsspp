@@ -64,7 +64,7 @@ enum {
 struct CommandTableEntry {
 	uint8_t cmd;
 	uint8_t flags;
-	uint64_t dirtyUniform;
+	uint64_t dirty;
 	GPU_GLES::CmdFunc func;
 };
 
@@ -220,7 +220,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS},
 	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS},
 
-	// These dirty various vertex shader uniforms. Could embed information about that in this table and call dirtyuniform directly, hm...
+	// Lighting base colors
 	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_AMBIENT},
 	{GE_CMD_AMBIENTALPHA, FLAG_FLUSHBEFOREONCHANGE, DIRTY_AMBIENT},
 	{GE_CMD_MATERIALDIFFUSE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_MATDIFFUSE},
@@ -230,7 +230,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_MATERIALSPECULAR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_MATSPECULAR},
 	{GE_CMD_MATERIALSPECULARCOEF, FLAG_FLUSHBEFOREONCHANGE, DIRTY_MATSPECULAR},
 
-	// These dirty uniforms, which could be table-ized to avoid execute.
+	// Light parameters
 	{GE_CMD_LX0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_LIGHT0},
 	{GE_CMD_LY0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_LIGHT0},
 	{GE_CMD_LZ0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_LIGHT0},
@@ -438,7 +438,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *ctx)
 		} else {
 			dupeCheck.insert(cmd);
 		}
-		cmdInfo_[cmd].flags |= (uint64_t)commandTable[i].flags | (commandTable[i].dirtyUniform << 8);
+		cmdInfo_[cmd].flags |= (uint64_t)commandTable[i].flags | (commandTable[i].dirty << 8);
 		cmdInfo_[cmd].func = commandTable[i].func;
 		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
 			Crash();

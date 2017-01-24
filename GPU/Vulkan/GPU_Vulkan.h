@@ -69,7 +69,7 @@ public:
 
 	typedef void (GPU_Vulkan::*CmdFunc)(u32 op, u32 diff);
 	struct CommandInfo {
-		u8 flags;
+		uint64_t flags;
 		GPU_Vulkan::CmdFunc func;
 	};
 	
