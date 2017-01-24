@@ -46,7 +46,7 @@ bool CompilePixelShader(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DPI
 	return true;
 }
 
-bool CompileVertexShader(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
+bool CompileVertexShader(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage, bool useVS30) {
 	ID3DXBuffer *pShaderCode = nullptr;
 	ID3DXBuffer *pErrorMsg = nullptr;
 
@@ -56,7 +56,7 @@ bool CompileVertexShader(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DV
 		nullptr,
 		nullptr,
 		"main",
-		"vs_2_0",
+		useVS30 ? "vs_3_0" : "vs_2_0",
 		0,
 		&pShaderCode,
 		&pErrorMsg,
