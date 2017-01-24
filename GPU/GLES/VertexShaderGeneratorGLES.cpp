@@ -787,7 +787,9 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 				if (scaleUV) {
 					if (hasTexcoord) {
 						if (doBezier || doSpline)
-							WRITE(p, "  v_texcoord = tex * u_uvscaleoffset.xy;\n");
+							// TODO: Need fix?
+							// Fix to avoid temporarily texture animation bug with hardware tessellation.
+							WRITE(p, "  v_texcoord = tex * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
 						else
 							WRITE(p, "  v_texcoord = texcoord * u_uvscaleoffset.xy;\n");
 					} else {
