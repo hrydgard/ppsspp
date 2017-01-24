@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
-#include "GPU/GLES/FragmentTestCache.h"
+#include "GPU/GLES/FragmentTestCacheGLES.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/ShaderId.h"
@@ -25,16 +25,16 @@
 static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
 static const int FRAGTEST_DECIMATION_INTERVAL = 113;
 
-FragmentTestCache::FragmentTestCache() : textureCache_(NULL), lastTexture_(0), decimationCounter_(0) {
+FragmentTestCacheGLES::FragmentTestCacheGLES() : textureCache_(NULL), lastTexture_(0), decimationCounter_(0) {
 	scratchpad_ = new u8[256 * 4];
 }
 
-FragmentTestCache::~FragmentTestCache() {
+FragmentTestCacheGLES::~FragmentTestCacheGLES() {
 	Clear();
 	delete [] scratchpad_;
 }
 
-void FragmentTestCache::BindTestTexture(GLenum unit) {
+void FragmentTestCacheGLES::BindTestTexture(GLenum unit) {
 	if (!g_Config.bFragmentTestCache) {
 		return;
 	}
@@ -89,7 +89,7 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 	cache_[id] = item;
 }
 
-FragmentTestID FragmentTestCache::GenerateTestID() const {
+FragmentTestID FragmentTestCacheGLES::GenerateTestID() const {
 	FragmentTestID id;
 	// Let's just keep it simple, it's all in here.
 	id.alpha = gstate.isAlphaTestEnabled() ? gstate.alphatest : 0;
@@ -103,7 +103,7 @@ FragmentTestID FragmentTestCache::GenerateTestID() const {
 	return id;
 }
 
-GLuint FragmentTestCache::CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]) {
+GLuint FragmentTestCacheGLES::CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]) {
 	// TODO: Might it be better to use GL_ALPHA for simple textures?
 	// TODO: Experiment with 4-bit/etc. textures.
 
@@ -155,7 +155,7 @@ GLuint FragmentTestCache::CreateTestTexture(const GEComparison funcs[4], const u
 	return tex;
 }
 
-void FragmentTestCache::Clear(bool deleteThem) {
+void FragmentTestCacheGLES::Clear(bool deleteThem) {
 	if (deleteThem) {
 		for (auto tex = cache_.begin(); tex != cache_.end(); ++tex) {
 			glDeleteTextures(1, &tex->second.texture);
@@ -165,7 +165,7 @@ void FragmentTestCache::Clear(bool deleteThem) {
 	lastTexture_ = 0;
 }
 
-void FragmentTestCache::Decimate() {
+void FragmentTestCacheGLES::Decimate() {
 	if (--decimationCounter_ <= 0) {
 		for (auto tex = cache_.begin(); tex != cache_.end(); ) {
 			if (tex->second.lastFrame + FRAGTEST_TEXTURE_OLD_AGE < gpuStats.numFlips) {

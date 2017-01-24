@@ -22,6 +22,7 @@
 
 #include "Common/CommonTypes.h"
 
+#include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
@@ -56,6 +57,7 @@ public:
 
 	std::vector<std::string> DebugGetVertexLoaderIDs();
 	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
+
 protected:
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
@@ -87,4 +89,17 @@ protected:
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;
+
+	// Hardware tessellation
+	int numPatches;
+	class TessellationDataTransfer {
+	protected:
+		int prevSize;
+		int prevSizeTex;
+		int prevSizeCol;
+	public:
+		// Send spline/bezier's control points to vertex shader through floating point texture.
+		virtual void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) = 0;
+	};
+	TessellationDataTransfer *tessDataTransfer;
 };

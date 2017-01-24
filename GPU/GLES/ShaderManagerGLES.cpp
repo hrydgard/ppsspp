@@ -39,9 +39,9 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "Framebuffer.h"
+#include "FramebufferManagerGLES.h"
 
 Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform)
 	  : failed_(false), useHWTransform_(useHWTransform) {
@@ -229,6 +229,17 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 		sprintf(temp, "u_lightspecular%i", i);
 		u_lightspecular[i] = glGetUniformLocation(program, temp);
 	}
+	if (gstate_c.bezier || gstate_c.spline) {
+		u_tess_pos_tex = glGetUniformLocation(program, "u_tess_pos_tex");
+		u_tess_tex_tex = glGetUniformLocation(program, "u_tess_tex_tex");
+		u_tess_col_tex = glGetUniformLocation(program, "u_tess_col_tex");
+		u_spline_count_u = glGetUniformLocation(program, "u_spline_count_u");
+		if (gstate_c.spline) {
+			u_spline_count_v = glGetUniformLocation(program, "u_spline_count_v");
+			u_spline_type_u = glGetUniformLocation(program, "u_spline_type_u");
+			u_spline_type_v = glGetUniformLocation(program, "u_spline_type_v");
+		}
+	}
 
 	attrMask = 0;
 	if (-1 != glGetAttribLocation(program, "position")) attrMask |= 1 << ATTR_POSITION;
@@ -282,6 +293,14 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 				u_lightpos[i] != -1)
 			availableUniforms |= DIRTY_LIGHT0 << i;
 	}
+	if (gstate_c.bezier) {
+		if (u_spline_count_u != -1) availableUniforms |= DIRTY_BEZIERCOUNTU;
+	} else if (gstate_c.spline) {
+		if (u_spline_count_u != -1) availableUniforms |= DIRTY_SPLINECOUNTU;
+		if (u_spline_count_v != -1) availableUniforms |= DIRTY_SPLINECOUNTV;
+		if (u_spline_type_u != -1) availableUniforms |= DIRTY_SPLINETYPEU;
+		if (u_spline_type_v != -1) availableUniforms |= DIRTY_SPLINETYPEV;
+	}
 
 	glUseProgram(program);
 
@@ -289,6 +308,11 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 	glUniform1i(u_tex, 0);
 	glUniform1i(u_fbotex, 1);
 	glUniform1i(u_testtex, 2);
+	if (gstate_c.bezier || gstate_c.spline) {
+		glUniform1i(u_tess_pos_tex, 3); // Texture unit 3
+		glUniform1i(u_tess_tex_tex, 4); // Texture unit 4
+		glUniform1i(u_tess_col_tex, 5); // Texture unit 5
+	}
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
 }
@@ -413,7 +437,7 @@ void LinkedShader::stop() {
 }
 
 void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
-	u32 dirty = dirtyUniforms & availableUniforms;
+	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 	if (!dirty)
 		return;
@@ -523,12 +547,6 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
 
-	// Texturing
-
-	// If this dirty check is changed to true, Frontier Gate Boost works in texcoord speedhack mode.
-	// This means that it's not a flushing issue.
-	// It uses GE_TEXMAP_TEXTURE_MATRIX with GE_PROJMAP_UV a lot.
-	// Can't figure out why it doesn't dirty at the right points though...
 	if (dirty & DIRTY_UVSCALEOFFSET) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
 		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
@@ -537,10 +555,19 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		const float widthFactor = (float)w * invW;
 		const float heightFactor = (float)h * invH;
 		float uvscaleoff[4];
-		uvscaleoff[0] = widthFactor;
-		uvscaleoff[1] = heightFactor;
-		uvscaleoff[2] = 0.0f;
-		uvscaleoff[3] = 0.0f;
+		if (gstate_c.bezier || gstate_c.spline) {
+			// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
+			// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
+			uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
+			uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
+			uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
+			uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
+		} else {
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+		}
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 
@@ -704,20 +731,34 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 			if (u_lightspecular[i] != -1) SetColorUniform3(u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
 		}
 	}
+
+	if (gstate_c.bezier) {
+		if (dirty & DIRTY_BEZIERCOUNTU)
+			glUniform1i(u_spline_count_u, gstate_c.bezier_count_u);
+	} else if (gstate_c.spline) {
+		if (dirty & DIRTY_SPLINECOUNTU)
+			glUniform1i(u_spline_count_u, gstate_c.spline_count_u);
+		if (dirty & DIRTY_SPLINECOUNTV)
+			glUniform1i(u_spline_count_v, gstate_c.spline_count_v);
+		if (dirty & DIRTY_SPLINETYPEU)
+			glUniform1i(u_spline_type_u, gstate_c.spline_type_u);
+		if (dirty & DIRTY_SPLINETYPEV)
+			glUniform1i(u_spline_type_v, gstate_c.spline_type_v);
+	}
 }
 
-ShaderManager::ShaderManager()
-		: lastShader_(nullptr), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0), diskCacheDirty_(false) {
+ShaderManagerGLES::ShaderManagerGLES()
+		: lastShader_(nullptr), shaderSwitchDirty_(0), diskCacheDirty_(false) {
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 }
 
-ShaderManager::~ShaderManager() {
+ShaderManagerGLES::~ShaderManagerGLES() {
 	delete [] codeBuffer_;
 }
 
-void ShaderManager::Clear() {
+void ShaderManagerGLES::Clear() {
 	DirtyLastShader();
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		delete iter->ls;
@@ -731,47 +772,47 @@ void ShaderManager::Clear() {
 	linkedShaderCache_.clear();
 	fsCache_.clear();
 	vsCache_.clear();
-	globalDirty_ = 0xFFFFFFFF;
+	globalDirty_ = DIRTY_ALL;
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	DirtyShader();
 }
 
-void ShaderManager::ClearCache(bool deleteThem) {
+void ShaderManagerGLES::ClearCache(bool deleteThem) {
 	// TODO: Recreate all from the diskcache when we come back.
 	Clear();
 }
 
-void ShaderManager::DirtyShader() {
+void ShaderManagerGLES::DirtyShader() {
 	// Forget the last shader ID
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	DirtyLastShader();
-	globalDirty_ = 0xFFFFFFFF;
+	globalDirty_ = DIRTY_ALL;
 	shaderSwitchDirty_ = 0;
 }
 
-void ShaderManager::DirtyLastShader() { // disables vertex arrays
+void ShaderManagerGLES::DirtyLastShader() { // disables vertex arrays
 	if (lastShader_)
 		lastShader_->stop();
 	lastShader_ = nullptr;
 	lastVShaderSame_ = false;
 }
 
-Shader *ShaderManager::CompileFragmentShader(ShaderID FSID) {
+Shader *ShaderManagerGLES::CompileFragmentShader(ShaderID FSID) {
 	if (!GenerateFragmentShader(FSID, codeBuffer_)) {
 		return nullptr;
 	}
 	return new Shader(codeBuffer_, GL_FRAGMENT_SHADER, false);
 }
 
-Shader *ShaderManager::CompileVertexShader(ShaderID VSID) {
+Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
 	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
 	GenerateVertexShader(VSID, codeBuffer_);
 	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
 }
 
-Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
+Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
 	if (globalDirty_) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= globalDirty_;
@@ -823,7 +864,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID)
 	return vs;
 }
 
-LinkedShader *ShaderManager::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim) {
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim) {
 	ShaderID FSID;
 	ComputeFragmentShaderID(&FSID);
 	if (lastVShaderSame_ && FSID == lastFSID_) {
@@ -847,7 +888,7 @@ LinkedShader *ShaderManager::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 
 	// Okay, we have both shaders. Let's see if there's a linked one.
 	LinkedShader *ls = nullptr;
 
-	u32 switchDirty = shaderSwitchDirty_;
+	u64 switchDirty = shaderSwitchDirty_;
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
 		iter->ls->dirtyUniforms |= switchDirty;
@@ -885,7 +926,7 @@ std::string Shader::GetShaderString(DebugShaderStringType type, ShaderID id) con
 	}
 }
 
-std::vector<std::string> ShaderManager::DebugGetShaderIDs(DebugShaderType type) {
+std::vector<std::string> ShaderManagerGLES::DebugGetShaderIDs(DebugShaderType type) {
 	std::string id;
 	std::vector<std::string> ids;
 	switch (type) {
@@ -911,7 +952,7 @@ std::vector<std::string> ShaderManager::DebugGetShaderIDs(DebugShaderType type) 
 	return ids;
 }
 
-std::string ShaderManager::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
 	ShaderID shaderId;
 	shaderId.FromString(id);
 	switch (type) {
@@ -960,7 +1001,7 @@ struct CacheHeader {
 	int numLinkedPrograms;
 };
 
-void ShaderManager::LoadAndPrecompile(const std::string &filename) {
+void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 	File::IOFile f(filename, "rb");
 	if (!f.IsOpen()) {
 		return;
@@ -1025,7 +1066,7 @@ void ShaderManager::LoadAndPrecompile(const std::string &filename) {
 	diskCacheDirty_ = false;
 }
 
-void ShaderManager::Save(const std::string &filename) {
+void ShaderManagerGLES::Save(const std::string &filename) {
 	if (!diskCacheDirty_) {
 		return;
 	}

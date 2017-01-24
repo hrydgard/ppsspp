@@ -107,6 +107,8 @@ DrawEngineDX9::DrawEngineDX9()
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
+
+	tessDataTransfer = new TessellationDataTransferDX9();
 }
 
 DrawEngineDX9::~DrawEngineDX9() {
@@ -121,6 +123,8 @@ DrawEngineDX9::~DrawEngineDX9() {
 			decl->second->Release();
 		}
 	}
+
+	delete tessDataTransfer;
 }
 
 void DrawEngineDX9::InitDeviceObjects() {
@@ -900,6 +904,10 @@ void DrawEngineDX9::Resized() {
 
 bool DrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
+}
+
+void DX9::DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords)
+{
 }
 
 }  // namespace

@@ -20,7 +20,7 @@
 // https://github.com/hrydgard/ppsspp/issues/3768
 
 
-#include "StateMapping.h"
+#include "StateMappingGLES.h"
 #include "profiler/profiler.h"
 
 #include "GPU/Math3D.h"
@@ -31,10 +31,10 @@
 #include "Core/Reporting.h"
 #include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/ShaderManager.h"
-#include "GPU/GLES/TextureCache.h"
-#include "GPU/GLES/Framebuffer.h"
-#include "GPU/GLES/FragmentShaderGenerator.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
+#include "GPU/GLES/TextureCacheGLES.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 
 static const GLushort glBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	GL_ZERO,

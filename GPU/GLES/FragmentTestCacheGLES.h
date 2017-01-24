@@ -20,7 +20,7 @@
 #include <map>
 #include "Common/CommonTypes.h"
 #include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/TextureCacheGLES.h"
 
 #include "GPU/ge_constants.h"
 
@@ -57,12 +57,12 @@ struct FragmentTestTexture {
 	int lastFrame;
 };
 
-class FragmentTestCache {
+class FragmentTestCacheGLES {
 public:
-	FragmentTestCache();
-	~FragmentTestCache();
+	FragmentTestCacheGLES();
+	~FragmentTestCacheGLES();
 
-	void SetTextureCache(TextureCache *tc) {
+	void SetTextureCache(TextureCacheGLES *tc) {
 		textureCache_ = tc;
 	}
 
@@ -76,7 +76,7 @@ private:
 	GLuint CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]);
 	FragmentTestID GenerateTestID() const;
 
-	TextureCache *textureCache_;
+	TextureCacheGLES *textureCache_;
 
 	std::map<FragmentTestID, FragmentTestTexture> cache_;
 	u8 *scratchpad_;

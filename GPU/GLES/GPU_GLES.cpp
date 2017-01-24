@@ -36,11 +36,11 @@
 #include "GPU/Common/FramebufferCommon.h"
 
 #include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
-#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/TextureCacheGLES.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -335,7 +335,7 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_GLES::Execute_LoadClut},
-	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, 0, &GPU_GLES::Execute_BlockTransferStart},
+	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_BlockTransferStart},
 
 	// We don't use the dither table.
 	{GE_CMD_DITH0},
@@ -401,24 +401,26 @@ GPU_GLES::GPU_GLES(GraphicsContext *ctx)
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
-	shaderManager_ = new ShaderManager();
-	framebufferManagerGL_ = new FramebufferManager();
+	shaderManagerGL_ = new ShaderManagerGLES();
+	framebufferManagerGL_ = new FramebufferManagerGLES();
 	framebufferManager_ = framebufferManagerGL_;
-	textureCacheGL_ = new TextureCache();
+	textureCacheGL_ = new TextureCacheGLES();
 	textureCache_ = textureCacheGL_;
 	drawEngineCommon_ = &drawEngine_;
+	shaderManager_ = shaderManagerGL_;
+	drawEngineCommon_ = &drawEngine_;
 
-	drawEngine_.SetShaderManager(shaderManager_);
+	drawEngine_.SetShaderManager(shaderManagerGL_);
 	drawEngine_.SetTextureCache(textureCacheGL_);
 	drawEngine_.SetFramebufferManager(framebufferManagerGL_);
 	drawEngine_.SetFragmentTestCache(&fragmentTestCache_);
 	framebufferManagerGL_->Init();
 	framebufferManagerGL_->SetTextureCache(textureCacheGL_);
-	framebufferManagerGL_->SetShaderManager(shaderManager_);
+	framebufferManagerGL_->SetShaderManager(shaderManagerGL_);
 	framebufferManagerGL_->SetTransformDrawEngine(&drawEngine_);
 	textureCacheGL_->SetFramebufferManager(framebufferManagerGL_);
 	textureCacheGL_->SetDepalShaderCache(&depalShaderCache_);
-	textureCacheGL_->SetShaderManager(shaderManager_);
+	textureCacheGL_->SetShaderManager(shaderManagerGL_);
 	textureCacheGL_->SetTransformDrawEngine(&drawEngine_);
 	fragmentTestCache_.SetTextureCache(textureCacheGL_);
 
@@ -470,20 +472,20 @@ GPU_GLES::GPU_GLES(GraphicsContext *ctx)
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + g_paramSFO.GetValueString("DISC_ID") + ".glshadercache";
-		shaderManager_->LoadAndPrecompile(shaderCachePath_);
+		shaderManagerGL_->LoadAndPrecompile(shaderCachePath_);
 	}
 }
 
 GPU_GLES::~GPU_GLES() {
 	framebufferManagerGL_->DestroyAllFBOs(true);
-	shaderManager_->ClearCache(true);
+	shaderManagerGL_->ClearCache(true);
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
 	if (!shaderCachePath_.empty()) {
-		shaderManager_->Save(shaderCachePath_);
+		shaderManagerGL_->Save(shaderCachePath_);
 	}
-	delete shaderManager_;
-	shaderManager_ = nullptr;
+	delete shaderManagerGL_;
+	shaderManagerGL_ = nullptr;
 
 #ifdef _WIN32
 	gfxCtx_->SwapInterval(0);
@@ -652,7 +654,7 @@ void GPU_GLES::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	// TransformDraw has registered as a GfxResourceHolder.
-	shaderManager_->ClearCache(false);
+	shaderManagerGL_->ClearCache(false);
 	textureCacheGL_->Clear(false);
 	fragmentTestCache_.Clear(false);
 	depalShaderCache_.Clear();
@@ -662,6 +664,7 @@ void GPU_GLES::DeviceLost() {
 void GPU_GLES::DeviceRestore() {
 	ILOG("GPU_GLES: DeviceRestore");
 
+	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
 }
 
@@ -760,10 +763,10 @@ void GPU_GLES::BeginFrameInternal() {
 
 	// Save the cache from time to time. TODO: How often?
 	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 1023) == 0) {
-		shaderManager_->Save(shaderCachePath_);
+		shaderManagerGL_->Save(shaderCachePath_);
 	}
 
-	shaderManager_->DirtyShader();
+	shaderManagerGL_->DirtyShader();
 
 	// Not sure if this is really needed.
 	shaderManager_->DirtyUniform(DIRTY_ALL);
@@ -811,7 +814,7 @@ void GPU_GLES::CopyDisplayToOutputInternal() {
 	framebufferManagerGL_->RebindFramebuffer();
 	drawEngine_.Flush();
 
-	shaderManager_->DirtyLastShader();
+	shaderManagerGL_->DirtyLastShader();
 
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -923,8 +926,7 @@ void GPU_GLES::Execute_Prim(u32 op, u32 diff) {
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
 		drawEngine_.SetupVertexDecoder(gstate.vertType);
 		// Rough estimate, not sure what's correct.
-		int vertexCost = drawEngine_.EstimatePerVertexCost();
-		cyclesExecuted += vertexCost * count;
+		cyclesExecuted += EstimatePerVertexCost() * count;
 		return;
 	}
 
@@ -952,7 +954,7 @@ void GPU_GLES::Execute_Prim(u32 op, u32 diff) {
 	int bytesRead = 0;
 	drawEngine_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
 
-	int vertexCost = drawEngine_.EstimatePerVertexCost();
+	int vertexCost = EstimatePerVertexCost();
 	gpuStats.vertexGPUCycles += vertexCost * count;
 	cyclesExecuted += vertexCost * count;
 
@@ -984,6 +986,129 @@ void GPU_GLES::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 			gstate_c.deferredVertTypeDirty = 0;
 		}
 	}
+}
+
+void GPU_GLES::Execute_Bezier(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManagerGL_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	int bz_ucount = op & 0xFF;
+	int bz_vcount = (op >> 8) & 0xFF;
+	bool computeNormals = gstate.isLightingEnabled();
+	bool patchFacing = gstate.patchfacing & 1;
+
+	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.bezier = true;
+		if (gstate_c.bezier_count_u != bz_ucount) {
+			shaderManager_->DirtyUniform(DIRTY_BEZIERCOUNTU);
+			gstate_c.bezier_count_u = bz_ucount;
+		}
+	}
+
+	int bytesRead = 0;
+	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+	
+	gstate_c.bezier = false;
+
+	// After drawing, we advance pointers - see SubmitPrim which does the same.
+	int count = bz_ucount * bz_vcount;
+	AdvanceVerts(gstate.vertType, count, bytesRead);
+}
+
+void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManagerGL_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	int sp_ucount = op & 0xFF;
+	int sp_vcount = (op >> 8) & 0xFF;
+	int sp_utype = (op >> 16) & 0x3;
+	int sp_vtype = (op >> 18) & 0x3;
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	bool computeNormals = gstate.isLightingEnabled();
+	bool patchFacing = gstate.patchfacing & 1;
+	u32 vertType = gstate.vertType;
+
+	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.spline = true;
+		if (gstate_c.spline_count_u != sp_ucount) {
+			shaderManager_->DirtyUniform(DIRTY_SPLINECOUNTU);
+			gstate_c.spline_count_u = sp_ucount;
+		}
+		if (gstate_c.spline_count_v != sp_vcount) {
+			shaderManager_->DirtyUniform(DIRTY_SPLINECOUNTV);
+			gstate_c.spline_count_v = sp_vcount;
+		}
+		if (gstate_c.spline_type_u != sp_utype) {
+			shaderManager_->DirtyUniform(DIRTY_SPLINETYPEU);
+			gstate_c.spline_type_u = sp_utype;
+		}
+		if (gstate_c.spline_type_v != sp_vtype) {
+			shaderManager_->DirtyUniform(DIRTY_SPLINETYPEV);
+			gstate_c.spline_type_v = sp_vtype;
+		}
+	}
+
+	int bytesRead = 0;
+	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
+	
+	gstate_c.spline = false;
+
+	// After drawing, we advance pointers - see SubmitPrim which does the same.
+	int count = sp_ucount * sp_vcount;
+	AdvanceVerts(gstate.vertType, count, bytesRead);
 }
 
 void GPU_GLES::Execute_Region(u32 op, u32 diff) {
@@ -1166,240 +1291,6 @@ void GPU_GLES::Execute_ColorRef(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
 }
 
-void GPU_GLES::Execute_WorldMtxNum(u32 op, u32 diff) {
-	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
-	const int end = 12 - (op & 0xF);
-	int i = 0;
-
-	while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
-		}
-		if (++i >= end) {
-			break;
-		}
-	}
-
-	const int count = i;
-	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op + count) & 0xF);
-
-	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
-	currentList->pc += count * 4;
-}
-
-void GPU_GLES::Execute_WorldMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.worldmtxnum & 0xF;
-	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.worldMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
-	}
-	num++;
-	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
-}
-
-void GPU_GLES::Execute_ViewMtxNum(u32 op, u32 diff) {
-	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
-	const int end = 12 - (op & 0xF);
-	int i = 0;
-
-	while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
-		}
-		if (++i >= end) {
-			break;
-		}
-	}
-
-	const int count = i;
-	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op + count) & 0xF);
-
-	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
-	currentList->pc += count * 4;
-}
-
-void GPU_GLES::Execute_ViewMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.viewmtxnum & 0xF;
-	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.viewMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
-	}
-	num++;
-	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
-}
-
-void GPU_GLES::Execute_ProjMtxNum(u32 op, u32 diff) {
-	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
-	const int end = 16 - (op & 0xF);
-	int i = 0;
-
-	while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-		}
-		if (++i >= end) {
-			break;
-		}
-	}
-
-	const int count = i;
-	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0xF);
-
-	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
-	currentList->pc += count * 4;
-}
-
-void GPU_GLES::Execute_ProjMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.projmtxnum & 0xF;
-	u32 newVal = op << 8;
-	if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.projMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-	}
-	num++;
-	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
-}
-
-void GPU_GLES::Execute_TgenMtxNum(u32 op, u32 diff) {
-	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
-	const int end = 12 - (op & 0xF);
-	int i = 0;
-
-	while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
-		}
-		if (++i >= end) {
-			break;
-		}
-	}
-
-	const int count = i;
-	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op + count) & 0xF);
-
-	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
-	currentList->pc += count * 4;
-}
-
-void GPU_GLES::Execute_TgenMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.texmtxnum & 0xF;
-	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.tgenMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
-	}
-	num++;
-	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
-}
-
-void GPU_GLES::Execute_BoneMtxNum(u32 op, u32 diff) {
-	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
-	const int end = 12 * 8 - (op & 0x7F);
-	int i = 0;
-
-	// If we can't use software skinning, we have to flush and dirty.
-	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-			const u32 newVal = src[i] << 8;
-			if (dst[i] != newVal) {
-				Flush();
-				dst[i] = newVal;
-			}
-			if (++i >= end) {
-				break;
-			}
-		}
-
-		const int numPlusCount = (op & 0x7F) + i;
-		for (int num = op & 0x7F; num < numPlusCount; num += 12) {
-			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-		}
-	} else {
-		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-			dst[i] = src[i] << 8;
-			if (++i >= end) {
-				break;
-			}
-		}
-
-		const int numPlusCount = (op & 0x7F) + i;
-		for (int num = op & 0x7F; num < numPlusCount; num += 12) {
-			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
-		}
-	}
-
-	const int count = i;
-	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
-
-	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
-	currentList->pc += count * 4;
-}
-
-void GPU_GLES::Execute_BoneMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.boneMatrixNumber & 0x7F;
-	u32 newVal = op << 8;
-	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
-		// Bone matrices should NOT flush when software skinning is enabled!
-		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			Flush();
-			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-		} else {
-			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
-		}
-		((u32 *)gstate.boneMatrix)[num] = newVal;
-	}
-	num++;
-	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
-}
-
-void GPU_GLES::Execute_BlockTransferStart(u32 op, u32 diff) {
-	// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
-	// Can we skip this on SkipDraw?
-	DoBlockTransfer(gstate_c.skipDrawReason);
-
-	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
-}
-
 void GPU_GLES::Execute_Generic(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
@@ -1421,7 +1312,6 @@ void GPU_GLES::Execute_Generic(u32 op, u32 diff) {
 		Execute_Prim(op, diff);
 		break;
 
-	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		Execute_Bezier(op, diff);
 		break;
@@ -1570,7 +1460,7 @@ void GPU_GLES::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TRANSFERSIZE:
 		break;
 
-	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
+	case GE_CMD_TRANSFERSTART:
 		Execute_BlockTransferStart(op, diff);
 		break;
 
@@ -1932,23 +1822,6 @@ void GPU_GLES::Execute_Generic(u32 op, u32 diff) {
 	}
 }
 
-void GPU_GLES::FastLoadBoneMatrix(u32 target) {
-	const int num = gstate.boneMatrixNumber & 0x7F;
-	const int mtxNum = num / 12;
-	uint32_t uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
-	if ((num - 12 * mtxNum) != 0) {
-		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
-	}
-
-	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-		Flush();
-		shaderManager_->DirtyUniform(uniformsToDirty);
-	} else {
-		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
-	}
-	gstate.FastLoadBoneMatrix(target);
-}
-
 void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 	snprintf(buffer, bufsize - 1,
@@ -1978,9 +1851,9 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheGL_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
-		shaderManager_->NumVertexShaders(),
-		shaderManager_->NumFragmentShaders(),
-		shaderManager_->NumPrograms());
+		shaderManagerGL_->NumVertexShaders(),
+		shaderManagerGL_->NumFragmentShaders(),
+		shaderManagerGL_->NumPrograms());
 }
 
 void GPU_GLES::ClearCacheNextFrame() {
@@ -1988,12 +1861,12 @@ void GPU_GLES::ClearCacheNextFrame() {
 }
 
 void GPU_GLES::ClearShaderCache() {
-	shaderManager_->ClearCache(true);
+	shaderManagerGL_->ClearCache(true);
 }
 
 void GPU_GLES::CleanupBeforeUI() {
 	// Clear any enabled vertex arrays.
-	shaderManager_->DirtyLastShader();
+	shaderManagerGL_->DirtyLastShader();
 	glstate.arrayBuffer.bind(0);
 	glstate.elementArrayBuffer.bind(0);
 }
@@ -2015,7 +1888,7 @@ void GPU_GLES::DoState(PointerWrap &p) {
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		framebufferManagerGL_->DestroyAllFBOs(true);
-		shaderManager_->ClearCache(true);
+		shaderManagerGL_->ClearCache(true);
 	}
 }
 
@@ -2085,7 +1958,7 @@ bool GPU_GLES::GetCurrentClut(GPUDebugBuffer &buffer) {
 }
 
 bool GPU_GLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	return FramebufferManager::GetOutputFramebuffer(buffer);
+	return FramebufferManagerGLES::GetOutputFramebuffer(buffer);
 }
 
 bool GPU_GLES::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
@@ -2104,7 +1977,7 @@ std::vector<std::string> GPU_GLES::DebugGetShaderIDs(DebugShaderType type) {
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderIDs();
 	} else {
-		return shaderManager_->DebugGetShaderIDs(type);
+		return shaderManagerGL_->DebugGetShaderIDs(type);
 	}
 }
 
@@ -2112,6 +1985,6 @@ std::string GPU_GLES::DebugGetShaderString(std::string id, DebugShaderType type,
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
 	} else {
-		return shaderManager_->DebugGetShaderString(id, type, stringType);
+		return shaderManagerGL_->DebugGetShaderString(id, type, stringType);
 	}
 }

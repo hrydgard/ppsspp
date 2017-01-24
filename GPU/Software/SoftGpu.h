@@ -21,7 +21,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "thin3d/thin3d.h"
 
-typedef struct {
+struct FormatBuffer {
 	union {
 		u8 *data;
 		u16 *as16;
@@ -43,9 +43,9 @@ typedef struct {
 	inline u32 Get32(int x, int y, int stride) {
 		return as32[x + y * stride];
 	}
-} FormatBuffer;
+};
 
-class ShaderManager;
+class ShaderManagerGLES;
 
 class SoftGPU : public GPUCommon {
 public:

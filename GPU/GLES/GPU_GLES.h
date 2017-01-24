@@ -22,13 +22,13 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GLES/FBO.h"
-#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/TextureCache.h"
-#include "GPU/GLES/DepalettizeShader.h"
-#include "GPU/GLES/FragmentTestCache.h"
+#include "GPU/GLES/TextureCacheGLES.h"
+#include "GPU/GLES/DepalettizeShaderGLES.h"
+#include "GPU/GLES/FragmentTestCacheGLES.h"
 
-class ShaderManager;
+class ShaderManagerGLES;
 class LinkedShader;
 class GraphicsContext;
 
@@ -89,6 +89,8 @@ public:
 	void Execute_Vaddr(u32 op, u32 diff);
 	void Execute_Iaddr(u32 op, u32 diff);
 	void Execute_Prim(u32 op, u32 diff);
+	void Execute_Bezier(u32 op, u32 diff);
+	void Execute_Spline(u32 op, u32 diff);
 	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 	void Execute_Region(u32 op, u32 diff);
@@ -128,17 +130,6 @@ public:
 	void Execute_AlphaTest(u32 op, u32 diff);
 	void Execute_StencilTest(u32 op, u32 diff);
 	void Execute_ColorRef(u32 op, u32 diff);
-	void Execute_WorldMtxNum(u32 op, u32 diff);
-	void Execute_WorldMtxData(u32 op, u32 diff);
-	void Execute_ViewMtxNum(u32 op, u32 diff);
-	void Execute_ViewMtxData(u32 op, u32 diff);
-	void Execute_ProjMtxNum(u32 op, u32 diff);
-	void Execute_ProjMtxData(u32 op, u32 diff);
-	void Execute_TgenMtxNum(u32 op, u32 diff);
-	void Execute_TgenMtxData(u32 op, u32 diff);
-	void Execute_BoneMtxNum(u32 op, u32 diff);
-	void Execute_BoneMtxData(u32 op, u32 diff);
-	void Execute_BlockTransferStart(u32 op, u32 diff);
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
@@ -146,7 +137,6 @@ public:
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
-	void FastLoadBoneMatrix(u32 target) override;
 	void FinishDeferred() override;
 
 private:
@@ -166,12 +156,12 @@ private:
 
 	static CommandInfo cmdInfo_[256];
 
-	FramebufferManager *framebufferManagerGL_;
-	TextureCache *textureCacheGL_;
-	DepalShaderCache depalShaderCache_;
+	FramebufferManagerGLES *framebufferManagerGL_;
+	TextureCacheGLES *textureCacheGL_;
+	DepalShaderCacheGLES depalShaderCache_;
 	DrawEngineGLES drawEngine_;
-	FragmentTestCache fragmentTestCache_;
-	ShaderManager *shaderManager_;
+	FragmentTestCacheGLES fragmentTestCache_;
+	ShaderManagerGLES *shaderManagerGL_;
 
 	int lastVsync_;
 

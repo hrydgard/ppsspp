@@ -25,17 +25,17 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/GLES/FragmentShaderGenerator.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
 class LinkedShader;
-class ShaderManager;
-class TextureCache;
-class FramebufferManager;
+class ShaderManagerGLES;
+class TextureCacheGLES;
+class FramebufferManagerGLES;
 class FramebufferManagerCommon;
 class TextureCacheCommon;
-class FragmentTestCache;
+class FragmentTestCacheGLES;
 struct TransformedVertex;
 
 struct DecVtxFormat;
@@ -114,16 +114,16 @@ public:
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 
-	void SetShaderManager(ShaderManager *shaderManager) {
+	void SetShaderManager(ShaderManagerGLES *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
-	void SetTextureCache(TextureCache *textureCache) {
+	void SetTextureCache(TextureCacheGLES *textureCache) {
 		textureCache_ = textureCache;
 	}
-	void SetFramebufferManager(FramebufferManager *fbManager) {
+	void SetFramebufferManager(FramebufferManagerGLES *fbManager) {
 		framebufferManager_ = fbManager;
 	}
-	void SetFragmentTestCache(FragmentTestCache *testCache) {
+	void SetFragmentTestCache(FragmentTestCacheGLES *testCache) {
 		fragmentTestCache_ = testCache;
 	}
 	void RestoreVAO();
@@ -138,36 +138,6 @@ public:
 
 	void SetupVertexDecoder(u32 vertType);
 	inline void SetupVertexDecoderInternal(u32 vertType);
-
-	// This requires a SetupVertexDecoder call first.
-	int EstimatePerVertexCost() {
-		// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
-		// runs in parallel with transform.
-
-		// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
-
-		// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
-		// went too fast and starts doing all the work over again).
-
-		int cost = 20;
-		if (gstate.isLightingEnabled()) {
-			cost += 10;
-
-			for (int i = 0; i < 4; i++) {
-				if (gstate.isLightChanEnabled(i))
-					cost += 10;
-			}
-		}
-
-		if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
-			cost += 20;
-		}
-		if (dec_ && dec_->morphcount > 1) {
-			cost += 5 * dec_->morphcount;
-		}
-
-		return cost;
-	}
 
 	// So that this can be inlined
 	void Flush() {
@@ -253,10 +223,10 @@ private:
 	GLuint sharedVao_;
 
 	// Other
-	ShaderManager *shaderManager_;
-	TextureCache *textureCache_;
-	FramebufferManager *framebufferManager_;
-	FragmentTestCache *fragmentTestCache_;
+	ShaderManagerGLES *shaderManager_;
+	TextureCacheGLES *textureCache_;
+	FramebufferManagerGLES *framebufferManager_;
+	FragmentTestCacheGLES *fragmentTestCache_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
@@ -272,4 +242,18 @@ private:
 
 	bool fboTexNeedBind_;
 	bool fboTexBound_;
+
+	// Hardware tessellation
+	class TessellationDataTransferGLES : public TessellationDataTransfer {
+	private:
+		int data_tex[3];
+	public:
+		TessellationDataTransferGLES() : TessellationDataTransfer(), data_tex() {
+			glGenTextures(3, (GLuint*)data_tex);
+		}
+		~TessellationDataTransferGLES() {
+			glDeleteTextures(3, (GLuint*)data_tex); 
+		}
+		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+	};
 };

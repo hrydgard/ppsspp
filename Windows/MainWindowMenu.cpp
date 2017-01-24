@@ -14,11 +14,11 @@
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
-#include "GPU/GLES/TextureScaler.h"
-#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/TextureScalerGLES.h"
+#include "GPU/GLES/TextureCacheGLES.h"
 #include "UI/OnScreenDisplay.h"
 #include "GPU/Common/PostShader.h"
-#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 #include "Core/Config.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "UI/OnScreenDisplay.h"
@@ -698,10 +698,10 @@ namespace MainWindow {
 		case ID_TEXTURESCALING_4X:  setTexScalingMultiplier(TEXSCALING_4X); break;
 		case ID_TEXTURESCALING_5X:  setTexScalingMultiplier(TEXSCALING_MAX); break;
 
-		case ID_TEXTURESCALING_XBRZ:            setTexScalingType(TextureScaler::XBRZ); break;
-		case ID_TEXTURESCALING_HYBRID:          setTexScalingType(TextureScaler::HYBRID); break;
-		case ID_TEXTURESCALING_BICUBIC:         setTexScalingType(TextureScaler::BICUBIC); break;
-		case ID_TEXTURESCALING_HYBRID_BICUBIC:  setTexScalingType(TextureScaler::HYBRID_BICUBIC); break;
+		case ID_TEXTURESCALING_XBRZ:            setTexScalingType(TextureScalerCommon::XBRZ); break;
+		case ID_TEXTURESCALING_HYBRID:          setTexScalingType(TextureScalerCommon::HYBRID); break;
+		case ID_TEXTURESCALING_BICUBIC:         setTexScalingType(TextureScalerCommon::BICUBIC); break;
+		case ID_TEXTURESCALING_HYBRID_BICUBIC:  setTexScalingType(TextureScalerCommon::HYBRID_BICUBIC); break;
 
 		case ID_TEXTURESCALING_DEPOSTERIZE:
 			g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
@@ -1092,11 +1092,11 @@ namespace MainWindow {
 			ID_TEXTURESCALING_BICUBIC,
 			ID_TEXTURESCALING_HYBRID_BICUBIC,
 		};
-		if (g_Config.iTexScalingType < TextureScaler::XBRZ)
-			g_Config.iTexScalingType = TextureScaler::XBRZ;
+		if (g_Config.iTexScalingType < TextureScalerCommon::XBRZ)
+			g_Config.iTexScalingType = TextureScalerCommon::XBRZ;
 
-		else if (g_Config.iTexScalingType > TextureScaler::HYBRID_BICUBIC)
-			g_Config.iTexScalingType = TextureScaler::HYBRID_BICUBIC;
+		else if (g_Config.iTexScalingType > TextureScalerCommon::HYBRID_BICUBIC)
+			g_Config.iTexScalingType = TextureScalerCommon::HYBRID_BICUBIC;
 
 		for (int i = 0; i < ARRAY_SIZE(texscalingtypeitems); i++) {
 			CheckMenuItem(menu, texscalingtypeitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingType) ? MF_CHECKED : MF_UNCHECKED));

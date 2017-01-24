@@ -63,28 +63,7 @@
     <ClInclude Include="Common\VertexDecoderCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="GLES\VertexShaderGenerator.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\StateMapping.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\TextureCache.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\TextureScaler.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
     <ClInclude Include="GLES\DrawEngineGLES.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\FragmentShaderGenerator.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\Framebuffer.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\ShaderManager.h">
       <Filter>GLES</Filter>
     </ClInclude>
     <ClInclude Include="Directx9\GPU_DX9.h">
@@ -158,12 +137,6 @@
     </ClInclude>
     <ClInclude Include="Common\TransformCommon.h">
       <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\DepalettizeShader.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
-    <ClInclude Include="GLES\FragmentTestCache.h">
-      <Filter>GLES</Filter>
     </ClInclude>
     <ClInclude Include="Common\FramebufferCommon.h">
       <Filter>Common</Filter>
@@ -240,6 +213,33 @@
     <ClInclude Include="Vulkan\VulkanUtil.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="GLES\TextureCacheGLES.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\ShaderManagerGLES.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\StateMappingGLES.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\TextureScalerGLES.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\FragmentShaderGeneratorGLES.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\DepalettizeShaderGLES.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\VertexShaderGeneratorGLES.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\FramebufferManagerGLES.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\FragmentTestCacheGLES.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -272,25 +272,7 @@
     <ClCompile Include="Common\VertexDecoderCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\TextureCache.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
     <ClCompile Include="GLES\DrawEngineGLES.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\VertexShaderGenerator.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\StateMapping.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\FragmentShaderGenerator.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\Framebuffer.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\ShaderManager.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\GPU_DX9.cpp">
@@ -319,9 +301,6 @@
     </ClCompile>
     <ClCompile Include="Directx9\TextureScalerDX9.cpp">
       <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\TextureScaler.cpp">
-      <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="Common\IndexGenerator.cpp">
       <Filter>Common</Filter>
@@ -361,15 +340,6 @@
     </ClCompile>
     <ClCompile Include="Common\TransformCommon.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\DepalettizeShader.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\StencilBuffer.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\FragmentTestCache.cpp">
-      <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="Common\FramebufferCommon.cpp">
       <Filter>Common</Filter>
@@ -460,6 +430,36 @@
     </ClCompile>
     <ClCompile Include="Vulkan\VulkanUtil.cpp">
       <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\TextureCacheGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\ShaderManagerGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\StateMappingGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\TextureScalerGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\StencilBufferGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\FragmentShaderGeneratorGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\DepalettizeShaderGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\VertexShaderGeneratorGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\FramebufferManagerGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\FragmentTestCacheGLES.cpp">
+      <Filter>GLES</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

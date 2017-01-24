@@ -283,40 +283,12 @@ void SoftGPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
-int EstimatePerVertexCost() {
-	// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
-	// runs in parallel with transform.
-
-	// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
-
-	// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
-	// went too fast and starts doing all the work over again).
-
-	int cost = 20;
-	if (gstate.isLightingEnabled()) {
-		cost += 10;
-	}
-
-	for (int i = 0; i < 4; i++) {
-		if (gstate.isLightChanEnabled(i))
-			cost += 10;
-	}
-	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
-		cost += 20;
-	}
-	// TODO: morphcount
-
-	return cost;
-}
-
-void SoftGPU::ExecuteOp(u32 op, u32 diff)
-{
+void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
 	// Handle control and drawing commands here directly. The others we delegate.
-	switch (cmd)
-	{
+	switch (cmd) {
 	case GE_CMD_BASE:
 		break;
 
