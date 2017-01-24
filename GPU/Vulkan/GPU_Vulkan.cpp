@@ -507,7 +507,7 @@ void GPU_Vulkan::BeginHostFrame() {
 	framebufferManagerVulkan_->BeginFrameVulkan();
 
 	shaderManagerVulkan_->DirtyShader();
-	gstate_c.DirtyUniform(DIRTY_ALL);
+	gstate_c.Dirty(DIRTY_ALL);
 
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
@@ -690,7 +690,7 @@ void GPU_Vulkan::CopyDisplayToOutputInternal() {
 
 	framebufferManagerVulkan_->CopyDisplayToOutput();
 
-	gstate_c.textureImageChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 // Maybe should write this in ASM...
@@ -823,7 +823,7 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 
 void GPU_Vulkan::Execute_VertexType(u32 op, u32 diff) {
 	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
-		gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 	}
 }
 
@@ -918,97 +918,96 @@ void GPU_Vulkan::Execute_Spline(u32 op, u32 diff) {
 
 void GPU_Vulkan::Execute_Region(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_Vulkan::Execute_Scissor(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_Vulkan::Execute_FramebufType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_Vulkan::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;  // Why?
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);  // Why?
 }
 
 void GPU_Vulkan::Execute_ViewportZType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
-	gstate_c.DirtyUniform(DIRTY_DEPTHRANGE);
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	gstate_c.Dirty(DIRTY_DEPTHRANGE);
 }
 
 void GPU_Vulkan::Execute_TexScaleU(u32 op, u32 diff) {
 	gstate_c.uv.uScale = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_Vulkan::Execute_TexScaleV(u32 op, u32 diff) {
 	gstate_c.uv.vScale = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_Vulkan::Execute_TexOffsetU(u32 op, u32 diff) {
 	gstate_c.uv.uOff = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_Vulkan::Execute_TexOffsetV(u32 op, u32 diff) {
 	gstate_c.uv.vOff = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_Vulkan::Execute_TexAddr0(u32 op, u32 diff) {
-	gstate_c.textureImageChanged = true;
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_Vulkan::Execute_TexAddrN(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_Vulkan::Execute_TexBufw0(u32 op, u32 diff) {
-	gstate_c.textureImageChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_Vulkan::Execute_TexBufwN(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_Vulkan::Execute_TexSize0(u32 op, u32 diff) {
 	// Render to texture may have overridden the width/height.
 	// Don't reset it unless the size is different / the texture has changed.
-	if (diff || (gstate_c.textureImageChanged || gstate_c.textureParamsChanged)) {
+	if (diff || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) {
 		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
 		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-		gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
 		// We will need to reset the texture now.
-		gstate_c.textureParamsChanged = true;
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_TEXTURE_PARAMS);
 	}
 }
 
 void GPU_Vulkan::Execute_TexSizeN(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_Vulkan::Execute_TexFormat(u32 op, u32 diff) {
-	gstate_c.textureImageChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_Vulkan::Execute_TexMapMode(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_Vulkan::Execute_TexParamType(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_Vulkan::Execute_TexEnvColor(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_TEXENV);
+	gstate_c.Dirty(DIRTY_TEXENV);
 }
 
 void GPU_Vulkan::Execute_TexLevel(u32 op, u32 diff) {
@@ -1021,77 +1020,76 @@ void GPU_Vulkan::Execute_TexLevel(u32 op, u32 diff) {
 	gstate.texlevel ^= diff;
 	}
 	*/
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_Vulkan::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	textureCacheVulkan_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 }
 
 void GPU_Vulkan::Execute_ClutFormat(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_Vulkan::Execute_Ambient(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_AMBIENT);
+	gstate_c.Dirty(DIRTY_AMBIENT);
 }
 
 void GPU_Vulkan::Execute_MaterialDiffuse(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATDIFFUSE);
+	gstate_c.Dirty(DIRTY_MATDIFFUSE);
 }
 
 void GPU_Vulkan::Execute_MaterialEmissive(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATEMISSIVE);
+	gstate_c.Dirty(DIRTY_MATEMISSIVE);
 }
 
 void GPU_Vulkan::Execute_MaterialAmbient(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATAMBIENTALPHA);
+	gstate_c.Dirty(DIRTY_MATAMBIENTALPHA);
 }
 
 void GPU_Vulkan::Execute_MaterialSpecular(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATSPECULAR);
+	gstate_c.Dirty(DIRTY_MATSPECULAR);
 }
 
 void GPU_Vulkan::Execute_Light0Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT0);
+	gstate_c.Dirty(DIRTY_LIGHT0);
 }
 
 void GPU_Vulkan::Execute_Light1Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT1);
+	gstate_c.Dirty(DIRTY_LIGHT1);
 }
 
 void GPU_Vulkan::Execute_Light2Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT2);
+	gstate_c.Dirty(DIRTY_LIGHT2);
 }
 
 void GPU_Vulkan::Execute_Light3Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT3);
+	gstate_c.Dirty(DIRTY_LIGHT3);
 }
 
 void GPU_Vulkan::Execute_FogColor(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_FOGCOLOR);
+	gstate_c.Dirty(DIRTY_FOGCOLOR);
 }
 
 void GPU_Vulkan::Execute_FogCoef(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_FOGCOEF);
+	gstate_c.Dirty(DIRTY_FOGCOEF);
 }
 
 void GPU_Vulkan::Execute_ColorTestMask(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORMASK);
+	gstate_c.Dirty(DIRTY_ALPHACOLORMASK);
 }
 
 void GPU_Vulkan::Execute_AlphaTest(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORREF);
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORMASK);
+	gstate_c.Dirty(DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK);
 }
 
 void GPU_Vulkan::Execute_StencilTest(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_STENCILREPLACEVALUE);
+	gstate_c.Dirty(DIRTY_STENCILREPLACEVALUE);
 }
 
 void GPU_Vulkan::Execute_ColorRef(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORREF);
+	gstate_c.Dirty(DIRTY_ALPHACOLORREF);
 }
 
 void GPU_Vulkan::Execute_BoneMtxNum(u32 op, u32 diff) {
@@ -1115,7 +1113,7 @@ void GPU_Vulkan::Execute_BoneMtxNum(u32 op, u32 diff) {
 
 	const int numPlusCount = (op & 0x7F) + i;
 	for (int num = op & 0x7F; num < numPlusCount; num += 12) {
-		gstate_c.DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+		gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 	}
 
 	const int count = i;
@@ -1133,7 +1131,7 @@ void GPU_Vulkan::Execute_BoneMtxData(u32 op, u32 diff) {
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
 		// Bone matrices should NOT flush when software skinning is enabled!
 		Flush();
-		gstate_c.DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+		gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 		((u32 *)gstate.boneMatrix)[num] = newVal;
 	}
 	num++;
@@ -1679,7 +1677,7 @@ void GPU_Vulkan::FastLoadBoneMatrix(u32 target) {
 		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
 	}
 	Flush();
-	gstate_c.DirtyUniform(uniformsToDirty);
+	gstate_c.Dirty(uniformsToDirty);
 	gstate.FastLoadBoneMatrix(target);
 }
 
@@ -1767,7 +1765,7 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 		textureCacheVulkan_->Clear(true);
 		depalShaderCache_.Clear();
 
-		gstate_c.textureImageChanged = true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManagerVulkan_->DestroyAllFBOs(true);
 		shaderManagerVulkan_->ClearShaders();
 		pipelineManager_->Clear();

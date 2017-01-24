@@ -522,7 +522,7 @@ void ShaderManagerDX9::Clear() {
 	}
 	fsCache_.clear();
 	vsCache_.clear();
-	gstate_c.DirtyUniform(DIRTY_ALL_UNIFORMS);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 	lastFSID_.clear();
 	lastVSID_.clear();
 	DirtyShader();
@@ -539,7 +539,7 @@ void ShaderManagerDX9::DirtyShader() {
 	lastVSID_.clear();
 	lastVShader_ = nullptr;
 	lastPShader_ = nullptr;
-	gstate_c.DirtyUniform(DIRTY_ALL_UNIFORMS);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 }
 
 void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays

@@ -644,7 +644,7 @@ void GPU_DX9::CopyDisplayToOutputInternal() {
 	// shaderManager_->EndFrame();
 	shaderManagerDX9_->DirtyLastShader();
 
-	gstate_c.textureImageChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 // Maybe should write this in ASM...
@@ -708,7 +708,7 @@ void GPU_DX9::Execute_Iaddr(u32 op, u32 diff) {
 
 void GPU_DX9::Execute_VertexType(u32 op, u32 diff) {
 	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
-		gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 	}
 }
 
@@ -720,11 +720,11 @@ void GPU_DX9::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		Flush();
 		gstate.vertType ^= diff;
 		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
-			gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		// In this case, we may be doing weights and morphs.
 		// Update any bone matrix uniforms so it uses them correctly.
 		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			gstate_c.DirtyUniform(gstate_c.deferredVertTypeDirty);
+			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
 			gstate_c.deferredVertTypeDirty = 0;
 		}
 	}
@@ -890,97 +890,97 @@ void GPU_DX9::Execute_Spline(u32 op, u32 diff) {
 
 void GPU_DX9::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	switch (op >> 24) {
 	case GE_CMD_VIEWPORTZSCALE:
 	case GE_CMD_VIEWPORTZCENTER:
-		gstate_c.DirtyUniform(DIRTY_PROJMATRIX | DIRTY_DEPTHRANGE);
+		gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_DEPTHRANGE);
 		break;
 	}
 }
 
 void GPU_DX9::Execute_Region(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_DX9::Execute_Scissor(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_DX9::Execute_FramebufType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_DX9::Execute_TexScaleU(u32 op, u32 diff) {
 	gstate_c.uv.uScale = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_DX9::Execute_TexScaleV(u32 op, u32 diff) {
 	gstate_c.uv.vScale = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_DX9::Execute_TexOffsetU(u32 op, u32 diff) {
 	gstate_c.uv.uOff = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_DX9::Execute_TexOffsetV(u32 op, u32 diff) {
 	gstate_c.uv.vOff = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_DX9::Execute_TexAddr0(u32 op, u32 diff) {
-	gstate_c.textureImageChanged = true;
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_DX9::Execute_TexAddrN(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_DX9::Execute_TexBufw0(u32 op, u32 diff) {
-	gstate_c.textureImageChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_DX9::Execute_TexBufwN(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_DX9::Execute_TexSize0(u32 op, u32 diff) {
 	// Render to texture may have overridden the width/height.
 	// Don't reset it unless the size is different / the texture has changed.
-	if (diff || (gstate_c.textureParamsChanged || gstate_c.textureImageChanged)) {
+	if (diff || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) {
 		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
 		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-		gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		// We will need to reset the texture now.
-		gstate_c.textureParamsChanged = true;
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 }
 
 void GPU_DX9::Execute_TexSizeN(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_DX9::Execute_TexFormat(u32 op, u32 diff) {
-	gstate_c.textureImageChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_DX9::Execute_TexMapMode(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_DX9::Execute_TexParamType(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_DX9::Execute_TexEnvColor(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_TEXENV);
+	gstate_c.Dirty(DIRTY_TEXENV);
 }
 
 void GPU_DX9::Execute_TexLevel(u32 op, u32 diff) {
@@ -993,79 +993,79 @@ void GPU_DX9::Execute_TexLevel(u32 op, u32 diff) {
 		gstate.texlevel ^= diff;
 	}
 	*/
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_DX9::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	textureCacheDX9_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 	// This could be used to "dirty" textures with clut.
 }
 
 void GPU_DX9::Execute_ClutFormat(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	// This could be used to "dirty" textures with clut.
 }
 
 void GPU_DX9::Execute_Ambient(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_AMBIENT);
+	gstate_c.Dirty(DIRTY_AMBIENT);
 }
 
 void GPU_DX9::Execute_MaterialDiffuse(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATDIFFUSE);
+	gstate_c.Dirty(DIRTY_MATDIFFUSE);
 }
 
 void GPU_DX9::Execute_MaterialEmissive(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATEMISSIVE);
+	gstate_c.Dirty(DIRTY_MATEMISSIVE);
 }
 
 void GPU_DX9::Execute_MaterialAmbient(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATAMBIENTALPHA);
+	gstate_c.Dirty(DIRTY_MATAMBIENTALPHA);
 }
 
 void GPU_DX9::Execute_MaterialSpecular(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATSPECULAR);
+	gstate_c.Dirty(DIRTY_MATSPECULAR);
 }
 
 void GPU_DX9::Execute_Light0Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT0);
+	gstate_c.Dirty(DIRTY_LIGHT0);
 }
 
 void GPU_DX9::Execute_Light1Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT1);
+	gstate_c.Dirty(DIRTY_LIGHT1);
 }
 
 void GPU_DX9::Execute_Light2Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT2);
+	gstate_c.Dirty(DIRTY_LIGHT2);
 }
 
 void GPU_DX9::Execute_Light3Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT3);
+	gstate_c.Dirty(DIRTY_LIGHT3);
 }
 
 void GPU_DX9::Execute_FogColor(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_FOGCOLOR);
+	gstate_c.Dirty(DIRTY_FOGCOLOR);
 }
 
 void GPU_DX9::Execute_FogCoef(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_FOGCOEF);
+	gstate_c.Dirty(DIRTY_FOGCOEF);
 }
 
 void GPU_DX9::Execute_ColorTestMask(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORMASK);
+	gstate_c.Dirty(DIRTY_ALPHACOLORMASK);
 }
 
 void GPU_DX9::Execute_AlphaTest(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORREF);
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORMASK);
+	gstate_c.Dirty(DIRTY_ALPHACOLORREF);
+	gstate_c.Dirty(DIRTY_ALPHACOLORMASK);
 }
 
 void GPU_DX9::Execute_StencilTest(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_STENCILREPLACEVALUE);
+	gstate_c.Dirty(DIRTY_STENCILREPLACEVALUE);
 }
 
 void GPU_DX9::Execute_ColorRef(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORREF);
+	gstate_c.Dirty(DIRTY_ALPHACOLORREF);
 }
 
 void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
@@ -1116,7 +1116,7 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 
 	case GE_CMD_TEXTUREMAPENABLE:
 		if (diff)
-			gstate_c.textureImageChanged = true;
+			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
@@ -1124,17 +1124,17 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 
 	case GE_CMD_FOGCOLOR:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_FOGCOLOR);
+			gstate_c.Dirty(DIRTY_FOGCOLOR);
 		break;
 
 	case GE_CMD_FOG1:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_FOGCOEF);
+			gstate_c.Dirty(DIRTY_FOGCOEF);
 		break;
 
 	case GE_CMD_FOG2:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_FOGCOEF);
+			gstate_c.Dirty(DIRTY_FOGCOEF);
 		break;
 
 	case GE_CMD_FOGENABLE:
@@ -1254,29 +1254,29 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_AMBIENTCOLOR:
 	case GE_CMD_AMBIENTALPHA:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_AMBIENT);
+			gstate_c.Dirty(DIRTY_AMBIENT);
 		break;
 
 	case GE_CMD_MATERIALDIFFUSE:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_MATDIFFUSE);
+			gstate_c.Dirty(DIRTY_MATDIFFUSE);
 		break;
 
 	case GE_CMD_MATERIALEMISSIVE:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_MATEMISSIVE);
+			gstate_c.Dirty(DIRTY_MATEMISSIVE);
 		break;
 
 	case GE_CMD_MATERIALAMBIENT:
 	case GE_CMD_MATERIALALPHA:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_MATAMBIENTALPHA);
+			gstate_c.Dirty(DIRTY_MATAMBIENTALPHA);
 		break;
 
 	case GE_CMD_MATERIALSPECULAR:
 	case GE_CMD_MATERIALSPECULARCOEF:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_MATSPECULAR);
+			gstate_c.Dirty(DIRTY_MATSPECULAR);
 		break;
 
 	case GE_CMD_LIGHTTYPE0:
@@ -1293,7 +1293,7 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_LDC0:
 	case GE_CMD_LSC0:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_LIGHT0);
+			gstate_c.Dirty(DIRTY_LIGHT0);
 		break;
 
 	case GE_CMD_LX1:case GE_CMD_LY1:case GE_CMD_LZ1:
@@ -1305,7 +1305,7 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_LDC1:
 	case GE_CMD_LSC1:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_LIGHT1);
+			gstate_c.Dirty(DIRTY_LIGHT1);
 		break;
 	case GE_CMD_LX2:case GE_CMD_LY2:case GE_CMD_LZ2:
 	case GE_CMD_LDX2:case GE_CMD_LDY2:case GE_CMD_LDZ2:
@@ -1316,7 +1316,7 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_LDC2:
 	case GE_CMD_LSC2:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_LIGHT2);
+			gstate_c.Dirty(DIRTY_LIGHT2);
 		break;
 	case GE_CMD_LX3:case GE_CMD_LY3:case GE_CMD_LZ3:
 	case GE_CMD_LDX3:case GE_CMD_LDY3:case GE_CMD_LDZ3:
@@ -1327,7 +1327,7 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_LDC3:
 	case GE_CMD_LSC3:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_LIGHT3);
+			gstate_c.Dirty(DIRTY_LIGHT3);
 		break;
 
 	case GE_CMD_VIEWPORTXSCALE:
@@ -1381,7 +1381,7 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_COLORTEST:
 	case GE_CMD_COLORTESTMASK:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_ALPHACOLORMASK);
+			gstate_c.Dirty(DIRTY_ALPHACOLORMASK);
 		break;
 
 	case GE_CMD_ALPHATEST:
@@ -1390,12 +1390,12 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 		// Intentional fallthrough.
 	case GE_CMD_COLORREF:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_ALPHACOLORREF);
+			gstate_c.Dirty(DIRTY_ALPHACOLORREF);
 		break;
 
 	case GE_CMD_TEXENVCOLOR:
 		if (diff)
-			gstate_c.DirtyUniform(DIRTY_TEXENV);
+			gstate_c.Dirty(DIRTY_TEXENV);
 		break;
 
 	case GE_CMD_TEXFUNC:
@@ -1599,7 +1599,7 @@ void GPU_DX9::DoState(PointerWrap &p) {
 		textureCacheDX9_->Clear(true);
 		drawEngine_.ClearTrackedVertexArrays();
 
-		gstate_c.textureImageChanged = true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManagerDX9_->DestroyAllFBOs(true);
 		shaderManagerDX9_->ClearCache(true);
 	}

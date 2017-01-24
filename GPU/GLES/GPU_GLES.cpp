@@ -768,7 +768,7 @@ void GPU_GLES::BeginFrameInternal() {
 	shaderManagerGL_->DirtyShader();
 
 	// Not sure if this is really needed.
-	gstate_c.DirtyUniform(DIRTY_ALL_UNIFORMS);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 
 	framebufferManagerGL_->BeginFrame();
 }
@@ -832,7 +832,7 @@ void GPU_GLES::CopyDisplayToOutputInternal() {
 #endif
 
 	// Wait, why?
-	gstate_c.textureImageChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 // Maybe should write this in ASM...
@@ -966,7 +966,7 @@ void GPU_GLES::Execute_Prim(u32 op, u32 diff) {
 
 void GPU_GLES::Execute_VertexType(u32 op, u32 diff) {
 	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
-		gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 	}
 }
 
@@ -978,11 +978,11 @@ void GPU_GLES::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		Flush();
 		gstate.vertType ^= diff;
 		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
-			gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		// In this case, we may be doing weights and morphs.
 		// Update any bone matrix uniforms so it uses them correctly.
 		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			gstate_c.DirtyUniform(gstate_c.deferredVertTypeDirty);
+			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
 			gstate_c.deferredVertTypeDirty = 0;
 		}
 	}
@@ -1027,7 +1027,7 @@ void GPU_GLES::Execute_Bezier(u32 op, u32 diff) {
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
 		gstate_c.bezier = true;
 		if (gstate_c.bezier_count_u != bz_ucount) {
-			gstate_c.DirtyUniform(DIRTY_BEZIERCOUNTU);
+			gstate_c.Dirty(DIRTY_BEZIERCOUNTU);
 			gstate_c.bezier_count_u = bz_ucount;
 		}
 	}
@@ -1084,19 +1084,19 @@ void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
 		gstate_c.spline = true;
 		if (gstate_c.spline_count_u != sp_ucount) {
-			gstate_c.DirtyUniform(DIRTY_SPLINECOUNTU);
+			gstate_c.Dirty(DIRTY_SPLINECOUNTU);
 			gstate_c.spline_count_u = sp_ucount;
 		}
 		if (gstate_c.spline_count_v != sp_vcount) {
-			gstate_c.DirtyUniform(DIRTY_SPLINECOUNTV);
+			gstate_c.Dirty(DIRTY_SPLINECOUNTV);
 			gstate_c.spline_count_v = sp_vcount;
 		}
 		if (gstate_c.spline_type_u != sp_utype) {
-			gstate_c.DirtyUniform(DIRTY_SPLINETYPEU);
+			gstate_c.Dirty(DIRTY_SPLINETYPEU);
 			gstate_c.spline_type_u = sp_utype;
 		}
 		if (gstate_c.spline_type_v != sp_vtype) {
-			gstate_c.DirtyUniform(DIRTY_SPLINETYPEV);
+			gstate_c.Dirty(DIRTY_SPLINETYPEV);
 			gstate_c.spline_type_v = sp_vtype;
 		}
 	}
@@ -1113,97 +1113,97 @@ void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
 
 void GPU_GLES::Execute_Region(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_GLES::Execute_Scissor(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_GLES::Execute_FramebufType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_GLES::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_GLES::Execute_ViewportZType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureParamsChanged = true;
-	gstate_c.DirtyUniform(DIRTY_DEPTHRANGE);
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	gstate_c.Dirty(DIRTY_DEPTHRANGE);
 }
 
 void GPU_GLES::Execute_TexScaleU(u32 op, u32 diff) {
 	gstate_c.uv.uScale = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_GLES::Execute_TexScaleV(u32 op, u32 diff) {
 	gstate_c.uv.vScale = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_GLES::Execute_TexOffsetU(u32 op, u32 diff) {
 	gstate_c.uv.uOff = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_GLES::Execute_TexOffsetV(u32 op, u32 diff) {
 	gstate_c.uv.vOff = getFloat24(op);
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_GLES::Execute_TexAddr0(u32 op, u32 diff) {
-	gstate_c.textureImageChanged = true;
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_GLES::Execute_TexAddrN(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_GLES::Execute_TexBufw0(u32 op, u32 diff) {
-	gstate_c.textureImageChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_GLES::Execute_TexBufwN(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_GLES::Execute_TexSize0(u32 op, u32 diff) {
 	// Render to texture may have overridden the width/height.
 	// Don't reset it unless the size is different / the texture has changed.
-	if (diff || (gstate_c.textureImageChanged || gstate_c.textureParamsChanged)) {
+	if (diff || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) {
 		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
 		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-		gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		// We will need to reset the texture now.
-		gstate_c.textureParamsChanged = true;
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 }
 
 void GPU_GLES::Execute_TexSizeN(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_GLES::Execute_TexFormat(u32 op, u32 diff) {
-	gstate_c.textureImageChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPU_GLES::Execute_TexMapMode(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_GLES::Execute_TexParamType(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_GLES::Execute_TexEnvColor(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_TEXENV);
+	gstate_c.Dirty(DIRTY_TEXENV);
 }
 
 void GPU_GLES::Execute_TexLevel(u32 op, u32 diff) {
@@ -1216,77 +1216,76 @@ void GPU_GLES::Execute_TexLevel(u32 op, u32 diff) {
 		gstate.texlevel ^= diff;
 	}
 	*/
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_GLES::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	textureCacheGL_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 }
 
 void GPU_GLES::Execute_ClutFormat(u32 op, u32 diff) {
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPU_GLES::Execute_Ambient(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_AMBIENT);
+	gstate_c.Dirty(DIRTY_AMBIENT);
 }
 
 void GPU_GLES::Execute_MaterialDiffuse(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATDIFFUSE);
+	gstate_c.Dirty(DIRTY_MATDIFFUSE);
 }
 
 void GPU_GLES::Execute_MaterialEmissive(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATEMISSIVE);
+	gstate_c.Dirty(DIRTY_MATEMISSIVE);
 }
 
 void GPU_GLES::Execute_MaterialAmbient(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATAMBIENTALPHA);
+	gstate_c.Dirty(DIRTY_MATAMBIENTALPHA);
 }
 
 void GPU_GLES::Execute_MaterialSpecular(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_MATSPECULAR);
+	gstate_c.Dirty(DIRTY_MATSPECULAR);
 }
 
 void GPU_GLES::Execute_Light0Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT0);
+	gstate_c.Dirty(DIRTY_LIGHT0);
 }
 
 void GPU_GLES::Execute_Light1Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT1);
+	gstate_c.Dirty(DIRTY_LIGHT1);
 }
 
 void GPU_GLES::Execute_Light2Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT2);
+	gstate_c.Dirty(DIRTY_LIGHT2);
 }
 
 void GPU_GLES::Execute_Light3Param(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_LIGHT3);
+	gstate_c.Dirty(DIRTY_LIGHT3);
 }
 
 void GPU_GLES::Execute_FogColor(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_FOGCOLOR);
+	gstate_c.Dirty(DIRTY_FOGCOLOR);
 }
 
 void GPU_GLES::Execute_FogCoef(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_FOGCOEF);
+	gstate_c.Dirty(DIRTY_FOGCOEF);
 }
 
 void GPU_GLES::Execute_ColorTestMask(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORMASK);
+	gstate_c.Dirty(DIRTY_ALPHACOLORMASK);
 }
 
 void GPU_GLES::Execute_AlphaTest(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORREF);
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORMASK);
+	gstate_c.Dirty(DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK);
 }
 
 void GPU_GLES::Execute_StencilTest(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_STENCILREPLACEVALUE);
+	gstate_c.Dirty(DIRTY_STENCILREPLACEVALUE);
 }
 
 void GPU_GLES::Execute_ColorRef(u32 op, u32 diff) {
-	gstate_c.DirtyUniform(DIRTY_ALPHACOLORREF);
+	gstate_c.Dirty(DIRTY_ALPHACOLORREF);
 }
 
 void GPU_GLES::Execute_Generic(u32 op, u32 diff) {
@@ -1884,7 +1883,7 @@ void GPU_GLES::DoState(PointerWrap &p) {
 		depalShaderCache_.Clear();
 		drawEngine_.ClearTrackedVertexArrays();
 
-		gstate_c.textureImageChanged = true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManagerGL_->DestroyAllFBOs(true);
 		shaderManagerGL_->ClearCache(true);
 	}

@@ -216,8 +216,7 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		vertexAddr = old.vertexAddr;
 		indexAddr = old.indexAddr;
 		offsetAddr = old.offsetAddr;
-		textureImageChanged = true;
-		textureParamsChanged = true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureFullAlpha = old.textureFullAlpha;
 		vertexFullAlpha = old.vertexFullAlpha;
 		skipDrawReason = old.skipDrawReason;
@@ -227,10 +226,9 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		p.Do(indexAddr);
 		p.Do(offsetAddr);
 
-		int textureChanged = 0;
+		uint8_t textureChanged = 0;
 		p.Do(textureChanged);  // legacy
-		textureImageChanged = true;
-		textureParamsChanged = true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		p.Do(textureFullAlpha);
 		p.Do(vertexFullAlpha);
 		bool framebufChanged = false;  // legacy

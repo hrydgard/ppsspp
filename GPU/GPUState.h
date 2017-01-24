@@ -483,9 +483,6 @@ struct KnownVertexBounds {
 struct GPUStateCache {
 	bool Supports(int flag) { return (featureFlags & flag) != 0; }
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
-	void DirtyUniform(u64 what) {
-		dirty |= what;
-	}
 	void Dirty(u64 what) {
 		dirty |= what;
 	}
@@ -507,9 +504,6 @@ struct GPUStateCache {
 
 	uint64_t dirty;
 
-	bool textureImageChanged;
-	bool textureParamsChanged;
-
 	bool textureFullAlpha;
 	bool textureSimpleAlpha;
 	bool vertexFullAlpha;
@@ -517,14 +511,6 @@ struct GPUStateCache {
 	int skipDrawReason;
 
 	UVScale uv;
-
-	bool bezier;
-	bool spline;
-	int bezier_count_u;
-	int spline_count_u;
-	int spline_count_v;
-	int spline_type_u;
-	int spline_type_v;
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
@@ -558,6 +544,14 @@ struct GPUStateCache {
 	u32 curRTRenderWidth;
 	u32 curRTRenderHeight;
 	u32 curRTOffsetX;
+
+	bool bezier;
+	bool spline;
+	int bezier_count_u;
+	int spline_count_u;
+	int spline_count_v;
+	int spline_type_u;
+	int spline_type_v;
 
 	u32 getRelativeAddress(u32 data) const;
 	void Reset();

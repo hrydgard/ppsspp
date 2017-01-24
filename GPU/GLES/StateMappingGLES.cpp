@@ -144,7 +144,7 @@ bool DrawEngineGLES::ApplyShaderBlending() {
 
 	fboTexNeedBind_ = true;
 
-	gstate_c.DirtyUniform(DIRTY_SHADERBLEND);
+	gstate_c.Dirty(DIRTY_SHADERBLEND);
 	return true;
 }
 
@@ -159,14 +159,13 @@ inline void DrawEngineGLES::ResetShaderBlending() {
 
 // TODO: All this setup is so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 void DrawEngineGLES::ApplyDrawState(int prim) {
-	if ((gstate_c.textureImageChanged || gstate_c.textureParamsChanged) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
-		gstate_c.textureImageChanged = false;
-		gstate_c.textureParamsChanged = false;
+		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		if (gstate_c.needShaderTexClamp) {
 			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
 			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
-			gstate_c.DirtyUniform(DIRTY_TEXCLAMP);
+			gstate_c.Dirty(DIRTY_TEXCLAMP);
 		}
 	}
 
@@ -201,7 +200,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
 			glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha]);
 		if (blendState.dirtyShaderBlend) {
-			gstate_c.DirtyUniform(DIRTY_SHADERBLEND);
+			gstate_c.Dirty(DIRTY_SHADERBLEND);
 		}
 		if (blendState.useBlendColor) {
 			uint32_t color = blendState.blendColor;
@@ -368,10 +367,10 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	glstate.depthRange.set(vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax);
 
 	if (vpAndScissor.dirtyProj) {
-		gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 	if (vpAndScissor.dirtyDepth) {
-		gstate_c.DirtyUniform(DIRTY_DEPTHRANGE);
+		gstate_c.Dirty(DIRTY_DEPTHRANGE);
 	}
 }
 

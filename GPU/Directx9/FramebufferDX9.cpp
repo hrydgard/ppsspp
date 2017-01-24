@@ -390,11 +390,11 @@ namespace DX9 {
 
 		// ugly...
 		if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-			gstate_c.DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 		if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-			gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
-			gstate_c.DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 	}
 
@@ -447,11 +447,11 @@ namespace DX9 {
 
 		// ugly...
 		if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-			gstate_c.DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 		if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-			gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
-			gstate_c.DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 	}
 
@@ -465,11 +465,11 @@ namespace DX9 {
 
 		// ugly...
 		if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-			gstate_c.DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 		if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-			gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
-			gstate_c.DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 	}
 

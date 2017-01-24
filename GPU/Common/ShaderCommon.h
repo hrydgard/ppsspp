@@ -89,6 +89,8 @@ enum : uint64_t {
 
 	// Other dirty elements that aren't uniforms!
 	DIRTY_FRAMEBUF = 1ULL << 40,
+	DIRTY_TEXTURE_IMAGE = 1ULL << 41,
+	DIRTY_TEXTURE_PARAMS = 1ULL << 42,
 
 	// Now we can add further dirty flags that are not uniforms.
 

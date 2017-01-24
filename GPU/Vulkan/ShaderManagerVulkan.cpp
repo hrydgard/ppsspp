@@ -409,7 +409,7 @@ void ShaderManagerVulkan::Clear() {
 void ShaderManagerVulkan::ClearShaders() {
 	Clear();
 	DirtyShader();
-	gstate_c.DirtyUniform(DIRTY_ALL_UNIFORMS);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 }
 
 void ShaderManagerVulkan::DirtyShader() {

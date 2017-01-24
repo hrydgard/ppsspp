@@ -214,7 +214,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate_c.textureImageChanged = true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -226,7 +226,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate_c.textureImageChanged = true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -342,7 +342,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.textureImageChanged = true;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
 		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
 		//fall thru - ignoring the mipmap sizes for now

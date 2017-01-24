@@ -787,8 +787,8 @@ void GPUCommon::ProcessDLQueueInternal() {
 	UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
 
 	// Game might've written new texture data.
-	gstate_c.textureImageChanged = true;
-	gstate_c.textureParamsChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 
 	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
@@ -1194,7 +1194,7 @@ void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
 	DoBlockTransfer(gstate_c.skipDrawReason);
 
 	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-	gstate_c.textureImageChanged = true;
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
 void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
@@ -1209,7 +1209,7 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 		if (dst[i] != newVal) {
 			Flush();
 			dst[i] = newVal;
-			gstate_c.DirtyUniform(DIRTY_WORLDMATRIX);
+			gstate_c.Dirty(DIRTY_WORLDMATRIX);
 		}
 		if (++i >= end) {
 			break;
@@ -1231,7 +1231,7 @@ void GPUCommon::Execute_WorldMtxData(u32 op, u32 diff) {
 	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.worldMatrix)[num] = newVal;
-		gstate_c.DirtyUniform(DIRTY_WORLDMATRIX);
+		gstate_c.Dirty(DIRTY_WORLDMATRIX);
 	}
 	num++;
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
@@ -1249,7 +1249,7 @@ void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
 		if (dst[i] != newVal) {
 			Flush();
 			dst[i] = newVal;
-			gstate_c.DirtyUniform(DIRTY_VIEWMATRIX);
+			gstate_c.Dirty(DIRTY_VIEWMATRIX);
 		}
 		if (++i >= end) {
 			break;
@@ -1271,7 +1271,7 @@ void GPUCommon::Execute_ViewMtxData(u32 op, u32 diff) {
 	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.viewMatrix)[num] = newVal;
-		gstate_c.DirtyUniform(DIRTY_VIEWMATRIX);
+		gstate_c.Dirty(DIRTY_VIEWMATRIX);
 	}
 	num++;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
@@ -1289,7 +1289,7 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 		if (dst[i] != newVal) {
 			Flush();
 			dst[i] = newVal;
-			gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
 		}
 		if (++i >= end) {
 			break;
@@ -1311,7 +1311,7 @@ void GPUCommon::Execute_ProjMtxData(u32 op, u32 diff) {
 	if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.projMatrix)[num] = newVal;
-		gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 	num++;
 	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
@@ -1329,7 +1329,7 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 		if (dst[i] != newVal) {
 			Flush();
 			dst[i] = newVal;
-			gstate_c.DirtyUniform(DIRTY_TEXMATRIX);
+			gstate_c.Dirty(DIRTY_TEXMATRIX);
 		}
 		if (++i >= end) {
 			break;
@@ -1351,7 +1351,7 @@ void GPUCommon::Execute_TgenMtxData(u32 op, u32 diff) {
 	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.tgenMatrix)[num] = newVal;
-		gstate_c.DirtyUniform(DIRTY_TEXMATRIX);
+		gstate_c.Dirty(DIRTY_TEXMATRIX);
 	}
 	num++;
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
@@ -1379,7 +1379,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 
 		const int numPlusCount = (op & 0x7F) + i;
 		for (int num = op & 0x7F; num < numPlusCount; num += 12) {
-			gstate_c.DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 		}
 	} else {
 		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
@@ -1411,7 +1411,7 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 		// Bone matrices should NOT flush when software skinning is enabled!
 		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 			Flush();
-			gstate_c.DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 		} else {
 			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
 		}
@@ -1478,7 +1478,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 
 	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 		Flush();
-		gstate_c.DirtyUniform(uniformsToDirty);
+		gstate_c.Dirty(uniformsToDirty);
 	} else {
 		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
 	}

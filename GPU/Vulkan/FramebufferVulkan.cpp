@@ -646,7 +646,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferCreated(VirtualFramebuffer
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 	// ugly...
 	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 }
 
@@ -695,7 +695,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 
 	// ugly...
 	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 }
 
@@ -709,7 +709,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 
 	// ugly...
 	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		gstate_c.DirtyUniform(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 }
 
