@@ -4,6 +4,7 @@
 #include "base/mutex.h"
 #include "base/timeutil.h"
 #include "Common/ColorConv.h"
+#include "Core/Reporting.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
@@ -1421,6 +1422,10 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 }
 
+void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {
+	gstate_c.morphWeights[(op >> 24) - GE_CMD_MORPHWEIGHT0] = getFloat24(op);
+}
+
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 	const u32 cmd = op >> 24;
 
@@ -1463,7 +1468,89 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	default:
-		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
+		DEBUG_LOG(G3D, "DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
+		break;
+	}
+}
+
+void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
+	switch (op >> 24) {
+	case GE_CMD_VSCX:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vscx, G3D, "Unsupported Vertex Screen Coordinate X : %06x", op);
+		break;
+
+	case GE_CMD_VSCY:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vscy, G3D, "Unsupported Vertex Screen Coordinate Y : %06x", op);
+		break;
+
+	case GE_CMD_VSCZ:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vscz, G3D, "Unsupported Vertex Screen Coordinate Z : %06x", op);
+		break;
+
+	case GE_CMD_VTCS:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vtcs, G3D, "Unsupported Vertex Texture Coordinate S : %06x", op);
+		break;
+
+	case GE_CMD_VTCT:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vtct, G3D, "Unsupported Vertex Texture Coordinate T : %06x", op);
+		break;
+
+	case GE_CMD_VTCQ:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vtcq, G3D, "Unsupported Vertex Texture Coordinate Q : %06x", op);
+		break;
+
+	case GE_CMD_VCV:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vcv, G3D, "Unsupported Vertex Color Value : %06x", op);
+		break;
+
+	case GE_CMD_VAP:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vap, G3D, "Unsupported Vertex Alpha and Primitive : %06x", op);
+		break;
+
+	case GE_CMD_VFC:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vfc, G3D, "Unsupported Vertex Fog Coefficient : %06x", op);
+		break;
+
+	case GE_CMD_VSCV:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(vscv, G3D, "Unsupported Vertex Secondary Color Value : %06x", op);
+		break;
+
+	case GE_CMD_UNKNOWN_03:
+	case GE_CMD_UNKNOWN_0D:
+	case GE_CMD_UNKNOWN_11:
+	case GE_CMD_UNKNOWN_29:
+	case GE_CMD_UNKNOWN_34:
+	case GE_CMD_UNKNOWN_35:
+	case GE_CMD_UNKNOWN_39:
+	case GE_CMD_UNKNOWN_4E:
+	case GE_CMD_UNKNOWN_4F:
+	case GE_CMD_UNKNOWN_52:
+	case GE_CMD_UNKNOWN_59:
+	case GE_CMD_UNKNOWN_5A:
+	case GE_CMD_UNKNOWN_B6:
+	case GE_CMD_UNKNOWN_B7:
+	case GE_CMD_UNKNOWN_D1:
+	case GE_CMD_UNKNOWN_ED:
+	case GE_CMD_UNKNOWN_EF:
+	case GE_CMD_UNKNOWN_FA:
+	case GE_CMD_UNKNOWN_FB:
+	case GE_CMD_UNKNOWN_FC:
+	case GE_CMD_UNKNOWN_FD:
+	case GE_CMD_UNKNOWN_FE:
+		if ((op & 0xFFFFFF) != 0)
+			WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);
+		break;
+	default:
 		break;
 	}
 }
