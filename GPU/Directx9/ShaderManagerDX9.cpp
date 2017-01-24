@@ -272,6 +272,8 @@ static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
+const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP;
+
 void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		PSSetColorUniform3(CONST_PS_TEXENV, gstate.texenvcolor);
@@ -323,6 +325,10 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 		PSSetFloatArray(CONST_PS_TEXCLAMPOFF, texclampoff, 2);
 	}
 }
+
+const uint64_t vsUniforms = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX |
+DIRTY_FOGCOEF | DIRTY_BONE_UNIFORMS | DIRTY_UVSCALEOFFSET | DIRTY_DEPTHRANGE |
+DIRTY_AMBIENT | DIRTY_MATAMBIENTALPHA | DIRTY_MATSPECULAR | DIRTY_MATDIFFUSE | DIRTY_MATEMISSIVE | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3;
 
 void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 	// Update any dirty uniforms before we draw
@@ -559,8 +565,10 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	if (lastVShader_ != nullptr && lastPShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
 		uint64_t dirtyUniforms = gstate_c.GetDirtyUniforms();
 		if (dirtyUniforms) {
-			PSUpdateUniforms(dirtyUniforms);
-			VSUpdateUniforms(dirtyUniforms);
+			if (dirtyUniforms & psUniforms)
+				PSUpdateUniforms(dirtyUniforms);
+			if (dirtyUniforms & vsUniforms)
+				VSUpdateUniforms(dirtyUniforms);
 			gstate_c.CleanUniforms();
 		}
 		return lastVShader_;	// Already all set.
@@ -611,8 +619,10 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 
 	uint64_t dirtyUniforms = gstate_c.GetDirtyUniforms();
 	if (dirtyUniforms) {
-		PSUpdateUniforms(dirtyUniforms);
-		VSUpdateUniforms(dirtyUniforms);
+		if (dirtyUniforms & psUniforms)
+			PSUpdateUniforms(dirtyUniforms);
+		if (dirtyUniforms & vsUniforms)
+			VSUpdateUniforms(dirtyUniforms);
 		gstate_c.CleanUniforms();
 	}
 
