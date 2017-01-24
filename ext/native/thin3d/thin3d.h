@@ -162,7 +162,7 @@ enum ClearFlag : int {
 	STENCIL = 4,
 };
 
-enum TextureType : uint8_t {
+enum class TextureType : uint8_t {
 	UNKNOWN,
 	LINEAR1D,
 	LINEAR2D,
@@ -181,13 +181,21 @@ enum class DataFormat : uint8_t {
 
 	R8G8B8A8_UNORM,
 	R8G8B8A8_UNORM_SRGB,
+	B8G8R8A8_UNORM,  // D3D style
 
 	R8G8B8A8_SNORM,
 	R8G8B8A8_UINT,
 	R8G8B8A8_SINT,
 
-	R4G4_UNORM,
-	R4G4B4A4_UNORM,
+	R4G4_UNORM_PACK8,
+	A4B4G4R4_UNORM_PACK16,  // This is the one D3D supports
+	B4G4R4A4_UNORM_PACK16,  // Supported by Vulkan (guaranteed one), as is the below but not on all cards.
+	R4G4B4A4_UNORM_PACK16,  // This is the one OpenGL ES supports
+	R5G6B5_UNORM_PACK16,
+	B5G6R5_UNORM_PACK16,
+	R5G5B5A1_UNORM_PACK16,
+	B5G5R5A1_UNORM_PACK16,
+	A1R5G5B5_UNORM_PACK16,
 
 	R16_FLOAT,
 	R16G16_FLOAT,
@@ -268,20 +276,23 @@ enum class TextureAddressMode {
 };
 
 enum class ShaderLanguage {
-	GLSL_ES_200,
-	GLSL_ES_300,
-	GLSL_410,
-	GLSL_VULKAN,
-	HLSL_D3D9,
-	HLSL_D3D11,
+	GLSL_ES_200 = 1,
+	GLSL_ES_300 = 2,
+	GLSL_410 = 4,
+	GLSL_VULKAN = 8,
+	SPIRV_VULKAN = 16,
+	HLSL_D3D9 = 32,
+	HLSL_D3D11 = 64,
+	HLSL_D3D9_BYTECODE = 128,
+	HLSL_D3D11_BYTECODE = 256,
+	METAL = 512,
+	METAL_BYTECODE = 1024,
 };
 
-enum ImageFileType {
-	PNG,
-	JPEG,
-	ZIM,
-	DETECT,
-	TYPE_UNKNOWN,
+enum FormatSupport {
+	FMT_RENDERTARGET = 1,
+	FMT_TEXTURE = 2,
+	FMT_INPUTLAYOUT = 4,
 };
 
 enum InfoField {
@@ -335,19 +346,12 @@ public:
 
 class Texture : public RefCountedObject {
 public:
-	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT);
-	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type = ImageFileType::DETECT);
-
-	virtual bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
 	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
-	virtual void AutoGenMipmaps() = 0;
-	virtual void Finalize(int zim_flags) = 0;  // TODO: Tidy up
 
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Depth() { return depth_; }
 protected:
-	std::string filename_;  // Textures that are loaded from files can reload themselves automatically.
 	int width_, height_, depth_;
 };
 
@@ -451,7 +455,7 @@ struct SamplerStateDesc {
 
 struct RasterStateDesc {
 	CullMode cull;
-	Facing facing;
+	Facing frontFace;
 };
 
 struct PipelineDesc {
@@ -475,25 +479,33 @@ struct DeviceCaps {
 	bool dualSourceBlend;
 };
 
+struct TextureDesc {
+	TextureType type;
+	DataFormat format;
+	int width;
+	int height;
+	int depth;
+	int mipLevels;
+	std::vector<uint8_t *> initData;
+};
+
 class DrawContext : public RefCountedObject {
 public:
 	virtual ~DrawContext();
 
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
+	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
+
+	virtual uint32_t GetSupportedShaderLanguages() const = 0;
 
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
-	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 	// virtual ComputePipeline CreateComputePipeline(const ComputePipelineDesc &desc) = 0
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
-
-	// Common Thin3D function, uses CreateTexture
-	Texture *CreateTextureFromFile(const char *filename, ImageFileType fileType);
-	Texture *CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }
@@ -501,18 +513,21 @@ public:
 
 	// Resources
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
-	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
-	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual Texture *CreateTexture(const TextureDesc &desc) = 0;
 
-	// The implementation makes the choice of which shader code to use.
-	virtual ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
+	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
+	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
 	virtual void SetViewports(int count, Viewport *viewports) = 0;
+	virtual void SetBlendFactor(float color[4]) = 0;
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void BindTextures(int start, int count, Texture **textures) = 0;
+	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) = 0;
+	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
+
 	void BindTexture(int stage, Texture *texture) {
 		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
@@ -520,8 +535,8 @@ public:
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
-	virtual void Draw(Buffer *vdata, int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
+	virtual void Draw(int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(int vertexCount, int offset) = 0;
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Render pass management. Default implementations here.
@@ -548,6 +563,8 @@ protected:
 	int targetWidth_;
 	int targetHeight_;
 };
+
+size_t DataFormatSizeInBytes(DataFormat fmt);
 
 DrawContext *T3DCreateGLContext();
 

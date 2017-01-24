@@ -113,8 +113,9 @@ static const VkPrimitiveTopology primToVK[] = {
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
+	// Tesselation shader primitive.
 	VK_PRIMITIVE_TOPOLOGY_PATCH_LIST,
-	// These are for geometry shaders only.
+	// The rest are for geometry shaders only.
 	VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY,
 	VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY,
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY,
@@ -155,7 +156,7 @@ class VKRasterState : public RasterState {
 public:
 	VKRasterState(VulkanContext *vulkan, const RasterStateDesc &desc) {
 		cullFace = desc.cull;
-		frontFace = desc.facing;
+		frontFace = desc.frontFace;
 	}
 	Facing frontFace;
 	CullMode cullFace;
@@ -177,12 +178,12 @@ public:
 
 // Very simplistic buffer that will simply copy its contents into our "pushbuffer" when it's time to draw,
 // to avoid synchronization issues.
-class Thin3DVKBuffer : public Buffer {
+class VKBuffer : public Buffer {
 public:
-	Thin3DVKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
+	VKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
 		data_ = new uint8_t[size];
 	}
-	~Thin3DVKBuffer() override {
+	~VKBuffer() override {
 		delete[] data_;
 	}
 
@@ -202,7 +203,7 @@ public:
 	size_t GetSize() const { return dataSize_; }
 	const uint8_t *GetData() const { return data_; }
 
-private:
+private: 
 	uint8_t *data_;
 	size_t dataSize_;
 };
@@ -226,7 +227,7 @@ public:
 	VKShaderModule(ShaderStage stage) : module_(VK_NULL_HANDLE), ok_(false), stage_(stage) {
 		vkstage_ = StageToVulkan(stage);
 	}
-	bool Compile(VulkanContext *vulkan, const char *source);
+	bool Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size);
 	const std::string &GetSource() const { return source_; }
 	~VKShaderModule() {
 		if (module_) {
@@ -247,12 +248,12 @@ private:
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool VKShaderModule::Compile(VulkanContext *vulkan, const char *source) {
+bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size) {
 	// We'll need this to free it later.
 	device_ = vulkan->GetDevice();
-	this->source_ = source;
+	this->source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
-	if (!GLSLtoSPV(vkstage_, source, spirv)) {
+	if (!GLSLtoSPV(vkstage_, source_.c_str(), spirv)) {
 		return false;
 	}
 
@@ -270,7 +271,6 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, const char *source) {
 	} else {
 		ok_ = false;
 	}
-
 	return ok_;
 }
 
@@ -352,6 +352,10 @@ public:
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
 	}
+	uint32_t GetSupportedShaderLanguages() const override {
+		return (uint32_t)ShaderLanguage::GLSL_VULKAN | (uint32_t)ShaderLanguage::SPIRV_VULKAN;
+	}
+	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
@@ -360,14 +364,13 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
-	// The implementation makes the choice of which shader code to use.
-	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
-	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
-	Texture *CreateTexture() override;
+	Texture *CreateTexture(const TextureDesc &desc) override;
 
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
+	void SetBlendFactor(float color[4]) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -375,9 +378,21 @@ public:
 		curPipeline_ = (VKPipeline *)pipeline;
 	}
 
+	// TODO: Make VKBuffers proper buffers, and do a proper binding model. This is just silly.
+	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+		for (int i = 0; i < count; i++) {
+			curVBuffers_[i + start] = (VKBuffer *)buffers[i];
+			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
+		}
+	}
+	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
+		curIBuffer_ = (VKBuffer *)indexBuffer;
+		curIBufferOffset_ = offset;
+	}
+
 	// TODO: Add more sophisticated draws.
-	void Draw(Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void Draw(int vertexCount, int offset) override;
+	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
@@ -413,6 +428,10 @@ private:
 	VulkanContext *vulkan_;
 
 	VKPipeline *curPipeline_;
+	VKBuffer *curVBuffers_[4];
+	int curVBufferOffsets_[4];
+	VKBuffer *curIBuffer_;
+	int curIBufferOffset_;
 
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
@@ -452,11 +471,18 @@ private:
 	DeviceCaps caps_;
 };
 
-int GetBpp(VkFormat format) {
+static int GetBpp(VkFormat format) {
 	switch (format) {
 	case VK_FORMAT_R8G8B8A8_UNORM:
+	case VK_FORMAT_B8G8R8A8_UNORM:
 		return 32;
 	case VK_FORMAT_R4G4B4A4_UNORM_PACK16:
+	case VK_FORMAT_B4G4R4A4_UNORM_PACK16:
+	case VK_FORMAT_R5G5B5A1_UNORM_PACK16:
+	case VK_FORMAT_R5G6B5_UNORM_PACK16:
+	case VK_FORMAT_B5G5R5A1_UNORM_PACK16:
+	case VK_FORMAT_B5G6R5_UNORM_PACK16:
+	case VK_FORMAT_A1R5G5B5_UNORM_PACK16:
 		return 16;
 	case VK_FORMAT_D24_UNORM_S8_UINT:
 		return 32;
@@ -480,8 +506,14 @@ VkFormat DataFormatToVulkan(DataFormat format) {
 	case DataFormat::R8G8_UNORM: return VK_FORMAT_R8G8_UNORM;
 	case DataFormat::R8G8B8_UNORM: return VK_FORMAT_R8G8B8_UNORM;
 	case DataFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
-	case DataFormat::R4G4_UNORM: return VK_FORMAT_R4G4_UNORM_PACK8;
-	case DataFormat::R4G4B4A4_UNORM: return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
+	case DataFormat::R4G4_UNORM_PACK8: return VK_FORMAT_R4G4_UNORM_PACK8;
+	case DataFormat::R4G4B4A4_UNORM_PACK16: return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
+	case DataFormat::B4G4R4A4_UNORM_PACK16: return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
+	case DataFormat::R5G5B5A1_UNORM_PACK16: return VK_FORMAT_R5G5B5A1_UNORM_PACK16;
+	case DataFormat::B5G5R5A1_UNORM_PACK16: return VK_FORMAT_B5G5R5A1_UNORM_PACK16;
+	case DataFormat::R5G6B5_UNORM_PACK16: return VK_FORMAT_R5G6B5_UNORM_PACK16;
+	case DataFormat::B5G6R5_UNORM_PACK16: return VK_FORMAT_B5G6R5_UNORM_PACK16;
+	case DataFormat::A1R5G5B5_UNORM_PACK16: return VK_FORMAT_A1R5G5B5_UNORM_PACK16;
 	case DataFormat::R32_FLOAT: return VK_FORMAT_R32_SFLOAT;
 	case DataFormat::R32G32_FLOAT: return VK_FORMAT_R32G32_SFLOAT;
 	case DataFormat::R32G32B32_FLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
@@ -562,36 +594,35 @@ enum class TextureState {
 
 class VKTexture : public Texture {
 public:
-	VKTexture(VulkanContext *vulkan) : vulkan_(vulkan), vkTex_(nullptr) {
-	}
-
-	VKTexture(VulkanContext *vulkan, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels)
-		: vulkan_(vulkan), format_(format), mipLevels_(mipLevels) {
-		Create(type, format, width, height, depth, mipLevels);
+	VKTexture(VulkanContext *vulkan, const TextureDesc &desc)
+		: vulkan_(vulkan), format_(desc.format), mipLevels_(desc.mipLevels) {
+		Create(desc);
 	}
 
 	~VKTexture() {
 		Destroy();
 	}
 
-	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override {
-		format_ = format;
-		mipLevels_ = mipLevels;
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
-		vkTex_ = new VulkanTexture(vulkan_);
-		// We don't actually do anything here.
-		return true;
-	}
-
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
-	void Finalize(int zim_flags) override;
-	void AutoGenMipmaps() override {}
 
 	VkImageView GetImageView() { return vkTex_->GetImageView(); }
 
 private:
+	bool Create(const TextureDesc &desc) {
+		format_ = desc.format;
+		mipLevels_ = desc.mipLevels;
+		width_ = desc.width;
+		height_ = desc.height;
+		depth_ = desc.depth;
+		vkTex_ = new VulkanTexture(vulkan_);
+		if (desc.initData.size()) {
+			for (int i = 0; i < desc.initData.size(); i++) {
+				this->SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
+			}
+		}
+		return true;
+	}
+
 	void Destroy() {
 		if (vkTex_) {
 			vkTex_->Destroy();
@@ -898,6 +929,10 @@ void VKContext::SetViewports(int count, Viewport *viewports) {
 	viewportDirty_ = true;
 }
 
+void VKContext::SetBlendFactor(float color[4]) {
+	vkCmdSetBlendConstants(cmd_, color);
+}
+
 void VKContext::ApplyDynamicState() {
 	if (scissorDirty_) {
 		vkCmdSetScissor(cmd_, 0, 1, &scissor_);
@@ -938,16 +973,15 @@ InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	return vl;
 }
 
-Texture *VKContext::CreateTexture() {
-	return new VKTexture(vulkan_);
-}
-
-Texture *VKContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	return new VKTexture(vulkan_, type, format, width, height, depth, mipLevels);
+Texture *VKContext::CreateTexture(const TextureDesc &desc) {
+	return new VKTexture(vulkan_, desc);
 }
 
 void VKTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
+	if (stride == 0) {
+		stride = width * (int)DataFormatSizeInBytes(format_);
+	}
 	int bpp = GetBpp(vulkanFormat);
 	int bytesPerPixel = bpp / 8;
 	vkTex_->Create(width, height, vulkanFormat);
@@ -957,10 +991,6 @@ void VKTexture::SetImageData(int x, int y, int z, int width, int height, int dep
 		memcpy(dstData + rowPitch * y, data + stride * y, width * bytesPerPixel);
 	}
 	vkTex_->Unlock();
-}
-
-void VKTexture::Finalize(int zim_flags) {
-	// TODO
 }
 
 inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {
@@ -1007,7 +1037,7 @@ BlendState *VKContext::CreateBlendState(const BlendStateDesc &desc) {
 }
 
 Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
-	return new Thin3DVKBuffer(size, usageFlags);
+	return new VKBuffer(size, usageFlags);
 }
 
 void VKContext::BindTextures(int start, int count, Texture **textures) {
@@ -1016,12 +1046,12 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
-ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size) {
 	VKShaderModule *shader = new VKShaderModule(stage);
-	if (shader->Compile(vulkan_, vulkan_source)) {
+	if (shader->Compile(vulkan_, language, data, size)) {
 		return shader;
 	} else {
-		ELOG("Failed to compile shader: %s", vulkan_source);
+		ELOG("Failed to compile shader: %s", (const char *)data);
 		shader->Release();
 		return nullptr;
 	}
@@ -1067,10 +1097,10 @@ inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	}
 }
 
-void VKContext::Draw(Buffer *vdata, int vertexCount, int offset) {
+void VKContext::Draw(int vertexCount, int offset) {
 	ApplyDynamicState();
 	
-	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
+	VKBuffer *vbuf = curVBuffers_[0];
 
 	VkBuffer vulkanVbuf;
 	VkBuffer vulkanUBObuf;
@@ -1086,11 +1116,11 @@ void VKContext::Draw(Buffer *vdata, int vertexCount, int offset) {
 	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
 }
 
-void VKContext::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void VKContext::DrawIndexed(int vertexCount, int offset) {
 	ApplyDynamicState();
 	
-	Thin3DVKBuffer *ibuf = static_cast<Thin3DVKBuffer *>(idata);
-	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
+	VKBuffer *ibuf = static_cast<VKBuffer *>(curIBuffer_);
+	VKBuffer *vbuf = static_cast<VKBuffer *>(curVBuffers_[0]);
 
 	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
@@ -1183,6 +1213,42 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	}
 
 	return features;
+}
+
+uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
+	// TODO: Actually do proper checks
+	switch (fmt) {
+	case DataFormat::B8G8R8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE;
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
+		// This is the one that's guaranteed to be supported.
+		// A four-component, 16-bit packed unsigned normalized format that has a 4-bit B component in bits 12..15, a 4-bit
+		// G component in bits 8..11, a 4 - bit R component in bits 4..7, and a 4 - bit A component in bits 0..3
+		return FMT_RENDERTARGET | FMT_TEXTURE;
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
+		return 0;
+	case DataFormat::A4B4G4R4_UNORM_PACK16:
+		return 0;
+
+	case DataFormat::R8G8B8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
+
+	case DataFormat::R32_FLOAT:
+	case DataFormat::R32G32_FLOAT:
+	case DataFormat::R32G32B32_FLOAT:
+	case DataFormat::R32G32B32A32_FLOAT:
+		return FMT_INPUTLAYOUT;
+
+	case DataFormat::R8_UNORM:
+		return FMT_TEXTURE;
+
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+	case DataFormat::BC2_UNORM_BLOCK:
+	case DataFormat::BC3_UNORM_BLOCK:
+		return FMT_TEXTURE;
+	default:
+		return 0;
+	}
 }
 
 }  // namespace Draw
