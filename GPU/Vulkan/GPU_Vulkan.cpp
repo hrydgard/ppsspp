@@ -714,6 +714,10 @@ void GPU_Vulkan::FastRunLoop(DisplayList &list) {
 			downcount = dc;
 			(this->*info.func)(op, diff);
 			dc = downcount;
+		} else if (diff) {
+			uint64_t dirty = info.flags >> 8;
+			if (dirty)
+				gstate_c.Dirty(dirty);
 		}
 		list.pc += 4;
 	}
@@ -743,6 +747,10 @@ void GPU_Vulkan::ExecuteOp(u32 op, u32 diff) {
 	const u8 cmdFlags = info.flags;
 	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
 		(this->*info.func)(op, diff);
+	} else if (diff) {
+		uint64_t dirty = info.flags >> 8;
+		if (dirty)
+			gstate_c.Dirty(dirty);
 	}
 }
 
