@@ -43,7 +43,6 @@ public:
 	void EndHostFrame() override;
 
 	void PreExecuteOp(u32 op, u32 diff) override;
-	void Execute_Generic(u32 op, u32 diff);
 	void ExecuteOp(u32 op, u32 diff) override;
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
