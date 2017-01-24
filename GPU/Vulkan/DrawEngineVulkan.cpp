@@ -361,7 +361,7 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
 		// Rendertarget == texture?
 		if (!g_Config.bDisableSlowFramebufEffects) {
-			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+			gstate_c.textureParamsChanged = true;
 			Flush(cmd_);
 		}
 	}
@@ -600,7 +600,7 @@ void DrawEngineVulkan::DirtyAllUBOs() {
 	dirtyUniforms_ = DIRTY_BASE_UNIFORMS | DIRTY_LIGHT_UNIFORMS | DIRTY_BONE_UNIFORMS;
 	imageView = VK_NULL_HANDLE;
 	sampler = VK_NULL_HANDLE;
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.textureImageChanged = true;
 }
 
 //void DrawEngineVulkan::ApplyDrawStateLate() {
@@ -630,10 +630,11 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	FrameData *frame = &frame_[curFrame_ & 1];
 
 	bool textureNeedsApply = false;
-	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+	if ((gstate_c.textureImageChanged || gstate_c.textureParamsChanged) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
 		textureNeedsApply = true;
-		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
+		gstate_c.textureImageChanged = false;
+		gstate_c.textureParamsChanged = false;
 		if (gstate_c.needShaderTexClamp) {
 			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
 			// Most of the time non-framebuffer textures will be used which can be clamped themselves.

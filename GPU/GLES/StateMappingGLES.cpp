@@ -157,12 +157,12 @@ inline void DrawEngineGLES::ResetShaderBlending() {
 	}
 }
 
+// TODO: All this setup is so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 void DrawEngineGLES::ApplyDrawState(int prim) {
-	// TODO: All this setup is so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
-
-	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+	if ((gstate_c.textureImageChanged || gstate_c.textureParamsChanged) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
-		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
+		gstate_c.textureImageChanged = false;
+		gstate_c.textureParamsChanged = false;
 		if (gstate_c.needShaderTexClamp) {
 			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
 			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
@@ -174,18 +174,12 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	PROFILE_THIS_SCOPE("applydrawstate");
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-
 	gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
 
 	// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
 	// to avoid recomputing heavy stuff unnecessarily every draw call.
 	GenericBlendState blendState;
 	ConvertBlendState(blendState, gstate_c.allowShaderBlend);
-	ViewportAndScissor vpAndScissor;
-	ConvertViewportAndScissor(useBufferedRendering,
-		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
-		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-		vpAndScissor);
 
 	if (blendState.applyShaderBlending) {
 		if (ApplyShaderBlending()) {
@@ -350,6 +344,12 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			glstate.stencilTest.disable();
 		}
 	}
+
+	ViewportAndScissor vpAndScissor;
+	ConvertViewportAndScissor(useBufferedRendering,
+		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+		vpAndScissor);
 
 	if (vpAndScissor.scissorEnable) {
 		glstate.scissorTest.enable();

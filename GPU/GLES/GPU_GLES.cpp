@@ -831,7 +831,8 @@ void GPU_GLES::CopyDisplayToOutputInternal() {
 #endif
 #endif
 
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	// Wait, why?
+	gstate_c.textureImageChanged = true;
 }
 
 // Maybe should write this in ASM...
@@ -1112,27 +1113,27 @@ void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
 
 void GPU_GLES::Execute_Region(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_GLES::Execute_Scissor(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_GLES::Execute_FramebufType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_GLES::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_GLES::Execute_ViewportZType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 	gstate_c.DirtyUniform(DIRTY_DEPTHRANGE);
 }
 
@@ -1157,40 +1158,40 @@ void GPU_GLES::Execute_TexOffsetV(u32 op, u32 diff) {
 }
 
 void GPU_GLES::Execute_TexAddr0(u32 op, u32 diff) {
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.textureImageChanged = true;
 	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_GLES::Execute_TexAddrN(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_GLES::Execute_TexBufw0(u32 op, u32 diff) {
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.textureImageChanged = true;
 }
 
 void GPU_GLES::Execute_TexBufwN(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_GLES::Execute_TexSize0(u32 op, u32 diff) {
 	// Render to texture may have overridden the width/height.
 	// Don't reset it unless the size is different / the texture has changed.
-	if (diff || gstate_c.textureChanged != TEXCHANGE_UNCHANGED) {
+	if (diff || (gstate_c.textureImageChanged || gstate_c.textureParamsChanged)) {
 		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
 		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
 		gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
 		// We will need to reset the texture now.
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		gstate_c.textureParamsChanged = true;
 	}
 }
 
 void GPU_GLES::Execute_TexSizeN(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_GLES::Execute_TexFormat(u32 op, u32 diff) {
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.textureImageChanged = true;
 }
 
 void GPU_GLES::Execute_TexMapMode(u32 op, u32 diff) {
@@ -1198,7 +1199,7 @@ void GPU_GLES::Execute_TexMapMode(u32 op, u32 diff) {
 }
 
 void GPU_GLES::Execute_TexParamType(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_GLES::Execute_TexEnvColor(u32 op, u32 diff) {
@@ -1215,18 +1216,16 @@ void GPU_GLES::Execute_TexLevel(u32 op, u32 diff) {
 		gstate.texlevel ^= diff;
 	}
 	*/
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_GLES::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 	textureCacheGL_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
-	// This could be used to "dirty" textures with clut.
 }
 
 void GPU_GLES::Execute_ClutFormat(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-	// This could be used to "dirty" textures with clut.
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_GLES::Execute_Ambient(u32 op, u32 diff) {
@@ -1885,7 +1884,7 @@ void GPU_GLES::DoState(PointerWrap &p) {
 		depalShaderCache_.Clear();
 		drawEngine_.ClearTrackedVertexArrays();
 
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		gstate_c.textureImageChanged = true;
 		framebufferManagerGL_->DestroyAllFBOs(true);
 		shaderManagerGL_->ClearCache(true);
 	}

@@ -125,9 +125,10 @@ inline void DrawEngineDX9::ResetShaderBlending() {
 void DrawEngineDX9::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
-	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+	if ((gstate_c.textureImageChanged || gstate_c.textureParamsChanged) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
-		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
+		gstate_c.textureImageChanged = false;
+		gstate_c.textureParamsChanged = false;
 		if (gstate_c.needShaderTexClamp) {
 			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
 			// Most of the time non-framebuffer textures will be used which can be clamped themselves.

@@ -337,7 +337,7 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
 		// Rendertarget == texture?
 		if (!g_Config.bDisableSlowFramebufEffects) {
-			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+			gstate_c.textureParamsChanged = true;
 			Flush();
 		}
 	}

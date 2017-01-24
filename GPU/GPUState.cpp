@@ -216,7 +216,8 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		vertexAddr = old.vertexAddr;
 		indexAddr = old.indexAddr;
 		offsetAddr = old.offsetAddr;
-		textureChanged = TEXCHANGE_UPDATED;
+		textureImageChanged = true;
+		textureParamsChanged = true;
 		textureFullAlpha = old.textureFullAlpha;
 		vertexFullAlpha = old.vertexFullAlpha;
 		skipDrawReason = old.skipDrawReason;
@@ -226,19 +227,21 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		p.Do(indexAddr);
 		p.Do(offsetAddr);
 
-		p.Do(textureChanged);
+		int textureChanged = 0;
+		p.Do(textureChanged);  // legacy
+		textureImageChanged = true;
+		textureParamsChanged = true;
 		p.Do(textureFullAlpha);
 		p.Do(vertexFullAlpha);
-		bool framebufChanged;  // legacy
+		bool framebufChanged = false;  // legacy
 		p.Do(framebufChanged);
 
 		p.Do(skipDrawReason);
 
 		p.Do(uv);
 
-		// No longer relevant. Remove when creating the next version.
-		bool oldFlipTexture;
-		p.Do(oldFlipTexture);
+		bool oldFlipTexture = false;
+		p.Do(oldFlipTexture);  // legacy
 	}
 
 	// needShaderTexClamp and bgraTexture don't need to be saved.

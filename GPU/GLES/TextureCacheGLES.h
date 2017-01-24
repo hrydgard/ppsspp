@@ -75,7 +75,7 @@ public:
 
 	void ForgetLastTexture() {
 		lastBoundTexture = -1;
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		gstate_c.textureParamsChanged = true;
 	}
 
 	u32 AllocTextureName();

@@ -441,12 +441,6 @@ struct UVScale {
 	float uOff, vOff;
 };
 
-enum TextureChangeReason {
-	TEXCHANGE_UNCHANGED = 0x00,
-	TEXCHANGE_UPDATED = 0x01,
-	TEXCHANGE_PARAMSONLY = 0x02,
-};
-
 #define FLAG_BIT(x) (1 << x)
 
 // Some of these are OpenGL-specific even though this file is neutral, unfortunately.
@@ -513,7 +507,9 @@ struct GPUStateCache {
 
 	uint64_t dirty;
 
-	u8 textureChanged;
+	bool textureImageChanged;
+	bool textureParamsChanged;
+
 	bool textureFullAlpha;
 	bool textureSimpleAlpha;
 	bool vertexFullAlpha;

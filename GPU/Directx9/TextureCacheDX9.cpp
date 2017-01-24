@@ -127,7 +127,7 @@ void TextureCacheDX9::DeleteTexture(TexCache::iterator it) {
 
 void TextureCacheDX9::ForgetLastTexture() {
 	lastBoundTexture = INVALID_TEX;
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 // Removes old textures.
@@ -931,7 +931,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 			// Always rehash in this case, if one changed the rest all probably did.
 			rehash = true;
 			entry->status &= ~TexCacheEntry::STATUS_CLUT_RECHECK;
-		} else if ((gstate_c.textureChanged & TEXCHANGE_UPDATED) == 0) {
+		} else if (!gstate_c.textureImageChanged) {
 			// Okay, just some parameter change - the data didn't change, no need to rehash.
 			rehash = false;
 		}

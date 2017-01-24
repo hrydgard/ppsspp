@@ -787,7 +787,8 @@ void GPUCommon::ProcessDLQueueInternal() {
 	UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
 
 	// Game might've written new texture data.
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.textureImageChanged = true;
+	gstate_c.textureParamsChanged = true;
 
 	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
@@ -1193,7 +1194,7 @@ void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
 	DoBlockTransfer(gstate_c.skipDrawReason);
 
 	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.textureImageChanged = true;
 }
 
 void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {

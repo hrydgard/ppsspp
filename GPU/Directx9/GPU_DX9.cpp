@@ -644,7 +644,7 @@ void GPU_DX9::CopyDisplayToOutputInternal() {
 	// shaderManager_->EndFrame();
 	shaderManagerDX9_->DirtyLastShader();
 
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.textureImageChanged = true;
 }
 
 // Maybe should write this in ASM...
@@ -890,7 +890,7 @@ void GPU_DX9::Execute_Spline(u32 op, u32 diff) {
 
 void GPU_DX9::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 	switch (op >> 24) {
 	case GE_CMD_VIEWPORTZSCALE:
 	case GE_CMD_VIEWPORTZCENTER:
@@ -901,17 +901,17 @@ void GPU_DX9::Execute_ViewportType(u32 op, u32 diff) {
 
 void GPU_DX9::Execute_Region(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_DX9::Execute_Scissor(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_DX9::Execute_FramebufType(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_FRAMEBUF);
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_DX9::Execute_TexScaleU(u32 op, u32 diff) {
@@ -935,40 +935,40 @@ void GPU_DX9::Execute_TexOffsetV(u32 op, u32 diff) {
 }
 
 void GPU_DX9::Execute_TexAddr0(u32 op, u32 diff) {
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.textureImageChanged = true;
 	gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_DX9::Execute_TexAddrN(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_DX9::Execute_TexBufw0(u32 op, u32 diff) {
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.textureImageChanged = true;
 }
 
 void GPU_DX9::Execute_TexBufwN(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_DX9::Execute_TexSize0(u32 op, u32 diff) {
 	// Render to texture may have overridden the width/height.
 	// Don't reset it unless the size is different / the texture has changed.
-	if (diff || gstate_c.textureChanged != TEXCHANGE_UNCHANGED) {
+	if (diff || (gstate_c.textureParamsChanged || gstate_c.textureImageChanged)) {
 		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
 		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
 		gstate_c.DirtyUniform(DIRTY_UVSCALEOFFSET);
 		// We will need to reset the texture now.
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		gstate_c.textureParamsChanged = true;
 	}
 }
 
 void GPU_DX9::Execute_TexSizeN(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_DX9::Execute_TexFormat(u32 op, u32 diff) {
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	gstate_c.textureImageChanged = true;
 }
 
 void GPU_DX9::Execute_TexMapMode(u32 op, u32 diff) {
@@ -976,7 +976,7 @@ void GPU_DX9::Execute_TexMapMode(u32 op, u32 diff) {
 }
 
 void GPU_DX9::Execute_TexParamType(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_DX9::Execute_TexEnvColor(u32 op, u32 diff) {
@@ -993,17 +993,17 @@ void GPU_DX9::Execute_TexLevel(u32 op, u32 diff) {
 		gstate.texlevel ^= diff;
 	}
 	*/
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 }
 
 void GPU_DX9::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 	textureCacheDX9_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 	// This could be used to "dirty" textures with clut.
 }
 
 void GPU_DX9::Execute_ClutFormat(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	gstate_c.textureParamsChanged = true;
 	// This could be used to "dirty" textures with clut.
 }
 
@@ -1116,7 +1116,7 @@ void GPU_DX9::Execute_Generic(u32 op, u32 diff) {
 
 	case GE_CMD_TEXTUREMAPENABLE:
 		if (diff)
-			gstate_c.textureChanged = TEXCHANGE_UPDATED;
+			gstate_c.textureImageChanged = true;
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
@@ -1599,7 +1599,7 @@ void GPU_DX9::DoState(PointerWrap &p) {
 		textureCacheDX9_->Clear(true);
 		drawEngine_.ClearTrackedVertexArrays();
 
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		gstate_c.textureImageChanged = true;
 		framebufferManagerDX9_->DestroyAllFBOs(true);
 		shaderManagerDX9_->ClearCache(true);
 	}
