@@ -187,7 +187,7 @@ uint32_t ShaderManagerVulkan::PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *b
 	return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
 }
 
-void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
+void ShaderManagerVulkan::BaseUpdateUniforms(uint64_t dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		Uint8x3ToFloat4(ub_base.texEnvColor, gstate.texenvcolor);
 	}
@@ -337,7 +337,7 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 	}
 }
 
-void ShaderManagerVulkan::LightUpdateUniforms(int dirtyUniforms) {
+void ShaderManagerVulkan::LightUpdateUniforms(uint64_t dirtyUniforms) {
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
 		Uint8x3ToFloat4_AlphaUint8(ub_lights.ambientColor, gstate.ambientcolor, gstate.getAmbientA());
@@ -380,7 +380,7 @@ void ShaderManagerVulkan::LightUpdateUniforms(int dirtyUniforms) {
 	}
 }
 
-void ShaderManagerVulkan::BoneUpdateUniforms(int dirtyUniforms) {
+void ShaderManagerVulkan::BoneUpdateUniforms(uint64_t dirtyUniforms) {
 	for (int i = 0; i < 8; i++) {
 		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
 			ConvertMatrix4x3To4x4(ub_bones.bones[i], gstate.boneMatrix + 12 * i);
@@ -425,8 +425,8 @@ void ShaderManagerVulkan::DirtyLastShader() { // disables vertex arrays
 	lastFShader_ = nullptr;
 }
 
-uint32_t ShaderManagerVulkan::UpdateUniforms() {
-	uint32_t dirty = gstate_c.GetDirtyUniforms();
+uint64_t ShaderManagerVulkan::UpdateUniforms() {
+	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		if (dirty & DIRTY_BASE_UNIFORMS)
 			BaseUpdateUniforms(dirty);

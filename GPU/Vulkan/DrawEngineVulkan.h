@@ -220,7 +220,7 @@ private:
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 
 	// State cache
-	uint32_t dirtyUniforms_;
+	uint64_t dirtyUniforms_;
 	uint32_t baseUBOOffset;
 	uint32_t lightUBOOffset;
 	uint32_t boneUBOOffset;
