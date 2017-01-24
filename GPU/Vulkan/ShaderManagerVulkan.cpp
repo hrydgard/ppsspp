@@ -428,9 +428,12 @@ void ShaderManagerVulkan::DirtyLastShader() { // disables vertex arrays
 uint32_t ShaderManagerVulkan::UpdateUniforms() {
 	uint32_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
-		BaseUpdateUniforms(dirty);
-		LightUpdateUniforms(dirty);
-		BoneUpdateUniforms(dirty);
+		if (dirty & DIRTY_BASE_UNIFORMS)
+			BaseUpdateUniforms(dirty);
+		if (dirty & DIRTY_LIGHT_UNIFORMS)
+			LightUpdateUniforms(dirty);
+		if (dirty & DIRTY_BONE_UNIFORMS)
+			BoneUpdateUniforms(dirty);
 	}
 	gstate_c.CleanUniforms();
 	return dirty;
