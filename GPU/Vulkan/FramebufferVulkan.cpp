@@ -1463,6 +1463,8 @@ VkCommandBuffer FramebufferManagerVulkan::AllocFrameCommandBuffer() {
 void FramebufferManagerVulkan::BeginFrameVulkan() {
 	BeginFrame();
 
+	vulkan2D_.BeginFrame();
+
 	FrameData &frame = frameData_[curFrame_];
 	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
 	frame.numCommandBuffers_ = 0;
@@ -1533,6 +1535,8 @@ void FramebufferManagerVulkan::EndFrame() {
 		PackFramebufferAsync_(nullptr);
 	FrameData &frame = frameData_[curFrame_];
 	frame.push_->End();
+
+	vulkan2D_.EndFrame();
 
 	curFrame_++;
 	curFrame_ &= 1;

@@ -47,7 +47,7 @@ void VulkanFBO::Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int wi
 	vkCreateFramebuffer(vulkan->GetDevice(), &fb, nullptr, &framebuffer_);
 }
 
-Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
+Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan), curFrame_(0) {
 	InitDeviceObjects();
 }
 
@@ -110,7 +110,7 @@ void Vulkan2D::InitDeviceObjects() {
 	dp.maxSets = 1500;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frameData_[i].descPool);
 		assert(VK_SUCCESS == res);
 	}
