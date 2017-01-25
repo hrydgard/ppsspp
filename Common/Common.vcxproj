@@ -295,6 +295,7 @@
     <ClCompile Include="MemArenaAndroid.cpp" />
     <ClCompile Include="MemArenaPosix.cpp" />
     <ClCompile Include="MemArenaWin32.cpp" />
+    <ClCompile Include="MemArenaDarwin.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Misc.cpp" />

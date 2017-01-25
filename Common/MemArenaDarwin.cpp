@@ -17,7 +17,7 @@
 
 #include "ppsspp_config.h"
 
-#if defined(IOS) && PPSSPP_ARCH(ARM64)
+#if defined(__APPLE__)
 
 #include <string>
 #include <inttypes.h>
@@ -39,8 +39,7 @@ size_t MemArena::roundup(size_t x) {
 	return x;
 }
 
-void MemArena::GrabLowMemSpace(size_t size)
-{
+void MemArena::GrabLowMemSpace(size_t size) {
 	vm_size = size;
 	kern_return_t retval = vm_allocate(mach_task_self(), &vm_mem, size, VM_FLAGS_ANYWHERE);
 	if (retval != KERN_SUCCESS) {
@@ -56,8 +55,7 @@ void MemArena::ReleaseSpace() {
 	vm_mem = 0;
 }
 
-void *MemArena::CreateView(s64 offset, size_t size, void *base)
-{
+void *MemArena::CreateView(s64 offset, size_t size, void *base) {
 	mach_port_t self = mach_task_self();
 	vm_address_t target = (vm_address_t)base;
 	uint64_t mask = 0;
@@ -86,12 +84,34 @@ void MemArena::ReleaseView(void* view, size_t size) {
 }
 
 bool MemArena::NeedsProbing() {
+#if defined(IOS) && PPSSPP_ARCH(64BIT)
 	return true;
+#else
+	return false;
+#endif
 }
 
 u8* MemArena::Find4GBBase() {
+#if defined(IOS) && PPSSPP_ARCH(64BIT)
 	// The caller will need to do probing, like on 32-bit Windows.
+	return nullptr;
+#else
+	size_t size;
+#if PPSSPP_ARCH(64BIT)
+	size = 0xE1000000;
+#else
+	size = 0x10000000;
+#endif
+
+	vm_address_t addr = 0;
+	kern_return_t retval = vm_allocate(mach_task_self(), &addr, size, VM_FLAGS_ANYWHERE);
+	if (retval == KERN_SUCCESS) {
+		// Don't need the memory now, was just probing.
+		vm_deallocate(mach_task_self(), addr, size);
+		return (u8 *)addr;
+	}
+#endif
 	return nullptr;
 }
 
-#endif // defined(IOS) && PPSSPP_ARCH(ARM64)
+#endif  // __APPLE__

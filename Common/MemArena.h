@@ -21,6 +21,8 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
+#elif defined(__APPLE__)
+#include <mach/mach.h>
 #endif
 
 #include "Common.h"
@@ -47,9 +49,9 @@ private:
 #ifdef _WIN32
 	HANDLE hMemoryMapping;
 	SYSTEM_INFO sysInfo;
-#elif defined(IOS) && PPSSPP_ARCH(ARM64)
+#elif defined(__APPLE__)
 	size_t vm_size;
-	uintptr_t vm_mem;  // same type as vm_address_t
+	vm_address_t vm_mem;  // same type as vm_address_t
 #else
 	int fd;
 #endif

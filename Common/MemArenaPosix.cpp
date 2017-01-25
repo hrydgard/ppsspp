@@ -17,7 +17,7 @@
 
 #include "ppsspp_config.h"
 
-#if !defined(_WIN32) && !defined(ANDROID) && !(defined(IOS) && PPSSPP_ARCH(ARM64))
+#if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__)
 
 #include <string>
 
@@ -107,13 +107,14 @@ u8* MemArena::Find4GBBase() {
 	// This makes the Windows approach above unusable on Linux, so we will simply pray...
 	return reinterpret_cast<u8*>(0x2300000000ULL);
 #else
-	void* base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE,
+	size_t size = 0x10000000;
+	void* base = mmap(0, size, PROT_READ | PROT_WRITE,
 		MAP_ANON | MAP_SHARED, -1, 0);
 	if (base == MAP_FAILED) {
 		PanicAlert("Failed to map 256 MB of memory space: %s", strerror(errno));
 		return 0;
 	}
-	munmap(base, 0x10000000);
+	munmap(base, size);
 	return static_cast<u8*>(base);
 #endif
 }
