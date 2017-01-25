@@ -48,6 +48,14 @@ void MemArena::ReleaseView(void* view, size_t size) {
 	UnmapViewOfFile(view);
 }
 
+bool MemArena::NeedsProbing() {
+#if PPSSPP_ARCH(32BIT)
+	return true;
+#else
+	return false;
+#endif
+}
+
 u8* MemArena::Find4GBBase() {
 	// Now, create views in high memory where there's plenty of space.
 #if PPSSPP_ARCH(32BIT)
