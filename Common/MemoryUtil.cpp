@@ -197,19 +197,23 @@ void *AllocateExecutableMemory(size_t size) {
 }
 
 void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
-	size = (size + 4095) & (~4095);
+	size = round_page(size);
 #ifdef _WIN32
 	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, protect);
+	if (!ptr)
+		PanicAlert("Failed to allocate raw memory");
 #else
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
 	void* ptr = mmap(0, size, protect, MAP_ANON | MAP_PRIVATE, -1, 0);
+	if (ptr == MAP_FAILED) {
+		ERROR_LOG(MEMMAP, "Failed to allocate memory pages: errno=%d", errno);
+		return nullptr;
+	}
 #endif
 
 	// printf("Mapped memory at %p (size %ld)\n", ptr,
 	//	(unsigned long)size);
-	if (ptr == NULL)
-		PanicAlert("Failed to allocate raw memory");
 	return ptr;
 }
 
@@ -238,7 +242,8 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 void FreeMemoryPages(void *ptr, size_t size) {
 	if (!ptr)
 		return;
-	size = (size + 4095) & (~4095);
+	uintptr_t page_size = GetMemoryProtectPageSize();
+	size = (size + page_size - 1) & (~(page_size - 1));
 #ifdef _WIN32
 	if (!VirtualFree(ptr, 0, MEM_RELEASE))
 		PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg());
@@ -291,7 +296,7 @@ bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 	start &= ~(page_size - 1);
 	end = (end + page_size - 1) & ~(page_size - 1);
 	int retval = mprotect((void *)start, end - start, protect);
-	if (retval < 0) {
+	if (retval != 0) {
 		ERROR_LOG(MEMMAP, "mprotect failed (%p)! errno=%d (%s)", (void *)start, errno, strerror(errno));
 		return false;
 	}
