@@ -128,6 +128,10 @@ DrawEngineGLES::DrawEngineGLES()
 		dcid_(0),
 		fboTexNeedBind_(false),
 		fboTexBound_(false) {
+
+	decOptions_.expandAllWeightsToFloat = false;
+	decOptions_.expand8BitNormalsToFloat = false;
+
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	bufferDecimationCounter_ = VERTEXCACHE_NAME_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
