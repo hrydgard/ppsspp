@@ -284,6 +284,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	PLD(srcReg, 64);
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
+			EndWrite();
 			// Reset the code ptr and return zero to indicate that we failed.
 			SetCodePtr(const_cast<u8 *>(start));
 			char temp[1024] = {0};
