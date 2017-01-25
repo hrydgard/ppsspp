@@ -155,7 +155,12 @@ void *AllocateExecutableMemory(size_t size) {
 		map_hint -= round_page(size); /* round down to the next page if we're in high memory */
 	}
 #endif
-	void* ptr = mmap(map_hint, size, PROT_READ | PROT_WRITE	| PROT_EXEC,
+
+	int prot = PROT_READ | PROT_WRITE | PROT_EXEC;
+	if (PlatformIsWXExclusive())
+		prot = PROT_READ | PROT_WRITE;  // POST_EXEC is added later in this case.
+
+	void* ptr = mmap(map_hint, size, prot,
 		MAP_ANON | MAP_PRIVATE
 #if defined(_M_X64) && defined(MAP_32BIT)
 		| ((uintptr_t) map_hint == 0 ? MAP_32BIT : 0)
@@ -172,6 +177,7 @@ void *AllocateExecutableMemory(size_t size) {
 
 	if (ptr == failed_result) {
 		ptr = nullptr;
+		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (prot=%d)", prot);
 		PanicAlert("Failed to allocate executable memory\n%s", GetLastErrorMsg());
 	}
 #if defined(_M_X64) && !defined(_WIN32)
@@ -262,7 +268,7 @@ bool PlatformIsWXExclusive() {
 #endif
 }
 
-void ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
+bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 	VERBOSE_LOG(JIT, "ProtectMemoryPages: %p (%d) : r%d w%d x%d", ptr, (int)size, (memProtFlags & MEM_PROT_READ) != 0, (memProtFlags & MEM_PROT_WRITE) != 0, (memProtFlags & MEM_PROT_EXEC) != 0);
 
 	if (PlatformIsWXExclusive()) {
@@ -278,13 +284,18 @@ void ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
 #else
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
-	uint32_t page_size = GetMemoryProtectPageSize();
+	uintptr_t page_size = GetMemoryProtectPageSize();
 
 	uintptr_t start = (uintptr_t)ptr;
 	uintptr_t end = (uintptr_t)ptr + size;
 	start &= ~(page_size - 1);
 	end = (end + page_size - 1) & ~(page_size - 1);
-	mprotect((void *)start, end - start, protect);
+	int retval = mprotect((void *)start, end - start, protect);
+	if (retval < 0) {
+		ERROR_LOG(MEMMAP, "mprotect failed (%p)! errno=%d (%s)", (void *)start, errno, strerror(errno));
+		return false;
+	}
+	return true;
 #endif
 }
 

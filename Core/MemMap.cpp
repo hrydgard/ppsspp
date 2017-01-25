@@ -94,15 +94,15 @@ static MemoryView views[] =
 	{&m_pUncachedVRAM4,       0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
 	{&m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
 	{&m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
-	{&m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	{&m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
 	// Starts at memory + 31 MB.
 	{&m_pPhysicalRAM2,        0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
 	{&m_pUncachedRAM2,        0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
-	{&m_pKernelRAM2,          0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
+	// {&m_pKernelRAM2,          0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
 	// Starts at memory + 31 * 2 MB.
 	{&m_pPhysicalRAM3,        0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
 	{&m_pUncachedRAM3,        0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
-	{&m_pKernelRAM3,          0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
+	{&m_pKernelRAM3,          0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
@@ -119,12 +119,14 @@ inline static bool CanIgnoreView(const MemoryView &view) {
 #endif
 }
 
-// yeah, this could also be done in like two bitwise ops...
-#define SKIP(a_flags, b_flags) 
-//	if (!(a_flags & MV_WII_ONLY) && (b_flags & MV_WII_ONLY)) 
-//		continue; 
-//	if (!(a_flags & MV_FAKE_VMEM) && (b_flags & MV_FAKE_VMEM)) 
-//		continue; 
+#if defined(IOS) && PPSSPP_ARCH(64BIT)
+#define SKIP(a_flags, b_flags) \
+	if ((b_flags) & MV_KERNEL) \
+		continue;
+#else
+#define SKIP(a_flags, b_flags) \
+	;
+#endif
 
 static bool Memory_TryBase(u32 flags) {
 	// OK, we know where to find free space. Now grab it!
@@ -214,8 +216,8 @@ bool MemoryMap_Setup(u32 flags) {
 		uintptr_t stride = 0x400000;
 #else
 		// iOS
-		uintptr_t max_base_addr = 0x1FFFF0000ULL - 0xE1000000;
-		uintptr_t min_base_addr = 0x01000000;
+		uintptr_t max_base_addr = 0x1FFFF0000ULL - 0x80000000;
+		uintptr_t min_base_addr = 0x100000000ULL;
 		uintptr_t stride = 0x800000;
 #endif
 		for (uintptr_t base_addr = min_base_addr; base_addr < max_base_addr; base_addr += stride) {
