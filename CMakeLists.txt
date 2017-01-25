@@ -338,6 +338,7 @@ add_library(Common STATIC
 	Common/LogManager.cpp
 	Common/LogManager.h
 	Common/MemArenaAndroid.cpp
+	Common/MemArenaDarwin.cpp
 	Common/MemArenaPosix.cpp
 	Common/MemArenaWin32.cpp
 	Common/MemArena.h

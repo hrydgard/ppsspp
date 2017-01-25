@@ -97,8 +97,11 @@ static GraphicsContext *graphicsContext;
 
 		net::Init();
 
+#if defined(IOS) && PPSSPP_ARCH(ARM64)
+#else
 		ram_temp_file = [[NSTemporaryDirectory() stringByAppendingPathComponent:@"ram_tmp.file"] fileSystemRepresentation];
-		
+#endif
+
 		iosCanUseJit = true;
 		targetIsJailbroken = false;
 		NSArray *jailPath = [NSArray arrayWithObjects:

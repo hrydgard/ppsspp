@@ -100,11 +100,10 @@ enum
 
 enum {
 	MV_MIRROR_PREVIOUS = 1,
-	// MV_FAKE_VMEM = 2,
-	// MV_WII_ONLY = 4,
 	MV_IS_PRIMARY_RAM = 0x100,
 	MV_IS_EXTRA1_RAM = 0x200,
 	MV_IS_EXTRA2_RAM = 0x400,
+	MV_KERNEL = 0x800  // Can be skipped on platforms where memory is tight.
 };
 
 struct MemoryView

@@ -33,6 +33,10 @@
 
 #define ASHMEM_DEVICE	"/dev/ashmem"
 
+bool MemArena::NeedsProbing() {
+	return false;
+}
+
 // ashmem_create_region - creates a new ashmem region and returns the file
 // descriptor, or <0 on error
 // `name' is an optional label to give the region (visible in /proc/pid/maps)

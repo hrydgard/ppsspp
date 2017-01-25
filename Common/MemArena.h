@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #ifdef _WIN32
 #include "CommonWindows.h"
 #endif
@@ -36,13 +38,18 @@ public:
 	void ReleaseSpace();
 	void *CreateView(s64 offset, size_t size, void *base = 0);
 	void ReleaseView(void *view, size_t size);
+
 	// This only finds 1 GB in 32-bit
 	u8 *Find4GBBase();
+	bool NeedsProbing();
 
 private:
 #ifdef _WIN32
 	HANDLE hMemoryMapping;
 	SYSTEM_INFO sysInfo;
+#elif defined(IOS) && PPSSPP_ARCH(ARM64)
+	size_t vm_size;
+	uintptr_t vm_mem;  // same type as vm_address_t
 #else
 	int fd;
 #endif

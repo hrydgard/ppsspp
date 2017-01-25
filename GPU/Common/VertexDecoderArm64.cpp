@@ -243,6 +243,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	const u8 *loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
+			EndWrite();
 			// Reset the code ptr (effectively undoing what we generated) and return zero to indicate that we failed.
 			SetCodePtr(const_cast<u8 *>(start));
 			char temp[1024] = {0};
@@ -285,14 +286,14 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		char temp[1024] = { 0 };
 		dec.ToString(temp);
 		ILOG("=== %s (%d bytes) ===", temp, (int)(GetCodePtr() - start));
-		std::vector<std::string> lines = DisassembleArm64(start, GetCodePtr() - start);
+		std::vector<std::string> lines = DisassembleArm64(start, (int)(GetCodePtr() - start));
 		for (auto line : lines) {
 			ILOG("%s", line.c_str());
 		}
-		ILOG("==========", temp);
+		ILOG("==========");
 	}
 
-	*jittedSize = GetCodePtr() - start;
+	*jittedSize = (int)(GetCodePtr() - start);
 	EndWrite();
 	return (JittedVertexDecoder)start;
 }

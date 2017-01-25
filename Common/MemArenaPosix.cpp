@@ -17,7 +17,7 @@
 
 #include "ppsspp_config.h"
 
-#if !defined(_WIN32) && !defined(ANDROID)
+#if !defined(_WIN32) && !defined(ANDROID) && !(defined(IOS) && PPSSPP_ARCH(ARM64))
 
 #include <string>
 
@@ -39,6 +39,10 @@ std::string ram_temp_file = "/tmp/gc_mem.tmp";
 
 size_t MemArena::roundup(size_t x) {
 	return x;
+}
+
+bool MemArena::NeedsProbing() {
+	return false;
 }
 
 void MemArena::GrabLowMemSpace(size_t size) {

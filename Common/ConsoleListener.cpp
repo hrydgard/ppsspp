@@ -54,15 +54,15 @@ ConsoleListener::ConsoleListener() : bHidden(true)
 #if defined(USING_WIN_UI)
 	hConsole = NULL;
 	bUseColor = true;
-
-	if (hTriggerEvent == NULL)
-	{
+	if (hTriggerEvent == NULL) {
 		hTriggerEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 		InitializeCriticalSection(&criticalSection);
 		logPending = new char[LOG_PENDING_MAX];
 	}
 	++refCount;
-#elif defined(_WIN32)
+#elif defined(ANDROID)
+	bUseColor = false;
+#elif defined(IOS)
 	bUseColor = false;
 #else
 	bUseColor = isatty(fileno(stdout));
