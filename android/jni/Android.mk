@@ -193,7 +193,10 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/KeyMap.cpp \
   $(SRC)/Common/LogManager.cpp \
-  $(SRC)/Common/MemArena.cpp \
+  $(SRC)/Common/MemArenaAndroid.cpp \
+  $(SRC)/Common/MemArenaDarwin.cpp \
+  $(SRC)/Common/MemArenaWin32.cpp \
+  $(SRC)/Common/MemArenaPosix.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
   $(SRC)/Common/MsgHandler.cpp \
   $(SRC)/Common/FileUtil.cpp \
