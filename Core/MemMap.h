@@ -116,7 +116,7 @@ struct MemoryView
 };
 
 // Uses a memory arena to set up an emulator-friendly memory map
-void MemoryMap_Setup(u32 flags);
+bool MemoryMap_Setup(u32 flags);
 void MemoryMap_Shutdown(u32 flags);
 
 // Init and Shutdown

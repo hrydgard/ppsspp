@@ -27,8 +27,9 @@
 // Multiple views can mirror the same section of the block, which makes it very convient for emulating
 // memory mirrors.
 
-class MemArena
-{
+struct MemArenaData;
+
+class MemArena {
 public:
 	size_t roundup(size_t x);
 	void GrabLowMemSpace(size_t size);
@@ -36,11 +37,12 @@ public:
 	void *CreateView(s64 offset, size_t size, void *base = 0);
 	void ReleaseView(void *view, size_t size);
 	// This only finds 1 GB in 32-bit
-	static u8 *Find4GBBase();
-private:
+	u8 *Find4GBBase();
 
+private:
 #ifdef _WIN32
 	HANDLE hMemoryMapping;
+	SYSTEM_INFO sysInfo;
 #else
 	int fd;
 #endif
