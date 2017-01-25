@@ -91,7 +91,9 @@ int ashmem_unpin_region(int fd, size_t offset, size_t len) {
 }
 #endif  // Android
 
-#ifndef _WIN32
+#ifdef _WIN32
+SYSTEM_INFO sysInfo;
+#else
 static const std::string tmpfs_location = "/dev/shm";
 static const std::string tmpfs_ram_temp_file = "/dev/shm/gc_mem.tmp";
 
@@ -101,19 +103,12 @@ std::string ram_temp_file = "/home/root/gc_mem.tmp";
 #else
 std::string ram_temp_file = "/tmp/gc_mem.tmp";
 #endif
-#elif !defined(_XBOX)
-SYSTEM_INFO sysInfo;
 #endif
-
 
 // Windows mappings need to be on 64K boundaries, due to Alpha legacy.
 #ifdef _WIN32
 size_t MemArena::roundup(size_t x) {
-#ifndef _XBOX
 	int gran = sysInfo.dwAllocationGranularity ? sysInfo.dwAllocationGranularity : 0x10000;
-#else
-	int gran = 0x10000; // 64k in 360
-#endif
 	return (x + gran - 1) & ~(gran - 1);
 }
 #else
@@ -125,10 +120,8 @@ size_t MemArena::roundup(size_t x) {
 void MemArena::GrabLowMemSpace(size_t size)
 {
 #ifdef _WIN32
-#ifndef _XBOX
 	hMemoryMapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, (DWORD)(size), NULL);
 	GetSystemInfo(&sysInfo);
-#endif
 #elif defined(__ANDROID__)
 	// Use ashmem so we don't have to allocate a file on disk!
 	fd = ashmem_create_region("PPSSPP_RAM", size);
@@ -169,9 +162,7 @@ void MemArena::GrabLowMemSpace(size_t size)
 #endif
 }
 
-
-void MemArena::ReleaseSpace()
-{
+void MemArena::ReleaseSpace() {
 #ifdef _WIN32
 	CloseHandle(hMemoryMapping);
 	hMemoryMapping = 0;
@@ -180,20 +171,12 @@ void MemArena::ReleaseSpace()
 #endif
 }
 
-
 void *MemArena::CreateView(s64 offset, size_t size, void *base)
 {
 #ifdef _WIN32
-#ifdef _XBOX
-    size = roundup(size);
-	// use 64kb pages
-    void * ptr = VirtualAlloc(NULL, size, MEM_COMMIT|MEM_LARGE_PAGES, PAGE_READWRITE);
-    return ptr;
-#else
 	size = roundup(size);
 	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, base);
 	return ptr;
-#endif
 #else
 	void *retval = mmap(base, size, PROT_READ | PROT_WRITE, MAP_SHARED |
 // Do not sync memory to underlying file. Linux has this by default.
@@ -211,20 +194,15 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 #endif
 }
 
-
-void MemArena::ReleaseView(void* view, size_t size)
-{
+void MemArena::ReleaseView(void* view, size_t size) {
 #ifdef _WIN32
-#ifndef _XBOX
 	UnmapViewOfFile(view);
-#endif
 #else
 	munmap(view, size);
 #endif
 }
 
-u8* MemArena::Find4GBBase()
-{
+u8* MemArena::Find4GBBase() {
 #ifdef _M_X64
 #ifdef _WIN32
 	// 64 bit

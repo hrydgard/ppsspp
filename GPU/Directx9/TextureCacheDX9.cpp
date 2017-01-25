@@ -1340,7 +1340,7 @@ ReplacedTextureFormat FromD3D9Format(u32 fmt) {
 	}
 }
 
-u32 ToD3D9Format(ReplacedTextureFormat fmt) {
+D3DFORMAT ToD3D9Format(ReplacedTextureFormat fmt) {
 	switch (fmt) {
 	case ReplacedTextureFormat::F_5650:
 		return D3DFMT_R5G6B5;
@@ -1369,9 +1369,9 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		}
 		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
 		int tw = w, th = h;
-		D3DFORMAT tfmt = (D3DFORMAT)D3DFMT(dstFmt);
+		D3DFORMAT tfmt = (D3DFORMAT)(dstFmt);
 		if (replaced.GetSize(level, tw, th)) {
-			tfmt = (D3DFORMAT)D3DFMT(ToD3D9Format(replaced.Format(level)));
+			tfmt = ToD3D9Format(replaced.Format(level));
 		} else {
 			tw *= scaleFactor;
 			th *= scaleFactor;

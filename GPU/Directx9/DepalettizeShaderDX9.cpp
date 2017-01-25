@@ -89,7 +89,7 @@ LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(GEPaletteFormat clutForma
 		usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
 	}
 
-	HRESULT hr = pD3Ddevice->CreateTexture(texturePixels, 1, 1, usage, (D3DFORMAT)D3DFMT(dstFmt), pool, &tex->texture, NULL);
+	HRESULT hr = pD3Ddevice->CreateTexture(texturePixels, 1, 1, usage, dstFmt, pool, &tex->texture, NULL);
 	if (FAILED(hr)) {
 		ERROR_LOG(G3D, "Failed to create D3D texture for depal");
 		delete tex;

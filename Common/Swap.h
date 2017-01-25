@@ -48,11 +48,7 @@
 // MSVC
 #elif defined(_MSC_VER) && !defined(COMMON_BIG_ENDIAN) && !defined(COMMON_LITTLE_ENDIAN)
 
-#ifdef _XBOX
-#define COMMON_BIG_ENDIAN 1
-#else
 #define COMMON_LITTLE_ENDIAN 1
-#endif
 
 #endif
 
@@ -62,15 +58,9 @@
 #endif
 
 #ifdef _MSC_VER
-#ifndef _XBOX
 inline unsigned long long bswap64(unsigned long long x) { return _byteswap_uint64(x); }
 inline unsigned int bswap32(unsigned int x) { return _byteswap_ulong(x); }
 inline unsigned short bswap16(unsigned short x) { return _byteswap_ushort(x); }
-#else
-inline unsigned long long bswap64(unsigned long long x) { return __loaddoublewordbytereverse(0, &x); }
-inline unsigned int bswap32(unsigned int x) { return __loadwordbytereverse(0, &x); }
-inline unsigned short bswap16(unsigned short x) { return __loadshortbytereverse(0, &x); }
-#endif
 #elif defined(__DragonFly__) || defined(__FreeBSD__) || \
       defined(__NetBSD__) || defined(__OpenBSD__)
 #include <sys/endian.h>

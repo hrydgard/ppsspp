@@ -19,9 +19,7 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
-#ifndef _XBOX
 #include <mmsystem.h>
-#endif
 #include <sys/timeb.h>
 #else
 #include <sys/time.h>
@@ -35,9 +33,7 @@ namespace Common
 
 u32 Timer::GetTimeMs()
 {
-#ifdef _XBOX
-	return GetTickCount();
-#elif defined(_WIN32)
+#if defined(_WIN32)
 	return timeGetTime();
 #else
 	// REALTIME is probably not a good idea for measuring updates.

@@ -138,12 +138,8 @@ static bool Memory_TryBase(u32 flags) {
 	// OK, we know where to find free space. Now grab it!
 	// We just mimic the popular BAT setup.
 
-#if defined(_XBOX)
-	void *ptr;
-#else
 	size_t position = 0;
 	size_t last_position = 0;
-#endif
 
 	// Zero all the pointers to be sure.
 	for (int i = 0; i < num_views; i++)
@@ -162,13 +158,6 @@ static bool Memory_TryBase(u32 flags) {
 			continue;
 		SKIP(flags, view.flags);
 		
-#if defined(_XBOX)
-		if (!CanIgnoreView(view)) {
-			*(view.out_ptr_low) = (u8*)(base + view.virtual_address);
-			ptr = VirtualAlloc(base + (view.virtual_address & MEMVIEW32_MASK), view.size, MEM_COMMIT, PAGE_READWRITE);
-		}
-		*(view.out_ptr) = (u8*)base + (view.virtual_address & MEMVIEW32_MASK);
-#else
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
 		} else {
@@ -192,7 +181,6 @@ static bool Memory_TryBase(u32 flags) {
 #endif
 		last_position = position;
 		position += g_arena.roundup(view.size);
-#endif
 	}
 
 	return true;
@@ -223,9 +211,6 @@ bail:
 void MemoryMap_Setup(u32 flags)
 {
 	// Find a base to reserve 256MB
-#if defined(_XBOX)
-	base = (u8*)VirtualAlloc(0, 0x10000000, MEM_RESERVE|MEM_LARGE_PAGES, PAGE_READWRITE);
-#else
 	size_t total_mem = 0;
 
 	for (int i = 0; i < num_views; i++)
@@ -244,8 +229,6 @@ void MemoryMap_Setup(u32 flags)
 	// Linux32 is fine with the x64 method, although limited to 32-bit with no automirrors.
 	base = MemArena::Find4GBBase();
 #endif
-#endif
-
 
 	// Now, create views in high memory where there's plenty of space.
 #if defined(_WIN32) && !defined(_M_X64)
