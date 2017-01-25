@@ -109,7 +109,6 @@ enum {
 
 struct MemoryView
 {
-	u8 **out_ptr_low;
 	u8 **out_ptr;
 	u32 virtual_address;
 	u32 size;

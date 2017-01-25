@@ -45,14 +45,6 @@ u8* base = NULL;
 MemArena g_arena;
 // ==============
 
-// 64-bit: Pointers to low-mem (sub-0x10000000) mirror
-// 32-bit: Same as the corresponding physical/virtual pointers.
-u8 *m_pRAM;
-u8 *m_pRAM2;
-u8 *m_pRAM3;
-u8 *m_pScratchPad;
-u8 *m_pVRAM;
-
 u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
 // 64-bit: Pointers to high-mem mirrors
@@ -90,27 +82,27 @@ recursive_mutex g_shutdownLock;
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] =
 {
-	{&m_pScratchPad, &m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
-	{NULL,           &m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
-	{&m_pVRAM,       &m_pPhysicalVRAM1,       0x04000000, 0x00200000, 0},
-	{NULL,           &m_pPhysicalVRAM2,       0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pPhysicalVRAM3,       0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pPhysicalVRAM4,       0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pUncachedVRAM1,       0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pUncachedVRAM2,       0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pUncachedVRAM3,       0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pUncachedVRAM4,       0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pRAM,        &m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
-	{NULL,           &m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
-	{NULL,           &m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
+	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM1,       0x04000000, 0x00200000, 0},
+	{&m_pPhysicalVRAM2,       0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM3,       0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM4,       0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM1,       0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM2,       0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM3,       0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM4,       0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
+	{&m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	{&m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
 	// Starts at memory + 31 MB.
-	{&m_pRAM2,       &m_pPhysicalRAM2,        0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
-	{NULL,           &m_pUncachedRAM2,        0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
-	{NULL,           &m_pKernelRAM2,          0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
+	{&m_pPhysicalRAM2,        0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
+	{&m_pUncachedRAM2,        0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
+	{&m_pKernelRAM2,          0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
 	// Starts at memory + 31 * 2 MB.
-	{&m_pRAM3,       &m_pPhysicalRAM3,        0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
-	{NULL,           &m_pUncachedRAM3,        0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
-	{NULL,           &m_pKernelRAM3,          0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
+	{&m_pPhysicalRAM3,        0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
+	{&m_pUncachedRAM3,        0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
+	{&m_pKernelRAM3,          0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
@@ -142,10 +134,7 @@ static bool Memory_TryBase(u32 flags) {
 	size_t last_position = 0;
 
 	// Zero all the pointers to be sure.
-	for (int i = 0; i < num_views; i++)
-	{
-		if (views[i].out_ptr_low)
-			*views[i].out_ptr_low = 0;
+	for (int i = 0; i < num_views; i++) {
 		if (views[i].out_ptr)
 			*views[i].out_ptr = 0;
 	}
@@ -160,10 +149,6 @@ static bool Memory_TryBase(u32 flags) {
 		
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
-		} else {
-			*(view.out_ptr_low) = (u8*)g_arena.CreateView(position, view.size);
-			if (!*view.out_ptr_low)
-				goto bail;
 		}
 #if PPSSPP_ARCH(64BIT)
 		*view.out_ptr = (u8*)g_arena.CreateView(
@@ -192,11 +177,6 @@ bail:
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
-		if (views[j].out_ptr_low && *views[j].out_ptr_low)
-		{
-			g_arena.ReleaseView(*views[j].out_ptr_low, views[j].size);
-			*views[j].out_ptr_low = NULL;
-		}
 		if (*views[j].out_ptr)
 		{
 			if (!CanIgnoreView(views[j])) {
@@ -268,20 +248,15 @@ void MemoryMap_Shutdown(u32 flags)
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
-		if (views[i].out_ptr_low && *views[i].out_ptr_low)
-			g_arena.ReleaseView(*views[i].out_ptr_low, views[i].size);
-		if (*views[i].out_ptr && (!views[i].out_ptr_low || *views[i].out_ptr != *views[i].out_ptr_low))
+		if (*views[i].out_ptr)
 			g_arena.ReleaseView(*views[i].out_ptr, views[i].size);
-		*views[i].out_ptr = NULL;
-		if (views[i].out_ptr_low)
-			*views[i].out_ptr_low = NULL;
+		*views[i].out_ptr = nullptr;
 	}
 	g_arena.ReleaseSpace();
 }
 
 void Init()
 {
-	int flags = 0;
 
 	// On some 32 bit platforms, you can only map < 32 megs at a time.
 	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
@@ -294,10 +269,11 @@ void Init()
 		if (views[i].flags & MV_IS_EXTRA2_RAM)
 			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE * 2, 0), MAX_MMAP_SIZE);
 	}
+	int flags = 0;
 	MemoryMap_Setup(flags);
 
-	INFO_LOG(MEMMAP, "Memory system initialized. RAM at %p (mirror at 0 @ %p, uncached @ %p)",
-		m_pRAM, m_pPhysicalRAM, m_pUncachedRAM);
+	INFO_LOG(MEMMAP, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
+		base, m_pPhysicalRAM, m_pUncachedRAM);
 }
 
 void DoState(PointerWrap &p)
@@ -338,9 +314,9 @@ void DoState(PointerWrap &p)
 	p.DoArray(GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
 	p.DoMarker("RAM");
 
-	p.DoArray(m_pVRAM, VRAM_SIZE);
+	p.DoArray(m_pPhysicalVRAM1, VRAM_SIZE);
 	p.DoMarker("VRAM");
-	p.DoArray(m_pScratchPad, SCRATCHPAD_SIZE);
+	p.DoArray(m_pPhysicalScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
 }
 
@@ -353,12 +329,12 @@ void Shutdown() {
 }
 
 void Clear() {
-	if (m_pRAM)
+	if (m_pPhysicalRAM)
 		memset(GetPointerUnchecked(PSP_GetKernelMemoryBase()), 0, g_MemorySize);
-	if (m_pScratchPad)
-		memset(m_pScratchPad, 0, SCRATCHPAD_SIZE);
-	if (m_pVRAM)
-		memset(m_pVRAM, 0, VRAM_SIZE);
+	if (m_pPhysicalScratchPad)
+		memset(m_pPhysicalScratchPad, 0, SCRATCHPAD_SIZE);
+	if (m_pPhysicalVRAM1)
+		memset(m_pPhysicalVRAM1, 0, VRAM_SIZE);
 }
 
 bool IsActive() {
