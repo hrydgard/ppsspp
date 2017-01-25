@@ -337,7 +337,9 @@ add_library(Common STATIC
 	Common/KeyMap.h
 	Common/LogManager.cpp
 	Common/LogManager.h
-	Common/MemArena.cpp
+	Common/MemArenaAndroid.cpp
+	Common/MemArenaPosix.cpp
+	Common/MemArenaWin32.cpp
 	Common/MemArena.h
 	Common/MemoryUtil.cpp
 	Common/MemoryUtil.h

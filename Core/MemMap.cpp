@@ -140,8 +140,7 @@ static bool Memory_TryBase(u32 flags) {
 	}
 
 	int i;
-	for (i = 0; i < num_views; i++)
-	{
+	for (i = 0; i < num_views; i++) {
 		const MemoryView &view = views[i];
 		if (view.size == 0)
 			continue;
@@ -153,9 +152,11 @@ static bool Memory_TryBase(u32 flags) {
 #if PPSSPP_ARCH(64BIT)
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
+		if (!*view.out_ptr)
+			goto bail;
 #else
 		if (CanIgnoreView(view)) {
-			// No need to create multiple identical views.
+			// This is handled by address masking in 32-bit, no view needs to be created.
 			*view.out_ptr = *views[i - 1].out_ptr;
 		} else {
 			*view.out_ptr = (u8*)g_arena.CreateView(
@@ -172,13 +173,11 @@ static bool Memory_TryBase(u32 flags) {
 
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
-	for (int j = 0; j <= i; j++)
-	{
+	for (int j = 0; j <= i; j++) {
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
-		if (*views[j].out_ptr)
-		{
+		if (*views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
 				g_arena.ReleaseView(*views[j].out_ptr, views[j].size);
 			}
@@ -188,63 +187,49 @@ bail:
 	return false;
 }
 
-void MemoryMap_Setup(u32 flags)
-{
-	// Find a base to reserve 256MB
+bool MemoryMap_Setup(u32 flags) {
+	// Figure out how much memory we need to allocate in total.
 	size_t total_mem = 0;
-
-	for (int i = 0; i < num_views; i++)
-	{
+	for (int i = 0; i < num_views; i++) {
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
 		if (!CanIgnoreView(views[i]))
 			total_mem += g_arena.roundup(views[i].size);
 	}
+
 	// Grab some pagefile backed memory out of the void ...
 	g_arena.GrabLowMemSpace(total_mem);
-	// 32-bit Windows retrieves base a different way
-#if defined(_M_X64) || !defined(_WIN32)
-	// This really shouldn't fail - in 64-bit, there will always be enough address space.
-	// Linux32 is fine with the x64 method, although limited to 32-bit with no automirrors.
-	base = MemArena::Find4GBBase();
-#endif
 
-	// Now, create views in high memory where there's plenty of space.
-#if defined(_WIN32) && !defined(_M_X64)
-	// Try a whole range of possible bases. Return once we got a valid one.
-	int base_attempts = 0;
-	u32 max_base_addr = 0x7FFF0000 - 0x10000000;
+	base = g_arena.Find4GBBase();
 
-	for (u32 base_addr = 0x01000000; base_addr < max_base_addr; base_addr += 0x400000)
-	{
-		base_attempts++;
-		base = (u8 *)base_addr;
-		if (Memory_TryBase(flags)) 
-		{
-			INFO_LOG(MEMMAP, "Found valid memory base at %p after %i tries.", base, base_attempts);
-			base_attempts = 0;
-			break;
-		}
-	}
-
-	if (base_attempts)
-		PanicAlert("No possible memory base pointer found!");
-#else
 	// Try base we retrieved earlier
-	if (!Memory_TryBase(flags))
-	{
+	if (!base) {
+#if defined(_WIN32) && PPSSPP_ARCH(32BIT)
+		// Try a whole range of possible bases. Return once we got a valid one.
+		int base_attempts = 0;
+		u32 max_base_addr = 0x7FFF0000 - 0x10000000;
+		for (u32 base_addr = 0x01000000; base_addr < max_base_addr; base_addr += 0x400000) {
+			base_attempts++;
+			base = (u8 *)base_addr;
+			if (Memory_TryBase(flags)) {
+				INFO_LOG(MEMMAP, "Found valid memory base at %p after %i tries.", base, base_attempts);
+				base_attempts = 0;
+				return true;
+			}
+		}
+#endif
 		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Failed finding a memory base.");
 		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
+		return false;
 	}
-#endif
-	return;
+
+	// Should return true...
+	return Memory_TryBase(flags);
 }
 
-void MemoryMap_Shutdown(u32 flags)
-{
-	for (int i = 0; i < num_views; i++)
-	{
+void MemoryMap_Shutdown(u32 flags) {
+	for (int i = 0; i < num_views; i++) {
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
@@ -255,9 +240,7 @@ void MemoryMap_Shutdown(u32 flags)
 	g_arena.ReleaseSpace();
 }
 
-void Init()
-{
-
+void Init() {
 	// On some 32 bit platforms, you can only map < 32 megs at a time.
 	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
 	_dbg_assert_msg_(MEMMAP, g_MemorySize < MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
@@ -276,8 +259,7 @@ void Init()
 		base, m_pPhysicalRAM, m_pUncachedRAM);
 }
 
-void DoState(PointerWrap &p)
-{
+void DoState(PointerWrap &p) {
 	auto s = p.Section("Memory", 1, 3);
 	if (!s)
 		return;
