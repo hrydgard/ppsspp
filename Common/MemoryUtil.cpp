@@ -177,7 +177,7 @@ void *AllocateExecutableMemory(size_t size) {
 
 	if (ptr == failed_result) {
 		ptr = nullptr;
-		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (prot=%d)", prot);
+		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d)", (int)size);
 		PanicAlert("Failed to allocate executable memory\n%s", GetLastErrorMsg());
 	}
 #if defined(_M_X64) && !defined(_WIN32)
@@ -285,8 +285,11 @@ bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 #ifdef _WIN32
 	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
 	DWORD oldValue;
-	if (!VirtualProtect((void *)ptr, size, protect, &oldValue))
+	if (!VirtualProtect((void *)ptr, size, protect, &oldValue)) {
 		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
+		return false;
+	}
+	return true;
 #else
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
 	uintptr_t page_size = GetMemoryProtectPageSize();
