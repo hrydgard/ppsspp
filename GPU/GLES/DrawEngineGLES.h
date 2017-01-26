@@ -247,8 +247,9 @@ private:
 	class TessellationDataTransferGLES : public TessellationDataTransfer {
 	private:
 		int data_tex[3];
+		bool isAllowTexture1D;
 	public:
-		TessellationDataTransferGLES() : TessellationDataTransfer(), data_tex() {
+		TessellationDataTransferGLES(bool isAllowTexture1D) : TessellationDataTransfer(), data_tex(), isAllowTexture1D(isAllowTexture1D) {
 			glGenTextures(3, (GLuint*)data_tex);
 		}
 		~TessellationDataTransferGLES() {
