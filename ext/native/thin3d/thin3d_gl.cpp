@@ -658,7 +658,7 @@ inline bool isPowerOf2(int n) {
 	return n == 1 || (n & (n - 1)) == 0;
 }
 
-class OpenGLTexture : public Texture, GfxResourceHolder {
+class OpenGLTexture : public Texture {
 public:
 	OpenGLTexture(const TextureDesc &desc) : tex_(0), target_(TypeToTarget(desc.type)), format_(desc.format), mipLevels_(desc.mipLevels) {
 		generatedMips_ = false;
@@ -669,7 +669,6 @@ public:
 		canWrap_ = !isPowerOf2(width_) || !isPowerOf2(height_);
 
 		glGenTextures(1, &tex_);
-		register_gl_resource_holder(this);
 
 		if (!desc.initData.size())
 			return;
@@ -685,7 +684,6 @@ public:
 			AutoGenMipmaps();
 	}
 	~OpenGLTexture() {
-		unregister_gl_resource_holder(this);
 		Destroy();
 	}
 
@@ -709,15 +707,6 @@ public:
 
 	void Bind() {
 		glBindTexture(target_, tex_);
-	}
-
-	void GLLost() override {
-		// We can assume that the texture is gone.
-		tex_ = 0;
-		generatedMips_ = false;
-	}
-
-	void GLRestore() override {
 	}
 
 private:
@@ -881,6 +870,9 @@ RasterState *OpenGLContext::CreateRasterState(const RasterStateDesc &desc) {
 		break;
 	case CullMode::FRONT_AND_BACK:
 		rs->cullMode = GL_FRONT_AND_BACK;
+		break;
+	case CullMode::NONE:
+		// Unsupported
 		break;
 	}
 	return rs;
