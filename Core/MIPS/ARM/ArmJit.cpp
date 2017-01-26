@@ -154,11 +154,6 @@ void ArmJit::ClearCache()
 	GenerateFixedCode();
 }
 
-void ArmJit::InvalidateCache()
-{
-	blocks.Clear();
-}
-
 void ArmJit::InvalidateCacheAt(u32 em_address, int length)
 {
 	blocks.InvalidateICache(em_address, length);

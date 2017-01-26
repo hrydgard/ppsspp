@@ -245,11 +245,6 @@ void Jit::ClearCache()
 	GenerateFixedCode(jo);
 }
 
-void Jit::InvalidateCache()
-{
-	blocks.Clear();
-}
-
 void Jit::CompileDelaySlot(int flags, RegCacheState *state)
 {
 	// Need to offset the downcount which was already incremented for the branch + delay slot.

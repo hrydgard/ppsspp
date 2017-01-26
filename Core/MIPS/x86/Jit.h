@@ -163,7 +163,6 @@ public:
 	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks.RestoreSavedEmuHackOps(saved); }
 
 	void ClearCache() override;
-	void InvalidateCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override {
 		if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
 			blocks.InvalidateICache(em_address, length);
