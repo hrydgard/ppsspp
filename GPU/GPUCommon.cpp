@@ -761,6 +761,9 @@ void GPUCommon::ProcessEvent(GPUEvent ev) {
 		PerformStencilUploadInternal(ev.fb_stencil_upload.dst, ev.fb_stencil_upload.size);
 		break;
 
+	case GPU_EVENT_REINITIALIZE:
+		break;
+
 	default:
 		ERROR_LOG_REPORT(G3D, "Unexpected GPU event type: %d", (int)ev);
 		break;
