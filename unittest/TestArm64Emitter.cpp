@@ -41,6 +41,11 @@ bool TestArm64Emitter() {
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
+	emitter.MOVfromSP(X3);
+	RET(CheckLast(emitter, "910003e3 mov x3, sp"));
+	emitter.MOVtoSP(X11);
+	RET(CheckLast(emitter, "9100017f mov sp, x11"));
+
 	fp.EOR(Q0, Q1, Q2);
 	RET(CheckLast(emitter, "6e221c20 eor q0, q1, q2"));
 	fp.EOR(D0, D1, D2);

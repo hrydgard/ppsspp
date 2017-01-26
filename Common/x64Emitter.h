@@ -391,6 +391,7 @@ public:
 	// INC and DEC are slow on Intel Core, but not on AMD. They create a
 	// false flag dependency because they only update a subset of the flags.
 	// XCHG is SLOW and should be avoided.
+	// Actually, REP MOVSB has gotten fast again on recent CPU generations, though it's not all that useful anyway.
 
 	// Debug breakpoint
 	void INT3();
@@ -409,7 +410,6 @@ public:
 	// These two can not be executed in 64-bit mode on early Intel 64-bit CPU:s, only on Core2 and AMD!
 	void LAHF(); // 3 cycle vector path
 	void SAHF(); // direct path fast
-
 
 	// Stack control
 	void PUSH(X64Reg reg);

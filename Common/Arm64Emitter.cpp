@@ -1464,6 +1464,15 @@ void ARM64XEmitter::MOV(ARM64Reg Rd, ARM64Reg Rm)
 		_assert_msg_(JIT, false, "Non-GPRs not supported in MOV");
 	}
 }
+
+void ARM64XEmitter::MOVfromSP(ARM64Reg Rd) {
+	ADD(Rd, ARM64Reg::SP, 0, false);
+}
+
+void ARM64XEmitter::MOVtoSP(ARM64Reg Rn) {
+	ADD(ARM64Reg::SP, Rn, 0, false);
+}
+
 void ARM64XEmitter::MVN(ARM64Reg Rd, ARM64Reg Rm)
 {
 	ORN(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, ArithOption(Rm, ST_LSL, 0));

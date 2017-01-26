@@ -566,6 +566,10 @@ public:
 	void MOV(ARM64Reg Rd, ARM64Reg Rm);
 	void MVN(ARM64Reg Rd, ARM64Reg Rm);
 
+	// Wrapper around ADD reg, reg, imm.
+	void MOVfromSP(ARM64Reg Rd);
+	void MOVtoSP(ARM64Reg Rn);
+
 	// TODO: These are "slow" as they use arith+shift, should be replaced with UBFM/EXTR variants.
 	void LSR(ARM64Reg Rd, ARM64Reg Rm, int shift);
 	void LSL(ARM64Reg Rd, ARM64Reg Rm, int shift);
