@@ -175,10 +175,9 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// if (skinning) log = true;
 
-	BitSet32 regs_to_save(Arm64Gen::ALL_CALLEE_SAVED);
-	BitSet32 regs_to_save_fp(Arm64Gen::ALL_CALLEE_SAVED_FP);
-	ABI_PushRegisters(regs_to_save);
-	fp.ABI_PushRegisters(regs_to_save_fp);
+	uint64_t regs_to_save = Arm64Gen::ALL_CALLEE_SAVED;
+	uint64_t regs_to_save_fp = Arm64Gen::ALL_CALLEE_SAVED_FP;
+	fp.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
@@ -279,8 +278,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		STRH(INDEX_UNSIGNED, boundsMaxVReg, scratchReg64, offsetof(KnownVertexBounds, maxV));
 	}
 
-	fp.ABI_PopRegisters(regs_to_save_fp);
-	ABI_PopRegisters(regs_to_save);
+	fp.ABI_PopRegisters(regs_to_save, regs_to_save_fp);
 
 	RET();
 
