@@ -363,6 +363,9 @@ void SystemInfoScreen::CreateViews() {
 		deviceSpecs->Add(new InfoItem("D3DX Version", StringFromFormat("%d", GetD3DXVersion())));
 	}
 #endif
+	deviceSpecs->Add(new ItemHeader("OS Information"));
+	deviceSpecs->Add(new InfoItem("Memory Page Size", StringFromFormat("%d bytes", GetMemoryProtectPageSize())));
+	deviceSpecs->Add(new InfoItem("RW/RX exclusive: ", PlatformIsWXExclusive() ? "Yes" : "No"));
 
 #ifdef __ANDROID__
 	deviceSpecs->Add(new ItemHeader("Audio Information"));
