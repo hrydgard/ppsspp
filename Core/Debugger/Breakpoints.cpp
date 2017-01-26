@@ -540,7 +540,7 @@ void CBreakPoints::Update(u32 addr)
 		if (addr != 0)
 			MIPSComp::jit->InvalidateCacheAt(addr - 4, 8);
 		else
-			MIPSComp::jit->InvalidateCache();
+			MIPSComp::jit->ClearCache();
 
 		if (resume)
 			Core_EnableStepping(false);

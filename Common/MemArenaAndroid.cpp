@@ -67,21 +67,6 @@ error:
 	return ret;
 }
 
-static int ashmem_set_prot_region(int fd, int prot) {
-	return ioctl(fd, ASHMEM_SET_PROT_MASK, prot);
-}
-
-static int ashmem_pin_region(int fd, size_t offset, size_t len) {
-	// Even on 64-bit, it seems these arguments are 32-bit and thus need a cast to avoid warnings.
-	struct ashmem_pin pin = { (uint32_t)offset, (uint32_t)len };
-	return ioctl(fd, ASHMEM_PIN, &pin);
-}
-
-static int ashmem_unpin_region(int fd, size_t offset, size_t len) {
-	struct ashmem_pin pin = { (uint32_t)offset, (uint32_t)len };
-	return ioctl(fd, ASHMEM_UNPIN, &pin);
-}
-
 // Windows mappings need to be on 64K boundaries, due to Alpha legacy.
 size_t MemArena::roundup(size_t x) {
 	return x;

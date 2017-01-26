@@ -123,7 +123,6 @@ namespace MIPSComp {
 		virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
 		virtual const u8 *GetDispatcher() const = 0;
 		virtual JitBlockCache *GetBlockCache() = 0;
-		virtual void InvalidateCache() = 0;
 		virtual void InvalidateCacheAt(u32 em_address, int length = 4) = 0;
 		virtual void DoState(PointerWrap &p) = 0;
 		virtual void DoDummyState(PointerWrap &p) = 0;
