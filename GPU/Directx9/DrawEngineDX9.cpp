@@ -113,7 +113,8 @@ DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw)
 
 	InitDeviceObjects();
 
-	tessDataTransfer = new TessellationDataTransferDX9();
+	InitInstanceIndexData(device_);
+	tessDataTransfer = new TessellationDataTransferDX9(device_);
 
 	device_->CreateVertexDeclaration(TransformedVertexElements, &transformedVertexDecl_);
 }
@@ -186,7 +187,7 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader
 	auto vertexDeclCached = vertexDeclMap_.find(pspFmt);
 
 	if (vertexDeclCached == vertexDeclMap_.end()) {
-		D3DVERTEXELEMENT9 VertexElements[8];
+		D3DVERTEXELEMENT9 VertexElements[9];
 		D3DVERTEXELEMENT9 *VertexElement = &VertexElements[0];
 
 		// Vertices Elements orders
@@ -228,6 +229,12 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader
 		// Always
 		VertexAttribSetup(VertexElement, decFmt.posfmt, decFmt.posoff, D3DDECLUSAGE_POSITION, 0);
 		VertexElement++;
+
+		if (gstate_c.bezier || gstate_c.spline) {
+			// Instance index
+			*VertexElement = { 1,  0, D3DDECLTYPE_FLOAT1, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 1 };
+			VertexElement++;
+		}
 
 		// End
 		D3DVERTEXELEMENT9 end = D3DDECL_END();
@@ -784,9 +791,20 @@ rotateVBO:
 				device_->SetStreamSource(0, vb_, 0, dec_->GetDecVtxFmt().stride);
 
 				if (useElements) {
+					if (gstate_c.bezier || gstate_c.spline) {
+						// Instanced rendering for instanced tessellation.
+						device_->SetStreamSourceFreq(0, D3DSTREAMSOURCE_INDEXEDDATA | numPatches);
+						device_->SetStreamSource(1, pInstanceBuffer, 0, sizeof(float) * 1);
+						device_->SetStreamSourceFreq(1, D3DSTREAMSOURCE_INSTANCEDATA | 1UL);
+					}
 					device_->SetIndices(ib_);
 
 					device_->DrawIndexedPrimitive(glprim[prim], 0, 0, maxIndex + 1, 0, D3DPrimCount(glprim[prim], vertexCount));
+
+					if (gstate_c.bezier || gstate_c.spline) {
+						device_->SetStreamSourceFreq(0, 1);
+						device_->SetStreamSourceFreq(1, 1);
+					}
 				} else {
 					device_->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
 				}
@@ -905,8 +923,84 @@ bool DrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
-void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords)
-{
+void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
+	// Position
+	if (prevSize < size) {
+		if (data_tex[0]) {
+			device_->SetTexture(D3DVERTEXTEXTURESAMPLER0, NULL);
+			data_tex[0]->Release();
+			data_tex[0] = NULL;
+		}
+		HRESULT hr = device_->CreateTexture(size, 1, 1, D3DUSAGE_DYNAMIC, D3DFMT_A32B32G32R32F, D3DPOOL_DEFAULT, &data_tex[0], NULL);
+		if (FAILED(hr))
+			return;
+		device_->SetTexture(D3DVERTEXTEXTURESAMPLER0, data_tex[0]);
+
+		prevSize = size;
+		gstate_c.curve_tex_width[0] = size;
+	}
+	{ // TODO:
+		D3DLOCKED_RECT rect;
+		data_tex[0]->LockRect(0, &rect, NULL, 0);
+		float *dst = (float *)rect.pBits;
+		for (int i = 0; i < size; i++) {
+			memcpy(dst, &pos[i * 3], sizeof(float) * 3);
+			dst += 4;
+		}
+		data_tex[0]->UnlockRect(0);
+	}
+
+	// Texcoords
+	if (hasTexCoords) {
+		if (prevSizeTex < size) {
+			if (data_tex[1]) {
+				device_->SetTexture(D3DVERTEXTEXTURESAMPLER1, NULL);
+				data_tex[1]->Release();
+				data_tex[1] = NULL;
+			}
+			HRESULT hr = device_->CreateTexture(size, 1, 1, D3DUSAGE_DYNAMIC, D3DFMT_A32B32G32R32F, D3DPOOL_DEFAULT, &data_tex[1], NULL);
+			if (FAILED(hr))
+				return;
+			device_->SetTexture(D3DVERTEXTEXTURESAMPLER1, data_tex[1]);
+
+			prevSizeTex = size;
+			gstate_c.curve_tex_width[1] = size;
+		}
+		{ // TODO:
+			D3DLOCKED_RECT rect;
+			data_tex[1]->LockRect(0, &rect, NULL, 0);
+			float *dst = (float *)rect.pBits;
+			for (int i = 0; i < size; i++) {
+				memcpy(dst, &tex[i * 3], sizeof(float) * 3);
+				dst += 4;
+			}
+			data_tex[1]->UnlockRect(0);
+		}
+	}
+
+	// Color
+	int sizeColor = hasColor ? size : 1;
+	if (prevSizeCol < sizeColor) {
+		if (data_tex[2]) {
+			device_->SetTexture(D3DVERTEXTEXTURESAMPLER2, NULL);
+			data_tex[2]->Release();
+			data_tex[2] = NULL;
+		}
+		HRESULT hr = device_->CreateTexture(sizeColor, 1, 1, D3DUSAGE_DYNAMIC, D3DFMT_A32B32G32R32F, D3DPOOL_DEFAULT, &data_tex[2], NULL);
+		if (FAILED(hr))
+			return;
+		device_->SetTexture(D3DVERTEXTEXTURESAMPLER2, data_tex[2]);
+
+		prevSizeCol = sizeColor;
+		gstate_c.curve_tex_width[2] = sizeColor;
+	}
+	{ // TODO:
+		D3DLOCKED_RECT rect;
+		data_tex[2]->LockRect(0, &rect, NULL, 0);
+		float *dst = (float *)rect.pBits;
+		memcpy(dst, col, sizeof(float) * 4 * sizeColor);
+		data_tex[2]->UnlockRect(0);
+	}
 }
 
 }  // namespace

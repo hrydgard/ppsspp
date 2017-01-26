@@ -160,11 +160,13 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCache_->NotifyConfigChanged();
 
 	if (g_Config.bHardwareTessellation) {
-		// Disable hardware tessellation bacause DX9 is still unsupported.
-		g_Config.bHardwareTessellation = false;
-		ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
-		I18NCategory *gr = GetI18NCategory("Graphics");
-		host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
+		if (false) { // TODO: Check GPU features
+			// Disable hardware tessellation bacause DX9 is still unsupported.
+			g_Config.bHardwareTessellation = false;
+			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
+			I18NCategory *gr = GetI18NCategory("Graphics");
+			host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
+		}
 	}
 }
 
@@ -559,8 +561,20 @@ void GPU_DX9::Execute_Bezier(u32 op, u32 diff) {
 	int bz_vcount = (op >> 8) & 0xFF;
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
+
+	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.bezier = true;
+		if (gstate_c.spline_count_u != bz_ucount || gstate_c.spline_count_v != bz_vcount) {
+			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
+			gstate_c.spline_count_u = bz_ucount;
+			gstate_c.spline_count_v = bz_vcount;
+		}
+	}
+
 	int bytesRead = 0;
 	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+
+	gstate_c.bezier = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = bz_ucount * bz_vcount;
@@ -610,8 +624,24 @@ void GPU_DX9::Execute_Spline(u32 op, u32 diff) {
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
 	u32 vertType = gstate.vertType;
+
+	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.spline = true;
+		bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
+		bool typesChanged = gstate_c.spline_type_u != sp_utype || gstate_c.spline_type_v != sp_vtype;
+		if (countsChanged || typesChanged) {
+			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
+			gstate_c.spline_count_u = sp_ucount;
+			gstate_c.spline_count_v = sp_vcount;
+			gstate_c.spline_type_u = sp_utype;
+			gstate_c.spline_type_v = sp_vtype;
+		}
+	}
+
 	int bytesRead = 0;
 	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
+
+	gstate_c.spline = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = sp_ucount * sp_vcount;

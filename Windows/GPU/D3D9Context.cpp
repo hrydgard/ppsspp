@@ -108,6 +108,8 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		D3DDEVTYPE_HAL,
 		d3ddm.Format,
 		D3DUSAGE_DEPTHSTENCIL,
+		// TODO: Check for VTF
+	//	D3DUSAGE_DEPTHSTENCIL | D3DUSAGE_QUERY_VERTEXTEXTURE,
 		D3DRTYPE_SURFACE,
 		D3DFMT_D24S8))) {
 		if (hr == D3DERR_NOTAVAILABLE) {

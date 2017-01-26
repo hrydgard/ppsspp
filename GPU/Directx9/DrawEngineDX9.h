@@ -215,14 +215,46 @@ private:
 	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
 
 	// Hardware tessellation
+	LPDIRECT3DVERTEXBUFFER9 pInstanceBuffer = NULL;
+	void InitInstanceIndexData(LPDIRECT3DDEVICE9 device_) {
+#define MAX_INSTANCES 2048
+			device_->CreateVertexBuffer(MAX_INSTANCES * sizeof(float), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &pInstanceBuffer, NULL);
+
+			float *instanceData;
+			pInstanceBuffer->Lock(0, 0, (void **)&instanceData, 0);
+			for (UINT i = 0; i < MAX_INSTANCES; i++) {
+				instanceData[i] = (float)i;
+			}
+			pInstanceBuffer->Unlock();
+#undef MAX_INSTANCES
+	}
+
 	class TessellationDataTransferDX9 : public TessellationDataTransfer {
 	private:
-		int data_tex[3];
+		LPDIRECT3DTEXTURE9 data_tex[3];
+		LPDIRECT3DDEVICE9 device_;
 	public:
-		TessellationDataTransferDX9() : TessellationDataTransfer(), data_tex() {
+		TessellationDataTransferDX9(LPDIRECT3DDEVICE9 device_) : TessellationDataTransfer(), data_tex(), device_(device_) {
+			// Vertex texture sampler state 0
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+			// Vertex texture sampler state 1
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER1, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER1, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+			// Vertex texture sampler state 2
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER2, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER2, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER2, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER2, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+			device_->SetSamplerState(D3DVERTEXTEXTURESAMPLER2, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
 		}
-		~TessellationDataTransferDX9() {
-		}
+		~TessellationDataTransferDX9() {}
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
 	};
 };

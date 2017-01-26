@@ -105,6 +105,7 @@ bool IsBackendSupportHWTess() {
 		return CheckSupportInstancedTessellationGLES();
 	case GPU_BACKEND_VULKAN:
 	case GPU_BACKEND_DIRECT3D11:
+	case GPU_BACKEND_DIRECT3D9:
 		return true;
 	}
 	return false;

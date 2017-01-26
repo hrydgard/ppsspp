@@ -98,7 +98,7 @@ VSShader::VSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code, bool
 	bool success;
 	std::string errorMessage;
 
-	success = CompileVertexShader(device, code, &shader, NULL, errorMessage);
+	success = CompileVertexShader(device, code, &shader, NULL, errorMessage, g_Config.bHardwareTessellation);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -436,10 +436,19 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		const float widthFactor = (float)w * invW;
 		const float heightFactor = (float)h * invH;
 		float uvscaleoff[4];
-		uvscaleoff[0] = widthFactor;
-		uvscaleoff[1] = heightFactor;
-		uvscaleoff[2] = 0.0f;
-		uvscaleoff[3] = 0.0f;
+		if (gstate_c.bezier || gstate_c.spline) {
+			// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
+			// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
+			uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
+			uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
+			uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
+			uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
+		} else {
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+		}
 		VSSetFloatArray(CONST_VS_UVSCALEOFFSET, uvscaleoff, 4);
 	}
 
@@ -506,6 +515,17 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 			VSSetColorUniform3(CONST_VS_LIGHTDIFFUSE + i, gstate.lcolor[i * 3 + 1]);
 			VSSetColorUniform3(CONST_VS_LIGHTSPECULAR + i, gstate.lcolor[i * 3 + 2]);
 		}
+	}
+
+	if (dirtyUniforms & DIRTY_BEZIERSPLINE) {
+		float width[3];
+		for (int i = 0; i < 3; i++)
+			width[i] = gstate_c.curve_tex_width[i];
+		VSSetFloatArray(CONST_VS_TEXWIDTH, width, 3);
+		VSSetFloat(CONST_VS_SPLINECOUNTU, (float)gstate_c.spline_count_u);
+		VSSetFloat(CONST_VS_SPLINECOUNTV, (float)gstate_c.spline_count_v);
+		VSSetFloat(CONST_VS_SPLINETYPEU, (float)gstate_c.spline_type_u);
+		VSSetFloat(CONST_VS_SPLINETYPEV, (float)gstate_c.spline_type_v);
 	}
 }
 
