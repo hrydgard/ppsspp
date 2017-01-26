@@ -51,12 +51,9 @@ public:
 	// Call this before you generate any code.
 	void AllocCodeSpace(int size) {
 		region_size = size;
+		// The protection will be set to RW if PlatformIsWXExclusive.
 		region = (u8*)AllocateExecutableMemory(region_size);
 		T::SetCodePointer(region);
-		// On W^X platforms, we start with writable but not executable pages.
-		if (PlatformIsWXExclusive()) {
-			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
-		}
 	}
 
 	// Always clear code space with breakpoints, so that if someone accidentally executes
@@ -71,7 +68,8 @@ public:
 		ResetCodePtr();
 	}
 
-	// BeginWrite/EndWrite assume that we keep appending. If you don't specify a size and we encounter later executable block, we're screwed.
+	// BeginWrite/EndWrite assume that we keep appending.
+	// If you don't specify a size and we later encounter an executable non-writable block, we're screwed.
 	// These CANNOT be nested. We rely on the memory protection starting at READ|WRITE after start and reset.
 	void BeginWrite(size_t sizeEstimate = 1) {
 #ifdef _DEBUG
