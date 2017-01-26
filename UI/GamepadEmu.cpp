@@ -96,6 +96,8 @@ void MultiTouchButton::Touch(const TouchInput &input) {
 
 void MultiTouchButton::Draw(UIContext &dc) {
 	float opacity = GetButtonOpacity();
+	if (opacity <= 0.0f)
+		return;
 
 	float scale = scale_;
 	if (IsDown()) {
@@ -261,6 +263,8 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 
 void PSPDpad::Draw(UIContext &dc) {
 	float opacity = GetButtonOpacity();
+	if (opacity <= 0.0f)
+		return;
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t color = colorAlpha(0xFFFFFF, opacity);
@@ -296,6 +300,8 @@ void PSPStick::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 
 void PSPStick::Draw(UIContext &dc) {
 	float opacity = GetButtonOpacity();
+	if (opacity <= 0.0f)
+		return;
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t color = colorAlpha(0x808080, opacity);
