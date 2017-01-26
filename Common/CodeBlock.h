@@ -86,9 +86,9 @@ public:
 
 	void EndWrite() {
 		// OK, we're done. Re-protect the memory we touched.
-		if (PlatformIsWXExclusive()) {
+		if (PlatformIsWXExclusive() && writeStart_ != nullptr) {
 			const uint8_t *end = GetCodePtr();
-			ProtectMemoryPages(writeStart_, end, MEM_PROT_READ | MEM_PROT_EXEC);
+			ProtectMemoryPages(writeStart_, end - writeStart_, MEM_PROT_READ | MEM_PROT_EXEC);
 			writeStart_ = nullptr;
 		}
 	}
