@@ -148,7 +148,7 @@ DrawEngineGLES::DrawEngineGLES()
 	InitDeviceObjects();
 	register_gl_resource_holder(this);
 
-	tessDataTransfer = new TessellationDataTransferGLES(!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 0, 0));
+	tessDataTransfer = new TessellationDataTransferGLES(gl_extensions.VersionGEThan(3, 0, 0));
 }
 
 DrawEngineGLES::~DrawEngineGLES() {
@@ -1119,6 +1119,7 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 }
 
 void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
+#ifndef USING_GLES2
 	if (isAllowTexture1D) {
 		// Position
 		glActiveTexture(GL_TEXTURE3);
@@ -1164,7 +1165,9 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 		} else {
 			glTexSubImage1D(GL_TEXTURE_1D, 0, 0, sizeColor, GL_RGBA, GL_FLOAT, (GLfloat*)col);
 		}
-	} else {
+	} else 
+#endif
+	{
 		// Position
 		glActiveTexture(GL_TEXTURE3);
 		glBindTexture(GL_TEXTURE_2D, data_tex[0]);
@@ -1210,6 +1213,5 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sizeColor, 1, GL_RGBA, GL_FLOAT, (GLfloat*)col);
 		}
 	}
-
 	glActiveTexture(GL_TEXTURE0);
 }
