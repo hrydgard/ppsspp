@@ -99,7 +99,7 @@ LogManager::LogManager() {
 	}
 
 	// Remove file logging on small devices
-#if !(defined(MOBILE_DEVICE) || defined(_XBOX)) || defined(_DEBUG)
+#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 	fileLog_ = new FileLogListener("");
 	consoleLog_ = new ConsoleListener();
 	debuggerLog_ = new DebuggerLogListener();
@@ -112,7 +112,7 @@ LogManager::LogManager() {
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
 		log_[i]->SetEnable(true);
-#if !(defined(MOBILE_DEVICE) || defined(_XBOX)) || defined(_DEBUG)
+#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 		log_[i]->AddListener(fileLog_);
 		log_[i]->AddListener(consoleLog_);
 #if defined(_MSC_VER) && defined(USING_WIN_UI)

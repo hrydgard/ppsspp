@@ -4,7 +4,6 @@
 #include <map>
 
 #include "base/logging.h"
-#include "image/zim_load.h"
 #include "math/dataconv.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
@@ -285,13 +284,13 @@ public:
 	}
 
 	void SetData(const uint8_t *data, size_t size) override {
-		Bind();
+		Bind(0);
 		glBufferData(target_, size, data, usage_);
 		knownSize_ = size;
 	}
 
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
-		Bind();
+		Bind(0);
 		if (size + offset > knownSize_) {
 			// Allocate the buffer.
 			glBufferData(target_, size + offset, NULL, usage_);
@@ -299,7 +298,8 @@ public:
 		}
 		glBufferSubData(target_, offset, size, data);
 	}
-	void Bind() {
+	void Bind(int offset) {
+		// TODO: Can't support offset using ES 2.0
 		glBindBuffer(target_, buffer_);
 	}
 
@@ -348,7 +348,7 @@ public:
 		glDeleteShader(shader_);
 	}
 
-	bool Compile(const char *source);
+	bool Compile(ShaderLanguage language, const uint8_t *data, size_t dataSize);
 	GLuint GetShader() const {
 		return shader_;
 	}
@@ -357,30 +357,36 @@ public:
 	void Unset() {
 		shader_ = 0;
 	}
+	ShaderLanguage GetLanguage() {
+		return language_;
+	}
 	ShaderStage GetStage() const override {
 		return stage_;
 	}
 
 private:
 	ShaderStage stage_;
+	ShaderLanguage language_;
 	GLuint shader_;
 	GLuint glstage_;
 	bool ok_;
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool OpenGLShaderModule::Compile(const char *source) {
-	source_ = source;
+bool OpenGLShaderModule::Compile(ShaderLanguage language, const uint8_t *data, size_t dataSize) {
+	source_ = std::string((const char *)data);
 	shader_ = glCreateShader(glstage_);
+	language_ = language;
 
 	std::string temp;
 	// Add the prelude on automatically for fragment shaders.
 	if (glstage_ == GL_FRAGMENT_SHADER) {
-		temp = std::string(glsl_fragment_prelude) + source;
-		source = temp.c_str();
+		temp = std::string(glsl_fragment_prelude) + source_;
+		source_ = temp.c_str();
 	}
 
-	glShaderSource(shader_, 1, &source, nullptr);
+	const char *code = source_.c_str();
+	glShaderSource(shader_, 1, &code, nullptr);
 	glCompileShader(shader_);
 	GLint success = 0;
 	glGetShaderiv(shader_, GL_COMPILE_STATUS, &success);
@@ -465,7 +471,7 @@ public:
 
 	void GLRestore() override {
 		for (auto iter : shaders) {
-			iter->Compile(iter->GetSource().c_str());
+			iter->Compile(iter->GetLanguage(), (const uint8_t *)iter->GetSource().c_str(), iter->GetSource().size());
 		}
 		LinkShaders();
 	}
@@ -490,6 +496,14 @@ public:
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
 	}
+	uint32_t GetSupportedShaderLanguages() const override {
+#if defined(USING_GLES2)
+		return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_ES_300;
+#else
+		return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_410;
+#endif
+	}
+	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
@@ -498,8 +512,9 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
-	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
-	Texture *CreateTexture() override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
+
+	Texture *CreateTexture(const TextureDesc &desc) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		if (samplerStates_.size() < (size_t)(start + count)) {
@@ -522,14 +537,12 @@ public:
 		}
 	}
 
-	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
-
 	void SetScissorRect(int left, int top, int width, int height) override {
 		glScissor(left, targetHeight_ - (top + height), width, height);
 	}
 
 	void SetViewports(int count, Viewport *viewports) override {
-		// TODO: Add support for multiple viewports.
+		// TODO: Use glViewportArrayv.
 		glViewport(viewports[0].TopLeftX, viewports[0].TopLeftY, viewports[0].Width, viewports[0].Height);
 #if defined(USING_GLES2)
 		glDepthRangef(viewports[0].MinDepth, viewports[0].MaxDepth);
@@ -538,13 +551,28 @@ public:
 #endif
 	}
 
+	void SetBlendFactor(float color[4]) override {
+		glBlendColor(color[0], color[1], color[2], color[3]);
+	}
+
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindPipeline(Pipeline *pipeline) override;
+	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+		for (int i = 0; i < count; i++) {
+			curVBuffers_[i + start] = (OpenGLBuffer  *)buffers[i];
+			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
+		}
+	}
+	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
+		curIBuffer_ = (OpenGLBuffer  *)indexBuffer;
+		curIBufferOffset_ = offset;
+	}
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void Draw(int vertexCount, int offset) override;
+	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
+
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	std::string GetInfoString(InfoField info) const override {
@@ -579,8 +607,14 @@ public:
 	}
 
 	std::vector<OpenGLSamplerState *> samplerStates_;
-	OpenGLPipeline *curPipeline_;
 	DeviceCaps caps_;
+	
+	// Bound state
+	OpenGLPipeline *curPipeline_;
+	OpenGLBuffer *curVBuffers_[4];
+	int curVBufferOffsets_[4];
+	OpenGLBuffer *curIBuffer_;
+	int curIBufferOffset_;
 };
 
 OpenGLContext::OpenGLContext() {
@@ -607,54 +641,52 @@ InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
 GLuint TypeToTarget(TextureType type) {
 	switch (type) {
 #ifndef USING_GLES2
-	case LINEAR1D: return GL_TEXTURE_1D;
+	case TextureType::LINEAR1D: return GL_TEXTURE_1D;
 #endif
-	case LINEAR2D: return GL_TEXTURE_2D;
-	case LINEAR3D: return GL_TEXTURE_3D;
-	case CUBE: return GL_TEXTURE_CUBE_MAP;
+	case TextureType::LINEAR2D: return GL_TEXTURE_2D;
+	case TextureType::LINEAR3D: return GL_TEXTURE_3D;
+	case TextureType::CUBE: return GL_TEXTURE_CUBE_MAP;
 #ifndef USING_GLES2
-	case ARRAY1D: return GL_TEXTURE_1D_ARRAY;
+	case TextureType::ARRAY1D: return GL_TEXTURE_1D_ARRAY;
 #endif
-	case ARRAY2D: return GL_TEXTURE_2D_ARRAY;
+	case TextureType::ARRAY2D: return GL_TEXTURE_2D_ARRAY;
 	default: return GL_NONE;
 	}
 }
 
-class Thin3DGLTexture : public Texture, GfxResourceHolder {
+inline bool isPowerOf2(int n) {
+	return n == 1 || (n & (n - 1)) == 0;
+}
+
+class OpenGLTexture : public Texture, GfxResourceHolder {
 public:
-	Thin3DGLTexture() : tex_(0), target_(0) {
+	OpenGLTexture(const TextureDesc &desc) : tex_(0), target_(TypeToTarget(desc.type)), format_(desc.format), mipLevels_(desc.mipLevels) {
 		generatedMips_ = false;
 		canWrap_ = true;
-		width_ = 0;
-		height_ = 0;
-		depth_ = 0;
+		width_ = desc.width;
+		height_ = desc.height;
+		depth_ = desc.depth;
+		canWrap_ = !isPowerOf2(width_) || !isPowerOf2(height_);
+
 		glGenTextures(1, &tex_);
 		register_gl_resource_holder(this);
+
+		if (!desc.initData.size())
+			return;
+
+		int level = 0;
+		for (auto data : desc.initData) {
+			SetImageData(0, 0, 0, width_, height_, depth_, level, 0, data);
+			width_ = (width_ + 1) /2;
+			height_ = (height_ + 1) /2;
+			level++;
+		}
+		if (desc.initData.size() < desc.mipLevels)
+			AutoGenMipmaps();
 	}
-	Thin3DGLTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
-		generatedMips_ = false;
-		canWrap_ = true;
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
-		glGenTextures(1, &tex_);
-		register_gl_resource_holder(this);
-	}
-	~Thin3DGLTexture() {
+	~OpenGLTexture() {
 		unregister_gl_resource_holder(this);
 		Destroy();
-	}
-
-	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override {
-		generatedMips_ = false;
-		canWrap_ = true;
-		format_ = format;
-		target_ = TypeToTarget(type);
-		mipLevels_ = mipLevels;
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
-		return true;
 	}
 
 	void Destroy() {
@@ -664,8 +696,9 @@ public:
 			generatedMips_ = false;
 		}
 	}
+
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
-	void AutoGenMipmaps() override;
+	void AutoGenMipmaps();
 
 	bool HasMips() {
 		return mipLevels_ > 1 || generatedMips_;
@@ -685,20 +718,7 @@ public:
 	}
 
 	void GLRestore() override {
-		if (!filename_.empty()) {
-			if (LoadFromFile(filename_.c_str())) {
-				ILOG("Reloaded lost texture %s", filename_.c_str());
-			} else {
-				ELOG("Failed to reload lost texture %s", filename_.c_str());
-				tex_ = 0;
-			}
-		} else {
-			WLOG("Texture %p cannot be restored - has no filename", this);
-			tex_ = 0;
-		}
 	}
-
-	void Finalize(int zim_flags) override;
 
 private:
 	GLuint tex_;
@@ -710,15 +730,11 @@ private:
 	bool canWrap_;
 };
 
-Texture *OpenGLContext::CreateTexture() {
-	return new Thin3DGLTexture();
+Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
+	return new OpenGLTexture(desc);
 }
 
-Texture *OpenGLContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	return new Thin3DGLTexture(type, format, width, height, depth, mipLevels);
-}
-
-void Thin3DGLTexture::AutoGenMipmaps() {
+void OpenGLTexture::AutoGenMipmaps() {
 	if (!generatedMips_) {
 		Bind();
 		glGenerateMipmap(target_);
@@ -728,7 +744,7 @@ void Thin3DGLTexture::AutoGenMipmaps() {
 	}
 }
 
-void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
+void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	int internalFormat;
 	int format;
 	int type;
@@ -738,18 +754,22 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 		format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case DataFormat::R4G4B4A4_UNORM:
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
 		break;
+
+#if 0
+	case DataFormat::A4B4G4R4_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+		break;
+#endif
+
 	default:
 		return;
-	}
-	if (level == 0) {
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
 	}
 
 	Bind();
@@ -761,14 +781,6 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 		ELOG("Thin3D GL: Targets other than GL_TEXTURE_2D not yet supported");
 		break;
 	}
-}
-
-bool isPowerOf2(int n) {
-	return n == 1 || (n & (n - 1)) == 0;
-}
-
-void Thin3DGLTexture::Finalize(int zim_flags) {
-	canWrap_ = (zim_flags & ZIM_CLAMP) || !isPowerOf2(width_) || !isPowerOf2(height_);
 }
 
 
@@ -852,7 +864,7 @@ RasterState *OpenGLContext::CreateRasterState(const RasterStateDesc &desc) {
 		return rs;
 	}
 	rs->cullEnable = GL_TRUE;
-	switch (desc.facing) {
+	switch (desc.frontFace) {
 	case Facing::CW:
 		rs->frontFace = GL_CW;
 		break;
@@ -908,7 +920,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 
 void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
-		Thin3DGLTexture *glTex = static_cast<Thin3DGLTexture *>(textures[i]);
+		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i]);
 		glActiveTexture(GL_TEXTURE0 + i);
 		glTex->Bind();
 
@@ -920,9 +932,9 @@ void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 }
 
 
-ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
 	OpenGLShaderModule *shader = new OpenGLShaderModule(stage);
-	if (shader->Compile(glsl_source)) {
+	if (shader->Compile(language, data, dataSize)) {
 		return shader;
 	} else {
 		shader->Release();
@@ -1029,10 +1041,8 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_->raster->Apply();
 }
 
-void OpenGLContext::Draw(Buffer *vdata, int vertexCount, int offset) {
-	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
-
-	vbuf->Bind();
+void OpenGLContext::Draw(int vertexCount, int offset) {
+	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
 	curPipeline_->Apply();
 
@@ -1042,15 +1052,12 @@ void OpenGLContext::Draw(Buffer *vdata, int vertexCount, int offset) {
 	curPipeline_->inputLayout->Unapply();
 }
 
-void OpenGLContext::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
-	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
-	OpenGLBuffer *ibuf = static_cast<OpenGLBuffer *>(idata);
-
-	vbuf->Bind();
+void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
+	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
 	curPipeline_->Apply();
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
-	ibuf->Bind();
+	curIBuffer_->Bind(curIBufferOffset_);
 
 	glDrawElements(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	
@@ -1151,6 +1158,37 @@ void OpenGLInputLayout::Unapply() {
 		}
 	} else {
 		glBindVertexArray(0);
+	}
+}
+
+uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
+	switch (fmt) {
+	case DataFormat::B8G8R8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE;
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
+		return FMT_RENDERTARGET | FMT_TEXTURE;
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
+		return 0;  // native support
+	case DataFormat::A4B4G4R4_UNORM_PACK16:
+		return 0;  // Can support this if _REV formats are supported.
+
+	case DataFormat::R8G8B8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
+
+	case DataFormat::R32_FLOAT:
+	case DataFormat::R32G32_FLOAT:
+	case DataFormat::R32G32B32_FLOAT:
+	case DataFormat::R32G32B32A32_FLOAT:
+		return FMT_INPUTLAYOUT;
+
+	case DataFormat::R8_UNORM:
+		return 0;
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+	case DataFormat::BC2_UNORM_BLOCK:
+	case DataFormat::BC3_UNORM_BLOCK:
+		return FMT_TEXTURE;
+	default:
+		return 0;
 	}
 }
 

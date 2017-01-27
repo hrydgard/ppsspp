@@ -98,6 +98,7 @@ protected:
 		int prevSizeTex;
 		int prevSizeCol;
 	public:
+		virtual ~TessellationDataTransfer() {}
 		// Send spline/bezier's control points to vertex shader through floating point texture.
 		virtual void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) = 0;
 	};

@@ -80,7 +80,7 @@ public:
 			std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
 
 			if (ginfo->iconTexture) {
-				toprow->Add(new Thin3DTextureView(ginfo->iconTexture, IS_FIXED, new LinearLayoutParams(Margins(10, 5))));
+				toprow->Add(new Thin3DTextureView(ginfo->iconTexture->GetTexture(), IS_FIXED, new LinearLayoutParams(Margins(10, 5))));
 			}
 			LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 			topright->SetSpacing(1.0f);
@@ -159,7 +159,7 @@ void SavedataButton::Draw(UIContext &dc) {
 	using namespace UI;
 
 	if (ginfo->iconTexture) {
-		texture = ginfo->iconTexture;
+		texture = ginfo->iconTexture->GetTexture();
 	}
 
 	int x = bounds_.x;
@@ -193,11 +193,6 @@ void SavedataButton::Draw(UIContext &dc) {
 		float nw = h * tw / th;
 		x += (w - nw) / 2.0f;
 		w = nw;
-
-		if (texture->Width() >= w * 2 || texture->Height() >= h * 2) {
-			// Better to use mipmaps, then.  This is probably a large savestate screenshot.
-			texture->AutoGenMipmaps();
-		}
 	}
 
 	int txOffset = down_ ? 4 : 0;

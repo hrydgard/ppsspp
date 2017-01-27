@@ -52,7 +52,6 @@ bool simulateAnalog = false;
 extern ScreenManager *screenManager;
 InputState input_state;
 
-extern std::string ram_temp_file;
 extern bool iosCanUseJit;
 extern bool targetIsJailbroken;
 
@@ -97,8 +96,6 @@ static GraphicsContext *graphicsContext;
 
 		net::Init();
 
-		ram_temp_file = [[NSTemporaryDirectory() stringByAppendingPathComponent:@"ram_tmp.file"] fileSystemRepresentation];
-		
 		iosCanUseJit = true;
 		targetIsJailbroken = false;
 		NSArray *jailPath = [NSArray arrayWithObjects:

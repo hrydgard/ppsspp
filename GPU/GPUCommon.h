@@ -39,6 +39,7 @@ public:
 
 	void ExecuteOp(u32 op, u32 diff) override;
 	void PreExecuteOp(u32 op, u32 diff) override;
+
 	bool InterpretList(DisplayList &list) override;
 	virtual bool ProcessDLQueue();
 	u32  UpdateStall(int listid, u32 newstall) override;
@@ -95,6 +96,10 @@ public:
 	void Execute_TgenMtxData(u32 op, u32 diff);
 	void Execute_BoneMtxNum(u32 op, u32 diff);
 	void Execute_BoneMtxData(u32 op, u32 diff);
+
+	void Execute_MorphWeight(u32 op, u32 diff);
+
+	void Execute_Unknown(u32 op, u32 diff);
 
 	int EstimatePerVertexCost();
 

@@ -685,6 +685,10 @@ UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
+
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	BlockCacheStats bcStats;
 	blockCache->ComputeStats(bcStats);

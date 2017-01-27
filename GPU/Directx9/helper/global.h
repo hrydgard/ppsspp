@@ -1,13 +1,6 @@
 #pragma once
 
 #include "Common/CommonWindows.h"
-#ifdef _XBOX
-// Used on XBox to create a linear format
-// TODO: Might actually want to use nonlinear on xbox?
-#define D3DFMT(x)	(D3DFORMAT)MAKELINFMT(x)
-#else
-#define D3DFMT(x) x
-#endif
 
 #include <string>
 #include <d3d9.h>

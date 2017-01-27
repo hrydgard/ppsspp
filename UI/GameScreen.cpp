@@ -192,7 +192,7 @@ void GameScreen::update(InputState &input) {
 	if (tvTitle_)
 		tvTitle_->SetText(info->GetTitle() + " (" + info->id + ")");
 	if (info->iconTexture && texvGameIcon_)	{
-		texvGameIcon_->SetTexture(info->iconTexture);
+		texvGameIcon_->SetTexture(info->iconTexture->GetTexture());
 		// Fade the icon with the background.
 		double loadTime = info->timeIconWasLoaded;
 		if (info->pic1Texture) {

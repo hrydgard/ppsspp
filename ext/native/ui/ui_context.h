@@ -36,7 +36,9 @@ public:
 	UIContext();
 	~UIContext();
 
-	void Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, Draw::Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+	void Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+
+	void FrameSetup(Draw::Texture *uiTexture);
 
 	void Begin();
 	void BeginNoTex();

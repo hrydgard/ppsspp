@@ -125,7 +125,7 @@ namespace DX9 {
 				pool = D3DPOOL_DEFAULT;
 				usage = D3DUSAGE_DYNAMIC;
 			}
-			HRESULT hr = pD3Ddevice->CreateTexture(width, height, 1, usage, D3DFMT(D3DFMT_A8R8G8B8), pool, &drawPixelsTex_, NULL);
+			HRESULT hr = pD3Ddevice->CreateTexture(width, height, 1, usage, D3DFMT_A8R8G8B8, pool, &drawPixelsTex_, NULL);
 			if (FAILED(hr)) {
 				drawPixelsTex_ = nullptr;
 				ERROR_LOG(G3D, "Failed to create drawpixels texture");
@@ -390,11 +390,11 @@ namespace DX9 {
 
 		// ugly...
 		if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-			shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 		if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-			shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 	}
 
@@ -447,11 +447,11 @@ namespace DX9 {
 
 		// ugly...
 		if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-			shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 		if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-			shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 	}
 
@@ -465,11 +465,11 @@ namespace DX9 {
 
 		// ugly...
 		if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-			shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 		if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-			shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
+			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 		}
 	}
 
@@ -1303,7 +1303,7 @@ namespace DX9 {
 		// TODO: It's really bad that we are calling SetRenderFramebuffer here with
 		// all the irrelevant state checking it'll use to decide what to do. Should
 		// do something more focused here.
-		SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+		SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 		transformDraw_->Flush();
 	}
 

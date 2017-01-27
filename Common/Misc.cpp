@@ -33,20 +33,15 @@
 // This function might change the error code.
 const char *GetLastErrorMsg()
 {
-#ifndef _XBOX
 #ifdef _WIN32
 	return GetStringErrorMsg(GetLastError());
 #else
 	return GetStringErrorMsg(errno);
 #endif
-#else
-	return "GetLastErrorMsg";
-#endif
 }
 
 const char *GetStringErrorMsg(int errCode) {
 	static const size_t buff_size = 1023;
-#ifndef _XBOX
 #ifdef _WIN32
 	static __declspec(thread) wchar_t err_strw[buff_size] = {};
 
@@ -66,7 +61,4 @@ const char *GetStringErrorMsg(int errCode) {
 #endif
 
 	return err_str;
-#else
-	return "GetStringErrorMsg";
-#endif
 }

@@ -116,6 +116,31 @@ static const int primCountDivisor[] = {
 	1,
 };
 
+D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
+	switch (fmt) {
+	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
+	case DataFormat::R4G4B4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
+	case DataFormat::B4G4R4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // native
+	case DataFormat::A4B4G4R4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
+	case DataFormat::R5G6B5_UNORM_PACK16: return D3DFMT_R5G6B5;
+	case DataFormat::A1R5G5B5_UNORM_PACK16: return D3DFMT_A1R5G5B5;
+	case DataFormat::D24_S8: return D3DFMT_D24S8;
+	case DataFormat::D16: return D3DFMT_D16;
+	default: return D3DFMT_UNKNOWN;
+	}
+}
+
+static int FormatToD3DDeclType(DataFormat type) {
+	switch (type) {
+	case DataFormat::R32_FLOAT: return D3DDECLTYPE_FLOAT1;
+	case DataFormat::R32G32_FLOAT: return D3DDECLTYPE_FLOAT2;
+	case DataFormat::R32G32B32_FLOAT: return D3DDECLTYPE_FLOAT3;
+	case DataFormat::R32G32B32A32_FLOAT: return D3DDECLTYPE_FLOAT4;
+	case DataFormat::R8G8B8A8_UNORM: return D3DDECLTYPE_UBYTE4N;  // D3DCOLOR has a different byte ordering.
+	default: return D3DDECLTYPE_UNUSED;
+	}
+}
+
 class D3D9DepthStencilState : public DepthStencilState {
 public:
 	BOOL depthTestEnabled;
@@ -193,18 +218,20 @@ public:
 	}
 };
 
-class Thin3DDX9Buffer : public Buffer {
+// Simulate a simple buffer type like the other backends have, use the usage flags to create the right internal type.
+class D3D9Buffer : public Buffer {
 public:
-	Thin3DDX9Buffer(LPDIRECT3DDEVICE9 device, size_t size, uint32_t flags) : vbuffer_(nullptr), ibuffer_(nullptr), maxSize_(size) {
+	D3D9Buffer(LPDIRECT3DDEVICE9 device, size_t size, uint32_t flags) : vbuffer_(nullptr), ibuffer_(nullptr), maxSize_(size) {
 		if (flags & BufferUsageFlag::INDEXDATA) {
 			DWORD usage = D3DUSAGE_DYNAMIC;
 			device->CreateIndexBuffer((UINT)size, usage, D3DFMT_INDEX32, D3DPOOL_DEFAULT, &ibuffer_, NULL);
-		} else {
+		}
+		else {
 			DWORD usage = D3DUSAGE_DYNAMIC;
 			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_DEFAULT, &vbuffer_, NULL);
 		}
 	}
-	virtual ~Thin3DDX9Buffer() override {
+	virtual ~D3D9Buffer() override {
 		if (ibuffer_) {
 			ibuffer_->Release();
 		}
@@ -255,21 +282,12 @@ public:
 			}
 		}
 	}
-	void BindAsVertexBuf(LPDIRECT3DDEVICE9 device, int vertexSize, int offset = 0) {
-		if (vbuffer_)
-			device->SetStreamSource(0, vbuffer_, offset, vertexSize);
-	}
-	void BindAsIndexBuf(LPDIRECT3DDEVICE9 device) {
-		if (ibuffer_)
-			device->SetIndices(ibuffer_);
-	}
 
-private:
+public:
 	LPDIRECT3DVERTEXBUFFER9 vbuffer_;
 	LPDIRECT3DINDEXBUFFER9 ibuffer_;
 	size_t maxSize_;
 };
-
 
 class D3D9InputLayout : public InputLayout {
 public:
@@ -300,7 +318,7 @@ public:
 		if (constantTable_)
 			constantTable_->Release();
 	}
-	bool Compile(LPDIRECT3DDEVICE9 device, const char *source);
+	bool Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size);
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		if (stage_ == ShaderStage::FRAGMENT) {
 			device->SetPixelShader(pshader_);
@@ -351,39 +369,26 @@ private:
 
 class D3D9Texture : public Texture {
 public:
-	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx) : device_(device), deviceEx_(deviceEx), type_(TextureType::UNKNOWN), fmt_(D3DFMT_UNKNOWN), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
-	}
-	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels);
+	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc);
 	~D3D9Texture();
-	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
-	void AutoGenMipmaps() override {}
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
-	void Finalize(int zim_flags) override {}
 
 private:
+	bool Create(const TextureDesc &desc);
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
 	TextureType type_;
-	D3DFORMAT fmt_;
+	DataFormat format_;
+	D3DFORMAT d3dfmt_;
 	LPDIRECT3DTEXTURE9 tex_;
 	LPDIRECT3DVOLUMETEXTURE9 volTex_;
 	LPDIRECT3DCUBETEXTURE9 cubeTex_;
 };
 
-D3DFORMAT FormatToD3D(DataFormat fmt) {
-	switch (fmt) {
-	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
-	case DataFormat::R4G4B4A4_UNORM: return D3DFMT_A4R4G4B4;
-	case DataFormat::D24_S8: return D3DFMT_D24S8;
-	case DataFormat::D16: return D3DFMT_D16;
-	default: return D3DFMT_UNKNOWN;
-	}
-}
-
-D3D9Texture::D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels)
-	: device_(device), deviceEx_(deviceEx), type_(type), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
-	Create(type, format, width, height, depth, mipLevels);
+D3D9Texture::D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc)
+	: device_(device), deviceEx_(deviceEx), tex_(nullptr), volTex_(nullptr), cubeTex_(nullptr) {
+	Create(desc);
 }
 
 D3D9Texture::~D3D9Texture() {
@@ -398,13 +403,14 @@ D3D9Texture::~D3D9Texture() {
 	}
 }
 
-bool D3D9Texture::Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	width_ = width;
-	height_ = height;
-	depth_ = depth;
-	type_ = type;
+bool D3D9Texture::Create(const TextureDesc &desc) {
+	width_ = desc.width;
+	height_ = desc.height;
+	depth_ = desc.depth;
+	type_ = desc.type;
+	format_ = desc.format;
 	tex_ = NULL;
-	fmt_ = FormatToD3D(format);
+	d3dfmt_ = FormatToD3DFMT(desc.format);
 	HRESULT hr = E_FAIL;
 
 	D3DPOOL pool = D3DPOOL_MANAGED;
@@ -413,27 +419,29 @@ bool D3D9Texture::Create(TextureType type, DataFormat format, int width, int hei
 		pool = D3DPOOL_DEFAULT;
 		usage = D3DUSAGE_DYNAMIC;
 	}
-	switch (type) {
-	case LINEAR1D:
-	case LINEAR2D:
-		hr = device_->CreateTexture(width, height, mipLevels, usage, fmt_, pool, &tex_, NULL);
+	switch (type_) {
+	case TextureType::LINEAR1D:
+	case TextureType::LINEAR2D:
+		hr = device_->CreateTexture(desc.width, desc.height, desc.mipLevels, usage, d3dfmt_, pool, &tex_, NULL);
 		break;
-	case LINEAR3D:
-		hr = device_->CreateVolumeTexture(width, height, depth, mipLevels, usage, fmt_, pool, &volTex_, NULL);
+	case TextureType::LINEAR3D:
+		hr = device_->CreateVolumeTexture(desc.width, desc.height, desc.depth, desc.mipLevels, usage, d3dfmt_, pool, &volTex_, NULL);
 		break;
-	case CUBE:
-		hr = device_->CreateCubeTexture(width, mipLevels, usage, fmt_, pool, &cubeTex_, NULL);
+	case TextureType::CUBE:
+		hr = device_->CreateCubeTexture(desc.width, desc.mipLevels, usage, d3dfmt_, pool, &cubeTex_, NULL);
 		break;
 	}
 	if (FAILED(hr)) {
 		ELOG("Texture creation failed");
 		return false;
 	}
-	return true;
-}
 
-inline uint16_t Shuffle4444(uint16_t x) {
-	return (x << 12) | (x >> 4);
+	if (desc.initData.size()) {
+		for (int i = 0; i < desc.initData.size(); i++) {
+			this->SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
+		}
+	}
+	return true;
 }
 
 // Just switches R and G.
@@ -441,40 +449,50 @@ inline uint32_t Shuffle8888(uint32_t x) {
 	return (x & 0xFF00FF00) | ((x >> 16) & 0xFF) | ((x << 16) & 0xFF0000);
 }
 
-
 void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-	if (!tex_) {
+	if (!tex_)
 		return;
-	}
+
 	if (level == 0) {
 		width_ = width;
 		height_ = height;
 		depth_ = depth;
 	}
 
+	if (!stride) {
+		stride = width * (int)DataFormatSizeInBytes(format_);
+	}
+
 	switch (type_) {
-	case LINEAR2D:
+	case TextureType::LINEAR2D:
 	{
 		D3DLOCKED_RECT rect;
 		if (x == 0 && y == 0) {
 			tex_->LockRect(level, &rect, NULL, 0);
-
 			for (int i = 0; i < height; i++) {
 				uint8_t *dest = (uint8_t *)rect.pBits + rect.Pitch * i;
 				const uint8_t *source = data + stride * i;
 				int j;
-				switch (fmt_) {
-				case D3DFMT_A4R4G4B4:
-					// This is backwards from OpenGL so we need to shuffle around a bit.
+				switch (format_) {
+				case DataFormat::B4G4R4A4_UNORM_PACK16:  // We emulate support for this format.
 					for (j = 0; j < width; j++) {
-						((uint16_t *)dest)[j] = Shuffle4444(((uint16_t *)source)[j]);
+						uint16_t color = ((const uint16_t *)source)[j];
+						((uint16_t *)dest)[j] = (color << 12) | (color >> 4);
 					}
 					break;
+				case DataFormat::A4B4G4R4_UNORM_PACK16:
+					// Native
+					memcpy(dest, source, j * sizeof(uint16_t));
+					break;
 
-				case D3DFMT_A8R8G8B8:
+				case DataFormat::R8G8B8A8_UNORM:
 					for (j = 0; j < width; j++) {
 						((uint32_t *)dest)[j] = Shuffle8888(((uint32_t *)source)[j]);
 					}
+					break;
+
+				case DataFormat::B8G8R8A8_UNORM:
+					memcpy(dest, source, sizeof(uint32_t) * width);
 					break;
 				}
 			}
@@ -491,16 +509,16 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 
 void D3D9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
 	switch (type_) {
-	case LINEAR1D:
-	case LINEAR2D:
+	case TextureType::LINEAR1D:
+	case TextureType::LINEAR2D:
 		device->SetTexture(sampler, tex_);
 		break;
 
-	case LINEAR3D:
+	case TextureType::LINEAR3D:
 		device->SetTexture(sampler, volTex_);
 		break;
 
-	case CUBE:
+	case TextureType::CUBE:
 		device->SetTexture(sampler, cubeTex_);
 		break;
 	}
@@ -514,7 +532,12 @@ public:
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
 	}
+	uint32_t GetSupportedShaderLanguages() const override {
+		return (uint32_t)ShaderLanguage::HLSL_D3D9 | (uint32_t)ShaderLanguage::HLSL_D3D9_BYTECODE;
+	}
+	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
@@ -522,9 +545,7 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
-	Texture *CreateTexture() override;
-	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	Texture *CreateTexture(const TextureDesc &desc) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
@@ -533,16 +554,28 @@ public:
 			s->Apply(device_, start + i);
 		}
 	}
-	void BindPipeline(Pipeline *pipeline) {
+	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+		for (int i = 0; i < count; i++) {
+			curVBuffers_[i + start] = (D3D9Buffer *)buffers[i];
+			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
+		}
+	}
+	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
+		curIBuffer_ = (D3D9Buffer *)indexBuffer;
+		curIBufferOffset_ = offset;
+	}
+
+	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (D3D9Pipeline *)pipeline;
 	}
 
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
+	void SetBlendFactor(float color[4]) override;
 
-	void Draw(Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void Draw(int vertexCount, int offset) override;
+	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
@@ -567,8 +600,14 @@ private:
 	D3DADAPTER_IDENTIFIER9 identifier_;
 	D3DCAPS9 d3dCaps_;
 	char shadeLangVersion_[64];
-	D3D9Pipeline *curPipeline_;
 	DeviceCaps caps_;
+
+	// Bound state
+	D3D9Pipeline *curPipeline_;
+	D3D9Buffer *curVBuffers_[4];
+	int curVBufferOffsets_[4];
+	D3D9Buffer *curIBuffer_;
+	int curIBufferOffset_;
 };
 
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
@@ -588,9 +627,9 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 D3D9Context::~D3D9Context() {
 }
 
-ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size) {
 	D3D9ShaderModule *shader = new D3D9ShaderModule(stage);
-	if (shader->Compile(device_, hlsl_source)) {
+	if (shader->Compile(device_, data, size)) {
 		return shader;
 	} else {
 		delete shader;
@@ -676,7 +715,7 @@ RasterState *D3D9Context::CreateRasterState(const RasterStateDesc &desc) {
 	if (desc.cull == CullMode::NONE) {
 		return rs;
 	}
-	switch (desc.facing) {
+	switch (desc.frontFace) {
 	case Facing::CW:
 		switch (desc.cull) {
 		case CullMode::FRONT: rs->cullMode = D3DCULL_CCW; break;
@@ -691,13 +730,8 @@ RasterState *D3D9Context::CreateRasterState(const RasterStateDesc &desc) {
 	return rs;
 }
 
-Texture *D3D9Context::CreateTexture() {
-	D3D9Texture *tex = new D3D9Texture(device_, deviceEx_);
-	return tex;
-}
-
-Texture *D3D9Context::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	D3D9Texture *tex = new D3D9Texture(device_, deviceEx_, type, format, width, height, depth, mipLevels);
+Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
+	D3D9Texture *tex = new D3D9Texture(device_, deviceEx_, desc);
 	return tex;
 }
 
@@ -736,16 +770,6 @@ static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) 
 	}
 }
 
-static int VertexDataTypeToD3DType(DataFormat type) {
-	switch (type) {
-	case DataFormat::R32G32_FLOAT: return D3DDECLTYPE_FLOAT2;
-	case DataFormat::R32G32B32_FLOAT: return D3DDECLTYPE_FLOAT3;
-	case DataFormat::R32G32B32A32_FLOAT: return D3DDECLTYPE_FLOAT4;
-	case DataFormat::R8G8B8A8_UNORM: return D3DDECLTYPE_UBYTE4N;  // D3DCOLOR?
-	default: return D3DDECLTYPE_UNUSED;
-	}
-}
-
 D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc &desc) : decl_(NULL) {
 	D3DVERTEXELEMENT9 *elements = new D3DVERTEXELEMENT9[desc.attributes.size() + 1];
 	size_t i;
@@ -754,7 +778,7 @@ D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc
 		elements[i].Offset = desc.attributes[i].offset;
 		elements[i].Method = D3DDECLMETHOD_DEFAULT;
 		SemanticToD3D9UsageAndIndex(desc.attributes[i].location, &elements[i].Usage, &elements[i].UsageIndex);
-		elements[i].Type = VertexDataTypeToD3DType(desc.attributes[i].format);
+		elements[i].Type = FormatToD3DDeclType(desc.attributes[i].format);
 	}
 	D3DVERTEXELEMENT9 end = D3DDECL_END();
 	// Zero the last one.
@@ -772,7 +796,7 @@ D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc
 }
 
 Buffer *D3D9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
-	return new Thin3DDX9Buffer(device_, size, usageFlags);
+	return new D3D9Buffer(device_, size, usageFlags);
 }
 
 void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device) {
@@ -783,23 +807,21 @@ void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device) {
 	raster->Apply(device);
 }
 
-void D3D9Context::Draw(Buffer *vdata, int vertexCount, int offset) {
-	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
-
-	vbuf->BindAsVertexBuf(device_, curPipeline_->inputLayout->GetStride(9), offset);
+void D3D9Context::Draw(int vertexCount, int offset) {
+	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
 	curPipeline_->Apply(device_);
 	curPipeline_->inputLayout->Apply(device_);
 	device_->DrawPrimitive(curPipeline_->prim, offset, vertexCount / 3);
 }
 
-void D3D9Context::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
-	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
-	Thin3DDX9Buffer *ibuf = static_cast<Thin3DDX9Buffer *>(idata);
+void D3D9Context::DrawIndexed(int vertexCount, int offset) {
+	D3D9Buffer *vbuf = static_cast<D3D9Buffer *>(curVBuffers_[0]);
+	D3D9Buffer *ibuf = static_cast<D3D9Buffer *>(curIBuffer_);
 
 	curPipeline_->Apply(device_);
 	curPipeline_->inputLayout->Apply(device_);
-	vbuf->BindAsVertexBuf(device_, curPipeline_->inputLayout->GetStride(0), offset);
-	ibuf->BindAsIndexBuf(device_);
+	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
+	device_->SetIndices(curIBuffer_->ibuffer_);
 	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, 0, vertexCount / curPipeline_->primDivisor);
 }
 
@@ -842,12 +864,21 @@ void D3D9Context::SetViewports(int count, Viewport *viewports) {
 	device_->SetViewport(&vp);
 }
 
-bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const char *source) {
+void D3D9Context::SetBlendFactor(float color[4]) {
+	uint32_t r = (uint32_t)(color[0] * 255.0f);
+	uint32_t g = (uint32_t)(color[1] * 255.0f);
+	uint32_t b = (uint32_t)(color[2] * 255.0f);
+	uint32_t a = (uint32_t)(color[3] * 255.0f);
+	device_->SetRenderState(D3DRS_BLENDFACTOR, r | (g << 8) | (b << 16) | (a << 24));
+}
+
+bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size) {
 	LPD3DXMACRO defines = NULL;
 	LPD3DXINCLUDE includes = NULL;
 	DWORD flags = 0;
 	LPD3DXBUFFER codeBuffer;
 	LPD3DXBUFFER errorBuffer;
+	const char *source = (const char *)data;
 	const char *profile = stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0";
 	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, &constantTable_);
 	if (FAILED(hr)) {
@@ -913,5 +944,41 @@ DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapt
 	}
 	return new D3D9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
+
+// Only partial implementation!
+uint32_t D3D9Context::GetDataFormatSupport(DataFormat fmt) const {
+	switch (fmt) {
+	case DataFormat::B8G8R8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE;
+
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
+		return 0;
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
+		return FMT_TEXTURE;  // emulated support
+	case DataFormat::R5G6B5_UNORM_PACK16:
+	case DataFormat::A1R5G5B5_UNORM_PACK16:
+	case DataFormat::A4B4G4R4_UNORM_PACK16:
+		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
+
+	case DataFormat::R8G8B8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
+
+	case DataFormat::R32_FLOAT:
+	case DataFormat::R32G32_FLOAT:
+	case DataFormat::R32G32B32_FLOAT:
+	case DataFormat::R32G32B32A32_FLOAT:
+		return FMT_INPUTLAYOUT;
+
+	case DataFormat::R8_UNORM:
+		return 0;
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+	case DataFormat::BC2_UNORM_BLOCK:
+	case DataFormat::BC3_UNORM_BLOCK:
+		return FMT_TEXTURE;
+	default:
+		return 0;
+	}
+}
+
 
 }  // namespace Draw

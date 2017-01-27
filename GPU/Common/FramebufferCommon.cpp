@@ -287,7 +287,7 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason) {
-	gstate_c.framebufChanged = false;
+	gstate_c.Clean(DIRTY_FRAMEBUF);
 
 	// Collect all parameters. This whole function has really become a cesspool of heuristics...
 	// but it appears that's what it takes, unless we emulate VRAM layout more accurately somehow.

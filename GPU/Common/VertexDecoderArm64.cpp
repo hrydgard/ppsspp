@@ -92,11 +92,15 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
+	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
+	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
+
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
+
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
 	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
@@ -243,6 +247,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	const u8 *loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
+			EndWrite();
 			// Reset the code ptr (effectively undoing what we generated) and return zero to indicate that we failed.
 			SetCodePtr(const_cast<u8 *>(start));
 			char temp[1024] = {0};
@@ -285,14 +290,14 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		char temp[1024] = { 0 };
 		dec.ToString(temp);
 		ILOG("=== %s (%d bytes) ===", temp, (int)(GetCodePtr() - start));
-		std::vector<std::string> lines = DisassembleArm64(start, GetCodePtr() - start);
+		std::vector<std::string> lines = DisassembleArm64(start, (int)(GetCodePtr() - start));
 		for (auto line : lines) {
 			ILOG("%s", line.c_str());
 		}
-		ILOG("==========", temp);
+		ILOG("==========");
 	}
 
-	*jittedSize = GetCodePtr() - start;
+	*jittedSize = (int)(GetCodePtr() - start);
 	EndWrite();
 	return (JittedVertexDecoder)start;
 }
@@ -630,12 +635,27 @@ void VertexDecoderJitCache::Jit_TcU8Prescale() {
 	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
+void VertexDecoderJitCache::Jit_TcU8ToFloat() {
+	fp.LDUR(16, neonScratchRegD, srcReg, dec_->tcoff);
+	fp.UXTL(8, neonScratchRegQ, neonScratchRegD); // Widen to 16-bit
+	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
+	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
+}
+
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
 	fp.LDUR(32, neonScratchRegD, srcReg, dec_->tcoff);
 	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
 	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
 	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
 	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcU16ToFloat() {
+	fp.LDUR(32, neonScratchRegD, srcReg, dec_->tcoff);
+	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
+	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
 	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 

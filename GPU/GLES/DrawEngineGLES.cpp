@@ -128,6 +128,10 @@ DrawEngineGLES::DrawEngineGLES()
 		dcid_(0),
 		fboTexNeedBind_(false),
 		fboTexBound_(false) {
+
+	decOptions_.expandAllWeightsToFloat = false;
+	decOptions_.expand8BitNormalsToFloat = false;
+
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	bufferDecimationCounter_ = VERTEXCACHE_NAME_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
@@ -337,7 +341,7 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
 		// Rendertarget == texture?
 		if (!g_Config.bDisableSlowFramebufEffects) {
-			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 			Flush();
 		}
 	}

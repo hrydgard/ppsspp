@@ -100,16 +100,14 @@ enum
 
 enum {
 	MV_MIRROR_PREVIOUS = 1,
-	// MV_FAKE_VMEM = 2,
-	// MV_WII_ONLY = 4,
 	MV_IS_PRIMARY_RAM = 0x100,
 	MV_IS_EXTRA1_RAM = 0x200,
 	MV_IS_EXTRA2_RAM = 0x400,
+	MV_KERNEL = 0x800  // Can be skipped on platforms where memory is tight.
 };
 
 struct MemoryView
 {
-	u8 **out_ptr_low;
 	u8 **out_ptr;
 	u32 virtual_address;
 	u32 size;
@@ -117,7 +115,7 @@ struct MemoryView
 };
 
 // Uses a memory arena to set up an emulator-friendly memory map
-void MemoryMap_Setup(u32 flags);
+bool MemoryMap_Setup(u32 flags);
 void MemoryMap_Shutdown(u32 flags);
 
 // Init and Shutdown

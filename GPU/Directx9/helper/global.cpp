@@ -219,10 +219,6 @@ void DirectxInit(HWND window) {
 		// TODO
 	}
 
-#ifdef _XBOX
-	pD3Ddevice->SetRingBufferParameters( &d3dr );
-#endif
-
 	std::string errorMessage;
 	CompileShaders(errorMessage);
 

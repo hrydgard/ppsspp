@@ -27,11 +27,9 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
-#ifndef _XBOX
 #include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
 #include <commdlg.h>	// for GetSaveFileName
-#endif
 #include <io.h>
 #include <direct.h>		// getcwd
 #else
@@ -711,7 +709,6 @@ void openIniFile(const std::string fileName) {
 std::string GetCurrentDir()
 {
 	char *dir;
-#ifndef _XBOX
 	// Get the current working directory (getcwd uses malloc) 
 	if (!(dir = __getcwd(NULL, 0))) {
 
@@ -722,28 +719,19 @@ std::string GetCurrentDir()
 	std::string strDir = dir;
 	free(dir);
 	return strDir;
-#else
-	return "game:\\";
-#endif
 }
 
 // Sets the current directory to the given directory
 bool SetCurrentDir(const std::string &directory)
 {
-#ifndef _XBOX
 	return __chdir(directory.c_str()) == 0;
-#else
-	return false;
-#endif
 }
 
 const std::string &GetExeDirectory()
 {
 	static std::string ExePath;
 
-	if (ExePath.empty())
-#ifndef _XBOX
-	{
+	if (ExePath.empty()) {
 #ifdef _WIN32
 		TCHAR program_path[4096] = {0};
 		GetModuleFileName(NULL, program_path, ARRAY_SIZE(program_path) - 1);
@@ -789,10 +777,6 @@ const std::string &GetExeDirectory()
 	}
 
 	return ExePath;
-#else
-	static std::wstring ExePath = L"game:\\";
-	return ExePath;
-#endif
 }
 
 
@@ -880,7 +864,6 @@ bool IOFile::Flush()
 
 bool IOFile::Resize(u64 size)
 {
-#ifndef _XBOX
 	if (!IsOpen() || 0 !=
 #ifdef _WIN32
 		// ector: _chsize sucks, not 64-bit safe
@@ -894,10 +877,6 @@ bool IOFile::Resize(u64 size)
 		m_good = false;
 
 	return m_good;
-#else
-	// TODO: Implement.
-	return false;
-#endif
 }
 
 } // namespace

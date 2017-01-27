@@ -179,7 +179,7 @@ void GameButton::Draw(UIContext &dc) {
 	using namespace UI;
 
 	if (ginfo->iconTexture) {
-		texture = ginfo->iconTexture;
+		texture = ginfo->iconTexture->GetTexture();
 	}
 
 	int x = bounds_.x;
@@ -1013,9 +1013,9 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 	}
 
 	if (ginfo->pic1Texture) {
-		dc.GetThin3DContext()->BindTexture(0, ginfo->pic1Texture);
+		dc.GetThin3DContext()->BindTexture(0, ginfo->pic1Texture->GetTexture());
 	} else if (ginfo->pic0Texture) {
-		dc.GetThin3DContext()->BindTexture(0, ginfo->pic0Texture);
+		dc.GetThin3DContext()->BindTexture(0, ginfo->pic0Texture->GetTexture());
 	}
 
 	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;

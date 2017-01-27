@@ -24,6 +24,7 @@
 #include "file/file_util.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Loaders.h"
+#include "UI/TextureUtil.h"
 
 namespace Draw {
 	class DrawContext;
@@ -142,11 +143,11 @@ public:
 
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;
-	Draw::Texture *iconTexture;
+	ManagedTexture *iconTexture;
 	std::string pic0TextureData;
-	Draw::Texture *pic0Texture;
+	ManagedTexture *pic0Texture;
 	std::string pic1TextureData;
-	Draw::Texture *pic1Texture;
+	ManagedTexture *pic1Texture;
 
 	std::string sndFileData;
 
@@ -202,7 +203,7 @@ public:
 private:
 	void Init();
 	void Shutdown();
-	void SetupTexture(GameInfo *info, std::string &textureData, Draw::DrawContext *thin3d, Draw::Texture *&tex, double &loadTime);
+	void SetupTexture(GameInfo *info, std::string &textureData, Draw::DrawContext *thin3d, ManagedTexture *&tex, double &loadTime);
 
 	// Maps ISO path to info.
 	std::map<std::string, GameInfo *> info_;

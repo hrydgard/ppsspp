@@ -47,7 +47,7 @@ void VulkanFBO::Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int wi
 	vkCreateFramebuffer(vulkan->GetDevice(), &fb, nullptr, &framebuffer_);
 }
 
-Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
+Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan), curFrame_(0) {
 	InitDeviceObjects();
 }
 
@@ -102,15 +102,15 @@ void Vulkan2D::InitDeviceObjects() {
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[1];
-	dpTypes[0].descriptorCount = 200;
+	dpTypes[0].descriptorCount = 1500;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
-	dp.maxSets = 200;
+	dp.maxSets = 1500;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frameData_[i].descPool);
 		assert(VK_SUCCESS == res);
 	}
