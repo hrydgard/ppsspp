@@ -35,7 +35,7 @@ using namespace Arm64Gen;
 //static int temp32; // unused?
 
 static const bool enableDebug = false;
-static const bool enableDisasm = true;
+static const bool enableDisasm = false;
 
 //static bool enableStatistics = false; //unused?
 

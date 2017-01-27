@@ -3592,23 +3592,20 @@ void ARM64FloatEmitter::ABI_PushRegisters(uint32_t registers, uint32_t fp_regist
 		m_emit->STP(INDEX_SIGNED, gprs[i*2], gprs[i*2+1], X29, offset);
 		offset += 16;
 	}
-	// Do the straggler.
 	if (num_gprs & 1) {
 		m_emit->STR(INDEX_UNSIGNED, gprs[num_gprs - 1], X29, offset);
 		offset += 16;
 	}
 
-	if (num_fprs) {
-		// OK, and now for the FPRs. Let's start simple.
-		//m_emit->ADD(X29, X29, offset);
-		//offset = 0;
-		for (int i = 0; i < num_fprs; i++) {
-			STR(64, INDEX_UNSIGNED, fprs[i], X29, offset);
-			offset += 8;
-		}
-		// Since we walked X29 away, reset it.
-		m_emit->MOVfromSP(X29);  // Set new frame pointer
+	for (int i = 0; i < num_fprs / 2; i++) {
+		STP(64, INDEX_SIGNED, fprs[i * 2], fprs[i * 2 + 1], SP, offset);
+		offset += 16;
 	}
+	if (num_fprs & 1) {
+		STR(64, INDEX_UNSIGNED, fprs[num_fprs - 1], X29, offset);
+		offset += 16;
+	}
+	// Now offset should be == stack_size.
 }
 
 void ARM64FloatEmitter::ABI_PopRegisters(uint32_t registers, uint32_t fp_registers) {
@@ -3624,7 +3621,7 @@ void ARM64FloatEmitter::ABI_PopRegisters(uint32_t registers, uint32_t fp_registe
 			fprs[num_fprs++] = (ARM64Reg)(D0 + i);
 	}
 
-	u32 stack_size = ROUND_UP((num_gprs + 2) * 8, 16) + num_fprs * 8;
+	u32 stack_size = 16 + ROUND_UP(num_gprs * 8, 16) + ROUND_UP(num_fprs * 8, 16);
 
 	// SP points to the bottom. We're gonna walk it upwards.
 	// Reload FP, LR.
@@ -3641,10 +3638,16 @@ void ARM64FloatEmitter::ABI_PopRegisters(uint32_t registers, uint32_t fp_registe
 	}
 
 	// Time for the FP regs.
-	for (int i = 0; i < num_fprs; i++) {
-		LDR(64, INDEX_UNSIGNED, fprs[i], SP, offset);
-		offset += 8;
+	for (int i = 0; i < num_fprs / 2; i++) {
+		LDP(64, INDEX_SIGNED, fprs[i * 2], fprs[i * 2 + 1], SP, offset);
+		offset += 16;
 	}
+	// Do the straggler.
+	if (num_fprs & 1) {
+		LDR(64, INDEX_UNSIGNED, fprs[num_fprs-1], SP, offset);
+		offset += 16;
+	}
+	// Now offset should be == stack_size.
 
 	// Restore the stack pointer.
 	m_emit->ADD(SP, SP, stack_size);
