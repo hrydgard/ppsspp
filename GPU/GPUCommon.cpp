@@ -41,6 +41,7 @@ GPUCommon::GPUCommon() :
 	// The compiler was not rounding the struct size up to an 8 byte boundary, which
 	// you'd expect due to the int64 field, but the Linux ABI apparently does not require that.
 	static_assert(sizeof(DisplayList) == 456, "Bad DisplayList size");
+	listLock.set_enabled(g_Config.bSeparateCPUThread);
 
 	Reinitialize();
 	SetupColorConv();
@@ -136,7 +137,7 @@ void GPUCommon::PopDLQueue() {
 bool GPUCommon::BusyDrawing() {
 	u32 state = DrawSync(1);
 	if (state == PSP_GE_LIST_DRAWING || state == PSP_GE_LIST_STALLING) {
-		lock_guard guard(listLock);
+		easy_guard guard(listLock);
 		if (currentList && currentList->state != PSP_GE_DL_STATE_PAUSED) {
 			return true;
 		}

@@ -139,6 +139,31 @@ private:
 	recursive_mutex &mtx_;
 };
 
+// This mutex can be disabled, which is useful for single core mode.
+class optional_recursive_mutex {
+public:
+	optional_recursive_mutex() : enabled_(true) {}
+	void set_enabled(bool enabled) {
+		enabled_ = enabled;
+	}
+	void lock() {
+		if (enabled_)
+			mutex_.lock();
+	}
+	void unlock() {
+		if (enabled_)
+			mutex_.unlock();
+	}
+	bool trylock() {
+		if (enabled_)
+			return mutex_.trylock();
+		else
+			return true;
+	}
+private:
+	recursive_mutex mutex_;
+	bool enabled_;
+};
 
 // Like a Windows event, or a modern condition variable.
 

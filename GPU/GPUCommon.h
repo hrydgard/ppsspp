@@ -216,12 +216,21 @@ protected:
 	// Allows early unlocking with a guard.  Do not double unlock.
 	class easy_guard {
 	public:
-		easy_guard(recursive_mutex &mtx) : mtx_(mtx), locked_(true) { mtx_.lock(); }
-		~easy_guard() { if (locked_) mtx_.unlock(); }
-		void unlock() { if (locked_) mtx_.unlock(); else Crash(); locked_ = false; }
+		easy_guard(optional_recursive_mutex &mtx) : mtx_(mtx), locked_(true) { mtx_.lock(); }
+		~easy_guard() {
+			if (locked_)
+				mtx_.unlock();
+		}
+		void unlock() {
+			if (locked_)
+				mtx_.unlock();
+			else
+				Crash();
+			locked_ = false;
+		}
 
 	private:
-		recursive_mutex &mtx_;
+		optional_recursive_mutex &mtx_;
 		bool locked_;
 	};
 
@@ -236,7 +245,7 @@ protected:
 	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
-	recursive_mutex listLock;
+	optional_recursive_mutex listLock;
 
 	bool interruptRunning;
 	GPURunState gpuState;
