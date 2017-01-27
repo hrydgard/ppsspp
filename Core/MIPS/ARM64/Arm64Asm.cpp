@@ -198,10 +198,9 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 
 	enterDispatcher = AlignCode16();
 
-	BitSet32 regs_to_save(Arm64Gen::ALL_CALLEE_SAVED);
-	BitSet32 regs_to_save_fp(Arm64Gen::ALL_CALLEE_SAVED_FP);
-	ABI_PushRegisters(regs_to_save);
-	fp.ABI_PushRegisters(regs_to_save_fp);
+	uint32_t regs_to_save = Arm64Gen::ALL_CALLEE_SAVED;
+	uint32_t regs_to_save_fp = Arm64Gen::ALL_CALLEE_SAVED_FP;
+	fp.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
 
 	// Fixed registers, these are always kept when in Jit context.
 	MOVP2R(MEMBASEREG, Memory::base);
@@ -290,8 +289,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);
 
-	fp.ABI_PopRegisters(regs_to_save_fp);
-	ABI_PopRegisters(regs_to_save);
+	fp.ABI_PopRegisters(regs_to_save, regs_to_save_fp);
 
 	RET();
 

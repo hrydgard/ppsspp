@@ -85,12 +85,14 @@ enum ARM64Reg
 
 	WZR = WSP,
 	ZR = SP,
+	FP = X29,
+	LR = X30,
 
 	INVALID_REG = 0xFFFFFFFF
 };
 
-// R19-R28, R29 (FP), R30 (LR). FP seems questionable?
-const u32 ALL_CALLEE_SAVED = 0x7FF80000;
+// R19-R28. R29 (FP), R30 (LR) are always saved and FP updated appropriately.
+const u32 ALL_CALLEE_SAVED = 0x1FF80000;
 const u32 ALL_CALLEE_SAVED_FP = 0x0000FF00;  // d8-d15
 
 inline bool Is64Bit(ARM64Reg reg) { return (reg & 0x20) != 0; }
@@ -720,10 +722,6 @@ public:
 	bool TryORRI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
 	bool TryEORI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
 
-	// ABI related
-	void ABI_PushRegisters(BitSet32 registers);
-	void ABI_PopRegisters(BitSet32 registers, BitSet32 ignore_mask = BitSet32(0));
-
 	// Pseudo-instruction for convenience. PUSH pushes 16 bytes even though we only push a single register.
 	// This is so the stack pointer is always 16-byte aligned, which is checked by hardware!
 	void PUSH(ARM64Reg Rd);
@@ -943,8 +941,8 @@ public:
 	void MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch = INVALID_REG);
 
 	// ABI related
-	void ABI_PushRegisters(BitSet32 registers, ARM64Reg tmp = INVALID_REG);
-	void ABI_PopRegisters(BitSet32 registers, ARM64Reg tmp = INVALID_REG);
+	void ABI_PushRegisters(uint32_t gpr_registers, uint32_t fp_registers);
+	void ABI_PopRegisters(uint32_t gpr_registers, uint32_t fp_registers);
 
 private:
 	ARM64XEmitter* m_emit;

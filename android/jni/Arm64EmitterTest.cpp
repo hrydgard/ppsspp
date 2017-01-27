@@ -39,10 +39,9 @@ void TestCode::Generate()
 
 	const u8 *start = AlignCode16();
 
-	BitSet32 regs_to_save(Arm64Gen::ALL_CALLEE_SAVED);
-	BitSet32 regs_to_save_fp(Arm64Gen::ALL_CALLEE_SAVED_FP);
-	ABI_PushRegisters(regs_to_save);
-	fp.ABI_PushRegisters(regs_to_save_fp);
+	uint32_t regs_to_save = Arm64Gen::ALL_CALLEE_SAVED;
+	uint32_t regs_to_save_fp = Arm64Gen::ALL_CALLEE_SAVED_FP;
+	fp.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
 
 	PUSH(X3);
 	POP(X3);
@@ -54,8 +53,7 @@ void TestCode::Generate()
 	fp.SCVTF(S3, W12);
 	MOVI2R(X0, 1337);
 
-	ABI_PopRegisters(regs_to_save);
-	fp.ABI_PopRegisters(regs_to_save_fp);
+	fp.ABI_PopRegisters(regs_to_save, regs_to_save_fp);
 
 	RET();
 
