@@ -737,6 +737,14 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	int internalFormat;
 	int format;
 	int type;
+
+	if (width != width_ || height != height_ || depth != depth_) {
+		// When switching to texStorage we need to handle this correctly.
+		width_ = width;
+		height_ = height;
+		depth_ = depth;
+	}
+
 	switch (format_) {
 	case DataFormat::R8G8B8A8_UNORM:
 		internalFormat = GL_RGBA;

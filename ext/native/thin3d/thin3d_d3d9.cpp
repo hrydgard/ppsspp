@@ -453,6 +453,7 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 	if (!tex_)
 		return;
 
+
 	if (level == 0) {
 		width_ = width;
 		height_ = height;
