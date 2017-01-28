@@ -229,17 +229,16 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 		sprintf(temp, "u_lightspecular%i", i);
 		u_lightspecular[i] = glGetUniformLocation(program, temp);
 	}
-	if (gstate_c.bezier || gstate_c.spline) {
-		u_tess_pos_tex = glGetUniformLocation(program, "u_tess_pos_tex");
-		u_tess_tex_tex = glGetUniformLocation(program, "u_tess_tex_tex");
-		u_tess_col_tex = glGetUniformLocation(program, "u_tess_col_tex");
-		u_spline_count_u = glGetUniformLocation(program, "u_spline_count_u");
-		if (gstate_c.spline) {
-			u_spline_count_v = glGetUniformLocation(program, "u_spline_count_v");
-			u_spline_type_u = glGetUniformLocation(program, "u_spline_type_u");
-			u_spline_type_v = glGetUniformLocation(program, "u_spline_type_v");
-		}
-	}
+
+	// We need to fetch these unconditionally, gstate_c.spline or bezier will not be set if we
+	// create this shader at load time from the shader cache.
+	u_tess_pos_tex = glGetUniformLocation(program, "u_tess_pos_tex");
+	u_tess_tex_tex = glGetUniformLocation(program, "u_tess_tex_tex");
+	u_tess_col_tex = glGetUniformLocation(program, "u_tess_col_tex");
+	u_spline_count_u = glGetUniformLocation(program, "u_spline_count_u");
+	u_spline_count_v = glGetUniformLocation(program, "u_spline_count_v");
+	u_spline_type_u = glGetUniformLocation(program, "u_spline_type_u");
+	u_spline_type_v = glGetUniformLocation(program, "u_spline_type_v");
 
 	attrMask = 0;
 	if (-1 != glGetAttribLocation(program, "position")) attrMask |= 1 << ATTR_POSITION;
@@ -293,14 +292,11 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 				u_lightpos[i] != -1)
 			availableUniforms |= DIRTY_LIGHT0 << i;
 	}
-	if (gstate_c.bezier) {
-		if (u_spline_count_u != -1) availableUniforms |= DIRTY_BEZIERCOUNTU;
-	} else if (gstate_c.spline) {
-		if (u_spline_count_u != -1) availableUniforms |= DIRTY_SPLINECOUNTU;
-		if (u_spline_count_v != -1) availableUniforms |= DIRTY_SPLINECOUNTV;
-		if (u_spline_type_u != -1) availableUniforms |= DIRTY_SPLINETYPEU;
-		if (u_spline_type_v != -1) availableUniforms |= DIRTY_SPLINETYPEV;
-	}
+	if (u_spline_count_u != -1) availableUniforms |= DIRTY_BEZIERCOUNTU;
+	if (u_spline_count_u != -1) availableUniforms |= DIRTY_SPLINECOUNTU;
+	if (u_spline_count_v != -1) availableUniforms |= DIRTY_SPLINECOUNTV;
+	if (u_spline_type_u != -1) availableUniforms |= DIRTY_SPLINETYPEU;
+	if (u_spline_type_v != -1) availableUniforms |= DIRTY_SPLINETYPEV;
 
 	glUseProgram(program);
 
@@ -308,11 +304,15 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 	glUniform1i(u_tex, 0);
 	glUniform1i(u_fbotex, 1);
 	glUniform1i(u_testtex, 2);
-	if (gstate_c.bezier || gstate_c.spline) {
+
+	
+	if (u_tess_pos_tex != -1)
 		glUniform1i(u_tess_pos_tex, 3); // Texture unit 3
+	if (u_tess_tex_tex != -1)
 		glUniform1i(u_tess_tex_tex, 4); // Texture unit 4
+	if (u_tess_col_tex != -1)
 		glUniform1i(u_tess_col_tex, 5); // Texture unit 5
-	}
+
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
 }
