@@ -45,11 +45,12 @@ void Compatibility::Clear() {
 }
 
 void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
-	CheckSetting(iniFile, gameID, "VertexDepthRounding", flags_.VertexDepthRounding);
-	CheckSetting(iniFile, gameID, "PixelDepthRounding", flags_.PixelDepthRounding);
-	CheckSetting(iniFile, gameID, "DepthRangeHack", flags_.DepthRangeHack);
+	CheckSetting(iniFile, gameID, "VertexDepthRounding", &flags_.VertexDepthRounding);
+	CheckSetting(iniFile, gameID, "PixelDepthRounding", &flags_.PixelDepthRounding);
+	CheckSetting(iniFile, gameID, "DepthRangeHack", &flags_.DepthRangeHack);
+	CheckSetting(iniFile, gameID, "ClearToRAM", &flags_.ClearToRAM);
 }
 
-void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool &flag) {
-	iniFile.Get(option, gameID.c_str(), &flag, flag);
+void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {
+	iniFile.Get(option, gameID.c_str(), flag, *flag);
 }

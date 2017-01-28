@@ -503,6 +503,10 @@ void GPU_DX9::CheckGPUFeatures() {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
 
+	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
+		features |= GPU_USE_CLEAR_RAM_HACK;
+	}
+
 	gstate_c.featureFlags = features;
 }
 

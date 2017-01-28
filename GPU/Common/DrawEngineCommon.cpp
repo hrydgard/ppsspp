@@ -140,6 +140,8 @@ void DrawEngineCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 cl
 		}
 
 		// This will most often be true - rarely is the width not aligned.
+		// TODO: We should really use non-temporal stores here to avoid the cache,
+		// as it's unlikely that these bytes will be read.
 		if ((width & 3) == 0 && (x1 & 3) == 0) {
 			u64 val64 = clearColor | ((u64)clearColor << 32);
 			int xstride = 2;
