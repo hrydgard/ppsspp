@@ -79,13 +79,12 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type) {
 	using namespace Draw;
 
-	int width[16], height[16];
-	uint8_t *image[16] = { nullptr };
+	int width[16]{}, height[16]{};
+	uint8_t *image[16]{};
 
-	int num_levels;
-	int zim_flags;
+	int num_levels = 0;
+	int zim_flags = 0;
 	DataFormat fmt;
-
 	if (!LoadTextureLevels(data, dataSize, type, width, height, &num_levels, &fmt, image, &zim_flags)) {
 		return false;
 	}
@@ -95,8 +94,10 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		num_levels = 1;
 	}
 
-	if (texture_)
+	if (texture_) {
 		delete texture_;
+		texture_ = nullptr;
+	}
 
 	TextureDesc desc{};
 	desc.type = TextureType::LINEAR2D;

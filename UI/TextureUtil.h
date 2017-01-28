@@ -21,6 +21,7 @@ public:
 	}
 	void GLLost() override {
 		delete texture_;
+		texture_ = nullptr;
 	}
 	void GLRestore() override {
 		if (!filename_.empty()) {
