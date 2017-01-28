@@ -4,6 +4,7 @@
 #include "Common/MemoryUtil.h"
 #include "Core/ThreadEventQueue.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 
 #if defined(__ANDROID__)
@@ -17,6 +18,13 @@ typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID
 class FramebufferManagerCommon;
 class TextureCacheCommon;
 class DrawEngineCommon;
+
+enum DrawType {
+	DRAW_UNKNOWN,
+	DRAW_PRIM,
+	DRAW_SPLINE,
+	DRAW_BEZIER,
+};
 
 class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface {
 public:
@@ -85,6 +93,11 @@ public:
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
+
+	void Execute_TexScaleU(u32 op, u32 diff);
+	void Execute_TexScaleV(u32 op, u32 diff);
+	void Execute_TexOffsetU(u32 op, u32 diff);
+	void Execute_TexOffsetV(u32 op, u32 diff);
 
 	void Execute_WorldMtxNum(u32 op, u32 diff);
 	void Execute_WorldMtxData(u32 op, u32 diff);
@@ -178,6 +191,13 @@ public:
 	}
 
 protected:
+	void SetDrawType(DrawType type) {
+		if (type != lastDraw_) {
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+			lastDraw_ = type;
+		}
+	}
+
 	virtual void InitClearInternal() {}
 	virtual void BeginFrameInternal() {}
 	virtual void CopyDisplayToOutputInternal() {}
@@ -262,6 +282,7 @@ protected:
 	bool dumpThisFrame_;
 	bool interruptsEnabled_;
 	bool resized_;
+	DrawType lastDraw_;
 
 private:
 

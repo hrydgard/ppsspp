@@ -87,15 +87,14 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE},
 	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE},
 
-	// Changes that dirty texture scaling.
-	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_UVSCALEOFFSET},
-	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_UVSCALEOFFSET, &GPU_GLES::Execute_TexScaleU},
-	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_UVSCALEOFFSET, &GPU_GLES::Execute_TexScaleV},
-	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_UVSCALEOFFSET, &GPU_GLES::Execute_TexOffsetU},
-	{GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_UVSCALEOFFSET, &GPU_GLES::Execute_TexOffsetV},
+	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE, 0},
+	{GE_CMD_TEXSCALEU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleU},
+	{GE_CMD_TEXSCALEV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleV},
+	{GE_CMD_TEXOFFSETU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetU},
+	{GE_CMD_TEXOFFSETV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetV},
 
 	// Changes that dirty the current texture.
-	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_GLES::Execute_TexSize0},
+	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, DIRTY_UVSCALEOFFSET, &GPU_GLES::Execute_TexSize0},
 	{GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS},
 	{GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS},
 	{GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS},
@@ -910,6 +909,8 @@ void GPU_GLES::Execute_Iaddr(u32 op, u32 diff) {
 }
 
 void GPU_GLES::Execute_Prim(u32 op, u32 diff) {
+	SetDrawType(DRAW_PRIM);
+
 	// This drives all drawing. All other state we just buffer up, then we apply it only
 	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
@@ -1000,6 +1001,8 @@ void GPU_GLES::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 }
 
 void GPU_GLES::Execute_Bezier(u32 op, u32 diff) {
+	SetDrawType(DRAW_BEZIER);
+
 	// This also make skipping drawing very effective.
 	framebufferManagerGL_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
@@ -1054,6 +1057,8 @@ void GPU_GLES::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
+	SetDrawType(DRAW_SPLINE);
+
 	// This also make skipping drawing very effective.
 	framebufferManagerGL_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
@@ -1122,35 +1127,13 @@ void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
 	AdvanceVerts(gstate.vertType, count, bytesRead);
 }
 
-void GPU_GLES::Execute_TexScaleU(u32 op, u32 diff) {
-	gstate_c.uv.uScale = getFloat24(op);
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-}
-
-void GPU_GLES::Execute_TexScaleV(u32 op, u32 diff) {
-	gstate_c.uv.vScale = getFloat24(op);
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-}
-
-void GPU_GLES::Execute_TexOffsetU(u32 op, u32 diff) {
-	gstate_c.uv.uOff = getFloat24(op);
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-}
-
-void GPU_GLES::Execute_TexOffsetV(u32 op, u32 diff) {
-	gstate_c.uv.vOff = getFloat24(op);
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-}
-
 void GPU_GLES::Execute_TexSize0(u32 op, u32 diff) {
 	// Render to texture may have overridden the width/height.
 	// Don't reset it unless the size is different / the texture has changed.
 	if (diff || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) {
 		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
 		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		// We will need to reset the texture now.
-		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_TEXTURE_PARAMS);
 	}
 }
 
