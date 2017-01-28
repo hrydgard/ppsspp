@@ -102,8 +102,10 @@ void __UmdDoState(PointerWrap &p)
 
 	if (s > 1) {
 		p.Do(UMDReplacePermit);
+#ifdef USING_WIN_UI
 		if (UMDReplacePermit)
-			MainWindow::ChangeMenu();
+			MainWindowMenu:MainWindow::_ChangeMenu();
+#endif
 	}
 	if (s > 2) {
 		p.Do(umdInsertChangeEvent);
@@ -538,7 +540,7 @@ static u32 sceUmdReplaceProhibit()
 	UMDReplacePermit = false;
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
 #ifdef USING_WIN_UI
-	MainWindow::ChangeMenu();
+	MainWindowMenu:MainWindow::_ChangeMenu();
 #endif
 	return 0;
 }
@@ -548,7 +550,7 @@ static u32 sceUmdReplacePermit()
 	UMDReplacePermit = true;
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
 #ifdef USING_WIN_UI
-	MainWindow::ChangeMenu();
+	MainWindowMenu:MainWindow::_ChangeMenu();
 #endif
 	return 0;
 }
