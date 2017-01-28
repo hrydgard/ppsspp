@@ -82,6 +82,8 @@ public:
 	bool PerformStencilUpload(u32 dest, int size) override;
 
 	void Execute_OffsetAddr(u32 op, u32 diff);
+	void Execute_Vaddr(u32 op, u32 diff);
+	void Execute_Iaddr(u32 op, u32 diff);
 	void Execute_Origin(u32 op, u32 diff);
 	void Execute_Jump(u32 op, u32 diff);
 	void Execute_BJump(u32 op, u32 diff);

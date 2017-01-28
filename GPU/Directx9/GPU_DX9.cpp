@@ -308,13 +308,13 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TRANSFERSIZE, 0},
 
 	// From Common. No flushing but definitely need execute.
-	{GE_CMD_OFFSETADDR, FLAG_EXECUTE, 0, &GPU_DX9::Execute_OffsetAddr},
-	{GE_CMD_ORIGIN, FLAG_EXECUTE | FLAG_READS_PC, 0, &GPU_DX9::Execute_Origin},  // Really?
+	{GE_CMD_OFFSETADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_OffsetAddr},
+	{GE_CMD_ORIGIN, FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_Origin},
 	{GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPU_DX9::Execute_Prim},
-	{GE_CMD_JUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_DX9::Execute_Jump},
-	{GE_CMD_CALL, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_DX9::Execute_Call},
-	{GE_CMD_RET, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_DX9::Execute_Ret},
-	{GE_CMD_END, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_DX9::Execute_End},
+	{GE_CMD_JUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Jump},
+	{GE_CMD_CALL, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Call},
+	{GE_CMD_RET, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Ret},
+	{GE_CMD_END, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_End},
 	{GE_CMD_VADDR, FLAG_EXECUTE, 0, &GPU_DX9::Execute_Vaddr},
 	{GE_CMD_IADDR, FLAG_EXECUTE, 0, &GPU_DX9::Execute_Iaddr},
 	{GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_DX9::Execute_BJump},  // EXECUTE
@@ -706,14 +706,6 @@ void GPU_DX9::ExecuteOp(u32 op, u32 diff) {
 		if (dirty)
 			gstate_c.Dirty(dirty);
 	}
-}
-
-void GPU_DX9::Execute_Vaddr(u32 op, u32 diff) {
-	gstate_c.vertexAddr = gstate_c.getRelativeAddress(op & 0x00FFFFFF);
-}
-
-void GPU_DX9::Execute_Iaddr(u32 op, u32 diff) {
-	gstate_c.indexAddr = gstate_c.getRelativeAddress(op & 0x00FFFFFF);
 }
 
 void GPU_DX9::Execute_VertexType(u32 op, u32 diff) {

@@ -315,8 +315,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CALL, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Call},
 	{GE_CMD_RET, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Ret},
 	{GE_CMD_END, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_End},  // Flush?
-	{GE_CMD_VADDR, FLAG_EXECUTE, 0, &GPU_GLES::Execute_Vaddr},
-	{GE_CMD_IADDR, FLAG_EXECUTE, 0, &GPU_GLES::Execute_Iaddr},
+	{GE_CMD_VADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_Vaddr},
+	{GE_CMD_IADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_Iaddr},
 	{GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BJump},  // EXECUTE
 	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPU_GLES::Execute_BoundingBox}, // + FLUSHBEFORE when we implement... or not, do we need to?
 
@@ -341,16 +341,16 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_DITH3},
 
 	// These handle their own flushing.
-	{GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_GLES::Execute_WorldMtxNum},
-	{GE_CMD_WORLDMATRIXDATA,   FLAG_EXECUTE, 0, &GPU_GLES::Execute_WorldMtxData},
-	{GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_GLES::Execute_ViewMtxNum},
-	{GE_CMD_VIEWMATRIXDATA,    FLAG_EXECUTE, 0, &GPU_GLES::Execute_ViewMtxData},
-	{GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_GLES::Execute_ProjMtxNum},
-	{GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE, 0, &GPU_GLES::Execute_ProjMtxData},
-	{GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_GLES::Execute_TgenMtxNum},
-	{GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE, 0, &GPU_GLES::Execute_TgenMtxData},
-	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_GLES::Execute_BoneMtxNum},
-	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &GPU_GLES::Execute_BoneMtxData},
+	{GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_WorldMtxNum},
+	{GE_CMD_WORLDMATRIXDATA,   FLAG_EXECUTE, 0, &GPUCommon::Execute_WorldMtxData},
+	{GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_ViewMtxNum},
+	{GE_CMD_VIEWMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_ViewMtxData},
+	{GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_ProjMtxNum},
+	{GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_ProjMtxData},
+	{GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_TgenMtxNum},
+	{GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_TgenMtxData},
+	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BoneMtxNum},
+	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_BoneMtxData},
 
 	// Vertex Screen/Texture/Color
 	{GE_CMD_VSCX, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
@@ -898,14 +898,6 @@ void GPU_GLES::ExecuteOp(u32 op, u32 diff) {
 		if (dirty)
 			gstate_c.Dirty(dirty);
 	}
-}
-
-void GPU_GLES::Execute_Vaddr(u32 op, u32 diff) {
-	gstate_c.vertexAddr = gstate_c.getRelativeAddress(op & 0x00FFFFFF);
-}
-
-void GPU_GLES::Execute_Iaddr(u32 op, u32 diff) {
-	gstate_c.indexAddr = gstate_c.getRelativeAddress(op & 0x00FFFFFF);
 }
 
 void GPU_GLES::Execute_Prim(u32 op, u32 diff) {

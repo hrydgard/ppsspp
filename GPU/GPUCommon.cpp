@@ -836,6 +836,14 @@ void GPUCommon::Execute_OffsetAddr(u32 op, u32 diff) {
 	gstate_c.offsetAddr = op << 8;
 }
 
+void GPUCommon::Execute_Vaddr(u32 op, u32 diff) {
+	gstate_c.vertexAddr = gstate_c.getRelativeAddress(op & 0x00FFFFFF);
+}
+
+void GPUCommon::Execute_Iaddr(u32 op, u32 diff) {
+	gstate_c.indexAddr = gstate_c.getRelativeAddress(op & 0x00FFFFFF);
+}
+
 void GPUCommon::Execute_Origin(u32 op, u32 diff) {
 	easy_guard guard(listLock);
 	gstate_c.offsetAddr = currentList->pc;

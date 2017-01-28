@@ -73,8 +73,6 @@ public:
 		GPU_Vulkan::CmdFunc func;
 	};
 	
-	void Execute_Vaddr(u32 op, u32 diff);
-	void Execute_Iaddr(u32 op, u32 diff);
 	void Execute_Prim(u32 op, u32 diff);
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
