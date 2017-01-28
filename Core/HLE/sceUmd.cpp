@@ -55,7 +55,7 @@ static std::vector<SceUID> umdWaitingThreads;
 static std::map<SceUID, u64> umdPausedWaits;
 
 bool UMDReplacePermit = false;
-bool UMD_insterted = true;
+bool UMDInserted = true;
 
 struct PspUmdInfo {
 	u32_le size;
@@ -230,7 +230,7 @@ void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 
 static int sceUmdCheckMedium()
 {
-	if (UMD_insterted) {
+	if (UMDInserted) {
 		DEBUG_LOG(SCEIO, "1=sceUmdCheckMedium()");
 		return 1; //non-zero: disc in drive
 	}
@@ -504,9 +504,9 @@ void __UmdReplace(std::string filepath) {
 		}
 	}
 	delete currentUMD;
-	UMD_insterted = false;
+	UMDInserted = false;
 	sleep_ms(200); // Wait sceUmdCheckMedium call
-	UMD_insterted = true;
+	UMDInserted = true;
 	// TODO Is this always correct if UMD was not activated?
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != -1)
