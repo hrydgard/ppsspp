@@ -38,6 +38,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
+#include "base/timeutil.h"
 #ifdef USING_WIN_UI
 #include "Windows/MainWindowMenu.h"
 #endif
@@ -504,7 +505,7 @@ void __UmdReplace(std::string filepath) {
 	}
 	delete currentUMD;
 	UMD_insterted = false;
-	Sleep(200); // Wait sceUmdCheckMedium call
+	sleep_ms(200); // Wait sceUmdCheckMedium call
 	UMD_insterted = true;
 	// TODO Is this always correct if UMD was not activated?
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
