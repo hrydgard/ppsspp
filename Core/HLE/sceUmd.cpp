@@ -85,7 +85,7 @@ void __UmdInit()
 
 void __UmdDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceUmd", 1, 2);
+	auto s = p.Section("sceUmd", 1, 3);
 	if (!s)
 		return;
 
@@ -100,8 +100,18 @@ void __UmdDoState(PointerWrap &p)
 	p.Do(umdWaitingThreads);
 	p.Do(umdPausedWaits);
 
-	if (s > 1)
+	if (s > 1) {
 		p.Do(UMDReplacePermit);
+		if (UMDReplacePermit)
+			MainWindow::ChangeMenu();
+	}
+	if (s > 2) {
+		p.Do(umdInsertChangeEvent);
+		CoreTiming::RestoreRegisterEvent(umdInsertChangeEvent, "UmdInsertChange", __UmdInsertChange);
+		p.Do(UMDInserted);
+	}
+	else
+		UMDInserted = true;
 }
 
 static u8 __KernelUmdGetState()
