@@ -576,7 +576,7 @@ void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u
 	SetRenderSize(vfb);
 
 	bool trueColor = g_Config.bTrueColor;
-	if (hackForce04154000Download_ && vfb->fb_address == 0x00154000) {
+	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) {
 		trueColor = true;
 	}
 

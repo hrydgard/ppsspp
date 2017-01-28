@@ -115,7 +115,6 @@ FramebufferManagerCommon::FramebufferManagerCommon() :
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
 	postShaderIsUpscalingFilter_(false),
-	hackForce04154000Download_(false),
 	gameUsesSequentialCopies_(false) {
 	UpdateSize();
 }
@@ -125,13 +124,6 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 
 void FramebufferManagerCommon::Init() {
 	const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
-	// This applies a hack to Dangan Ronpa, its demo, and its sequel.
-	// The game draws solid colors to a small framebuffer, and then reads this directly in VRAM.
-	// We force this framebuffer to 1x and force download it automatically.
-	hackForce04154000Download_ = gameId == "NPJH50631" || gameId == "NPJH50372" || gameId == "NPJH90164" || gameId == "NPJH50515";
-	// Let's also apply to Me & My Katamari.
-	hackForce04154000Download_ = hackForce04154000Download_ || gameId == "ULUS10094" || gameId == "ULES00339" || gameId == "ULJS00033" || gameId == "UCKS45022" || gameId == "ULJS19009" || gameId == "NPJH50141";
-
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
 	ClearBuffer();
@@ -183,7 +175,7 @@ u32 FramebufferManagerCommon::FramebufferByteSize(const VirtualFramebuffer *vfb)
 }
 
 bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const {
-	return updateVRAM_ || (hackForce04154000Download_ && vfb->fb_address == 0x00154000);
+	return updateVRAM_ || (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000);
 }
 
 // Heuristics to figure out the size of FBO to create.
@@ -375,7 +367,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	float renderWidthFactor = renderWidth_ / 480.0f;
 	float renderHeightFactor = renderHeight_ / 272.0f;
 
-	if (hackForce04154000Download_ && params.fb_address == 0x00154000) {
+	if (PSP_CoreParameter().compat.flags().Force04154000Download && params.fb_address == 0x00154000) {
 		renderWidthFactor = 1.0;
 		renderHeightFactor = 1.0;
 	}
@@ -984,7 +976,7 @@ void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
 		break;
 	}
 
-	if (hackForce04154000Download_ && vfb->fb_address == 0x00154000) {
+	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) {
 		force1x = true;
 	}
 

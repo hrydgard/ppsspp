@@ -306,7 +306,6 @@ protected:
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
-	bool hackForce04154000Download_;
 	bool gameUsesSequentialCopies_;
 
 	// Sampled in BeginFrame for safety.

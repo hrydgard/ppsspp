@@ -49,6 +49,7 @@ struct CompatFlags {
 	bool PixelDepthRounding;
 	bool DepthRangeHack;
 	bool ClearToRAM;
+	bool Force04154000Download;
 };
 
 class IniFile;
