@@ -67,7 +67,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 		{
 			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
 			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
-			{ 0, SEM_COLOR0, DataFormat::R32G32B32_FLOAT, 20 },
+			{ 0, SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
 		},
 	};
 
@@ -151,14 +151,13 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	} else {
 		sampler = samplerLinear;
 	}
-	thin3d->BindSamplerStates(0, 1, &sampler);
 	thin3d->SetScissorRect(0, 0, dstwidth, dstheight);
 
 	float u0 = 0.0f;
 	float u1;
+	bool hasImage = true;
 	if (!Memory::IsValidAddress(displayFramebuf_)) {
-		u8 data[] = {0, 0, 0, 0};
-		fbTex->SetImageData(0, 0, 0, 1, 1, 1, 0, 4, data);
+		hasImage = false;
 		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
 		u8 *data = Memory::GetPointer(displayFramebuf_);
@@ -220,38 +219,44 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		uint32_t rgba;
 	};
 
-	float v0 = 1.0f;
-	float v1 = 0.0f;
+	if (hasImage) {
+		float v0 = 1.0f;
+		float v1 = 0.0f;
 
-	if (GetGPUBackend() == GPUBackend::VULKAN) {
-		std::swap(v0, v1);
+		if (GetGPUBackend() == GPUBackend::VULKAN) {
+			std::swap(v0, v1);
+		}
+
+		thin3d->BindSamplerStates(0, 1, &sampler);
+
+		const Vertex verts[4] = {
+			{ x, y, 0,    u0, v0,  0xFFFFFFFF }, // TL
+			{ x, y2, 0,   u0, v1,  0xFFFFFFFF }, // BL
+			{ x2, y2, 0,  u1, v1,  0xFFFFFFFF }, // BR
+			{ x2, y, 0,   u1, v0,  0xFFFFFFFF }, // TR
+		};
+		vdata->SetData((const uint8_t *)verts, sizeof(verts));
+
+		int indexes[] = { 0, 1, 2, 0, 2, 3 };
+		idata->SetData((const uint8_t *)indexes, sizeof(indexes));
+
+		thin3d->BindTexture(0, fbTex);
+
+		static const float identity4x4[16] = {
+			1.0f, 0.0f, 0.0f, 0.0f,
+			0.0f, 1.0f, 0.0f, 0.0f,
+			0.0f, 0.0f, 1.0f, 0.0f,
+			0.0f, 0.0f, 0.0f, 1.0f,
+		};
+
+		texColor->SetMatrix4x4("WorldViewProj", identity4x4);
+		thin3d->BindPipeline(texColor);
+		thin3d->BindVertexBuffers(0, 1, &vdata, nullptr);
+		thin3d->BindIndexBuffer(idata, 0);
+		thin3d->DrawIndexed(6, 0);
+	} else {
+		thin3d->Clear(Draw::COLOR, 0, 0, 0);
 	}
-
-	const Vertex verts[4] = {
-		{x, y, 0,    u0, v0,  0xFFFFFFFF}, // TL
-		{x, y2, 0,   u0, v1,  0xFFFFFFFF}, // BL
-		{x2, y2, 0,  u1, v1,  0xFFFFFFFF}, // BR
-		{x2, y, 0,   u1, v0,  0xFFFFFFFF}, // TR
-	};
-	vdata->SetData((const uint8_t *)verts, sizeof(verts));
-
-	int indexes[] = {0, 1, 2, 0, 2, 3};
-	idata->SetData((const uint8_t *)indexes, sizeof(indexes));
-
-	thin3d->BindTexture(0, fbTex);
-
-	static const float identity4x4[16] = {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f,
-	};
-
-	texColor->SetMatrix4x4("WorldViewProj", identity4x4);
-	thin3d->BindPipeline(texColor);
-	thin3d->BindVertexBuffers(0, 1, &vdata, nullptr);
-	thin3d->BindIndexBuffer(idata, 0);
-	thin3d->DrawIndexed(6, 0);
 }
 
 void SoftGPU::CopyDisplayToOutput()
