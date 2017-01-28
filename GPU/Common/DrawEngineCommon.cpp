@@ -124,7 +124,7 @@ void DrawEngineCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 cl
 	const int width = x2 - x1;
 
 	// Simple, but often alpha is different and gums up the works.
-	if (singleByteClear) {
+	if (singleByteClear && (bpp == 4 || clearColor == 0)) {
 		const int byteStride = stride * bpp;
 		const int byteWidth = width * bpp;
 		addr += x1 * bpp;
