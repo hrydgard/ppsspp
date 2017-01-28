@@ -85,10 +85,10 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that dirty texture scaling.
 	{ GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_UVSCALEOFFSET },
-	{ GE_CMD_TEXSCALEU, FLAG_EXECUTEONCHANGE, DIRTY_UVSCALEOFFSET, &GPU_Vulkan::Execute_TexScaleU },
-	{ GE_CMD_TEXSCALEV, FLAG_EXECUTEONCHANGE, DIRTY_UVSCALEOFFSET, &GPU_Vulkan::Execute_TexScaleV },
-	{ GE_CMD_TEXOFFSETU, FLAG_EXECUTEONCHANGE, DIRTY_UVSCALEOFFSET, &GPU_Vulkan::Execute_TexOffsetU },
-	{ GE_CMD_TEXOFFSETV, FLAG_EXECUTEONCHANGE, DIRTY_UVSCALEOFFSET, &GPU_Vulkan::Execute_TexOffsetV },
+	{ GE_CMD_TEXSCALEU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleU },
+	{ GE_CMD_TEXSCALEV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleV },
+	{ GE_CMD_TEXOFFSETU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetU },
+	{ GE_CMD_TEXOFFSETV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetV },
 
 	// Changes that dirty the current texture.
 	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_TexSize0 },
@@ -767,6 +767,8 @@ void GPU_Vulkan::Execute_Iaddr(u32 op, u32 diff) {
 }
 
 void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
+	SetDrawType(DRAW_PRIM);
+
 	// This drives all drawing. All other state we just buffer up, then we apply it only
 	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
@@ -840,6 +842,8 @@ void GPU_Vulkan::Execute_VertexType(u32 op, u32 diff) {
 }
 
 void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
+	SetDrawType(DRAW_BEZIER);
+
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -883,6 +887,8 @@ void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPU_Vulkan::Execute_Spline(u32 op, u32 diff) {
+	SetDrawType(DRAW_SPLINE);
+
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -926,26 +932,6 @@ void GPU_Vulkan::Execute_Spline(u32 op, u32 diff) {
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = sp_ucount * sp_vcount;
 	AdvanceVerts(gstate.vertType, count, bytesRead);
-}
-
-void GPU_Vulkan::Execute_TexScaleU(u32 op, u32 diff) {
-	gstate_c.uv.uScale = getFloat24(op);
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-}
-
-void GPU_Vulkan::Execute_TexScaleV(u32 op, u32 diff) {
-	gstate_c.uv.vScale = getFloat24(op);
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-}
-
-void GPU_Vulkan::Execute_TexOffsetU(u32 op, u32 diff) {
-	gstate_c.uv.uOff = getFloat24(op);
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-}
-
-void GPU_Vulkan::Execute_TexOffsetV(u32 op, u32 diff) {
-	gstate_c.uv.vOff = getFloat24(op);
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 }
 
 void GPU_Vulkan::Execute_TexSize0(u32 op, u32 diff) {

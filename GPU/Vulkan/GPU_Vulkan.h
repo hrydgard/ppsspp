@@ -79,10 +79,6 @@ public:
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_VertexType(u32 op, u32 diff);
-	void Execute_TexScaleU(u32 op, u32 diff);
-	void Execute_TexScaleV(u32 op, u32 diff);
-	void Execute_TexOffsetU(u32 op, u32 diff);
-	void Execute_TexOffsetV(u32 op, u32 diff);
 	void Execute_TexSize0(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
 	void Execute_BoneMtxNum(u32 op, u32 diff);
