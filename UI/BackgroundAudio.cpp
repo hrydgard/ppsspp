@@ -169,15 +169,22 @@ static AT3PlusReader *at3Reader;
 static double gameLastChanged;
 static double lastPlaybackTime;
 static int buffer[44100];
+static bool fadingOut = true;
+static float volume;
+static float delta = -0.0001f;
 
-static void ClearBackgroundAudio() {
+static void ClearBackgroundAudio(bool hard) {
+	if (!hard) {
+		fadingOut = true;
+		volume = 1.0f;
+		return;
+	}
 	if (at3Reader) {
 		at3Reader->Shutdown();
 		delete at3Reader;
-		at3Reader = 0;
+		at3Reader = nullptr;
 	}
 	playbackOffset = 0;
-	gameLastChanged = 0;
 }
 
 void SetBackgroundAudioGame(const std::string &path) {
@@ -189,8 +196,15 @@ void SetBackgroundAudioGame(const std::string &path) {
 		return;
 	}
 
-	ClearBackgroundAudio();
-	gameLastChanged = time_now_d();
+	if (path.size() == 0) {
+		ClearBackgroundAudio(false);
+		fadingOut = true;
+	} else {
+		ClearBackgroundAudio(true);
+		gameLastChanged = time_now_d();
+		fadingOut = false;
+	}
+	volume = 1.0f;
 	bgGamePath = path;
 }
 
@@ -201,7 +215,7 @@ int PlayBackgroundAudio() {
 
 	// Immediately stop the sound if it is turned off while playing.
 	if (!g_Config.bEnableSound) {
-		ClearBackgroundAudio();
+		ClearBackgroundAudio(true);
 		__PushExternalAudio(0, 0);
 		return 0;
 	}
@@ -234,8 +248,23 @@ int PlayBackgroundAudio() {
 		int sz = lastPlaybackTime <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime) * 44100);
 		sz = std::min((int)ARRAY_SIZE(buffer) / 2, sz);
 		if (sz >= 16) {
-			if (at3Reader->Read(buffer, sz))
-				__PushExternalAudio(buffer, sz);
+			if (at3Reader->Read(buffer, sz)) {
+				if (!fadingOut) {
+					__PushExternalAudio(buffer, sz);
+				} else {
+					for (int i = 0; i < sz*2; i += 2) {
+						buffer[i] *= volume;
+						buffer[i + 1] *= volume;
+						volume += delta;
+					}
+					__PushExternalAudio(buffer, sz);
+					if (volume <= 0.0f) {
+						ClearBackgroundAudio(true);
+						fadingOut = false;
+						gameLastChanged = 0;
+					}
+				}
+			}
 			lastPlaybackTime = now;
 		}
 	} else {

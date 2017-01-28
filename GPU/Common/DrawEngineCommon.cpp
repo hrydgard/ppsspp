@@ -190,7 +190,6 @@ bool DrawEngineCommon::TestBoundingBox(void* control_points, int vertexCount, u3
 	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
 	// and a large vertex format.
 	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {
-		// memcpy(verts, control_points, 12 * vertexCount);
 		verts = (float *)control_points;
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT) {
 		const s8 *vtx = (const s8 *)control_points;
@@ -440,8 +439,8 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 			if (vertType & GE_VTYPE_TC_MASK) {
 				reader.ReadUV(sv.uv);
 			} else {
-				sv.uv[0] = 0;  // This will get filled in during tesselation
-				sv.uv[1] = 0;
+				sv.uv[0] = 0.0f;  // This will get filled in during tesselation
+				sv.uv[1] = 0.0f;
 			}
 			if (vertType & GE_VTYPE_COL_MASK) {
 				reader.ReadColor0_8888(sv.color);
@@ -452,8 +451,8 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 				// Normals are generated during tesselation anyway, not sure if any need to supply
 				reader.ReadNrm((float *)&sv.nrm);
 			} else {
-				sv.nrm.x = 0;
-				sv.nrm.y = 0;
+				sv.nrm.x = 0.0f;
+				sv.nrm.y = 0.0f;
 				sv.nrm.z = 1.0f;
 			}
 			reader.ReadPos((float *)&sv.pos);
