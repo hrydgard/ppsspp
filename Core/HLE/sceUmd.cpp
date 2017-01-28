@@ -38,7 +38,6 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
-#include "base/timeutil.h"
 #ifdef USING_WIN_UI
 #include "Windows/MainWindowMenu.h"
 #endif
@@ -51,6 +50,7 @@ static u32 umdErrorStat = 0;
 static int driveCBId = 0;
 static int umdStatTimeoutEvent = -1;
 static int umdStatChangeEvent = -1;
+static int umdInsertChangeEvent = -1;
 static std::vector<SceUID> umdWaitingThreads;
 static std::map<SceUID, u64> umdPausedWaits;
 
@@ -64,6 +64,7 @@ struct PspUmdInfo {
 
 void __UmdStatTimeout(u64 userdata, int cyclesLate);
 void __UmdStatChange(u64 userdata, int cyclesLate);
+void __UmdInsertChange(u64 userdata, int cyclesLate);
 void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId);
 
@@ -71,6 +72,7 @@ void __UmdInit()
 {
 	umdStatTimeoutEvent = CoreTiming::RegisterEvent("UmdTimeout", __UmdStatTimeout);
 	umdStatChangeEvent = CoreTiming::RegisterEvent("UmdChange", __UmdStatChange);
+	umdInsertChangeEvent = CoreTiming::RegisterEvent("UmdInsertChange", __UmdInsertChange);
 	umdActivated = 1;
 	umdStatus = 0;
 	umdErrorStat = 0;
@@ -111,6 +113,11 @@ static u8 __KernelUmdGetState()
 		state |= PSP_UMD_READABLE;
 	}
 	return state;
+}
+
+void __UmdInsertChange(u64 userdata, int cyclesLate)
+{
+	UMDInserted = true;
 }
 
 void __UmdStatChange(u64 userdata, int cyclesLate)
@@ -505,8 +512,7 @@ void __UmdReplace(std::string filepath) {
 	}
 	delete currentUMD;
 	UMDInserted = false;
-	sleep_ms(200); // Wait sceUmdCheckMedium call
-	UMDInserted = true;
+	CoreTiming::ScheduleEvent(usToCycles(200*1000), umdInsertChangeEvent, 0); // Wait sceUmdCheckMedium call
 	// TODO Is this always correct if UMD was not activated?
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != -1)
