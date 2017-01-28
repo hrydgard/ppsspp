@@ -720,14 +720,15 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_PROJMATRIXNUMBER:
-		gstate.projmtxnum = data & 0xF;
+		gstate.projmtxnum = data & 0x1F;
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
 		{
-			int num = gstate.projmtxnum & 0xF;
+			int num = gstate.projmtxnum & 0x1F; // NOTE: Changed from 0xF to catch overflows
 			gstate.projMatrix[num] = getFloat24(data);
-			gstate.projmtxnum = (++num) & 0xF;
+			if (num <= 16)
+				gstate.projmtxnum = (++num) & 0x1F;
 		}
 		break;
 

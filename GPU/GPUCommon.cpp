@@ -1332,7 +1332,7 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 	}
 
 	const int count = i;
-	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0xF);
+	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0x1F);
 
 	// Skip over the loaded data, it's done now.
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
@@ -1341,15 +1341,16 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 
 void GPUCommon::Execute_ProjMtxData(u32 op, u32 diff) {
 	// Note: it's uncommon to get here now, see above.
-	int num = gstate.projmtxnum & 0xF;
+	int num = gstate.projmtxnum & 0x1F;    // NOTE: Changed from 0xF to catch overflows
 	u32 newVal = op << 8;
-	if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
+	if (num < 0x10 && newVal != ((const u32 *)gstate.projMatrix)[num]) {
 		Flush();
 		((u32 *)gstate.projMatrix)[num] = newVal;
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
 	num++;
-	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
+	if (num <= 16)
+		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
 }
 
 void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
