@@ -38,6 +38,9 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
+#ifdef USING_WIN_UI
+#include "Windows/MainWindowMenu.h"
+#endif
 
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 
@@ -51,6 +54,7 @@ static std::vector<SceUID> umdWaitingThreads;
 static std::map<SceUID, u64> umdPausedWaits;
 
 bool UMDReplacePermit = false;
+bool UMD_insterted = true;
 
 struct PspUmdInfo {
 	u32_le size;
@@ -225,8 +229,12 @@ void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 
 static int sceUmdCheckMedium()
 {
-	DEBUG_LOG(SCEIO, "1=sceUmdCheckMedium()");
-	return 1; //non-zero: disc in drive
+	if (UMD_insterted) {
+		DEBUG_LOG(SCEIO, "1=sceUmdCheckMedium()");
+		return 1; //non-zero: disc in drive
+	}
+	DEBUG_LOG(SCEIO, "0=sceUmdCheckMedium()");
+	return 0;
 }
 	
 static u32 sceUmdGetDiscInfo(u32 infoAddr)
@@ -495,7 +503,9 @@ void __UmdReplace(std::string filepath) {
 		}
 	}
 	delete currentUMD;
-
+	UMD_insterted = false;
+	Sleep(200); // Wait sceUmdCheckMedium call
+	UMD_insterted = true;
 	// TODO Is this always correct if UMD was not activated?
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != -1)
@@ -510,6 +520,9 @@ static u32 sceUmdReplaceProhibit()
 {
 	UMDReplacePermit = false;
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
+#ifdef USING_WIN_UI
+	MainWindow::ChangeMenu();
+#endif
 	return 0;
 }
 
@@ -517,6 +530,9 @@ static u32 sceUmdReplacePermit()
 {
 	UMDReplacePermit = true;
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
+#ifdef USING_WIN_UI
+	MainWindow::ChangeMenu();
+#endif
 	return 0;
 }
 
