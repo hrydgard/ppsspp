@@ -26,9 +26,27 @@
 class IndexGenerator {
 public:
 	void Setup(u16 *indexptr);
-	void Reset();
-	static bool PrimCompatible(int prim1, int prim2);
-	bool PrimCompatible(int prim) const;
+	void Reset() {
+		prim_ = GE_PRIM_INVALID;
+		count_ = 0;
+		index_ = 0;
+		seenPrims_ = 0;
+		pureCount_ = 0;
+		this->inds_ = indsBase_;
+	}
+
+	bool PrimCompatible(int prim1, int prim2) {
+		if (prim1 == GE_PRIM_INVALID || prim2 == GE_PRIM_KEEP_PREVIOUS)
+			return true;
+		return indexedPrimitiveType[prim1] == indexedPrimitiveType[prim2];
+	}
+
+	bool PrimCompatible(int prim) const {
+		if (prim_ == GE_PRIM_INVALID || prim == GE_PRIM_KEEP_PREVIOUS)
+			return true;
+		return indexedPrimitiveType[prim] == prim_;
+	}
+
 	GEPrimitiveType Prim() const { return prim_; }
 
 	void AddPrim(int prim, int vertexCount);
@@ -97,5 +115,7 @@ private:
 	int pureCount_;
 	GEPrimitiveType prim_;
 	int seenPrims_;
+
+	static const u8 indexedPrimitiveType[7];
 };
 

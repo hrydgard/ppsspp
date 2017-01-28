@@ -20,7 +20,7 @@
 #include "Common/Common.h"
 
 // Points don't need indexing...
-static const u8 indexedPrimitiveType[7] = {
+const u8 IndexGenerator::indexedPrimitiveType[7] = {
 	GE_PRIM_POINTS,
 	GE_PRIM_LINES,
 	GE_PRIM_LINES,
@@ -29,27 +29,6 @@ static const u8 indexedPrimitiveType[7] = {
 	GE_PRIM_TRIANGLES,
 	GE_PRIM_RECTANGLES,
 };
-
-void IndexGenerator::Reset() {
-	prim_ = GE_PRIM_INVALID;
-	count_ = 0;
-	index_ = 0;
-	seenPrims_ = 0;
-	pureCount_ = 0;
-	this->inds_ = indsBase_;
-}
-
-bool IndexGenerator::PrimCompatible(int prim1, int prim2) {
-	if (prim1 == GE_PRIM_INVALID || prim2 == GE_PRIM_KEEP_PREVIOUS)
-		return true;
-	return indexedPrimitiveType[prim1] == indexedPrimitiveType[prim2];
-}
-
-bool IndexGenerator::PrimCompatible(int prim) const {
-	if (prim_ == GE_PRIM_INVALID || prim == GE_PRIM_KEEP_PREVIOUS)
-		return true;
-	return indexedPrimitiveType[prim] == prim_;
-}
 
 void IndexGenerator::Setup(u16 *inds) {
 	this->indsBase_ = inds;
