@@ -858,6 +858,7 @@ namespace MainWindow
 			break;
 
 		case WM_USER_UPDATE_UI:
+			// This also calls ChangeMenu
 			TranslateMenus(hwndMain, menu);
 			break;
 

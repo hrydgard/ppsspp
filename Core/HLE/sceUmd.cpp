@@ -23,6 +23,7 @@
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
+#include "Core/Host.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
@@ -38,9 +39,6 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
-#ifdef USING_WIN_UI
-#include "Windows/MainWindowMenu.h"
-#endif
 
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 
@@ -102,10 +100,8 @@ void __UmdDoState(PointerWrap &p)
 
 	if (s > 1) {
 		p.Do(UMDReplacePermit);
-#ifdef USING_WIN_UI
 		if (UMDReplacePermit)
-			MainWindowMenu:MainWindow::_ChangeMenu();
-#endif
+			host->UpdateUI();
 	}
 	if (s > 2) {
 		p.Do(umdInsertChangeEvent);
@@ -539,9 +535,7 @@ static u32 sceUmdReplaceProhibit()
 {
 	UMDReplacePermit = false;
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
-#ifdef USING_WIN_UI
-	MainWindowMenu:MainWindow::_ChangeMenu();
-#endif
+	host->UpdateUI();
 	return 0;
 }
 
@@ -549,9 +543,7 @@ static u32 sceUmdReplacePermit()
 {
 	UMDReplacePermit = true;
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
-#ifdef USING_WIN_UI
-	MainWindowMenu:MainWindow::_ChangeMenu();
-#endif
+	host->UpdateUI();
 	return 0;
 }
 
