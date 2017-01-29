@@ -656,6 +656,8 @@ void VertexDecoderJitCache::Jit_TcU8ToFloat() {
 		VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 16-bit
 		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
 		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+		VMOV_neon(F_32, neonScratchReg2, by128);
+		VMUL(F_32, neonScratchReg, neonScratchReg, neonScratchReg2);
 		ADD(scratchReg2, dstReg, dec_->decFmt.uvoff);
 		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);
 	} else {
@@ -665,6 +667,9 @@ void VertexDecoderJitCache::Jit_TcU8ToFloat() {
 		VMOV(fpScratchReg2, tempReg2);
 		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
 		VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+		MOVI2F(S15, by128, scratchReg);
+		VMUL(fpScratchReg, fpScratchReg, S15);
+		VMUL(fpScratchReg2, fpScratchReg2, S15);
 		VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
 		VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
 	}
@@ -705,6 +710,8 @@ void VertexDecoderJitCache::Jit_TcU16ToFloat() {
 		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
 		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 		ADD(scratchReg2, dstReg, dec_->decFmt.uvoff);
+		VMOV_neon(F_32, neonScratchReg2, by32768);
+		VMUL(F_32, neonScratchReg, neonScratchReg, neonScratchReg2);
 		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);
 	} else {
 		LDRH(tempReg1, srcReg, dec_->tcoff);
@@ -713,6 +720,9 @@ void VertexDecoderJitCache::Jit_TcU16ToFloat() {
 		VMOV(fpScratchReg2, tempReg2);
 		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
 		VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+		MOVI2F(S15, by32768, scratchReg);
+		VMUL(fpScratchReg, fpScratchReg, S15);
+		VMUL(fpScratchReg2, fpScratchReg2, S15);
 		VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
 		VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
 	}

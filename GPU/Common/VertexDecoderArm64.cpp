@@ -637,14 +637,14 @@ void VertexDecoderJitCache::Jit_TcU8ToFloat() {
 	fp.LDUR(16, neonScratchRegD, srcReg, dec_->tcoff);
 	fp.UXTL(8, neonScratchRegQ, neonScratchRegD); // Widen to 16-bit
 	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
-	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
+	fp.UCVTF(32, neonScratchRegD, neonScratchRegD, 7);
 	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
 	fp.LDUR(32, neonScratchRegD, srcReg, dec_->tcoff);
 	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
-	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
+	fp.UCVTF(32, neonScratchRegD, neonScratchRegD, 15);
 	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
 	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
 	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
