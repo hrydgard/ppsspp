@@ -38,6 +38,9 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
+#ifdef USING_WIN_UI
+#include "Windows/MainWindowMenu.h"
+#endif
 
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 
@@ -47,10 +50,12 @@ static u32 umdErrorStat = 0;
 static int driveCBId = 0;
 static int umdStatTimeoutEvent = -1;
 static int umdStatChangeEvent = -1;
+static int umdInsertChangeEvent = -1;
 static std::vector<SceUID> umdWaitingThreads;
 static std::map<SceUID, u64> umdPausedWaits;
 
 bool UMDReplacePermit = false;
+bool UMDInserted = true;
 
 struct PspUmdInfo {
 	u32_le size;
@@ -59,6 +64,7 @@ struct PspUmdInfo {
 
 void __UmdStatTimeout(u64 userdata, int cyclesLate);
 void __UmdStatChange(u64 userdata, int cyclesLate);
+void __UmdInsertChange(u64 userdata, int cyclesLate);
 void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId);
 
@@ -66,6 +72,7 @@ void __UmdInit()
 {
 	umdStatTimeoutEvent = CoreTiming::RegisterEvent("UmdTimeout", __UmdStatTimeout);
 	umdStatChangeEvent = CoreTiming::RegisterEvent("UmdChange", __UmdStatChange);
+	umdInsertChangeEvent = CoreTiming::RegisterEvent("UmdInsertChange", __UmdInsertChange);
 	umdActivated = 1;
 	umdStatus = 0;
 	umdErrorStat = 0;
@@ -78,7 +85,7 @@ void __UmdInit()
 
 void __UmdDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceUmd", 1, 2);
+	auto s = p.Section("sceUmd", 1, 3);
 	if (!s)
 		return;
 
@@ -93,8 +100,20 @@ void __UmdDoState(PointerWrap &p)
 	p.Do(umdWaitingThreads);
 	p.Do(umdPausedWaits);
 
-	if (s > 1)
+	if (s > 1) {
 		p.Do(UMDReplacePermit);
+#ifdef USING_WIN_UI
+		if (UMDReplacePermit)
+			MainWindowMenu:MainWindow::_ChangeMenu();
+#endif
+	}
+	if (s > 2) {
+		p.Do(umdInsertChangeEvent);
+		CoreTiming::RestoreRegisterEvent(umdInsertChangeEvent, "UmdInsertChange", __UmdInsertChange);
+		p.Do(UMDInserted);
+	}
+	else
+		UMDInserted = true;
 }
 
 static u8 __KernelUmdGetState()
@@ -106,6 +125,11 @@ static u8 __KernelUmdGetState()
 		state |= PSP_UMD_READABLE;
 	}
 	return state;
+}
+
+void __UmdInsertChange(u64 userdata, int cyclesLate)
+{
+	UMDInserted = true;
 }
 
 void __UmdStatChange(u64 userdata, int cyclesLate)
@@ -225,8 +249,12 @@ void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 
 static int sceUmdCheckMedium()
 {
-	DEBUG_LOG(SCEIO, "1=sceUmdCheckMedium()");
-	return 1; //non-zero: disc in drive
+	if (UMDInserted) {
+		DEBUG_LOG(SCEIO, "1=sceUmdCheckMedium()");
+		return 1; //non-zero: disc in drive
+	}
+	DEBUG_LOG(SCEIO, "0=sceUmdCheckMedium()");
+	return 0;
 }
 	
 static u32 sceUmdGetDiscInfo(u32 infoAddr)
@@ -495,7 +523,8 @@ void __UmdReplace(std::string filepath) {
 		}
 	}
 	delete currentUMD;
-
+	UMDInserted = false;
+	CoreTiming::ScheduleEvent(usToCycles(200*1000), umdInsertChangeEvent, 0); // Wait sceUmdCheckMedium call
 	// TODO Is this always correct if UMD was not activated?
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != -1)
@@ -510,6 +539,9 @@ static u32 sceUmdReplaceProhibit()
 {
 	UMDReplacePermit = false;
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
+#ifdef USING_WIN_UI
+	MainWindowMenu:MainWindow::_ChangeMenu();
+#endif
 	return 0;
 }
 
@@ -517,6 +549,9 @@ static u32 sceUmdReplacePermit()
 {
 	UMDReplacePermit = true;
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
+#ifdef USING_WIN_UI
+	MainWindowMenu:MainWindow::_ChangeMenu();
+#endif
 	return 0;
 }
 

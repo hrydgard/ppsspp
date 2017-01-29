@@ -10,4 +10,5 @@ namespace MainWindow {
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
 	void BrowseAndBootDone();
 	void setTexScalingMultiplier(int level);
+	void ChangeMenu();
 }
