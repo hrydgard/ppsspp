@@ -1627,8 +1627,14 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 					host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 				}
 			} else if (err != GL_NO_ERROR) {
+				const char *str = "other";
+				switch (err) {
+				case GL_OUT_OF_MEMORY: str = "out_of_memory"; break;
+				case GL_INVALID_ENUM: str = "invalid_enum"; break;
+				case GL_INVALID_VALUE: str = "invalid_value"; break;
+				}
 				// We checked the err anyway, might as well log if there is one.
-				WARN_LOG(G3D, "Got an error in texture upload: %08x", err);
+				WARN_LOG(G3D, "Got an error in texture upload: %08x (%s) (components=%04x components2=%04x dstFmt=%04x w=%d h=%d level=%d)", err, str, components, components2, dstFmt, w, h, level);
 			}
 		}
 	}

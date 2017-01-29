@@ -757,7 +757,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
 		break;
 
-#if 0
+#ifndef USING_GLES2
 	case DataFormat::A4B4G4R4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
@@ -766,6 +766,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 #endif
 
 	default:
+		ELOG("Thin3d GL: Unsupported texture format %d", (int)format_);
 		return;
 	}
 
@@ -778,8 +779,12 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		ELOG("Thin3D GL: Targets other than GL_TEXTURE_2D not yet supported");
 		break;
 	}
-}
 
+	GLenum err = glGetError();
+	if (err) {
+		ELOG("Thin3D GL: Error loading texture: %08x", err);
+	}
+}
 
 OpenGLInputLayout::~OpenGLInputLayout() {
 	if (id_) {
