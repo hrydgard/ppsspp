@@ -108,7 +108,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE) && !isModeThrough;  // TODO: Different expression than in shaderIDgen
 	bool doTexture = id.Bit(VS_BIT_DO_TEXTURE);
-	bool doTextureProjection = id.Bit(VS_BIT_DO_TEXTURE_PROJ);
+	bool doTextureTransform = id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM);
 
 	GETexMapMode uvGenMode = static_cast<GETexMapMode>(id.Bits(VS_BIT_UVGEN_MODE, 2));
 
@@ -171,9 +171,12 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 	if (useHWTransform && hasNormal)
 		WRITE(p, "layout (location = %d) in vec3 normal;\n", PspAttributeLocation::NORMAL);
 
+	bool texcoordInVec3 = false;
 	if (doTexture && hasTexcoord) {
-		if (!useHWTransform && doTextureProjection && !throughmode)
+		if (!useHWTransform && doTextureTransform && !throughmode) {
 			WRITE(p, "layout (location = %d) in vec3 texcoord;\n", PspAttributeLocation::TEXCOORD);
+			texcoordInVec3 = true;
+		}
 		else
 			WRITE(p, "layout (location = %d) in vec2 texcoord;\n", PspAttributeLocation::TEXCOORD);
 	}
@@ -189,11 +192,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 	}
 
 	if (doTexture) {
-		if (doTextureProjection) {
-			WRITE(p, "layout (location = 0) out vec3 v_texcoord;\n");
-		} else {
-			WRITE(p, "layout (location = 0) out vec2 v_texcoord;\n");
-		}
+		WRITE(p, "layout (location = 0) out vec3 v_texcoord;\n");
 	}
 
 	if (enableFog) {
@@ -218,10 +217,10 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
-			if (throughmode && doTextureProjection) {
-				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
-			} else {
+			if (texcoordInVec3) {
 				WRITE(p, "  v_texcoord = texcoord;\n");
+			} else {
+				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
 			}
 		}
 		if (hasColor) {
@@ -435,15 +434,15 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
 				if (scaleUV) {
 					if (hasTexcoord) {
-						WRITE(p, "  v_texcoord = texcoord;\n");
+						WRITE(p, "  v_texcoord = vec3(texcoord.xy, 0.0);\n");
 					} else {
-						WRITE(p, "  v_texcoord = vec2(0.0);\n");
+						WRITE(p, "  v_texcoord = vec3(0.0);\n");
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  v_texcoord = texcoord * base.uvscaleoffset.xy + base.uvscaleoffset.zw;\n");
+						WRITE(p, "  v_texcoord = vec3(texcoord.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
 					} else {
-						WRITE(p, "  v_texcoord = base.uvscaleoffset.zw;\n");
+						WRITE(p, "  v_texcoord = vec3(base.uvscaleoffset.zw, 0.0);\n");
 					}
 				}
 				break;
@@ -484,7 +483,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 			break;
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  v_texcoord = base.uvscaleoffset.xy * vec2(1.0 + dot(normalize(light.pos[%i]), worldnormal), 1.0 + dot(normalize(light.pos[%i]), worldnormal)) * 0.5;\n", ls0, ls1);
+				WRITE(p, "  v_texcoord = vec3(base.uvscaleoffset.xy * vec2(1.0 + dot(normalize(light.pos[%i]), worldnormal), 1.0 + dot(normalize(light.pos[%i]), worldnormal)) * 0.5, 1.0);\n", ls0, ls1);
 				break;
 
 			default:

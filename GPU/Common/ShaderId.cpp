@@ -22,7 +22,7 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	if (id.Bit(VS_BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(VS_BIT_NORM_REVERSE)) desc << "RevN ";
 	if (id.Bit(VS_BIT_DO_TEXTURE)) desc << "Tex ";
-	if (id.Bit(VS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
+	if (id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM)) desc << "TexProj ";
 	int uvgMode = id.Bits(VS_BIT_UVGEN_MODE, 2);
 	const char *uvgModes[4] = { "UV ", "UVMtx ", "UVEnv ", "UVUnk " };
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
@@ -58,7 +58,7 @@ std::string VertexShaderDesc(const ShaderID &id) {
 
 void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) {
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
-	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+	bool doTextureTransform = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
 	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
 
@@ -83,7 +83,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 	if (doTexture) {
 		id.SetBit(VS_BIT_DO_TEXTURE);
-		id.SetBit(VS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
+		id.SetBit(VS_BIT_DO_TEXTURE_TRANSFORM, doTextureTransform);
 	}
 
 	if (useHWTransform) {
@@ -94,7 +94,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		id.SetBits(VS_BIT_UVGEN_MODE, 2, gstate.getUVGenMode());
 
 		// The next bits are used differently depending on UVgen mode
-		if (doTextureProjection) {
+		if (doTextureTransform) {
 			id.SetBits(VS_BIT_UVPROJ_MODE, 2, gstate.getUVProjMode());
 		} else if (doShadeMapping) {
 			id.SetBits(VS_BIT_LS0, 2, gstate.getUVLS0());
@@ -148,6 +148,10 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 
 static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
+
+static bool MatrixNeedsProjection(const float m[12]) {
+	return m[2] != 0.0f || m[5] != 0.0f || m[8] != 0.0f || m[11] != 1.0f;
+}
 
 std::string FragmentShaderDesc(const ShaderID &id) {
 	std::stringstream desc;
@@ -224,7 +228,7 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
-		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+		bool doTextureProjection = (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX && MatrixNeedsProjection(gstate.tgenMatrix));
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 

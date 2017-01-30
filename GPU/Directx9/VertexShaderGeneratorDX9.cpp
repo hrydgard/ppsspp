@@ -61,7 +61,7 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE) && !isModeThrough;  // TODO: Different expression than in shaderIDgen
 	bool doTexture = id.Bit(VS_BIT_DO_TEXTURE);
-	bool doTextureProjection = id.Bit(VS_BIT_DO_TEXTURE_PROJ);
+	bool doTextureTransform = id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM);
 
 	GETexMapMode uvGenMode = static_cast<GETexMapMode>(id.Bits(VS_BIT_UVGEN_MODE, 2));
 
@@ -122,7 +122,7 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 		// When transforming by hardware, we need a great deal more uniforms...
 		WRITE(p, "float4x3 u_world : register(c%i);\n", CONST_VS_WORLD);
 		WRITE(p, "float4x3 u_view : register(c%i);\n", CONST_VS_VIEW);
-		if (doTextureProjection)
+		if (doTextureTransform)
 			WRITE(p, "float4x3 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
 		if (enableBones) {
 #ifdef USE_BONE_ARRAY
@@ -176,6 +176,7 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 	}
 
 	// And the "varyings".
+	bool texCoordInVec3 = false;
 	if (useHWTransform) {
 		WRITE(p, "struct VS_IN {                              \n");
 		if (enableBones) {
@@ -197,8 +198,10 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 		WRITE(p, "struct VS_IN {\n");
 		WRITE(p, "  float4 position : POSITION;\n");
 		if (doTexture && hasTexcoord) {
-			if (doTextureProjection && !throughmode)
+			if (doTextureTransform && !throughmode) {
+				texCoordInVec3 = true;
 				WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
+			}
 			else
 				WRITE(p, "  float2 texcoord : TEXCOORD0;\n");
 		}
@@ -215,10 +218,7 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 	WRITE(p, "struct VS_OUT {\n");
 	WRITE(p, "  float4 gl_Position   : POSITION;\n");
 	if (doTexture) {
-		if (doTextureProjection)
-			WRITE(p, "  float3 v_texcoord: TEXCOORD0;\n");
-		else
-			WRITE(p, "  float2 v_texcoord: TEXCOORD0;\n");
+		WRITE(p, "  float3 v_texcoord : TEXCOORD0;\n");
 	}
 	WRITE(p, "  float4 v_color0    : COLOR0;\n");
 	if (lmode)
@@ -248,14 +248,10 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
-			if (doTextureProjection) {
-				if (throughmode) {
-					WRITE(p, "  Out.v_texcoord = float3(In.texcoord.x, In.texcoord.y, 1.0);\n");
-				} else {
-					WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
-				}
+			if (texCoordInVec3) {
+				WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
 			} else {
-				WRITE(p, "  Out.v_texcoord = In.texcoord.xy;\n");
+				WRITE(p, "  Out.v_texcoord = float3(In.texcoord, 1.0);\n");
 			}
 		}
 		if (hasColor) {
@@ -505,15 +501,15 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
 				if (scaleUV) {
 					if (hasTexcoord) {
-						WRITE(p, "  Out.v_texcoord = In.texcoord * u_uvscaleoffset.xy;\n");
+						WRITE(p, "  Out.v_texcoord = float3(In.texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
 					} else {
-						WRITE(p, "  Out.v_texcoord = float2(0.0, 0.0);\n");
+						WRITE(p, "  Out.v_texcoord = float3(0.0, 0.0, 0.0);\n");
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  Out.v_texcoord = In.texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+						WRITE(p, "  Out.v_texcoord = float3(In.texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 					} else {
-						WRITE(p, "  Out.v_texcoord = u_uvscaleoffset.zw;\n");
+						WRITE(p, "  Out.v_texcoord = float3(u_uvscaleoffset.zw, 0.0);\n");
 					}
 				}
 				break;
@@ -553,7 +549,7 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 				break;
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  Out.v_texcoord.xy = u_uvscaleoffset.xy * float2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 + dot(normalize(u_lightpos%i), worldnormal)) * 0.5;\n", ls0, ls1);
+				WRITE(p, "  Out.v_texcoord = float3(u_uvscaleoffset.xy * float2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 + dot(normalize(u_lightpos%i), worldnormal)) * 0.5, 1.0);\n", ls0, ls1);
 				break;
 
 			default:

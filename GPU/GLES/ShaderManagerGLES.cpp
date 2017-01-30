@@ -15,8 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// #define SHADERLOG
-
 #if defined(_WIN32) && defined(SHADERLOG)
 #include "Common/CommonWindows.h"
 #endif
@@ -991,7 +989,7 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // as sometimes these features might have an effect on the ID bits.
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 2
+#define CACHE_VERSION 3
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;
