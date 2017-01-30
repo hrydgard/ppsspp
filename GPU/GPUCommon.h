@@ -219,10 +219,15 @@ public:
 	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);
 
 protected:
-	void SetDrawType(DrawType type) {
+	void SetDrawType(DrawType type, int prim) {
 		if (type != lastDraw_) {
-			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_VERTEXSHADER_STATE);
 			lastDraw_ = type;
+		}
+		// Prim == RECTANGLES can cause CanUseHardwareTransform to flip, so we need to dirty.
+		if ((prim == GE_PRIM_RECTANGLES) != (lastPrim_ == GE_PRIM_RECTANGLES)) {
+			gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+			lastPrim_ = prim;
 		}
 	}
 
@@ -332,6 +337,7 @@ protected:
 	bool interruptsEnabled_;
 	bool resized_;
 	DrawType lastDraw_;
+	int lastPrim_;
 
 private:
 

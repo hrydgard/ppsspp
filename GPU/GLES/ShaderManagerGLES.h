@@ -188,7 +188,7 @@ private:
 	ShaderID lastVSID_;
 
 	LinkedShader *lastShader_;
-	u64 shaderSwitchDirty_;
+	u64 shaderSwitchDirtyUniforms_;
 	char *codeBuffer_;
 
 	typedef std::map<ShaderID, Shader *> FSCache;
