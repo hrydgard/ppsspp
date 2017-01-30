@@ -106,6 +106,7 @@ enum : uint64_t {
 	// Now we can add further dirty flags that are not uniforms.
 	DIRTY_BLEND_STATE = 1ULL << 43,
 	DIRTY_DEPTHSTENCIL_STATE = 1ULL << 44,
+	DIRTY_RASTER_STATE = 1ULL << 45,
 
 	DIRTY_ALL = 0xFFFFFFFFFFFFFFFF
 };

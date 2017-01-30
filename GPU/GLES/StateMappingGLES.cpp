@@ -253,25 +253,29 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		}
 	}
 
-	// Dither
-	if (gstate.isDitherEnabled()) {
-		glstate.dither.enable();
-		glstate.dither.set(GL_TRUE);
-	} else {
-		glstate.dither.disable();
-	}
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		gstate_c.Clean(DIRTY_RASTER_STATE);
 
-	if (gstate.isModeClear()) {
-		// Culling
-		glstate.cullFace.disable();
-	} else {
-		// Set cull
-		bool cullEnabled = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		if (cullEnabled) {
-			glstate.cullFace.enable();
-			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode() ^ !useBufferedRendering]);
+		// Dither
+		if (gstate.isDitherEnabled()) {
+			glstate.dither.enable();
+			glstate.dither.set(GL_TRUE);
 		} else {
+			glstate.dither.disable();
+		}
+
+		if (gstate.isModeClear()) {
+			// Culling
 			glstate.cullFace.disable();
+		} else {
+			// Set cull
+			bool cullEnabled = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			if (cullEnabled) {
+				glstate.cullFace.enable();
+				glstate.cullFaceMode.set(cullingMode[gstate.getCullMode() ^ !useBufferedRendering]);
+			} else {
+				glstate.cullFace.disable();
+			}
 		}
 	}
 
