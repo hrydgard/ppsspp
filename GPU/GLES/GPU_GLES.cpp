@@ -393,8 +393,8 @@ static const CommandTableEntry commandTable[] = {
 
 GPU_GLES::CommandInfo GPU_GLES::cmdInfo_[256];
 
-GPU_GLES::GPU_GLES(GraphicsContext *ctx)
-: gfxCtx_(ctx) {
+GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
+: GPUCommon(gfxCtx, draw) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 

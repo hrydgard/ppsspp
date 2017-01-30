@@ -46,20 +46,20 @@ static void SetGPU(T *obj) {
 #undef new
 #endif
 
-bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *thin3d) {
+bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPUCORE_NULL:
 		SetGPU(new NullGPU());
 		break;
 	case GPUCORE_GLES:
-		SetGPU(new GPU_GLES(ctx));
+		SetGPU(new GPU_GLES(ctx, draw));
 		break;
 	case GPUCORE_SOFTWARE:
-		SetGPU(new SoftGPU(ctx, thin3d));
+		SetGPU(new SoftGPU(ctx, draw));
 		break;
 	case GPUCORE_DIRECTX9:
 #if defined(_WIN32)
-		SetGPU(new DIRECTX9_GPU(ctx));
+		SetGPU(new DIRECTX9_GPU(ctx, draw));
 #endif
 		break;
 	case GPUCORE_DIRECTX11:
@@ -70,7 +70,7 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *thin3d) {
 			ERROR_LOG(G3D, "Unable to init Vulkan GPU backend, no context");
 			break;
 		}
-		SetGPU(new GPU_Vulkan(ctx));
+		SetGPU(new GPU_Vulkan(ctx, draw));
 #endif
 		break;
 	}

@@ -393,8 +393,8 @@ static const CommandTableEntry commandTable[] = {
 
 GPU_DX9::CommandInfo GPU_DX9::cmdInfo_[256];
 
-GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx)
-: gfxCtx_(gfxCtx) {
+GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
+: GPUCommon(gfxCtx, draw) {
 	lastVsync_ = g_Config.bVSync ? 1 : 0;
 	dxstate.SetVSyncInterval(g_Config.bVSync);
 

@@ -103,9 +103,7 @@ private:
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
 
-	GraphicsContext *gfxCtx_;
 	Draw::Texture *fbTex;
-	Draw::DrawContext *draw_;
 	Draw::Pipeline *texColor;
 	std::vector<u32> fbTexBuffer;
 };

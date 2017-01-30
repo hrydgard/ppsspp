@@ -25,7 +25,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
-NullGPU::NullGPU() { }
+NullGPU::NullGPU() : GPUCommon(nullptr, nullptr) { }
 NullGPU::~NullGPU() { }
 
 void NullGPU::FastRunLoop(DisplayList &list) {

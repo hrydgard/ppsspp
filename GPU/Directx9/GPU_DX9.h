@@ -35,7 +35,7 @@ class LinkedShaderDX9;
 
 class GPU_DX9 : public GPUCommon {
 public:
-	GPU_DX9(GraphicsContext *gfxCtx);
+	GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_DX9();
 
 	void CheckGPUFeatures();
@@ -85,10 +85,6 @@ public:
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_VertexTypeSkinning(u32 op, u32 diff);
-	void Execute_TexScaleU(u32 op, u32 diff);
-	void Execute_TexScaleV(u32 op, u32 diff);
-	void Execute_TexOffsetU(u32 op, u32 diff);
-	void Execute_TexOffsetV(u32 op, u32 diff);
 	void Execute_TexSize0(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
 
@@ -126,8 +122,6 @@ private:
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
-
-	GraphicsContext *gfxCtx_;
 };
 
 }  // namespace DX9

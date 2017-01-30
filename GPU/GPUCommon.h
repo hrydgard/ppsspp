@@ -18,6 +18,10 @@ typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID
 class FramebufferManagerCommon;
 class TextureCacheCommon;
 class DrawEngineCommon;
+class GraphicsContext;
+namespace Draw {
+	class DrawContext;
+}
 
 enum DrawType {
 	DRAW_UNKNOWN,
@@ -28,7 +32,7 @@ enum DrawType {
 
 class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface {
 public:
-	GPUCommon();
+	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	virtual ~GPUCommon();
 
 	void Reinitialize() override;
@@ -260,6 +264,9 @@ protected:
 	TextureCacheCommon *textureCache_;
 	DrawEngineCommon *drawEngineCommon_;
 	ShaderManagerCommon *shaderManager_;
+
+	GraphicsContext *gfxCtx_;
+	Draw::DrawContext *draw_;
 
 	typedef std::list<int> DisplayListQueue;
 

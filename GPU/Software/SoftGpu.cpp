@@ -47,8 +47,8 @@ static Draw::SamplerState *samplerLinear = nullptr;
 static Draw::Buffer *vdata = nullptr;
 static Draw::Buffer *idata = nullptr;
 
-SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
-	: gfxCtx_(gfxCtx), draw_(_thin3D)
+SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
+	: GPUCommon(gfxCtx, draw)
 {
 	using namespace Draw;
 	TextureDesc desc{};

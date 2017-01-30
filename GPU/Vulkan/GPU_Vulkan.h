@@ -32,7 +32,7 @@ class LinkedShader;
 
 class GPU_Vulkan : public GPUCommon {
 public:
-	GPU_Vulkan(GraphicsContext *ctx);
+	GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_Vulkan();
 
 	// This gets called on startup and when we get back from settings.
@@ -108,7 +108,6 @@ private:
 	void UpdateCmdInfo();
 	static CommandInfo cmdInfo_[256];
 
-	GraphicsContext *gfxCtx_;
 	VulkanContext *vulkan_;
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	TextureCacheVulkan *textureCacheVulkan_;

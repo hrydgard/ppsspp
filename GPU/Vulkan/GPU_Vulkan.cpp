@@ -388,10 +388,10 @@ static const CommandTableEntry commandTable[] = {
 	{ GE_CMD_UNKNOWN_FF, 0 },
 };
 
-GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
-	: vulkan_((VulkanContext *)ctx->GetAPIContext()),
-		drawEngine_(vulkan_),
-		gfxCtx_(ctx) {
+GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
+	: GPUCommon(gfxCtx, draw),
+		vulkan_((VulkanContext *)gfxCtx->GetAPIContext()),
+		drawEngine_(vulkan_) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
