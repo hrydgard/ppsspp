@@ -179,7 +179,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	}
 	// Preserve the existing graphics context.
 	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;
-	coreParam.thin3d = screenManager()->getThin3DContext();
+	coreParam.thin3d = screenManager()->getDrawContext();
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
@@ -991,8 +991,8 @@ void EmuScreen::render() {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	if (!useBufferedRendering) {
-		DrawContext *thin3d = screenManager()->getThin3DContext();
-		thin3d->Clear(ClearFlag::COLOR | ClearFlag::DEPTH | ClearFlag::STENCIL, 0xFF000000, 0.0f, 0);
+		DrawContext *draw = screenManager()->getDrawContext();
+		draw->Clear(ClearFlag::COLOR | ClearFlag::DEPTH | ClearFlag::STENCIL, 0xFF000000, 0.0f, 0);
 
 		Viewport viewport;
 		viewport.TopLeftX = 0;
@@ -1001,8 +1001,8 @@ void EmuScreen::render() {
 		viewport.Height = pixel_yres;
 		viewport.MaxDepth = 1.0;
 		viewport.MinDepth = 0.0;
-		thin3d->SetViewports(1, &viewport);
-		thin3d->SetTargetSize(pixel_xres, pixel_yres);
+		draw->SetViewports(1, &viewport);
+		draw->SetTargetSize(pixel_xres, pixel_yres);
 	}
 
 	PSP_BeginHostFrame();
@@ -1032,7 +1032,7 @@ void EmuScreen::render() {
 		fbo_unbind();
 
 	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {
-		DrawContext *thin3d = screenManager()->getThin3DContext();
+		DrawContext *thin3d = screenManager()->getDrawContext();
 
 		// This sets up some important states but not the viewport.
 		screenManager()->getUIContext()->Begin();

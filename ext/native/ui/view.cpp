@@ -698,7 +698,7 @@ void ImageView::Draw(UIContext &dc) {
 	dc.Draw()->DrawImage(atlasImage_, bounds_.x, bounds_.y, scale, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
-void Thin3DTextureView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+void TextureView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	// TODO: involve sizemode
 	if (texture_) {
 		w = (float)texture_->Width();
@@ -709,11 +709,11 @@ void Thin3DTextureView::GetContentDimensions(const UIContext &dc, float &w, floa
 	}
 }
 
-void Thin3DTextureView::Draw(UIContext &dc) {
+void TextureView::Draw(UIContext &dc) {
 	// TODO: involve sizemode
 	if (texture_) {
 		dc.Flush();
-		dc.GetThin3DContext()->BindTexture(0, texture_);
+		dc.GetDrawContext()->BindTexture(0, texture_);
 		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
 		dc.Flush();
 		dc.RebindTexture();

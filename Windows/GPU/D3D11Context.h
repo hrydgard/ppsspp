@@ -37,7 +37,7 @@ public:
 
 	void Resize() override;
 
-	Draw::DrawContext *CreateThin3DContext() override;
+	Draw::DrawContext *CreateDrawContext() override;
 
 private:
 	ID3D11Device *device_;

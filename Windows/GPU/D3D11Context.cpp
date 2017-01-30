@@ -15,7 +15,7 @@ void D3D11Context::SwapBuffers() {
 	swapChain_->Present(0, 0);
 }
 
-Draw::DrawContext *D3D11Context::CreateThin3DContext() {
+Draw::DrawContext *D3D11Context::CreateDrawContext() {
 	return Draw::T3DCreateD3D11Context(device_, context_);
 }
 

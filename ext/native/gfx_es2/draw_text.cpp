@@ -75,7 +75,7 @@ struct TextDrawerContext {
 	int *pBitmapBits;
 };
 
-TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(nullptr) {
+TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : draw_(thin3d), ctx_(nullptr) {
 	// These probably shouldn't be state.
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
@@ -282,9 +282,9 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 		DataFormat texFormat;
 		// For our purposes these are equivalent, so just choose the supported one. D3D can emulate them.
-		if (thin3d_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
+		if (draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
 			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
-		else if (thin3d_->GetDataFormatSupport(Draw::DataFormat::R4G4B4A4_UNORM_PACK16) & FMT_TEXTURE)
+		else if (draw_->GetDataFormatSupport(Draw::DataFormat::R4G4B4A4_UNORM_PACK16) & FMT_TEXTURE)
 			texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
 		else
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
@@ -322,7 +322,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		desc.height = entry->bmHeight;
 		desc.depth = 1;
 		desc.mipLevels = 1;
-		entry->texture = thin3d_->CreateTexture(desc);
+		entry->texture = draw_->CreateTexture(desc);
 		if (bitmapData16)
 			delete[] bitmapData16;
 		if (bitmapData32)
@@ -330,7 +330,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);
 	}
 
-	thin3d_->BindTexture(0, entry->texture);
+	draw_->BindTexture(0, entry->texture);
 
 	// Okay, the texture is bound, let's draw.
 	float w = entry->bmWidth * fontScaleX_ * g_dpi_scale;
@@ -348,7 +348,7 @@ void TextDrawer::RecreateFonts() {
 
 #else
 
-TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
+TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : draw_(thin3d), ctx_(NULL) {
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 }
@@ -442,7 +442,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	if (iter != cache_.end()) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
-		thin3d_->BindTexture(0, entry->texture);
+		draw_->BindTexture(0, entry->texture);
 	} else {
 		QFont *font = fontMap_.find(fontHash_)->second;
 		QFontMetrics fm(*font);
@@ -473,7 +473,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		desc.height = entry->bmHeight;
 		desc.depth = 1;
 		desc.mipLevels = 1;
-		entry->texture = thin3d_->CreateTexture(desc);
+		entry->texture = draw_->CreateTexture(desc);
 
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
 		for (int x = 0; x < entry->bmWidth; x++) {

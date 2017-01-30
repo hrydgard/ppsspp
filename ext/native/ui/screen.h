@@ -102,8 +102,8 @@ public:
 	void setUIContext(UIContext *context) { uiContext_ = context; }
 	UIContext *getUIContext() { return uiContext_; }
 
-	void setThin3DContext(Draw::DrawContext *context) { thin3DContext_ = context; }
-	Draw::DrawContext *getThin3DContext() { return thin3DContext_; }
+	void setDrawContext(Draw::DrawContext *context) { thin3DContext_ = context; }
+	Draw::DrawContext *getDrawContext() { return thin3DContext_; }
 
 	void render();
 	void resized();

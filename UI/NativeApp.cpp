@@ -140,7 +140,7 @@ struct PendingMessage {
 
 static recursive_mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
-static Draw::DrawContext *thin3d;
+static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
@@ -149,10 +149,6 @@ static std::vector<std::string> inputboxValue;
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
 #endif
-
-Draw::DrawContext *GetThin3D() {
-	return thin3d;
-}
 
 std::thread *graphicsLoadThread;
 
@@ -529,7 +525,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
-	thin3d = graphicsContext->CreateThin3DContext();
+	g_draw = graphicsContext->CreateDrawContext();
 
 	ui_draw2d.SetAtlas(&ui_atlas);
 	ui_draw2d_front.SetAtlas(&ui_atlas);
@@ -579,7 +575,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_theme.popupTitle.fgColor = 0xFF59BEE3;
 #endif
 
-	uiTexture = CreateTextureFromFile(thin3d, "ui_atlas.zim", ImageFileType::ZIM);
+	uiTexture = CreateTextureFromFile(g_draw, "ui_atlas.zim", ImageFileType::ZIM);
 	if (!uiTexture) {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
@@ -592,34 +588,34 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 
-	Draw::InputLayout *inputLayout = ui_draw2d.CreateInputLayout(thin3d);
-	Draw::BlendState *blendNormal = thin3d->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
-	Draw::DepthStencilState *depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
-	Draw::RasterState *rasterNoCull = thin3d->CreateRasterState({});
+	Draw::InputLayout *inputLayout = ui_draw2d.CreateInputLayout(g_draw);
+	Draw::BlendState *blendNormal = g_draw->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
+	Draw::DepthStencilState *depth = g_draw->CreateDepthStencilState({ false, false, Comparison::LESS });
+	Draw::RasterState *rasterNoCull = g_draw->CreateRasterState({});
 
 	PipelineDesc colorDesc{
 		Primitive::TRIANGLE_LIST,
-		{ thin3d->GetVshaderPreset(VS_COLOR_2D), thin3d->GetFshaderPreset(FS_COLOR_2D) },
+		{ g_draw->GetVshaderPreset(VS_COLOR_2D), g_draw->GetFshaderPreset(FS_COLOR_2D) },
 		inputLayout, depth, blendNormal, rasterNoCull
 	};
 	PipelineDesc texColorDesc{
 		Primitive::TRIANGLE_LIST,
-		{ thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D), thin3d->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
+		{ g_draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), g_draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
 		inputLayout, depth, blendNormal, rasterNoCull
 	};
 
-	colorPipeline = thin3d->CreateGraphicsPipeline(colorDesc);
-	texColorPipeline = thin3d->CreateGraphicsPipeline(texColorDesc);
+	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc);
+	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc);
 
 	inputLayout->Release();
 	rasterNoCull->Release();
 	blendNormal->Release();
 	depth->Release();
 
-	ui_draw2d.Init(thin3d, texColorPipeline);
-	ui_draw2d_front.Init(thin3d, texColorPipeline);
+	ui_draw2d.Init(g_draw, texColorPipeline);
+	ui_draw2d_front.Init(g_draw, texColorPipeline);
 
-	uiContext->Init(thin3d, texColorPipeline, colorPipeline, &ui_draw2d, &ui_draw2d_front);
+	uiContext->Init(g_draw, texColorPipeline, colorPipeline, &ui_draw2d, &ui_draw2d_front);
 	RasterStateDesc desc;
 	desc.cull = CullMode::NONE;
 	desc.frontFace = Facing::CCW;
@@ -628,7 +624,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
 	screenManager->setUIContext(uiContext);
-	screenManager->setThin3DContext(thin3d);
+	screenManager->setDrawContext(g_draw);
 
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
@@ -662,8 +658,8 @@ void NativeShutdownGraphics() {
 	texColorPipeline->Release();
 
 	// TODO: Reconsider this annoying ref counting stuff.
-	if (thin3d->Release()) {
-		thin3d = nullptr;
+	if (g_draw->Release()) {
+		g_draw = nullptr;
 	}
 }
 

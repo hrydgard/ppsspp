@@ -66,7 +66,7 @@ public:
 	void OncePerFrame();
 
 private:
-	Draw::DrawContext *thin3d_;
+	Draw::DrawContext *draw_;
 
 	void ClearCache();
 	void RecreateFonts();  // On DPI change

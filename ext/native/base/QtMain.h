@@ -40,7 +40,7 @@ void SimulateGamepad(InputState *input);
 
 class QtDummyGraphicsContext : public DummyGraphicsContext {
 public:
-	Draw::DrawContext *CreateThin3DContext() override {
+	Draw::DrawContext *CreateDrawContext() override {
 		return Draw::T3DCreateGLContext();
 	}
 };

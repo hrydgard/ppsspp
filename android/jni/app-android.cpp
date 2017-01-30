@@ -80,7 +80,7 @@ public:
 	void SwapBuffers() override;
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
-	Draw::DrawContext *CreateThin3DContext() override {
+	Draw::DrawContext *CreateDrawContext() override {
 		CheckGLExtensions();
 		return Draw::T3DCreateGLContext();
 	}
@@ -146,7 +146,7 @@ public:
 	void SwapBuffers() override {}
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
-	Draw::DrawContext *CreateThin3DContext() override {
+	Draw::DrawContext *CreateDrawContext() override {
 		CheckGLExtensions();
 		return Draw::T3DCreateGLContext();
 	}
@@ -167,7 +167,7 @@ public:
 
 	void *GetAPIContext() override { return g_Vulkan; }
 
-	Draw::DrawContext *CreateThin3DContext() override {
+	Draw::DrawContext *CreateDrawContext() override {
 		return Draw::T3DCreateVulkanContext(g_Vulkan);
 	}
 };

@@ -25,7 +25,7 @@ public:
 	// Needs casting to the appropriate type, unfortunately. Should find a better solution..
 	virtual void *GetAPIContext() { return nullptr; }
 
-	virtual Draw::DrawContext *CreateThin3DContext() = 0;
+	virtual Draw::DrawContext *CreateDrawContext() = 0;
 };
 
 class DummyGraphicsContext : public GraphicsContext {
@@ -35,5 +35,5 @@ public:
 	void SwapBuffers() override {}
 	void Resize() override {}
 
-	Draw::DrawContext *CreateThin3DContext() override { return nullptr; }
+	Draw::DrawContext *CreateDrawContext() override { return nullptr; }
 };

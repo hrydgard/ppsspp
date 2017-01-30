@@ -48,7 +48,7 @@ SDLJoystick *joystick = NULL;
 
 class GLDummyGraphicsContext : public DummyGraphicsContext {
 public:
-	Draw::DrawContext *CreateThin3DContext() override {
+	Draw::DrawContext *CreateDrawContext() override {
 		CheckGLExtensions();
 		return Draw::T3DCreateGLContext();
 	}

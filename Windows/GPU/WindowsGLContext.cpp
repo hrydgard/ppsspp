@@ -400,7 +400,7 @@ void WindowsGLContext::Shutdown() {
 void WindowsGLContext::Resize() {
 }
 
-Draw::DrawContext *WindowsGLContext::CreateThin3DContext() {
+Draw::DrawContext *WindowsGLContext::CreateDrawContext() {
 	CheckGLExtensions();
 	return Draw::T3DCreateGLContext();
 }

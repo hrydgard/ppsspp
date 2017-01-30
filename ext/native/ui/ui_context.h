@@ -76,10 +76,10 @@ public:
 	// in dps, like dp_xres and dp_yres
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
-	Draw::DrawContext *GetThin3DContext() { return thin3d_; }
+	Draw::DrawContext *GetDrawContext() { return draw_; }
 
 private:
-	Draw::DrawContext *thin3d_;
+	Draw::DrawContext *draw_;
 	Bounds bounds_;
 
 	float fontScaleX_;
@@ -87,7 +87,6 @@ private:
 	UI::FontStyle *fontStyle_;
 	TextDrawer *textDrawer_;
 
-	Draw::DrawContext *thin3D_;
 	Draw::SamplerState *sampler_;
 	Draw::Pipeline *ui_pipeline_;
 	Draw::Pipeline *ui_pipeline_notex_;
