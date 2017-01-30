@@ -20,8 +20,8 @@ UIContext::~UIContext() {
 
 void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 	using namespace Draw;
-	thin3d_ = thin3d;
-	sampler_ = thin3d_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
+	draw_ = thin3d;
+	sampler_ = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
 	ui_pipeline_ = uipipe;
 	ui_pipeline_notex_ = uipipenotex;
 	uidrawbuffer_ = uidrawbuffer;
@@ -38,19 +38,19 @@ void UIContext::FrameSetup(Draw::Texture *uiTexture) {
 }
 
 void UIContext::Begin() {
-	thin3d_->BindSamplerStates(0, 1, &sampler_);
-	thin3d_->BindTexture(0, uitexture_);
+	draw_->BindSamplerStates(0, 1, &sampler_);
+	draw_->BindTexture(0, uitexture_);
 	ActivateTopScissor();
 	UIBegin(ui_pipeline_);
 }
 
 void UIContext::BeginNoTex() {
-	thin3d_->BindSamplerStates(0, 1, &sampler_);
+	draw_->BindSamplerStates(0, 1, &sampler_);
 	UIBegin(ui_pipeline_notex_);
 }
 
 void UIContext::RebindTexture() const {
-	thin3d_->BindTexture(0, uitexture_);
+	draw_->BindTexture(0, uitexture_);
 }
 
 void UIContext::Flush() {
@@ -105,7 +105,7 @@ void UIContext::ActivateTopScissor() {
 	int y = scale * bounds.y;
 	int w = scale * bounds.w;
 	int h = scale * bounds.h;
-	thin3d_->SetScissorRect(x, y, w, h);
+	draw_->SetScissorRect(x, y, w, h);
 }
 
 void UIContext::SetFontScale(float scaleX, float scaleY) {

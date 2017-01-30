@@ -27,7 +27,7 @@ void D3D9Context::SwapBuffers() {
 	}
 }
 
-Draw::DrawContext *D3D9Context::CreateThin3DContext() {
+Draw::DrawContext *D3D9Context::CreateDrawContext() {
 	return Draw::T3DCreateDX9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
 

@@ -143,7 +143,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 	}
 
 	if (!textureData_.empty()) {
-		texture_ = CreateTextureFromFileData(dc.GetThin3DContext(), (const uint8_t *)(textureData_.data()), (int)textureData_.size(), DETECT);
+		texture_ = CreateTextureFromFileData(dc.GetDrawContext(), (const uint8_t *)(textureData_.data()), (int)textureData_.size(), DETECT);
 		if (!texture_)
 			textureFailed_ = true;
 		textureData_.clear();
@@ -157,7 +157,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 	// TODO: involve sizemode
 	if (texture_) {
 		dc.Flush();
-		dc.GetThin3DContext()->BindTexture(0, texture_->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, texture_->GetTexture());
 		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
 		dc.Flush();
 		dc.RebindTexture();

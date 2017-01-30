@@ -39,7 +39,7 @@ public:
 
 	void Resize() override;
 
-	Draw::DrawContext *CreateThin3DContext() override;
+	Draw::DrawContext *CreateDrawContext() override;
 
 private:
 	bool has9Ex;

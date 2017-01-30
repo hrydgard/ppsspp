@@ -31,6 +31,6 @@ public:
 
 	void *GetAPIContext();
 
-	Draw::DrawContext *CreateThin3DContext() override;
+	Draw::DrawContext *CreateDrawContext() override;
 };
 

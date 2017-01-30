@@ -105,7 +105,7 @@ private:
 
 	GraphicsContext *gfxCtx_;
 	Draw::Texture *fbTex;
-	Draw::DrawContext *thin3d;
+	Draw::DrawContext *draw_;
 	Draw::Pipeline *texColor;
 	std::vector<u32> fbTexBuffer;
 };

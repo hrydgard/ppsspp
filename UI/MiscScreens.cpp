@@ -103,18 +103,18 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 }
 
 void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
-	GameInfo *ginfo = g_gameInfoCache->GetInfo(dc.GetThin3DContext(), gamePath, GAMEINFO_WANTBG);
+	GameInfo *ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
 	if (ginfo) {
 		bool hasPic = false;
 		double loadTime;
 		if (ginfo->pic1Texture) {
-			dc.GetThin3DContext()->BindTexture(0, ginfo->pic1Texture->GetTexture());
+			dc.GetDrawContext()->BindTexture(0, ginfo->pic1Texture->GetTexture());
 			loadTime = ginfo->timePic1WasLoaded;
 			hasPic = true;
 		} else if (ginfo->pic0Texture) {
-			dc.GetThin3DContext()->BindTexture(0, ginfo->pic0Texture->GetTexture());
+			dc.GetDrawContext()->BindTexture(0, ginfo->pic0Texture->GetTexture());
 			loadTime = ginfo->timePic0WasLoaded;
 			hasPic = true;
 		}
@@ -475,7 +475,7 @@ void LogoScreen::render() {
 	}
 
 #ifdef _WIN32
-	dc.DrawText(screenManager()->getThin3DContext()->GetInfoString(InfoField::APINAME).c_str(), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME).c_str(), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #endif
 
 	dc.End();
