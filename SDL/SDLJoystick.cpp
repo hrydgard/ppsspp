@@ -21,15 +21,32 @@ SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
 	}
 	
+	char* dbEnvPath = getenv("PPSSPP_GAME_CONTROLLER_DB_PATH");
+	if (dbEnvPath != NULL) {
+		if (!File::Exists(dbEnvPath)) {
+			cout << "WARNING! " << dbEnvPath << " does not exist!" << endl;
+		} else {
+			cout << "loading control pad mappings from " << dbEnvPath << ": ";
+			if (SDL_GameControllerAddMappingsFromFile(dbEnvPath) == -1) {
+				cout << "FAILED! Will try load from your assests directory instead..." << endl;
+			} else {
+				cout << "SUCCESS!" << endl;
+				setUpControllers();
+				return;
+			}
+		}
+	}
+		
 	auto dbPath = File::GetExeDirectory() + "assets/gamecontrollerdb.txt";
 	cout << "loading control pad mappings from " << dbPath << ": ";
- 	
+
 	if (SDL_GameControllerAddMappingsFromFile(dbPath.c_str()) == -1) {
 		cout << "FAILED! Please place gamecontrollerdb.txt in your assets directory." << endl;
-	} else {
- 		cout << "SUCCESS!" << endl;
-		setUpControllers();
+		return;
 	}
+	
+	cout << "SUCCESS!" << endl;
+	setUpControllers();
 }
 
 void SDLJoystick::setUpControllers() {
