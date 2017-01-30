@@ -130,7 +130,6 @@ inline void DrawEngineGLES::ResetShaderBlending() {
 	}
 }
 
-// TODO: All this setup is so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 void DrawEngineGLES::ApplyDrawState(int prim) {
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -168,48 +167,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		gstate_c.Clean(DIRTY_BLEND_STATE);
 		gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
 
-		// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
-		// to avoid recomputing heavy stuff unnecessarily every draw call.
-		GenericBlendState blendState;
-		ConvertBlendState(blendState, gstate_c.allowShaderBlend);
-
-		if (blendState.applyShaderBlending) {
-			if (ApplyShaderBlending()) {
-				// We may still want to do something about stencil -> alpha.
-				ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
-			} else {
-				// Until next time, force it off.
-				ResetShaderBlending();
-				gstate_c.allowShaderBlend = false;
-			}
-		} else if (blendState.resetShaderBlending) {
-			ResetShaderBlending();
-		}
-
-		if (blendState.enabled) {
-			glstate.blend.enable();
-			glstate.blendEquationSeparate.set(glBlendEqLookup[(size_t)blendState.eqColor], glBlendEqLookup[(size_t)blendState.eqAlpha]);
-			glstate.blendFuncSeparate.set(
-				glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
-				glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha]);
-			if (blendState.dirtyShaderBlend) {
-				gstate_c.Dirty(DIRTY_SHADERBLEND);
-			}
-			if (blendState.useBlendColor) {
-				uint32_t color = blendState.blendColor;
-				const float col[4] = {
-					(float)((color & 0xFF) >> 0) * (1.0f / 255.0f),
-					(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
-					(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
-					(float)((color & 0xFF000000) >> 24) * (1.0f / 255.0f),
-				};
-				glstate.blendColor.set(col);
-			}
-		} else {
-			glstate.blend.disable();
-		}
-
 		if (gstate.isModeClear()) {
+			glstate.blend.disable();
 			// Color Test
 			bool colorMask = gstate.isClearModeColorMask();
 			bool alphaMask = gstate.isClearModeAlphaMask();
@@ -221,6 +180,47 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			}
 #endif
 		} else {
+			// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
+			// to avoid recomputing heavy stuff unnecessarily every draw call.
+			GenericBlendState blendState;
+			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
+
+			if (blendState.applyShaderBlending) {
+				if (ApplyShaderBlending()) {
+					// We may still want to do something about stencil -> alpha.
+					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+				} else {
+					// Until next time, force it off.
+					ResetShaderBlending();
+					gstate_c.allowShaderBlend = false;
+				}
+			} else if (blendState.resetShaderBlending) {
+				ResetShaderBlending();
+			}
+
+			if (blendState.enabled) {
+				glstate.blend.enable();
+				glstate.blendEquationSeparate.set(glBlendEqLookup[(size_t)blendState.eqColor], glBlendEqLookup[(size_t)blendState.eqAlpha]);
+				glstate.blendFuncSeparate.set(
+					glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
+					glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha]);
+				if (blendState.dirtyShaderBlend) {
+					gstate_c.Dirty(DIRTY_SHADERBLEND);
+				}
+				if (blendState.useBlendColor) {
+					uint32_t color = blendState.blendColor;
+					const float col[4] = {
+						(float)((color & 0xFF) >> 0) * (1.0f / 255.0f),
+						(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
+						(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
+						(float)((color & 0xFF000000) >> 24) * (1.0f / 255.0f),
+					};
+					glstate.blendColor.set(col);
+				}
+			} else {
+				glstate.blend.disable();
+			}
+
 			// PSP color/alpha mask is per bit but we can only support per byte.
 			// But let's do that, at least. And let's try a threshold.
 			bool rmask = (gstate.pmskc & 0xFF) < 128;
