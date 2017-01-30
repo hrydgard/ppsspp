@@ -747,7 +747,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 }
 
 ShaderManagerGLES::ShaderManagerGLES()
-		: lastShader_(nullptr), shaderSwitchDirty_(0), diskCacheDirty_(false) {
+		: lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false) {
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
@@ -788,7 +788,7 @@ void ShaderManagerGLES::DirtyShader() {
 	lastVSID_.set_invalid();
 	DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
-	shaderSwitchDirty_ = 0;
+	shaderSwitchDirtyUniforms_ = 0;
 }
 
 void ShaderManagerGLES::DirtyLastShader() { // disables vertex arrays
@@ -816,22 +816,25 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 	if (dirty) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= dirty;
-		shaderSwitchDirty_ |= dirty;
+		shaderSwitchDirtyUniforms_ |= dirty;
 		gstate_c.CleanUniforms();
 	}
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
-	ComputeVertexShaderID(VSID, vertType, useHWTransform);
+	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
+		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
+		ComputeVertexShaderID(VSID, vertType, useHWTransform);
+	} else {
+		*VSID = lastVSID_;
+	}
 
-	// Just update uniforms if this is the same shader as last time.
 	if (lastShader_ != 0 && *VSID == lastVSID_) {
 		lastVShaderSame_ = true;
 		return lastShader_->vs_;  	// Already all set.
 	} else {
 		lastVShaderSame_ = false;
 	}
-
 	lastVSID_ = *VSID;
 
 	VSCache::iterator vsIter = vsCache_.find(*VSID);
@@ -890,7 +893,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(ShaderID VSID, Shader *vs, 
 	// Okay, we have both shaders. Let's see if there's a linked one.
 	LinkedShader *ls = nullptr;
 
-	u64 switchDirty = shaderSwitchDirty_;
+	u64 switchDirty = shaderSwitchDirtyUniforms_;
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
 		iter->ls->dirtyUniforms |= switchDirty;
@@ -899,7 +902,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(ShaderID VSID, Shader *vs, 
 			ls = iter->ls;
 		}
 	}
-	shaderSwitchDirty_ = 0;
+	shaderSwitchDirtyUniforms_ = 0;
 
 
 	if (ls == nullptr) {

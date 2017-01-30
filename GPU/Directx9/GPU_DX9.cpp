@@ -412,12 +412,18 @@ void GPU_DX9::ExecuteOp(u32 op, u32 diff) {
 }
 
 void GPU_DX9::Execute_VertexType(u32 op, u32 diff) {
+	if (diff)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		if (diff & GE_VTYPE_THROUGH_MASK)
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 }
 
 void GPU_DX9::Execute_VertexTypeSkinning(u32 op, u32 diff) {
+	if (diff)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	// Don't flush when weight count changes, unless morph is enabled.
 	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 		// Restore and flush
@@ -433,6 +439,8 @@ void GPU_DX9::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 			gstate_c.deferredVertTypeDirty = 0;
 		}
 	}
+	if (diff & GE_VTYPE_THROUGH_MASK)
+		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
 void GPU_DX9::Execute_Prim(u32 op, u32 diff) {
@@ -441,12 +449,10 @@ void GPU_DX9::Execute_Prim(u32 op, u32 diff) {
 
 	u32 data = op & 0xFFFFFF;
 	u32 count = data & 0xFFFF;
-	// Upper bits are ignored.
-	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
-
 	if (count == 0)
 		return;
-
+	// Upper bits are ignored.
+	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
 	SetDrawType(DRAW_PRIM, prim);
 
 	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
