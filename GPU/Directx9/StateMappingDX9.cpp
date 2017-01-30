@@ -205,83 +205,87 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.dither.disable();
 	}
 
-	// Set ColorMask/Stencil/Depth
-	if (gstate.isModeClear()) {
-		// Set Cull 
-		dxstate.cullMode.set(false, false);
-		
-		// Depth Test
-		dxstate.depthTest.enable();
-		dxstate.depthFunc.set(D3DCMP_ALWAYS);
-		dxstate.depthWrite.set(gstate.isClearModeDepthMask());
-		if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
-			framebufferManager_->SetDepthUpdated();
-		}
+	{
+		// Set Stencil/Depth
+		if (gstate.isModeClear()) {
+			// Set Cull 
+			dxstate.cullMode.set(false, false);
 
-		// Stencil Test
-		bool alphaMask = gstate.isClearModeAlphaMask();
-		if (alphaMask && enableStencilTest) {
-			dxstate.stencilTest.enable();
-			dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
-			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);
-			dxstate.stencilMask.set(0xFF);
-		} else {
-			dxstate.stencilTest.disable();
-		}
-
-	} else {
-		// Set cull
-		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		dxstate.cullMode.set(wantCull, gstate.getCullMode());	
-
-		// Depth Test
-		if (gstate.isDepthTestEnabled()) {
+			// Depth Test
 			dxstate.depthTest.enable();
-			dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
-			dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
-			if (gstate.isDepthWriteEnabled()) {
+			dxstate.depthFunc.set(D3DCMP_ALWAYS);
+			dxstate.depthWrite.set(gstate.isClearModeDepthMask());
+			if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
 				framebufferManager_->SetDepthUpdated();
 			}
+
+			// Stencil Test
+			bool alphaMask = gstate.isClearModeAlphaMask();
+			if (alphaMask && enableStencilTest) {
+				dxstate.stencilTest.enable();
+				dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
+				dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);
+				dxstate.stencilMask.set(0xFF);
+			} else {
+				dxstate.stencilTest.disable();
+			}
+
 		} else {
-			dxstate.depthTest.disable();
+			// Set cull
+			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			dxstate.cullMode.set(wantCull, gstate.getCullMode());
+
+			// Depth Test
+			if (gstate.isDepthTestEnabled()) {
+				dxstate.depthTest.enable();
+				dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
+				dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
+				if (gstate.isDepthWriteEnabled()) {
+					framebufferManager_->SetDepthUpdated();
+				}
+			} else {
+				dxstate.depthTest.disable();
+			}
+
+			GenericStencilFuncState stencilState;
+			ConvertStencilFuncState(stencilState);
+
+			// Stencil Test
+			if (stencilState.enabled) {
+				dxstate.stencilTest.enable();
+				dxstate.stencilFunc.set(ztests[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+				dxstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
+				dxstate.stencilMask.set(stencilState.writeMask);
+			} else {
+				dxstate.stencilTest.disable();
+			}
+		}
+	}
+
+	{
+		ViewportAndScissor vpAndScissor;
+		ConvertViewportAndScissor(useBufferedRendering,
+			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+			vpAndScissor);
+
+		if (vpAndScissor.scissorEnable) {
+			dxstate.scissorTest.enable();
+			dxstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorX + vpAndScissor.scissorW, vpAndScissor.scissorY + vpAndScissor.scissorH);
+		} else {
+			dxstate.scissorTest.disable();
 		}
 
-		GenericStencilFuncState stencilState;
-		ConvertStencilFuncState(stencilState);
+		float depthMin = vpAndScissor.depthRangeMin;
+		float depthMax = vpAndScissor.depthRangeMax;
 
-		// Stencil Test
-		if (stencilState.enabled) {
-			dxstate.stencilTest.enable();
-			dxstate.stencilFunc.set(ztests[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
-			dxstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
-			dxstate.stencilMask.set(stencilState.writeMask);
-		} else {
-			dxstate.stencilTest.disable();
+		dxstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH, depthMin, depthMax);
+		if (vpAndScissor.dirtyProj) {
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
 		}
-	}
-
-	ViewportAndScissor vpAndScissor;
-	ConvertViewportAndScissor(useBufferedRendering,
-		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
-		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-		vpAndScissor);
-
-	if (vpAndScissor.scissorEnable) {
-		dxstate.scissorTest.enable();
-		dxstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorX + vpAndScissor.scissorW, vpAndScissor.scissorY + vpAndScissor.scissorH);
-	} else {
-		dxstate.scissorTest.disable();
-	}
-
-	float depthMin = vpAndScissor.depthRangeMin;
-	float depthMax = vpAndScissor.depthRangeMax;
-
-	dxstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH, depthMin, depthMax);
-	if (vpAndScissor.dirtyProj) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-	}
-	if (vpAndScissor.dirtyDepth) {
-		gstate_c.Dirty(DIRTY_DEPTHRANGE);
+		if (vpAndScissor.dirtyDepth) {
+			gstate_c.Dirty(DIRTY_DEPTHRANGE);
+		}
 	}
 }
 

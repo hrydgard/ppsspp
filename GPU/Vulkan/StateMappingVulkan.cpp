@@ -220,117 +220,118 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		}
 	}
 
-	dynState.useStencil = false;
+	{
+		// Set Stencil/Depth
+		if (gstate.isModeClear()) {
+			key.cullMode = VK_CULL_MODE_NONE;
 
-	// Set Stencil/Depth
-	if (gstate.isModeClear()) {
-		key.cullMode = VK_CULL_MODE_NONE;
-
-		key.depthTestEnable = true;
-		key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
-		key.depthWriteEnable = gstate.isClearModeDepthMask();
-		if (gstate.isClearModeDepthMask()) {
-			fbManager.SetDepthUpdated();
-		}
-
-		// Stencil Test
-		bool alphaMask = gstate.isClearModeAlphaMask();
-		if (alphaMask) {
-			key.stencilTestEnable = true;
-			key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
-			key.stencilPassOp = VK_STENCIL_OP_REPLACE;
-			key.stencilFailOp = VK_STENCIL_OP_REPLACE;
-			key.stencilDepthFailOp = VK_STENCIL_OP_REPLACE;
-			dynState.useStencil = true;
-			// In clear mode, the stencil value is set to the alpha value of the vertex.
-			// A normal clear will be 2 points, the second point has the color.
-			// We override this value in the pipeline from software transform for clear rectangles.
-			dynState.stencilRef = 0xFF;
-			dynState.stencilWriteMask = 0xFF;
-		} else {
-			key.stencilTestEnable = false;
-			dynState.useStencil = false;
-		}
-	} else {
-		if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-			// Logic Ops
-			if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
-				key.logicOpEnable = true;
-				key.logicOp = logicOps[gstate.getLogicOp()];
-			} else {
-				key.logicOpEnable = false;
-			}
-		}
-
-		// Set cull
-		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
-
-		// Depth Test
-		if (gstate.isDepthTestEnabled()) {
 			key.depthTestEnable = true;
-			key.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
-			key.depthWriteEnable = gstate.isDepthWriteEnabled();
-			if (gstate.isDepthWriteEnabled()) {
+			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+			key.depthWriteEnable = gstate.isClearModeDepthMask();
+			if (gstate.isClearModeDepthMask()) {
 				fbManager.SetDepthUpdated();
 			}
-		} else {
-			key.depthTestEnable = false;
-			key.depthWriteEnable = false;
-			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
-		}
 
-		GenericStencilFuncState stencilState;
-		ConvertStencilFuncState(stencilState);
-
-		// Stencil Test
-		if (stencilState.enabled) {
-			key.stencilTestEnable = true;
-			key.stencilCompareOp = compareOps[stencilState.testFunc];
-			key.stencilPassOp = stencilOps[stencilState.zPass];
-			key.stencilFailOp = stencilOps[stencilState.sFail];
-			key.stencilDepthFailOp = stencilOps[stencilState.zFail];
-			dynState.useStencil = true;
-			dynState.stencilRef = stencilState.testRef;
-			dynState.stencilCompareMask = stencilState.testMask;
-			dynState.stencilWriteMask = stencilState.writeMask;
+			// Stencil Test
+			bool alphaMask = gstate.isClearModeAlphaMask();
+			if (alphaMask) {
+				key.stencilTestEnable = true;
+				key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
+				key.stencilPassOp = VK_STENCIL_OP_REPLACE;
+				key.stencilFailOp = VK_STENCIL_OP_REPLACE;
+				key.stencilDepthFailOp = VK_STENCIL_OP_REPLACE;
+				dynState.useStencil = true;
+				// In clear mode, the stencil value is set to the alpha value of the vertex.
+				// A normal clear will be 2 points, the second point has the color.
+				// We override this value in the pipeline from software transform for clear rectangles.
+				dynState.stencilRef = 0xFF;
+				dynState.stencilWriteMask = 0xFF;
+			} else {
+				key.stencilTestEnable = false;
+				dynState.useStencil = false;
+			}
 		} else {
-			key.stencilTestEnable = false;
-			dynState.useStencil = false;
+			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+				// Logic Ops
+				if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
+					key.logicOpEnable = true;
+					key.logicOp = logicOps[gstate.getLogicOp()];
+				} else {
+					key.logicOpEnable = false;
+				}
+			}
+
+			// Set cull
+			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
+
+			// Depth Test
+			if (gstate.isDepthTestEnabled()) {
+				key.depthTestEnable = true;
+				key.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
+				key.depthWriteEnable = gstate.isDepthWriteEnabled();
+				if (gstate.isDepthWriteEnabled()) {
+					fbManager.SetDepthUpdated();
+				}
+			} else {
+				key.depthTestEnable = false;
+				key.depthWriteEnable = false;
+				key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+			}
+
+			GenericStencilFuncState stencilState;
+			ConvertStencilFuncState(stencilState);
+
+			// Stencil Test
+			if (stencilState.enabled) {
+				key.stencilTestEnable = true;
+				key.stencilCompareOp = compareOps[stencilState.testFunc];
+				key.stencilPassOp = stencilOps[stencilState.zPass];
+				key.stencilFailOp = stencilOps[stencilState.sFail];
+				key.stencilDepthFailOp = stencilOps[stencilState.zFail];
+				dynState.useStencil = true;
+				dynState.stencilRef = stencilState.testRef;
+				dynState.stencilCompareMask = stencilState.testMask;
+				dynState.stencilWriteMask = stencilState.writeMask;
+			} else {
+				key.stencilTestEnable = false;
+				dynState.useStencil = false;
+			}
 		}
 	}
 
+	{
+		ViewportAndScissor vpAndScissor;
+		ConvertViewportAndScissor(useBufferedRendering,
+			fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
+			fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
+			vpAndScissor);
+
+		VkViewport &vp = dynState.viewport;
+		vp.x = vpAndScissor.viewportX;
+		vp.y = vpAndScissor.viewportY;
+		vp.width = vpAndScissor.viewportW;
+		vp.height = vpAndScissor.viewportH;
+		vp.minDepth = vpAndScissor.depthRangeMin;
+		vp.maxDepth = vpAndScissor.depthRangeMax;
+		if (vpAndScissor.dirtyProj) {
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
+		}
+
+		VkRect2D &scissor = dynState.scissor;
+		scissor.offset.x = vpAndScissor.scissorX;
+		scissor.offset.y = vpAndScissor.scissorY;
+		scissor.extent.width = vpAndScissor.scissorW;
+		scissor.extent.height = vpAndScissor.scissorH;
+
+		float depthMin = vpAndScissor.depthRangeMin;
+		float depthMax = vpAndScissor.depthRangeMax;
+
+		if (depthMin < 0.0f) depthMin = 0.0f;
+		if (depthMax > 1.0f) depthMax = 1.0f;
+		if (vpAndScissor.dirtyDepth) {
+			gstate_c.Dirty(DIRTY_DEPTHRANGE);
+		}
+	}
 	key.topology = primToVulkan[prim];
-
-	ViewportAndScissor vpAndScissor;
-	ConvertViewportAndScissor(useBufferedRendering,
-		fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
-		fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
-		vpAndScissor);
-
-	VkViewport &vp = dynState.viewport;
-	vp.x = vpAndScissor.viewportX;
-	vp.y = vpAndScissor.viewportY;
-	vp.width = vpAndScissor.viewportW;
-	vp.height = vpAndScissor.viewportH;
-	vp.minDepth = vpAndScissor.depthRangeMin;
-	vp.maxDepth = vpAndScissor.depthRangeMax;
-	if (vpAndScissor.dirtyProj) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-	}
-
-	VkRect2D &scissor = dynState.scissor;
-	scissor.offset.x = vpAndScissor.scissorX;
-	scissor.offset.y = vpAndScissor.scissorY;
-	scissor.extent.width = vpAndScissor.scissorW;
-	scissor.extent.height = vpAndScissor.scissorH;
-
-	float depthMin = vpAndScissor.depthRangeMin;
-	float depthMax = vpAndScissor.depthRangeMax;
-
-	if (depthMin < 0.0f) depthMin = 0.0f;
-	if (depthMax > 1.0f) depthMax = 1.0f;
-	if (vpAndScissor.dirtyDepth) {
-		gstate_c.Dirty(DIRTY_DEPTHRANGE);
-	}
 }

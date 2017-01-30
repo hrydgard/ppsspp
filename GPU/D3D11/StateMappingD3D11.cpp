@@ -148,8 +148,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			bool colorMask = gstate.isClearModeColorMask();
 			keys_.blend.colorWriteMask = (colorMask ? (1 | 2 | 4) : 0) | (alphaMask ? 8 : 0);
-		}
-		else {
+		} else {
 			// Set blend - unless we need to do it in the shader.
 			GenericBlendState blendState;
 			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
@@ -158,14 +157,12 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				if (ApplyShaderBlending()) {
 					// We may still want to do something about stencil -> alpha.
 					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
-				}
-				else {
+				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
 					gstate_c.allowShaderBlend = false;
 				}
-			}
-			else if (blendState.resetShaderBlending) {
+			} else if (blendState.resetShaderBlending) {
 				ResetShaderBlending();
 			}
 
@@ -185,8 +182,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				if (blendState.useBlendColor) {
 					dynState_.blendColor = blendState.blendColor;
 				}
-			}
-			else {
+			} else {
 				keys_.blend.blendEnable = false;
 				dynState_.useBlendColor = false;
 			}
@@ -197,8 +193,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 					keys_.blend.blendEnable = false;  // Can't have both blend & logic op - although I think the PSP can!
 					keys_.blend.logicOpEnable = true;
 					keys_.blend.logicOp = logicOps[gstate.getLogicOp()];
-				}
-				else {
+				} else {
 					keys_.blend.logicOpEnable = false;
 				}
 			}
@@ -240,119 +235,119 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 	dynState_.useStencil = false;
 
-	// Set ColorMask/Stencil/Depth
-	if (gstate.isModeClear()) {
-		keys_.raster.cullMode = D3D11_CULL_NONE;
+	{
+		// Set ColorMask/Stencil/Depth
+		if (gstate.isModeClear()) {
+			keys_.raster.cullMode = D3D11_CULL_NONE;
 
-		keys_.depthStencil.depthTestEnable = true;
-		keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
-		keys_.depthStencil.depthWriteEnable = gstate.isClearModeDepthMask();
-		if (gstate.isClearModeDepthMask()) {
-			framebufferManager_->SetDepthUpdated();
-		}
-
-		// Stencil Test
-		bool alphaMask = gstate.isClearModeAlphaMask();
-		if (alphaMask) {
-			keys_.depthStencil.stencilTestEnable = true;
-			keys_.depthStencil.stencilCompareFunc = D3D11_COMPARISON_ALWAYS;
-			keys_.depthStencil.stencilPassOp = D3D11_STENCIL_OP_REPLACE;
-			keys_.depthStencil.stencilFailOp = D3D11_STENCIL_OP_REPLACE;
-			keys_.depthStencil.stencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
-			dynState_.useStencil = true;
-			// In clear mode, the stencil value is set to the alpha value of the vertex.
-			// A normal clear will be 2 points, the second point has the color.
-			// We override this value in the pipeline from software transform for clear rectangles.
-			dynState_.stencilRef = 0xFF;
-			keys_.depthStencil.stencilWriteMask = 0xFF;
-		}
-		else {
-			keys_.depthStencil.stencilTestEnable = false;
-			dynState_.useStencil = false;
-		}
-
-	}
-	else {
-		// Set cull
-		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
-
-		// Depth Test
-		if (gstate.isDepthTestEnabled()) {
 			keys_.depthStencil.depthTestEnable = true;
-			keys_.depthStencil.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
-			keys_.depthStencil.depthWriteEnable = gstate.isDepthWriteEnabled();
-			if (gstate.isDepthWriteEnabled()) {
+			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
+			keys_.depthStencil.depthWriteEnable = gstate.isClearModeDepthMask();
+			if (gstate.isClearModeDepthMask()) {
 				framebufferManager_->SetDepthUpdated();
 			}
-		}
-		else {
-			keys_.depthStencil.depthTestEnable = false;
-			keys_.depthStencil.depthWriteEnable = false;
-			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
-		}
 
-		GenericStencilFuncState stencilState;
-		ConvertStencilFuncState(stencilState);
+			// Stencil Test
+			bool alphaMask = gstate.isClearModeAlphaMask();
+			if (alphaMask) {
+				keys_.depthStencil.stencilTestEnable = true;
+				keys_.depthStencil.stencilCompareFunc = D3D11_COMPARISON_ALWAYS;
+				keys_.depthStencil.stencilPassOp = D3D11_STENCIL_OP_REPLACE;
+				keys_.depthStencil.stencilFailOp = D3D11_STENCIL_OP_REPLACE;
+				keys_.depthStencil.stencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
+				dynState_.useStencil = true;
+				// In clear mode, the stencil value is set to the alpha value of the vertex.
+				// A normal clear will be 2 points, the second point has the color.
+				// We override this value in the pipeline from software transform for clear rectangles.
+				dynState_.stencilRef = 0xFF;
+				keys_.depthStencil.stencilWriteMask = 0xFF;
+			} else {
+				keys_.depthStencil.stencilTestEnable = false;
+				dynState_.useStencil = false;
+			}
 
-		// Stencil Test
-		if (stencilState.enabled) {
-			keys_.depthStencil.stencilTestEnable = true;
-			keys_.depthStencil.stencilCompareFunc = compareOps[stencilState.testFunc];
-			keys_.depthStencil.stencilPassOp = stencilOps[stencilState.zPass];
-			keys_.depthStencil.stencilFailOp = stencilOps[stencilState.sFail];
-			keys_.depthStencil.stencilDepthFailOp = stencilOps[stencilState.zFail];
-			keys_.depthStencil.stencilCompareMask = stencilState.testMask;
-			keys_.depthStencil.stencilWriteMask = stencilState.writeMask;
-			dynState_.useStencil = true;
-			dynState_.stencilRef = stencilState.testRef;
 		} else {
-			keys_.depthStencil.stencilTestEnable = false;
-			dynState_.useStencil = false;
+			// Set cull
+			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
+
+			// Depth Test
+			if (gstate.isDepthTestEnabled()) {
+				keys_.depthStencil.depthTestEnable = true;
+				keys_.depthStencil.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
+				keys_.depthStencil.depthWriteEnable = gstate.isDepthWriteEnabled();
+				if (gstate.isDepthWriteEnabled()) {
+					framebufferManager_->SetDepthUpdated();
+				}
+			} else {
+				keys_.depthStencil.depthTestEnable = false;
+				keys_.depthStencil.depthWriteEnable = false;
+				keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
+			}
+
+			GenericStencilFuncState stencilState;
+			ConvertStencilFuncState(stencilState);
+
+			// Stencil Test
+			if (stencilState.enabled) {
+				keys_.depthStencil.stencilTestEnable = true;
+				keys_.depthStencil.stencilCompareFunc = compareOps[stencilState.testFunc];
+				keys_.depthStencil.stencilPassOp = stencilOps[stencilState.zPass];
+				keys_.depthStencil.stencilFailOp = stencilOps[stencilState.sFail];
+				keys_.depthStencil.stencilDepthFailOp = stencilOps[stencilState.zFail];
+				keys_.depthStencil.stencilCompareMask = stencilState.testMask;
+				keys_.depthStencil.stencilWriteMask = stencilState.writeMask;
+				dynState_.useStencil = true;
+				dynState_.stencilRef = stencilState.testRef;
+			} else {
+				keys_.depthStencil.stencilTestEnable = false;
+				dynState_.useStencil = false;
+			}
+		}
+	}
+
+	{
+		ViewportAndScissor vpAndScissor;
+		ConvertViewportAndScissor(useBufferedRendering,
+			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+			vpAndScissor);
+
+		float depthMin = vpAndScissor.depthRangeMin;
+		float depthMax = vpAndScissor.depthRangeMax;
+
+		if (depthMin < 0.0f) depthMin = 0.0f;
+		if (depthMax > 1.0f) depthMax = 1.0f;
+		if (vpAndScissor.dirtyDepth) {
+			gstate_c.Dirty(DIRTY_DEPTHRANGE);
+		}
+
+		Draw::Viewport &vp = dynState_.viewport;
+		vp.TopLeftX = vpAndScissor.viewportX;
+		vp.TopLeftY = vpAndScissor.viewportY;
+		vp.Width = vpAndScissor.viewportW;
+		vp.Height = vpAndScissor.viewportH;
+		vp.MinDepth = depthMin;
+		vp.MaxDepth = depthMax;
+		if (vpAndScissor.dirtyProj) {
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
+		}
+
+		D3D11_RECT &scissor = dynState_.scissor;
+		if (vpAndScissor.scissorEnable) {
+			scissor.left = vpAndScissor.scissorX;
+			scissor.top = vpAndScissor.scissorY;
+			scissor.right = vpAndScissor.scissorX + std::max(0, vpAndScissor.scissorW);
+			scissor.bottom = vpAndScissor.scissorY + std::max(0, vpAndScissor.scissorH);
+		} else {
+			scissor.left = 0;
+			scissor.top = 0;
+			scissor.right = framebufferManager_->GetRenderWidth();
+			scissor.bottom = framebufferManager_->GetRenderHeight();
 		}
 	}
 
 	dynState_.topology = primToD3D11[prim];
-
-	ViewportAndScissor vpAndScissor;
-	ConvertViewportAndScissor(useBufferedRendering,
-		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
-		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-		vpAndScissor);
-
-	float depthMin = vpAndScissor.depthRangeMin;
-	float depthMax = vpAndScissor.depthRangeMax;
-
-	if (depthMin < 0.0f) depthMin = 0.0f;
-	if (depthMax > 1.0f) depthMax = 1.0f;
-	if (vpAndScissor.dirtyDepth) {
-		gstate_c.Dirty(DIRTY_DEPTHRANGE);
-	}
-
-	Draw::Viewport &vp = dynState_.viewport;
-	vp.TopLeftX = vpAndScissor.viewportX;
-	vp.TopLeftY = vpAndScissor.viewportY;
-	vp.Width = vpAndScissor.viewportW;
-	vp.Height = vpAndScissor.viewportH;
-	vp.MinDepth = depthMin;
-	vp.MaxDepth = depthMax;
-	if (vpAndScissor.dirtyProj) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-	}
-
-	D3D11_RECT &scissor = dynState_.scissor;
-	if (vpAndScissor.scissorEnable) {
-		scissor.left = vpAndScissor.scissorX;
-		scissor.top = vpAndScissor.scissorY;
-		scissor.right = vpAndScissor.scissorX + std::max(0, vpAndScissor.scissorW);
-		scissor.bottom = vpAndScissor.scissorY + std::max(0, vpAndScissor.scissorH);
-	}
-	else {
-		scissor.left = 0;
-		scissor.top = 0;
-		scissor.right = framebufferManager_->GetRenderWidth();
-		scissor.bottom = framebufferManager_->GetRenderHeight();
-	}
 
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
