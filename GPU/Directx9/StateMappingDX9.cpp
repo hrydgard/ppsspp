@@ -198,7 +198,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
 
-	{
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		gstate_c.Clean(DIRTY_RASTER_STATE);
 		// Set Dither
 		if (gstate.isDitherEnabled()) {
 			dxstate.dither.enable();

@@ -234,7 +234,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		gstate_c.Clean(DIRTY_RASTER_STATE);
 		if (gstate.isModeClear()) {
 			key.cullMode = VK_CULL_MODE_NONE;
 		} else {

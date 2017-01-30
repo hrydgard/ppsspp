@@ -253,7 +253,9 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		gstate_c.Clean(DIRTY_RASTER_STATE);
+
 		// Dither
 		if (gstate.isDitherEnabled()) {
 			glstate.dither.enable();

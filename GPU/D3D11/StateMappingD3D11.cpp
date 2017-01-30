@@ -275,7 +275,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		gstate_c.Clean(DIRTY_RASTER_STATE);
 		keys_.raster.value = 0;
 		if (gstate.isModeClear()) {
 			keys_.raster.cullMode = D3D11_CULL_NONE;
