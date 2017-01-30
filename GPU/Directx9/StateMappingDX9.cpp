@@ -115,47 +115,84 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
-	// Unfortunately, this isn't implemented yet.
-	gstate_c.allowShaderBlend = false;
+	{
+		// Unfortunately, this isn't implemented yet.
+		gstate_c.allowShaderBlend = false;
+		if (gstate.isModeClear()) {
+			dxstate.blend.disable();
 
-	// Set blend - unless we need to do it in the shader.
-	GenericBlendState blendState;
-	ConvertBlendState(blendState, gstate_c.allowShaderBlend);
-
-	ViewportAndScissor vpAndScissor;
-	ConvertViewportAndScissor(useBufferedRendering,
-		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
-		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-		vpAndScissor);
-
-	if (blendState.applyShaderBlending) {
-		if (ApplyShaderBlending()) {
-			// We may still want to do something about stencil -> alpha.
-			ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+			// Color Mask
+			bool colorMask = gstate.isClearModeColorMask();
+			bool alphaMask = gstate.isClearModeAlphaMask();
+			dxstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 		} else {
-			// Until next time, force it off.
-			ResetShaderBlending();
-			gstate_c.allowShaderBlend = false;
-		}
-	} else if (blendState.resetShaderBlending) {
-		ResetShaderBlending();
-	}
+			// Set blend - unless we need to do it in the shader.
+			GenericBlendState blendState;
+			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
 
-	if (blendState.enabled) {
-		dxstate.blend.enable();
-		dxstate.blendSeparate.enable();
-		dxstate.blendEquation.set(dxBlendEqLookup[(size_t)blendState.eqColor], dxBlendEqLookup[(size_t)blendState.eqAlpha]);
-		dxstate.blendFunc.set(
-			dxBlendFactorLookup[(size_t)blendState.srcColor], dxBlendFactorLookup[(size_t)blendState.dstColor],
-			dxBlendFactorLookup[(size_t)blendState.srcAlpha], dxBlendFactorLookup[(size_t)blendState.dstAlpha]);
-		if (blendState.dirtyShaderBlend) {
-			gstate_c.Dirty(DIRTY_SHADERBLEND);
+			if (blendState.applyShaderBlending) {
+				if (ApplyShaderBlending()) {
+					// We may still want to do something about stencil -> alpha.
+					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+				} else {
+					// Until next time, force it off.
+					ResetShaderBlending();
+					gstate_c.allowShaderBlend = false;
+				}
+			} else if (blendState.resetShaderBlending) {
+				ResetShaderBlending();
+			}
+
+			if (blendState.enabled) {
+				dxstate.blend.enable();
+				dxstate.blendSeparate.enable();
+				dxstate.blendEquation.set(dxBlendEqLookup[(size_t)blendState.eqColor], dxBlendEqLookup[(size_t)blendState.eqAlpha]);
+				dxstate.blendFunc.set(
+					dxBlendFactorLookup[(size_t)blendState.srcColor], dxBlendFactorLookup[(size_t)blendState.dstColor],
+					dxBlendFactorLookup[(size_t)blendState.srcAlpha], dxBlendFactorLookup[(size_t)blendState.dstAlpha]);
+				if (blendState.dirtyShaderBlend) {
+					gstate_c.Dirty(DIRTY_SHADERBLEND);
+				}
+				if (blendState.useBlendColor) {
+					dxstate.blendColor.setDWORD(blendState.blendColor);
+				}
+			} else {
+				dxstate.blend.disable();
+			}
+
+			// PSP color/alpha mask is per bit but we can only support per byte.
+			// But let's do that, at least. And let's try a threshold.
+			bool rmask = (gstate.pmskc & 0xFF) < 128;
+			bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
+			bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
+			bool amask = (gstate.pmska & 0xFF) < 128;
+
+#ifndef MOBILE_DEVICE
+			u8 abits = (gstate.pmska >> 0) & 0xFF;
+			u8 rbits = (gstate.pmskc >> 0) & 0xFF;
+			u8 gbits = (gstate.pmskc >> 8) & 0xFF;
+			u8 bbits = (gstate.pmskc >> 16) & 0xFF;
+			if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
+				WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
+			}
+			if (abits != 0 && abits != 0xFF) {
+				// The stencil part of the mask is supported.
+				WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
+			}
+#endif
+
+			// Let's not write to alpha if stencil isn't enabled.
+			if (!gstate.isStencilTestEnabled()) {
+				amask = false;
+			} else {
+				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+				if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+					amask = false;
+				}
+			}
+
+			dxstate.colorMask.set(rmask, gmask, bmask, amask);
 		}
-		if (blendState.useBlendColor) {
-			dxstate.blendColor.setDWORD(blendState.blendColor);
-		}
-	} else {
-		dxstate.blend.disable();
 	}
 
 	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
@@ -181,12 +218,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			framebufferManager_->SetDepthUpdated();
 		}
 
-		// Color Test
-		bool colorMask = gstate.isClearModeColorMask();
-		bool alphaMask = gstate.isClearModeAlphaMask();
-		dxstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
-
 		// Stencil Test
+		bool alphaMask = gstate.isClearModeAlphaMask();
 		if (alphaMask && enableStencilTest) {
 			dxstate.stencilTest.enable();
 			dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
@@ -213,39 +246,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.depthTest.disable();
 		}
 
-		// PSP color/alpha mask is per bit but we can only support per byte.
-		// But let's do that, at least. And let's try a threshold.
-		bool rmask = (gstate.pmskc & 0xFF) < 128;
-		bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
-		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-		bool amask = (gstate.pmska & 0xFF) < 128;
-
-#ifndef MOBILE_DEVICE
-		u8 abits = (gstate.pmska >> 0) & 0xFF;
-		u8 rbits = (gstate.pmskc >> 0) & 0xFF;
-		u8 gbits = (gstate.pmskc >> 8) & 0xFF;
-		u8 bbits = (gstate.pmskc >> 16) & 0xFF;
-		if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
-			WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
-		}
-		if (abits != 0 && abits != 0xFF) {
-			// The stencil part of the mask is supported.
-			WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
-		}
-#endif
-
-		// Let's not write to alpha if stencil isn't enabled.
-		if (!gstate.isStencilTestEnabled()) {
-			amask = false;
-		} else {
-			// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-				amask = false;
-			}
-		}
-
-		dxstate.colorMask.set(rmask, gmask, bmask, amask);
-
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
@@ -259,6 +259,12 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.stencilTest.disable();
 		}
 	}
+
+	ViewportAndScissor vpAndScissor;
+	ConvertViewportAndScissor(useBufferedRendering,
+		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+		vpAndScissor);
 
 	if (vpAndScissor.scissorEnable) {
 		dxstate.scissorTest.enable();

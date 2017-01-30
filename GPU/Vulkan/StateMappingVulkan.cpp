@@ -131,59 +131,99 @@ void ResetShaderBlending() {
 void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
 	memset(&key, 0, sizeof(key));
 	memset(&dynState, 0, sizeof(dynState));
-	// Unfortunately, this isn't implemented yet.
-	gstate_c.allowShaderBlend = false;
-
-	// Set blend - unless we need to do it in the shader.
-	GenericBlendState blendState;
-	ConvertBlendState(blendState, gstate_c.allowShaderBlend);
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
-	ViewportAndScissor vpAndScissor;
-	ConvertViewportAndScissor(useBufferedRendering,
-		fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
-		fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
-		vpAndScissor);
+	{
+		// Unfortunately, this isn't implemented yet.
+		gstate_c.allowShaderBlend = false;
+		if (gstate.isModeClear()) {
+			key.logicOpEnable = false;
+			key.blendEnable = false;
+			dynState.useBlendColor = false;
 
-	if (blendState.applyShaderBlending) {
-		if (ApplyShaderBlending()) {
-			// We may still want to do something about stencil -> alpha.
-			ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+			// Color Mask
+			bool colorMask = gstate.isClearModeColorMask();
+			bool alphaMask = gstate.isClearModeAlphaMask();
+			key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
+
 		} else {
-			// Until next time, force it off.
-			ResetShaderBlending();
-			gstate_c.allowShaderBlend = false;
-		}
-	} else if (blendState.resetShaderBlending) {
-		ResetShaderBlending();
-	}
+			// Set blend - unless we need to do it in the shader.
+			GenericBlendState blendState;
+			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
 
-	if (blendState.enabled) {
-		key.blendEnable = true;
-		key.blendOpColor = vkBlendEqLookup[(size_t)blendState.eqColor];
-		key.blendOpAlpha = vkBlendEqLookup[(size_t)blendState.eqAlpha];
-		key.srcColor = vkBlendFactorLookup[(size_t)blendState.srcColor];
-		key.srcAlpha = vkBlendFactorLookup[(size_t)blendState.srcAlpha];
-		key.destColor = vkBlendFactorLookup[(size_t)blendState.dstColor];
-		key.destAlpha = vkBlendFactorLookup[(size_t)blendState.dstAlpha];
-		if (blendState.dirtyShaderBlend) {
-			gstate_c.Dirty(DIRTY_SHADERBLEND);
+			if (blendState.applyShaderBlending) {
+				if (ApplyShaderBlending()) {
+					// We may still want to do something about stencil -> alpha.
+					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+				} else {
+					// Until next time, force it off.
+					ResetShaderBlending();
+					gstate_c.allowShaderBlend = false;
+				}
+			} else if (blendState.resetShaderBlending) {
+				ResetShaderBlending();
+			}
+
+			if (blendState.enabled) {
+				key.blendEnable = true;
+				key.blendOpColor = vkBlendEqLookup[(size_t)blendState.eqColor];
+				key.blendOpAlpha = vkBlendEqLookup[(size_t)blendState.eqAlpha];
+				key.srcColor = vkBlendFactorLookup[(size_t)blendState.srcColor];
+				key.srcAlpha = vkBlendFactorLookup[(size_t)blendState.srcAlpha];
+				key.destColor = vkBlendFactorLookup[(size_t)blendState.dstColor];
+				key.destAlpha = vkBlendFactorLookup[(size_t)blendState.dstAlpha];
+				if (blendState.dirtyShaderBlend) {
+					gstate_c.Dirty(DIRTY_SHADERBLEND);
+				}
+				dynState.useBlendColor = blendState.useBlendColor;
+				if (blendState.useBlendColor) {
+					dynState.blendColor = blendState.blendColor;
+				}
+			} else {
+				key.blendEnable = false;
+				dynState.useBlendColor = false;
+			}
+
+			// PSP color/alpha mask is per bit but we can only support per byte.
+			// But let's do that, at least. And let's try a threshold.
+			bool rmask = (gstate.pmskc & 0xFF) < 128;
+			bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
+			bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
+			bool amask = (gstate.pmska & 0xFF) < 128;
+
+#ifndef MOBILE_DEVICE
+			u8 abits = (gstate.pmska >> 0) & 0xFF;
+			u8 rbits = (gstate.pmskc >> 0) & 0xFF;
+			u8 gbits = (gstate.pmskc >> 8) & 0xFF;
+			u8 bbits = (gstate.pmskc >> 16) & 0xFF;
+			if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
+				WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
+			}
+			if (abits != 0 && abits != 0xFF) {
+				// The stencil part of the mask is supported.
+				WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
+			}
+#endif
+
+			// Let's not write to alpha if stencil isn't enabled.
+			if (!gstate.isStencilTestEnabled()) {
+				amask = false;
+			} else {
+				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+				if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+					amask = false;
+				}
+			}
+
+			key.colorWriteMask = (rmask ? VK_COLOR_COMPONENT_R_BIT : 0) | (gmask ? VK_COLOR_COMPONENT_G_BIT : 0) | (bmask ? VK_COLOR_COMPONENT_B_BIT : 0) | (amask ? VK_COLOR_COMPONENT_A_BIT : 0);
 		}
-		dynState.useBlendColor = blendState.useBlendColor;
-		if (blendState.useBlendColor) {
-			dynState.blendColor = blendState.blendColor;
-		}
-	} else {
-		key.blendEnable = false;
-		dynState.useBlendColor = false;
 	}
 
 	dynState.useStencil = false;
 
-	// Set ColorMask/Stencil/Depth
+	// Set Stencil/Depth
 	if (gstate.isModeClear()) {
-		key.logicOpEnable = false;
 		key.cullMode = VK_CULL_MODE_NONE;
 
 		key.depthTestEnable = true;
@@ -193,12 +233,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			fbManager.SetDepthUpdated();
 		}
 
-		// Color Test
-		bool colorMask = gstate.isClearModeColorMask();
-		bool alphaMask = gstate.isClearModeAlphaMask();
-		key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
-
 		// Stencil Test
+		bool alphaMask = gstate.isClearModeAlphaMask();
 		if (alphaMask) {
 			key.stencilTestEnable = true;
 			key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
@@ -244,39 +280,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
 		}
 
-		// PSP color/alpha mask is per bit but we can only support per byte.
-		// But let's do that, at least. And let's try a threshold.
-		bool rmask = (gstate.pmskc & 0xFF) < 128;
-		bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
-		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-		bool amask = (gstate.pmska & 0xFF) < 128;
-
-#ifndef MOBILE_DEVICE
-		u8 abits = (gstate.pmska >> 0) & 0xFF;
-		u8 rbits = (gstate.pmskc >> 0) & 0xFF;
-		u8 gbits = (gstate.pmskc >> 8) & 0xFF;
-		u8 bbits = (gstate.pmskc >> 16) & 0xFF;
-		if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
-			WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
-		}
-		if (abits != 0 && abits != 0xFF) {
-			// The stencil part of the mask is supported.
-			WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
-		}
-#endif
-
-		// Let's not write to alpha if stencil isn't enabled.
-		if (!gstate.isStencilTestEnabled()) {
-			amask = false;
-		} else {
-			// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-				amask = false;
-			}
-		}
-
-		key.colorWriteMask = (rmask ? VK_COLOR_COMPONENT_R_BIT : 0) | (gmask ? VK_COLOR_COMPONENT_G_BIT : 0) | (bmask ? VK_COLOR_COMPONENT_B_BIT : 0) | (amask ? VK_COLOR_COMPONENT_A_BIT : 0);
-
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
@@ -298,6 +301,12 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 
 	key.topology = primToVulkan[prim];
+
+	ViewportAndScissor vpAndScissor;
+	ConvertViewportAndScissor(useBufferedRendering,
+		fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
+		fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
+		vpAndScissor);
 
 	VkViewport &vp = dynState.viewport;
 	vp.x = vpAndScissor.viewportX;
