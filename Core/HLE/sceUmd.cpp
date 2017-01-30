@@ -336,6 +336,10 @@ static int sceUmdUnRegisterUMDCallBack(int cbId)
 
 static u32 sceUmdGetDriveStat()
 {
+	if (!UMDInserted) {
+		WARN_LOG(SCEIO, "sceUmdGetDriveStat: UMD is taking out for switch UMD");
+		return PSP_UMD_NOT_PRESENT;
+	}
 	//u32 retVal = PSP_UMD_INITED | PSP_UMD_READY | PSP_UMD_PRESENT;
 	u32 retVal = __KernelUmdGetState();
 	DEBUG_LOG(SCEIO,"0x%02x=sceUmdGetDriveStat()", retVal);
@@ -432,6 +436,11 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 
 static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 {
+	if (!UMDInserted) {
+		WARN_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): UMD is taking out for switch UMD", stat, timeout);
+		return PSP_UMD_NOT_PRESENT;
+	}
+
 	if (stat == 0) {
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): bad status", stat, timeout);
 		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
