@@ -141,6 +141,11 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		}
 	}
 
+	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE)) {
+		// Nothing to do, let's early-out
+		return;
+	}
+
 	// Start profiling here to skip SetTexture which is already accounted for
 	PROFILE_THIS_SCOPE("applydrawstate");
 
@@ -332,7 +337,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
 		ViewportAndScissor vpAndScissor;
 		ConvertViewportAndScissor(useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),

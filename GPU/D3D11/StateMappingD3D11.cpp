@@ -390,7 +390,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		depthStencilState_ = ds;
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
 		ViewportAndScissor vpAndScissor;
 		ConvertViewportAndScissor(useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
