@@ -227,10 +227,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		WRITE(p, "%s %s float v_fogdepth;\n", varying, highpFog ? "highp" : "mediump");
 	}
 	if (doTexture) {
-		if (doTextureProjection)
-			WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
-		else
-			WRITE(p, "%s %s vec2 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
+		WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
 	}
 
 	if (!g_Config.bFragmentTestCache) {
@@ -329,7 +326,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			if (doTextureProjection) {
 				WRITE(p, "  vec4 t = %sProj(tex, %s);\n", texture, texcoord);
 			} else {
-				WRITE(p, "  vec4 t = %s(tex, %s);\n", texture, texcoord);
+				WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", texture, texcoord);
 			}
 			WRITE(p, "  vec4 p = v_color0;\n");
 

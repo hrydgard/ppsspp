@@ -98,10 +98,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 		WRITE(p, "layout (location = 3) in float v_fogdepth;\n");
 	}
 	if (doTexture) {
-		if (doTextureProjection)
-			WRITE(p, "layout (location = 0) in vec3 v_texcoord;\n");
-		else
-			WRITE(p, "layout (location = 0) in vec2 v_texcoord;\n");
+		WRITE(p, "layout (location = 0) in vec3 v_texcoord;\n");
 	}
 
 	if (enableAlphaTest && !alphaTestAgainstZero) {
@@ -176,7 +173,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 			if (doTextureProjection) {
 				WRITE(p, "  vec4 t = textureProj(tex, %s);\n", texcoord);
 			} else {
-				WRITE(p, "  vec4 t = texture(tex, %s);\n", texcoord);
+				WRITE(p, "  vec4 t = texture(tex, %s.xy);\n", texcoord);
 			}
 			WRITE(p, "  vec4 p = v_color0;\n");
 

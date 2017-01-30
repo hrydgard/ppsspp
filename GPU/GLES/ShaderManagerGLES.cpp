@@ -43,6 +43,8 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "FramebufferManagerGLES.h"
 
+#define SHADERLOG
+
 Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform)
 	  : failed_(false), useHWTransform_(useHWTransform) {
 	PROFILE_THIS_SCOPE("shadercomp");

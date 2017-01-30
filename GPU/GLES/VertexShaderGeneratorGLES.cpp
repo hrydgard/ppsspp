@@ -166,7 +166,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE) && !isModeThrough;  // TODO: Different expression than in shaderIDgen
 	bool doTexture = id.Bit(VS_BIT_DO_TEXTURE);
-	bool doTextureProjection = id.Bit(VS_BIT_DO_TEXTURE_PROJ);
+	bool doTextureProjection = id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM);
 
 	GETexMapMode uvGenMode = static_cast<GETexMapMode>(id.Bits(VS_BIT_UVGEN_MODE, 2));
 
@@ -225,11 +225,14 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 	if (useHWTransform && hasNormal)
 		WRITE(p, "%s mediump vec3 normal;\n", attribute);
 
+	bool texcoordVec3In = false;
 	if (doTexture && hasTexcoord) {
-		if (!useHWTransform && doTextureProjection && !throughmode)
+		if (!useHWTransform && doTextureProjection && !throughmode) {
 			WRITE(p, "%s vec3 texcoord;\n", attribute);
-		else
+			texcoordVec3In = true;
+		} else {
 			WRITE(p, "%s vec2 texcoord;\n", attribute);
+		}
 	}
 	if (hasColor) {
 		WRITE(p, "%s lowp vec4 color0;\n", attribute);
@@ -315,11 +318,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 	}
 
 	if (doTexture) {
-		if (doTextureProjection) {
-			WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
-		} else {
-			WRITE(p, "%s %s vec2 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
-		}
+		WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
 	}
 
 	if (enableFog) {
@@ -430,10 +429,10 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
-			if (throughmode && doTextureProjection) {
-				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
-			} else {
+			if (texcoordVec3In) {
 				WRITE(p, "  v_texcoord = texcoord;\n");
+			} else {
+				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
 			}
 		}
 		if (hasColor) {
@@ -803,20 +802,20 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 						if (doBezier || doSpline)
 							// TODO: Need fix?
 							// Fix to avoid temporarily texture animation bug with hardware tessellation.
-							WRITE(p, "  v_texcoord = tex * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+							WRITE(p, "  v_texcoord = vec3(tex * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 						else
-							WRITE(p, "  v_texcoord = texcoord * u_uvscaleoffset.xy;\n");
+							WRITE(p, "  v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
 					} else {
-						WRITE(p, "  v_texcoord = vec2(0.0);\n");
+						WRITE(p, "  v_texcoord = vec3(0.0);\n");
 					}
 				} else {
 					if (hasTexcoord) {
 						if (doBezier || doSpline)
-							WRITE(p, "  v_texcoord = tex * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+							WRITE(p, "  v_texcoord = vec3(tex * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 						else
-							WRITE(p, "  v_texcoord = texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+							WRITE(p, "  v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 					} else {
-						WRITE(p, "  v_texcoord = u_uvscaleoffset.zw;\n");
+						WRITE(p, "  v_texcoord = vec3(u_uvscaleoffset.zw, 0.0);\n");
 					}
 				}
 				break;
@@ -857,7 +856,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 				break;
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  v_texcoord = u_uvscaleoffset.xy * vec2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 + dot(normalize(u_lightpos%i), worldnormal)) * 0.5;\n", ls0, ls1);
+				WRITE(p, "  v_texcoord = vec3(u_uvscaleoffset.xy * vec2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 + dot(normalize(u_lightpos%i), worldnormal)) * 0.5);\n", ls0, ls1);
 				break;
 
 			default:
