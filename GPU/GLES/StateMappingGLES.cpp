@@ -209,6 +209,12 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			bool colorMask = gstate.isClearModeColorMask();
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
+#ifndef USING_GLES2
+			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+				// Logic Ops
+				glstate.colorLogicOp.disable();
+			}
+#endif
 		} else {
 			// PSP color/alpha mask is per bit but we can only support per byte.
 			// But let's do that, at least. And let's try a threshold.
@@ -231,11 +237,21 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 #endif
 
 			glstate.colorMask.set(rmask, gmask, bmask, amask);
+
+#ifndef USING_GLES2
+			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+				// TODO: Make this dynamic
+				// Logic Ops
+				if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
+					glstate.colorLogicOp.enable();
+					glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
+				} else {
+					glstate.colorLogicOp.disable();
+				}
+			}
+#endif
 		}
 	}
-
-	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
-	bool enableStencilTest = !g_Config.bDisableStencilTest;
 
 	// Dither
 	if (gstate.isDitherEnabled()) {
@@ -246,49 +262,9 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	}
 
 	if (gstate.isModeClear()) {
-#ifndef USING_GLES2
-		if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-			// Logic Ops
-			glstate.colorLogicOp.disable();
-		}
-#endif
 		// Culling
 		glstate.cullFace.disable();
-
-		// Depth Test
-		glstate.depthTest.enable();
-		glstate.depthFunc.set(GL_ALWAYS);
-		glstate.depthWrite.set(gstate.isClearModeDepthMask() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
-		if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
-			framebufferManager_->SetDepthUpdated();
-		}
-
-		// Stencil Test
-		if (gstate.isClearModeAlphaMask() && enableStencilTest) {
-			glstate.stencilTest.enable();
-			glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-			// TODO: In clear mode, the stencil value is set to the alpha value of the vertex.
-			// A normal clear will be 2 points, the second point has the color.
-			// We should set "ref" to that value instead of 0.
-			// In case of clear rectangles, we set it again once we know what the color is.
-			glstate.stencilFunc.set(GL_ALWAYS, 255, 0xFF);
-			glstate.stencilMask.set(0xFF);
-		} else {
-			glstate.stencilTest.disable();
-		}
 	} else {
-#ifndef USING_GLES2
-		if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-			// TODO: Make this dynamic
-			// Logic Ops
-			if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
-				glstate.colorLogicOp.enable();
-				glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
-			} else {
-				glstate.colorLogicOp.disable();
-			}
-		}
-#endif
 		// Set cull
 		bool cullEnabled = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		if (cullEnabled) {
@@ -297,32 +273,63 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		} else {
 			glstate.cullFace.disable();
 		}
+	}
 
-		// Depth Test
-		if (gstate.isDepthTestEnabled()) {
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
+		bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
+		bool enableStencilTest = !g_Config.bDisableStencilTest;
+		if (gstate.isModeClear()) {
+			// Depth Test
 			glstate.depthTest.enable();
-			glstate.depthFunc.set(compareOps[gstate.getDepthTestFunction()]);
-			glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
-			if (gstate.isDepthWriteEnabled() || alwaysDepthWrite) {
+			glstate.depthFunc.set(GL_ALWAYS);
+			glstate.depthWrite.set(gstate.isClearModeDepthMask() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
+			if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
 				framebufferManager_->SetDepthUpdated();
 			}
-		} else {
-			glstate.depthTest.disable();
-		}
 
-		GenericStencilFuncState stencilState;
-		ConvertStencilFuncState(stencilState);
-
-		// Stencil Test
-		if (stencilState.enabled) {
-			glstate.stencilTest.enable();
-			glstate.stencilFunc.set(compareOps[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
-			glstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
-			glstate.stencilMask.set(stencilState.writeMask);
+			// Stencil Test
+			if (gstate.isClearModeAlphaMask() && enableStencilTest) {
+				glstate.stencilTest.enable();
+				glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+				// TODO: In clear mode, the stencil value is set to the alpha value of the vertex.
+				// A normal clear will be 2 points, the second point has the color.
+				// We should set "ref" to that value instead of 0.
+				// In case of clear rectangles, we set it again once we know what the color is.
+				glstate.stencilFunc.set(GL_ALWAYS, 255, 0xFF);
+				glstate.stencilMask.set(0xFF);
+			} else {
+				glstate.stencilTest.disable();
+			}
 		} else {
-			glstate.stencilTest.disable();
+			// Depth Test
+			if (gstate.isDepthTestEnabled()) {
+				glstate.depthTest.enable();
+				glstate.depthFunc.set(compareOps[gstate.getDepthTestFunction()]);
+				glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
+				if (gstate.isDepthWriteEnabled() || alwaysDepthWrite) {
+					framebufferManager_->SetDepthUpdated();
+				}
+			} else {
+				glstate.depthTest.disable();
+			}
+
+			GenericStencilFuncState stencilState;
+			ConvertStencilFuncState(stencilState);
+
+			// Stencil Test
+			if (stencilState.enabled) {
+				glstate.stencilTest.enable();
+				glstate.stencilFunc.set(compareOps[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+				glstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
+				glstate.stencilMask.set(stencilState.writeMask);
+			} else {
+				glstate.stencilTest.disable();
+			}
 		}
 	}
+
+
 
 	ViewportAndScissor vpAndScissor;
 	ConvertViewportAndScissor(useBufferedRendering,
