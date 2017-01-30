@@ -104,6 +104,7 @@ enum : uint64_t {
 	DIRTY_TEXTURE_PARAMS = 1ULL << 42,
 
 	// Now we can add further dirty flags that are not uniforms.
+	DIRTY_BLEND_STATE = 1ULL << 43,
 
 	DIRTY_ALL = 0xFFFFFFFFFFFFFFFF
 };
