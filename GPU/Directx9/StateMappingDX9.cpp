@@ -115,7 +115,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
-	{
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
+		gstate_c.Clean(DIRTY_BLEND_STATE);
 		// Unfortunately, this isn't implemented yet.
 		gstate_c.SetAllowShaderBlend(false);
 		if (gstate.isModeClear()) {

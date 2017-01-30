@@ -779,6 +779,8 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
 	}
+
+	gstate_c.Dirty(DIRTY_BLEND_STATE);
 }
 
 void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {

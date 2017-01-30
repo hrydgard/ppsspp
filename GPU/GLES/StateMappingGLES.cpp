@@ -158,7 +158,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
-	{
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
+		gstate_c.Clean(DIRTY_BLEND_STATE);
 		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
 
 		if (gstate.isModeClear()) {
@@ -256,7 +257,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		// Dither
 		if (gstate.isDitherEnabled()) {
 			glstate.dither.enable();
-			glstate.dither.set(GL_TRUE);
+			glstate.dither.set(true);
 		} else {
 			glstate.dither.disable();
 		}
