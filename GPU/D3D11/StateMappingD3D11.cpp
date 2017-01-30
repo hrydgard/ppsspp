@@ -301,8 +301,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		rasterState_ = rs;
 	}
 
-	{
-		// Set ColorMask/Stencil/Depth
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
 		if (gstate.isModeClear()) {
 			keys_.depthStencil.value = 0;
 			keys_.depthStencil.depthTestEnable = true;

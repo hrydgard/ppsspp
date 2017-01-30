@@ -277,7 +277,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
 		bool enableStencilTest = !g_Config.bDisableStencilTest;
 		if (gstate.isModeClear()) {
 			// Depth Test

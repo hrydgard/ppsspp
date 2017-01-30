@@ -211,7 +211,7 @@ void FramebufferManagerD3D11::DisableState() {
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0xFF);
-	gstate_c.Dirty(DIRTY_BLEND_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 }
 
 void FramebufferManagerD3D11::CompilePostShader() {
@@ -433,7 +433,7 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 	UINT offset = 0;
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &stride, &offset);
 	context_->Draw(4, 0);
-	gstate_c.Dirty(DIRTY_BLEND_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 }
 
 void FramebufferManagerD3D11::Bind2DShader() {
@@ -510,7 +510,7 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 	}
 
 	RebindFramebuffer();
-	gstate_c.Dirty(DIRTY_BLEND_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 }
 
 static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
@@ -713,7 +713,7 @@ void FramebufferManagerD3D11::SimpleBlit(
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &stride, &offset);
 	context_->Draw(4, 0);
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 }
 
 void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {

@@ -215,7 +215,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
 		// Set Stencil/Depth
 		if (gstate.isModeClear()) {
 			// Depth Test
