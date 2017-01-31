@@ -117,6 +117,7 @@ private:
 	bool resolutionEnable_;
 	bool bloomHackEnable_;
 	bool bezierChoiceDisable_;
+	bool tessHWEnable_;
 };
 
 class SettingInfoMessage : public UI::TextView {

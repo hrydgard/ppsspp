@@ -76,6 +76,18 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 	return dp_yres > dp_xres * 1.1f;
 }
 
+// This needs before run CheckGPUFeatures()
+// TODO: Remove this if fix the issue
+bool CheckSupportInstancedTessellation() {
+	int maxVertexTextureImageUnits;
+	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureImageUnits);
+	bool vertexTexture = maxVertexTextureImageUnits >= 3; // At least 3 for hardware tessellation
+	bool instanceRendering = gl_extensions.EXT_gpu_shader4;
+	bool textureFloat = gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float;
+
+	return instanceRendering && vertexTexture && textureFloat;
+}
+
 void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
@@ -286,7 +298,8 @@ void GameSettingsScreen::CreateViews() {
 		bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
 		return UI::EVENT_CONTINUE;
 	});
-	tessellationHW->SetEnabledPtr(&vtxCacheEnable_); // Same as Vertex Cache(!g_Config.bSoftwareRendering && g_Config.bHardwareTransform)
+	tessHWEnable_ = CheckSupportInstancedTessellation() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	tessellationHW->SetEnabledPtr(&tessHWEnable_);
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gr->T("FXAA")));
@@ -724,11 +737,13 @@ UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
 	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
+	tessHWEnable_ = CheckSupportInstancedTessellation() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
 	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	tessHWEnable_ = CheckSupportInstancedTessellation() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
 
