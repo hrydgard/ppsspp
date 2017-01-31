@@ -17,6 +17,7 @@
 
 #include "base/logging.h"
 #include "profiler/profiler.h"
+#include "i18n/i18n.h"
 
 #include "Common/ChunkFile.h"
 #include "Common/GraphicsContext.h"
@@ -471,6 +472,17 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + g_paramSFO.GetValueString("DISC_ID") + ".glshadercache";
 		shaderManagerGL_->LoadAndPrecompile(shaderCachePath_);
 	}
+
+	if (g_Config.bHardwareTessellation) {
+		// Disable hardware tessellation if device is unsupported.
+		if (!gstate_c.Supports(GPU_SUPPORTS_INSTANCE_RENDERING | GPU_SUPPORTS_VERTEX_TEXTURE_FETCH | GPU_SUPPORTS_TEXTURE_FLOAT)) {
+			// TODO: Check unsupported device name list.(Above gpu features are supported but it has issues with weak gpu, memory, shader compiler etc...)
+			g_Config.bHardwareTessellation = false;
+			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
+			I18NCategory *gr = GetI18NCategory("Graphics");
+			host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
+		}
+	}
 }
 
 GPU_GLES::~GPU_GLES() {
@@ -579,6 +591,17 @@ void GPU_GLES::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
 	features |= GPU_SUPPORTS_ANISOTROPY;
+
+	if (gl_extensions.EXT_gpu_shader4) 
+		features |= GPU_SUPPORTS_INSTANCE_RENDERING;
+
+	int maxVertexTextureImageUnits;
+	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureImageUnits);
+	if (maxVertexTextureImageUnits >= 3) // At least 3 for hardware tessellation
+		features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
+
+	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
+		features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	if (fbo_standard_z_depth() > 16) {
