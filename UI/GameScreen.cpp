@@ -47,6 +47,9 @@ GameScreen::~GameScreen() {
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
+	if (!info->id.empty())
+		saveDirs = info->GetSaveDataDirectories(); // Get's very heavy, let's not do it in update()
+
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
 	I18NCategory *pa = GetI18NCategory("Pause");
@@ -124,6 +127,9 @@ void GameScreen::CreateViews() {
 		btnDeleteSaveData_ = nullptr;
 	}
 
+	if (info && !info->IsPending()) {
+		otherChoices_.clear();
+	}
 
 	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Delete Game"))))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	if (host->CanCreateShortcut()) {
@@ -234,7 +240,6 @@ void GameScreen::update(InputState &input) {
 		btnDeleteGameConfig_->SetVisibility(info->hasConfig ? UI::V_VISIBLE : UI::V_GONE);
 		btnCreateGameConfig_->SetVisibility(info->hasConfig ? UI::V_GONE : UI::V_VISIBLE);
 
-		std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
 		if (saveDirs.size()) {
 			btnDeleteSaveData_->SetVisibility(UI::V_VISIBLE);
 		}
@@ -285,7 +290,6 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		// Check that there's any savedata to delete
-		std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
 		if (saveDirs.size()) {
 			screenManager()->push(
 				new PromptScreen(di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
