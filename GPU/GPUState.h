@@ -441,11 +441,11 @@ struct UVScale {
 	float uOff, vOff;
 };
 
-#define FLAG_BIT(x) (1ULL << x)
+#define FLAG_BIT(x) (1 << x)
 
 // Some of these are OpenGL-specific even though this file is neutral, unfortunately.
 // Might want to move this mechanism into the backend later.
-enum : u64 {
+enum {
 	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_SUPPORTS_GLSL_ES_300 = FLAG_BIT(1),
 	GPU_SUPPORTS_GLSL_330 = FLAG_BIT(2),
@@ -456,6 +456,9 @@ enum : u64 {
 	GPU_SUPPORTS_WIDE_LINES = FLAG_BIT(7),
 	GPU_SUPPORTS_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
+	GPU_SUPPORTS_INSTANCE_RENDERING = FLAG_BIT(10),
+	GPU_SUPPORTS_VERTEX_TEXTURE_FETCH = FLAG_BIT(11),
+	GPU_SUPPORTS_TEXTURE_FLOAT = FLAG_BIT(12),
 	GPU_SUPPORTS_LARGE_VIEWPORTS = FLAG_BIT(16),
 	GPU_SUPPORTS_ACCURATE_DEPTH = FLAG_BIT(17),
 	GPU_SUPPORTS_VAO = FLAG_BIT(18),
@@ -472,9 +475,6 @@ enum : u64 {
 	GPU_IS_MOBILE = FLAG_BIT(29),
 	GPU_PREFER_CPU_DOWNLOAD = FLAG_BIT(30),
 	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(31),
-	GPU_SUPPORTS_INSTANCE_RENDERING = FLAG_BIT(32),
-	GPU_SUPPORTS_VERTEX_TEXTURE_FETCH = FLAG_BIT(33),
-	GPU_SUPPORTS_TEXTURE_FLOAT = FLAG_BIT(34),
 };
 
 struct KnownVertexBounds {
@@ -485,7 +485,7 @@ struct KnownVertexBounds {
 };
 
 struct GPUStateCache {
-	bool Supports(u64 flag) { return (featureFlags & flag) != 0; }
+	bool Supports(u32 flag) { return (featureFlags & flag) != 0; }
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
 		dirty |= what;
@@ -500,7 +500,7 @@ struct GPUStateCache {
 		return (dirty & what) != 0ULL;
 	}
 
-	u64 featureFlags;
+	u32 featureFlags;
 
 	u32 vertexAddr;
 	u32 indexAddr;
