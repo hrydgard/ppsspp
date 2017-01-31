@@ -580,6 +580,17 @@ void GPU_GLES::CheckGPUFeatures() {
 
 	features |= GPU_SUPPORTS_ANISOTROPY;
 
+	if (gl_extensions.EXT_gpu_shader4) 
+		features |= GPU_SUPPORTS_INSTANCE_RENDERING;
+
+	int maxVertexTextureImageUnits;
+	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureImageUnits);
+	if (maxVertexTextureImageUnits >= 3) // At least 3 for hardware tessellation
+		features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
+
+	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
+		features |= GPU_SUPPORTS_TEXTURE_FLOAT;
+
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	if (fbo_standard_z_depth() > 16) {
 		if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
