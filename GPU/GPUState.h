@@ -441,11 +441,11 @@ struct UVScale {
 	float uOff, vOff;
 };
 
-#define FLAG_BIT(x) (1 << x)
+#define FLAG_BIT(x) (1ULL << x)
 
 // Some of these are OpenGL-specific even though this file is neutral, unfortunately.
 // Might want to move this mechanism into the backend later.
-enum {
+enum : u64 {
 	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_SUPPORTS_GLSL_ES_300 = FLAG_BIT(1),
 	GPU_SUPPORTS_GLSL_330 = FLAG_BIT(2),
@@ -482,7 +482,7 @@ struct KnownVertexBounds {
 };
 
 struct GPUStateCache {
-	bool Supports(int flag) { return (featureFlags & flag) != 0; }
+	bool Supports(u64 flag) { return (featureFlags & flag) != 0; }
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
 		dirty |= what;
@@ -497,7 +497,7 @@ struct GPUStateCache {
 		return (dirty & what) != 0ULL;
 	}
 
-	u32 featureFlags;
+	u64 featureFlags;
 
 	u32 vertexAddr;
 	u32 indexAddr;
