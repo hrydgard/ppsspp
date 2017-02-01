@@ -682,6 +682,16 @@ elseif(USING_QT_UI)
     include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt Qt/Debugger)
 	set(nativeExtraLibs ${nativeExtraLibs} Qt5::Multimedia Qt5::OpenGL Qt5::Gui Qt5::Core)
 	set(TargetBin PPSSPPQt)
+
+    # Enable SDL if found
+    if (SDL2_FOUND)
+        add_definitions(-DSDL)
+        set(nativeExtra ${nativeExtra}
+            SDL/SDLJoystick.h
+            SDL/SDLJoystick.cpp)
+        set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
+    endif()
+
 elseif(TARGET SDL2::SDL2)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
