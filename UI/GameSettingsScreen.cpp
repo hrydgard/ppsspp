@@ -82,7 +82,8 @@ bool CheckSupportInstancedTessellation() {
 	int maxVertexTextureImageUnits;
 	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureImageUnits);
 	bool vertexTexture = maxVertexTextureImageUnits >= 3; // At least 3 for hardware tessellation
-	bool instanceRendering = gl_extensions.EXT_gpu_shader4;
+	bool instanceRendering = gl_extensions.GLES3 || gl_extensions.EXT_gpu_shader4
+		|| (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 1)/*GLSL 1.4*/);
 	bool textureFloat = gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float || gl_extensions.OES_texture_half_float;
 
 	return instanceRendering && vertexTexture && textureFloat;
