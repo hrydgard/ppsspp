@@ -280,6 +280,7 @@ void CheckGLExtensions() {
 		gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 		gl_extensions.ARM_shader_framebuffer_fetch = strstr(extString, "GL_ARM_shader_framebuffer_fetch") != 0;
 		gl_extensions.OES_texture_float = strstr(extString, "GL_OES_texture_float") != 0;
+		gl_extensions.OES_texture_half_float = strstr(extString, "GL_OES_texture_half_float") != 0;
 
 #if defined(__ANDROID__)
 		// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
