@@ -73,4 +73,5 @@ private:
 	UI::Choice *btnDeleteGameConfig_;
 	UI::Choice *btnDeleteSaveData_;
 	std::vector<UI::Choice *> otherChoices_;
+	std::vector<std::string> saveDirs;
 };
