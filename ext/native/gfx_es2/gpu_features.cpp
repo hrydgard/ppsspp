@@ -269,7 +269,7 @@ void CheckGLExtensions() {
 	gl_extensions.ARB_texture_float = strstr(extString, "GL_ARB_texture_float") != 0;
 
 	if (gl_extensions.IsGLES) {
-		gl_extensions.OES_texture_npot = strstr(extString, "OES_texture_npot") != 0;
+		gl_extensions.OES_texture_npot = strstr(extString, "GL_OES_texture_npot") != 0;
 		gl_extensions.OES_packed_depth_stencil = (strstr(extString, "GL_OES_packed_depth_stencil") != 0) || gl_extensions.GLES3;
 		gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
 		gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
