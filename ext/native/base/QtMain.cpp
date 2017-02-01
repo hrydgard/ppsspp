@@ -139,7 +139,7 @@ static int mainInternal(QApplication &a)
 
 #ifdef SDL
 	SDLJoystick joy(true);
-	joy.startEventLoop();
+	joy.registerEventHandler();
 	SDL_Init(SDL_INIT_AUDIO);
 	SDL_AudioSpec fmt, ret_fmt;
 	memset(&fmt, 0, sizeof(fmt));
@@ -334,6 +334,9 @@ void MainUI::initializeGL()
 
 void MainUI::paintGL()
 {
+#ifdef SDL
+    SDL_PumpEvents();
+#endif
     updateAccelerometer();
     UpdateInputState(&input_state);
     time_update();
