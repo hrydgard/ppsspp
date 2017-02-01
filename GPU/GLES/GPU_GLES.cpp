@@ -592,7 +592,8 @@ void GPU_GLES::CheckGPUFeatures() {
 
 	features |= GPU_SUPPORTS_ANISOTROPY;
 
-	if (gl_extensions.EXT_gpu_shader4) 
+	if (gl_extensions.GLES3 || gl_extensions.EXT_gpu_shader4
+		|| (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 1)/*GLSL 1.4*/))
 		features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 
 	int maxVertexTextureImageUnits;
