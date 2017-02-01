@@ -7,15 +7,13 @@
 
 using namespace std;
 
-extern "C" {
-	int SDLJoystickThreadWrapper(void *SDLJoy){
-		SDLJoystick *stick = static_cast<SDLJoystick *>(SDLJoy);
-		stick->runLoop();
-		return 0;
-	}
+static int SDLJoystickEventHandlerWrapper(void* userdata, SDL_Event* event)
+{
+	static_cast<SDLJoystick *>(userdata)->ProcessInput(*event);
+	return 0;
 }
 
-SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
+SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
 	if (init_SDL) {
 		SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
@@ -81,20 +79,17 @@ void SDLJoystick::setUpController(int deviceIndex) {
 }
 
 SDLJoystick::~SDLJoystick() {
-	if (thread) {
-		running = false;
-		SDL_Event evt;
-		evt.type = SDL_USEREVENT;
-		SDL_PushEvent(&evt);
-		SDL_WaitThread(thread,0);
+	if (registeredAsEventHandler) {
+		SDL_DelEventWatch(SDLJoystickEventHandlerWrapper, this);
 	}
 	for (auto & controller : controllers) {
 		SDL_GameControllerClose(controller);
 	}
 }
 
-void SDLJoystick::startEventLoop() {
-	thread = SDL_CreateThread(SDLJoystickThreadWrapper, "joystick",static_cast<void *>(this));
+void SDLJoystick::registerEventHandler() {
+	SDL_AddEventWatch(SDLJoystickEventHandlerWrapper, this);
+	registeredAsEventHandler = true;
 }
 
 keycode_t SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
@@ -198,14 +193,4 @@ int SDLJoystick::getDeviceIndex(int instanceId) {
 			return -1;
 	}
 	return it->second;
-}
-
-void SDLJoystick::runLoop() {
-	while (running) {
-		SDL_Event evt;
-		int res = SDL_WaitEvent(&evt);
-		if (res) {
-			ProcessInput(evt);
-		}
-	}
 }
