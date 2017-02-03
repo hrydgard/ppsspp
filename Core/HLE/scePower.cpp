@@ -332,11 +332,8 @@ static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 
 	switch (error) {
 	case 0:
-		// HACK: This fixes Crash Tag Team Racing.
 		// Should only wait 1200 cycles though according to Unknown's testing,
-		// and with that it's still broken. So it's not this, unfortunately.
-		// Leaving it in for the 0.9.8 release anyway.
-		hleEatCycles(500000);
+		hleEatCycles(1200);
 		DEBUG_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 
