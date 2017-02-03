@@ -485,7 +485,8 @@ struct KnownVertexBounds {
 };
 
 struct GPUStateCache {
-	bool Supports(u32 flags) { return (featureFlags & flags) == flags; } // Allow multi flags
+	bool Supports(u32 flags) { return (featureFlags & flags) != 0; } // Return true if ANY of flags are true.
+	bool SupportsAll(u32 flags) { return (featureFlags & flags) == flags; } // Return true if ALL flags are true.
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
 		dirty |= what;
