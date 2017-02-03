@@ -50,6 +50,7 @@ struct CompatFlags {
 	bool DepthRangeHack;
 	bool ClearToRAM;
 	bool Force04154000Download;
+	bool DrawSyncEatCycles;
 };
 
 class IniFile;

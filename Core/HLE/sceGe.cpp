@@ -408,6 +408,8 @@ int sceGeListSync(u32 displayListID, u32 mode) {
 
 static u32 sceGeDrawSync(u32 mode) {
 	//wait/check entire drawing state
+	if (PSP_CoreParameter().compat.flags().DrawSyncEatCycles)
+		hleEatCycles(500000); //HACK(?) : Potential fix for Crash Tag Team Racing and a few Gundam games
 	DEBUG_LOG(SCEGE, "sceGeDrawSync(mode=%d)  (0=wait for completion, 1=peek)", mode);
 	return gpu->DrawSync(mode);
 }
