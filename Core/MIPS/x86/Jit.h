@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
+// TODO: Implement https://github.com/dolphin-emu/dolphin/pull/1025/commits/b597ec3e081a289d9ac782586617a876535183d6 .
+
 #pragma once
 
 #include "Common/CommonTypes.h"
@@ -36,7 +39,6 @@ namespace MIPSComp {
 // This is called when Jit hits a breakpoint.  Returns 1 when hit.
 u32 JitBreakpoint();
 
-// TODO: Hmm, humongous.
 struct RegCacheState {
 	GPRRegCacheState gpr;
 	FPURegCacheState fpr;
@@ -292,6 +294,8 @@ private:
 		}
 		return true;
 	}
+	void SaveFlags();
+	void LoadFlags();
 
 	JitBlockCache blocks;
 	JitOptions jo;
