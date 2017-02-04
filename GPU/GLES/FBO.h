@@ -33,6 +33,25 @@ enum FBOColorDepth {
 	FBO_5551,
 };
 
+enum FBOChannel {
+	FB_COLOR_BIT = 1,
+	FB_DEPTH_BIT = 2,
+	FB_STENCIL_BIT = 4,
+};
+
+enum FBBlitFilter {
+	FB_BLIT_NEAREST = 0,
+	FB_BLIT_LINEAR = 1,
+};
+
+struct FramebufferDesc {
+	int width;
+	int height;
+	int depth;
+	int numColorAttachments;
+	bool z_stencil;
+	FBOColorDepth colorDepth;
+};
 
 // Creates a simple FBO with a RGBA32 color buffer stored in a texture, and
 // optionally an accompanying Z/stencil buffer.
@@ -41,28 +60,21 @@ enum FBOColorDepth {
 // you lose bound texture state.
 
 // On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
-FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth = FBO_8888);
+FBO *fbo_create(const FramebufferDesc &desc);
+void fbo_destroy(FBO *fbo);
 
-int fbo_standard_z_depth();
+void fbo_copy_image(FBO *src, int level, int x, int y, int z, FBO *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth);
+void fbo_blit(FBO *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter);
 
-// Create an opaque FBO from a native GL FBO, optionally reusing an existing FBO structure.
-// Useful for overriding the backbuffer FBO that is generated outside of this wrapper.
-FBO *fbo_create_from_native_fbo(GLuint native_fbo, FBO *fbo = NULL);
-int fbo_check_framebuffer_status(FBO *fbo);
+int fbo_preferred_z_bitdepth();
 
 // These functions should be self explanatory.
 void fbo_bind_as_render_target(FBO *fbo);
 // color must be 0, for now.
-void fbo_bind_color_as_texture(FBO *fbo, int color);
+void fbo_bind_as_texture(FBO *fbo, int binding, FBOChannel channelBit, int attachment);
 void fbo_bind_for_read(FBO *fbo);
-void fbo_unbind();
-void fbo_unbind_render_target();
-void fbo_unbind_read();
-void fbo_destroy(FBO *fbo);
+
+void fbo_bind_backbuffer_as_render_target();
+uintptr_t fbo_get_api_texture(FBO *fbo, FBOChannel channelBit, int attachment);
+
 void fbo_get_dimensions(FBO *fbo, int *w, int *h);
-
-int fbo_get_color_texture(FBO *fbo);
-int fbo_get_depth_buffer(FBO *fbo);
-int fbo_get_stencil_buffer(FBO *fbo);
-
-void fbo_override_backbuffer(FBO *fbo);  // Makes unbind bind this instead of the real backbuffer.

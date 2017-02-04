@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "global.h"
 #include <stdint.h>
 #include <string.h>
@@ -64,13 +66,13 @@ void fbo_shutdown() {
 	deviceDSsurf->Release();
 }
 
-FBO_DX9 *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
+FBO_DX9 *fbo_create(const FramebufferDesc &desc) {
 	static uint32_t id = 0;
 
 	FBO_DX9 *fbo = new FBO_DX9();
-	fbo->width = width;
-	fbo->height = height;
-	fbo->colorDepth = colorDepth;
+	fbo->width = desc.width;
+	fbo->height = desc.height;
+	fbo->colorDepth = desc.colorDepth;
 	fbo->depthstenciltex = nullptr;
 
 	HRESULT rtResult = pD3Ddevice->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
@@ -100,7 +102,6 @@ FBO_DX9 *fbo_create(int width, int height, int num_color_textures, bool z_stenci
 		delete fbo;
 		return NULL;
 	}
-
 	fbo->id = id++;
 	return fbo;
 }
@@ -115,7 +116,7 @@ void fbo_destroy(FBO_DX9 *fbo) {
 	delete fbo;
 }
 
-void fbo_unbind() {
+void fbo_bind_backbuffer_as_render_target() {
 	pD3Ddevice->SetRenderTarget(0, deviceRTsurf);
 	pD3Ddevice->SetDepthStencilSurface(deviceDSsurf);
 	dxstate.scissorRect.restore();
@@ -132,30 +133,47 @@ void fbo_bind_as_render_target(FBO_DX9 *fbo) {
 	dxstate.viewport.restore();
 }
 
-
-LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO_DX9 *fbo) {
-	return fbo->tex;
-}
-
-LPDIRECT3DTEXTURE9 fbo_get_depth_texture(FBO_DX9 *fbo) {
-	return fbo->depthstenciltex;
+uintptr_t fbo_get_api_texture(FBO_DX9 *fbo, int channelBits, int attachment) {
+	if (channelBits & FB_SURFACE_BIT) {
+		switch (channelBits & 7) {
+		case FB_DEPTH_BIT:
+			return (uintptr_t)fbo->depthstencil;
+		case FB_STENCIL_BIT:
+			return (uintptr_t)fbo->depthstencil;
+		case FB_COLOR_BIT:
+		default:
+			return (uintptr_t)fbo->surf;
+		}
+	} else {
+		switch (channelBits & 7) {
+		case FB_DEPTH_BIT:
+			return (uintptr_t)fbo->depthstenciltex;
+		case FB_STENCIL_BIT:
+			return 0;  // Can't texture from stencil
+		case FB_COLOR_BIT:
+		default:
+			return (uintptr_t)fbo->tex;
+		}
+	}
 }
 
 LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO_DX9 *fbo) {
 	return fbo->surf;
 }
 
-LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO_DX9 *fbo) {
-	return fbo->surf;
-}
-
-void fbo_bind_color_as_texture(FBO_DX9 *fbo, int color) {
-	pD3Ddevice->SetTexture(0, fbo->tex);
-}
-
-void fbo_bind_depth_as_texture(FBO_DX9 *fbo) {
-	if (fbo->depthstenciltex) {
-		pD3Ddevice->SetTexture(0, fbo->depthstenciltex);
+void fbo_bind_as_texture(FBO_DX9 *fbo, int binding, FBOChannel channelBit, int color) {
+	switch (channelBit) {
+	case FB_DEPTH_BIT:
+		if (fbo->depthstenciltex) {
+			pD3Ddevice->SetTexture(binding, fbo->depthstenciltex);
+		}
+		break;
+	case FB_COLOR_BIT:
+	default:
+		if (fbo->tex) {
+			pD3Ddevice->SetTexture(binding, fbo->tex);
+		}
+		break;
 	}
 }
 
@@ -164,10 +182,14 @@ void fbo_get_dimensions(FBO_DX9 *fbo, int *w, int *h) {
 	*h = fbo->height;
 }
 
-HRESULT fbo_blit_color(FBO_DX9 *src, const RECT *srcRect, FBO_DX9 *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter) {
+bool fbo_blit(FBO_DX9 *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO_DX9 *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
+	if (channelBits != FB_COLOR_BIT)
+		return false;
+	RECT srcRect{ (LONG)srcX1, (LONG)srcY1, (LONG)srcX2, (LONG)srcY2 };
+	RECT dstRect{ (LONG)dstX1, (LONG)dstY1, (LONG)dstX2, (LONG)dstY2 };
 	LPDIRECT3DSURFACE9 srcSurf = src ? src->surf : deviceRTsurf;
 	LPDIRECT3DSURFACE9 dstSurf = dst ? dst->surf : deviceRTsurf;
-	return pD3Ddevice->StretchRect(srcSurf, srcRect, dstSurf, dstRect, filter);
+	return SUCCEEDED(pD3Ddevice->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, filter == FB_BLIT_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
-}
+}  // namespace

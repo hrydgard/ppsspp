@@ -37,10 +37,7 @@ struct FBO {
 	int width;
 	int height;
 	FBOColorDepth colorDepth;
-	bool native_fbo;
 };
-
-static FBO *g_overriddenBackbuffer;
 
 static GLuint currentDrawHandle_ = 0;
 static GLuint currentReadHandle_ = 0;
@@ -49,12 +46,11 @@ static GLuint currentReadHandle_ = 0;
 // On Android, we try to use what's available.
 
 #ifndef USING_GLES2
-FBO *fbo_ext_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
+FBO *fbo_ext_create(const FramebufferDesc &desc) {
 	FBO *fbo = new FBO();
-	fbo->native_fbo = false;
-	fbo->width = width;
-	fbo->height = height;
-	fbo->colorDepth = colorDepth;
+	fbo->width = desc.width;
+	fbo->height = desc.height;
+	fbo->colorDepth = desc.colorDepth;
 
 	// Color texture is same everywhere
 	glGenFramebuffersEXT(1, &fbo->handle);
@@ -68,18 +64,18 @@ FBO *fbo_ext_create(int width, int height, int num_color_textures, bool z_stenci
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	// TODO: We could opt to only create 16-bit render targets on slow devices. For later.
-	switch (colorDepth) {
+	switch (fbo->colorDepth) {
 	case FBO_8888:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 		break;
 	case FBO_4444:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
 		break;
 	case FBO_5551:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
 		break;
 	case FBO_565:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, fbo->width, fbo->height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, NULL);
 		break;
 	}
 
@@ -93,7 +89,7 @@ FBO *fbo_ext_create(int width, int height, int num_color_textures, bool z_stenci
 	// 24-bit Z, 8-bit stencil
 	glGenRenderbuffersEXT(1, &fbo->z_stencil_buffer);
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
-	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_STENCIL_EXT, width, height);
+	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_STENCIL_EXT, fbo->width, fbo->height);
 	//glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH24_STENCIL8, width, height);
 
 	// Bind it all together
@@ -127,23 +123,7 @@ FBO *fbo_ext_create(int width, int height, int num_color_textures, bool z_stenci
 }
 #endif
 
-int fbo_check_framebuffer_status(FBO *fbo) {
-	GLenum fbStatus;
-#ifndef USING_GLES2
-	if (!gl_extensions.ARB_framebuffer_object && gl_extensions.EXT_framebuffer_object) {
-		fbStatus = glCheckFramebufferStatusEXT(GL_READ_FRAMEBUFFER);
-	} else if (gl_extensions.ARB_framebuffer_object) {
-		fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-	} else {
-		fbStatus = 0;
-	}
-#else
-	fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-#endif
-	return (int)fbStatus;
-}
-
-int fbo_standard_z_depth() {
+int fbo_preferred_z_bitdepth() {
 	// This matches the fbo_create() logic.
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil) {
@@ -155,12 +135,12 @@ int fbo_standard_z_depth() {
 	}
 }
 
-FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
+FBO *fbo_create(const FramebufferDesc &desc) {
 	CheckGLExtensions();
 
 #ifndef USING_GLES2
 	if (!gl_extensions.ARB_framebuffer_object && gl_extensions.EXT_framebuffer_object) {
-		return fbo_ext_create(width, height, num_color_textures, z_stencil, colorDepth);
+		return fbo_ext_create(desc);
 	} else if (!gl_extensions.ARB_framebuffer_object) {
 		return nullptr;
 	}
@@ -168,10 +148,9 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 #endif
 
 	FBO *fbo = new FBO();
-	fbo->native_fbo = false;
-	fbo->width = width;
-	fbo->height = height;
-	fbo->colorDepth = colorDepth;
+	fbo->width = desc.width;
+	fbo->height = desc.height;
+	fbo->colorDepth = desc.colorDepth;
 
 	// Color texture is same everywhere
 	glGenFramebuffers(1, &fbo->handle);
@@ -185,18 +164,18 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	// TODO: We could opt to only create 16-bit render targets on slow devices. For later.
-	switch (colorDepth) {
+	switch (fbo->colorDepth) {
 	case FBO_8888:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 		break;
 	case FBO_4444:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
 		break;
 	case FBO_5551:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
 		break;
 	case FBO_565:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, fbo->width, fbo->height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, NULL);
 		break;
 	}
 
@@ -207,14 +186,14 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil) {
-			ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8", width, height);
+			ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8", fbo->width, fbo->height);
 			// Standard method
 			fbo->stencil_buffer = 0;
 			fbo->z_buffer = 0;
 			// 24-bit Z, 8-bit stencil combined
 			glGenRenderbuffers(1, &fbo->z_stencil_buffer);
 			glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_stencil_buffer);
-			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, width, height);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, fbo->width, fbo->height);
 
 			// Bind it all together
 			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
@@ -222,19 +201,19 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 		} else {
-			ILOG("Creating %i x %i FBO using separate stencil", width, height);
+			ILOG("Creating %i x %i FBO using separate stencil", fbo->width, fbo->height);
 			// TEGRA
 			fbo->z_stencil_buffer = 0;
 			// 16/24-bit Z, separate 8-bit stencil
 			glGenRenderbuffers(1, &fbo->z_buffer);
 			glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_buffer);
 			// Don't forget to make sure fbo_standard_z_depth() matches.
-			glRenderbufferStorage(GL_RENDERBUFFER, gl_extensions.OES_depth24 ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT16, width, height);
+			glRenderbufferStorage(GL_RENDERBUFFER, gl_extensions.OES_depth24 ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT16, fbo->width, fbo->height);
 
 			// 8-bit stencil buffer
 			glGenRenderbuffers(1, &fbo->stencil_buffer);
 			glBindRenderbuffer(GL_RENDERBUFFER, fbo->stencil_buffer);
-			glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, fbo->width, fbo->height);
 
 			// Bind it all together
 			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
@@ -248,7 +227,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 		// 24-bit Z, 8-bit stencil
 		glGenRenderbuffers(1, &fbo->z_stencil_buffer);
 		glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_stencil_buffer);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, fbo->width, fbo->height);
 
 		// Bind it all together
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
@@ -258,7 +237,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	}
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	switch(status) {
+	switch (status) {
 	case GL_FRAMEBUFFER_COMPLETE:
 		// ILOG("Framebuffer verified complete.");
 		break;
@@ -278,24 +257,6 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 
 	currentDrawHandle_ = fbo->handle;
 	currentReadHandle_ = fbo->handle;
-	return fbo;
-}
-
-FBO *fbo_create_from_native_fbo(GLuint native_fbo, FBO *fbo)
-{
-	if (!fbo)
-		fbo = new FBO();
-
-	fbo->native_fbo = true;
-	fbo->handle = native_fbo;
-	fbo->color_texture = 0;
-	fbo->z_stencil_buffer = 0;
-	fbo->z_buffer = 0;
-	fbo->stencil_buffer = 0;
-	fbo->width = 0;
-	fbo->height = 0;
-	fbo->colorDepth = FBO_8888;
-
 	return fbo;
 }
 
@@ -323,7 +284,6 @@ static GLenum fbo_get_fb_target(bool read, GLuint **cached) {
 static void fbo_bind_fb_target(bool read, GLuint name) {
 	GLuint *cached;
 	GLenum target = fbo_get_fb_target(read, &cached);
-
 	if (*cached != name) {
 		if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
 			glBindFramebuffer(target, name);
@@ -336,13 +296,7 @@ static void fbo_bind_fb_target(bool read, GLuint name) {
 	}
 }
 
-void fbo_unbind() {
-	if (g_overriddenBackbuffer) {
-		fbo_bind_as_render_target(g_overriddenBackbuffer);
-		return;
-	}
-
-	CheckGLExtensions();
+static void fbo_unbind() {
 #ifndef USING_GLES2
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -361,10 +315,6 @@ void fbo_unbind() {
 	currentReadHandle_ = 0;
 }
 
-void fbo_override_backbuffer(FBO *fbo) {
-	g_overriddenBackbuffer = fbo;
-}
-
 void fbo_bind_as_render_target(FBO *fbo) {
 	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
 	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
@@ -373,7 +323,7 @@ void fbo_bind_as_render_target(FBO *fbo) {
 	glstate.viewport.restore();
 }
 
-void fbo_unbind_render_target() {
+void fbo_bind_backbuffer_as_render_target() {
 	fbo_unbind();
 }
 
@@ -382,22 +332,70 @@ void fbo_bind_for_read(FBO *fbo) {
 	fbo_bind_fb_target(true, fbo->handle);
 }
 
-void fbo_unbind_read() {
-	fbo_bind_fb_target(true, 0);
+void fbo_copy_image(FBO *src, int srcLevel, int srcX, int srcY, int srcZ, FBO *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {
+#if defined(USING_GLES2)
+#ifndef IOS
+	glCopyImageSubDataOES(
+		src->color_texture, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
+		dst->color_texture, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+		width, height, depth);
+	return;
+#endif
+#else
+	if (gl_extensions.ARB_copy_image) {
+		glCopyImageSubData(
+			src->color_texture, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
+			dst->color_texture, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+			width, height, depth);
+		return;
+	} else if (gl_extensions.NV_copy_image) {
+		// Older, pre GL 4.x NVIDIA cards.
+		glCopyImageSubDataNV(
+			src->color_texture, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
+			dst->color_texture, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+			width, height, depth);
+		return;
+	}
+#endif
 }
 
-void fbo_bind_color_as_texture(FBO *fbo, int color) {
-	if (fbo) {
-		glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
+void fbo_blit(FBO *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter) {
+	GLuint bits = 0;
+	if (channels & FB_COLOR_BIT)
+		bits |= GL_COLOR_BUFFER_BIT;
+	if (channels & FB_DEPTH_BIT)
+		bits |= GL_DEPTH_BUFFER_BIT;
+	if (channels & FB_STENCIL_BIT)
+		bits |= GL_STENCIL_BUFFER_BIT;
+	fbo_bind_as_render_target(dst);
+	fbo_bind_for_read(src);
+	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
+		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
+#if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
+	} else if (gl_extensions.NV_framebuffer_blit) {
+		glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
+#endif // defined(USING_GLES2) && defined(__ANDROID__)
+	}
+}
+
+uintptr_t fbo_get_api_texture(FBO *fbo, FBOChannel channelBit, int attachment) {
+	// Unimplemented
+	return 0;
+}
+
+void fbo_bind_as_texture(FBO *fbo, int binding, FBOChannel channelBit, int color) {
+	// glActiveTexture(GL_TEXTURE0 + binding);
+	switch (channelBit) {
+	case FB_COLOR_BIT:
+	default:
+		if (fbo) {
+			glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
+		}
+		break;
 	}
 }
 
 void fbo_destroy(FBO *fbo) {
-	if (fbo->native_fbo) {
-		delete fbo;
-		return;
-	}
-
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
@@ -428,16 +426,4 @@ void fbo_destroy(FBO *fbo) {
 void fbo_get_dimensions(FBO *fbo, int *w, int *h) {
 	*w = fbo->width;
 	*h = fbo->height;
-}
-
-int fbo_get_color_texture(FBO *fbo) {
-	return fbo->color_texture;
-}
-
-int fbo_get_depth_buffer(FBO *fbo) {
-	return fbo->z_buffer;
-}
-
-int fbo_get_stencil_buffer(FBO *fbo) {
-	return fbo->stencil_buffer;
 }

@@ -32,6 +32,27 @@ enum FBOColorDepth {
 	FBO_5551,
 };
 
+enum FBOChannel {
+	FB_COLOR_BIT = 1,
+	FB_DEPTH_BIT = 2,
+	FB_STENCIL_BIT = 4,
+
+	FB_SURFACE_BIT = 32,
+};
+
+enum FBBlitFilter {
+	FB_BLIT_NEAREST = 0,
+	FB_BLIT_LINEAR = 1,
+};
+
+struct FramebufferDesc {
+	int width;
+	int height;
+	int depth;
+	int numColorAttachments;
+	bool z_stencil;
+	FBOColorDepth colorDepth;
+};
 // Creates a simple FBO with a RGBA32 color buffer stored in a texture, and
 // optionally an accompanying Z/stencil buffer.
 // No mipmap support.
@@ -39,23 +60,21 @@ enum FBOColorDepth {
 // you lose bound texture state.
 
 // On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
-FBO_DX9 *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth = FBO_8888);
+FBO_DX9 *fbo_create(const FramebufferDesc &desc);
+void fbo_destroy(FBO_DX9 *fbo);
+
+bool fbo_blit(FBO_DX9 *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO_DX9 *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter);
 
 // These functions should be self explanatory.
 void fbo_bind_as_render_target(FBO_DX9 *fbo);
-// color must be 0, for now.
-void fbo_bind_color_as_texture(FBO_DX9 *fbo, int color);
-void fbo_bind_depth_as_texture(FBO_DX9 *fbo);
-LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO_DX9 *fbo);
-LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO_DX9 *fbo);
-void fbo_unbind();
-void fbo_destroy(FBO_DX9 *fbo);
+// color must be 0.
+void fbo_bind_as_texture(FBO_DX9 *fbo, int binding, FBOChannel channelBit, int color);
+void fbo_bind_backbuffer_as_render_target();
 void fbo_get_dimensions(FBO_DX9 *fbo, int *w, int *h);
 void fbo_resolve(FBO_DX9 *fbo);
-HRESULT fbo_blit_color(FBO_DX9 *src, const RECT *srcRect, FBO_DX9 *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter);
 
-LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO_DX9 *fbo);
-LPDIRECT3DTEXTURE9 fbo_get_depth_texture(FBO_DX9 *fbo);
+// Escape route until we complete the API
+uintptr_t fbo_get_api_texture(FBO_DX9 *fbo, int channelBits, int attachment);
 
 // To get default depth and rt surface
 void fbo_init(LPDIRECT3D9 d3d);
