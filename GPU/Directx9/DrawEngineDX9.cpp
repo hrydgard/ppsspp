@@ -590,7 +590,7 @@ void DrawEngineDX9::DoFlush() {
 			useCache = false;
 
 		if (useCache) {
-			u32 id = dcid_;
+			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
 			auto iter = vai_.find(id);
 			VertexArrayInfoDX9 *vai;
 			if (iter != vai_.end()) {
