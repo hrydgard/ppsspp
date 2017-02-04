@@ -110,172 +110,206 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		}
 	}
 
+	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE)) {
+		// Nothing to do, let's early-out
+		return;
+	}
+
 	// Start profiling here to skip SetTexture which is already accounted for
 	PROFILE_THIS_SCOPE("applydrawstate");
 
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-
-	// Unfortunately, this isn't implemented yet.
-	gstate_c.allowShaderBlend = false;
-
-	// Set blend - unless we need to do it in the shader.
-	GenericBlendState blendState;
-	ConvertBlendState(blendState, gstate_c.allowShaderBlend);
-
-	ViewportAndScissor vpAndScissor;
-	ConvertViewportAndScissor(useBufferedRendering,
-		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
-		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-		vpAndScissor);
-
-	if (blendState.applyShaderBlending) {
-		if (ApplyShaderBlending()) {
-			// We may still want to do something about stencil -> alpha.
-			ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
-		} else {
-			// Until next time, force it off.
-			ResetShaderBlending();
-			gstate_c.allowShaderBlend = false;
-		}
-	} else if (blendState.resetShaderBlending) {
-		ResetShaderBlending();
-	}
-
-	if (blendState.enabled) {
-		dxstate.blend.enable();
-		dxstate.blendSeparate.enable();
-		dxstate.blendEquation.set(dxBlendEqLookup[(size_t)blendState.eqColor], dxBlendEqLookup[(size_t)blendState.eqAlpha]);
-		dxstate.blendFunc.set(
-			dxBlendFactorLookup[(size_t)blendState.srcColor], dxBlendFactorLookup[(size_t)blendState.dstColor],
-			dxBlendFactorLookup[(size_t)blendState.srcAlpha], dxBlendFactorLookup[(size_t)blendState.dstAlpha]);
-		if (blendState.dirtyShaderBlend) {
-			gstate_c.Dirty(DIRTY_SHADERBLEND);
-		}
-		if (blendState.useBlendColor) {
-			dxstate.blendColor.setDWORD(blendState.blendColor);
-		}
+	// amask is needed for both stencil and blend state so we keep it outside for now
+	bool amask = (gstate.pmska & 0xFF) < 128;
+	// Let's not write to alpha if stencil isn't enabled.
+	if (!gstate.isStencilTestEnabled()) {
+		amask = false;
 	} else {
-		dxstate.blend.disable();
+		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+		if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+			amask = false;
+		}
 	}
 
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
 
-	// Set Dither
-	if (gstate.isDitherEnabled()) {
-		dxstate.dither.enable();
-	} else {
-		dxstate.dither.disable();
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
+		gstate_c.Clean(DIRTY_BLEND_STATE);
+		// Unfortunately, this isn't implemented yet.
+		gstate_c.allowShaderBlend = false;
+		// Set ColorMask/Stencil/Depth
+		if (gstate.isModeClear()) {
+			dxstate.blend.disable();
+			bool colorMask = gstate.isClearModeColorMask();
+			bool alphaMask = gstate.isClearModeAlphaMask();
+			dxstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
+		} else {
+			// Set blend - unless we need to do it in the shader.
+			GenericBlendState blendState;
+			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
+
+			if (blendState.applyShaderBlending) {
+				if (ApplyShaderBlending()) {
+					// We may still want to do something about stencil -> alpha.
+					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+				} else {
+					// Until next time, force it off.
+					ResetShaderBlending();
+					gstate_c.allowShaderBlend = false;
+				}
+			} else if (blendState.resetShaderBlending) {
+				ResetShaderBlending();
+			}
+
+			if (blendState.enabled) {
+				dxstate.blend.enable();
+				dxstate.blendSeparate.enable();
+				dxstate.blendEquation.set(dxBlendEqLookup[(size_t)blendState.eqColor], dxBlendEqLookup[(size_t)blendState.eqAlpha]);
+				dxstate.blendFunc.set(
+					dxBlendFactorLookup[(size_t)blendState.srcColor], dxBlendFactorLookup[(size_t)blendState.dstColor],
+					dxBlendFactorLookup[(size_t)blendState.srcAlpha], dxBlendFactorLookup[(size_t)blendState.dstAlpha]);
+				if (blendState.dirtyShaderBlend) {
+					gstate_c.Dirty(DIRTY_SHADERBLEND);
+				}
+				if (blendState.useBlendColor) {
+					dxstate.blendColor.setDWORD(blendState.blendColor);
+				}
+			} else {
+				dxstate.blend.disable();
+			}
+
+			// PSP color/alpha mask is per bit but we can only support per byte.
+			// But let's do that, at least. And let's try a threshold.
+			bool rmask = (gstate.pmskc & 0xFF) < 128;
+			bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
+			bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
+
+	#ifndef MOBILE_DEVICE
+			u8 abits = (gstate.pmska >> 0) & 0xFF;
+			u8 rbits = (gstate.pmskc >> 0) & 0xFF;
+			u8 gbits = (gstate.pmskc >> 8) & 0xFF;
+			u8 bbits = (gstate.pmskc >> 16) & 0xFF;
+			if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
+				WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
+			}
+			if (abits != 0 && abits != 0xFF) {
+				// The stencil part of the mask is supported.
+				WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
+			}
+	#endif
+
+			// Let's not write to alpha if stencil isn't enabled.
+			if (!gstate.isStencilTestEnabled()) {
+				amask = false;
+			} else {
+				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+				if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+					amask = false;
+				}
+			}
+
+			dxstate.colorMask.set(rmask, gmask, bmask, amask);
+
+		}
 	}
 
-	// Set ColorMask/Stencil/Depth
-	if (gstate.isModeClear()) {
-		// Set Cull 
-		dxstate.cullMode.set(false, false);
-		
-		// Depth Test
-		dxstate.depthTest.enable();
-		dxstate.depthFunc.set(D3DCMP_ALWAYS);
-		dxstate.depthWrite.set(gstate.isClearModeDepthMask());
-		if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
-			framebufferManager_->SetDepthUpdated();
-		}
 
-		// Color Test
-		bool colorMask = gstate.isClearModeColorMask();
-		bool alphaMask = gstate.isClearModeAlphaMask();
-		dxstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
-		// Stencil Test
-		if (alphaMask && enableStencilTest) {
-			dxstate.stencilTest.enable();
-			dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
-			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);
-			dxstate.stencilMask.set(0xFF);
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		gstate_c.Clean(DIRTY_RASTER_STATE);
+
+		// Set Dither
+		if (gstate.isDitherEnabled()) {
+			dxstate.dither.enable();
 		} else {
-			dxstate.stencilTest.disable();
+			dxstate.dither.disable();
 		}
 
-	} else {
-		// Set cull
-		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		dxstate.cullMode.set(wantCull, gstate.getCullMode());	
+		if (gstate.isModeClear()) {
+			// Set Cull 
+			dxstate.cullMode.set(false, false);
+		} else {
+			// Set cull
+			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			dxstate.cullMode.set(wantCull, gstate.getCullMode());
+		}
+	}
 
-		// Depth Test
-		if (gstate.isDepthTestEnabled()) {
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
+
+		if (gstate.isModeClear()) {
+			// Depth Test
 			dxstate.depthTest.enable();
-			dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
-			dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
-			if (gstate.isDepthWriteEnabled()) {
+			dxstate.depthFunc.set(D3DCMP_ALWAYS);
+			dxstate.depthWrite.set(gstate.isClearModeDepthMask());
+			if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
 				framebufferManager_->SetDepthUpdated();
 			}
+
+			// Stencil Test
+			if (gstate.isClearModeAlphaMask() && enableStencilTest) {
+				dxstate.stencilTest.enable();
+				dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
+				dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);
+				dxstate.stencilMask.set(0xFF);
+			} else {
+				dxstate.stencilTest.disable();
+			}
 		} else {
-			dxstate.depthTest.disable();
-		}
+			// Depth Test
+			if (gstate.isDepthTestEnabled()) {
+				dxstate.depthTest.enable();
+				dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
+				dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
+				if (gstate.isDepthWriteEnabled()) {
+					framebufferManager_->SetDepthUpdated();
+				}
+			} else {
+				dxstate.depthTest.disable();
+			}
 
-		// PSP color/alpha mask is per bit but we can only support per byte.
-		// But let's do that, at least. And let's try a threshold.
-		bool rmask = (gstate.pmskc & 0xFF) < 128;
-		bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
-		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
-		bool amask = (gstate.pmska & 0xFF) < 128;
+			GenericStencilFuncState stencilState;
+			ConvertStencilFuncState(stencilState);
 
-#ifndef MOBILE_DEVICE
-		u8 abits = (gstate.pmska >> 0) & 0xFF;
-		u8 rbits = (gstate.pmskc >> 0) & 0xFF;
-		u8 gbits = (gstate.pmskc >> 8) & 0xFF;
-		u8 bbits = (gstate.pmskc >> 16) & 0xFF;
-		if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
-			WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
-		}
-		if (abits != 0 && abits != 0xFF) {
-			// The stencil part of the mask is supported.
-			WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
-		}
-#endif
-
-		// Let's not write to alpha if stencil isn't enabled.
-		if (!gstate.isStencilTestEnabled()) {
-			amask = false;
-		} else {
-			// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-				amask = false;
+			// Stencil Test
+			if (stencilState.enabled) {
+				dxstate.stencilTest.enable();
+				dxstate.stencilFunc.set(ztests[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+				dxstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
+				dxstate.stencilMask.set(stencilState.writeMask);
+			} else {
+				dxstate.stencilTest.disable();
 			}
 		}
+	}
 
-		dxstate.colorMask.set(rmask, gmask, bmask, amask);
+	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
+		ViewportAndScissor vpAndScissor;
+		ConvertViewportAndScissor(useBufferedRendering,
+			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+			vpAndScissor);
 
-		GenericStencilFuncState stencilState;
-		ConvertStencilFuncState(stencilState);
-
-		// Stencil Test
-		if (stencilState.enabled) {
-			dxstate.stencilTest.enable();
-			dxstate.stencilFunc.set(ztests[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
-			dxstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
-			dxstate.stencilMask.set(stencilState.writeMask);
+		if (vpAndScissor.scissorEnable) {
+			dxstate.scissorTest.enable();
+			dxstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorX + vpAndScissor.scissorW, vpAndScissor.scissorY + vpAndScissor.scissorH);
 		} else {
-			dxstate.stencilTest.disable();
+			dxstate.scissorTest.disable();
 		}
-	}
 
-	if (vpAndScissor.scissorEnable) {
-		dxstate.scissorTest.enable();
-		dxstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorX + vpAndScissor.scissorW, vpAndScissor.scissorY + vpAndScissor.scissorH);
-	} else {
-		dxstate.scissorTest.disable();
-	}
+		float depthMin = vpAndScissor.depthRangeMin;
+		float depthMax = vpAndScissor.depthRangeMax;
 
-	float depthMin = vpAndScissor.depthRangeMin;
-	float depthMax = vpAndScissor.depthRangeMax;
-
-	dxstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH, depthMin, depthMax);
-	if (vpAndScissor.dirtyProj) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-	}
-	if (vpAndScissor.dirtyDepth) {
-		gstate_c.Dirty(DIRTY_DEPTHRANGE);
+		dxstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH, depthMin, depthMax);
+		if (vpAndScissor.dirtyProj) {
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
+		}
+		if (vpAndScissor.dirtyDepth) {
+			gstate_c.Dirty(DIRTY_DEPTHRANGE);
+		}
 	}
 }
 
