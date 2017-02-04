@@ -45,6 +45,14 @@ enum FBBlitFilter {
 	FB_BLIT_LINEAR = 1,
 };
 
+struct FramebufferDesc {
+	int width;
+	int height;
+	int depth;
+	int numColorAttachments;
+	bool z_stencil;
+	FBOColorDepth colorDepth;
+};
 // Creates a simple FBO with a RGBA32 color buffer stored in a texture, and
 // optionally an accompanying Z/stencil buffer.
 // No mipmap support.
@@ -52,7 +60,7 @@ enum FBBlitFilter {
 // you lose bound texture state.
 
 // On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
-FBO_DX9 *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth = FBO_8888);
+FBO_DX9 *fbo_create(const FramebufferDesc &desc);
 void fbo_destroy(FBO_DX9 *fbo);
 
 bool fbo_blit(FBO_DX9 *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO_DX9 *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter);

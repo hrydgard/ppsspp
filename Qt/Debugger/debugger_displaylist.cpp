@@ -1353,7 +1353,7 @@ void Debugger_DisplayList::UpdateRenderBufferGUI()
 		memset(data,0,FRAME_WIDTH * FRAME_HEIGHT * 4);
 		if(currentRenderFrameDisplay == 0)
 		{
-			fbo_bind_color_as_texture(currentTextureDisplay,0);
+			fbo_bind_as_texture(currentTextureDisplay, 0, FB_COLOR_BIT, 0);
 			glGetTexImage(GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_BYTE, data);
 		}
 	}

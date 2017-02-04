@@ -66,13 +66,13 @@ void fbo_shutdown() {
 	deviceDSsurf->Release();
 }
 
-FBO_DX9 *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
+FBO_DX9 *fbo_create(const FramebufferDesc &desc) {
 	static uint32_t id = 0;
 
 	FBO_DX9 *fbo = new FBO_DX9();
-	fbo->width = width;
-	fbo->height = height;
-	fbo->colorDepth = colorDepth;
+	fbo->width = desc.width;
+	fbo->height = desc.height;
+	fbo->colorDepth = desc.colorDepth;
 	fbo->depthstenciltex = nullptr;
 
 	HRESULT rtResult = pD3Ddevice->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
@@ -102,7 +102,6 @@ FBO_DX9 *fbo_create(int width, int height, int num_color_textures, bool z_stenci
 		delete fbo;
 		return NULL;
 	}
-
 	fbo->id = id++;
 	return fbo;
 }

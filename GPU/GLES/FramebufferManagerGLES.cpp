@@ -121,7 +121,7 @@ void FramebufferManagerGLES::SetNumExtraFBOs(int num) {
 	extraFBOs_.clear();
 	for (int i = 0; i < num; i++) {
 		// No depth/stencil for post processing
-		FBO *fbo = fbo_create(renderWidth_, renderHeight_, 1, false, FBO_8888);
+		FBO *fbo = fbo_create({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, FBO_8888 });
 		extraFBOs_.push_back(fbo);
 
 		// The new FBO is still bound after creation, but let's bind it anyway.
@@ -612,7 +612,7 @@ void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u
 		return;
 	}
 
-	vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, (FBOColorDepth)vfb->colorDepth);
+	vfb->fbo = fbo_create({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (FBOColorDepth)vfb->colorDepth });
 	if (old.fbo) {
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
@@ -801,7 +801,7 @@ FBO *FramebufferManagerGLES::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
 	}
 
 	textureCache_->ForgetLastTexture();
-	FBO *fbo = fbo_create(w, h, 1, false, depth);
+	FBO *fbo = fbo_create({ w, h, 1, 1, false, depth });
 	if (!fbo)
 		return fbo;
 	fbo_bind_as_render_target(fbo);
@@ -1211,8 +1211,8 @@ bool FramebufferManagerGLES::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 		}
 	}
 
-	nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, false, (FBOColorDepth)nvfb->colorDepth);
-	if (!(nvfb->fbo)) {
+	nvfb->fbo = fbo_create({ nvfb->width, nvfb->height, 1, 1, false, (FBOColorDepth)nvfb->colorDepth });
+	if (!nvfb->fbo) {
 		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
 	}

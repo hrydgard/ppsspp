@@ -356,7 +356,7 @@ namespace DX9 {
 			return;
 		}
 
-		vfb->fbo_dx9 = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, (FBOColorDepth)vfb->colorDepth);
+		vfb->fbo_dx9 = fbo_create({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (FBOColorDepth)vfb->colorDepth });
 		if (old.fbo_dx9) {
 			INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 			if (vfb->fbo) {
@@ -610,7 +610,7 @@ namespace DX9 {
 		}
 
 		textureCache_->ForgetLastTexture();
-		FBO_DX9 *fbo = fbo_create(w, h, 1, false, depth);
+		FBO_DX9 *fbo = fbo_create({ w, h, 1, 1, false, depth });
 		if (!fbo)
 			return fbo;
 		fbo_bind_as_render_target(fbo);
@@ -934,7 +934,7 @@ namespace DX9 {
 	bool FramebufferManagerDX9::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 		nvfb->colorDepth = FBO_8888;
 
-		nvfb->fbo_dx9 = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
+		nvfb->fbo_dx9 = fbo_create({ nvfb->width, nvfb->height, 1, 1, true, (FBOColorDepth)nvfb->colorDepth });
 		if (!(nvfb->fbo_dx9)) {
 			ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 			return false;
@@ -1330,8 +1330,8 @@ namespace DX9 {
 				// Let's resize.  We must stretch to a render target first.
 				w = vfb->width * maxRes;
 				h = vfb->height * maxRes;
-				tempFBO = fbo_create(w, h, 1, false);
-				if (SUCCEEDED(fbo_blit(vfb->fbo_dx9, 0, 0, vfb->renderWidth, vfb->renderHeight, tempFBO, 0, 0, w, h, FB_COLOR_BIT, g_Config.iBufFilter == SCALE_LINEAR ? FB_BLIT_LINEAR : FB_BLIT_NEAREST))) {
+				tempFBO = fbo_create({ w, h, 1, 1, false, FBO_8888 });
+				if (fbo_blit(vfb->fbo_dx9, 0, 0, vfb->renderWidth, vfb->renderHeight, tempFBO, 0, 0, w, h, FB_COLOR_BIT, g_Config.iBufFilter == SCALE_LINEAR ? FB_BLIT_LINEAR : FB_BLIT_NEAREST)) {
 					renderTarget = (LPDIRECT3DSURFACE9)fbo_get_api_texture(tempFBO, FB_COLOR_BIT | FB_SURFACE_BIT, 0);
 				}
 			}
