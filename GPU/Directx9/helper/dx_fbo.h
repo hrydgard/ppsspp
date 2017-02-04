@@ -36,6 +36,8 @@ enum FBOChannel {
 	FB_COLOR_BIT = 1,
 	FB_DEPTH_BIT = 2,
 	FB_STENCIL_BIT = 4,
+
+	FB_SURFACE_BIT = 32,
 };
 
 enum FBBlitFilter {
@@ -59,13 +61,12 @@ bool fbo_blit(FBO_DX9 *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO_DX9 
 void fbo_bind_as_render_target(FBO_DX9 *fbo);
 // color must be 0.
 void fbo_bind_as_texture(FBO_DX9 *fbo, int binding, FBOChannel channelBit, int color);
-LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO_DX9 *fbo);
 void fbo_bind_backbuffer_as_render_target();
 void fbo_get_dimensions(FBO_DX9 *fbo, int *w, int *h);
 void fbo_resolve(FBO_DX9 *fbo);
 
-LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO_DX9 *fbo);
-LPDIRECT3DTEXTURE9 fbo_get_depth_texture(FBO_DX9 *fbo);
+// Escape route until we complete the API
+uintptr_t fbo_get_api_texture(FBO_DX9 *fbo, int channelBits, int attachment);
 
 // To get default depth and rt surface
 void fbo_init(LPDIRECT3D9 d3d);

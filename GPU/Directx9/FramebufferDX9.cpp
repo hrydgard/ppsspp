@@ -559,8 +559,8 @@ namespace DX9 {
 			// Doesn't work.  Use a shader maybe?
 			fbo_bind_backbuffer_as_render_target();
 
-			LPDIRECT3DTEXTURE9 srcTex = fbo_get_depth_texture(src->fbo_dx9);
-			LPDIRECT3DTEXTURE9 dstTex = fbo_get_depth_texture(dst->fbo_dx9);
+			LPDIRECT3DTEXTURE9 srcTex = (LPDIRECT3DTEXTURE9)fbo_get_api_texture(src->fbo_dx9, FB_DEPTH_BIT, 0);
+			LPDIRECT3DTEXTURE9 dstTex = (LPDIRECT3DTEXTURE9)fbo_get_api_texture(dst->fbo_dx9, FB_DEPTH_BIT, 0);
 
 			if (srcTex && dstTex) {
 				D3DSURFACE_DESC srcDesc;
@@ -1063,7 +1063,7 @@ namespace DX9 {
 		// Right now that's always 8888.
 		DEBUG_LOG(HLE, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 
-		LPDIRECT3DSURFACE9 renderTarget = fbo_get_color_for_read(vfb->fbo_dx9);
+		LPDIRECT3DSURFACE9 renderTarget = (LPDIRECT3DSURFACE9)fbo_get_api_texture(vfb->fbo_dx9, FB_COLOR_BIT | FB_SURFACE_BIT, 0);
 		D3DSURFACE_DESC desc;
 		renderTarget->GetDesc(&desc);
 
@@ -1102,7 +1102,7 @@ namespace DX9 {
 
 		DEBUG_LOG(SCEGE, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
-		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo_dx9);
+		LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)fbo_get_api_texture(vfb->fbo_dx9, FB_DEPTH_BIT, 0);
 		if (tex) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
@@ -1320,8 +1320,7 @@ namespace DX9 {
 			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, fb_format);
 			return true;
 		}
-
-		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo_dx9 ? fbo_get_color_for_read(vfb->fbo_dx9) : nullptr;
+		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo_dx9 ? (LPDIRECT3DSURFACE9)fbo_get_api_texture(vfb->fbo_dx9, FB_COLOR_BIT | FB_SURFACE_BIT, 0) : nullptr;
 		bool success = false;
 		if (renderTarget) {
 			FBO_DX9 *tempFBO = nullptr;
@@ -1333,7 +1332,7 @@ namespace DX9 {
 				h = vfb->height * maxRes;
 				tempFBO = fbo_create(w, h, 1, false);
 				if (SUCCEEDED(fbo_blit(vfb->fbo_dx9, 0, 0, vfb->renderWidth, vfb->renderHeight, tempFBO, 0, 0, w, h, FB_COLOR_BIT, g_Config.iBufFilter == SCALE_LINEAR ? FB_BLIT_LINEAR : FB_BLIT_NEAREST))) {
-					renderTarget = fbo_get_color_for_read(tempFBO);
+					renderTarget = (LPDIRECT3DSURFACE9)fbo_get_api_texture(tempFBO, FB_COLOR_BIT | FB_SURFACE_BIT, 0);
 				}
 			}
 
@@ -1412,7 +1411,7 @@ namespace DX9 {
 		}
 
 		bool success = false;
-		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo_dx9);
+		LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)fbo_get_api_texture(vfb->fbo_dx9, FB_DEPTH_BIT, 0);
 		if (tex) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
@@ -1456,7 +1455,7 @@ namespace DX9 {
 		}
 
 		bool success = false;
-		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo_dx9);
+		LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)fbo_get_api_texture(vfb->fbo_dx9, FB_DEPTH_BIT, 0);
 		if (tex) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;

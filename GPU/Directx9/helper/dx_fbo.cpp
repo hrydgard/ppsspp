@@ -134,13 +134,28 @@ void fbo_bind_as_render_target(FBO_DX9 *fbo) {
 	dxstate.viewport.restore();
 }
 
-
-LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO_DX9 *fbo) {
-	return fbo->tex;
-}
-
-LPDIRECT3DTEXTURE9 fbo_get_depth_texture(FBO_DX9 *fbo) {
-	return fbo->depthstenciltex;
+uintptr_t fbo_get_api_texture(FBO_DX9 *fbo, int channelBits, int attachment) {
+	if (channelBits & FB_SURFACE_BIT) {
+		switch (channelBits & 7) {
+		case FB_DEPTH_BIT:
+			return (uintptr_t)fbo->depthstencil;
+		case FB_STENCIL_BIT:
+			return (uintptr_t)fbo->depthstencil;
+		case FB_COLOR_BIT:
+		default:
+			return (uintptr_t)fbo->surf;
+		}
+	} else {
+		switch (channelBits & 7) {
+		case FB_DEPTH_BIT:
+			return (uintptr_t)fbo->depthstenciltex;
+		case FB_STENCIL_BIT:
+			return 0;  // Can't texture from stencil
+		case FB_COLOR_BIT:
+		default:
+			return (uintptr_t)fbo->tex;
+		}
+	}
 }
 
 LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO_DX9 *fbo) {

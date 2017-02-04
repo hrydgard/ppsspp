@@ -66,5 +66,6 @@ void fbo_bind_as_texture(FBO *fbo, int binding, FBOChannel channelBit, int attac
 void fbo_bind_for_read(FBO *fbo);
 
 void fbo_bind_backbuffer_as_render_target();
+uintptr_t fbo_get_api_texture(FBO *fbo, FBOChannel channelBit, int attachment);
 
 void fbo_get_dimensions(FBO *fbo, int *w, int *h);
