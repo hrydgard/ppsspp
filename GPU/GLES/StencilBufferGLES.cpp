@@ -171,7 +171,6 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
-	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there.
@@ -221,15 +220,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	glstate.stencilMask.set(0xFF);
 
 	if (useBlit) {
-		fbo_bind_as_render_target(dstBuffer->fbo);
-		fbo_bind_for_read(blitFBO);
-		if (!useNV) {
-			glBlitFramebuffer(0, 0, w, h, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, GL_STENCIL_BUFFER_BIT, GL_NEAREST);
-		} else {
-#if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
-			glBlitFramebufferNV(0, 0, w, h, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, GL_STENCIL_BUFFER_BIT, GL_NEAREST);
-#endif // defined(USING_GLES2) && defined(__ANDROID__)
-		}
+		fbo_blit(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, FB_STENCIL_BIT, FB_BLIT_NEAREST);
 	}
 
 	RebindFramebuffer();

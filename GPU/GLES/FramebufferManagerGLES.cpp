@@ -440,6 +440,7 @@ void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBuff
 }
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
+// TODO: This could totally use fbo_blit.
 void FramebufferManagerGLES::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, GLSLProgram *program, int uvRotation) {
 	float texCoords[8] = {
 		u0,v0,
@@ -782,22 +783,10 @@ void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, Virtu
 		int h = std::min(src->renderHeight, dst->renderHeight);
 
 		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
-			// Only use NV if ARB isn't supported.
-			bool useNV = !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
-
 			// Let's only do this if not clearing depth.
-			fbo_bind_for_read(src->fbo);
 			glstate.scissorTest.force(false);
-
-			if (useNV) {
-#if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
-				glBlitFramebufferNV(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-#endif // defined(USING_GLES2) && defined(__ANDROID__)
-			} else {
-				glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-			}
-			// If we set dst->depthUpdated here, our optimization above would be pointless.
-
+			fbo_blit(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, FB_DEPTH_BIT, FB_BLIT_NEAREST);
+			// WARNING: If we set dst->depthUpdated here, our optimization above would be pointless.
 			glstate.scissorTest.restore();
 		}
 	}
@@ -1303,16 +1292,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 
 	glstate.scissorTest.force(false);
 	if (useBlit) {
-		fbo_bind_as_render_target(dst->fbo);
-		fbo_bind_for_read(src->fbo);
-		if (!useNV) {
-			glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-		} else {
-#if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
-			glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-#endif // defined(USING_GLES2) && defined(__ANDROID__)
-		}
-
+		fbo_blit(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, FB_COLOR_BIT, FB_BLIT_NEAREST);
 		fbo_unbind_read();
 	} else {
 		fbo_bind_as_render_target(dst->fbo);

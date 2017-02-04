@@ -400,6 +400,25 @@ void fbo_copy_image(FBO *src, int srcLevel, int srcX, int srcY, int srcZ, FBO *d
 #endif
 }
 
+void fbo_blit(FBO *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter) {
+	GLuint bits = 0;
+	if (channels & FB_COLOR_BIT)
+		bits |= GL_COLOR_BUFFER_BIT;
+	if (channels & FB_DEPTH_BIT)
+		bits |= GL_DEPTH_BUFFER_BIT;
+	if (channels & FB_STENCIL_BIT)
+		bits |= GL_STENCIL_BUFFER_BIT;
+	fbo_bind_as_render_target(dst);
+	fbo_bind_for_read(src);
+	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
+		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
+#if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
+	} else if (gl_extensions.NV_framebuffer_blit) {
+		glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
+#endif // defined(USING_GLES2) && defined(__ANDROID__)
+	}
+}
+
 void fbo_bind_color_as_texture(FBO *fbo, int color) {
 	if (fbo) {
 		glBindTexture(GL_TEXTURE_2D, fbo->color_texture);

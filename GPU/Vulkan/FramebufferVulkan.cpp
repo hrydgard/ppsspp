@@ -1201,7 +1201,6 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		return;
 	}
 
-	// glBlitFramebuffer can clip, but glCopyImageSubData is more restricted.
 	// In case the src goes outside, we just skip the optimization in that case.
 	const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
 	const bool sameDepth = dst->colorDepth == src->colorDepth;

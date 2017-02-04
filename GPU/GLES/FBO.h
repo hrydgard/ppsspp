@@ -33,6 +33,16 @@ enum FBOColorDepth {
 	FBO_5551,
 };
 
+enum FBOChannel {
+	FB_COLOR_BIT = 1,
+	FB_DEPTH_BIT = 2,
+	FB_STENCIL_BIT = 4,
+};
+
+enum FBBlitFilter {
+	FB_BLIT_NEAREST = 0,
+	FB_BLIT_LINEAR = 1,
+};
 
 // Creates a simple FBO with a RGBA32 color buffer stored in a texture, and
 // optionally an accompanying Z/stencil buffer.
@@ -44,6 +54,8 @@ enum FBOColorDepth {
 FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth = FBO_8888);
 
 void fbo_copy_image(FBO *src, int level, int x, int y, int z, FBO *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth);
+
+void fbo_blit(FBO *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter);
 
 int fbo_standard_z_depth();
 int fbo_check_framebuffer_status(FBO *fbo);
