@@ -787,7 +787,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 
 		shaderApply.Shade();
 
-		fbo_bind_as_texture(depalFBO, FB_COLOR_BIT, 0);
+		fbo_bind_as_texture(depalFBO, 0, FB_COLOR_BIT, 0);
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;

@@ -862,12 +862,12 @@ void FramebufferManagerGLES::BindFramebufferColor(int stage, u32 fbRawAddress, V
 
 			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
 
-			fbo_bind_as_texture(renderCopy, FB_COLOR_BIT, 0);
+			fbo_bind_as_texture(renderCopy, 0, FB_COLOR_BIT, 0);
 		} else {
-			fbo_bind_as_texture(framebuffer->fbo, FB_COLOR_BIT, 0);
+			fbo_bind_as_texture(framebuffer->fbo, 0, FB_COLOR_BIT, 0);
 		}
 	} else {
-		fbo_bind_as_texture(framebuffer->fbo, FB_COLOR_BIT, 0);
+		fbo_bind_as_texture(framebuffer->fbo, 0, FB_COLOR_BIT, 0);
 	}
 
 	if (stage != GL_TEXTURE0) {
@@ -1014,7 +1014,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
 
-		fbo_bind_as_texture(vfb->fbo, FB_COLOR_BIT, 0);
+		fbo_bind_as_texture(vfb->fbo, 0, FB_COLOR_BIT, 0);
 
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 
@@ -1065,7 +1065,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 				ERROR_LOG(G3D, "WTF?");
 				return;
 			}
-			fbo_bind_as_texture(extraFBOs_[0], FB_COLOR_BIT, 0);
+			fbo_bind_as_texture(extraFBOs_[0], 0, FB_COLOR_BIT, 0);
 
 			// We are doing the DrawActiveTexture call directly to the backbuffer after here. Hence, we must
 			// flip V.
@@ -1295,7 +1295,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		fbo_blit(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, FB_COLOR_BIT, FB_BLIT_NEAREST);
 	} else {
 		fbo_bind_as_render_target(dst->fbo);
-		fbo_bind_as_texture(src->fbo, FB_COLOR_BIT, 0);
+		fbo_bind_as_texture(src->fbo, 0, FB_COLOR_BIT, 0);
 
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
 		CompileDraw2DProgram();

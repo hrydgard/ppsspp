@@ -58,7 +58,7 @@ bool fbo_blit(FBO_DX9 *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO_DX9 
 // These functions should be self explanatory.
 void fbo_bind_as_render_target(FBO_DX9 *fbo);
 // color must be 0.
-void fbo_bind_as_texture(FBO_DX9 *fbo, FBOChannel channelBit, int color);
+void fbo_bind_as_texture(FBO_DX9 *fbo, int binding, FBOChannel channelBit, int color);
 LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO_DX9 *fbo);
 LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO_DX9 *fbo);
 void fbo_bind_backbuffer_as_render_target();

@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "global.h"
 #include <stdint.h>
 #include <string.h>
@@ -149,17 +151,17 @@ LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO_DX9 *fbo) {
 	return fbo->surf;
 }
 
-void fbo_bind_as_texture(FBO_DX9 *fbo, FBOChannel channelBit, int color) {
+void fbo_bind_as_texture(FBO_DX9 *fbo, int binding, FBOChannel channelBit, int color) {
 	switch (channelBit) {
 	case FB_DEPTH_BIT:
 		if (fbo->depthstenciltex) {
-			pD3Ddevice->SetTexture(0, fbo->depthstenciltex);
+			pD3Ddevice->SetTexture(binding, fbo->depthstenciltex);
 		}
 		break;
 	case FB_COLOR_BIT:
 	default:
 		if (fbo->tex) {
-			pD3Ddevice->SetTexture(0, fbo->tex);
+			pD3Ddevice->SetTexture(binding, fbo->tex);
 		}
 		break;
 	}

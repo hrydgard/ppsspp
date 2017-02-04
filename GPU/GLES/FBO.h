@@ -62,7 +62,7 @@ int fbo_preferred_z_bitdepth();
 // These functions should be self explanatory.
 void fbo_bind_as_render_target(FBO *fbo);
 // color must be 0, for now.
-void fbo_bind_as_texture(FBO *fbo, FBOChannel channelBit, int attachment);
+void fbo_bind_as_texture(FBO *fbo, int binding, FBOChannel channelBit, int attachment);
 void fbo_bind_for_read(FBO *fbo);
 
 void fbo_bind_backbuffer_as_render_target();

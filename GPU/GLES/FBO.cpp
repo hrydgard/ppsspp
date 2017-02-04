@@ -381,7 +381,8 @@ void fbo_blit(FBO *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO *dst, in
 	}
 }
 
-void fbo_bind_as_texture(FBO *fbo, FBOChannel channelBit, int color) {
+void fbo_bind_as_texture(FBO *fbo, int binding, FBOChannel channelBit, int color) {
+	// glActiveTexture(GL_TEXTURE0 + binding);
 	switch (channelBit) {
 	case FB_COLOR_BIT:
 	default:

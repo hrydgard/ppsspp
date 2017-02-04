@@ -978,17 +978,6 @@ namespace DX9 {
 		int dstY1 = dstY * dstYFactor;
 		int dstY2 = (dstY + h) * dstYFactor;
 
-		LPDIRECT3DSURFACE9 srcSurf = fbo_get_color_for_read(src->fbo_dx9);
-		LPDIRECT3DSURFACE9 dstSurf = fbo_get_color_for_write(dst->fbo_dx9);
-		D3DSURFACE_DESC srcDesc;
-		D3DSURFACE_DESC dstDesc;
-		srcSurf->GetDesc(&srcDesc);
-		dstSurf->GetDesc(&dstDesc);
-		srcX2 = std::min(srcX2, (int)srcDesc.Width);
-		srcY2 = std::min(srcY2, (int)srcDesc.Height);
-		dstX2 = std::min(dstX2, (int)dstDesc.Width);
-		dstY2 = std::min(dstY2, (int)dstDesc.Height);
-
 		// Direct3D 9 doesn't support rect -> self.
 		FBO_DX9 *srcFBO = src->fbo_dx9;
 		if (src == dst) {
