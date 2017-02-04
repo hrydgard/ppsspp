@@ -1296,37 +1296,14 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
 		const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
 		if (sameSize && sameDepth && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
-#if defined(USING_GLES2)
-#ifndef IOS
-			glCopyImageSubDataOES(
-				fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
-				fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,
-				dstX2 - dstX1, dstY2 - dstY1, 1);
+			fbo_copy_image(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1);
 			return;
-#endif
-#else
-			if (gl_extensions.ARB_copy_image) {
-				glCopyImageSubData(
-					fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
-					fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,
-					dstX2 - dstX1, dstY2 - dstY1, 1);
-				return;
-			} else if (gl_extensions.NV_copy_image) {
-				// Older, pre GL 4.x NVIDIA cards.
-				glCopyImageSubDataNV(
-					fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
-					fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,
-					dstX2 - dstX1, dstY2 - dstY1, 1);
-				return;
-			}
-#endif
 		}
 	}
 
-	fbo_bind_as_render_target(dst->fbo);
 	glstate.scissorTest.force(false);
-
 	if (useBlit) {
+		fbo_bind_as_render_target(dst->fbo);
 		fbo_bind_for_read(src->fbo);
 		if (!useNV) {
 			glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -1338,6 +1315,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 
 		fbo_unbind_read();
 	} else {
+		fbo_bind_as_render_target(dst->fbo);
 		fbo_bind_color_as_texture(src->fbo, 0);
 
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
