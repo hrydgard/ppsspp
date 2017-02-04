@@ -115,7 +115,7 @@ void fbo_destroy(FBO_DX9 *fbo) {
 	delete fbo;
 }
 
-void fbo_unbind() {
+void fbo_bind_backbuffer_as_render_target() {
 	pD3Ddevice->SetRenderTarget(0, deviceRTsurf);
 	pD3Ddevice->SetDepthStencilSurface(deviceDSsurf);
 	dxstate.scissorRect.restore();
@@ -149,13 +149,19 @@ LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO_DX9 *fbo) {
 	return fbo->surf;
 }
 
-void fbo_bind_color_as_texture(FBO_DX9 *fbo, int color) {
-	pD3Ddevice->SetTexture(0, fbo->tex);
-}
-
-void fbo_bind_depth_as_texture(FBO_DX9 *fbo) {
-	if (fbo->depthstenciltex) {
-		pD3Ddevice->SetTexture(0, fbo->depthstenciltex);
+void fbo_bind_as_texture(FBO_DX9 *fbo, FBOChannel channelBit, int color) {
+	switch (channelBit) {
+	case FB_DEPTH_BIT:
+		if (fbo->depthstenciltex) {
+			pD3Ddevice->SetTexture(0, fbo->depthstenciltex);
+		}
+		break;
+	case FB_COLOR_BIT:
+	default:
+		if (fbo->tex) {
+			pD3Ddevice->SetTexture(0, fbo->tex);
+		}
+		break;
 	}
 }
 
@@ -164,10 +170,14 @@ void fbo_get_dimensions(FBO_DX9 *fbo, int *w, int *h) {
 	*h = fbo->height;
 }
 
-HRESULT fbo_blit_color(FBO_DX9 *src, const RECT *srcRect, FBO_DX9 *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter) {
+bool fbo_blit(FBO_DX9 *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO_DX9 *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
+	if (channelBits != FB_COLOR_BIT)
+		return false;
+	RECT srcRect{ (LONG)srcX1, (LONG)srcY1, (LONG)srcX2, (LONG)srcY2 };
+	RECT dstRect{ (LONG)dstX1, (LONG)dstY1, (LONG)dstX2, (LONG)dstY2 };
 	LPDIRECT3DSURFACE9 srcSurf = src ? src->surf : deviceRTsurf;
 	LPDIRECT3DSURFACE9 dstSurf = dst ? dst->surf : deviceRTsurf;
-	return pD3Ddevice->StretchRect(srcSurf, srcRect, dstSurf, dstRect, filter);
+	return SUCCEEDED(pD3Ddevice->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, filter == FB_BLIT_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
-}
+}  // namespace

@@ -125,23 +125,7 @@ FBO *fbo_ext_create(int width, int height, int num_color_textures, bool z_stenci
 }
 #endif
 
-int fbo_check_framebuffer_status(FBO *fbo) {
-	GLenum fbStatus;
-#ifndef USING_GLES2
-	if (!gl_extensions.ARB_framebuffer_object && gl_extensions.EXT_framebuffer_object) {
-		fbStatus = glCheckFramebufferStatusEXT(GL_READ_FRAMEBUFFER);
-	} else if (gl_extensions.ARB_framebuffer_object) {
-		fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-	} else {
-		fbStatus = 0;
-	}
-#else
-	fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-#endif
-	return (int)fbStatus;
-}
-
-int fbo_standard_z_depth() {
+int fbo_preferred_z_bitdepth() {
 	// This matches the fbo_create() logic.
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil) {
@@ -256,7 +240,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	}
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	switch(status) {
+	switch (status) {
 	case GL_FRAMEBUFFER_COMPLETE:
 		// ILOG("Framebuffer verified complete.");
 		break;
@@ -276,24 +260,6 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 
 	currentDrawHandle_ = fbo->handle;
 	currentReadHandle_ = fbo->handle;
-	return fbo;
-}
-
-FBO *fbo_create_from_native_fbo(GLuint native_fbo, FBO *fbo)
-{
-	if (!fbo)
-		fbo = new FBO();
-
-	fbo->native_fbo = true;
-	fbo->handle = native_fbo;
-	fbo->color_texture = 0;
-	fbo->z_stencil_buffer = 0;
-	fbo->z_buffer = 0;
-	fbo->stencil_buffer = 0;
-	fbo->width = 0;
-	fbo->height = 0;
-	fbo->colorDepth = FBO_8888;
-
 	return fbo;
 }
 
@@ -333,7 +299,7 @@ static void fbo_bind_fb_target(bool read, GLuint name) {
 	}
 }
 
-void fbo_unbind() {
+static void fbo_unbind() {
 #ifndef USING_GLES2
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -360,7 +326,7 @@ void fbo_bind_as_render_target(FBO *fbo) {
 	glstate.viewport.restore();
 }
 
-void fbo_unbind_render_target() {
+void fbo_bind_backbuffer_as_render_target() {
 	fbo_unbind();
 }
 
@@ -415,9 +381,14 @@ void fbo_blit(FBO *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO *dst, in
 	}
 }
 
-void fbo_bind_color_as_texture(FBO *fbo, int color) {
-	if (fbo) {
-		glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
+void fbo_bind_as_texture(FBO *fbo, FBOChannel channelBit, int color) {
+	switch (channelBit) {
+	case FB_COLOR_BIT:
+	default:
+		if (fbo) {
+			glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
+		}
+		break;
 	}
 }
 

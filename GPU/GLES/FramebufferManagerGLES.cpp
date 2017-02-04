@@ -130,7 +130,7 @@ void FramebufferManagerGLES::SetNumExtraFBOs(int num) {
 	}
 
 	currentRenderVfb_ = 0;
-	fbo_unbind();
+	fbo_bind_backbuffer_as_render_target();
 }
 
 void FramebufferManagerGLES::CompileDraw2DProgram() {
@@ -552,7 +552,7 @@ void FramebufferManagerGLES::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		fbo_bind_as_render_target(currentRenderVfb_->fbo);
 	} else {
-		fbo_unbind();
+		fbo_bind_backbuffer_as_render_target();
 	}
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE)
 		glstate.viewport.restore();
@@ -602,7 +602,7 @@ void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u
 	}
 
 	textureCache_->ForgetLastTexture();
-	fbo_unbind();
+	fbo_bind_backbuffer_as_render_target();
 
 	if (!useBufferedRendering_) {
 		if (vfb->fbo) {
@@ -635,7 +635,7 @@ void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u
 
 void FramebufferManagerGLES::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
 	if (!useBufferedRendering_) {
-		fbo_unbind();
+		fbo_bind_backbuffer_as_render_target();
 		// Let's ignore rendering to targets that have not (yet) been displayed.
 		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 	}
@@ -665,7 +665,7 @@ void FramebufferManagerGLES::NotifyRenderFramebufferSwitched(VirtualFramebuffer 
 			fbo_bind_as_render_target(vfb->fbo);
 		} else {
 			// wtf? This should only happen very briefly when toggling bBufferedRendering
-			fbo_unbind();
+			fbo_bind_backbuffer_as_render_target();
 		}
 	} else {
 		if (vfb->fbo) {
@@ -674,7 +674,7 @@ void FramebufferManagerGLES::NotifyRenderFramebufferSwitched(VirtualFramebuffer 
 			fbo_destroy(vfb->fbo);
 			vfb->fbo = 0;
 		}
-		fbo_unbind();
+		fbo_bind_backbuffer_as_render_target();
 
 		// Let's ignore rendering to targets that have not (yet) been displayed.
 		if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
@@ -862,12 +862,12 @@ void FramebufferManagerGLES::BindFramebufferColor(int stage, u32 fbRawAddress, V
 
 			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
 
-			fbo_bind_color_as_texture(renderCopy, 0);
+			fbo_bind_as_texture(renderCopy, FB_COLOR_BIT, 0);
 		} else {
-			fbo_bind_color_as_texture(framebuffer->fbo, 0);
+			fbo_bind_as_texture(framebuffer->fbo, FB_COLOR_BIT, 0);
 		}
 	} else {
-		fbo_bind_color_as_texture(framebuffer->fbo, 0);
+		fbo_bind_as_texture(framebuffer->fbo, FB_COLOR_BIT, 0);
 	}
 
 	if (stage != GL_TEXTURE0) {
@@ -905,7 +905,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 
 	glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-	fbo_unbind();
+	fbo_bind_backbuffer_as_render_target();
 	currentRenderVfb_ = 0;
 
 	if (displayFramebufPtr_ == 0) {
@@ -1014,7 +1014,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
 
-		fbo_bind_color_as_texture(vfb->fbo, 0);
+		fbo_bind_as_texture(vfb->fbo, FB_COLOR_BIT, 0);
 
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 
@@ -1057,15 +1057,15 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			UpdatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_);
 			DrawActiveTexture(0, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
 
-			fbo_unbind();
+			fbo_bind_backbuffer_as_render_target();
 
 			// Use the extra FBO, with applied post-processing shader, as a texture.
-			// fbo_bind_color_as_texture(extraFBOs_[0], 0);
+			// fbo_bind_as_texture(extraFBOs_[0], FB_COLOR_BIT, 0);
 			if (extraFBOs_.size() == 0) {
 				ERROR_LOG(G3D, "WTF?");
 				return;
 			}
-			fbo_bind_color_as_texture(extraFBOs_[0], 0);
+			fbo_bind_as_texture(extraFBOs_[0], FB_COLOR_BIT, 0);
 
 			// We are doing the DrawActiveTexture call directly to the backbuffer after here. Hence, we must
 			// flip V.
@@ -1240,7 +1240,7 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
-		fbo_unbind();
+		fbo_bind_backbuffer_as_render_target();
 		return;
 	}
 
@@ -1295,7 +1295,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		fbo_blit(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, FB_COLOR_BIT, FB_BLIT_NEAREST);
 	} else {
 		fbo_bind_as_render_target(dst->fbo);
-		fbo_bind_color_as_texture(src->fbo, 0);
+		fbo_bind_as_texture(src->fbo, FB_COLOR_BIT, 0);
 
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
 		CompileDraw2DProgram();
@@ -1581,14 +1581,6 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			return;
 		}
 
-		GLenum fbStatus;
-		fbStatus = (GLenum)fbo_check_framebuffer_status(vfb->fbo);
-
-		if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
-			ERROR_LOG(SCEGE, "Incomplete source framebuffer, aborting read");
-			return;
-		}
-
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[currentPBO_].handle);
 
 		if (pixelBufObj_[currentPBO_].maxSize < bufSize) {
@@ -1799,7 +1791,7 @@ void FramebufferManagerGLES::EndFrame() {
 			GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
 			glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 		}
-		fbo_unbind();
+		fbo_bind_backbuffer_as_render_target();
 	}
 }
 
@@ -1829,7 +1821,7 @@ std::vector<FramebufferInfo> FramebufferManagerGLES::GetFramebufferList() {
 }
 
 void FramebufferManagerGLES::DecimateFBOs() {
-	fbo_unbind();
+	fbo_bind_backbuffer_as_render_target();
 	currentRenderVfb_ = 0;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -1876,7 +1868,7 @@ void FramebufferManagerGLES::DecimateFBOs() {
 }
 
 void FramebufferManagerGLES::DestroyAllFBOs(bool forceDelete) {
-	fbo_unbind();
+	fbo_bind_backbuffer_as_render_target();
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
 	prevDisplayFramebuf_ = 0;
@@ -1900,7 +1892,7 @@ void FramebufferManagerGLES::DestroyAllFBOs(bool forceDelete) {
 	}
 	tempFBOs_.clear();
 
-	fbo_unbind();
+	fbo_bind_backbuffer_as_render_target();
 	DisableState();
 }
 

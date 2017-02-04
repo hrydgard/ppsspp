@@ -1028,9 +1028,6 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	if (useBufferedRendering && GetGPUBackend() == GPUBackend::OPENGL)
-		fbo_unbind();
-
 	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {
 		DrawContext *thin3d = screenManager()->getDrawContext();
 
