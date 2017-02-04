@@ -700,12 +700,12 @@ namespace DX9 {
 				BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
 
 				RebindFramebuffer();
-				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(renderCopy));
+				fbo_bind_as_texture(renderCopy, stage, FB_COLOR_BIT, 0);
 			} else {
-				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo_dx9));
+				fbo_bind_as_texture(framebuffer->fbo_dx9, stage, FB_COLOR_BIT, 0);
 			}
 		} else {
-			pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo_dx9));
+			fbo_bind_as_texture(framebuffer->fbo_dx9, stage, FB_COLOR_BIT, 0);
 		}
 	}
 
@@ -812,7 +812,7 @@ namespace DX9 {
 		if (vfb->fbo) {
 			DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 			DisableState();
-			LPDIRECT3DTEXTURE9 colorTexture = fbo_get_color_texture(vfb->fbo_dx9);
+			fbo_bind_as_texture(vfb->fbo_dx9, 0, FB_COLOR_BIT, 0);
 
 			// Output coordinates
 			float x, y, w, h;
@@ -846,7 +846,7 @@ namespace DX9 {
 					}
 					dxstate.texMipFilter.set(D3DTEXF_NONE);
 					dxstate.texMipLodBias.set(0);
-					DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, u0, v0, u1, v1, uvRotation);
+					DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, u0, v0, u1, v1, uvRotation);
 				}
 			}
 			/* 

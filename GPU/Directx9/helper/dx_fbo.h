@@ -60,7 +60,6 @@ void fbo_bind_as_render_target(FBO_DX9 *fbo);
 // color must be 0.
 void fbo_bind_as_texture(FBO_DX9 *fbo, int binding, FBOChannel channelBit, int color);
 LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO_DX9 *fbo);
-LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO_DX9 *fbo);
 void fbo_bind_backbuffer_as_render_target();
 void fbo_get_dimensions(FBO_DX9 *fbo, int *w, int *h);
 void fbo_resolve(FBO_DX9 *fbo);

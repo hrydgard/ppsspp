@@ -147,10 +147,6 @@ LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO_DX9 *fbo) {
 	return fbo->surf;
 }
 
-LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO_DX9 *fbo) {
-	return fbo->surf;
-}
-
 void fbo_bind_as_texture(FBO_DX9 *fbo, int binding, FBOChannel channelBit, int color) {
 	switch (channelBit) {
 	case FB_DEPTH_BIT:
