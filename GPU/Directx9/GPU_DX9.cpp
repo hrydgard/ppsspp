@@ -412,7 +412,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerDX9_->Init();
 	framebufferManagerDX9_->SetTextureCache(textureCacheDX9_);
 	framebufferManagerDX9_->SetShaderManager(shaderManagerDX9_);
-	framebufferManagerDX9_->SetTransformDrawEngine(&drawEngine_);
+	framebufferManagerDX9_->SetDrawEngine(&drawEngine_);
 	textureCacheDX9_->SetFramebufferManager(framebufferManagerDX9_);
 	textureCacheDX9_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheDX9_->SetShaderManager(shaderManagerDX9_);

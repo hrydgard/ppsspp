@@ -414,7 +414,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
-	textureCacheVulkan_->SetTransformDrawEngine(&drawEngine_);
+	textureCacheVulkan_->SetDrawEngine(&drawEngine_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {

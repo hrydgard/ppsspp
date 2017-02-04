@@ -415,11 +415,11 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerGL_->Init();
 	framebufferManagerGL_->SetTextureCache(textureCacheGL_);
 	framebufferManagerGL_->SetShaderManager(shaderManagerGL_);
-	framebufferManagerGL_->SetTransformDrawEngine(&drawEngine_);
+	framebufferManagerGL_->SetDrawEngine(&drawEngine_);
 	textureCacheGL_->SetFramebufferManager(framebufferManagerGL_);
 	textureCacheGL_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheGL_->SetShaderManager(shaderManagerGL_);
-	textureCacheGL_->SetTransformDrawEngine(&drawEngine_);
+	textureCacheGL_->SetDrawEngine(&drawEngine_);
 	fragmentTestCache_.SetTextureCache(textureCacheGL_);
 
 	// Sanity check gstate

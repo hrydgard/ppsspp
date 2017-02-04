@@ -51,8 +51,8 @@ public:
 	void SetShaderManager(ShaderManagerDX9 *sm) {
 		shaderManager_ = sm;
 	}
-	void SetTransformDrawEngine(DrawEngineDX9 *td) {
-		transformDraw_ = td;
+	void SetDrawEngine(DrawEngineDX9 *td) {
+		drawEngine_ = td;
 	}
 
 	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
@@ -133,7 +133,7 @@ private:
 
 	TextureCacheDX9 *textureCache_;
 	ShaderManagerDX9 *shaderManager_;
-	DrawEngineDX9 *transformDraw_;
+	DrawEngineDX9 *drawEngine_;
 	
 	// Used by post-processing shader
 	std::vector<FBO *> extraFBOs_;

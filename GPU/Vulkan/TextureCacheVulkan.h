@@ -111,8 +111,8 @@ public:
 	void SetShaderManager(ShaderManagerVulkan *sm) {
 		shaderManager_ = sm;
 	}
-	void SetTransformDrawEngine(DrawEngineVulkan *td) {
-		transformDraw_ = td;
+	void SetDrawEngine(DrawEngineVulkan *td) {
+		drawEngine_ = td;
 	}
 
 	size_t NumLoadedTextures() const {
@@ -171,7 +171,7 @@ private:
 	FramebufferManagerVulkan *framebufferManager_;
 	DepalShaderCacheVulkan *depalShaderCache_;
 	ShaderManagerVulkan *shaderManager_;
-	DrawEngineVulkan *transformDraw_;
+	DrawEngineVulkan *drawEngine_;
 
 	const char *nextChangeReason_;
 	bool nextNeedsRehash_;

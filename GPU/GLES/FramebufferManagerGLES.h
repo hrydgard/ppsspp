@@ -71,8 +71,8 @@ public:
 	void SetShaderManager(ShaderManagerGLES *sm) {
 		shaderManager_ = sm;
 	}
-	void SetTransformDrawEngine(DrawEngineGLES *td) {
-		transformDraw_ = td;
+	void SetDrawEngine(DrawEngineGLES *td) {
+		drawEngine_ = td;
 	}
 
 	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
@@ -166,7 +166,7 @@ private:
 
 	TextureCacheGLES *textureCache_;
 	ShaderManagerGLES *shaderManager_;
-	DrawEngineGLES *transformDraw_;
+	DrawEngineGLES *drawEngine_;
 
 	// Used by post-processing shader
 	std::vector<FBO *> extraFBOs_;

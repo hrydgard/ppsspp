@@ -65,8 +65,8 @@ public:
 	void SetShaderManager(ShaderManagerGLES *sm) {
 		shaderManager_ = sm;
 	}
-	void SetTransformDrawEngine(DrawEngineGLES *td) {
-		transformDraw_ = td;
+	void SetDrawEngine(DrawEngineGLES *td) {
+		drawEngine_ = td;
 	}
 
 	size_t NumLoadedTextures() const {
@@ -129,7 +129,7 @@ private:
 	FramebufferManagerGLES *framebufferManager_;
 	DepalShaderCacheGLES *depalShaderCache_;
 	ShaderManagerGLES *shaderManager_;
-	DrawEngineGLES *transformDraw_;
+	DrawEngineGLES *drawEngine_;
 
 	const char *nextChangeReason_;
 	bool nextNeedsRehash_;

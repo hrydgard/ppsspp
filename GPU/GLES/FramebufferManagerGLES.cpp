@@ -509,8 +509,8 @@ void FramebufferManagerGLES::DrawActiveTexture(GLuint texture, float x, float y,
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
 	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-		transformDraw_->BindBuffer(pos, sizeof(pos), texCoords, sizeof(texCoords));
-		transformDraw_->BindElementBuffer(indices, sizeof(indices));
+		drawEngine_->BindBuffer(pos, sizeof(pos), texCoords, sizeof(texCoords));
+		drawEngine_->BindElementBuffer(indices, sizeof(indices));
 		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
 		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
 		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
@@ -1963,7 +1963,7 @@ void FramebufferManagerGLES::FlushBeforeCopy() {
 	// all the irrelevant state checking it'll use to decide what to do. Should
 	// do something more focused here.
 	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	transformDraw_->Flush();
+	drawEngine_->Flush();
 }
 
 void FramebufferManagerGLES::Resized() {
