@@ -373,23 +373,23 @@ void fbo_copy_image(FBO *src, int srcLevel, int srcX, int srcY, int srcZ, FBO *d
 #if defined(USING_GLES2)
 #ifndef IOS
 	glCopyImageSubDataOES(
-		fbo_get_color_texture(src), GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
-		fbo_get_color_texture(dst), GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+		src->color_texture, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
+		dst->color_texture, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
 		width, height, depth);
 	return;
 #endif
 #else
 	if (gl_extensions.ARB_copy_image) {
 		glCopyImageSubData(
-			fbo_get_color_texture(src), GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
-			fbo_get_color_texture(dst), GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+			src->color_texture, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
+			dst->color_texture, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
 			width, height, depth);
 		return;
 	} else if (gl_extensions.NV_copy_image) {
 		// Older, pre GL 4.x NVIDIA cards.
 		glCopyImageSubDataNV(
-			fbo_get_color_texture(src), GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
-			fbo_get_color_texture(dst), GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+			src->color_texture, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
+			dst->color_texture, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
 			width, height, depth);
 		return;
 	}
@@ -457,16 +457,4 @@ void fbo_destroy(FBO *fbo) {
 void fbo_get_dimensions(FBO *fbo, int *w, int *h) {
 	*w = fbo->width;
 	*h = fbo->height;
-}
-
-int fbo_get_color_texture(FBO *fbo) {
-	return fbo->color_texture;
-}
-
-int fbo_get_depth_buffer(FBO *fbo) {
-	return fbo->z_buffer;
-}
-
-int fbo_get_stencil_buffer(FBO *fbo) {
-	return fbo->stencil_buffer;
 }
