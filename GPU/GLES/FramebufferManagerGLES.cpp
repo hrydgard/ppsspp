@@ -1293,7 +1293,6 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	glstate.scissorTest.force(false);
 	if (useBlit) {
 		fbo_blit(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, FB_COLOR_BIT, FB_BLIT_NEAREST);
-		fbo_unbind_read();
 	} else {
 		fbo_bind_as_render_target(dst->fbo);
 		fbo_bind_color_as_texture(src->fbo, 0);
@@ -1579,7 +1578,6 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			fbo_bind_for_read(vfb->fbo);
 		} else {
 			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
-			fbo_unbind_read();
 			return;
 		}
 
@@ -1588,7 +1586,6 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 		if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
 			ERROR_LOG(SCEGE, "Incomplete source framebuffer, aborting read");
-			fbo_unbind_read();
 			return;
 		}
 
@@ -1610,7 +1607,6 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
 		}
 
-		fbo_unbind_read();
 		unbind = true;
 
 		pixelBufObj_[currentPBO_].fb_address = fb_address;
@@ -1633,7 +1629,6 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 		fbo_bind_for_read(vfb->fbo);
 	} else {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
-		fbo_unbind_read();
 		return;
 	}
 
@@ -1693,8 +1688,6 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
 		glInvalidateFramebuffer(target, 3, attachments);
 	}
-
-	fbo_unbind_read();
 }
 
 void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
@@ -1736,8 +1729,6 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 			depth[i] = (int)scaled;
 		}
 	}
-
-	fbo_unbind_read();
 }
 
 void FramebufferManagerGLES::EndFrame() {
@@ -1969,14 +1960,11 @@ bool FramebufferManagerGLES::GetFramebuffer(u32 fb_address, int fb_stride, GEBuf
 	SafeGLReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 
 	// We may have clitted to a temp FBO.
-	fbo_unbind_read();
 	RebindFramebuffer();
 	return true;
 }
 
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	fbo_unbind_read();
-
 	int pw = PSP_CoreParameter().pixelWidth;
 	int ph = PSP_CoreParameter().pixelHeight;
 

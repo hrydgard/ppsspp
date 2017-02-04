@@ -369,10 +369,6 @@ void fbo_bind_for_read(FBO *fbo) {
 	fbo_bind_fb_target(true, fbo->handle);
 }
 
-void fbo_unbind_read() {
-	fbo_bind_fb_target(true, 0);
-}
-
 void fbo_copy_image(FBO *src, int srcLevel, int srcX, int srcY, int srcZ, FBO *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {
 #if defined(USING_GLES2)
 #ifndef IOS
