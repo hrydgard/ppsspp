@@ -22,6 +22,7 @@
 #include <algorithm>
 
 #include "gfx/gl_common.h"
+#include "ext/native/thin3d/thin3d.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
 // pixel data.
@@ -29,7 +30,6 @@
 
 #include "Globals.h"
 #include "GPU/GPUCommon.h"
-#include "GPU/GLES/FBO.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "Core/Config.h"
 
@@ -115,7 +115,7 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
-	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
+	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
 
 	// Cardboard Settings Calculator
 	struct CardboardSettings * GetCardboardSettings(struct CardboardSettings * cardboardSettings);
@@ -169,12 +169,12 @@ private:
 	DrawEngineGLES *drawEngine_;
 
 	// Used by post-processing shader
-	std::vector<FBO *> extraFBOs_;
+	std::vector<Draw::Framebuffer *> extraFBOs_;
 
 	bool resized_;
 
 	struct TempFBO {
-		FBO *fbo;
+		Draw::Framebuffer *fbo;
 		int last_frame_used;
 	};
 

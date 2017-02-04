@@ -30,7 +30,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GLES/GPU_GLES.h"
-#include "GPU/GLES/GLStateCache.h"
+#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"

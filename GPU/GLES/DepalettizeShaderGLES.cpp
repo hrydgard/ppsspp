@@ -22,7 +22,7 @@
 #include "Core/Reporting.h"
 #include "DepalettizeShaderGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
-#include "GPU/GLES/GLStateCache.h"
+#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
 static const int DEPAL_TEXTURE_OLD_AGE = 120;

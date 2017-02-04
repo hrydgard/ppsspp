@@ -36,7 +36,7 @@
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/FramebufferCommon.h"
 
-#include "GPU/GLES/GLStateCache.h"
+#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -483,6 +483,11 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
 		}
 	}
+}
+
+// HACK
+int fbo_preferred_z_bitdepth() {
+	return 24;
 }
 
 GPU_GLES::~GPU_GLES() {

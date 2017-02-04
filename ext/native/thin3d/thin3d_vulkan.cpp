@@ -359,7 +359,6 @@ public:
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
-	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
@@ -367,6 +366,24 @@ public:
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
 	Texture *CreateTexture(const TextureDesc &desc) override;
+	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
+	Framebuffer *fbo_create(const FramebufferDesc &desc) override { return nullptr; }
+
+	void fbo_copy_image(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override {}
+	bool fbo_blit(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override { return true;  }
+
+	int fbo_preferred_z_bitdepth() override { return 24; }
+
+	// These functions should be self explanatory.
+	void fbo_bind_as_render_target(Framebuffer *fbo) override {}
+	// color must be 0, for now.
+	void fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override {}
+	void fbo_bind_for_read(Framebuffer *fbo) override {}
+
+	void fbo_bind_backbuffer_as_render_target() override {}
+	uintptr_t fbo_get_api_texture(Framebuffer *fbo, int channelBit, int attachment) override { return 0; }
+
+	void fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) override {}
 
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;

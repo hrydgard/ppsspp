@@ -23,7 +23,6 @@
 
 #include "d3d9.h"
 
-#include "GPU/Directx9/helper/dx_fbo.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
 // pixel data.
@@ -33,6 +32,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "Core/Config.h"
+#include "ext/native/thin3d/thin3d.h"
 
 namespace DX9 {
 
@@ -85,11 +85,11 @@ public:
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
-	static bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
+	bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
 	virtual void RebindFramebuffer() override;
 
-	FBO_DX9 *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
+	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb);
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(D3DFORMAT fmt, u32 w, u32 h);
 
@@ -142,12 +142,12 @@ private:
 	DrawEngineDX9 *drawEngine_;
 	
 	// Used by post-processing shader
-	std::vector<FBO *> extraFBOs_;
+	std::vector<Draw::Framebuffer *> extraFBOs_;
 
 	bool resized_;
 
 	struct TempFBO {
-		FBO_DX9 *fbo;
+		Draw::Framebuffer *fbo;
 		int last_frame_used;
 	};
 	struct OffscreenSurface {

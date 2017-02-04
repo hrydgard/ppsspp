@@ -15,10 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <d3d9.h>
+
 #include "base/logging.h"
 
 #include "gfx/d3d9_state.h"
-#include "helper/dx_fbo.h"
+#include "ext/native/thin3d/thin3d.h"
 #include "Core/Reporting.h"
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
@@ -218,8 +220,8 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;
 
-	if (dstBuffer->fbo_dx9) {
-		fbo_bind_as_render_target(dstBuffer->fbo_dx9);
+	if (dstBuffer->fbo) {
+		draw_->fbo_bind_as_render_target(dstBuffer->fbo);
 	}
 	D3DVIEWPORT9 vp{ 0, 0, w, h, 0.0f, 1.0f };
 	pD3Ddevice->SetViewport(&vp);

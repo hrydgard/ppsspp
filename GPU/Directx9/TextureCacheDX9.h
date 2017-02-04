@@ -18,9 +18,9 @@
 #pragma once
 
 #include <map>
+#include <d3d9.h>
 
 #include "../Globals.h"
-#include "helper/dx_fbo.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Directx9/TextureScalerDX9.h"

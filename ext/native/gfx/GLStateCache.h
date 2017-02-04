@@ -1,8 +1,6 @@
 #pragma once
 
 #include <functional>
-#include <string.h>
-#include <string>
 
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"

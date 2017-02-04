@@ -1,5 +1,5 @@
 #include "debugger_memorytex.h"
-#include "GPU/GLES/GLStateCache.h"
+#include "gfx/GLStateCache.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 #include "ui_debugger_memorytex.h"

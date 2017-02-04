@@ -22,6 +22,7 @@
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "profiler/profiler.h"
+#include "thin3d/thin3d.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -637,9 +638,9 @@ void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 
 		nextTexture_ = entry;
 	} else {
-		if (framebuffer->fbo_vk) {
-			delete framebuffer->fbo_vk;
-			framebuffer->fbo_vk = 0;
+		if (framebuffer->fbo) {
+			delete framebuffer->fbo;
+			framebuffer->fbo = nullptr;
 		}
 		gstate_c.needShaderTexClamp = false;
 	}

@@ -310,6 +310,34 @@ enum class NativeObject {
 	DEVICE_EX,
 };
 
+enum FBColorDepth {
+	FBO_8888,
+	FBO_565,
+	FBO_4444,
+	FBO_5551,
+};
+
+enum FBChannel {
+	FB_COLOR_BIT = 1,
+	FB_DEPTH_BIT = 2,
+	FB_STENCIL_BIT = 4,
+	FB_SURFACE_BIT = 32,  // Used in conjunction with the others in D3D9 to get surfaces through get_api_texture
+};
+
+enum FBBlitFilter {
+	FB_BLIT_NEAREST = 0,
+	FB_BLIT_LINEAR = 1,
+};
+
+struct FramebufferDesc {
+	int width;
+	int height;
+	int depth;
+	int numColorAttachments;
+	bool z_stencil;
+	FBColorDepth colorDepth;
+};
+
 // Binary compatible with D3D11 viewport.
 struct Viewport {
 	float TopLeftX;
@@ -341,6 +369,10 @@ public:
 };
 
 class DepthStencilState : public RefCountedObject {
+public:
+};
+
+class Framebuffer : public RefCountedObject {
 public:
 };
 
@@ -520,9 +552,27 @@ public:
 	// Resources
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Texture *CreateTexture(const TextureDesc &desc) = 0;
+	// On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
+	virtual Framebuffer *fbo_create(const FramebufferDesc &desc) = 0;
 
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
+
+	virtual void fbo_copy_image(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) = 0;
+	virtual bool fbo_blit(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
+
+	virtual int fbo_preferred_z_bitdepth() = 0;
+
+	// These functions should be self explanatory.
+	virtual void fbo_bind_as_render_target(Framebuffer *fbo) = 0;
+	// color must be 0, for now.
+	virtual void fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
+	virtual void fbo_bind_for_read(Framebuffer *fbo) = 0;
+
+	virtual void fbo_bind_backbuffer_as_render_target() = 0;
+	virtual uintptr_t fbo_get_api_texture(Framebuffer *fbo, int channelBits, int attachment) = 0;
+
+	virtual void fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) = 0;
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;

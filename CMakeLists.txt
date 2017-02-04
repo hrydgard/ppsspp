@@ -814,6 +814,8 @@ add_library(native STATIC
 	ext/native/file/vfs.h
 	ext/native/file/zip_read.cpp
 	ext/native/file/zip_read.h
+	ext/native/gfx/GLStateCache.cpp
+	ext/native/gfx/GLStateCache.h
 	ext/native/gfx/gl_common.h
 	ext/native/gfx/gl_debug_log.cpp
 	ext/native/gfx/gl_debug_log.h
@@ -1084,8 +1086,6 @@ set(GPU_GLES
 	GPU/GLES/FBO.h
 	GPU/GLES/GPU_GLES.cpp
 	GPU/GLES/GPU_GLES.h
-	GPU/GLES/GLStateCache.cpp
-	GPU/GLES/GLStateCache.h
 	GPU/GLES/FragmentShaderGeneratorGLES.cpp
 	GPU/GLES/FragmentShaderGeneratorGLES.h
 	GPU/GLES/FragmentTestCacheGLES.cpp
@@ -1156,8 +1156,6 @@ set(GPU_D3D9
 	GPU/Directx9/TextureScalerDX9.h
 	GPU/Directx9/VertexShaderGeneratorDX9.cpp
 	GPU/Directx9/VertexShaderGeneratorDX9.h
-	GPU/Directx9/helper/dx_fbo.cpp
-	GPU/Directx9/helper/dx_fbo.h
 )
 
 

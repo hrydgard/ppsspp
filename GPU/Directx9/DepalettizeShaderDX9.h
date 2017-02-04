@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
+#include <d3d9.h>
 
 #include "Common/CommonTypes.h"
 #include "GPU/ge_constants.h"

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
+#include <d3d9.h>
 
 #include "base/logging.h"
 #include "Common/Log.h"

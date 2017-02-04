@@ -21,7 +21,6 @@
 #include <deque>
 
 #include "GPU/GPUCommon.h"
-#include "GPU/GLES/FBO.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"

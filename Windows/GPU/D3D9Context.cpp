@@ -2,7 +2,6 @@
 #include <d3d9.h>
 
 #include "gfx/d3d9_state.h"
-#include "GPU/Directx9/helper/dx_fbo.h"
 
 #include "base/logging.h"
 #include "util/text/utf8.h"
@@ -165,8 +164,6 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	DX9::pD3Ddevice = device;
 	DX9::pD3DdeviceEx = deviceEx;
 
-	DX9::fbo_init(d3d, device);
-
 	if (deviceEx && IsWin7OrLater()) {
 		// TODO: This makes it slower?
 		//deviceEx->SetMaximumFrameLatency(1);
@@ -184,7 +181,7 @@ void D3D9Context::Resize() {
 	bool h_changed = pp.BackBufferHeight != yres;
 
 	if (device && (w_changed || h_changed)) {
-		DX9::fbo_shutdown();
+		// DX9::fbo_shutdown();
 
 		pp.BackBufferWidth = xres;
 		pp.BackBufferHeight = yres;
@@ -194,12 +191,12 @@ void D3D9Context::Resize() {
 			ERROR_LOG_REPORT(G3D, "Unable to reset D3D device");
 			PanicAlert("Unable to reset D3D9 device");
 		}
-		DX9::fbo_init(d3d, device);
+		// DX9::fbo_init(d3d, device);
 	}
 }
 
 void D3D9Context::Shutdown() {
-	DX9::fbo_shutdown();
+	// DX9::fbo_shutdown();
 	device->EndScene();
 	device->Release();
 	d3d->Release();

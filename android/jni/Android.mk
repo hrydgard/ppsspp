@@ -229,7 +229,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
   $(SRC)/GPU/GLES/DepalettizeShaderGLES.cpp \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
-  $(SRC)/GPU/GLES/GLStateCache.cpp.arm \
   $(SRC)/GPU/GLES/FBO.cpp \
   $(SRC)/GPU/GLES/StencilBufferGLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \

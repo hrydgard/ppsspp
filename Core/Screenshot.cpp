@@ -230,13 +230,7 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
 		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
 	} else {
-		if (GetGPUBackend() == GPUBackend::OPENGL) {
-			success = GPU_GLES::GetOutputFramebuffer(buf);
-#ifdef _WIN32
-		} else if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-			success = DX9::GPU_DX9::GetOutputFramebuffer(buf);
-#endif
-		}
+		success = gpuDebug->GetOutputFramebuffer(buf);
 	}
 
 	if (!success) {
