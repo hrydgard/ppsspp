@@ -221,7 +221,8 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	if (dstBuffer->fbo_dx9) {
 		fbo_bind_as_render_target(dstBuffer->fbo_dx9);
 	}
-	DXSetViewport(0, 0, w, h);
+	D3DVIEWPORT9 vp{ 0, 0, w, h, 0.0f, 1.0f };
+	pD3Ddevice->SetViewport(&vp);
 
 	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 

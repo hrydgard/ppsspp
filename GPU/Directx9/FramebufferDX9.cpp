@@ -74,7 +74,7 @@ static const char * pscode =
 	"  return c;\n"
 	"}\n";
 
-void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
+static void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
 	D3DVIEWPORT9 vp;
 	vp.X = (DWORD)x;
 	vp.Y = (DWORD)y;
@@ -252,11 +252,13 @@ void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
 	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 		if (useBufferedRendering_ && vfb && vfb->fbo_dx9) {
 			fbo_bind_as_render_target(vfb->fbo_dx9);
-			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
+			D3DVIEWPORT9 vp{ 0, 0, vfb->renderWidth, vfb->renderHeight, 0.0f, 1.0f };
+			pD3Ddevice->SetViewport(&vp);
 		} else {
 			float x, y, w, h;
 			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-			DXSetViewport(x, y, w, h);
+			D3DVIEWPORT9 vp{ (DWORD)x, (DWORD)y, (DWORD)w, (DWORD)h, 0.0f, 1.0f };
+			pD3Ddevice->SetViewport(&vp);
 		}
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
@@ -569,7 +571,7 @@ void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
 			shaderManager_->DirtyLastShader();
 			pD3Ddevice->SetTexture(0, nullptr);
 
-			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
+			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight, 0.0f, 1.0f);
 
 			// This should clear stencil and alpha without changing the other colors.
 			HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
@@ -784,7 +786,7 @@ void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
 		if (useBufferedRendering_) {
 			// In buffered, we no longer clear the backbuffer before we start rendering.
 			ClearBuffer();
-			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0.0f, 1.0f);
 		}
 
 		u32 offsetX = 0;
@@ -894,7 +896,7 @@ void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
 					g_Config.iBufFilter == SCALE_LINEAR ? FB_BLIT_LINEAR : FB_BLIT_NEAREST);
 				if (!result) {
 					ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display");
-					DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+					DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0.0f, 1.0f);
 					// These are in the output display coordinates
 					if (g_Config.iBufFilter == SCALE_LINEAR) {
 						dxstate.texMagFilter.set(D3DTEXF_LINEAR);

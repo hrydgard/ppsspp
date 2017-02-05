@@ -741,7 +741,8 @@ public:
 		pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
 		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
-		DXSetViewport(0, 0, renderW_, renderH_);
+		D3DVIEWPORT9 vp{ 0, 0, (DWORD)renderW_, (DWORD)renderH_, 0.0f, 1.0f };
+		pD3Ddevice->SetViewport(&vp);
 		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, verts_, (3 + 2) * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);

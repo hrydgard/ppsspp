@@ -9,7 +9,6 @@ namespace DX9 {
 
 LPDIRECT3DDEVICE9 pD3Ddevice = nullptr;
 LPDIRECT3DDEVICE9EX pD3DdeviceEx = nullptr;
-LPDIRECT3D9 pD3D = nullptr;
 
 IDirect3DVertexDeclaration9* pFramebufferVertexDecl = nullptr;
 
@@ -18,9 +17,6 @@ static const D3DVERTEXELEMENT9 VertexElements[] = {
 	{ 0, 12, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
 	D3DDECL_END()
 };
-
-LPDIRECT3DVERTEXSHADER9      pFramebufferVertexShader = nullptr; // Vertex Shader
-LPDIRECT3DPIXELSHADER9       pFramebufferPixelShader = nullptr;  // Pixel Shader
 
 bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
 	ID3DXBuffer *pShaderCode = nullptr;

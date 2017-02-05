@@ -70,6 +70,17 @@ public:
 		}
 	}
 
+	uintptr_t GetNativeObject(NativeObject obj) const override {
+		switch (obj) {
+		case NativeObject::DEVICE:
+			return (uintptr_t)device_;
+		case NativeObject::CONTEXT:
+			return (uintptr_t)context_;
+		default:
+			return 0;
+		}
+	}
+
 private:
 	void ApplyCurrentState();
 
