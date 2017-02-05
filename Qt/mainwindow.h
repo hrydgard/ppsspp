@@ -129,6 +129,7 @@ private slots:
 	// Help
 	void websiteAct();
 	void forumAct();
+	void gitAct();
 	void aboutAct();
 
 	// Others
