@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <string.h>
+
 #include "global.h"
 
 namespace DX9 {
@@ -14,7 +15,7 @@ private:
 	public:
 		BoolState() : _value(init) {
 			DirectXState::state_count++;
-        }
+    }
 
 		inline void set(bool value) {
 			if (_value != value) {
@@ -51,7 +52,7 @@ private:
 	public:
 		DxState1() : _state1(state1), p1(p1def) {
 			DirectXState::state_count++;
-        }
+    }
 
 		inline void set(DWORD newp1) {
 			if (p1 != newp1) {
@@ -132,7 +133,7 @@ private:
 	public:
 		DxState2() : _state1(state1),_state2(state2), p1(p1def), p2(p2def) {
 			DirectXState::state_count++;
-        }
+    }
 
 		inline void set(DWORD newp1, DWORD newp2) {
 			if (p1 != newp1) {
@@ -168,8 +169,7 @@ private:
 	public:
 		DxState3() : _state1(state1),_state2(state2), _state3(state3), 
 			p1(p1def), p2(p2def), p3(p3def) {
-		//	DirectxState::state_count++;
-        }
+    }
 
 		inline void set(DWORD newp1, DWORD newp2, DWORD newp3) {
 			if (p1 != newp1) {
@@ -214,7 +214,6 @@ private:
 	public:
 		DxState4() : _state1(state1), _state2(state2), _state3(state3), _state4(state4),
 			p1(p1def), p2(p2def), p3(p3def), p4(p4def) {
-			//	DirectxState::state_count++;
 		}
 
 		inline void set(DWORD newp1, DWORD newp2, DWORD newp3, DWORD newp4) {

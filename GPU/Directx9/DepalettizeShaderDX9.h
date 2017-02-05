@@ -20,8 +20,6 @@
 #include "Common/CommonTypes.h"
 #include "GPU/ge_constants.h"
 
-#include "GPU/Directx9/helper/global.h"
-
 namespace DX9 {
 
 class DepalShaderDX9 {

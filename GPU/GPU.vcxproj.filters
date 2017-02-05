@@ -81,9 +81,6 @@
     <ClInclude Include="Directx9\TextureCacheDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\StateMappingDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
     <ClInclude Include="Directx9\ShaderManagerDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>

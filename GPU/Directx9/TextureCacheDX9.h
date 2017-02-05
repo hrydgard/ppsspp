@@ -20,7 +20,6 @@
 #include <map>
 
 #include "../Globals.h"
-#include "helper/global.h"
 #include "helper/dx_fbo.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"

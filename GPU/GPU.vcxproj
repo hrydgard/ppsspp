@@ -212,7 +212,6 @@
     <ClInclude Include="Directx9\PixelShaderGeneratorDX9.h" />
     <ClInclude Include="Directx9\FramebufferDX9.h" />
     <ClInclude Include="Directx9\ShaderManagerDX9.h" />
-    <ClInclude Include="Directx9\StateMappingDX9.h" />
     <ClInclude Include="Directx9\TextureCacheDX9.h" />
     <ClInclude Include="Directx9\TextureScalerDX9.h" />
     <ClInclude Include="Directx9\DrawEngineDX9.h" />

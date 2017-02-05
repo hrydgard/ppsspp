@@ -78,7 +78,7 @@ protected:
 
 class ShaderManagerDX9 : public ShaderManagerCommon {
 public:
-	ShaderManagerDX9();
+	ShaderManagerDX9(LPDIRECT3DDEVICE9 device);
 	~ShaderManagerDX9();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
@@ -112,6 +112,8 @@ private:
 	void VSSetFloatUniform4(int creg, float data[4]);
 
 	void Clear();
+
+	LPDIRECT3DDEVICE9 device_;
 
 	ShaderID lastFSID_;
 	ShaderID lastVSID_;

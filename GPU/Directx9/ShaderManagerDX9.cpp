@@ -75,7 +75,6 @@ PSShader::PSShader(ShaderID id, const char *code) : id_(id), shader(nullptr), fa
 }
 
 PSShader::~PSShader() {
-	pD3Ddevice->SetPixelShader(NULL);
 	if (shader)
 		shader->Release();
 }
@@ -125,7 +124,6 @@ VSShader::VSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id)
 }
 
 VSShader::~VSShader() {
-	pD3Ddevice->SetVertexShader(NULL);
 	if (shader)
 		shader->Release();
 }
@@ -148,7 +146,7 @@ void ShaderManagerDX9::PSSetColorUniform3(int creg, u32 color) {
 		((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
 		0.0f
 	};
-	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
+	device_->SetPixelShaderConstantF(creg, col, 1);
 }
 
 void ShaderManagerDX9::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
@@ -158,12 +156,12 @@ void ShaderManagerDX9::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha)
 		(float)((color & 0xFF0000) >> 16),
 		(float)alpha,
 	};
-	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
+	device_->SetPixelShaderConstantF(creg, col, 1);
 }
 
 void ShaderManagerDX9::PSSetFloat(int creg, float value) {
 	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
-	pD3Ddevice->SetPixelShaderConstantF(creg, f, 1);
+	device_->SetPixelShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::PSSetFloatArray(int creg, const float *value, int count) {
@@ -171,12 +169,12 @@ void ShaderManagerDX9::PSSetFloatArray(int creg, const float *value, int count) 
 	for (int i = 0; i < count; i++) {
 		f[i] = value[i];
 	}
-	pD3Ddevice->SetPixelShaderConstantF(creg, f, 1);
+	device_->SetPixelShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::VSSetFloat(int creg, float value) {
 	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
-	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
+	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::VSSetFloatArray(int creg, const float *value, int count) {
@@ -184,7 +182,7 @@ void ShaderManagerDX9::VSSetFloatArray(int creg, const float *value, int count) 
 	for (int i = 0; i < count; i++) {
 		f[i] = value[i];
 	}
-	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
+	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
 // Utility
@@ -195,18 +193,18 @@ void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
 		((color & 0xFF0000) >> 16) / 255.0f,
 		0.0f
 	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
+	device_->SetVertexShaderConstantF(creg, col, 1);
 }
 
 void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
-	pD3Ddevice->SetVertexShaderConstantF(creg, data, 1);
+	device_->SetVertexShaderConstantF(creg, data, 1);
 }
 
 void ShaderManagerDX9::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
 	const u32 col[4] = {
 		data[0] << 8, data[1] << 8, data[2] << 8, 0
 	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, (const float *)&col[0], 1);
+	device_->SetVertexShaderConstantF(creg, (const float *)&col[0], 1);
 }
 
 void ShaderManagerDX9::VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
@@ -216,7 +214,7 @@ void ShaderManagerDX9::VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
 		((color & 0xFF0000) >> 16) / 255.0f,
 		alpha/255.0f
 	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
+	device_->SetVertexShaderConstantF(creg, col, 1);
 }
 
 void ShaderManagerDX9::VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
@@ -226,26 +224,26 @@ void ShaderManagerDX9::VSSetColorUniform3ExtraFloat(int creg, u32 color, float e
 		((color & 0xFF0000) >> 16) / 255.0f,
 		extra
 	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
+	device_->SetVertexShaderConstantF(creg, col, 1);
 }
 
 // Utility
 void ShaderManagerDX9::VSSetMatrix4x3(int creg, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
-	pD3Ddevice->SetVertexShaderConstantF(creg, m4x4, 4);
+	device_->SetVertexShaderConstantF(creg, m4x4, 4);
 }
 
 void ShaderManagerDX9::VSSetMatrix4x3_3(int creg, const float *m4x3) {
 	float m3x4[16];
 	ConvertMatrix4x3To3x4Transposed(m3x4, m4x3);
-	pD3Ddevice->SetVertexShaderConstantF(creg, m3x4, 3);
+	device_->SetVertexShaderConstantF(creg, m3x4, 3);
 }
 
 void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 	float transp[16];
 	Transpose4x4(transp, pMatrix);
-	pD3Ddevice->SetVertexShaderConstantF(creg, transp, 4);
+	device_->SetVertexShaderConstantF(creg, transp, 4);
 }
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
@@ -511,7 +509,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 	}
 }
 
-ShaderManagerDX9::ShaderManagerDX9() : lastVShader_(nullptr), lastPShader_(nullptr) {
+ShaderManagerDX9::ShaderManagerDX9(LPDIRECT3DDEVICE9 device) : device_(device), lastVShader_(nullptr), lastPShader_(nullptr) {
 	codeBuffer_ = new char[16384];
 }
 
@@ -626,8 +624,8 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 		gstate_c.CleanUniforms();
 	}
 
-	pD3Ddevice->SetPixelShader(fs->shader);
-	pD3Ddevice->SetVertexShader(vs->shader);
+	device_->SetPixelShader(fs->shader);
+	device_->SetVertexShader(vs->shader);
 
 	lastPShader_ = fs;
 	lastVShader_ = vs;

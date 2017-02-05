@@ -110,6 +110,9 @@ private:
 	void BeginFrameInternal() override;
 	void CopyDisplayToOutputInternal() override;
 
+	LPDIRECT3DDEVICE9 device_;
+	LPDIRECT3DDEVICE9EX deviceEx_;
+
 	FramebufferManagerDX9 *framebufferManagerDX9_;
 	TextureCacheDX9 *textureCacheDX9_;
 	DepalShaderCacheDX9 depalShaderCache_;
