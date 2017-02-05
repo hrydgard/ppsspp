@@ -44,7 +44,35 @@
 #endif
 
 namespace DX9 {
-	static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
+
+static const char * vscode =
+	"struct VS_IN {\n"
+	"  float4 ObjPos   : POSITION;\n"
+	"  float2 Uv    : TEXCOORD0;\n"
+	"};"
+	"struct VS_OUT {\n"
+	"  float4 ProjPos  : POSITION;\n"
+	"  float2 Uv    : TEXCOORD0;\n"
+	"};\n"
+	"VS_OUT main( VS_IN In ) {\n"
+	"  VS_OUT Out;\n"
+	"  Out.ProjPos = In.ObjPos;\n"
+	"  Out.Uv = In.Uv;\n"
+	"  return Out;\n"
+	"}\n";
+
+//--------------------------------------------------------------------------------------
+// Pixel shader
+//--------------------------------------------------------------------------------------
+static const char * pscode =
+	"sampler s: register(s0);\n"
+	"struct PS_IN {\n"
+	"  float2 Uv : TEXCOORD0;\n"
+	"};\n"
+	"float4 main( PS_IN In ) : COLOR {\n"
+	"  float4 c =  tex2D(s, In.Uv);\n"
+	"  return c;\n"
+	"}\n";
 
 	void FramebufferManagerDX9::ClearBuffer(bool keepState) {
 		if (keepState) {
@@ -80,16 +108,35 @@ namespace DX9 {
 		dxstate.stencilMask.set(0xFF);
 	}
 
-
 	FramebufferManagerDX9::FramebufferManagerDX9() :
 		drawPixelsTex_(0),
 		convBuf(0),
 		stencilUploadPS_(nullptr),
 		stencilUploadVS_(nullptr),
 		stencilUploadFailed_(false) {
+
+		std::string errorMsg;
+		if (!CompileVertexShader(vscode, &pFramebufferVertexShader, nullptr, errorMsg)) {
+			OutputDebugStringA(errorMsg.c_str());
+		}
+
+		if (!CompilePixelShader(pscode, &pFramebufferPixelShader, nullptr, errorMsg)) {
+			OutputDebugStringA(errorMsg.c_str());
+			if (pFramebufferVertexShader) {
+				pFramebufferVertexShader->Release();
+			}
+		}
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
+		if (pFramebufferVertexShader) {
+			pFramebufferVertexShader->Release();
+			pFramebufferVertexShader = nullptr;
+		}
+		if (pFramebufferPixelShader) {
+			pFramebufferPixelShader->Release();
+			pFramebufferPixelShader = nullptr;
+		}
 		if (drawPixelsTex_) {
 			drawPixelsTex_->Release();
 		}

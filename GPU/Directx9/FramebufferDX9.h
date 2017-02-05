@@ -124,6 +124,9 @@ private:
 	int drawPixelsTexW_;
 	int drawPixelsTexH_;
 
+	LPDIRECT3DVERTEXSHADER9 pFramebufferVertexShader;
+	LPDIRECT3DPIXELSHADER9 pFramebufferPixelShader;
+
 	u8 *convBuf;
 
 	int plainColorLoc_;

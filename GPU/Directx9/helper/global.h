@@ -12,9 +12,6 @@ namespace DX9 {
 extern LPDIRECT3DDEVICE9 pD3Ddevice;
 extern LPDIRECT3DDEVICE9EX pD3DdeviceEx;
 
-extern LPDIRECT3DVERTEXSHADER9      pFramebufferVertexShader; // Vertex Shader
-extern LPDIRECT3DPIXELSHADER9       pFramebufferPixelShader;  // Pixel Shader
-
 extern IDirect3DVertexDeclaration9* pFramebufferVertexDecl;
 
 bool CompileShaders(std::string &errorMessage);
