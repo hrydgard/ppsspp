@@ -580,6 +580,19 @@ public:
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
+	uintptr_t GetNativeObject(NativeObject obj) const override {
+		switch (obj) {
+		case NativeObject::CONTEXT:
+			return (uintptr_t)d3d_;
+		case NativeObject::DEVICE:
+			return (uintptr_t)device_;
+		case NativeObject::DEVICE_EX:
+			return (uintptr_t)deviceEx_;
+		default:
+			return 0;
+		}
+	}
+
 	std::string GetInfoString(InfoField info) const override {
 		switch (info) {
 		case APIVERSION: return "DirectX 9.0";

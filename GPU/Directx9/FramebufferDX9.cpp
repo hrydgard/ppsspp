@@ -27,7 +27,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Stepping.h"
 
-#include "helper/dx_state.h"
+#include "gfx/d3d9_state.h"
 #include "helper/dx_fbo.h"
 
 #include "GPU/Common/FramebufferCommon.h"
@@ -37,6 +37,8 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 
+#include "ext/native/thin3d/thin3d.h"
+
 #include <algorithm>
 
 #ifdef _M_SSE
@@ -44,7 +46,52 @@
 #endif
 
 namespace DX9 {
-	static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
+
+static const char * vscode =
+	"struct VS_IN {\n"
+	"  float4 ObjPos   : POSITION;\n"
+	"  float2 Uv    : TEXCOORD0;\n"
+	"};"
+	"struct VS_OUT {\n"
+	"  float4 ProjPos  : POSITION;\n"
+	"  float2 Uv    : TEXCOORD0;\n"
+	"};\n"
+	"VS_OUT main( VS_IN In ) {\n"
+	"  VS_OUT Out;\n"
+	"  Out.ProjPos = In.ObjPos;\n"
+	"  Out.Uv = In.Uv;\n"
+	"  return Out;\n"
+	"}\n";
+
+//--------------------------------------------------------------------------------------
+// Pixel shader
+//--------------------------------------------------------------------------------------
+static const char * pscode =
+	"sampler s: register(s0);\n"
+	"struct PS_IN {\n"
+	"  float2 Uv : TEXCOORD0;\n"
+	"};\n"
+	"float4 main( PS_IN In ) : COLOR {\n"
+	"  float4 c =  tex2D(s, In.Uv);\n"
+	"  return c;\n"
+	"}\n";
+
+static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
+	{ 0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+	{ 0, 12, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+	D3DDECL_END()
+};
+
+static void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
+	D3DVIEWPORT9 vp;
+	vp.X = (DWORD)x;
+	vp.Y = (DWORD)y;
+	vp.Width = (DWORD)w;
+	vp.Height = (DWORD)h;
+	vp.MinZ = minZ;
+	vp.MaxZ = maxZ;
+	pD3Ddevice->SetViewport(&vp);
+}
 
 	void FramebufferManagerDX9::ClearBuffer(bool keepState) {
 		if (keepState) {
@@ -80,16 +127,40 @@ namespace DX9 {
 		dxstate.stencilMask.set(0xFF);
 	}
 
+	FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
+		: FramebufferManagerCommon(draw),
+			drawPixelsTex_(0),
+			convBuf(0),
+			stencilUploadPS_(nullptr),
+			stencilUploadVS_(nullptr),
+			stencilUploadFailed_(false) {
 
-	FramebufferManagerDX9::FramebufferManagerDX9() :
-		drawPixelsTex_(0),
-		convBuf(0),
-		stencilUploadPS_(nullptr),
-		stencilUploadVS_(nullptr),
-		stencilUploadFailed_(false) {
+		device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+		std::string errorMsg;
+		if (!CompileVertexShader(device_, vscode, &pFramebufferVertexShader, nullptr, errorMsg)) {
+			OutputDebugStringA(errorMsg.c_str());
+		}
+
+		if (!CompilePixelShader(device_, pscode, &pFramebufferPixelShader, nullptr, errorMsg)) {
+			OutputDebugStringA(errorMsg.c_str());
+			if (pFramebufferVertexShader) {
+				pFramebufferVertexShader->Release();
+			}
+		}
+
+		pD3Ddevice->CreateVertexDeclaration(g_FramebufferVertexElements, &pFramebufferVertexDecl);
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
+		if (pFramebufferVertexShader) {
+			pFramebufferVertexShader->Release();
+			pFramebufferVertexShader = nullptr;
+		}
+		if (pFramebufferPixelShader) {
+			pFramebufferPixelShader->Release();
+			pFramebufferPixelShader = nullptr;
+		}
+		pFramebufferVertexDecl->Release();
 		if (drawPixelsTex_) {
 			drawPixelsTex_->Release();
 		}
@@ -193,11 +264,13 @@ namespace DX9 {
 	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 		if (useBufferedRendering_ && vfb && vfb->fbo_dx9) {
 			fbo_bind_as_render_target(vfb->fbo_dx9);
-			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
+			D3DVIEWPORT9 vp{ 0, 0, vfb->renderWidth, vfb->renderHeight, 0.0f, 1.0f };
+			pD3Ddevice->SetViewport(&vp);
 		} else {
 			float x, y, w, h;
 			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-			DXSetViewport(x, y, w, h);
+			D3DVIEWPORT9 vp{ (DWORD)x, (DWORD)y, (DWORD)w, (DWORD)h, 0.0f, 1.0f };
+			pD3Ddevice->SetViewport(&vp);
 		}
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
@@ -510,7 +583,7 @@ namespace DX9 {
 			shaderManager_->DirtyLastShader();
 			pD3Ddevice->SetTexture(0, nullptr);
 
-			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
+			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight, 0.0f, 1.0f);
 
 			// This should clear stencil and alpha without changing the other colors.
 			HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
@@ -725,7 +798,7 @@ namespace DX9 {
 		if (useBufferedRendering_) {
 			// In buffered, we no longer clear the backbuffer before we start rendering.
 			ClearBuffer();
-			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0.0f, 1.0f);
 		}
 
 		u32 offsetX = 0;
@@ -835,7 +908,7 @@ namespace DX9 {
 					g_Config.iBufFilter == SCALE_LINEAR ? FB_BLIT_LINEAR : FB_BLIT_NEAREST);
 				if (!result) {
 					ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display");
-					DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+					DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0.0f, 1.0f);
 					// These are in the output display coordinates
 					if (g_Config.iBufFilter == SCALE_LINEAR) {
 						dxstate.texMagFilter.set(D3DTEXF_LINEAR);

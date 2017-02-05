@@ -16,11 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <cstdio>
 
-#include "global.h"
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
 #include "base/logging.h"
 #include "dx_fbo.h"
 #include "dx_state.h"
@@ -42,13 +41,14 @@ struct FBO_DX9 {
 static LPDIRECT3DSURFACE9 deviceRTsurf;
 static LPDIRECT3DSURFACE9 deviceDSsurf;
 static bool supportsINTZ = false;
-
+static LPDIRECT3DDEVICE9 g_device;
 #define FB_DIV 1
 #define FOURCC_INTZ ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Z')))
 
-void fbo_init(LPDIRECT3D9 d3d) {
-	pD3Ddevice->GetRenderTarget(0, &deviceRTsurf);
-	pD3Ddevice->GetDepthStencilSurface(&deviceDSsurf);
+void fbo_init(LPDIRECT3D9 d3d, LPDIRECT3DDEVICE9 device) {
+	g_device = device;
+	g_device->GetRenderTarget(0, &deviceRTsurf);
+	g_device->GetDepthStencilSurface(&deviceDSsurf);
 
 	if (d3d) {
 		D3DDISPLAYMODE displayMode;
@@ -75,7 +75,7 @@ FBO_DX9 *fbo_create(const FramebufferDesc &desc) {
 	fbo->colorDepth = desc.colorDepth;
 	fbo->depthstenciltex = nullptr;
 
-	HRESULT rtResult = pD3Ddevice->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
+	HRESULT rtResult = g_device->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
 	if (FAILED(rtResult)) {
 		ELOG("Failed to create render target");
 		delete fbo;
@@ -85,12 +85,12 @@ FBO_DX9 *fbo_create(const FramebufferDesc &desc) {
 
 	HRESULT dsResult;
 	if (supportsINTZ) {
-		dsResult = pD3Ddevice->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_DEPTHSTENCIL, FOURCC_INTZ, D3DPOOL_DEFAULT, &fbo->depthstenciltex, NULL);
+		dsResult = g_device->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_DEPTHSTENCIL, FOURCC_INTZ, D3DPOOL_DEFAULT, &fbo->depthstenciltex, NULL);
 		if (SUCCEEDED(dsResult)) {
 			dsResult = fbo->depthstenciltex->GetSurfaceLevel(0, &fbo->depthstencil);
 		}
 	} else {
-		dsResult = pD3Ddevice->CreateDepthStencilSurface(fbo->width, fbo->height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
+		dsResult = g_device->CreateDepthStencilSurface(fbo->width, fbo->height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
 	}
 	if (FAILED(dsResult)) {
 		ELOG("Failed to create depth buffer");
@@ -117,8 +117,8 @@ void fbo_destroy(FBO_DX9 *fbo) {
 }
 
 void fbo_bind_backbuffer_as_render_target() {
-	pD3Ddevice->SetRenderTarget(0, deviceRTsurf);
-	pD3Ddevice->SetDepthStencilSurface(deviceDSsurf);
+	g_device->SetRenderTarget(0, deviceRTsurf);
+	g_device->SetDepthStencilSurface(deviceDSsurf);
 	dxstate.scissorRect.restore();
 	dxstate.viewport.restore();
 }
@@ -127,8 +127,8 @@ void fbo_resolve(FBO_DX9 *fbo) {
 }
 
 void fbo_bind_as_render_target(FBO_DX9 *fbo) {
-	pD3Ddevice->SetRenderTarget(0, fbo->surf);
-	pD3Ddevice->SetDepthStencilSurface(fbo->depthstencil);
+	g_device->SetRenderTarget(0, fbo->surf);
+	g_device->SetDepthStencilSurface(fbo->depthstencil);
 	dxstate.scissorRect.restore();
 	dxstate.viewport.restore();
 }
@@ -165,13 +165,13 @@ void fbo_bind_as_texture(FBO_DX9 *fbo, int binding, FBOChannel channelBit, int c
 	switch (channelBit) {
 	case FB_DEPTH_BIT:
 		if (fbo->depthstenciltex) {
-			pD3Ddevice->SetTexture(binding, fbo->depthstenciltex);
+			g_device->SetTexture(binding, fbo->depthstenciltex);
 		}
 		break;
 	case FB_COLOR_BIT:
 	default:
 		if (fbo->tex) {
-			pD3Ddevice->SetTexture(binding, fbo->tex);
+			g_device->SetTexture(binding, fbo->tex);
 		}
 		break;
 	}
@@ -189,7 +189,7 @@ bool fbo_blit(FBO_DX9 *src, int srcX1, int srcY1, int srcX2, int srcY2, FBO_DX9 
 	RECT dstRect{ (LONG)dstX1, (LONG)dstY1, (LONG)dstX2, (LONG)dstY2 };
 	LPDIRECT3DSURFACE9 srcSurf = src ? src->surf : deviceRTsurf;
 	LPDIRECT3DSURFACE9 dstSurf = dst ? dst->surf : deviceRTsurf;
-	return SUCCEEDED(pD3Ddevice->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, filter == FB_BLIT_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT));
+	return SUCCEEDED(g_device->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, filter == FB_BLIT_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
 }  // namespace

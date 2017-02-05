@@ -75,7 +75,7 @@ struct CardboardSettings {
 
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
-	FramebufferManagerVulkan(VulkanContext *vulkan);
+	FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
 	~FramebufferManagerVulkan();
 
 	void SetTextureCache(TextureCacheVulkan *tc) {

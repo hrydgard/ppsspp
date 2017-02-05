@@ -30,14 +30,13 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
-#include "helper/dx_state.h"
+#include "gfx/d3d9_state.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
 #include "GPU/Common/FramebufferCommon.h"
-#include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
@@ -394,14 +393,16 @@ static const CommandTableEntry commandTable[] = {
 GPU_DX9::CommandInfo GPU_DX9::cmdInfo_[256];
 
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-: GPUCommon(gfxCtx, draw) {
+: GPUCommon(gfxCtx, draw), drawEngine_((LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE)) {
+	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 	lastVsync_ = g_Config.bVSync ? 1 : 0;
 	dxstate.SetVSyncInterval(g_Config.bVSync);
 
-	shaderManagerDX9_ = new ShaderManagerDX9();
-	framebufferManagerDX9_ = new FramebufferManagerDX9();
+	shaderManagerDX9_ = new ShaderManagerDX9(device_);
+	framebufferManagerDX9_ = new FramebufferManagerDX9(draw);
 	framebufferManager_ = framebufferManagerDX9_;
-	textureCacheDX9_ = new TextureCacheDX9();
+	textureCacheDX9_ = new TextureCacheDX9(draw);
 	textureCache_ = textureCacheDX9_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerDX9_;
@@ -480,10 +481,10 @@ void GPU_DX9::CheckGPUFeatures() {
 	D3DCAPS9 caps;
 	ZeroMemory(&caps, sizeof(caps));
 	HRESULT result = 0;
-	if (pD3DdeviceEx) {
-		result = pD3DdeviceEx->GetDeviceCaps(&caps);
+	if (deviceEx_) {
+		result = deviceEx_->GetDeviceCaps(&caps);
 	} else {
-		result = pD3Ddevice->GetDeviceCaps(&caps);
+		result = device_->GetDeviceCaps(&caps);
 	}
 	if (FAILED(result)) {
 		WARN_LOG_REPORT(G3D, "Direct3D9: Failed to get the device caps!");
@@ -544,7 +545,7 @@ void GPU_DX9::InitClearInternal() {
 	if (useNonBufferedRendering) {
 		dxstate.depthWrite.set(true);
 		dxstate.colorMask.set(true, true, true, true);
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
+		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
 	}
 }
 
@@ -1003,7 +1004,7 @@ bool GPU_DX9::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	HRESULT hr;
 
 	bool success = false;
-	hr = pD3Ddevice->GetTexture(0, &baseTex);
+	hr = device_->GetTexture(0, &baseTex);
 	if (SUCCEEDED(hr) && baseTex != NULL) {
 		hr = baseTex->QueryInterface(IID_IDirect3DTexture9, (void **)&tex);
 		if (SUCCEEDED(hr)) {
@@ -1018,9 +1019,9 @@ bool GPU_DX9::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 				LPDIRECT3DSURFACE9 renderTarget = nullptr;
 				hr = tex->GetSurfaceLevel(level, &renderTarget);
 				if (renderTarget && SUCCEEDED(hr)) {
-					hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+					hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 					if (SUCCEEDED(hr)) {
-						hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
+						hr = device_->GetRenderTargetData(renderTarget, offscreen);
 						if (SUCCEEDED(hr)) {
 							hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 						}

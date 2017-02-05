@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <d3d9.h>
+
 // Simple wrapper around FBO functionality.
 // Very C-ish API because that's what I felt like, and it's cool to completely
 // hide the data from callers...
@@ -77,7 +79,7 @@ void fbo_resolve(FBO_DX9 *fbo);
 uintptr_t fbo_get_api_texture(FBO_DX9 *fbo, int channelBits, int attachment);
 
 // To get default depth and rt surface
-void fbo_init(LPDIRECT3D9 d3d);
+void fbo_init(LPDIRECT3D9 d3d, LPDIRECT3DDEVICE9 device);
 void fbo_shutdown();
 
 };

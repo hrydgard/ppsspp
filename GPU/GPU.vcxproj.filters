@@ -81,9 +81,6 @@
     <ClInclude Include="Directx9\TextureCacheDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\StateMappingDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
     <ClInclude Include="Directx9\ShaderManagerDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
@@ -104,12 +101,6 @@
     </ClInclude>
     <ClInclude Include="..\ext\xbrz\xbrz.h">
       <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\helper\dx_state.h">
-      <Filter>DirectX9\helper</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\helper\global.h">
-      <Filter>DirectX9\helper</Filter>
     </ClInclude>
     <ClInclude Include="Common\TextureDecoder.h">
       <Filter>Common</Filter>
@@ -313,12 +304,6 @@
     </ClCompile>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\helper\dx_state.cpp">
-      <Filter>DirectX9\helper</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\helper\global.cpp">
-      <Filter>DirectX9\helper</Filter>
     </ClCompile>
     <ClCompile Include="Common\TextureDecoder.cpp">
       <Filter>Common</Filter>

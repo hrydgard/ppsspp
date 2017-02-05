@@ -109,7 +109,7 @@ public:
 // Handles transform, lighting and drawing.
 class DrawEngineDX9 : public DrawEngineCommon {
 public:
-	DrawEngineDX9();
+	DrawEngineDX9(LPDIRECT3DDEVICE9 device);
 	virtual ~DrawEngineDX9();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
@@ -171,6 +171,8 @@ private:
 	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfoDX9 *vai);
 
+	LPDIRECT3DDEVICE9 device_;
+
 	// Defer all vertex decoding to a Flush, so that we can hash and cache the
 	// generated buffers without having to redecode them every time.
 	struct DeferredDrawCall {
@@ -196,7 +198,10 @@ private:
 
 	std::unordered_map<u32, VertexArrayInfoDX9 *> vai_;
 	std::unordered_map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
-	
+
+	// SimpleVertex
+	IDirect3DVertexDeclaration9* transformedVertexDecl_;
+
 	// Other
 	ShaderManagerDX9 *shaderManager_;
 	TextureCacheDX9 *textureCache_;

@@ -775,8 +775,8 @@ void NativeRender(GraphicsContext *graphicsContext) {
 
 	if (resized) {
 		resized = false;
-
 		graphicsContext->Resize();
+
 		// TODO: Move this to new GraphicsContext objects for each backend.
 #ifndef _WIN32
 		if (GetGPUBackend() == GPUBackend::OPENGL) {

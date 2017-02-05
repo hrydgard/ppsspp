@@ -421,6 +421,10 @@ public:
 
 	std::vector<std::string> GetFeatureList() const override;
 
+	uintptr_t GetNativeObject(NativeObject obj) const override {
+		return 0;
+	}
+
 private:
 	void ApplyDynamicState();
 	void DirtyDynamicState();

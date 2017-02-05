@@ -821,6 +821,10 @@ add_library(native STATIC
 	ext/native/gfx/gl_lost_manager.h
 	ext/native/gfx/texture_atlas.cpp
 	ext/native/gfx/texture_atlas.h
+	ext/native/gfx/d3d9_shader.cpp
+	ext/native/gfx/d3d9_shader.h
+	ext/native/gfx/d3d9_state.cpp
+	ext/native/gfx/d3d9_state.h
 	ext/native/gfx_es2/draw_buffer.cpp
 	ext/native/gfx_es2/draw_buffer.h
 	ext/native/gfx_es2/draw_text.cpp
@@ -1154,10 +1158,6 @@ set(GPU_D3D9
 	GPU/Directx9/VertexShaderGeneratorDX9.h
 	GPU/Directx9/helper/dx_fbo.cpp
 	GPU/Directx9/helper/dx_fbo.h
-	GPU/Directx9/helper/dx_state.cpp
-	GPU/Directx9/helper/dx_state.h
-	GPU/Directx9/helper/global.cpp
-	GPU/Directx9/helper/global.h
 )
 
 

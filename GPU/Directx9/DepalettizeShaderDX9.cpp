@@ -23,7 +23,8 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DepalettizeShaderDX9.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
-#include "GPU/Directx9/helper/global.h"
+#include "gfx/d3d9_shader.h"
+#include "gfx/d3d9_state.h"
 
 namespace DX9 {
 
@@ -51,7 +52,7 @@ static const char *depalVShaderHLSL =
 
 DepalShaderCacheDX9::DepalShaderCacheDX9() : vertexShader_(nullptr) {
 	std::string errorMessage;
-	if (!DX9::CompileVertexShader(depalVShaderHLSL, &vertexShader_, nullptr, errorMessage)) {
+	if (!DX9::CompileVertexShader(pD3Ddevice, depalVShaderHLSL, &vertexShader_, nullptr, errorMessage)) {
 		ERROR_LOG(G3D, "error compling depal vshader: %s", errorMessage.c_str());
 	}
 }
@@ -156,7 +157,7 @@ LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetDepalettizePixelShader(GEPaletteF
 
 	LPDIRECT3DPIXELSHADER9 pshader;
 	std::string errorMessage;
-	if (!CompilePixelShader(buffer, &pshader, NULL, errorMessage)) {
+	if (!CompilePixelShader(pD3Ddevice, buffer, &pshader, NULL, errorMessage)) {
 		ERROR_LOG(G3D, "Failed to compile depal pixel shader: %s\n\n%s", buffer, errorMessage.c_str());
 		delete[] buffer;
 		return nullptr;

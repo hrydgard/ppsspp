@@ -26,7 +26,7 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
-#include "helper/dx_state.h"
+#include "gfx/d3d9_state.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -37,7 +37,6 @@
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
-#include "GPU/Directx9/StateMappingDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
@@ -66,7 +65,7 @@ static const int D3DPRIMITIVEVERTEXCOUNT[8][2] = {
 	{1, 2}, // 6 = D3DPT_TRIANGLEFAN,
 };
 
-int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
+inline int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
 	return (size / D3DPRIMITIVEVERTEXCOUNT[prim][0]) - D3DPRIMITIVEVERTEXCOUNT[prim][1];
 }
 
@@ -78,8 +77,17 @@ enum {
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
-DrawEngineDX9::DrawEngineDX9()
-	:	decodedVerts_(0),
+static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
+	{ 0, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+	{ 0, 16, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+	{ 0, 28, D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0 },
+	{ 0, 32, D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 1 },
+	D3DDECL_END()
+};
+
+DrawEngineDX9::DrawEngineDX9(LPDIRECT3DDEVICE9 device)
+	: device_(device),
+		decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
 		lastVType_(-1),
 		shaderManager_(0),
@@ -109,9 +117,15 @@ DrawEngineDX9::DrawEngineDX9()
 	InitDeviceObjects();
 
 	tessDataTransfer = new TessellationDataTransferDX9();
+
+	device_->CreateVertexDeclaration(TransformedVertexElements, &transformedVertexDecl_);
 }
 
 DrawEngineDX9::~DrawEngineDX9() {
+	if (transformedVertexDecl_) {
+		transformedVertexDecl_->Release();
+	}
+
 	DestroyDeviceObjects();
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
@@ -224,7 +238,7 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader
 
 		// Create declaration
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = nullptr;
-		HRESULT hr = pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
+		HRESULT hr = device_->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
 		if (FAILED(hr)) {
 			ERROR_LOG(G3D, "Failed to create vertex declaration!");
 			pHardwareVertexDecl = nullptr;
@@ -675,14 +689,14 @@ void DrawEngineDX9::DoFlush() {
 
 						void * pVb;
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
-						pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
+						device_->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
 						vai->vbo->Lock(0, size, &pVb, 0);
 						memcpy(pVb, decoded, size);
 						vai->vbo->Unlock();
 						if (useElements) {
 							void * pIb;
 							u32 size = sizeof(short) * indexGen.VertexCount();
-							pD3Ddevice->CreateIndexBuffer(size, D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
+							device_->CreateIndexBuffer(size, D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
 							vai->ebo->Lock(0, size, &pIb, 0);
 							memcpy(pIb, decIndex, size);
 							vai->ebo->Unlock();
@@ -762,22 +776,22 @@ rotateVBO:
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 
 		if (pHardwareVertexDecl) {
-			pD3Ddevice->SetVertexDeclaration(pHardwareVertexDecl);
+			device_->SetVertexDeclaration(pHardwareVertexDecl);
 			if (vb_ == NULL) {
 				if (useElements) {
-					pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex + 1, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+					device_->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex + 1, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
 				} else {
-					pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
+					device_->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
 				}
 			} else {
-				pD3Ddevice->SetStreamSource(0, vb_, 0, dec_->GetDecVtxFmt().stride);
+				device_->SetStreamSource(0, vb_, 0, dec_->GetDecVtxFmt().stride);
 
 				if (useElements) {
-					pD3Ddevice->SetIndices(ib_);
+					device_->SetIndices(ib_);
 
-					pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, maxIndex + 1, 0, D3DPrimCount(glprim[prim], vertexCount));
+					device_->DrawIndexedPrimitive(glprim[prim], 0, 0, maxIndex + 1, 0, D3DPrimCount(glprim[prim], vertexCount));
 				} else {
-					pD3Ddevice->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
+					device_->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
 				}
 			}
 		}
@@ -833,11 +847,11 @@ rotateVBO:
 			// these spam the gDebugger log.
 			const int vertexSize = sizeof(transformed[0]);
 
-			pD3Ddevice->SetVertexDeclaration(pSoftVertexDecl);
+			device_->SetVertexDeclaration(transformedVertexDecl_);
 			if (drawIndexed) {
-				pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
+				device_->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 			} else {
-				pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
+				device_->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
 			}
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
@@ -856,7 +870,7 @@ rotateVBO:
 
 			dxstate.colorMask.set((mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_STENCIL) != 0);
 
-			pD3Ddevice->Clear(0, NULL, mask, SwapRB(clearColor), clearDepth, clearColor >> 24);
+			device_->Clear(0, NULL, mask, SwapRB(clearColor), clearDepth, clearColor >> 24);
 
 			int scissorX1 = gstate.getScissorX1();
 			int scissorY1 = gstate.getScissorY1();

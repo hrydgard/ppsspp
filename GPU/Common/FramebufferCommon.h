@@ -138,9 +138,13 @@ enum BindFramebufferColorFlags {
 	BINDFBCOLOR_APPLY_TEX_OFFSET = 4,
 };
 
+namespace Draw {
+class DrawContext;
+}
+
 class FramebufferManagerCommon {
 public:
-	FramebufferManagerCommon();
+	FramebufferManagerCommon(Draw::DrawContext *draw);
 	virtual ~FramebufferManagerCommon();
 
 	virtual void Init();
@@ -281,6 +285,8 @@ protected:
 		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}
+
+	Draw::DrawContext *draw_;
 
 	u32 displayFramebufPtr_;
 	u32 displayStride_;

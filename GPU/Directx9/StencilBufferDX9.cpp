@@ -17,7 +17,7 @@
 
 #include "base/logging.h"
 
-#include "helper/dx_state.h"
+#include "gfx/d3d9_state.h"
 #include "helper/dx_fbo.h"
 #include "Core/Reporting.h"
 #include "GPU/Directx9/FramebufferDX9.h"
@@ -161,7 +161,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	// TODO: Helper with logging?
 	if (!stencilUploadPS_) {
 		std::string errorMessage;
-		bool success = CompilePixelShader(stencil_ps, &stencilUploadPS_, NULL, errorMessage);
+		bool success = CompilePixelShader(device_, stencil_ps, &stencilUploadPS_, NULL, errorMessage);
 		if (!errorMessage.empty()) {
 			if (success) {
 				ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -183,7 +183,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	}
 	if (!stencilUploadVS_) {
 		std::string errorMessage;
-		bool success = CompileVertexShader(stencil_vs, &stencilUploadVS_, NULL, errorMessage);
+		bool success = CompileVertexShader(device_, stencil_vs, &stencilUploadVS_, NULL, errorMessage);
 		if (!errorMessage.empty()) {
 			if (success) {
 				ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -221,7 +221,8 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	if (dstBuffer->fbo_dx9) {
 		fbo_bind_as_render_target(dstBuffer->fbo_dx9);
 	}
-	DXSetViewport(0, 0, w, h);
+	D3DVIEWPORT9 vp{ 0, 0, w, h, 0.0f, 1.0f };
+	pD3Ddevice->SetViewport(&vp);
 
 	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 

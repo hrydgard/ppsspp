@@ -70,7 +70,12 @@
 
 #define INVALID_TEX -1
 
-TextureCacheGLES::TextureCacheGLES() : secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), texelsScaledThisFrame_(0) {
+TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
+	: TextureCacheCommon(draw),
+		secondCacheSizeEstimate_(0),
+		clearCacheNextFrame_(false),
+		lowMemoryMode_(false),
+		texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;

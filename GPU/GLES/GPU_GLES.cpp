@@ -400,9 +400,9 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	CheckGPUFeatures();
 
 	shaderManagerGL_ = new ShaderManagerGLES();
-	framebufferManagerGL_ = new FramebufferManagerGLES();
+	framebufferManagerGL_ = new FramebufferManagerGLES(draw);
 	framebufferManager_ = framebufferManagerGL_;
-	textureCacheGL_ = new TextureCacheGLES();
+	textureCacheGL_ = new TextureCacheGLES(draw);
 	textureCache_ = textureCacheGL_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerGL_;

@@ -397,9 +397,9 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	shaderManagerVulkan_ = new ShaderManagerVulkan(vulkan_);
 	pipelineManager_ = new PipelineManagerVulkan(vulkan_);
-	framebufferManagerVulkan_ = new FramebufferManagerVulkan(vulkan_);
+	framebufferManagerVulkan_ = new FramebufferManagerVulkan(draw, vulkan_);
 	framebufferManager_ = framebufferManagerVulkan_;
-	textureCacheVulkan_ = new TextureCacheVulkan(vulkan_);
+	textureCacheVulkan_ = new TextureCacheVulkan(draw, vulkan_);
 	textureCache_ = textureCacheVulkan_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerVulkan_;

@@ -236,7 +236,8 @@ void FramebufferManagerGLES::DestroyDraw2DProgram() {
 	}
 }
 
-FramebufferManagerGLES::FramebufferManagerGLES() :
+FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
+	FramebufferManagerCommon(draw),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf_(nullptr),

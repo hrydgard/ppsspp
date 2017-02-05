@@ -606,6 +606,11 @@ public:
 		}
 	}
 
+	uintptr_t GetNativeObject(NativeObject obj) const override {
+		return 0;
+	}
+
+private:
 	std::vector<OpenGLSamplerState *> samplerStates_;
 	DeviceCaps caps_;
 	

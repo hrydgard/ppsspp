@@ -44,7 +44,7 @@ inline bool UseBGRA8888() {
 
 class TextureCacheGLES : public TextureCacheCommon {
 public:
-	TextureCacheGLES();
+	TextureCacheGLES(Draw::DrawContext *draw);
 	~TextureCacheGLES();
 
 	void SetTexture(bool force = false);

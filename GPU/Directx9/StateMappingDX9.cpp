@@ -22,7 +22,10 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-#include "GPU/Directx9/StateMappingDX9.h"
+
+#include "gfx/d3d9_shader.h"
+#include "gfx/d3d9_state.h"
+
 #include "GPU/Directx9/GPU_DX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"

@@ -304,6 +304,12 @@ enum InfoField {
 	RENDERER,
 };
 
+enum class NativeObject {
+	CONTEXT,
+	DEVICE,
+	DEVICE_EX,
+};
+
 // Binary compatible with D3D11 viewport.
 struct Viewport {
 	float TopLeftX;
@@ -553,6 +559,8 @@ public:
 	}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
+
+	virtual uintptr_t GetNativeObject(NativeObject obj) const = 0;
 
 protected:
 	void CreatePresets();

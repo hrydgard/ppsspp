@@ -1,7 +1,7 @@
 #include "Common/CommonWindows.h"
 #include <d3d9.h>
 
-#include "GPU/Directx9/helper/global.h"
+#include "gfx/d3d9_state.h"
 #include "GPU/Directx9/helper/dx_fbo.h"
 
 #include "base/logging.h"
@@ -164,22 +164,8 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	device->BeginScene();
 	DX9::pD3Ddevice = device;
 	DX9::pD3DdeviceEx = deviceEx;
-	DX9::pD3D = d3d;
 
-	if (!DX9::CompileShaders(*error_message)) {
-		*error_message = "Unable to compile shaders: " + *error_message;
-		device->EndScene();
-		device->Release();
-		d3d->Release();
-		DX9::pD3Ddevice = nullptr;
-		DX9::pD3DdeviceEx = nullptr;
-		DX9::pD3D = nullptr;
-		device = nullptr;
-		UnloadD3DXDynamic();
-		return false;
-	}
-
-	DX9::fbo_init(d3d);
+	DX9::fbo_init(d3d, device);
 
 	if (deviceEx && IsWin7OrLater()) {
 		// TODO: This makes it slower?
@@ -208,12 +194,11 @@ void D3D9Context::Resize() {
 			ERROR_LOG_REPORT(G3D, "Unable to reset D3D device");
 			PanicAlert("Unable to reset D3D9 device");
 		}
-		DX9::fbo_init(d3d);
+		DX9::fbo_init(d3d, device);
 	}
 }
 
 void D3D9Context::Shutdown() {
-	DX9::DestroyShaders();
 	DX9::fbo_shutdown();
 	device->EndScene();
 	device->Release();
@@ -221,7 +206,6 @@ void D3D9Context::Shutdown() {
 	UnloadD3DXDynamic();
 	DX9::pD3Ddevice = nullptr;
 	DX9::pD3DdeviceEx = nullptr;
-	DX9::pD3D = nullptr;
 	device = nullptr;
 	hWnd = nullptr;
 	FreeLibrary(hD3D9);

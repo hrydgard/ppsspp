@@ -42,7 +42,7 @@ class ShaderManagerDX9;
 
 class FramebufferManagerDX9 : public FramebufferManagerCommon {
 public:
-	FramebufferManagerDX9();
+	FramebufferManagerDX9(Draw::DrawContext *draw);
 	~FramebufferManagerDX9();
 
 	void SetTextureCache(TextureCacheDX9 *tc) {
@@ -118,11 +118,17 @@ private:
 	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	static bool GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer);
-	
+
+	LPDIRECT3DDEVICE9 device_;
+
 	// Used by DrawPixels
 	LPDIRECT3DTEXTURE9 drawPixelsTex_;
 	int drawPixelsTexW_;
 	int drawPixelsTexH_;
+
+	LPDIRECT3DVERTEXSHADER9 pFramebufferVertexShader;
+	LPDIRECT3DPIXELSHADER9 pFramebufferPixelShader;
+	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl;
 
 	u8 *convBuf;
 

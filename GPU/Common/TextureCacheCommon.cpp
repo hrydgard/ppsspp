@@ -37,10 +37,15 @@
 // Videos should be updated every few frames, so we forge quickly.
 #define VIDEO_DECIMATE_AGE 4
 
-TextureCacheCommon::TextureCacheCommon()
-	: cacheSizeEstimate_(0), nextTexture_(nullptr),
-	clutLastFormat_(0xFFFFFFFF), clutTotalBytes_(0), clutMaxBytes_(0), clutRenderAddress_(0xFFFFFFFF),
-	clutAlphaLinear_(false) {
+TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
+	: draw_(draw),
+		cacheSizeEstimate_(0),
+		nextTexture_(nullptr),
+		clutLastFormat_(0xFFFFFFFF),
+		clutTotalBytes_(0),
+		clutMaxBytes_(0),
+		clutRenderAddress_(0xFFFFFFFF),
+		clutAlphaLinear_(false) {
 	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
 	clutBufConverted_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB

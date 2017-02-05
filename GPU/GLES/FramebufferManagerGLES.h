@@ -62,7 +62,7 @@ struct CardboardSettings {
 
 class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:
-	FramebufferManagerGLES();
+	FramebufferManagerGLES(Draw::DrawContext *draw);
 	~FramebufferManagerGLES();
 
 	void SetTextureCache(TextureCacheGLES *tc) {
