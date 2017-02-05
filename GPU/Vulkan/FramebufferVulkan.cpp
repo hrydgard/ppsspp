@@ -78,7 +78,8 @@ void main() {
 
 void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
-FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
+FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan) :
+	FramebufferManagerCommon(draw),
 	vulkan_(vulkan),
 	drawPixelsTex_(nullptr),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),

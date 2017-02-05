@@ -399,9 +399,9 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	dxstate.SetVSyncInterval(g_Config.bVSync);
 
 	shaderManagerDX9_ = new ShaderManagerDX9();
-	framebufferManagerDX9_ = new FramebufferManagerDX9();
+	framebufferManagerDX9_ = new FramebufferManagerDX9(draw);
 	framebufferManager_ = framebufferManagerDX9_;
-	textureCacheDX9_ = new TextureCacheDX9();
+	textureCacheDX9_ = new TextureCacheDX9(draw);
 	textureCache_ = textureCacheDX9_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerDX9_;

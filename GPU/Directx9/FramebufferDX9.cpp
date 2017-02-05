@@ -74,6 +74,17 @@ static const char * pscode =
 	"  return c;\n"
 	"}\n";
 
+void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
+	D3DVIEWPORT9 vp;
+	vp.X = (DWORD)x;
+	vp.Y = (DWORD)y;
+	vp.Width = (DWORD)w;
+	vp.Height = (DWORD)h;
+	vp.MinZ = minZ;
+	vp.MaxZ = maxZ;
+	pD3Ddevice->SetViewport(&vp);
+}
+
 	void FramebufferManagerDX9::ClearBuffer(bool keepState) {
 		if (keepState) {
 			dxstate.scissorTest.force(false);
@@ -108,12 +119,13 @@ static const char * pscode =
 		dxstate.stencilMask.set(0xFF);
 	}
 
-	FramebufferManagerDX9::FramebufferManagerDX9() :
-		drawPixelsTex_(0),
-		convBuf(0),
-		stencilUploadPS_(nullptr),
-		stencilUploadVS_(nullptr),
-		stencilUploadFailed_(false) {
+	FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
+		: FramebufferManagerCommon(draw),
+			drawPixelsTex_(0),
+			convBuf(0),
+			stencilUploadPS_(nullptr),
+			stencilUploadVS_(nullptr),
+			stencilUploadFailed_(false) {
 
 		std::string errorMsg;
 		if (!CompileVertexShader(vscode, &pFramebufferVertexShader, nullptr, errorMsg)) {

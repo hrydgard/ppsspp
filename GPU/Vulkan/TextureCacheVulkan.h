@@ -86,7 +86,7 @@ private:
 
 class TextureCacheVulkan : public TextureCacheCommon {
 public:
-	TextureCacheVulkan(VulkanContext *vulkan);
+	TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
 	~TextureCacheVulkan();
 
 	void SetTexture();

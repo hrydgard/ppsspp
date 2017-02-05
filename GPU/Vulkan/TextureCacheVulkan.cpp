@@ -140,17 +140,20 @@ void SamplerCache::DeviceRestore(VulkanContext *vulkan) {
 	vulkan_ = vulkan;
 }
 
-TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
-	: vulkan_(vulkan), samplerCache_(vulkan), secondCacheSizeEstimate_(0),
-	  clearCacheNextFrame_(false), lowMemoryMode_(false), texelsScaledThisFrame_(0) {
+TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
+	: TextureCacheCommon(draw),
+		vulkan_(vulkan),
+		samplerCache_(vulkan),
+		secondCacheSizeEstimate_(0),
+	  clearCacheNextFrame_(false),
+		lowMemoryMode_(false),
+		texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = nullptr;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 
 	SetupTextureDecoder();
-
-	nextTexture_ = nullptr;
 }
 
 TextureCacheVulkan::~TextureCacheVulkan() {

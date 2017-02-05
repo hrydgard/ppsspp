@@ -37,7 +37,7 @@ class ShaderManagerDX9;
 
 class TextureCacheDX9 : public TextureCacheCommon {
 public:
-	TextureCacheDX9();
+	TextureCacheDX9(Draw::DrawContext *draw);
 	~TextureCacheDX9();
 
 	void SetTexture(bool force = false);

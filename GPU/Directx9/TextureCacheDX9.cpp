@@ -62,7 +62,12 @@ namespace DX9 {
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
-TextureCacheDX9::TextureCacheDX9() : secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), texelsScaledThisFrame_(0) {
+TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw)
+	: TextureCacheCommon(draw),
+		secondCacheSizeEstimate_(0),
+		clearCacheNextFrame_(false),
+		lowMemoryMode_(false),
+		texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;

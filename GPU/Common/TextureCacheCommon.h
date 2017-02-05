@@ -42,9 +42,13 @@ struct VirtualFramebuffer;
 
 class CachedTextureVulkan;
 
+namespace Draw {
+class DrawContext;
+}
+
 class TextureCacheCommon {
 public:
-	TextureCacheCommon();
+	TextureCacheCommon(Draw::DrawContext *draw);
 	virtual ~TextureCacheCommon();
 
 	void LoadClut(u32 clutAddr, u32 loadBytes);
@@ -176,6 +180,7 @@ protected:
 
 	void DecimateVideos();
 
+	Draw::DrawContext *draw_;
 	TextureReplacer replacer;
 
 	TexCache cache;

@@ -42,7 +42,7 @@ class ShaderManagerDX9;
 
 class FramebufferManagerDX9 : public FramebufferManagerCommon {
 public:
-	FramebufferManagerDX9();
+	FramebufferManagerDX9(Draw::DrawContext *draw);
 	~FramebufferManagerDX9();
 
 	void SetTextureCache(TextureCacheDX9 *tc) {

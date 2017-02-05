@@ -11,17 +11,6 @@ LPDIRECT3DDEVICE9 pD3Ddevice = nullptr;
 LPDIRECT3DDEVICE9EX pD3DdeviceEx = nullptr;
 LPDIRECT3D9 pD3D = nullptr;
 
-void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
-	D3DVIEWPORT9 vp;
-	vp.X = (DWORD)x;
-	vp.Y = (DWORD)y;
-	vp.Width = (DWORD)w;
-	vp.Height = (DWORD)h;
-	vp.MinZ = minZ;
-	vp.MaxZ = maxZ;
-	pD3Ddevice->SetViewport(&vp);
-}
-
 IDirect3DVertexDeclaration9* pFramebufferVertexDecl = nullptr;
 
 static const D3DVERTEXELEMENT9 VertexElements[] = {
