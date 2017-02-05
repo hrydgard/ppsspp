@@ -650,7 +650,7 @@ void MainWindow::createMenus()
 	MenuTree* helpMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&Help"));
 	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("Official &website"), QKeySequence::HelpContents));
 	helpMenu->add(new MenuAction(this, SLOT(forumAct()),      QT_TR_NOOP("Official &forum")));
-	helpMenu->add(new MenuAction(this, SLOT(gitAct()),		  QT_TR_NOOP("&GitHub")));
+	helpMenu->add(new MenuAction(this, SLOT(gitAct()),        QT_TR_NOOP("&GitHub")));
 	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP..."), QKeySequence::WhatsThis));
 
 	retranslate();
