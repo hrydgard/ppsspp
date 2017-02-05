@@ -40,7 +40,7 @@
 
 namespace DX9 {
 
-PSShader::PSShader(ShaderID id, const char *code) : id_(id), shader(nullptr), failed_(false) {
+PSShader::PSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code) : id_(id), shader(nullptr), failed_(false) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -48,7 +48,7 @@ PSShader::PSShader(ShaderID id, const char *code) : id_(id), shader(nullptr), fa
 	bool success;
 	std::string errorMessage;
 
-	success = CompilePixelShader(code, &shader, NULL, errorMessage);
+	success = CompilePixelShader(device, code, &shader, NULL, errorMessage);
 
 	if (!errorMessage.empty()) {
 		if (success) {
@@ -90,7 +90,7 @@ std::string PSShader::GetShaderString(DebugShaderStringType type) const {
 	}
 }
 
-VSShader::VSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
+VSShader::VSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -98,7 +98,7 @@ VSShader::VSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id)
 	bool success;
 	std::string errorMessage;
 
-	success = CompileVertexShader(code, &shader, NULL, errorMessage);
+	success = CompileVertexShader(device, code, &shader, NULL, errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -577,7 +577,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
 		GenerateVertexShaderDX9(VSID, codeBuffer_);
-		vs = new VSShader(VSID, codeBuffer_, useHWTransform);
+		vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 
 		if (vs->Failed()) {
 			I18NCategory *gr = GetI18NCategory("Graphics");
@@ -593,7 +593,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 
 			// Can still work with software transform.
 			GenerateVertexShaderDX9(VSID, codeBuffer_);
-			vs = new VSShader(VSID, codeBuffer_, false);
+			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}
 
 		vsCache_[VSID] = vs;
@@ -607,7 +607,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShaderDX9(FSID, codeBuffer_);
-		fs = new PSShader(FSID, codeBuffer_);
+		fs = new PSShader(device_, FSID, codeBuffer_);
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;

@@ -37,6 +37,8 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 
+#include "ext/native/thin3d/thin3d.h"
+
 #include <algorithm>
 
 #ifdef _M_SSE
@@ -133,12 +135,13 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			stencilUploadVS_(nullptr),
 			stencilUploadFailed_(false) {
 
+		device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 		std::string errorMsg;
-		if (!CompileVertexShader(vscode, &pFramebufferVertexShader, nullptr, errorMsg)) {
+		if (!CompileVertexShader(device_, vscode, &pFramebufferVertexShader, nullptr, errorMsg)) {
 			OutputDebugStringA(errorMsg.c_str());
 		}
 
-		if (!CompilePixelShader(pscode, &pFramebufferPixelShader, nullptr, errorMsg)) {
+		if (!CompilePixelShader(device_, pscode, &pFramebufferPixelShader, nullptr, errorMsg)) {
 			OutputDebugStringA(errorMsg.c_str());
 			if (pFramebufferVertexShader) {
 				pFramebufferVertexShader->Release();

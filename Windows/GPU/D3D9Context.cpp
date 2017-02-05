@@ -1,7 +1,7 @@
 #include "Common/CommonWindows.h"
 #include <d3d9.h>
 
-#include "GPU/Directx9/helper/global.h"
+#include "GPU/Directx9/helper/dx_state.h"
 #include "GPU/Directx9/helper/dx_fbo.h"
 
 #include "base/logging.h"

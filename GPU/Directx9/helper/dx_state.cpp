@@ -6,6 +6,9 @@ namespace DX9 {
 DirectXState dxstate;
 GLExtensions gl_extensions;
 
+LPDIRECT3DDEVICE9 pD3Ddevice = nullptr;
+LPDIRECT3DDEVICE9EX pD3DdeviceEx = nullptr;
+
 int DirectXState::state_count = 0;
 
 void DirectXState::Initialize() {

@@ -4,10 +4,7 @@
 
 namespace DX9 {
 
-LPDIRECT3DDEVICE9 pD3Ddevice = nullptr;
-LPDIRECT3DDEVICE9EX pD3DdeviceEx = nullptr;
-
-bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
+bool CompilePixelShader(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
 	ID3DXBuffer *pShaderCode = nullptr;
 	ID3DXBuffer *pErrorMsg = nullptr;
 
@@ -39,7 +36,7 @@ bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3D
 	}
 
 	// Create pixel shader.
-	pD3Ddevice->CreatePixelShader( (DWORD*)pShaderCode->GetBufferPointer(), 
+	device->CreatePixelShader( (DWORD*)pShaderCode->GetBufferPointer(), 
 		pShader );
 
 	pShaderCode->Release();
@@ -47,7 +44,7 @@ bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3D
 	return true;
 }
 
-bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
+bool CompileVertexShader(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
 	ID3DXBuffer *pShaderCode = nullptr;
 	ID3DXBuffer *pErrorMsg = nullptr;
 
@@ -79,7 +76,7 @@ bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD
 	}
 
 	// Create pixel shader.
-	pD3Ddevice->CreateVertexShader( (DWORD*)pShaderCode->GetBufferPointer(), 
+	device->CreateVertexShader( (DWORD*)pShaderCode->GetBufferPointer(), 
 		pShader );
 
 	pShaderCode->Release();

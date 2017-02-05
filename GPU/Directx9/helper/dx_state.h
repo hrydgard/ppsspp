@@ -7,6 +7,10 @@
 
 namespace DX9 {
 
+// TODO: Get rid of these somehow.
+extern LPDIRECT3DDEVICE9 pD3Ddevice;
+extern LPDIRECT3DDEVICE9EX pD3DdeviceEx;
+
 class DirectXState {
 private:
 	template<D3DRENDERSTATETYPE cap, bool init>

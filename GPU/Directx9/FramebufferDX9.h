@@ -118,7 +118,9 @@ private:
 	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	static bool GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer);
-	
+
+	LPDIRECT3DDEVICE9 device_;
+
 	// Used by DrawPixels
 	LPDIRECT3DTEXTURE9 drawPixelsTex_;
 	int drawPixelsTexW_;
