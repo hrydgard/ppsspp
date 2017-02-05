@@ -1,4 +1,6 @@
-#include "GPU/Directx9/helper/global.h"
+#ifdef _MSC_VER
+
+#include "d3d9_shader.h"
 #include "thin3d/d3dx9_loader.h"
 #include "Common/CommonFuncs.h"
 
@@ -85,3 +87,5 @@ bool CompileVertexShader(LPDIRECT3DDEVICE9 device, const char *code, LPDIRECT3DV
 }
 
 }  // namespace
+
+#endif

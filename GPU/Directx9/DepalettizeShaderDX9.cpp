@@ -23,7 +23,7 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DepalettizeShaderDX9.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
-#include "GPU/Directx9/helper/global.h"
+#include "gfx/d3d9_shader.h"
 #include "GPU/Directx9/helper/dx_state.h"
 
 namespace DX9 {

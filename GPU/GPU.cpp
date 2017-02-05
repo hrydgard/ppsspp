@@ -28,7 +28,6 @@
 #include "GPU/Software/SoftGpu.h"
 
 #if defined(_WIN32)
-#include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/GPU_DX9.h"
 #endif
 

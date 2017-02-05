@@ -311,6 +311,9 @@
     <ClInclude Include="util\text\wrap_text.h">
       <Filter>util</Filter>
     </ClInclude>
+    <ClInclude Include="gfx\d3d9_shader.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -750,6 +753,9 @@
     </ClCompile>
     <ClCompile Include="thin3d\thin3d_d3d11.cpp">
       <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\d3d9_shader.cpp">
+      <Filter>gfx</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

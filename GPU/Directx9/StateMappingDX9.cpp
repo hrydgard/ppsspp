@@ -23,7 +23,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 
-#include "helper/global.h"
+#include "gfx/d3d9_shader.h"
 #include "helper/dx_state.h"
 
 #include "GPU/Directx9/GPU_DX9.h"

@@ -3,7 +3,7 @@
 #include <functional>
 #include <string.h>
 
-#include "global.h"
+#include "gfx/d3d9_shader.h"
 
 namespace DX9 {
 
