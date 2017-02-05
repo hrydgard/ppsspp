@@ -165,7 +165,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	DX9::pD3Ddevice = device;
 	DX9::pD3DdeviceEx = deviceEx;
 
-	DX9::fbo_init(d3d);
+	DX9::fbo_init(d3d, device);
 
 	if (deviceEx && IsWin7OrLater()) {
 		// TODO: This makes it slower?
@@ -194,7 +194,7 @@ void D3D9Context::Resize() {
 			ERROR_LOG_REPORT(G3D, "Unable to reset D3D device");
 			PanicAlert("Unable to reset D3D9 device");
 		}
-		DX9::fbo_init(d3d);
+		DX9::fbo_init(d3d, device);
 	}
 }
 
