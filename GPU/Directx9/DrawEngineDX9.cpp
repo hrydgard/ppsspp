@@ -78,6 +78,14 @@ enum {
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
+static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
+	{ 0, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+	{ 0, 16, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+	{ 0, 28, D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0 },
+	{ 0, 32, D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 1 },
+	D3DDECL_END()
+};
+
 DrawEngineDX9::DrawEngineDX9()
 	:	decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
@@ -109,9 +117,15 @@ DrawEngineDX9::DrawEngineDX9()
 	InitDeviceObjects();
 
 	tessDataTransfer = new TessellationDataTransferDX9();
+
+	pD3Ddevice->CreateVertexDeclaration(TransformedVertexElements, &transformedVertexDecl_);
 }
 
 DrawEngineDX9::~DrawEngineDX9() {
+	if (transformedVertexDecl_) {
+		transformedVertexDecl_->Release();
+	}
+
 	DestroyDeviceObjects();
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
@@ -833,7 +847,7 @@ rotateVBO:
 			// these spam the gDebugger log.
 			const int vertexSize = sizeof(transformed[0]);
 
-			pD3Ddevice->SetVertexDeclaration(pSoftVertexDecl);
+			pD3Ddevice->SetVertexDeclaration(transformedVertexDecl_);
 			if (drawIndexed) {
 				pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 			} else {

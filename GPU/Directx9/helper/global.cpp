@@ -59,16 +59,6 @@ static const D3DVERTEXELEMENT9 VertexElements[] = {
 	D3DDECL_END()
 };
 
-IDirect3DVertexDeclaration9* pSoftVertexDecl = NULL;
-
-static const D3DVERTEXELEMENT9 SoftTransVertexElements[] = {
-	{ 0, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
-	{ 0, 16, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
-	{ 0, 28, D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0 },
-	{ 0, 32, D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 1 },
-	D3DDECL_END()
-};
-
 LPDIRECT3DVERTEXSHADER9      pFramebufferVertexShader = NULL; // Vertex Shader
 LPDIRECT3DPIXELSHADER9       pFramebufferPixelShader = NULL;  // Pixel Shader
 
@@ -168,23 +158,21 @@ bool CompileShaders(std::string &errorMsg) {
 
 	pD3Ddevice->CreateVertexDeclaration(VertexElements, &pFramebufferVertexDecl);
 	pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
-	pD3Ddevice->CreateVertexDeclaration(SoftTransVertexElements, &pSoftVertexDecl);
-
 	return true;
 }
 
 void DestroyShaders() {
 	if (pFramebufferVertexShader) {
 		pFramebufferVertexShader->Release();
+		pFramebufferVertexShader = nullptr;
 	}
 	if (pFramebufferPixelShader) {
 		pFramebufferPixelShader->Release();
+		pFramebufferPixelShader = nullptr;
 	}
 	if (pFramebufferVertexDecl) {
 		pFramebufferVertexDecl->Release();
-	}
-	if (pSoftVertexDecl) {
-		pSoftVertexDecl->Release();
+		pFramebufferVertexDecl = nullptr;
 	}
 }
 

@@ -196,7 +196,10 @@ private:
 
 	std::unordered_map<u32, VertexArrayInfoDX9 *> vai_;
 	std::unordered_map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
-	
+
+	// SimpleVertex
+	IDirect3DVertexDeclaration9* transformedVertexDecl_;
+
 	// Other
 	ShaderManagerDX9 *shaderManager_;
 	TextureCacheDX9 *textureCache_;

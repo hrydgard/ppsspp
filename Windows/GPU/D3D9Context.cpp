@@ -164,7 +164,6 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	device->BeginScene();
 	DX9::pD3Ddevice = device;
 	DX9::pD3DdeviceEx = deviceEx;
-	DX9::pD3D = d3d;
 
 	if (!DX9::CompileShaders(*error_message)) {
 		*error_message = "Unable to compile shaders: " + *error_message;
@@ -173,7 +172,6 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		d3d->Release();
 		DX9::pD3Ddevice = nullptr;
 		DX9::pD3DdeviceEx = nullptr;
-		DX9::pD3D = nullptr;
 		device = nullptr;
 		UnloadD3DXDynamic();
 		return false;
@@ -221,7 +219,6 @@ void D3D9Context::Shutdown() {
 	UnloadD3DXDynamic();
 	DX9::pD3Ddevice = nullptr;
 	DX9::pD3DdeviceEx = nullptr;
-	DX9::pD3D = nullptr;
 	device = nullptr;
 	hWnd = nullptr;
 	FreeLibrary(hD3D9);
