@@ -126,6 +126,7 @@ private:
 
 	LPDIRECT3DVERTEXSHADER9 pFramebufferVertexShader;
 	LPDIRECT3DPIXELSHADER9 pFramebufferPixelShader;
+	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl;
 
 	u8 *convBuf;
 

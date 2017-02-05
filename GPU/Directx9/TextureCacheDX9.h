@@ -112,6 +112,8 @@ private:
 
 	u32 clutHash_;
 
+	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl;
+
 	LPDIRECT3DTEXTURE9 lastBoundTexture;
 	float maxAnisotropyLevel;
 

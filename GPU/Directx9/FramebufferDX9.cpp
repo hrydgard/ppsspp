@@ -74,6 +74,12 @@ static const char * pscode =
 	"  return c;\n"
 	"}\n";
 
+static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
+	{ 0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+	{ 0, 12, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+	D3DDECL_END()
+};
+
 static void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
 	D3DVIEWPORT9 vp;
 	vp.X = (DWORD)x;
@@ -138,6 +144,8 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 				pFramebufferVertexShader->Release();
 			}
 		}
+
+		pD3Ddevice->CreateVertexDeclaration(g_FramebufferVertexElements, &pFramebufferVertexDecl);
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
@@ -149,6 +157,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			pFramebufferPixelShader->Release();
 			pFramebufferPixelShader = nullptr;
 		}
+		pFramebufferVertexDecl->Release();
 		if (drawPixelsTex_) {
 			drawPixelsTex_->Release();
 		}

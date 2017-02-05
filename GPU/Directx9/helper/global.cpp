@@ -1,7 +1,4 @@
-
-
 #include "GPU/Directx9/helper/global.h"
-#include "GPU/Directx9/helper/dx_fbo.h"
 #include "thin3d/d3dx9_loader.h"
 #include "Common/CommonFuncs.h"
 
@@ -9,14 +6,6 @@ namespace DX9 {
 
 LPDIRECT3DDEVICE9 pD3Ddevice = nullptr;
 LPDIRECT3DDEVICE9EX pD3DdeviceEx = nullptr;
-
-IDirect3DVertexDeclaration9* pFramebufferVertexDecl = nullptr;
-
-static const D3DVERTEXELEMENT9 VertexElements[] = {
-	{ 0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
-	{ 0, 12, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
-	D3DDECL_END()
-};
 
 bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
 	ID3DXBuffer *pShaderCode = nullptr;
@@ -98,17 +87,4 @@ bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD
 	return true;
 }
 
-bool CompileShaders(std::string &errorMsg) {
-	pD3Ddevice->CreateVertexDeclaration(VertexElements, &pFramebufferVertexDecl);
-	pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
-	return true;
-}
-
-void DestroyShaders() {
-	if (pFramebufferVertexDecl) {
-		pFramebufferVertexDecl->Release();
-		pFramebufferVertexDecl = nullptr;
-	}
-}
-
-};
+}  // namespace
