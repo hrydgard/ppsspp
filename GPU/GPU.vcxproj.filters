@@ -102,9 +102,6 @@
     <ClInclude Include="..\ext\xbrz\xbrz.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\helper\dx_state.h">
-      <Filter>DirectX9\helper</Filter>
-    </ClInclude>
     <ClInclude Include="Common\TextureDecoder.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -307,9 +304,6 @@
     </ClCompile>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\helper\dx_state.cpp">
-      <Filter>DirectX9\helper</Filter>
     </ClCompile>
     <ClCompile Include="Common\TextureDecoder.cpp">
       <Filter>Common</Filter>

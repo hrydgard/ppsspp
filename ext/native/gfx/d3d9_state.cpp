@@ -1,4 +1,6 @@
-#include "dx_state.h"
+#ifdef _MSC_VER
+
+#include "d3d9_state.h"
 #include <assert.h>
 
 namespace DX9 {
@@ -73,3 +75,5 @@ void DirectXState::SetVSyncInterval(int interval) {
 }
 
 }  // namespace DX9
+
+#endif  // _MSC_VER

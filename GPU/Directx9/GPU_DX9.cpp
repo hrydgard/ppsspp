@@ -30,7 +30,7 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
-#include "helper/dx_state.h"
+#include "gfx/d3d9_state.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"

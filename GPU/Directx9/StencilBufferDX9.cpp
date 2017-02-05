@@ -17,7 +17,7 @@
 
 #include "base/logging.h"
 
-#include "helper/dx_state.h"
+#include "gfx/d3d9_state.h"
 #include "helper/dx_fbo.h"
 #include "Core/Reporting.h"
 #include "GPU/Directx9/FramebufferDX9.h"

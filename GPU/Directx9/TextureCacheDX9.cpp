@@ -29,7 +29,7 @@
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/DepalettizeShaderDX9.h"
-#include "GPU/Directx9/helper/dx_state.h"
+#include "gfx/d3d9_state.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"

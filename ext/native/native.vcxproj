@@ -230,6 +230,7 @@
     <ClInclude Include="file\zip_read.h" />
     <ClInclude Include="file\free.h" />
     <ClInclude Include="gfx\d3d9_shader.h" />
+    <ClInclude Include="gfx\d3d9_state.h" />
     <ClInclude Include="gfx\gl_common.h" />
     <ClInclude Include="gfx\gl_debug_log.h" />
     <ClInclude Include="gfx\gl_lost_manager.h" />
@@ -682,6 +683,7 @@
     <ClCompile Include="file\zip_read.cpp" />
     <ClCompile Include="file\free.cpp" />
     <ClCompile Include="gfx\d3d9_shader.cpp" />
+    <ClCompile Include="gfx\d3d9_state.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
     <ClCompile Include="gfx\gl_lost_manager.cpp" />
     <ClCompile Include="gfx\texture_atlas.cpp" />

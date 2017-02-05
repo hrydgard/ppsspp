@@ -26,7 +26,7 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
-#include "helper/dx_state.h"
+#include "gfx/d3d9_state.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
