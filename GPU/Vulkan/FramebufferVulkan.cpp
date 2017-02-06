@@ -445,6 +445,11 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 
 	VkPipeline postShaderProgram_ = VK_NULL_HANDLE;
 
+	VkPipeline program = pipelineBasicTex_;
+	if (applyPostShader && usePostShader_ && useBufferedRendering_) {
+		program = postShaderProgram_;
+	}
+
 	CardboardSettings cardboardSettings;
 	GetCardboardSettings(&cardboardSettings);
 
@@ -459,20 +464,13 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		vp.width = cardboardSettings.screenWidth;
 		vp.height = cardboardSettings.screenHeight;
 		vkCmdSetViewport(curCmd_, 0, 1, &vp);
-		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
-		} else {
-			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
-		}
+
+		DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL);
 
 		// Right Eye Image
 		vp.x = cardboardSettings.rightEyeXPosition;
 		vkCmdSetViewport(curCmd_, 0, 1, &vp);
-		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
-		} else {
-			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
-		}
+		DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL);
 	} else {
 		// Fullscreen Image
 		vp.x = 0.0f;
@@ -480,11 +478,7 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		vp.width = pixelWidth_;
 		vp.height = pixelHeight_;
 		vkCmdSetViewport(curCmd_, 0, 1, &vp);
-		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation);
-		} else {
-			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, uvRotation);
-		}
+		DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, uvRotation);
 	}
 }
 
