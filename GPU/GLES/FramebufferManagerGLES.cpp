@@ -508,81 +508,6 @@ void FramebufferManagerGLES::RebindFramebuffer() {
 		glstate.viewport.restore();
 }
 
-void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force, bool skipCopy) {
-	VirtualFramebuffer old = *vfb;
-
-	if (force) {
-		vfb->bufferWidth = w;
-		vfb->bufferHeight = h;
-	} else {
-		if (vfb->bufferWidth >= w && vfb->bufferHeight >= h) {
-			return;
-		}
-
-		// In case it gets thin and wide, don't resize down either side.
-		vfb->bufferWidth = std::max(vfb->bufferWidth, w);
-		vfb->bufferHeight = std::max(vfb->bufferHeight, h);
-	}
-
-	SetRenderSize(vfb);
-
-	bool trueColor = g_Config.bTrueColor;
-	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) {
-		trueColor = true;
-	}
-
-	if (trueColor) {
-		vfb->colorDepth = Draw::FBO_8888;
-	} else {
-		switch (vfb->format) {
-		case GE_FORMAT_4444:
-			vfb->colorDepth = Draw::FBO_4444;
-			break;
-		case GE_FORMAT_5551:
-			vfb->colorDepth = Draw::FBO_5551;
-			break;
-		case GE_FORMAT_565:
-			vfb->colorDepth = Draw::FBO_565;
-			break;
-		case GE_FORMAT_8888:
-		default:
-			vfb->colorDepth = Draw::FBO_8888;
-			break;
-		}
-	}
-
-	textureCacheGL_->ForgetLastTexture();
-	draw_->BindBackbufferAsRenderTarget();
-
-	if (!useBufferedRendering_) {
-		if (vfb->fbo) {
-			delete vfb->fbo;
-			vfb->fbo = nullptr;
-		}
-		return;
-	}
-
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
-	if (old.fbo) {
-		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
-		if (vfb->fbo) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-			ClearBuffer();
-			if (!skipCopy && !g_Config.bDisableSlowFramebufEffects) {
-				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
-			}
-		}
-		delete old.fbo;
-		if (vfb->fbo) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-		}
-	}
-
-	if (!vfb->fbo) {
-		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
-	}
-}
-
 void FramebufferManagerGLES::SetLineWidth() {
 #ifndef USING_GLES2
 	if (g_Config.iInternalResolution == 0) {
@@ -1762,7 +1687,7 @@ bool FramebufferManagerGLES::GetFramebuffer(u32 fb_address, int fb_stride, GEBuf
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	SafeGLReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 
-	// We may have clitted to a temp FBO.
+	// We may have blitted to a temp FBO.
 	RebindFramebuffer();
 	return true;
 }
