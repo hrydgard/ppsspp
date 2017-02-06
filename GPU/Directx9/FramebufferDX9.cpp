@@ -278,7 +278,8 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
-		DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL);
+		device_->SetTexture(0, drawPixelsTex_);
+		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL);
 		textureCacheDX9_->ForgetLastTexture();
 		dxstate.viewport.restore();
 	}
@@ -294,10 +295,11 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		float x, y, w, h;
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation);
+		device_->SetTexture(0, drawPixelsTex_);
+		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation);
 	}
 
-	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation) {
+	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation) {
 		// TODO: StretchRect instead?
 		float coord[20] = {
 			x,y,0, u0,v0,
@@ -342,9 +344,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
 		pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
 		shaderManager_->DirtyLastShader();
-		if (tex != NULL) {
-			pD3Ddevice->SetTexture(0, tex);
-		}
 		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "DrawActiveTexture() failed: %08x", hr);
