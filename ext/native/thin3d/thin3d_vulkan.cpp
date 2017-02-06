@@ -442,6 +442,8 @@ public:
 		return 0;
 	}
 
+	void HandleEvent(Event ev) override {}
+
 private:
 	void ApplyDynamicState();
 	void DirtyDynamicState();

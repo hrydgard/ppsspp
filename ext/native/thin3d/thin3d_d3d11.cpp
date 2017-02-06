@@ -98,6 +98,8 @@ public:
 		}
 	}
 
+	void HandleEvent(Event ev) override {}
+
 private:
 	void ApplyCurrentState();
 
@@ -537,13 +539,6 @@ uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {
 	}
 }
 
-#endif
-
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context) {
-	return nullptr; // new D3D11DrawContext(device, context);
-}
-
-
 // A D3D11Framebuffer is a D3D11Framebuffer plus all the textures it owns.
 class D3D11Framebuffer : public Framebuffer {
 public:
@@ -577,6 +572,12 @@ void D3D11DrawContext::fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	*w = fb->width;
 	*h = fb->height;
+}
+
+#endif
+
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context) {
+	return nullptr; // new D3D11DrawContext(device, context);
 }
 
 }  // namespace Draw

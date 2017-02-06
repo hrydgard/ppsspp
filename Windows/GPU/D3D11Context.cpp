@@ -15,10 +15,6 @@ void D3D11Context::SwapBuffers() {
 	swapChain_->Present(0, 0);
 }
 
-Draw::DrawContext *D3D11Context::CreateDrawContext() {
-	return Draw::T3DCreateD3D11Context(device_, context_);
-}
-
 static void GetRes(HWND hWnd, int &xres, int &yres) {
 	RECT rc;
 	GetClientRect(hWnd, &rc);
@@ -199,6 +195,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	int xres, yres;
 	GetRes(hWnd_, xres, yres);
 
+	draw_ = Draw::T3DCreateD3D11Context(device_, context_);
 	return true;
 }
 
@@ -211,8 +208,6 @@ void D3D11Context::Resize() {
 	bool h_changed = pp.BackBufferHeight != yres;
 
 	if (device && (w_changed || h_changed)) {
-		// DX9::fbo_shutdown();
-
 		pp.BackBufferWidth = xres;
 		pp.BackBufferHeight = yres;
 		HRESULT hr = device_->Reset(&pp);
@@ -221,19 +216,20 @@ void D3D11Context::Resize() {
 			ERROR_LOG_REPORT(G3D, "Unable to reset D3D device");
 			PanicAlert("Unable to reset D3D11 device");
 		}
-		// DX9::fbo_init(d3d);
 	}
 	*/
 }
 
 void D3D11Context::Shutdown() {
+	delete draw_;
+	draw_ = nullptr;
+
 	context_->Release();
 	context_ = nullptr;
 	device_->Release();
 	device_ = nullptr;
 	/*
 	DX9::DestroyShaders();
-	DX9::fbo_shutdown();
 	device->EndScene();
 	device->Release();
 	d3d->Release();

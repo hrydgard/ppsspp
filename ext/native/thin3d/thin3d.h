@@ -329,6 +329,12 @@ enum FBBlitFilter {
 	FB_BLIT_LINEAR = 1,
 };
 
+enum class Event {
+	// These happen on D3D resize
+	LOST_BACKBUFFER,
+	GOT_BACKBUFFER,
+};
+
 struct FramebufferDesc {
 	int width;
 	int height;
@@ -527,7 +533,7 @@ struct TextureDesc {
 	std::vector<uint8_t *> initData;
 };
 
-class DrawContext : public RefCountedObject {
+class DrawContext {
 public:
 	virtual ~DrawContext();
 
@@ -609,8 +615,9 @@ public:
 	}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
-
 	virtual uintptr_t GetNativeObject(NativeObject obj) const = 0;
+
+	virtual void HandleEvent(Event ev) = 0;
 
 protected:
 	void CreatePresets();

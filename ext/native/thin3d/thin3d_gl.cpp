@@ -630,6 +630,8 @@ public:
 		return 0;
 	}
 
+	void HandleEvent(Event ev) override {}
+
 	OpenGLFramebuffer *fbo_ext_create(const FramebufferDesc &desc);
 	void fbo_bind_fb_target(bool read, GLuint name);
 	GLenum fbo_get_fb_target(bool read, GLuint **cached);

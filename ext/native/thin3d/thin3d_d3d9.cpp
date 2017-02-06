@@ -623,6 +623,8 @@ public:
 		}
 	}
 
+	void HandleEvent(Event ev) override;
+
 private:
 	LPDIRECT3D9 d3d_;
 	LPDIRECT3D9EX d3dEx_;
@@ -662,8 +664,6 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.multiViewport = false;
 	caps_.anisoSupported = true;
 	caps_.depthRangeMinusOneToOne = false;
-	device_->GetRenderTarget(0, &deviceRTsurf);
-	device_->GetDepthStencilSurface(&deviceDSsurf);
 
 	if (d3d) {
 		D3DDISPLAYMODE displayMode;
@@ -677,8 +677,6 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 }
 
 D3D9Context::~D3D9Context() {
-	deviceRTsurf->Release();
-	deviceDSsurf->Release();
 }
 
 ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size) {
@@ -1136,6 +1134,22 @@ bool D3D9Context::fbo_blit(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, 
 	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, filter == FB_BLIT_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
+void D3D9Context::HandleEvent(Event ev) {
+	switch (ev) {
+	case Event::LOST_BACKBUFFER:
+		if (deviceRTsurf)
+			deviceRTsurf->Release();
+		if (deviceDSsurf)
+			deviceDSsurf->Release();
+		deviceRTsurf = nullptr;
+		deviceDSsurf = nullptr;
+		break;
+	case Event::GOT_BACKBUFFER:
+		device_->GetRenderTarget(0, &deviceRTsurf);
+		device_->GetDepthStencilSurface(&deviceDSsurf);
+		break;
+	}
+}
 
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx) {
 	int d3dx_ver = LoadD3DX9Dynamic();

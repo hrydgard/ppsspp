@@ -48,10 +48,17 @@ SDLJoystick *joystick = NULL;
 
 class GLDummyGraphicsContext : public DummyGraphicsContext {
 public:
-	Draw::DrawContext *CreateDrawContext() override {
+	GLDummyGraphicsContext() {
 		CheckGLExtensions();
-		return Draw::T3DCreateGLContext();
+		draw_ = Draw::T3DCreateGLContext();
 	}
+	~GLDummyGraphicsContext() { delete draw_; }
+
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
+private:
+	Draw::DrawContext *draw_;
 };
 
 GlobalUIState lastUIState = UISTATE_MENU;
@@ -204,20 +211,19 @@ void EGL_Close() {
 }
 #endif
 
-int getDisplayNumber(void)
-{
-    int displayNumber = 0;
-    char * displayNumberStr;
+int getDisplayNumber(void) {
+	int displayNumber = 0;
+	char * displayNumberStr;
 
-    //get environment
-    displayNumberStr=getenv("SDL_VIDEO_FULLSCREEN_HEAD");
+	//get environment
+	displayNumberStr=getenv("SDL_VIDEO_FULLSCREEN_HEAD");
 
-    if (displayNumberStr)
-    {
-      displayNumber = atoi(displayNumberStr);
-    }
+	if (displayNumberStr)
+	{
+		displayNumber = atoi(displayNumberStr);
+	}
 
-    return displayNumber;
+	return displayNumber;
 }
 
 // Simple implementations of System functions

@@ -1673,7 +1673,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
 #ifdef USING_GLES2
 		// GLES3 doesn't support using GL_READ_FRAMEBUFFER here.
-		fbo_bind_as_render_target(vfb->fbo);
+		draw_->fbo_bind_as_render_target(vfb->fbo);
 		const GLenum target = GL_FRAMEBUFFER;
 #else
 		const GLenum target = GL_READ_FRAMEBUFFER;

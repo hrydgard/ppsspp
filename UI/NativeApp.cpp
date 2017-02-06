@@ -525,7 +525,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
-	g_draw = graphicsContext->CreateDrawContext();
+	g_draw = graphicsContext->GetDrawContext();
 
 	ui_draw2d.SetAtlas(&ui_atlas);
 	ui_draw2d_front.SetAtlas(&ui_atlas);
@@ -656,11 +656,6 @@ void NativeShutdownGraphics() {
 
 	colorPipeline->Release();
 	texColorPipeline->Release();
-
-	// TODO: Reconsider this annoying ref counting stuff.
-	if (g_draw->Release()) {
-		g_draw = nullptr;
-	}
 }
 
 void TakeScreenshot() {
