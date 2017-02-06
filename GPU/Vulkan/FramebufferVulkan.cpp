@@ -624,19 +624,6 @@ void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	*/
 }
 
-void FramebufferManagerVulkan::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
-	if (!useBufferedRendering_) {
-		// Let's ignore rendering to targets that have not (yet) been displayed.
-		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
-	}
-
-	textureCacheVulkan_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
-	// ugly...
-	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-	}
-}
-
 void FramebufferManagerVulkan::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);

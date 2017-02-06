@@ -434,27 +434,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 	}
 
-	void FramebufferManagerDX9::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
-		if (!useBufferedRendering_) {
-			draw_->BindBackbufferAsRenderTarget();
-			// Let's ignore rendering to targets that have not (yet) been displayed.
-			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
-		}
-
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
-
-		ClearBuffer();
-
-		// ugly...
-		if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-		}
-		if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-			gstate_c.Dirty(DIRTY_PROJMATRIX);
-			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-		}
-	}
-
 	void FramebufferManagerDX9::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 		if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
