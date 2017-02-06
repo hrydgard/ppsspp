@@ -445,7 +445,7 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 
 	VkPipeline postShaderProgram_ = VK_NULL_HANDLE;
 
-	struct CardboardSettings cardboardSettings;
+	CardboardSettings cardboardSettings;
 	GetCardboardSettings(&cardboardSettings);
 
 	// TODO: Don't use the viewport mechanism for this.
@@ -790,11 +790,6 @@ VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, V
 	}
 }
 
-struct CardboardSettings * FramebufferManagerVulkan::GetCardboardSettings(struct CardboardSettings * cardboardSettings) {
-	cardboardSettings->enabled = false;
-	return nullptr;
-}
-
 void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	// This is where we should collect all the renderpasses from this frame,
 	// sort them in order according to texturing dependencies, and enqueue
@@ -904,7 +899,7 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	displayFramebuf_ = vfb;
 
 	if (vfb->fbo) {
-		struct CardboardSettings cardboardSettings;
+		CardboardSettings cardboardSettings;
 		GetCardboardSettings(&cardboardSettings);
 
 		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);

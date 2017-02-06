@@ -50,6 +50,15 @@ namespace Draw {
 	class Framebuffer;
 }
 
+struct CardboardSettings {
+	bool enabled;
+	float leftEyeXPosition;
+	float rightEyeXPosition;
+	float screenYPosition;
+	float screenWidth;
+	float screenHeight;
+};
+
 class VulkanFBO;
 
 struct VirtualFramebuffer {
@@ -241,6 +250,9 @@ public:
 	virtual void Resized() = 0;
 
 protected:
+	// Cardboard Settings Calculator
+	void GetCardboardSettings(CardboardSettings *cardboardSettings);
+
 	void UpdateSize();
 	void SetNumExtraFBOs(int num);
 

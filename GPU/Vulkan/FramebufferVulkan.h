@@ -64,15 +64,6 @@ struct AsyncPBOVulkan {
 	bool reading;
 };
 
-struct CardboardSettings {
-	bool enabled;
-	float leftEyeXPosition;
-	float rightEyeXPosition;
-	float screenYPosition;
-	float screenWidth;
-	float screenHeight;
-};
-
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
 	FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
@@ -130,9 +121,6 @@ public:
 	virtual void RebindFramebuffer() override;
 
 	// VulkanFBO *GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth = VK_FBO_8888);
-
-	// Cardboard Settings Calculator
-	struct CardboardSettings * GetCardboardSettings(struct CardboardSettings * cardboardSettings);
 
 	// Pass management
 	// void BeginPassClear()

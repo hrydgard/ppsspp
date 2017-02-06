@@ -1079,6 +1079,28 @@ void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
 	}
 }
 
+void FramebufferManagerCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) {
+	// Calculate Cardboard Settings
+	float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
+	float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
+	float cardboardScreenHeight = pixelHeight_ / 2.0f * cardboardScreenScale;
+	float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
+	float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
+	float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
+	float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
+	float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
+	float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
+	float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
+
+	cardboardSettings->enabled = g_Config.bEnableCardboard;
+	cardboardSettings->leftEyeXPosition = cardboardLeftEyeX;
+	cardboardSettings->rightEyeXPosition = cardboardRightEyeX;
+	cardboardSettings->screenYPosition = cardboardScreenY;
+	cardboardSettings->screenWidth = cardboardScreenWidth;
+	cardboardSettings->screenHeight = cardboardScreenHeight;
+}
+
+
 void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
 	auto checkFlag = [&](u16 flag, int last_frame) {
 		if (vfb->usageFlags & flag) {

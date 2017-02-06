@@ -51,15 +51,6 @@ struct AsyncPBO {
 	bool reading;
 };
 
-struct CardboardSettings {
-	bool enabled;
-	float leftEyeXPosition;
-	float rightEyeXPosition;
-	float screenYPosition;
-	float screenWidth;
-	float screenHeight;
-};
-
 class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:
 	FramebufferManagerGLES(Draw::DrawContext *draw);
@@ -107,14 +98,11 @@ public:
 	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
 	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer);
 	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
-	static bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
+	bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
 	virtual void RebindFramebuffer() override;
 
 	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
-
-	// Cardboard Settings Calculator
-	struct CardboardSettings * GetCardboardSettings(struct CardboardSettings * cardboardSettings);
 
 protected:
 	void DisableState() override;

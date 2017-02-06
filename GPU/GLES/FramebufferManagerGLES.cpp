@@ -792,32 +792,6 @@ void FramebufferManagerGLES::BindFramebufferColor(int stage, u32 fbRawAddress, V
 	}
 }
 
-struct CardboardSettings * FramebufferManagerGLES::GetCardboardSettings(struct CardboardSettings * cardboardSettings) {
-	if (cardboardSettings) {
-		// Calculate Cardboard Settings
-		float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
-		float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
-		float cardboardScreenHeight = pixelHeight_ / 2.0f * cardboardScreenScale;
-		float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
-		float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
-		float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
-		float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
-		float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
-		float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
-		float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
-
-		// Copy current Settings into Structure
-		cardboardSettings->enabled = g_Config.bEnableCardboard;
-		cardboardSettings->leftEyeXPosition = cardboardLeftEyeX;
-		cardboardSettings->rightEyeXPosition = cardboardRightEyeX;
-		cardboardSettings->screenYPosition = cardboardScreenY;
-		cardboardSettings->screenWidth = cardboardScreenWidth;
-		cardboardSettings->screenHeight = cardboardScreenHeight;
-	}
-
-	return cardboardSettings;
-}
-
 void FramebufferManagerGLES::CopyDisplayToOutput() {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 
@@ -847,7 +821,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 	u32 offsetX = 0;
 	u32 offsetY = 0;
 
-	struct CardboardSettings cardboardSettings;
+	CardboardSettings cardboardSettings;
 	GetCardboardSettings(&cardboardSettings);
 
 	VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
@@ -1033,8 +1007,6 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation, linearFilter);
 			}
 		}
-
-		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 }
 
