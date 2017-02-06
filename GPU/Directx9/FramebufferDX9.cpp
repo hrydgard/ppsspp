@@ -262,7 +262,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 		if (useBufferedRendering_ && vfb && vfb->fbo) {
-			draw_->fbo_bind_as_render_target(vfb->fbo);
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 			D3DVIEWPORT9 vp{ 0, 0, vfb->renderWidth, vfb->renderHeight, 0.0f, 1.0f };
 			pD3Ddevice->SetViewport(&vp);
 		} else {
@@ -368,9 +368,9 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 	void FramebufferManagerDX9::RebindFramebuffer() {
 		if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-			draw_->fbo_bind_as_render_target(currentRenderVfb_->fbo);
+			draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
 		} else {
-			draw_->fbo_bind_backbuffer_as_render_target();
+			draw_->BindBackbufferAsRenderTarget();
 		}
 	}
 
@@ -418,7 +418,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 
 		textureCache_->ForgetLastTexture();
-		draw_->fbo_bind_backbuffer_as_render_target();
+		draw_->BindBackbufferAsRenderTarget();
 
 		if (!useBufferedRendering_) {
 			if (vfb->fbo) {
@@ -428,11 +428,11 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			return;
 		}
 
-		vfb->fbo = draw_->fbo_create({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
+		vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
 		if (old.fbo) {
 			INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 			if (vfb->fbo) {
-				draw_->fbo_bind_as_render_target(vfb->fbo);
+				draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 				ClearBuffer();
 				if (!skipCopy && !g_Config.bDisableSlowFramebufEffects) {
 					BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
@@ -440,7 +440,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			}
 			delete old.fbo;
 			if (vfb->fbo) {
-				draw_->fbo_bind_as_render_target(vfb->fbo);
+				draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 			}
 		}
 
@@ -451,7 +451,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 	void FramebufferManagerDX9::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
 		if (!useBufferedRendering_) {
-			draw_->fbo_bind_backbuffer_as_render_target();
+			draw_->BindBackbufferAsRenderTarget();
 			// Let's ignore rendering to targets that have not (yet) been displayed.
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 		}
@@ -480,10 +480,10 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 		if (useBufferedRendering_) {
 			if (vfb->fbo) {
-				draw_->fbo_bind_as_render_target(vfb->fbo);
+				draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 			} else {
 				// wtf? This should only happen very briefly when toggling bBufferedRendering
-				draw_->fbo_bind_backbuffer_as_render_target();
+				draw_->BindBackbufferAsRenderTarget();
 			}
 		} else {
 			if (vfb->fbo) {
@@ -492,7 +492,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 				delete vfb->fbo;
 				vfb->fbo = nullptr;
 			}
-			draw_->fbo_bind_backbuffer_as_render_target();
+			draw_->BindBackbufferAsRenderTarget();
 
 			// Let's ignore rendering to targets that have not (yet) been displayed.
 			if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
@@ -550,7 +550,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			return;
 		}
 
-		draw_->fbo_bind_as_render_target(vfb->fbo);
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 
 		// Technically, we should at this point re-interpret the bytes of the old format to the new.
 		// That might get tricky, and could cause unnecessary slowness in some games.
@@ -629,10 +629,10 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		bool matchingSize = src->width == dst->width && src->height == dst->height;
 		if (matchingDepthBuffer && matchingSize) {
 			// Doesn't work.  Use a shader maybe?
-			draw_->fbo_bind_backbuffer_as_render_target();
+			draw_->BindBackbufferAsRenderTarget();
 
-			LPDIRECT3DTEXTURE9 srcTex = (LPDIRECT3DTEXTURE9)draw_->fbo_get_api_texture(src->fbo, Draw::FB_DEPTH_BIT, 0);
-			LPDIRECT3DTEXTURE9 dstTex = (LPDIRECT3DTEXTURE9)draw_->fbo_get_api_texture(dst->fbo, Draw::FB_DEPTH_BIT, 0);
+			LPDIRECT3DTEXTURE9 srcTex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(src->fbo, Draw::FB_DEPTH_BIT, 0);
+			LPDIRECT3DTEXTURE9 dstTex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(dst->fbo, Draw::FB_DEPTH_BIT, 0);
 
 			if (srcTex && dstTex) {
 				D3DSURFACE_DESC srcDesc;
@@ -682,10 +682,10 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 
 		textureCache_->ForgetLastTexture();
-		Draw::Framebuffer *fbo = draw_->fbo_create({ w, h, 1, 1, false, depth });
+		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, depth });
 		if (!fbo)
 			return fbo;
-		draw_->fbo_bind_as_render_target(fbo);
+		draw_->BindFramebufferAsRenderTarget(fbo);
 		dxstate.viewport.force(0, 0, w, h);
 		ClearBuffer(true);
 		dxstate.viewport.restore();
@@ -772,19 +772,19 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 				BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
 
 				RebindFramebuffer();
-				draw_->fbo_bind_as_texture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
+				draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
 			} else {
-				draw_->fbo_bind_as_texture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+				draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 			}
 		} else {
-			draw_->fbo_bind_as_texture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 		}
 	}
 
 	void FramebufferManagerDX9::CopyDisplayToOutput() {
 		DownloadFramebufferOnSwitch(currentRenderVfb_);
 
-		draw_->fbo_bind_backbuffer_as_render_target();
+		draw_->BindBackbufferAsRenderTarget();
 		currentRenderVfb_ = 0;
 
 		if (displayFramebufPtr_ == 0) {
@@ -884,7 +884,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		if (vfb->fbo) {
 			DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 			DisableState();
-			draw_->fbo_bind_as_texture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
 
 			// Output coordinates
 			float x, y, w, h;
@@ -899,7 +899,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			if (1) {
 				const u32 rw = PSP_CoreParameter().pixelWidth;
 				const u32 rh = PSP_CoreParameter().pixelHeight;
-				bool result = draw_->fbo_blit(vfb->fbo,
+				bool result = draw_->BlitFramebuffer(vfb->fbo,
 					(LONG)(u0 * vfb->renderWidth), (LONG)(v0 * vfb->renderHeight), (LONG)(u1 * vfb->renderWidth), (LONG)(v1 * vfb->renderHeight),
 					nullptr,
 					(LONG)(x * rw / w), (LONG)(y * rh / h), (LONG)((x + w) * rw / w), (LONG)((y + h) * rh / h),
@@ -924,7 +924,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			/* 
 			else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
-			fbo_bind_as_render_target(extraFBOs_[0]);
+			BindFramebufferAsRenderTarget(extraFBOs_[0]);
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			DXSetViewport(0, 0, fbo_w, fbo_h);
@@ -1006,13 +1006,13 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 	bool FramebufferManagerDX9::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 		nvfb->colorDepth = Draw::FBO_8888;
 
-		nvfb->fbo = draw_->fbo_create({ nvfb->width, nvfb->height, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
+		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
 		if (!(nvfb->fbo)) {
 			ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 			return false;
 		}
 
-		draw_->fbo_bind_as_render_target(nvfb->fbo);
+		draw_->BindFramebufferAsRenderTarget(nvfb->fbo);
 		ClearBuffer();
 		return true;
 	}
@@ -1024,7 +1024,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 		if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 			// This can happen if they recently switched from non-buffered.
-			draw_->fbo_bind_backbuffer_as_render_target();
+			draw_->BindBackbufferAsRenderTarget();
 			return;
 		}
 
@@ -1054,7 +1054,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		Draw::Framebuffer *srcFBO = src->fbo;
 		if (src == dst) {
 			Draw::Framebuffer *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
-			bool result = draw_->fbo_blit(
+			bool result = draw_->BlitFramebuffer(
 				src->fbo, srcX1, srcY1, srcX2, srcY2,
 				tempFBO, dstX1, dstY1, dstX2, dstY2,
 				Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
@@ -1062,7 +1062,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 				srcFBO = tempFBO;
 			}
 		}
-		bool result = draw_->fbo_blit(
+		bool result = draw_->BlitFramebuffer(
 			srcFBO, srcX1, srcY1, srcX2, srcY2,
 			dst->fbo, dstX1, dstY1, dstX2, dstY2,
 			Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
@@ -1124,7 +1124,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 	void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 		if (!vfb->fbo) {
 			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferDirectx9_: vfb->fbo == 0");
-			draw_->fbo_bind_backbuffer_as_render_target();
+			draw_->BindBackbufferAsRenderTarget();
 			return;
 		}
 
@@ -1135,7 +1135,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		// Right now that's always 8888.
 		DEBUG_LOG(HLE, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 
-		LPDIRECT3DSURFACE9 renderTarget = (LPDIRECT3DSURFACE9)draw_->fbo_get_api_texture(vfb->fbo, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0);
+		LPDIRECT3DSURFACE9 renderTarget = (LPDIRECT3DSURFACE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0);
 		D3DSURFACE_DESC desc;
 		renderTarget->GetDesc(&desc);
 
@@ -1174,7 +1174,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 		DEBUG_LOG(SCEGE, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
-		LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)draw_->fbo_get_api_texture(vfb->fbo, Draw::FB_DEPTH_BIT, 0);
+		LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_DEPTH_BIT, 0);
 		if (tex) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
@@ -1272,7 +1272,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 	void FramebufferManagerDX9::DecimateFBOs() {
 		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
-			draw_->fbo_bind_backbuffer_as_render_target();
+			draw_->BindBackbufferAsRenderTarget();
 		}
 		currentRenderVfb_ = 0;
 		bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
@@ -1331,7 +1331,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 	}
 
 	void FramebufferManagerDX9::DestroyAllFBOs(bool forceDelete) {
-		draw_->fbo_bind_backbuffer_as_render_target();
+		draw_->BindBackbufferAsRenderTarget();
 		currentRenderVfb_ = 0;
 		displayFramebuf_ = 0;
 		prevDisplayFramebuf_ = 0;
@@ -1392,7 +1392,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, fb_format);
 			return true;
 		}
-		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo ? (LPDIRECT3DSURFACE9)draw_->fbo_get_api_texture(vfb->fbo, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0) : nullptr;
+		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo ? (LPDIRECT3DSURFACE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0) : nullptr;
 		bool success = false;
 		if (renderTarget) {
 			Draw::Framebuffer *tempFBO = nullptr;
@@ -1402,9 +1402,9 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 				// Let's resize.  We must stretch to a render target first.
 				w = vfb->width * maxRes;
 				h = vfb->height * maxRes;
-				tempFBO = draw_->fbo_create({ w, h, 1, 1, false, Draw::FBO_8888 });
-				if (draw_->fbo_blit(vfb->fbo, 0, 0, vfb->renderWidth, vfb->renderHeight, tempFBO, 0, 0, w, h, Draw::FB_COLOR_BIT, g_Config.iBufFilter == SCALE_LINEAR ? Draw::FB_BLIT_LINEAR : Draw::FB_BLIT_NEAREST)) {
-					renderTarget = (LPDIRECT3DSURFACE9)draw_->fbo_get_api_texture(tempFBO, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0);
+				tempFBO = draw_->CreateFramebuffer({ w, h, 1, 1, false, Draw::FBO_8888 });
+				if (draw_->BlitFramebuffer(vfb->fbo, 0, 0, vfb->renderWidth, vfb->renderHeight, tempFBO, 0, 0, w, h, Draw::FB_COLOR_BIT, g_Config.iBufFilter == SCALE_LINEAR ? Draw::FB_BLIT_LINEAR : Draw::FB_BLIT_NEAREST)) {
+					renderTarget = (LPDIRECT3DSURFACE9)draw_->GetFramebufferAPITexture(tempFBO, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0);
 				}
 			}
 
@@ -1421,7 +1421,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 	}
 
 	bool FramebufferManagerDX9::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-		draw_->fbo_bind_backbuffer_as_render_target();
+		draw_->BindBackbufferAsRenderTarget();
 
 		LPDIRECT3DSURFACE9 renderTarget = nullptr;
 		HRESULT hr = pD3Ddevice->GetRenderTarget(0, &renderTarget);
@@ -1483,7 +1483,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 
 		bool success = false;
-		LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)draw_->fbo_get_api_texture(vfb->fbo, Draw::FB_DEPTH_BIT, 0);
+		LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_DEPTH_BIT, 0);
 		if (tex) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
@@ -1527,7 +1527,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 
 		bool success = false;
-		LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)draw_->fbo_get_api_texture(vfb->fbo, Draw::FB_DEPTH_BIT, 0);
+		LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_DEPTH_BIT, 0);
 		if (tex) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;

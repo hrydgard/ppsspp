@@ -559,26 +559,26 @@ public:
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Texture *CreateTexture(const TextureDesc &desc) = 0;
 	// On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
-	virtual Framebuffer *fbo_create(const FramebufferDesc &desc) = 0;
+	virtual Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) = 0;
 
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 
-	virtual void fbo_copy_image(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) = 0;
-	virtual bool fbo_blit(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
+	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) = 0;
+	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
 
 	virtual int fbo_preferred_z_bitdepth() = 0;
 
 	// These functions should be self explanatory.
-	virtual void fbo_bind_as_render_target(Framebuffer *fbo) = 0;
+	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo) = 0;
 	// color must be 0, for now.
-	virtual void fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
-	virtual void fbo_bind_for_read(Framebuffer *fbo) = 0;
+	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
+	virtual void BindFramebufferForRead(Framebuffer *fbo) = 0;
 
-	virtual void fbo_bind_backbuffer_as_render_target() = 0;
-	virtual uintptr_t fbo_get_api_texture(Framebuffer *fbo, int channelBits, int attachment) = 0;
+	virtual void BindBackbufferAsRenderTarget() = 0;
+	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) = 0;
 
-	virtual void fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) = 0;
+	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;

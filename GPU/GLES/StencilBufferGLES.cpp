@@ -183,9 +183,9 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	Draw::Framebuffer *blitFBO = nullptr;
 	if (useBlit) {
 		blitFBO = GetTempFBO(w, h, Draw::FBO_8888);
-		draw_->fbo_bind_as_render_target(blitFBO);
+		draw_->BindFramebufferAsRenderTarget(blitFBO);
 	} else if (dstBuffer->fbo) {
-		draw_->fbo_bind_as_render_target(dstBuffer->fbo);
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo);
 	}
 	glViewport(0, 0, w, h);
 
@@ -220,7 +220,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	glstate.stencilMask.set(0xFF);
 
 	if (useBlit) {
-		draw_->fbo_blit(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST);
+		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST);
 	}
 
 	RebindFramebuffer();

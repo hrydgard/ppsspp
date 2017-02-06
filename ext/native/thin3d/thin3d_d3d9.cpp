@@ -549,22 +549,22 @@ public:
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	Texture *CreateTexture(const TextureDesc &desc) override;
 
-	Framebuffer *fbo_create(const FramebufferDesc &desc) override;
-	void fbo_copy_image(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override {}
-	bool fbo_blit(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override {}
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
 	int fbo_preferred_z_bitdepth() override { return 24; }
 
 	// These functions should be self explanatory.
-	void fbo_bind_as_render_target(Framebuffer *fbo) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
 	// color must be 0, for now.
-	void fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	void fbo_bind_for_read(Framebuffer *fbo) override {}
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindFramebufferForRead(Framebuffer *fbo) override {}
 	
-	void fbo_bind_backbuffer_as_render_target() override;
-	uintptr_t fbo_get_api_texture(Framebuffer *fbo, int channelBits, int attachment) override;
+	void BindBackbufferAsRenderTarget() override;
+	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
-	void fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) override;
+	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
@@ -1002,7 +1002,7 @@ public:
 	FBColorDepth colorDepth;
 };
 
-Framebuffer *D3D9Context::fbo_create(const FramebufferDesc &desc) {
+Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
 	static uint32_t id = 0;
 
 	D3D9Framebuffer *fbo = new D3D9Framebuffer{};
@@ -1051,7 +1051,7 @@ D3D9Framebuffer::~D3D9Framebuffer() {
 	}
 }
 
-void D3D9Context::fbo_bind_backbuffer_as_render_target() {
+void D3D9Context::BindBackbufferAsRenderTarget() {
 	using namespace DX9;
 
 	device_->SetRenderTarget(0, deviceRTsurf);
@@ -1060,7 +1060,7 @@ void D3D9Context::fbo_bind_backbuffer_as_render_target() {
 	dxstate.viewport.restore();
 }
 
-void D3D9Context::fbo_bind_as_render_target(Framebuffer *fbo) {
+void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
 	using namespace DX9;
 
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
@@ -1070,7 +1070,7 @@ void D3D9Context::fbo_bind_as_render_target(Framebuffer *fbo) {
 	dxstate.viewport.restore();
 }
 
-uintptr_t D3D9Context::fbo_get_api_texture(Framebuffer *fbo, int channelBits, int attachment) {
+uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 	if (channelBits & FB_SURFACE_BIT) {
 		switch (channelBits & 7) {
@@ -1099,7 +1099,7 @@ LPDIRECT3DSURFACE9 fbo_get_color_for_read(D3D9Framebuffer *fbo) {
 	return fbo->surf;
 }
 
-void D3D9Context::fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
+void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 	switch (channelBit) {
 	case FB_DEPTH_BIT:
@@ -1116,13 +1116,13 @@ void D3D9Context::fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel c
 	}
 }
 
-void D3D9Context::fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) {
+void D3D9Context::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
 	*w = fb->width;
 	*h = fb->height;
 }
 
-bool D3D9Context::fbo_blit(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
+bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
 	D3D9Framebuffer *src = (D3D9Framebuffer *)srcfb;
 	D3D9Framebuffer *dst = (D3D9Framebuffer *)dstfb;
 	if (channelBits != FB_COLOR_BIT)

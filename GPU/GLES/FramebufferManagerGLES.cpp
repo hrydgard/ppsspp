@@ -121,16 +121,16 @@ void FramebufferManagerGLES::SetNumExtraFBOs(int num) {
 	extraFBOs_.clear();
 	for (int i = 0; i < num; i++) {
 		// No depth/stencil for post processing
-		Draw::Framebuffer *fbo = draw_->fbo_create({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
+		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
 		extraFBOs_.push_back(fbo);
 
 		// The new FBO is still bound after creation, but let's bind it anyway.
-		draw_->fbo_bind_as_render_target(fbo);
+		draw_->BindFramebufferAsRenderTarget(fbo);
 		ClearBuffer();
 	}
 
 	currentRenderVfb_ = 0;
-	draw_->fbo_bind_backbuffer_as_render_target();
+	draw_->BindBackbufferAsRenderTarget();
 }
 
 void FramebufferManagerGLES::CompileDraw2DProgram() {
@@ -362,7 +362,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 void FramebufferManagerGLES::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	float v0 = 0.0f, v1 = 1.0f;
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
-		draw_->fbo_bind_as_render_target(vfb->fbo);
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 		glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
 		// We are drawing to the back buffer so need to flip.
@@ -551,9 +551,9 @@ void FramebufferManagerGLES::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManagerGLES::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-		draw_->fbo_bind_as_render_target(currentRenderVfb_->fbo);
+		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
 	} else {
-		draw_->fbo_bind_backbuffer_as_render_target();
+		draw_->BindBackbufferAsRenderTarget();
 	}
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE)
 		glstate.viewport.restore();
@@ -603,7 +603,7 @@ void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u
 	}
 
 	textureCache_->ForgetLastTexture();
-	draw_->fbo_bind_backbuffer_as_render_target();
+	draw_->BindBackbufferAsRenderTarget();
 
 	if (!useBufferedRendering_) {
 		if (vfb->fbo) {
@@ -613,11 +613,11 @@ void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u
 		return;
 	}
 
-	vfb->fbo = draw_->fbo_create({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
 	if (old.fbo) {
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
-			draw_->fbo_bind_as_render_target(vfb->fbo);
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 			ClearBuffer();
 			if (!skipCopy && !g_Config.bDisableSlowFramebufEffects) {
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
@@ -625,7 +625,7 @@ void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u
 		}
 		delete old.fbo;
 		if (vfb->fbo) {
-			draw_->fbo_bind_as_render_target(vfb->fbo);
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 		}
 	}
 
@@ -636,7 +636,7 @@ void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u
 
 void FramebufferManagerGLES::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
 	if (!useBufferedRendering_) {
-		draw_->fbo_bind_backbuffer_as_render_target();
+		draw_->BindBackbufferAsRenderTarget();
 		// Let's ignore rendering to targets that have not (yet) been displayed.
 		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 	}
@@ -663,10 +663,10 @@ void FramebufferManagerGLES::NotifyRenderFramebufferSwitched(VirtualFramebuffer 
 
 	if (useBufferedRendering_) {
 		if (vfb->fbo) {
-			draw_->fbo_bind_as_render_target(vfb->fbo);
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 		} else {
 			// wtf? This should only happen very briefly when toggling bBufferedRendering
-			draw_->fbo_bind_backbuffer_as_render_target();
+			draw_->BindBackbufferAsRenderTarget();
 		}
 	} else {
 		if (vfb->fbo) {
@@ -675,7 +675,7 @@ void FramebufferManagerGLES::NotifyRenderFramebufferSwitched(VirtualFramebuffer 
 			delete vfb->fbo;
 			vfb->fbo = nullptr;
 		}
-		draw_->fbo_bind_backbuffer_as_render_target();
+		draw_->BindBackbufferAsRenderTarget();
 
 		// Let's ignore rendering to targets that have not (yet) been displayed.
 		if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
@@ -747,7 +747,7 @@ void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GE
 		return;
 	}
 
-	draw_->fbo_bind_as_render_target(vfb->fbo);
+	draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 
 	// Technically, we should at this point re-interpret the bytes of the old format to the new.
 	// That might get tricky, and could cause unnecessary slowness in some games.
@@ -786,7 +786,7 @@ void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, Virtu
 		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
 			// Let's only do this if not clearing depth.
 			glstate.scissorTest.force(false);
-			draw_->fbo_blit(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST);
+			draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST);
 			// WARNING: If we set dst->depthUpdated here, our optimization above would be pointless.
 			glstate.scissorTest.restore();
 		}
@@ -802,10 +802,10 @@ Draw::Framebuffer *FramebufferManagerGLES::GetTempFBO(u16 w, u16 h, Draw::FBColo
 	}
 
 	textureCache_->ForgetLastTexture();
-	Draw::Framebuffer *fbo = draw_->fbo_create({ w, h, 1, 1, false, depth });
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, depth });
 	if (!fbo)
 		return fbo;
-	draw_->fbo_bind_as_render_target(fbo);
+	draw_->BindFramebufferAsRenderTarget(fbo);
 	ClearBuffer(true);
 	const TempFBO info = {fbo, gpuStats.numFlips};
 	tempFBOs_[key] = info;
@@ -863,12 +863,12 @@ void FramebufferManagerGLES::BindFramebufferColor(int stage, u32 fbRawAddress, V
 
 			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
 
-			draw_->fbo_bind_as_texture(renderCopy, 0, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(renderCopy, 0, Draw::FB_COLOR_BIT, 0);
 		} else {
-			draw_->fbo_bind_as_texture(framebuffer->fbo, 0, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, Draw::FB_COLOR_BIT, 0);
 		}
 	} else {
-		draw_->fbo_bind_as_texture(framebuffer->fbo, 0, Draw::FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, Draw::FB_COLOR_BIT, 0);
 	}
 
 	if (stage != GL_TEXTURE0) {
@@ -906,7 +906,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 
 	glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-	draw_->fbo_bind_backbuffer_as_render_target();
+	draw_->BindBackbufferAsRenderTarget();
 	currentRenderVfb_ = 0;
 
 	if (displayFramebufPtr_ == 0) {
@@ -1015,7 +1015,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
 
-		draw_->fbo_bind_as_texture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
 
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 
@@ -1049,16 +1049,16 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			}
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
-			draw_->fbo_bind_as_render_target(extraFBOs_[0]);
+			draw_->BindFramebufferAsRenderTarget(extraFBOs_[0]);
 			int fbo_w, fbo_h;
-			draw_->fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
+			draw_->GetFramebufferDimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
 			glsl_bind(postShaderProgram_);
 			UpdatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_);
 			DrawActiveTexture(0, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
 
-			draw_->fbo_bind_backbuffer_as_render_target();
+			draw_->BindBackbufferAsRenderTarget();
 
 			// Use the extra FBO, with applied post-processing shader, as a texture.
 			// fbo_bind_as_texture(extraFBOs_[0], FB_COLOR_BIT, 0);
@@ -1066,7 +1066,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 				ERROR_LOG(G3D, "WTF?");
 				return;
 			}
-			draw_->fbo_bind_as_texture(extraFBOs_[0], 0, Draw::FB_COLOR_BIT, 0);
+			draw_->BindFramebufferAsTexture(extraFBOs_[0], 0, Draw::FB_COLOR_BIT, 0);
 
 			// We are doing the DrawActiveTexture call directly to the backbuffer after here. Hence, we must
 			// flip V.
@@ -1087,7 +1087,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			}
 
 			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-				draw_->fbo_bind_as_render_target(extraFBOs_[0]);
+				draw_->BindFramebufferAsRenderTarget(extraFBOs_[0]);
 				GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
 				glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 			}
@@ -1212,13 +1212,13 @@ bool FramebufferManagerGLES::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 		}
 	}
 
-	nvfb->fbo = draw_->fbo_create({ nvfb->width, nvfb->height, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth });
+	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth });
 	if (!nvfb->fbo) {
 		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
 	}
 
-	draw_->fbo_bind_as_render_target(nvfb->fbo);
+	draw_->BindFramebufferAsRenderTarget(nvfb->fbo);
 	ClearBuffer();
 	glDisable(GL_DITHER);
 	return true;
@@ -1229,11 +1229,11 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 
 	// Discard the previous contents of this buffer where possible.
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-		draw_->fbo_bind_as_render_target(nvfb->fbo);
+		draw_->BindFramebufferAsRenderTarget(nvfb->fbo);
 		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
 		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 	} else if (gl_extensions.IsGLES) {
-		draw_->fbo_bind_as_render_target(nvfb->fbo);
+		draw_->BindFramebufferAsRenderTarget(nvfb->fbo);
 		ClearBuffer();
 	}
 }
@@ -1241,7 +1241,7 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
-		draw_->fbo_bind_backbuffer_as_render_target();
+		draw_->BindBackbufferAsRenderTarget();
 		return;
 	}
 
@@ -1286,17 +1286,17 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
 		const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
 		if (sameSize && sameDepth && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
-			draw_->fbo_copy_image(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1);
+			draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1);
 			return;
 		}
 	}
 
 	glstate.scissorTest.force(false);
 	if (useBlit) {
-		draw_->fbo_blit(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
+		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
 	} else {
-		draw_->fbo_bind_as_render_target(dst->fbo);
-		draw_->fbo_bind_as_texture(src->fbo, 0, Draw::FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsRenderTarget(dst->fbo);
+		draw_->BindFramebufferAsTexture(src->fbo, 0, Draw::FB_COLOR_BIT, 0);
 
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
 		CompileDraw2DProgram();
@@ -1576,7 +1576,7 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		u32 fb_address = (0x04000000) | vfb->fb_address;
 
 		if (vfb->fbo) {
-			draw_->fbo_bind_for_read(vfb->fbo);
+			draw_->BindFramebufferForRead(vfb->fbo);
 		} else {
 			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
 			return;
@@ -1619,7 +1619,7 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (vfb->fbo) {
-		draw_->fbo_bind_for_read(vfb->fbo);
+		draw_->BindFramebufferForRead(vfb->fbo);
 	} else {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
 		return;
@@ -1673,7 +1673,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
 #ifdef USING_GLES2
 		// GLES3 doesn't support using GL_READ_FRAMEBUFFER here.
-		draw_->fbo_bind_as_render_target(vfb->fbo);
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 		const GLenum target = GL_FRAMEBUFFER;
 #else
 		const GLenum target = GL_READ_FRAMEBUFFER;
@@ -1685,7 +1685,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 
 void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (vfb->fbo) {
-		draw_->fbo_bind_for_read(vfb->fbo);
+		draw_->BindFramebufferForRead(vfb->fbo);
 	} else {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackDepthbuffer: vfb->fbo == 0");
 		return;
@@ -1788,11 +1788,11 @@ void FramebufferManagerGLES::EndFrame() {
 				continue;
 			}
 
-			draw_->fbo_bind_as_render_target(temp.second.fbo);
+			draw_->BindFramebufferAsRenderTarget(temp.second.fbo);
 			GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
 			glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 		}
-		draw_->fbo_bind_backbuffer_as_render_target();
+		draw_->BindBackbufferAsRenderTarget();
 	}
 }
 
@@ -1822,7 +1822,7 @@ std::vector<FramebufferInfo> FramebufferManagerGLES::GetFramebufferList() {
 }
 
 void FramebufferManagerGLES::DecimateFBOs() {
-	draw_->fbo_bind_backbuffer_as_render_target();
+	draw_->BindBackbufferAsRenderTarget();
 	currentRenderVfb_ = 0;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -1869,7 +1869,7 @@ void FramebufferManagerGLES::DecimateFBOs() {
 }
 
 void FramebufferManagerGLES::DestroyAllFBOs(bool forceDelete) {
-	draw_->fbo_bind_backbuffer_as_render_target();
+	draw_->BindBackbufferAsRenderTarget();
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
 	prevDisplayFramebuf_ = 0;
@@ -1893,7 +1893,7 @@ void FramebufferManagerGLES::DestroyAllFBOs(bool forceDelete) {
 	}
 	tempFBOs_.clear();
 
-	draw_->fbo_bind_backbuffer_as_render_target();
+	draw_->BindBackbufferAsRenderTarget();
 	DisableState();
 }
 
@@ -1939,9 +1939,9 @@ bool FramebufferManagerGLES::GetFramebuffer(u32 fb_address, int fb_stride, GEBuf
 			tempVfb.renderHeight = h;
 			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0);
 
-			draw_->fbo_bind_for_read(tempFBO);
+			draw_->BindFramebufferForRead(tempFBO);
 		} else {
-			draw_->fbo_bind_for_read(vfb->fbo);
+			draw_->BindFramebufferForRead(vfb->fbo);
 		}
 	}
 
@@ -1986,7 +1986,7 @@ bool FramebufferManagerGLES::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z
 		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, !useBufferedRendering_);
 	}
 	if (vfb->fbo)
-		draw_->fbo_bind_for_read(vfb->fbo);
+		draw_->BindFramebufferForRead(vfb->fbo);
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
@@ -2011,7 +2011,7 @@ bool FramebufferManagerGLES::GetStencilbuffer(u32 fb_address, int fb_stride, GPU
 #ifndef USING_GLES2
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_8BIT, !useBufferedRendering_);
 	if (vfb->fbo)
-		draw_->fbo_bind_for_read(vfb->fbo);
+		draw_->BindFramebufferForRead(vfb->fbo);
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 2);

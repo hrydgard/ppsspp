@@ -518,23 +518,23 @@ public:
 
 	Texture *CreateTexture(const TextureDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	Framebuffer *fbo_create(const FramebufferDesc &desc) override;
+	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
-	void fbo_copy_image(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
-	bool fbo_blit(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
 	int fbo_preferred_z_bitdepth() override;
 
 	// These functions should be self explanatory.
-	void fbo_bind_as_render_target(Framebuffer *fbo) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
 	// color must be 0, for now.
-	void fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	void fbo_bind_for_read(Framebuffer *fbo) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindFramebufferForRead(Framebuffer *fbo) override;
 
-	void fbo_bind_backbuffer_as_render_target() override;
-	uintptr_t fbo_get_api_texture(Framebuffer *fbo, int channelBits, int attachment) override;
+	void BindBackbufferAsRenderTarget() override;
+	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
-	void fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) override;
+	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		if (samplerStates_.size() < (size_t)(start + count)) {
@@ -1302,7 +1302,7 @@ OpenGLFramebuffer *OpenGLContext::fbo_ext_create(const FramebufferDesc &desc) {
 #endif
 
 int OpenGLContext::fbo_preferred_z_bitdepth() {
-	// This matches the fbo_create() logic.
+	// This matches the CreateFramebuffer() logic.
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil) {
 			return 24;
@@ -1313,7 +1313,7 @@ int OpenGLContext::fbo_preferred_z_bitdepth() {
 	}
 }
 
-Framebuffer *OpenGLContext::fbo_create(const FramebufferDesc &desc) {
+Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	CheckGLExtensions();
 
 #ifndef USING_GLES2
@@ -1493,7 +1493,7 @@ void OpenGLContext::fbo_unbind() {
 	currentReadHandle_ = 0;
 }
 
-void OpenGLContext::fbo_bind_as_render_target(Framebuffer *fbo) {
+void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
 	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
@@ -1502,17 +1502,17 @@ void OpenGLContext::fbo_bind_as_render_target(Framebuffer *fbo) {
 	glstate.viewport.restore();
 }
 
-void OpenGLContext::fbo_bind_backbuffer_as_render_target() {
+void OpenGLContext::BindBackbufferAsRenderTarget() {
 	fbo_unbind();
 }
 
 // For GL_EXT_FRAMEBUFFER_BLIT and similar.
-void OpenGLContext::fbo_bind_for_read(Framebuffer *fbo) {
+void OpenGLContext::BindFramebufferForRead(Framebuffer *fbo) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	fbo_bind_fb_target(true, fb->handle);
 }
 
-void OpenGLContext::fbo_copy_image(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {
+void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
 #if defined(USING_GLES2)
@@ -1541,7 +1541,7 @@ void OpenGLContext::fbo_copy_image(Framebuffer *fbsrc, int srcLevel, int srcX, i
 #endif
 }
 
-bool OpenGLContext::fbo_blit(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter) {
+bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
 	GLuint bits = 0;
@@ -1551,8 +1551,8 @@ bool OpenGLContext::fbo_blit(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2
 		bits |= GL_DEPTH_BUFFER_BIT;
 	if (channels & FB_STENCIL_BIT)
 		bits |= GL_STENCIL_BUFFER_BIT;
-	fbo_bind_as_render_target(dst);
-	fbo_bind_for_read(src);
+	BindFramebufferAsRenderTarget(dst);
+	BindFramebufferForRead(src);
 	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
 		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
 #if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
@@ -1566,12 +1566,12 @@ bool OpenGLContext::fbo_blit(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2
 	}
 }
 
-uintptr_t OpenGLContext::fbo_get_api_texture(Framebuffer *fbo, int channelBits, int attachment) {
+uintptr_t OpenGLContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
 	// Unimplemented
 	return 0;
 }
 
-void OpenGLContext::fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
+void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	// glActiveTexture(GL_TEXTURE0 + binding);
 	switch (channelBit) {
@@ -1608,7 +1608,7 @@ OpenGLFramebuffer::~OpenGLFramebuffer() {
 	glDeleteTextures(1, &color_texture);
 }
 
-void OpenGLContext::fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) {
+void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	*w = fb->width;
 	*h = fb->height;

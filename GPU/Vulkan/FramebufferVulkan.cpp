@@ -621,7 +621,7 @@ void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	if (old.fbo) {
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
-			/// fbo_bind_as_render_target(vfb->fbo);
+			/// BindFramebufferAsRenderTargetvfb->fbo);
 			ClearBuffer();
 			if (!skipCopy && !g_Config.bDisableSlowFramebufEffects) {
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
@@ -629,7 +629,7 @@ void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 		}
 		delete old.fbo;
 		if (vfb->fbo) {
-			// fbo_bind_as_render_target(vfb->fbo);
+			// BindFramebufferAsRenderTargetvfb->fbo);
 		}
 	}
 
@@ -736,7 +736,7 @@ void FramebufferManagerVulkan::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 	}
 
 	/*
-	fbo_bind_as_render_target(vfb->fbo);
+	BindFramebufferAsRenderTargetvfb->fbo);
 
 	// Technically, we should at this point re-interpret the bytes of the old format to the new.
 	// That might get tricky, and could cause unnecessary slowness in some games.
@@ -1001,7 +1001,7 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 		} else if (usePostShader_ && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
 			/*
-			fbo_bind_as_render_target(extraFBOs_[0]);
+			BindFramebufferAsRenderTargetextraFBOs_[0]);
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
@@ -1137,13 +1137,13 @@ bool FramebufferManagerVulkan::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb
 	}
 
 	/*
-	nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, false, (FBOColorDepth)nvfb->colorDepth);
+	nvfb->fbo = CreateFramebuffer(nvfb->width, nvfb->height, 1, false, (FBOColorDepth)nvfb->colorDepth);
 	if (!(nvfb->fbo)) {
 		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
 	}
 
-	fbo_bind_as_render_target(nvfb->fbo);
+	BindFramebufferAsRenderTargetnvfb->fbo);
 	ClearBuffer();
 	glDisable(GL_DITHER);
 	*/
@@ -1156,11 +1156,11 @@ void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb
 	// Discard the previous contents of this buffer where possible.
 	/*
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-		fbo_bind_as_render_target(nvfb->fbo);
+		BindFramebufferAsRenderTargetnvfb->fbo);
 		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
 		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 	} else if (gl_extensions.IsGLES) {
-		fbo_bind_as_render_target(nvfb->fbo);
+		BindFramebufferAsRenderTargetnvfb->fbo);
 		ClearBuffer();
 	}
 	*/
@@ -1223,7 +1223,7 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		return;
 	}
 
-	// fbo_bind_as_render_target(dst->fbo);
+	// BindFramebufferAsRenderTargetdst->fbo);
 
 	if (useBlit) {
 		// fbo_bind_for_read(src->fbo);

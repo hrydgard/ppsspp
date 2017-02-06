@@ -367,23 +367,23 @@ public:
 
 	Texture *CreateTexture(const TextureDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
-	Framebuffer *fbo_create(const FramebufferDesc &desc) override;
+	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
-	void fbo_copy_image(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
-	bool fbo_blit(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
 	int fbo_preferred_z_bitdepth() override;
 
 	// These functions should be self explanatory.
-	void fbo_bind_as_render_target(Framebuffer *fbo) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
 	// color must be 0, for now.
-	void fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	void fbo_bind_for_read(Framebuffer *fbo) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindFramebufferForRead(Framebuffer *fbo) override;
 
-	void fbo_bind_backbuffer_as_render_target() override;
-	uintptr_t fbo_get_api_texture(Framebuffer *fbo, int channelBit, int attachment) override;
+	void BindBackbufferAsRenderTarget() override;
+	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
 
-	void fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) override;
+	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
@@ -1281,7 +1281,7 @@ public:
 	int height;
 };
 
-Framebuffer *VKContext::fbo_create(const FramebufferDesc &desc) {
+Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	VKFramebuffer *fb = new VKFramebuffer();
 	fb->width = desc.width;
 	fb->height = desc.height;
@@ -1289,21 +1289,21 @@ Framebuffer *VKContext::fbo_create(const FramebufferDesc &desc) {
 	return fb;
 }
 
-void VKContext::fbo_copy_image(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {}
-bool VKContext::fbo_blit(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) { return true; }
+void VKContext::CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {}
+bool VKContext::BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) { return true; }
 
 int VKContext::fbo_preferred_z_bitdepth() { return 24; }
 
 // These functions should be self explanatory.
-void VKContext::fbo_bind_as_render_target(Framebuffer *fbo) {}
+void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {}
 // color must be 0, for now.
-void VKContext::fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {}
-void VKContext::fbo_bind_for_read(Framebuffer *fbo) {}
+void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {}
+void VKContext::BindFramebufferForRead(Framebuffer *fbo) {}
 
-void VKContext::fbo_bind_backbuffer_as_render_target() {}
-uintptr_t VKContext::fbo_get_api_texture(Framebuffer *fbo, int channelBit, int attachment) { return 0; }
+void VKContext::BindBackbufferAsRenderTarget() {}
+uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) { return 0; }
 
-void VKContext::fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) {
+void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	*w = fb->width;
 	*h = fb->height;
