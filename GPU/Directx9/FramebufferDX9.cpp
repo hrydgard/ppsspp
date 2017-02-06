@@ -1063,43 +1063,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 	}
 
 	void FramebufferManagerDX9::DecimateFBOs() {
-		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
-			draw_->BindBackbufferAsRenderTarget();
-		}
-		currentRenderVfb_ = 0;
-		bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
-
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebuffer *vfb = vfbs_[i];
-			int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
-
-			if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
-				ReadFramebufferToMemory(vfb, false, 0, 0, vfb->width, vfb->height);
-			}
-
-
-			// Let's also "decimate" the usageFlags.
-			UpdateFramebufUsage(vfb);
-
-			if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
-				if (age > FBO_OLD_AGE) {
-					INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-					DestroyFramebuf(vfb);
-					vfbs_.erase(vfbs_.begin() + i--);
-				}
-			}
-		}
-
-		for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
-			int age = frameLastFramebufUsed_ - it->second.last_frame_used;
-			if (age > FBO_OLD_AGE) {
-				delete it->second.fbo;
-				tempFBOs_.erase(it++);
-			} else {
-				++it;
-			}
-		}
-
+		FramebufferManagerCommon::DecimateFBOs();
 		for (auto it = offscreenSurfaces_.begin(); it != offscreenSurfaces_.end(); ) {
 			int age = frameLastFramebufUsed_ - it->second.last_frame_used;
 			if (age > FBO_OLD_AGE) {
@@ -1107,17 +1071,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 				offscreenSurfaces_.erase(it++);
 			} else {
 				++it;
-			}
-		}
-
-		// Do the same for ReadFramebuffersToMemory's VFBs
-		for (size_t i = 0; i < bvfbs_.size(); ++i) {
-			VirtualFramebuffer *vfb = bvfbs_[i];
-			int age = frameLastFramebufUsed_ - vfb->last_frame_render;
-			if (age > FBO_OLD_AGE) {
-				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-				DestroyFramebuf(vfb);
-				bvfbs_.erase(bvfbs_.begin() + i--);
 			}
 		}
 	}

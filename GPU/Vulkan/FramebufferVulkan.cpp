@@ -1400,31 +1400,6 @@ std::vector<FramebufferInfo> FramebufferManagerVulkan::GetFramebufferList() {
 	return list;
 }
 
-void FramebufferManagerVulkan::DecimateFBOs() {
-	currentRenderVfb_ = 0;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
-
-		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
-			bool sync = true;
-			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
-		}
-
-		// Let's also "decimate" the usageFlags.
-		UpdateFramebufUsage(vfb);
-
-		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
-			if (age > FBO_OLD_AGE) {
-				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-				DestroyFramebuf(vfb);
-				vfbs_.erase(vfbs_.begin() + i--);
-			}
-		}
-	}
-}
-
 void FramebufferManagerVulkan::DestroyAllFBOs(bool forceDelete) {
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;

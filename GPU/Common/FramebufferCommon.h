@@ -262,7 +262,7 @@ protected:
 	virtual void DisableState() = 0;
 	virtual void ClearBuffer(bool keepState = false) = 0;
 	virtual void FlushBeforeCopy() = 0;
-	virtual void DecimateFBOs() = 0;
+	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) = 0;

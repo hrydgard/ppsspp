@@ -955,7 +955,7 @@ bool FramebufferManagerGLES::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 
 	draw_->BindFramebufferAsRenderTarget(nvfb->fbo);
 	ClearBuffer();
-	glDisable(GL_DITHER);
+	glDisable(GL_DITHER);  // Weird place to do this
 	return true;
 }
 
@@ -1464,9 +1464,6 @@ void FramebufferManagerGLES::EndFrame() {
 		// TODO: Only do this if the new size actually changed the renderwidth/height.
 		DestroyAllFBOs(false);
 
-		// Probably not necessary
-		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-
 		// Check if postprocessing shader is doing upscaling as it requires native resolution
 		const ShaderInfo *shaderInfo = 0;
 		if (g_Config.sPostShaderName != "Off") {
@@ -1554,53 +1551,6 @@ std::vector<FramebufferInfo> FramebufferManagerGLES::GetFramebufferList() {
 	}
 
 	return list;
-}
-
-void FramebufferManagerGLES::DecimateFBOs() {
-	draw_->BindBackbufferAsRenderTarget();
-	currentRenderVfb_ = 0;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
-
-		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
-			bool sync = gl_extensions.IsGLES;
-			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
-		}
-
-		// Let's also "decimate" the usageFlags.
-		UpdateFramebufUsage(vfb);
-
-		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
-			if (age > FBO_OLD_AGE) {
-				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-				DestroyFramebuf(vfb);
-				vfbs_.erase(vfbs_.begin() + i--);
-			}
-		}
-	}
-
-	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
-		int age = frameLastFramebufUsed_ - it->second.last_frame_used;
-		if (age > FBO_OLD_AGE) {
-			delete it->second.fbo;
-			tempFBOs_.erase(it++);
-		} else {
-			++it;
-		}
-	}
-
-	// Do the same for ReadFramebuffersToMemory's VFBs
-	for (size_t i = 0; i < bvfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = bvfbs_[i];
-		int age = frameLastFramebufUsed_ - vfb->last_frame_render;
-		if (age > FBO_OLD_AGE) {
-			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-			DestroyFramebuf(vfb);
-			bvfbs_.erase(bvfbs_.begin() + i--);
-		}
-	}
 }
 
 void FramebufferManagerGLES::DestroyAllFBOs(bool forceDelete) {
