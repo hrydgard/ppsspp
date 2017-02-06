@@ -22,7 +22,7 @@
 
 #include "base/logging.h"
 #include "dx_fbo.h"
-#include "dx_state.h"
+#include "gfx/d3d9_state.h"
 
 namespace DX9 {
 	
