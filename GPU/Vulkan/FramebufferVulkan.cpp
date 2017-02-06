@@ -86,7 +86,7 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf_(nullptr),
 	convBufSize_(0),
-	textureCache_(nullptr),
+	textureCacheVulkan_(nullptr),
 	shaderManager_(nullptr),
 	resized_(false),
 	pixelBufObj_(nullptr),
@@ -104,6 +104,11 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 
 	vulkan2D_.Shutdown();
 	DestroyDeviceObjects();
+}
+
+void FramebufferManagerVulkan::SetTextureCache(TextureCacheVulkan *tc) {
+	textureCacheVulkan_ = tc;
+	textureCache_ = tc;
 }
 
 void FramebufferManagerVulkan::InitDeviceObjects() {
@@ -416,7 +421,7 @@ void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 
 	VulkanTexture *pixelTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	DrawTexture(pixelTex, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
-	textureCache_->ForgetLastTexture();
+	textureCacheVulkan_->ForgetLastTexture();
 }
 
 void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
@@ -536,26 +541,6 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 	vkCmdDraw(cmd, 4, 1, 0, 0);
 }
 
-void FramebufferManagerVulkan::DestroyFramebuf(VirtualFramebuffer *v) {
-	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
-	if (v->fbo) {
-		delete v->fbo;
-		v->fbo = 0;
-	}
-
-	// Wipe some pointers
-	if (currentRenderVfb_ == v)
-		currentRenderVfb_ = 0;
-	if (displayFramebuf_ == v)
-		displayFramebuf_ = 0;
-	if (prevDisplayFramebuf_ == v)
-		prevDisplayFramebuf_ = 0;
-	if (prevPrevDisplayFramebuf_ == v)
-		prevPrevDisplayFramebuf_ = 0;
-
-	delete v;
-}
-
 void FramebufferManagerVulkan::RebindFramebuffer() {
 	// Switch command buffer?
 }
@@ -645,7 +630,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferCreated(VirtualFramebuffer
 		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 	}
 
-	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
+	textureCacheVulkan_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 	// ugly...
 	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
@@ -658,7 +643,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	} else {
 		DownloadFramebufferOnSwitch(prevVfb);
 	}
-	textureCache_->ForgetLastTexture();
+	textureCacheVulkan_->ForgetLastTexture();
 
 	if (useBufferedRendering_) {
 		if (vfb->fbo) {
@@ -667,7 +652,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	} else {
 		if (vfb->fbo) {
 			// wtf? This should only happen very briefly when toggling bBufferedRendering
-			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
+			textureCacheVulkan_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
 			delete vfb->fbo;
 			vfb->fbo = nullptr;
 		}
@@ -679,7 +664,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 		}
 	}
-	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+	textureCacheVulkan_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
 	// Copy depth pixel value from the read framebuffer to the draw framebuffer
 	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
@@ -703,7 +688,7 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 
 void FramebufferManagerVulkan::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) {
 	if (vfbFormatChanged) {
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+		textureCacheVulkan_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 		if (vfb->drawnFormat != vfb->format) {
 			ReformatFramebufferFrom(vfb, vfb->drawnFormat);
 		}
@@ -1075,7 +1060,7 @@ void FramebufferManagerVulkan::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 			PackFramebufferSync_(nvfb, x, y, w, h);
 		}
 
-		textureCache_->ForgetLastTexture();
+		textureCacheVulkan_->ForgetLastTexture();
 		RebindFramebuffer();
 	}
 }
@@ -1110,7 +1095,7 @@ void FramebufferManagerVulkan::DownloadFramebufferForClut(u32 fb_address, u32 lo
 
 			PackFramebufferSync_(nvfb, x, y, w, h);
 
-			textureCache_->ForgetLastTexture();
+			textureCacheVulkan_->ForgetLastTexture();
 			RebindFramebuffer();
 		}
 	}

@@ -247,7 +247,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	timeLoc_(-1),
 	pixelDeltaLoc_(-1),
 	deltaLoc_(-1),
-	textureCache_(nullptr),
+	textureCacheGL_(nullptr),
 	shaderManager_(nullptr),
 	resized_(false),
 	pixelBufObj_(nullptr),
@@ -261,6 +261,11 @@ void FramebufferManagerGLES::Init() {
 	resized_ = true;
 	CompileDraw2DProgram();
 	SetLineWidth();
+}
+
+void FramebufferManagerGLES::SetTextureCache(TextureCacheGLES *tc) {
+	textureCacheGL_ = tc;
+	textureCache_ = tc;
 }
 
 FramebufferManagerGLES::~FramebufferManagerGLES() {
@@ -287,7 +292,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 	}
 
 	if (!drawPixelsTex_) {
-		drawPixelsTex_ = textureCache_->AllocTextureName();
+		drawPixelsTex_ = textureCacheGL_->AllocTextureName();
 		drawPixelsTexW_ = width;
 		drawPixelsTexH_ = height;
 
@@ -377,7 +382,7 @@ void FramebufferManagerGLES::DrawPixels(VirtualFramebuffer *vfb, int dstX, int d
 	DisableState();
 
 	DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
-	textureCache_->ForgetLastTexture();
+	textureCacheGL_->ForgetLastTexture();
 }
 
 void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
@@ -529,26 +534,6 @@ void FramebufferManagerGLES::DrawActiveTexture(GLuint texture, float x, float y,
 	glsl_unbind();
 }
 
-void FramebufferManagerGLES::DestroyFramebuf(VirtualFramebuffer *v) {
-	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
-	if (v->fbo) {
-		delete v->fbo;
-		v->fbo = nullptr;
-	}
-
-	// Wipe some pointers
-	if (currentRenderVfb_ == v)
-		currentRenderVfb_ = 0;
-	if (displayFramebuf_ == v)
-		displayFramebuf_ = 0;
-	if (prevDisplayFramebuf_ == v)
-		prevDisplayFramebuf_ = 0;
-	if (prevPrevDisplayFramebuf_ == v)
-		prevPrevDisplayFramebuf_ = 0;
-
-	delete v;
-}
-
 void FramebufferManagerGLES::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
@@ -602,7 +587,7 @@ void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u
 		}
 	}
 
-	textureCache_->ForgetLastTexture();
+	textureCacheGL_->ForgetLastTexture();
 	draw_->BindBackbufferAsRenderTarget();
 
 	if (!useBufferedRendering_) {
@@ -641,10 +626,9 @@ void FramebufferManagerGLES::NotifyRenderFramebufferCreated(VirtualFramebuffer *
 		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 	}
 
-	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
+	textureCacheGL_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
 	// Some AMD drivers crash if we don't clear the buffer first?
-	glDisable(GL_DITHER);  // why?
 	ClearBuffer();
 
 	// ugly...
@@ -659,7 +643,7 @@ void FramebufferManagerGLES::NotifyRenderFramebufferSwitched(VirtualFramebuffer 
 	} else {
 		DownloadFramebufferOnSwitch(prevVfb);
 	}
-	textureCache_->ForgetLastTexture();
+	textureCacheGL_->ForgetLastTexture();
 
 	if (useBufferedRendering_) {
 		if (vfb->fbo) {
@@ -671,7 +655,7 @@ void FramebufferManagerGLES::NotifyRenderFramebufferSwitched(VirtualFramebuffer 
 	} else {
 		if (vfb->fbo) {
 			// wtf? This should only happen very briefly when toggling bBufferedRendering
-			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
+			textureCacheGL_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
 			delete vfb->fbo;
 			vfb->fbo = nullptr;
 		}
@@ -684,7 +668,7 @@ void FramebufferManagerGLES::NotifyRenderFramebufferSwitched(VirtualFramebuffer 
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 		}
 	}
-	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+	textureCacheGL_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
 	if (gl_extensions.IsGLES) {
 		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
@@ -718,7 +702,7 @@ void FramebufferManagerGLES::NotifyRenderFramebufferSwitched(VirtualFramebuffer 
 
 void FramebufferManagerGLES::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) {
 	if (vfbFormatChanged) {
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+		textureCacheGL_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 		if (vfb->drawnFormat != vfb->format) {
 			ReformatFramebufferFrom(vfb, vfb->drawnFormat);
 		}
@@ -801,7 +785,7 @@ Draw::Framebuffer *FramebufferManagerGLES::GetTempFBO(u16 w, u16 h, Draw::FBColo
 		return it->second.fbo;
 	}
 
-	textureCache_->ForgetLastTexture();
+	textureCacheGL_->ForgetLastTexture();
 	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, depth });
 	if (!fbo)
 		return fbo;
@@ -1148,7 +1132,7 @@ void FramebufferManagerGLES::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bo
 			}
 		}
 
-		textureCache_->ForgetLastTexture();
+		textureCacheGL_->ForgetLastTexture();
 		RebindFramebuffer();
 	}
 }
@@ -1186,7 +1170,7 @@ void FramebufferManagerGLES::DownloadFramebufferForClut(u32 fb_address, u32 load
 
 			PackFramebufferSync_(nvfb, x, y, w, h);
 
-			textureCache_->ForgetLastTexture();
+			textureCacheGL_->ForgetLastTexture();
 			RebindFramebuffer();
 		}
 	}
@@ -1318,7 +1302,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		float srcH = src->bufferHeight;
 		DrawActiveTexture(0, dstX1, dstY1, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY1 / srcH, srcX2 / srcW, srcY2 / srcH, draw2dprogram_, ROTATION_LOCKED_HORIZONTAL);
 		glBindTexture(GL_TEXTURE_2D, 0);
-		textureCache_->ForgetLastTexture();
+		textureCacheGL_->ForgetLastTexture();
 		glstate.viewport.restore();
 		glstate.blend.restore();
 		glstate.cullFace.restore();

@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <sstream>
 
+#include "ext/native/thin3d/thin3d.h"
+
 #include "i18n/i18n.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
@@ -27,6 +29,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
@@ -474,6 +477,26 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	gstate_c.curRTRenderWidth = vfb->renderWidth;
 	gstate_c.curRTRenderHeight = vfb->renderHeight;
 	return vfb;
+}
+
+void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
+	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
+	if (v->fbo) {
+		delete v->fbo;
+		v->fbo = nullptr;
+	}
+
+	// Wipe some pointers
+	if (currentRenderVfb_ == v)
+		currentRenderVfb_ = 0;
+	if (displayFramebuf_ == v)
+		displayFramebuf_ = 0;
+	if (prevDisplayFramebuf_ == v)
+		prevDisplayFramebuf_ = 0;
+	if (prevPrevDisplayFramebuf_ == v)
+		prevPrevDisplayFramebuf_ = 0;
+
+	delete v;
 }
 
 void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {

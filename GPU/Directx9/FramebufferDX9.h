@@ -45,9 +45,7 @@ public:
 	FramebufferManagerDX9(Draw::DrawContext *draw);
 	~FramebufferManagerDX9();
 
-	void SetTextureCache(TextureCacheDX9 *tc) {
-		textureCache_ = tc;
-	}
+	void SetTextureCache(TextureCacheDX9 *tc);
 	void SetShaderManager(ShaderManagerDX9 *sm) {
 		shaderManager_ = sm;
 	}
@@ -79,7 +77,6 @@ public:
 
 	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
-	void DestroyFramebuf(VirtualFramebuffer *vfb) override;
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false, bool skipCopy = false) override;
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes);
@@ -137,7 +134,7 @@ private:
 	LPDIRECT3DVERTEXSHADER9 stencilUploadVS_;
 	bool stencilUploadFailed_;
 
-	TextureCacheDX9 *textureCache_;
+	TextureCacheDX9 *textureCacheDX9_;
 	ShaderManagerDX9 *shaderManager_;
 	DrawEngineDX9 *drawEngine_;
 	

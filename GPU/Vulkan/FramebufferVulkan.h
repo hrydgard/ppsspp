@@ -78,9 +78,7 @@ public:
 	FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
 	~FramebufferManagerVulkan();
 
-	void SetTextureCache(TextureCacheVulkan *tc) {
-		textureCache_ = tc;
-	}
+	void SetTextureCache(TextureCacheVulkan *tc);
 	void SetShaderManager(ShaderManagerVulkan *sm) {
 		shaderManager_ = sm;
 	}
@@ -122,7 +120,6 @@ public:
 
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
-	void DestroyFramebuf(VirtualFramebuffer *vfb) override;
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false, bool skipCopy = false) override;
 
 	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer);
@@ -193,7 +190,7 @@ private:
 	u8 *convBuf_;
 	u32 convBufSize_;
 
-	TextureCacheVulkan *textureCache_;
+	TextureCacheVulkan *textureCacheVulkan_;
 	ShaderManagerVulkan *shaderManager_;
 	DrawEngineVulkan *drawEngine_;
 

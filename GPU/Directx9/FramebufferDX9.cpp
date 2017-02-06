@@ -178,6 +178,11 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 	}
 
+	void FramebufferManagerDX9::SetTextureCache(TextureCacheDX9 *tc) {
+		textureCacheDX9_ = tc;
+		textureCache_ = tc;
+	}
+
 	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 		u8 *convBuf = NULL;
 		D3DLOCKED_RECT rect;
@@ -274,7 +279,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
 		DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL);
-		textureCache_->ForgetLastTexture();
+		textureCacheDX9_->ForgetLastTexture();
 		dxstate.viewport.restore();
 	}
 
@@ -346,26 +351,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 	}
 
-	void FramebufferManagerDX9::DestroyFramebuf(VirtualFramebuffer *v) {
-		textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
-		if (v->fbo) {
-			delete v->fbo;
-			v->fbo = nullptr;
-		}
-
-		// Wipe some pointers
-		if (currentRenderVfb_ == v)
-			currentRenderVfb_ = 0;
-		if (displayFramebuf_ == v)
-			displayFramebuf_ = 0;
-		if (prevDisplayFramebuf_ == v)
-			prevDisplayFramebuf_ = 0;
-		if (prevPrevDisplayFramebuf_ == v)
-			prevPrevDisplayFramebuf_ = 0;
-
-		delete v;
-	}
-
 	void FramebufferManagerDX9::RebindFramebuffer() {
 		if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 			draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
@@ -417,7 +402,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			}
 		}
 
-		textureCache_->ForgetLastTexture();
+		textureCacheDX9_->ForgetLastTexture();
 		draw_->BindBackbufferAsRenderTarget();
 
 		if (!useBufferedRendering_) {
@@ -476,7 +461,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		} else {
 			DownloadFramebufferOnSwitch(prevVfb);
 		}
-		textureCache_->ForgetLastTexture();
+		textureCacheDX9_->ForgetLastTexture();
 
 		if (useBufferedRendering_) {
 			if (vfb->fbo) {
@@ -488,7 +473,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		} else {
 			if (vfb->fbo) {
 				// wtf? This should only happen very briefly when toggling bBufferedRendering
-				textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
+				textureCacheDX9_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
 				delete vfb->fbo;
 				vfb->fbo = nullptr;
 			}
@@ -501,7 +486,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 				gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 			}
 		}
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+		textureCacheDX9_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
 		// Copy depth pixel value from the read framebuffer to the draw framebuffer
 		if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
@@ -529,7 +514,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 	void FramebufferManagerDX9::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) {
 		if (vfbFormatChanged) {
-			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+			textureCacheDX9_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 			if (vfb->drawnFormat != vfb->format) {
 				ReformatFramebufferFrom(vfb, vfb->drawnFormat);
 			}
@@ -681,7 +666,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			return it->second.fbo;
 		}
 
-		textureCache_->ForgetLastTexture();
+		textureCacheDX9_->ForgetLastTexture();
 		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, depth });
 		if (!fbo)
 			return fbo;
@@ -713,7 +698,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			return it->second.surface;
 		}
 
-		textureCache_->ForgetLastTexture();
+		textureCacheDX9_->ForgetLastTexture();
 		LPDIRECT3DSURFACE9 offscreen = nullptr;
 		HRESULT hr = pD3Ddevice->CreateOffscreenPlainSurface(w, h, fmt, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 		if (FAILED(hr) || !offscreen) {
@@ -963,7 +948,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 			PackFramebufferDirectx9_(nvfb, x, y, w, h);
 
-			textureCache_->ForgetLastTexture();
+			textureCacheDX9_->ForgetLastTexture();
 			RebindFramebuffer();
 		}
 	}
@@ -997,7 +982,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 				PackFramebufferDirectx9_(nvfb, x, y, w, h);
 
-				textureCache_->ForgetLastTexture();
+				textureCacheDX9_->ForgetLastTexture();
 				RebindFramebuffer();
 			}
 		}

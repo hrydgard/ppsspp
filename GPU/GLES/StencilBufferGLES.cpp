@@ -190,7 +190,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	glViewport(0, 0, w, h);
 
 	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
-	textureCache_->ForgetLastTexture();
+	textureCacheGL_->ForgetLastTexture();
 
 	glClearStencil(0);
 	glClear(GL_STENCIL_BUFFER_BIT);

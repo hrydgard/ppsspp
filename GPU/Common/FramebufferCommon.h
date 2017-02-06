@@ -137,6 +137,8 @@ namespace Draw {
 class DrawContext;
 }
 
+class TextureCacheCommon;
+
 class FramebufferManagerCommon {
 public:
 	FramebufferManagerCommon(Draw::DrawContext *draw);
@@ -145,6 +147,7 @@ public:
 	virtual void Init();
 	void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
+	void DestroyFramebuf(VirtualFramebuffer *v);
 
 	VirtualFramebuffer *DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason);
 	VirtualFramebuffer *SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason) {
@@ -252,7 +255,6 @@ protected:
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 	static bool MaskedEqual(u32 addr1, u32 addr2);
 
-	virtual void DestroyFramebuf(VirtualFramebuffer *vfb) = 0;
 	virtual void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false, bool skipCopy = false) = 0;
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) = 0;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) = 0;
@@ -282,6 +284,7 @@ protected:
 	}
 
 	Draw::DrawContext *draw_;
+	TextureCacheCommon *textureCache_;
 
 	u32 displayFramebufPtr_;
 	u32 displayStride_;

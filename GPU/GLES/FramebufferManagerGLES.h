@@ -65,9 +65,7 @@ public:
 	FramebufferManagerGLES(Draw::DrawContext *draw);
 	~FramebufferManagerGLES();
 
-	void SetTextureCache(TextureCacheGLES *tc) {
-		textureCache_ = tc;
-	}
+	void SetTextureCache(TextureCacheGLES *tc);
 	void SetShaderManager(ShaderManagerGLES *sm) {
 		shaderManager_ = sm;
 	}
@@ -105,7 +103,6 @@ public:
 
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
-	void DestroyFramebuf(VirtualFramebuffer *vfb) override;
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false, bool skipCopy = false) override;
 
 	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
@@ -164,7 +161,7 @@ private:
 	int pixelDeltaLoc_;
 	int deltaLoc_;
 
-	TextureCacheGLES *textureCache_;
+	TextureCacheGLES *textureCacheGL_;
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
 
