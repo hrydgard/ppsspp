@@ -24,6 +24,7 @@
 #include "Core/MemMap.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
+#include "thin3d/thin3d.h"
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
@@ -249,6 +250,8 @@ public:
 
 	virtual void Resized() = 0;
 
+	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
+
 protected:
 	// Cardboard Settings Calculator
 	void GetCardboardSettings(CardboardSettings *cardboardSettings);
@@ -335,6 +338,14 @@ protected:
 
 	// Used by post-processing shaders
 	std::vector<Draw::Framebuffer *> extraFBOs_;
+
+
+	struct TempFBO {
+		Draw::Framebuffer *fbo;
+		int last_frame_used;
+	};
+
+	std::map<u64, TempFBO> tempFBOs_;
 
 	// Aggressively delete unused FBOs to save gpu memory.
 	enum {

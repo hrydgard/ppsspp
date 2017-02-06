@@ -618,27 +618,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 	}
 
-	Draw::Framebuffer *FramebufferManagerDX9::GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth) {
-		u64 key = ((u64)depth << 32) | ((u32)w << 16) | h;
-		auto it = tempFBOs_.find(key);
-		if (it != tempFBOs_.end()) {
-			it->second.last_frame_used = gpuStats.numFlips;
-			return it->second.fbo;
-		}
-
-		textureCacheDX9_->ForgetLastTexture();
-		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, depth });
-		if (!fbo)
-			return fbo;
-		draw_->BindFramebufferAsRenderTarget(fbo);
-		dxstate.viewport.force(0, 0, w, h);
-		ClearBuffer(true);
-		dxstate.viewport.restore();
-		const TempFBO info = {fbo, gpuStats.numFlips};
-		tempFBOs_[key] = info;
-		return fbo;
-	}
-
 	LPDIRECT3DSURFACE9 FramebufferManagerDX9::GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb) {
 		D3DSURFACE_DESC desc = {};
 		HRESULT hr = similarSurface->GetDesc(&desc);

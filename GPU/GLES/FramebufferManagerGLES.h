@@ -102,8 +102,6 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
-	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
-
 protected:
 	void DisableState() override;
 	void ClearBuffer(bool keepState = false) override;
@@ -149,13 +147,6 @@ private:
 	DrawEngineGLES *drawEngine_;
 
 	bool resized_;
-
-	struct TempFBO {
-		Draw::Framebuffer *fbo;
-		int last_frame_used;
-	};
-
-	std::map<u64, TempFBO> tempFBOs_;
 
 	// Not used under ES currently.
 	AsyncPBO *pixelBufObj_; //this isn't that large

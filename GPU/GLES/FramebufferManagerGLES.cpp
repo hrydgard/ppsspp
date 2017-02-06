@@ -709,25 +709,6 @@ void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, Virtu
 	}
 }
 
-Draw::Framebuffer *FramebufferManagerGLES::GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth) {
-	u64 key = ((u64)depth << 32) | ((u32)w << 16) | h;
-	auto it = tempFBOs_.find(key);
-	if (it != tempFBOs_.end()) {
-		it->second.last_frame_used = gpuStats.numFlips;
-		return it->second.fbo;
-	}
-
-	textureCacheGL_->ForgetLastTexture();
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, depth });
-	if (!fbo)
-		return fbo;
-	draw_->BindFramebufferAsRenderTarget(fbo);
-	ClearBuffer(true);
-	const TempFBO info = {fbo, gpuStats.numFlips};
-	tempFBOs_[key] = info;
-	return fbo;
-}
-
 void FramebufferManagerGLES::BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
 	if (framebuffer == NULL) {
 		framebuffer = currentRenderVfb_;

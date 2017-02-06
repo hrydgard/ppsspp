@@ -86,7 +86,6 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
-	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb);
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(D3DFORMAT fmt, u32 w, u32 h);
 

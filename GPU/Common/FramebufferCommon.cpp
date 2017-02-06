@@ -1100,6 +1100,24 @@ void FramebufferManagerCommon::GetCardboardSettings(CardboardSettings *cardboard
 	cardboardSettings->screenHeight = cardboardScreenHeight;
 }
 
+Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth) {
+	u64 key = ((u64)depth << 32) | ((u32)w << 16) | h;
+	auto it = tempFBOs_.find(key);
+	if (it != tempFBOs_.end()) {
+		it->second.last_frame_used = gpuStats.numFlips;
+		return it->second.fbo;
+	}
+
+	textureCache_->ForgetLastTexture();
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, depth });
+	if (!fbo)
+		return fbo;
+	draw_->BindFramebufferAsRenderTarget(fbo);
+	ClearBuffer(true);
+	const TempFBO info = { fbo, gpuStats.numFlips };
+	tempFBOs_[key] = info;
+	return fbo;
+}
 
 void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
 	auto checkFlag = [&](u16 flag, int last_frame) {
