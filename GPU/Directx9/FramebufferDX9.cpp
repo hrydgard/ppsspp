@@ -433,63 +433,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 	}
 
-	void FramebufferManagerDX9::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
-		if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
-			ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
-		} else {
-			DownloadFramebufferOnSwitch(prevVfb);
-		}
-		textureCacheDX9_->ForgetLastTexture();
-
-		if (useBufferedRendering_) {
-			if (vfb->fbo) {
-				draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-			} else {
-				// wtf? This should only happen very briefly when toggling bBufferedRendering
-				draw_->BindBackbufferAsRenderTarget();
-			}
-		} else {
-			if (vfb->fbo) {
-				// wtf? This should only happen very briefly when toggling bBufferedRendering
-				textureCacheDX9_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
-				delete vfb->fbo;
-				vfb->fbo = nullptr;
-			}
-			draw_->BindBackbufferAsRenderTarget();
-
-			// Let's ignore rendering to targets that have not (yet) been displayed.
-			if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
-				gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
-			} else {
-				gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
-			}
-		}
-		textureCacheDX9_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
-
-		// Copy depth pixel value from the read framebuffer to the draw framebuffer
-		if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
-			if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
-				// If depth wasn't updated, then we're at least "two degrees" away from the data.
-				// This is an optimization: it probably doesn't need to be copied in this case.
-			} else {
-				BlitFramebufferDepth(prevVfb, vfb);
-			}
-		}
-		if (vfb->drawnFormat != vfb->format) {
-			// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
-			ReformatFramebufferFrom(vfb, vfb->drawnFormat);
-		}
-
-		// ugly...
-		if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-		}
-		if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-			gstate_c.Dirty(DIRTY_PROJMATRIX);
-			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-		}
-	}
-
 	void FramebufferManagerDX9::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
 		if (!useBufferedRendering_ || !vfb->fbo) {
 			return;

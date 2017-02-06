@@ -273,10 +273,11 @@ protected:
 
 	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb);
 	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged);
+	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
 	virtual void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false, bool skipCopy = false) = 0;
-	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) = 0;
 	virtual void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) = 0;
+	virtual void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) = 0;
 
 	void ShowScreenResolution();
 

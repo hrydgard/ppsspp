@@ -19,6 +19,7 @@
 #include <sstream>
 
 #include "ext/native/thin3d/thin3d.h"
+#include "gfx_es2/gpu_features.h"
 
 #include "i18n/i18n.h"
 #include "Common/Common.h"
@@ -545,6 +546,73 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 		if (vfb->drawnFormat != vfb->format) {
 			ReformatFramebufferFrom(vfb, vfb->drawnFormat);
 		}
+	}
+
+	// ugly...
+	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+	}
+	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+	}
+}
+
+void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
+	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
+		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
+	} else {
+		DownloadFramebufferOnSwitch(prevVfb);
+	}
+	textureCache_->ForgetLastTexture();
+
+	if (useBufferedRendering_) {
+		if (vfb->fbo) {
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
+		} else {
+			// wtf? This should only happen very briefly when toggling bBufferedRendering
+			draw_->BindBackbufferAsRenderTarget();
+		}
+	} else {
+		if (vfb->fbo) {
+			// wtf? This should only happen very briefly when toggling bBufferedRendering
+			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
+			delete vfb->fbo;
+			vfb->fbo = nullptr;
+		}
+		draw_->BindBackbufferAsRenderTarget();
+
+		// Let's ignore rendering to targets that have not (yet) been displayed.
+		if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
+			gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
+		} else {
+			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
+		}
+	}
+	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+
+	if (gl_extensions.IsGLES) {
+		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+		// to it. This broke stuff before, so now it only clears on the first use of an
+		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+		if (vfb->last_frame_render != gpuStats.numFlips) {
+			ClearBuffer();
+		}
+	}
+
+	// Copy depth pixel value from the read framebuffer to the draw framebuffer
+	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
+		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
+			// If depth wasn't updated, then we're at least "two degrees" away from the data.
+			// This is an optimization: it probably doesn't need to be copied in this case.
+		} else {
+			BlitFramebufferDepth(prevVfb, vfb);
+		}
+	}
+	if (vfb->drawnFormat != vfb->format) {
+		// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
+		ReformatFramebufferFrom(vfb, vfb->drawnFormat);
 	}
 
 	// ugly...

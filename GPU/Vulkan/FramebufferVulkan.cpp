@@ -624,55 +624,6 @@ void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	*/
 }
 
-void FramebufferManagerVulkan::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
-	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
-		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
-	} else {
-		DownloadFramebufferOnSwitch(prevVfb);
-	}
-	textureCacheVulkan_->ForgetLastTexture();
-
-	if (useBufferedRendering_) {
-		if (vfb->fbo) {
-			// vfb->fbo->GetColorImageView();
-		}
-	} else {
-		if (vfb->fbo) {
-			// wtf? This should only happen very briefly when toggling bBufferedRendering
-			textureCacheVulkan_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
-			delete vfb->fbo;
-			vfb->fbo = nullptr;
-		}
-
-		// Let's ignore rendering to targets that have not (yet) been displayed.
-		if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
-			gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
-		} else {
-			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
-		}
-	}
-	textureCacheVulkan_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
-
-	// Copy depth pixel value from the read framebuffer to the draw framebuffer
-	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
-		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
-			// If depth wasn't updated, then we're at least "two degrees" away from the data.
-			// This is an optimization: it probably doesn't need to be copied in this case.
-		} else {
-			BlitFramebufferDepth(prevVfb, vfb);
-		}
-	}
-	if (vfb->drawnFormat != vfb->format) {
-		// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
-		ReformatFramebufferFrom(vfb, vfb->drawnFormat);
-	}
-
-	// ugly...
-	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-	}
-}
-
 bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
 	// In Vulkan we should be able to simply copy the stencil data directly to a stencil buffer without
 	// messing about with bitplane textures and the like.

@@ -583,69 +583,6 @@ void FramebufferManagerGLES::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u
 	}
 }
 
-void FramebufferManagerGLES::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
-	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
-		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
-	} else {
-		DownloadFramebufferOnSwitch(prevVfb);
-	}
-	textureCacheGL_->ForgetLastTexture();
-
-	if (useBufferedRendering_) {
-		if (vfb->fbo) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-		} else {
-			// wtf? This should only happen very briefly when toggling bBufferedRendering
-			draw_->BindBackbufferAsRenderTarget();
-		}
-	} else {
-		if (vfb->fbo) {
-			// wtf? This should only happen very briefly when toggling bBufferedRendering
-			textureCacheGL_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
-			delete vfb->fbo;
-			vfb->fbo = nullptr;
-		}
-		draw_->BindBackbufferAsRenderTarget();
-
-		// Let's ignore rendering to targets that have not (yet) been displayed.
-		if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
-			gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
-		} else {
-			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
-		}
-	}
-	textureCacheGL_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
-
-	if (gl_extensions.IsGLES) {
-		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-		// to it. This broke stuff before, so now it only clears on the first use of an
-		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (vfb->last_frame_render != gpuStats.numFlips) {
-			ClearBuffer();
-		}
-	}
-
-	// Copy depth pixel value from the read framebuffer to the draw framebuffer
-	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
-		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
-			// If depth wasn't updated, then we're at least "two degrees" away from the data.
-			// This is an optimization: it probably doesn't need to be copied in this case.
-		} else {
-			BlitFramebufferDepth(prevVfb, vfb);
-		}
-	}
-	if (vfb->drawnFormat != vfb->format) {
-		// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
-		ReformatFramebufferFrom(vfb, vfb->drawnFormat);
-	}
-
-	// ugly...
-	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-	}
-}
-
 void FramebufferManagerGLES::SetLineWidth() {
 #ifndef USING_GLES2
 	if (g_Config.iInternalResolution == 0) {
