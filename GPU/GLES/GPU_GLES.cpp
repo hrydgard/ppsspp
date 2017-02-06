@@ -485,11 +485,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	}
 }
 
-// HACK
-int fbo_preferred_z_bitdepth() {
-	return 24;
-}
-
 GPU_GLES::~GPU_GLES() {
 	framebufferManagerGL_->DestroyAllFBOs(true);
 	shaderManagerGL_->ClearCache(true);
@@ -610,14 +605,15 @@ void GPU_GLES::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 
 	// If we already have a 16-bit depth buffer, we don't need to round.
-	if (fbo_preferred_z_bitdepth() > 16) {
+	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
+	if (prefer24) {
 		if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
 			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
 			if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 				// Use fragment rounding on desktop and GLES3, most accurate.
 				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-			} else if (fbo_preferred_z_bitdepth() == 24 && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
+			} else if (prefer24 && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
 				// Here we can simulate a 16 bit depth buffer by scaling.
 				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
 				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;

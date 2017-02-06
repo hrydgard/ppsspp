@@ -41,21 +41,19 @@ public:
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
-	void fbo_copy_image(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
-
-	int fbo_preferred_z_bitdepth() override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
 	// color must be 0, for now.
-	void fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	void fbo_bind_for_read(Framebuffer *fbo) override;
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindFramebufferForRead(Framebuffer *fbo) override;
 
-	void fbo_bind_backbuffer_as_render_target() override;
-	uintptr_t fbo_get_api_texture(Framebuffer *fbo, int channelBit, int attachment) override;
+	void BindBackbufferAsRenderTarget() override;
+	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
 
-	void fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) override;
+	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
@@ -554,21 +552,19 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	return fb;
 }
 
-void D3D11DrawContext::fbo_copy_image(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {}
+void D3D11DrawContext::CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {}
 bool D3D11DrawContext::BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) { return true; }
-
-int D3D11DrawContext::fbo_preferred_z_bitdepth() { return 24; }
 
 // These functions should be self explanatory.
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {}
 // color must be 0, for now.
-void D3D11DrawContext::fbo_bind_as_texture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {}
-void D3D11DrawContext::fbo_bind_for_read(Framebuffer *fbo) {}
+void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {}
+void D3D11DrawContext::BindFramebufferForRead(Framebuffer *fbo) {}
 
-void D3D11DrawContext::fbo_bind_backbuffer_as_render_target() {}
-uintptr_t D3D11DrawContext::fbo_get_api_texture(Framebuffer *fbo, int channelBit, int attachment) { return 0; }
+void D3D11DrawContext::BindBackbufferAsRenderTarget() {}
+uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) { return 0; }
 
-void D3D11DrawContext::fbo_get_dimensions(Framebuffer *fbo, int *w, int *h) {
+void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	*w = fb->width;
 	*h = fb->height;

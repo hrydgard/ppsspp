@@ -523,8 +523,6 @@ public:
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
-	int fbo_preferred_z_bitdepth() override;
-
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
 	// color must be 0, for now.
@@ -655,7 +653,17 @@ private:
 
 OpenGLContext::OpenGLContext() {
 	CreatePresets();
-	// TODO: Detect caps
+
+	// TODO: Detect more caps
+	if (gl_extensions.IsGLES) {
+		if (gl_extensions.OES_packed_depth_stencil || gl_extensions.OES_depth24) {
+			caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
+		} else {
+			caps_.preferredDepthBufferFormat = DataFormat::D16;
+		}
+	} else {
+		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
+	}
 }
 
 OpenGLContext::~OpenGLContext() {
@@ -1300,18 +1308,6 @@ OpenGLFramebuffer *OpenGLContext::fbo_ext_create(const FramebufferDesc &desc) {
 	return fbo;
 }
 #endif
-
-int OpenGLContext::fbo_preferred_z_bitdepth() {
-	// This matches the CreateFramebuffer() logic.
-	if (gl_extensions.IsGLES) {
-		if (gl_extensions.OES_packed_depth_stencil) {
-			return 24;
-		}
-		return gl_extensions.OES_depth24 ? 24 : 16;
-	} else {
-		return 24;
-	}
-}
 
 Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	CheckGLExtensions();
