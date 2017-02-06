@@ -122,20 +122,22 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 	size_t fileSize;
 	uint8_t *buffer = VFSReadFile(filename.c_str(), &fileSize);
 	if (!buffer) {
+		ELOG("Failed to read file %s", filename.c_str());
 		return false;
 	}
 	bool retval = LoadFromFileData(buffer, fileSize, type);
 	if (retval) {
 		filename_ = filename;
-	}
-	else {
-		ELOG("%s: Failed to load texture %s", __FUNCTION__, filename.c_str());
+	} else {
+		ELOG("Failed to load texture %s", filename.c_str());
 	}
 	delete[] buffer;
 	return retval;
 }
 
 ManagedTexture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type) {
+	if (!draw)
+		return nullptr;
 	ManagedTexture *mtex = new ManagedTexture(draw);
 	if (!mtex->LoadFromFile(filename, type)) {
 		delete mtex;
@@ -146,6 +148,8 @@ ManagedTexture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filen
 
 // TODO: Remove the code duplication between this and LoadFromFileData
 ManagedTexture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType type) {
+	if (!draw)
+		return nullptr;
 	ManagedTexture *mtex = new ManagedTexture(draw);
 	mtex->LoadFromFileData(data, size, type);
 	return mtex;

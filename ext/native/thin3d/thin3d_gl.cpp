@@ -12,6 +12,10 @@
 #include "gfx_es2/gpu_features.h"
 #include "gfx/gl_lost_manager.h"
 
+#ifdef IOS
+extern void bindDefaultFBO();
+#endif
+
 namespace Draw {
 
 static const unsigned short compToGL[] = {
@@ -1224,10 +1228,6 @@ public:
 	FBColorDepth colorDepth;
 };
 
-
-#ifdef IOS
-extern void bindDefaultFBO();
-#endif
 // On PC, we always use GL_DEPTH24_STENCIL8. 
 // On Android, we try to use what's available.
 

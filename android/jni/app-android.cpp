@@ -144,16 +144,14 @@ void AndroidEGLGraphicsContext::SwapBuffers() {
 // Doesn't do much. Just to fit in.
 class AndroidJavaEGLGraphicsContext : public GraphicsContext {
 public:
-	AndroidJavaEGLGraphicsContext() : draw_(nullptr) {}
-	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
+	AndroidJavaEGLGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
-		return true;
 	}
-	void Shutdown() override {
+	~AndroidJavaEGLGraphicsContext() {
 		delete draw_;
-		draw_ = nullptr;
 	}
+	void Shutdown() override {}
 	void SwapBuffers() override {}
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
@@ -617,10 +615,10 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 // JavaEGL
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
-	ILOG("NativeApp.displayInit()");
 	if (javaGL && !graphicsContext) {
 		graphicsContext = new AndroidJavaEGLGraphicsContext();
 	}
+	ILOG("NativeApp.displayInit() (graphicsContext=%p)", graphicsContext);
 
 	if (!renderer_inited) {
 		NativeInitGraphics(graphicsContext);
@@ -722,6 +720,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayShutdown(JNIEnv *en
 	if (renderer_inited) {
 		NativeDeviceLost();
 		NativeShutdownGraphics();
+		graphicsContext->Shutdown();
+		delete graphicsContext;
+		graphicsContext = nullptr;
 		renderer_inited = false;
 		NativeMessageReceived("recreateviews", "");
 	}
@@ -1094,6 +1095,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	graphicsContext->Shutdown();
 	delete graphicsContext;
+	graphicsContext = nullptr;
 	renderLoopRunning = false;
 	WLOG("Render loop function exited.");
 	return true;

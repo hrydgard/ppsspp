@@ -21,7 +21,7 @@
 #include "profiler/profiler.h"
 
 #include "gfx_es2/glsl_program.h"
-#include "native/thin3d/thin3d.h"
+#include "thin3d/thin3d.h"
 
 #include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"

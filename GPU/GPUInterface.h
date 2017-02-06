@@ -204,11 +204,17 @@ struct GPUEvent {
 	}
 };
 
+namespace Draw {
+class DrawContext;
+}
+
 class GPUInterface {
 public:
 	virtual ~GPUInterface() {}
 
 	static const int DisplayListMaxCount = 64;
+
+	virtual Draw::DrawContext *GetDrawContext() = 0;
 
 	// Initialization
 	virtual void InitClear() = 0;
