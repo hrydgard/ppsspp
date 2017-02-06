@@ -74,18 +74,18 @@ public:
 
 class AndroidEGLGraphicsContext : public AndroidGraphicsContext {
 public:
-	AndroidEGLGraphicsContext() : wnd_(nullptr), gl(nullptr) {}
+	AndroidEGLGraphicsContext() : draw_(nullptr), wnd_(nullptr), gl(nullptr) {}
 	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
 	void Shutdown() override;
 	void SwapBuffers() override;
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
-	Draw::DrawContext *CreateDrawContext() override {
-		CheckGLExtensions();
-		return Draw::T3DCreateGLContext();
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
 	}
 
 private:
+	Draw::DrawContext *draw_;
 	ANativeWindow *wnd_;
 	cInterfaceBase *gl;
 };
@@ -108,7 +108,7 @@ bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, in
 	// This workaround seems only be needed on some really old devices.
 	if (androidVersion < ANDROID_VERSION_ICS) {
 		switch (backbufferFormat) {
-		case 4:  // PixelFormat.RGB_565
+		case 4:	// PixelFormat.RGB_565
 			use565 = true;
 			break;
 		default:
@@ -123,10 +123,14 @@ bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, in
 		return false;
 	}
 	gl->MakeCurrent();
+	CheckGLExtensions();
+	draw_ = Draw::T3DCreateGLContext();
 	return true;
 }
 
 void AndroidEGLGraphicsContext::Shutdown() {
+	delete draw_;
+	draw_ = nullptr;
 	gl->ClearCurrent();
 	gl->Shutdown();
 	delete gl;
@@ -140,16 +144,22 @@ void AndroidEGLGraphicsContext::SwapBuffers() {
 // Doesn't do much. Just to fit in.
 class AndroidJavaEGLGraphicsContext : public GraphicsContext {
 public:
-	AndroidJavaEGLGraphicsContext() {}
-	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) { return true; }
+	AndroidJavaEGLGraphicsContext() {
+		CheckGLExtensions();
+		draw_ = Draw::T3DCreateGLContext();
+	}
+	~AndroidJavaEGLGraphicsContext() {
+		delete draw_;
+	}
 	void Shutdown() override {}
 	void SwapBuffers() override {}
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
-	Draw::DrawContext *CreateDrawContext() override {
-		CheckGLExtensions();
-		return Draw::T3DCreateGLContext();
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
 	}
+private:
+	Draw::DrawContext *draw_;
 };
 
 
@@ -158,7 +168,7 @@ static VulkanContext *g_Vulkan;
 
 class AndroidVulkanContext : public AndroidGraphicsContext {
 public:
-	AndroidVulkanContext() {}
+	AndroidVulkanContext() : draw_(nullptr) {}
 	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
@@ -167,9 +177,11 @@ public:
 
 	void *GetAPIContext() override { return g_Vulkan; }
 
-	Draw::DrawContext *CreateDrawContext() override {
-		return Draw::T3DCreateVulkanContext(g_Vulkan);
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
 	}
+private:
+	Draw::DrawContext *draw_;
 };
 
 struct VulkanLogOptions {
@@ -274,7 +286,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
 	}
 	g_Vulkan->InitObjects(true);
-
+	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
 	return true;
 }
 
@@ -283,6 +295,9 @@ void AndroidVulkanContext::Shutdown() {
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDebugMsgCallback();
 	g_Vulkan->DestroyDevice();
+	delete draw_;
+	draw_ = nullptr;
+
 	delete g_Vulkan;
 	g_Vulkan = nullptr;
 
@@ -296,7 +311,7 @@ void AndroidVulkanContext::Resize() {
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 
-	// backbufferResize updated these values.  TODO: Notify another way?
+	// backbufferResize updated these values.	TODO: Notify another way?
 	g_Vulkan->ReinitSurfaceAndroid(pixel_xres, pixel_yres);
 	g_Vulkan->InitObjects(g_Vulkan);
 }
@@ -330,7 +345,7 @@ static int deviceType;
 static int display_dpi;
 static int display_xres;
 static int display_yres;
-static int backbuffer_format;  // Android PixelFormat enum
+static int backbuffer_format;	// Android PixelFormat enum
 
 static int desiredBackbufferSizeX;
 static int desiredBackbufferSizeY;
@@ -397,7 +412,7 @@ std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
 		return systemName;
-	case SYSPROP_LANGREGION:  // "en_US"
+	case SYSPROP_LANGREGION:	// "en_US"
 		return langRegion;
 	case SYSPROP_MOGA_VERSION:
 		return mogaVersion;
@@ -427,7 +442,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return (int)(display_hz * 1000.0);
 	case SYSPROP_SUPPORTS_PERMISSIONS:
-		return androidVersion >= 23;  // 6.0 Marshmallow introduced run time permissions.
+		return androidVersion >= 23;	// 6.0 Marshmallow introduced run time permissions.
 	default:
 		return -1;
 	}
@@ -480,7 +495,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
-  (JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
+	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
 		jint jAndroidVersion, jstring jboard) {
 	jniEnvUI = env;
@@ -572,7 +587,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 		sampleRate = 44100;
 	}
 
-	ILOG("NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i   optimal sr: %i   actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
+	ILOG("NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i	 optimal sr: %i	 actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
 	AndroidAudio_Init(&NativeMix, library_path, framesPerBuffer, sampleRate);
 }
 
@@ -600,10 +615,10 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 // JavaEGL
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
-	ILOG("NativeApp.displayInit()");
 	if (javaGL && !graphicsContext) {
 		graphicsContext = new AndroidJavaEGLGraphicsContext();
 	}
+	ILOG("NativeApp.displayInit() (graphicsContext=%p)", graphicsContext);
 
 	if (!renderer_inited) {
 		NativeInitGraphics(graphicsContext);
@@ -705,6 +720,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayShutdown(JNIEnv *en
 	if (renderer_inited) {
 		NativeDeviceLost();
 		NativeShutdownGraphics();
+		graphicsContext->Shutdown();
+		delete graphicsContext;
+		graphicsContext = nullptr;
 		renderer_inited = false;
 		NativeMessageReceived("recreateviews", "");
 	}
@@ -1077,6 +1095,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	graphicsContext->Shutdown();
 	delete graphicsContext;
+	graphicsContext = nullptr;
 	renderLoopRunning = false;
 	WLOG("Render loop function exited.");
 	return true;

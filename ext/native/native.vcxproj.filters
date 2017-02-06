@@ -317,6 +317,12 @@
     <ClInclude Include="gfx\d3d9_state.h">
       <Filter>gfx</Filter>
     </ClInclude>
+    <ClInclude Include="gfx\GLStateCache.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\dx_state.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -761,6 +767,12 @@
       <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="gfx\d3d9_state.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\GLStateCache.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\dx_state.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
   </ItemGroup>

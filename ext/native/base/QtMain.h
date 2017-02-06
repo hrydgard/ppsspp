@@ -40,9 +40,18 @@ void SimulateGamepad(InputState *input);
 
 class QtDummyGraphicsContext : public DummyGraphicsContext {
 public:
-	Draw::DrawContext *CreateDrawContext() override {
-		return Draw::T3DCreateGLContext();
+	QtDummyGraphicsContext() {
+		draw_ = Draw::T3DCreateGLContext();
 	}
+	~QtDummyGraphicsContext() {
+		delete draw_;
+	}
+
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
+private:
+	Draw::DrawContext *draw_;
 };
 
 //GUI
@@ -50,32 +59,32 @@ class MainUI : public QGLWidget
 {
 	Q_OBJECT
 public:
-    explicit MainUI(QWidget *parent = 0);
-    ~MainUI();
+	explicit MainUI(QWidget *parent = 0);
+	~MainUI();
 
 public slots:
-    QString InputBoxGetQString(QString title, QString defaultValue);
+	QString InputBoxGetQString(QString title, QString defaultValue);
 
 signals:
 	void doubleClick();
 	void newFrame();
 
 protected:
-    void timerEvent(QTimerEvent *);
-    void changeEvent(QEvent *e);
-    bool event(QEvent *e);
+	void timerEvent(QTimerEvent *);
+	void changeEvent(QEvent *e);
+	bool event(QEvent *e);
 
-    void initializeGL();
-    void resizeGL(int w, int h);
-    void paintGL();
+	void initializeGL();
+	void resizeGL(int w, int h);
+	void paintGL();
 
-    void updateAccelerometer();
+	void updateAccelerometer();
 
 private:
 	InputState input_state;
 	QtDummyGraphicsContext *graphicsContext;
 
-    float xscale, yscale;
+	float xscale, yscale;
 #if defined(MOBILE_DEVICE)
 	QAccelerometer* acc;
 #endif
@@ -91,11 +100,11 @@ class MainAudio: public QObject
 	Q_OBJECT
 public:
 	MainAudio() {}
-    ~MainAudio();
+	~MainAudio();
 public slots:
-    void run();
+	void run();
 protected:
-    void timerEvent(QTimerEvent *);
+	void timerEvent(QTimerEvent *);
 private:
 	QIODevice* feed;
 	QAudioOutput* output;

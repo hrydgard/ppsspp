@@ -2,7 +2,7 @@
 
 #include "base/logging.h"
 
-#include "GPU/GLES/GLStateCache.h"
+#include "gfx/GLStateCache.h"
 
 OpenGLState glstate;
 

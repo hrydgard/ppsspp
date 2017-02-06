@@ -20,7 +20,7 @@
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/GLStateCache.h"
+#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
 

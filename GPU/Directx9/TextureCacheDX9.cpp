@@ -573,9 +573,9 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 
 		nextTexture_ = entry;
 	} else {
-		if (framebuffer->fbo_dx9) {
-			fbo_destroy(framebuffer->fbo_dx9);
-			framebuffer->fbo_dx9 = 0;
+		if (framebuffer->fbo) {
+			delete framebuffer->fbo;
+			framebuffer->fbo = nullptr;
 		}
 		pD3Ddevice->SetTexture(0, NULL);
 		gstate_c.needShaderTexClamp = false;
@@ -779,8 +779,8 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 	if (pshader) {
 		LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
-		FBO_DX9 *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
-		fbo_bind_as_render_target(depalFBO);
+		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
+		draw_->BindFramebufferAsRenderTarget(depalFBO);
 		shaderManager_->DirtyLastShader();
 
 		float xoff = -0.5f / framebuffer->renderWidth;
@@ -802,7 +802,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 
 		shaderApply.Shade();
 
-		fbo_bind_as_texture(depalFBO, 0, FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;

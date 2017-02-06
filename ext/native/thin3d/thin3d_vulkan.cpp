@@ -359,7 +359,6 @@ public:
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
-	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
@@ -367,6 +366,22 @@ public:
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 
 	Texture *CreateTexture(const TextureDesc &desc) override;
+	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
+	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
+
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+
+	// These functions should be self explanatory.
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
+	// color must be 0, for now.
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindFramebufferForRead(Framebuffer *fbo) override;
+
+	void BindBackbufferAsRenderTarget() override;
+	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
+
+	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
@@ -424,6 +439,8 @@ public:
 	uintptr_t GetNativeObject(NativeObject obj) const override {
 		return 0;
 	}
+
+	void HandleEvent(Event ev) override {}
 
 private:
 	void ApplyDynamicState();
@@ -1253,6 +1270,39 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	default:
 		return 0;
 	}
+}
+
+// A VKFramebuffer is a VkFramebuffer plus all the textures it owns.
+class VKFramebuffer : public Framebuffer {
+public:
+	int width;
+	int height;
+};
+
+Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
+	VKFramebuffer *fb = new VKFramebuffer();
+	fb->width = desc.width;
+	fb->height = desc.height;
+
+	return fb;
+}
+
+void VKContext::CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {}
+bool VKContext::BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) { return true; }
+
+// These functions should be self explanatory.
+void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {}
+// color must be 0, for now.
+void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {}
+void VKContext::BindFramebufferForRead(Framebuffer *fbo) {}
+
+void VKContext::BindBackbufferAsRenderTarget() {}
+uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) { return 0; }
+
+void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
+	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	*w = fb->width;
+	*h = fb->height;
 }
 
 }  // namespace Draw

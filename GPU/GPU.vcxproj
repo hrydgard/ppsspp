@@ -206,7 +206,6 @@
     <ClInclude Include="Debugger\Stepping.h" />
     <ClInclude Include="Directx9\DepalettizeShaderDX9.h" />
     <ClInclude Include="Directx9\GPU_DX9.h" />
-    <ClInclude Include="Directx9\helper\dx_fbo.h" />
     <ClInclude Include="Directx9\PixelShaderGeneratorDX9.h" />
     <ClInclude Include="Directx9\FramebufferDX9.h" />
     <ClInclude Include="Directx9\ShaderManagerDX9.h" />
@@ -217,12 +216,10 @@
     <ClInclude Include="ge_constants.h" />
     <ClInclude Include="GeDisasm.h" />
     <ClInclude Include="GLES\DepalettizeShaderGLES.h" />
-    <ClInclude Include="GLES\FBO.h" />
     <ClInclude Include="GLES\FragmentShaderGeneratorGLES.h" />
     <ClInclude Include="GLES\FragmentTestCacheGLES.h" />
     <ClInclude Include="GLES\FramebufferManagerGLES.h" />
     <ClInclude Include="GLES\GPU_GLES.h" />
-    <ClInclude Include="GLES\GLStateCache.h" />
     <ClInclude Include="GLES\ShaderManagerGLES.h" />
     <ClInclude Include="GLES\StateMappingGLES.h" />
     <ClInclude Include="GLES\TextureCacheGLES.h" />
@@ -293,7 +290,6 @@
     <ClCompile Include="Debugger\Stepping.cpp" />
     <ClCompile Include="Directx9\DepalettizeShaderDX9.cpp" />
     <ClCompile Include="Directx9\GPU_DX9.cpp" />
-    <ClCompile Include="Directx9\helper\dx_fbo.cpp" />
     <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp" />
     <ClCompile Include="Directx9\FramebufferDX9.cpp" />
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp" />
@@ -305,12 +301,10 @@
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GLES\DepalettizeShaderGLES.cpp" />
-    <ClCompile Include="GLES\FBO.cpp" />
     <ClCompile Include="GLES\FragmentShaderGeneratorGLES.cpp" />
     <ClCompile Include="GLES\FragmentTestCacheGLES.cpp" />
     <ClCompile Include="GLES\FramebufferManagerGLES.cpp" />
     <ClCompile Include="GLES\GPU_GLES.cpp" />
-    <ClCompile Include="GLES\GLStateCache.cpp" />
     <ClCompile Include="GLES\ShaderManagerGLES.cpp" />
     <ClCompile Include="GLES\StateMappingGLES.cpp" />
     <ClCompile Include="GLES\StencilBufferGLES.cpp" />

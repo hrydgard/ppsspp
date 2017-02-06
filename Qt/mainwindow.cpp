@@ -140,7 +140,7 @@ void MainWindow::Boot()
 
 	memoryWindow = new Debugger_Memory(currentDebugMIPS, this, this);
 	memoryTexWindow = new Debugger_MemoryTex(this);
-	displaylistWindow = new Debugger_DisplayList(currentDebugMIPS, this, this);
+	displaylistWindow = new Debugger_DisplayList(currentDebugMIPS, gpu->GetDrawContext(), this, this);
 
 	notifyMapsLoaded();
 

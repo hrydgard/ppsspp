@@ -19,6 +19,7 @@
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/d3dx9_loader.h"
+#include "gfx/d3d9_state.h"
 
 namespace Draw {
 
@@ -548,6 +549,21 @@ public:
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	Texture *CreateTexture(const TextureDesc &desc) override;
 
+	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override {}
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+
+	// These functions should be self explanatory.
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
+	// color must be 0, for now.
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+	void BindFramebufferForRead(Framebuffer *fbo) override {}
+	
+	void BindBackbufferAsRenderTarget() override;
+	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
+
+	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
+
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		for (int i = 0; i < count; ++i) {
@@ -605,6 +621,8 @@ public:
 		}
 	}
 
+	void HandleEvent(Event ev) override;
+
 private:
 	LPDIRECT3D9 d3d_;
 	LPDIRECT3D9EX d3dEx_;
@@ -622,7 +640,15 @@ private:
 	int curVBufferOffsets_[4];
 	D3D9Buffer *curIBuffer_;
 	int curIBufferOffset_;
+
+	// Framebuffer state
+	LPDIRECT3DSURFACE9 deviceRTsurf = 0;
+	LPDIRECT3DSURFACE9 deviceDSsurf = 0;
+	bool supportsINTZ = false;
 };
+
+#define FB_DIV 1
+#define FOURCC_INTZ ((D3DFORMAT)(MAKEFOURCC('I', 'N', 'T', 'Z')))
 
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
 	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx), caps_{} {
@@ -636,6 +662,18 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.multiViewport = false;
 	caps_.anisoSupported = true;
 	caps_.depthRangeMinusOneToOne = false;
+	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
+	caps_.dualSourceBlend = false;
+	caps_.tesselationShaderSupported = false;
+	if (d3d) {
+		D3DDISPLAYMODE displayMode;
+		d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &displayMode);
+
+		// To be safe, make sure both the display format and the FBO format support INTZ.
+		HRESULT displayINTZ = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, displayMode.Format, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, FOURCC_INTZ);
+		HRESULT fboINTZ = d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, D3DFMT_A8R8G8B8, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, FOURCC_INTZ);
+		supportsINTZ = SUCCEEDED(displayINTZ) && SUCCEEDED(fboINTZ);
+	}
 }
 
 D3D9Context::~D3D9Context() {
@@ -947,6 +985,169 @@ void D3D9ShaderModule::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, 
 	D3DXHANDLE handle = constantTable_->GetConstantByName(NULL, name);
 	if (handle) {
 		constantTable_->SetFloatArray(device, handle, value, 16);
+	}
+}
+
+class D3D9Framebuffer : public Framebuffer {
+public:
+	~D3D9Framebuffer();
+	uint32_t id;
+	LPDIRECT3DSURFACE9 surf;
+	LPDIRECT3DSURFACE9 depthstencil;
+	LPDIRECT3DTEXTURE9 tex;
+	LPDIRECT3DTEXTURE9 depthstenciltex;
+
+	int width;
+	int height;
+	FBColorDepth colorDepth;
+};
+
+Framebuffer *D3D9Context::CreateFramebuffer(const FramebufferDesc &desc) {
+	static uint32_t id = 0;
+
+	D3D9Framebuffer *fbo = new D3D9Framebuffer{};
+	fbo->width = desc.width;
+	fbo->height = desc.height;
+	fbo->colorDepth = desc.colorDepth;
+	fbo->depthstenciltex = nullptr;
+
+	HRESULT rtResult = device_->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &fbo->tex, NULL);
+	if (FAILED(rtResult)) {
+		ELOG("Failed to create render target");
+		delete fbo;
+		return NULL;
+	}
+	fbo->tex->GetSurfaceLevel(0, &fbo->surf);
+
+	HRESULT dsResult;
+	if (supportsINTZ) {
+		dsResult = device_->CreateTexture(fbo->width, fbo->height, 1, D3DUSAGE_DEPTHSTENCIL, FOURCC_INTZ, D3DPOOL_DEFAULT, &fbo->depthstenciltex, NULL);
+		if (SUCCEEDED(dsResult)) {
+			dsResult = fbo->depthstenciltex->GetSurfaceLevel(0, &fbo->depthstencil);
+		}
+	} else {
+		dsResult = device_->CreateDepthStencilSurface(fbo->width, fbo->height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
+	}
+	if (FAILED(dsResult)) {
+		ELOG("Failed to create depth buffer");
+		fbo->surf->Release();
+		fbo->tex->Release();
+		if (fbo->depthstenciltex) {
+			fbo->depthstenciltex->Release();
+		}
+		delete fbo;
+		return NULL;
+	}
+	fbo->id = id++;
+	return fbo;
+}
+
+D3D9Framebuffer::~D3D9Framebuffer() {
+	tex->Release();
+	surf->Release();
+	depthstencil->Release();
+	if (depthstenciltex) {
+		depthstenciltex->Release();
+	}
+}
+
+void D3D9Context::BindBackbufferAsRenderTarget() {
+	using namespace DX9;
+
+	device_->SetRenderTarget(0, deviceRTsurf);
+	device_->SetDepthStencilSurface(deviceDSsurf);
+	dxstate.scissorRect.restore();
+	dxstate.viewport.restore();
+}
+
+void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
+	using namespace DX9;
+
+	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
+	device_->SetRenderTarget(0, fb->surf);
+	device_->SetDepthStencilSurface(fb->depthstencil);
+	dxstate.scissorRect.restore();
+	dxstate.viewport.restore();
+}
+
+uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
+	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
+	if (channelBits & FB_SURFACE_BIT) {
+		switch (channelBits & 7) {
+		case FB_DEPTH_BIT:
+			return (uintptr_t)fb->depthstencil;
+		case FB_STENCIL_BIT:
+			return (uintptr_t)fb->depthstencil;
+		case FB_COLOR_BIT:
+		default:
+			return (uintptr_t)fb->surf;
+		}
+	} else {
+		switch (channelBits & 7) {
+		case FB_DEPTH_BIT:
+			return (uintptr_t)fb->depthstenciltex;
+		case FB_STENCIL_BIT:
+			return 0;  // Can't texture from stencil
+		case FB_COLOR_BIT:
+		default:
+			return (uintptr_t)fb->tex;
+		}
+	}
+}
+
+LPDIRECT3DSURFACE9 fbo_get_color_for_read(D3D9Framebuffer *fbo) {
+	return fbo->surf;
+}
+
+void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
+	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
+	switch (channelBit) {
+	case FB_DEPTH_BIT:
+		if (fb->depthstenciltex) {
+			device_->SetTexture(binding, fb->depthstenciltex);
+		}
+		break;
+	case FB_COLOR_BIT:
+	default:
+		if (fb->tex) {
+			device_->SetTexture(binding, fb->tex);
+		}
+		break;
+	}
+}
+
+void D3D9Context::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
+	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
+	*w = fb->width;
+	*h = fb->height;
+}
+
+bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
+	D3D9Framebuffer *src = (D3D9Framebuffer *)srcfb;
+	D3D9Framebuffer *dst = (D3D9Framebuffer *)dstfb;
+	if (channelBits != FB_COLOR_BIT)
+		return false;
+	RECT srcRect{ (LONG)srcX1, (LONG)srcY1, (LONG)srcX2, (LONG)srcY2 };
+	RECT dstRect{ (LONG)dstX1, (LONG)dstY1, (LONG)dstX2, (LONG)dstY2 };
+	LPDIRECT3DSURFACE9 srcSurf = src ? src->surf : deviceRTsurf;
+	LPDIRECT3DSURFACE9 dstSurf = dst ? dst->surf : deviceRTsurf;
+	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, filter == FB_BLIT_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT));
+}
+
+void D3D9Context::HandleEvent(Event ev) {
+	switch (ev) {
+	case Event::LOST_BACKBUFFER:
+		if (deviceRTsurf)
+			deviceRTsurf->Release();
+		if (deviceDSsurf)
+			deviceDSsurf->Release();
+		deviceRTsurf = nullptr;
+		deviceDSsurf = nullptr;
+		break;
+	case Event::GOT_BACKBUFFER:
+		device_->GetRenderTarget(0, &deviceRTsurf);
+		device_->GetDepthStencilSurface(&deviceDSsurf);
+		break;
 	}
 }
 

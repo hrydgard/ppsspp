@@ -82,7 +82,7 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
-#include "GPU/GLES/GLStateCache.h"
+#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 #include "GPU/GLES/StateMappingGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"

@@ -21,7 +21,6 @@
 
 #include "Core/Config.h"
 #include "Common/GraphicsContext.h"
-#include "GPU/GLES/FBO.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -36,10 +35,18 @@
 
 class IOSDummyGraphicsContext : public DummyGraphicsContext {
 public:
-    Draw::DrawContext *CreateDrawContext() override {
-        CheckGLExtensions();
-        return Draw::T3DCreateGLContext();
-    }
+	IOSDummyGraphicsContext() {
+		CheckGLExtensions();
+		draw_ = Draw::T3DCreateGLContext();
+	}
+	~IOSDummyGraphicsContext() {
+		delete draw_;
+	}
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
+private:
+	Draw::DrawContext *draw_;
 };
 
 float dp_xscale = 1.0f;

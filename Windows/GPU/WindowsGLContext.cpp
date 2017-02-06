@@ -362,6 +362,8 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 	pauseEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	resumeEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
+	CheckGLExtensions();
+	draw_ = Draw::T3DCreateGLContext();
 	return true;												// Success
 }
 
@@ -372,6 +374,8 @@ void WindowsGLContext::SwapInterval(int interval) {
 }
 
 void WindowsGLContext::Shutdown() {
+	delete draw_;
+	draw_ = nullptr;
 	CloseHandle(pauseEvent);
 	CloseHandle(resumeEvent);
 	if (hRC) {
@@ -398,9 +402,4 @@ void WindowsGLContext::Shutdown() {
 }
 
 void WindowsGLContext::Resize() {
-}
-
-Draw::DrawContext *WindowsGLContext::CreateDrawContext() {
-	CheckGLExtensions();
-	return Draw::T3DCreateGLContext();
 }

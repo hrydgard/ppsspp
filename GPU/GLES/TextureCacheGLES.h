@@ -20,11 +20,10 @@
 #include <map>
 
 #include "gfx_es2/gpu_features.h"
-
+#include "gfx/gl_common.h"
 #include "Globals.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/FBO.h"
 #include "GPU/GLES/TextureScalerGLES.h"
 #include "GPU/Common/TextureCacheCommon.h"
 

@@ -193,10 +193,15 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	g_Vulkan->InitSurfaceWin32(hInst, hWnd);
 	g_Vulkan->InitObjects(true);
 
+	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
+
 	return true;
 }
 
 void WindowsVulkanContext::Shutdown() {
+	delete draw_;
+	draw_ = nullptr;
+
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDevice();
@@ -205,10 +210,6 @@ void WindowsVulkanContext::Shutdown() {
 	g_Vulkan = nullptr;
 
 	finalize_glslang();
-}
-
-Draw::DrawContext *WindowsVulkanContext::CreateDrawContext() {
-	return Draw::T3DCreateVulkanContext(g_Vulkan);
 }
 
 void WindowsVulkanContext::SwapBuffers() {

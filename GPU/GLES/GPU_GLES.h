@@ -21,7 +21,6 @@
 #include <deque>
 
 #include "GPU/GPUCommon.h"
-#include "GPU/GLES/FBO.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
@@ -73,7 +72,7 @@ public:
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
-	static bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
+	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;

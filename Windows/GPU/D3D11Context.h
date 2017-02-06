@@ -27,7 +27,7 @@ class DrawContext;
 
 class D3D11Context : public WindowsGraphicsContext {
 public:
-	D3D11Context() : adapterId(-1), hDC(nullptr), hWnd_(nullptr), hD3D11(nullptr) {
+	D3D11Context() : draw_(nullptr), adapterId(-1), hDC(nullptr), hWnd_(nullptr), hD3D11(nullptr) {
 	}
 
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
@@ -37,9 +37,10 @@ public:
 
 	void Resize() override;
 
-	Draw::DrawContext *CreateDrawContext() override;
+	Draw::DrawContext *GetDrawContext() override { return draw_; }
 
 private:
+	Draw::DrawContext *draw_;
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 	IDXGISwapChain *swapChain_ = nullptr;

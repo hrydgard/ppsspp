@@ -30,7 +30,7 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/GLStateCache.h"
+#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
@@ -637,8 +637,8 @@ void TextureCacheGLES::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFrameb
 		nextTexture_ = entry;
 	} else {
 		if (framebuffer->fbo) {
-			fbo_destroy(framebuffer->fbo);
-			framebuffer->fbo = 0;
+			delete framebuffer->fbo;
+			framebuffer->fbo = nullptr;
 		}
 		glBindTexture(GL_TEXTURE_2D, 0);
 		gstate_c.needShaderTexClamp = false;
@@ -849,8 +849,8 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	}
 	if (depal) {
 		GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
-		fbo_bind_as_render_target(depalFBO);
+		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
+		draw_->BindFramebufferAsRenderTarget(depalFBO);
 		shaderManager_->DirtyLastShader();
 
 		TextureShaderApplier shaderApply(depal, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight);
@@ -867,7 +867,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 
 		shaderApply.Shade();
 
-		fbo_bind_as_texture(depalFBO, 0, FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;

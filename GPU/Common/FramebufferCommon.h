@@ -46,9 +46,8 @@ enum {
 	FBO_READFBOMEMORY_MIN = 2
 };
 
-struct FBO;
-namespace DX9 {
-	struct FBO_DX9;
+namespace Draw {
+	class Framebuffer;
 }
 
 class VulkanFBO;
@@ -91,11 +90,7 @@ struct VirtualFramebuffer {
 
 	// TODO: Handle fbo and colorDepth better.
 	u8 colorDepth;
-	union {
-		FBO *fbo;
-		DX9::FBO_DX9 *fbo_dx9;
-		VulkanFBO *fbo_vk;
-	};
+	Draw::Framebuffer *fbo;
 
 	u16 drawnWidth;
 	u16 drawnHeight;

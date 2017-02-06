@@ -1,8 +1,7 @@
 #pragma once
 
 #include <functional>
-#include <string.h>
-#include <string>
+#include <cstring>  // for memcmp
 
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"

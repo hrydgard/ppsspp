@@ -35,6 +35,9 @@ public:
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	virtual ~GPUCommon();
 
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
 	void Reinitialize() override;
 
 	void BeginHostFrame() override;
