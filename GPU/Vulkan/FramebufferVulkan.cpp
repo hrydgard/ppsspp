@@ -673,26 +673,11 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	}
 }
 
-void FramebufferManagerVulkan::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) {
-	if (vfbFormatChanged) {
-		textureCacheVulkan_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
-		if (vfb->drawnFormat != vfb->format) {
-			ReformatFramebufferFrom(vfb, vfb->drawnFormat);
-		}
-	}
-
-	// ugly...
-	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-	}
-}
-
 bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
 	// In Vulkan we should be able to simply copy the stencil data directly to a stencil buffer without
 	// messing about with bitplane textures and the like.
 	return false;
 }
-
 
 int FramebufferManagerVulkan::GetLineWidth() {
 	if (g_Config.iInternalResolution == 0) {

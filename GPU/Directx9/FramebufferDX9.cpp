@@ -491,24 +491,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 	}
 
-	void FramebufferManagerDX9::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) {
-		if (vfbFormatChanged) {
-			textureCacheDX9_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
-			if (vfb->drawnFormat != vfb->format) {
-				ReformatFramebufferFrom(vfb, vfb->drawnFormat);
-			}
-		}
-
-		// ugly...
-		if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-		}
-		if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
-			gstate_c.Dirty(DIRTY_PROJMATRIX);
-			gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-		}
-	}
-
 	void FramebufferManagerDX9::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
 		if (!useBufferedRendering_ || !vfb->fbo) {
 			return;

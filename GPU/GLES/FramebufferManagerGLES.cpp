@@ -682,20 +682,6 @@ void FramebufferManagerGLES::NotifyRenderFramebufferSwitched(VirtualFramebuffer 
 	}
 }
 
-void FramebufferManagerGLES::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) {
-	if (vfbFormatChanged) {
-		textureCacheGL_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
-		if (vfb->drawnFormat != vfb->format) {
-			ReformatFramebufferFrom(vfb, vfb->drawnFormat);
-		}
-	}
-
-	// ugly...
-	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-	}
-}
-
 void FramebufferManagerGLES::SetLineWidth() {
 #ifndef USING_GLES2
 	if (g_Config.iInternalResolution == 0) {
