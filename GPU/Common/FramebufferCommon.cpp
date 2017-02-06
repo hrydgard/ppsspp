@@ -182,6 +182,25 @@ bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffe
 	return updateVRAM_ || (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000);
 }
 
+void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
+	for (size_t i = 0; i < extraFBOs_.size(); i++) {
+		delete extraFBOs_[i];
+	}
+	extraFBOs_.clear();
+	for (int i = 0; i < num; i++) {
+		// No depth/stencil for post processing
+		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
+		extraFBOs_.push_back(fbo);
+
+		// The new FBO is still bound after creation, but let's bind it anyway.
+		draw_->BindFramebufferAsRenderTarget(fbo);
+		ClearBuffer();
+	}
+
+	currentRenderVfb_ = 0;
+	draw_->BindBackbufferAsRenderTarget();
+}
+
 // Heuristics to figure out the size of FBO to create.
 void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height) {
 	static const int MAX_FRAMEBUF_HEIGHT = 512;

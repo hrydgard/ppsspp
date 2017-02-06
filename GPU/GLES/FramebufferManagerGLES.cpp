@@ -114,25 +114,6 @@ void FramebufferManagerGLES::DisableState() {
 	glstate.stencilMask.set(0xFF);
 }
 
-void FramebufferManagerGLES::SetNumExtraFBOs(int num) {
-	for (size_t i = 0; i < extraFBOs_.size(); i++) {
-		delete extraFBOs_[i];
-	}
-	extraFBOs_.clear();
-	for (int i = 0; i < num; i++) {
-		// No depth/stencil for post processing
-		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
-		extraFBOs_.push_back(fbo);
-
-		// The new FBO is still bound after creation, but let's bind it anyway.
-		draw_->BindFramebufferAsRenderTarget(fbo);
-		ClearBuffer();
-	}
-
-	currentRenderVfb_ = 0;
-	draw_->BindBackbufferAsRenderTarget();
-}
-
 void FramebufferManagerGLES::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
 		std::string errorString;

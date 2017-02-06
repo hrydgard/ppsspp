@@ -242,6 +242,7 @@ public:
 
 protected:
 	void UpdateSize();
+	void SetNumExtraFBOs(int num);
 
 	virtual void DisableState() = 0;
 	virtual void ClearBuffer(bool keepState = false) = 0;
@@ -319,6 +320,9 @@ protected:
 	float renderHeight_;
 	int pixelWidth_;
 	int pixelHeight_;
+
+	// Used by post-processing shaders
+	std::vector<Draw::Framebuffer *> extraFBOs_;
 
 	// Aggressively delete unused FBOs to save gpu memory.
 	enum {

@@ -136,8 +136,6 @@ private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
 
-	void SetNumExtraFBOs(int num);
-
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
@@ -162,9 +160,6 @@ private:
 	TextureCacheGLES *textureCacheGL_;
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
-
-	// Used by post-processing shader
-	std::vector<Draw::Framebuffer *> extraFBOs_;
 
 	bool resized_;
 
