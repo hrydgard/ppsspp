@@ -18,6 +18,9 @@
 #include <algorithm>
 #include <sstream>
 
+#include "ext/native/thin3d/thin3d.h"
+#include "gfx_es2/gpu_features.h"
+
 #include "i18n/i18n.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
@@ -27,6 +30,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
@@ -177,6 +181,25 @@ u32 FramebufferManagerCommon::FramebufferByteSize(const VirtualFramebuffer *vfb)
 
 bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const {
 	return updateVRAM_ || (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000);
+}
+
+void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
+	for (size_t i = 0; i < extraFBOs_.size(); i++) {
+		delete extraFBOs_[i];
+	}
+	extraFBOs_.clear();
+	for (int i = 0; i < num; i++) {
+		// No depth/stencil for post processing
+		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
+		extraFBOs_.push_back(fbo);
+
+		// The new FBO is still bound after creation, but let's bind it anyway.
+		draw_->BindFramebufferAsRenderTarget(fbo);
+		ClearBuffer();
+	}
+
+	currentRenderVfb_ = 0;
+	draw_->BindBackbufferAsRenderTarget();
 }
 
 // Heuristics to figure out the size of FBO to create.
@@ -476,6 +499,132 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	return vfb;
 }
 
+void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
+	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
+	if (v->fbo) {
+		delete v->fbo;
+		v->fbo = nullptr;
+	}
+
+	// Wipe some pointers
+	if (currentRenderVfb_ == v)
+		currentRenderVfb_ = 0;
+	if (displayFramebuf_ == v)
+		displayFramebuf_ = 0;
+	if (prevDisplayFramebuf_ == v)
+		prevDisplayFramebuf_ = 0;
+	if (prevPrevDisplayFramebuf_ == v)
+		prevPrevDisplayFramebuf_ = 0;
+
+	delete v;
+}
+
+void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
+	if (!useBufferedRendering_) {
+		draw_->BindBackbufferAsRenderTarget();
+		// Let's ignore rendering to targets that have not (yet) been displayed.
+		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
+	}
+
+	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
+
+	ClearBuffer();
+
+	// ugly...
+	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+	}
+	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+	}
+}
+
+void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) {
+	if (vfbFormatChanged) {
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+		if (vfb->drawnFormat != vfb->format) {
+			ReformatFramebufferFrom(vfb, vfb->drawnFormat);
+		}
+	}
+
+	// ugly...
+	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+	}
+	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+	}
+}
+
+void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
+	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
+		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
+	} else {
+		DownloadFramebufferOnSwitch(prevVfb);
+	}
+	textureCache_->ForgetLastTexture();
+
+	if (useBufferedRendering_) {
+		if (vfb->fbo) {
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
+		} else {
+			// wtf? This should only happen very briefly when toggling bBufferedRendering
+			draw_->BindBackbufferAsRenderTarget();
+		}
+	} else {
+		if (vfb->fbo) {
+			// wtf? This should only happen very briefly when toggling bBufferedRendering
+			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
+			delete vfb->fbo;
+			vfb->fbo = nullptr;
+		}
+		draw_->BindBackbufferAsRenderTarget();
+
+		// Let's ignore rendering to targets that have not (yet) been displayed.
+		if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
+			gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
+		} else {
+			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
+		}
+	}
+	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+
+	if (gl_extensions.IsGLES) {
+		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+		// to it. This broke stuff before, so now it only clears on the first use of an
+		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+		if (vfb->last_frame_render != gpuStats.numFlips) {
+			ClearBuffer();
+		}
+	}
+
+	// Copy depth pixel value from the read framebuffer to the draw framebuffer
+	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
+		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
+			// If depth wasn't updated, then we're at least "two degrees" away from the data.
+			// This is an optimization: it probably doesn't need to be copied in this case.
+		} else {
+			BlitFramebufferDepth(prevVfb, vfb);
+		}
+	}
+	if (vfb->drawnFormat != vfb->format) {
+		// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
+		ReformatFramebufferFrom(vfb, vfb->drawnFormat);
+	}
+
+	// ugly...
+	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+	}
+	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+	}
+}
+
 void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
 	// Note: UpdateFromMemory() is still called later.
 	// This is a special case where we have extra information prior to the invalidation.
@@ -550,6 +699,130 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 			vfb->safeWidth = 0;
 			vfb->safeHeight = 0;
 		}
+	}
+}
+
+void FramebufferManagerCommon::DecimateFBOs() {
+	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+		draw_->BindBackbufferAsRenderTarget();
+	}
+	currentRenderVfb_ = 0;
+
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
+		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
+
+		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
+			bool sync = gl_extensions.IsGLES;
+			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
+		}
+
+		// Let's also "decimate" the usageFlags.
+		UpdateFramebufUsage(vfb);
+
+		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
+			if (age > FBO_OLD_AGE) {
+				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
+				DestroyFramebuf(vfb);
+				vfbs_.erase(vfbs_.begin() + i--);
+			}
+		}
+	}
+
+	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
+		int age = frameLastFramebufUsed_ - it->second.last_frame_used;
+		if (age > FBO_OLD_AGE) {
+			delete it->second.fbo;
+			tempFBOs_.erase(it++);
+		} else {
+			++it;
+		}
+	}
+
+	// Do the same for ReadFramebuffersToMemory's VFBs
+	for (size_t i = 0; i < bvfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = bvfbs_[i];
+		int age = frameLastFramebufUsed_ - vfb->last_frame_render;
+		if (age > FBO_OLD_AGE) {
+			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
+			DestroyFramebuf(vfb);
+			bvfbs_.erase(bvfbs_.begin() + i--);
+		}
+	}
+}
+
+void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force, bool skipCopy) {
+	VirtualFramebuffer old = *vfb;
+
+	if (force) {
+		vfb->bufferWidth = w;
+		vfb->bufferHeight = h;
+	} else {
+		if (vfb->bufferWidth >= w && vfb->bufferHeight >= h) {
+			return;
+		}
+
+		// In case it gets thin and wide, don't resize down either side.
+		vfb->bufferWidth = std::max(vfb->bufferWidth, w);
+		vfb->bufferHeight = std::max(vfb->bufferHeight, h);
+	}
+
+	SetRenderSize(vfb);
+
+	bool trueColor = g_Config.bTrueColor;
+	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) {
+		trueColor = true;
+	}
+
+	if (trueColor) {
+		vfb->colorDepth = Draw::FBO_8888;
+	} else {
+		switch (vfb->format) {
+		case GE_FORMAT_4444:
+			vfb->colorDepth = Draw::FBO_4444;
+			break;
+		case GE_FORMAT_5551:
+			vfb->colorDepth = Draw::FBO_5551;
+			break;
+		case GE_FORMAT_565:
+			vfb->colorDepth = Draw::FBO_565;
+			break;
+		case GE_FORMAT_8888:
+		default:
+			vfb->colorDepth = Draw::FBO_8888;
+			break;
+		}
+	}
+
+	textureCache_->ForgetLastTexture();
+	draw_->BindBackbufferAsRenderTarget();
+
+	if (!useBufferedRendering_) {
+		if (vfb->fbo) {
+			delete vfb->fbo;
+			vfb->fbo = nullptr;
+		}
+		return;
+	}
+
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
+	if (old.fbo) {
+		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
+		if (vfb->fbo) {
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
+			ClearBuffer();
+			if (!skipCopy && !g_Config.bDisableSlowFramebufEffects) {
+				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
+			}
+		}
+		delete old.fbo;
+		if (vfb->fbo) {
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
+		}
+	}
+
+	if (!vfb->fbo) {
+		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 	}
 }
 
@@ -996,6 +1269,46 @@ void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
 		vfb->safeWidth = std::max(vfb->safeWidth, w);
 		vfb->safeHeight = std::max(vfb->safeHeight, h);
 	}
+}
+
+void FramebufferManagerCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) {
+	// Calculate Cardboard Settings
+	float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
+	float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
+	float cardboardScreenHeight = pixelHeight_ / 2.0f * cardboardScreenScale;
+	float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
+	float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
+	float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
+	float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
+	float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
+	float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
+	float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
+
+	cardboardSettings->enabled = g_Config.bEnableCardboard;
+	cardboardSettings->leftEyeXPosition = cardboardLeftEyeX;
+	cardboardSettings->rightEyeXPosition = cardboardRightEyeX;
+	cardboardSettings->screenYPosition = cardboardScreenY;
+	cardboardSettings->screenWidth = cardboardScreenWidth;
+	cardboardSettings->screenHeight = cardboardScreenHeight;
+}
+
+Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth) {
+	u64 key = ((u64)depth << 32) | ((u32)w << 16) | h;
+	auto it = tempFBOs_.find(key);
+	if (it != tempFBOs_.end()) {
+		it->second.last_frame_used = gpuStats.numFlips;
+		return it->second.fbo;
+	}
+
+	textureCache_->ForgetLastTexture();
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, depth });
+	if (!fbo)
+		return fbo;
+	draw_->BindFramebufferAsRenderTarget(fbo);
+	ClearBuffer(true);
+	const TempFBO info = { fbo, gpuStats.numFlips };
+	tempFBOs_[key] = info;
+	return fbo;
 }
 
 void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {

@@ -256,7 +256,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	pD3Ddevice->SetTexture(0, drawPixelsTex_);
 
 	shaderManager_->DirtyLastShader();
-	textureCache_->ForgetLastTexture();
+	textureCacheDX9_->ForgetLastTexture();
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {

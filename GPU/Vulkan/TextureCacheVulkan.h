@@ -119,7 +119,7 @@ public:
 		return cache.size();
 	}
 
-	void ForgetLastTexture() {
+	void ForgetLastTexture() override {
 		lastBoundTexture = nullptr;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}

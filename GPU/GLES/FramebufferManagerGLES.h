@@ -51,23 +51,12 @@ struct AsyncPBO {
 	bool reading;
 };
 
-struct CardboardSettings {
-	bool enabled;
-	float leftEyeXPosition;
-	float rightEyeXPosition;
-	float screenYPosition;
-	float screenWidth;
-	float screenHeight;
-};
-
 class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:
 	FramebufferManagerGLES(Draw::DrawContext *draw);
 	~FramebufferManagerGLES();
 
-	void SetTextureCache(TextureCacheGLES *tc) {
-		textureCache_ = tc;
-	}
+	void SetTextureCache(TextureCacheGLES *tc);
 	void SetShaderManager(ShaderManagerGLES *sm) {
 		shaderManager_ = sm;
 	}
@@ -78,9 +67,8 @@ public:
 	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 
-	// If texture != 0, will bind it.
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
-	void DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, GLSLProgram *program, int uvRotation);
+	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, GLSLProgram *program, int uvRotation, bool linearFilter);
 
 	void DestroyAllFBOs(bool forceDelete);
 
@@ -90,9 +78,9 @@ public:
 	void DeviceLost();
 	void CopyDisplayToOutput();
 	void SetLineWidth();
-	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
+	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
-	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
+	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
@@ -105,33 +93,21 @@ public:
 
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
-	void DestroyFramebuf(VirtualFramebuffer *vfb) override;
-	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false, bool skipCopy = false) override;
-
 	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
 	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer);
 	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
-	static bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
+	bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
 	virtual void RebindFramebuffer() override;
-
-	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
-
-	// Cardboard Settings Calculator
-	struct CardboardSettings * GetCardboardSettings(struct CardboardSettings * cardboardSettings);
 
 protected:
 	void DisableState() override;
 	void ClearBuffer(bool keepState = false) override;
 	void FlushBeforeCopy() override;
-	void DecimateFBOs() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
 
-	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
-	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) override;
-	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
 	bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
@@ -140,8 +116,6 @@ private:
 	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
-
-	void SetNumExtraFBOs(int num);
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
@@ -164,21 +138,11 @@ private:
 	int pixelDeltaLoc_;
 	int deltaLoc_;
 
-	TextureCacheGLES *textureCache_;
+	TextureCacheGLES *textureCacheGL_;
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
 
-	// Used by post-processing shader
-	std::vector<Draw::Framebuffer *> extraFBOs_;
-
 	bool resized_;
-
-	struct TempFBO {
-		Draw::Framebuffer *fbo;
-		int last_frame_used;
-	};
-
-	std::map<u64, TempFBO> tempFBOs_;
 
 	// Not used under ES currently.
 	AsyncPBO *pixelBufObj_; //this isn't that large

@@ -65,7 +65,7 @@ public:
 	// Only used by Qt UI?
 	bool DecodeTexture(u8 *output, const GPUgstate &state);
 
-	void ForgetLastTexture();
+	void ForgetLastTexture() override;
 
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 

@@ -57,6 +57,7 @@ public:
 	virtual bool SetOffsetTexture(u32 offset) = 0;
 	virtual void Invalidate(u32 addr, int size, GPUInvalidationType type) = 0;
 	virtual void InvalidateAll(GPUInvalidationType type) = 0;
+	virtual void ForgetLastTexture() = 0;
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
