@@ -1,5 +1,6 @@
 #include "thin3d/thin3d.h"
 #include "thin3d/d3d11_loader.h"
+#include "math/dataconv.h"
 
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -19,7 +20,7 @@ class D3D11RasterState;
 
 class D3D11DrawContext : public DrawContext {
 public:
-	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext);
+	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, HWND hWnd);
 	~D3D11DrawContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -41,7 +42,7 @@ public:
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
-	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) override;
+	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
@@ -101,13 +102,27 @@ public:
 		}
 	}
 
-	void HandleEvent(Event ev) override {}
+	void HandleEvent(Event ev) override {
+		switch (ev) {
+		case Event::PRESENT_REQUESTED:
+			swapChain_->Present(0, 0);
+			break;
+		}
+	}
 
 private:
 	void ApplyCurrentState();
 
+	HWND hWnd_;
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
+	IDXGISwapChain *swapChain_ = nullptr;
+
+	ID3D11RenderTargetView *bbRenderTargetView_ = nullptr;
+	// Strictly speaking we don't need a depth buffer for the backbuffer.
+	ID3D11Texture2D *bbDepthStencilTex_ = nullptr;
+	ID3D11DepthStencilView *bbDepthStencilView_ = nullptr;
+
 	D3D11Pipeline *curPipeline_;
 	DeviceCaps caps_;
 
@@ -120,10 +135,10 @@ private:
 	ID3D11GeometryShader *curGS_ = nullptr;
 	D3D11_PRIMITIVE_TOPOLOGY curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
-	ID3D11Buffer *nextVertexBuffers_[4];
-	int nextVertexBufferOffsets_[4];
-	ID3D11Buffer *nextIndexBuffer_;
-	int nextIndexBufferOffset_;
+	ID3D11Buffer *nextVertexBuffers_[4]{};
+	int nextVertexBufferOffsets_[4]{};
+	ID3D11Buffer *nextIndexBuffer_ = nullptr;
+	int nextIndexBufferOffset_ = 0;
 
 	// Dynamic state
 	float blendFactor_[4];
@@ -132,8 +147,90 @@ private:
 	bool stencilRefDirty_;
 };
 
+static void GetRes(HWND hWnd, int &xres, int &yres) {
+	RECT rc;
+	GetClientRect(hWnd, &rc);
+	xres = rc.right - rc.left;
+	yres = rc.bottom - rc.top;
+}
 
-D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *context) : device_(device), context_(context) {
+D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *context, HWND hWnd) : device_(device), context_(context), hWnd_(hWnd) {
+	HRESULT hr;
+	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
+	IDXGIFactory1* dxgiFactory = nullptr;
+	IDXGIDevice* dxgiDevice = nullptr;
+	IDXGIAdapter* adapter = nullptr;
+	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
+	if (SUCCEEDED(hr)) {
+		hr = dxgiDevice->GetAdapter(&adapter);
+		if (SUCCEEDED(hr)) {
+			hr = adapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory));
+			adapter->Release();
+		}
+		dxgiDevice->Release();
+	}
+
+	int width;
+	int height;
+	GetRes(hWnd_, width, height);
+
+	// DirectX 11.0 systems
+	DXGI_SWAP_CHAIN_DESC sd;
+	ZeroMemory(&sd, sizeof(sd));
+	sd.BufferCount = 1;
+	sd.BufferDesc.Width = width;
+	sd.BufferDesc.Height = height;
+	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.BufferDesc.RefreshRate.Numerator = 60;
+	sd.BufferDesc.RefreshRate.Denominator = 1;
+	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	sd.OutputWindow = hWnd_;
+	sd.SampleDesc.Count = 1;
+	sd.SampleDesc.Quality = 0;
+	sd.Windowed = TRUE;
+
+	hr = dxgiFactory->CreateSwapChain(device_, &sd, &swapChain_);
+	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
+	dxgiFactory->Release();
+
+	if (FAILED(hr))
+		return;
+
+	// Create a render target view
+	ID3D11Texture2D* pBackBuffer = nullptr;
+	hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pBackBuffer));
+	if (FAILED(hr))
+		return;
+
+	hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, &bbRenderTargetView_);
+	pBackBuffer->Release();
+	if (FAILED(hr))
+		return;
+
+	// Create depth stencil texture
+	D3D11_TEXTURE2D_DESC descDepth{};
+	descDepth.Width = width;
+	descDepth.Height = height;
+	descDepth.MipLevels = 1;
+	descDepth.ArraySize = 1;
+	descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	descDepth.SampleDesc.Count = 1;
+	descDepth.SampleDesc.Quality = 0;
+	descDepth.Usage = D3D11_USAGE_DEFAULT;
+	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	descDepth.CPUAccessFlags = 0;
+	descDepth.MiscFlags = 0;
+	hr = device_->CreateTexture2D(&descDepth, nullptr, &bbDepthStencilTex_);
+
+	// Create the depth stencil view
+	D3D11_DEPTH_STENCIL_VIEW_DESC descDSV{};
+	descDSV.Format = descDepth.Format;
+	descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	descDSV.Texture2D.MipSlice = 0;
+	hr = device_->CreateDepthStencilView(bbDepthStencilTex_, &descDSV, &bbDepthStencilView_);
+
+	context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
+
 	CreatePresets();
 }
 
@@ -147,7 +244,7 @@ void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
 }
 
 void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) {
-	D3D11_RECT rc;
+	D3D11_RECT rc{};
 	rc.left = left;
 	rc.top = top;
 	rc.right = left + width;
@@ -692,6 +789,12 @@ void D3D11DrawContext::ApplyCurrentState() {
 		context_->IASetPrimitiveTopology(curPipeline_->topology);
 		curTopology_ = curPipeline_->topology;
 	}
+
+	int numVBs = (int)curPipeline_->input->strides.size();
+	context_->IASetVertexBuffers(0, 1, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
+	if (nextIndexBuffer_) {
+		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
+	}
 }
 
 class D3D11Buffer : public Buffer {
@@ -702,8 +805,8 @@ public:
 		if (srView)
 			srView->Release();
 	}
-	ID3D11Buffer *buf;
-	ID3D11ShaderResourceView *srView;
+	ID3D11Buffer *buf = nullptr;
+	ID3D11ShaderResourceView *srView = nullptr;
 	size_t size;
 };
 
@@ -728,13 +831,16 @@ Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 		delete b;
 		return nullptr;
 	}
-	device_->CreateShaderResourceView(b->buf, nullptr, &b->srView);
+	if (usageFlags & UNIFORM) {
+		// D3D11_SHADER_RESOURCE_VIEW_DESC resDesc{};
+		// device_->CreateShaderResourceView(b->buf, &resDesc, &b->srView);
+	}
 	return b;
 }
 
-void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) {
+void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) {
 	D3D11Buffer *buf = (D3D11Buffer *)buffer;
-	if (offset == 0 && size == buf->size) {
+	if ((flags & UPDATE_DISCARD) || (offset == 0 && size == buf->size)) {
 		// Can just discard the old contents. This is only allowed for DYNAMIC buffers.
 		D3D11_MAPPED_SUBRESOURCE map;
 		context_->Map(buf->buf, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
@@ -744,8 +850,8 @@ void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t 
 	}
 
 	D3D11_BOX box{};
-	box.left = offset;
-	box.right = offset + size;
+	box.left = (UINT)offset;
+	box.right = (UINT)(offset + size);
 	context_->UpdateSubresource(buf->buf, 0, &box, data, 0, 0);
 }
 
@@ -754,7 +860,7 @@ void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers,
 	for (int i = 0; i < count; i++) {
 		D3D11Buffer *buf = (D3D11Buffer *)buffers[i];
 		nextVertexBuffers_[start + i] = buf->buf;
-		nextVertexBufferOffsets_[start + i] = offsets[i];
+		nextVertexBufferOffsets_[start + i] = offsets ? offsets[i] : 0;
 	}
 }
 
@@ -927,11 +1033,10 @@ void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **st
 }
 
 void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
-	return;
 	if (mask & ClearFlag::COLOR) {
-		float colorRGBA[4]{};
-		// TODO: ...
-		context_->ClearRenderTargetView(nullptr, colorRGBA);
+		float colorRGBA[4];
+		Uint8x1ToFloat4(colorRGBA, colorval);
+		context_->ClearRenderTargetView(bbRenderTargetView_, colorRGBA);
 	}
 	if (mask & (ClearFlag::DEPTH | ClearFlag::STENCIL)) {
 		UINT clearFlag = 0;
@@ -939,8 +1044,7 @@ void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int st
 			clearFlag |= D3D11_CLEAR_DEPTH;
 		if (mask & ClearFlag::STENCIL)
 			clearFlag |= D3D11_CLEAR_STENCIL;
-
-		context_->ClearDepthStencilView(nullptr, clearFlag, depthVal, stencilVal);
+		context_->ClearDepthStencilView(bbDepthStencilView_, clearFlag, depthVal, stencilVal);
 	}
 }
 
@@ -956,7 +1060,6 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 	D3D11Framebuffer *dst = (D3D11Framebuffer *)dstfb;
 
 	// Unfortunately D3D11 has no equivalent to this, gotta render a quad.
-
 	return true;
 }
 
@@ -977,7 +1080,7 @@ void D3D11DrawContext::BindFramebufferForRead(Framebuffer *fbo) {
 }
 
 void D3D11DrawContext::BindBackbufferAsRenderTarget() {
-
+	context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
 }
 
 uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
@@ -991,8 +1094,8 @@ void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 	*h = fb->height;
 }
 
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context) {
-	return new D3D11DrawContext(device, context);
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, HWND hWnd) {
+	return new D3D11DrawContext(device, context, hWnd);
 }
 
 }  // namespace Draw

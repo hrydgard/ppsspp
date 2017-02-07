@@ -482,7 +482,7 @@ public:
 
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
-	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) override;
+	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override {}
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
@@ -811,7 +811,7 @@ Buffer *D3D9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new D3D9Buffer(device_, size, usageFlags);
 }
 
-void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) {
+void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) {
 	D3D9Buffer *buf = (D3D9Buffer *)buffer;
 	if (!size)
 		return;
@@ -821,14 +821,14 @@ void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offse
 	}
 	if (buf->vbuffer_) {
 		void *ptr;
-		HRESULT res = buf->vbuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
+		HRESULT res = buf->vbuffer_->Lock((UINT)offset, (UINT)size, &ptr, (flags & UPDATE_DISCARD) ? D3DLOCK_DISCARD : 0);
 		if (!FAILED(res)) {
 			memcpy(ptr, data, size);
 			buf->vbuffer_->Unlock();
 		}
 	} else if (buf->ibuffer_) {
 		void *ptr;
-		HRESULT res = buf->ibuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
+		HRESULT res = buf->ibuffer_->Lock((UINT)offset, (UINT)size, &ptr, (flags & UPDATE_DISCARD) ? D3DLOCK_DISCARD : 0);
 		if (!FAILED(res)) {
 			memcpy(ptr, data, size);
 			buf->ibuffer_->Unlock();

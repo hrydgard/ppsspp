@@ -236,10 +236,10 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			{ x2, y2, 0,  u1, v1,  0xFFFFFFFF }, // BR
 			{ x2, y, 0,   u1, v0,  0xFFFFFFFF }, // TR
 		};
-		draw_->UpdateBuffer(vdata, (const uint8_t *)verts, 0, sizeof(verts));
+		draw_->UpdateBuffer(vdata, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
 
 		int indexes[] = { 0, 1, 2, 0, 2, 3 };
-		draw_->UpdateBuffer(idata, (const uint8_t *)indexes, 0, sizeof(indexes));
+		draw_->UpdateBuffer(idata, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
 
 		draw_->BindTexture(0, fbTex);
 

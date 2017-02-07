@@ -21,14 +21,7 @@ D3D11Context::~D3D11Context() {
 }
 
 void D3D11Context::SwapBuffers() {
-	swapChain_->Present(0, 0);
-}
-
-static void GetRes(HWND hWnd, int &xres, int &yres) {
-	RECT rc;
-	GetClientRect(hWnd, &rc);
-	xres = rc.right - rc.left;
-	yres = rc.bottom - rc.top;
+	draw_->HandleEvent(Draw::Event::PRESENT_REQUESTED);
 }
 
 void D3D11Context::SwapInterval(int interval) {
@@ -60,7 +53,6 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	};
 	UINT numFeatureLevels = ARRAYSIZE(featureLevels);
 
-
 	// Temporarily commenting out until we can dynamically load D3D11CreateDevice.
 	for (UINT driverTypeIndex = 0; driverTypeIndex < numDriverTypes; driverTypeIndex++) {
 		driverType_ = driverTypes[driverTypeIndex];
@@ -78,97 +70,12 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	if (FAILED(hr))
 		return false;
 
-	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
-	IDXGIFactory1* dxgiFactory = nullptr;
-	{
-		IDXGIDevice* dxgiDevice = nullptr;
-		hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
-		if (SUCCEEDED(hr)) {
-			IDXGIAdapter* adapter = nullptr;
-			hr = dxgiDevice->GetAdapter(&adapter);
-			if (SUCCEEDED(hr)) {
-				hr = adapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory));
-				adapter->Release();
-			}
-			dxgiDevice->Release();
-		}
-	}
-	if (FAILED(hr))
-		return false;
-
-	int width;
-	int height;
-	GetRes(hWnd_, width, height);
-
-	// DirectX 11.0 systems
-	DXGI_SWAP_CHAIN_DESC sd;
-	ZeroMemory(&sd, sizeof(sd));
-	sd.BufferCount = 1;
-	sd.BufferDesc.Width = width;
-	sd.BufferDesc.Height = height;
-	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	sd.BufferDesc.RefreshRate.Numerator = 60;
-	sd.BufferDesc.RefreshRate.Denominator = 1;
-	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	sd.OutputWindow = hWnd_;
-	sd.SampleDesc.Count = 1;
-	sd.SampleDesc.Quality = 0;
-	sd.Windowed = TRUE;
-
-	hr = dxgiFactory->CreateSwapChain(device_, &sd, &swapChain_);
-	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
-	dxgiFactory->Release();
-
-	if (FAILED(hr))
-		return false;
-
-	// Create a render target view
-	ID3D11Texture2D* pBackBuffer = nullptr;
-	hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pBackBuffer));
-	if (FAILED(hr))
-		return false;
-
-	hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, &renderTargetView_);
-	pBackBuffer->Release();
-	if (FAILED(hr))
-		return false;
-
-	// Create depth stencil texture
-	D3D11_TEXTURE2D_DESC descDepth{};
-	descDepth.Width = width;
-	descDepth.Height = height;
-	descDepth.MipLevels = 1;
-	descDepth.ArraySize = 1;
-	descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	descDepth.SampleDesc.Count = 1;
-	descDepth.SampleDesc.Quality = 0;
-	descDepth.Usage = D3D11_USAGE_DEFAULT;
-	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-	descDepth.CPUAccessFlags = 0;
-	descDepth.MiscFlags = 0;
-	hr = device_->CreateTexture2D(&descDepth, nullptr, &depthStencilTex_);
-	if (FAILED(hr))
-		return false;
-
-	// Create the depth stencil view
-	D3D11_DEPTH_STENCIL_VIEW_DESC descDSV{};
-	descDSV.Format = descDepth.Format;
-	descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-	descDSV.Texture2D.MipSlice = 0;
-	hr = device_->CreateDepthStencilView(depthStencilTex_, &descDSV, &depthStencilView_);
-	if (FAILED(hr))
-		return false;
-
-	context_->OMSetRenderTargets(1, &renderTargetView_, depthStencilView_);
-
-	int xres, yres;
-	GetRes(hWnd_, xres, yres);
-
-	draw_ = Draw::T3DCreateD3D11Context(device_, context_);
+	draw_ = Draw::T3DCreateD3D11Context(device_, context_, hWnd_);
 	return true;
 }
 
 void D3D11Context::Resize() {
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER);
 	// This should only be called from the emu thread.
 	/*
 	int xres, yres;
@@ -187,6 +94,7 @@ void D3D11Context::Resize() {
 		}
 	}
 	*/
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER);
 }
 
 void D3D11Context::Shutdown() {

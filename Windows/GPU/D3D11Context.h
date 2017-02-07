@@ -42,10 +42,6 @@ private:
 	Draw::DrawContext *draw_;
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
-	IDXGISwapChain *swapChain_ = nullptr;
-	ID3D11RenderTargetView *renderTargetView_ = nullptr;
-	ID3D11Texture2D *depthStencilTex_ = nullptr;
-	ID3D11DepthStencilView *depthStencilView_ = nullptr;
 
 	D3D_DRIVER_TYPE driverType_;
 	D3D_FEATURE_LEVEL featureLevel_ = D3D_FEATURE_LEVEL_11_0;
