@@ -1,10 +1,9 @@
 #include "thin3d/thin3d.h"
 
 #include <d3d11.h>
+#include <d3dcompiler.h>
 
 namespace Draw {
-
-#if 0
 
 // A problem is that we can't get the D3Dcompiler.dll without using a later SDK than 7.1, which was the last that
 // supported XP. A possible solution might be here:
@@ -388,7 +387,7 @@ public:
 class D3D11Texture : public Texture {
 public:
 	D3D11Texture() {}
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {}
 };
 
 Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
@@ -552,6 +551,18 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	return fb;
 }
 
+void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
+
+}
+
+void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **states) {
+
+}
+
+void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
+
+}
+
 void D3D11DrawContext::CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {}
 bool D3D11DrawContext::BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) { return true; }
 
@@ -569,8 +580,6 @@ void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 	*w = fb->width;
 	*h = fb->height;
 }
-
-#endif
 
 DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context) {
 	return nullptr; // new D3D11DrawContext(device, context);
