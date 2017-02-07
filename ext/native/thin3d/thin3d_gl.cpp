@@ -281,20 +281,13 @@ public:
 		else
 			usage_ = GL_STATIC_DRAW;
 		totalSize_ = size;
+		glBindBuffer(target_, buffer_);
 		glBufferData(target_, size, NULL, usage_);
 		register_gl_resource_holder(this);
 	}
 	~OpenGLBuffer() override {
 		unregister_gl_resource_holder(this);
 		glDeleteBuffers(1, &buffer_);
-	}
-
-	void SetData(const uint8_t *data, size_t size) override {
-		if (size > totalSize_) {
-			Crash();
-		}
-		Bind(0);
-		glBufferData(target_, size, data, usage_);
 	}
 
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {

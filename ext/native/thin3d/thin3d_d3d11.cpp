@@ -702,9 +702,6 @@ public:
 		if (srView)
 			srView->Release();
 	}
-	virtual void SetData(const uint8_t *data, size_t size) override {
-		
-	}
 	virtual void SubData(const uint8_t *data, size_t offset, size_t size) override {
 		
 	}

@@ -38,6 +38,13 @@
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
+
+struct Vertex {
+	float x, y, z;
+	float u, v;
+	uint32_t rgba;
+};
+
 FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
@@ -62,7 +69,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	InputLayoutDesc inputDesc = {
 		{
-			{ 24, false },
+			{ sizeof(Vertex), false },
 		},
 		{
 			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
@@ -73,7 +80,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	ShaderModule *vshader = draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 
-	vdata = draw_->CreateBuffer(24 * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	vdata = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	idata = draw_->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
 	InputLayout *inputLayout = draw_->CreateInputLayout(inputDesc);
@@ -213,12 +220,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	x2 -= 1.0f;
 	y2 -= 1.0f;
 
-	struct Vertex {
-		float x, y, z;
-		float u, v;
-		uint32_t rgba;
-	};
-
 	if (hasImage) {
 		float v0 = 1.0f;
 		float v1 = 0.0f;
@@ -235,10 +236,10 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			{ x2, y2, 0,  u1, v1,  0xFFFFFFFF }, // BR
 			{ x2, y, 0,   u1, v0,  0xFFFFFFFF }, // TR
 		};
-		vdata->SetData((const uint8_t *)verts, sizeof(verts));
+		vdata->SubData((const uint8_t *)verts, 0, sizeof(verts));
 
 		int indexes[] = { 0, 1, 2, 0, 2, 3 };
-		idata->SetData((const uint8_t *)indexes, sizeof(indexes));
+		idata->SubData((const uint8_t *)indexes, 0, sizeof(indexes));
 
 		draw_->BindTexture(0, fbTex);
 

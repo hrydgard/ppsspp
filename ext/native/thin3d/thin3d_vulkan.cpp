@@ -187,15 +187,6 @@ public:
 		delete[] data_;
 	}
 
-	void SetData(const uint8_t *data, size_t size) override {
-		delete[] data_;
-		dataSize_ = size;
-		data_ = new uint8_t[size];
-		if (data) {
-			memcpy(data_, data, size);
-		}
-	}
-
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
 		memcpy(data_, data_ + offset, size);
 	}

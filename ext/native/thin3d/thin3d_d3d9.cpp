@@ -241,30 +241,11 @@ public:
 		}
 	}
 
-	void SetData(const uint8_t *data, size_t size) override {
-		if (!size)
-			return;
-		if (size > maxSize_) {
-			ELOG("Can't SetData with bigger size than buffer was created with on D3D");
-			return;
-		}
-		if (vbuffer_) {
-			void *ptr;
-			vbuffer_->Lock(0, (UINT)size, &ptr, D3DLOCK_DISCARD);
-			memcpy(ptr, data, size);
-			vbuffer_->Unlock();
-		} else if (ibuffer_) {
-			void *ptr;
-			ibuffer_->Lock(0, (UINT)size, &ptr, D3DLOCK_DISCARD);
-			memcpy(ptr, data, size);
-			ibuffer_->Unlock();
-		}
-	}
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
 		if (!size)
 			return;
 		if (offset + size > maxSize_) {
-			ELOG("Can't SubData with bigger size than buffer was created with on D3D");
+			ELOG("Can't SubData with bigger size than buffer was created with");
 			return;
 		}
 		if (vbuffer_) {
