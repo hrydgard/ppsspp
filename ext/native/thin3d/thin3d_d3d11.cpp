@@ -41,6 +41,8 @@ public:
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
+	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) override;
+
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
@@ -730,6 +732,10 @@ Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	}
 	device_->CreateShaderResourceView(b->buf, nullptr, &b->srView);
 	return b;
+}
+
+void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) {
+	Crash();
 }
 
 void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) {

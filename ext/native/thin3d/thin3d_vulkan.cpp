@@ -369,6 +369,8 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
+	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) override;
+
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
@@ -1059,6 +1061,10 @@ BlendState *VKContext::CreateBlendState(const BlendStateDesc &desc) {
 
 Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new VKBuffer(size, usageFlags);
+}
+
+void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) {
+	Crash();
 }
 
 void VKContext::BindTextures(int start, int count, Texture **textures) {

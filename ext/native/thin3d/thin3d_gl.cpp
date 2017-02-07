@@ -280,7 +280,8 @@ public:
 			usage_ = GL_STREAM_DRAW;
 		else
 			usage_ = GL_STATIC_DRAW;
-		knownSize_ = 0;
+		totalSize_ = size;
+		glBufferData(target_, size, NULL, usage_);
 		register_gl_resource_holder(this);
 	}
 	~OpenGLBuffer() override {
@@ -289,17 +290,17 @@ public:
 	}
 
 	void SetData(const uint8_t *data, size_t size) override {
+		if (size > totalSize_) {
+			Crash();
+		}
 		Bind(0);
 		glBufferData(target_, size, data, usage_);
-		knownSize_ = size;
 	}
 
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
 		Bind(0);
-		if (size + offset > knownSize_) {
-			// Allocate the buffer.
-			glBufferData(target_, size + offset, NULL, usage_);
-			knownSize_ = size + offset;
+		if (size + offset > totalSize_) {
+			Crash();
 		}
 		glBufferSubData(target_, offset, size, data);
 	}
@@ -314,7 +315,7 @@ public:
 
 	void GLRestore() override {
 		ILOG("Recreating vertex buffer after gl_restore");
-		knownSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
+		totalSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
 		glGenBuffers(1, &buffer_);
 	}
 
@@ -323,7 +324,7 @@ private:
 	GLuint target_;
 	GLuint usage_;
 
-	size_t knownSize_;
+	size_t totalSize_;
 };
 
 GLuint ShaderStageToOpenGL(ShaderStage stage) {
@@ -523,6 +524,8 @@ public:
 	Texture *CreateTexture(const TextureDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
+
+	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
@@ -941,6 +944,10 @@ RasterState *OpenGLContext::CreateRasterState(const RasterStateDesc &desc) {
 
 Buffer *OpenGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new OpenGLBuffer(size, usageFlags);
+}
+
+void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) {
+	Crash();
 }
 
 Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
