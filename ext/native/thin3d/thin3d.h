@@ -142,6 +142,8 @@ enum class Primitive {
 	LINE_STRIP_ADJ,
 	TRIANGLE_LIST_ADJ,
 	TRIANGLE_STRIP_ADJ,
+
+	UNDEFINED,
 };
 
 enum VertexShaderPreset : int {
@@ -182,6 +184,7 @@ enum class DataFormat : uint8_t {
 	R8G8B8A8_UNORM,
 	R8G8B8A8_UNORM_SRGB,
 	B8G8R8A8_UNORM,  // D3D style
+	B8G8R8A8_UNORM_SRGB,  // D3D style
 
 	R8G8B8A8_SNORM,
 	R8G8B8A8_UINT,

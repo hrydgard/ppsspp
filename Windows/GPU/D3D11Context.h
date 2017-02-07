@@ -27,9 +27,8 @@ class DrawContext;
 
 class D3D11Context : public WindowsGraphicsContext {
 public:
-	D3D11Context() : draw_(nullptr), adapterId(-1), hDC(nullptr), hWnd_(nullptr), hD3D11(nullptr) {
-	}
-
+	D3D11Context();
+	~D3D11Context();
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
