@@ -160,7 +160,7 @@ private:
 
 	Matrix4x4 drawMatrix_;
 
-	Draw::DrawContext *t3d_;
+	Draw::DrawContext *draw_;
 	Draw::Buffer *vbuf_;
 	Draw::Pipeline *pipeline_;
 

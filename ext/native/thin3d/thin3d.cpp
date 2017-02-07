@@ -22,6 +22,8 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 
 	case DataFormat::R8G8B8A8_UNORM:
 	case DataFormat::R8G8B8A8_UNORM_SRGB: return 4;
+	case DataFormat::B8G8R8A8_UNORM:
+	case DataFormat::B8G8R8A8_UNORM_SRGB: return 4;
 
 	case DataFormat::R8G8B8A8_SNORM: return 4;
 	case DataFormat::R8G8B8A8_UINT: return 4;
@@ -79,6 +81,14 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"  return input.color * tex2D(Sampler0, input.uv);\n"
 	"}\n"
 	},
+	{ShaderLanguage::HLSL_D3D11,
+	"struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
+	"SamplerState samp : register(s0);\n"
+	"Texture2D<float4> tex : register(t0);\n"
+	"float4 main(PS_INPUT input) : SV_Target {\n"
+	"  return input.color * tex.Sample(samp, input.uv);\n"
+	"}\n"
+	},
 	{ShaderLanguage::GLSL_VULKAN,
 	"#version 140\n"
 	"#extension GL_ARB_separate_shader_objects : enable\n"
@@ -102,6 +112,12 @@ static const std::vector<ShaderSource> fsCol = {
 	{ ShaderLanguage::HLSL_D3D9,
 	"struct PS_INPUT { float4 color : COLOR0; };\n"
 	"float4 main(PS_INPUT input) : COLOR0 {\n"
+	"  return input.color;\n"
+	"}\n"
+	},
+	{ ShaderLanguage::HLSL_D3D11,
+	"struct PS_INPUT { float4 color : COLOR0; };\n"
+	"float4 main(PS_INPUT input) : SV_Target {\n"
 	"  return input.color;\n"
 	"}\n"
 	},
@@ -131,6 +147,17 @@ static const std::vector<ShaderSource> vsCol = {
 	{ ShaderLanguage::HLSL_D3D9,
 	"struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
 	"struct VS_OUTPUT { float4 Position : POSITION; float4 Color0 : COLOR0; };\n"
+	"float4x4 WorldViewProj : register(c0);\n"
+	"VS_OUTPUT main(VS_INPUT input) {\n"
+	"  VS_OUTPUT output;\n"
+	"  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
+	"  output.Color0 = input.Color0;\n"
+	"  return output;\n"
+	"}\n"
+	},
+	{ ShaderLanguage::HLSL_D3D11,
+	"struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
+	"struct VS_OUTPUT { float4 Color0 : COLOR0; float4 Position : SV_Position; };\n"
 	"float4x4 WorldViewProj : register(c0);\n"
 	"VS_OUTPUT main(VS_INPUT input) {\n"
 	"  VS_OUTPUT output;\n"
@@ -188,6 +215,18 @@ static const std::vector<ShaderSource> vsTexCol = {
 	"  return output;\n"
 	"}\n"
 	},
+	{ ShaderLanguage::HLSL_D3D11,
+	"struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
+	"struct VS_OUTPUT { float4 Color0 : COLOR0; float2 Texcoord0 : TEXCOORD0; float4 Position : SV_Position; };\n"
+	"float4x4 WorldViewProj : register(c0);\n"
+	"VS_OUTPUT main(VS_INPUT input) {\n"
+	"  VS_OUTPUT output;\n"
+	"  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
+	"  output.Texcoord0 = input.Texcoord0;\n"
+	"  output.Color0 = input.Color0;\n"
+	"  return output;\n"
+	"}\n"
+	},
 	{ ShaderLanguage::GLSL_VULKAN,
 	"#version 400\n"
 	"#extension GL_ARB_separate_shader_objects : enable\n"
@@ -214,7 +253,7 @@ struct VsTexColUB {
 	float WorldViewProj[16];
 };
 
-inline ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources) {
+static ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources) {
 	uint32_t supported = draw->GetSupportedShaderLanguages();
 	for (auto iter : sources) {
 		if ((uint32_t)iter.lang & supported) {
@@ -234,10 +273,12 @@ void DrawContext::CreatePresets() {
 
 DrawContext::~DrawContext() {
 	for (int i = 0; i < VS_MAX_PRESET; i++) {
-		vsPresets_[i]->Release();
+		if (vsPresets_[i])
+			vsPresets_[i]->Release();
 	}
 	for (int i = 0; i < FS_MAX_PRESET; i++) {
-		fsPresets_[i]->Release();
+		if (fsPresets_[i])
+			fsPresets_[i]->Release();
 	}
 }
 

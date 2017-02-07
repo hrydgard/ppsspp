@@ -17,6 +17,10 @@ class Matrix4x4;
 
 #ifdef _WIN32
 
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 struct IDirect3DDevice9;
 struct IDirect3D9;
 struct IDirect3DDevice9Ex;
@@ -113,6 +117,7 @@ enum BufferUsageFlag : int {
 	VERTEXDATA = 1,
 	INDEXDATA = 2,
 	GENERIC = 4,
+	UNIFORM = 8,
 
 	DYNAMIC = 16,
 };
@@ -142,6 +147,8 @@ enum class Primitive {
 	LINE_STRIP_ADJ,
 	TRIANGLE_LIST_ADJ,
 	TRIANGLE_STRIP_ADJ,
+
+	UNDEFINED,
 };
 
 enum VertexShaderPreset : int {
@@ -182,6 +189,7 @@ enum class DataFormat : uint8_t {
 	R8G8B8A8_UNORM,
 	R8G8B8A8_UNORM_SRGB,
 	B8G8R8A8_UNORM,  // D3D style
+	B8G8R8A8_UNORM_SRGB,  // D3D style
 
 	R8G8B8A8_SNORM,
 	R8G8B8A8_UINT,
@@ -329,10 +337,15 @@ enum FBBlitFilter {
 	FB_BLIT_LINEAR = 1,
 };
 
+enum UpdateBufferFlags {
+	UPDATE_DISCARD = 1,
+};
+
 enum class Event {
 	// These happen on D3D resize
 	LOST_BACKBUFFER,
 	GOT_BACKBUFFER,
+	PRESENT_REQUESTED,
 };
 
 struct FramebufferDesc {
@@ -384,8 +397,6 @@ public:
 
 class Buffer : public RefCountedObject {
 public:
-	virtual void SetData(const uint8_t *data, size_t size) = 0;
-	virtual void SubData(const uint8_t *data, size_t offset, size_t size) = 0;
 };
 
 class Texture : public RefCountedObject {
@@ -564,6 +575,9 @@ public:
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 
+	// Copies data from the CPU over into the buffer, at a specific offset. This does not change the size of the buffer and cannot write outside it.
+	virtual void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) = 0;
+
 	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) = 0;
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
 
@@ -633,7 +647,7 @@ DrawContext *T3DCreateGLContext();
 
 #ifdef _WIN32
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context);
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, HWND hWnd);
 #endif
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *context);

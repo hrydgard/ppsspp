@@ -153,6 +153,8 @@ static const unsigned short primToGL[] = {
 #endif
 };
 
+class OpenGLBuffer;
+
 static const char *glsl_fragment_prelude =
 "#ifdef GL_ES\n"
 "precision mediump float;\n"
@@ -268,62 +270,6 @@ public:
 	GLboolean cullEnable;
 	GLenum cullMode;
 	GLenum frontFace;
-};
-
-class OpenGLBuffer : public Buffer, GfxResourceHolder {
-public:
-	OpenGLBuffer(size_t size, uint32_t flags) {
-		glGenBuffers(1, &buffer_);
-		target_ = (flags & BufferUsageFlag::INDEXDATA) ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
-		usage_ = 0;
-		if (flags & BufferUsageFlag::DYNAMIC)
-			usage_ = GL_STREAM_DRAW;
-		else
-			usage_ = GL_STATIC_DRAW;
-		knownSize_ = 0;
-		register_gl_resource_holder(this);
-	}
-	~OpenGLBuffer() override {
-		unregister_gl_resource_holder(this);
-		glDeleteBuffers(1, &buffer_);
-	}
-
-	void SetData(const uint8_t *data, size_t size) override {
-		Bind(0);
-		glBufferData(target_, size, data, usage_);
-		knownSize_ = size;
-	}
-
-	void SubData(const uint8_t *data, size_t offset, size_t size) override {
-		Bind(0);
-		if (size + offset > knownSize_) {
-			// Allocate the buffer.
-			glBufferData(target_, size + offset, NULL, usage_);
-			knownSize_ = size + offset;
-		}
-		glBufferSubData(target_, offset, size, data);
-	}
-	void Bind(int offset) {
-		// TODO: Can't support offset using ES 2.0
-		glBindBuffer(target_, buffer_);
-	}
-
-	void GLLost() override {
-		buffer_ = 0;
-	}
-
-	void GLRestore() override {
-		ILOG("Recreating vertex buffer after gl_restore");
-		knownSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
-		glGenBuffers(1, &buffer_);
-	}
-
-private:
-	GLuint buffer_;
-	GLuint target_;
-	GLuint usage_;
-
-	size_t knownSize_;
 };
 
 GLuint ShaderStageToOpenGL(ShaderStage stage) {
@@ -523,6 +469,8 @@ public:
 	Texture *CreateTexture(const TextureDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
+
+	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
@@ -939,8 +887,61 @@ RasterState *OpenGLContext::CreateRasterState(const RasterStateDesc &desc) {
 	return rs;
 }
 
+class OpenGLBuffer : public Buffer, GfxResourceHolder {
+public:
+	OpenGLBuffer(size_t size, uint32_t flags) {
+		glGenBuffers(1, &buffer_);
+		target_ = (flags & BufferUsageFlag::INDEXDATA) ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
+		usage_ = 0;
+		if (flags & BufferUsageFlag::DYNAMIC)
+			usage_ = GL_STREAM_DRAW;
+		else
+			usage_ = GL_STATIC_DRAW;
+		totalSize_ = size;
+		glBindBuffer(target_, buffer_);
+		glBufferData(target_, size, NULL, usage_);
+		register_gl_resource_holder(this);
+	}
+	~OpenGLBuffer() override {
+		unregister_gl_resource_holder(this);
+		glDeleteBuffers(1, &buffer_);
+	}
+
+	void Bind(int offset) {
+		// TODO: Can't support offset using ES 2.0
+		glBindBuffer(target_, buffer_);
+	}
+
+	void GLLost() override {
+		buffer_ = 0;
+	}
+
+	void GLRestore() override {
+		ILOG("Recreating vertex buffer after gl_restore");
+		totalSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
+		glGenBuffers(1, &buffer_);
+	}
+
+	GLuint buffer_;
+	GLuint target_;
+	GLuint usage_;
+
+	size_t totalSize_;
+};
+
 Buffer *OpenGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new OpenGLBuffer(size, usageFlags);
+}
+
+void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) {
+	OpenGLBuffer *buf = (OpenGLBuffer *)buffer;
+
+	buf->Bind(0);
+	if (size + offset > buf->totalSize_) {
+		Crash();
+	}
+	// if (flags & UPDATE_DISCARD) we could try to orphan the buffer using glBufferData.
+	glBufferSubData(buf->target_, offset, size, data);
 }
 
 Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {

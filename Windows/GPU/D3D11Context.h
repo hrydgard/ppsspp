@@ -27,9 +27,8 @@ class DrawContext;
 
 class D3D11Context : public WindowsGraphicsContext {
 public:
-	D3D11Context() : draw_(nullptr), adapterId(-1), hDC(nullptr), hWnd_(nullptr), hD3D11(nullptr) {
-	}
-
+	D3D11Context();
+	~D3D11Context();
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
@@ -43,10 +42,6 @@ private:
 	Draw::DrawContext *draw_;
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
-	IDXGISwapChain *swapChain_ = nullptr;
-	ID3D11RenderTargetView *renderTargetView_ = nullptr;
-	ID3D11Texture2D *depthStencilTex_ = nullptr;
-	ID3D11DepthStencilView *depthStencilView_ = nullptr;
 
 	D3D_DRIVER_TYPE driverType_;
 	D3D_FEATURE_LEVEL featureLevel_ = D3D_FEATURE_LEVEL_11_0;

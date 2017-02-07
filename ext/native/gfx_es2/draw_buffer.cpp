@@ -38,11 +38,11 @@ void DrawBuffer::Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline) {
 	if (inited_)
 		return;
 
-	t3d_ = t3d;
+	draw_ = t3d;
 	inited_ = true;
 
 	if (pipeline->RequiresBuffer()) {
-		vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+		vbuf_ = draw_->CreateBuffer(MAX_VERTS * sizeof(Vertex), BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	} else {
 		vbuf_ = nullptr;
 	}
@@ -91,14 +91,14 @@ void DrawBuffer::Flush(bool set_blend_state) {
 		return;
 
 	pipeline_->SetMatrix4x4("WorldViewProj", drawMatrix_.getReadPtr());
-	t3d_->BindPipeline(pipeline_);
+	draw_->BindPipeline(pipeline_);
 	if (vbuf_) {
-		vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
-		t3d_->BindVertexBuffers(0, 1, &vbuf_, nullptr);
+		draw_->UpdateBuffer(vbuf_, (const uint8_t *)verts_, 0, sizeof(Vertex) * count_, Draw::UPDATE_DISCARD);
+		draw_->BindVertexBuffers(0, 1, &vbuf_, nullptr);
 		int offset = 0;
-		t3d_->Draw(count_, offset);
+		draw_->Draw(count_, offset);
 	} else {
-		t3d_->DrawUP((const void *)verts_, count_);
+		draw_->DrawUP((const void *)verts_, count_);
 	}
 	count_ = 0;
 }

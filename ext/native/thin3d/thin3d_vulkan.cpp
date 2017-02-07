@@ -176,38 +176,6 @@ public:
 	}
 };
 
-// Very simplistic buffer that will simply copy its contents into our "pushbuffer" when it's time to draw,
-// to avoid synchronization issues.
-class VKBuffer : public Buffer {
-public:
-	VKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
-		data_ = new uint8_t[size];
-	}
-	~VKBuffer() override {
-		delete[] data_;
-	}
-
-	void SetData(const uint8_t *data, size_t size) override {
-		delete[] data_;
-		dataSize_ = size;
-		data_ = new uint8_t[size];
-		if (data) {
-			memcpy(data_, data, size);
-		}
-	}
-
-	void SubData(const uint8_t *data, size_t offset, size_t size) override {
-		memcpy(data_, data_ + offset, size);
-	}
-
-	size_t GetSize() const { return dataSize_; }
-	const uint8_t *GetData() const { return data_; }
-
-private: 
-	uint8_t *data_;
-	size_t dataSize_;
-};
-
 VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 	switch (stage) {
 	case ShaderStage::VERTEX: return VK_SHADER_STAGE_VERTEX_BIT;
@@ -329,6 +297,7 @@ private:
 };
 
 class VKTexture;
+class VKBuffer;
 class VKSamplerState;
 
 struct DescriptorSetKey {
@@ -368,6 +337,8 @@ public:
 	Texture *CreateTexture(const TextureDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
+
+	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
@@ -1057,8 +1028,31 @@ BlendState *VKContext::CreateBlendState(const BlendStateDesc &desc) {
 	return bs;
 }
 
+// Very simplistic buffer that will simply copy its contents into our "pushbuffer" when it's time to draw,
+// to avoid synchronization issues.
+class VKBuffer : public Buffer {
+public:
+	VKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
+		data_ = new uint8_t[size];
+	}
+	~VKBuffer() override {
+		delete[] data_;
+	}
+
+	size_t GetSize() const { return dataSize_; }
+	const uint8_t *GetData() const { return data_; }
+
+	uint8_t *data_;
+	size_t dataSize_;
+};
+
 Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new VKBuffer(size, usageFlags);
+}
+
+void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) {
+	VKBuffer *buf = (VKBuffer *)buffer;
+	memcpy(buf->data_ + offset, data, size);
 }
 
 void VKContext::BindTextures(int start, int count, Texture **textures) {
