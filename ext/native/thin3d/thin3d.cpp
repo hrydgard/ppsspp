@@ -157,7 +157,7 @@ static const std::vector<ShaderSource> vsCol = {
 	},
 	{ ShaderLanguage::HLSL_D3D11,
 	"struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
-	"struct VS_OUTPUT { float4 Position : POSITION; float4 Color0 : COLOR0; };\n"
+	"struct VS_OUTPUT { float4 Color0 : COLOR0; float4 Position : SV_Position; };\n"
 	"float4x4 WorldViewProj : register(c0);\n"
 	"VS_OUTPUT main(VS_INPUT input) {\n"
 	"  VS_OUTPUT output;\n"
@@ -217,7 +217,7 @@ static const std::vector<ShaderSource> vsTexCol = {
 	},
 	{ ShaderLanguage::HLSL_D3D11,
 	"struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
-	"struct VS_OUTPUT { float4 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
+	"struct VS_OUTPUT { float4 Color0 : COLOR0; float2 Texcoord0 : TEXCOORD0; float4 Position : SV_Position; };\n"
 	"float4x4 WorldViewProj : register(c0);\n"
 	"VS_OUTPUT main(VS_INPUT input) {\n"
 	"  VS_OUTPUT output;\n"

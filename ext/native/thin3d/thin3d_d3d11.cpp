@@ -649,6 +649,7 @@ void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_ = dPipeline;
 }
 
+// Gonna need dirtyflags soon..
 void D3D11DrawContext::ApplyCurrentState() {
 	if (curBlend_ != curPipeline_->blend || blendFactorDirty_) {
 		context_->OMSetBlendState(curPipeline_->blend->bs, blendFactor_, 0);
@@ -763,20 +764,24 @@ public:
 	~D3D11Framebuffer() {
 		if (colorTex)
 			colorTex->Release();
-		if (colorView)
-			colorView->Release();
+		if (colorRTView)
+			colorRTView->Release();
+		if (colorSRView)
+			colorSRView->Release();
 		if (depthStencilTex)
 			depthStencilTex->Release();
-		if (depthStencilView)
-			depthStencilView->Release();
+		if (depthStencilRTView)
+			depthStencilRTView->Release();
 	}
 	int width;
 	int height;
 
 	ID3D11Texture2D *colorTex = nullptr;
-	ID3D11RenderTargetView *colorView = nullptr;
+	ID3D11RenderTargetView *colorRTView = nullptr;
+	ID3D11ShaderResourceView *colorSRView = nullptr;
+
 	ID3D11Texture2D *depthStencilTex = nullptr;
-	ID3D11DepthStencilView *depthStencilView = nullptr;
+	ID3D11DepthStencilView *depthStencilRTView = nullptr;
 };
 
 Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
@@ -795,7 +800,7 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		descColor.SampleDesc.Count = 1;
 		descColor.SampleDesc.Quality = 0;
 		descColor.Usage = D3D11_USAGE_DEFAULT;
-		descColor.BindFlags = D3D11_BIND_RENDER_TARGET;
+		descColor.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 		descColor.CPUAccessFlags = 0;
 		descColor.MiscFlags = 0;
 		hr = device_->CreateTexture2D(&descColor, nullptr, &fb->colorTex);
@@ -803,7 +808,12 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 			delete fb;
 			return nullptr;
 		}
-		hr = device_->CreateRenderTargetView(fb->colorTex, nullptr, &fb->colorView);
+		hr = device_->CreateRenderTargetView(fb->colorTex, nullptr, &fb->colorRTView);
+		if (FAILED(hr)) {
+			delete fb;
+			return nullptr;
+		}
+		hr = device_->CreateShaderResourceView(fb->colorTex, nullptr, &fb->colorSRView);
 		if (FAILED(hr)) {
 			delete fb;
 			return nullptr;
@@ -832,7 +842,7 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		descDSV.Format = descDepth.Format;
 		descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 		descDSV.Texture2D.MipSlice = 0;
-		hr = device_->CreateDepthStencilView(fb->depthStencilTex, &descDSV, &fb->depthStencilView);
+		hr = device_->CreateDepthStencilView(fb->depthStencilTex, &descDSV, &fb->depthStencilRTView);
 		if (FAILED(hr)) {
 			delete fb;
 			return nullptr;
@@ -853,24 +863,72 @@ void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
 }
 
 void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **states) {
-
+	ID3D11SamplerState *samplers[8];
+	for (int i = 0; i < count; i++) {
+		D3D11SamplerState *samp = (D3D11SamplerState *)states[i];
+		samplers[i] = samp->ss;
+	}
+	context_->PSSetSamplers(start, count, samplers);
 }
 
 void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
+	return;
+	if (mask & ClearFlag::COLOR) {
+		float colorRGBA[4]{};
+		// TODO: ...
+		context_->ClearRenderTargetView(nullptr, colorRGBA);
+	}
+	if (mask & (ClearFlag::DEPTH | ClearFlag::STENCIL)) {
+		UINT clearFlag = 0;
+		if (mask & ClearFlag::DEPTH)
+			clearFlag |= D3D11_CLEAR_DEPTH;
+		if (mask & ClearFlag::STENCIL)
+			clearFlag |= D3D11_CLEAR_STENCIL;
+
+		context_->ClearDepthStencilView(nullptr, clearFlag, depthVal, stencilVal);
+	}
+}
+
+void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {
+	D3D11Framebuffer *src = (D3D11Framebuffer *)srcfb;
+	D3D11Framebuffer *dst = (D3D11Framebuffer *)dstfb;
+
+	// CopySubResource ?
+}
+
+bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
+	D3D11Framebuffer *src = (D3D11Framebuffer *)srcfb;
+	D3D11Framebuffer *dst = (D3D11Framebuffer *)dstfb;
+
+	// Unfortunately D3D11 has no equivalent to this, gotta render a quad.
+
+	return true;
+}
+
+// These functions should be self explanatory.
+void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
+	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
+	context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
+}
+
+// color must be 0, for now.
+void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
+	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
+	context_->PSSetShaderResources(binding, 1, &fb->colorSRView);
+}
+
+void D3D11DrawContext::BindFramebufferForRead(Framebuffer *fbo) {
+	// This is meaningless in D3D11
+}
+
+void D3D11DrawContext::BindBackbufferAsRenderTarget() {
 
 }
 
-void D3D11DrawContext::CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {}
-bool D3D11DrawContext::BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) { return true; }
-
-// These functions should be self explanatory.
-void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {}
-// color must be 0, for now.
-void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {}
-void D3D11DrawContext::BindFramebufferForRead(Framebuffer *fbo) {}
-
-void D3D11DrawContext::BindBackbufferAsRenderTarget() {}
-uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) { return 0; }
+uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
+	// D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
+	return 0;
+}
 
 void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
