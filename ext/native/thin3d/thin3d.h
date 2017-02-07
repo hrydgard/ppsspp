@@ -113,6 +113,7 @@ enum BufferUsageFlag : int {
 	VERTEXDATA = 1,
 	INDEXDATA = 2,
 	GENERIC = 4,
+	UNIFORM = 8,
 
 	DYNAMIC = 16,
 };

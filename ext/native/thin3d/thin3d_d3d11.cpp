@@ -118,6 +118,11 @@ private:
 	ID3D11GeometryShader *curGS_ = nullptr;
 	D3D11_PRIMITIVE_TOPOLOGY curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
+	ID3D11Buffer *nextVertexBuffers_[4];
+	int nextVertexBufferOffsets_[4];
+	ID3D11Buffer *nextIndexBuffer_;
+	int nextIndexBufferOffset_;
+
 	// Dynamic state
 	float blendFactor_[4];
 	bool blendFactorDirty_ = false;
@@ -689,25 +694,58 @@ void D3D11DrawContext::ApplyCurrentState() {
 
 class D3D11Buffer : public Buffer {
 public:
-	ID3D11Buffer *buf;
-	
+	~D3D11Buffer() {
+		if (buf)
+			buf->Release();
+		if (srView)
+			srView->Release();
+	}
 	virtual void SetData(const uint8_t *data, size_t size) override {
 		
 	}
 	virtual void SubData(const uint8_t *data, size_t offset, size_t size) override {
 		
 	}
+	ID3D11Buffer *buf;
+	ID3D11ShaderResourceView *srView;
 };
 
 Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	D3D11Buffer *b = new D3D11Buffer();
-
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = (UINT)size;
+	desc.BindFlags = 0;
+	if (usageFlags & VERTEXDATA)
+		desc.BindFlags |= D3D11_BIND_VERTEX_BUFFER;
+	if (usageFlags & INDEXDATA)
+		desc.BindFlags |= D3D11_BIND_INDEX_BUFFER;
+	if (usageFlags & UNIFORM)
+		desc.BindFlags |= D3D11_BIND_CONSTANT_BUFFER;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	desc.Usage = D3D11_USAGE_DYNAMIC;
+	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &b->buf);
+	if (FAILED(hr)) {
+		delete b;
+		return nullptr;
+	}
+	device_->CreateShaderResourceView(b->buf, nullptr, &b->srView);
 	return b;
 }
 
 void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) {
+	// Lazy application
+	for (int i = 0; i < count; i++) {
+		D3D11Buffer *buf = (D3D11Buffer *)buffers[i];
+		nextVertexBuffers_[start + i] = buf->buf;
+		nextVertexBufferOffsets_[start + i] = offsets[i];
+	}
 }
+
 void D3D11DrawContext::BindIndexBuffer(Buffer *indexBuffer, int offset) {
+	D3D11Buffer *buf = (D3D11Buffer *)indexBuffer;
+	// Lazy application
+	nextIndexBuffer_ = buf->buf;
+	nextIndexBufferOffset_ = offset;
 }
 
 void D3D11DrawContext::Draw(int vertexCount, int offset) {
