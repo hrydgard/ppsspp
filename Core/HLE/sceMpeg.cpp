@@ -555,7 +555,7 @@ static int sceMpegDelete(u32 mpeg)
 	delete ctx;
 	mpegMap.erase(Memory::Read_U32(mpeg));
 
-	return 0;
+	return hleDelayResult(0, "mpeg delete", 40000);
 }
 
 
