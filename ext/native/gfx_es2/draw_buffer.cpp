@@ -93,7 +93,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	pipeline_->SetMatrix4x4("WorldViewProj", drawMatrix_.getReadPtr());
 	draw_->BindPipeline(pipeline_);
 	if (vbuf_) {
-		vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
+		draw_->UpdateBuffer(vbuf_, (const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
 		draw_->BindVertexBuffers(0, 1, &vbuf_, nullptr);
 		int offset = 0;
 		draw_->Draw(count_, offset);

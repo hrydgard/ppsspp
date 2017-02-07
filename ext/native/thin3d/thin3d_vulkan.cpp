@@ -176,29 +176,6 @@ public:
 	}
 };
 
-// Very simplistic buffer that will simply copy its contents into our "pushbuffer" when it's time to draw,
-// to avoid synchronization issues.
-class VKBuffer : public Buffer {
-public:
-	VKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
-		data_ = new uint8_t[size];
-	}
-	~VKBuffer() override {
-		delete[] data_;
-	}
-
-	void SubData(const uint8_t *data, size_t offset, size_t size) override {
-		memcpy(data_, data_ + offset, size);
-	}
-
-	size_t GetSize() const { return dataSize_; }
-	const uint8_t *GetData() const { return data_; }
-
-private: 
-	uint8_t *data_;
-	size_t dataSize_;
-};
-
 VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 	switch (stage) {
 	case ShaderStage::VERTEX: return VK_SHADER_STAGE_VERTEX_BIT;
@@ -320,6 +297,7 @@ private:
 };
 
 class VKTexture;
+class VKBuffer;
 class VKSamplerState;
 
 struct DescriptorSetKey {
@@ -1050,12 +1028,31 @@ BlendState *VKContext::CreateBlendState(const BlendStateDesc &desc) {
 	return bs;
 }
 
+// Very simplistic buffer that will simply copy its contents into our "pushbuffer" when it's time to draw,
+// to avoid synchronization issues.
+class VKBuffer : public Buffer {
+public:
+	VKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
+		data_ = new uint8_t[size];
+	}
+	~VKBuffer() override {
+		delete[] data_;
+	}
+
+	size_t GetSize() const { return dataSize_; }
+	const uint8_t *GetData() const { return data_; }
+
+	uint8_t *data_;
+	size_t dataSize_;
+};
+
 Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new VKBuffer(size, usageFlags);
 }
 
 void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) {
-	Crash();
+	VKBuffer *buf = (VKBuffer *)buffer;
+	memcpy(buf->data_ + offset, data, size);
 }
 
 void VKContext::BindTextures(int start, int count, Texture **textures) {

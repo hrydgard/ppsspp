@@ -388,7 +388,6 @@ public:
 
 class Buffer : public RefCountedObject {
 public:
-	virtual void SubData(const uint8_t *data, size_t offset, size_t size) = 0;
 };
 
 class Texture : public RefCountedObject {

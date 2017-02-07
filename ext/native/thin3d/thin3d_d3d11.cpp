@@ -702,11 +702,9 @@ public:
 		if (srView)
 			srView->Release();
 	}
-	virtual void SubData(const uint8_t *data, size_t offset, size_t size) override {
-		
-	}
 	ID3D11Buffer *buf;
 	ID3D11ShaderResourceView *srView;
+	size_t size;
 };
 
 Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
@@ -720,8 +718,11 @@ Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 		desc.BindFlags |= D3D11_BIND_INDEX_BUFFER;
 	if (usageFlags & UNIFORM)
 		desc.BindFlags |= D3D11_BIND_CONSTANT_BUFFER;
+
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	desc.Usage = D3D11_USAGE_DYNAMIC;
+
+	b->size = size;
 	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &b->buf);
 	if (FAILED(hr)) {
 		delete b;
@@ -732,7 +733,20 @@ Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 }
 
 void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) {
-	Crash();
+	D3D11Buffer *buf = (D3D11Buffer *)buffer;
+	if (offset == 0 && size == buf->size) {
+		// Can just discard the old contents. This is only allowed for DYNAMIC buffers.
+		D3D11_MAPPED_SUBRESOURCE map;
+		context_->Map(buf->buf, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+		memcpy(map.pData, data, size);
+		context_->Unmap(buf->buf, 0);
+		return;
+	}
+
+	D3D11_BOX box{};
+	box.left = offset;
+	box.right = offset + size;
+	context_->UpdateSubresource(buf->buf, 0, &box, data, 0, 0);
 }
 
 void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) {

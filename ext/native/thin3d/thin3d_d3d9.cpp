@@ -142,6 +142,8 @@ static int FormatToD3DDeclType(DataFormat type) {
 	}
 }
 
+class D3D9Buffer;
+
 class D3D9DepthStencilState : public DepthStencilState {
 public:
 	BOOL depthTestEnabled;
@@ -217,58 +219,6 @@ public:
 		device->SetSamplerState(index, D3DSAMP_MINFILTER, minFilt);
 		device->SetSamplerState(index, D3DSAMP_MIPFILTER, mipFilt);
 	}
-};
-
-// Simulate a simple buffer type like the other backends have, use the usage flags to create the right internal type.
-class D3D9Buffer : public Buffer {
-public:
-	D3D9Buffer(LPDIRECT3DDEVICE9 device, size_t size, uint32_t flags) : vbuffer_(nullptr), ibuffer_(nullptr), maxSize_(size) {
-		if (flags & BufferUsageFlag::INDEXDATA) {
-			DWORD usage = D3DUSAGE_DYNAMIC;
-			device->CreateIndexBuffer((UINT)size, usage, D3DFMT_INDEX32, D3DPOOL_DEFAULT, &ibuffer_, NULL);
-		}
-		else {
-			DWORD usage = D3DUSAGE_DYNAMIC;
-			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_DEFAULT, &vbuffer_, NULL);
-		}
-	}
-	virtual ~D3D9Buffer() override {
-		if (ibuffer_) {
-			ibuffer_->Release();
-		}
-		if (vbuffer_) {
-			vbuffer_->Release();
-		}
-	}
-
-	void SubData(const uint8_t *data, size_t offset, size_t size) override {
-		if (!size)
-			return;
-		if (offset + size > maxSize_) {
-			ELOG("Can't SubData with bigger size than buffer was created with");
-			return;
-		}
-		if (vbuffer_) {
-			void *ptr;
-			HRESULT res = vbuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
-			if (!FAILED(res)) {
-				memcpy(ptr, data, size);
-				vbuffer_->Unlock();
-			}
-		} else if (ibuffer_) {
-			void *ptr;
-			HRESULT res = ibuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
-			if (!FAILED(res)) {
-				memcpy(ptr, data, size);
-				ibuffer_->Unlock();
-			}
-		}
-	}
-
-public:
-	LPDIRECT3DVERTEXBUFFER9 vbuffer_;
-	LPDIRECT3DINDEXBUFFER9 ibuffer_;
-	size_t maxSize_;
 };
 
 class D3D9InputLayout : public InputLayout {
@@ -831,12 +781,59 @@ D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc
 	delete[] elements;
 }
 
+// Simulate a simple buffer type like the other backends have, use the usage flags to create the right internal type.
+class D3D9Buffer : public Buffer {
+public:
+	D3D9Buffer(LPDIRECT3DDEVICE9 device, size_t size, uint32_t flags) : vbuffer_(nullptr), ibuffer_(nullptr), maxSize_(size) {
+		if (flags & BufferUsageFlag::INDEXDATA) {
+			DWORD usage = D3DUSAGE_DYNAMIC;
+			device->CreateIndexBuffer((UINT)size, usage, D3DFMT_INDEX32, D3DPOOL_DEFAULT, &ibuffer_, NULL);
+		} else {
+			DWORD usage = D3DUSAGE_DYNAMIC;
+			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_DEFAULT, &vbuffer_, NULL);
+		}
+	}
+	virtual ~D3D9Buffer() override {
+		if (ibuffer_) {
+			ibuffer_->Release();
+		}
+		if (vbuffer_) {
+			vbuffer_->Release();
+		}
+	}
+
+	LPDIRECT3DVERTEXBUFFER9 vbuffer_;
+	LPDIRECT3DINDEXBUFFER9 ibuffer_;
+	size_t maxSize_;
+};
+
 Buffer *D3D9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new D3D9Buffer(device_, size, usageFlags);
 }
 
 void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size) {
-	Crash();
+	D3D9Buffer *buf = (D3D9Buffer *)buffer;
+	if (!size)
+		return;
+	if (offset + size > buf->maxSize_) {
+		ELOG("Can't SubData with bigger size than buffer was created with");
+		return;
+	}
+	if (buf->vbuffer_) {
+		void *ptr;
+		HRESULT res = buf->vbuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
+		if (!FAILED(res)) {
+			memcpy(ptr, data, size);
+			buf->vbuffer_->Unlock();
+		}
+	} else if (buf->ibuffer_) {
+		void *ptr;
+		HRESULT res = buf->ibuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
+		if (!FAILED(res)) {
+			memcpy(ptr, data, size);
+			buf->ibuffer_->Unlock();
+		}
+	}
 }
 
 void D3D9Pipeline::Apply(LPDIRECT3DDEVICE9 device) {
