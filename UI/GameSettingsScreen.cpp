@@ -160,7 +160,7 @@ void GameSettingsScreen::CreateViews() {
 	renderingBackendChoice->HideChoice(1);  // D3D9
 	renderingBackendChoice->HideChoice(2);  // D3D11
 #else
-	renderingBackendChoice->HideChoice(2);  // D3D11
+	// renderingBackendChoice->HideChoice(2);  // D3D11
 #endif
 #if !defined(_WIN32)
 	// TODO: Add dynamic runtime check for Vulkan support on Android
