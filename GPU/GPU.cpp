@@ -66,9 +66,8 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 #endif
 	case GPUCORE_DIRECTX11:
 #if defined(_WIN32)
-		// SetGPU(new D3D11_GPU(ctx, draw));
-		// break;
-		return false;
+		SetGPU(new GPU_D3D11(ctx, draw));
+		break;
 #else
 		return false;
 #endif

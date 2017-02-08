@@ -100,6 +100,10 @@ public:
 			return (uintptr_t)device_;
 		case NativeObject::CONTEXT:
 			return (uintptr_t)context_;
+		case NativeObject::BACKBUFFER_COLOR_VIEW:
+			return (uintptr_t)bbRenderTargetView_;
+		case NativeObject::BACKBUFFER_DEPTH_VIEW:
+			return (uintptr_t)bbDepthStencilView_;
 		default:
 			return 0;
 		}
@@ -792,6 +796,18 @@ void D3D11DrawContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 }
 
 void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
+	if (pipeline == nullptr) {
+		// This is a signal to forget all our caching.
+		curBlend_ = nullptr;
+		curDepth_ = nullptr;
+		curRaster_ = nullptr;
+		curPS_ = nullptr;
+		curVS_ = nullptr;
+		curGS_ = nullptr;
+		curInputLayout_ = nullptr;
+		curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+	}
+
 	D3D11Pipeline *dPipeline = (D3D11Pipeline *)pipeline;
 	if (curPipeline_ == dPipeline)
 		return;
@@ -840,7 +856,6 @@ void D3D11DrawContext::ApplyCurrentState() {
 	if (nextIndexBuffer_) {
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
 	}
-
 	if (curPipeline_->dynamicUniforms) {
 		context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
 	}

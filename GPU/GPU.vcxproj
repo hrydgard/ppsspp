@@ -203,6 +203,7 @@
     <ClInclude Include="Common\TextureScalerCommon.h" />
     <ClInclude Include="Common\TransformCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
+    <ClInclude Include="D3D11\D3D11Util.h" />
     <ClInclude Include="D3D11\DepalettizeShaderD3D11.h" />
     <ClInclude Include="D3D11\DrawEngineD3D11.h" />
     <ClInclude Include="D3D11\FragmentShaderGeneratorD3D11.h" />
@@ -210,6 +211,7 @@
     <ClInclude Include="D3D11\GPU_D3D11.h" />
     <ClInclude Include="D3D11\ShaderManagerD3D11.h" />
     <ClInclude Include="D3D11\TextureCacheD3D11.h" />
+    <ClInclude Include="D3D11\TextureScalerD3D11.h" />
     <ClInclude Include="D3D11\VertexShaderGeneratorD3D11.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
     <ClInclude Include="Debugger\Stepping.h" />
@@ -296,6 +298,7 @@
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderCommon.cpp" />
     <ClCompile Include="Common\VertexDecoderX86.cpp" />
+    <ClCompile Include="D3D11\D3D11Util.cpp" />
     <ClCompile Include="D3D11\DepalettizeShaderD3D11.cpp" />
     <ClCompile Include="D3D11\DrawEngineD3D11.cpp" />
     <ClCompile Include="D3D11\FragmentShaderGeneratorD3D11.cpp" />
@@ -303,7 +306,9 @@
     <ClCompile Include="D3D11\GPU_D3D11.cpp" />
     <ClCompile Include="D3D11\ShaderManagerD3D11.cpp" />
     <ClCompile Include="D3D11\StateMappingD3D11.cpp" />
+    <ClCompile Include="D3D11\StencilBufferD3D11.cpp" />
     <ClCompile Include="D3D11\TextureCacheD3D11.cpp" />
+    <ClCompile Include="D3D11\TextureScalerD3D11.cpp" />
     <ClCompile Include="D3D11\VertexShaderGeneratorD3D11.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\Stepping.cpp" />

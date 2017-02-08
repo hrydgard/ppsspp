@@ -316,6 +316,8 @@ enum class NativeObject {
 	CONTEXT,
 	DEVICE,
 	DEVICE_EX,
+	BACKBUFFER_COLOR_VIEW,
+	BACKBUFFER_DEPTH_VIEW,
 };
 
 enum FBColorDepth {
@@ -610,6 +612,7 @@ public:
 		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
 
+	// Call this with 0 to signal that you have been drawing on your own, and need the state reset on the next pipeline bind.
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.

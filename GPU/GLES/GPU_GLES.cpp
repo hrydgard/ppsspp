@@ -1188,9 +1188,9 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheGL_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
-		shaderManagerGL_->NumVertexShaders(),
-		shaderManagerGL_->NumFragmentShaders(),
-		shaderManagerGL_->NumPrograms());
+		shaderManagerGL_->GetNumVertexShaders(),
+		shaderManagerGL_->GetNumFragmentShaders(),
+		shaderManagerGL_->GetNumPrograms());
 }
 
 void GPU_GLES::ClearCacheNextFrame() {

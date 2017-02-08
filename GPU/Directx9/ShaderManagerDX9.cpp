@@ -576,7 +576,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	VSShader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShaderDX9(VSID, codeBuffer_);
+		GenerateVertexShaderHLSL(VSID, codeBuffer_);
 		vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 
 		if (vs->Failed()) {
@@ -592,7 +592,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShaderDX9(VSID, codeBuffer_);
+			GenerateVertexShaderHLSL(VSID, codeBuffer_);
 			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}
 
@@ -606,7 +606,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	PSShader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShaderDX9(FSID, codeBuffer_);
+		GenerateFragmentShaderHLSL(FSID, codeBuffer_);
 		fs = new PSShader(device_, FSID, codeBuffer_);
 		fsCache_[FSID] = fs;
 	} else {

@@ -28,105 +28,99 @@
 #include "GPU/D3D11/DepalettizeShaderD3D11.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
-namespace D3D11 {
+class ShaderManagerD3D11;
+class LinkedShaderD3D11;
 
-	class ShaderManagerD3D11;
-	class LinkedShaderD3D11;
+class GPU_D3D11 : public GPUCommon {
+public:
+	GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
+	~GPU_D3D11();
 
-	class GPU_D3D11 : public GPUCommon {
-	public:
-		GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
-		~GPU_D3D11();
+	void CheckGPUFeatures();
+	void PreExecuteOp(u32 op, u32 diff) override;
+	void ExecuteOp(u32 op, u32 diff) override;
 
-		void CheckGPUFeatures();
-		void PreExecuteOp(u32 op, u32 diff) override;
-		void ExecuteOp(u32 op, u32 diff) override;
+	void ReapplyGfxStateInternal() override;
+	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
+	void BeginFrame() override;
+	void GetStats(char *buffer, size_t bufsize) override;
+	void ClearCacheNextFrame() override;
+	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
+	void DeviceRestore() override;
 
-		void ReapplyGfxStateInternal() override;
-		void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
-		void BeginFrame() override;
-		void GetStats(char *buffer, size_t bufsize) override;
-		void ClearCacheNextFrame() override;
-		void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
-		void DeviceRestore() override;
+	void DumpNextFrame() override;
+	void DoState(PointerWrap &p) override;
 
-		void DumpNextFrame() override;
-		void DoState(PointerWrap &p) override;
+	void ClearShaderCache() override;
+	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
+		return false;
+	}
+	bool FramebufferDirty() override;
+	bool FramebufferReallyDirty() override;
 
-		void ClearShaderCache() override;
-		bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
-			return false;
-		}
-		bool FramebufferDirty() override;
-		bool FramebufferReallyDirty() override;
+	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
+		primaryInfo = reportingPrimaryInfo_;
+		fullInfo = reportingFullInfo_;
+	}
+	std::vector<FramebufferInfo> GetFramebufferList() override;
 
-		void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
-			primaryInfo = reportingPrimaryInfo_;
-			fullInfo = reportingFullInfo_;
-		}
-		std::vector<FramebufferInfo> GetFramebufferList() override;
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes = -1) override;
+	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
+	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
+	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 
-		bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes = -1) override;
-		bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
-		bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
-		bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
-		bool GetCurrentClut(GPUDebugBuffer &buffer) override;
-		bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
-		bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
-
-		typedef void (GPU_D3D11::*CmdFunc)(u32 op, u32 diff);
-		struct CommandInfo {
-			uint64_t flags;
-			GPU_D3D11::CmdFunc func;
-		};
-
-		void Execute_Prim(u32 op, u32 diff);
-		void Execute_Bezier(u32 op, u32 diff);
-		void Execute_Spline(u32 op, u32 diff);
-		void Execute_VertexType(u32 op, u32 diff);
-		void Execute_VertexTypeSkinning(u32 op, u32 diff);
-		void Execute_TexSize0(u32 op, u32 diff);
-		void Execute_LoadClut(u32 op, u32 diff);
-
-		// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
-		std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
-		std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
-
-	protected:
-		void FastRunLoop(DisplayList &list) override;
-		void FinishDeferred() override;
-
-	private:
-		void UpdateCmdInfo();
-
-		void Flush() {
-			drawEngine_.Flush();
-		}
-		// void ApplyDrawState(int prim);
-		void CheckFlushOp(int cmd, u32 diff);
-		void BuildReportingInfo();
-
-		void InitClearInternal() override;
-		void BeginFrameInternal() override;
-		void CopyDisplayToOutputInternal() override;
-
-		ID3D11Device *device_;
-		ID3D11DeviceContext *context_;
-
-		FramebufferManagerD3D11 *framebufferManagerD3D11_;
-		TextureCacheD3D11 *textureCacheD3D11_;
-		DepalShaderCacheD3D11 depalShaderCache_;
-		DrawEngineD3D11 drawEngine_;
-		ShaderManagerD3D11 *shaderManagerD3D11_;
-
-		static CommandInfo cmdInfo_[256];
-
-		int lastVsync_;
-
-		std::string reportingPrimaryInfo_;
-		std::string reportingFullInfo_;
+	typedef void (GPU_D3D11::*CmdFunc)(u32 op, u32 diff);
+	struct CommandInfo {
+		uint64_t flags;
+		GPU_D3D11::CmdFunc func;
 	};
 
-}  // namespace D3D11
+	void Execute_Prim(u32 op, u32 diff);
+	void Execute_Bezier(u32 op, u32 diff);
+	void Execute_Spline(u32 op, u32 diff);
+	void Execute_VertexType(u32 op, u32 diff);
+	void Execute_VertexTypeSkinning(u32 op, u32 diff);
+	void Execute_TexSize0(u32 op, u32 diff);
+	void Execute_LoadClut(u32 op, u32 diff);
 
-typedef D3D11::GPU_D3D11 D3D11_GPU;
+	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
+
+protected:
+	void FastRunLoop(DisplayList &list) override;
+	void FinishDeferred() override;
+
+private:
+	void UpdateCmdInfo();
+
+	void Flush() {
+		drawEngine_.Flush();
+	}
+	// void ApplyDrawState(int prim);
+	void CheckFlushOp(int cmd, u32 diff);
+	void BuildReportingInfo();
+
+	void InitClearInternal() override;
+	void BeginFrameInternal() override;
+	void CopyDisplayToOutputInternal() override;
+
+	ID3D11Device *device_;
+	ID3D11DeviceContext *context_;
+
+	FramebufferManagerD3D11 *framebufferManagerD3D11_;
+	TextureCacheD3D11 *textureCacheD3D11_;
+	DepalShaderCacheD3D11 *depalShaderCache_;
+	DrawEngineD3D11 drawEngine_;
+	ShaderManagerD3D11 *shaderManagerD3D11_;
+
+	static CommandInfo cmdInfo_[256];
+
+	int lastVsync_;
+
+	std::string reportingPrimaryInfo_;
+	std::string reportingFullInfo_;
+};

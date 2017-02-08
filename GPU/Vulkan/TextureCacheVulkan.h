@@ -37,28 +37,6 @@ class VulkanTexture;
 class VulkanPushBuffer;
 class VulkanDeviceAllocator;
 
-struct SamplerCacheKey {
-	SamplerCacheKey() : fullKey(0) {}
-
-	union {
-		u32 fullKey;
-		struct {
-			bool mipEnable : 1;
-			bool minFilt : 1;
-			bool mipFilt : 1;
-			bool magFilt : 1;
-			bool sClamp : 1;
-			bool tClamp : 1;
-			int lodBias : 4;
-			int maxLevel : 4;
-		};
-	};
-
-	bool operator < (const SamplerCacheKey &other) const {
-		return fullKey < other.fullKey;
-	}
-};
-
 class CachedTextureVulkan {
 public:
 	CachedTextureVulkan() : texture_(nullptr) {

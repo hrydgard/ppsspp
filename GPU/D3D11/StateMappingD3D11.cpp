@@ -17,6 +17,8 @@
 
 #include <d3d11.h>
 
+#include "math/dataconv.h"
+
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -26,6 +28,8 @@
 #include "Core/Reporting.h"
 
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/D3D11/DrawEngineD3D11.h"
+#include "GPU/D3D11/FramebufferManagerD3D11.h"
 
 // These tables all fit into u8s.
 static const D3D11_BLEND d3d11BlendFactorLookup[(size_t)BlendFactor::COUNT] = {
@@ -375,5 +379,62 @@ void ConvertStateToKeys(FramebufferManagerCommon *fbManager, ShaderManagerD3D11 
 	if (depthMax > 1.0f) depthMax = 1.0f;
 	if (vpAndScissor.dirtyDepth) {
 		gstate_c.Dirty(DIRTY_DEPTHRANGE);
+	}
+}
+
+void DrawEngineD3D11::ApplyDrawState(int prim) {
+	D3D11StateKeys keys;
+	D3D11DynamicState dynState;
+	ConvertStateToKeys(framebufferManager_, shaderManager_, prim, keys, dynState);
+
+	uint32_t blendKey, depthKey, rasterKey;
+	memcpy(&blendKey, &keys.blend, sizeof(uint32_t));
+	memcpy(&depthKey, &keys.depthStencil, sizeof(uint32_t));
+	memcpy(&rasterKey, &keys.raster, sizeof(uint32_t));
+
+	ID3D11BlendState *bs = nullptr;
+	ID3D11DepthStencilState *ds = nullptr;
+	ID3D11RasterizerState *rs = nullptr;
+
+	auto blendIter = blendCache_.find(blendKey);
+	if (blendIter == blendCache_.end()) {
+		D3D11_BLEND_DESC desc{};
+		D3D11_RENDER_TARGET_BLEND_DESC &rt = desc.RenderTarget[0];
+		rt.BlendEnable = keys.blend.blendEnable;
+		rt.BlendOp = (D3D11_BLEND_OP)keys.blend.blendOpColor;
+		rt.BlendOpAlpha = (D3D11_BLEND_OP)keys.blend.blendOpAlpha;
+		rt.SrcBlend = (D3D11_BLEND)keys.blend.srcColor;
+		rt.DestBlend = (D3D11_BLEND)keys.blend.destColor;
+		rt.SrcBlendAlpha = (D3D11_BLEND)keys.blend.srcAlpha;
+		rt.DestBlendAlpha = (D3D11_BLEND)keys.blend.destAlpha;
+		rt.RenderTargetWriteMask = keys.blend.colorWriteMask;
+		device_->CreateBlendState(&desc, &bs);
+		blendCache_.insert(std::pair<uint32_t, ID3D11BlendState *>(blendKey, bs));
+	} else {
+		bs = blendIter->second;
+	}
+
+	auto depthIter = depthStencilCache_.find(depthKey);
+	if (depthIter == depthStencilCache_.end()) {
+		D3D11_DEPTH_STENCIL_DESC desc{};
+		desc.DepthEnable = keys.depthStencil.depthTestEnable;
+		desc.DepthWriteMask = keys.depthStencil.depthWriteEnable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+		desc.StencilEnable = keys.depthStencil.stencilTestEnable;
+		// ...
+		device_->CreateDepthStencilState(&desc, &ds);
+		depthStencilCache_.insert(std::pair<uint32_t, ID3D11DepthStencilState *>(depthKey, ds));
+	} else {
+		ds = depthIter->second;
+	}
+
+	float blendColor[4];
+	Uint8x4ToFloat4(blendColor, dynState.blendColor);
+	context_->OMSetBlendState(bs, blendColor, 0xFFFFFFFF);
+}
+
+void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {
+	if (applyStencilRef) {
+		ID3D11DepthStencilState *state;
+		context_->OMSetDepthStencilState(state, stencilRef);
 	}
 }

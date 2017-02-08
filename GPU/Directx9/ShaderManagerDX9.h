@@ -86,8 +86,8 @@ public:
 	void DirtyShader();
 	void DirtyLastShader();
 
-	int NumVertexShaders() const { return (int)vsCache_.size(); }
-	int NumFragmentShaders() const { return (int)fsCache_.size(); }
+	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
+	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);

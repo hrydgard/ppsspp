@@ -17,25 +17,13 @@
 
 #pragma once
 
-#include "GPU/Common/ShaderId.h"
-#include "GPU/Common/ShaderCommon.h"
+#include "Common/CommonTypes.h"
+#include "GPU/Common/TextureScalerCommon.h"
 
-namespace DX9 {
-
-bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
-
-#define CONST_PS_TEXENV 0
-#define CONST_PS_ALPHACOLORREF 1
-#define CONST_PS_ALPHACOLORMASK 2
-#define CONST_PS_FOGCOLOR 3
-#define CONST_PS_STENCILREPLACE 4
-#define CONST_PS_BLENDFIXA 5
-#define CONST_PS_BLENDFIXB 6
-#define CONST_PS_FBOTEXSIZE 7
-#define CONST_PS_TEXCLAMP 8
-#define CONST_PS_TEXCLAMPOFF 9
-
-// For stencil upload
-#define CONST_PS_STENCILVALUE 10
-
+class TextureScalerD3D11 : public TextureScalerCommon {
+private:
+	// NOTE: We use GE formats, D3D11 doesn't support 4444
+	void ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) override;
+	int BytesPerPixel(u32 format) override;
+	u32 Get8888Format() override;
 };

@@ -18,12 +18,6 @@
 #pragma once
 
 #include "GPU/ge_constants.h"
-
-enum ShaderLanguage {
-	GLSL_140,
-	GLSL_300,
-	GLSL_VULKAN,
-	HLSL_DX9,
-};
+#include "GPU/Common/ShaderCommon.h"
 
 void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language);

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+
 #include <d3d9.h>
 
 #include "../Globals.h"

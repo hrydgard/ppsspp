@@ -942,8 +942,8 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheDX9_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
-		shaderManagerDX9_->NumVertexShaders(),
-		shaderManagerDX9_->NumFragmentShaders()
+		shaderManagerDX9_->GetNumVertexShaders(),
+		shaderManagerDX9_->GetNumFragmentShaders()
 	);
 }
 

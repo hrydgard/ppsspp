@@ -24,6 +24,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/ShaderUniforms.h"
 
 #define WRITE p+=sprintf
 
@@ -33,7 +34,7 @@ namespace DX9 {
 
 // Missing: Z depth range
 // Also, logic ops etc, of course, as they are not supported in DX9.
-bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
+bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
@@ -68,39 +69,43 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 
 	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
 
-	if (doTexture)
-		WRITE(p, "sampler tex : register(s0);\n");
-	if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
-		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
-			WRITE(p, "float2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
-			WRITE(p, "sampler fbotex : register(s1);\n");
+	if (lang == HLSL_DX9) {
+		if (doTexture)
+			WRITE(p, "sampler tex : register(s0);\n");
+		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
+			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
+				WRITE(p, "float2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
+				WRITE(p, "sampler fbotex : register(s1);\n");
+			}
+			if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
+				WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
+			}
+			if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
+				WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
+			}
 		}
-		if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
-			WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
+		if (gstate_c.needShaderTexClamp && doTexture) {
+			WRITE(p, "float4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
+			if (textureAtOffset) {
+				WRITE(p, "float2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
+			}
 		}
-		if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
-			WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
-		}
-	}
-	if (gstate_c.needShaderTexClamp && doTexture) {
-		WRITE(p, "float4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
-		if (textureAtOffset) {
-			WRITE(p, "float2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
-		}
-	}
 
-	if (enableAlphaTest || enableColorTest) {
-		WRITE(p, "float4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
-		WRITE(p, "float4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
-	}
-	if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
-		WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
-	}
-	if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
-		WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
-	}
-	if (enableFog) {
-		WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+		if (enableAlphaTest || enableColorTest) {
+			WRITE(p, "float4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
+			WRITE(p, "float4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
+		}
+		if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
+			WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
+		}
+		if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
+			WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+		}
+		if (enableFog) {
+			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+		}
+	} else {
+		WRITE(p, "cbuffer base : register(b0) %s;\n", cb_baseStr);
 	}
 
 	if (enableAlphaTest) {
@@ -122,7 +127,12 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 		WRITE(p, "  float2 v_fogdepth: TEXCOORD1;\n");
 	}
 	WRITE(p, "};\n");
-	WRITE(p, "float4 main( PS_IN In ) : COLOR\n");
+
+	if (lang == HLSL_DX9) {
+		WRITE(p, "float4 main( PS_IN In ) : COLOR\n");
+	} else {
+		WRITE(p, "float4 main( PS_IN In ) : SV_Target\n");
+	}
 	WRITE(p, "{\n");
 
 	if (isModeClear) {

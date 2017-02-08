@@ -39,25 +39,19 @@
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/FragmentShaderGeneratorD3D11.h"
 #include "GPU/D3D11/VertexShaderGeneratorD3D11.h"
+#include "GPU/D3D11/D3D11Util.h"
 
 D3D11FragmentShader::D3D11FragmentShader(ID3D11Device *device, ShaderID id, const char *code, bool useHWTransform)
 	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(0) {
 	source_ = code;
 
-	std::string errorMessage;
-
 #ifdef SHADERLOG
 	OutputDebugStringA(code);
 #endif
 
-	uint8_t *bytecode;
-	UINT bytecodeSize;
-
-	HRESULT hr = device_->CreatePixelShader(bytecode, bytecodeSize, nullptr, &module_);
-	if (FAILED(hr)) {
+	module_ = CreatePixelShaderD3D11(device, code, strlen(code));
+	if (!module_)
 		failed_ = true;
-		return;
-	}
 }
 
 D3D11FragmentShader::~D3D11FragmentShader() {
@@ -79,19 +73,14 @@ std::string D3D11FragmentShader::GetShaderString(DebugShaderStringType type) con
 D3D11VertexShader::D3D11VertexShader(ID3D11Device *device, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting)
 	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr), usesLighting_(usesLighting) {
 	source_ = code;
-	std::string errorMessage;
-	std::vector<uint32_t> spirv;
+
 #ifdef SHADERLOG
 	OutputDebugStringA(code);
 #endif
-	uint8_t *bytecode;
-	UINT bytecodeSize;
 
-	HRESULT hr = device_->CreateVertexShader(bytecode, bytecodeSize, nullptr, &module_);
-	if (FAILED(hr)) {
+	module_ = CreateVertexShaderD3D11(device, code, strlen(code), &bytecode_);
+	if (!module_)
 		failed_ = true;
-		return;
-	}
 }
 
 D3D11VertexShader::~D3D11VertexShader() {
@@ -120,6 +109,13 @@ ShaderManagerD3D11::ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext
 	ILOG("sizeof(ub_base): %d", (int)sizeof(ub_base));
 	ILOG("sizeof(ub_lights): %d", (int)sizeof(ub_lights));
 	ILOG("sizeof(ub_bones): %d", (int)sizeof(ub_bones));
+
+	D3D11_BUFFER_DESC desc{sizeof(ub_base), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
+	device_->CreateBuffer(&desc, nullptr, &push_base);
+	desc.ByteWidth = sizeof(ub_lights);
+	device_->CreateBuffer(&desc, nullptr, &push_lights);
+	desc.ByteWidth = sizeof(ub_bones);
+	device_->CreateBuffer(&desc, nullptr, &push_bones);
 }
 
 ShaderManagerD3D11::~ShaderManagerD3D11() {
@@ -162,12 +158,25 @@ void ShaderManagerD3D11::DirtyLastShader() { // disables vertex arrays
 uint64_t ShaderManagerD3D11::UpdateUniforms() {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
-		if (dirty & DIRTY_BASE_UNIFORMS)
+		D3D11_MAPPED_SUBRESOURCE map;
+		if (dirty & DIRTY_BASE_UNIFORMS) {
 			BaseUpdateUniforms(&ub_base, dirty);
-		if (dirty & DIRTY_LIGHT_UNIFORMS)
+			context_->Map(push_base, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+			memcpy(map.pData, &ub_base, sizeof(ub_base));
+			context_->Unmap(push_base, 0);
+		}
+		if (dirty & DIRTY_LIGHT_UNIFORMS) {
 			LightUpdateUniforms(&ub_lights, dirty);
-		if (dirty & DIRTY_BONE_UNIFORMS)
+			context_->Map(push_lights, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+			memcpy(map.pData, &ub_lights, sizeof(ub_lights));
+			context_->Unmap(push_lights, 0);
+		}
+		if (dirty & DIRTY_BONE_UNIFORMS) {
 			BoneUpdateUniforms(&ub_bones, dirty);
+			context_->Map(push_bones, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+			memcpy(map.pData, &ub_bones, sizeof(ub_bones));
+			context_->Unmap(push_bones, 0);
+		}
 	}
 	gstate_c.CleanUniforms();
 	return dirty;

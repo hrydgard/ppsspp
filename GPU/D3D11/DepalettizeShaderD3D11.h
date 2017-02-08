@@ -15,6 +15,55 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
+#include <map>
+#include <vector>
+#include <cstdint>
+#include <d3d11.h>
+#include "Common/CommonTypes.h"
+#include "GPU/ge_constants.h"
 
-class DepalShaderCacheD3D11 {};
+class DepalShaderD3D11 {
+public:
+	ID3D11PixelShader *pixelShader;
+};
+
+class DepalTextureD3D11 {
+public:
+	~DepalTextureD3D11() {
+		if (texture)
+			texture->Release();
+		if (view)
+			view->Release();
+	}
+	ID3D11Texture2D *texture;
+	ID3D11ShaderResourceView *view;
+	int lastFrame;
+};
+
+// Caches both shaders and palette textures.
+class DepalShaderCacheD3D11 {
+public:
+	DepalShaderCacheD3D11(ID3D11Device *device, ID3D11DeviceContext *context);
+	~DepalShaderCacheD3D11();
+
+	// This also uploads the palette and binds the correct texture.
+	ID3D11PixelShader *GetDepalettizePixelShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	ID3D11VertexShader *GetDepalettizeVertexShader() { return vertexShader_; }
+	ID3D11InputLayout *GetInputLayout() { return inputLayout_; }
+	ID3D11ShaderResourceView *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	ID3D11SamplerState *GetClutSampler() { return clutSampler; }
+	void Clear();
+	void Decimate();
+
+private:
+	u32 GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+
+	ID3D11Device *device_;
+	ID3D11DeviceContext *context_;
+	ID3D11VertexShader *vertexShader_ = nullptr;
+	ID3D11InputLayout *inputLayout_ = nullptr;
+	ID3D11SamplerState *clutSampler = nullptr;
+
+	std::map<u32, DepalShaderD3D11 *> cache_;
+	std::map<u32, DepalTextureD3D11 *> texCache_;
+};
