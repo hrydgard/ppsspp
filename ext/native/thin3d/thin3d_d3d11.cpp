@@ -143,7 +143,7 @@ private:
 	int nextIndexBufferOffset_ = 0;
 
 	// Dynamic state
-	float blendFactor_[4];
+	float blendFactor_[4]{};
 	bool blendFactorDirty_ = false;
 	uint8_t stencilRef_;
 	bool stencilRefDirty_;
@@ -517,8 +517,6 @@ public:
 			il->Release();
 		if (dynamicUniforms)
 			dynamicUniforms->Release();
-		if (dynamicUniformsView)
-			dynamicUniformsView->Release();
 	}
 	bool RequiresBuffer() {
 		return true;
@@ -536,7 +534,6 @@ public:
 
 	size_t dynamicUniformsSize = 0;
 	ID3D11Buffer *dynamicUniforms = nullptr;
-	ID3D11ShaderResourceView *dynamicUniformsView = nullptr;
 };
 
 class D3D11Texture : public Texture {
@@ -731,12 +728,6 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		bufdesc.Usage = D3D11_USAGE_DYNAMIC;
 		bufdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 		HRESULT hr = device_->CreateBuffer(&bufdesc, nullptr, &dPipeline->dynamicUniforms);
-		D3D11_SHADER_RESOURCE_VIEW_DESC bufview{};
-		bufview.Buffer.ElementOffset = 0;
-		bufview.Buffer.ElementWidth = (UINT)dPipeline->dynamicUniformsSize;
-		bufview.Buffer.FirstElement = 0;
-		bufview.Buffer.NumElements = 1;
-		hr = device_->CreateShaderResourceView(dPipeline->dynamicUniforms, &bufview, &dPipeline->dynamicUniformsView);
 	}
 
 	std::vector<D3D11ShaderModule *> shaders;
@@ -835,7 +826,7 @@ void D3D11DrawContext::ApplyCurrentState() {
 	}
 
 	if (curPipeline_->dynamicUniforms) {
-		context_->VSSetShaderResources(0, 1, &curPipeline_->dynamicUniformsView);
+		context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
 	}
 }
 
@@ -872,10 +863,6 @@ Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	if (FAILED(hr)) {
 		delete b;
 		return nullptr;
-	}
-	if (usageFlags & UNIFORM) {
-		// D3D11_SHADER_RESOURCE_VIEW_DESC resDesc{};
-		// device_->CreateShaderResourceView(b->buf, &resDesc, &b->srView);
 	}
 	return b;
 }

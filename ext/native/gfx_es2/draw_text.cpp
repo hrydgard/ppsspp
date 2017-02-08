@@ -300,7 +300,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 			for (int y = 0; y < entry->bmHeight; y++) {
 				for (int x = 0; x < entry->bmWidth; x++) {
 					uint8_t bAlpha = (uint8_t)(ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff);
-					bitmapData32[entry->bmWidth * y + x] = (bAlpha) | 0xffffff00;
+					bitmapData32[entry->bmWidth * y + x] = (bAlpha << 24) | 0x00ffffff;
 				}
 			}
 			desc.initData.push_back((uint8_t *)bitmapData32);
