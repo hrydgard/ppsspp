@@ -102,11 +102,6 @@ private:
 		}
 	}
 
-	TexCache secondCache;
-	u32 secondCacheSizeEstimate_;
-
-	bool clearCacheNextFrame_;
-	bool lowMemoryMode_;
 	TextureScalerDX9 scaler;
 
 	u32 clutHash_;

@@ -57,11 +57,6 @@
 // Try to be prime to other decimation intervals.
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
-// Changes more frequent than this will be considered "frequent" and prevent texture scaling.
-#define TEXCACHE_FRAME_CHANGE_FREQUENT 6
-// Note: only used when hash backoff is disabled.
-#define TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST 33
-
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
@@ -145,9 +140,6 @@ TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *v
 	: TextureCacheCommon(draw),
 		vulkan_(vulkan),
 		samplerCache_(vulkan),
-		secondCacheSizeEstimate_(0),
-	  clearCacheNextFrame_(false),
-		lowMemoryMode_(false),
 		texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = nullptr;

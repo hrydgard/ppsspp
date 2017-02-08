@@ -24,6 +24,7 @@
 #include "Common/MemoryUtil.h"
 #include "Core/TextureReplacer.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/TextureDecoder.h"
 
 enum TextureFiltering {
 	TEX_FILTER_AUTO = 1,
@@ -37,6 +38,11 @@ enum FramebufferNotification {
 	NOTIFY_FB_UPDATED,
 	NOTIFY_FB_DESTROYED,
 };
+
+// Changes more frequent than this will be considered "frequent" and prevent texture scaling.
+#define TEXCACHE_FRAME_CHANGE_FREQUENT 6
+// Note: only used when hash backoff is disabled.
+#define TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST 33
 
 struct VirtualFramebuffer;
 
@@ -150,6 +156,8 @@ public:
 	};
 
 protected:
+	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
+
 	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
 	typedef std::map<u64, TexCacheEntry> TexCache;
 
@@ -181,11 +189,36 @@ protected:
 
 	void DecimateVideos();
 
+	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TexCacheEntry *entry) {
+		if (replacer.Enabled()) {
+			return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
+		}
+
+		if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
+			h = (int)entry->maxSeenV;
+		}
+
+		const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
+		const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
+
+		if (Memory::IsValidAddress(addr + sizeInRAM)) {
+			return DoQuickTexHash(checkp, sizeInRAM);
+		} else {
+			return 0;
+		}
+	}
+
 	Draw::DrawContext *draw_;
 	TextureReplacer replacer;
 
+	bool clearCacheNextFrame_;
+	bool lowMemoryMode_;
+
 	TexCache cache;
 	u32 cacheSizeEstimate_;
+
+	TexCache secondCache;
+	u32 secondCacheSizeEstimate_;
 
 	std::vector<VirtualFramebuffer *> fbCache_;
 	std::map<u64, AttachedFramebufferInfo> fbTexInfo_;

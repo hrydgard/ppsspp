@@ -150,12 +150,6 @@ private:
 	VulkanContext *vulkan_;
 	VulkanDeviceAllocator *allocator_;
 
-	TexCache secondCache;
-	u32 secondCacheSizeEstimate_;
-
-	bool clearCacheNextFrame_;
-	bool lowMemoryMode_;
-
 	SamplerCache samplerCache_;
 
 	TextureScalerVulkan scaler;

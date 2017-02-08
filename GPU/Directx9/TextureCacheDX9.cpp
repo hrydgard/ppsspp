@@ -70,9 +70,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw),
-		secondCacheSizeEstimate_(0),
-		clearCacheNextFrame_(false),
-		lowMemoryMode_(false),
 		texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;

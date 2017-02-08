@@ -72,9 +72,6 @@
 
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw),
-		secondCacheSizeEstimate_(0),
-		clearCacheNextFrame_(false),
-		lowMemoryMode_(false),
 		texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
@@ -504,25 +501,6 @@ void TextureCacheGLES::StartFrame() {
 
 static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
-}
-
-static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCacheGLES::TexCacheEntry *entry) {
-	if (replacer.Enabled()) {
-		return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
-	}
-
-	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
-		h = (int)entry->maxSeenV;
-	}
-
-	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
-	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
-
-	if (Memory::IsValidAddress(addr + sizeInRAM)) {
-		return DoQuickTexHash(checkp, sizeInRAM);
-	} else {
-		return 0;
-	}
 }
 
 void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
@@ -1162,69 +1140,6 @@ void TextureCacheGLES::SetTexture(bool force) {
 	nextNeedsRehash_ = entry->framebuffer == nullptr;
 	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_= true;
-}
-
-bool TextureCacheGLES::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
-	bool hashFail = false;
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	u32 fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
-	if (fullhash != entry->fullhash) {
-		hashFail = true;
-	} else {
-		if (g_Config.bTextureBackoffCache) {
-			if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-				// Reset to STATUS_HASHING.
-				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-				entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
-			}
-		} else if (entry->numFrames > TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST) {
-			entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
-		}
-	}
-
-	if (hashFail) {
-		entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
-		if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-			if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
-				entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
-			} else {
-				entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
-			}
-		}
-		entry->numFrames = 0;
-
-		// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
-		// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
-		if (g_Config.bTextureSecondaryCache) {
-			if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
-				u64 secondKey = fullhash | (u64)entry->cluthash << 32;
-				TexCache::iterator secondIter = secondCache.find(secondKey);
-				if (secondIter != secondCache.end()) {
-					TexCacheEntry *secondEntry = &secondIter->second;
-					if (secondEntry->Matches(entry->dim, entry->format, entry->maxLevel)) {
-						// Reset the numInvalidated value lower, we got a match.
-						if (entry->numInvalidated > 8) {
-							--entry->numInvalidated;
-						}
-						nextTexture_ = secondEntry;
-						return true;
-					}
-				} else {
-					secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
-					secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-					secondCache[secondKey] = *entry;
-					doDelete = false;
-				}
-			}
-		}
-
-		// We know it failed, so update the full hash right away.
-		entry->fullhash = fullhash;
-		return false;
-	}
-
-	return true;
 }
 
 bool TextureCacheGLES::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
