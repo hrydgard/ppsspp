@@ -25,6 +25,9 @@
     <Filter Include="Vulkan">
       <UniqueIdentifier>{3c621896-140c-4c8b-8e4d-a478bfdeca8a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="D3D11">
+      <UniqueIdentifier>{88eb5cea-ec25-4881-89da-02f9f2fa8f3f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ge_constants.h">
@@ -221,6 +224,18 @@
     </ClInclude>
     <ClInclude Include="GLES\FragmentTestCacheGLES.h">
       <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\ShaderUniforms.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\ShaderManagerD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\VertexShaderGeneratorD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\FragmentShaderGeneratorD3D11.h">
+      <Filter>D3D11</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -427,6 +442,21 @@
     </ClCompile>
     <ClCompile Include="GLES\FragmentTestCacheGLES.cpp">
       <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\StateMappingD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ShaderUniforms.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\ShaderManagerD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\VertexShaderGeneratorD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\FragmentShaderGeneratorD3D11.cpp">
+      <Filter>D3D11</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

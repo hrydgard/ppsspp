@@ -1,4 +1,4 @@
-// Copyright (c) 2016- PPSSPP Project.
+// Copyright (c) 2017- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,23 +19,24 @@
 
 #include <map>
 
+#include <d3d11.h>
+
 #include "base/basictypes.h"
 #include "Globals.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
-#include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
-#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
-#include "GPU/Vulkan/VulkanUtil.h"
+// #include "GPU/DX9/VertexShaderGeneratorD3D11.h"
+// #include "GPU/DX9/FragmentShaderGeneratorD3D11.h"
 #include "math/lin/matrix4x4.h"
 #include "GPU/Common/ShaderUniforms.h"
 
-class VulkanContext;
-class VulkanPushBuffer;
+class D3D11Context;
+class D3D11PushBuffer;
 
-class VulkanFragmentShader {
+class D3D11FragmentShader {
 public:
-	VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, const char *code, bool useHWTransform);
-	~VulkanFragmentShader();
+	D3D11FragmentShader(ID3D11Device *device, ShaderID id, const char *code, bool useHWTransform);
+	~D3D11FragmentShader();
 
 	const std::string &source() const { return source_; }
 
@@ -43,22 +44,22 @@ public:
 	bool UseHWTransform() const { return useHWTransform_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	VkShaderModule GetModule() const { return module_; }
+	ID3D11PixelShader *GetShader() const { return module_; }
 
-protected:	
-	VkShaderModule module_;
+protected:
+	ID3D11PixelShader *module_;
 
-	VulkanContext *vulkan_;
+	ID3D11Device *device_;
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
 	ShaderID id_;
 };
 
-class VulkanVertexShader {
+class D3D11VertexShader {
 public:
-	VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting);
-	~VulkanVertexShader();
+	D3D11VertexShader(ID3D11Device *device, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting);
+	~D3D11VertexShader();
 
 	const std::string &source() const { return source_; }
 
@@ -72,12 +73,12 @@ public:
 	}
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	VkShaderModule GetModule() const { return module_; }
+	ID3D11VertexShader *GetModule() const { return module_; }
 
 protected:
-	VkShaderModule module_;
+	ID3D11VertexShader *module_;
 
-	VulkanContext *vulkan_;
+	ID3D11Device *device_;
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
@@ -85,16 +86,14 @@ protected:
 	ShaderID id_;
 };
 
-class VulkanPushBuffer;
+class D3D11PushBuffer;
 
-class ShaderManagerVulkan : public ShaderManagerCommon {
+class ShaderManagerD3D11 : public ShaderManagerCommon {
 public:
-	ShaderManagerVulkan(VulkanContext *vulkan);
-	~ShaderManagerVulkan();
+	ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext *context);
+	~ShaderManagerD3D11();
 
-	void DeviceRestore(VulkanContext *vulkan);
-
-	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform);
+	void GetShaders(int prim, u32 vertType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, bool useHWTransform);
 	void ClearShaders();
 	void DirtyShader();
 	void DirtyLastShader();
@@ -113,31 +112,33 @@ public:
 	bool IsLightDirty() { return true; }
 	bool IsBoneDirty() { return true; }
 
-	uint32_t PushBaseBuffer(VulkanPushBuffer *dest, VkBuffer *buf);
-	uint32_t PushLightBuffer(VulkanPushBuffer *dest, VkBuffer *buf);
-	uint32_t PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf);
+	/*
+	uint32_t PushBaseBuffer(D3D11PushBuffer *dest, VkBuffer *buf);
+	uint32_t PushLightBuffer(D3D11PushBuffer *dest, VkBuffer *buf);
+	uint32_t PushBoneBuffer(D3D11PushBuffer *dest, VkBuffer *buf);
+	*/
 
 private:
 	void Clear();
 
-	VulkanContext *vulkan_;
+	ID3D11Device *device_;
+	ID3D11DeviceContext *context_;
 
-	typedef std::map<ShaderID, VulkanFragmentShader *> FSCache;
+	typedef std::map<ShaderID, D3D11FragmentShader *> FSCache;
 	FSCache fsCache_;
 
-	typedef std::map<ShaderID, VulkanVertexShader *> VSCache;
+	typedef std::map<ShaderID, D3D11VertexShader *> VSCache;
 	VSCache vsCache_;
 
 	char *codeBuffer_;
 
-	uint64_t uboAlignment_;
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base;
 	UB_VS_Lights ub_lights;
 	UB_VS_Bones ub_bones;
 
-	VulkanFragmentShader *lastFShader_;
-	VulkanVertexShader *lastVShader_;
+	D3D11FragmentShader *lastFShader_;
+	D3D11VertexShader *lastVShader_;
 
 	ShaderID lastFSID_;
 	ShaderID lastVSID_;

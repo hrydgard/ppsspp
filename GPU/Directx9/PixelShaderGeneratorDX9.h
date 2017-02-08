@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "Globals.h"
-
 #include "GPU/Common/ShaderId.h"
 
 namespace DX9 {

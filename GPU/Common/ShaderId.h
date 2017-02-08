@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+#include <cstdint>
 #include "base/basictypes.h"
 
 // TODO: There will be additional bits, indicating that groups of these will be
@@ -93,9 +95,9 @@ struct ShaderID {
 		}
 	}
 
-	u32 d[2];
+	uint32_t d[2];
 	bool operator < (const ShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
+		for (size_t i = 0; i < sizeof(d) / sizeof(uint32_t); i++) {
 			if (d[i] < other.d[i])
 				return true;
 			if (d[i] > other.d[i])
@@ -104,7 +106,7 @@ struct ShaderID {
 		return false;
 	}
 	bool operator == (const ShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
+		for (size_t i = 0; i < sizeof(d) / sizeof(uint32_t); i++) {
 			if (d[i] != other.d[i])
 				return false;
 		}
@@ -142,7 +144,7 @@ struct ShaderID {
 
 
 bool CanUseHardwareTransform(int prim);
-void ComputeVertexShaderID(ShaderID *id, u32 vertexType, bool useHWTransform);
+void ComputeVertexShaderID(ShaderID *id, uint32_t vertexType, bool useHWTransform);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const ShaderID &id);
