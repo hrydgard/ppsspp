@@ -436,6 +436,7 @@ RasterState *D3D11DrawContext::CreateRasterState(const RasterStateDesc &desc) {
 	case CullMode::NONE: d3ddesc.CullMode = D3D11_CULL_NONE; break;
 	}
 	d3ddesc.FrontCounterClockwise = desc.frontFace == Facing::CCW;
+	d3ddesc.ScissorEnable = true;  // We always run with scissor enabled
 	if (SUCCEEDED(device_->CreateRasterizerState(&d3ddesc, &rs->rs)))
 		return rs;
 	delete rs;
