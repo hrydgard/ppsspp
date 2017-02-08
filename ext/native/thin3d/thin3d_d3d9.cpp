@@ -291,6 +291,7 @@ public:
 	D3D9DepthStencilState *depthStencil = nullptr;
 	D3D9BlendState *blend = nullptr;
 	D3D9RasterState *raster = nullptr;
+	UniformBufferDesc dynamicUniforms;
 
 	void Apply(LPDIRECT3DDEVICE9 device);
 	void SetVector(const char *name, float *value, int n) { vshader->SetVector(device_, name, value, n); pshader->SetVector(device_, name, value, n); }
@@ -520,6 +521,8 @@ public:
 		curPipeline_ = (D3D9Pipeline *)pipeline;
 	}
 
+	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
+
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
@@ -647,6 +650,8 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	pipeline->blend->AddRef();
 	pipeline->raster->AddRef();
 	pipeline->inputLayout->AddRef();
+	if (desc.uniformDesc)
+		pipeline->dynamicUniforms = *desc.uniformDesc;
 	return pipeline;
 }
 
@@ -809,6 +814,29 @@ public:
 
 Buffer *D3D9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new D3D9Buffer(device_, size, usageFlags);
+}
+
+void D3D9Context::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
+	if (size != curPipeline_->dynamicUniforms.uniformBufferSize)
+		Crash();
+	for (auto &uniform : curPipeline_->dynamicUniforms.uniforms) {
+		int count = 0;
+		switch (uniform.type) {
+		case UniformType::FLOAT4:
+			count = 1;
+			break;
+		case UniformType::MATRIX4X4:
+			count = 4;
+			break;
+		}
+		const float *srcPtr = (const float *)((uint8_t *)ub + uniform.offset);
+		if (uniform.vertexReg != -1) {
+			device_->SetVertexShaderConstantF(uniform.vertexReg, srcPtr, count);
+		}
+		if (uniform.fragmentReg != -1) {
+			device_->SetPixelShaderConstantF(uniform.fragmentReg, srcPtr, count);
+		}
+	}
 }
 
 void D3D9Context::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) {

@@ -184,10 +184,9 @@ static const std::vector<ShaderSource> vsCol = {
 	}
 };
 
-static const UniformBufferDesc vsColBuf { { { 0, UniformType::MATRIX4X4, 0 } } };
-struct VsColUB {
-	float WorldViewProj[16];
-};
+const UniformBufferDesc vsColBufDesc { sizeof(VsColUB), {
+	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 }
+} };
 
 static const std::vector<ShaderSource> vsTexCol = {
 	{ ShaderLanguage::GLSL_ES_200,
@@ -248,10 +247,9 @@ static const std::vector<ShaderSource> vsTexCol = {
 	}
 };
 
-static const UniformBufferDesc vsTexColDesc{ { { 0, UniformType::MATRIX4X4, 0 } } };
-struct VsTexColUB {
-	float WorldViewProj[16];
-};
+const UniformBufferDesc vsTexColBufDesc{ sizeof(VsTexColUB),{
+	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 }
+} };
 
 static ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources) {
 	uint32_t supported = draw->GetSupportedShaderLanguages();

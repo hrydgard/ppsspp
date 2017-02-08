@@ -381,7 +381,6 @@ struct UniformInfo {
 	int loc_;
 };
 
-// TODO: Add Uniform Buffer support.
 class OpenGLPipeline : public Pipeline, GfxResourceHolder {
 public:
 	OpenGLPipeline() {
@@ -434,9 +433,12 @@ public:
 	OpenGLBlendState *blend = nullptr;
 	OpenGLRasterState *raster = nullptr;
 
+	// TODO: Optimize by getting the locations first and putting in a custom struct
+	UniformBufferDesc dynamicUniforms;
+
 private:
 	GLuint program_;
-	std::map<std::string, UniformInfo> uniforms_;
+	std::map<std::string, UniformInfo> uniformCache_;
 };
 
 class OpenGLFramebuffer;
@@ -537,6 +539,8 @@ public:
 		curIBuffer_ = (OpenGLBuffer  *)indexBuffer;
 		curIBufferOffset_ = offset;
 	}
+
+	void UpdateDynamicUniformBuffer(const void *ub, size_t size);
 
 	// TODO: Add more sophisticated draws.
 	void Draw(int vertexCount, int offset) override;
@@ -965,6 +969,8 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->blend->AddRef();
 		pipeline->raster->AddRef();
 		pipeline->inputLayout->AddRef();
+		if (desc.uniformDesc)
+			pipeline->dynamicUniforms = *desc.uniformDesc;
 		return pipeline;
 	} else {
 		delete pipeline;
@@ -1046,15 +1052,15 @@ bool OpenGLPipeline::LinkShaders() {
 }
 
 int OpenGLPipeline::GetUniformLoc(const char *name) {
-	auto iter = uniforms_.find(name);
+	auto iter = uniformCache_.find(name);
 	int loc = -1;
-	if (iter != uniforms_.end()) {
+	if (iter != uniformCache_.end()) {
 		loc = iter->second.loc_;
 	} else {
 		loc = glGetUniformLocation(program_, name);
 		UniformInfo info;
 		info.loc_ = loc;
-		uniforms_[name] = info;
+		uniformCache_[name] = info;
 	}
 	return loc;
 }
@@ -1093,6 +1099,27 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_->blend->Apply();
 	curPipeline_->depthStencil->Apply();
 	curPipeline_->raster->Apply();
+}
+
+void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
+	if (curPipeline_->dynamicUniforms.uniformBufferSize != size) {
+		Crash();
+	}
+
+	for (auto &uniform : curPipeline_->dynamicUniforms.uniforms) {
+		GLuint loc = curPipeline_->GetUniformLoc(uniform.name);
+		if (loc == -1)
+			Crash();
+		const float *data = (const float *)((uint8_t *)ub + uniform.offset);
+		switch (uniform.type) {
+		case UniformType::FLOAT4:
+			glUniform1fv(loc, 4, data);
+			break;
+		case UniformType::MATRIX4X4:
+			glUniformMatrix4fv(loc, 1, false, data);
+			break;
+		}
+	}
 }
 
 void OpenGLContext::Draw(int vertexCount, int offset) {

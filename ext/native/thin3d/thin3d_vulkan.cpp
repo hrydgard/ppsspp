@@ -262,13 +262,16 @@ public:
 
 class VKPipeline : public Pipeline {
 public:
-	VKPipeline() {
-		// HACK! Hardcoded
-		uboSize_ = 16 * sizeof(float);  // WorldViewProj
+	VKPipeline(size_t size) {
+		uboSize_ = size;
 		ubo_ = new uint8_t[uboSize_];
 	}
 	~VKPipeline() {
 		delete[] ubo_;
+	}
+
+	void SetDynamicUniformData(const void *data, size_t size) {
+		memcpy(ubo_, data, size);
 	}
 
 	// Returns the binding offset, and the VkBuffer to bind.
@@ -289,7 +292,8 @@ public:
 	}
 
 	VkPipeline vkpipeline;
-	int stride[4];
+	int stride[4]{};
+	int dynamicUniformSize = 0;
 
 private:
 	uint8_t *ubo_;
@@ -375,6 +379,8 @@ public:
 		curIBuffer_ = (VKBuffer *)indexBuffer;
 		curIBufferOffset_ = offset;
 	}
+
+	void UpdateDynamicUniformBuffer(const void *ub, size_t size);
 
 	// TODO: Add more sophisticated draws.
 	void Draw(int vertexCount, int offset) override;
@@ -827,7 +833,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 }
 
 Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
-	VKPipeline *pipeline = new VKPipeline();
+	VKPipeline *pipeline = new VKPipeline(desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float));
 	VKInputLayout *input = (VKInputLayout *)desc.inputLayout;
 	VKBlendState *blend = (VKBlendState *)desc.blend;
 	VKDepthStencilState *depth = (VKDepthStencilState *)desc.depthStencil;
@@ -900,6 +906,10 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		delete pipeline;
 		return nullptr;
 	}
+	if (desc.uniformDesc) {
+		pipeline->dynamicUniformSize = desc.uniformDesc->uniformBufferSize;
+	}
+
 	return pipeline;
 }
 
@@ -1110,6 +1120,10 @@ inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	default:
 		return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
 	}
+}
+
+void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
+	curPipeline_->SetDynamicUniformData(ub, size);
 }
 
 void VKContext::Draw(int vertexCount, int offset) {
