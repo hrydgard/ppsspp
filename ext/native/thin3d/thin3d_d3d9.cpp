@@ -722,7 +722,11 @@ Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
 void D3D9Context::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
 		D3D9Texture *tex = static_cast<D3D9Texture *>(textures[i - start]);
-		tex->SetToSampler(device_, i);
+		if (tex) {
+			tex->SetToSampler(device_, i);
+		} else {
+			device_->SetTexture(i, nullptr);
+		}
 	}
 }
 

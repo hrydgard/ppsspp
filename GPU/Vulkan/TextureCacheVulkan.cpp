@@ -57,11 +57,6 @@
 // Try to be prime to other decimation intervals.
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
-// Changes more frequent than this will be considered "frequent" and prevent texture scaling.
-#define TEXCACHE_FRAME_CHANGE_FREQUENT 6
-// Note: only used when hash backoff is disabled.
-#define TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST 33
-
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
@@ -145,9 +140,6 @@ TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *v
 	: TextureCacheCommon(draw),
 		vulkan_(vulkan),
 		samplerCache_(vulkan),
-		secondCacheSizeEstimate_(0),
-	  clearCacheNextFrame_(false),
-		lowMemoryMode_(false),
 		texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = nullptr;
@@ -166,6 +158,11 @@ TextureCacheVulkan::~TextureCacheVulkan() {
 		auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
 		delete allocator;
 	}, allocator_);
+}
+
+void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManager) {
+	framebufferManagerVulkan_ = fbManager;
+	framebufferManager_ = fbManager;
 }
 
 void TextureCacheVulkan::DeviceLost() {
@@ -192,10 +189,6 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan) {
 
 	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 	samplerCache_.DeviceRestore(vulkan);
-}
-
-void TextureCacheVulkan::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
-
 }
 
 void TextureCacheVulkan::Clear(bool delete_them) {
@@ -272,182 +265,6 @@ void TextureCacheVulkan::Decimate() {
 	}
 
 	DecimateVideos();
-}
-
-void TextureCacheVulkan::Invalidate(u32 addr, int size, GPUInvalidationType type) {
-	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache) {
-		return;
-	}
-
-	addr &= 0x3FFFFFFF;
-	const u32 addr_end = addr + size;
-
-	// They could invalidate inside the texture, let's just give a bit of leeway.
-	const int LARGEST_TEXTURE_SIZE = 512 * 512 * 4;
-	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
-	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
-	if (endKey < startKey) {
-		endKey = (u64)-1;
-	}
-
-	for (TexCache::iterator iter = cache.lower_bound(startKey), end = cache.upper_bound(endKey); iter != end; ++iter) {
-		u32 texAddr = iter->second.addr;
-		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
-
-		if (texAddr < addr_end && addr < texEnd) {
-			if (iter->second.GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-				iter->second.SetHashStatus(TexCacheEntry::STATUS_HASHING);
-			}
-			if (type != GPU_INVALIDATE_ALL) {
-				gpuStats.numTextureInvalidations++;
-				// Start it over from 0 (unless it's safe.)
-				iter->second.numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
-				if (type == GPU_INVALIDATE_SAFE) {
-					u32 diff = gpuStats.numFlips - iter->second.lastFrame;
-					// We still need to mark if the texture is frequently changing, even if it's safely changing.
-					if (diff < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-						iter->second.status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
-					}
-				}
-				iter->second.framesUntilNextFullHash = 0;
-			} else if (!iter->second.framebuffer) {
-				iter->second.invalidHint++;
-			}
-		}
-	}
-}
-
-void TextureCacheVulkan::InvalidateAll(GPUInvalidationType /*unused*/) {
-	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache) {
-		return;
-	}
-
-	if (timesInvalidatedAllThisFrame_ > 5) {
-		return;
-	}
-	timesInvalidatedAllThisFrame_++;
-
-	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
-		if (iter->second.GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-			iter->second.SetHashStatus(TexCacheEntry::STATUS_HASHING);
-		}
-		if (!iter->second.framebuffer) {
-			iter->second.invalidHint++;
-		}
-	}
-}
-
-void TextureCacheVulkan::ClearNextFrame() {
-	clearCacheNextFrame_ = true;
-}
-
-bool TextureCacheVulkan::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
-	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
-
-	AttachedFramebufferInfo fbInfo = { 0 };
-
-	const u64 mirrorMask = 0x00600000;
-	// Must be in VRAM so | 0x04000000 it is.  Also, ignore memory mirrors.
-	const u32 addr = (address | 0x04000000) & 0x3FFFFFFF & ~mirrorMask;
-	const u32 texaddr = ((entry->addr + texaddrOffset) & ~mirrorMask);
-	const bool noOffset = texaddr == addr;
-	const bool exactMatch = noOffset && entry->format < 4;
-	const u32 h = 1 << ((entry->dim >> 8) & 0xf);
-	// 512 on a 272 framebuffer is sane, so let's be lenient.
-	const u32 minSubareaHeight = h / 4;
-
-	// If they match exactly, it's non-CLUT and from the top left.
-	if (exactMatch) {
-		// Apply to non-buffered and buffered mode only.
-		if (!(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE))
-			return false;
-
-		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
-		if (framebuffer->fb_stride != entry->bufw) {
-			WARN_LOG_REPORT_ONCE(diffStrides1, G3D, "Render to texture with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
-		}
-		if (entry->format != (GETextureFormat)framebuffer->format) {
-			WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
-			// Let's avoid using it when we know the format is wrong.  May be a video/etc. updating memory.
-			// However, some games use a different format to clear the buffer.
-			if (framebuffer->last_frame_attached + 1 < gpuStats.numFlips) {
-				DetachFramebuffer(entry, address, framebuffer);
-			}
-		} else {
-			AttachFramebufferValid(entry, framebuffer, fbInfo);
-			return true;
-		}
-	} else {
-		// Apply to buffered mode only.
-		if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE))
-			return false;
-
-		const bool clutFormat =
-			(framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
-			(framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
-
-		const u32 bitOffset = (texaddr - addr) * 8;
-		const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry->format]);
-		fbInfo.yOffset = entry->bufw == 0 ? 0 : pixelOffset / entry->bufw;
-		fbInfo.xOffset = entry->bufw == 0 ? 0 : pixelOffset % entry->bufw;
-
-		if (framebuffer->fb_stride != entry->bufw) {
-			if (noOffset) {
-				WARN_LOG_REPORT_ONCE(diffStrides2, G3D, "Render to texture using CLUT with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
-			} else {
-				// Assume any render-to-tex with different bufw + offset is a render from ram.
-				DetachFramebuffer(entry, address, framebuffer);
-				return false;
-			}
-		}
-
-		if (fbInfo.yOffset + minSubareaHeight >= framebuffer->height) {
-			// Can't be inside the framebuffer then, ram.  Detach to be safe.
-			DetachFramebuffer(entry, address, framebuffer);
-			return false;
-		}
-		// Trying to play it safe.  Below 0x04110000 is almost always framebuffers.
-		// TODO: Maybe we can reduce this check and find a better way above 0x04110000?
-		if (fbInfo.yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000) {
-			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible render to texture at %08x +%dx%d / %dx%d", address, fbInfo.xOffset, fbInfo.yOffset, framebuffer->width, framebuffer->height);
-			DetachFramebuffer(entry, address, framebuffer);
-			return false;
-		}
-
-		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
-		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
-		if (clutFormat) {
-			if (!noOffset) {
-				WARN_LOG_REPORT_ONCE(subareaClut, G3D, "Render to texture using CLUT with offset at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
-			}
-			AttachFramebufferValid(entry, framebuffer, fbInfo);
-			entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
-			// We'll validate it compiles later.
-			return true;
-		} else if (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) {
-			ERROR_LOG_REPORT_ONCE(fourEightBit, G3D, "4 and 8-bit CLUT format not supported for framebuffers");
-		}
-
-		// This is either normal or we failed to generate a shader to depalettize
-		if (framebuffer->format == entry->format || clutFormat) {
-			if (framebuffer->format != entry->format) {
-				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
-				AttachFramebufferValid(entry, framebuffer, fbInfo);
-				return true;
-			} else {
-				WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
-				// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
-				AttachFramebufferInvalid(entry, framebuffer, fbInfo);
-				return true;
-			}
-		} else {
-			WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with incompatible formats %d != %d at %08x", entry->format, framebuffer->format, address);
-		}
-	}
-
-	return false;
 }
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format) {
@@ -562,21 +379,6 @@ static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
 
-static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCacheVulkan::TexCacheEntry *entry) {
-	if (replacer.Enabled()) {
-		return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
-	}
-
-	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
-		h = (int)entry->maxSeenV;
-	}
-
-	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
-	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
-
-	return DoQuickTexHash(checkp, sizeInRAM);
-}
-
 void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
 	const u32 clutBaseBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutBase * sizeof(u32)) : (clutBase * sizeof(u16));
 	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
@@ -614,40 +416,7 @@ inline u32 TextureCacheVulkan::GetCurrentClutHash() {
 	return clutHash_;
 }
 
-void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
-	_dbg_assert_msg_(G3D, framebuffer != nullptr, "Framebuffer must not be null.");
-
-	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	if (useBufferedRendering) {
-		const u64 cachekey = entry->CacheKey();
-		const auto &fbInfo = fbTexInfo_[cachekey];
-
-		// Keep the framebuffer alive.
-		framebuffer->last_frame_used = gpuStats.numFlips;
-
-		// We need to force it, since we may have set it on a texture before attaching.
-		gstate_c.curTextureWidth = framebuffer->bufferWidth;
-		gstate_c.curTextureHeight = framebuffer->bufferHeight;
-		gstate_c.curTextureXOffset = fbInfo.xOffset;
-		gstate_c.curTextureYOffset = fbInfo.yOffset;
-		gstate_c.needShaderTexClamp = gstate_c.curTextureWidth != (u32)gstate.getTextureWidth(0) || gstate_c.curTextureHeight != (u32)gstate.getTextureHeight(0);
-		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
-			gstate_c.needShaderTexClamp = true;
-		}
-
-		nextTexture_ = entry;
-	} else {
-		if (framebuffer->fbo) {
-			delete framebuffer->fbo;
-			framebuffer->fbo = nullptr;
-		}
-		gstate_c.needShaderTexClamp = false;
-	}
-
-	nextNeedsRehash_ = false;
-	nextNeedsChange_ = false;
-	nextNeedsRebuild_ = false;
+void TextureCacheVulkan::Unbind() {
 }
 
 void TextureCacheVulkan::ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler) {
@@ -826,65 +595,21 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 	}
 }
 
-bool TextureCacheVulkan::SetOffsetTexture(u32 offset) {
-	if (g_Config.iRenderingMode != FB_BUFFERED_MODE) {
-		return false;
-	}
-	u32 texaddr = gstate.getTextureAddress(0);
-	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + offset)) {
-		return false;
-	}
-
-	const u16 dim = gstate.getTextureDimension(0);
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, gstate.getTextureFormat(), dim, 0);
-	TexCache::iterator iter = cache.find(cachekey);
-	if (iter == cache.end()) {
-		return false;
-	}
-	TexCacheEntry *entry = &iter->second;
-
-	bool success = false;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, offset)) {
-			success = true;
-		}
-	}
-
-	if (success && entry->framebuffer) {
-		// This will not apply the texture immediately.
-		SetTextureFramebuffer(entry, entry->framebuffer);
-		return true;
-	}
-
-	return false;
-}
-
 ReplacedTextureFormat FromVulkanFormat(VkFormat fmt) {
 	switch (fmt) {
-	case VULKAN_565_FORMAT:
-		return ReplacedTextureFormat::F_5650;
-	case VULKAN_1555_FORMAT:
-		return ReplacedTextureFormat::F_5551;
-	case VULKAN_4444_FORMAT:
-		return ReplacedTextureFormat::F_4444;
-	case VULKAN_8888_FORMAT:
-	default:
-		return ReplacedTextureFormat::F_8888;
+	case VULKAN_565_FORMAT: return ReplacedTextureFormat::F_5650;
+	case VULKAN_1555_FORMAT: return ReplacedTextureFormat::F_5551;
+	case VULKAN_4444_FORMAT: return ReplacedTextureFormat::F_4444;
+	case VULKAN_8888_FORMAT: default: return ReplacedTextureFormat::F_8888;
 	}
 }
 
 VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650:
-		return VULKAN_565_FORMAT;
-	case ReplacedTextureFormat::F_5551:
-		return VULKAN_1555_FORMAT;
-	case ReplacedTextureFormat::F_4444:
-		return VULKAN_4444_FORMAT;
-	case ReplacedTextureFormat::F_8888:
-	default:
-		return VULKAN_8888_FORMAT;
+	case ReplacedTextureFormat::F_5650: return VULKAN_565_FORMAT;
+	case ReplacedTextureFormat::F_5551: return VULKAN_1555_FORMAT;
+	case ReplacedTextureFormat::F_4444: return VULKAN_4444_FORMAT;
+	case ReplacedTextureFormat::F_8888: default: return VULKAN_8888_FORMAT;
 	}
 }
 

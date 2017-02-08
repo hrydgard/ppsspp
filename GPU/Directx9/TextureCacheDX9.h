@@ -40,26 +40,16 @@ public:
 	~TextureCacheDX9();
 
 	void SetTexture(bool force = false);
-	virtual bool SetOffsetTexture(u32 offset) override;
 
 	void Clear(bool delete_them);
 	void StartFrame();
-	void Invalidate(u32 addr, int size, GPUInvalidationType type);
-	void InvalidateAll(GPUInvalidationType type);
-	void ClearNextFrame();
 
-	void SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
-		framebufferManager_ = fbManager;
-	}
+	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
 	void SetDepalShaderCache(DepalShaderCacheDX9 *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
 	void SetShaderManager(ShaderManagerDX9 *sm) {
 		shaderManager_ = sm;
-	}
-
-	size_t NumLoadedTextures() const {
-		return cache.size();
 	}
 
 	// Only used by Qt UI?
@@ -72,7 +62,7 @@ public:
 	void ApplyTexture();
 
 protected:
-	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override;
+	void Unbind() override;
 
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
@@ -83,8 +73,6 @@ private:
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override;
-	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
@@ -102,11 +90,6 @@ private:
 		}
 	}
 
-	TexCache secondCache;
-	u32 secondCacheSizeEstimate_;
-
-	bool clearCacheNextFrame_;
-	bool lowMemoryMode_;
 	TextureScalerDX9 scaler;
 
 	u32 clutHash_;
@@ -120,14 +103,9 @@ private:
 	int texelsScaledThisFrame_;
 	int timesInvalidatedAllThisFrame_;
 
-	FramebufferManagerDX9 *framebufferManager_;
+	FramebufferManagerDX9 *framebufferManagerDX9_;
 	DepalShaderCacheDX9 *depalShaderCache_;
 	ShaderManagerDX9 *shaderManager_;
-
-	const char *nextChangeReason_;
-	bool nextNeedsRehash_;
-	bool nextNeedsChange_;
-	bool nextNeedsRebuild_;
 };
 
 D3DFORMAT getClutDestFormat(GEPaletteFormat format);

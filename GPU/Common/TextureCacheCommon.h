@@ -24,6 +24,7 @@
 #include "Common/MemoryUtil.h"
 #include "Core/TextureReplacer.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/TextureDecoder.h"
 
 enum TextureFiltering {
 	TEX_FILTER_AUTO = 1,
@@ -38,6 +39,11 @@ enum FramebufferNotification {
 	NOTIFY_FB_DESTROYED,
 };
 
+// Changes more frequent than this will be considered "frequent" and prevent texture scaling.
+#define TEXCACHE_FRAME_CHANGE_FREQUENT 6
+// Note: only used when hash backoff is disabled.
+#define TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST 33
+
 struct VirtualFramebuffer;
 
 class CachedTextureVulkan;
@@ -45,6 +51,8 @@ class CachedTextureVulkan;
 namespace Draw {
 class DrawContext;
 }
+
+class FramebufferManagerCommon;
 
 class TextureCacheCommon {
 public:
@@ -54,9 +62,10 @@ public:
 	void LoadClut(u32 clutAddr, u32 loadBytes);
 	bool GetCurrentClutBuffer(GPUDebugBuffer &buffer);
 
-	virtual bool SetOffsetTexture(u32 offset) = 0;
-	virtual void Invalidate(u32 addr, int size, GPUInvalidationType type) = 0;
-	virtual void InvalidateAll(GPUInvalidationType type) = 0;
+	bool SetOffsetTexture(u32 offset);
+	void Invalidate(u32 addr, int size, GPUInvalidationType type);
+	void InvalidateAll(GPUInvalidationType type);
+	void ClearNextFrame();
 	virtual void ForgetLastTexture() = 0;
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
@@ -65,6 +74,10 @@ public:
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 
 	int AttachedDrawingHeight();
+
+	size_t NumLoadedTextures() const {
+		return cache.size();
+	}
 
 	// Wow this is starting to grow big. Soon need to start looking at resizing it.
 	// Must stay a POD.
@@ -150,6 +163,10 @@ public:
 	};
 
 protected:
+	virtual void Unbind() = 0;
+
+	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
+
 	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
 	typedef std::map<u64, TexCacheEntry> TexCache;
 
@@ -172,20 +189,50 @@ protected:
 	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr);
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	virtual bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) = 0;
+	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);
 	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 
-	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
+	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
 	void DecimateVideos();
 
+	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TexCacheEntry *entry) {
+		if (replacer.Enabled()) {
+			return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
+		}
+
+		if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
+			h = (int)entry->maxSeenV;
+		}
+
+		const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
+		const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
+
+		if (Memory::IsValidAddress(addr + sizeInRAM)) {
+			return DoQuickTexHash(checkp, sizeInRAM);
+		} else {
+			return 0;
+		}
+	}
+
 	Draw::DrawContext *draw_;
 	TextureReplacer replacer;
+	FramebufferManagerCommon *framebufferManager_;
+
+	bool clearCacheNextFrame_;
+	bool lowMemoryMode_;
+
+	int decimationCounter_;
+	int texelsScaledThisFrame_;
+	int timesInvalidatedAllThisFrame_;
 
 	TexCache cache;
 	u32 cacheSizeEstimate_;
+
+	TexCache secondCache;
+	u32 secondCacheSizeEstimate_;
 
 	std::vector<VirtualFramebuffer *> fbCache_;
 	std::map<u64, AttachedFramebufferInfo> fbTexInfo_;
@@ -213,6 +260,11 @@ protected:
 	u16 clutAlphaLinearColor_;
 
 	int standardScaleFactor_;
+
+	const char *nextChangeReason_;
+	bool nextNeedsRehash_;
+	bool nextNeedsChange_;
+	bool nextNeedsRebuild_;
 };
 
 inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) const {

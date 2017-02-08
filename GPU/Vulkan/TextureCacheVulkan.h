@@ -90,21 +90,14 @@ public:
 	~TextureCacheVulkan();
 
 	void SetTexture();
-	virtual bool SetOffsetTexture(u32 offset) override;
-
 	void Clear(bool delete_them);
 	void StartFrame();
 	void EndFrame();
-	void Invalidate(u32 addr, int size, GPUInvalidationType type) override;
-	void InvalidateAll(GPUInvalidationType type) override;
-	void ClearNextFrame();
 
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
 
-	void SetFramebufferManager(FramebufferManagerVulkan *fbManager) {
-		framebufferManager_ = fbManager;
-	}
+	void SetFramebufferManager(FramebufferManagerVulkan *fbManager);
 	void SetDepalShaderCache(DepalShaderCacheVulkan *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
@@ -115,10 +108,6 @@ public:
 		drawEngine_ = td;
 	}
 
-	size_t NumLoadedTextures() const {
-		return cache.size();
-	}
-
 	void ForgetLastTexture() override {
 		lastBoundTexture = nullptr;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
@@ -127,7 +116,7 @@ public:
 	void ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler);
 
 protected:
-	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override;
+	void Unbind() override;
 
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
@@ -138,8 +127,6 @@ private:
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h);
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override;
-	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEntry *entry, VirtualFramebuffer *framebuffer, VkImageView &image, VkSampler &sampler);
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
@@ -149,12 +136,6 @@ private:
 
 	VulkanContext *vulkan_;
 	VulkanDeviceAllocator *allocator_;
-
-	TexCache secondCache;
-	u32 secondCacheSizeEstimate_;
-
-	bool clearCacheNextFrame_;
-	bool lowMemoryMode_;
 
 	SamplerCache samplerCache_;
 
@@ -168,15 +149,10 @@ private:
 	int texelsScaledThisFrame_;
 	int timesInvalidatedAllThisFrame_;
 
-	FramebufferManagerVulkan *framebufferManager_;
+	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	DepalShaderCacheVulkan *depalShaderCache_;
 	ShaderManagerVulkan *shaderManager_;
 	DrawEngineVulkan *drawEngine_;
-
-	const char *nextChangeReason_;
-	bool nextNeedsRehash_;
-	bool nextNeedsChange_;
-	bool nextNeedsRebuild_;
 };
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format);
