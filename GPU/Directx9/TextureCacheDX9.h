@@ -66,6 +66,7 @@ public:
 
 protected:
 	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override;
+	void Unbind() override;
 
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
@@ -76,7 +77,6 @@ private:
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);

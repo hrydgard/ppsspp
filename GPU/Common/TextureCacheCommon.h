@@ -161,6 +161,8 @@ public:
 	};
 
 protected:
+	virtual void Unbind() = 0;
+
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
 
 	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
@@ -189,6 +191,8 @@ protected:
 	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
+
+	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
 	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
 

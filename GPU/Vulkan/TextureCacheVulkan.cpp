@@ -415,40 +415,7 @@ inline u32 TextureCacheVulkan::GetCurrentClutHash() {
 	return clutHash_;
 }
 
-void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
-	_dbg_assert_msg_(G3D, framebuffer != nullptr, "Framebuffer must not be null.");
-
-	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	if (useBufferedRendering) {
-		const u64 cachekey = entry->CacheKey();
-		const auto &fbInfo = fbTexInfo_[cachekey];
-
-		// Keep the framebuffer alive.
-		framebuffer->last_frame_used = gpuStats.numFlips;
-
-		// We need to force it, since we may have set it on a texture before attaching.
-		gstate_c.curTextureWidth = framebuffer->bufferWidth;
-		gstate_c.curTextureHeight = framebuffer->bufferHeight;
-		gstate_c.curTextureXOffset = fbInfo.xOffset;
-		gstate_c.curTextureYOffset = fbInfo.yOffset;
-		gstate_c.needShaderTexClamp = gstate_c.curTextureWidth != (u32)gstate.getTextureWidth(0) || gstate_c.curTextureHeight != (u32)gstate.getTextureHeight(0);
-		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
-			gstate_c.needShaderTexClamp = true;
-		}
-
-		nextTexture_ = entry;
-	} else {
-		if (framebuffer->fbo) {
-			delete framebuffer->fbo;
-			framebuffer->fbo = nullptr;
-		}
-		gstate_c.needShaderTexClamp = false;
-	}
-
-	nextNeedsRehash_ = false;
-	nextNeedsChange_ = false;
-	nextNeedsRebuild_ = false;
+void TextureCacheVulkan::Unbind() {
 }
 
 void TextureCacheVulkan::ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler) {
