@@ -40,7 +40,6 @@ public:
 	~TextureCacheDX9();
 
 	void SetTexture(bool force = false);
-	virtual bool SetOffsetTexture(u32 offset) override;
 
 	void Clear(bool delete_them);
 	void StartFrame();

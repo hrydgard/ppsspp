@@ -594,65 +594,21 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 	}
 }
 
-bool TextureCacheVulkan::SetOffsetTexture(u32 offset) {
-	if (g_Config.iRenderingMode != FB_BUFFERED_MODE) {
-		return false;
-	}
-	u32 texaddr = gstate.getTextureAddress(0);
-	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + offset)) {
-		return false;
-	}
-
-	const u16 dim = gstate.getTextureDimension(0);
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, gstate.getTextureFormat(), dim, 0);
-	TexCache::iterator iter = cache.find(cachekey);
-	if (iter == cache.end()) {
-		return false;
-	}
-	TexCacheEntry *entry = &iter->second;
-
-	bool success = false;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, offset)) {
-			success = true;
-		}
-	}
-
-	if (success && entry->framebuffer) {
-		// This will not apply the texture immediately.
-		SetTextureFramebuffer(entry, entry->framebuffer);
-		return true;
-	}
-
-	return false;
-}
-
 ReplacedTextureFormat FromVulkanFormat(VkFormat fmt) {
 	switch (fmt) {
-	case VULKAN_565_FORMAT:
-		return ReplacedTextureFormat::F_5650;
-	case VULKAN_1555_FORMAT:
-		return ReplacedTextureFormat::F_5551;
-	case VULKAN_4444_FORMAT:
-		return ReplacedTextureFormat::F_4444;
-	case VULKAN_8888_FORMAT:
-	default:
-		return ReplacedTextureFormat::F_8888;
+	case VULKAN_565_FORMAT: return ReplacedTextureFormat::F_5650;
+	case VULKAN_1555_FORMAT: return ReplacedTextureFormat::F_5551;
+	case VULKAN_4444_FORMAT: return ReplacedTextureFormat::F_4444;
+	case VULKAN_8888_FORMAT: default: return ReplacedTextureFormat::F_8888;
 	}
 }
 
 VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650:
-		return VULKAN_565_FORMAT;
-	case ReplacedTextureFormat::F_5551:
-		return VULKAN_1555_FORMAT;
-	case ReplacedTextureFormat::F_4444:
-		return VULKAN_4444_FORMAT;
-	case ReplacedTextureFormat::F_8888:
-	default:
-		return VULKAN_8888_FORMAT;
+	case ReplacedTextureFormat::F_5650: return VULKAN_565_FORMAT;
+	case ReplacedTextureFormat::F_5551: return VULKAN_1555_FORMAT;
+	case ReplacedTextureFormat::F_4444: return VULKAN_4444_FORMAT;
+	case ReplacedTextureFormat::F_8888: default: return VULKAN_8888_FORMAT;
 	}
 }
 

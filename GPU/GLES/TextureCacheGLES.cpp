@@ -653,66 +653,22 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	lastBoundTexture = INVALID_TEX;
 }
 
-bool TextureCacheGLES::SetOffsetTexture(u32 offset) {
-	if (g_Config.iRenderingMode != FB_BUFFERED_MODE) {
-		return false;
-	}
-	u32 texaddr = gstate.getTextureAddress(0);
-	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + offset)) {
-		return false;
-	}
-
-	const u16 dim = gstate.getTextureDimension(0);
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, gstate.getTextureFormat(), dim, 0);
-	TexCache::iterator iter = cache.find(cachekey);
-	if (iter == cache.end()) {
-		return false;
-	}
-	TexCacheEntry *entry = &iter->second;
-
-	bool success = false;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, offset)) {
-			success = true;
-		}
-	}
-
-	if (success && entry->framebuffer) {
-		// This will not apply the texture immediately.
-		SetTextureFramebuffer(entry, entry->framebuffer);
-		return true;
-	}
-
-	return false;
-}
-
 ReplacedTextureFormat FromGLESFormat(GLenum fmt, bool useBGRA = false) {
 	// TODO: 16-bit formats are incorrect, since swizzled.
 	switch (fmt) {
-	case GL_UNSIGNED_SHORT_5_6_5:
-		return ReplacedTextureFormat::F_0565_ABGR;
-	case GL_UNSIGNED_SHORT_5_5_5_1:
-		return ReplacedTextureFormat::F_1555_ABGR;
-	case GL_UNSIGNED_SHORT_4_4_4_4:
-		return ReplacedTextureFormat::F_4444_ABGR;
-	case GL_UNSIGNED_BYTE:
-	default:
-		return useBGRA ? ReplacedTextureFormat::F_8888_BGRA : ReplacedTextureFormat::F_8888;
+	case GL_UNSIGNED_SHORT_5_6_5: return ReplacedTextureFormat::F_0565_ABGR;
+	case GL_UNSIGNED_SHORT_5_5_5_1: return ReplacedTextureFormat::F_1555_ABGR;
+	case GL_UNSIGNED_SHORT_4_4_4_4: return ReplacedTextureFormat::F_4444_ABGR;
+	case GL_UNSIGNED_BYTE: default: return useBGRA ? ReplacedTextureFormat::F_8888_BGRA : ReplacedTextureFormat::F_8888;
 	}
 }
 
 GLenum ToGLESFormat(ReplacedTextureFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650:
-		return GL_UNSIGNED_SHORT_5_6_5;
-	case ReplacedTextureFormat::F_5551:
-		return GL_UNSIGNED_SHORT_5_5_5_1;
-	case ReplacedTextureFormat::F_4444:
-		return GL_UNSIGNED_SHORT_4_4_4_4;
-	case ReplacedTextureFormat::F_8888:
-	default:
-		return GL_UNSIGNED_BYTE;
+	case ReplacedTextureFormat::F_5650: return GL_UNSIGNED_SHORT_5_6_5;
+	case ReplacedTextureFormat::F_5551: return GL_UNSIGNED_SHORT_5_5_5_1;
+	case ReplacedTextureFormat::F_4444: return GL_UNSIGNED_SHORT_4_4_4_4;
+	case ReplacedTextureFormat::F_8888: default: return GL_UNSIGNED_BYTE;
 	}
 }
 

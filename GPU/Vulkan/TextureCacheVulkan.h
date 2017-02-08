@@ -90,8 +90,6 @@ public:
 	~TextureCacheVulkan();
 
 	void SetTexture();
-	virtual bool SetOffsetTexture(u32 offset) override;
-
 	void Clear(bool delete_them);
 	void StartFrame();
 	void EndFrame();

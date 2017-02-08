@@ -590,39 +590,6 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 	lastBoundTexture = INVALID_TEX;
 }
 
-bool TextureCacheDX9::SetOffsetTexture(u32 offset) {
-	if (g_Config.iRenderingMode != FB_BUFFERED_MODE) {
-		return false;
-	}
-	u32 texaddr = gstate.getTextureAddress(0);
-	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + offset)) {
-		return false;
-	}
-
-	const u16 dim = gstate.getTextureDimension(0);
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, gstate.getTextureFormat(), dim, 0);
-	TexCache::iterator iter = cache.find(cachekey);
-	if (iter == cache.end()) {
-		return false;
-	}
-	TexCacheEntry *entry = &iter->second;
-
-	bool success = false;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, offset)) {
-			success = true;
-		}
-	}
-
-	if (success && entry->framebuffer) {
-		SetTextureFramebuffer(entry, entry->framebuffer);
-		return true;
-	}
-
-	return false;
-}
-
 void TextureCacheDX9::SetTexture(bool force) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
@@ -1108,29 +1075,19 @@ TextureCacheDX9::TexCacheEntry::Status TextureCacheDX9::CheckAlpha(const u32 *pi
 
 ReplacedTextureFormat FromD3D9Format(u32 fmt) {
 	switch (fmt) {
-	case D3DFMT_R5G6B5:
-		return ReplacedTextureFormat::F_5650;
-	case D3DFMT_A1R5G5B5:
-		return ReplacedTextureFormat::F_5551;
-	case D3DFMT_A4R4G4B4:
-		return ReplacedTextureFormat::F_4444;
-	case D3DFMT_A8R8G8B8:
-	default:
-		return ReplacedTextureFormat::F_8888;
+	case D3DFMT_R5G6B5: return ReplacedTextureFormat::F_5650;
+	case D3DFMT_A1R5G5B5: return ReplacedTextureFormat::F_5551;
+	case D3DFMT_A4R4G4B4: return ReplacedTextureFormat::F_4444;
+	case D3DFMT_A8R8G8B8: default: return ReplacedTextureFormat::F_8888;
 	}
 }
 
 D3DFORMAT ToD3D9Format(ReplacedTextureFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650:
-		return D3DFMT_R5G6B5;
-	case ReplacedTextureFormat::F_5551:
-		return D3DFMT_A1R5G5B5;
-	case ReplacedTextureFormat::F_4444:
-		return D3DFMT_A4R4G4B4;
-	case ReplacedTextureFormat::F_8888:
-	default:
-		return D3DFMT_A8R8G8B8;
+	case ReplacedTextureFormat::F_5650: return D3DFMT_R5G6B5;
+	case ReplacedTextureFormat::F_5551: return D3DFMT_A1R5G5B5;
+	case ReplacedTextureFormat::F_4444: return D3DFMT_A4R4G4B4;
+	case ReplacedTextureFormat::F_8888: default: return D3DFMT_A8R8G8B8;
 	}
 }
 

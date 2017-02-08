@@ -419,6 +419,40 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	nextNeedsRebuild_ = false;
 }
 
+bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
+	if (g_Config.iRenderingMode != FB_BUFFERED_MODE) {
+		return false;
+	}
+	u32 texaddr = gstate.getTextureAddress(0);
+	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + offset)) {
+		return false;
+	}
+
+	const u16 dim = gstate.getTextureDimension(0);
+	u64 cachekey = TexCacheEntry::CacheKey(texaddr, gstate.getTextureFormat(), dim, 0);
+	TexCache::iterator iter = cache.find(cachekey);
+	if (iter == cache.end()) {
+		return false;
+	}
+	TexCacheEntry *entry = &iter->second;
+
+	bool success = false;
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, offset)) {
+			success = true;
+		}
+	}
+
+	if (success && entry->framebuffer) {
+		// This will not apply the texture immediately.
+		SetTextureFramebuffer(entry, entry->framebuffer);
+		return true;
+	}
+
+	return false;
+}
+
 void TextureCacheCommon::NotifyConfigChanged() {
 	int scaleFactor;
 

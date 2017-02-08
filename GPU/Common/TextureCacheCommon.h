@@ -60,7 +60,7 @@ public:
 	void LoadClut(u32 clutAddr, u32 loadBytes);
 	bool GetCurrentClutBuffer(GPUDebugBuffer &buffer);
 
-	virtual bool SetOffsetTexture(u32 offset) = 0;
+	bool SetOffsetTexture(u32 offset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
