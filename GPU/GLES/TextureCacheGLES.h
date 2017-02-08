@@ -51,9 +51,6 @@ public:
 
 	void Clear(bool delete_them);
 	void StartFrame();
-	void Invalidate(u32 addr, int size, GPUInvalidationType type) override;
-	void InvalidateAll(GPUInvalidationType type) override;
-	void ClearNextFrame();
 
 	void SetFramebufferManager(FramebufferManagerGLES *fbManager) {
 		framebufferManager_ = fbManager;
@@ -114,10 +111,6 @@ private:
 
 	u32 lastBoundTexture;
 	float maxAnisotropyLevel;
-
-	int decimationCounter_;
-	int texelsScaledThisFrame_;
-	int timesInvalidatedAllThisFrame_;
 
 	FramebufferManagerGLES *framebufferManager_;
 	DepalShaderCacheGLES *depalShaderCache_;

@@ -95,9 +95,6 @@ public:
 	void Clear(bool delete_them);
 	void StartFrame();
 	void EndFrame();
-	void Invalidate(u32 addr, int size, GPUInvalidationType type) override;
-	void InvalidateAll(GPUInvalidationType type) override;
-	void ClearNextFrame();
 
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);

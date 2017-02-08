@@ -52,11 +52,6 @@
 // Try to be prime to other decimation intervals.
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
-// Changes more frequent than this will be considered "frequent" and prevent texture scaling.
-#define TEXCACHE_FRAME_CHANGE_FREQUENT 6
-// Note: only used when hash backoff is disabled.
-#define TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST 33
-
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
@@ -71,8 +66,7 @@
 #define INVALID_TEX -1
 
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
-	: TextureCacheCommon(draw),
-		texelsScaledThisFrame_(0) {
+	: TextureCacheCommon(draw) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -169,75 +163,6 @@ void TextureCacheGLES::Decimate() {
 	}
 
 	DecimateVideos();
-}
-
-void TextureCacheGLES::Invalidate(u32 addr, int size, GPUInvalidationType type) {
-	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache) {
-		return;
-	}
-
-	addr &= 0x3FFFFFFF;
-	const u32 addr_end = addr + size;
-
-	// They could invalidate inside the texture, let's just give a bit of leeway.
-	const int LARGEST_TEXTURE_SIZE = 512 * 512 * 4;
-	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
-	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
-	if (endKey < startKey) {
-		endKey = (u64)-1;
-	}
-
-	for (TexCache::iterator iter = cache.lower_bound(startKey), end = cache.upper_bound(endKey); iter != end; ++iter) {
-		u32 texAddr = iter->second.addr;
-		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
-
-		if (texAddr < addr_end && addr < texEnd) {
-			if (iter->second.GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-				iter->second.SetHashStatus(TexCacheEntry::STATUS_HASHING);
-			}
-			if (type != GPU_INVALIDATE_ALL) {
-				gpuStats.numTextureInvalidations++;
-				// Start it over from 0 (unless it's safe.)
-				iter->second.numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
-				if (type == GPU_INVALIDATE_SAFE) {
-					u32 diff = gpuStats.numFlips - iter->second.lastFrame;
-					// We still need to mark if the texture is frequently changing, even if it's safely changing.
-					if (diff < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-						iter->second.status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
-					}
-				}
-				iter->second.framesUntilNextFullHash = 0;
-			} else if (!iter->second.framebuffer) {
-				iter->second.invalidHint++;
-			}
-		}
-	}
-}
-
-void TextureCacheGLES::InvalidateAll(GPUInvalidationType /*unused*/) {
-	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache) {
-		return;
-	}
-
-	if (timesInvalidatedAllThisFrame_ > 5) {
-		return;
-	}
-	timesInvalidatedAllThisFrame_++;
-
-	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
-		if (iter->second.GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-			iter->second.SetHashStatus(TexCacheEntry::STATUS_HASHING);
-		}
-		if (!iter->second.framebuffer) {
-			iter->second.invalidHint++;
-		}
-	}
-}
-
-void TextureCacheGLES::ClearNextFrame() {
-	clearCacheNextFrame_ = true;
 }
 
 bool TextureCacheGLES::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {

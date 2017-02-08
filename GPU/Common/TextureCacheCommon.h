@@ -61,8 +61,9 @@ public:
 	bool GetCurrentClutBuffer(GPUDebugBuffer &buffer);
 
 	virtual bool SetOffsetTexture(u32 offset) = 0;
-	virtual void Invalidate(u32 addr, int size, GPUInvalidationType type) = 0;
-	virtual void InvalidateAll(GPUInvalidationType type) = 0;
+	void Invalidate(u32 addr, int size, GPUInvalidationType type);
+	void InvalidateAll(GPUInvalidationType type);
+	void ClearNextFrame();
 	virtual void ForgetLastTexture() = 0;
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
@@ -213,6 +214,10 @@ protected:
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;
+
+	int decimationCounter_;
+	int texelsScaledThisFrame_;
+	int timesInvalidatedAllThisFrame_;
 
 	TexCache cache;
 	u32 cacheSizeEstimate_;
