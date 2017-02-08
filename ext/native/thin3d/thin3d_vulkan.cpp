@@ -263,7 +263,7 @@ public:
 class VKPipeline : public Pipeline {
 public:
 	VKPipeline(size_t size) {
-		uboSize_ = size;
+		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
 	}
 	~VKPipeline() {

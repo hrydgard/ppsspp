@@ -404,9 +404,6 @@ public:
 
 	bool LinkShaders();
 
-	void Apply();
-	void Unapply();
-
 	int GetUniformLoc(const char *name);
 
 	void SetVector(const char *name, float *value, int n) override;
@@ -436,8 +433,8 @@ public:
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
 
-private:
 	GLuint program_;
+private:
 	std::map<std::string, UniformInfo> uniformCache_;
 };
 
@@ -515,7 +512,7 @@ public:
 
 	void SetViewports(int count, Viewport *viewports) override {
 		// TODO: Use glViewportArrayv.
-		glViewport(viewports[0].TopLeftX, viewports[0].TopLeftY, viewports[0].Width, viewports[0].Height);
+		glViewport((GLint)viewports[0].TopLeftX, (GLint)viewports[0].TopLeftY, (GLsizei)viewports[0].Width, (GLsizei)viewports[0].Height);
 #if defined(USING_GLES2)
 		glDepthRangef(viewports[0].MinDepth, viewports[0].MaxDepth);
 #else
@@ -769,6 +766,11 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		ELOG("Thin3d GL: Unsupported texture format %d", (int)format_);
 		return;
 	}
+	/*
+	GLenum err = glGetError();
+	if (err) {
+		ELOG("Thin3D GL: Error before loading texture: %08x", err);
+	}*/
 
 	Bind();
 	switch (target_) {
@@ -780,9 +782,9 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		break;
 	}
 
-	GLenum err = glGetError();
-	if (err) {
-		ELOG("Thin3D GL: Error loading texture: %08x", err);
+	GLenum err2 = glGetError();
+	if (err2) {
+		ELOG("Thin3D GL: Error loading texture: %08x", err2);
 	}
 }
 
@@ -1086,19 +1088,12 @@ void OpenGLPipeline::SetMatrix4x4(const char *name, const float value[16]) {
 	}
 }
 
-void OpenGLPipeline::Apply() {
-	glUseProgram(program_);
-}
-
-void OpenGLPipeline::Unapply() {
-	glUseProgram(0);
-}
-
 void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_ = (OpenGLPipeline *)pipeline;
 	curPipeline_->blend->Apply();
 	curPipeline_->depthStencil->Apply();
 	curPipeline_->raster->Apply();
+	glUseProgram(curPipeline_->program_);
 }
 
 void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
@@ -1125,36 +1120,30 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 void OpenGLContext::Draw(int vertexCount, int offset) {
 	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
-	curPipeline_->Apply();
 
 	glDrawArrays(curPipeline_->prim, offset, vertexCount);
 
-	curPipeline_->Unapply();
 	curPipeline_->inputLayout->Unapply();
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
-	curPipeline_->Apply();
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
 	curIBuffer_->Bind(curIBufferOffset_);
 
 	glDrawElements(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	
-	curPipeline_->Unapply();
 	curPipeline_->inputLayout->Unapply();
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	curPipeline_->inputLayout->Apply(vdata);
-	curPipeline_->Apply();
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glDrawArrays(curPipeline_->prim, 0, vertexCount);
 
-	curPipeline_->Unapply();
 	curPipeline_->inputLayout->Unapply();
 }
 

@@ -90,8 +90,12 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	if (count_ == 0)
 		return;
 
-	pipeline_->SetMatrix4x4("WorldViewProj", drawMatrix_.getReadPtr());
 	draw_->BindPipeline(pipeline_);
+
+	VsTexColUB ub{};
+	memcpy(ub.WorldViewProj, drawMatrix_.getReadPtr(), sizeof(Matrix4x4));
+	// pipeline_->SetMatrix4x4("WorldViewProj", drawMatrix_.getReadPtr());
+	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	if (vbuf_) {
 		draw_->UpdateBuffer(vbuf_, (const uint8_t *)verts_, 0, sizeof(Vertex) * count_, Draw::UPDATE_DISCARD);
 		draw_->BindVertexBuffers(0, 1, &vbuf_, nullptr);

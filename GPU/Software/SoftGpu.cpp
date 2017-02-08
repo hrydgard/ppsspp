@@ -94,7 +94,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	PipelineDesc pipelineDesc{
 		Primitive::TRIANGLE_LIST,
 		{ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
-		inputLayout, depth, blendstateOff, rasterNoCull
+		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
 	};
 	texColor = draw_->CreateGraphicsPipeline(pipelineDesc);
 
@@ -250,8 +250,10 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			0.0f, 0.0f, 0.0f, 1.0f,
 		};
 
-		texColor->SetMatrix4x4("WorldViewProj", identity4x4);
+		VsTexColUB ub{};
+		memcpy(ub.WorldViewProj, identity4x4, sizeof(float) * 16);
 		draw_->BindPipeline(texColor);
+		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 		draw_->BindVertexBuffers(0, 1, &vdata, nullptr);
 		draw_->BindIndexBuffer(idata, 0);
 		draw_->DrawIndexed(6, 0);

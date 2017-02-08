@@ -522,7 +522,7 @@ struct PipelineDesc {
 	DepthStencilState *depthStencil;
 	BlendState *blend;
 	RasterState *raster;
-	UniformBufferDesc *uniformDesc;
+	const UniformBufferDesc *uniformDesc;
 };
 
 struct DeviceCaps {

@@ -816,6 +816,14 @@ Buffer *D3D9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new D3D9Buffer(device_, size, usageFlags);
 }
 
+inline void Transpose4x4(float out[16], const float in[16]) {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			out[i * 4 + j] = in[j * 4 + i];
+		}
+	}
+}
+
 void D3D9Context::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 	if (size != curPipeline_->dynamicUniforms.uniformBufferSize)
 		Crash();
@@ -829,9 +837,11 @@ void D3D9Context::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 			count = 4;
 			break;
 		}
-		const float *srcPtr = (const float *)((uint8_t *)ub + uniform.offset);
+		const float *srcPtr = (const float *)((const uint8_t *)ub + uniform.offset);
 		if (uniform.vertexReg != -1) {
-			device_->SetVertexShaderConstantF(uniform.vertexReg, srcPtr, count);
+			float transp[16];
+			Transpose4x4(transp, srcPtr);
+			device_->SetVertexShaderConstantF(uniform.vertexReg, transp, count);
 		}
 		if (uniform.fragmentReg != -1) {
 			device_->SetPixelShaderConstantF(uniform.fragmentReg, srcPtr, count);

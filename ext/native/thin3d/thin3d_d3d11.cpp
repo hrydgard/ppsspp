@@ -729,14 +729,14 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		dPipeline->dynamicUniformsSize = desc.uniformDesc->uniformBufferSize;
 		D3D11_BUFFER_DESC bufdesc{};
 		bufdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		bufdesc.ByteWidth = dPipeline->dynamicUniformsSize;
-		bufdesc.StructureByteStride = dPipeline->dynamicUniformsSize;
+		bufdesc.ByteWidth = (UINT)dPipeline->dynamicUniformsSize;
+		bufdesc.StructureByteStride = (UINT)dPipeline->dynamicUniformsSize;
 		bufdesc.Usage = D3D11_USAGE_DYNAMIC;
 		bufdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 		HRESULT hr = device_->CreateBuffer(&bufdesc, nullptr, &dPipeline->dynamicUniforms);
 		D3D11_SHADER_RESOURCE_VIEW_DESC bufview{};
 		bufview.Buffer.ElementOffset = 0;
-		bufview.Buffer.ElementWidth = dPipeline->dynamicUniformsSize;
+		bufview.Buffer.ElementWidth = (UINT)dPipeline->dynamicUniformsSize;
 		bufview.Buffer.FirstElement = 0;
 		bufview.Buffer.NumElements = 1;
 		hr = device_->CreateShaderResourceView(dPipeline->dynamicUniforms, &bufview, &dPipeline->dynamicUniformsView);
@@ -835,6 +835,10 @@ void D3D11DrawContext::ApplyCurrentState() {
 	context_->IASetVertexBuffers(0, 1, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
 	if (nextIndexBuffer_) {
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
+	}
+
+	if (curPipeline_->dynamicUniforms) {
+		context_->VSSetShaderResources(0, 1, &curPipeline_->dynamicUniformsView);
 	}
 }
 
