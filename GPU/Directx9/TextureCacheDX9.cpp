@@ -93,6 +93,11 @@ TextureCacheDX9::~TextureCacheDX9() {
 	Clear(true);
 }
 
+void TextureCacheDX9::SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
+	framebufferManagerDX9_ = fbManager;
+	framebufferManager_ = fbManager;
+}
+
 void TextureCacheDX9::Clear(bool delete_them) {
 	pD3Ddevice->SetTexture(0, NULL);
 	lastBoundTexture = INVALID_TEX;
@@ -409,10 +414,6 @@ void TextureCacheDX9::ApplyTexture() {
 	}
 }
 
-void TextureCacheDX9::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
-	framebufferManager_->DownloadFramebufferForClut(clutAddr, bytes);
-}
-
 class TextureShaderApplierDX9 {
 public:
 	struct Pos {
@@ -544,7 +545,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 	if (pshader) {
 		LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
-		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
+		Draw::Framebuffer *depalFBO = framebufferManagerDX9_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
 		draw_->BindFramebufferAsRenderTarget(depalFBO);
 		shaderManager_->DirtyLastShader();
 
@@ -560,7 +561,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		pD3Ddevice->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 
-		framebufferManager_->BindFramebufferColor(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
+		framebufferManagerDX9_->BindFramebufferColor(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
 		pD3Ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
 		pD3Ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		pD3Ddevice->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
@@ -578,13 +579,13 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 
-		framebufferManager_->BindFramebufferColor(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+		framebufferManagerDX9_->BindFramebufferColor(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
 		gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 	}
 
-	framebufferManager_->RebindFramebuffer();
+	framebufferManagerDX9_->RebindFramebuffer();
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
 	lastBoundTexture = INVALID_TEX;

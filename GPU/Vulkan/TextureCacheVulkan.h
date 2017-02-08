@@ -97,9 +97,7 @@ public:
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
 
-	void SetFramebufferManager(FramebufferManagerVulkan *fbManager) {
-		framebufferManager_ = fbManager;
-	}
+	void SetFramebufferManager(FramebufferManagerVulkan *fbManager);
 	void SetDepalShaderCache(DepalShaderCacheVulkan *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
@@ -118,7 +116,6 @@ public:
 	void ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler);
 
 protected:
-	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override;
 	void Unbind() override;
 
 private:
@@ -152,7 +149,7 @@ private:
 	int texelsScaledThisFrame_;
 	int timesInvalidatedAllThisFrame_;
 
-	FramebufferManagerVulkan *framebufferManager_;
+	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	DepalShaderCacheVulkan *depalShaderCache_;
 	ShaderManagerVulkan *shaderManager_;
 	DrawEngineVulkan *drawEngine_;

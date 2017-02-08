@@ -81,6 +81,11 @@ TextureCacheGLES::~TextureCacheGLES() {
 	Clear(true);
 }
 
+void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) {
+	framebufferManagerGL_ = fbManager;
+	framebufferManager_ = fbManager;
+}
+
 void TextureCacheGLES::Clear(bool delete_them) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	lastBoundTexture = INVALID_TEX;
@@ -468,10 +473,6 @@ void TextureCacheGLES::ApplyTexture() {
 	}
 }
 
-void TextureCacheGLES::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
-	framebufferManager_->DownloadFramebufferForClut(clutAddr, bytes);
-}
-
 class TextureShaderApplier {
 public:
 	struct Pos {
@@ -612,7 +613,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	}
 	if (depal) {
 		GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
+		Draw::Framebuffer *depalFBO = framebufferManagerGL_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
 		draw_->BindFramebufferAsRenderTarget(depalFBO);
 		shaderManager_->DirtyLastShader();
 
@@ -624,7 +625,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		glBindTexture(GL_TEXTURE_2D, clutTexture);
 		glActiveTexture(GL_TEXTURE0);
 
-		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_SKIP_COPY);
+		framebufferManagerGL_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_SKIP_COPY);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
@@ -641,13 +642,13 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 
-		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+		framebufferManagerGL_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
 		gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 	}
 
-	framebufferManager_->RebindFramebuffer();
+	framebufferManagerGL_->RebindFramebuffer();
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
 	lastBoundTexture = INVALID_TEX;

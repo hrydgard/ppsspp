@@ -51,9 +51,7 @@ public:
 	void Clear(bool delete_them);
 	void StartFrame();
 
-	void SetFramebufferManager(FramebufferManagerGLES *fbManager) {
-		framebufferManager_ = fbManager;
-	}
+	void SetFramebufferManager(FramebufferManagerGLES *fbManager);
 	void SetDepalShaderCache(DepalShaderCacheGLES *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
@@ -79,7 +77,6 @@ public:
 	void ApplyTexture();
 
 protected:
-	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override;
 	void Unbind() override;
 
 private:
@@ -106,7 +103,7 @@ private:
 	u32 lastBoundTexture;
 	float maxAnisotropyLevel;
 
-	FramebufferManagerGLES *framebufferManager_;
+	FramebufferManagerGLES *framebufferManagerGL_;
 	DepalShaderCacheGLES *depalShaderCache_;
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;

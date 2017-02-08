@@ -44,9 +44,7 @@ public:
 	void Clear(bool delete_them);
 	void StartFrame();
 
-	void SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
-		framebufferManager_ = fbManager;
-	}
+	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
 	void SetDepalShaderCache(DepalShaderCacheDX9 *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
@@ -64,7 +62,6 @@ public:
 	void ApplyTexture();
 
 protected:
-	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override;
 	void Unbind() override;
 
 private:
@@ -106,7 +103,7 @@ private:
 	int texelsScaledThisFrame_;
 	int timesInvalidatedAllThisFrame_;
 
-	FramebufferManagerDX9 *framebufferManager_;
+	FramebufferManagerDX9 *framebufferManagerDX9_;
 	DepalShaderCacheDX9 *depalShaderCache_;
 	ShaderManagerDX9 *shaderManager_;
 };

@@ -160,6 +160,11 @@ TextureCacheVulkan::~TextureCacheVulkan() {
 	}, allocator_);
 }
 
+void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManager) {
+	framebufferManagerVulkan_ = fbManager;
+	framebufferManager_ = fbManager;
+}
+
 void TextureCacheVulkan::DeviceLost() {
 	Clear(true);
 
@@ -184,10 +189,6 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan) {
 
 	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 	samplerCache_.DeviceRestore(vulkan);
-}
-
-void TextureCacheVulkan::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
-
 }
 
 void TextureCacheVulkan::Clear(bool delete_them) {

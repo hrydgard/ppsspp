@@ -52,6 +52,8 @@ namespace Draw {
 class DrawContext;
 }
 
+class FramebufferManagerCommon;
+
 class TextureCacheCommon {
 public:
 	TextureCacheCommon(Draw::DrawContext *draw);
@@ -194,8 +196,6 @@ protected:
 
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
-	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
-
 	void DecimateVideos();
 
 	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TexCacheEntry *entry) {
@@ -219,6 +219,7 @@ protected:
 
 	Draw::DrawContext *draw_;
 	TextureReplacer replacer;
+	FramebufferManagerCommon *framebufferManager_;
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;

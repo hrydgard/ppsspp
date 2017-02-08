@@ -537,7 +537,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 		// It's possible for a game to (successfully) access outside valid memory.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
 		if (clutRenderAddress_ != 0xFFFFFFFF && !g_Config.bDisableSlowFramebufEffects) {
-			DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
+			framebufferManager_->DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
 			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
 			if (bytes < loadBytes) {
 				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
