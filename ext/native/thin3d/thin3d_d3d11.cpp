@@ -1,6 +1,7 @@
 #include "thin3d/thin3d.h"
 #include "thin3d/d3d11_loader.h"
 #include "math/dataconv.h"
+#include "util/text/utf8.h"
 
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -86,7 +87,7 @@ public:
 		case APIVERSION: return "DirectX 11.0";
 		case VENDORSTRING: return "N/A";
 		case VENDOR: return "-";
-		case RENDERER: return "N/A";
+		case RENDERER: return adapterDesc_;
 		case SHADELANGVERSION: return "N/A";
 		case APINAME: return "Direct3D 11";
 		default: return "?";
@@ -147,6 +148,9 @@ private:
 	bool blendFactorDirty_ = false;
 	uint8_t stencilRef_;
 	bool stencilRefDirty_;
+
+	// System info
+	std::string adapterDesc_;
 };
 
 static void GetRes(HWND hWnd, int &xres, int &yres) {
@@ -167,6 +171,9 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *co
 		hr = dxgiDevice->GetAdapter(&adapter);
 		if (SUCCEEDED(hr)) {
 			hr = adapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory));
+			DXGI_ADAPTER_DESC desc;
+			adapter->GetDesc(&desc);
+			adapterDesc_ = ConvertWStringToUTF8(std::wstring(desc.Description));
 			adapter->Release();
 		}
 		dxgiDevice->Release();
@@ -241,8 +248,16 @@ D3D11DrawContext::~D3D11DrawContext() {
 }
 
 void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
-	// Intentionally binary compatible
-	context_->RSSetViewports(count, (D3D11_VIEWPORT *)viewports);
+	D3D11_VIEWPORT vp[4];
+	for (int i = 0; i < count; i++) {
+		vp[i].TopLeftX = viewports[i].TopLeftX;
+		vp[i].TopLeftY = viewports[i].TopLeftY;
+		vp[i].Width = viewports[i].Width;
+		vp[i].Height = viewports[i].Height;
+		vp[i].MinDepth = viewports[i].MinDepth;
+		vp[i].MaxDepth = viewports[i].MaxDepth;
+	}
+	context_->RSSetViewports(count, vp);
 }
 
 void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) {
@@ -785,7 +800,7 @@ void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
 // Gonna need dirtyflags soon..
 void D3D11DrawContext::ApplyCurrentState() {
 	if (curBlend_ != curPipeline_->blend || blendFactorDirty_) {
-		context_->OMSetBlendState(curPipeline_->blend->bs, blendFactor_, 0);
+		context_->OMSetBlendState(curPipeline_->blend->bs, blendFactor_, 0xFFFFFFFF);
 		curBlend_ = curPipeline_->blend;
 		blendFactorDirty_ = false;
 	}
@@ -878,9 +893,12 @@ void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t 
 		return;
 	}
 
+	// Should probably avoid this case.
 	D3D11_BOX box{};
 	box.left = (UINT)offset;
 	box.right = (UINT)(offset + size);
+	box.bottom = 1;
+	box.back = 1;
 	context_->UpdateSubresource(buf->buf, 0, &box, data, 0, 0);
 }
 

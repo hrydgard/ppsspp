@@ -354,7 +354,7 @@ void SystemInfoScreen::CreateViews() {
 
 	DrawContext *draw = screenManager()->getDrawContext();
 
-	deviceSpecs->Add(new InfoItem("3D API", draw->GetInfoString(InfoField::APINAME)));
+	deviceSpecs->Add(new InfoItem("3D API", std::string(draw->GetInfoString(InfoField::APINAME))));
 	deviceSpecs->Add(new InfoItem("Vendor", std::string(draw->GetInfoString(InfoField::VENDORSTRING)) + " (" + draw->GetInfoString(InfoField::VENDOR) + ")"));
 	deviceSpecs->Add(new InfoItem("Model", draw->GetInfoString(InfoField::RENDERER)));
 #ifdef _WIN32

@@ -86,7 +86,8 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"SamplerState samp : register(s0);\n"
 	"Texture2D<float4> tex : register(t0);\n"
 	"float4 main(PS_INPUT input) : SV_Target {\n"
-	"  return input.color * tex.Sample(samp, input.uv);\n"
+	"  float4 col = input.color * tex.Sample(samp, input.uv);\n"
+	"  return col;\n"
 	"}\n"
 	},
 	{ShaderLanguage::GLSL_VULKAN,
@@ -158,7 +159,9 @@ static const std::vector<ShaderSource> vsCol = {
 	{ ShaderLanguage::HLSL_D3D11,
 	"struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
 	"struct VS_OUTPUT { float4 Color0 : COLOR0; float4 Position : SV_Position; };\n"
-	"float4x4 WorldViewProj : register(c0);\n"
+	"cbuffer ConstantBuffer : register(b0) {\n"
+	"  matrix WorldViewProj;\n"
+	"};\n"
 	"VS_OUTPUT main(VS_INPUT input) {\n"
 	"  VS_OUTPUT output;\n"
 	"  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
@@ -217,7 +220,9 @@ static const std::vector<ShaderSource> vsTexCol = {
 	{ ShaderLanguage::HLSL_D3D11,
 	"struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
 	"struct VS_OUTPUT { float4 Color0 : COLOR0; float2 Texcoord0 : TEXCOORD0; float4 Position : SV_Position; };\n"
-	"float4x4 WorldViewProj : register(c0);\n"
+	"cbuffer ConstantBuffer : register(b0) {\n"
+	"  matrix WorldViewProj;\n"
+	"};\n"
 	"VS_OUTPUT main(VS_INPUT input) {\n"
 	"  VS_OUTPUT output;\n"
 	"  output.Position = mul(WorldViewProj, float4(input.Position, 1.0));\n"
