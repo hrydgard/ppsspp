@@ -15,8 +15,4 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
-
-#include "GPU/Common/ShaderId.h"
-
-void GenerateFragmentShaderD3D11(const ShaderID &id, char *buffer);
+#include "GPU/D3D11/GPU_D3D11.h"

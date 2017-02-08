@@ -17,6 +17,7 @@
 
 #pragma once
 
-#include "GPU/Common/ShaderId.h"
-
-void GenerateFragmentShaderD3D11(const ShaderID &id, char *buffer);
+class DrawEngineD3D11 {
+public:
+	void Flush() {}
+};
