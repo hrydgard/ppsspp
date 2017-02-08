@@ -55,10 +55,6 @@ public:
 		shaderManager_ = sm;
 	}
 
-	size_t NumLoadedTextures() const {
-		return cache.size();
-	}
-
 	// Only used by Qt UI?
 	bool DecodeTexture(u8 *output, const GPUgstate &state);
 
@@ -80,7 +76,6 @@ private:
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override;
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
@@ -115,11 +110,6 @@ private:
 	FramebufferManagerDX9 *framebufferManager_;
 	DepalShaderCacheDX9 *depalShaderCache_;
 	ShaderManagerDX9 *shaderManager_;
-
-	const char *nextChangeReason_;
-	bool nextNeedsRehash_;
-	bool nextNeedsChange_;
-	bool nextNeedsRebuild_;
 };
 
 D3DFORMAT getClutDestFormat(GEPaletteFormat format);

@@ -73,6 +73,10 @@ public:
 
 	int AttachedDrawingHeight();
 
+	size_t NumLoadedTextures() const {
+		return cache.size();
+	}
+
 	// Wow this is starting to grow big. Soon need to start looking at resizing it.
 	// Must stay a POD.
 	struct TexCacheEntry {
@@ -181,7 +185,7 @@ protected:
 	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr);
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	virtual bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) = 0;
+	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);
 	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
@@ -251,6 +255,11 @@ protected:
 	u16 clutAlphaLinearColor_;
 
 	int standardScaleFactor_;
+
+	const char *nextChangeReason_;
+	bool nextNeedsRehash_;
+	bool nextNeedsChange_;
+	bool nextNeedsRebuild_;
 };
 
 inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) const {

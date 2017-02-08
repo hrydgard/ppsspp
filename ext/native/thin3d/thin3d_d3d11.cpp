@@ -1065,7 +1065,7 @@ void D3D11DrawContext::BindTextures(int start, int count, Texture **textures) {
 	ID3D11ShaderResourceView *views[8];
 	for (int i = 0; i < count; i++) {
 		D3D11Texture *tex = (D3D11Texture *)textures[i];
-		views[i] = tex->view;
+		views[i] = tex ? tex->view : nullptr;
 	}
 	context_->PSSetShaderResources(start, count, views);
 }

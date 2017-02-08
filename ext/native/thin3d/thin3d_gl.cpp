@@ -982,6 +982,10 @@ void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
 		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i]);
 		glActiveTexture(GL_TEXTURE0 + i);
+		if (!glTex) {
+			glBindTexture(GL_TEXTURE_2D, 0);
+			continue;
+		}
 		glTex->Bind();
 
 		if ((int)samplerStates_.size() > i && samplerStates_[i]) {

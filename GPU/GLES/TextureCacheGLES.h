@@ -65,10 +65,6 @@ public:
 		drawEngine_ = td;
 	}
 
-	size_t NumLoadedTextures() const {
-		return cache.size();
-	}
-
 	void ForgetLastTexture() override {
 		lastBoundTexture = -1;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
@@ -96,7 +92,6 @@ private:
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h);
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override;
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
@@ -116,11 +111,6 @@ private:
 	DepalShaderCacheGLES *depalShaderCache_;
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
-
-	const char *nextChangeReason_;
-	bool nextNeedsRehash_;
-	bool nextNeedsChange_;
-	bool nextNeedsRebuild_;
 };
 
 GLenum getClutDestFormat(GEPaletteFormat format);
