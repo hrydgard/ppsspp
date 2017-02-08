@@ -381,7 +381,6 @@ struct UniformInfo {
 	int loc_;
 };
 
-// TODO: Add Uniform Buffer support.
 class OpenGLPipeline : public Pipeline, GfxResourceHolder {
 public:
 	OpenGLPipeline() {
@@ -399,19 +398,10 @@ public:
 		if (raster) raster->Release();
 		if (inputLayout) inputLayout->Release();
 	}
-	bool RequiresBuffer() override {
-		return inputLayout->RequiresBuffer();
-	}
 
 	bool LinkShaders();
 
-	void Apply();
-	void Unapply();
-
 	int GetUniformLoc(const char *name);
-
-	void SetVector(const char *name, float *value, int n) override;
-	void SetMatrix4x4(const char *name, const float value[16]) override;
 
 	void GLLost() override {
 		program_ = 0;
@@ -427,6 +417,10 @@ public:
 		LinkShaders();
 	}
 
+	bool RequiresBuffer() override {
+		return inputLayout->RequiresBuffer();
+	}
+
 	GLuint prim;
 	std::vector<OpenGLShaderModule *> shaders;
 	OpenGLInputLayout *inputLayout = nullptr;
@@ -434,9 +428,12 @@ public:
 	OpenGLBlendState *blend = nullptr;
 	OpenGLRasterState *raster = nullptr;
 
-private:
+	// TODO: Optimize by getting the locations first and putting in a custom struct
+	UniformBufferDesc dynamicUniforms;
+
 	GLuint program_;
-	std::map<std::string, UniformInfo> uniforms_;
+private:
+	std::map<std::string, UniformInfo> uniformCache_;
 };
 
 class OpenGLFramebuffer;
@@ -513,7 +510,7 @@ public:
 
 	void SetViewports(int count, Viewport *viewports) override {
 		// TODO: Use glViewportArrayv.
-		glViewport(viewports[0].TopLeftX, viewports[0].TopLeftY, viewports[0].Width, viewports[0].Height);
+		glViewport((GLint)viewports[0].TopLeftX, (GLint)viewports[0].TopLeftY, (GLsizei)viewports[0].Width, (GLsizei)viewports[0].Height);
 #if defined(USING_GLES2)
 		glDepthRangef(viewports[0].MinDepth, viewports[0].MaxDepth);
 #else
@@ -537,6 +534,8 @@ public:
 		curIBuffer_ = (OpenGLBuffer  *)indexBuffer;
 		curIBufferOffset_ = offset;
 	}
+
+	void UpdateDynamicUniformBuffer(const void *ub, size_t size);
 
 	// TODO: Add more sophisticated draws.
 	void Draw(int vertexCount, int offset) override;
@@ -765,6 +764,11 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		ELOG("Thin3d GL: Unsupported texture format %d", (int)format_);
 		return;
 	}
+	/*
+	GLenum err = glGetError();
+	if (err) {
+		ELOG("Thin3D GL: Error before loading texture: %08x", err);
+	}*/
 
 	Bind();
 	switch (target_) {
@@ -776,9 +780,9 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		break;
 	}
 
-	GLenum err = glGetError();
-	if (err) {
-		ELOG("Thin3D GL: Error loading texture: %08x", err);
+	GLenum err2 = glGetError();
+	if (err2) {
+		ELOG("Thin3D GL: Error loading texture: %08x", err2);
 	}
 }
 
@@ -965,6 +969,8 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->blend->AddRef();
 		pipeline->raster->AddRef();
 		pipeline->inputLayout->AddRef();
+		if (desc.uniformDesc)
+			pipeline->dynamicUniforms = *desc.uniformDesc;
 		return pipeline;
 	} else {
 		delete pipeline;
@@ -1046,46 +1052,17 @@ bool OpenGLPipeline::LinkShaders() {
 }
 
 int OpenGLPipeline::GetUniformLoc(const char *name) {
-	auto iter = uniforms_.find(name);
+	auto iter = uniformCache_.find(name);
 	int loc = -1;
-	if (iter != uniforms_.end()) {
+	if (iter != uniformCache_.end()) {
 		loc = iter->second.loc_;
 	} else {
 		loc = glGetUniformLocation(program_, name);
 		UniformInfo info;
 		info.loc_ = loc;
-		uniforms_[name] = info;
+		uniformCache_[name] = info;
 	}
 	return loc;
-}
-
-void OpenGLPipeline::SetVector(const char *name, float *value, int n) {
-	glUseProgram(program_);
-	int loc = GetUniformLoc(name);
-	if (loc != -1) {
-		switch (n) {
-		case 1: glUniform1fv(loc, 1, value); break;
-		case 2: glUniform1fv(loc, 2, value); break;
-		case 3: glUniform1fv(loc, 3, value); break;
-		case 4: glUniform1fv(loc, 4, value); break;
-		}
-	}
-}
-
-void OpenGLPipeline::SetMatrix4x4(const char *name, const float value[16]) {
-	glUseProgram(program_);
-	int loc = GetUniformLoc(name);
-	if (loc != -1) {
-		glUniformMatrix4fv(loc, 1, false, value);
-	}
-}
-
-void OpenGLPipeline::Apply() {
-	glUseProgram(program_);
-}
-
-void OpenGLPipeline::Unapply() {
-	glUseProgram(0);
 }
 
 void OpenGLContext::BindPipeline(Pipeline *pipeline) {
@@ -1093,41 +1070,57 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_->blend->Apply();
 	curPipeline_->depthStencil->Apply();
 	curPipeline_->raster->Apply();
+	glUseProgram(curPipeline_->program_);
+}
+
+void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
+	if (curPipeline_->dynamicUniforms.uniformBufferSize != size) {
+		Crash();
+	}
+
+	for (auto &uniform : curPipeline_->dynamicUniforms.uniforms) {
+		GLuint loc = curPipeline_->GetUniformLoc(uniform.name);
+		if (loc == -1)
+			Crash();
+		const float *data = (const float *)((uint8_t *)ub + uniform.offset);
+		switch (uniform.type) {
+		case UniformType::FLOAT4:
+			glUniform1fv(loc, 4, data);
+			break;
+		case UniformType::MATRIX4X4:
+			glUniformMatrix4fv(loc, 1, false, data);
+			break;
+		}
+	}
 }
 
 void OpenGLContext::Draw(int vertexCount, int offset) {
 	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
-	curPipeline_->Apply();
 
 	glDrawArrays(curPipeline_->prim, offset, vertexCount);
 
-	curPipeline_->Unapply();
 	curPipeline_->inputLayout->Unapply();
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
-	curPipeline_->Apply();
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
 	curIBuffer_->Bind(curIBufferOffset_);
 
 	glDrawElements(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	
-	curPipeline_->Unapply();
 	curPipeline_->inputLayout->Unapply();
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	curPipeline_->inputLayout->Apply(vdata);
-	curPipeline_->Apply();
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glDrawArrays(curPipeline_->prim, 0, vertexCount);
 
-	curPipeline_->Unapply();
 	curPipeline_->inputLayout->Unapply();
 }
 

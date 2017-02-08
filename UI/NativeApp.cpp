@@ -596,12 +596,12 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	PipelineDesc colorDesc{
 		Primitive::TRIANGLE_LIST,
 		{ g_draw->GetVshaderPreset(VS_COLOR_2D), g_draw->GetFshaderPreset(FS_COLOR_2D) },
-		inputLayout, depth, blendNormal, rasterNoCull
+		inputLayout, depth, blendNormal, rasterNoCull, &vsColBufDesc,
 	};
 	PipelineDesc texColorDesc{
 		Primitive::TRIANGLE_LIST,
 		{ g_draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), g_draw->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
-		inputLayout, depth, blendNormal, rasterNoCull
+		inputLayout, depth, blendNormal, rasterNoCull, &vsTexColBufDesc,
 	};
 
 	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc);

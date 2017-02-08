@@ -1,6 +1,7 @@
 #include "thin3d/thin3d.h"
 #include "thin3d/d3d11_loader.h"
 #include "math/dataconv.h"
+#include "util/text/utf8.h"
 
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -60,9 +61,11 @@ public:
 
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
-	void BindPipeline(Pipeline *pipeline) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override;
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override;
+	void BindPipeline(Pipeline *pipeline) override;
+
+	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
@@ -84,7 +87,7 @@ public:
 		case APIVERSION: return "DirectX 11.0";
 		case VENDORSTRING: return "N/A";
 		case VENDOR: return "-";
-		case RENDERER: return "N/A";
+		case RENDERER: return adapterDesc_;
 		case SHADELANGVERSION: return "N/A";
 		case APINAME: return "Direct3D 11";
 		default: return "?";
@@ -141,10 +144,13 @@ private:
 	int nextIndexBufferOffset_ = 0;
 
 	// Dynamic state
-	float blendFactor_[4];
+	float blendFactor_[4]{};
 	bool blendFactorDirty_ = false;
 	uint8_t stencilRef_;
 	bool stencilRefDirty_;
+
+	// System info
+	std::string adapterDesc_;
 };
 
 static void GetRes(HWND hWnd, int &xres, int &yres) {
@@ -165,6 +171,9 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *co
 		hr = dxgiDevice->GetAdapter(&adapter);
 		if (SUCCEEDED(hr)) {
 			hr = adapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory));
+			DXGI_ADAPTER_DESC desc;
+			adapter->GetDesc(&desc);
+			adapterDesc_ = ConvertWStringToUTF8(std::wstring(desc.Description));
 			adapter->Release();
 		}
 		dxgiDevice->Release();
@@ -239,8 +248,16 @@ D3D11DrawContext::~D3D11DrawContext() {
 }
 
 void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
-	// Intentionally binary compatible
-	context_->RSSetViewports(count, (D3D11_VIEWPORT *)viewports);
+	D3D11_VIEWPORT vp[4];
+	for (int i = 0; i < count; i++) {
+		vp[i].TopLeftX = viewports[i].TopLeftX;
+		vp[i].TopLeftY = viewports[i].TopLeftY;
+		vp[i].Width = viewports[i].Width;
+		vp[i].Height = viewports[i].Height;
+		vp[i].MinDepth = viewports[i].MinDepth;
+		vp[i].MaxDepth = viewports[i].MaxDepth;
+	}
+	context_->RSSetViewports(count, vp);
 }
 
 void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) {
@@ -503,28 +520,35 @@ InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 class D3D11Pipeline : public Pipeline {
 public:
 	~D3D11Pipeline() {
-		input->Release();
-		blend->Release();
-		depth->Release();
-		raster->Release();
-		il->Release();
+		if (input)
+			input->Release();
+		if (blend)
+			blend->Release();
+		if (depth)
+			depth->Release();
+		if (raster)
+			raster->Release();
+		if (il)
+			il->Release();
+		if (dynamicUniforms)
+			dynamicUniforms->Release();
 	}
-	// TODO: Refactor away these.
-	void SetVector(const char *name, float *value, int n) { }
-	void SetMatrix4x4(const char *name, const float value[16]) { }  // pshaders don't usually have matrices
 	bool RequiresBuffer() {
 		return true;
 	}
 
-	D3D11InputLayout *input;
+	D3D11InputLayout *input = nullptr;
 	ID3D11InputLayout *il = nullptr;
-	D3D11BlendState *blend;
-	D3D11DepthStencilState *depth;
-	D3D11RasterState *raster;
-	ID3D11VertexShader *vs;
-	ID3D11PixelShader *ps;
-	ID3D11GeometryShader *gs;
-	D3D11_PRIMITIVE_TOPOLOGY topology;
+	D3D11BlendState *blend = nullptr;
+	D3D11DepthStencilState *depth = nullptr;
+	D3D11RasterState *raster = nullptr;
+	ID3D11VertexShader *vs = nullptr;
+	ID3D11PixelShader *ps = nullptr;
+	ID3D11GeometryShader *gs = nullptr;
+	D3D11_PRIMITIVE_TOPOLOGY topology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+
+	size_t dynamicUniformsSize = 0;
+	ID3D11Buffer *dynamicUniforms = nullptr;
 };
 
 class D3D11Texture : public Texture {
@@ -710,6 +734,16 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	dPipeline->input->AddRef();
 	dPipeline->raster->AddRef();
 	dPipeline->topology = primToD3D11[(int)desc.prim];
+	if (desc.uniformDesc) {
+		dPipeline->dynamicUniformsSize = desc.uniformDesc->uniformBufferSize;
+		D3D11_BUFFER_DESC bufdesc{};
+		bufdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		bufdesc.ByteWidth = (UINT)dPipeline->dynamicUniformsSize;
+		bufdesc.StructureByteStride = (UINT)dPipeline->dynamicUniformsSize;
+		bufdesc.Usage = D3D11_USAGE_DYNAMIC;
+		bufdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		HRESULT hr = device_->CreateBuffer(&bufdesc, nullptr, &dPipeline->dynamicUniforms);
+	}
 
 	std::vector<D3D11ShaderModule *> shaders;
 	D3D11ShaderModule *vshader = nullptr;
@@ -746,6 +780,16 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	return dPipeline;
 }
 
+void D3D11DrawContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
+	if (curPipeline_->dynamicUniformsSize != size) {
+		Crash();
+	}
+	D3D11_MAPPED_SUBRESOURCE map{};
+	context_->Map(curPipeline_->dynamicUniforms, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	memcpy(map.pData, ub, size);
+	context_->Unmap(curPipeline_->dynamicUniforms, 0);
+}
+
 void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
 	D3D11Pipeline *dPipeline = (D3D11Pipeline *)pipeline;
 	if (curPipeline_ == dPipeline)
@@ -756,7 +800,7 @@ void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
 // Gonna need dirtyflags soon..
 void D3D11DrawContext::ApplyCurrentState() {
 	if (curBlend_ != curPipeline_->blend || blendFactorDirty_) {
-		context_->OMSetBlendState(curPipeline_->blend->bs, blendFactor_, 0);
+		context_->OMSetBlendState(curPipeline_->blend->bs, blendFactor_, 0xFFFFFFFF);
 		curBlend_ = curPipeline_->blend;
 		blendFactorDirty_ = false;
 	}
@@ -795,6 +839,10 @@ void D3D11DrawContext::ApplyCurrentState() {
 	if (nextIndexBuffer_) {
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
 	}
+
+	if (curPipeline_->dynamicUniforms) {
+		context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
+	}
 }
 
 class D3D11Buffer : public Buffer {
@@ -831,10 +879,6 @@ Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 		delete b;
 		return nullptr;
 	}
-	if (usageFlags & UNIFORM) {
-		// D3D11_SHADER_RESOURCE_VIEW_DESC resDesc{};
-		// device_->CreateShaderResourceView(b->buf, &resDesc, &b->srView);
-	}
 	return b;
 }
 
@@ -849,9 +893,12 @@ void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t 
 		return;
 	}
 
+	// Should probably avoid this case.
 	D3D11_BOX box{};
 	box.left = (UINT)offset;
 	box.right = (UINT)(offset + size);
+	box.bottom = 1;
+	box.back = 1;
 	context_->UpdateSubresource(buf->buf, 0, &box, data, 0, 0);
 }
 

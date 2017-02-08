@@ -430,20 +430,22 @@ struct InputLayoutDesc {
 class InputLayout : public RefCountedObject { };
 
 enum class UniformType : int8_t {
-	FLOAT, FLOAT2, FLOAT3, FLOAT4,
+	FLOAT4,
 	MATRIX4X4,
 };
 
 // For emulation of uniform buffers on D3D9/GL
 struct UniformDesc {
-	int16_t offset;
+	const char *name;  // For GL
+	int16_t vertexReg;        // For D3D
+	int16_t fragmentReg;      // For D3D
 	UniformType type;
-	int8_t reg;  // For D3D
-
+	int16_t offset;
 	// TODO: Support array elements etc.
 };
 
 struct UniformBufferDesc {
+	size_t uniformBufferSize;
 	std::vector<UniformDesc> uniforms;
 };
 
@@ -454,9 +456,6 @@ public:
 
 class Pipeline : public RefCountedObject {
 public:
-	// TODO: Use a uniform-buffer based interface instead.
-	virtual void SetVector(const char *name, float *value, int n) = 0;
-	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
 	virtual bool RequiresBuffer() = 0;
 };
 
@@ -520,6 +519,7 @@ struct PipelineDesc {
 	DepthStencilState *depthStencil;
 	BlendState *blend;
 	RasterState *raster;
+	const UniformBufferDesc *uniformDesc;
 };
 
 struct DeviceCaps {
@@ -602,6 +602,10 @@ public:
 	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) = 0;
 	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
 
+	// Only supports a single dynamic uniform buffer, for maximum compatibility with the old APIs and ease of emulation.
+	// More modern methods will be added later.
+	virtual void UpdateDynamicUniformBuffer(const void *ub, size_t size) = 0;
+
 	void BindTexture(int stage, Texture *texture) {
 		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
@@ -645,11 +649,24 @@ size_t DataFormatSizeInBytes(DataFormat fmt);
 
 DrawContext *T3DCreateGLContext();
 
+extern const UniformBufferDesc UBPresetDesc;
+
 #ifdef _WIN32
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
 DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, HWND hWnd);
 #endif
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *context);
+
+// UBs for the preset shaders
+
+struct VsTexColUB {
+	float WorldViewProj[16];
+};
+extern const UniformBufferDesc vsTexColBufDesc;
+struct VsColUB {
+	float WorldViewProj[16];
+};
+extern const UniformBufferDesc vsColBufDesc;
 
 }  // namespace Draw

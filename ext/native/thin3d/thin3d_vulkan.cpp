@@ -262,13 +262,16 @@ public:
 
 class VKPipeline : public Pipeline {
 public:
-	VKPipeline() {
-		// HACK! Hardcoded
-		uboSize_ = 16 * sizeof(float);  // WorldViewProj
+	VKPipeline(size_t size) {
+		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
 	}
 	~VKPipeline() {
 		delete[] ubo_;
+	}
+
+	void SetDynamicUniformData(const void *data, size_t size) {
+		memcpy(ubo_, data, size);
 	}
 
 	// Returns the binding offset, and the VkBuffer to bind.
@@ -277,10 +280,6 @@ public:
 	}
 
 	int GetUniformLoc(const char *name);
-
-	void SetVector(const char *name, float *value, int n) override;
-	void SetMatrix4x4(const char *name, const float value[16]) override;
-
 	int GetUBOSize() const {
 		return uboSize_;
 	}
@@ -289,7 +288,8 @@ public:
 	}
 
 	VkPipeline vkpipeline;
-	int stride[4];
+	int stride[4]{};
+	int dynamicUniformSize = 0;
 
 private:
 	uint8_t *ubo_;
@@ -375,6 +375,8 @@ public:
 		curIBuffer_ = (VKBuffer *)indexBuffer;
 		curIBufferOffset_ = offset;
 	}
+
+	void UpdateDynamicUniformBuffer(const void *ub, size_t size);
 
 	// TODO: Add more sophisticated draws.
 	void Draw(int vertexCount, int offset) override;
@@ -827,7 +829,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 }
 
 Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
-	VKPipeline *pipeline = new VKPipeline();
+	VKPipeline *pipeline = new VKPipeline(desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float));
 	VKInputLayout *input = (VKInputLayout *)desc.inputLayout;
 	VKBlendState *blend = (VKBlendState *)desc.blend;
 	VKDepthStencilState *depth = (VKDepthStencilState *)desc.depthStencil;
@@ -900,6 +902,10 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		delete pipeline;
 		return nullptr;
 	}
+	if (desc.uniformDesc) {
+		pipeline->dynamicUniformSize = desc.uniformDesc->uniformBufferSize;
+	}
+
 	return pipeline;
 }
 
@@ -1083,17 +1089,6 @@ int VKPipeline::GetUniformLoc(const char *name) {
 	return loc;
 }
 
-void VKPipeline::SetVector(const char *name, float *value, int n) {
-	// TODO: Implement
-}
-
-void VKPipeline::SetMatrix4x4(const char *name, const float value[16]) {
-	int loc = GetUniformLoc(name);
-	if (loc != -1) {
-		memcpy(ubo_ + loc, value, 16 * sizeof(float));
-	}
-}
-
 inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	switch (prim) {
 	case Primitive::POINT_LIST: return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
@@ -1110,6 +1105,10 @@ inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	default:
 		return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
 	}
+}
+
+void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
+	curPipeline_->SetDynamicUniformData(ub, size);
 }
 
 void VKContext::Draw(int vertexCount, int offset) {
