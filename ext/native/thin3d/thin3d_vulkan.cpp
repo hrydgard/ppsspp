@@ -280,10 +280,6 @@ public:
 	}
 
 	int GetUniformLoc(const char *name);
-
-	void SetVector(const char *name, float *value, int n) override;
-	void SetMatrix4x4(const char *name, const float value[16]) override;
-
 	int GetUBOSize() const {
 		return uboSize_;
 	}
@@ -1091,17 +1087,6 @@ int VKPipeline::GetUniformLoc(const char *name) {
 	}
 
 	return loc;
-}
-
-void VKPipeline::SetVector(const char *name, float *value, int n) {
-	// TODO: Implement
-}
-
-void VKPipeline::SetMatrix4x4(const char *name, const float value[16]) {
-	int loc = GetUniformLoc(name);
-	if (loc != -1) {
-		memcpy(ubo_ + loc, value, 16 * sizeof(float));
-	}
 }
 
 inline VkPrimitiveTopology PrimToVK(Primitive prim) {

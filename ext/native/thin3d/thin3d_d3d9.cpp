@@ -241,14 +241,12 @@ private:
 
 class D3D9ShaderModule : public ShaderModule {
 public:
-	D3D9ShaderModule(ShaderStage stage) : stage_(stage), vshader_(NULL), pshader_(NULL), constantTable_(NULL) {}
+	D3D9ShaderModule(ShaderStage stage) : stage_(stage), vshader_(nullptr), pshader_(nullptr) {}
 	~D3D9ShaderModule() {
 		if (vshader_)
 			vshader_->Release();
 		if (pshader_)
 			pshader_->Release();
-		if (constantTable_)
-			constantTable_->Release();
 	}
 	bool Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size);
 	void Apply(LPDIRECT3DDEVICE9 device) {
@@ -258,15 +256,12 @@ public:
 			device->SetVertexShader(vshader_);
 		}
 	}
-	void SetVector(LPDIRECT3DDEVICE9 device, const char *name, float *value, int n);
-	void SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]);
 	ShaderStage GetStage() const override { return stage_; }
 
 private:
 	ShaderStage stage_;
 	LPDIRECT3DVERTEXSHADER9 vshader_;
 	LPDIRECT3DPIXELSHADER9 pshader_;
-	LPD3DXCONSTANTTABLE constantTable_;
 };
 
 class D3D9Pipeline : public Pipeline {
@@ -294,8 +289,6 @@ public:
 	UniformBufferDesc dynamicUniforms;
 
 	void Apply(LPDIRECT3DDEVICE9 device);
-	void SetVector(const char *name, float *value, int n) { vshader->SetVector(device_, name, value, n); pshader->SetVector(device_, name, value, n); }
-	void SetMatrix4x4(const char *name, const float value[16]) { vshader->SetMatrix4x4(device_, name, value); }  // pshaders don't usually have matrices
 private:
 	LPDIRECT3DDEVICE9 device_;
 };
@@ -955,7 +948,7 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 	LPD3DXBUFFER errorBuffer;
 	const char *source = (const char *)data;
 	const char *profile = stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0";
-	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, &constantTable_);
+	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, nullptr);
 	if (FAILED(hr)) {
 		const char *error = (const char *)errorBuffer->GetBufferPointer();
 		OutputDebugStringA(source);
@@ -964,8 +957,6 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 
 		if (codeBuffer) 
 			codeBuffer->Release();
-		if (constantTable_) 
-			constantTable_->Release();
 		return false;
 	}
 
@@ -978,37 +969,8 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 		success = SUCCEEDED(result);
 	}
 
-#if 0
-	// Just for testing. Will later use to pre populate uniform tables.
-
-	D3DXCONSTANTTABLE_DESC desc;
-	constantTable_->GetDesc(&desc);
-
-	for (UINT i = 0; i < desc.Constants; i++) {
-		D3DXHANDLE c = constantTable_->GetConstant(NULL, i);
-		D3DXCONSTANT_DESC cdesc;
-		UINT count = 1;
-		constantTable_->GetConstantDesc(c, &cdesc, &count);
-		ILOG("%s", cdesc.Name);
-	}
-#endif
-
 	codeBuffer->Release();
 	return true;
-}
-
-void D3D9ShaderModule::SetVector(LPDIRECT3DDEVICE9 device, const char *name, float *value, int n) {
-	D3DXHANDLE handle = constantTable_->GetConstantByName(NULL, name);
-	if (handle) {
-		constantTable_->SetFloatArray(device, handle, value, n);
-	}
-}
-
-void D3D9ShaderModule::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]) {
-	D3DXHANDLE handle = constantTable_->GetConstantByName(NULL, name);
-	if (handle) {
-		constantTable_->SetFloatArray(device, handle, value, 16);
-	}
 }
 
 class D3D9Framebuffer : public Framebuffer {

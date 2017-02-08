@@ -520,9 +520,6 @@ public:
 		if (dynamicUniformsView)
 			dynamicUniformsView->Release();
 	}
-	// TODO: Refactor away these.
-	void SetVector(const char *name, float *value, int n) { }
-	void SetMatrix4x4(const char *name, const float value[16]) { }  // pshaders don't usually have matrices
 	bool RequiresBuffer() {
 		return true;
 	}

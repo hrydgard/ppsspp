@@ -456,9 +456,6 @@ public:
 
 class Pipeline : public RefCountedObject {
 public:
-	// TODO: Use a uniform-buffer based interface instead.
-	virtual void SetVector(const char *name, float *value, int n) = 0;
-	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
 	virtual bool RequiresBuffer() = 0;
 };
 

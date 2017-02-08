@@ -398,16 +398,10 @@ public:
 		if (raster) raster->Release();
 		if (inputLayout) inputLayout->Release();
 	}
-	bool RequiresBuffer() override {
-		return inputLayout->RequiresBuffer();
-	}
 
 	bool LinkShaders();
 
 	int GetUniformLoc(const char *name);
-
-	void SetVector(const char *name, float *value, int n) override;
-	void SetMatrix4x4(const char *name, const float value[16]) override;
 
 	void GLLost() override {
 		program_ = 0;
@@ -421,6 +415,10 @@ public:
 			iter->Compile(iter->GetLanguage(), (const uint8_t *)iter->GetSource().c_str(), iter->GetSource().size());
 		}
 		LinkShaders();
+	}
+
+	bool RequiresBuffer() override {
+		return inputLayout->RequiresBuffer();
 	}
 
 	GLuint prim;
@@ -1065,27 +1063,6 @@ int OpenGLPipeline::GetUniformLoc(const char *name) {
 		uniformCache_[name] = info;
 	}
 	return loc;
-}
-
-void OpenGLPipeline::SetVector(const char *name, float *value, int n) {
-	glUseProgram(program_);
-	int loc = GetUniformLoc(name);
-	if (loc != -1) {
-		switch (n) {
-		case 1: glUniform1fv(loc, 1, value); break;
-		case 2: glUniform1fv(loc, 2, value); break;
-		case 3: glUniform1fv(loc, 3, value); break;
-		case 4: glUniform1fv(loc, 4, value); break;
-		}
-	}
-}
-
-void OpenGLPipeline::SetMatrix4x4(const char *name, const float value[16]) {
-	glUseProgram(program_);
-	int loc = GetUniformLoc(name);
-	if (loc != -1) {
-		glUniformMatrix4fv(loc, 1, false, value);
-	}
 }
 
 void OpenGLContext::BindPipeline(Pipeline *pipeline) {
