@@ -30,6 +30,7 @@ public:
 		desc.Usage = D3D11_USAGE_DYNAMIC;
 		device->CreateBuffer(&desc, nullptr, &buffer_);
 	}
+	PushBufferD3D11(PushBufferD3D11 &) = delete;
 	~PushBufferD3D11() {
 		buffer_->Release();
 	}

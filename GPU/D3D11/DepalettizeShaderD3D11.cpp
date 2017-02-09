@@ -101,8 +101,11 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 	desc.Width = texturePixels;
 	desc.Height = 1;
 	desc.ArraySize = 1;
+	desc.MipLevels = 1;
 	desc.Format = dstFmt;
+	desc.SampleDesc.Count = 1;
 	desc.Usage = D3D11_USAGE_IMMUTABLE;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 	D3D11_SUBRESOURCE_DATA data{};
 	data.pSysMem = rawClut;
@@ -114,7 +117,10 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 		delete tex;
 		return nullptr;
 	}
-	device_->CreateShaderResourceView(tex->texture, nullptr, &tex->view);
+	hr = device_->CreateShaderResourceView(tex->texture, nullptr, &tex->view);
+	if (FAILED(hr)) {
+		// ...
+	}
 	tex->lastFrame = gpuStats.numFlips;
 	texCache_[realClutID] = tex;
 	return tex->view;

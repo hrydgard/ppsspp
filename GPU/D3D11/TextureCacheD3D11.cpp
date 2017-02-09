@@ -1107,6 +1107,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		desc.Usage = D3D11_USAGE_DYNAMIC;
 		desc.ArraySize = 1;
+		desc.SampleDesc.Count = 1;
 		desc.Width = tw;
 		desc.Height = th;
 		desc.MipLevels = levels;

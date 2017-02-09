@@ -57,6 +57,10 @@ enum {
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
+enum {
+	VERTEX_PUSH_SIZE = 1024 * 1024 * 16,
+	INDEX_PUSH_SIZE = 1024 * 1024 * 4,
+};
 
 static const D3D11_INPUT_ELEMENT_DESC TransformedVertexElements[] = {
 	{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -99,9 +103,16 @@ DrawEngineD3D11::DrawEngineD3D11(ID3D11Device *device, ID3D11DeviceContext *cont
 
 	tessDataTransfer = new TessellationDataTransferD3D11();
 	transformedVertexDecl_ = nullptr;
+
+	// Vertex pushing buffers.
+	pushVerts_ = new PushBufferD3D11(device, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
+	pushInds_ = new PushBufferD3D11(device, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
 }
 
 DrawEngineD3D11::~DrawEngineD3D11() {
+	delete pushVerts_;
+	delete pushInds_;
+
 	if (transformedVertexDecl_) {
 		transformedVertexDecl_->Release();
 	}
@@ -837,7 +848,8 @@ rotateVBO:
 			ID3D11Buffer *pushVertData = pushVerts_->Buf();
 			ID3D11Buffer *pushIndexData = pushInds_->Buf();
 			UINT strides = sizeof(TransformedVertex);
-			context_->IASetVertexBuffers(0, 1, &pushVertData, &strides, nullptr);
+			UINT offsets = 0;
+			context_->IASetVertexBuffers(0, 1, &pushVertData, &strides, &offsets);
 			if (drawIndexed) {
 				context_->IASetIndexBuffer(pushIndexData, DXGI_FORMAT_R16_UINT, 0);
 				context_->DrawIndexed(numTrans, 0, 0);

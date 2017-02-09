@@ -11,9 +11,10 @@ static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t cod
 	ID3DBlob *compiledCode = nullptr;
 	ID3DBlob *errorMsgs = nullptr;
 	HRESULT result = ptr_D3DCompile(code, codeSize, nullptr, nullptr, nullptr, "main", target, 0, 0, &compiledCode, &errorMsgs);
+	std::string errors;
 	if (errorMsgs) {
-		std::string errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
-		ELOG("%s: %s\n%s", SUCCEEDED(result) ? "warnings" : "errors", code, errors.c_str());
+		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
+		ELOG("%s: %s\n%s", SUCCEEDED(result) ? "warnings" : "errors", errors.c_str(), code);
 		errorMsgs->Release();
 	}
 	if (compiledCode) {
@@ -22,6 +23,7 @@ static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t cod
 		compiledCode->Release();
 		return compiled;
 	}
+	Crash();
 	return std::vector<uint8_t>();
 }
 
@@ -53,6 +55,7 @@ void StockObjectsD3D11::Create(ID3D11Device *device) {
 		device->CreateBlendState(&blend_desc, &blendStateDisabledWithColorMask[i]);
 	}
 	D3D11_DEPTH_STENCIL_DESC depth_desc{};
+	depth_desc.DepthEnable = FALSE;
 	device->CreateDepthStencilState(&depth_desc, &depthStencilDisabled);
 	depth_desc.StencilEnable = TRUE;
 	depth_desc.StencilReadMask = 0xFF;

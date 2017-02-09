@@ -104,9 +104,8 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 	}
 
-	WRITE(p, "#pragma warning( disable : 3571 )\n");
-
 	if (lang == HLSL_DX9) {
+		WRITE(p, "#pragma warning( disable : 3571 )\n");
 		if (isModeThrough) {
 			WRITE(p, "float4x4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
 		} else {
@@ -177,9 +176,9 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 			WRITE(p, "float4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
 		}
 	} else {
-		WRITE(p, "cbuffer base : register(b0) %s;\n", cb_baseStr);
-		WRITE(p, "cbuffer lights: register(b1) %s;\n", cb_vs_lightsStr);
-		WRITE(p, "cbuffer bones : register(b2) %s;\n", cb_vs_bonesStr);
+		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
+		WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", cb_vs_lightsStr);
+		WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", cb_vs_bonesStr);
 	}
 
 	// And the "varyings".

@@ -60,24 +60,25 @@ R"(  mat4 proj_mtx;
   vec2 texclampoff;
 )";
 
+// HLSL code is shared so these names are changed to match those in DX9.
 static const char *cb_baseStr =
-R"(  matrix proj_mtx;
-	matrix proj_through_mtx;
-  matrix view_mtx;
-  matrix world_mtx;
-  matrix tex_mtx;
-  float4 uvscaleoffset;
-  float4 depthRange;
-  float3 fogcoef_stencilreplace;
-  float4 matambientalpha;
-  float3 fogcolor;
-  float3 texenv;
-  ifloat4 alphacolorref;
-  ifloat4 alphacolormask;
-  float3 blendFixA;
-  float3 blendFixB;
-  float4 texclamp;
-  float2 texclampoff;
+R"(  float4x4 u_proj;
+	float4x4 u_proj_through;
+  float4x4 u_view;
+  float4x4 u_world;
+  float4x4 u_tex;
+  float4 u_uvscaleoffset;
+  float4 u_depthRange;
+  float3 u_fogcoef_stencilreplace;
+  float4 u_matambientalpha;
+  float3 u_fogcolor;
+  float3 u_texenv;
+  uint4 u_alphacolorref;
+  uint4 u_alphacolormask;
+  float3 u_blendFixA;
+  float3 u_blendFixB;
+  float4 u_texclamp;
+  float2 u_texclampoff;
 )";
 
 // 576 bytes. Can we get down to 512?
@@ -111,19 +112,20 @@ R"(	vec4 globalAmbient;
 	vec3 specular[4];
 )";
 
+// HLSL code is shared so these names are changed to match those in DX9.
 static const char *cb_vs_lightsStr =
 R"(	float4 globalAmbient;
-	float3 matdiffuse;
-	float4 matspecular;
-	float3 matemissive;
-	float3 pos[4];
-	float3 dir[4];
-	float3 att[4];
-	float angle[4];
-	float spotCoef[4];
-	float3 ambient[4];
-	float3 diffuse[4];
-	float3 specular[4];
+	float3 u_matdiffuse;
+	float4 u_matspecular;
+	float3 u_matemissive;
+	float3 u_lightpos[4];
+	float3 u_lightdir[4];
+	float3 u_lightatt[4];
+	float u_lightangle[4];
+	float u_lightspotCoef[4];
+	float3 u_ambient[4];
+	float3 u_diffuse[4];
+	float3 u_specular[4];
 )";
 
 // With some cleverness, we could get away with uploading just half this when only the four first
@@ -137,8 +139,9 @@ static const char *ub_vs_bonesStr =
 R"(	mat4 m[8];
 )";
 
+// HLSL code is shared so these names are changed to match those in DX9.
 static const char *cb_vs_bonesStr =
-R"(	matrix m[8];
+R"(	float4x4 m[8];
 )";
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms);

@@ -105,7 +105,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 		}
 	} else {
-		WRITE(p, "cbuffer base : register(b0) %s;\n", cb_baseStr);
+		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
 	}
 
 	if (enableAlphaTest) {

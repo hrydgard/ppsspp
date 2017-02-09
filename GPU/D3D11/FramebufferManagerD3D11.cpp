@@ -173,6 +173,11 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		desc.Width = width;
 		desc.Height = height;
+		desc.MipLevels = 1;
+		desc.ArraySize = 1;
+		desc.SampleDesc.Count = 1;
+		desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 		device_->CreateTexture2D(&desc, nullptr, &drawPixelsTex_);
 		device_->CreateShaderResourceView(drawPixelsTex_, nullptr, &drawPixelsTexView_);
 		drawPixelsTexW_ = width;
