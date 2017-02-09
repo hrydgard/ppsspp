@@ -161,8 +161,6 @@ private:
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef);
-	bool ApplyShaderBlending();
-	void ResetShaderBlending();
 
 	ID3D11InputLayout *SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
@@ -230,6 +228,9 @@ private:
 	std::map<uint32_t, ID3D11BlendState *> blendCache_;
 	std::map<uint32_t, ID3D11DepthStencilState *> depthStencilCache_;
 	std::map<uint32_t, ID3D11RasterizerState *> rasterCache_;
+
+	// Keep the depth state between ApplyDrawState and ApplyDrawStateLate
+	ID3D11DepthStencilState *depthStencilState_;
 
 	// Hardware tessellation
 	class TessellationDataTransferD3D11 : public TessellationDataTransfer {
