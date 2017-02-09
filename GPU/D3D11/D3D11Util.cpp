@@ -2,8 +2,10 @@
 #include <vector>
 #include <d3d11.h>
 #include <D3Dcompiler.h>
+
 #include "thin3d/d3d11_loader.h"
 #include "base/logging.h"
+#include "base/stringutil.h"
 
 #include "D3D11Util.h"
 
@@ -14,7 +16,8 @@ static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t cod
 	std::string errors;
 	if (errorMsgs) {
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
-		ELOG("%s: %s\n%s", SUCCEEDED(result) ? "warnings" : "errors", errors.c_str(), code);
+		ELOG("%s: %s", SUCCEEDED(result) ? "warnings" : "errors", errors.c_str());
+		OutputDebugStringA(LineNumberString(code).c_str());
 		errorMsgs->Release();
 	}
 	if (compiledCode) {

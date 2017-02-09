@@ -105,6 +105,8 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 		}
 	} else {
+		WRITE(p, "SamplerState samp : register(s0);\n");
+		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
 		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
 	}
 
@@ -183,10 +185,18 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 				doTextureProjection = false;
 			}
 
-			if (doTextureProjection) {
-				WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+			if (lang == HLSL_D3D11) {
+				if (doTextureProjection) {
+					WRITE(p, "  float4 t = tex.Sample(samp, In.v_texcoord.xy / In.v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+				} else {
+					WRITE(p, "  float4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+				}
 			} else {
-				WRITE(p, "  float4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+				if (doTextureProjection) {
+					WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+				} else {
+					WRITE(p, "  float4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+				}
 			}
 			WRITE(p, "  float4 p = In.v_color0;\n");
 

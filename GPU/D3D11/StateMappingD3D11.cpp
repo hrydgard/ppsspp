@@ -153,9 +153,9 @@ struct D3D11DepthStencilKey {
 	// Depth/Stencil
 	unsigned int depthTestEnable : 1;
 	unsigned int depthWriteEnable : 1;
-	unsigned int depthCompareOp : 3;  // D3D11_COMPARISON 
+	unsigned int depthCompareOp : 4;  // D3D11_COMPARISON   (-1 and we could fit it in 3 bits)
 	unsigned int stencilTestEnable : 1;
-	unsigned int stencilCompareOp : 3;  // D3D11_COMPARISON
+	unsigned int stencilCompareOp : 4;  // D3D11_COMPARISON
 	unsigned int stencilPassOp : 4; // D3D11_STENCIL_OP
 	unsigned int stencilFailOp : 4; // D3D11_STENCIL_OP
 	unsigned int stencilDepthFailOp : 4;  // D3D11_STENCIL_OP
@@ -419,7 +419,9 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = keys.depthStencil.depthTestEnable;
 		desc.DepthWriteMask = keys.depthStencil.depthWriteEnable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
-		desc.StencilEnable = keys.depthStencil.stencilTestEnable;
+		desc.DepthFunc = (D3D11_COMPARISON_FUNC)keys.depthStencil.depthCompareOp;
+		desc.StencilEnable = FALSE; // keys.depthStencil.stencilTestEnable;
+
 		// ...
 		device_->CreateDepthStencilState(&desc, &ds);
 		depthStencilCache_.insert(std::pair<uint32_t, ID3D11DepthStencilState *>(depthKey, ds));
@@ -434,7 +436,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {
 	if (applyStencilRef) {
-		ID3D11DepthStencilState *state;
-		context_->OMSetDepthStencilState(state, stencilRef);
+		// context_->OMSetDepthStencilState(state, stencilRef);
 	}
 }

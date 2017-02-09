@@ -222,11 +222,6 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 	}
 
 	WRITE(p, "struct VS_OUT {\n");
-	if (lang == HLSL_DX9) {
-		WRITE(p, "  float4 gl_Position   : POSITION;\n");
-	} else {
-		WRITE(p, "  float4 gl_Position   : SV_Position;\n");
-	}
 	if (doTexture) {
 		WRITE(p, "  float3 v_texcoord : TEXCOORD0;\n");
 	}
@@ -236,6 +231,11 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 
 	if (enableFog) {
 		WRITE(p, "  float2 v_fogdepth: TEXCOORD1;\n");
+	}
+	if (lang == HLSL_DX9) {
+		WRITE(p, "  float4 gl_Position   : POSITION;\n");
+	} else {
+		WRITE(p, "  float4 gl_Position   : SV_Position;\n");
 	}
 	WRITE(p, "};\n");
 
@@ -289,7 +289,11 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
 			// No skinning, just standard T&L.
-			WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
+			if (lang == HLSL_D3D11) {
+				WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world).xyz;\n");
+			} else {
+				WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
+			}
 			if (hasNormal)
 				WRITE(p, "  float3 worldnormal = normalize(	mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
 			else
@@ -367,7 +371,11 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 			WRITE(p, "  float3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world));\n");
 		}
 
-		WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
+		if (lang == HLSL_D3D11) {
+			WRITE(p, "  float4 viewPos = mul(float4(worldpos, 1.0), u_view);\n");
+		} else {
+			WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
+		}
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -554,7 +562,11 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 						break;
 					}
 					// Transform by texture matrix. XYZ as we are doing projection mapping.
-					WRITE(p, "  Out.v_texcoord.xyz = mul(%s,u_texmtx) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					if (lang == HLSL_D3D11) {
+						WRITE(p, "  Out.v_texcoord.xyz = (mul(%s, u_texmtx) * float4(u_uvscaleoffset.xy, 1.0, 0.0)).xyz;\n", temp_tc.c_str());
+					} else {
+						WRITE(p, "  Out.v_texcoord.xyz = mul(%s, u_texmtx) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					}
 				}
 				break;
 

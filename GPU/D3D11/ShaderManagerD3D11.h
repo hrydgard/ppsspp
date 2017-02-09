@@ -73,7 +73,7 @@ public:
 	}
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	ID3D11VertexShader *GetModule() const { return module_; }
+	ID3D11VertexShader *GetShader() const { return module_; }
 
 protected:
 	ID3D11VertexShader *module_;
@@ -107,6 +107,7 @@ public:
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 	uint64_t UpdateUniforms();
+	void BindUniforms();
 
 	// TODO: Avoid copying these buffers if same as last draw, can still point to it assuming we're still in the same pushbuffer.
 	// Applies dirty changes and copies the buffer.

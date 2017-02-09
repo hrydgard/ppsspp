@@ -40,8 +40,8 @@ static const char *depalVShaderHLSL =
 "  float2 a_texcoord0 : TEXCOORD0;\n"
 "};\n"
 "struct VS_OUT {\n"
-"  float4 Position : SV_Position;\n"
 "  float2 Texcoord : TEXCOORD0;\n"
+"  float4 Position : SV_Position;\n"
 "};\n"
 "VS_OUT main(VS_IN input) {\n"
 "  VS_OUT output;\n"
@@ -66,7 +66,7 @@ DepalShaderCacheD3D11::DepalShaderCacheD3D11(ID3D11Device *device, ID3D11DeviceC
 	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
 	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
 	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-	sampDesc.Filter = D3D11_FILTER_MINIMUM_MIN_MAG_MIP_POINT;
+	sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
 	device_->CreateSamplerState(&sampDesc, &clutSampler);
 }
 

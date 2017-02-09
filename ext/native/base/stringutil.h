@@ -25,6 +25,9 @@ public:
   }
 };
 
+// Useful for shaders with error messages..
+std::string LineNumberString(const std::string &str);
+
 // Other simple string utilities.
 
 inline bool startsWith(const std::string &str, const std::string &what) {

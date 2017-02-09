@@ -677,13 +677,13 @@ void DrawEngineD3D11::DoFlush() {
 						// TODO: Combine these two into one buffer?
 						void * pVb;
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
-						D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, D3D11_CPU_ACCESS_WRITE };
+						D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0 };
 						D3D11_SUBRESOURCE_DATA data{ decoded };
 						device_->CreateBuffer(&desc, &data, &vai->vbo);
 						if (useElements) {
 							void * pIb;
 							u32 size = sizeof(short) * indexGen.VertexCount();
-							D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, D3D11_CPU_ACCESS_WRITE };
+							D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, 0 };
 							D3D11_SUBRESOURCE_DATA data{ decoded };
 							device_->CreateBuffer(&desc, &data, &vai->ebo);
 						} else {
@@ -763,6 +763,8 @@ rotateVBO:
 		D3D11FragmentShader *fshader;
 		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 		ID3D11InputLayout *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
+		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
+		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 
 		context_->IASetInputLayout(pHardwareVertexDecl);
 		if (!vb_) {
@@ -829,6 +831,10 @@ rotateVBO:
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
 		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, false);
+		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
+		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
+		shaderManager_->UpdateUniforms();
+		shaderManager_->BindUniforms();
 
 		// TODO: Implement clear properly when possible. Colormask no longer applies to clearing unfortunately (though wonder if it ever did in hardware..) which makes it trickier.
 		if (result.action == SW_DRAW_PRIMITIVES || result.action == SW_CLEAR) {

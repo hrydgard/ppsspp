@@ -15,10 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef _WIN32
-#define SHADERLOG
-#endif
-
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
@@ -45,10 +41,6 @@ D3D11FragmentShader::D3D11FragmentShader(ID3D11Device *device, ShaderID id, cons
 	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(0) {
 	source_ = code;
 
-#ifdef SHADERLOG
-	OutputDebugStringA(code);
-#endif
-
 	module_ = CreatePixelShaderD3D11(device, code, strlen(code));
 	if (!module_)
 		failed_ = true;
@@ -73,10 +65,6 @@ std::string D3D11FragmentShader::GetShaderString(DebugShaderStringType type) con
 D3D11VertexShader::D3D11VertexShader(ID3D11Device *device, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting)
 	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr), usesLighting_(usesLighting) {
 	source_ = code;
-
-#ifdef SHADERLOG
-	OutputDebugStringA(code);
-#endif
 
 	module_ = CreateVertexShaderD3D11(device, code, strlen(code), &bytecode_);
 	if (!module_)
@@ -180,6 +168,13 @@ uint64_t ShaderManagerD3D11::UpdateUniforms() {
 	}
 	gstate_c.CleanUniforms();
 	return dirty;
+}
+
+void ShaderManagerD3D11::BindUniforms() {
+	ID3D11Buffer *vs_cbs[3] = { push_base, push_lights, push_bones };
+	ID3D11Buffer *ps_cbs[1] = { push_base };
+	context_->VSSetConstantBuffers(0, 3, vs_cbs);
+	context_->PSSetConstantBuffers(0, 1, ps_cbs);
 }
 
 void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, bool useHWTransform) {
