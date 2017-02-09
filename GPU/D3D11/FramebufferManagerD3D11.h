@@ -120,6 +120,7 @@ private:
 	ID3D11PixelShader *stencilUploadPS_;
 	ID3D11VertexShader *stencilUploadVS_;
 	ID3D11InputLayout *stencilUploadInputLayout_;
+	ID3D11DepthStencilState *stencilMaskStates_[256]{};
 	bool stencilUploadFailed_;
 
 	TextureCacheD3D11 *textureCacheD3D11_;

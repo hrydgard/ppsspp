@@ -903,7 +903,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		return nullptr;
 	}
 	if (desc.uniformDesc) {
-		pipeline->dynamicUniformSize = desc.uniformDesc->uniformBufferSize;
+		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
 	}
 
 	return pipeline;

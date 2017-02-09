@@ -59,6 +59,10 @@ void StockObjectsD3D11::Create(ID3D11Device *device) {
 	depth_desc.StencilWriteMask = 0xFF;
 	depth_desc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
 	depth_desc.BackFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+	depth_desc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_REPLACE;
+	depth_desc.BackFace.StencilFailOp = D3D11_STENCIL_OP_REPLACE;
+	depth_desc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
+	depth_desc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
 	depth_desc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 	depth_desc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 	device->CreateDepthStencilState(&depth_desc, &depthDisabledStencilWrite);

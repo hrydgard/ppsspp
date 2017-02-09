@@ -1167,6 +1167,7 @@ set(GPU_D3D11
 	GPU/D3D11/FramebufferManagerD3D11.h
 	GPU/D3D11/GPU_D3D11.cpp
 	GPU/D3D11/GPU_D3D11.h
+	GPU/D3D11/StencilBufferD3D11.cpp
 	GPU/D3D11/ShaderManagerD3D11.cpp
 	GPU/D3D11/ShaderManagerD3D11.h
 	GPU/D3D11/StateMappingD3D11.cpp

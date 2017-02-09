@@ -1157,7 +1157,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			pixelData = (u32 *)map.pData;
 
 			// We always end up at 8888.  Other parts assume this.
-			assert(dstFmt == D3DFMT_A8R8G8B8);
+			assert(dstFmt == DXGI_FORMAT_R8G8B8A8_UNORM);
 			bpp = sizeof(u32);
 			decPitch = w * bpp;
 

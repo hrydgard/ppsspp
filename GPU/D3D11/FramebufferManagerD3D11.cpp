@@ -119,6 +119,7 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 }
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
+	// Drawing cleanup
 	if (pFramebufferVertexShader_) {
 		pFramebufferVertexShader_->Release();
 		pFramebufferVertexShader_ = nullptr;
@@ -131,10 +132,18 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	if (drawPixelsTex_) {
 		drawPixelsTex_->Release();
 	}
+
+	// FBO cleanup
 	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
 		delete it->second.fbo;
 	}
 	delete[] convBuf;
+
+	// Stencil cleanup
+	for (int i = 0; i < 256; i++) {
+		if (stencilMaskStates_[i])
+			stencilMaskStates_[i]->Release();
+	}
 	if (stencilUploadPS_) {
 		stencilUploadPS_->Release();
 	}
