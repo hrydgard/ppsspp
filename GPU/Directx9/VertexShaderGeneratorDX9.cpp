@@ -276,13 +276,25 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		if (enableFog) {
 			WRITE(p, "  Out.v_fogdepth.x = In.position.w;\n");
 		}
-		if (gstate.isModeThrough())	{
-			WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
-		} else {
-			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
+		if (lang == HLSL_D3D11) {
+			if (gstate.isModeThrough()) {
+				WRITE(p, "  Out.gl_Position = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
 			} else {
-				WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj);\n");
+				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+					WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(u_proj, float4(In.position.xyz, 1.0)));\n");
+				} else {
+					WRITE(p, "  Out.gl_Position = mul(u_proj, float4(In.position.xyz, 1.0));\n");
+				}
+			}
+		} else {
+			if (gstate.isModeThrough()) {
+				WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
+			} else {
+				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+					WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
+				} else {
+					WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj);\n");
+				}
 			}
 		}
 	}  else {
@@ -290,14 +302,18 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		if (!enableBones) {
 			// No skinning, just standard T&L.
 			if (lang == HLSL_D3D11) {
-				WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world).xyz;\n");
+				WRITE(p, "  float3 worldpos = mul(u_world, float4(In.position.xyz, 1.0)).xyz;\n");
+				if (hasNormal)
+					WRITE(p, "  float3 worldnormal = normalize(	mul(u_world, float4(%sIn.normal, 0.0)));\n", flipNormal ? "-" : "");
+				else
+					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 			} else {
 				WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
+				if (hasNormal)
+					WRITE(p, "  float3 worldnormal = normalize(	mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
+				else
+					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 			}
-			if (hasNormal)
-				WRITE(p, "  float3 worldnormal = normalize(	mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
-			else
-				WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 		} else {
 			static const char * const boneWeightAttr[8] = {
 				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
@@ -372,16 +388,23 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		}
 
 		if (lang == HLSL_D3D11) {
-			WRITE(p, "  float4 viewPos = mul(float4(worldpos, 1.0), u_view);\n");
+			WRITE(p, "  float4 viewPos = mul(u_view, float4(worldpos, 1.0));\n");
+
+			// Final view and projection transforms.
+			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(u_proj, viewPos));\n");
+			} else {
+				WRITE(p, "  Out.gl_Position = mul(u_proj, viewPos);\n");
+			}
 		} else {
 			WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
-		}
 
-		// Final view and projection transforms.
-		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(viewPos, u_proj));\n");
-		} else {
-			WRITE(p, "  Out.gl_Position = mul(viewPos, u_proj);\n");
+			// Final view and projection transforms.
+			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(viewPos, u_proj));\n");
+			} else {
+				WRITE(p, "  Out.gl_Position = mul(viewPos, u_proj);\n");
+			}
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.

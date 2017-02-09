@@ -132,7 +132,7 @@ void TextureCacheD3D11::SetFramebufferManager(FramebufferManagerD3D11 *fbManager
 }
 
 void TextureCacheD3D11::Clear(bool delete_them) {
-	context_->PSSetShaderResources(0, 1, nullptr);
+	// context_->PSSetShaderResources(0, 1, nullptr);
 	lastBoundTexture = INVALID_TEX;
 	if (delete_them) {
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
@@ -1113,7 +1113,9 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		desc.SampleDesc.Count = 1;
 		desc.Width = tw;
 		desc.Height = th;
+		desc.Format = tfmt;
 		desc.MipLevels = levels;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 		HRESULT hr = device_->CreateTexture2D(&desc, nullptr, &texture);
 		if (FAILED(hr)) {

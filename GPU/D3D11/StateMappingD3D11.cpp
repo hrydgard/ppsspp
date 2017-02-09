@@ -30,6 +30,7 @@
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
+#include "GPU/D3D11/TextureCacheD3D11.h"
 
 // These tables all fit into u8s.
 static const D3D11_BLEND d3d11BlendFactorLookup[(size_t)BlendFactor::COUNT] = {
@@ -185,8 +186,6 @@ struct D3D11DynamicState {
 };
 
 void ConvertStateToKeys(FramebufferManagerCommon *fbManager, ShaderManagerD3D11 *shaderManager, int prim, D3D11StateKeys &key, D3D11DynamicState &dynState) {
-	memset(&key, 0, sizeof(key));
-	memset(&dynState, 0, sizeof(dynState));
 	// Unfortunately, this isn't implemented yet.
 	gstate_c.allowShaderBlend = false;
 
@@ -383,8 +382,18 @@ void ConvertStateToKeys(FramebufferManagerCommon *fbManager, ShaderManagerD3D11 
 }
 
 void DrawEngineD3D11::ApplyDrawState(int prim) {
-	D3D11StateKeys keys;
-	D3D11DynamicState dynState;
+	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+		textureCache_->SetTexture();
+		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		if (gstate_c.needShaderTexClamp) {
+			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
+			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
+			gstate_c.Dirty(DIRTY_TEXCLAMP);
+		}
+	}
+
+	D3D11StateKeys keys{};
+	D3D11DynamicState dynState{};
 	ConvertStateToKeys(framebufferManager_, shaderManager_, prim, keys, dynState);
 
 	uint32_t blendKey, depthKey, rasterKey;
@@ -435,6 +444,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 }
 
 void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {
+	textureCache_->ApplyTexture();
 	if (applyStencilRef) {
 		// context_->OMSetDepthStencilState(state, stencilRef);
 	}

@@ -347,6 +347,7 @@ enum class Event {
 	// These happen on D3D resize
 	LOST_BACKBUFFER,
 	GOT_BACKBUFFER,
+	RESIZED,
 	PRESENT_REQUESTED,
 };
 

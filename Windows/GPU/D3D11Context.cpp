@@ -74,11 +74,9 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		return false;
 
 #ifdef _DEBUG
-	if (SUCCEEDED(device_->QueryInterface(__uuidof(ID3D11Debug), (void**)&d3dDebug_)))
-	{
+	if (SUCCEEDED(device_->QueryInterface(__uuidof(ID3D11Debug), (void**)&d3dDebug_))) {
 		ID3D11InfoQueue *d3dInfoQueue = nullptr;
-		if (SUCCEEDED(d3dDebug_->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&d3dInfoQueue)))
-		{
+		if (SUCCEEDED(d3dDebug_->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&d3dInfoQueue))) {
 			d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
 			d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
 			d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, true);
@@ -92,6 +90,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 
 void D3D11Context::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER);
+	draw_->HandleEvent(Draw::Event::RESIZED);
 	// This should only be called from the emu thread.
 	/*
 	int xres, yres;
@@ -99,12 +98,11 @@ void D3D11Context::Resize() {
 	bool w_changed = pp.BackBufferWidth != xres;
 	bool h_changed = pp.BackBufferHeight != yres;
 
-	if (device && (w_changed || h_changed)) {
+	if (device_ && (w_changed || h_changed)) {
 		pp.BackBufferWidth = xres;
 		pp.BackBufferHeight = yres;
 		HRESULT hr = device_->Reset(&pp);
 		if (FAILED(hr)) {
-      // Had to remove DXGetErrorStringA calls here because dxerr.lib is deprecated and will not link with VS 2015.
 			ERROR_LOG_REPORT(G3D, "Unable to reset D3D device");
 			PanicAlert("Unable to reset D3D11 device");
 		}
