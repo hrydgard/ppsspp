@@ -39,9 +39,13 @@ public:
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 
 private:
-	Draw::DrawContext *draw_;
-	ID3D11Device *device_;
-	ID3D11DeviceContext *context_;
+	Draw::DrawContext *draw_ = nullptr;
+	ID3D11Device *device_ = nullptr;
+	ID3D11DeviceContext *context_ = nullptr;
+
+#ifdef _DEBUG
+	ID3D11Debug *d3dDebug_ = nullptr;
+#endif
 
 	D3D_DRIVER_TYPE driverType_;
 	D3D_FEATURE_LEVEL featureLevel_ = D3D_FEATURE_LEVEL_11_0;

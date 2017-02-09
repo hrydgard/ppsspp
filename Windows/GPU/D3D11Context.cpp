@@ -22,6 +22,9 @@ D3D11Context::~D3D11Context() {
 
 void D3D11Context::SwapBuffers() {
 	draw_->HandleEvent(Draw::Event::PRESENT_REQUESTED);
+	// Might be a good idea.
+	// context_->ClearState();
+	//
 }
 
 void D3D11Context::SwapInterval(int interval) {
@@ -70,6 +73,19 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	if (FAILED(hr))
 		return false;
 
+#ifdef _DEBUG
+	if (SUCCEEDED(device_->QueryInterface(__uuidof(ID3D11Debug), (void**)&d3dDebug_)))
+	{
+		ID3D11InfoQueue *d3dInfoQueue = nullptr;
+		if (SUCCEEDED(d3dDebug_->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&d3dInfoQueue)))
+		{
+			d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
+			d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
+			d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, true);
+		}
+	}
+#endif
+
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, hWnd_);
 	return true;
 }
@@ -98,6 +114,12 @@ void D3D11Context::Resize() {
 }
 
 void D3D11Context::Shutdown() {
+#ifdef _DEBUG
+	d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
+#endif
+	context_->Flush();
+	context_->ClearState();
+
 	delete draw_;
 	draw_ = nullptr;
 
