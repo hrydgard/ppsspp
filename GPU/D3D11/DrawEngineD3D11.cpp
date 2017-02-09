@@ -616,7 +616,6 @@ void DrawEngineD3D11::DoFlush() {
 					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
 					vai->flags = gstate_c.vertexFullAlpha ? VAI11_FLAG_VERTEXFULLALPHA : 0;
-
 					goto rotateVBO;
 				}
 

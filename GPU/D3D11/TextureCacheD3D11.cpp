@@ -107,6 +107,9 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 
 TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw) {
+	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 

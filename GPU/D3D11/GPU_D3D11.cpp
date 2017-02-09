@@ -564,6 +564,11 @@ void GPU_D3D11::ReapplyGfxStateInternal() {
 	// TODO: Dirty our caches for depth states etc
 }
 
+void GPU_D3D11::EndHostFrame() {
+	// Tell the DrawContext that it's time to reset everything.
+	draw_->BindPipeline(nullptr);
+}
+
 void GPU_D3D11::BeginFrameInternal() {
 	if (resized_) {
 		UpdateCmdInfo();
