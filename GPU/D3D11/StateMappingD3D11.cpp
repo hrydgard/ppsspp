@@ -156,10 +156,12 @@ struct D3D11DepthStencilKey {
 	unsigned int depthWriteEnable : 1;
 	unsigned int depthCompareOp : 4;  // D3D11_COMPARISON   (-1 and we could fit it in 3 bits)
 	unsigned int stencilTestEnable : 1;
-	unsigned int stencilCompareOp : 4;  // D3D11_COMPARISON
+	unsigned int stencilCompareFunc : 4;  // D3D11_COMPARISON
 	unsigned int stencilPassOp : 4; // D3D11_STENCIL_OP
 	unsigned int stencilFailOp : 4; // D3D11_STENCIL_OP
 	unsigned int stencilDepthFailOp : 4;  // D3D11_STENCIL_OP
+	unsigned int stencilWriteMask : 8;  // Unfortunately these are baked into the state on D3D11
+	unsigned int stencilCompareMask : 8;
 };
 
 struct D3D11RasterKey {
@@ -179,8 +181,6 @@ struct D3D11DynamicState {
 	uint32_t blendColor;
 	bool useStencil;
 	uint8_t stencilRef;
-	uint8_t stencilWriteMask;
-	uint8_t stencilCompareMask;
 	D3D11_VIEWPORT viewport;
 	D3D11_RECT scissor;
 };
@@ -259,7 +259,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		// Stencil Test
 		if (alphaMask) {
 			key.depthStencil.stencilTestEnable = true;
-			key.depthStencil.stencilCompareOp = D3D11_COMPARISON_ALWAYS;
+			key.depthStencil.stencilCompareFunc = D3D11_COMPARISON_ALWAYS;
 			key.depthStencil.stencilPassOp = D3D11_STENCIL_OP_REPLACE;
 			key.depthStencil.stencilFailOp = D3D11_STENCIL_OP_REPLACE;
 			key.depthStencil.stencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
@@ -268,7 +268,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			// A normal clear will be 2 points, the second point has the color.
 			// We override this value in the pipeline from software transform for clear rectangles.
 			dynState.stencilRef = 0xFF;
-			dynState.stencilWriteMask = 0xFF;
+			key.depthStencil.stencilWriteMask = 0xFF;
 		} else {
 			key.depthStencil.stencilTestEnable = false;
 			dynState.useStencil = false;
@@ -341,14 +341,14 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		// Stencil Test
 		if (stencilState.enabled) {
 			key.depthStencil.stencilTestEnable = true;
-			key.depthStencil.stencilCompareOp = compareOps[stencilState.testFunc];
+			key.depthStencil.stencilCompareFunc = compareOps[stencilState.testFunc];
 			key.depthStencil.stencilPassOp = stencilOps[stencilState.zPass];
 			key.depthStencil.stencilFailOp = stencilOps[stencilState.sFail];
 			key.depthStencil.stencilDepthFailOp = stencilOps[stencilState.zFail];
+			key.depthStencil.stencilCompareMask = stencilState.testMask;
+			key.depthStencil.stencilWriteMask = stencilState.writeMask;
 			dynState.useStencil = true;
 			dynState.stencilRef = stencilState.testRef;
-			dynState.stencilCompareMask = stencilState.testMask;
-			dynState.stencilWriteMask = stencilState.writeMask;
 		} else {
 			key.depthStencil.stencilTestEnable = false;
 			dynState.useStencil = false;
@@ -426,9 +426,14 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		desc.DepthEnable = key.depthStencil.depthTestEnable;
 		desc.DepthWriteMask = key.depthStencil.depthWriteEnable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
 		desc.DepthFunc = (D3D11_COMPARISON_FUNC)key.depthStencil.depthCompareOp;
-		desc.StencilEnable = FALSE; // keys.depthStencil.stencilTestEnable;
-
-		// ...
+		desc.StencilEnable = key.depthStencil.stencilTestEnable;
+		desc.StencilReadMask = key.depthStencil.stencilCompareMask;
+		desc.StencilWriteMask = key.depthStencil.stencilWriteMask;
+		desc.FrontFace.StencilFailOp = (D3D11_STENCIL_OP)key.depthStencil.stencilFailOp;
+		desc.FrontFace.StencilPassOp = (D3D11_STENCIL_OP)key.depthStencil.stencilPassOp;
+		desc.FrontFace.StencilDepthFailOp = (D3D11_STENCIL_OP)key.depthStencil.stencilDepthFailOp;
+		desc.FrontFace.StencilFunc = (D3D11_COMPARISON_FUNC)key.depthStencil.stencilCompareFunc;
+		desc.BackFace = desc.FrontFace;
 		device_->CreateDepthStencilState(&desc, &ds);
 		depthStencilCache_.insert(std::pair<uint32_t, ID3D11DepthStencilState *>(depthKey, ds));
 	} else {
