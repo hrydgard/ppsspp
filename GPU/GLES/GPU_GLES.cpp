@@ -495,7 +495,8 @@ GPU_GLES::~GPU_GLES() {
 	}
 	delete shaderManagerGL_;
 	shaderManagerGL_ = nullptr;
-
+	delete framebufferManagerGL_;
+	delete textureCacheGL_;
 #ifdef _WIN32
 	gfxCtx_->SwapInterval(0);
 #endif

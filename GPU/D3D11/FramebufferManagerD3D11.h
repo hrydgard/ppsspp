@@ -127,7 +127,7 @@ private:
 	ShaderManagerD3D11 *shaderManager_;
 	DrawEngineD3D11 *drawEngine_;
 
-	ID3D11Buffer *vbFullScreenRect_;
+	ID3D11Buffer *vbFullScreenRect_ = nullptr;
 	UINT vbFullScreenStride_ = 20;
 	UINT vbFullScreenOffset_ = 0;
 

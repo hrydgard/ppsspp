@@ -479,9 +479,11 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 GPU_D3D11::~GPU_D3D11() {
 	delete depalShaderCache_;
 	framebufferManagerD3D11_->DestroyAllFBOs(true);
+	delete framebufferManagerD3D11_;
 	shaderManagerD3D11_->ClearShaders();
-	draw_->BindPipeline(nullptr);
 	delete shaderManagerD3D11_;
+	delete textureCacheD3D11_;
+	draw_->BindPipeline(nullptr);
 	stockD3D11.Destroy();
 }
 

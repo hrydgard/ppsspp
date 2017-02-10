@@ -1110,8 +1110,9 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 				tfmt = DXGI_FORMAT_R8G8B8A8_UNORM;
 			}
 		}
+
 		D3D11_TEXTURE2D_DESC desc{};
-		// TODO: Make it immutable, will requires some code restructuring though.
+		// TODO: Make it DEFAULT or immutable, required for multiple mip levels. Will require some code restructuring though.
 		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		desc.Usage = D3D11_USAGE_DYNAMIC;
 		desc.ArraySize = 1;

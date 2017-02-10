@@ -513,6 +513,8 @@ void GPU_DX9::CheckGPUFeatures() {
 
 GPU_DX9::~GPU_DX9() {
 	framebufferManagerDX9_->DestroyAllFBOs(true);
+	delete framebufferManagerDX9_;
+	delete textureCache_;
 	shaderManagerDX9_->ClearCache(true);
 	delete shaderManagerDX9_;
 }

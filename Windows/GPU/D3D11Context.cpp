@@ -111,6 +111,11 @@ void D3D11Context::Resize() {
 }
 
 void D3D11Context::Shutdown() {
+	delete draw_;
+	draw_ = nullptr;
+	context_->ClearState();
+	context_->Flush();
+
 #ifdef _DEBUG
 	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, false);
 	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, false);
@@ -121,27 +126,10 @@ void D3D11Context::Shutdown() {
 #endif
 	d3dDebug_->Release();
 	d3dInfoQueue_->Release();
-	context_->ClearState();
-	context_->Flush();
-
-	delete draw_;
-	draw_ = nullptr;
 
 	context_->Release();
 	context_ = nullptr;
 	device_->Release();
 	device_ = nullptr;
-	/*
-	DX9::DestroyShaders();
-	device->EndScene();
-	device->Release();
-	d3d->Release();
-	UnloadD3DXDynamic();
-	DX9::pD3Ddevice = nullptr;
-	DX9::pD3DdeviceEx = nullptr;
-	DX9::pD3D = nullptr;
-	*/
 	hWnd_ = nullptr;
-	// FreeLibrary(hD3D11);
-	// hD3D11 = nullptr;
 }

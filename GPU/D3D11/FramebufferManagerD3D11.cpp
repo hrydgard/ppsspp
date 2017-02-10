@@ -120,6 +120,9 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	// Drawing cleanup
+	if (vbFullScreenRect_) {
+		vbFullScreenRect_->Release();
+	}
 	if (pFramebufferVertexShader_) {
 		pFramebufferVertexShader_->Release();
 		pFramebufferVertexShader_ = nullptr;
@@ -131,6 +134,9 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	pFramebufferVertexDecl_->Release();
 	if (drawPixelsTex_) {
 		drawPixelsTex_->Release();
+	}
+	if (drawPixelsTexView_) {
+		drawPixelsTexView_->Release();
 	}
 
 	// FBO cleanup
