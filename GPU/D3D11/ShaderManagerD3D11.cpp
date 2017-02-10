@@ -148,7 +148,7 @@ uint64_t ShaderManagerD3D11::UpdateUniforms() {
 	if (dirty != 0) {
 		D3D11_MAPPED_SUBRESOURCE map;
 		if (dirty & DIRTY_BASE_UNIFORMS) {
-			BaseUpdateUniforms(&ub_base, dirty);
+			BaseUpdateUniforms(&ub_base, dirty, true);
 			context_->Map(push_base, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 			memcpy(map.pData, &ub_base, sizeof(ub_base));
 			context_->Unmap(push_base, 0);

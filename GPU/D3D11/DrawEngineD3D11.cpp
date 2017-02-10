@@ -587,6 +587,8 @@ void DrawEngineD3D11::DoFlush() {
 	if (useHWTransform) {
 		ID3D11Buffer *vb_ = nullptr;
 		ID3D11Buffer *ib_ = nullptr;
+		if (prim == GE_PRIM_TRIANGLE_FAN)
+			Crash();
 
 		int vertexCount = 0;
 		int maxIndex = 0;
@@ -785,15 +787,13 @@ rotateVBO:
 			context_->IASetVertexBuffers(0, 1, &buf, &stride, &vOffset);
 			if (useElements) {
 				UINT iOffset;
-				int iSize = 2 * vertexCount;
+				int iSize = 2 * indexGen.VertexCount();
 				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
 				memcpy(iptr, decIndex, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
 				context_->DrawIndexed(vertexCount, 0, 0);
-				// context_->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex + 1, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
 			} else {
-				// context_->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
 				context_->Draw(vertexCount, 0);
 			}
 		} else {
@@ -873,7 +873,7 @@ rotateVBO:
 
 			UINT stride = sizeof(TransformedVertex);
 			UINT vOffset = 0;
-			int vSize = numTrans * dec_->GetDecVtxFmt().stride;
+			int vSize = maxIndex * stride;
 			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
 			memcpy(vptr, drawBuffer, vSize);
 			pushVerts_->EndPush(context_);
@@ -881,13 +881,12 @@ rotateVBO:
 			context_->IASetVertexBuffers(0, 1, &buf, &stride, &vOffset);
 			if (drawIndexed) {
 				UINT iOffset;
-				int iSize = 2 * (maxIndex + 1);
+				int iSize = sizeof(int16_t) * numTrans;
 				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
 				memcpy(iptr, inds, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
-				context_->DrawIndexed(maxIndex + 1, 0, 0);
-				// context_->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, numTrans, inds, DXGI_FORMAT_R16_UINT, drawBuffer, sizeof(TransformedVertex));
+				context_->DrawIndexed(numTrans, 0, 0);
 			} else {
 				context_->Draw(numTrans, 0);
 			}

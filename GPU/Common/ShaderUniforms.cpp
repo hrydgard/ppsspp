@@ -7,13 +7,19 @@
 #include "GPU/Math3D.h"
 #include "Core/Reporting.h"
 
-static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invertedY) {
+static void ConvertProjMatrixToVulkan(Matrix4x4 &in) {
 	const Vec3 trans(0, 0, gstate_c.vpZOffset * 0.5f + 0.5f);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 	in.translateAndScale(trans, scale);
 }
 
-void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms) {
+static void ConvertProjMatrixToD3D11(Matrix4x4 &in) {
+	const Vec3 trans(0, 0, gstate_c.vpZOffset * 0.5f + 0.5f);
+	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
+	in.translateAndScale(trans, scale);
+}
+
+void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		Uint8x3ToFloat4(ub->texEnvColor, gstate.texenvcolor);
 	}
@@ -65,13 +71,21 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms) {
 			flippedMatrix[8] = -flippedMatrix[8];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
-		ConvertProjMatrixToVulkan(flippedMatrix, invertedX, invertedY);
+		if (flipViewport) {
+			ConvertProjMatrixToD3D11(flippedMatrix);
+		} else {
+			ConvertProjMatrixToVulkan(flippedMatrix);
+		}
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
-		proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
+		if (flipViewport) {
+			proj_through.setOrthoD3D(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
+		} else {
+			proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
+		}
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
 	}
 

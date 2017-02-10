@@ -254,7 +254,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 	}
 
 	WRITE(p, "VS_OUT main(VS_IN In) {\n");
-	WRITE(p, "  VS_OUT Out = (VS_OUT)0;							   \n");  
+	WRITE(p, "  VS_OUT Out;\n");  
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
@@ -304,13 +304,13 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 			if (lang == HLSL_D3D11) {
 				WRITE(p, "  float3 worldpos = mul(u_world, float4(In.position.xyz, 1.0)).xyz;\n");
 				if (hasNormal)
-					WRITE(p, "  float3 worldnormal = normalize(	mul(u_world, float4(%sIn.normal, 0.0)));\n", flipNormal ? "-" : "");
+					WRITE(p, "  float3 worldnormal = normalize(mul(u_world, float4(%sIn.normal, 0.0))).xyz;\n", flipNormal ? "-" : "");
 				else
 					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 			} else {
 				WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
 				if (hasNormal)
-					WRITE(p, "  float3 worldnormal = normalize(	mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
+					WRITE(p, "  float3 worldnormal = normalize(mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
 				else
 					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 			}

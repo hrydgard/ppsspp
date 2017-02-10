@@ -132,7 +132,8 @@ void TextureCacheD3D11::SetFramebufferManager(FramebufferManagerD3D11 *fbManager
 }
 
 void TextureCacheD3D11::Clear(bool delete_them) {
-	// context_->PSSetShaderResources(0, 1, nullptr);
+	// ID3D11ShaderResourceView *srv = nullptr;
+	// context_->PSSetShaderResources(0, 1, &srv);
 	lastBoundTexture = INVALID_TEX;
 	if (delete_them) {
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
@@ -182,7 +183,8 @@ void TextureCacheD3D11::Decimate() {
 	if (cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
 		const u32 had = cacheSizeEstimate_;
 
-		context_->PSSetShaderResources(0, 1, nullptr);
+		ID3D11ShaderResourceView *srv = nullptr;
+		context_->PSSetShaderResources(0, 1, &srv);
 		lastBoundTexture = INVALID_TEX;
 		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
@@ -603,7 +605,8 @@ void TextureCacheD3D11::SetTexture(bool force) {
 	u32 texaddr = gstate.getTextureAddress(0);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
-		context_->PSSetShaderResources(0, 1, nullptr);
+		ID3D11ShaderResourceView *srv = nullptr;
+		context_->PSSetShaderResources(0, 1, &srv);
 		lastBoundTexture = INVALID_TEX;
 		return;
 	}
@@ -1000,7 +1003,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 
 	if (replaceImages) {
 		// Make sure it's not currently set.
-		context_->PSSetShaderResources(0, 1, nullptr);
+		ID3D11ShaderResourceView *srv = nullptr;
+		context_->PSSetShaderResources(0, 1, &srv);
 	}
 
 	// Seems to cause problems in Tactics Ogre.

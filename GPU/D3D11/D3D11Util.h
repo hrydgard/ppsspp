@@ -44,8 +44,9 @@ public:
 		nextMapDiscard_ = true;
 	}
 
-	uint8_t *BeginPush(ID3D11DeviceContext *context, UINT *offset, size_t size) {
+	uint8_t *BeginPush(ID3D11DeviceContext *context, UINT *offset, size_t size, int align = 16) {
 		D3D11_MAPPED_SUBRESOURCE map;
+		pos_ = (pos_ + align - 1) & ~(align - 1);
 		context->Map(buffer_, 0, nextMapDiscard_ ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE_NO_OVERWRITE, 0, &map);
 		nextMapDiscard_ = false;
 		*offset = (UINT)pos_;

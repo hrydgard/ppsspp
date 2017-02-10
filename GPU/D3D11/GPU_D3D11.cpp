@@ -557,6 +557,7 @@ void GPU_D3D11::DumpNextFrame() {
 
 void GPU_D3D11::BeginFrame() {
 	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
+	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 }
 
 void GPU_D3D11::ReapplyGfxStateInternal() {

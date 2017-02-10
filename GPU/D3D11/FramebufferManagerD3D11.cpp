@@ -453,7 +453,8 @@ void FramebufferManagerD3D11::BindFramebufferColor(int stage, VirtualFramebuffer
 	}
 
 	if (!framebuffer->fbo || !useBufferedRendering_) {
-		context_->PSSetShaderResources(stage, 1, nullptr);
+		ID3D11ShaderResourceView *view = nullptr;
+		context_->PSSetShaderResources(stage, 1, &view);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		return;
 	}

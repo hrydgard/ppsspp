@@ -69,7 +69,7 @@ R"(  float4x4 u_proj;
   float4x4 u_tex;
   float4 u_uvscaleoffset;
   float4 u_depthRange;
-  float3 u_fogcoef_stencilreplace;
+  float3 u_fogcoef;
   float4 u_matambientalpha;
   float3 u_fogcolor;
   float3 u_texenv;
@@ -98,7 +98,7 @@ struct UB_VS_Lights {
 };
 
 static const char *ub_vs_lightsStr =
-R"(	vec4 globalAmbient;
+R"(	vec4 u_ambient;
 	vec3 matdiffuse;
 	vec4 matspecular;
 	vec3 matemissive;
@@ -114,18 +114,36 @@ R"(	vec4 globalAmbient;
 
 // HLSL code is shared so these names are changed to match those in DX9.
 static const char *cb_vs_lightsStr =
-R"(	float4 globalAmbient;
+R"(	float4 u_ambient;
 	float3 u_matdiffuse;
 	float4 u_matspecular;
 	float3 u_matemissive;
-	float3 u_lightpos[4];
-	float3 u_lightdir[4];
-	float3 u_lightatt[4];
+	float3 u_lightpos0;
+	float3 u_lightpos1;
+	float3 u_lightpos2;
+	float3 u_lightpos3;
+	float3 u_lightdir0;
+	float3 u_lightdir1;
+	float3 u_lightdir2;
+	float3 u_lightdir3;
+	float3 u_lightatt0;
+	float3 u_lightatt1;
+	float3 u_lightatt2;
+	float3 u_lightatt3;
 	float u_lightangle[4];
 	float u_lightspotCoef[4];
-	float3 u_ambient[4];
-	float3 u_diffuse[4];
-	float3 u_specular[4];
+	float3 u_lightambient0;
+	float3 u_lightambient1;
+	float3 u_lightambient2;
+	float3 u_lightambient3;
+	float3 u_lightdiffuse0;
+	float3 u_lightdiffuse1;
+	float3 u_lightdiffuse2;
+	float3 u_lightdiffuse3;
+	float3 u_lightspecular0;
+	float3 u_lightspecular1;
+	float3 u_lightspecular2;
+	float3 u_lightspecular3;
 )";
 
 // With some cleverness, we could get away with uploading just half this when only the four first
@@ -144,7 +162,7 @@ static const char *cb_vs_bonesStr =
 R"(	float4x4 m[8];
 )";
 
-void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms);
+void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
 void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
 

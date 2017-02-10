@@ -45,6 +45,7 @@ private:
 
 #ifdef _DEBUG
 	ID3D11Debug *d3dDebug_ = nullptr;
+	ID3D11InfoQueue *d3dInfoQueue_ = nullptr;
 #endif
 
 	D3D_DRIVER_TYPE driverType_;

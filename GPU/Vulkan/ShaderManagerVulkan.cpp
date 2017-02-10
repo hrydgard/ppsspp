@@ -222,7 +222,7 @@ uint64_t ShaderManagerVulkan::UpdateUniforms() {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		if (dirty & DIRTY_BASE_UNIFORMS)
-			BaseUpdateUniforms(&ub_base, dirty);
+			BaseUpdateUniforms(&ub_base, dirty, false);
 		if (dirty & DIRTY_LIGHT_UNIFORMS)
 			LightUpdateUniforms(&ub_lights, dirty);
 		if (dirty & DIRTY_BONE_UNIFORMS)
