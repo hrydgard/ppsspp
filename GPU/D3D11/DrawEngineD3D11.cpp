@@ -895,30 +895,29 @@ rotateVBO:
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
 
-			UINT depthClearFlag = 0;
+			uint32_t clearFlag = 0;
 
-			/*
-			bool clearColor = gstate.isClearModeColorMask();
-			if (gstate.isClearModeAlphaMask()) depthClearFlag |= D3D11_CLEAR_STENCIL;
-			if (gstate.isClearModeDepthMask()) depthClearFlag |= D3D11_CLEAR_DEPTH;
+			if (gstate.isClearModeColorMask()) clearFlag |= Draw::COLOR;
+			if (gstate.isClearModeAlphaMask()) clearFlag |= Draw::STENCIL;
+			if (gstate.isClearModeDepthMask()) clearFlag |= Draw::DEPTH;
 
 			if (clearColor) {
 				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			}
-			if (depthClearFlag & D3D11_CLEAR_DEPTH) {
+			if (clearFlag & Draw::DEPTH) {
 				framebufferManager_->SetDepthUpdated();
 			}
 
 			int colorMask = 0;
 			if (clearColor)
 				colorMask |= 7;
-			if (depthClearFlag & D3D11_CLEAR_STENCIL) {
+			if (clearFlag & Draw::STENCIL) {
 				colorMask |= 8;
 			}
 			context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[colorMask], nullptr, 0xFFFFFFFF);
 
-			device_->Clear(0, NULL, mask, SwapRB(clearColor), clearDepth, clearColor >> 24);
-			*/
+			uint8_t clearStencil = clearColor >> 24;
+			draw_->Clear(clearFlag, clearColor, clearDepth, clearStencil);
 
 			int scissorX2 = gstate.getScissorX2() + 1;
 			int scissorY2 = gstate.getScissorY2() + 1;

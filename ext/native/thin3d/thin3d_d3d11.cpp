@@ -1104,7 +1104,7 @@ void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **st
 void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
 	if (mask & ClearFlag::COLOR) {
 		float colorRGBA[4];
-		Uint8x1ToFloat4(colorRGBA, colorval);
+		Uint8x4ToFloat4(colorRGBA, colorval);
 		context_->ClearRenderTargetView(curRenderTargetView_, colorRGBA);
 	}
 	if (mask & (ClearFlag::DEPTH | ClearFlag::STENCIL)) {
