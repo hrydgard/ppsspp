@@ -1113,8 +1113,8 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 
 		D3D11_TEXTURE2D_DESC desc{};
 		// TODO: Make it DEFAULT or immutable, required for multiple mip levels. Will require some code restructuring though.
-		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		desc.Usage = D3D11_USAGE_DYNAMIC;
+		desc.CPUAccessFlags = 0;
+		desc.Usage = D3D11_USAGE_DEFAULT;
 		desc.ArraySize = 1;
 		desc.SampleDesc.Count = 1;
 		desc.Width = tw;
@@ -1131,17 +1131,17 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		}
 		ID3D11ShaderResourceView *view;
 		hr = device_->CreateShaderResourceView(texture, nullptr, &view);
-
 		entry.texturePtr = texture;
 		entry.textureView = view;
 	}
 
-	D3D11_MAPPED_SUBRESOURCE map;
-	context_->Map(texture, level, D3D11_MAP_WRITE_DISCARD, 0, &map);
-
 	gpuStats.numTexturesDecoded++;
+	// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
+	u32 *mapData = new u32[w * h]{};
+	int mapRowPitch = w * 4;
+
 	if (replaced.GetSize(level, w, h)) {
-		replaced.Load(level, map.pData, map.RowPitch);
+		replaced.Load(level, mapData, mapRowPitch);
 		dstFmt = ToDXGIFormat(replaced.Format(level));
 	} else {
 		GETextureFormat tfmt = (GETextureFormat)entry.format;
@@ -1150,8 +1150,8 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		int bufw = GetTextureBufw(level, texaddr, tfmt);
 		int bpp = dstFmt == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 2;
 
-		u32 *pixelData = (u32 *)map.pData;
-		int decPitch = map.RowPitch;
+		u32 *pixelData = (u32 *)mapData;
+		int decPitch = mapRowPitch;
 		if (scaleFactor > 1) {
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			pixelData = tmpTexBufRearrange.data();
@@ -1165,21 +1165,22 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		}
 
 		if (scaleFactor > 1) {
-			scaler.ScaleAlways((u32 *)map.pData, pixelData, dstFmt, w, h, scaleFactor);
-			pixelData = (u32 *)map.pData;
+			scaler.ScaleAlways((u32 *)mapData, pixelData, dstFmt, w, h, scaleFactor);
+			pixelData = (u32 *)mapData;
 
 			// We always end up at 8888.  Other parts assume this.
 			assert(dstFmt == DXGI_FORMAT_R8G8B8A8_UNORM);
 			bpp = sizeof(u32);
 			decPitch = w * bpp;
 
-			if (decPitch != map.RowPitch) {
+			if (decPitch != mapRowPitch) {
 				// Rearrange in place to match the requested pitch.
 				// (it can only be larger than w * bpp, and a match is likely.)
+				// Note! This is bad because it reads the mapped memory! TODO: Look into if DX9 does this right.
 				for (int y = h - 1; y >= 0; --y) {
-					memcpy((u8 *)map.pData + map.RowPitch * y, (u8 *)map.pData + decPitch * y, w * bpp);
+					memcpy((u8 *)mapData + mapRowPitch * y, (u8 *)mapData + decPitch * y, w * bpp);
 				}
-				decPitch = map.RowPitch;
+				decPitch = mapRowPitch;
 			}
 		}
 
@@ -1203,7 +1204,9 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			replacer.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
 		}
 	}
-	context_->Unmap(texture, level);
+
+	context_->UpdateSubresource(texture, level, nullptr, mapData, mapRowPitch, 0);
+	delete[] mapData;
 }
 
 bool TextureCacheD3D11::DecodeTexture(u8 *output, const GPUgstate &state) {

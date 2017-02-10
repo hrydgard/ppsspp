@@ -459,6 +459,7 @@ public:
 
 class Pipeline : public RefCountedObject {
 public:
+	virtual ~Pipeline() {}
 	virtual bool RequiresBuffer() = 0;
 };
 
