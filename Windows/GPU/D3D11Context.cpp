@@ -115,8 +115,8 @@ void D3D11Context::Shutdown() {
 #ifdef _DEBUG
 	d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
 #endif
-	context_->Flush();
 	context_->ClearState();
+	context_->Flush();
 
 	delete draw_;
 	draw_ = nullptr;

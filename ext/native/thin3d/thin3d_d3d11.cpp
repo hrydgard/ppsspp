@@ -130,6 +130,9 @@ private:
 	ID3D11Texture2D *bbDepthStencilTex_ = nullptr;
 	ID3D11DepthStencilView *bbDepthStencilView_ = nullptr;
 
+	ID3D11RenderTargetView *curRenderTargetView_ = nullptr;
+	ID3D11DepthStencilView *curDepthStencilView_ = nullptr;
+
 	D3D11Pipeline *curPipeline_;
 	DeviceCaps caps_;
 
@@ -243,6 +246,9 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *co
 	hr = device_->CreateDepthStencilView(bbDepthStencilTex_, &descDSV, &bbDepthStencilView_);
 
 	context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
+
+	curRenderTargetView_ = bbRenderTargetView_;
+	curDepthStencilView_ = bbDepthStencilView_;
 
 	CreatePresets();
 }
@@ -1099,7 +1105,7 @@ void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int st
 	if (mask & ClearFlag::COLOR) {
 		float colorRGBA[4];
 		Uint8x1ToFloat4(colorRGBA, colorval);
-		context_->ClearRenderTargetView(bbRenderTargetView_, colorRGBA);
+		context_->ClearRenderTargetView(curRenderTargetView_, colorRGBA);
 	}
 	if (mask & (ClearFlag::DEPTH | ClearFlag::STENCIL)) {
 		UINT clearFlag = 0;
@@ -1107,7 +1113,7 @@ void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int st
 			clearFlag |= D3D11_CLEAR_DEPTH;
 		if (mask & ClearFlag::STENCIL)
 			clearFlag |= D3D11_CLEAR_STENCIL;
-		context_->ClearDepthStencilView(bbDepthStencilView_, clearFlag, depthVal, stencilVal);
+		context_->ClearDepthStencilView(curDepthStencilView_, clearFlag, depthVal, stencilVal);
 	}
 }
 
@@ -1130,6 +1136,8 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
+	curRenderTargetView_ = fb->colorRTView;
+	curDepthStencilView_ = fb->depthStencilRTView;
 }
 
 // color must be 0, for now.
@@ -1144,6 +1152,8 @@ void D3D11DrawContext::BindFramebufferForRead(Framebuffer *fbo) {
 
 void D3D11DrawContext::BindBackbufferAsRenderTarget() {
 	context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
+	curRenderTargetView_ = bbRenderTargetView_;
+	curDepthStencilView_ = bbDepthStencilView_;
 }
 
 uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {

@@ -69,8 +69,9 @@ static const D3D11_INPUT_ELEMENT_DESC TransformedVertexElements[] = {
 	{ "COLOR", 1, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 };
 
-DrawEngineD3D11::DrawEngineD3D11(ID3D11Device *device, ID3D11DeviceContext *context)
-	: device_(device),
+DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context)
+	: draw_(draw),
+		device_(device),
 		context_(context),
 		decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
@@ -102,7 +103,6 @@ DrawEngineD3D11::DrawEngineD3D11(ID3D11Device *device, ID3D11DeviceContext *cont
 	InitDeviceObjects();
 
 	tessDataTransfer = new TessellationDataTransferD3D11();
-	transformedVertexDecl_ = nullptr;
 
 	// Vertex pushing buffers.
 	pushVerts_ = new PushBufferD3D11(device, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
@@ -113,8 +113,16 @@ DrawEngineD3D11::~DrawEngineD3D11() {
 	delete pushVerts_;
 	delete pushInds_;
 
-	if (transformedVertexDecl_) {
-		transformedVertexDecl_->Release();
+	for (auto decl = inputLayoutMap_.begin(); decl != inputLayoutMap_.end(); ++decl) {
+		if (decl->second) {
+			decl->second->Release();
+		}
+	}
+	for (auto &depth : depthStencilCache_) {
+		depth.second->Release();
+	}
+	for (auto &blend : blendCache_) {
+		blend.second->Release();
 	}
 
 	DestroyDeviceObjects();
@@ -123,11 +131,6 @@ DrawEngineD3D11::~DrawEngineD3D11() {
 	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
-	for (auto decl = vertexDeclMap_.begin(); decl != vertexDeclMap_.end(); ++decl) {
-		if (decl->second) {
-			decl->second->Release();
-		}
-	}
 
 	delete tessDataTransfer;
 }
@@ -177,9 +180,11 @@ static void VertexAttribSetup(D3D11_INPUT_ELEMENT_DESC * VertexElement, u8 fmt, 
 }
 
 ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
-	auto vertexDeclCached = vertexDeclMap_.find(pspFmt);
-
-	if (vertexDeclCached == vertexDeclMap_.end()) {
+	// TODO: Instead of one for each vshader, we can reduce it to one for each type of shader
+	// that reads TEXCOORD or not, etc. Not sure if worth it.
+	InputLayoutKey key{ pspFmt, vshader };
+	auto vertexDeclCached = inputLayoutMap_.find(key);
+	if (vertexDeclCached == inputLayoutMap_.end()) {
 		D3D11_INPUT_ELEMENT_DESC VertexElements[8];
 		D3D11_INPUT_ELEMENT_DESC *VertexElement = &VertexElements[0];
 
@@ -232,7 +237,7 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 		}
 
 		// Add it to map
-		vertexDeclMap_[pspFmt] = inputLayout;
+		inputLayoutMap_[key] = inputLayout;
 		return inputLayout;
 	} else {
 		// Set it from map
@@ -512,7 +517,10 @@ void DrawEngineD3D11::ClearTrackedVertexArrays() {
 	vai_.clear();
 }
 
-void DrawEngineD3D11::DecimateTrackedVertexArrays() {
+void DrawEngineD3D11::BeginFrame() {
+	pushVerts_->Reset();
+	pushInds_->Reset();
+
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -674,16 +682,14 @@ void DrawEngineD3D11::DoFlush() {
 						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
 						// TODO: Combine these two into one buffer?
-						void * pVb;
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
 						D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0 };
 						D3D11_SUBRESOURCE_DATA data{ decoded };
 						device_->CreateBuffer(&desc, &data, &vai->vbo);
 						if (useElements) {
-							void * pIb;
 							u32 size = sizeof(short) * indexGen.VertexCount();
 							D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, 0 };
-							D3D11_SUBRESOURCE_DATA data{ decoded };
+							D3D11_SUBRESOURCE_DATA data{ decIndex };
 							device_->CreateBuffer(&desc, &data, &vai->ebo);
 						} else {
 							vai->ebo = 0;
@@ -761,25 +767,38 @@ rotateVBO:
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
 		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
-		ID3D11InputLayout *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
+		ID3D11InputLayout *inputLayout = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 
-		context_->IASetInputLayout(pHardwareVertexDecl);
+		context_->IASetInputLayout(inputLayout);
+		UINT stride = dec_->GetDecVtxFmt().stride;
+		context_->IASetPrimitiveTopology(glprim[prim]);
 		if (!vb_) {
 			// Push!
-			int vOffset;
-			// pushVerts_->BeginPush(context_, offset, )
+			UINT vOffset;
+			int vSize = (maxIndex + 1) * dec_->GetDecVtxFmt().stride;
+			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
+			memcpy(vptr, decoded, vSize);
+			pushVerts_->EndPush(context_);
+			ID3D11Buffer *buf = pushVerts_->Buf();
+			context_->IASetVertexBuffers(0, 1, &buf, &stride, &vOffset);
 			if (useElements) {
+				UINT iOffset;
+				int iSize = 2 * vertexCount;
+				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
+				memcpy(iptr, decIndex, iSize);
+				pushInds_->EndPush(context_);
+				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
+				context_->DrawIndexed(vertexCount, 0, 0);
 				// context_->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex + 1, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
 			} else {
 				// context_->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
+				context_->Draw(vertexCount, 0);
 			}
 		} else {
-			UINT stride = dec_->GetDecVtxFmt().stride;
 			UINT offset = 0;
 			context_->IASetVertexBuffers(0, 1, &vb_, &stride, &offset);
-			context_->IASetPrimitiveTopology(glprim[prim]);
 			if (useElements) {
 				context_->IASetIndexBuffer(ib_, DXGI_FORMAT_R16_UINT, 0);
 				context_->DrawIndexed(vertexCount, 0, 0);
@@ -835,40 +854,50 @@ rotateVBO:
 		shaderManager_->UpdateUniforms();
 		shaderManager_->BindUniforms();
 
-		// TODO: Implement clear properly when possible. Colormask no longer applies to clearing unfortunately (though wonder if it ever did in hardware..) which makes it trickier.
-		if (result.action == SW_DRAW_PRIMITIVES || result.action == SW_CLEAR) {
-			// TODO: Add a post-transform cache here for multi-RECTANGLES only.
-			// Might help for text drawing.
-
-			// these spam the gDebugger log.
+		if (result.action == SW_DRAW_PRIMITIVES) {
 			const int vertexSize = sizeof(transformed[0]);
 
 			// This is so weird. Why do we need the shader bytecode to create an input layout??
-			// Well, at least all vshaders for pretransformed data will have one single layout so we can share it.
-			if (!transformedVertexDecl_) {
-				device_->CreateInputLayout(TransformedVertexElements, 4, vshader->bytecode().data(), vshader->bytecode().size(), &transformedVertexDecl_);
+			// We really do need a vertex layout for each vertex shader (or at least check its ID bits for what inputs it uses)!
+			// Some vertex shaders ignore one of the inputs, and then the layout created from it will lack it, which will be a problem for others.
+			InputLayoutKey key{ 0xFFFFFFFF, vshader };  // Let's use 0xFFFFFFFF to signify TransformedVertex
+			auto iter = inputLayoutMap_.find(key);
+			ID3D11InputLayout *layout;
+			if (iter == inputLayoutMap_.end()) {
+				device_->CreateInputLayout(TransformedVertexElements, ARRAY_SIZE(TransformedVertexElements), vshader->bytecode().data(), vshader->bytecode().size(), &layout);
+				inputLayoutMap_[key] = layout;
+			} else {
+				layout = iter->second;
 			}
+			context_->IASetInputLayout(layout);
 
-			context_->IASetInputLayout(transformedVertexDecl_);
-			ID3D11Buffer *pushVertData = pushVerts_->Buf();
-			ID3D11Buffer *pushIndexData = pushInds_->Buf();
-			UINT strides = sizeof(TransformedVertex);
-			UINT offsets = 0;
-			context_->IASetVertexBuffers(0, 1, &pushVertData, &strides, &offsets);
+			UINT stride = sizeof(TransformedVertex);
+			UINT vOffset = 0;
+			int vSize = numTrans * dec_->GetDecVtxFmt().stride;
+			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
+			memcpy(vptr, drawBuffer, vSize);
+			pushVerts_->EndPush(context_);
+			ID3D11Buffer *buf = pushVerts_->Buf();
+			context_->IASetVertexBuffers(0, 1, &buf, &stride, &vOffset);
 			if (drawIndexed) {
-				context_->IASetIndexBuffer(pushIndexData, DXGI_FORMAT_R16_UINT, 0);
-				context_->DrawIndexed(numTrans, 0, 0);
+				UINT iOffset;
+				int iSize = 2 * (maxIndex + 1);
+				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
+				memcpy(iptr, inds, iSize);
+				pushInds_->EndPush(context_);
+				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
+				context_->DrawIndexed(maxIndex + 1, 0, 0);
 				// context_->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, numTrans, inds, DXGI_FORMAT_R16_UINT, drawBuffer, sizeof(TransformedVertex));
 			} else {
-				// context_->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
 				context_->Draw(numTrans, 0);
 			}
-		} /*else if (result.action == SW_CLEAR) {
+		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
 
 			UINT depthClearFlag = 0;
 
+			/*
 			bool clearColor = gstate.isClearModeColorMask();
 			if (gstate.isClearModeAlphaMask()) depthClearFlag |= D3D11_CLEAR_STENCIL;
 			if (gstate.isClearModeDepthMask()) depthClearFlag |= D3D11_CLEAR_DEPTH;
@@ -889,17 +918,17 @@ rotateVBO:
 			context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[colorMask], nullptr, 0xFFFFFFFF);
 
 			device_->Clear(0, NULL, mask, SwapRB(clearColor), clearDepth, clearColor >> 24);
+			*/
 
-			int scissorX1 = gstate.getScissorX1();
-			int scissorY1 = gstate.getScissorY1();
 			int scissorX2 = gstate.getScissorX2() + 1;
 			int scissorY2 = gstate.getScissorY2() + 1;
 			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
-
 			if (g_Config.bBlockTransferGPU && (gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate.FrameBufFormat() == GE_FORMAT_565)) {
+				int scissorX1 = gstate.getScissorX1();
+				int scissorY1 = gstate.getScissorY1();
 				ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
-		}*/
+		}
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;

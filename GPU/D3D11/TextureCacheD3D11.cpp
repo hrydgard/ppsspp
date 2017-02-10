@@ -354,7 +354,8 @@ inline u32 TextureCacheD3D11::GetCurrentClutHash() {
 }
 
 void TextureCacheD3D11::Unbind() {
-	context_->PSSetShaderResources(0, 1, nullptr);
+	ID3D11ShaderResourceView *nullView = nullptr;
+	context_->PSSetShaderResources(0, 1, &nullView);
 }
 
 void TextureCacheD3D11::ApplyTexture() {

@@ -108,7 +108,7 @@ public:
 // Handles transform, lighting and drawing.
 class DrawEngineD3D11 : public DrawEngineCommon {
 public:
-	DrawEngineD3D11(ID3D11Device *device, ID3D11DeviceContext *context);
+	DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context);
 	virtual ~DrawEngineD3D11();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
@@ -128,7 +128,7 @@ public:
 
 	void Resized();  // TODO: Call
 
-	void DecimateTrackedVertexArrays();
+	void BeginFrame();
 	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
@@ -168,6 +168,7 @@ private:
 	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfoD3D11 *vai);
 
+	Draw::DrawContext *draw_;  // Used for framebuffer related things exclusively.
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 
@@ -195,10 +196,20 @@ private:
 	TransformedVertex *transformedExpanded;
 
 	std::unordered_map<u32, VertexArrayInfoD3D11 *> vai_;
-	std::unordered_map<u32, ID3D11InputLayout *> vertexDeclMap_;
 
-	// SimpleVertex
-	ID3D11InputLayout *transformedVertexDecl_;
+	struct InputLayoutKey {
+		u32 vertType;
+		D3D11VertexShader *vshader;
+		bool operator <(const InputLayoutKey &other) const {
+			if (vertType < other.vertType)
+				return true;
+			if (vertType > other.vertType)
+				return false;
+			return vshader < other.vshader;
+		}
+	};
+
+	std::map<InputLayoutKey, ID3D11InputLayout *> inputLayoutMap_;
 
 	// Other
 	ShaderManagerD3D11 *shaderManager_;

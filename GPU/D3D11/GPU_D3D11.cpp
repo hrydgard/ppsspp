@@ -409,7 +409,7 @@ static const CommandTableEntry commandTable[] = {
 GPU_D3D11::CommandInfo GPU_D3D11::cmdInfo_[256];
 
 GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-	: GPUCommon(gfxCtx, draw), drawEngine_(
+	: GPUCommon(gfxCtx, draw), drawEngine_(draw,
 	(ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE),
 	(ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT)) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
@@ -480,6 +480,7 @@ GPU_D3D11::~GPU_D3D11() {
 	delete depalShaderCache_;
 	framebufferManagerD3D11_->DestroyAllFBOs(true);
 	shaderManagerD3D11_->ClearShaders();
+	draw_->BindPipeline(nullptr);
 	delete shaderManagerD3D11_;
 	stockD3D11.Destroy();
 }
@@ -578,7 +579,7 @@ void GPU_D3D11::BeginFrameInternal() {
 	}
 
 	textureCacheD3D11_->StartFrame();
-	drawEngine_.DecimateTrackedVertexArrays();
+	drawEngine_.BeginFrame();
 	depalShaderCache_->Decimate();
 	// fragmentTestCache_.Decimate();
 
