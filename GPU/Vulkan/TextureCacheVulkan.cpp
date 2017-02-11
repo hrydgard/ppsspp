@@ -623,16 +623,19 @@ void TextureCacheVulkan::SetTexture() {
 	}
 #endif
 
-	u32 texaddr = gstate.getTextureAddress(0);
+	u8 level = 0;
+	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST)
+		level = (gstate.texlevel >> 20) & 0xF;
+	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		lastBoundTexture = nullptr;
 		return;
 	}
 
-	const u16 dim = gstate.getTextureDimension(0);
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
+	const u16 dim = gstate.getTextureDimension(level);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 	if (texaddr == 0x04000000 && w == 2 && h == 2) {
 		// Nonsense bootup texture. Discard.
 	}
@@ -1082,6 +1085,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, VulkanPushBuff
 	}
 
 	if (entry->vkTex) {
+		u8 level = (gstate.texlevel >> 20) & 0xF;
+		bool fakeMipmap = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST && level > 0;
 		// Upload the texture data.
 		for (int i = 0; i <= maxLevel; i++) {
 			int mipWidth = gstate.getTextureWidth(i) * scaleFactor;
@@ -1098,7 +1103,12 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, VulkanPushBuff
 			if (replaced.Valid()) {
 				replaced.Load(i, data, stride);
 			} else {
-				LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
+				if (fakeMipmap) {
+					LoadTextureLevel(*entry, (uint8_t *)data, stride, level, scaleFactor, dstFmt);
+					entry->vkTex->texture_->UploadMip(0, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+					break;
+				} else
+					LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
 				if (replacer.Enabled()) {
 					replacer.NotifyTextureDecoded(replacedInfo, data, stride, i, mipWidth, mipHeight);
 				}

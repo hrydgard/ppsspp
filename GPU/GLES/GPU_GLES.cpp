@@ -104,7 +104,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS},
 	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS},
 	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_IMAGE},
-	{GE_CMD_TEXLEVEL, 0, DIRTY_TEXTURE_PARAMS},  // Flushing on this is EXPENSIVE in Gran Turismo and of little use
+	{GE_CMD_TEXLEVEL, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS},  // Allow flushing only (Mode == 1 && Level > 0)
 	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_IMAGE|DIRTY_UVSCALEOFFSET},
 	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS},
 	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS},
@@ -876,7 +876,8 @@ void GPU_GLES::FastRunLoop(DisplayList &list) {
 		const u8 cmdFlags = info.flags;      // If we stashed the cmdFlags in the top bits of the cmdmem, we could get away with one table lookup instead of two
 		const u32 diff = op ^ gstate.cmdmem[cmd];
 		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
-		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
+		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE) 
+			&& (cmd != 0xc8 || (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST && (0x00FF0000 & gstate.texlevel) != 0)))) { // Avoid always flushing when texlevel(0xc8).
 			drawEngine_.Flush();
 		}
 		gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
@@ -901,7 +902,8 @@ void GPU_GLES::FinishDeferred() {
 
 inline void GPU_GLES::CheckFlushOp(int cmd, u32 diff) {
 	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
+	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE) 
+		&& (cmd != 0xc8 || (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST && (0x00FF0000 & gstate.texlevel) != 0)))) { // Avoid always flushing when texlevel(0xc8).
 		if (dumpThisFrame_) {
 			NOTICE_LOG(G3D, "================ FLUSH ================");
 		}
