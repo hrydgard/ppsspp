@@ -772,6 +772,8 @@ rotateVBO:
 		ID3D11InputLayout *inputLayout = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
+		shaderManager_->UpdateUniforms();
+		shaderManager_->BindUniforms();
 
 		context_->IASetInputLayout(inputLayout);
 		UINT stride = dec_->GetDecVtxFmt().stride;

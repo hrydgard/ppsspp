@@ -1137,10 +1137,12 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 
 	gpuStats.numTexturesDecoded++;
 	// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
-	u32 *mapData = new u32[w * h]{};
-	int mapRowPitch = w * 4;
+	u32 *mapData;
+	int mapRowPitch;
 
 	if (replaced.GetSize(level, w, h)) {
+		mapData = new u32[w * h]{};
+		mapRowPitch = w * 4;
 		replaced.Load(level, mapData, mapRowPitch);
 		dstFmt = ToDXGIFormat(replaced.Format(level));
 	} else {
@@ -1149,6 +1151,8 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		u32 texaddr = gstate.getTextureAddress(level);
 		int bufw = GetTextureBufw(level, texaddr, tfmt);
 		int bpp = dstFmt == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 2;
+		mapRowPitch = std::max(bufw, w) * 4;
+		mapData = new u32[mapRowPitch / 4 * h]{};
 
 		u32 *pixelData = (u32 *)mapData;
 		int decPitch = mapRowPitch;
