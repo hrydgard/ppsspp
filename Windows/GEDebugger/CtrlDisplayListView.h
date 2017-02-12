@@ -20,7 +20,6 @@ class CtrlDisplayListView
 	u32 selectRangeEnd;
 
 	int visibleRows;
-	int charWidth;
 	int rowHeight;
 	int instructionSize;
 	bool hasFocus;

@@ -1,3 +1,4 @@
+#include "base/display.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/InputBox.h"
@@ -43,12 +44,15 @@ CtrlDisplayListView::CtrlDisplayListView(HWND _wnd)
 	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
 	
 	instructionSize = 4;
-	rowHeight = g_Config.iFontHeight+2;
-	charWidth = g_Config.iFontWidth;
 
-	font = CreateFont(rowHeight-2,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+	int fontHeight = g_Config.iFontHeight / g_dpi_scale;
+	int charWidth = g_Config.iFontWidth / g_dpi_scale;
+
+	rowHeight = fontHeight +2;
+
+	font = CreateFont(fontHeight,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		L"Lucida Console");
-	boldfont = CreateFont(rowHeight-2,charWidth,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+	boldfont = CreateFont(fontHeight,charWidth,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		L"Lucida Console");
 
 	pixelPositions.addressStart = 16;
@@ -58,9 +62,9 @@ CtrlDisplayListView::CtrlDisplayListView(HWND _wnd)
 	validDisplayList = false;
 }
 
-CtrlDisplayListView::~CtrlDisplayListView()
-{
-
+CtrlDisplayListView::~CtrlDisplayListView() {
+	DeleteObject(font);
+	DeleteObject(boldfont);
 }
 
 CtrlDisplayListView *CtrlDisplayListView::getFrom(HWND hwnd)
