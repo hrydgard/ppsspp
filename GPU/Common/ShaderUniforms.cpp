@@ -105,7 +105,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		float fogcoef_stencil[3] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
-			(float)gstate.getStencilTestRef()
+			(float)gstate.getStencilTestRef()/255.0f
 		};
 		if (my_isinf(fogcoef_stencil[1])) {
 			// not really sure what a sensible value might be.

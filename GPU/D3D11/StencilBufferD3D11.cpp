@@ -177,22 +177,16 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 
 	shaderManager_->DirtyLastShader();
 
-	DisableState();
-
-	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0x8], nullptr, 0xFFFFFFFF);
-	context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
-	context_->RSSetState(stockD3D11.rasterStateNoCull);
-
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;
-
+	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 	if (dstBuffer->fbo) {
 		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo);
+	} else {
+		// something is wrong...
 	}
 	D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f };
 	context_->RSSetViewports(1, &vp);
-
-	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 
 	// Zero stencil
 	draw_->Clear(Draw::ClearFlag::STENCIL, 0, 0, 0);
@@ -222,6 +216,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	shaderManager_->DirtyLastShader();
 	textureCacheD3D11_->ForgetLastTexture();
 
+	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0x8], nullptr, 0xFFFFFFFF);
 	context_->IASetInputLayout(stencilUploadInputLayout_);
 	context_->PSSetShader(stencilUploadPS_, nullptr, 0);
 	context_->VSSetShader(stencilUploadVS_, nullptr, 0);
@@ -229,6 +224,9 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &quadStride_, &quadOffset_);
+	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0x8], nullptr, 0xFFFFFFFF);
+	context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
+	context_->RSSetState(stockD3D11.rasterStateNoCull);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {

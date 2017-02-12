@@ -202,12 +202,14 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		if (ApplyShaderBlending()) {
 			// We may still want to do something about stencil -> alpha.
 			ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
-		} else {
+		}
+		else {
 			// Until next time, force it off.
 			ResetShaderBlending();
 			gstate_c.allowShaderBlend = false;
 		}
-	} else if (blendState.resetShaderBlending) {
+	}
+	else if (blendState.resetShaderBlending) {
 		ResetShaderBlending();
 	}
 
@@ -226,7 +228,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		if (blendState.useBlendColor) {
 			dynState.blendColor = blendState.blendColor;
 		}
-	} else {
+	}
+	else {
 		key.blend.blendEnable = false;
 		dynState.useBlendColor = false;
 	}
@@ -263,17 +266,20 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			// We override this value in the pipeline from software transform for clear rectangles.
 			dynState.stencilRef = 0xFF;
 			key.depthStencil.stencilWriteMask = 0xFF;
-		} else {
+		}
+		else {
 			key.depthStencil.stencilTestEnable = false;
 			dynState.useStencil = false;
 		}
-	} else {
+	}
+	else {
 		if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
 			// Logic Ops
 			if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
 				key.blend.logicOpEnable = true;
 				// key.blendKey.logicOp = logicOps[gstate.getLogicOp()];
-			} else {
+			}
+			else {
 				key.blend.logicOpEnable = false;
 			}
 		}
@@ -290,7 +296,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			if (gstate.isDepthWriteEnabled()) {
 				framebufferManager_->SetDepthUpdated();
 			}
-		} else {
+		}
+		else {
 			key.depthStencil.depthTestEnable = false;
 			key.depthStencil.depthWriteEnable = false;
 			key.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
@@ -320,7 +327,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		// Let's not write to alpha if stencil isn't enabled.
 		if (!gstate.isStencilTestEnabled()) {
 			amask = false;
-		} else {
+		}
+		else {
 			// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
 			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
 				amask = false;
@@ -343,7 +351,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			key.depthStencil.stencilWriteMask = stencilState.writeMask;
 			dynState.useStencil = true;
 			dynState.stencilRef = stencilState.testRef;
-		} else {
+		}
+		else {
 			key.depthStencil.stencilTestEnable = false;
 			dynState.useStencil = false;
 		}
@@ -378,14 +387,21 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	}
 	context_->RSSetViewports(1, &vp);
 
-	/*
 	D3D11_RECT &scissor = dynState.scissor;
-	scissor.left = vpAndScissor.scissorX;
-	scissor.top = vpAndScissor.scissorY;
-	scissor.right = vpAndScissor.scissorX + vpAndScissor.scissorW;
-	scissor.bottom = vpAndScissor.scissorY + vpAndScissor.scissorH;
-	context_->RSSetScissorRects(0, &scissor);
-	*/
+	if (vpAndScissor.scissorEnable) {
+		scissor.left = vpAndScissor.scissorX;
+		scissor.top = vpAndScissor.scissorY;
+		scissor.right = vpAndScissor.scissorX + vpAndScissor.scissorW;
+		scissor.bottom = vpAndScissor.scissorY + vpAndScissor.scissorH;
+	}
+	else {
+		scissor.left = 0;
+		scissor.top = 0;
+		scissor.right = framebufferManager_->GetRenderWidth();
+		scissor.bottom = framebufferManager_->GetRenderHeight();
+	}
+	context_->RSSetScissorRects(1, &scissor);
+
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
