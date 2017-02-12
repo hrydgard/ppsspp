@@ -131,11 +131,20 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 	WRITE(p, "};\n");
 
 	if (lang == HLSL_DX9) {
-		WRITE(p, "float4 main( PS_IN In ) : COLOR\n");
+		WRITE(p, "float4 main( PS_IN In ) : COLOR {\n");
 	} else {
-		WRITE(p, "float4 main( PS_IN In ) : SV_Target\n");
+		WRITE(p, "struct PS_OUT {\n");
+		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+			WRITE(p, "	  float4 target : SV_Target0;\n");
+			WRITE(p, "	  float4 target1 : SV_Target1;\n");
+		}
+		else {
+			WRITE(p, "	  float4 target : SV_Target;\n");
+		}
+		WRITE(p, "};\n");
+		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
+		WRITE(p, "  PS_OUT outfragment;\n");
 	}
-	WRITE(p, "{\n");
 
 	if (isModeClear) {
 		// Clear mode does not allow any fancy shading.
@@ -375,11 +384,6 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 	}
 
 	switch (stencilToAlpha) {
-	case REPLACE_ALPHA_DUALSOURCE:
-		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
-		// TODO: Output the second color as well using original v.a.
-		break;
-
 	case REPLACE_ALPHA_YES:
 		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
 		break;
@@ -401,7 +405,19 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 		break;
 	}
 
-	WRITE(p, "  return v;\n");
+	if (lang == HLSL_D3D11) {
+		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+			WRITE(p, "  outfragment.target = float4(v.rgb, %s);\n", replacedAlpha.c_str());
+			WRITE(p, "  outfragment.target1 = float4(0.0, 0.0, 0.0, v.a);\n");
+			WRITE(p, "  return outfragment;\n");
+		}
+		else {
+			WRITE(p, "  outfragment.target = v;\n");
+			WRITE(p, "  return outfragment;\n");
+		}
+	} else {
+		WRITE(p, "  return v;\n");
+	}
 	WRITE(p, "}\n");
 	return true;
 }

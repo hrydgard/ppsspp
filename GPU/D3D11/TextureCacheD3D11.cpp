@@ -247,27 +247,6 @@ void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheK
 	key.sClamp = sClamp;
 	key.tClamp = tClamp;
 	key.maxLevel = entry.maxLevel;
-	/*
-	if (entry.maxLevel != 0) {
-	if (force || entry.lodBias != lodBias) {
-	if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-	GETexLevelMode mode = gstate.getTexLevelMode();
-	switch (mode) {
-	case GE_TEXLEVEL_MODE_AUTO:
-	// TODO
-	break;
-	case GE_TEXLEVEL_MODE_CONST:
-	// Sigh, LOD_BIAS is not even in ES 3.0..
-	break;
-	case GE_TEXLEVEL_MODE_SLOPE:
-	// TODO
-	break;
-	}
-	}
-	entry.lodBias = lodBias;
-	}
-	}
-	*/
 
 	if (entry.framebuffer) {
 		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");

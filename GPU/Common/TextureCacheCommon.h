@@ -75,7 +75,6 @@ struct SamplerCacheKey {
 	}
 };
 
-
 class FramebufferManagerCommon;
 
 class TextureCacheCommon {
