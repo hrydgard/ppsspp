@@ -982,7 +982,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 				// TODO: Optimize.
 				for (int yp = 0; yp < h; ++yp) {
 					for (int xp = 0; xp < w; ++xp) {
-						const int offset = (yp + y) & vfb->z_stride + x + xp;
+						const int offset = (yp + y) * vfb->z_stride + x + xp;
 
 						float scaled = FromScaledDepth((packed[offset] & 0x00FFFFFF) * (1.0f / 16777215.0f));
 						if (scaled <= 0.0f) {
