@@ -536,6 +536,8 @@ struct DeviceCaps {
 	bool tesselationShaderSupported;
 	bool multiViewport;
 	bool dualSourceBlend;
+	bool framebufferCopySupported;
+	bool framebufferBlitSupported;
 };
 
 struct TextureDesc {

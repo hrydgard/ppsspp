@@ -3,8 +3,11 @@
 #include <inttypes.h>
 #include <cstring>
 
-// Utilities useful for filling in std140-layout uniform buffers.
+#ifdef _M_SSE
+#include <emmintrin.h>>
+#endif
 
+// Utilities useful for filling in std140-layout uniform buffers, and similar.
 
 // LSBs in f[0], etc.
 // Could be SSE optimized.

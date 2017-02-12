@@ -842,10 +842,10 @@ rotateVBO:
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
 
-		ApplyDrawStateLate(result.setStencil, result.stencilValue);
-
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			const int vertexSize = sizeof(transformed[0]);
+
+			ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
@@ -964,4 +964,5 @@ bool DrawEngineD3D11::IsCodePtrVertexDecoder(const u8 *ptr) const {
 
 void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords)
 {
+	// HW tessellation not yet supported
 }

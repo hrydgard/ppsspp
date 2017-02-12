@@ -210,6 +210,7 @@
     <ClInclude Include="D3D11\FramebufferManagerD3D11.h" />
     <ClInclude Include="D3D11\GPU_D3D11.h" />
     <ClInclude Include="D3D11\ShaderManagerD3D11.h" />
+    <ClInclude Include="D3D11\StateMappingD3D11.h" />
     <ClInclude Include="D3D11\TextureCacheD3D11.h" />
     <ClInclude Include="D3D11\TextureScalerD3D11.h" />
     <ClInclude Include="D3D11\VertexShaderGeneratorD3D11.h" />

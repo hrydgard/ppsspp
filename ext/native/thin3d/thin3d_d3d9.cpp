@@ -595,6 +595,8 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	caps_.dualSourceBlend = false;
 	caps_.tesselationShaderSupported = false;
+	caps_.framebufferBlitSupported = true;
+	caps_.framebufferCopySupported = false;
 	if (d3d) {
 		D3DDISPLAYMODE displayMode;
 		d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &displayMode);

@@ -53,6 +53,8 @@ ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code
 
 void StockObjectsD3D11::Create(ID3D11Device *device) {
 	D3D11_BLEND_DESC blend_desc{};
+	blend_desc.RenderTarget[0].BlendEnable = false;
+	blend_desc.IndependentBlendEnable = false;
 	for (int i = 0; i < 16; i++) {
 		blend_desc.RenderTarget[0].RenderTargetWriteMask = i;
 		device->CreateBlendState(&blend_desc, &blendStateDisabledWithColorMask[i]);
@@ -65,13 +67,10 @@ void StockObjectsD3D11::Create(ID3D11Device *device) {
 	depth_desc.StencilReadMask = 0xFF;
 	depth_desc.StencilWriteMask = 0xFF;
 	depth_desc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
-	depth_desc.BackFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
 	depth_desc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_REPLACE;
-	depth_desc.BackFace.StencilFailOp = D3D11_STENCIL_OP_REPLACE;
 	depth_desc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
-	depth_desc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
 	depth_desc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-	depth_desc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	depth_desc.BackFace = depth_desc.FrontFace;
 	device->CreateDepthStencilState(&depth_desc, &depthDisabledStencilWrite);
 
 	D3D11_RASTERIZER_DESC raster_desc{};

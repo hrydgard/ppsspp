@@ -615,6 +615,7 @@ OpenGLContext::OpenGLContext() {
 	} else {
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	}
+	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
 }
 
 OpenGLContext::~OpenGLContext() {

@@ -414,46 +414,7 @@ void FramebufferManagerD3D11::BlitFramebufferDepth(VirtualFramebuffer *src, Virt
 		// Doesn't work.  Use a shader maybe?
 		draw_->BindBackbufferAsRenderTarget();
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->width, src->height, 1, Draw::FB_DEPTH_BIT);
-		/*
-		LPDIRECT3DTEXTURE9 srcTex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(src->fbo, Draw::FB_DEPTH_BIT, 0);
-		LPDIRECT3DTEXTURE9 dstTex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(dst->fbo, Draw::FB_DEPTH_BIT, 0);
-
-		if (srcTex && dstTex) {
-			D3DSURFACE_DESC srcDesc;
-			srcTex->GetLevelDesc(0, &srcDesc);
-			D3DSURFACE_DESC dstDesc;
-			dstTex->GetLevelDesc(0, &dstDesc);
-
-			D3DLOCKED_RECT srcLock;
-			D3DLOCKED_RECT dstLock;
-			HRESULT srcLockRes = srcTex->LockRect(0, &srcLock, nullptr, D3DLOCK_READONLY);
-			HRESULT dstLockRes = dstTex->LockRect(0, &dstLock, nullptr, 0);
-			if (SUCCEEDED(srcLockRes) && SUCCEEDED(dstLockRes)) {
-				u32 pitch = std::min(srcLock.Pitch, dstLock.Pitch);
-				u32 w = std::min(pitch / 4, std::min(srcDesc.Width, dstDesc.Width));
-				u32 h = std::min(srcDesc.Height, dstDesc.Height);
-				const u8 *srcp = (const u8 *)srcLock.pBits;
-				u8 *dstp = (u8 *)dstLock.pBits;
-
-				if (w == pitch / 4 && srcLock.Pitch == dstLock.Pitch) {
-					CopyPixelDepthOnly((u32 *)dstp, (const u32 *)srcp, w * h);
-				} else {
-					for (u32 y = 0; y < h; ++y) {
-						CopyPixelDepthOnly((u32 *)dstp, (const u32 *)srcp, w);
-						dstp += dstLock.Pitch;
-						srcp += srcLock.Pitch;
-					}
-				}
-			}
-			if (SUCCEEDED(srcLockRes)) {
-				srcTex->UnlockRect(0);
-			}
-			if (SUCCEEDED(dstLockRes)) {
-				dstTex->UnlockRect(0);
-			}
-		}
 		RebindFramebuffer();
-		*/
 	}
 }
 
@@ -838,7 +799,6 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 wid
 }
 
 void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	/*
 	if (!vfb->fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferD3D11_: vfb->fbo == 0");
 		draw_->BindBackbufferAsRenderTarget();
@@ -852,6 +812,7 @@ void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int
 	// Right now that's always 8888.
 	DEBUG_LOG(HLE, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 
+	/*
 	LPDIRECT3DSURFACE9 renderTarget = (LPDIRECT3DSURFACE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0);
 	D3DSURFACE_DESC desc;
 	renderTarget->GetDesc(&desc);

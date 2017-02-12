@@ -111,10 +111,18 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 	}
 
 	if (enableAlphaTest) {
-		WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
+		if (lang == HLSL_D3D11) {
+			WRITE(p, "uint roundAndScaleTo255f(float x) { return uint(floor(x * 255.0f + 0.5f)); }\n");
+		} else {
+			WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
+		}
 	}
 	if (enableColorTest) {
-		WRITE(p, "float3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
+		if (lang == HLSL_D3D11) {
+			WRITE(p, "uint3 roundAndScaleTo255v(float3 x) { return uint3(floor(x * 255.0f + 0.5f)); }\n");
+		} else {
+			WRITE(p, "float3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
+		}
 	}
 
 	WRITE(p, "struct PS_IN {\n");
@@ -126,7 +134,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 		WRITE(p, "  float3 v_color1: COLOR1;\n");
 	}
 	if (enableFog) {
-		WRITE(p, "  float2 v_fogdepth: TEXCOORD1;\n");
+		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 	}
 	WRITE(p, "};\n");
 
@@ -297,7 +305,8 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 					const char * test = colorTestFuncs[colorTestFunc];
 					WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
 					WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b )) clip(-1);\n", test, test, test);
-				} else {
+				}
+				else {
 					WRITE(p, "  clip(-1);\n");
 				}
 			}
@@ -311,7 +320,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 		}
 
 		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth.x, 0.0, 1.0);\n");
+			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
 			WRITE(p, "  v = lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
 		}
 

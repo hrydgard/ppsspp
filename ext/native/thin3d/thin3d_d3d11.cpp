@@ -186,6 +186,10 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *co
 		dxgiDevice->Release();
 	}
 
+	caps_.dualSourceBlend = true;
+	caps_.depthRangeMinusOneToOne = false;
+	caps_.framebufferBlitSupported = false;
+
 	int width;
 	int height;
 	GetRes(hWnd_, width, height);
@@ -1141,9 +1145,7 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 		return;
 	}
 
-	D3D11_BOX srcBox{
-		x, y, z, x+width, y+height, z+depth
-	};
+	D3D11_BOX srcBox{(UINT)x, (UINT)y, (UINT)z, (UINT)(x+width), (UINT)(y+height), (UINT)(z+depth)};
 	context_->CopySubresourceRegion(dstTex, dstLevel, dstX, dstY, dstZ, srcTex, level, &srcBox);
 }
 

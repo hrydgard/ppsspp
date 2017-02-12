@@ -28,6 +28,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/D3D11/FragmentShaderGeneratorD3D11.h"
+#include "GPU/D3D11/StateMappingD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
 
 struct DecVtxFormat;
@@ -232,9 +233,6 @@ private:
 
 	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
 
-	bool fboTexNeedBind_;
-	bool fboTexBound_;
-
 	// D3D11 state object caches
 	std::map<uint32_t, ID3D11BlendState *> blendCache_;
 	std::map<uint32_t, ID3D11DepthStencilState *> depthStencilCache_;
@@ -242,6 +240,14 @@ private:
 
 	// Keep the depth state between ApplyDrawState and ApplyDrawStateLate
 	ID3D11DepthStencilState *depthStencilState_;
+
+	// State keys
+	D3D11StateKeys keys_{};
+	D3D11DynamicState dynState_{};
+
+	// Initial work on shader blending
+	bool fboTexNeedBind_;
+	bool fboTexBound_;
 
 	// Hardware tessellation
 	class TessellationDataTransferD3D11 : public TessellationDataTransfer {

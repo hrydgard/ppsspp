@@ -230,7 +230,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		WRITE(p, "  float3 v_color1    : COLOR1;\n");
 
 	if (enableFog) {
-		WRITE(p, "  float2 v_fogdepth: TEXCOORD1;\n");
+		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 	}
 	if (lang == HLSL_DX9) {
 		WRITE(p, "  float4 gl_Position   : POSITION;\n");
@@ -274,7 +274,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 				WRITE(p, "  Out.v_color1 = float3(0.0);\n");
 		}
 		if (enableFog) {
-			WRITE(p, "  Out.v_fogdepth.x = In.position.w;\n");
+			WRITE(p, "  Out.v_fogdepth = In.position.w;\n");
 		}
 		if (lang == HLSL_D3D11) {
 			if (gstate.isModeThrough()) {
@@ -606,9 +606,9 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		// Compute fogdepth
 		if (enableFog) {
 			if (lang == HLSL_D3D11) {
-				WRITE(p, "  Out.v_fogdepth.x = (viewPos.z + u_fogcoef_stencilreplace.x) * u_fogcoef_stencilreplace.y;\n");
+				WRITE(p, "  Out.v_fogdepth = (viewPos.z + u_fogcoef_stencilreplace.x) * u_fogcoef_stencilreplace.y;\n");
 			} else {
-				WRITE(p, "  Out.v_fogdepth.x = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
+				WRITE(p, "  Out.v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
 			}
 		}
 	}

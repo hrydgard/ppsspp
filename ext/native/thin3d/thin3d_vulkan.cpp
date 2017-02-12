@@ -639,7 +639,9 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.tesselationShaderSupported = vulkan->GetFeaturesAvailable().tessellationShader != 0;
 	caps_.multiViewport = vulkan->GetFeaturesAvailable().multiViewport != 0;
 	caps_.dualSourceBlend = vulkan->GetFeaturesAvailable().dualSrcBlend != 0;
-
+	caps_.framebufferBlitSupported = true;
+	caps_.framebufferCopySupported = true;
+	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	device_ = vulkan->GetDevice();
 
 	queue_ = vulkan->GetGraphicsQueue();
