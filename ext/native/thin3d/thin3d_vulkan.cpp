@@ -340,7 +340,7 @@ public:
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 
-	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
 	// These functions should be self explanatory.
@@ -1280,17 +1280,34 @@ Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	return fb;
 }
 
-void VKContext::CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {}
-bool VKContext::BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) { return true; }
+void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
+	VKFramebuffer *src = (VKFramebuffer *)srcfb;
+	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
+}
 
+bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
+	VKFramebuffer *src = (VKFramebuffer *)srcfb;
+	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
+	return true;
+}
 // These functions should be self explanatory.
-void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {}
+void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
+	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+}
 // color must be 0, for now.
-void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {}
-void VKContext::BindFramebufferForRead(Framebuffer *fbo) {}
+void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
+	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 
-void VKContext::BindBackbufferAsRenderTarget() {}
-uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) { return 0; }
+}
+void VKContext::BindFramebufferForRead(Framebuffer *fbo) { /* noop */ }
+
+void VKContext::BindBackbufferAsRenderTarget() {
+
+}
+
+uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
+	return 0;
+}
 
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;

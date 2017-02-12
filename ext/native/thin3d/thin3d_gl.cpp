@@ -469,7 +469,7 @@ public:
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 
-	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
 	// These functions should be self explanatory.
@@ -1506,29 +1506,41 @@ void OpenGLContext::BindFramebufferForRead(Framebuffer *fbo) {
 	fbo_bind_fb_target(true, fb->handle);
 }
 
-void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {
+void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
+	GLuint srcTex = 0;
+	GLuint dstTex = 0;
+	switch (channelBits) {
+	case FB_COLOR_BIT:
+		srcTex = src->color_texture;
+		dstTex = dst->color_texture;
+		break;
+	case FB_DEPTH_BIT:
+		srcTex = src->z_buffer ? src->z_buffer : src->z_stencil_buffer;
+		dstTex = dst->z_buffer ? dst->z_buffer : dst->z_stencil_buffer;
+		break;
+	}
 #if defined(USING_GLES2)
 #ifndef IOS
 	glCopyImageSubDataOES(
-		src->color_texture, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
-		dst->color_texture, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+		srcTex, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
+		dstTex, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
 		width, height, depth);
 	return;
 #endif
 #else
 	if (gl_extensions.ARB_copy_image) {
 		glCopyImageSubData(
-			src->color_texture, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
-			dst->color_texture, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+			srcTex, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
+			dstTex, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
 			width, height, depth);
 		return;
 	} else if (gl_extensions.NV_copy_image) {
 		// Older, pre GL 4.x NVIDIA cards.
 		glCopyImageSubDataNV(
-			src->color_texture, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
-			dst->color_texture, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+			srcTex, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
+			dstTex, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
 			width, height, depth);
 		return;
 	}

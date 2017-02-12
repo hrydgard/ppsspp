@@ -57,7 +57,7 @@
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
-static const D3D11_INPUT_ELEMENT_DESC g_FramebufferVertexElements[] = {
+static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[] = {
 	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },
 	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12,},
 };

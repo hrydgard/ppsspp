@@ -17,6 +17,7 @@
 
 #include "math/lin/matrix4x4.h"
 #include "ext/native/thin3d/thin3d.h"
+#include "base/basictypes.h"
 
 #include "Common/ColorConv.h"
 #include "Core/Host.h"
@@ -43,7 +44,7 @@
 #include <xmmintrin.h>
 #endif
 
-static const char * vscode =
+static const char *vscode =
 	"struct VS_IN {\n"
 	"  float4 ObjPos   : POSITION;\n"
 	"  float2 Uv    : TEXCOORD0;\n"
@@ -59,10 +60,7 @@ static const char * vscode =
 	"  return Out;\n"
 	"}\n";
 
-//--------------------------------------------------------------------------------------
-// Pixel shader
-//--------------------------------------------------------------------------------------
-static const char * pscode =
+static const char *pscode =
 	"SamplerState samp : register(s0);\n"
 	"Texture2D<float4> tex : register(t0);\n"
 	"struct PS_IN {\n"
@@ -73,20 +71,10 @@ static const char * pscode =
 	"  return c;\n"
 	"}\n";
 
-static const D3D11_INPUT_ELEMENT_DESC g_FramebufferVertexElements[] = {
+static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[] = {
 	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },
 	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
 };
-
-void FramebufferManagerD3D11::ClearBuffer(bool keepState) {
-	draw_->Clear(Draw::ClearFlag::COLOR | Draw::ClearFlag::DEPTH | Draw::ClearFlag::STENCIL, 0, ToScaledDepth(0), 0);
-}
-
-void FramebufferManagerD3D11::DisableState() {
-	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
-	context_->RSSetState(stockD3D11.rasterStateNoCull);
-	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0xFF);
-}
 
 FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	: FramebufferManagerCommon(draw),
@@ -102,20 +90,27 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	std::vector<uint8_t> bytecode;
 
 	std::string errorMsg;
-	pFramebufferVertexShader_ = CreateVertexShaderD3D11(device_, vscode, strlen(vscode), &bytecode);
-	pFramebufferPixelShader_ = CreatePixelShaderD3D11(device_, pscode, strlen(pscode));
-	device_->CreateInputLayout(g_FramebufferVertexElements, ARRAY_SIZE(g_FramebufferVertexElements), bytecode.data(), bytecode.size(), &pFramebufferVertexDecl_);
+	quadVertexShader_ = CreateVertexShaderD3D11(device_, vscode, strlen(vscode), &bytecode);
+	quadPixelShader_ = CreatePixelShaderD3D11(device_, pscode, strlen(pscode));
+	device_->CreateInputLayout(g_QuadVertexElements, ARRAY_SIZE(g_QuadVertexElements), bytecode.data(), bytecode.size(), &quadVertexDecl_);
 
-	float coord[20] = {
-		-1.0f,-1.0f, 0, 0,0,
-		1.0f,-1.0f, 0, 0,0,
-		1.0f,1.0f, 0, 0,0,
-		-1.0f,1.0f, 0, 0,0,
+	// STRIP geometry
+	static const float fsCoord[20] = {
+		-1.0f,-1.0f, 0.0f, 0.0f, 0.0f,
+		 1.0f,-1.0f, 0.0f, 1.0f, 0.0f,
+		-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+		 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
 	};
 	D3D11_BUFFER_DESC vb{};
 	vb.ByteWidth = 20 * 4;
 	vb.Usage = D3D11_USAGE_IMMUTABLE;
 	vb.CPUAccessFlags = 0;
+	vb.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	D3D11_SUBRESOURCE_DATA data{ fsCoord };
+	device_->CreateBuffer(&vb, &data, &fsQuadBuffer_);
+	vb.Usage = D3D11_USAGE_DYNAMIC;
+	vb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	device_->CreateBuffer(&vb, nullptr, &quadBuffer_);
 }
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
@@ -123,21 +118,23 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	if (vbFullScreenRect_) {
 		vbFullScreenRect_->Release();
 	}
-	if (pFramebufferVertexShader_) {
-		pFramebufferVertexShader_->Release();
-		pFramebufferVertexShader_ = nullptr;
+	if (quadVertexShader_) {
+		quadVertexShader_->Release();
+		quadVertexShader_ = nullptr;
 	}
-	if (pFramebufferPixelShader_) {
-		pFramebufferPixelShader_->Release();
-		pFramebufferPixelShader_ = nullptr;
+	if (quadPixelShader_) {
+		quadPixelShader_->Release();
+		quadPixelShader_ = nullptr;
 	}
-	pFramebufferVertexDecl_->Release();
+	quadVertexDecl_->Release();
 	if (drawPixelsTex_) {
 		drawPixelsTex_->Release();
 	}
 	if (drawPixelsTexView_) {
 		drawPixelsTexView_->Release();
 	}
+	quadBuffer_->Release();
+	fsQuadBuffer_->Release();
 
 	// FBO cleanup
 	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
@@ -161,6 +158,16 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 void FramebufferManagerD3D11::SetTextureCache(TextureCacheD3D11 *tc) {
 	textureCacheD3D11_ = tc;
 	textureCache_ = tc;
+}
+
+void FramebufferManagerD3D11::ClearBuffer(bool keepState) {
+	draw_->Clear(Draw::ClearFlag::COLOR | Draw::ClearFlag::DEPTH | Draw::ClearFlag::STENCIL, 0, ToScaledDepth(0), 0);
+}
+
+void FramebufferManagerD3D11::DisableState() {
+	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
+	context_->RSSetState(stockD3D11.rasterStateNoCull);
+	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0xFF);
 }
 
 void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -281,7 +288,6 @@ void FramebufferManagerD3D11::DrawFramebufferToOutput(const u8 *srcPixels, GEBuf
 }
 
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
-	// TODO: StretchRect instead?
 	float coord[20] = {
 		x,y,0, u0,v0,
 		x + w,y,0, u1,v0,
@@ -320,17 +326,30 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 		coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f - halfPixelY);
 	}
 
+	// The above code is for FAN geometry but we can only do STRIP. So rearrange it a little.
+	D3D11_MAPPED_SUBRESOURCE map;
+	context_->Map(quadBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	float *dest = (float *)map.pData;
+	memcpy(dest, coord, sizeof(float) * 5);
+	memcpy(dest + 5, coord + 5, sizeof(float) * 5);
+	memcpy(dest + 10, coord + 15, sizeof(float) * 5);
+	memcpy(dest + 15, coord + 10, sizeof(float) * 5);
+	context_->Unmap(quadBuffer_, 0);
+
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
-	context_->IASetInputLayout(pFramebufferVertexDecl_);
-	context_->PSSetShader(pFramebufferPixelShader_, 0, 0);
-	context_->VSSetShader(pFramebufferVertexShader_, 0, 0);
+	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0);
+	context_->IASetInputLayout(quadVertexDecl_);
+	context_->PSSetShader(quadPixelShader_, 0, 0);
+	context_->VSSetShader(quadVertexShader_, 0, 0);
 	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	context_->PSSetSamplers(0, 1, linearFilter ? &stockD3D11.samplerLinear2DWrap : &stockD3D11.samplerPoint2DWrap);
+	context_->PSSetSamplers(0, 1, linearFilter ? &stockD3D11.samplerLinear2DClamp : &stockD3D11.samplerPoint2DClamp);
+	UINT stride = 20;
+	UINT offset = 0;
+	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &stride, &offset);
+	context_->Draw(4, 0);
 
-	// TODO: DrawRectBuffer ? 
 	shaderManager_->DirtyLastShader();
-	context_->Draw(2, 0);
 }
 
 void FramebufferManagerD3D11::RebindFramebuffer() {
@@ -361,9 +380,9 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 		context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
 		context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0], nullptr, 0xFFFFFFFF);
 		context_->RSSetState(stockD3D11.rasterStateNoCull);
-		context_->IASetInputLayout(pFramebufferVertexDecl_);
-		context_->PSSetShader(pFramebufferPixelShader_, nullptr, 0);
-		context_->VSSetShader(pFramebufferVertexShader_, nullptr, 0);
+		context_->IASetInputLayout(quadVertexDecl_);
+		context_->PSSetShader(quadPixelShader_, nullptr, 0);
+		context_->VSSetShader(quadVertexShader_, nullptr, 0);
 		context_->IASetVertexBuffers(0, 1, &vbFullScreenRect_, &vbFullScreenStride_, &vbFullScreenOffset_);
 		shaderManager_->DirtyLastShader();
 		D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
@@ -404,13 +423,13 @@ void FramebufferManagerD3D11::BlitFramebufferDepth(VirtualFramebuffer *src, Virt
 	if (g_Config.bDisableSlowFramebufEffects) {
 		return;
 	}
-	/*
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 	bool matchingSize = src->width == dst->width && src->height == dst->height;
 	if (matchingDepthBuffer && matchingSize) {
 		// Doesn't work.  Use a shader maybe?
 		draw_->BindBackbufferAsRenderTarget();
-
+		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->width, src->height, 1, Draw::FB_DEPTH_BIT);
+		/*
 		LPDIRECT3DTEXTURE9 srcTex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(src->fbo, Draw::FB_DEPTH_BIT, 0);
 		LPDIRECT3DTEXTURE9 dstTex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(dst->fbo, Draw::FB_DEPTH_BIT, 0);
 
@@ -448,9 +467,9 @@ void FramebufferManagerD3D11::BlitFramebufferDepth(VirtualFramebuffer *src, Virt
 				dstTex->UnlockRect(0);
 			}
 		}
-
 		RebindFramebuffer();
-	}*/
+		*/
+	}
 }
 
 void FramebufferManagerD3D11::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags) {
@@ -527,9 +546,10 @@ void FramebufferManagerD3D11::CopyDisplayToOutput() {
 	if (useBufferedRendering_) {
 		// In buffered, we no longer clear the backbuffer before we start rendering.
 		ClearBuffer();
-		D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0.0f, 1.0f };
-		context_->RSSetViewports(1, &vp);
 	}
+
+	D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0.0f, 1.0f };
+	context_->RSSetViewports(1, &vp);
 
 	u32 offsetX = 0;
 	u32 offsetY = 0;
@@ -630,19 +650,9 @@ void FramebufferManagerD3D11::CopyDisplayToOutput() {
 		if (1) {
 			const u32 rw = PSP_CoreParameter().pixelWidth;
 			const u32 rh = PSP_CoreParameter().pixelHeight;
-			bool result = draw_->BlitFramebuffer(vfb->fbo,
-				(LONG)(u0 * vfb->renderWidth), (LONG)(v0 * vfb->renderHeight), (LONG)(u1 * vfb->renderWidth), (LONG)(v1 * vfb->renderHeight),
-				nullptr,
-				(LONG)(x * rw / w), (LONG)(y * rh / h), (LONG)((x + w) * rw / w), (LONG)((y + h) * rh / h),
-				Draw::FB_COLOR_BIT,
-				g_Config.iBufFilter == SCALE_LINEAR ? Draw::FB_BLIT_LINEAR : Draw::FB_BLIT_NEAREST);
-			if (!result) {
-				ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display");
-				D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0.0f, 1.0f };
-				context_->RSSetViewports(1, &vp);
-				DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, u0, v0, u1, v1, uvRotation, g_Config.iBufFilter == SCALE_LINEAR);
-			}
+			DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, u0, v0, u1, v1, uvRotation, g_Config.iBufFilter == SCALE_LINEAR);
 		}
+
 		/*
 		else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 		// An additional pass, post-processing shader to the extra FBO.

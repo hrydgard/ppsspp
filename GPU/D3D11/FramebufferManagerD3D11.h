@@ -110,9 +110,12 @@ private:
 	int drawPixelsTexW_;
 	int drawPixelsTexH_;
 
-	ID3D11VertexShader *pFramebufferVertexShader_;
-	ID3D11PixelShader *pFramebufferPixelShader_;
-	ID3D11InputLayout *pFramebufferVertexDecl_;
+	ID3D11VertexShader *quadVertexShader_;
+	ID3D11PixelShader *quadPixelShader_;
+	ID3D11InputLayout *quadVertexDecl_;
+	// Dynamic
+	ID3D11Buffer *quadBuffer_;
+	ID3D11Buffer *fsQuadBuffer_;
 
 	u8 *convBuf;
 

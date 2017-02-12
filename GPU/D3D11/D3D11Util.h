@@ -78,6 +78,8 @@ public:
 	ID3D11RasterizerState *rasterStateNoCull;
 	ID3D11SamplerState *samplerPoint2DWrap;
 	ID3D11SamplerState *samplerLinear2DWrap;
+	ID3D11SamplerState *samplerPoint2DClamp;
+	ID3D11SamplerState *samplerLinear2DClamp;
 };
 
 extern StockObjectsD3D11 stockD3D11;

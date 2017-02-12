@@ -57,6 +57,7 @@ void StockObjectsD3D11::Create(ID3D11Device *device) {
 		blend_desc.RenderTarget[0].RenderTargetWriteMask = i;
 		device->CreateBlendState(&blend_desc, &blendStateDisabledWithColorMask[i]);
 	}
+
 	D3D11_DEPTH_STENCIL_DESC depth_desc{};
 	depth_desc.DepthEnable = FALSE;
 	device->CreateDepthStencilState(&depth_desc, &depthStencilDisabled);
@@ -72,11 +73,13 @@ void StockObjectsD3D11::Create(ID3D11Device *device) {
 	depth_desc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 	depth_desc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 	device->CreateDepthStencilState(&depth_desc, &depthDisabledStencilWrite);
+
 	D3D11_RASTERIZER_DESC raster_desc{};
 	raster_desc.FillMode = D3D11_FILL_SOLID;
 	raster_desc.CullMode = D3D11_CULL_NONE;
 	raster_desc.ScissorEnable = FALSE;
 	device->CreateRasterizerState(&raster_desc, &rasterStateNoCull);
+
 	D3D11_SAMPLER_DESC sampler_desc{};
 	sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
 	sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
@@ -85,6 +88,13 @@ void StockObjectsD3D11::Create(ID3D11Device *device) {
 	device->CreateSamplerState(&sampler_desc, &samplerPoint2DWrap);
 	sampler_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
 	device->CreateSamplerState(&sampler_desc, &samplerLinear2DWrap);
+	sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampler_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+	device->CreateSamplerState(&sampler_desc, &samplerPoint2DClamp);
+	sampler_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	device->CreateSamplerState(&sampler_desc, &samplerLinear2DClamp);
 }
 
 void StockObjectsD3D11::Destroy() {

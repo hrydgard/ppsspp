@@ -509,6 +509,8 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_ANISOTROPY;
 	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 
+	// features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+
 	if (!g_Config.bHighQualityDepth) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {

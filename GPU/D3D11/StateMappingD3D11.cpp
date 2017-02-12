@@ -198,12 +198,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
-	ViewportAndScissor vpAndScissor;
-	ConvertViewportAndScissor(useBufferedRendering,
-		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
-		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-		vpAndScissor);
-
 	if (blendState.applyShaderBlending) {
 		if (ApplyShaderBlending()) {
 			// We may still want to do something about stencil -> alpha.
@@ -357,22 +351,11 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 	dynState.topology = primToD3D11[prim];
 
-	D3D11_VIEWPORT &vp = dynState.viewport;
-	vp.TopLeftX = vpAndScissor.viewportX;
-	vp.TopLeftY = vpAndScissor.viewportY;
-	vp.Width = vpAndScissor.viewportW;
-	vp.Height = vpAndScissor.viewportH;
-	vp.MinDepth = vpAndScissor.depthRangeMin;
-	vp.MaxDepth = vpAndScissor.depthRangeMax;
-	if (vpAndScissor.dirtyProj) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-	}
-
-	D3D11_RECT &scissor = dynState.scissor;
-	scissor.left = vpAndScissor.scissorX;
-	scissor.top = vpAndScissor.scissorY;
-	scissor.right = vpAndScissor.scissorX + vpAndScissor.scissorW;
-	scissor.bottom = vpAndScissor.scissorY + vpAndScissor.scissorH;
+	ViewportAndScissor vpAndScissor;
+	ConvertViewportAndScissor(useBufferedRendering,
+		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+		vpAndScissor);
 
 	float depthMin = vpAndScissor.depthRangeMin;
 	float depthMax = vpAndScissor.depthRangeMax;
@@ -383,6 +366,26 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		gstate_c.Dirty(DIRTY_DEPTHRANGE);
 	}
 
+	D3D11_VIEWPORT &vp = dynState.viewport;
+	vp.TopLeftX = vpAndScissor.viewportX;
+	vp.TopLeftY = vpAndScissor.viewportY;
+	vp.Width = vpAndScissor.viewportW;
+	vp.Height = vpAndScissor.viewportH;
+	vp.MinDepth = depthMin;
+	vp.MaxDepth = depthMax;
+	if (vpAndScissor.dirtyProj) {
+		gstate_c.Dirty(DIRTY_PROJMATRIX);
+	}
+	context_->RSSetViewports(1, &vp);
+
+	/*
+	D3D11_RECT &scissor = dynState.scissor;
+	scissor.left = vpAndScissor.scissorX;
+	scissor.top = vpAndScissor.scissorY;
+	scissor.right = vpAndScissor.scissorX + vpAndScissor.scissorW;
+	scissor.bottom = vpAndScissor.scissorY + vpAndScissor.scissorH;
+	context_->RSSetScissorRects(0, &scissor);
+	*/
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
