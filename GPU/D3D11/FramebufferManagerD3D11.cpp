@@ -206,7 +206,6 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 
 	convBuf = (u8*)map.pData;
 
-	// Final format is BGRA(directx)
 	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
 		for (int y = 0; y < height; y++) {
 			switch (srcPixelFormat) {
@@ -237,7 +236,7 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 			{
 				const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 				u32 *dst = (u32 *)(convBuf + map.RowPitch * y);
-				ConvertRGBA8888ToBGRA8888(dst, src, width);
+				memcpy(dst, src, width * 4);
 			}
 			break;
 			}
@@ -246,7 +245,7 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 		for (int y = 0; y < height; y++) {
 			const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 			u32 *dst = (u32 *)(convBuf + map.RowPitch * y);
-			ConvertRGBA8888ToBGRA8888(dst, src, width);
+			memcpy(dst, src, width * 4);
 		}
 	}
 
