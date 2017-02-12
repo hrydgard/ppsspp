@@ -604,8 +604,13 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		}
 
 		// Compute fogdepth
-		if (enableFog)
-			WRITE(p, "  Out.v_fogdepth.x = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
+		if (enableFog) {
+			if (lang == HLSL_D3D11) {
+				WRITE(p, "  Out.v_fogdepth.x = (viewPos.z + u_fogcoef_stencilreplace.x) * u_fogcoef_stencilreplace.y;\n");
+			} else {
+				WRITE(p, "  Out.v_fogdepth.x = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
+			}
+		}
 	}
 
 	WRITE(p, "  return Out;\n");

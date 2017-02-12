@@ -502,7 +502,7 @@ void SoftwareTransform(
 		const u16 *indsIn = (const u16 *)inds;
 		u16 *newInds = inds + vertexCount;
 		u16 *indsOut = newInds;
-		maxIndex = 4 * vertexCount;
+		maxIndex = 4 * (vertexCount / 2);
 		for (int i = 0; i < vertexCount; i += 2) {
 			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];

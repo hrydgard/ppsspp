@@ -40,13 +40,13 @@
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/GPU_D3D11.h"
 
-const D3D11_PRIMITIVE_TOPOLOGY glprim[8] = {
+const D3D11_PRIMITIVE_TOPOLOGY d3d11prim[8] = {
 	D3D11_PRIMITIVE_TOPOLOGY_POINTLIST,
 	D3D11_PRIMITIVE_TOPOLOGY_LINELIST,
 	D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP,
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
-	D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED,  // Fans not supported
+	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Fans not supported
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Need expansion - though we could do it with geom shaders in most cases
 };
 
@@ -104,7 +104,9 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 
 	tessDataTransfer = new TessellationDataTransferD3D11();
 
-	// Vertex pushing buffers.
+	// Vertex pushing buffers. For uniforms we use short DISCARD buffers, but we could use
+	// this kind of buffer there as well with D3D11.1. We might be able to use the same buffer
+	// for both vertices and indices, and possibly all three data types.
 	pushVerts_ = new PushBufferD3D11(device, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
 	pushInds_ = new PushBufferD3D11(device, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
 }
@@ -113,10 +115,8 @@ DrawEngineD3D11::~DrawEngineD3D11() {
 	delete pushVerts_;
 	delete pushInds_;
 
-	for (auto decl = inputLayoutMap_.begin(); decl != inputLayoutMap_.end(); ++decl) {
-		if (decl->second) {
-			decl->second->Release();
-		}
+	for (auto &decl : inputLayoutMap_) {
+		decl.second->Release();
 	}
 	for (auto &depth : depthStencilCache_) {
 		depth.second->Release();
@@ -559,12 +559,10 @@ void DrawEngineD3D11::BeginFrame() {
 }
 
 VertexArrayInfoD3D11::~VertexArrayInfoD3D11() {
-	if (vbo) {
+	if (vbo)
 		vbo->Release();
-	}
-	if (ebo) {
+	if (ebo)
 		ebo->Release();
-	}
 }
 
 static uint32_t SwapRB(uint32_t c) {
@@ -775,7 +773,7 @@ rotateVBO:
 
 		context_->IASetInputLayout(inputLayout);
 		UINT stride = dec_->GetDecVtxFmt().stride;
-		context_->IASetPrimitiveTopology(glprim[prim]);
+		context_->IASetPrimitiveTopology(d3d11prim[prim]);
 		if (!vb_) {
 			// Push!
 			UINT vOffset;
@@ -869,6 +867,7 @@ rotateVBO:
 				layout = iter->second;
 			}
 			context_->IASetInputLayout(layout);
+			context_->IASetPrimitiveTopology(d3d11prim[prim]);
 
 			UINT stride = sizeof(TransformedVertex);
 			UINT vOffset = 0;

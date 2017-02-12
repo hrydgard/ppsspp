@@ -69,7 +69,7 @@ R"(  float4x4 u_proj;
   float4x4 u_tex;
   float4 u_uvscaleoffset;
   float4 u_depthRange;
-  float3 u_fogcoef;
+  float3 u_fogcoef_stencilreplace;
   float4 u_matambientalpha;
   float3 u_fogcolor;
   float3 u_texenv;
