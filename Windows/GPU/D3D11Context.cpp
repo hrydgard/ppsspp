@@ -120,12 +120,10 @@ void D3D11Context::Shutdown() {
 	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, false);
 	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, false);
 	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, false);
-#endif
-#ifdef _DEBUG
 	d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
-#endif
 	d3dDebug_->Release();
 	d3dInfoQueue_->Release();
+#endif
 
 	context_->Release();
 	context_ = nullptr;

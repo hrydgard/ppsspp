@@ -587,8 +587,6 @@ void DrawEngineD3D11::DoFlush() {
 	if (useHWTransform) {
 		ID3D11Buffer *vb_ = nullptr;
 		ID3D11Buffer *ib_ = nullptr;
-		if (prim == GE_PRIM_TRIANGLE_FAN)
-			Crash();
 
 		int vertexCount = 0;
 		int maxIndex = 0;
@@ -676,7 +674,7 @@ void DrawEngineD3D11::DoFlush() {
 						vai->prim = indexGen.Prim();
 						vai->maxIndex = indexGen.MaxIndex();
 						vai->flags = gstate_c.vertexFullAlpha ? VAI11_FLAG_VERTEXFULLALPHA : 0;
-						useElements = !indexGen.SeenOnlyPurePrims();
+						useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
 						}
@@ -747,7 +745,7 @@ void DrawEngineD3D11::DoFlush() {
 			DecodeVerts();
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-			useElements = !indexGen.SeenOnlyPurePrims();
+			useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
 			vertexCount = indexGen.VertexCount();
 			maxIndex = indexGen.MaxIndex();
 			if (!useElements && indexGen.PureCount()) {
