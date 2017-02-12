@@ -105,34 +105,32 @@ private:
 	ID3D11DeviceContext *context_;
 
 	// Used by DrawPixels
-	ID3D11Texture2D *drawPixelsTex_;
-	ID3D11ShaderResourceView *drawPixelsTexView_;
-	int drawPixelsTexW_;
-	int drawPixelsTexH_;
+	ID3D11Texture2D *drawPixelsTex_ = nullptr;
+	ID3D11ShaderResourceView *drawPixelsTexView_ = nullptr;
+	int drawPixelsTexW_ = 0;
+	int drawPixelsTexH_ = 0;
 
 	ID3D11VertexShader *quadVertexShader_;
 	ID3D11PixelShader *quadPixelShader_;
-	ID3D11InputLayout *quadVertexDecl_;
+	ID3D11InputLayout *quadInputLayout_;
 	// Dynamic
 	ID3D11Buffer *quadBuffer_;
 	ID3D11Buffer *fsQuadBuffer_;
+	const UINT quadStride_ = 20;
+	const UINT quadOffset_ = 0;
+	static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[2];
 
-	u8 *convBuf;
+	u8 *convBuf = nullptr;
 
 	int plainColorLoc_;
-	ID3D11PixelShader *stencilUploadPS_;
-	ID3D11VertexShader *stencilUploadVS_;
-	ID3D11InputLayout *stencilUploadInputLayout_;
+	ID3D11PixelShader *stencilUploadPS_ = nullptr;
+	ID3D11VertexShader *stencilUploadVS_ = nullptr;
+	ID3D11InputLayout *stencilUploadInputLayout_ = nullptr;
 	ID3D11DepthStencilState *stencilMaskStates_[256]{};
-	bool stencilUploadFailed_;
 
 	TextureCacheD3D11 *textureCacheD3D11_;
 	ShaderManagerD3D11 *shaderManager_;
 	DrawEngineD3D11 *drawEngine_;
-
-	ID3D11Buffer *vbFullScreenRect_ = nullptr;
-	UINT vbFullScreenStride_ = 20;
-	UINT vbFullScreenOffset_ = 0;
 
 	// Used by post-processing shader
 	std::vector<Draw::Framebuffer *> extraFBOs_;

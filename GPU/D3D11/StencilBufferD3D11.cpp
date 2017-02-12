@@ -36,7 +36,8 @@ struct StencilUB {
 };
 
 static const char *stencil_ps =
-"sampler tex: register(s0);\n"
+"SamplerState samp : register(s0);\n"
+"Texture2D<float4> tex : register(t0);\n"
 "cbuffer base : register(b0) {\n"
 "  float4 u_stencilValue;\n"
 "};\n"
@@ -44,8 +45,8 @@ static const char *stencil_ps =
 "  float2 v_texcoord0 : TEXCOORD0;\n"
 "};\n"
 "float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }\n"
-"float4 main(PS_IN In) : COLOR {\n"
-"  float4 index = tex2D(tex, In.v_texcoord0);\n"
+"float4 main(PS_IN In) : SV_Target {\n"
+"  float4 index = tex.Sample(samp, In.v_texcoord0);\n"
 "  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(u_stencilValue.x);\n"
 "  clip(fmod(floor(shifted), 2.0) - 0.99);\n"
 "  return index.aaaa;\n"
@@ -57,8 +58,8 @@ static const char *stencil_vs =
 "  float2 a_texcoord0 : TEXCOORD0;\n"
 "};\n"
 "struct VS_OUT {\n"
-"  float4 position : POSITION;\n"
 "  float2 v_texcoord0 : TEXCOORD0;\n"
+"  float4 position : SV_Position;\n"
 "};\n"
 "VS_OUT main(VS_IN In) {\n"
 "  VS_OUT Out;\n"
@@ -152,19 +153,14 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 			return false;
 		}
 
-		/*
-		// TODO: Find a fast way to clear stencil+alpha. Probably a quad.
-		// Let's not bother with the shader if it's just zero.
-		dxstate.scissorTest.disable();
-		dxstate.colorMask.set(false, false, false, true);
-		// TODO: Verify this clears only stencil/alpha.
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_STENCIL, D3DCOLOR_RGBA(0, 0, 0, 0), 0.0f, 0);
-		*/
+		// Clear stencil+alpha but not color. Only way is to draw a quad.
+		context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0x8], nullptr, 0xFFFFFFFF);
+		context_->RSSetState(stockD3D11.rasterStateNoCull);
+		context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0);
+		context_->IASetVertexBuffers(0, 1, &fsQuadBuffer_, &quadStride_, &quadOffset_);
+		context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+		context_->Draw(4, 0);
 		return true;
-	}
-
-	if (stencilUploadFailed_) {
-		return false;
 	}
 
 	// TODO: Helper with logging?
@@ -176,11 +172,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 		std::string errorMessage;
 		std::vector<uint8_t> byteCode;
 		stencilUploadVS_ = CreateVertexShaderD3D11(device_, stencil_vs, strlen(stencil_vs), &byteCode);
-		// stencilUploadInputLayout_ = device_->CreateInputLayout()
-	}
-	if (!stencilUploadPS_ || !stencilUploadVS_) {
-		stencilUploadFailed_ = true;
-		return false;
+		device_->CreateInputLayout(g_QuadVertexElements, 2, byteCode.data(), byteCode.size(), &stencilUploadInputLayout_);
 	}
 
 	shaderManager_->DirtyLastShader();
@@ -222,40 +214,55 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 		coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f);
 	}
 
-	/* TODO
-	// context_->IASetInputLayout(ia);
-	context_->PSSetShader(stencilUploadPS_);
-	context_->VSSetSamplers(stencilUploadVS_);
-	context_->pD3Ddevice->SetTexture(0, drawPixelsTex_);
+	D3D11_MAPPED_SUBRESOURCE map;
+	context_->Map(quadBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	memcpy(map.pData, coord, sizeof(float) * 4 * 5);
+	context_->Unmap(quadBuffer_, 0);
 
 	shaderManager_->DirtyLastShader();
 	textureCacheD3D11_->ForgetLastTexture();
+
+	context_->IASetInputLayout(stencilUploadInputLayout_);
+	context_->PSSetShader(stencilUploadPS_, nullptr, 0);
+	context_->VSSetShader(stencilUploadVS_, nullptr, 0);
+	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
+	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	context_->RSSetState(stockD3D11.rasterStateNoCull);
+	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &quadStride_, &quadOffset_);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
 			// It's already zero, let's skip it.
 			continue;
 		}
+		uint8_t mask = 0;
+		uint8_t value = 0;
 		if (dstBuffer->format == GE_FORMAT_4444) {
-			dxstate.stencilMask.set(i | (i << 4));
-			const float f[4] = {i * (16.0f / 255.0f)};
-			pD3Ddevice->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
+			mask = i | (i << 4);
+			value = i * 16;
 		} else if (dstBuffer->format == GE_FORMAT_5551) {
-			dxstate.stencilMask.set(0xFF);
-			const float f[4] = {i * (128.0f / 255.0f)};
-			pD3Ddevice->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
+			mask = 0xFF;
+			value = i * 128;
 		} else {
-			dxstate.stencilMask.set(i);
-			const float f[4] = {i * (1.0f / 255.0f)};
-			pD3Ddevice->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
+			mask = i;
+			value = i;
 		}
-		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
-		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Failed to draw stencil bit %x: %08x", i, hr);
+		if (!stencilMaskStates_[mask]) {
+			D3D11_DEPTH_STENCIL_DESC desc{};
+			desc.DepthEnable = false;
+			desc.StencilEnable = true;
+			desc.StencilReadMask = 0xFF;
+			desc.StencilWriteMask = mask;
+			desc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
+			desc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_REPLACE;
+			desc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+			desc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+			desc.BackFace = desc.FrontFace;
+			device_->CreateDepthStencilState(&desc, &stencilMaskStates_[mask]);
 		}
+		context_->OMSetDepthStencilState(stencilMaskStates_[mask], value);
+		context_->Draw(4, 0);
 	}
-	dxstate.stencilMask.set(0xFF);
 	RebindFramebuffer();
-	*/
 	return true;
 }

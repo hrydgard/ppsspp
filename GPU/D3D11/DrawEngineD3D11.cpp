@@ -846,18 +846,17 @@ rotateVBO:
 
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		D3D11VertexShader *vshader;
-		D3D11FragmentShader *fshader;
-		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, false);
-		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
-		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
-		shaderManager_->UpdateUniforms();
-		shaderManager_->BindUniforms();
-
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			const int vertexSize = sizeof(transformed[0]);
 
-			// This is so weird. Why do we need the shader bytecode to create an input layout??
+			D3D11VertexShader *vshader;
+			D3D11FragmentShader *fshader;
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, false);
+			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
+			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
+			shaderManager_->UpdateUniforms();
+			shaderManager_->BindUniforms();
+
 			// We really do need a vertex layout for each vertex shader (or at least check its ID bits for what inputs it uses)!
 			// Some vertex shaders ignore one of the inputs, and then the layout created from it will lack it, which will be a problem for others.
 			InputLayoutKey key{ 0xFFFFFFFF, vshader };  // Let's use 0xFFFFFFFF to signify TransformedVertex
@@ -881,7 +880,7 @@ rotateVBO:
 			context_->IASetVertexBuffers(0, 1, &buf, &stride, &vOffset);
 			if (drawIndexed) {
 				UINT iOffset;
-				int iSize = sizeof(int16_t) * numTrans;
+				int iSize = sizeof(uint16_t) * numTrans;
 				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
 				memcpy(iptr, inds, iSize);
 				pushInds_->EndPush(context_);

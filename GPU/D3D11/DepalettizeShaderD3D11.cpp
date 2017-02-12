@@ -26,7 +26,6 @@
 #include "GPU/D3D11/DepalettizeShaderD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
-//#include "gfx/d3d9_shader.h"
 
 static const int DEPAL_TEXTURE_OLD_AGE = 120;
 

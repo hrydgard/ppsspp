@@ -71,19 +71,13 @@ static const char *pscode =
 	"  return c;\n"
 	"}\n";
 
-static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[] = {
+const D3D11_INPUT_ELEMENT_DESC FramebufferManagerD3D11::g_QuadVertexElements[2] = {
 	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },
 	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
 };
 
 FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
-	: FramebufferManagerCommon(draw),
-	drawPixelsTex_(0),
-	convBuf(0),
-	stencilUploadPS_(nullptr),
-	stencilUploadVS_(nullptr),
-	stencilUploadFailed_(false) {
-
+	: FramebufferManagerCommon(draw) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
@@ -92,7 +86,7 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	std::string errorMsg;
 	quadVertexShader_ = CreateVertexShaderD3D11(device_, vscode, strlen(vscode), &bytecode);
 	quadPixelShader_ = CreatePixelShaderD3D11(device_, pscode, strlen(pscode));
-	device_->CreateInputLayout(g_QuadVertexElements, ARRAY_SIZE(g_QuadVertexElements), bytecode.data(), bytecode.size(), &quadVertexDecl_);
+	device_->CreateInputLayout(g_QuadVertexElements, ARRAY_SIZE(g_QuadVertexElements), bytecode.data(), bytecode.size(), &quadInputLayout_);
 
 	// STRIP geometry
 	static const float fsCoord[20] = {
@@ -115,26 +109,18 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	// Drawing cleanup
-	if (vbFullScreenRect_) {
-		vbFullScreenRect_->Release();
-	}
-	if (quadVertexShader_) {
+	if (quadVertexShader_)
 		quadVertexShader_->Release();
-		quadVertexShader_ = nullptr;
-	}
-	if (quadPixelShader_) {
+	if (quadPixelShader_)
 		quadPixelShader_->Release();
-		quadPixelShader_ = nullptr;
-	}
-	quadVertexDecl_->Release();
-	if (drawPixelsTex_) {
-		drawPixelsTex_->Release();
-	}
-	if (drawPixelsTexView_) {
-		drawPixelsTexView_->Release();
-	}
+	quadInputLayout_->Release();
 	quadBuffer_->Release();
 	fsQuadBuffer_->Release();
+
+	if (drawPixelsTex_)
+		drawPixelsTex_->Release();
+	if (drawPixelsTexView_)
+		drawPixelsTexView_->Release();
 
 	// FBO cleanup
 	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
@@ -147,12 +133,12 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 		if (stencilMaskStates_[i])
 			stencilMaskStates_[i]->Release();
 	}
-	if (stencilUploadPS_) {
+	if (stencilUploadPS_)
 		stencilUploadPS_->Release();
-	}
-	if (stencilUploadVS_) {
+	if (stencilUploadVS_)
 		stencilUploadVS_->Release();
-	}
+	if (stencilUploadInputLayout_)
+		stencilUploadInputLayout_->Release();
 }
 
 void FramebufferManagerD3D11::SetTextureCache(TextureCacheD3D11 *tc) {
@@ -338,7 +324,7 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
 	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0);
-	context_->IASetInputLayout(quadVertexDecl_);
+	context_->IASetInputLayout(quadInputLayout_);
 	context_->PSSetShader(quadPixelShader_, 0, 0);
 	context_->VSSetShader(quadVertexShader_, 0, 0);
 	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
@@ -379,10 +365,10 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 		context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
 		context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0], nullptr, 0xFFFFFFFF);
 		context_->RSSetState(stockD3D11.rasterStateNoCull);
-		context_->IASetInputLayout(quadVertexDecl_);
+		context_->IASetInputLayout(quadInputLayout_);
 		context_->PSSetShader(quadPixelShader_, nullptr, 0);
 		context_->VSSetShader(quadVertexShader_, nullptr, 0);
-		context_->IASetVertexBuffers(0, 1, &vbFullScreenRect_, &vbFullScreenStride_, &vbFullScreenOffset_);
+		context_->IASetVertexBuffers(0, 1, &fsQuadBuffer_, &quadStride_, &quadOffset_);
 		shaderManager_->DirtyLastShader();
 		D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
 		context_->RSSetViewports(1, &vp);
