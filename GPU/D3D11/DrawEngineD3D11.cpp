@@ -834,7 +834,7 @@ rotateVBO:
 		params.transformedExpanded = transformedExpanded;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
-		params.allowSeparateAlphaClear = true;
+		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(
@@ -898,7 +898,7 @@ rotateVBO:
 			if (gstate.isClearModeAlphaMask()) clearFlag |= Draw::STENCIL;
 			if (gstate.isClearModeDepthMask()) clearFlag |= Draw::DEPTH;
 
-			if (clearColor) {
+			if (clearFlag & (Draw::COLOR | Draw::STENCIL)) {
 				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			}
 			if (clearFlag & Draw::DEPTH) {
@@ -911,7 +911,6 @@ rotateVBO:
 			if (clearFlag & Draw::STENCIL) {
 				colorMask |= 8;
 			}
-			context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[colorMask], nullptr, 0xFFFFFFFF);
 
 			uint8_t clearStencil = clearColor >> 24;
 			draw_->Clear(clearFlag, clearColor, clearDepth, clearStencil);
