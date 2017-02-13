@@ -760,7 +760,7 @@ rotateVBO:
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		ApplyDrawStateLate(false, 0);
+		ApplyDrawStateLate(true, dynState_.stencilRef);
 
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
@@ -898,18 +898,11 @@ rotateVBO:
 			if (gstate.isClearModeAlphaMask()) clearFlag |= Draw::STENCIL;
 			if (gstate.isClearModeDepthMask()) clearFlag |= Draw::DEPTH;
 
-			if (clearFlag & (Draw::COLOR | Draw::STENCIL)) {
-				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-			}
 			if (clearFlag & Draw::DEPTH) {
 				framebufferManager_->SetDepthUpdated();
 			}
-
-			int colorMask = 0;
-			if (clearColor)
-				colorMask |= 7;
-			if (clearFlag & Draw::STENCIL) {
-				colorMask |= 8;
+			if (clearFlag & Draw::COLOR) {
+				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			}
 
 			uint8_t clearStencil = clearColor >> 24;

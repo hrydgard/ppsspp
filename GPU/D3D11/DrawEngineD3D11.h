@@ -234,8 +234,8 @@ private:
 	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
 
 	// D3D11 state object caches
-	std::map<uint32_t, ID3D11BlendState *> blendCache_;
-	std::map<uint32_t, ID3D11DepthStencilState *> depthStencilCache_;
+	std::map<uint64_t, ID3D11BlendState *> blendCache_;
+	std::map<uint64_t, ID3D11DepthStencilState *> depthStencilCache_;
 	std::map<uint32_t, ID3D11RasterizerState *> rasterCache_;
 
 	// Keep the depth state between ApplyDrawState and ApplyDrawStateLate

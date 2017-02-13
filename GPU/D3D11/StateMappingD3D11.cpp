@@ -298,8 +298,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			keys_.depthStencil.stencilWriteMask = stencilState.writeMask;
 			dynState_.useStencil = true;
 			dynState_.stencilRef = stencilState.testRef;
-		}
-		else {
+		} else {
 			keys_.depthStencil.stencilTestEnable = false;
 			dynState_.useStencil = false;
 		}
@@ -359,16 +358,11 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		}
 	}
 
-	uint32_t blendKey, depthKey, rasterKey;
-	memcpy(&blendKey, &keys_.blend, sizeof(uint32_t));
-	memcpy(&depthKey, &keys_.depthStencil, sizeof(uint32_t));
-	memcpy(&rasterKey, &keys_.raster, sizeof(uint32_t));
-
 	ID3D11BlendState *bs = nullptr;
 	ID3D11DepthStencilState *ds = nullptr;
 	ID3D11RasterizerState *rs = nullptr;
 
-	auto blendIter = blendCache_.find(blendKey);
+	auto blendIter = blendCache_.find(keys_.blend.value);
 	if (blendIter == blendCache_.end()) {
 		D3D11_BLEND_DESC desc{};
 		D3D11_RENDER_TARGET_BLEND_DESC &rt = desc.RenderTarget[0];
@@ -381,7 +375,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
 		rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
 		device_->CreateBlendState(&desc, &bs);
-		blendCache_.insert(std::pair<uint32_t, ID3D11BlendState *>(blendKey, bs));
+		blendCache_.insert(std::pair<uint64_t, ID3D11BlendState *>(keys_.blend.value, bs));
 	} else {
 		bs = blendIter->second;
 	}
@@ -390,7 +384,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	Uint8x4ToFloat4(blendColor, dynState_.blendColor);
 	context_->OMSetBlendState(bs, blendColor, 0xFFFFFFFF);
 
-	auto depthIter = depthStencilCache_.find(depthKey);
+	auto depthIter = depthStencilCache_.find(keys_.depthStencil.value);
 	if (depthIter == depthStencilCache_.end()) {
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = keys_.depthStencil.depthTestEnable;
@@ -405,13 +399,13 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		desc.FrontFace.StencilFunc = (D3D11_COMPARISON_FUNC)keys_.depthStencil.stencilCompareFunc;
 		desc.BackFace = desc.FrontFace;
 		device_->CreateDepthStencilState(&desc, &ds);
-		depthStencilCache_.insert(std::pair<uint32_t, ID3D11DepthStencilState *>(depthKey, ds));
+		depthStencilCache_.insert(std::pair<uint64_t, ID3D11DepthStencilState *>(keys_.depthStencil.value, ds));
 	} else {
 		ds = depthIter->second;
 	}
 	depthStencilState_ = ds;
 
-	auto rasterIter = rasterCache_.find(rasterKey);
+	auto rasterIter = rasterCache_.find(keys_.raster.value);
 	if (rasterIter == rasterCache_.end()) {
 		D3D11_RASTERIZER_DESC desc{};
 		desc.CullMode = (D3D11_CULL_MODE)(keys_.raster.cullMode);
@@ -419,7 +413,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		desc.ScissorEnable = TRUE;
 		desc.FrontCounterClockwise = TRUE;
 		device_->CreateRasterizerState(&desc, &rs);
-		rasterCache_.insert(std::pair<uint32_t, ID3D11RasterizerState *>(rasterKey, rs));
+		rasterCache_.insert(std::pair<uint32_t, ID3D11RasterizerState *>(keys_.raster.value, rs));
 	} else {
 		rs = rasterIter->second;
 	}

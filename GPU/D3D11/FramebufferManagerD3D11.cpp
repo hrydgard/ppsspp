@@ -413,7 +413,7 @@ void FramebufferManagerD3D11::BlitFramebufferDepth(VirtualFramebuffer *src, Virt
 	if (matchingDepthBuffer && matchingSize) {
 		// Doesn't work.  Use a shader maybe?
 		draw_->BindBackbufferAsRenderTarget();
-		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->width, src->height, 1, Draw::FB_DEPTH_BIT);
+		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT);
 		RebindFramebuffer();
 	}
 }
