@@ -426,7 +426,7 @@ public:
 		UV uv;
 	};
 
-	TextureShaderApplierD3D11(ID3D11DeviceContext *context, ID3D11PixelShader *pshader, float bufferW, float bufferH, int renderW, int renderH, float xoff, float yoff)
+	TextureShaderApplierD3D11(ID3D11DeviceContext *context, ID3D11PixelShader *pshader, ID3D11Buffer *dynamicBuffer, float bufferW, float bufferH, int renderW, int renderH, float xoff, float yoff)
 		: context_(context), pshader_(pshader), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
 		static const Pos pos[4] = {
 			{ -1,  1, 0 },
@@ -447,6 +447,11 @@ public:
 			verts_[i].pos.y += yoff;
 			verts_[i].uv = uv[i];
 		}
+		D3D11_MAPPED_SUBRESOURCE map;
+		context->Map(dynamicBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+		memcpy(map.pData, &verts_[0], 4 * 5 * sizeof(float));
+		context->Unmap(dynamicBuffer, 0);
+		vbuffer_ = dynamicBuffer;
 	}
 
 	void ApplyBounds(const KnownVertexBounds &bounds, u32 uoff, u32 voff, float xoff, float yoff) {
@@ -533,7 +538,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		float xoff = -0.5f / framebuffer->renderWidth;
 		float yoff = 0.5f / framebuffer->renderHeight;
 
-		TextureShaderApplierD3D11 shaderApply(context_, pshader, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight, xoff, yoff);
+		TextureShaderApplierD3D11 shaderApply(context_, pshader, framebufferManagerD3D11_->GetDynamicQuadBuffer(), framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight, xoff, yoff);
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
 		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader(), depalShaderCache_->GetInputLayout());
 

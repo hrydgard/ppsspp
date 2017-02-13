@@ -82,6 +82,11 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
+	// TODO: Remove
+	ID3D11Buffer *GetDynamicQuadBuffer() {
+		return quadBuffer_;
+	}
+
 protected:
 	void DisableState() override;
 	void ClearBuffer(bool keepState = false) override;
