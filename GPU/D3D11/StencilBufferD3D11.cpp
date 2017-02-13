@@ -31,42 +31,46 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-struct StencilUB {
-	float u_stencilValue[4];
+struct StencilValueUB {
+	uint32_t u_stencilValue[4];
 };
 
-static const char *stencil_ps =
-"SamplerState samp : register(s0);\n"
-"Texture2D<float4> tex : register(t0);\n"
-"cbuffer base : register(b0) {\n"
-"  float4 u_stencilValue;\n"
-"};\n"
-"struct PS_IN {\n"
-"  float2 v_texcoord0 : TEXCOORD0;\n"
-"};\n"
-"float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }\n"
-"float4 main(PS_IN In) : SV_Target {\n"
-"  float4 index = tex.Sample(samp, In.v_texcoord0);\n"
-"  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(u_stencilValue.x);\n"
-"  clip(fmod(floor(shifted), 2.0) - 0.99);\n"
-"  return index.aaaa;\n"
-"}\n";
+static const char *stencil_ps = R"(
+SamplerState samp : register(s0);
+Texture2D<float4> tex : register(t0);
+cbuffer base : register(b0) {
+  uint4 u_stencilValue;
+};
+struct PS_IN {
+  float2 v_texcoord0 : TEXCOORD0;
+};
+float4 main(PS_IN In) : SV_Target {
+  float4 index = tex.Sample(samp, In.v_texcoord0);
+	uint indexBits = uint(index.a * 256.0);
+	if ((indexBits & u_stencilValue.x) == 0)
+		discard;
+  return index.aaaa;
+}
+)";
 
-static const char *stencil_vs =
-"struct VS_IN {\n"
-"  float4 a_position : POSITION;\n"
-"  float2 a_texcoord0 : TEXCOORD0;\n"
-"};\n"
-"struct VS_OUT {\n"
-"  float2 v_texcoord0 : TEXCOORD0;\n"
-"  float4 position : SV_Position;\n"
-"};\n"
-"VS_OUT main(VS_IN In) {\n"
-"  VS_OUT Out;\n"
-"  Out.position = In.a_position;\n"
-"  Out.v_texcoord0 = In.a_texcoord0;\n"
-"  return Out;\n"
-"}\n";
+// static const char *stencil_ps_fast;
+
+static const char *stencil_vs = R"(
+struct VS_IN {
+  float4 a_position : POSITION;
+  float2 a_texcoord0 : TEXCOORD0;
+};
+struct VS_OUT {
+  float2 v_texcoord0 : TEXCOORD0;
+  float4 position : SV_Position;
+};
+VS_OUT main(VS_IN In) {
+  VS_OUT Out;
+  Out.position = In.a_position;
+  Out.v_texcoord0 = In.a_texcoord0;
+  return Out;
+}
+)";
 
 static u8 StencilBits5551(const u8 *ptr8, u32 numPixels) {
 	const u32 *ptr = (const u32 *)ptr8;
@@ -174,6 +178,14 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 		stencilUploadVS_ = CreateVertexShaderD3D11(device_, stencil_vs, strlen(stencil_vs), &byteCode);
 		device_->CreateInputLayout(g_QuadVertexElements, 2, byteCode.data(), byteCode.size(), &stencilUploadInputLayout_);
 	}
+	if (!stencilValueBuffer_) {
+		D3D11_BUFFER_DESC desc{};
+		desc.ByteWidth = sizeof(StencilValueUB);
+		desc.Usage = D3D11_USAGE_DYNAMIC;
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		device_->CreateBuffer(&desc, nullptr, &stencilValueBuffer_);
+	}
 
 	shaderManager_->DirtyLastShader();
 
@@ -197,8 +209,8 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	float coord[20] = {
 		0.0f,0.0f,0.0f, 0.0f,0.0f,
 		fw,0.0f,0.0f, 1.0f,0.0f,
-		fw,fh,0.0f, 1.0f,1.0f,
 		0.0f,fh,0.0f, 0.0f,1.0f,
+		fw,fh,0.0f, 1.0f,1.0f,
 	};
 	// I think all these calculations pretty much cancel out?
 	float invDestW = 1.0f / (fw * 0.5f);
@@ -258,7 +270,14 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 			desc.BackFace = desc.FrontFace;
 			device_->CreateDepthStencilState(&desc, &stencilMaskStates_[mask]);
 		}
-		context_->OMSetDepthStencilState(stencilMaskStates_[mask], value);
+		context_->OMSetDepthStencilState(stencilMaskStates_[mask], 0xFF);
+
+		D3D11_MAPPED_SUBRESOURCE map;
+		context_->Map(stencilValueBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+		StencilValueUB ub{ (uint32_t)value };
+		memcpy(map.pData, &ub, sizeof(ub));
+		context_->Unmap(stencilValueBuffer_, 0);
+		context_->PSSetConstantBuffers(0, 1, &stencilValueBuffer_);
 		context_->Draw(4, 0);
 	}
 	RebindFramebuffer();

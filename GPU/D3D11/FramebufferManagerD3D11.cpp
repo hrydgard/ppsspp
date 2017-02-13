@@ -139,6 +139,8 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 		stencilUploadVS_->Release();
 	if (stencilUploadInputLayout_)
 		stencilUploadInputLayout_->Release();
+	if (stencilValueBuffer_)
+		stencilValueBuffer_->Release();
 }
 
 void FramebufferManagerD3D11::SetTextureCache(TextureCacheD3D11 *tc) {

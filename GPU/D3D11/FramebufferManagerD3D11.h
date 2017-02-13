@@ -131,6 +131,7 @@ private:
 	ID3D11PixelShader *stencilUploadPS_ = nullptr;
 	ID3D11VertexShader *stencilUploadVS_ = nullptr;
 	ID3D11InputLayout *stencilUploadInputLayout_ = nullptr;
+	ID3D11Buffer *stencilValueBuffer_ = nullptr;
 	ID3D11DepthStencilState *stencilMaskStates_[256]{};
 
 	TextureCacheD3D11 *textureCacheD3D11_;
