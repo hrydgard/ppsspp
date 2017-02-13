@@ -1106,6 +1106,13 @@ void GPUCommon::Execute_TexOffsetV(u32 op, u32 diff) {
 	gstate_c.uv.vOff = getFloat24(op);
 }
 
+void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
+	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST && (0x00FF0000 & gstate.texlevel) != 0) {
+		Flush();
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	}
+}
+
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
