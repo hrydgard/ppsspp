@@ -1142,7 +1142,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			decPitch = w * bpp;
 		}
 
-		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false);
+		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, true, false);
 		if (!decSuccess) {
 			memset(pixelData, 0, decPitch * h);
 		}

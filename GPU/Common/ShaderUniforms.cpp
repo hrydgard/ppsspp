@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "ShaderUniforms.h"
 #include "math/dataconv.h"
 #include "math/lin/matrix4x4.h"
@@ -148,7 +150,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	if (dirtyUniforms & DIRTY_DEPTHRANGE) {
 		float viewZScale = gstate.getViewportZScale();
 		float viewZCenter = gstate.getViewportZCenter();
-		float viewZInvScale;
 
 		// We had to scale and translate Z to account for our clamped Z range.
 		// Therefore, we also need to reverse this to round properly.
@@ -164,6 +165,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		viewZScale *= (1.0f / gstate_c.vpDepthScale) * 2.0f;
 		viewZCenter -= 65535.0f * gstate_c.vpZOffset + 32768.5f;
 
+		float viewZInvScale;
 		if (viewZScale != 0.0) {
 			viewZInvScale = 1.0f / viewZScale;
 		} else {
@@ -185,11 +187,11 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_MATDIFFUSE) {
 		Uint8x3ToFloat4(ub->materialDiffuse, gstate.materialdiffuse);
 	}
+	if (dirtyUniforms & DIRTY_MATSPECULAR) {
+		Uint8x3ToFloat4_Alpha(ub->materialSpecular, gstate.materialspecular, std::max(0.0f, getFloat24(gstate.materialspecularcoef)));
+	}
 	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
 		Uint8x3ToFloat4(ub->materialEmissive, gstate.materialemissive);
-	}
-	if (dirtyUniforms & DIRTY_MATSPECULAR) {
-		Uint8x3ToFloat4_Alpha(ub->materialSpecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 
 	for (int i = 0; i < 4; i++) {

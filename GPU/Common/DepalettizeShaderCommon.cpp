@@ -56,8 +56,8 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	}
 
 	if (language == HLSL_D3D11) {
-		WRITE(p, "float4 main(in v_texcoord0 : TEXCOORD0) : SV_Target {\n");
-		WRITE(p, "  float4 color = texSamp.Sample(tex, v_texcoord0);\n");
+		WRITE(p, "float4 main(in float2 v_texcoord0 : TEXCOORD0) : SV_Target {\n");
+		WRITE(p, "  float4 color = tex.Sample(texSamp, v_texcoord0);\n");
 	} else {
 		// TODO: Add support for integer textures. Though it hardly matters.
 		WRITE(p, "void main() {\n");
@@ -121,7 +121,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	}
 
 	if (language == HLSL_D3D11) {
-		WRITE(p, "  fragColor0 = texSamp.Sample(pal, float2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+		WRITE(p, "  return pal.Sample(palSamp, float2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	} else {
 		WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	}
