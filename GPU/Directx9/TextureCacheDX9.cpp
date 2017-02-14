@@ -605,7 +605,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	}
 
 	u8 level = 0;
-	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST)
+	if (IsFakeMipmapChange())
 		level = (gstate.texlevel >> 20) & 0xF;
 	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
@@ -1014,7 +1014,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 		maxLevel = 0;
 	}
 
-	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST) {
+	if (IsFakeMipmapChange()) {
 		u8 level = (gstate.texlevel >> 20) & 0xF;
 		LoadTextureLevel(*entry, replaced, level, maxLevel, replaceImages, scaleFactor, dstFmt);
 	} else
@@ -1102,7 +1102,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 	int h = gstate.getTextureHeight(level);
 
 	LPDIRECT3DTEXTURE9 &texture = DxTex(&entry);
-	if ((level == 0 || gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST) && (!replaceImages || texture == nullptr)) {
+	if ((level == 0 || IsFakeMipmapChange()) && (!replaceImages || texture == nullptr)) {
 		// Create texture
 		D3DPOOL pool = D3DPOOL_MANAGED;
 		int usage = 0;
@@ -1123,7 +1123,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			}
 		}
 		HRESULT hr;
-		if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST)
+		if (IsFakeMipmapChange())
 			hr = pD3Ddevice->CreateTexture(tw, th, 1, usage, tfmt, pool, &texture, NULL);
 		else
 			hr = pD3Ddevice->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
@@ -1135,7 +1135,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 	}
 
 	D3DLOCKED_RECT rect;
-	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST)
+	if (IsFakeMipmapChange())
 		texture->LockRect(0, &rect, NULL, 0);
 	else
 		texture->LockRect(level, &rect, NULL, 0);
@@ -1205,7 +1205,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		}
 	}
 
-	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST)
+	if (IsFakeMipmapChange())
 		texture->UnlockRect(0);
 	else
 		texture->UnlockRect(level);

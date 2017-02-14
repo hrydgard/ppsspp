@@ -687,7 +687,7 @@ void TextureCacheGLES::SetTexture(bool force) {
 	}
 
 	u8 level = 0;
-	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST)
+	if (IsFakeMipmapChange())
 		level = (gstate.texlevel >> 20) & 0xF;
 	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
@@ -1058,7 +1058,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
-	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST) {
+	if (IsFakeMipmapChange()) {
 		u8 level = (gstate.texlevel >> 20) & 0xF;
 		LoadTextureLevel(*entry, replaced, level, replaceImages, scaleFactor, dstFmt);
 	} else
@@ -1278,7 +1278,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
 	} else {
 		PROFILE_THIS_SCOPE("loadtex");
-		if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST)
+		if (IsFakeMipmapChange())
 			glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components2, dstFmt, pixelData);
 		else
 			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);

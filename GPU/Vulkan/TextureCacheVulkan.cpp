@@ -624,7 +624,7 @@ void TextureCacheVulkan::SetTexture() {
 #endif
 
 	u8 level = 0;
-	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST)
+	if (IsFakeMipmapChange())
 		level = (gstate.texlevel >> 20) & 0xF;
 	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
@@ -1086,7 +1086,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, VulkanPushBuff
 
 	if (entry->vkTex) {
 		u8 level = (gstate.texlevel >> 20) & 0xF;
-		bool fakeMipmap = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST && level > 0;
+		bool fakeMipmap = IsFakeMipmapChange() && level > 0;
 		// Upload the texture data.
 		for (int i = 0; i <= maxLevel; i++) {
 			int mipWidth = gstate.getTextureWidth(i) * scaleFactor;

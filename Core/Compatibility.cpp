@@ -51,6 +51,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ClearToRAM", &flags_.ClearToRAM);
 	CheckSetting(iniFile, gameID, "Force04154000Download", &flags_.Force04154000Download);
 	CheckSetting(iniFile, gameID, "DrawSyncEatCycles", &flags_.DrawSyncEatCycles);
+	CheckSetting(iniFile, gameID, "FakeMipmapChange", &flags_.FakeMipmapChange);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {
