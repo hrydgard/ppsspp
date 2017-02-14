@@ -51,6 +51,7 @@ struct CompatFlags {
 	bool ClearToRAM;
 	bool Force04154000Download;
 	bool DrawSyncEatCycles;
+	bool FakeMipmapChange;
 };
 
 class IniFile;

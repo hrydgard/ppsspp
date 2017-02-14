@@ -604,7 +604,10 @@ void TextureCacheDX9::SetTexture(bool force) {
 		lastBoundTexture = INVALID_TEX;
 	}
 
-	u32 texaddr = gstate.getTextureAddress(0);
+	u8 level = 0;
+	if (IsFakeMipmapChange())
+		level = (gstate.texlevel >> 20) & 0xF;
+	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		pD3Ddevice->SetTexture(0, NULL);
@@ -612,9 +615,9 @@ void TextureCacheDX9::SetTexture(bool force) {
 		return;
 	}
 
-	const u16 dim = gstate.getTextureDimension(0);
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
+	const u16 dim = gstate.getTextureDimension(level);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 
 	GETextureFormat format = gstate.getTextureFormat();
 	if (format >= 11) {
@@ -1011,7 +1014,11 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 		maxLevel = 0;
 	}
 
-	LoadTextureLevel(*entry, replaced, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
+	if (IsFakeMipmapChange()) {
+		u8 level = (gstate.texlevel >> 20) & 0xF;
+		LoadTextureLevel(*entry, replaced, level, maxLevel, replaceImages, scaleFactor, dstFmt);
+	} else
+		LoadTextureLevel(*entry, replaced, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
 	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
 	if (!texture) {
 		return;
@@ -1095,7 +1102,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 	int h = gstate.getTextureHeight(level);
 
 	LPDIRECT3DTEXTURE9 &texture = DxTex(&entry);
-	if (level == 0 && (!replaceImages || texture == nullptr)) {
+	if ((level == 0 || IsFakeMipmapChange()) && (!replaceImages || texture == nullptr)) {
 		// Create texture
 		D3DPOOL pool = D3DPOOL_MANAGED;
 		int usage = 0;
@@ -1115,7 +1122,11 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 				tfmt = D3DFMT_A8R8G8B8;
 			}
 		}
-		HRESULT hr = pD3Ddevice->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
+		HRESULT hr;
+		if (IsFakeMipmapChange())
+			hr = pD3Ddevice->CreateTexture(tw, th, 1, usage, tfmt, pool, &texture, NULL);
+		else
+			hr = pD3Ddevice->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
 		if (FAILED(hr)) {
 			INFO_LOG(G3D, "Failed to create D3D texture");
 			ReleaseTexture(&entry);
@@ -1124,7 +1135,10 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 	}
 
 	D3DLOCKED_RECT rect;
-	texture->LockRect(level, &rect, NULL, 0);
+	if (IsFakeMipmapChange())
+		texture->LockRect(0, &rect, NULL, 0);
+	else
+		texture->LockRect(level, &rect, NULL, 0);
 
 	gpuStats.numTexturesDecoded++;
 	if (replaced.GetSize(level, w, h)) {
@@ -1191,7 +1205,10 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		}
 	}
 
-	texture->UnlockRect(level);
+	if (IsFakeMipmapChange())
+		texture->UnlockRect(0);
+	else
+		texture->UnlockRect(level);
 }
 
 bool TextureCacheDX9::DecodeTexture(u8 *output, const GPUgstate &state)

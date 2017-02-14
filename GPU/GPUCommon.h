@@ -107,6 +107,7 @@ public:
 	void Execute_TexScaleV(u32 op, u32 diff);
 	void Execute_TexOffsetU(u32 op, u32 diff);
 	void Execute_TexOffsetV(u32 op, u32 diff);
+	void Execute_TexLevel(u32 op, u32 diff);
 
 	void Execute_WorldMtxNum(u32 op, u32 diff);
 	void Execute_WorldMtxData(u32 op, u32 diff);

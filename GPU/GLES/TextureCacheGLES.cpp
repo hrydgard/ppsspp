@@ -686,7 +686,10 @@ void TextureCacheGLES::SetTexture(bool force) {
 		lastBoundTexture = INVALID_TEX;
 	}
 
-	u32 texaddr = gstate.getTextureAddress(0);
+	u8 level = 0;
+	if (IsFakeMipmapChange())
+		level = (gstate.texlevel >> 20) & 0xF;
+	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -694,9 +697,9 @@ void TextureCacheGLES::SetTexture(bool force) {
 		return;
 	}
 
-	const u16 dim = gstate.getTextureDimension(0);
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
+	const u16 dim = gstate.getTextureDimension(level);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 
 	GETextureFormat format = gstate.getTextureFormat();
 	if (format >= 11) {
@@ -1055,7 +1058,11 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
-	LoadTextureLevel(*entry, replaced, 0, replaceImages, scaleFactor, dstFmt);
+	if (IsFakeMipmapChange()) {
+		u8 level = (gstate.texlevel >> 20) & 0xF;
+		LoadTextureLevel(*entry, replaced, level, replaceImages, scaleFactor, dstFmt);
+	} else
+		LoadTextureLevel(*entry, replaced, 0, replaceImages, scaleFactor, dstFmt);
 	
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && scaleFactor == 1) {
@@ -1271,7 +1278,10 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
 	} else {
 		PROFILE_THIS_SCOPE("loadtex");
-		glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
+		if (IsFakeMipmapChange())
+			glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components2, dstFmt, pixelData);
+		else
+			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
 		if (!lowMemoryMode_) {
 			GLenum err = glGetError();
 			if (err == GL_OUT_OF_MEMORY) {

@@ -23,6 +23,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
 #include "Core/TextureReplacer.h"
+#include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 
@@ -100,6 +101,10 @@ public:
 
 	size_t NumLoadedTextures() const {
 		return cache.size();
+	}
+
+	bool IsFakeMipmapChange() {
+		return PSP_CoreParameter().compat.flags().FakeMipmapChange && gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST;
 	}
 
 	// Wow this is starting to grow big. Soon need to start looking at resizing it.
