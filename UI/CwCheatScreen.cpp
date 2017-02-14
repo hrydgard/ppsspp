@@ -206,7 +206,6 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 			title.push_back(line);
 			getline(fs, line);
 			title.push_back(line);
-			getline(fs, line);
 			do {
 				if (finished == false){
 					getline(fs, line);
