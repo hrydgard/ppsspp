@@ -43,10 +43,10 @@ static const char * const boneWeightAttrDecl[9] = {
 	"float2 a_w1:TEXCOORD1;\n",
 	"float3 a_w1:TEXCOORD1;\n",
 	"float4 a_w1:TEXCOORD1;\n",
-	"float4 a_w1:TEXCOORD1;\n float  a_w2:TEXCOORD2;\n",
-	"float4 a_w1:TEXCOORD1;\n float2 a_w2:TEXCOORD2;\n",
-	"float4 a_w1:TEXCOORD1;\n float3 a_w2:TEXCOORD2;\n",
-	"float4 a_w1:TEXCOORD1;\n float4 a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n  float  a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n  float2 a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n  float3 a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n  float4 a_w2:TEXCOORD2;\n",
 };
 
 enum DoLightComputation {
@@ -186,7 +186,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 	if (useHWTransform) {
 		WRITE(p, "struct VS_IN {                              \n");
 		if (enableBones) {
-			WRITE(p, "%s", boneWeightAttrDecl[numBoneWeights]);
+			WRITE(p, "  %s", boneWeightAttrDecl[numBoneWeights]);
 		}
 		if (doTexture && hasTexcoord) {
 			WRITE(p, "  float2 texcoord : TEXCOORD0;\n");
@@ -301,19 +301,11 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
 			// No skinning, just standard T&L.
-			if (lang == HLSL_D3D11) {
-				WRITE(p, "  float3 worldpos = mul(u_world, float4(In.position.xyz, 1.0)).xyz;\n");
-				if (hasNormal)
-					WRITE(p, "  float3 worldnormal = normalize(mul(u_world, float4(%sIn.normal, 0.0))).xyz;\n", flipNormal ? "-" : "");
-				else
-					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
-			} else {
-				WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
-				if (hasNormal)
-					WRITE(p, "  float3 worldnormal = normalize(mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
-				else
-					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
-			}
+			WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
+			if (hasNormal)
+				WRITE(p, "  float3 worldnormal = normalize(mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
+			else
+				WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 		} else {
 			static const char * const boneWeightAttr[8] = {
 				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
@@ -343,36 +335,33 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 			}
 
 #else
-
-#ifdef USE_BONE_ARRAY
-			if (numBoneWeights == 1)
-				WRITE(p, "  float4x3 skinMatrix = a_w1 * u_bone[0]");
-			else
-				WRITE(p, "  float4x3 skinMatrix = a_w1.x * u_bone[0]");
-			for (int i = 1; i < numBoneWeights; i++) {
-				const char *weightAttr = boneWeightAttr[i];
-				// workaround for "cant do .x of scalar" issue
-				if (numBoneWeights == 1 && i == 0) weightAttr = "a_w1";
-				if (numBoneWeights == 5 && i == 4) weightAttr = "a_w2";
-				WRITE(p, " + %s * u_bone[%i]", weightAttr, i);
-			}
-#else
-			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
-			// WRITE(p, "THIS SHOULD ERROR! #error");
-			if (numBoneWeights == 1)
-				WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1, u_bone0)");
-			else
-				WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1.x, u_bone0)");
-			for (int i = 1; i < numBoneWeights; i++) {
-				const char *weightAttr = boneWeightAttr[i];
-				// workaround for "cant do .x of scalar" issue
-				if (numBoneWeights == 1 && i == 0) weightAttr = "a_w1";
-				if (numBoneWeights == 5 && i == 4) weightAttr = "a_w2";
-				WRITE(p, " + mul(In.%s, u_bone%i)", weightAttr, i);
+			if (lang == HLSL_D3D11) {
+				if (numBoneWeights == 1)
+					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1, u_bone[0])");
+				else
+					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1.x, u_bone[0])");
+				for (int i = 1; i < numBoneWeights; i++) {
+					const char *weightAttr = boneWeightAttr[i];
+					// workaround for "cant do .x of scalar" issue
+					if (numBoneWeights == 1 && i == 0) weightAttr = "a_w1";
+					if (numBoneWeights == 5 && i == 4) weightAttr = "a_w2";
+					WRITE(p, " + mul(In.%s, u_bone[%i])", weightAttr, i);
+				}
+			} else {
+				if (numBoneWeights == 1)
+					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1, u_bone0)");
+				else
+					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1.x, u_bone0)");
+				for (int i = 1; i < numBoneWeights; i++) {
+					const char *weightAttr = boneWeightAttr[i];
+					// workaround for "cant do .x of scalar" issue
+					if (numBoneWeights == 1 && i == 0) weightAttr = "a_w1";
+					if (numBoneWeights == 5 && i == 4) weightAttr = "a_w2";
+					WRITE(p, " + mul(In.%s, u_bone%i)", weightAttr, i);
+				}
 			}
 #endif
 
-#endif
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
@@ -387,9 +376,9 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 			WRITE(p, "  float3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world));\n");
 		}
 
-		if (lang == HLSL_D3D11) {
-			WRITE(p, "  float4 viewPos = mul(u_view, float4(worldpos, 1.0));\n");
+		WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
 
+		if (lang == HLSL_D3D11) {
 			// Final view and projection transforms.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(u_proj, viewPos));\n");
@@ -397,8 +386,6 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 				WRITE(p, "  Out.gl_Position = mul(u_proj, viewPos);\n");
 			}
 		} else {
-			WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
-
 			// Final view and projection transforms.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(viewPos, u_proj));\n");
@@ -585,11 +572,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 						break;
 					}
 					// Transform by texture matrix. XYZ as we are doing projection mapping.
-					if (lang == HLSL_D3D11) {
-						WRITE(p, "  Out.v_texcoord.xyz = (mul(u_tex, %s) * float4(u_uvscaleoffset.xy, 1.0, 0.0)).xyz;\n", temp_tc.c_str());
-					} else {
-						WRITE(p, "  Out.v_texcoord.xyz = mul(%s, u_tex) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
-					}
+					WRITE(p, "  Out.v_texcoord.xyz = mul(%s, u_tex) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 				}
 				break;
 

@@ -22,9 +22,9 @@ enum : uint64_t {
 struct UB_VS_FS_Base {
 	float proj[16];
 	float proj_through[16];
-	float view[16];
-	float world[16];
-	float tex[16];  // not that common, may want to break out
+	float view[12];
+	float world[12];
+	float tex[12];
 	float uvScaleOffset[4];
 	float depthRange[4];
 	float fogCoef_stencil[4];
@@ -43,9 +43,9 @@ struct UB_VS_FS_Base {
 static const char *ub_baseStr =
 R"(  mat4 proj_mtx;
 	mat4 proj_through_mtx;
-  mat4 view_mtx;
-  mat4 world_mtx;
-  mat4 tex_mtx;
+  mat3x4 view_mtx;
+  mat3x4 world_mtx;
+  mat3x4 tex_mtx;
   vec4 uvscaleoffset;
   vec4 depthRange;
   vec3 fogcoef_stencilreplace;
@@ -63,10 +63,10 @@ R"(  mat4 proj_mtx;
 // HLSL code is shared so these names are changed to match those in DX9.
 static const char *cb_baseStr =
 R"(  float4x4 u_proj;
-	float4x4 u_proj_through;
-  float4x4 u_view;
-  float4x4 u_world;
-  float4x4 u_tex;
+  float4x4 u_proj_through;
+  float4x3 u_view;
+  float4x3 u_world;
+  float4x3 u_tex;
   float4 u_uvscaleoffset;
   float4 u_depthRange;
   float3 u_fogcoef_stencilreplace;
@@ -152,20 +152,19 @@ R"(	float4 u_ambient;
 	float3 u_lightspecular3;
 )";
 
-// With some cleverness, we could get away with uploading just half this when only the four first
+// With some cleverness, we could get away with uploading just half this when only the four or five first
 // bones are being used. This is 512b, 256b would be great.
-// Could also move to 4x3 matrices - would let us fit 5 bones into 256b.
 struct UB_VS_Bones {
-	float bones[8][16];
+	float bones[8][12];
 };
 
 static const char *ub_vs_bonesStr =
-R"(	mat4 m[8];
+R"(	mat3x4 m[8];
 )";
 
 // HLSL code is shared so these names are changed to match those in DX9.
 static const char *cb_vs_bonesStr =
-R"(	float4x4 m[8];
+R"(	float4x3 u_bone[8];
 )";
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport);

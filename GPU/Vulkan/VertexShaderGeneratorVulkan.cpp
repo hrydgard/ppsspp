@@ -249,9 +249,9 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
 			// No skinning, just standard T&L.
-			WRITE(p, "  vec3 worldpos = (base.world_mtx * vec4(position.xyz, 1.0)).xyz;\n");
+			WRITE(p, "  vec3 worldpos = vec4(position.xyz, 1.0) * base.world_mtx;\n");
 			if (hasNormal)
-				WRITE(p, "  mediump vec3 worldnormal = normalize((base.world_mtx * vec4(%snormal, 0.0)).xyz);\n", flipNormal ? "-" : "");
+				WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(%snormal, 0.0) * base.world_mtx);\n", flipNormal ? "-" : "");
 			else
 				WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
@@ -263,7 +263,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 				"w2.x", "w2.y", "w2.z", "w2.w",
 			};
 
-			WRITE(p, "  mat4 skinMatrix = w1.x * bone.m[0];\n");
+			WRITE(p, "  mat3x4 skinMatrix = w1.x * bone.m[0];\n");
 			if (numBoneWeights > 1) {
 				for (int i = 1; i < numBoneWeights; i++) {
 					WRITE(p, "    skinMatrix += %s * bone.m[%i];\n", boneWeightAttr[i], i);
@@ -273,18 +273,18 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(position, 1.0)).xyz %s;\n", factor);
-			WRITE(p, "  vec3 worldpos = (base.world_mtx * vec4(skinnedpos, 1.0)).xyz;\n");
+			WRITE(p, "  vec3 skinnedpos = (vec4(position, 1.0) * skinMatrix) %s;\n", factor);
+			WRITE(p, "  vec3 worldpos = vec4(skinnedpos, 1.0) * base.world_mtx;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(%snormal, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = vec4(%snormal, 0.0) * skinMatrix %s;\n", flipNormal ? "-" : "", factor);
 			} else {
-				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(0.0, 0.0, %s1.0, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = vec4(0.0, 0.0, %s1.0, 0.0) * skinMatrix %s;\n", flipNormal ? "-" : "", factor);
 			}
-			WRITE(p, "  mediump vec3 worldnormal = normalize((base.world_mtx * vec4(skinnednormal, 0.0)).xyz);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(skinnednormal, 0.0) * base.world_mtx);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = base.view_mtx * vec4(worldpos, 1.0);\n");
+		WRITE(p, "  vec4 viewPos = vec4(vec4(worldpos, 1.0) * base.view_mtx, 1.0);\n");
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -478,7 +478,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 					break;
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
-				WRITE(p, "  v_texcoord = (base.tex_mtx * %s).xyz * vec3(base.uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+				WRITE(p, "  v_texcoord = (%s * base.tex_mtx).xyz * vec3(base.uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 			}
 			break;
 

@@ -93,13 +93,13 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 
 	// Transform
 	if (dirtyUniforms & DIRTY_WORLDMATRIX) {
-		ConvertMatrix4x3To4x4(ub->world, gstate.worldMatrix);
+		ConvertMatrix4x3To3x4Transposed(ub->world, gstate.worldMatrix);
 	}
 	if (dirtyUniforms & DIRTY_VIEWMATRIX) {
-		ConvertMatrix4x3To4x4(ub->view, gstate.viewMatrix);
+		ConvertMatrix4x3To3x4Transposed(ub->view, gstate.viewMatrix);
 	}
 	if (dirtyUniforms & DIRTY_TEXMATRIX) {
-		ConvertMatrix4x3To4x4(ub->tex, gstate.tgenMatrix);
+		ConvertMatrix4x3To3x4Transposed(ub->tex, gstate.tgenMatrix);
 	}
 
 	// Combined two small uniforms
@@ -225,7 +225,7 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms) {
 	for (int i = 0; i < 8; i++) {
 		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To4x4(ub->bones[i], gstate.boneMatrix + 12 * i);
+			ConvertMatrix4x3To3x4Transposed(ub->bones[i], gstate.boneMatrix + 12 * i);
 		}
 	}
 }

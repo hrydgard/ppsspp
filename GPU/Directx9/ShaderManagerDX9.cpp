@@ -235,7 +235,7 @@ void ShaderManagerDX9::VSSetMatrix4x3(int creg, const float *m4x3) {
 }
 
 void ShaderManagerDX9::VSSetMatrix4x3_3(int creg, const float *m4x3) {
-	float m3x4[16];
+	float m3x4[12];
 	ConvertMatrix4x3To3x4Transposed(m3x4, m4x3);
 	device_->SetVertexShaderConstantF(creg, m3x4, 3);
 }
