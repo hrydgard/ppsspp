@@ -188,9 +188,6 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	Buffer result;
 	int code = 500;
 
-	// Not sure why this is needed here, but windows fails without it.
-	net::Init();
-
 	// Try last server first, if it is set
 	if (g_Config.iLastRemoteISOPort && g_Config.sLastRemoteISOServer != "" && http.Resolve(g_Config.sLastRemoteISOServer.c_str(), g_Config.iLastRemoteISOPort) && http.Connect()) {
 		http.Disconnect();
