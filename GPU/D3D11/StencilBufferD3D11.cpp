@@ -228,17 +228,15 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	shaderManager_->DirtyLastShader();
 	textureCacheD3D11_->ForgetLastTexture();
 
-	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0x8], nullptr, 0xFFFFFFFF);
+	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0], nullptr, 0xFFFFFFFF);
 	context_->IASetInputLayout(stencilUploadInputLayout_);
 	context_->PSSetShader(stencilUploadPS_, nullptr, 0);
 	context_->VSSetShader(stencilUploadVS_, nullptr, 0);
 	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
+	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &quadStride_, &quadOffset_);
-	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0x8], nullptr, 0xFFFFFFFF);
 	context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
-	context_->RSSetState(stockD3D11.rasterStateNoCull);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {

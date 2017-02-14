@@ -422,5 +422,5 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {
 	textureCache_->ApplyTexture();
-	context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : 0xFF);
+	context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : dynState_.stencilRef);
 }
