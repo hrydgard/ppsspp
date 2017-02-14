@@ -347,6 +347,8 @@ add_library(Common STATIC
 	Common/Misc.cpp
 	Common/MsgHandler.cpp
 	Common/MsgHandler.h
+	Common/OSVersion.cpp
+	Common/OSVersion.h
 	Common/StringUtils.cpp
 	Common/StringUtils.h
 	Common/ThreadPools.cpp
