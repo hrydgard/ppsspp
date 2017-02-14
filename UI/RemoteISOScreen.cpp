@@ -188,6 +188,17 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	Buffer result;
 	int code = 500;
 
+	// Not sure why this is needed here, but windows fails without it.
+	net::Init();
+
+	// Try last server first, if it is set
+	if (g_Config.iLastRemoteISOPort && g_Config.sLastRemoteISOServer != "" && http.Resolve(g_Config.sLastRemoteISOServer.c_str(), g_Config.iLastRemoteISOPort) && http.Connect()) {
+		http.Disconnect();
+		resultHost = g_Config.sLastRemoteISOServer;
+		resultPort = g_Config.iLastRemoteISOPort;
+		return true;
+	}
+
 	// Start by requesting a list of recent local ips for this network.
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
 		if (http.Connect()) {
@@ -267,6 +278,12 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 		char temp[1024] = {};
 		snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
 		games.push_back(temp);
+	}
+
+	//save for next time
+	if (!games.empty()){
+		g_Config.sLastRemoteISOServer = host;
+		g_Config.iLastRemoteISOPort = port;
 	}
 
 	return !games.empty();

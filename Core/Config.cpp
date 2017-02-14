@@ -339,6 +339,8 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("AutoSaveSymbolMap", &g_Config.bAutoSaveSymbolMap, false, true, true),
 	ConfigSetting("CacheFullIsoInRam", &g_Config.bCacheFullIsoInRam, false, true, true),
 	ConfigSetting("RemoteISOPort", &g_Config.iRemoteISOPort, 0, true, false),
+	ConfigSetting("LastRemoteISOServer", &g_Config.sLastRemoteISOServer, ""),
+	ConfigSetting("LastRemoteISOPort", &g_Config.iLastRemoteISOPort, 0),
 
 #ifdef __ANDROID__
 	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, 1),
