@@ -34,6 +34,7 @@ ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *co
 	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "vs_5_0");
 	if (byteCode.empty())
 		return nullptr;
+
 	ID3D11VertexShader *vs;
 	device->CreateVertexShader(byteCode.data(), byteCode.size(), nullptr, &vs);
 	if (byteCodeOut)
@@ -49,6 +50,16 @@ ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code
 	ID3D11PixelShader *ps;
 	device->CreatePixelShader(byteCode.data(), byteCode.size(), nullptr, &ps);
 	return ps;
+}
+
+ID3D11ComputeShader *CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize) {
+	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "cs_5_0");
+	if (byteCode.empty())
+		return nullptr;
+
+	ID3D11ComputeShader *cs;
+	device->CreateComputeShader(byteCode.data(), byteCode.size(), nullptr, &cs);
+	return cs;
 }
 
 void StockObjectsD3D11::Create(ID3D11Device *device) {
