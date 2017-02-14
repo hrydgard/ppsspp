@@ -64,9 +64,6 @@ public:
 	}
 	std::vector<FramebufferInfo> GetFramebufferList() override;
 
-	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes = -1) override;
-	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
-	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;

@@ -1166,7 +1166,7 @@ void FramebufferManagerVulkan::Resized() {
 	resized_ = true;
 }
 
-bool FramebufferManagerVulkan::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer) {
+bool FramebufferManagerVulkan::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxStride) {
 	// TODO: Doing this synchronously will require stalling the pipeline. Maybe better
 	// to do it callback-style?
 /*

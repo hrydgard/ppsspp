@@ -1230,30 +1230,6 @@ void GPU_GLES::DoState(PointerWrap &p) {
 	}
 }
 
-bool GPU_GLES::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
-	u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.getFrameBufRawAddress() : framebufferManagerGL_->DisplayFramebufAddr();
-	int fb_stride = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufStride() : framebufferManagerGL_->DisplayFramebufStride();
-	GEBufferFormat format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufFormat() : framebufferManagerGL_->DisplayFramebufFormat();
-	return framebufferManagerGL_->GetFramebuffer(fb_address, fb_stride, format, buffer, maxRes);
-}
-
-bool GPU_GLES::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.FrameBufStride();
-
-	u32 z_address = gstate.getDepthBufRawAddress();
-	int z_stride = gstate.DepthBufStride();
-
-	return framebufferManagerGL_->GetDepthbuffer(fb_address, fb_stride, z_address, z_stride, buffer);
-}
-
-bool GPU_GLES::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.FrameBufStride();
-
-	return framebufferManagerGL_->GetStencilbuffer(fb_address, fb_stride, buffer);
-}
-
 bool GPU_GLES::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	if (!gstate.isTextureMapEnabled()) {
 		return false;

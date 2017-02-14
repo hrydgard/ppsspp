@@ -976,18 +976,6 @@ void GPU_DX9::DoState(PointerWrap &p) {
 	}
 }
 
-bool GPU_DX9::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
-	return framebufferManagerDX9_->GetCurrentFramebuffer(buffer, type, maxRes);
-}
-
-bool GPU_DX9::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-	return framebufferManagerDX9_->GetCurrentDepthbuffer(buffer);
-}
-
-bool GPU_DX9::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-	return framebufferManagerDX9_->GetCurrentStencilbuffer(buffer);
-}
-
 bool GPU_DX9::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	if (!gstate.isTextureMapEnabled()) {
 		return false;

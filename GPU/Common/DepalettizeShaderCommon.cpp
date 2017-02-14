@@ -26,6 +26,8 @@
 
 #define WRITE p+=sprintf
 
+// TODO: Add a compute shader path. Complete waste of time to set up a graphics state.
+
 // Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
 void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language) {
 	char *p = buffer;

@@ -1060,7 +1060,7 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		descColor.Height = desc.height;
 		descColor.MipLevels = 1;
 		descColor.ArraySize = 1;
-		descColor.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		descColor.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		descColor.SampleDesc.Count = 1;
 		descColor.SampleDesc.Quality = 0;
 		descColor.Usage = D3D11_USAGE_DEFAULT;
@@ -1213,8 +1213,15 @@ void D3D11DrawContext::BindBackbufferAsRenderTarget() {
 }
 
 uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
-	// D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
-	return 0;
+	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
+	switch (channelBit) {
+	case FB_COLOR_BIT: return (uintptr_t)fb->colorTex;
+	case FB_DEPTH_BIT: return (uintptr_t)fb->depthStencilTex;
+	case FB_COLOR_BIT | FB_VIEW_BIT: return (uintptr_t)fb->colorRTView;
+	case FB_DEPTH_BIT | FB_VIEW_BIT: return (uintptr_t)fb->depthStencilRTView;
+	default:
+		return 0;
+	}
 }
 
 void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {

@@ -632,7 +632,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 		if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
-			// This can happen if they recently switched from non-buffered.
+			// This can happen if we recently switched from non-buffered.
 			draw_->BindBackbufferAsRenderTarget();
 			return;
 		}
@@ -939,11 +939,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		resized_ = true;
 	}
 
-	bool FramebufferManagerDX9::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
-		u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.getFrameBufRawAddress() : displayFramebufPtr_;
-		int fb_stride = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufStride() : displayStride_;
-		GEBufferFormat fb_format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufFormat() : displayFormat_;
-
+	bool FramebufferManagerDX9::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat fb_format, GPUDebugBuffer &buffer, int maxRes) {
 		VirtualFramebuffer *vfb = currentRenderVfb_;
 		if (!vfb) {
 			vfb = GetVFBAt(fb_address);
@@ -1026,13 +1022,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		return success;
 	}
 
-	bool FramebufferManagerDX9::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-		u32 fb_address = gstate.getFrameBufRawAddress();
-		int fb_stride = gstate.FrameBufStride();
-
-		u32 z_address = gstate.getDepthBufRawAddress();
-		int z_stride = gstate.DepthBufStride();
-
+	bool FramebufferManagerDX9::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
 		VirtualFramebuffer *vfb = currentRenderVfb_;
 		if (!vfb) {
 			vfb = GetVFBAt(fb_address);
@@ -1070,13 +1060,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		return success;
 	}
 
-	bool FramebufferManagerDX9::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-		u32 fb_address = gstate.getFrameBufRawAddress();
-		int fb_stride = gstate.FrameBufStride();
-
-		u32 z_address = gstate.getDepthBufRawAddress();
-		int z_stride = gstate.DepthBufStride();
-
+	bool FramebufferManagerDX9::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {
 		VirtualFramebuffer *vfb = currentRenderVfb_;
 		if (!vfb) {
 			vfb = GetVFBAt(fb_address);
@@ -1084,7 +1068,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 		if (!vfb) {
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			buffer = GPUDebugBuffer(Memory::GetPointer(vfb->z_address | 0x04000000), vfb->z_stride, 512, GPU_DBG_FORMAT_16BIT);
 			return true;
 		}
 
