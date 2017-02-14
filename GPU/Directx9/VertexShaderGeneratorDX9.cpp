@@ -29,6 +29,7 @@
 
 #include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/ShaderUniforms.h"
 
 #undef WRITE
 
@@ -54,7 +55,7 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
+void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 	const u32 vertType = gstate.vertType;
 
@@ -103,76 +104,81 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 	}
 
-	WRITE(p, "#pragma warning( disable : 3571 )\n");
+	if (lang == HLSL_DX9) {
+		WRITE(p, "#pragma warning( disable : 3571 )\n");
+		if (isModeThrough) {
+			WRITE(p, "float4x4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
+		} else {
+			WRITE(p, "float4x4 u_proj : register(c%i);\n", CONST_VS_PROJ);
+			// Add all the uniforms we'll need to transform properly.
+		}
 
-	if (isModeThrough)	{
-		WRITE(p, "float4x4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
-	} else {
-		WRITE(p, "float4x4 u_proj : register(c%i);\n", CONST_VS_PROJ);
-		// Add all the uniforms we'll need to transform properly.
-	}
+		if (enableFog) {
+			WRITE(p, "float2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
+		}
+		if (useHWTransform || !hasColor)
+			WRITE(p, "float4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
 
-	if (enableFog) {
-		WRITE(p, "float2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
-	}
-	if (useHWTransform || !hasColor)
-		WRITE(p, "float4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
-
-	if (useHWTransform) {
-		// When transforming by hardware, we need a great deal more uniforms...
-		WRITE(p, "float4x3 u_world : register(c%i);\n", CONST_VS_WORLD);
-		WRITE(p, "float4x3 u_view : register(c%i);\n", CONST_VS_VIEW);
-		if (doTextureTransform)
-			WRITE(p, "float4x3 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
-		if (enableBones) {
+		if (useHWTransform) {
+			// When transforming by hardware, we need a great deal more uniforms...
+			WRITE(p, "float4x3 u_world : register(c%i);\n", CONST_VS_WORLD);
+			WRITE(p, "float4x3 u_view : register(c%i);\n", CONST_VS_VIEW);
+			if (doTextureTransform)
+				WRITE(p, "float4x3 u_tex : register(c%i);\n", CONST_VS_TEXMTX);
+			if (enableBones) {
 #ifdef USE_BONE_ARRAY
-			WRITE(p, "float4x3 u_bone[%i] : register(c%i);\n", numBones, CONST_VS_BONE0);
+				WRITE(p, "float4x3 u_bone[%i] : register(c%i);\n", numBones, CONST_VS_BONE0);
 #else
-			for (int i = 0; i < numBoneWeights; i++) {
-				WRITE(p, "float4x3 u_bone%i : register(c%i);\n", i, CONST_VS_BONE0 + i * 3);
-			}
+				for (int i = 0; i < numBoneWeights; i++) {
+					WRITE(p, "float4x3 u_bone%i : register(c%i);\n", i, CONST_VS_BONE0 + i * 3);
+				}
 #endif
-		}
-		if (doTexture) {
-			WRITE(p, "float4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
-		}
-		for (int i = 0; i < 4; i++) {
-			if (doLight[i] != LIGHT_OFF) {
-				// This is needed for shade mapping
-				WRITE(p, "float3 u_lightpos%i : register(c%i);\n", i, CONST_VS_LIGHTPOS + i);
 			}
-			if (doLight[i] == LIGHT_FULL) {
-				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
-				GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
-
-				if (type != GE_LIGHTTYPE_DIRECTIONAL)
-					WRITE(p, "float3 u_lightatt%i : register(c%i);\n", i, CONST_VS_LIGHTATT + i);
-
-				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) { 
-					WRITE(p, "float3 u_lightdir%i : register(c%i);\n", i, CONST_VS_LIGHTDIR + i);
-					WRITE(p, "float u_lightangle%i : register(c%i);\n", i, CONST_VS_LIGHTANGLE + i);
-					WRITE(p, "float u_lightspotCoef%i : register(c%i);\n", i, CONST_VS_LIGHTSPOTCOEF + i);
+			if (doTexture) {
+				WRITE(p, "float4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
+			}
+			for (int i = 0; i < 4; i++) {
+				if (doLight[i] != LIGHT_OFF) {
+					// This is needed for shade mapping
+					WRITE(p, "float3 u_lightpos%i : register(c%i);\n", i, CONST_VS_LIGHTPOS + i);
 				}
-				WRITE(p, "float3 u_lightambient%i : register(c%i);\n", i, CONST_VS_LIGHTAMBIENT + i);
-				WRITE(p, "float3 u_lightdiffuse%i : register(c%i);\n", i, CONST_VS_LIGHTDIFFUSE + i);
+				if (doLight[i] == LIGHT_FULL) {
+					GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
+					GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
 
-				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE) {
-					WRITE(p, "float3 u_lightspecular%i : register(c%i);\n", i, CONST_VS_LIGHTSPECULAR + i);
+					if (type != GE_LIGHTTYPE_DIRECTIONAL)
+						WRITE(p, "float3 u_lightatt%i : register(c%i);\n", i, CONST_VS_LIGHTATT + i);
+
+					if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) {
+						WRITE(p, "float3 u_lightdir%i : register(c%i);\n", i, CONST_VS_LIGHTDIR + i);
+						WRITE(p, "float4 u_lightangle%i : register(c%i);\n", i, CONST_VS_LIGHTANGLE + i);
+						WRITE(p, "float4 u_lightspotCoef%i : register(c%i);\n", i, CONST_VS_LIGHTSPOTCOEF + i);
+					}
+					WRITE(p, "float3 u_lightambient%i : register(c%i);\n", i, CONST_VS_LIGHTAMBIENT + i);
+					WRITE(p, "float3 u_lightdiffuse%i : register(c%i);\n", i, CONST_VS_LIGHTDIFFUSE + i);
+
+					if (comp != GE_LIGHTCOMP_ONLYDIFFUSE) {
+						WRITE(p, "float3 u_lightspecular%i : register(c%i);\n", i, CONST_VS_LIGHTSPECULAR + i);
+					}
 				}
 			}
+			if (enableLighting) {
+				WRITE(p, "float4 u_ambient : register(c%i);\n", CONST_VS_AMBIENT);
+				if ((gstate.materialupdate & 2) == 0 || !hasColor)
+					WRITE(p, "float3 u_matdiffuse : register(c%i);\n", CONST_VS_MATDIFFUSE);
+				// if ((gstate.materialupdate & 4) == 0)
+				WRITE(p, "float4 u_matspecular : register(c%i);\n", CONST_VS_MATSPECULAR);  // Specular coef is contained in alpha
+				WRITE(p, "float3 u_matemissive : register(c%i);\n", CONST_VS_MATEMISSIVE);
+			}
 		}
-		if (enableLighting) {
-			WRITE(p, "float4 u_ambient : register(c%i);\n", CONST_VS_AMBIENT);
-			if ((gstate.materialupdate & 2) == 0 || !hasColor)
-				WRITE(p, "float3 u_matdiffuse : register(c%i);\n", CONST_VS_MATDIFFUSE);
-			// if ((gstate.materialupdate & 4) == 0)
-			WRITE(p, "float4 u_matspecular : register(c%i);\n", CONST_VS_MATSPECULAR);  // Specular coef is contained in alpha
-			WRITE(p, "float3 u_matemissive : register(c%i);\n", CONST_VS_MATEMISSIVE);
-		}
-	}
 
-	if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-		WRITE(p, "float4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
+		if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+			WRITE(p, "float4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
+		}
+	} else {
+		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
+		WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", cb_vs_lightsStr);
+		WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", cb_vs_bonesStr);
 	}
 
 	// And the "varyings".
@@ -216,7 +222,6 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 	}
 
 	WRITE(p, "struct VS_OUT {\n");
-	WRITE(p, "  float4 gl_Position   : POSITION;\n");
 	if (doTexture) {
 		WRITE(p, "  float3 v_texcoord : TEXCOORD0;\n");
 	}
@@ -225,7 +230,12 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 		WRITE(p, "  float3 v_color1    : COLOR1;\n");
 
 	if (enableFog) {
-		WRITE(p, "  float2 v_fogdepth: TEXCOORD1;\n");
+		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
+	}
+	if (lang == HLSL_DX9) {
+		WRITE(p, "  float4 gl_Position   : POSITION;\n");
+	} else {
+		WRITE(p, "  float4 gl_Position   : SV_Position;\n");
 	}
 	WRITE(p, "};\n");
 
@@ -244,7 +254,7 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 	}
 
 	WRITE(p, "VS_OUT main(VS_IN In) {\n");
-	WRITE(p, "  VS_OUT Out = (VS_OUT)0;							   \n");  
+	WRITE(p, "  VS_OUT Out;\n");  
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
@@ -264,26 +274,46 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 				WRITE(p, "  Out.v_color1 = float3(0.0);\n");
 		}
 		if (enableFog) {
-			WRITE(p, "  Out.v_fogdepth.x = In.position.w;\n");
+			WRITE(p, "  Out.v_fogdepth = In.position.w;\n");
 		}
-		if (gstate.isModeThrough())	{
-			WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
-		} else {
-			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
+		if (lang == HLSL_D3D11) {
+			if (gstate.isModeThrough()) {
+				WRITE(p, "  Out.gl_Position = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
 			} else {
-				WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj);\n");
+				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+					WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(u_proj, float4(In.position.xyz, 1.0)));\n");
+				} else {
+					WRITE(p, "  Out.gl_Position = mul(u_proj, float4(In.position.xyz, 1.0));\n");
+				}
+			}
+		} else {
+			if (gstate.isModeThrough()) {
+				WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
+			} else {
+				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+					WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
+				} else {
+					WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj);\n");
+				}
 			}
 		}
 	}  else {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
 			// No skinning, just standard T&L.
-			WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
-			if (hasNormal)
-				WRITE(p, "  float3 worldnormal = normalize(	mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
-			else
-				WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
+			if (lang == HLSL_D3D11) {
+				WRITE(p, "  float3 worldpos = mul(u_world, float4(In.position.xyz, 1.0)).xyz;\n");
+				if (hasNormal)
+					WRITE(p, "  float3 worldnormal = normalize(mul(u_world, float4(%sIn.normal, 0.0))).xyz;\n", flipNormal ? "-" : "");
+				else
+					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
+			} else {
+				WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
+				if (hasNormal)
+					WRITE(p, "  float3 worldnormal = normalize(mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
+				else
+					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
+			}
 		} else {
 			static const char * const boneWeightAttr[8] = {
 				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
@@ -357,13 +387,24 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 			WRITE(p, "  float3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world));\n");
 		}
 
-		WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
+		if (lang == HLSL_D3D11) {
+			WRITE(p, "  float4 viewPos = mul(u_view, float4(worldpos, 1.0));\n");
 
-		// Final view and projection transforms.
-		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(viewPos, u_proj));\n");
+			// Final view and projection transforms.
+			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(u_proj, viewPos));\n");
+			} else {
+				WRITE(p, "  Out.gl_Position = mul(u_proj, viewPos);\n");
+			}
 		} else {
-			WRITE(p, "  Out.gl_Position = mul(viewPos, u_proj);\n");
+			WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
+
+			// Final view and projection transforms.
+			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(viewPos, u_proj));\n");
+			} else {
+				WRITE(p, "  Out.gl_Position = mul(viewPos, u_proj);\n");
+			}
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -446,8 +487,8 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
 				WRITE(p, "  float angle%i = dot(normalize(u_lightdir%i), toLight);\n", i, i);
-				WRITE(p, "  if (angle%i >= u_lightangle%i) {\n", i, i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, float3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i);\n", i, i, i);
+				WRITE(p, "  if (angle%i >= u_lightangle%i.x) {\n", i, i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, float3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i.x);\n", i, i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");
@@ -544,7 +585,11 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 						break;
 					}
 					// Transform by texture matrix. XYZ as we are doing projection mapping.
-					WRITE(p, "  Out.v_texcoord.xyz = mul(%s,u_texmtx) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					if (lang == HLSL_D3D11) {
+						WRITE(p, "  Out.v_texcoord.xyz = (mul(u_tex, %s) * float4(u_uvscaleoffset.xy, 1.0, 0.0)).xyz;\n", temp_tc.c_str());
+					} else {
+						WRITE(p, "  Out.v_texcoord.xyz = mul(%s, u_tex) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					}
 				}
 				break;
 
@@ -559,8 +604,13 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 		}
 
 		// Compute fogdepth
-		if (enableFog)
-			WRITE(p, "  Out.v_fogdepth.x = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
+		if (enableFog) {
+			if (lang == HLSL_D3D11) {
+				WRITE(p, "  Out.v_fogdepth = (viewPos.z + u_fogcoef_stencilreplace.x) * u_fogcoef_stencilreplace.y;\n");
+			} else {
+				WRITE(p, "  Out.v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
+			}
+		}
 	}
 
 	WRITE(p, "  return Out;\n");

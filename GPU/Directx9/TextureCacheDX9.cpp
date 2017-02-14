@@ -1027,8 +1027,6 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 	if (replaced.Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 	}
-
-	UpdateSamplingParams(*entry, true);
 }
 
 D3DFORMAT TextureCacheDX9::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {

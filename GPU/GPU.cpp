@@ -29,6 +29,7 @@
 
 #if defined(_WIN32)
 #include "GPU/Directx9/GPU_DX9.h"
+#include "GPU/D3D11/GPU_D3D11.h"
 #endif
 
 GPUStatistics gpuStats;
@@ -59,10 +60,17 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 	case GPUCORE_DIRECTX9:
 #if defined(_WIN32)
 		SetGPU(new DIRECTX9_GPU(ctx, draw));
-#endif
 		break;
-	case GPUCORE_DIRECTX11:
+#else
 		return false;
+#endif
+	case GPUCORE_DIRECTX11:
+#if defined(_WIN32)
+		SetGPU(new GPU_D3D11(ctx, draw));
+		break;
+#else
+		return false;
+#endif
 	case GPUCORE_VULKAN:
 #ifndef NO_VULKAN
 		if (!ctx) {

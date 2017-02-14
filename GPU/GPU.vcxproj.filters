@@ -16,14 +16,14 @@
     <Filter Include="DirectX9">
       <UniqueIdentifier>{88629970-4774-4122-b031-2128244b795c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="DirectX9\helper">
-      <UniqueIdentifier>{ba434472-5d5e-4b08-ab16-bfb7ec8e7068}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Debugger">
       <UniqueIdentifier>{0cbddc00-4aa3-41d0-bed2-a454d37f838e}</UniqueIdentifier>
     </Filter>
     <Filter Include="Vulkan">
       <UniqueIdentifier>{3c621896-140c-4c8b-8e4d-a478bfdeca8a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="D3D11">
+      <UniqueIdentifier>{88eb5cea-ec25-4881-89da-02f9f2fa8f3f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -222,6 +222,40 @@
     <ClInclude Include="GLES\FragmentTestCacheGLES.h">
       <Filter>GLES</Filter>
     </ClInclude>
+    <ClInclude Include="Common\ShaderUniforms.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\ShaderManagerD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\VertexShaderGeneratorD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\FragmentShaderGeneratorD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\TextureCacheD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\FramebufferManagerD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\GPU_D3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\DrawEngineD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\DepalettizeShaderD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\TextureScalerD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\D3D11Util.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\StateMappingD3D11.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -427,6 +461,45 @@
     </ClCompile>
     <ClCompile Include="GLES\FragmentTestCacheGLES.cpp">
       <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\StateMappingD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ShaderUniforms.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\ShaderManagerD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\VertexShaderGeneratorD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\FragmentShaderGeneratorD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\TextureCacheD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\FramebufferManagerD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\GPU_D3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\DrawEngineD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\DepalettizeShaderD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\TextureScalerD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\D3D11Util.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D11\StencilBufferD3D11.cpp">
+      <Filter>D3D11</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -316,6 +316,8 @@ enum class NativeObject {
 	CONTEXT,
 	DEVICE,
 	DEVICE_EX,
+	BACKBUFFER_COLOR_VIEW,
+	BACKBUFFER_DEPTH_VIEW,
 };
 
 enum FBColorDepth {
@@ -345,6 +347,7 @@ enum class Event {
 	// These happen on D3D resize
 	LOST_BACKBUFFER,
 	GOT_BACKBUFFER,
+	RESIZED,
 	PRESENT_REQUESTED,
 };
 
@@ -456,6 +459,7 @@ public:
 
 class Pipeline : public RefCountedObject {
 public:
+	virtual ~Pipeline() {}
 	virtual bool RequiresBuffer() = 0;
 };
 
@@ -532,6 +536,8 @@ struct DeviceCaps {
 	bool tesselationShaderSupported;
 	bool multiViewport;
 	bool dualSourceBlend;
+	bool framebufferCopySupported;
+	bool framebufferBlitSupported;
 };
 
 struct TextureDesc {
@@ -578,7 +584,7 @@ public:
 	// Copies data from the CPU over into the buffer, at a specific offset. This does not change the size of the buffer and cannot write outside it.
 	virtual void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) = 0;
 
-	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) = 0;
+	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) = 0;
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
 
 	// These functions should be self explanatory.
@@ -610,6 +616,7 @@ public:
 		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
 
+	// Call this with 0 to signal that you have been drawing on your own, and need the state reset on the next pipeline bind.
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.

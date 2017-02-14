@@ -44,6 +44,7 @@
 
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
+#include "Common/OSVersion.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -153,14 +154,19 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
-	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan (experimental)" };
+	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11 (experimental)", "Vulkan (experimental)" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
 #if !defined(_WIN32)
 	renderingBackendChoice->HideChoice(1);  // D3D9
 	renderingBackendChoice->HideChoice(2);  // D3D11
 #else
-	renderingBackendChoice->HideChoice(2);  // D3D11
+	if (!DoesVersionMatchWindows(6, 2)) {
+		// Hide the D3D11 choice if Windows version is older than Windows 8.
+		// We will later be able to support Windows 7 and Vista (unofficially) as well,
+		// but we currently depend on a texture format that's only available in Win8+.
+		renderingBackendChoice->HideChoice(2);  // D3D11
+	}
 #endif
 #if !defined(_WIN32)
 	// TODO: Add dynamic runtime check for Vulkan support on Android

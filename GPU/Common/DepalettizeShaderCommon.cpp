@@ -29,7 +29,12 @@
 // Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
 void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language) {
 	char *p = buffer;
-	if (language == GLSL_VULKAN) {
+	if (language == HLSL_D3D11) {
+		WRITE(p, "SamplerState texSamp : register(s0);\n");
+		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
+		WRITE(p, "SamplerState palSamp : register(s1);\n");
+		WRITE(p, "Texture2D<float4> pal : register(t1);\n");
+	} else if (language == GLSL_VULKAN) {
 		WRITE(p, "#version 140\n");
 		WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
 		WRITE(p, "#extension GL_ARB_shading_language_420pack : enable\n");
@@ -50,9 +55,14 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "uniform sampler2D pal;\n");
 	}
 
-	// TODO: Add support for integer textures. Though it hardly matters.
-	WRITE(p, "void main() {\n");
-	WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
+	if (language == HLSL_D3D11) {
+		WRITE(p, "float4 main(in float2 v_texcoord0 : TEXCOORD0) : SV_Target {\n");
+		WRITE(p, "  float4 color = tex.Sample(texSamp, v_texcoord0);\n");
+	} else {
+		// TODO: Add support for integer textures. Though it hardly matters.
+		WRITE(p, "void main() {\n");
+		WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
+	}
 
 	int mask = gstate.getClutIndexMask();
 	int shift = gstate.getClutIndexShift();
@@ -110,7 +120,11 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, ";\n");
 	}
 
-	WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+	if (language == HLSL_D3D11) {
+		WRITE(p, "  return pal.Sample(palSamp, float2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+	} else {
+		WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+	}
 	WRITE(p, "}\n");
 }
 
@@ -262,6 +276,7 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguag
 		break;
 	case GLSL_300:
 	case GLSL_VULKAN:
+	case HLSL_D3D11:
 		GenerateDepalShader300(buffer, pixelFormat, language);
 		break;
 	case HLSL_DX9:

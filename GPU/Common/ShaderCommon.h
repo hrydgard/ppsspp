@@ -17,6 +17,16 @@
 
 #pragma once
 
+#include <cstdint>
+
+enum ShaderLanguage {
+	GLSL_140,
+	GLSL_300,
+	GLSL_VULKAN,
+	HLSL_DX9,
+	HLSL_D3D11,
+};
+
 enum DebugShaderType {
 	SHADER_TYPE_VERTEX = 0,
 	SHADER_TYPE_FRAGMENT = 1,

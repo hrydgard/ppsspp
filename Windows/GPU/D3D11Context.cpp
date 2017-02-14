@@ -22,6 +22,9 @@ D3D11Context::~D3D11Context() {
 
 void D3D11Context::SwapBuffers() {
 	draw_->HandleEvent(Draw::Event::PRESENT_REQUESTED);
+	// Might be a good idea.
+	// context_->ClearState();
+	//
 }
 
 void D3D11Context::SwapInterval(int interval) {
@@ -70,52 +73,46 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	if (FAILED(hr))
 		return false;
 
+#ifdef _DEBUG
+	if (SUCCEEDED(device_->QueryInterface(__uuidof(ID3D11Debug), (void**)&d3dDebug_))) {
+		if (SUCCEEDED(d3dDebug_->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&d3dInfoQueue_))) {
+			d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
+			d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
+			//d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, true);
+		}
+	}
+#endif
+
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, hWnd_);
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER);
 	return true;
 }
 
 void D3D11Context::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER);
-	// This should only be called from the emu thread.
-	/*
-	int xres, yres;
-	GetRes(hWnd, xres, yres);
-	bool w_changed = pp.BackBufferWidth != xres;
-	bool h_changed = pp.BackBufferHeight != yres;
-
-	if (device && (w_changed || h_changed)) {
-		pp.BackBufferWidth = xres;
-		pp.BackBufferHeight = yres;
-		HRESULT hr = device_->Reset(&pp);
-		if (FAILED(hr)) {
-      // Had to remove DXGetErrorStringA calls here because dxerr.lib is deprecated and will not link with VS 2015.
-			ERROR_LOG_REPORT(G3D, "Unable to reset D3D device");
-			PanicAlert("Unable to reset D3D11 device");
-		}
-	}
-	*/
+	draw_->HandleEvent(Draw::Event::RESIZED);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER);
 }
 
 void D3D11Context::Shutdown() {
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER);
 	delete draw_;
 	draw_ = nullptr;
+	context_->ClearState();
+	context_->Flush();
+
+#ifdef _DEBUG
+	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, false);
+	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, false);
+	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, false);
+	d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
+	d3dDebug_->Release();
+	d3dInfoQueue_->Release();
+#endif
 
 	context_->Release();
 	context_ = nullptr;
 	device_->Release();
 	device_ = nullptr;
-	/*
-	DX9::DestroyShaders();
-	device->EndScene();
-	device->Release();
-	d3d->Release();
-	UnloadD3DXDynamic();
-	DX9::pD3Ddevice = nullptr;
-	DX9::pD3DdeviceEx = nullptr;
-	DX9::pD3D = nullptr;
-	*/
 	hWnd_ = nullptr;
-	// FreeLibrary(hD3D11);
-	// hD3D11 = nullptr;
 }

@@ -304,7 +304,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 		bool distanceNeeded = false;
 
 		if (enableLighting) {
-			WRITE(p, "  vec4 lightSum0 = light.globalAmbient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
+			WRITE(p, "  vec4 lightSum0 = light.u_ambient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
 
 			for (int i = 0; i < 4; i++) {
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));

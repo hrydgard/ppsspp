@@ -54,7 +54,6 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 }
 
 GPUCommon::~GPUCommon() {
-	delete framebufferManager_;
 }
 
 void GPUCommon::BeginHostFrame() {

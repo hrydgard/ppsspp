@@ -22,6 +22,7 @@
 
 #include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
+#include "math/dataconv.h"
 #include "ext/native/thin3d/thin3d.h"
 
 #include "Common/Vulkan/VulkanContext.h"
@@ -256,10 +257,7 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
 		VkClearValue colorValue, depthValue;
-		colorValue.color.float32[0] = (color & 0xFF) * (1.0f / 255.0f);
-		colorValue.color.float32[1] = ((color >> 8) & 0xFF) * (1.0f / 255.0f);
-		colorValue.color.float32[2] = ((color >> 16) & 0xFF) * (1.0f / 255.0f);
-		colorValue.color.float32[3] = ((color >> 24) & 0xFF) * (1.0f / 255.0f);
+		Uint8x4ToFloat4(colorValue.color.float32, color);
 		depthValue.depthStencil.depth = depth;
 		depthValue.depthStencil.stencil = (color >> 24) & 0xFF;
 

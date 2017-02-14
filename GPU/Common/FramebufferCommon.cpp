@@ -567,6 +567,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	textureCache_->ForgetLastTexture();
 
 	if (useBufferedRendering_) {
+
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 		} else {

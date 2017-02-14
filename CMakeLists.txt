@@ -347,6 +347,8 @@ add_library(Common STATIC
 	Common/Misc.cpp
 	Common/MsgHandler.cpp
 	Common/MsgHandler.h
+	Common/OSVersion.cpp
+	Common/OSVersion.h
 	Common/StringUtils.cpp
 	Common/StringUtils.h
 	Common/ThreadPools.cpp
@@ -1156,13 +1158,36 @@ set(GPU_D3D9
 	GPU/Directx9/VertexShaderGeneratorDX9.h
 )
 
+set(GPU_D3D11
+  GPU/D3D11/DepalettizeShaderD3D11.cpp
+	GPU/D3D11/DepalettizeShaderD3D11.h
+	GPU/D3D11/DrawEngineD3D11.cpp
+	GPU/D3D11/DrawEngineD3D11.h
+	GPU/D3D11/FragmentShaderGeneratorD3D11.cpp
+	GPU/D3D11/FragmentShaderGeneratorD3D11.h
+	GPU/D3D11/FramebufferManagerD3D11.cpp
+	GPU/D3D11/FramebufferManagerD3D11.h
+	GPU/D3D11/GPU_D3D11.cpp
+	GPU/D3D11/GPU_D3D11.h
+	GPU/D3D11/StencilBufferD3D11.cpp
+	GPU/D3D11/ShaderManagerD3D11.cpp
+	GPU/D3D11/ShaderManagerD3D11.h
+	GPU/D3D11/StateMappingD3D11.cpp
+	GPU/D3D11/StateMappingD3D11.h
+	GPU/D3D11/TextureCacheD3D11.cpp
+	GPU/D3D11/TextureCacheD3D11.h
+	GPU/D3D11/TextureScalerD3D11.cpp
+	GPU/D3D11/TextureScalerD3D11.h
+	GPU/D3D11/VertexShaderGeneratorD3D11.cpp
+	GPU/D3D11/VertexShaderGeneratorD3D11.h
+)
 
 set(GPU_IMPLS ${GPU_GLES})
 if(VULKAN)
   set(GPU_IMPLS ${GPU_IMPLS} ${GPU_VULKAN})
 endif()
 if(WIN32)
-	list(APPEND GPU_IMPLS ${GPU_D3D9})
+	list(APPEND GPU_IMPLS ${GPU_D3D9} ${GPU_D3D11})
 endif()
 
 if(ARMV7 OR ARM64)

@@ -39,6 +39,19 @@ void OutputDebugStringUTF8(const char *p) {
 
 #endif
 
+std::string LineNumberString(const std::string &str) {
+	std::stringstream input(str);
+	std::stringstream output;
+	std::string line;
+
+	int lineNumber = 1;
+	while (std::getline(input, line)) {
+		output << std::setw(4) << lineNumber++ << ":  " << line << std::endl;
+	}
+
+	return output.str();
+}
+
 void StringTrimEndNonAlphaNum(char *str) {
 	ssize_t n = strlen(str);
 	while (!isalnum(str[n]) && n >= 0) {

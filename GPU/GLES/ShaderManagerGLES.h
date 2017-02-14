@@ -155,9 +155,9 @@ public:
 	void DirtyShader();
 	void DirtyLastShader();  // disables vertex arrays
 
-	int NumVertexShaders() const { return (int)vsCache_.size(); }
-	int NumFragmentShaders() const { return (int)fsCache_.size(); }
-	int NumPrograms() const { return (int)linkedShaderCache_.size(); }
+	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
+	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
+	int GetNumPrograms() const { return (int)linkedShaderCache_.size(); }
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);

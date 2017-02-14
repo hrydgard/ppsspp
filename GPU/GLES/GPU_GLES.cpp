@@ -495,7 +495,8 @@ GPU_GLES::~GPU_GLES() {
 	}
 	delete shaderManagerGL_;
 	shaderManagerGL_ = nullptr;
-
+	delete framebufferManagerGL_;
+	delete textureCacheGL_;
 #ifdef _WIN32
 	gfxCtx_->SwapInterval(0);
 #endif
@@ -1188,9 +1189,9 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheGL_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
-		shaderManagerGL_->NumVertexShaders(),
-		shaderManagerGL_->NumFragmentShaders(),
-		shaderManagerGL_->NumPrograms());
+		shaderManagerGL_->GetNumVertexShaders(),
+		shaderManagerGL_->GetNumFragmentShaders(),
+		shaderManagerGL_->GetNumPrograms());
 }
 
 void GPU_GLES::ClearCacheNextFrame() {

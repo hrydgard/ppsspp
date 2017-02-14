@@ -45,7 +45,7 @@ public:
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 
-	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
 	// These functions should be self explanatory.
@@ -100,18 +100,16 @@ public:
 			return (uintptr_t)device_;
 		case NativeObject::CONTEXT:
 			return (uintptr_t)context_;
+		case NativeObject::BACKBUFFER_COLOR_VIEW:
+			return (uintptr_t)bbRenderTargetView_;
+		case NativeObject::BACKBUFFER_DEPTH_VIEW:
+			return (uintptr_t)bbDepthStencilView_;
 		default:
 			return 0;
 		}
 	}
 
-	void HandleEvent(Event ev) override {
-		switch (ev) {
-		case Event::PRESENT_REQUESTED:
-			swapChain_->Present(0, 0);
-			break;
-		}
-	}
+	void HandleEvent(Event ev) override;
 
 private:
 	void ApplyCurrentState();
@@ -125,6 +123,9 @@ private:
 	// Strictly speaking we don't need a depth buffer for the backbuffer.
 	ID3D11Texture2D *bbDepthStencilTex_ = nullptr;
 	ID3D11DepthStencilView *bbDepthStencilView_ = nullptr;
+
+	ID3D11RenderTargetView *curRenderTargetView_ = nullptr;
+	ID3D11DepthStencilView *curDepthStencilView_ = nullptr;
 
 	D3D11Pipeline *curPipeline_;
 	DeviceCaps caps_;
@@ -179,6 +180,10 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *co
 		dxgiDevice->Release();
 	}
 
+	caps_.dualSourceBlend = true;
+	caps_.depthRangeMinusOneToOne = false;
+	caps_.framebufferBlitSupported = false;
+
 	int width;
 	int height;
 	GetRes(hWnd_, width, height);
@@ -202,49 +207,84 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *co
 	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
 	dxgiFactory->Release();
 
-	if (FAILED(hr))
-		return;
-
-	// Create a render target view
-	ID3D11Texture2D* pBackBuffer = nullptr;
-	hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pBackBuffer));
-	if (FAILED(hr))
-		return;
-
-	hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, &bbRenderTargetView_);
-	pBackBuffer->Release();
-	if (FAILED(hr))
-		return;
-
-	// Create depth stencil texture
-	D3D11_TEXTURE2D_DESC descDepth{};
-	descDepth.Width = width;
-	descDepth.Height = height;
-	descDepth.MipLevels = 1;
-	descDepth.ArraySize = 1;
-	descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	descDepth.SampleDesc.Count = 1;
-	descDepth.SampleDesc.Quality = 0;
-	descDepth.Usage = D3D11_USAGE_DEFAULT;
-	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-	descDepth.CPUAccessFlags = 0;
-	descDepth.MiscFlags = 0;
-	hr = device_->CreateTexture2D(&descDepth, nullptr, &bbDepthStencilTex_);
-
-	// Create the depth stencil view
-	D3D11_DEPTH_STENCIL_VIEW_DESC descDSV{};
-	descDSV.Format = descDepth.Format;
-	descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-	descDSV.Texture2D.MipSlice = 0;
-	hr = device_->CreateDepthStencilView(bbDepthStencilTex_, &descDSV, &bbDepthStencilView_);
-
-	context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
-
 	CreatePresets();
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
 
+}
+
+void D3D11DrawContext::HandleEvent(Event ev) {
+	switch (ev) {
+	case Event::PRESENT_REQUESTED:
+		swapChain_->Present(0, 0);
+		break;
+	case Event::RESIZED: {
+		int width;
+		int height;
+		GetRes(hWnd_, width, height);
+		swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+		break;
+	}
+	case Event::LOST_BACKBUFFER: {
+		if (curRenderTargetView_ == bbRenderTargetView_ || curDepthStencilView_ == bbDepthStencilView_) {
+			ID3D11RenderTargetView *view = nullptr;
+			context_->OMSetRenderTargets(1, &view, nullptr);
+			curRenderTargetView_ = nullptr;
+			curDepthStencilView_ = nullptr;
+		}
+		bbRenderTargetView_->Release();
+		bbRenderTargetView_ = nullptr;
+		bbDepthStencilView_->Release();
+		bbDepthStencilView_ = nullptr;
+		bbDepthStencilTex_->Release();
+		bbDepthStencilTex_ = nullptr;
+		break;
+	}
+	case Event::GOT_BACKBUFFER: {
+		int width;
+		int height;
+		GetRes(hWnd_, width, height);
+		// Create a render target view
+		ID3D11Texture2D* pBackBuffer = nullptr;
+		HRESULT hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pBackBuffer));
+		if (FAILED(hr))
+			return;
+
+		hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, &bbRenderTargetView_);
+		pBackBuffer->Release();
+		if (FAILED(hr))
+			return;
+
+		// Create depth stencil texture
+		D3D11_TEXTURE2D_DESC descDepth{};
+		descDepth.Width = width;
+		descDepth.Height = height;
+		descDepth.MipLevels = 1;
+		descDepth.ArraySize = 1;
+		descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		descDepth.SampleDesc.Count = 1;
+		descDepth.SampleDesc.Quality = 0;
+		descDepth.Usage = D3D11_USAGE_DEFAULT;
+		descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+		descDepth.CPUAccessFlags = 0;
+		descDepth.MiscFlags = 0;
+		hr = device_->CreateTexture2D(&descDepth, nullptr, &bbDepthStencilTex_);
+
+		// Create the depth stencil view
+		D3D11_DEPTH_STENCIL_VIEW_DESC descDSV{};
+		descDSV.Format = descDepth.Format;
+		descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+		descDSV.Texture2D.MipSlice = 0;
+		hr = device_->CreateDepthStencilView(bbDepthStencilTex_, &descDSV, &bbDepthStencilView_);
+
+		context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
+
+		curRenderTargetView_ = bbRenderTargetView_;
+		curDepthStencilView_ = bbDepthStencilView_;
+		break;
+	}
+	}
 }
 
 void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
@@ -792,6 +832,18 @@ void D3D11DrawContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 }
 
 void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
+	if (pipeline == nullptr) {
+		// This is a signal to forget all our caching.
+		curBlend_ = nullptr;
+		curDepth_ = nullptr;
+		curRaster_ = nullptr;
+		curPS_ = nullptr;
+		curVS_ = nullptr;
+		curGS_ = nullptr;
+		curInputLayout_ = nullptr;
+		curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
+	}
+
 	D3D11Pipeline *dPipeline = (D3D11Pipeline *)pipeline;
 	if (curPipeline_ == dPipeline)
 		return;
@@ -840,7 +892,6 @@ void D3D11DrawContext::ApplyCurrentState() {
 	if (nextIndexBuffer_) {
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
 	}
-
 	if (curPipeline_->dynamicUniforms) {
 		context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
 	}
@@ -1081,33 +1132,57 @@ void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **st
 }
 
 void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
-	if (mask & ClearFlag::COLOR) {
+	if ((mask & ClearFlag::COLOR) && curRenderTargetView_) {
 		float colorRGBA[4];
-		Uint8x1ToFloat4(colorRGBA, colorval);
-		context_->ClearRenderTargetView(bbRenderTargetView_, colorRGBA);
+		Uint8x4ToFloat4(colorRGBA, colorval);
+		context_->ClearRenderTargetView(curRenderTargetView_, colorRGBA);
 	}
-	if (mask & (ClearFlag::DEPTH | ClearFlag::STENCIL)) {
+	if ((mask & (ClearFlag::DEPTH | ClearFlag::STENCIL)) && curDepthStencilView_) {
 		UINT clearFlag = 0;
 		if (mask & ClearFlag::DEPTH)
 			clearFlag |= D3D11_CLEAR_DEPTH;
 		if (mask & ClearFlag::STENCIL)
 			clearFlag |= D3D11_CLEAR_STENCIL;
-		context_->ClearDepthStencilView(bbDepthStencilView_, clearFlag, depthVal, stencilVal);
+		context_->ClearDepthStencilView(curDepthStencilView_, clearFlag, depthVal, stencilVal);
 	}
 }
 
-void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth) {
+void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
 	D3D11Framebuffer *src = (D3D11Framebuffer *)srcfb;
 	D3D11Framebuffer *dst = (D3D11Framebuffer *)dstfb;
 
-	// CopySubResource ?
+	ID3D11Texture2D *srcTex = nullptr;
+	ID3D11Texture2D *dstTex = nullptr;
+	switch (channelBits) {
+	case FB_COLOR_BIT:
+		srcTex = src->colorTex;
+		dstTex = dst->colorTex;
+		break;
+	case FB_DEPTH_BIT:
+		srcTex = src->depthStencilTex;
+		dstTex = dst->depthStencilTex;
+		break;
+	}
+
+	// TODO: Check for level too!
+	if (width == src->width && width == dst->width && height == src->height && height == dst->height && x == 0 && y == 0 && z == 0 && dstX == 0 && dstY == 0 && dstZ == 0) {
+		// Don't need to specify region. This might be faster, too.
+		context_->CopyResource(dstTex, srcTex);
+		return;
+	}
+
+	if (channelBits != FB_DEPTH_BIT) {
+		// Non-full copies are not supported for the depth channel.
+		D3D11_BOX srcBox{ (UINT)x, (UINT)y, (UINT)z, (UINT)(x + width), (UINT)(y + height), (UINT)(z + depth) };
+		context_->CopySubresourceRegion(dstTex, dstLevel, dstX, dstY, dstZ, srcTex, level, &srcBox);
+	}
 }
 
 bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
 	D3D11Framebuffer *src = (D3D11Framebuffer *)srcfb;
 	D3D11Framebuffer *dst = (D3D11Framebuffer *)dstfb;
 
-	// Unfortunately D3D11 has no equivalent to this, gotta render a quad.
+	// Unfortunately D3D11 has no equivalent to this, gotta render a quad. Well, in some cases we can issue a copy instead.
 	return true;
 }
 
@@ -1115,6 +1190,8 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
+	curRenderTargetView_ = fb->colorRTView;
+	curDepthStencilView_ = fb->depthStencilRTView;
 }
 
 // color must be 0, for now.
@@ -1129,6 +1206,8 @@ void D3D11DrawContext::BindFramebufferForRead(Framebuffer *fbo) {
 
 void D3D11DrawContext::BindBackbufferAsRenderTarget() {
 	context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
+	curRenderTargetView_ = bbRenderTargetView_;
+	curDepthStencilView_ = bbDepthStencilView_;
 }
 
 uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {

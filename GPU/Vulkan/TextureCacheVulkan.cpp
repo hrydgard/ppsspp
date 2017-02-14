@@ -78,14 +78,15 @@ static const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, 
 static const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 static const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 
+
+CachedTextureVulkan::~CachedTextureVulkan() {
+	delete texture_;
+}
+
 SamplerCache::~SamplerCache() {
 	for (auto iter : cache_) {
 		vulkan_->Delete().QueueDeleteSampler(iter.second);
 	}
-}
-
-CachedTextureVulkan::~CachedTextureVulkan() {
-	delete texture_;
 }
 
 VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {

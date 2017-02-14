@@ -406,7 +406,7 @@ void SoftwareTransform(
 		int scissorY2 = gstate.getScissorY2() + 1;
 		reallyAClear = IsReallyAClear(transformed, maxIndex, scissorX2, scissorY2);
 	}
-	if (reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {  // && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+	if (reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
 		// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
 		bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
 		bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
@@ -502,7 +502,7 @@ void SoftwareTransform(
 		const u16 *indsIn = (const u16 *)inds;
 		u16 *newInds = inds + vertexCount;
 		u16 *indsOut = newInds;
-		maxIndex = 4 * vertexCount;
+		maxIndex = 4 * (vertexCount / 2);
 		for (int i = 0; i < vertexCount; i += 2) {
 			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];

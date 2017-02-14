@@ -24,6 +24,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/ShaderUniforms.h"
 
 #define WRITE p+=sprintf
 
@@ -33,7 +34,7 @@ namespace DX9 {
 
 // Missing: Z depth range
 // Also, logic ops etc, of course, as they are not supported in DX9.
-bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
+bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
@@ -68,46 +69,60 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 
 	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
 
-	if (doTexture)
-		WRITE(p, "sampler tex : register(s0);\n");
-	if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
-		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
-			WRITE(p, "float2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
-			WRITE(p, "sampler fbotex : register(s1);\n");
+	if (lang == HLSL_DX9) {
+		if (doTexture)
+			WRITE(p, "sampler tex : register(s0);\n");
+		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
+			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
+				WRITE(p, "float2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
+				WRITE(p, "sampler fbotex : register(s1);\n");
+			}
+			if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
+				WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
+			}
+			if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
+				WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
+			}
 		}
-		if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
-			WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
+		if (gstate_c.needShaderTexClamp && doTexture) {
+			WRITE(p, "float4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
+			if (textureAtOffset) {
+				WRITE(p, "float2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
+			}
 		}
-		if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
-			WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
-		}
-	}
-	if (gstate_c.needShaderTexClamp && doTexture) {
-		WRITE(p, "float4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
-		if (textureAtOffset) {
-			WRITE(p, "float2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
-		}
-	}
 
-	if (enableAlphaTest || enableColorTest) {
-		WRITE(p, "float4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
-		WRITE(p, "float4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
-	}
-	if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
-		WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
-	}
-	if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
-		WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
-	}
-	if (enableFog) {
-		WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+		if (enableAlphaTest || enableColorTest) {
+			WRITE(p, "float4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
+			WRITE(p, "float4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
+		}
+		if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
+			WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
+		}
+		if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
+			WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+		}
+		if (enableFog) {
+			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+		}
+	} else {
+		WRITE(p, "SamplerState samp : register(s0);\n");
+		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
+		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
 	}
 
 	if (enableAlphaTest) {
-		WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
+		if (lang == HLSL_D3D11) {
+			WRITE(p, "uint roundAndScaleTo255i(float x) { return uint(floor(x * 255.0f + 0.5f)); }\n");
+		} else {
+			WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
+		}
 	}
 	if (enableColorTest) {
-		WRITE(p, "float3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
+		if (lang == HLSL_D3D11) {
+			WRITE(p, "uint3 roundAndScaleTo255iv(float3 x) { return uint3(floor(x * 255.0f + 0.5f)); }\n");
+		} else {
+			WRITE(p, "float3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
+		}
 	}
 
 	WRITE(p, "struct PS_IN {\n");
@@ -119,11 +134,25 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 		WRITE(p, "  float3 v_color1: COLOR1;\n");
 	}
 	if (enableFog) {
-		WRITE(p, "  float2 v_fogdepth: TEXCOORD1;\n");
+		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 	}
 	WRITE(p, "};\n");
-	WRITE(p, "float4 main( PS_IN In ) : COLOR\n");
-	WRITE(p, "{\n");
+
+	if (lang == HLSL_DX9) {
+		WRITE(p, "float4 main( PS_IN In ) : COLOR {\n");
+	} else {
+		WRITE(p, "struct PS_OUT {\n");
+		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+			WRITE(p, "	  float4 target : SV_Target0;\n");
+			WRITE(p, "	  float4 target1 : SV_Target1;\n");
+		}
+		else {
+			WRITE(p, "	  float4 target : SV_Target;\n");
+		}
+		WRITE(p, "};\n");
+		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
+		WRITE(p, "  PS_OUT outfragment;\n");
+	}
 
 	if (isModeClear) {
 		// Clear mode does not allow any fancy shading.
@@ -173,10 +202,18 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 				doTextureProjection = false;
 			}
 
-			if (doTextureProjection) {
-				WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+			if (lang == HLSL_D3D11) {
+				if (doTextureProjection) {
+					WRITE(p, "  float4 t = tex.Sample(samp, In.v_texcoord.xy / In.v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+				} else {
+					WRITE(p, "  float4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+				}
 			} else {
-				WRITE(p, "  float4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+				if (doTextureProjection) {
+					WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+				} else {
+					WRITE(p, "  float4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+				}
 			}
 			WRITE(p, "  float4 p = In.v_color0;\n");
 
@@ -241,10 +278,17 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 					// TODO: Rewrite this to use clip() appropriately (like, clip(v.a - u_alphacolorref.a))
-					WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
+					if (lang == HLSL_D3D11) {
+						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					} else {
+						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
+					}
 				} else {
 					// This means NEVER.  See above.
-					WRITE(p, "  clip(-1);\n");
+					if (lang == HLSL_D3D11)
+						WRITE(p, "  discard;\n");
+					else
+						WRITE(p, "  clip(-1);\n");
 				}
 			}
 		}
@@ -266,9 +310,15 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					const char * test = colorTestFuncs[colorTestFunc];
-					WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
-					WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b )) clip(-1);\n", test, test, test);
-				} else {
+					if (lang == HLSL_D3D11) {
+						WRITE(p, "  uint3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
+						WRITE(p, "  if ((v_scaled & u_alphacolormask.rgb) %s (u_alphacolorref.rgb & u_alphacolormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
+					} else {
+						WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
+						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b )) clip(-1);\n", test, test, test);
+					}
+				}
+				else {
 					WRITE(p, "  clip(-1);\n");
 				}
 			}
@@ -282,7 +332,7 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 		}
 
 		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth.x, 0.0, 1.0);\n");
+			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
 			WRITE(p, "  v = lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
 		}
 
@@ -321,7 +371,7 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
 		switch (replaceAlphaWithStencilType) {
 		case STENCIL_VALUE_UNIFORM:
-			replacedAlpha = "u_stencilReplaceValue";
+			replacedAlpha = lang == HLSL_D3D11 ? "u_fogcoef_stencilreplace.z" : "u_stencilReplaceValue";
 			break;
 
 		case STENCIL_VALUE_ZERO:
@@ -355,11 +405,6 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 	}
 
 	switch (stencilToAlpha) {
-	case REPLACE_ALPHA_DUALSOURCE:
-		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
-		// TODO: Output the second color as well using original v.a.
-		break;
-
 	case REPLACE_ALPHA_YES:
 		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
 		break;
@@ -381,7 +426,19 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 		break;
 	}
 
-	WRITE(p, "  return v;\n");
+	if (lang == HLSL_D3D11) {
+		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+			WRITE(p, "  outfragment.target = float4(v.rgb, %s);\n", replacedAlpha.c_str());
+			WRITE(p, "  outfragment.target1 = float4(0.0, 0.0, 0.0, v.a);\n");
+			WRITE(p, "  return outfragment;\n");
+		}
+		else {
+			WRITE(p, "  outfragment.target = v;\n");
+			WRITE(p, "  return outfragment;\n");
+		}
+	} else {
+		WRITE(p, "  return v;\n");
+	}
 	WRITE(p, "}\n");
 	return true;
 }

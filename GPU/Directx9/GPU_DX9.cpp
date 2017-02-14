@@ -513,6 +513,8 @@ void GPU_DX9::CheckGPUFeatures() {
 
 GPU_DX9::~GPU_DX9() {
 	framebufferManagerDX9_->DestroyAllFBOs(true);
+	delete framebufferManagerDX9_;
+	delete textureCache_;
 	shaderManagerDX9_->ClearCache(true);
 	delete shaderManagerDX9_;
 }
@@ -942,8 +944,8 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheDX9_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
-		shaderManagerDX9_->NumVertexShaders(),
-		shaderManagerDX9_->NumFragmentShaders()
+		shaderManagerDX9_->GetNumVertexShaders(),
+		shaderManagerDX9_->GetNumFragmentShaders()
 	);
 }
 

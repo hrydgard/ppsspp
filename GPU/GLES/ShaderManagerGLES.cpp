@@ -1084,9 +1084,9 @@ void ShaderManagerGLES::Save(const std::string &filename) {
 	header.version = CACHE_VERSION;
 	header.reserved = 0;
 	header.featureFlags = gstate_c.featureFlags;
-	header.numVertexShaders = NumVertexShaders();
-	header.numFragmentShaders = NumFragmentShaders();
-	header.numLinkedPrograms = NumPrograms();
+	header.numVertexShaders = GetNumVertexShaders();
+	header.numFragmentShaders = GetNumFragmentShaders();
+	header.numLinkedPrograms = GetNumPrograms();
 	fwrite(&header, 1, sizeof(header), f);
 	for (auto iter : vsCache_) {
 		ShaderID id = iter.first;
