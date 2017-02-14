@@ -112,14 +112,14 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 
 	if (enableAlphaTest) {
 		if (lang == HLSL_D3D11) {
-			WRITE(p, "uint roundAndScaleTo255f(float x) { return uint(floor(x * 255.0f + 0.5f)); }\n");
+			WRITE(p, "uint roundAndScaleTo255i(float x) { return uint(floor(x * 255.0f + 0.5f)); }\n");
 		} else {
 			WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
 		}
 	}
 	if (enableColorTest) {
 		if (lang == HLSL_D3D11) {
-			WRITE(p, "uint3 roundAndScaleTo255v(float3 x) { return uint3(floor(x * 255.0f + 0.5f)); }\n");
+			WRITE(p, "uint3 roundAndScaleTo255iv(float3 x) { return uint3(floor(x * 255.0f + 0.5f)); }\n");
 		} else {
 			WRITE(p, "float3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
 		}
@@ -278,10 +278,17 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 					// TODO: Rewrite this to use clip() appropriately (like, clip(v.a - u_alphacolorref.a))
-					WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
+					if (lang == HLSL_D3D11) {
+						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					} else {
+						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
+					}
 				} else {
 					// This means NEVER.  See above.
-					WRITE(p, "  clip(-1);\n");
+					if (lang == HLSL_D3D11)
+						WRITE(p, "  discard;\n");
+					else
+						WRITE(p, "  clip(-1);\n");
 				}
 			}
 		}
@@ -303,8 +310,13 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					const char * test = colorTestFuncs[colorTestFunc];
-					WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
-					WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b )) clip(-1);\n", test, test, test);
+					if (lang == HLSL_D3D11) {
+						WRITE(p, "  uint3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
+						WRITE(p, "  if ((v_scaled & u_alphacolormask.rgb) %s (u_alphacolorref.rgb & u_alphacolormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
+					} else {
+						WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
+						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b )) clip(-1);\n", test, test, test);
+					}
 				}
 				else {
 					WRITE(p, "  clip(-1);\n");
