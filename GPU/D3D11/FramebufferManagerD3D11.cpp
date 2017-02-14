@@ -177,7 +177,7 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 		desc.MipLevels = 1;
 		desc.ArraySize = 1;
 		desc.SampleDesc.Count = 1;
-		desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 		device_->CreateTexture2D(&desc, nullptr, &drawPixelsTex_);
 		device_->CreateShaderResourceView(drawPixelsTex_, nullptr, &drawPixelsTexView_);
@@ -224,7 +224,7 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 			{
 				const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 				u32 *dst = (u32 *)(convBuf + map.RowPitch * y);
-				memcpy(dst, src, width * 4);
+				ConvertRGBA8888ToBGRA8888(dst, src, width);
 			}
 			break;
 			}
@@ -233,7 +233,7 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 		for (int y = 0; y < height; y++) {
 			const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 			u32 *dst = (u32 *)(convBuf + map.RowPitch * y);
-			memcpy(dst, src, width * 4);
+			ConvertRGBA8888ToBGRA8888(dst, src, width);
 		}
 	}
 

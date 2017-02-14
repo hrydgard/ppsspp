@@ -226,10 +226,10 @@ DXGI_FORMAT getClutDestFormatD3D11(GEPaletteFormat format) {
 	case GE_CMODE_16BIT_BGR5650:
 		return DXGI_FORMAT_B5G6R5_UNORM;
 	case GE_CMODE_32BIT_ABGR8888:
-		return DXGI_FORMAT_R8G8B8A8_UNORM;
+		return DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 	// Should never be here !
-	return DXGI_FORMAT_R8G8B8A8_UNORM;
+	return DXGI_FORMAT_B8G8R8A8_UNORM;
 }
 
 void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key) {
@@ -628,7 +628,7 @@ void TextureCacheD3D11::SetTexture(bool force) {
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
 	gstate_c.needShaderTexClamp = false;
-	gstate_c.bgraTexture = false;
+	gstate_c.bgraTexture = true;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
@@ -1032,7 +1032,7 @@ DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFo
 	case GE_TFMT_DXT3:
 	case GE_TFMT_DXT5:
 	default:
-		return DXGI_FORMAT_R8G8B8A8_UNORM;
+		return DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 }
 
@@ -1062,7 +1062,7 @@ ReplacedTextureFormat FromD3D11Format(u32 fmt) {
 	case DXGI_FORMAT_B5G6R5_UNORM: return ReplacedTextureFormat::F_5650;
 	case DXGI_FORMAT_B5G5R5A1_UNORM: return ReplacedTextureFormat::F_5551;
 	case DXGI_FORMAT_B4G4R4A4_UNORM: return ReplacedTextureFormat::F_4444;
-	case DXGI_FORMAT_R8G8B8A8_UNORM: default: return ReplacedTextureFormat::F_8888;
+	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return ReplacedTextureFormat::F_8888;
 	}
 }
 
@@ -1071,7 +1071,7 @@ DXGI_FORMAT ToDXGIFormat(ReplacedTextureFormat fmt) {
 	case ReplacedTextureFormat::F_5650: return DXGI_FORMAT_B5G6R5_UNORM;
 	case ReplacedTextureFormat::F_5551: return DXGI_FORMAT_B5G5R5A1_UNORM;
 	case ReplacedTextureFormat::F_4444: return DXGI_FORMAT_B4G4R4A4_UNORM;
-	case ReplacedTextureFormat::F_8888: default: return DXGI_FORMAT_R8G8B8A8_UNORM;
+	case ReplacedTextureFormat::F_8888: default: return DXGI_FORMAT_B8G8R8A8_UNORM;
 	}
 }
 
@@ -1091,7 +1091,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			tw *= scaleFactor;
 			th *= scaleFactor;
 			if (scaleFactor > 1) {
-				tfmt = DXGI_FORMAT_R8G8B8A8_UNORM;
+				tfmt = DXGI_FORMAT_B8G8R8A8_UNORM;
 			}
 		}
 
@@ -1134,7 +1134,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		u32 texaddr = gstate.getTextureAddress(level);
 		int bufw = GetTextureBufw(level, texaddr, tfmt);
-		int bpp = dstFmt == DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 2;
+		int bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
 		mapRowPitch = std::max(bufw, w) * 4;
 		mapData = new u32[mapRowPitch / 4 * h]{};
 
@@ -1147,7 +1147,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			decPitch = w * bpp;
 		}
 
-		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, true, false);
+		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false);
 		if (!decSuccess) {
 			memset(pixelData, 0, decPitch * h);
 		}
@@ -1157,7 +1157,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			pixelData = (u32 *)mapData;
 
 			// We always end up at 8888.  Other parts assume this.
-			assert(dstFmt == DXGI_FORMAT_R8G8B8A8_UNORM);
+			assert(dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM);
 			bpp = sizeof(u32);
 			decPitch = w * bpp;
 
