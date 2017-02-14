@@ -32,6 +32,7 @@
 #include "profiler/profiler.h"
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
+#include "net/resolve.h"
 
 #include "Core/Config.h"
 #include "Core/SaveState.h"
@@ -294,7 +295,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	setCurrentThreadName("Main");
 
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
-
+	net::Init();
 #ifdef _DEBUG
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
@@ -528,6 +529,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		W32Util::ExitAndRestart();
 	}
 
+	net::Shutdown();
 	CoUninitialize();
 
 	return 0;

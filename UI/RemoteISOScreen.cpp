@@ -81,7 +81,6 @@ static void RegisterServer(int port) {
 static void ExecuteServer() {
 	setCurrentThreadName("HTTPServer");
 
-	net::AutoInit netInit;
 	auto http = new http::Server(new threading::SameThreadExecutor());
 
 	std::map<std::string, std::string> paths;

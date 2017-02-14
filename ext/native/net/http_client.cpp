@@ -401,7 +401,6 @@ void Download::Do(std::shared_ptr<Download> self) {
 		SetFailed(-1);
 		return;
 	}
-	net::AutoInit netInit;
 
 	http::Client client;
 	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {

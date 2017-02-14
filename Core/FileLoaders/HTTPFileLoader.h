@@ -65,7 +65,6 @@ private:
 	s64 filesize_;
 	s64 filepos_;
 	Url url_;
-	net::AutoInit netInit_;
 	http::Client client_;
 	std::string filename_;
 	bool connected_;
