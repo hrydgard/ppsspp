@@ -84,33 +84,18 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 #endif
 
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, hWnd_);
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER);
 	return true;
 }
 
 void D3D11Context::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER);
 	draw_->HandleEvent(Draw::Event::RESIZED);
-	// This should only be called from the emu thread.
-	/*
-	int xres, yres;
-	GetRes(hWnd, xres, yres);
-	bool w_changed = pp.BackBufferWidth != xres;
-	bool h_changed = pp.BackBufferHeight != yres;
-
-	if (device_ && (w_changed || h_changed)) {
-		pp.BackBufferWidth = xres;
-		pp.BackBufferHeight = yres;
-		HRESULT hr = device_->Reset(&pp);
-		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Unable to reset D3D device");
-			PanicAlert("Unable to reset D3D11 device");
-		}
-	}
-	*/
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER);
 }
 
 void D3D11Context::Shutdown() {
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER);
 	delete draw_;
 	draw_ = nullptr;
 	context_->ClearState();

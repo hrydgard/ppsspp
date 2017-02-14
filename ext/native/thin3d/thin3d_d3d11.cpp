@@ -109,13 +109,7 @@ public:
 		}
 	}
 
-	void HandleEvent(Event ev) override {
-		switch (ev) {
-		case Event::PRESENT_REQUESTED:
-			swapChain_->Present(0, 0);
-			break;
-		}
-	}
+	void HandleEvent(Event ev) override;
 
 private:
 	void ApplyCurrentState();
@@ -213,52 +207,84 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *co
 	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
 	dxgiFactory->Release();
 
-	if (FAILED(hr))
-		return;
-
-	// Create a render target view
-	ID3D11Texture2D* pBackBuffer = nullptr;
-	hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pBackBuffer));
-	if (FAILED(hr))
-		return;
-
-	hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, &bbRenderTargetView_);
-	pBackBuffer->Release();
-	if (FAILED(hr))
-		return;
-
-	// Create depth stencil texture
-	D3D11_TEXTURE2D_DESC descDepth{};
-	descDepth.Width = width;
-	descDepth.Height = height;
-	descDepth.MipLevels = 1;
-	descDepth.ArraySize = 1;
-	descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	descDepth.SampleDesc.Count = 1;
-	descDepth.SampleDesc.Quality = 0;
-	descDepth.Usage = D3D11_USAGE_DEFAULT;
-	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-	descDepth.CPUAccessFlags = 0;
-	descDepth.MiscFlags = 0;
-	hr = device_->CreateTexture2D(&descDepth, nullptr, &bbDepthStencilTex_);
-
-	// Create the depth stencil view
-	D3D11_DEPTH_STENCIL_VIEW_DESC descDSV{};
-	descDSV.Format = descDepth.Format;
-	descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-	descDSV.Texture2D.MipSlice = 0;
-	hr = device_->CreateDepthStencilView(bbDepthStencilTex_, &descDSV, &bbDepthStencilView_);
-
-	context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
-
-	curRenderTargetView_ = bbRenderTargetView_;
-	curDepthStencilView_ = bbDepthStencilView_;
-
 	CreatePresets();
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
 
+}
+
+void D3D11DrawContext::HandleEvent(Event ev) {
+	switch (ev) {
+	case Event::PRESENT_REQUESTED:
+		swapChain_->Present(0, 0);
+		break;
+	case Event::RESIZED: {
+		int width;
+		int height;
+		GetRes(hWnd_, width, height);
+		swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+		break;
+	}
+	case Event::LOST_BACKBUFFER: {
+		if (curRenderTargetView_ == bbRenderTargetView_ || curDepthStencilView_ == bbDepthStencilView_) {
+			ID3D11RenderTargetView *view = nullptr;
+			context_->OMSetRenderTargets(1, &view, nullptr);
+			curRenderTargetView_ = nullptr;
+			curDepthStencilView_ = nullptr;
+		}
+		bbRenderTargetView_->Release();
+		bbRenderTargetView_ = nullptr;
+		bbDepthStencilView_->Release();
+		bbDepthStencilView_ = nullptr;
+		bbDepthStencilTex_->Release();
+		bbDepthStencilTex_ = nullptr;
+		break;
+	}
+	case Event::GOT_BACKBUFFER: {
+		int width;
+		int height;
+		GetRes(hWnd_, width, height);
+		// Create a render target view
+		ID3D11Texture2D* pBackBuffer = nullptr;
+		HRESULT hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pBackBuffer));
+		if (FAILED(hr))
+			return;
+
+		hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, &bbRenderTargetView_);
+		pBackBuffer->Release();
+		if (FAILED(hr))
+			return;
+
+		// Create depth stencil texture
+		D3D11_TEXTURE2D_DESC descDepth{};
+		descDepth.Width = width;
+		descDepth.Height = height;
+		descDepth.MipLevels = 1;
+		descDepth.ArraySize = 1;
+		descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		descDepth.SampleDesc.Count = 1;
+		descDepth.SampleDesc.Quality = 0;
+		descDepth.Usage = D3D11_USAGE_DEFAULT;
+		descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+		descDepth.CPUAccessFlags = 0;
+		descDepth.MiscFlags = 0;
+		hr = device_->CreateTexture2D(&descDepth, nullptr, &bbDepthStencilTex_);
+
+		// Create the depth stencil view
+		D3D11_DEPTH_STENCIL_VIEW_DESC descDSV{};
+		descDSV.Format = descDepth.Format;
+		descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+		descDSV.Texture2D.MipSlice = 0;
+		hr = device_->CreateDepthStencilView(bbDepthStencilTex_, &descDSV, &bbDepthStencilView_);
+
+		context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
+
+		curRenderTargetView_ = bbRenderTargetView_;
+		curDepthStencilView_ = bbDepthStencilView_;
+		break;
+	}
+	}
 }
 
 void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
