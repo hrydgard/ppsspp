@@ -259,6 +259,7 @@ public:
 
 protected:
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms);
+	virtual void BindPostShader(const PostShaderUniforms &uniforms) {}
 
 	// Cardboard Settings Calculator
 	void GetCardboardSettings(CardboardSettings *cardboardSettings);

@@ -100,9 +100,6 @@ protected:
 
 private:
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	void CompileDraw2DProgram();
-	void DestroyDraw2DProgram();
-
 	void PackFramebufferD3D11_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 

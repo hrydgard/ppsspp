@@ -181,7 +181,8 @@ void FramebufferManagerGLES::CompileDraw2DProgram() {
 	}
 }
 
-void FramebufferManagerGLES::SetPostShaderUniforms(const PostShaderUniforms &uniforms) {
+void FramebufferManagerGLES::BindPostShader(const PostShaderUniforms &uniforms) {
+	glsl_bind(postShaderProgram_);
 	if (deltaLoc_ != -1)
 		glUniform2f(deltaLoc_, uniforms.texelDelta[0], uniforms.texelDelta[1]);
 	if (pixelDeltaLoc_ != -1)
@@ -354,7 +355,6 @@ void FramebufferManagerGLES::DrawPixels(VirtualFramebuffer *vfb, int dstX, int d
 
 void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == TEX_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
 
 	DisableState();
 
@@ -367,17 +367,16 @@ void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBuff
 	float x, y, w, h;
 	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-	if (applyPostShader) {
+	if (applyPostShader && useBufferedRendering_) {
 		// Make sure we've compiled the shader.
 		if (!postShaderProgram_) {
 			CompileDraw2DProgram();
 		}
 		// Might've changed if the shader was just changed to Off.
 		if (usePostShader_) {
-			glsl_bind(postShaderProgram_);
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(480, 272, renderWidth_, renderHeight_, &uniforms);
-			SetPostShaderUniforms(uniforms);
+			BindPostShader(uniforms);
 		}
 	}
 	float u0 = 0.0f, u1 = 480.0f / 512.0f;
@@ -775,10 +774,9 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			draw_->GetFramebufferDimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
-			glsl_bind(postShaderProgram_);
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
-			SetPostShaderUniforms(uniforms);
+			BindPostShader(uniforms);
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 
@@ -825,8 +823,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight, &uniforms);
-			glsl_bind(postShaderProgram_);
-			SetPostShaderUniforms(uniforms);
+			BindPostShader(uniforms);
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
