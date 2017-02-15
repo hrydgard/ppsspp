@@ -113,7 +113,7 @@ protected:
 
 private:
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
+	void SetPostShaderUniforms(const PostShaderUniforms &uniforms);
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
 

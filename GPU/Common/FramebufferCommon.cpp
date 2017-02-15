@@ -19,6 +19,7 @@
 #include <sstream>
 
 #include "ext/native/thin3d/thin3d.h"
+#include "base/timeutil.h"
 #include "gfx_es2/gpu_features.h"
 
 #include "i18n/i18n.h"
@@ -29,6 +30,7 @@
 #include "Core/Reporting.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
+#include "Core/HLE/sceDisplay.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/GPUInterface.h"
@@ -1270,6 +1272,28 @@ void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
 		vfb->safeWidth = std::max(vfb->safeWidth, w);
 		vfb->safeHeight = std::max(vfb->safeHeight, h);
 	}
+}
+
+void FramebufferManagerCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms) {
+	float u_delta = 1.0f / renderWidth;
+	float v_delta = 1.0f / renderHeight;
+	float u_pixel_delta = u_delta;
+	float v_pixel_delta = v_delta;
+	if (postShaderAtOutputResolution_) {
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		u_pixel_delta = (1.0f / w) * (480.0f / bufferWidth);
+		v_pixel_delta = (1.0f / h) * (272.0f / bufferHeight);
+	}
+	int flipCount = __DisplayGetFlipCount();
+	int vCount = __DisplayGetVCount();
+	float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
+
+	uniforms->texelDelta[0] = u_delta;
+	uniforms->texelDelta[1] = v_delta;
+	uniforms->pixelDelta[0] = u_pixel_delta;
+	uniforms->pixelDelta[1] = v_pixel_delta;
+	memcpy(uniforms->time, time, 4 * sizeof(float));
 }
 
 void FramebufferManagerCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) {

@@ -38,12 +38,6 @@ class ShaderManagerVulkan;
 class VulkanTexture;
 class VulkanPushBuffer;
 
-struct PostShaderUniforms {
-	float texelDelta[2]; float pad[2];
-	float pixelDelta[2]; float pad0[2];
-	float time[4];
-};
-
 static const char *ub_post_shader =
 R"(	vec2 texelDelta;
 	vec2 pixelDelta;

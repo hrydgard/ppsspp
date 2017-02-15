@@ -32,7 +32,6 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
-#include "Core/HLE/sceDisplay.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -182,27 +181,13 @@ void FramebufferManagerGLES::CompileDraw2DProgram() {
 	}
 }
 
-void FramebufferManagerGLES::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
-	float u_delta = 1.0f / renderWidth;
-	float v_delta = 1.0f / renderHeight;
-	float u_pixel_delta = u_delta;
-	float v_pixel_delta = v_delta;
-	if (postShaderAtOutputResolution_) {
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-		u_pixel_delta = (1.0f / w) * (480.0f / bufferWidth);
-		v_pixel_delta = (1.0f / h) * (272.0f / bufferHeight);
-	}
-
+void FramebufferManagerGLES::SetPostShaderUniforms(const PostShaderUniforms &uniforms) {
 	if (deltaLoc_ != -1)
-		glUniform2f(deltaLoc_, u_delta, v_delta);
+		glUniform2f(deltaLoc_, uniforms.texelDelta[0], uniforms.texelDelta[1]);
 	if (pixelDeltaLoc_ != -1)
-		glUniform2f(pixelDeltaLoc_, u_pixel_delta, v_pixel_delta);
+		glUniform2f(pixelDeltaLoc_, uniforms.pixelDelta[0], uniforms.pixelDelta[1]);
 	if (timeLoc_ != -1) {
-		int flipCount = __DisplayGetFlipCount();
-		int vCount = __DisplayGetVCount();
-		float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
-		glUniform4fv(timeLoc_, 1, time);
+		glUniform4fv(timeLoc_, 1, uniforms.time);
 	}
 }
 
@@ -390,7 +375,9 @@ void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBuff
 		// Might've changed if the shader was just changed to Off.
 		if (usePostShader_) {
 			glsl_bind(postShaderProgram_);
-			UpdatePostShaderUniforms(480, 272, renderWidth_, renderHeight_);
+			PostShaderUniforms uniforms{};
+			CalculatePostShaderUniforms(480, 272, renderWidth_, renderHeight_, &uniforms);
+			SetPostShaderUniforms(uniforms);
 		}
 	}
 	float u0 = 0.0f, u1 = 480.0f / 512.0f;
@@ -789,7 +776,9 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
 			glsl_bind(postShaderProgram_);
-			UpdatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_);
+			PostShaderUniforms uniforms{};
+			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
+			SetPostShaderUniforms(uniforms);
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 
@@ -834,8 +823,10 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
+			PostShaderUniforms uniforms{};
+			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight, &uniforms);
 			glsl_bind(postShaderProgram_);
-			UpdatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight);
+			SetPostShaderUniforms(uniforms);
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);

@@ -62,6 +62,11 @@ struct CardboardSettings {
 
 class VulkanFBO;
 
+struct PostShaderUniforms {
+	float texelDelta[2]; float pixelDelta[2];
+	float time[4];
+};
+
 struct VirtualFramebuffer {
 	int last_frame_used;
 	int last_frame_attached;
@@ -253,6 +258,8 @@ public:
 	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
 
 protected:
+	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms);
+
 	// Cardboard Settings Calculator
 	void GetCardboardSettings(CardboardSettings *cardboardSettings);
 
