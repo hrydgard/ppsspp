@@ -111,4 +111,6 @@ class ShaderManagerCommon {
 public:
 	ShaderManagerCommon() {}
 	virtual ~ShaderManagerCommon() {}
+
+	virtual void DirtyLastShader() = 0;
 };

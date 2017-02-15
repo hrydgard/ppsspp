@@ -88,7 +88,7 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	convBuf_(nullptr),
 	convBufSize_(0),
 	textureCacheVulkan_(nullptr),
-	shaderManager_(nullptr),
+	shaderManagerVulkan_(nullptr),
 	resized_(false),
 	pixelBufObj_(nullptr),
 	currentPBO_(0),
@@ -110,6 +110,11 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 void FramebufferManagerVulkan::SetTextureCache(TextureCacheVulkan *tc) {
 	textureCacheVulkan_ = tc;
 	textureCache_ = tc;
+}
+
+void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
+	shaderManagerVulkan_ = sm;
+	shaderManager_ = sm;
 }
 
 void FramebufferManagerVulkan::InitDeviceObjects() {
@@ -410,27 +415,6 @@ void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
 	vp.width = (float)w;
 	vp.height = (float)h;
 	vkCmdSetViewport(curCmd_, 0, 1, &vp);
-}
-
-void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-	VkViewport vp;
-	vp.minDepth = 0.0;
-	vp.maxDepth = 1.0;
-	if (useBufferedRendering_ && vfb && vfb->fbo) {
-		vp.x = 0;
-		vp.y = 0;
-		vp.width = vfb->renderWidth;
-		vp.height = vfb->renderHeight;
-	} else {
-		CenterDisplayOutputRect(&vp.x, &vp.y, &vp.width, &vp.height, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-	}
-	// TODO: Don't use the viewport mechanism for this.
-	vkCmdSetViewport(curCmd_, 0, 1, &vp);
-
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-	VulkanTexture *pixelTex = drawPixelsTex_;
-	DrawTexture(pixelTex, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
-	textureCacheVulkan_->ForgetLastTexture();
 }
 
 void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {

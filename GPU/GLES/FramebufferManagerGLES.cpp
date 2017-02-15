@@ -219,7 +219,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	pixelDeltaLoc_(-1),
 	deltaLoc_(-1),
 	textureCacheGL_(nullptr),
-	shaderManager_(nullptr),
+	shaderManagerGL_(nullptr),
 	resized_(false),
 	pixelBufObj_(nullptr),
 	currentPBO_(0)
@@ -238,6 +238,11 @@ void FramebufferManagerGLES::Init() {
 void FramebufferManagerGLES::SetTextureCache(TextureCacheGLES *tc) {
 	textureCacheGL_ = tc;
 	textureCache_ = tc;
+}
+
+void FramebufferManagerGLES::SetShaderManager(ShaderManagerGLES *sm) {
+	shaderManagerGL_ = sm;
+	shaderManager_ = sm;
 }
 
 FramebufferManagerGLES::~FramebufferManagerGLES() {
@@ -340,31 +345,6 @@ void FramebufferManagerGLES::SetViewport2D(int x, int y, int w, int h) {
 	glstate.viewport.set(x, y, w, h);
 }
 
-void FramebufferManagerGLES::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-	shaderManager_->DirtyLastShader();
-	textureCacheGL_->ForgetLastTexture();
-
-	float v0 = 0.0f, v1 = 1.0f;
-	if (useBufferedRendering_ && vfb && vfb->fbo) {
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
-	} else {
-		// We are drawing to the back buffer so need to flip.
-		v0 = 1.0f;
-		v1 = 0.0f;
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-		SetViewport2D(x, y, w, h);
-	}
-
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-	DisableState();
-
-	bool linearFilter = vfb || g_Config.iBufFilter == SCALE_LINEAR;
-	Bind2DShader();
-	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
-}
-
 void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 
@@ -427,7 +407,7 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 		u0,v1,
 	};
 
-	static const GLubyte indices[4] = {0,1,3,2};
+	static const GLushort indices[4] = {0,1,3,2};
 
 	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
 		float temp[8];
@@ -475,13 +455,13 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 		drawEngine_->BindElementBuffer(indices, sizeof(indices));
 		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
 		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, 0);
 	} else {
 		glstate.arrayBuffer.unbind();
 		glstate.elementArrayBuffer.unbind();
 		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
 	}
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
@@ -770,7 +750,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			int fbo_w, fbo_h;
 			draw_->GetFramebufferDimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			SetViewport2D(0, 0, fbo_w, fbo_h);
-			shaderManager_->DirtyLastShader();  // dirty lastShader_
+			shaderManagerGL_->DirtyLastShader();  // dirty lastShader_
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
 			BindPostShader(uniforms);
@@ -819,7 +799,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 				std::swap(v0, v1);
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 
-			shaderManager_->DirtyLastShader();  // dirty lastShader_
+			shaderManagerGL_->DirtyLastShader();  // dirty lastShader_ BEFORE drawing
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight, &uniforms);
 			BindPostShader(uniforms);

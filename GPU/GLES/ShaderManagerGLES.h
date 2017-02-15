@@ -153,7 +153,7 @@ public:
 	LinkedShader *ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim);
 
 	void DirtyShader();
-	void DirtyLastShader();  // disables vertex arrays
+	void DirtyLastShader() override;  // disables vertex arrays
 
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }

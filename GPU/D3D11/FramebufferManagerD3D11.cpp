@@ -148,6 +148,11 @@ void FramebufferManagerD3D11::SetTextureCache(TextureCacheD3D11 *tc) {
 	textureCache_ = tc;
 }
 
+void FramebufferManagerD3D11::SetShaderManager(ShaderManagerD3D11 *sm) {
+	shaderManagerD3D11_ = sm;
+	shaderManager_ = sm;
+}
+
 void FramebufferManagerD3D11::ClearBuffer(bool keepState) {
 	draw_->Clear(Draw::FBChannel::FB_COLOR_BIT | Draw::FBChannel::FB_DEPTH_BIT | Draw::FBChannel::FB_STENCIL_BIT, 0, ToScaledDepth(0), 0);
 }
@@ -247,25 +252,6 @@ void FramebufferManagerD3D11::SetViewport2D(int x, int y, int w, int h) {
 	context_->RSSetViewports(1, &vp);
 }
 
-void FramebufferManagerD3D11::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-	if (useBufferedRendering_ && vfb && vfb->fbo) {
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-		D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
-		context_->RSSetViewports(1, &vp);
-	} else {
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-		D3D11_VIEWPORT vp{ x, y, w, h, 0.0f, 1.0f };
-		context_->RSSetViewports(1, &vp);
-	}
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-	DisableState();
-	Bind2DShader();
-	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, true);
-	textureCacheD3D11_->ForgetLastTexture();
-	shaderManager_->DirtyLastShader();
-}
-
 void FramebufferManagerD3D11::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 	DisableState();
@@ -279,7 +265,7 @@ void FramebufferManagerD3D11::DrawFramebufferToOutput(const u8 *srcPixels, GEBuf
 	Bind2DShader();
 	DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation, g_Config.iBufFilter == SCALE_LINEAR);
 	textureCacheD3D11_->ForgetLastTexture();
-	shaderManager_->DirtyLastShader();
+	shaderManagerD3D11_->DirtyLastShader();
 }
 
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
@@ -384,7 +370,7 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 		context_->PSSetShader(quadPixelShader_, nullptr, 0);
 		context_->VSSetShader(quadVertexShader_, nullptr, 0);
 		context_->IASetVertexBuffers(0, 1, &fsQuadBuffer_, &quadStride_, &quadOffset_);
-		shaderManager_->DirtyLastShader();
+		shaderManagerD3D11_->DirtyLastShader();
 		D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
 		context_->RSSetViewports(1, &vp);
 		context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);

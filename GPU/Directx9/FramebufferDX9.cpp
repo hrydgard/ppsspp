@@ -183,6 +183,11 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		textureCache_ = tc;
 	}
 
+	void FramebufferManagerDX9::SetShaderManager(ShaderManagerDX9 *sm) {
+		shaderManagerDX9_ = sm;
+		shaderManager_ = sm;
+	}
+
 	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 		u8 *convBuf = NULL;
 		D3DLOCKED_RECT rect;
@@ -262,28 +267,13 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 
 		drawPixelsTex_->UnlockRect(0);
+		device_->SetTexture(0, drawPixelsTex_);
 		// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 	}
 
-	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-		if (useBufferedRendering_ && vfb && vfb->fbo) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-			SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
-		} else {
-			float x, y, w, h;
-			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-			SetViewport2D(x, y, w, h);
-		}
-		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-		DisableState();
-		device_->SetTexture(0, drawPixelsTex_);
-		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, true);
-		textureCache_->ForgetLastTexture();
-		shaderManager_->DirtyLastShader();
-		dxstate.viewport.restore();
-	}
-
 	void FramebufferManagerDX9::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
+		textureCache_->ForgetLastTexture();
+		shaderManagerDX9_->DirtyLastShader();
 		DisableState();
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 
@@ -293,10 +283,8 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		float x, y, w, h;
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-		device_->SetTexture(0, drawPixelsTex_);
+		Bind2DShader();
 		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation, true);
-		textureCache_->ForgetLastTexture();
-		shaderManager_->DirtyLastShader();
 	}
 
 	void FramebufferManagerDX9::SetViewport2D(int x, int y, int w, int h) {
@@ -406,7 +394,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 			pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
 			pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
-			shaderManager_->DirtyLastShader();
+			shaderManagerDX9_->DirtyLastShader();
 			pD3Ddevice->SetTexture(0, nullptr);
 
 			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight, 0.0f, 1.0f);
@@ -589,6 +577,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 	void FramebufferManagerDX9::CopyDisplayToOutput() {
 		DownloadFramebufferOnSwitch(currentRenderVfb_);
+		shaderManagerDX9_->DirtyLastShader();
 
 		draw_->BindBackbufferAsRenderTarget();
 		currentRenderVfb_ = 0;
@@ -717,6 +706,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 					// These are in the output display coordinates
 					dxstate.texMipFilter.set(D3DTEXF_NONE);
 					dxstate.texMipLodBias.set(0);
+					Bind2DShader();
 					DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, u0, v0, u1, v1, uvRotation, g_Config.iBufFilter == SCALE_LINEAR);
 				}
 			}
@@ -748,8 +738,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height, postShaderProgram_);
 			}
 			*/
-			shaderManager_->DirtyLastShader();
-			pD3Ddevice->SetTexture(0, NULL);
 		}
 		dxstate.viewport.restore();
 	}

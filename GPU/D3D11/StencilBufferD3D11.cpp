@@ -187,7 +187,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 		device_->CreateBuffer(&desc, nullptr, &stencilValueBuffer_);
 	}
 
-	shaderManager_->DirtyLastShader();
+	shaderManagerD3D11_->DirtyLastShader();
 
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;
@@ -225,7 +225,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	memcpy(map.pData, coord, sizeof(float) * 4 * 5);
 	context_->Unmap(quadBuffer_, 0);
 
-	shaderManager_->DirtyLastShader();
+	shaderManagerD3D11_->DirtyLastShader();
 	textureCacheD3D11_->ForgetLastTexture();
 
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0], nullptr, 0xFFFFFFFF);

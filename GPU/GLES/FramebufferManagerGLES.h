@@ -57,14 +57,11 @@ public:
 	~FramebufferManagerGLES();
 
 	void SetTextureCache(TextureCacheGLES *tc);
-	void SetShaderManager(ShaderManagerGLES *sm) {
-		shaderManager_ = sm;
-	}
+	void SetShaderManager(ShaderManagerGLES *sm);
 	void SetDrawEngine(DrawEngineGLES *td) {
 		drawEngine_ = td;
 	}
 
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
@@ -141,7 +138,7 @@ private:
 	int deltaLoc_;
 
 	TextureCacheGLES *textureCacheGL_;
-	ShaderManagerGLES *shaderManager_;
+	ShaderManagerGLES *shaderManagerGL_;
 	DrawEngineGLES *drawEngine_;
 
 	bool resized_;

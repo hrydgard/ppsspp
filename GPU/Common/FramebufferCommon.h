@@ -153,6 +153,7 @@ class DrawContext;
 }
 
 class TextureCacheCommon;
+class ShaderManagerCommon;
 
 class FramebufferManagerCommon {
 public:
@@ -196,8 +197,9 @@ public:
 
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) = 0;
 	virtual void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) = 0;
-	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
 	virtual void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) = 0;
+
+	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 
 	size_t NumVFBs() const { return vfbs_.size(); }
 
@@ -316,6 +318,7 @@ protected:
 
 	Draw::DrawContext *draw_;
 	TextureCacheCommon *textureCache_;
+	ShaderManagerCommon *shaderManager_;
 	bool needBackBufferYSwap_;
 
 	u32 displayFramebufPtr_;

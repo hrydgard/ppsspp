@@ -210,7 +210,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 		return false;
 	}
 
-	shaderManager_->DirtyLastShader();
+	shaderManagerDX9_->DirtyLastShader();
 
 	DisableState();
 	dxstate.colorMask.set(false, false, false, true);
@@ -255,7 +255,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 
 	pD3Ddevice->SetTexture(0, drawPixelsTex_);
 
-	shaderManager_->DirtyLastShader();
+	shaderManagerDX9_->DirtyLastShader();
 	textureCacheDX9_->ForgetLastTexture();
 
 	for (int i = 1; i < values; i += i) {

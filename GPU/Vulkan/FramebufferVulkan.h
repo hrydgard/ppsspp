@@ -64,14 +64,11 @@ public:
 	~FramebufferManagerVulkan();
 
 	void SetTextureCache(TextureCacheVulkan *tc);
-	void SetShaderManager(ShaderManagerVulkan *sm) {
-		shaderManager_ = sm;
-	}
+	void SetShaderManager(ShaderManagerVulkan *sm);
 	void SetDrawEngine(DrawEngineVulkan *td) {
 		drawEngine_ = td;
 	}
 
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 
 	// If texture != 0, will bind it.
@@ -168,7 +165,7 @@ private:
 	u32 convBufSize_;
 
 	TextureCacheVulkan *textureCacheVulkan_;
-	ShaderManagerVulkan *shaderManager_;
+	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
 
 	bool resized_;

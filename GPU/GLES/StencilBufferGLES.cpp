@@ -163,7 +163,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		glsl_bind(stencilUploadProgram_);
 	}
 
-	shaderManager_->DirtyLastShader();
+	shaderManagerGL_->DirtyLastShader();
 
 	DisableState();
 	glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);

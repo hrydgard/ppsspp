@@ -692,6 +692,30 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 	}
 }
 
+void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+	textureCache_->ForgetLastTexture();
+	shaderManager_->DirtyLastShader();  // On GL, important that this is BEFORE drawing
+	float v0 = 0.0f, v1 = 1.0f;
+	if (useBufferedRendering_ && vfb && vfb->fbo) {
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo);
+		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
+	} else {
+		// We are drawing to the back buffer so need to flip.
+		if (needBackBufferYSwap_)
+			std::swap(v0, v1);
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		SetViewport2D(x, y, w, h);
+	}
+
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
+	DisableState();
+
+	bool linearFilter = vfb || g_Config.iBufFilter == SCALE_LINEAR;
+	Bind2DShader();
+	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+}
+
 void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
 	if (vfb && vfb->safeWidth > 0 && vfb->safeHeight > 0 && !vfb->firstFrameSaved) {
 		// Some games will draw to some memory once, and use it as a render-to-texture later.

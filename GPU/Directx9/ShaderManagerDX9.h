@@ -84,7 +84,7 @@ public:
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
 	VSShader *ApplyShader(int prim, u32 vertType);
 	void DirtyShader();
-	void DirtyLastShader();
+	void DirtyLastShader() override;
 
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }

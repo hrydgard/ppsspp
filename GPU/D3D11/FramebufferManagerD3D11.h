@@ -44,14 +44,11 @@ public:
 	~FramebufferManagerD3D11();
 
 	void SetTextureCache(TextureCacheD3D11 *tc);
-	void SetShaderManager(ShaderManagerD3D11 *sm) {
-		shaderManager_ = sm;
-	}
+	void SetShaderManager(ShaderManagerD3D11 *sm);
 	void SetDrawEngine(DrawEngineD3D11 *td) {
 		drawEngine_ = td;
 	}
 
-	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	virtual void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) override;
@@ -135,7 +132,7 @@ private:
 	ID3D11DepthStencilState *stencilMaskStates_[256]{};
 
 	TextureCacheD3D11 *textureCacheD3D11_;
-	ShaderManagerD3D11 *shaderManager_;
+	ShaderManagerD3D11 *shaderManagerD3D11_;
 	DrawEngineD3D11 *drawEngine_;
 
 	// Used by post-processing shader
