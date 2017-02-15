@@ -90,7 +90,9 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	sClamp = gstate.isTexCoordClampedS();
 	tClamp = gstate.isTexCoordClampedT();
 
-	bool noMip = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST;
+	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001 || (gstate.texlevel & 0xFFFFFF) == 0x100001 ;  // Fix texlevel at 0
+	if (IsFakeMipmapChange())
+		noMip = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST;
 
 	if (maxLevel == 0) {
 		// Enforce no mip filtering, for safety.
