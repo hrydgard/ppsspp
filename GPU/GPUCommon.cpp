@@ -1112,9 +1112,9 @@ void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 	gstate.texlevel ^= diff;
 	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST && (0x00FF0000 & gstate.texlevel) != 0) {
 		Flush();
-		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 	gstate.texlevel ^= diff;
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
