@@ -407,9 +407,6 @@ void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBuff
 // TODO: This could totally use fbo_blit.
 void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, GLSLProgram *program, int uvRotation, bool linearFilter) {
 	if (!program) {
-		if (!draw2dprogram_) {
-			CompileDraw2DProgram();
-		}
 		program = draw2dprogram_;
 	}
 
@@ -1494,6 +1491,10 @@ void FramebufferManagerGLES::EndFrame() {
 		ClearBuffer();
 		DestroyDraw2DProgram();
 		SetLineWidth();
+	}
+
+	if (!draw2dprogram_) {
+		CompileDraw2DProgram();
 	}
 
 	// We flush to memory last requested framebuffer, if any.
