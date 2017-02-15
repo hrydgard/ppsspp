@@ -349,7 +349,7 @@ void FramebufferManagerGLES::DrawPixels(VirtualFramebuffer *vfb, int dstX, int d
 	DisableState();
 
 	bool linearFilter = vfb || g_Config.iBufFilter == SCALE_LINEAR;
-	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, nullptr, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, draw2dprogram_, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 	textureCacheGL_->ForgetLastTexture();
 }
 
@@ -386,7 +386,7 @@ void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBuff
 	std::swap(v0, v1);
 
 	bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
-	GLSLProgram *program = nullptr;
+	GLSLProgram *program = draw2dprogram_;
 	if (applyPostShader && usePostShader_ && useBufferedRendering_)
 		program = postShaderProgram_;
 	if (cardboardSettings.enabled) {
@@ -406,10 +406,6 @@ void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBuff
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
 // TODO: This could totally use fbo_blit.
 void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, GLSLProgram *program, int uvRotation, bool linearFilter) {
-	if (!program) {
-		program = draw2dprogram_;
-	}
-
 	if (program != postShaderProgram_) {
 		shaderManager_->DirtyLastShader();  // dirty lastShader_
 		glsl_bind(program);
@@ -750,19 +746,20 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.
+			GLSLProgram *program = draw2dprogram_;
 			std::swap(v0, v1);
 			if (cardboardSettings.enabled) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 			} else {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, uvRotation, linearFilter);
 			}
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
@@ -790,20 +787,20 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			// We are doing the DrawActiveTexture call directly to the backbuffer after here. Hence, we must
 			// flip V.
 			std::swap(v0, v1);
-
+			GLSLProgram *program = draw2dprogram_;
 			linearFilter = !postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR;
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 			} else {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, uvRotation, linearFilter);
 			}
 
 			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
@@ -817,6 +814,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			std::swap(v0, v1);
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 
+			GLSLProgram *program = postShaderProgram_;
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight, &uniforms);
@@ -824,15 +822,15 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 			} else {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, uvRotation, linearFilter);
 			}
 		}
 	}
