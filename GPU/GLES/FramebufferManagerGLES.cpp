@@ -186,6 +186,11 @@ void FramebufferManagerGLES::Bind2DShader() {
 }
 
 void FramebufferManagerGLES::BindPostShader(const PostShaderUniforms &uniforms) {
+	// Make sure we've compiled the shader.
+	if (!postShaderProgram_) {
+		CompileDraw2DProgram();
+	}
+
 	glsl_bind(postShaderProgram_);
 	if (deltaLoc_ != -1)
 		glUniform2f(deltaLoc_, uniforms.texelDelta[0], uniforms.texelDelta[1]);
@@ -343,58 +348,6 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 
 void FramebufferManagerGLES::SetViewport2D(int x, int y, int w, int h) {
 	glstate.viewport.set(x, y, w, h);
-}
-
-void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
-
-	DisableState();
-
-	struct CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
-
-	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
-	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
-	// (it always runs at output resolution so FXAA may look odd).
-	float x, y, w, h;
-	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-	if (applyPostShader && useBufferedRendering_) {
-		// Make sure we've compiled the shader.
-		if (!postShaderProgram_) {
-			CompileDraw2DProgram();
-		}
-		// Might've changed if the shader was just changed to Off.
-		if (usePostShader_) {
-			PostShaderUniforms uniforms{};
-			CalculatePostShaderUniforms(480, 272, renderWidth_, renderHeight_, &uniforms);
-			BindPostShader(uniforms);
-		} else {
-			Bind2DShader();
-		}
-	} else {
-		Bind2DShader();
-	}
-	float u0 = 0.0f, u1 = 480.0f / 512.0f;
-	float v0 = 0.0f, v1 = 1.0f;
-
-	// We are drawing directly to the back buffer.
-	if (needBackBufferYSwap_)
-		std::swap(v0, v1);
-
-	bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
-	if (cardboardSettings.enabled) {
-		// Left Eye Image
-		SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
-		// Right Eye Image
-		SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
-	} else {
-		// Fullscreen Image
-		SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, linearFilter);
-	}
 }
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.

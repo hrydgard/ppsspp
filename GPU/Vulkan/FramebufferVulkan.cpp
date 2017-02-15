@@ -417,65 +417,6 @@ void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
 	vkCmdSetViewport(curCmd_, 0, 1, &vp);
 }
 
-void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
-	VulkanTexture *pixelTex = drawPixelsTex_;
-	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == TEX_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
-
-	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
-	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
-	// (it always runs at output resolution so FXAA may look odd).
-	float x, y, w, h;
-	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-	if (applyPostShader) {
-		// Might've changed if the shader was just changed to Off.
-		if (usePostShader_) {
-			UpdatePostShaderUniforms(480, 272, renderWidth_, renderHeight_);
-		}
-	}
-	float u0 = 0.0f, u1 = 480.0f / 512.0f;
-	float v0 = 0.0f, v1 = 1.0f;
-
-	VkPipeline postShaderProgram_ = VK_NULL_HANDLE;
-
-	VkPipeline program = pipelineBasicTex_;
-	if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-		program = postShaderProgram_;
-	}
-
-	CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
-
-	// TODO: Don't use the viewport mechanism for this.
-	VkViewport vp;
-	vp.minDepth = 0.0f;
-	vp.maxDepth = 1.0f;
-	if (cardboardSettings.enabled) {
-		// Left Eye Image
-		vp.x = cardboardSettings.leftEyeXPosition;
-		vp.y = cardboardSettings.screenYPosition;
-		vp.width = cardboardSettings.screenWidth;
-		vp.height = cardboardSettings.screenHeight;
-		vkCmdSetViewport(curCmd_, 0, 1, &vp);
-
-		DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL);
-
-		// Right Eye Image
-		vp.x = cardboardSettings.rightEyeXPosition;
-		vkCmdSetViewport(curCmd_, 0, 1, &vp);
-		DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL);
-	} else {
-		// Fullscreen Image
-		vp.x = 0.0f;
-		vp.y = 0.0f;
-		vp.width = pixelWidth_;
-		vp.height = pixelHeight_;
-		vkCmdSetViewport(curCmd_, 0, 1, &vp);
-		DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, uvRotation);
-	}
-}
-
 void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
 	// TODO
 }

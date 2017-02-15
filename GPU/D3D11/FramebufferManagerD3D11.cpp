@@ -252,22 +252,6 @@ void FramebufferManagerD3D11::SetViewport2D(int x, int y, int w, int h) {
 	context_->RSSetViewports(1, &vp);
 }
 
-void FramebufferManagerD3D11::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
-	DisableState();
-	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
-	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders
-	// (it always runs at output resolution so FXAA may look odd).
-	float x, y, w, h;
-	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
-	Bind2DShader();
-	DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation, g_Config.iBufFilter == SCALE_LINEAR);
-	textureCacheD3D11_->ForgetLastTexture();
-	shaderManagerD3D11_->DirtyLastShader();
-}
-
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
 	float coord[20] = {
 		x,y,0, u0,v0,

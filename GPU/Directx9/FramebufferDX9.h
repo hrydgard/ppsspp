@@ -21,7 +21,7 @@
 #include <set>
 #include <map>
 
-#include "d3d9.h"
+#include <d3d9.h>
 
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
@@ -51,8 +51,6 @@ public:
 		drawEngine_ = td;
 	}
 
-	virtual void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
-	
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) override;
 
 	void DestroyAllFBOs(bool forceDelete);

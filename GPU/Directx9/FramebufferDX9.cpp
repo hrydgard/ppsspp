@@ -271,22 +271,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 	}
 
-	void FramebufferManagerDX9::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
-		textureCache_->ForgetLastTexture();
-		shaderManagerDX9_->DirtyLastShader();
-		DisableState();
-		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
-
-		// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
-		// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders
-		// (it always runs at output resolution so FXAA may look odd).
-		float x, y, w, h;
-		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-		Bind2DShader();
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation, true);
-	}
-
 	void FramebufferManagerDX9::SetViewport2D(int x, int y, int w, int h) {
 		D3DVIEWPORT9 vp{ (DWORD)x, (DWORD)y, (DWORD)w, (DWORD)h, 0.0f, 1.0f };
 		pD3Ddevice->SetViewport(&vp);
