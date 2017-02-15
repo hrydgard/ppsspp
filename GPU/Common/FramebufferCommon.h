@@ -258,6 +258,7 @@ public:
 	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
 
 protected:
+	virtual void SetViewport2D(int x, int y, int w, int h) = 0;
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms);
 	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) = 0;
 	virtual void BindPostShader(const PostShaderUniforms &uniforms) {}

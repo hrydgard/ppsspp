@@ -402,6 +402,17 @@ VulkanTexture *FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, G
 	return drawPixelsTex_;
 }
 
+void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
+	VkViewport vp;
+	vp.minDepth = 0.0;
+	vp.maxDepth = 1.0;
+	vp.x = (float)x;
+	vp.y = (float)y;
+	vp.width = (float)w;
+	vp.height = (float)h;
+	vkCmdSetViewport(curCmd_, 0, 1, &vp);
+}
+
 void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	VkViewport vp;
 	vp.minDepth = 0.0;

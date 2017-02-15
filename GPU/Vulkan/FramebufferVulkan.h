@@ -126,6 +126,7 @@ public:
 	}
 
 protected:
+	void SetViewport2D(int x, int y, int w, int h);
 	void DisableState() override {}
 	void ClearBuffer(bool keepState = false) override;
 	void FlushBeforeCopy() override;

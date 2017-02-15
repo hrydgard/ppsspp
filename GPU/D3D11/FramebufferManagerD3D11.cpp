@@ -241,6 +241,11 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 	// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 }
 
+void FramebufferManagerD3D11::SetViewport2D(int x, int y, int w, int h) {
+	D3D11_VIEWPORT vp{ (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f };
+	context_->RSSetViewports(1, &vp);
+}
+
 void FramebufferManagerD3D11::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo);

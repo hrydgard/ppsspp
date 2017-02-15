@@ -268,26 +268,23 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 		if (useBufferedRendering_ && vfb && vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-			D3DVIEWPORT9 vp{ 0, 0, vfb->renderWidth, vfb->renderHeight, 0.0f, 1.0f };
-			pD3Ddevice->SetViewport(&vp);
+			SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
 		} else {
 			float x, y, w, h;
 			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-			D3DVIEWPORT9 vp{ (DWORD)x, (DWORD)y, (DWORD)w, (DWORD)h, 0.0f, 1.0f };
-			pD3Ddevice->SetViewport(&vp);
+			SetViewport2D(x, y, w, h);
 		}
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
 		device_->SetTexture(0, drawPixelsTex_);
 		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, true);
-		textureCacheDX9_->ForgetLastTexture();
+		textureCache_->ForgetLastTexture();
 		dxstate.viewport.restore();
 	}
 
 	void FramebufferManagerDX9::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
-		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
-
 		DisableState();
+		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 
 		// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
 		// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders
@@ -297,6 +294,11 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 		device_->SetTexture(0, drawPixelsTex_);
 		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation, true);
+	}
+
+	void FramebufferManagerDX9::SetViewport2D(int x, int y, int w, int h) {
+		D3DVIEWPORT9 vp{ (DWORD)x, (DWORD)y, (DWORD)w, (DWORD)h, 0.0f, 1.0f };
+		pD3Ddevice->SetViewport(&vp);
 	}
 
 	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
