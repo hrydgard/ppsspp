@@ -330,7 +330,7 @@ void FramebufferManagerVulkan::Init() {
 	resized_ = true;
 }
 
-VulkanTexture *FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTex_->GetWidth() != width || drawPixelsTex_->GetHeight() != height)) {
 		delete drawPixelsTex_;
 		drawPixelsTex_ = nullptr;
@@ -399,7 +399,6 @@ VulkanTexture *FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, G
 	size_t offset = frameData_[curFrame_].push_->Push(data, width * height * 4, &buffer);
 	drawPixelsTex_->UploadMip(0, width, height, buffer, (uint32_t)offset, width);
 	drawPixelsTex_->EndCreate();
-	return drawPixelsTex_;
 }
 
 void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
@@ -428,13 +427,15 @@ void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	// TODO: Don't use the viewport mechanism for this.
 	vkCmdSetViewport(curCmd_, 0, 1, &vp);
 
-	VulkanTexture *pixelTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
+	VulkanTexture *pixelTex = drawPixelsTex_;
 	DrawTexture(pixelTex, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 	textureCacheVulkan_->ForgetLastTexture();
 }
 
 void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
-	VulkanTexture *pixelTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
+	VulkanTexture *pixelTex = drawPixelsTex_;
 	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == TEX_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
 
 	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
@@ -543,6 +544,10 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);
 	vkCmdBindVertexBuffers(cmd, 0, 1, &vbuffer, &offset);
 	vkCmdDraw(cmd, 4, 1, 0, 0);
+}
+
+void FramebufferManagerVulkan::Bind2DShader() {
+
 }
 
 void FramebufferManagerVulkan::RebindFramebuffer() {

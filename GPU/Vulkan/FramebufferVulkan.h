@@ -126,6 +126,7 @@ public:
 	}
 
 protected:
+	void Bind2DShader() override;
 	void SetViewport2D(int x, int y, int w, int h);
 	void DisableState() override {}
 	void ClearBuffer(bool keepState = false) override;
@@ -139,7 +140,7 @@ protected:
 private:
 
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
-	VulkanTexture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DoNotifyDraw();
 
 	VkCommandBuffer AllocFrameCommandBuffer();

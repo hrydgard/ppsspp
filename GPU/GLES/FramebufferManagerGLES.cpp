@@ -181,6 +181,10 @@ void FramebufferManagerGLES::CompileDraw2DProgram() {
 	}
 }
 
+void FramebufferManagerGLES::Bind2DShader() {
+	glsl_bind(draw2dprogram_);
+}
+
 void FramebufferManagerGLES::BindPostShader(const PostShaderUniforms &uniforms) {
 	glsl_bind(postShaderProgram_);
 	if (deltaLoc_ != -1)
@@ -220,6 +224,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	pixelBufObj_(nullptr),
 	currentPBO_(0)
 {
+	needBackBufferYSwap_ = true;
 }
 
 void FramebufferManagerGLES::Init() {
@@ -356,7 +361,7 @@ void FramebufferManagerGLES::DrawPixels(VirtualFramebuffer *vfb, int dstX, int d
 	DisableState();
 
 	bool linearFilter = vfb || g_Config.iBufFilter == SCALE_LINEAR;
-	glsl_bind(draw2dprogram_);
+	Bind2DShader();
 	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 }
 
@@ -385,16 +390,17 @@ void FramebufferManagerGLES::DrawFramebufferToOutput(const u8 *srcPixels, GEBuff
 			CalculatePostShaderUniforms(480, 272, renderWidth_, renderHeight_, &uniforms);
 			BindPostShader(uniforms);
 		} else {
-			glsl_bind(draw2dprogram_);
+			Bind2DShader();
 		}
 	} else {
-		glsl_bind(draw2dprogram_);
+		Bind2DShader();
 	}
 	float u0 = 0.0f, u1 = 480.0f / 512.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 
 	// We are drawing directly to the back buffer.
-	std::swap(v0, v1);
+	if (needBackBufferYSwap_)
+		std::swap(v0, v1);
 
 	bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 	if (cardboardSettings.enabled) {
@@ -633,15 +639,7 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 	}
 
 	if (useBufferedRendering_) {
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-#ifdef USING_GLES2
-		glClearDepthf(0.0f);
-#else
-		glClearDepth(0.0);
-#endif
-		glClearStencil(0);
-		// Hardly necessary to clear depth and stencil I guess...
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		draw_->Clear(Draw::FB_COLOR_BIT | Draw::FB_STENCIL_BIT | Draw::FB_DEPTH_BIT, 0, 0, 0);
 	}
 
 	u32 offsetX = 0;
@@ -750,9 +748,9 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.
-			GLSLProgram *program = draw2dprogram_;
-			glsl_bind(program);
-			std::swap(v0, v1);
+			Bind2DShader();
+			if (needBackBufferYSwap_)
+				std::swap(v0, v1);
 			if (cardboardSettings.enabled) {
 				// Left Eye Image
 				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
@@ -791,8 +789,9 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 
 			// We are doing the DrawActiveTexture call directly to the backbuffer after here. Hence, we must
 			// flip V.
-			std::swap(v0, v1);
-			glsl_bind(draw2dprogram_);
+			if (needBackBufferYSwap_)
+				std::swap(v0, v1);
+			Bind2DShader();
 			linearFilter = !postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR;
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
@@ -816,7 +815,8 @@ void FramebufferManagerGLES::CopyDisplayToOutput() {
 		} else {
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.
-			std::swap(v0, v1);
+			if (needBackBufferYSwap_)
+				std::swap(v0, v1);
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 
 			shaderManager_->DirtyLastShader();  // dirty lastShader_

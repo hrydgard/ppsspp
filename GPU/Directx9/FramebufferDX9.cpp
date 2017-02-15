@@ -279,6 +279,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		device_->SetTexture(0, drawPixelsTex_);
 		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, true);
 		textureCache_->ForgetLastTexture();
+		shaderManager_->DirtyLastShader();
 		dxstate.viewport.restore();
 	}
 
@@ -294,6 +295,8 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 		device_->SetTexture(0, drawPixelsTex_);
 		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation, true);
+		textureCache_->ForgetLastTexture();
+		shaderManager_->DirtyLastShader();
 	}
 
 	void FramebufferManagerDX9::SetViewport2D(int x, int y, int w, int h) {
@@ -349,10 +352,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			dxstate.texMinFilter.set(D3DTEXF_POINT);
 		}
 		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
-		pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
-		pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
-		shaderManager_->DirtyLastShader();
 		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "DrawActiveTexture() failed: %08x", hr);
@@ -365,6 +364,12 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		} else {
 			draw_->BindBackbufferAsRenderTarget();
 		}
+	}
+
+	void FramebufferManagerDX9::Bind2DShader() {
+		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
+		pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
+		pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
 	}
 
 	void FramebufferManagerDX9::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
@@ -743,6 +748,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height, postShaderProgram_);
 			}
 			*/
+			shaderManager_->DirtyLastShader();
 			pD3Ddevice->SetTexture(0, NULL);
 		}
 		dxstate.viewport.restore();

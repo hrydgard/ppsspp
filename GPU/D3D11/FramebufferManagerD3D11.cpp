@@ -238,6 +238,7 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 	}
 
 	context_->Unmap(drawPixelsTex_, 0);
+	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
 	// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 }
 
@@ -259,16 +260,15 @@ void FramebufferManagerD3D11::DrawPixels(VirtualFramebuffer *vfb, int dstX, int 
 	}
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	DisableState();
-	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
+	Bind2DShader();
 	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, true);
 	textureCacheD3D11_->ForgetLastTexture();
-	//	context_->RSSetViewports(1, &vp);
+	shaderManager_->DirtyLastShader();
 }
 
 void FramebufferManagerD3D11::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 	DisableState();
-
 	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
 	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders
 	// (it always runs at output resolution so FXAA may look odd).
@@ -276,7 +276,10 @@ void FramebufferManagerD3D11::DrawFramebufferToOutput(const u8 *srcPixels, GEBuf
 	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
+	Bind2DShader();
 	DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation, g_Config.iBufFilter == SCALE_LINEAR);
+	textureCacheD3D11_->ForgetLastTexture();
+	shaderManager_->DirtyLastShader();
 }
 
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
@@ -331,17 +334,22 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
 	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0);
-	context_->IASetInputLayout(quadInputLayout_);
-	context_->PSSetShader(quadPixelShader_, 0, 0);
-	context_->VSSetShader(quadVertexShader_, 0, 0);
 	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	context_->PSSetSamplers(0, 1, linearFilter ? &stockD3D11.samplerLinear2DClamp : &stockD3D11.samplerPoint2DClamp);
 	UINT stride = 20;
 	UINT offset = 0;
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &stride, &offset);
 	context_->Draw(4, 0);
+}
 
-	shaderManager_->DirtyLastShader();
+void FramebufferManagerD3D11::Bind2DShader() {
+	context_->IASetInputLayout(quadInputLayout_);
+	context_->PSSetShader(quadPixelShader_, 0, 0);
+	context_->VSSetShader(quadVertexShader_, 0, 0);
+}
+
+void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms) {
+
 }
 
 void FramebufferManagerD3D11::RebindFramebuffer() {
@@ -603,6 +611,7 @@ void FramebufferManagerD3D11::CopyDisplayToOutput() {
 		if (1) {
 			const u32 rw = PSP_CoreParameter().pixelWidth;
 			const u32 rh = PSP_CoreParameter().pixelHeight;
+			Bind2DShader();
 			DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, u0, v0, u1, v1, uvRotation, g_Config.iBufFilter == SCALE_LINEAR);
 		}
 
