@@ -259,6 +259,7 @@ public:
 
 protected:
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms);
+	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) = 0;
 	virtual void BindPostShader(const PostShaderUniforms &uniforms) {}
 
 	// Cardboard Settings Calculator

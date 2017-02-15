@@ -279,7 +279,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
 		device_->SetTexture(0, drawPixelsTex_);
-		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL);
+		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, true);
 		textureCacheDX9_->ForgetLastTexture();
 		dxstate.viewport.restore();
 	}
@@ -296,10 +296,10 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 		device_->SetTexture(0, drawPixelsTex_);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation);
+		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation, true);
 	}
 
-	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation) {
+	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
 		// TODO: StretchRect instead?
 		float coord[20] = {
 			x,y,0, u0,v0,
@@ -339,6 +339,13 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f - halfPixelY);
 		}
 
+		if (linearFilter) {
+			dxstate.texMagFilter.set(D3DTEXF_LINEAR);
+			dxstate.texMinFilter.set(D3DTEXF_LINEAR);
+		} else {
+			dxstate.texMagFilter.set(D3DTEXF_POINT);
+			dxstate.texMinFilter.set(D3DTEXF_POINT);
+		}
 		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 		pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
@@ -701,16 +708,9 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 					ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display");
 					DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0.0f, 1.0f);
 					// These are in the output display coordinates
-					if (g_Config.iBufFilter == SCALE_LINEAR) {
-						dxstate.texMagFilter.set(D3DTEXF_LINEAR);
-						dxstate.texMinFilter.set(D3DTEXF_LINEAR);
-					} else {
-						dxstate.texMagFilter.set(D3DTEXF_POINT);
-						dxstate.texMinFilter.set(D3DTEXF_POINT);
-					}
 					dxstate.texMipFilter.set(D3DTEXF_NONE);
 					dxstate.texMipLodBias.set(0);
-					DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, u0, v0, u1, v1, uvRotation);
+					DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, u0, v0, u1, v1, uvRotation, g_Config.iBufFilter == SCALE_LINEAR);
 				}
 			}
 			/* 

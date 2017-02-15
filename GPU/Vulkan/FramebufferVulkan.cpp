@@ -480,11 +480,12 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	}
 }
 
+void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
+	// TODO
+}
+
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
 void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation) {
-	if (!texture)
-		return;
-
 	float texCoords[8] = {
 		u0,v0,
 		u1,v0,
