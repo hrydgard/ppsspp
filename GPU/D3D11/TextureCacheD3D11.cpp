@@ -94,7 +94,11 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 		D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT,
 		D3D11_FILTER_MIN_MAG_MIP_LINEAR,
 	};
-	samp.Filter = filters[filterKey];
+	// Only switch to aniso if linear min and mag are set.
+	if (samp.MaxAnisotropy > 1.0f && key.magFilt != 0 && key.minFilt != 0)
+		samp.Filter = D3D11_FILTER_ANISOTROPIC;
+	else
+		samp.Filter = filters[filterKey];
 	samp.MaxLOD = key.maxLevel;
 	samp.MinLOD = 0.0f;
 	samp.MipLODBias = 0.0f;
@@ -115,7 +119,6 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw)
 
 	HRESULT result = 0;
 
-	maxAnisotropyLevel = 16;
 	SetupTextureDecoder();
 
 	nextTexture_ = nullptr;

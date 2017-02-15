@@ -115,7 +115,6 @@ private:
 	u32 clutHash_;
 
 	ID3D11ShaderResourceView *lastBoundTexture;
-	float maxAnisotropyLevel;
 
 	int decimationCounter_;
 	int texelsScaledThisFrame_;
