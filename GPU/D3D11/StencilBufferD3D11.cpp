@@ -201,7 +201,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	context_->RSSetViewports(1, &vp);
 
 	// Zero stencil
-	draw_->Clear(Draw::ClearFlag::STENCIL, 0, 0, 0);
+	draw_->Clear(Draw::FBChannel::FB_STENCIL_BIT, 0, 0, 0);
 
 	float fw = dstBuffer->width;
 	float fh = dstBuffer->height;

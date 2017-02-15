@@ -1133,11 +1133,11 @@ void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stenc
 	float col[4];
 	Uint8x4ToFloat4(col, colorval);
 	GLuint glMask = 0;
-	if (mask & ClearFlag::COLOR) {
+	if (mask & FBChannel::FB_COLOR_BIT) {
 		glClearColor(col[0], col[1], col[2], col[3]);
 		glMask |= GL_COLOR_BUFFER_BIT;
 	}
-	if (mask & ClearFlag::DEPTH) {
+	if (mask & FBChannel::FB_DEPTH_BIT) {
 #if defined(USING_GLES2)
 		glClearDepthf(depthVal);
 #else
@@ -1145,7 +1145,7 @@ void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stenc
 #endif
 		glMask |= GL_DEPTH_BUFFER_BIT;
 	}
-	if (mask & ClearFlag::STENCIL) {
+	if (mask & FBChannel::FB_STENCIL_BIT) {
 		glClearStencil(stencilVal);
 		glMask |= GL_STENCIL_BUFFER_BIT;
 	}

@@ -1175,17 +1175,16 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 }
 
 void VKContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
-	if (mask & ClearFlag::COLOR) {
+	if (mask & FBChannel::FB_COLOR_BIT) {
 		VkClearColorValue col;
 		Uint8x4ToFloat4(colorval, col.float32);
-
 		/*
 		VkRect3D rect;
 		rect.extent.width =
 		vkCmdClearColorAttachment(cmdBuf_, 0, imageLayout_, &col, 1, nullptr);
 		*/
 	}
-	if (mask & (ClearFlag::DEPTH | ClearFlag::STENCIL)) {
+	if (mask & (FBChannel::FB_DEPTH_BIT | FBChannel::FB_STENCIL_BIT)) {
 
 	}
 }

@@ -163,12 +163,6 @@ enum FragmentShaderPreset : int {
 	FS_MAX_PRESET,
 };
 
-enum ClearFlag : int {
-	COLOR = 1,
-	DEPTH = 2,
-	STENCIL = 4,
-};
-
 enum class TextureType : uint8_t {
 	UNKNOWN,
 	LINEAR1D,
@@ -331,6 +325,8 @@ enum FBChannel {
 	FB_COLOR_BIT = 1,
 	FB_DEPTH_BIT = 2,
 	FB_STENCIL_BIT = 4,
+
+	// Implementation specific
 	FB_SURFACE_BIT = 32,  // Used in conjunction with the others in D3D9 to get surfaces through get_api_texture
 };
 

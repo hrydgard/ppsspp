@@ -1132,33 +1132,33 @@ void D3D11DrawContext::BindSamplerStates(int start, int count, SamplerState **st
 }
 
 void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
-	if ((mask & ClearFlag::COLOR) && curRenderTargetView_) {
+	if ((mask & FBChannel::FB_COLOR_BIT) && curRenderTargetView_) {
 		float colorRGBA[4];
 		Uint8x4ToFloat4(colorRGBA, colorval);
 		context_->ClearRenderTargetView(curRenderTargetView_, colorRGBA);
 	}
-	if ((mask & (ClearFlag::DEPTH | ClearFlag::STENCIL)) && curDepthStencilView_) {
+	if ((mask & (FBChannel::FB_DEPTH_BIT | FBChannel::FB_STENCIL_BIT)) && curDepthStencilView_) {
 		UINT clearFlag = 0;
-		if (mask & ClearFlag::DEPTH)
+		if (mask & FBChannel::FB_DEPTH_BIT)
 			clearFlag |= D3D11_CLEAR_DEPTH;
-		if (mask & ClearFlag::STENCIL)
+		if (mask & FBChannel::FB_STENCIL_BIT)
 			clearFlag |= D3D11_CLEAR_STENCIL;
 		context_->ClearDepthStencilView(curDepthStencilView_, clearFlag, depthVal, stencilVal);
 	}
 }
 
-void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
+void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBit) {
 	D3D11Framebuffer *src = (D3D11Framebuffer *)srcfb;
 	D3D11Framebuffer *dst = (D3D11Framebuffer *)dstfb;
 
 	ID3D11Texture2D *srcTex = nullptr;
 	ID3D11Texture2D *dstTex = nullptr;
-	switch (channelBits) {
-	case FB_COLOR_BIT:
+	switch (channelBit) {
+	case FBChannel::FB_COLOR_BIT:
 		srcTex = src->colorTex;
 		dstTex = dst->colorTex;
 		break;
-	case FB_DEPTH_BIT:
+	case FBChannel::FB_DEPTH_BIT:
 		srcTex = src->depthStencilTex;
 		dstTex = dst->depthStencilTex;
 		break;
@@ -1171,7 +1171,7 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 		return;
 	}
 
-	if (channelBits != FB_DEPTH_BIT) {
+	if (channelBit != FBChannel::FB_DEPTH_BIT) {
 		// Non-full copies are not supported for the depth channel.
 		D3D11_BOX srcBox{ (UINT)x, (UINT)y, (UINT)z, (UINT)(x + width), (UINT)(y + height), (UINT)(z + depth) };
 		context_->CopySubresourceRegion(dstTex, dstLevel, dstX, dstY, dstZ, srcTex, level, &srcBox);

@@ -911,10 +911,9 @@ static uint32_t SwapRB(uint32_t c) {
 
 void D3D9Context::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
 	UINT d3dMask = 0;
-	if (mask & ClearFlag::COLOR) d3dMask |= D3DCLEAR_TARGET;
-	if (mask & ClearFlag::DEPTH) d3dMask |= D3DCLEAR_ZBUFFER;
-	if (mask & ClearFlag::STENCIL) d3dMask |= D3DCLEAR_STENCIL;
-
+	if (mask & FBChannel::FB_COLOR_BIT) d3dMask |= D3DCLEAR_TARGET;
+	if (mask & FBChannel::FB_DEPTH_BIT) d3dMask |= D3DCLEAR_ZBUFFER;
+	if (mask & FBChannel::FB_STENCIL_BIT) d3dMask |= D3DCLEAR_STENCIL;
 	device_->Clear(0, NULL, d3dMask, (D3DCOLOR)SwapRB(colorval), depthVal, stencilVal);
 }
 

@@ -149,7 +149,7 @@ void FramebufferManagerD3D11::SetTextureCache(TextureCacheD3D11 *tc) {
 }
 
 void FramebufferManagerD3D11::ClearBuffer(bool keepState) {
-	draw_->Clear(Draw::ClearFlag::COLOR | Draw::ClearFlag::DEPTH | Draw::ClearFlag::STENCIL, 0, ToScaledDepth(0), 0);
+	draw_->Clear(Draw::FBChannel::FB_COLOR_BIT | Draw::FBChannel::FB_DEPTH_BIT | Draw::FBChannel::FB_STENCIL_BIT, 0, ToScaledDepth(0), 0);
 }
 
 void FramebufferManagerD3D11::DisableState() {

@@ -15,9 +15,9 @@ typedef DWORD (WINAPI *XInputGetState_t) (DWORD dwUserIndex, XINPUT_STATE* pStat
 typedef DWORD (WINAPI *XInputSetState_t) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
 typedef DWORD (WINAPI *XInputGetCapabilities_t) (DWORD dwUserIndex, DWORD dwFlags, XINPUT_CAPABILITIES* pCapabilities);
 
-XInputGetState_t PPSSPP_XInputGetState = NULL;
-XInputSetState_t PPSSPP_XInputSetState = NULL;
-XInputGetCapabilities_t PPSSPP_XInputGetCapabilities = NULL;
+static XInputGetState_t PPSSPP_XInputGetState = NULL;
+static XInputSetState_t PPSSPP_XInputSetState = NULL;
+static XInputGetCapabilities_t PPSSPP_XInputGetCapabilities = NULL;
 static DWORD PPSSPP_XInputVersion = 0;
 static HMODULE s_pXInputDLL = 0;
 static int s_XInputDLLRefCount = 0;
@@ -97,10 +97,8 @@ static const unsigned int xinput_ctrl_map_size = sizeof(xinput_ctrl_map) / sizeo
 
 XinputDevice::XinputDevice() {
 	if (LoadXInputDLL() != 0) {
-		ERROR_LOG(SCECTRL, "Failed to load XInput! DLL missing");
+		WARN_LOG(SCECTRL, "Failed to load XInput! DLL missing");
 	}
-	ZeroMemory( &this->prevState, sizeof(this->prevState) );
-	this->check_delay = 0;
 	this->gamepad_idx = -1;
 }
 
