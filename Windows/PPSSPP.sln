@@ -23,6 +23,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib", "..\ext\zlib\zlib.vc
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GPU", "..\GPU\GPU.vcxproj", "{457F45D2-556F-47BC-A31D-AFF0D15BEAED}"
 	ProjectSection(ProjectDependencies) = postProject
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363} = {4328A62C-F1E9-47ED-B816-A1A81DAF4363}
 		{3FCDBAE2-5103-4350-9A8E-848CE9C73195} = {3FCDBAE2-5103-4350-9A8E-848CE9C73195}
 	EndProjectSection
 EndProject
@@ -73,6 +74,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libarmips", "..\ext\libarmips.vcxproj", "{129E5E2B-39C1-4D84-96FE-DFD22DBB4A25}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glslang", "..\ext\glslang.vcxproj", "{EDFA2E87-8AC1-4853-95D4-D7594FF81947}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SPIRV-Cross", "..\ext\SPIRV-Cross.vcxproj", "{4328A62C-F1E9-47ED-B816-A1A81DAF4363}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -228,6 +231,18 @@ Global
 		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Tests|Win32.Build.0 = Release|Win32
 		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Tests|x64.ActiveCfg = Release|x64
 		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Tests|x64.Build.0 = Release|x64
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Debug|Win32.Build.0 = Debug|Win32
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Debug|x64.ActiveCfg = Debug|x64
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Debug|x64.Build.0 = Debug|x64
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Release|Win32.ActiveCfg = Release|Win32
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Release|Win32.Build.0 = Release|Win32
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Release|x64.ActiveCfg = Release|x64
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Release|x64.Build.0 = Release|x64
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Tests|Win32.ActiveCfg = Release|Win32
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Tests|Win32.Build.0 = Release|Win32
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Tests|x64.ActiveCfg = Release|x64
+		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Tests|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
