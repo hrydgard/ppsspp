@@ -1216,11 +1216,11 @@ void OpenGLInputLayout::Unapply() {
 class OpenGLFramebuffer : public Framebuffer {
 public:
 	~OpenGLFramebuffer();
-	GLuint handle;
-	GLuint color_texture;
-	GLuint z_stencil_buffer;  // Either this is set, or the two below.
-	GLuint z_buffer;
-	GLuint stencil_buffer;
+	GLuint handle = 0;
+	GLuint color_texture = 0;
+	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
+	GLuint z_buffer = 0;
+	GLuint stencil_buffer = 0;
 
 	int width;
 	int height;
@@ -1580,15 +1580,19 @@ uintptr_t OpenGLContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelB
 
 void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
-	// glActiveTexture(GL_TEXTURE0 + binding);
+	if (!fb)
+		return;
+	if (binding != 0)
+		glActiveTexture(GL_TEXTURE0 + binding);
 	switch (channelBit) {
+	case FB_DEPTH_BIT:
+		glBindTexture(GL_TEXTURE_2D, fb->z_buffer ? fb->z_buffer : fb->z_stencil_buffer);
 	case FB_COLOR_BIT:
 	default:
-		if (fbo) {
-			glBindTexture(GL_TEXTURE_2D, fb->color_texture);
-		}
+		glBindTexture(GL_TEXTURE_2D, fb->color_texture);
 		break;
 	}
+	glActiveTexture(GL_TEXTURE0);
 }
 
 OpenGLFramebuffer::~OpenGLFramebuffer() {
@@ -1597,18 +1601,28 @@ OpenGLFramebuffer::~OpenGLFramebuffer() {
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glDeleteFramebuffers(1, &handle);
-		glDeleteRenderbuffers(1, &z_stencil_buffer);
-		glDeleteRenderbuffers(1, &z_buffer);
-		glDeleteRenderbuffers(1, &stencil_buffer);
+		if (handle)
+			glDeleteFramebuffers(1, &handle);
+		if (z_stencil_buffer)
+			glDeleteRenderbuffers(1, &z_stencil_buffer);
+		if (z_buffer)
+			glDeleteRenderbuffers(1, &z_buffer);
+		if (stencil_buffer)
+			glDeleteRenderbuffers(1, &stencil_buffer);
 	} else if (gl_extensions.EXT_framebuffer_object) {
 #ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, handle);
 		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-		glDeleteFramebuffersEXT(1, &handle);
-		glDeleteRenderbuffersEXT(1, &z_stencil_buffer);
+		if (handle)
+			glDeleteFramebuffersEXT(1, &handle);
+		if (z_stencil_buffer)
+			glDeleteRenderbuffers(1, &z_stencil_buffer);
+		if (z_buffer)
+			glDeleteRenderbuffers(1, &z_buffer);
+		if (stencil_buffer)
+			glDeleteRenderbuffers(1, &stencil_buffer);
 #endif
 	}
 
