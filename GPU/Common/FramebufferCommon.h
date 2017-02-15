@@ -185,6 +185,8 @@ public:
 	}
 	virtual void RebindFramebuffer() = 0;
 
+	void CopyDisplayToOutput();
+
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset, u32 skipDrawReason);
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size, bool safe);
@@ -265,7 +267,7 @@ protected:
 	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
 	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) = 0;
 	virtual void Bind2DShader() = 0;
-	virtual void BindPostShader(const PostShaderUniforms &uniforms) {}
+	virtual void BindPostShader(const PostShaderUniforms &uniforms) = 0;
 
 	// Cardboard Settings Calculator
 	void GetCardboardSettings(CardboardSettings *cardboardSettings);

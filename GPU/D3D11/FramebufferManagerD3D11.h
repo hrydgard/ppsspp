@@ -56,7 +56,6 @@ public:
 	void EndFrame();
 	void Resized() override;
 	void DeviceLost();
-	void CopyDisplayToOutput();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;

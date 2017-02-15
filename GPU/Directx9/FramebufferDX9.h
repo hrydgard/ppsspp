@@ -58,7 +58,6 @@ public:
 	void EndFrame();
 	void Resized() override;
 	void DeviceLost();
-	void CopyDisplayToOutput();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
@@ -84,6 +83,7 @@ public:
 
 protected:
 	void Bind2DShader() override;
+	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override;
 	void ClearBuffer(bool keepState = false) override;

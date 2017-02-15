@@ -84,7 +84,6 @@ public:
 	void Resized() override;
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
-	void CopyDisplayToOutput();
 	int GetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
@@ -122,6 +121,7 @@ public:
 
 protected:
 	void Bind2DShader() override;
+	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void SetViewport2D(int x, int y, int w, int h);
 	void DisableState() override {}
 	void ClearBuffer(bool keepState = false) override;
