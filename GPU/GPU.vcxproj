@@ -190,6 +190,7 @@
     <ClInclude Include="Common\PostShader.h" />
     <ClInclude Include="Common\ShaderCommon.h" />
     <ClInclude Include="Common\ShaderId.h" />
+    <ClInclude Include="Common\ShaderTranslation.h" />
     <ClInclude Include="Common\ShaderUniforms.h" />
     <ClInclude Include="Common\SoftwareTransformCommon.h" />
     <ClInclude Include="Common\SplineCommon.h" />
@@ -273,6 +274,7 @@
     <ClCompile Include="Common\IndexGenerator.cpp" />
     <ClCompile Include="Common\PostShader.cpp" />
     <ClCompile Include="Common\ShaderId.cpp" />
+    <ClCompile Include="Common\ShaderTranslation.cpp" />
     <ClCompile Include="Common\ShaderUniforms.cpp" />
     <ClCompile Include="Common\SplineCommon.cpp" />
     <ClCompile Include="Common\TextureDecoderNEON.cpp">
@@ -364,6 +366,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
       <Project>{3fcdbae2-5103-4350-9a8e-848ce9c73195}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\ext\SPIRV-Cross.vcxproj">
+      <Project>{4328a62c-f1e9-47ed-b816-a1a81daf4363}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
