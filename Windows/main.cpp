@@ -398,8 +398,14 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				if (restOfOption == L"directx9") {
 					g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
 					g_Config.bSoftwareRendering = false;
+				} else if (restOfOption == L"directx11") {
+					g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D11;
+					g_Config.bSoftwareRendering = false;
 				} else if (restOfOption == L"gles") {
 					g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+					g_Config.bSoftwareRendering = false;
+				} else if (restOfOption == L"vulkan") {
+					g_Config.iGPUBackend = GPU_BACKEND_VULKAN;
 					g_Config.bSoftwareRendering = false;
 				} else if (restOfOption == L"software") {
 					g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
