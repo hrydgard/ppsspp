@@ -151,9 +151,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="SPIRV-Cross\spirv.hpp" />
     <ClInclude Include="SPIRV-Cross\spirv_cfg.hpp" />
     <ClInclude Include="SPIRV-Cross\spirv_common.hpp" />

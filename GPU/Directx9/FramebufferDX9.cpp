@@ -183,6 +183,11 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		textureCache_ = tc;
 	}
 
+	void FramebufferManagerDX9::SetShaderManager(ShaderManagerDX9 *sm) {
+		shaderManagerDX9_ = sm;
+		shaderManager_ = sm;
+	}
+
 	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 		u8 *convBuf = NULL;
 		D3DLOCKED_RECT rect;
@@ -262,44 +267,16 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 
 		drawPixelsTex_->UnlockRect(0);
+		device_->SetTexture(0, drawPixelsTex_);
 		// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 	}
 
-	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-		if (useBufferedRendering_ && vfb && vfb->fbo) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-			D3DVIEWPORT9 vp{ 0, 0, vfb->renderWidth, vfb->renderHeight, 0.0f, 1.0f };
-			pD3Ddevice->SetViewport(&vp);
-		} else {
-			float x, y, w, h;
-			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-			D3DVIEWPORT9 vp{ (DWORD)x, (DWORD)y, (DWORD)w, (DWORD)h, 0.0f, 1.0f };
-			pD3Ddevice->SetViewport(&vp);
-		}
-		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-		DisableState();
-		device_->SetTexture(0, drawPixelsTex_);
-		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL);
-		textureCacheDX9_->ForgetLastTexture();
-		dxstate.viewport.restore();
+	void FramebufferManagerDX9::SetViewport2D(int x, int y, int w, int h) {
+		D3DVIEWPORT9 vp{ (DWORD)x, (DWORD)y, (DWORD)w, (DWORD)h, 0.0f, 1.0f };
+		pD3Ddevice->SetViewport(&vp);
 	}
 
-	void FramebufferManagerDX9::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
-		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
-
-		DisableState();
-
-		// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
-		// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders
-		// (it always runs at output resolution so FXAA may look odd).
-		float x, y, w, h;
-		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-		device_->SetTexture(0, drawPixelsTex_);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation);
-	}
-
-	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation) {
+	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
 		// TODO: StretchRect instead?
 		float coord[20] = {
 			x,y,0, u0,v0,
@@ -339,11 +316,14 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f - halfPixelY);
 		}
 
+		if (linearFilter) {
+			dxstate.texMagFilter.set(D3DTEXF_LINEAR);
+			dxstate.texMinFilter.set(D3DTEXF_LINEAR);
+		} else {
+			dxstate.texMagFilter.set(D3DTEXF_POINT);
+			dxstate.texMinFilter.set(D3DTEXF_POINT);
+		}
 		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
-		pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
-		pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
-		shaderManager_->DirtyLastShader();
 		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "DrawActiveTexture() failed: %08x", hr);
@@ -356,6 +336,16 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		} else {
 			draw_->BindBackbufferAsRenderTarget();
 		}
+	}
+
+	void FramebufferManagerDX9::Bind2DShader() {
+		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
+		pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
+		pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
+	}
+
+	void FramebufferManagerDX9::BindPostShader(const PostShaderUniforms &uniforms) {
+		Bind2DShader();
 	}
 
 	void FramebufferManagerDX9::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
@@ -392,7 +382,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 			pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
 			pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
-			shaderManager_->DirtyLastShader();
+			shaderManagerDX9_->DirtyLastShader();
 			pD3Ddevice->SetTexture(0, nullptr);
 
 			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight, 0.0f, 1.0f);
@@ -571,179 +561,6 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 		}
-	}
-
-	void FramebufferManagerDX9::CopyDisplayToOutput() {
-		DownloadFramebufferOnSwitch(currentRenderVfb_);
-
-		draw_->BindBackbufferAsRenderTarget();
-		currentRenderVfb_ = 0;
-
-		if (displayFramebufPtr_ == 0) {
-			DEBUG_LOG(SCEGE, "Display disabled, displaying only black");
-			// No framebuffer to display! Clear to black.
-			ClearBuffer();
-			return;
-		}
-
-		if (useBufferedRendering_) {
-			// In buffered, we no longer clear the backbuffer before we start rendering.
-			ClearBuffer();
-			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0.0f, 1.0f);
-		}
-
-		u32 offsetX = 0;
-		u32 offsetY = 0;
-
-		VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
-		if (!vfb) {
-			// Let's search for a framebuf within this range.
-			const u32 addr = (displayFramebufPtr_ & 0x03FFFFFF) | 0x04000000;
-			for (size_t i = 0; i < vfbs_.size(); ++i) {
-				VirtualFramebuffer *v = vfbs_[i];
-				const u32 v_addr = (v->fb_address & 0x03FFFFFF) | 0x04000000;
-				const u32 v_size = FramebufferByteSize(v);
-				if (addr >= v_addr && addr < v_addr + v_size) {
-					const u32 dstBpp = v->format == GE_FORMAT_8888 ? 4 : 2;
-					const u32 v_offsetX = ((addr - v_addr) / dstBpp) % v->fb_stride;
-					const u32 v_offsetY = ((addr - v_addr) / dstBpp) / v->fb_stride;
-					// We have enough space there for the display, right?
-					if (v_offsetX + 480 > (u32)v->fb_stride || v->bufferHeight < v_offsetY + 272) {
-						continue;
-					}
-					// Check for the closest one.
-					if (offsetY == 0 || offsetY > v_offsetY) {
-						offsetX = v_offsetX;
-						offsetY = v_offsetY;
-						vfb = v;
-					}
-				}
-			}
-
-			if (vfb) {
-				// Okay, we found one above.
-				INFO_LOG_REPORT_ONCE(displayoffset, HLE, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
-			}
-		}
-
-		if (vfb && vfb->format != displayFormat_) {
-			if (vfb->last_frame_render + FBO_OLD_AGE < gpuStats.numFlips) {
-				// The game probably switched formats on us.
-				vfb->format = displayFormat_;
-			} else {
-				vfb = 0;
-			}
-		}
-
-		if (!vfb) {
-			if (Memory::IsValidAddress(displayFramebufPtr_)) {
-				// The game is displaying something directly from RAM. In GTA, it's decoded video.
-
-				// First check that it's not a known RAM copy of a VRAM framebuffer though, as in MotoGP
-				for (auto iter = knownFramebufferRAMCopies_.begin(); iter != knownFramebufferRAMCopies_.end(); ++iter) {
-					if (iter->second == displayFramebufPtr_) {
-						vfb = GetVFBAt(iter->first);
-					}
-				}
-
-				if (!vfb) {
-					// Just a pointer to plain memory to draw. Draw it.
-					DrawFramebufferToOutput(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
-					return;
-				}
-			} else {
-				DEBUG_LOG(SCEGE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
-				// No framebuffer to display! Clear to black. If buffered, we already did that.
-				if (!useBufferedRendering_)
-					ClearBuffer();
-				return;
-			}
-		}
-
-		vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
-		vfb->last_frame_displayed = gpuStats.numFlips;
-		vfb->dirtyAfterDisplay = false;
-		vfb->reallyDirtyAfterDisplay = false;
-
-		if (prevDisplayFramebuf_ != displayFramebuf_) {
-			prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
-		}
-		if (displayFramebuf_ != vfb) {
-			prevDisplayFramebuf_ = displayFramebuf_;
-		}
-		displayFramebuf_ = vfb;
-
-		if (vfb->fbo) {
-			DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
-			DisableState();
-			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
-
-			// Output coordinates
-			float x, y, w, h;
-			int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
-
-			const float u0 = offsetX / (float)vfb->bufferWidth;
-			const float v0 = offsetY / (float)vfb->bufferHeight;
-			const float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
-			const float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
-
-			if (1) {
-				const u32 rw = PSP_CoreParameter().pixelWidth;
-				const u32 rh = PSP_CoreParameter().pixelHeight;
-				bool result = draw_->BlitFramebuffer(vfb->fbo,
-					(LONG)(u0 * vfb->renderWidth), (LONG)(v0 * vfb->renderHeight), (LONG)(u1 * vfb->renderWidth), (LONG)(v1 * vfb->renderHeight),
-					nullptr,
-					(LONG)(x * rw / w), (LONG)(y * rh / h), (LONG)((x + w) * rw / w), (LONG)((y + h) * rh / h),
-					Draw::FB_COLOR_BIT,
-					g_Config.iBufFilter == SCALE_LINEAR ? Draw::FB_BLIT_LINEAR : Draw::FB_BLIT_NEAREST);
-				if (!result) {
-					ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display");
-					DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0.0f, 1.0f);
-					// These are in the output display coordinates
-					if (g_Config.iBufFilter == SCALE_LINEAR) {
-						dxstate.texMagFilter.set(D3DTEXF_LINEAR);
-						dxstate.texMinFilter.set(D3DTEXF_LINEAR);
-					} else {
-						dxstate.texMagFilter.set(D3DTEXF_POINT);
-						dxstate.texMinFilter.set(D3DTEXF_POINT);
-					}
-					dxstate.texMipFilter.set(D3DTEXF_NONE);
-					dxstate.texMipLodBias.set(0);
-					DrawActiveTexture(x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, u0, v0, u1, v1, uvRotation);
-				}
-			}
-			/* 
-			else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
-			// An additional pass, post-processing shader to the extra FBO.
-			BindFramebufferAsRenderTarget(extraFBOs_[0]);
-			int fbo_w, fbo_h;
-			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
-			DXSetViewport(0, 0, fbo_w, fbo_h);
-			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, postShaderProgram_);
-
-			fbo_unbind();
-
-			// Use the extra FBO, with applied post-processing shader, as a texture.
-			// fbo_bind_color_as_texture(extraFBOs_[0], 0);
-			if (extraFBOs_.size() == 0) {
-			ERROR_LOG(G3D, "WTF?");
-			return;
-			}
-			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
-			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
-			} else {
-			// Use post-shader, but run shader at output resolution.
-			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height, postShaderProgram_);
-			}
-			*/
-			pD3Ddevice->SetTexture(0, NULL);
-		}
-		dxstate.viewport.restore();
 	}
 
 	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {

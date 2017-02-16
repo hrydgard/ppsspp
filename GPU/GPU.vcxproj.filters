@@ -256,6 +256,9 @@
       <Filter>D3D11</Filter>
     </ClInclude>
     <ClInclude Include="D3D11\StateMappingD3D11.h" />
+    <ClInclude Include="Common\ShaderTranslation.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -500,6 +503,9 @@
     </ClCompile>
     <ClCompile Include="D3D11\StencilBufferD3D11.cpp">
       <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\ShaderTranslation.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

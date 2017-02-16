@@ -21,7 +21,7 @@
 #include <set>
 #include <map>
 
-#include "d3d9.h"
+#include <d3d9.h>
 
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
@@ -46,24 +46,18 @@ public:
 	~FramebufferManagerDX9();
 
 	void SetTextureCache(TextureCacheDX9 *tc);
-	void SetShaderManager(ShaderManagerDX9 *sm) {
-		shaderManager_ = sm;
-	}
+	void SetShaderManager(ShaderManagerDX9 *sm);
 	void SetDrawEngine(DrawEngineDX9 *td) {
 		drawEngine_ = td;
 	}
 
-	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
-	virtual void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
-	
-	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation);
+	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) override;
 
 	void DestroyAllFBOs(bool forceDelete);
 
 	void EndFrame();
 	void Resized() override;
 	void DeviceLost();
-	void CopyDisplayToOutput();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
@@ -88,6 +82,9 @@ public:
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(D3DFORMAT fmt, u32 w, u32 h);
 
 protected:
+	void Bind2DShader() override;
+	void BindPostShader(const PostShaderUniforms &uniforms) override;
+	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override;
 	void ClearBuffer(bool keepState = false) override;
 	void FlushBeforeCopy() override;
@@ -100,10 +97,7 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	void CompileDraw2DProgram();
-	void DestroyDraw2DProgram();
-
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	static bool GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer);
@@ -127,7 +121,7 @@ private:
 	bool stencilUploadFailed_;
 
 	TextureCacheDX9 *textureCacheDX9_;
-	ShaderManagerDX9 *shaderManager_;
+	ShaderManagerDX9 *shaderManagerDX9_;
 	DrawEngineDX9 *drawEngine_;
 	
 	// Used by post-processing shader

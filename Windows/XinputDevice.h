@@ -13,7 +13,7 @@ public:
 private:
 	void ApplyButtons(XINPUT_STATE &state, InputState &input_state);
 	int gamepad_idx;
-	int check_delay;
-	XINPUT_STATE prevState;
-	u32 prevButtons;
+	int check_delay = 0;
+	XINPUT_STATE prevState{};
+	u32 prevButtons = 0;
 };

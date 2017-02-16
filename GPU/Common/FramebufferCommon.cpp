@@ -19,6 +19,7 @@
 #include <sstream>
 
 #include "ext/native/thin3d/thin3d.h"
+#include "base/timeutil.h"
 #include "gfx_es2/gpu_features.h"
 
 #include "i18n/i18n.h"
@@ -29,6 +30,7 @@
 #include "Core/Reporting.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
+#include "Core/HLE/sceDisplay.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/GPUInterface.h"
@@ -107,6 +109,7 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 
 FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw) :
 	draw_(draw),
+	needBackBufferYSwap_(false),
 	displayFramebufPtr_(0),
 	displayStride_(0),
 	displayFormat_(GE_FORMAT_565),
@@ -689,6 +692,81 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 	}
 }
 
+void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+	textureCache_->ForgetLastTexture();
+	shaderManager_->DirtyLastShader();  // On GL, important that this is BEFORE drawing
+	float v0 = 0.0f, v1 = 1.0f;
+	if (useBufferedRendering_ && vfb && vfb->fbo) {
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo);
+		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
+	} else {
+		// We are drawing to the back buffer so need to flip.
+		if (needBackBufferYSwap_)
+			std::swap(v0, v1);
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		SetViewport2D(x, y, w, h);
+	}
+
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
+	DisableState();
+
+	bool linearFilter = vfb || g_Config.iBufFilter == SCALE_LINEAR;
+	Bind2DShader();
+	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+}
+
+void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
+	textureCache_->ForgetLastTexture();
+	shaderManager_->DirtyLastShader();
+
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
+
+	DisableState();
+
+	struct CardboardSettings cardboardSettings;
+	GetCardboardSettings(&cardboardSettings);
+
+	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
+	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
+	// (it always runs at output resolution so FXAA may look odd).
+	float x, y, w, h;
+	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+	if (applyPostShader && useBufferedRendering_) {
+		// Might've changed if the shader was just changed to Off.
+		if (usePostShader_) {
+			PostShaderUniforms uniforms{};
+			CalculatePostShaderUniforms(480, 272, renderWidth_, renderHeight_, &uniforms);
+			BindPostShader(uniforms);
+		} else {
+			Bind2DShader();
+		}
+	} else {
+		Bind2DShader();
+	}
+	float u0 = 0.0f, u1 = 480.0f / 512.0f;
+	float v0 = 0.0f, v1 = 1.0f;
+
+	// We are drawing directly to the back buffer.
+	if (needBackBufferYSwap_)
+		std::swap(v0, v1);
+
+	bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
+	if (cardboardSettings.enabled) {
+		// Left Eye Image
+		SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+		// Right Eye Image
+		SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+	} else {
+		// Fullscreen Image
+		SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, linearFilter);
+	}
+}
+
 void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
 	if (vfb && vfb->safeWidth > 0 && vfb->safeHeight > 0 && !vfb->firstFrameSaved) {
 		// Some games will draw to some memory once, and use it as a render-to-texture later.
@@ -699,6 +777,223 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 			vfb->firstFrameSaved = true;
 			vfb->safeWidth = 0;
 			vfb->safeHeight = 0;
+		}
+	}
+}
+
+void FramebufferManagerCommon::CopyDisplayToOutput() {
+	DownloadFramebufferOnSwitch(currentRenderVfb_);
+
+	SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+	draw_->BindBackbufferAsRenderTarget();
+	currentRenderVfb_ = 0;
+
+	if (displayFramebufPtr_ == 0) {
+		DEBUG_LOG(SCEGE, "Display disabled, displaying only black");
+		// No framebuffer to display! Clear to black.
+		ClearBuffer();
+		return;
+	}
+
+	if (useBufferedRendering_) {
+		draw_->Clear(Draw::FB_COLOR_BIT | Draw::FB_STENCIL_BIT | Draw::FB_DEPTH_BIT, 0, 0, 0);
+	}
+
+	u32 offsetX = 0;
+	u32 offsetY = 0;
+
+	CardboardSettings cardboardSettings;
+	GetCardboardSettings(&cardboardSettings);
+
+	VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
+	if (!vfb) {
+		// Let's search for a framebuf within this range.
+		const u32 addr = (displayFramebufPtr_ & 0x03FFFFFF) | 0x04000000;
+		for (size_t i = 0; i < vfbs_.size(); ++i) {
+			VirtualFramebuffer *v = vfbs_[i];
+			const u32 v_addr = (v->fb_address & 0x03FFFFFF) | 0x04000000;
+			const u32 v_size = FramebufferByteSize(v);
+			if (addr >= v_addr && addr < v_addr + v_size) {
+				const u32 dstBpp = v->format == GE_FORMAT_8888 ? 4 : 2;
+				const u32 v_offsetX = ((addr - v_addr) / dstBpp) % v->fb_stride;
+				const u32 v_offsetY = ((addr - v_addr) / dstBpp) / v->fb_stride;
+				// We have enough space there for the display, right?
+				if (v_offsetX + 480 > (u32)v->fb_stride || v->bufferHeight < v_offsetY + 272) {
+					continue;
+				}
+				// Check for the closest one.
+				if (offsetY == 0 || offsetY > v_offsetY) {
+					offsetX = v_offsetX;
+					offsetY = v_offsetY;
+					vfb = v;
+				}
+			}
+		}
+
+		if (vfb) {
+			// Okay, we found one above.
+			INFO_LOG_REPORT_ONCE(displayoffset, HLE, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
+		}
+	}
+
+	if (vfb && vfb->format != displayFormat_) {
+		if (vfb->last_frame_render + FBO_OLD_AGE < gpuStats.numFlips) {
+			// The game probably switched formats on us.
+			vfb->format = displayFormat_;
+		} else {
+			vfb = 0;
+		}
+	}
+
+	if (!vfb) {
+		if (Memory::IsValidAddress(displayFramebufPtr_)) {
+			// The game is displaying something directly from RAM. In GTA, it's decoded video.
+
+			// First check that it's not a known RAM copy of a VRAM framebuffer though, as in MotoGP
+			for (auto iter = knownFramebufferRAMCopies_.begin(); iter != knownFramebufferRAMCopies_.end(); ++iter) {
+				if (iter->second == displayFramebufPtr_) {
+					vfb = GetVFBAt(iter->first);
+				}
+			}
+
+			if (!vfb) {
+				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
+				DrawFramebufferToOutput(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
+				return;
+			}
+		} else {
+			DEBUG_LOG(SCEGE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
+			// No framebuffer to display! Clear to black.
+			ClearBuffer();
+			return;
+		}
+	}
+
+	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
+	vfb->last_frame_displayed = gpuStats.numFlips;
+	vfb->dirtyAfterDisplay = false;
+	vfb->reallyDirtyAfterDisplay = false;
+
+	if (prevDisplayFramebuf_ != displayFramebuf_) {
+		prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
+	}
+	if (displayFramebuf_ != vfb) {
+		prevDisplayFramebuf_ = displayFramebuf_;
+	}
+	displayFramebuf_ = vfb;
+
+	if (vfb->fbo) {
+		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
+		DisableState();
+
+		draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
+
+		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+
+		// Output coordinates
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+
+		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
+
+		float u0 = offsetX / (float)vfb->bufferWidth;
+		float v0 = offsetY / (float)vfb->bufferHeight;
+		float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
+		float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
+
+		if (!usePostShader_) {
+			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
+			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
+			// flip V.
+			Bind2DShader();
+			if (needBackBufferYSwap_)
+				std::swap(v0, v1);
+			if (cardboardSettings.enabled) {
+				// Left Eye Image
+				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+
+				// Right Eye Image
+				SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+			} else {
+				// Fullscreen Image
+				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, linearFilter);
+			}
+		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
+			// An additional pass, post-processing shader to the extra FBO.
+			draw_->BindFramebufferAsRenderTarget(extraFBOs_[0]);
+			int fbo_w, fbo_h;
+			draw_->GetFramebufferDimensions(extraFBOs_[0], &fbo_w, &fbo_h);
+			SetViewport2D(0, 0, fbo_w, fbo_h);
+			shaderManager_->DirtyLastShader();  // dirty lastShader_
+			PostShaderUniforms uniforms{};
+			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
+			BindPostShader(uniforms);
+			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
+			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+
+			draw_->BindBackbufferAsRenderTarget();
+
+			// Use the extra FBO, with applied post-processing shader, as a texture.
+			// fbo_bind_as_texture(extraFBOs_[0], FB_COLOR_BIT, 0);
+			if (extraFBOs_.size() == 0) {
+				ERROR_LOG(G3D, "WTF?");
+				return;
+			}
+			draw_->BindFramebufferAsTexture(extraFBOs_[0], 0, Draw::FB_COLOR_BIT, 0);
+
+			// We are doing the DrawActiveTexture call directly to the backbuffer after here. Hence, we must
+			// flip V.
+			if (needBackBufferYSwap_)
+				std::swap(v0, v1);
+			Bind2DShader();
+			linearFilter = !postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR;
+			if (g_Config.bEnableCardboard) {
+				// Left Eye Image
+				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+
+				// Right Eye Image
+				SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+			} else {
+				// Fullscreen Image
+				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, linearFilter);
+			}
+
+			/*
+			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
+				draw_->BindFramebufferAsRenderTarget(extraFBOs_[0]);
+				GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
+				glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
+			}*/
+		} else {
+			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
+			// flip V.
+			if (needBackBufferYSwap_)
+				std::swap(v0, v1);
+			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
+
+			shaderManager_->DirtyLastShader();  // dirty lastShader_ BEFORE drawing
+			PostShaderUniforms uniforms{};
+			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight, &uniforms);
+			BindPostShader(uniforms);
+			if (g_Config.bEnableCardboard) {
+				// Left Eye Image
+				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+
+				// Right Eye Image
+				SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+			} else {
+				// Fullscreen Image
+				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, linearFilter);
+			}
 		}
 	}
 }
@@ -1270,6 +1565,28 @@ void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
 		vfb->safeWidth = std::max(vfb->safeWidth, w);
 		vfb->safeHeight = std::max(vfb->safeHeight, h);
 	}
+}
+
+void FramebufferManagerCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms) {
+	float u_delta = 1.0f / renderWidth;
+	float v_delta = 1.0f / renderHeight;
+	float u_pixel_delta = u_delta;
+	float v_pixel_delta = v_delta;
+	if (postShaderAtOutputResolution_) {
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		u_pixel_delta = (1.0f / w) * (480.0f / bufferWidth);
+		v_pixel_delta = (1.0f / h) * (272.0f / bufferHeight);
+	}
+	int flipCount = __DisplayGetFlipCount();
+	int vCount = __DisplayGetVCount();
+	float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
+
+	uniforms->texelDelta[0] = u_delta;
+	uniforms->texelDelta[1] = v_delta;
+	uniforms->pixelDelta[0] = u_pixel_delta;
+	uniforms->pixelDelta[1] = v_pixel_delta;
+	memcpy(uniforms->time, time, 4 * sizeof(float));
 }
 
 void FramebufferManagerCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) {

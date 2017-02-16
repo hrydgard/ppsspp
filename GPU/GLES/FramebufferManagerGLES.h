@@ -57,18 +57,13 @@ public:
 	~FramebufferManagerGLES();
 
 	void SetTextureCache(TextureCacheGLES *tc);
-	void SetShaderManager(ShaderManagerGLES *sm) {
-		shaderManager_ = sm;
-	}
+	void SetShaderManager(ShaderManagerGLES *sm);
 	void SetDrawEngine(DrawEngineGLES *td) {
 		drawEngine_ = td;
 	}
 
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
-	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
-
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
-	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, GLSLProgram *program, int uvRotation, bool linearFilter);
+	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) override;
 
 	void DestroyAllFBOs(bool forceDelete);
 
@@ -76,7 +71,6 @@ public:
 	void EndFrame();
 	void Resized() override;
 	void DeviceLost();
-	void CopyDisplayToOutput();
 	void SetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
@@ -101,6 +95,7 @@ public:
 	virtual void RebindFramebuffer() override;
 
 protected:
+	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override;
 	void ClearBuffer(bool keepState = false) override;
 	void FlushBeforeCopy() override;
@@ -112,8 +107,9 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	void Bind2DShader() override;
+	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
 
@@ -139,7 +135,7 @@ private:
 	int deltaLoc_;
 
 	TextureCacheGLES *textureCacheGL_;
-	ShaderManagerGLES *shaderManager_;
+	ShaderManagerGLES *shaderManagerGL_;
 	DrawEngineGLES *drawEngine_;
 
 	bool resized_;

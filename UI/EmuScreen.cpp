@@ -991,7 +991,7 @@ void EmuScreen::render() {
 
 	if (!useBufferedRendering) {
 		DrawContext *draw = screenManager()->getDrawContext();
-		draw->Clear(ClearFlag::COLOR | ClearFlag::DEPTH | ClearFlag::STENCIL, 0xFF000000, 0.0f, 0);
+		draw->Clear(FBChannel::FB_COLOR_BIT | FBChannel::FB_DEPTH_BIT | FBChannel::FB_STENCIL_BIT, 0xFF000000, 0.0f, 0);
 
 		Viewport viewport;
 		viewport.TopLeftX = 0;

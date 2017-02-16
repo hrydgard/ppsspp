@@ -59,6 +59,7 @@ void glsl_destroy(GLSLProgram *program);
 // are logged and the function returns false.
 bool glsl_recompile(GLSLProgram *program, std::string *error_message = 0);
 void glsl_bind(const GLSLProgram *program);
+const GLSLProgram *glsl_get_program();
 void glsl_unbind();
 int glsl_attrib_loc(const GLSLProgram *program, const char *name);
 int glsl_uniform_loc(const GLSLProgram *program, const char *name);

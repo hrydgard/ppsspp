@@ -44,24 +44,18 @@ public:
 	~FramebufferManagerD3D11();
 
 	void SetTextureCache(TextureCacheD3D11 *tc);
-	void SetShaderManager(ShaderManagerD3D11 *sm) {
-		shaderManager_ = sm;
-	}
+	void SetShaderManager(ShaderManagerD3D11 *sm);
 	void SetDrawEngine(DrawEngineD3D11 *td) {
 		drawEngine_ = td;
 	}
 
-	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
-	virtual void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
-
-	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter);
+	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) override;
 
 	void DestroyAllFBOs(bool forceDelete);
 
 	void EndFrame();
 	void Resized() override;
 	void DeviceLost();
-	void CopyDisplayToOutput();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
@@ -88,6 +82,7 @@ public:
 	}
 
 protected:
+	void SetViewport2D(int x, int y, int w, int h);
 	void DisableState() override;
 	void ClearBuffer(bool keepState = false) override;
 	void FlushBeforeCopy() override;
@@ -99,10 +94,9 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	void CompileDraw2DProgram();
-	void DestroyDraw2DProgram();
-
+	void BindPostShader(const PostShaderUniforms &uniforms) override;
+	void Bind2DShader() override;
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	void PackFramebufferD3D11_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
@@ -135,7 +129,7 @@ private:
 	ID3D11DepthStencilState *stencilMaskStates_[256]{};
 
 	TextureCacheD3D11 *textureCacheD3D11_;
-	ShaderManagerD3D11 *shaderManager_;
+	ShaderManagerD3D11 *shaderManagerD3D11_;
 	DrawEngineD3D11 *drawEngine_;
 
 	// Used by post-processing shader

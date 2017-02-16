@@ -262,13 +262,21 @@ void glsl_destroy(GLSLProgram *program) {
 	delete program;
 }
 
+static const GLSLProgram *curProgram;
+
 void glsl_bind(const GLSLProgram *program) {
 	if (program)
 		glUseProgram(program->program_);
 	else
 		glUseProgram(0);
+	curProgram = program;
 }
 
 void glsl_unbind() {
 	glUseProgram(0);
+	curProgram = nullptr;
+}
+
+const GLSLProgram *glsl_get_program() {
+	return curProgram;
 }

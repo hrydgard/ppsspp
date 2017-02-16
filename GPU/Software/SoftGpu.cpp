@@ -258,7 +258,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		draw_->BindIndexBuffer(idata, 0);
 		draw_->DrawIndexed(6, 0);
 	} else {
-		draw_->Clear(Draw::COLOR, 0, 0, 0);
+		draw_->Clear(Draw::FB_COLOR_BIT, 0, 0, 0);
 	}
 }
 

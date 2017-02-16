@@ -88,7 +88,7 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	convBuf_(nullptr),
 	convBufSize_(0),
 	textureCacheVulkan_(nullptr),
-	shaderManager_(nullptr),
+	shaderManagerVulkan_(nullptr),
 	resized_(false),
 	pixelBufObj_(nullptr),
 	currentPBO_(0),
@@ -110,6 +110,11 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 void FramebufferManagerVulkan::SetTextureCache(TextureCacheVulkan *tc) {
 	textureCacheVulkan_ = tc;
 	textureCache_ = tc;
+}
+
+void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
+	shaderManagerVulkan_ = sm;
+	shaderManager_ = sm;
 }
 
 void FramebufferManagerVulkan::InitDeviceObjects() {
@@ -330,7 +335,7 @@ void FramebufferManagerVulkan::Init() {
 	resized_ = true;
 }
 
-VulkanTexture *FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTex_->GetWidth() != width || drawPixelsTex_->GetHeight() != height)) {
 		delete drawPixelsTex_;
 		drawPixelsTex_ = nullptr;
@@ -399,92 +404,25 @@ VulkanTexture *FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, G
 	size_t offset = frameData_[curFrame_].push_->Push(data, width * height * 4, &buffer);
 	drawPixelsTex_->UploadMip(0, width, height, buffer, (uint32_t)offset, width);
 	drawPixelsTex_->EndCreate();
-	return drawPixelsTex_;
 }
 
-void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
 	VkViewport vp;
 	vp.minDepth = 0.0;
 	vp.maxDepth = 1.0;
-	if (useBufferedRendering_ && vfb && vfb->fbo) {
-		vp.x = 0;
-		vp.y = 0;
-		vp.width = vfb->renderWidth;
-		vp.height = vfb->renderHeight;
-	} else {
-		CenterDisplayOutputRect(&vp.x, &vp.y, &vp.width, &vp.height, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-	}
-	// TODO: Don't use the viewport mechanism for this.
+	vp.x = (float)x;
+	vp.y = (float)y;
+	vp.width = (float)w;
+	vp.height = (float)h;
 	vkCmdSetViewport(curCmd_, 0, 1, &vp);
-
-	VulkanTexture *pixelTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-	DrawTexture(pixelTex, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
-	textureCacheVulkan_->ForgetLastTexture();
 }
 
-void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
-	VulkanTexture *pixelTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
-	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == TEX_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
-
-	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
-	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
-	// (it always runs at output resolution so FXAA may look odd).
-	float x, y, w, h;
-	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-	if (applyPostShader) {
-		// Might've changed if the shader was just changed to Off.
-		if (usePostShader_) {
-			UpdatePostShaderUniforms(480, 272, renderWidth_, renderHeight_);
-		}
-	}
-	float u0 = 0.0f, u1 = 480.0f / 512.0f;
-	float v0 = 0.0f, v1 = 1.0f;
-
-	VkPipeline postShaderProgram_ = VK_NULL_HANDLE;
-
-	VkPipeline program = pipelineBasicTex_;
-	if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-		program = postShaderProgram_;
-	}
-
-	CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
-
-	// TODO: Don't use the viewport mechanism for this.
-	VkViewport vp;
-	vp.minDepth = 0.0f;
-	vp.maxDepth = 1.0f;
-	if (cardboardSettings.enabled) {
-		// Left Eye Image
-		vp.x = cardboardSettings.leftEyeXPosition;
-		vp.y = cardboardSettings.screenYPosition;
-		vp.width = cardboardSettings.screenWidth;
-		vp.height = cardboardSettings.screenHeight;
-		vkCmdSetViewport(curCmd_, 0, 1, &vp);
-
-		DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL);
-
-		// Right Eye Image
-		vp.x = cardboardSettings.rightEyeXPosition;
-		vkCmdSetViewport(curCmd_, 0, 1, &vp);
-		DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, ROTATION_LOCKED_HORIZONTAL);
-	} else {
-		// Fullscreen Image
-		vp.x = 0.0f;
-		vp.y = 0.0f;
-		vp.width = pixelWidth_;
-		vp.height = pixelHeight_;
-		vkCmdSetViewport(curCmd_, 0, 1, &vp);
-		DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, program, uvRotation);
-	}
+void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
+	// TODO
 }
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
 void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation) {
-	if (!texture)
-		return;
-
 	float texCoords[8] = {
 		u0,v0,
 		u1,v0,
@@ -531,6 +469,14 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);
 	vkCmdBindVertexBuffers(cmd, 0, 1, &vbuffer, &offset);
 	vkCmdDraw(cmd, 4, 1, 0, 0);
+}
+
+void FramebufferManagerVulkan::Bind2DShader() {
+
+}
+
+void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms) {
+	Bind2DShader();
 }
 
 void FramebufferManagerVulkan::RebindFramebuffer() {
@@ -655,219 +601,6 @@ VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, V
 		*/
 	} else {
 		return nullptr; // framebuffer->fbo->GetColor();
-	}
-}
-
-void FramebufferManagerVulkan::CopyDisplayToOutput() {
-	// This is where we should collect all the renderpasses from this frame,
-	// sort them in order according to texturing dependencies, and enqueue
-	// them on the Vulkan context.
-	
-	// Then, we will simply perform a blit of the currently displayed framebuffer to the backbuffer.
-	// If there's no extra graphics to draw like framerate counters or controls,
-	// then in theory, we can even avoid starting up a render pass at all for the backbuffer (!). not sure if that
-	// is worth the needed refactoring trouble though.
-
-
-	DownloadFramebufferOnSwitch(currentRenderVfb_);
-
-	// fbo_unbind();
-	currentRenderVfb_ = 0;
-
-	if (useBufferedRendering_) {
-		// TODO: Clear here. Although it will be done through the surface pass instead..
-	}
-
-	if (displayFramebufPtr_ == 0) {
-		DEBUG_LOG(SCEGE, "Display disabled, displaying only black");
-		// No framebuffer to display! Clear to black.
-		ClearBuffer();
-		return;
-	}
-
-	u32 offsetX = 0;
-	u32 offsetY = 0;
-
-	VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
-	if (!vfb) {
-		// Let's search for a framebuf within this range.
-		// TODO: Let's keep an interval_map or something of the memory contents.
-		const u32 addr = (displayFramebufPtr_ & 0x03FFFFFF) | 0x04000000;
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebuffer *v = vfbs_[i];
-			const u32 v_addr = (v->fb_address & 0x03FFFFFF) | 0x04000000;
-			const u32 v_size = FramebufferByteSize(v);
-			if (addr >= v_addr && addr < v_addr + v_size) {
-				const u32 dstBpp = v->format == GE_FORMAT_8888 ? 4 : 2;
-				const u32 v_offsetX = ((addr - v_addr) / dstBpp) % v->fb_stride;
-				const u32 v_offsetY = ((addr - v_addr) / dstBpp) / v->fb_stride;
-				// We have enough space there for the display, right?
-				if (v_offsetX + 480 > (u32)v->fb_stride || v->bufferHeight < v_offsetY + 272) {
-					continue;
-				}
-				// Check for the closest one.
-				if (offsetY == 0 || offsetY > v_offsetY) {
-					offsetX = v_offsetX;
-					offsetY = v_offsetY;
-					vfb = v;
-				}
-			}
-		}
-
-		if (vfb) {
-			// Okay, we found one above.
-			INFO_LOG_REPORT_ONCE(displayoffset, HLE, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
-		}
-	}
-
-	if (vfb && vfb->format != displayFormat_) {
-		if (vfb->last_frame_render + FBO_OLD_AGE < gpuStats.numFlips) {
-			// The game probably switched formats on us.
-			vfb->format = displayFormat_;
-		} else {
-			vfb = 0;
-		}
-	}
-
-	if (!vfb) {
-		if (Memory::IsValidAddress(displayFramebufPtr_)) {
-			// The game is displaying something directly from RAM. In GTA, it's decoded video.
-
-			// First check that it's not a known RAM copy of a VRAM framebuffer though, as in MotoGP
-			for (auto iter = knownFramebufferRAMCopies_.begin(); iter != knownFramebufferRAMCopies_.end(); ++iter) {
-				if (iter->second == displayFramebufPtr_) {
-					vfb = GetVFBAt(iter->first);
-				}
-			}
-
-			if (!vfb) {
-				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
-				DrawFramebufferToOutput(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
-				return;
-			}
-		} else {
-			DEBUG_LOG(SCEGE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
-			// No framebuffer to display! Clear to black.
-			ClearBuffer();
-			return;
-		}
-	}
-
-	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
-	vfb->last_frame_displayed = gpuStats.numFlips;
-	vfb->dirtyAfterDisplay = false;
-	vfb->reallyDirtyAfterDisplay = false;
-
-	if (prevDisplayFramebuf_ != displayFramebuf_) {
-		prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
-	}
-	if (displayFramebuf_ != vfb) {
-		prevDisplayFramebuf_ = displayFramebuf_;
-	}
-	displayFramebuf_ = vfb;
-
-	if (vfb->fbo) {
-		CardboardSettings cardboardSettings;
-		GetCardboardSettings(&cardboardSettings);
-
-		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
-
-		// We should not be in a renderpass here so can just copy.
-
-		// GLuint colorTexture = fbo_get_color_texture(vfb->fbo);
-		// VulkanTexture *colorTexture = vfb->fbo->GetColor();
-		VulkanTexture *colorTexture = nullptr;
-
-		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-
-		// Output coordinates
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-
-		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
-
-		float u0 = offsetX / (float)vfb->bufferWidth;
-		float v0 = offsetY / (float)vfb->bufferHeight;
-		float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
-		float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
-
-		VkViewport vp;
-		vp.minDepth = 0.0f;
-		vp.maxDepth = 1.0f;
-
-		if (!usePostShader_) {
-			if (cardboardSettings.enabled) {
-				// Left Eye Image
-				vp.x = cardboardSettings.leftEyeXPosition;
-				vp.y = cardboardSettings.screenYPosition;
-				vp.width = cardboardSettings.screenWidth;
-				vp.height = cardboardSettings.screenHeight;
-				vkCmdSetViewport(curCmd_, 0, 1, &vp);
-				DrawTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
-
-				vp.x = cardboardSettings.rightEyeXPosition;
-				vkCmdSetViewport(curCmd_, 0, 1, &vp);
-				DrawTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
-			} else {
-				// Fullscreen Image
-				// glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				vp.x = 0.0f;
-				vp.y = 0.0f;
-				vp.width = pixelWidth_;
-				vp.height = pixelHeight_;
-				vkCmdSetViewport(curCmd_, 0, 1, &vp);
-				DrawTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, uvRotation);
-			}
-		} else if (usePostShader_ && !postShaderAtOutputResolution_) {
-			// An additional pass, post-processing shader to the extra FBO.
-			/*
-			BindFramebufferAsRenderTargetextraFBOs_[0]);
-			int fbo_w, fbo_h;
-			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
-			glstate.viewport.set(0, 0, fbo_w, fbo_h);
-			shaderManager_->DirtyLastShader();  // dirty lastShader_
-			glsl_bind(postShaderProgram_);
-			UpdatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_);
-			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
-
-			fbo_unbind();
-			*/
-			// Use the extra FBO, with applied post-processing shader, as a texture.
-			// fbo_bind_color_as_texture(extraFBOs_[0], 0);
-
-			// colorTexture = fbo_get_color_texture(extraFBOs_[0]);
-
-			if (g_Config.bEnableCardboard) {
-				// Left Eye Image
-				// glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
-
-				// Right Eye Image
-				// glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
-			} else {
-				// Fullscreen Image
-				// glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation);
-			}
-		} else {
-			// shaderManager_->DirtyLastShader();  // dirty lastShader_
-			// glsl_bind(postShaderProgram_);
-			UpdatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight);
-			if (g_Config.bEnableCardboard) {
-				// Left Eye Image
-				// glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
-
-				// Right Eye Image
-				// glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
-			} else {
-				// Fullscreen Image
-				// glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation);
-			}
-		}
 	}
 }
 

@@ -163,7 +163,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		glsl_bind(stencilUploadProgram_);
 	}
 
-	shaderManager_->DirtyLastShader();
+	shaderManagerGL_->DirtyLastShader();
 
 	DisableState();
 	glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
@@ -215,7 +215,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 			glstate.stencilMask.set(i);
 			glUniform1f(u_stencilValue, i * (1.0f / 255.0f));
 		}
-		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, stencilUploadProgram_, ROTATION_LOCKED_HORIZONTAL, false);
+		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, false);
 	}
 	glstate.stencilMask.set(0xFF);
 

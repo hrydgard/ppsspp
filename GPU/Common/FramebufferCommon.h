@@ -62,6 +62,11 @@ struct CardboardSettings {
 
 class VulkanFBO;
 
+struct PostShaderUniforms {
+	float texelDelta[2]; float pixelDelta[2];
+	float time[4];
+};
+
 struct VirtualFramebuffer {
 	int last_frame_used;
 	int last_frame_attached;
@@ -148,6 +153,7 @@ class DrawContext;
 }
 
 class TextureCacheCommon;
+class ShaderManagerCommon;
 
 class FramebufferManagerCommon {
 public:
@@ -179,6 +185,8 @@ public:
 	}
 	virtual void RebindFramebuffer() = 0;
 
+	void CopyDisplayToOutput();
+
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset, u32 skipDrawReason);
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size, bool safe);
@@ -191,8 +199,9 @@ public:
 
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) = 0;
 	virtual void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) = 0;
-	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
-	virtual void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) = 0;
+	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
+
+	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 
 	size_t NumVFBs() const { return vfbs_.size(); }
 
@@ -253,6 +262,13 @@ public:
 	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
 
 protected:
+	virtual void SetViewport2D(int x, int y, int w, int h) = 0;
+	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms);
+	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
+	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) = 0;
+	virtual void Bind2DShader() = 0;
+	virtual void BindPostShader(const PostShaderUniforms &uniforms) = 0;
+
 	// Cardboard Settings Calculator
 	void GetCardboardSettings(CardboardSettings *cardboardSettings);
 
@@ -304,6 +320,8 @@ protected:
 
 	Draw::DrawContext *draw_;
 	TextureCacheCommon *textureCache_;
+	ShaderManagerCommon *shaderManager_;
+	bool needBackBufferYSwap_;
 
 	u32 displayFramebufPtr_;
 	u32 displayStride_;

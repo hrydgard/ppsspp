@@ -38,12 +38,6 @@ class ShaderManagerVulkan;
 class VulkanTexture;
 class VulkanPushBuffer;
 
-struct PostShaderUniforms {
-	float texelDelta[2]; float pad[2];
-	float pixelDelta[2]; float pad0[2];
-	float time[4];
-};
-
 static const char *ub_post_shader =
 R"(	vec2 texelDelta;
 	vec2 pixelDelta;
@@ -70,19 +64,15 @@ public:
 	~FramebufferManagerVulkan();
 
 	void SetTextureCache(TextureCacheVulkan *tc);
-	void SetShaderManager(ShaderManagerVulkan *sm) {
-		shaderManager_ = sm;
-	}
+	void SetShaderManager(ShaderManagerVulkan *sm);
 	void SetDrawEngine(DrawEngineVulkan *td) {
 		drawEngine_ = td;
 	}
 
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
-	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
-
 	// If texture != 0, will bind it.
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
 	void DrawTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation);
+	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) override;
 
 	void DestroyAllFBOs(bool forceDelete);
 
@@ -94,7 +84,6 @@ public:
 	void Resized() override;
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
-	void CopyDisplayToOutput();
 	int GetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
@@ -131,6 +120,9 @@ public:
 	}
 
 protected:
+	void Bind2DShader() override;
+	void BindPostShader(const PostShaderUniforms &uniforms) override;
+	void SetViewport2D(int x, int y, int w, int h);
 	void DisableState() override {}
 	void ClearBuffer(bool keepState = false) override;
 	void FlushBeforeCopy() override;
@@ -143,7 +135,7 @@ protected:
 private:
 
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
-	VulkanTexture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DoNotifyDraw();
 
 	VkCommandBuffer AllocFrameCommandBuffer();
@@ -171,7 +163,7 @@ private:
 	u32 convBufSize_;
 
 	TextureCacheVulkan *textureCacheVulkan_;
-	ShaderManagerVulkan *shaderManager_;
+	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
 
 	bool resized_;
