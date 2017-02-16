@@ -774,7 +774,9 @@ if(WIN32)
     ext/native/thin3d/thin3d_d3d9.cpp
     ext/native/thin3d/thin3d_d3d11.cpp
     ext/native/thin3d/d3dx9_loader.cpp
-    ext/native/thin3d/d3dx9_loader.h)
+    ext/native/thin3d/d3dx9_loader.h
+    ext/native/thin3d/d3d11_loader.cpp
+    ext/native/thin3d/d3d11_loader.h)
 endif()
 
 add_library(native STATIC
@@ -984,10 +986,6 @@ include_directories(ext/xxhash)
 set(CoreExtra)
 set(CoreExtraLibs)
 
-if(VULKAN)
-  set(CoreExtraLibs ${CoreExtraLibs} glslang)
-endif()
-
 set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRCompALU.cpp
 	Core/MIPS/IR/IRCompBranch.cpp
@@ -1169,11 +1167,13 @@ set(GPU_D3D11
 	GPU/D3D11/FramebufferManagerD3D11.h
 	GPU/D3D11/GPU_D3D11.cpp
 	GPU/D3D11/GPU_D3D11.h
-	GPU/D3D11/StencilBufferD3D11.cpp
+	GPU/D3D11/D3D11Util.cpp
+	GPU/D3D11/D3D11Util.h
 	GPU/D3D11/ShaderManagerD3D11.cpp
 	GPU/D3D11/ShaderManagerD3D11.h
 	GPU/D3D11/StateMappingD3D11.cpp
 	GPU/D3D11/StateMappingD3D11.h
+	GPU/D3D11/StencilBufferD3D11.cpp
 	GPU/D3D11/TextureCacheD3D11.cpp
 	GPU/D3D11/TextureCacheD3D11.h
 	GPU/D3D11/TextureScalerD3D11.cpp
@@ -1208,6 +1208,8 @@ set(GPU_SOURCES
 	GPU/Common/DrawEngineCommon.h
 	GPU/Common/ShaderId.cpp
 	GPU/Common/ShaderId.h
+	GPU/Common/ShaderUniforms.cpp
+	GPU/Common/ShaderUniforms.h
 	GPU/Common/SplineCommon.cpp
 	GPU/Common/SplineCommon.h
 	GPU/Common/SoftwareTransformCommon.cpp
@@ -1564,7 +1566,9 @@ if(ANDROID)
   endif()
 endif()	
 
-target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash glslang
+set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper)
+
+target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 if(FFmpeg_FOUND)
@@ -1643,6 +1647,8 @@ set(WindowsFiles
 	Windows/Globals.cpp
 	Windows/GPU/D3D9Context.cpp
 	Windows/GPU/D3D9Context.h
+	Windows/GPU/D3D11Context.cpp
+	Windows/GPU/D3D11Context.h
 	Windows/GPU/WindowsGLContext.cpp
 	Windows/GPU/WindowsVulkanContext.cpp
 	Windows/InputBox.cpp
@@ -1753,7 +1759,7 @@ if (TargetBin)
 
 		add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 	elseif(WIN32)
-		add_executable(${TargetBin} WIN ${NativeAppSource})
+		add_executable(${TargetBin} WIN32 ${NativeAppSource})
 		set_target_properties(${TargetBin} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
 		set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${TargetBin})
 	else()
