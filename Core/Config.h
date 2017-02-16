@@ -141,6 +141,8 @@ public:
 	bool bAutoSaveSymbolMap;
 	bool bCacheFullIsoInRam;
 	int iRemoteISOPort;
+	std::string sLastRemoteISOServer;
+	int iLastRemoteISOPort;
 	bool bMemStickInserted;
 
 	int iScreenRotation;  // The rotation angle of the PPSSPP UI. Only supported on Android and possibly other mobile platforms.
