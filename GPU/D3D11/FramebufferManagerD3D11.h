@@ -94,6 +94,7 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
+	void CompilePostShader();
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void Bind2DShader() override;
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
@@ -136,9 +137,16 @@ private:
 	ShaderManagerD3D11 *shaderManagerD3D11_;
 	DrawEngineD3D11 *drawEngine_;
 
-	// 1:1 Readback texture, 512x512 fixed
+	// Permanent 1:1 readback texture, 512x512 fixed
 	// For larger debug readbacks, we create/destroy textures on the fly.
 	ID3D11Texture2D *packTexture_;
+
+	// Used by post-processing shader
+	// Postprocessing
+	ID3D11VertexShader *postVertexShader_ = nullptr;
+	ID3D11PixelShader *postPixelShader_ = nullptr;
+	ID3D11InputLayout *postInputLayout_ = nullptr;
+	ID3D11Buffer *postConstants_ = nullptr;
 
 	// Used by post-processing shader
 	std::vector<Draw::Framebuffer *> extraFBOs_;

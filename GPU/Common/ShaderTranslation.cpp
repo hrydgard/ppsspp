@@ -51,8 +51,15 @@ static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
 	}
 }
 
+void ShaderTranslationInit() {
+	glslang::InitializeProcess();
+}
+void ShaderTranslationShutdown() {
+	glslang::FinalizeProcess();
+}
+
 bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, Draw::ShaderStage stage, std::string *errorMessage) {
-	if (srcLang != GLSL_300)
+	if (srcLang != GLSL_300 && srcLang != GLSL_140)
 		return false;
 
 	glslang::TProgram program;
@@ -62,15 +69,14 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 	init_resources(Resources);
 
 	// Enable SPIR-V and Vulkan rules when parsing GLSL
-	EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+	EShMessages messages = EShMessages::EShMsgDefault; // (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
 	EShLanguage shaderStage = GetLanguage(stage);
 	glslang::TShader shader(shaderStage);
 
 	shaderStrings[0] = src.c_str();
 	shader.setStrings(shaderStrings, 1);
-
-	if (!shader.parse(&Resources, 100, false, messages)) {
+	if (!shader.parse(&Resources, 100, EProfile::ECompatibilityProfile, false, false, messages)) {
 		ELOG("%s", shader.getInfoLog());
 		ELOG("%s", shader.getInfoDebugLog());
 		if (errorMessage) {
@@ -116,6 +122,14 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 	case HLSL_D3D11:
 	{
 		spirv_cross::CompilerHLSL hlsl(spirv);
+		spirv_cross::ShaderResources resources = hlsl.get_shader_resources();
+
+		int i = 0;
+		for (auto &resource : resources.sampled_images) {
+			// int location = hlsl.get_decoration(resource.id, spv::DecorationLocation);
+			hlsl.set_decoration(resource.id, spv::DecorationLocation, i);
+			i++;
+		}
 		spirv_cross::CompilerHLSL::Options options{};
 		options.fixup_clipspace = true;
 		options.shader_model = 50;

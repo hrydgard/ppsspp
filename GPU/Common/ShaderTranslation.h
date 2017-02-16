@@ -27,6 +27,9 @@ struct TranslatedShaderMetadata {
 
 };
 
+void ShaderTranslationInit();
+void ShaderTranslationShutdown();
+
 bool TranslateShader(std::string *dst, ShaderLanguage destLang, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, Draw::ShaderStage stage, std::string *errorMessage);
 
 #endif

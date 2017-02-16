@@ -18,8 +18,11 @@
 #include "math/lin/matrix4x4.h"
 #include "ext/native/thin3d/thin3d.h"
 #include "base/basictypes.h"
+#include "file/vfs.h"
+#include "file/zip_read.h"
 
 #include "Common/ColorConv.h"
+#include "Common/MathUtil.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -30,7 +33,9 @@
 #include "GPU/Debugger/Stepping.h"
 
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/PostShader.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
@@ -105,6 +110,13 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	vb.Usage = D3D11_USAGE_DYNAMIC;
 	vb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	device_->CreateBuffer(&vb, nullptr, &quadBuffer_);
+	vb.ByteWidth = ROUND_UP(sizeof(PostShaderUniforms), 16);
+	vb.Usage = D3D11_USAGE_DYNAMIC;
+	device_->CreateBuffer(&vb, nullptr, &postConstants_);
+
+	ShaderTranslationInit();
+
+	CompilePostShader();
 
 	D3D11_TEXTURE2D_DESC packDesc{};
 	packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
@@ -121,6 +133,8 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	packTexture_->Release();
+	ShaderTranslationShutdown();
+
 	// Drawing cleanup
 	if (quadVertexShader_)
 		quadVertexShader_->Release();
@@ -174,6 +188,59 @@ void FramebufferManagerD3D11::DisableState() {
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0xFF);
+}
+
+void FramebufferManagerD3D11::CompilePostShader() {
+	usePostShader_ = false;
+
+	SetNumExtraFBOs(0);
+
+	std::string vsSource;
+	std::string psSource;
+
+	const ShaderInfo *shaderInfo = 0;
+	if (g_Config.sPostShaderName == "Off") {
+		return;
+	}
+
+	shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	if (shaderInfo) {
+		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+		size_t sz;
+		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
+		if (!vs)
+			return;
+		char *ps = (char *)VFSReadFile(shaderInfo->fragmentShaderFile.c_str(), &sz);
+		if (!ps) {
+			free(vs);
+			return;
+		}
+		std::string vsSourceGLSL = vs;
+		std::string psSourceGLSL = ps;
+		free(vs);
+		free(ps);
+		TranslatedShaderMetadata metaVS, metaFS;
+		std::string errorVS, errorFS;
+		if (!TranslateShader(&vsSource, HLSL_D3D11, &metaVS, vsSourceGLSL, GLSL_140, Draw::ShaderStage::VERTEX, &errorVS))
+			return;
+		if (!TranslateShader(&psSource, HLSL_D3D11, &metaFS, psSourceGLSL, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorFS))
+			return;
+	} else {
+		return;
+	}
+
+	std::vector<uint8_t> byteCode;
+	postVertexShader_ = CreateVertexShaderD3D11(device_, vsSource.data(), vsSource.size(), &byteCode);
+	if (!postVertexShader_) {
+		return;
+	}
+	postPixelShader_ = CreatePixelShaderD3D11(device_, psSource.data(), psSource.size());
+	if (!postPixelShader_) {
+		postVertexShader_->Release();
+		return;
+	}
+	device_->CreateInputLayout(g_QuadVertexElements, 2, byteCode.data(), byteCode.size(), &postInputLayout_);
+	usePostShader_ = true;
 }
 
 void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -334,10 +401,20 @@ void FramebufferManagerD3D11::Bind2DShader() {
 }
 
 void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms) {
-	// TODO: Actually bind a post processing shader
-	context_->IASetInputLayout(quadInputLayout_);
-	context_->PSSetShader(quadPixelShader_, 0, 0);
-	context_->VSSetShader(quadVertexShader_, 0, 0);
+	if (!postPixelShader_) {
+		if (usePostShader_) {
+			CompilePostShader();
+		}
+		if (!usePostShader_) {
+			context_->IASetInputLayout(quadInputLayout_);
+			context_->PSSetShader(quadPixelShader_, 0, 0);
+			context_->VSSetShader(quadVertexShader_, 0, 0);
+			return;
+		}
+	}
+	context_->IASetInputLayout(postInputLayout_);
+	context_->PSSetShader(postPixelShader_, 0, 0);
+	context_->VSSetShader(postVertexShader_, 0, 0);
 }
 
 void FramebufferManagerD3D11::RebindFramebuffer() {
