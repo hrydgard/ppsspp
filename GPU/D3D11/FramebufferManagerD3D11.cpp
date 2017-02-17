@@ -120,6 +120,7 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 }
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
+	packTexture_->Release();
 	// Drawing cleanup
 	if (quadVertexShader_)
 		quadVertexShader_->Release();
@@ -836,8 +837,71 @@ void FramebufferManagerD3D11::Resized() {
 	resized_ = true;
 }
 
+// Lots of this code could be shared (like the downsampling).
 bool FramebufferManagerD3D11::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) {
-	return false;
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (!vfb) {
+		vfb = GetVFBAt(fb_address);
+	}
+
+	if (!vfb) {
+		// If there's no vfb and we're drawing there, must be memory?
+		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, format);
+		return true;
+	}
+
+	int w = vfb->renderWidth, h = vfb->renderHeight;
+	Draw::Framebuffer *fboForRead = nullptr;
+	if (vfb->fbo) {
+		if (maxRes > 0 && vfb->renderWidth > vfb->width * maxRes) {
+			w = vfb->width * maxRes;
+			h = vfb->height * maxRes;
+
+			Draw::Framebuffer *tempFBO = GetTempFBO(w, h);
+			VirtualFramebuffer tempVfb = *vfb;
+			tempVfb.fbo = tempFBO;
+			tempVfb.bufferWidth = vfb->width;
+			tempVfb.bufferHeight = vfb->height;
+			tempVfb.renderWidth = w;
+			tempVfb.renderHeight = h;
+			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0);
+
+			fboForRead = tempFBO;
+		} else {
+			fboForRead = vfb->fbo;
+		}
+	}
+
+	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
+
+	ID3D11Texture2D *packTex;
+	D3D11_TEXTURE2D_DESC packDesc{};
+	packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	packDesc.BindFlags = 0;
+	packDesc.Width = w;
+	packDesc.Height = h;
+	packDesc.ArraySize = 1;
+	packDesc.MipLevels = 1;
+	packDesc.Usage = D3D11_USAGE_STAGING;
+	packDesc.SampleDesc.Count = 1;
+	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	device_->CreateTexture2D(&packDesc, nullptr, &packTex);
+
+	ID3D11Texture2D *nativeTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(fboForRead, Draw::FB_COLOR_BIT, 0);
+	context_->CopyResource(packTex, nativeTex);
+
+	D3D11_MAPPED_SUBRESOURCE map;
+	context_->Map(packTex, 0, D3D11_MAP_READ, 0, &map);
+
+	for (int y = 0; y < h; y++) {
+		uint8_t *dest = (uint8_t *)buffer.GetData() + y * w * 4;
+		const uint8_t *src = ((const uint8_t *)map.pData) + map.RowPitch * y;
+		memcpy(dest, src, 4 * w);
+	}
+
+	context_->Unmap(packTex, 0);
+	packTex->Release();
+	return true;
 }
 
 bool FramebufferManagerD3D11::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {

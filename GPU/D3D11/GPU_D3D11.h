@@ -66,7 +66,6 @@ public:
 
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
-	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 
 	typedef void (GPU_D3D11::*CmdFunc)(u32 op, u32 diff);

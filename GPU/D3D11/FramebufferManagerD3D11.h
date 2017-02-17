@@ -72,7 +72,7 @@ public:
 	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) override;
 	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) override;
 	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) override;
-	bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
+	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
 	virtual void RebindFramebuffer() override;
 
@@ -136,6 +136,8 @@ private:
 	ShaderManagerD3D11 *shaderManagerD3D11_;
 	DrawEngineD3D11 *drawEngine_;
 
+	// 1:1 Readback texture, 512x512 fixed
+	// For larger debug readbacks, we create/destroy textures on the fly.
 	ID3D11Texture2D *packTexture_;
 
 	// Used by post-processing shader

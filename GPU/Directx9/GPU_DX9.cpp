@@ -1069,10 +1069,6 @@ bool GPU_DX9::GetCurrentClut(GPUDebugBuffer &buffer) {
 	return textureCacheDX9_->GetCurrentClutBuffer(buffer);
 }
 
-bool GPU_DX9::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	return framebufferManagerDX9_->GetOutputFramebuffer(buffer);
-}
-
 bool GPU_DX9::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	return drawEngine_.GetCurrentSimpleVertices(count, vertices, indices);
 }
