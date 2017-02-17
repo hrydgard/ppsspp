@@ -43,6 +43,13 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameInfoCache.h"
 
+AsyncImageFileView::AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams)
+	: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(nullptr), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
+
+AsyncImageFileView::~AsyncImageFileView() {
+	delete texture_;
+}
+
 void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	if (texture_) {
 		float texw = (float)texture_->Width();

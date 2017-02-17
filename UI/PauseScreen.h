@@ -69,11 +69,8 @@ class PrioritizedWorkQueue;
 // of the view. TODO: Actually make async using the task.
 class AsyncImageFileView : public UI::Clickable {
 public:
-	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0)
-		: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(nullptr), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
-	~AsyncImageFileView() {
-		delete texture_;
-	}
+	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0);
+	~AsyncImageFileView();
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;

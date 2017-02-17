@@ -211,7 +211,11 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *co
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
-
+	// Release references.
+	ID3D11RenderTargetView *view = nullptr;
+	context_->OMSetRenderTargets(1, &view, nullptr);
+	ID3D11ShaderResourceView *srv[2]{};
+	context_->PSSetShaderResources(0, 2, srv);
 }
 
 void D3D11DrawContext::HandleEvent(Event ev) {
