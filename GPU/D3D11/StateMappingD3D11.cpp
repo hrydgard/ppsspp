@@ -121,12 +121,36 @@ static const D3D11_LOGIC_OP logicOps[] = {
 };
 */
 
-static bool ApplyShaderBlending() {
-	return false;
+bool DrawEngineD3D11::ApplyShaderBlending() {
+	static const int MAX_REASONABLE_BLITS_PER_FRAME = 24;
+
+	static int lastFrameBlit = -1;
+	static int blitsThisFrame = 0;
+	if (lastFrameBlit != gpuStats.numFlips) {
+		if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME) {
+			WARN_LOG_REPORT_ONCE(blendingBlit, G3D, "Lots of blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
+		}
+		blitsThisFrame = 0;
+		lastFrameBlit = gpuStats.numFlips;
+	}
+	++blitsThisFrame;
+	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 2) {
+		WARN_LOG_ONCE(blendingBlit2, G3D, "Skipping additional blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
+		return false;
+	}
+
+	fboTexNeedBind_ = true;
+
+	gstate_c.Dirty(DIRTY_SHADERBLEND);
+	return true;
 }
 
-static void ResetShaderBlending() {
-	//
+void DrawEngineD3D11::ResetShaderBlending() {
+	if (fboTexBound_) {
+		ID3D11ShaderResourceView *srv = nullptr;
+		context_->PSSetShaderResources(0, 1, &srv);
+		fboTexBound_ = false;
+	}
 }
 
 class FramebufferManagerD3D11;
@@ -136,8 +160,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	memset(&keys_, 0, sizeof(keys_));
 	memset(&dynState_, 0, sizeof(dynState_));
 
-	// Unfortunately, this isn't implemented yet.
-	gstate_c.allowShaderBlend = false;
+	gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
 
 	// Set blend - unless we need to do it in the shader.
 	GenericBlendState blendState;
@@ -155,8 +178,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			ResetShaderBlending();
 			gstate_c.allowShaderBlend = false;
 		}
-	}
-	else if (blendState.resetShaderBlending) {
+	} else if (blendState.resetShaderBlending) {
 		ResetShaderBlending();
 	}
 
@@ -421,6 +443,15 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 }
 
 void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {
-	textureCache_->ApplyTexture();
+	if (!gstate.isModeClear()) {
+		if (fboTexNeedBind_) {
+			framebufferManager_->BindFramebufferColor(1, nullptr, BINDFBCOLOR_MAY_COPY);
+			// No sampler required, we do a Load in the pixel shader
+			// context_->PSSetSamplers(1, 1, &stockD3D11.samplerPoint2DClamp);
+			fboTexBound_ = true;
+			fboTexNeedBind_ = false;
+		}
+		textureCache_->ApplyTexture();
+	}
 	context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : dynState_.stencilRef);
 }

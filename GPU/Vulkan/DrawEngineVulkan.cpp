@@ -62,20 +62,14 @@ enum {
 };
 
 DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
-	:
-	vulkan_(vulkan), 
-	prevPrim_(GE_PRIM_INVALID),
-	lastVTypeID_(-1),
-	pipelineManager_(nullptr),
-	textureCache_(nullptr),
-	framebufferManager_(nullptr),
-	numDrawCalls(0),
-	vertexCountInDrawCalls(0),
-	fboTexNeedBind_(false),
-	fboTexBound_(false),
-	curFrame_(0),
-	nullTexture_(nullptr),
-	stats_{}  {
+	:	vulkan_(vulkan),
+		prevPrim_(GE_PRIM_INVALID),
+		lastVTypeID_(-1),
+		numDrawCalls(0),
+		vertexCountInDrawCalls(0),
+		curFrame_(0),
+		nullTexture_(nullptr),
+		stats_{} {
 
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;

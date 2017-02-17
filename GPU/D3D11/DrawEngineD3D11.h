@@ -162,6 +162,8 @@ private:
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef);
+	bool ApplyShaderBlending();
+	void ResetShaderBlending();
 
 	ID3D11InputLayout *SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
@@ -244,10 +246,6 @@ private:
 	// State keys
 	D3D11StateKeys keys_{};
 	D3D11DynamicState dynState_{};
-
-	// Initial work on shader blending
-	bool fboTexNeedBind_;
-	bool fboTexBound_;
 
 	// Hardware tessellation
 	class TessellationDataTransferD3D11 : public TessellationDataTransfer {

@@ -27,7 +27,11 @@
 
 #define QUAD_INDICES_MAX 65536
 
-DrawEngineCommon::DrawEngineCommon() : dec_(nullptr), decOptions_{} {
+DrawEngineCommon::DrawEngineCommon()
+	: dec_(nullptr),
+		decOptions_{},
+		fboTexNeedBind_(false),
+		fboTexBound_(false) {
 	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 	decJitCache_ = new VertexDecoderJitCache();
 }

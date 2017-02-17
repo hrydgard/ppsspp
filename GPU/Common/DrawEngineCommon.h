@@ -90,6 +90,10 @@ protected:
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;
 
+	// Shader blending state
+	bool fboTexNeedBind_;
+	bool fboTexBound_;
+
 	// Hardware tessellation
 	int numPatches;
 	class TessellationDataTransfer {

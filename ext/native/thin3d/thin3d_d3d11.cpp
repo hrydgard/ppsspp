@@ -1179,11 +1179,9 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 }
 
 bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
-	D3D11Framebuffer *src = (D3D11Framebuffer *)srcfb;
-	D3D11Framebuffer *dst = (D3D11Framebuffer *)dstfb;
-
 	// Unfortunately D3D11 has no equivalent to this, gotta render a quad. Well, in some cases we can issue a copy instead.
-	return true;
+	Crash();
+	return false;
 }
 
 // These functions should be self explanatory.

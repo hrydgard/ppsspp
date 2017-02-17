@@ -564,18 +564,24 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 	Draw::Framebuffer *srcFBO = src->fbo;
 	if (src == dst) {
 		Draw::Framebuffer *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
+		/*
 		bool result = draw_->BlitFramebuffer(
 			src->fbo, srcX1, srcY1, srcX2, srcY2,
 			tempFBO, dstX1, dstY1, dstX2, dstY2,
 			Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
+			*/
+		bool result = true;
 		if (result) {
 			srcFBO = tempFBO;
 		}
 	}
+	/*
 	bool result = draw_->BlitFramebuffer(
 		srcFBO, srcX1, srcY1, srcX2, srcY2,
 		dst->fbo, dstX1, dstY1, dstX2, dstY2,
 		Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
+		*/
+	bool result = true;
 	if (!result) {
 		ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit: %08x (%08x -> %08x)", src->fb_address, dst->fb_address);
 	}

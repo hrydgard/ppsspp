@@ -219,9 +219,6 @@ private:
 
 	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
 
-	bool fboTexNeedBind_;
-	bool fboTexBound_;
-
 	// Hardware tessellation
 	class TessellationDataTransferDX9 : public TessellationDataTransfer {
 	private:

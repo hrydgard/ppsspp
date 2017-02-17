@@ -210,10 +210,10 @@ private:
 	TransformedVertex *transformedExpanded;
 
 	// Other
-	ShaderManagerVulkan *shaderManager_;
-	PipelineManagerVulkan *pipelineManager_;
-	TextureCacheVulkan *textureCache_;
-	FramebufferManagerVulkan *framebufferManager_;
+	ShaderManagerVulkan *shaderManager_ = nullptr;
+	PipelineManagerVulkan *pipelineManager_ = nullptr;
+	TextureCacheVulkan *textureCache_ = nullptr;
+	FramebufferManagerVulkan *framebufferManager_ = nullptr;
 
 	VkSampler depalSampler_;
 
@@ -236,9 +236,6 @@ private:
 	int numDrawCalls;
 	int vertexCountInDrawCalls;
 	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
-
-	bool fboTexNeedBind_;
-	bool fboTexBound_;
 
 	DrawEngineVulkanStats stats_;
 
