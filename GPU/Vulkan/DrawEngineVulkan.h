@@ -40,6 +40,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Vulkan/StateMappingVulkan.h"
 
 struct DecVtxFormat;
 struct UVScale;
@@ -132,6 +133,8 @@ public:
 private:
 	struct FrameData;
 
+	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
+
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
@@ -210,10 +213,10 @@ private:
 	TransformedVertex *transformedExpanded;
 
 	// Other
-	ShaderManagerVulkan *shaderManager_;
-	PipelineManagerVulkan *pipelineManager_;
-	TextureCacheVulkan *textureCache_;
-	FramebufferManagerVulkan *framebufferManager_;
+	ShaderManagerVulkan *shaderManager_ = nullptr;
+	PipelineManagerVulkan *pipelineManager_ = nullptr;
+	TextureCacheVulkan *textureCache_ = nullptr;
+	FramebufferManagerVulkan *framebufferManager_ = nullptr;
 
 	VkSampler depalSampler_;
 
@@ -236,9 +239,6 @@ private:
 	int numDrawCalls;
 	int vertexCountInDrawCalls;
 	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
-
-	bool fboTexNeedBind_;
-	bool fboTexBound_;
 
 	DrawEngineVulkanStats stats_;
 

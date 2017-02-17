@@ -170,7 +170,6 @@ private:
 	void DoFlush();
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
-	bool ApplyShaderBlending();
 	void ResetShaderBlending();
 
 	GLuint AllocateBuffer(size_t sz);
@@ -239,9 +238,6 @@ private:
 	u32 dcid_;
 
 	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
-
-	bool fboTexNeedBind_;
-	bool fboTexBound_;
 
 	// Hardware tessellation
 	class TessellationDataTransferGLES : public TessellationDataTransfer {

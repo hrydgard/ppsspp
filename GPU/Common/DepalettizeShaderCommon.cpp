@@ -32,7 +32,6 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	if (language == HLSL_D3D11) {
 		WRITE(p, "SamplerState texSamp : register(s0);\n");
 		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
-		WRITE(p, "SamplerState palSamp : register(s1);\n");
 		WRITE(p, "Texture2D<float4> pal : register(t1);\n");
 	} else if (language == GLSL_VULKAN) {
 		WRITE(p, "#version 140\n");
@@ -121,7 +120,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	}
 
 	if (language == HLSL_D3D11) {
-		WRITE(p, "  return pal.Sample(palSamp, float2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+		WRITE(p, "  return pal.Load(int3(index, 0, 0));\n");
 	} else {
 		WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	}

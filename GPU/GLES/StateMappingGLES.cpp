@@ -120,34 +120,6 @@ static const GLushort logicOps[] = {
 };
 #endif
 
-bool DrawEngineGLES::ApplyShaderBlending() {
-	if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
-		return true;
-	}
-
-	static const int MAX_REASONABLE_BLITS_PER_FRAME = 24;
-
-	static int lastFrameBlit = -1;
-	static int blitsThisFrame = 0;
-	if (lastFrameBlit != gpuStats.numFlips) {
-		if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME) {
-			WARN_LOG_REPORT_ONCE(blendingBlit, G3D, "Lots of blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
-		}
-		blitsThisFrame = 0;
-		lastFrameBlit = gpuStats.numFlips;
-	}
-	++blitsThisFrame;
-	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 2) {
-		WARN_LOG_ONCE(blendingBlit2, G3D, "Skipping additional blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
-		return false;
-	}
-
-	fboTexNeedBind_ = true;
-
-	gstate_c.Dirty(DIRTY_SHADERBLEND);
-	return true;
-}
-
 inline void DrawEngineGLES::ResetShaderBlending() {
 	if (fboTexBound_) {
 		glActiveTexture(GL_TEXTURE1);
@@ -380,7 +352,7 @@ void DrawEngineGLES::ApplyDrawStateLate() {
 	if (!gstate.isModeClear()) {
 		if (fboTexNeedBind_) {
 			// Note that this is positions, not UVs, that we need the copy from.
-			framebufferManager_->BindFramebufferColor(GL_TEXTURE1, gstate.getFrameBufRawAddress(), nullptr, BINDFBCOLOR_MAY_COPY);
+			framebufferManager_->BindFramebufferAsColorTexture(1, nullptr, BINDFBCOLOR_MAY_COPY);
 			framebufferManager_->RebindFramebuffer();
 
 			glActiveTexture(GL_TEXTURE1);

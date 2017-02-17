@@ -162,7 +162,6 @@ private:
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
-	bool ApplyShaderBlending();
 	void ResetShaderBlending();
 
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
@@ -218,9 +217,6 @@ private:
 	u32 dcid_;
 
 	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
-
-	bool fboTexNeedBind_;
-	bool fboTexBound_;
 
 	// Hardware tessellation
 	class TessellationDataTransferDX9 : public TessellationDataTransfer {

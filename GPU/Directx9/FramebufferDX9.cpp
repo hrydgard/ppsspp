@@ -507,7 +507,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		return offscreen;
 	}
 
-	void FramebufferManagerDX9::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags) {
+	void FramebufferManagerDX9::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 		if (framebuffer == NULL) {
 			framebuffer = currentRenderVfb_;
 		}

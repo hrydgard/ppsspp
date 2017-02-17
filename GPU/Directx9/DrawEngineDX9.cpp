@@ -96,9 +96,7 @@ DrawEngineDX9::DrawEngineDX9(LPDIRECT3DDEVICE9 device)
 		numDrawCalls(0),
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
-		dcid_(0),
-		fboTexNeedBind_(false),
-		fboTexBound_(false) {
+		dcid_(0) {
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
 

@@ -229,6 +229,9 @@ public:
 		return true;
 	}
 
+	VirtualFramebuffer *GetCurrentRenderVFB() const {
+		return currentRenderVfb_;
+	}
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetVFBAt(u32 addr);
 	VirtualFramebuffer *GetDisplayVFB() {

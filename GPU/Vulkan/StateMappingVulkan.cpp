@@ -30,6 +30,7 @@
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
+#include "GPU/Vulkan/DrawEngineVulkan.h"
 //#include "GPU/Vulkan/PixelShaderGeneratorVulkan.h"
 
 // These tables all fit into u8s.
@@ -120,10 +121,6 @@ static const VkLogicOp logicOps[] = {
 	VK_LOGIC_OP_SET,
 };
 
-bool ApplyShaderBlending() {
-	return false;
-}
-
 void ResetShaderBlending() {
 	//
 }
@@ -131,7 +128,7 @@ void ResetShaderBlending() {
 // TODO: Do this more progressively. No need to compute the entire state if the entire state hasn't changed.
 // In Vulkan, we simply collect all the state together into a "pipeline key" - we don't actually set any state here
 // (the caller is responsible for setting the little dynamic state that is supported, dynState).
-void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
+void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
 	memset(&key, 0, sizeof(key));
 	memset(&dynState, 0, sizeof(dynState));
 	// Unfortunately, this isn't implemented yet.

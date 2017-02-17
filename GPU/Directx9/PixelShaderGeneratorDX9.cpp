@@ -107,6 +107,12 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 	} else {
 		WRITE(p, "SamplerState samp : register(s0);\n");
 		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
+		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
+			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
+				// No sampler required, we Load
+				WRITE(p, "Texture2D<float4> fboTex : register(t1);\n");
+			}
+		}
 		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
 	}
 
@@ -135,6 +141,9 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 	}
 	if (enableFog) {
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
+	}
+	if (lang == HLSL_D3D11 && replaceBlend == REPLACE_BLEND_COPY_FBO) {
+		WRITE(p, "  float4 pixelPos : SV_POSITION;\n");
 	}
 	WRITE(p, "};\n");
 
@@ -356,6 +365,63 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 			}
 
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
+		}
+
+		if (lang == HLSL_D3D11 && replaceBlend == REPLACE_BLEND_COPY_FBO) {
+			WRITE(p, "  float4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
+
+			const char *srcFactor = "float3(1.0)";
+			const char *dstFactor = "float3(0.0)";
+
+			switch (replaceBlendFuncA) {
+			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "destColor.rgb"; break;
+			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "(float3(1.0, 1.0, 1.0) - destColor.rgb)"; break;
+			case GE_SRCBLEND_SRCALPHA:          srcFactor = "v.aaa"; break;
+			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "float3(1.0, 1.0, 1.0) - v.aaa"; break;
+			case GE_SRCBLEND_DSTALPHA:          srcFactor = "float3(destColor.aaa)"; break;
+			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa"; break;
+			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "v.aaa * 2.0"; break;
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "float3(1.0, 1.0, 1.0) - v.aaa * 2.0"; break;
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "destColor.aaa * 2.0"; break;
+			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa * 2.0"; break;
+			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			default:                            srcFactor = "u_blendFixA"; break;
+			}
+			switch (replaceBlendFuncB) {
+			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
+			case GE_DSTBLEND_INVSRCCOLOR:       dstFactor = "(float3(1.0, 1.0, 1.0) - v.rgb)"; break;
+			case GE_DSTBLEND_SRCALPHA:          dstFactor = "v.aaa"; break;
+			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "float3(1.0, 1.0, 1.0) - v.aaa"; break;
+			case GE_DSTBLEND_DSTALPHA:          dstFactor = "destColor.aaa"; break;
+			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa"; break;
+			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "v.aaa * 2.0"; break;
+			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "float3(1.0, 1.0, 1.0) - v.aaa * 2.0"; break;
+			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "destColor.aaa * 2.0"; break;
+			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "float3(1.0, 1.0, 1.0) - destColor.aaa * 2.0"; break;
+			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
+			default:                            srcFactor = "u_blendFixB"; break;
+			}
+
+			switch (replaceBlendEq) {
+			case GE_BLENDMODE_MUL_AND_ADD:
+				WRITE(p, "  v.rgb = v.rgb * %s + destColor.rgb * %s;\n", srcFactor, dstFactor);
+				break;
+			case GE_BLENDMODE_MUL_AND_SUBTRACT:
+				WRITE(p, "  v.rgb = v.rgb * %s - destColor.rgb * %s;\n", srcFactor, dstFactor);
+				break;
+			case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
+				WRITE(p, "  v.rgb = destColor.rgb * %s - v.rgb * %s;\n", dstFactor, srcFactor);
+				break;
+			case GE_BLENDMODE_MIN:
+				WRITE(p, "  v.rgb = min(v.rgb, destColor.rgb);\n");
+				break;
+			case GE_BLENDMODE_MAX:
+				WRITE(p, "  v.rgb = max(v.rgb, destColor.rgb);\n");
+				break;
+			case GE_BLENDMODE_ABSDIFF:
+				WRITE(p, "  v.rgb = abs(v.rgb - destColor.rgb);\n");
+				break;
+			}
 		}
 
 		// Can do REPLACE_BLEND_COPY_FBO in ps_2_0, but need to apply viewport in the vertex shader

@@ -60,7 +60,7 @@ public:
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
 
-	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags);
+	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
@@ -99,6 +99,10 @@ private:
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	void PackFramebufferD3D11_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	void SimpleBlit(
+		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
+		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
+		bool linearFilter);
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;

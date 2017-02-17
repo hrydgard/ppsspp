@@ -297,6 +297,7 @@ namespace MainWindow {
 		TranslateSubMenu(menu, "Window Size", MENU_OPTIONS, SUBMENU_WINDOW_SIZE);
 		// Skip window size 1x-4x..
 		TranslateSubMenu(menu, "Backend", MENU_OPTIONS, SUBMENU_RENDERING_BACKEND);
+		TranslateMenuItem(menu, ID_OPTIONS_DIRECT3D11);
 		TranslateMenuItem(menu, ID_OPTIONS_DIRECT3D9);
 		TranslateMenuItem(menu, ID_OPTIONS_OPENGL);
 		TranslateSubMenu(menu, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE);
@@ -712,6 +713,12 @@ namespace MainWindow {
 
 		case ID_OPTIONS_DIRECT3D9:
 			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
+			g_Config.bRestartRequired = true;
+			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+			break;
+
+		case ID_OPTIONS_DIRECT3D11:
+			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D11;
 			g_Config.bRestartRequired = true;
 			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 			break;
@@ -1195,27 +1202,43 @@ namespace MainWindow {
 		switch (g_Config.iGPUBackend) {
 		case GPU_BACKEND_DIRECT3D9:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_GRAYED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_VULKAN, MF_ENABLED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_CHECKED);
+			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_UNCHECKED);
 			break;
 		case GPU_BACKEND_OPENGL:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_VULKAN, MF_ENABLED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_UNCHECKED);
+			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_CHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_UNCHECKED);
 			break;
 		case GPU_BACKEND_VULKAN:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_VULKAN, MF_GRAYED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_UNCHECKED);
+			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_CHECKED);
+			break;
+		case GPU_BACKEND_DIRECT3D11:
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_GRAYED);
+			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_VULKAN, MF_ENABLED);
+			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_UNCHECKED);
+			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_CHECKED);
+			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_UNCHECKED);
+			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_UNCHECKED);
 			break;
 		}
 

@@ -60,13 +60,6 @@ DepalShaderCacheD3D11::DepalShaderCacheD3D11(ID3D11Device *device, ID3D11DeviceC
 	std::vector<uint8_t> vsByteCode;
 	vertexShader_ = CreateVertexShaderD3D11(device, depalVShaderHLSL, strlen(depalVShaderHLSL), &vsByteCode);
 	device_->CreateInputLayout(g_DepalVertexElements, ARRAY_SIZE(g_DepalVertexElements), vsByteCode.data(), vsByteCode.size(), &inputLayout_);
-
-	D3D11_SAMPLER_DESC sampDesc{};
-	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-	sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-	device_->CreateSamplerState(&sampDesc, &clutSampler);
 }
 
 DepalShaderCacheD3D11::~DepalShaderCacheD3D11() {
@@ -74,7 +67,6 @@ DepalShaderCacheD3D11::~DepalShaderCacheD3D11() {
 	if (vertexShader_) {
 		vertexShader_->Release();
 	}
-	clutSampler->Release();
 }
 
 u32 DepalShaderCacheD3D11::GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {

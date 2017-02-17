@@ -493,11 +493,7 @@ void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, Virtu
 	}
 }
 
-void FramebufferManagerGLES::BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
-	if (framebuffer == NULL) {
-		framebuffer = currentRenderVfb_;
-	}
-
+void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		glBindTexture(GL_TEXTURE_2D, 0);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
@@ -510,7 +506,7 @@ void FramebufferManagerGLES::BindFramebufferColor(int stage, u32 fbRawAddress, V
 	if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
 		skipCopy = true;
 	}
-	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == fbRawAddress) {
+	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {

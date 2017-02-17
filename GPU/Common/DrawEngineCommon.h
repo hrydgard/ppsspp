@@ -63,6 +63,7 @@ protected:
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
 
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
+	bool ApplyShaderBlending();
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
@@ -89,6 +90,10 @@ protected:
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;
+
+	// Shader blending state
+	bool fboTexNeedBind_;
+	bool fboTexBound_;
 
 	// Hardware tessellation
 	int numPatches;

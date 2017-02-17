@@ -361,7 +361,7 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 		D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
 		context_->RSSetViewports(1, &vp);
 		context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		context_->Draw(2, 0);
+		context_->Draw(4, 0);
 	}
 
 	RebindFramebuffer();
@@ -398,19 +398,14 @@ void FramebufferManagerD3D11::BlitFramebufferDepth(VirtualFramebuffer *src, Virt
 	}
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 	bool matchingSize = src->width == dst->width && src->height == dst->height;
-	if (matchingDepthBuffer && matchingSize) {
-		// Doesn't work.  Use a shader maybe?
-		draw_->BindBackbufferAsRenderTarget();
+	bool matchingRenderSize = src->renderWidth == dst->renderWidth && src->renderHeight == dst->renderHeight;
+	if (matchingDepthBuffer && matchingSize && matchingRenderSize) {
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT);
 		RebindFramebuffer();
 	}
 }
 
-void FramebufferManagerD3D11::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags) {
-	if (framebuffer == NULL) {
-		framebuffer = currentRenderVfb_;
-	}
-
+void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		ID3D11ShaderResourceView *view = nullptr;
 		context_->PSSetShaderResources(stage, 1, &view);
@@ -425,7 +420,7 @@ void FramebufferManagerD3D11::BindFramebufferColor(int stage, VirtualFramebuffer
 		skipCopy = true;
 	}
 	// Currently rendering to this framebuffer. Need to make a copy.
-	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
+	if (!skipCopy && framebuffer == currentRenderVfb_) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {
@@ -459,8 +454,14 @@ void FramebufferManagerD3D11::BindFramebufferColor(int stage, VirtualFramebuffer
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 		}
-	} else {
+	} else if (framebuffer != currentRenderVfb_) {
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+	} else {
+		// Badness on D3D11 to bind the currently rendered-to framebuffer as a texture.
+		ID3D11ShaderResourceView *view = nullptr;
+		context_->PSSetShaderResources(stage, 1, &view);
+		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+		return;
 	}
 }
 
@@ -531,6 +532,53 @@ void FramebufferManagerD3D11::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb)
 	// Nothing to do here.
 }
 
+void FramebufferManagerD3D11::SimpleBlit(
+	Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
+	Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2, bool linearFilter) {
+
+	int destW, destH, srcW, srcH;
+	draw_->GetFramebufferDimensions(src, &srcW, &srcH);
+	draw_->GetFramebufferDimensions(dest, &destW, &destH);
+
+	if (srcW == destW && srcH == destH && destX2 - destX1 == srcX2 - srcX1 && destY2 - destY1 == srcY2 - srcY1) {
+		// Optimize to a copy
+		draw_->CopyFramebufferImage(src, 0, (int)srcX1, (int)srcY1, 0, dest, 0, (int)destX1, (int)destY1, 0, (int)(srcX2 - srcX1), (int)(srcY2 - srcY1), 1, Draw::FB_COLOR_BIT);
+		return;
+	}
+
+	float dX = 1.0f / (float)destW;
+	float dY = 1.0f / (float)destH;
+	float sX = 1.0f / (float)srcW;
+	float sY = 1.0f / (float)srcH;
+	struct Vtx {
+		float x, y, z, u, v;
+	};
+	Vtx vtx[4] = {
+		{ dX * destX1, dY * destY1, 0.0f, sX * srcX1, sY * srcY1 },
+		{ dX * destX2, dY * destY1, 0.0f, sX * srcX2, sY * srcY1 },
+		{ dX * destX1, dY * destY2, 0.0f, sX * srcX1, sY * srcY2 },
+		{ dX * destX2, dY * destY2, 0.0f, sX * srcX2, sY * srcY2 },
+	};
+
+	D3D11_MAPPED_SUBRESOURCE map;
+	context_->Map(quadBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	memcpy(map.pData, vtx, 4 * sizeof(Vtx));
+	context_->Unmap(quadBuffer_, 0);
+
+	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
+	draw_->BindFramebufferAsRenderTarget(dest);
+	Bind2DShader();
+	context_->RSSetState(stockD3D11.rasterStateNoCull);
+	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
+	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0);
+	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	context_->PSSetSamplers(0, 1, linearFilter ? &stockD3D11.samplerLinear2DClamp : &stockD3D11.samplerPoint2DClamp);
+	UINT stride = sizeof(Vtx);
+	UINT offset = 0;
+	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &stride, &offset);
+	context_->Draw(4, 0);
+}
+
 void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
@@ -564,21 +612,13 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 	Draw::Framebuffer *srcFBO = src->fbo;
 	if (src == dst) {
 		Draw::Framebuffer *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
-		bool result = draw_->BlitFramebuffer(
-			src->fbo, srcX1, srcY1, srcX2, srcY2,
-			tempFBO, dstX1, dstY1, dstX2, dstY2,
-			Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
-		if (result) {
-			srcFBO = tempFBO;
-		}
+		SimpleBlit(tempFBO, dstX1, dstY1, dstX2, dstY2, src->fbo, srcX1, srcY1, srcX2, srcY2, false);
+		srcFBO = tempFBO;
 	}
-	bool result = draw_->BlitFramebuffer(
-		srcFBO, srcX1, srcY1, srcX2, srcY2,
+	SimpleBlit(
 		dst->fbo, dstX1, dstY1, dstX2, dstY2,
-		Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
-	if (!result) {
-		ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit: %08x (%08x -> %08x)", src->fb_address, dst->fb_address);
-	}
+		srcFBO, srcX1, srcY1, srcX2, srcY2,
+		false);
 }
 
 // TODO: SSE/NEON

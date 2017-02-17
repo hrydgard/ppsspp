@@ -173,6 +173,8 @@ void TextureCacheD3D11::DeleteTexture(TexCache::iterator it) {
 void TextureCacheD3D11::ForgetLastTexture() {
 	lastBoundTexture = INVALID_TEX;
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	ID3D11ShaderResourceView *nullTex = nullptr;
+	context_->PSSetShaderResources(0, 1, &nullTex);
 }
 
 // Removes old textures.
@@ -434,14 +436,14 @@ public:
 		static const Pos pos[4] = {
 			{ -1,  1, 0 },
 			{ 1,  1, 0 },
-			{ 1, -1, 0 },
 			{ -1, -1, 0 },
+			{ 1, -1, 0 },
 		};
 		static const UV uv[4] = {
 			{ 0, 0 },
 			{ 1, 0 },
-			{ 1, 1 },
 			{ 0, 1 },
+			{ 1, 1 },
 		};
 
 		for (int i = 0; i < 4; ++i) {
@@ -475,11 +477,12 @@ public:
 			const float right = u2 * invHalfWidth - 1.0f + xoff;
 			const float top = v1 * invHalfHeight - 1.0f + yoff;
 			const float bottom = v2 * invHalfHeight - 1.0f + yoff;
-			// Points are: BL, BR, TR, TL.
-			verts_[0].pos = Pos(left, bottom, -1.0f);
-			verts_[1].pos = Pos(right, bottom, -1.0f);
-			verts_[2].pos = Pos(right, top, -1.0f);
-			verts_[3].pos = Pos(left, top, -1.0f);
+			float z = 0.0f;  // was -1.0f for some reason
+			// Points are: BL, BR, TL, TR.
+			verts_[0].pos = Pos(left, bottom, z);
+			verts_[1].pos = Pos(right, bottom, z);
+			verts_[2].pos = Pos(left, top, z);
+			verts_[3].pos = Pos(right, top, z);
 
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
@@ -488,8 +491,8 @@ public:
 			const float uvbottom = v2 * invHeight;
 			verts_[0].uv = UV(uvleft, uvbottom);
 			verts_[1].uv = UV(uvright, uvbottom);
-			verts_[2].uv = UV(uvright, uvtop);
-			verts_[3].uv = UV(uvleft, uvtop);
+			verts_[2].uv = UV(uvleft, uvtop);
+			verts_[3].uv = UV(uvright, uvtop);
 		}
 	}
 
@@ -507,7 +510,7 @@ public:
 		context_->RSSetViewports(1, &vp);
 		context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 		context_->IASetVertexBuffers(0, 1, &vbuffer_, &stride_, &offset_);
-		context_->Draw(2, 0);
+		context_->Draw(4, 0);
 	}
 
 protected:
@@ -534,7 +537,6 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		ID3D11ShaderResourceView *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
 		Draw::Framebuffer *depalFBO = framebufferManagerD3D11_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
-		draw_->BindFramebufferAsRenderTarget(depalFBO);
 		shaderManager_->DirtyLastShader();
 		draw_->BindPipeline(nullptr);
 
@@ -546,11 +548,12 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader(), depalShaderCache_->GetInputLayout());
 
 		context_->PSSetShaderResources(1, 1, &clutTexture);
-		context_->PSSetSamplers(1, 1, &stockD3D11.samplerPoint2DWrap);
-		framebufferManagerD3D11_->BindFramebufferColor(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
+		framebufferManagerD3D11_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
+		draw_->BindFramebufferAsRenderTarget(depalFBO);
 		shaderApply.Shade();
 
+		framebufferManagerD3D11_->RebindFramebuffer();
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
@@ -562,13 +565,12 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 
-		framebufferManagerD3D11_->BindFramebufferColor(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+		framebufferManagerD3D11_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
 		gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
+		framebufferManagerD3D11_->RebindFramebuffer();
 	}
-
-	framebufferManagerD3D11_->RebindFramebuffer();
 	SamplerCacheKey samplerKey;
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);

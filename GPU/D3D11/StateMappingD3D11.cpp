@@ -121,12 +121,12 @@ static const D3D11_LOGIC_OP logicOps[] = {
 };
 */
 
-static bool ApplyShaderBlending() {
-	return false;
-}
-
-static void ResetShaderBlending() {
-	//
+void DrawEngineD3D11::ResetShaderBlending() {
+	if (fboTexBound_) {
+		ID3D11ShaderResourceView *srv = nullptr;
+		context_->PSSetShaderResources(0, 1, &srv);
+		fboTexBound_ = false;
+	}
 }
 
 class FramebufferManagerD3D11;
@@ -136,8 +136,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	memset(&keys_, 0, sizeof(keys_));
 	memset(&dynState_, 0, sizeof(dynState_));
 
-	// Unfortunately, this isn't implemented yet.
-	gstate_c.allowShaderBlend = false;
+	gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
 
 	// Set blend - unless we need to do it in the shader.
 	GenericBlendState blendState;
@@ -155,8 +154,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			ResetShaderBlending();
 			gstate_c.allowShaderBlend = false;
 		}
-	}
-	else if (blendState.resetShaderBlending) {
+	} else if (blendState.resetShaderBlending) {
 		ResetShaderBlending();
 	}
 
@@ -331,7 +329,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	if (vpAndScissor.dirtyProj) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
 	}
-	context_->RSSetViewports(1, &vp);
 
 	D3D11_RECT &scissor = dynState_.scissor;
 	if (vpAndScissor.scissorEnable) {
@@ -346,7 +343,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		scissor.right = framebufferManager_->GetRenderWidth();
 		scissor.bottom = framebufferManager_->GetRenderHeight();
 	}
-	context_->RSSetScissorRects(1, &scissor);
 
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
@@ -380,9 +376,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		bs = blendIter->second;
 	}
 
-	float blendColor[4];
-	Uint8x4ToFloat4(blendColor, dynState_.blendColor);
-	context_->OMSetBlendState(bs, blendColor, 0xFFFFFFFF);
+	blendState_ = bs;
 
 	auto depthIter = depthStencilCache_.find(keys_.depthStencil.value);
 	if (depthIter == depthStencilCache_.end()) {
@@ -417,10 +411,27 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	} else {
 		rs = rasterIter->second;
 	}
-	context_->RSSetState(rs);
+	rasterState_ = rs;
 }
 
 void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {
-	textureCache_->ApplyTexture();
+	if (!gstate.isModeClear()) {
+		if (fboTexNeedBind_) {
+			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+			// No sampler required, we do a Load in the pixel shader
+			// context_->PSSetSamplers(1, 1, &stockD3D11.samplerPoint2DClamp);
+			fboTexBound_ = true;
+			fboTexNeedBind_ = false;
+		}
+		textureCache_->ApplyTexture();
+	}
+
+	// Need to do this AFTER ApplyTexture because the process of depalettization can ruin the blend state.
+	float blendColor[4];
+	Uint8x4ToFloat4(blendColor, dynState_.blendColor);
+	context_->RSSetViewports(1, &dynState_.viewport);
+	context_->RSSetScissorRects(1, &dynState_.scissor);
+	context_->RSSetState(rasterState_);
+	context_->OMSetBlendState(blendState_, blendColor, 0xFFFFFFFF);
 	context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : dynState_.stencilRef);
 }
