@@ -288,8 +288,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		if (doTexture) {
 			const char *texcoord = "v_texcoord";
 			// TODO: Not sure the right way to do this for projection.
-			// This path destroys resolution on older PowerVR no matter what I do, so we disable it on SGX 540 and lesser, and live with the consequences.
-			if (needShaderTexClamp && !(gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_TERRIBLE)) {
+			// This path destroys resolution on older PowerVR no matter what I do if projection is needed,
+			// so we disable it on SGX 540 and lesser, and live with the consequences.
+			bool badPrecision = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_TERRIBLE) != 0;
+			if (needShaderTexClamp && !(doTextureProjection && badPrecision)) {
 				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
 				// We may also be wrapping in such a surface, or either one in a too-small surface.
 				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
