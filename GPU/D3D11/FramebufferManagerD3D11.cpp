@@ -361,7 +361,7 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 		D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
 		context_->RSSetViewports(1, &vp);
 		context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		context_->Draw(2, 0);
+		context_->Draw(4, 0);
 	}
 
 	RebindFramebuffer();

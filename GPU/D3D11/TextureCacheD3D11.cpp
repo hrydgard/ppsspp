@@ -436,14 +436,14 @@ public:
 		static const Pos pos[4] = {
 			{ -1,  1, 0 },
 			{ 1,  1, 0 },
-			{ 1, -1, 0 },
 			{ -1, -1, 0 },
+			{ 1, -1, 0 },
 		};
 		static const UV uv[4] = {
 			{ 0, 0 },
 			{ 1, 0 },
-			{ 1, 1 },
 			{ 0, 1 },
+			{ 1, 1 },
 		};
 
 		for (int i = 0; i < 4; ++i) {
@@ -477,11 +477,12 @@ public:
 			const float right = u2 * invHalfWidth - 1.0f + xoff;
 			const float top = v1 * invHalfHeight - 1.0f + yoff;
 			const float bottom = v2 * invHalfHeight - 1.0f + yoff;
-			// Points are: BL, BR, TR, TL.
-			verts_[0].pos = Pos(left, bottom, -1.0f);
-			verts_[1].pos = Pos(right, bottom, -1.0f);
-			verts_[2].pos = Pos(right, top, -1.0f);
-			verts_[3].pos = Pos(left, top, -1.0f);
+			float z = 0.0f;  // was -1.0f for some reason
+			// Points are: BL, BR, TL, TR.
+			verts_[0].pos = Pos(left, bottom, z);
+			verts_[1].pos = Pos(right, bottom, z);
+			verts_[2].pos = Pos(left, top, z);
+			verts_[3].pos = Pos(right, top, z);
 
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
@@ -490,8 +491,8 @@ public:
 			const float uvbottom = v2 * invHeight;
 			verts_[0].uv = UV(uvleft, uvbottom);
 			verts_[1].uv = UV(uvright, uvbottom);
-			verts_[2].uv = UV(uvright, uvtop);
-			verts_[3].uv = UV(uvleft, uvtop);
+			verts_[2].uv = UV(uvleft, uvtop);
+			verts_[3].uv = UV(uvright, uvtop);
 		}
 	}
 
@@ -509,7 +510,7 @@ public:
 		context_->RSSetViewports(1, &vp);
 		context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 		context_->IASetVertexBuffers(0, 1, &vbuffer_, &stride_, &offset_);
-		context_->Draw(2, 0);
+		context_->Draw(4, 0);
 	}
 
 protected:
