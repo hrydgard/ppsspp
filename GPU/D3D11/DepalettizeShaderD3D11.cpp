@@ -64,9 +64,8 @@ DepalShaderCacheD3D11::DepalShaderCacheD3D11(ID3D11Device *device, ID3D11DeviceC
 
 DepalShaderCacheD3D11::~DepalShaderCacheD3D11() {
 	Clear();
-	if (vertexShader_) {
-		vertexShader_->Release();
-	}
+	vertexShader_->Release();
+	inputLayout_->Release();
 }
 
 u32 DepalShaderCacheD3D11::GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {

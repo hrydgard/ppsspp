@@ -129,6 +129,7 @@ void DrawEngineD3D11::ClearTrackedVertexArrays() {
 }
 
 void DrawEngineD3D11::DestroyDeviceObjects() {
+	ClearTrackedVertexArrays();
 	delete tessDataTransfer;
 	delete pushVerts_;
 	delete pushInds_;
