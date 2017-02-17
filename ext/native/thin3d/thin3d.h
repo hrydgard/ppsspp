@@ -312,6 +312,8 @@ enum class NativeObject {
 	DEVICE_EX,
 	BACKBUFFER_COLOR_VIEW,
 	BACKBUFFER_DEPTH_VIEW,
+	BACKBUFFER_COLOR_TEX,
+	BACKBUFFER_DEPTH_TEX,
 };
 
 enum FBColorDepth {
@@ -328,6 +330,7 @@ enum FBChannel {
 
 	// Implementation specific
 	FB_SURFACE_BIT = 32,  // Used in conjunction with the others in D3D9 to get surfaces through get_api_texture
+	FB_VIEW_BIT = 64,  // Used in conjunction with the others in D3D11 to get shader resource views through get_api_texture
 };
 
 enum FBBlitFilter {

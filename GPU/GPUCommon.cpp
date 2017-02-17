@@ -2116,3 +2116,31 @@ bool GPUCommon::PerformStencilUpload(u32 dest, int size) {
 void GPUCommon::PerformStencilUploadInternal(u32 dest, int size) {
 	framebufferManager_->NotifyStencilUpload(dest, size);
 }
+
+bool GPUCommon::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
+	u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.getFrameBufRawAddress() : framebufferManager_->DisplayFramebufAddr();
+	int fb_stride = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufStride() : framebufferManager_->DisplayFramebufStride();
+	GEBufferFormat format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufFormat() : framebufferManager_->DisplayFramebufFormat();
+	return framebufferManager_->GetFramebuffer(fb_address, fb_stride, format, buffer, maxRes);
+}
+
+bool GPUCommon::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
+	u32 fb_address = gstate.getFrameBufRawAddress();
+	int fb_stride = gstate.FrameBufStride();
+
+	u32 z_address = gstate.getDepthBufRawAddress();
+	int z_stride = gstate.DepthBufStride();
+
+	return framebufferManager_->GetDepthbuffer(fb_address, fb_stride, z_address, z_stride, buffer);
+}
+
+bool GPUCommon::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
+	u32 fb_address = gstate.getFrameBufRawAddress();
+	int fb_stride = gstate.FrameBufStride();
+
+	return framebufferManager_->GetStencilbuffer(fb_address, fb_stride, buffer);
+}
+
+bool GPUCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
+	return framebufferManager_->GetOutputFramebuffer(buffer);
+}

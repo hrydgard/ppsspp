@@ -981,18 +981,6 @@ void GPU_D3D11::DoState(PointerWrap &p) {
 	}
 }
 
-bool GPU_D3D11::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
-	return framebufferManagerD3D11_->GetCurrentFramebuffer(buffer, type, maxRes);
-}
-
-bool GPU_D3D11::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-	return framebufferManagerD3D11_->GetCurrentDepthbuffer(buffer);
-}
-
-bool GPU_D3D11::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-	return framebufferManagerD3D11_->GetCurrentStencilbuffer(buffer);
-}
-
 bool GPU_D3D11::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	if (!gstate.isTextureMapEnabled()) {
 		return false;
@@ -1005,10 +993,6 @@ bool GPU_D3D11::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 
 bool GPU_D3D11::GetCurrentClut(GPUDebugBuffer &buffer) {
 	return textureCacheD3D11_->GetCurrentClutBuffer(buffer);
-}
-
-bool GPU_D3D11::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	return framebufferManagerD3D11_->GetOutputFramebuffer(buffer);
 }
 
 bool GPU_D3D11::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {

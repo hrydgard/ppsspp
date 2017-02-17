@@ -838,8 +838,7 @@ bool SoftGPU::FramebufferDirty() {
 	return true;
 }
 
-bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes)
-{
+bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
 	int x1 = gstate.getRegionX1();
 	int y1 = gstate.getRegionY1();
 	int x2 = gstate.getRegionX2() + 1;

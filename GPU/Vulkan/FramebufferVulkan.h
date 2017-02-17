@@ -100,10 +100,10 @@ public:
 
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
-	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer);
-	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer);
-	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
-	static bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
+	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) override;
+	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) override;
+	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) override;
+	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
 	virtual void RebindFramebuffer() override;
 

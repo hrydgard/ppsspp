@@ -162,6 +162,11 @@ public:
 
 	// From GPUDebugInterface.
 	bool GetCurrentDisplayList(DisplayList &list) override;
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) override;
+	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
+	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
+
 	std::vector<DisplayList> ActiveDisplayLists() override;
 	void ResetListPC(int listID, u32 pc) override;
 	void ResetListStall(int listID, u32 stall) override;
