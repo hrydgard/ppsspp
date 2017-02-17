@@ -466,3 +466,31 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	// Okay, there we are! Return the new type (but keep the index bits)
 	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & (GE_VTYPE_IDX_MASK | GE_VTYPE_THROUGH));
 }
+
+bool DrawEngineCommon::ApplyShaderBlending() {
+	if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
+		return true;
+	}
+
+	static const int MAX_REASONABLE_BLITS_PER_FRAME = 24;
+
+	static int lastFrameBlit = -1;
+	static int blitsThisFrame = 0;
+	if (lastFrameBlit != gpuStats.numFlips) {
+		if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME) {
+			WARN_LOG_REPORT_ONCE(blendingBlit, G3D, "Lots of blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
+		}
+		blitsThisFrame = 0;
+		lastFrameBlit = gpuStats.numFlips;
+	}
+	++blitsThisFrame;
+	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 2) {
+		WARN_LOG_ONCE(blendingBlit2, G3D, "Skipping additional blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
+		return false;
+	}
+
+	fboTexNeedBind_ = true;
+
+	gstate_c.Dirty(DIRTY_SHADERBLEND);
+	return true;
+}

@@ -121,30 +121,6 @@ static const D3D11_LOGIC_OP logicOps[] = {
 };
 */
 
-bool DrawEngineD3D11::ApplyShaderBlending() {
-	static const int MAX_REASONABLE_BLITS_PER_FRAME = 24;
-
-	static int lastFrameBlit = -1;
-	static int blitsThisFrame = 0;
-	if (lastFrameBlit != gpuStats.numFlips) {
-		if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME) {
-			WARN_LOG_REPORT_ONCE(blendingBlit, G3D, "Lots of blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
-		}
-		blitsThisFrame = 0;
-		lastFrameBlit = gpuStats.numFlips;
-	}
-	++blitsThisFrame;
-	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 2) {
-		WARN_LOG_ONCE(blendingBlit2, G3D, "Skipping additional blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
-		return false;
-	}
-
-	fboTexNeedBind_ = true;
-
-	gstate_c.Dirty(DIRTY_SHADERBLEND);
-	return true;
-}
-
 void DrawEngineD3D11::ResetShaderBlending() {
 	if (fboTexBound_) {
 		ID3D11ShaderResourceView *srv = nullptr;

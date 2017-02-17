@@ -162,7 +162,6 @@ private:
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
-	bool ApplyShaderBlending();
 	void ResetShaderBlending();
 
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);

@@ -170,7 +170,6 @@ private:
 	void DoFlush();
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
-	bool ApplyShaderBlending();
 	void ResetShaderBlending();
 
 	GLuint AllocateBuffer(size_t sz);

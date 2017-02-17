@@ -40,6 +40,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Vulkan/StateMappingVulkan.h"
 
 struct DecVtxFormat;
 struct UVScale;
@@ -131,6 +132,8 @@ public:
 
 private:
 	struct FrameData;
+
+	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
