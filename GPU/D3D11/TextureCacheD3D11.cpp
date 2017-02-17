@@ -548,7 +548,6 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader(), depalShaderCache_->GetInputLayout());
 
 		context_->PSSetShaderResources(1, 1, &clutTexture);
-		context_->PSSetSamplers(1, 1, &stockD3D11.samplerPoint2DWrap);
 		framebufferManagerD3D11_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
 		draw_->BindFramebufferAsRenderTarget(depalFBO);

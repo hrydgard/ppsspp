@@ -240,6 +240,8 @@ private:
 	std::map<uint32_t, ID3D11RasterizerState *> rasterCache_;
 
 	// Keep the depth state between ApplyDrawState and ApplyDrawStateLate
+	ID3D11RasterizerState *rasterState_;
+	ID3D11BlendState *blendState_;
 	ID3D11DepthStencilState *depthStencilState_;
 
 	// State keys

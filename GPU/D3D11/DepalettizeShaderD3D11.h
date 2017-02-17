@@ -51,7 +51,6 @@ public:
 	ID3D11VertexShader *GetDepalettizeVertexShader() { return vertexShader_; }
 	ID3D11InputLayout *GetInputLayout() { return inputLayout_; }
 	ID3D11ShaderResourceView *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
-	ID3D11SamplerState *GetClutSampler() { return clutSampler; }
 	void Clear();
 	void Decimate();
 
@@ -62,7 +61,6 @@ private:
 	ID3D11DeviceContext *context_;
 	ID3D11VertexShader *vertexShader_ = nullptr;
 	ID3D11InputLayout *inputLayout_ = nullptr;
-	ID3D11SamplerState *clutSampler = nullptr;
 
 	std::map<u32, DepalShaderD3D11 *> cache_;
 	std::map<u32, DepalTextureD3D11 *> texCache_;
