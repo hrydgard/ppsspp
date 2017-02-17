@@ -84,11 +84,11 @@ public:
 
 	std::string GetInfoString(InfoField info) const override {
 		switch (info) {
-		case APIVERSION: return "DirectX 11.0";
+		case APIVERSION: return "Direct3D 11.0";
 		case VENDORSTRING: return "N/A";
 		case VENDOR: return "-";
 		case RENDERER: return adapterDesc_;
-		case SHADELANGVERSION: return "N/A";
+		case SHADELANGVERSION: return "HLSL 5";
 		case APINAME: return "Direct3D 11";
 		default: return "?";
 		}
