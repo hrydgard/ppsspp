@@ -107,6 +107,9 @@ ShaderManagerD3D11::ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext
 }
 
 ShaderManagerD3D11::~ShaderManagerD3D11() {
+	push_base->Release();
+	push_lights->Release();
+	push_bones->Release();
 	ClearShaders();
 	delete[] codeBuffer_;
 }

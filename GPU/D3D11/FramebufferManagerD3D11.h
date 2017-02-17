@@ -141,13 +141,6 @@ private:
 
 	bool resized_;
 
-	struct TempFBO {
-		Draw::Framebuffer *fbo;
-		int last_frame_used;
-	};
-
-	std::map<u64, TempFBO> tempFBOs_;
-
 #if 0
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;

@@ -124,7 +124,7 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 
 	// FBO cleanup
 	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		delete it->second.fbo;
+		it->second.fbo->Release();
 	}
 	delete[] convBuf;
 
@@ -568,6 +568,8 @@ void FramebufferManagerD3D11::SimpleBlit(
 	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
 	draw_->BindFramebufferAsRenderTarget(dest);
 	Bind2DShader();
+	D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)destW, (float)destH, 0.0f, 1.0f };
+	context_->RSSetViewports(1, &vp);
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
 	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0);

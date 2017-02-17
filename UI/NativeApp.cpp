@@ -607,6 +607,8 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc);
 	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc);
 
+	// Release these now, reference counting should ensure that they get completely released
+	// once we delete both pipelines.
 	inputLayout->Release();
 	rasterNoCull->Release();
 	blendNormal->Release();

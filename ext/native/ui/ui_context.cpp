@@ -14,6 +14,7 @@ UIContext::UIContext()
 }
 
 UIContext::~UIContext() {
+	sampler_->Release();
 	delete fontStyle_;
 	delete textDrawer_;
 }

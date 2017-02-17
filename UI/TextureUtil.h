@@ -17,10 +17,12 @@ public:
 		register_gl_resource_holder(this);
 	}
 	~ManagedTexture() {
+		if (texture_)
+			texture_->Release();
 		unregister_gl_resource_holder(this);
 	}
 	void GLLost() override {
-		delete texture_;
+		texture_->Release();
 		texture_ = nullptr;
 	}
 	void GLRestore() override {

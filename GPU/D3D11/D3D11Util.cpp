@@ -116,6 +116,8 @@ void StockObjectsD3D11::Destroy() {
 	rasterStateNoCull->Release();
 	samplerPoint2DWrap->Release();
 	samplerLinear2DWrap->Release();
+	samplerPoint2DClamp->Release();
+	samplerLinear2DClamp->Release();
 }
 
 StockObjectsD3D11 stockD3D11;

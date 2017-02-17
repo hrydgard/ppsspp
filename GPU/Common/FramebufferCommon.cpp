@@ -505,7 +505,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
 	if (v->fbo) {
-		delete v->fbo;
+		v->fbo->Release();
 		v->fbo = nullptr;
 	}
 
@@ -1028,7 +1028,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
 		int age = frameLastFramebufUsed_ - it->second.last_frame_used;
 		if (age > FBO_OLD_AGE) {
-			delete it->second.fbo;
+			it->second.fbo->Release();
 			tempFBOs_.erase(it++);
 		} else {
 			++it;

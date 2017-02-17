@@ -100,16 +100,36 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 
 	InitDeviceObjects();
 
-	tessDataTransfer = new TessellationDataTransferD3D11();
-
 	// Vertex pushing buffers. For uniforms we use short DISCARD buffers, but we could use
 	// this kind of buffer there as well with D3D11.1. We might be able to use the same buffer
 	// for both vertices and indices, and possibly all three data types.
-	pushVerts_ = new PushBufferD3D11(device, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
-	pushInds_ = new PushBufferD3D11(device, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
 }
 
 DrawEngineD3D11::~DrawEngineD3D11() {
+	DestroyDeviceObjects();
+	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
+	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
+	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+}
+
+void DrawEngineD3D11::InitDeviceObjects() {
+	pushVerts_ = new PushBufferD3D11(device_, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
+	pushInds_ = new PushBufferD3D11(device_, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
+
+	tessDataTransfer = new TessellationDataTransferD3D11();
+}
+
+void DrawEngineD3D11::ClearTrackedVertexArrays() {
+	for (auto &vai : vai_) {
+		delete vai.second;
+	}
+	vai_.clear();
+}
+
+void DrawEngineD3D11::DestroyDeviceObjects() {
+	delete tessDataTransfer;
 	delete pushVerts_;
 	delete pushInds_;
 
@@ -122,23 +142,9 @@ DrawEngineD3D11::~DrawEngineD3D11() {
 	for (auto &blend : blendCache_) {
 		blend.second->Release();
 	}
-
-	DestroyDeviceObjects();
-	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
-	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
-	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
-
-	delete tessDataTransfer;
-}
-
-void DrawEngineD3D11::InitDeviceObjects() {
-
-}
-
-void DrawEngineD3D11::DestroyDeviceObjects() {
-	ClearTrackedVertexArrays();
+	for (auto &raster : rasterCache_) {
+		raster.second->Release();
+	}
 }
 
 struct DeclTypeInfo {
@@ -506,13 +512,6 @@ ReliableHashType DrawEngineD3D11::ComputeHash() {
 	}
 
 	return fullhash;
-}
-
-void DrawEngineD3D11::ClearTrackedVertexArrays() {
-	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
-		delete vai->second;
-	}
-	vai_.clear();
 }
 
 void DrawEngineD3D11::BeginFrame() {
