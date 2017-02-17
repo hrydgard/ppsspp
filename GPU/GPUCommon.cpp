@@ -2140,3 +2140,7 @@ bool GPUCommon::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 
 	return framebufferManager_->GetStencilbuffer(fb_address, fb_stride, buffer);
 }
+
+bool GPUCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
+	return framebufferManager_->GetOutputFramebuffer(buffer);
+}

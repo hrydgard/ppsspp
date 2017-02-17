@@ -100,6 +100,10 @@ public:
 			return (uintptr_t)device_;
 		case NativeObject::CONTEXT:
 			return (uintptr_t)context_;
+		case NativeObject::BACKBUFFER_COLOR_TEX:
+			return (uintptr_t)bbRenderTargetTex_;
+		case NativeObject::BACKBUFFER_DEPTH_TEX:
+			return (uintptr_t)bbDepthStencilTex_;
 		case NativeObject::BACKBUFFER_COLOR_VIEW:
 			return (uintptr_t)bbRenderTargetView_;
 		case NativeObject::BACKBUFFER_DEPTH_VIEW:
@@ -119,6 +123,7 @@ private:
 	ID3D11DeviceContext *context_;
 	IDXGISwapChain *swapChain_ = nullptr;
 
+	ID3D11Texture2D *bbRenderTargetTex_ = nullptr;
 	ID3D11RenderTargetView *bbRenderTargetView_ = nullptr;
 	// Strictly speaking we don't need a depth buffer for the backbuffer.
 	ID3D11Texture2D *bbDepthStencilTex_ = nullptr;
@@ -237,6 +242,8 @@ void D3D11DrawContext::HandleEvent(Event ev) {
 			curRenderTargetView_ = nullptr;
 			curDepthStencilView_ = nullptr;
 		}
+		bbRenderTargetTex_->Release();
+		bbRenderTargetTex_ = nullptr;
 		bbRenderTargetView_->Release();
 		bbRenderTargetView_ = nullptr;
 		bbDepthStencilView_->Release();
@@ -251,12 +258,10 @@ void D3D11DrawContext::HandleEvent(Event ev) {
 		GetRes(hWnd_, width, height);
 		// Create a render target view
 		ID3D11Texture2D* pBackBuffer = nullptr;
-		HRESULT hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pBackBuffer));
+		HRESULT hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&bbRenderTargetTex_));
 		if (FAILED(hr))
 			return;
-
-		hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, &bbRenderTargetView_);
-		pBackBuffer->Release();
+		hr = device_->CreateRenderTargetView(bbRenderTargetTex_, nullptr, &bbRenderTargetView_);
 		if (FAILED(hr))
 			return;
 

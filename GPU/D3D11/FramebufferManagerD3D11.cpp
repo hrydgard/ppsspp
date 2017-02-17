@@ -913,5 +913,38 @@ bool FramebufferManagerD3D11::GetStencilbuffer(u32 fb_address, int fb_stride, GP
 }
 
 bool FramebufferManagerD3D11::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	return false;
+	ID3D11Texture2D *backbuffer = (ID3D11Texture2D *)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_COLOR_TEX);
+	D3D11_TEXTURE2D_DESC desc;
+	backbuffer->GetDesc(&desc);
+	int w = desc.Width;
+	int h = desc.Height;
+	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
+
+	ID3D11Texture2D *packTex;
+	D3D11_TEXTURE2D_DESC packDesc{};
+	packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	packDesc.BindFlags = 0;
+	packDesc.Width = w;
+	packDesc.Height = h;
+	packDesc.ArraySize = 1;
+	packDesc.MipLevels = 1;
+	packDesc.Usage = D3D11_USAGE_STAGING;
+	packDesc.SampleDesc.Count = 1;
+	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	device_->CreateTexture2D(&packDesc, nullptr, &packTex);
+
+	context_->CopyResource(packTex, backbuffer);
+
+	D3D11_MAPPED_SUBRESOURCE map;
+	context_->Map(packTex, 0, D3D11_MAP_READ, 0, &map);
+
+	for (int y = 0; y < h; y++) {
+		uint8_t *dest = (uint8_t *)buffer.GetData() + y * w * 4;
+		const uint8_t *src = ((const uint8_t *)map.pData) + map.RowPitch * y;
+		memcpy(dest, src, 4 * w);
+	}
+
+	context_->Unmap(packTex, 0);
+	packTex->Release();
+	return true;
 }
