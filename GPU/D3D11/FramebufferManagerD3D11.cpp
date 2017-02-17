@@ -554,10 +554,10 @@ void FramebufferManagerD3D11::SimpleBlit(
 		float x, y, z, u, v;
 	};
 	Vtx vtx[4] = {
-		{ dX * destX1, dY * destY1, 0.0f, sX * srcX1, sY * srcY1 },
-		{ dX * destX2, dY * destY1, 0.0f, sX * srcX2, sY * srcY1 },
-		{ dX * destX1, dY * destY2, 0.0f, sX * srcX1, sY * srcY2 },
-		{ dX * destX2, dY * destY2, 0.0f, sX * srcX2, sY * srcY2 },
+		{ -1.0f + 2.0f * dX * destX1, 1.0f - 2.0f * dY * destY1, 0.0f, sX * srcX1, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * destX2, 1.0f - 2.0f * dY * destY1, 0.0f, sX * srcX2, sY * srcY1 },
+		{ -1.0f + 2.0f * dX * destX1, 1.0f - 2.0f * dY * destY2, 0.0f, sX * srcX1, sY * srcY2 },
+		{ -1.0f + 2.0f * dX * destX2, 1.0f - 2.0f * dY * destY2, 0.0f, sX * srcX2, sY * srcY2 },
 	};
 
 	D3D11_MAPPED_SUBRESOURCE map;
@@ -608,7 +608,7 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 	int dstY1 = dstY * dstYFactor;
 	int dstY2 = (dstY + h) * dstYFactor;
 
-	// Direct3D 9 doesn't support rect -> self.
+	// Direct3D doesn't support rect -> self.
 	Draw::Framebuffer *srcFBO = src->fbo;
 	if (src == dst) {
 		Draw::Framebuffer *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
