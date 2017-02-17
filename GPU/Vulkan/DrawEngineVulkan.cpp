@@ -606,10 +606,8 @@ void DrawEngineVulkan::DirtyAllUBOs() {
 
 		if (fboTexNeedBind_) {
 			// Note that this is positions, not UVs, that we need the copy from.
-			framebufferManager_->BindFramebufferColor(1, nullptr, BINDFBCOLOR_MAY_COPY);
+			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			// If we are rendering at a higher resolution, linear is probably best for the dest color.
-			pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-			pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
 			fboTexBound_ = true;
 			fboTexNeedBind_ = false;
 		}

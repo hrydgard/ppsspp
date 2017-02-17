@@ -421,7 +421,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {
 	if (!gstate.isModeClear()) {
 		if (fboTexNeedBind_) {
-			framebufferManager_->BindFramebufferColor(1, nullptr, BINDFBCOLOR_MAY_COPY);
+			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			// No sampler required, we do a Load in the pixel shader
 			// context_->PSSetSamplers(1, 1, &stockD3D11.samplerPoint2DClamp);
 			fboTexBound_ = true;

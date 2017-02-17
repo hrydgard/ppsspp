@@ -493,11 +493,7 @@ void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, Virtu
 	}
 }
 
-void FramebufferManagerGLES::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags) {
-	if (framebuffer == NULL) {
-		framebuffer = currentRenderVfb_;
-	}
-
+void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		glBindTexture(GL_TEXTURE_2D, 0);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;

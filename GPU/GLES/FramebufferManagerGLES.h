@@ -77,7 +77,7 @@ public:
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags);
+	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;

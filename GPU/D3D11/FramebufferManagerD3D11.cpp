@@ -405,11 +405,7 @@ void FramebufferManagerD3D11::BlitFramebufferDepth(VirtualFramebuffer *src, Virt
 	}
 }
 
-void FramebufferManagerD3D11::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags) {
-	if (framebuffer == NULL) {
-		framebuffer = currentRenderVfb_;
-	}
-
+void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		ID3D11ShaderResourceView *view = nullptr;
 		context_->PSSetShaderResources(stage, 1, &view);
@@ -424,7 +420,7 @@ void FramebufferManagerD3D11::BindFramebufferColor(int stage, VirtualFramebuffer
 		skipCopy = true;
 	}
 	// Currently rendering to this framebuffer. Need to make a copy.
-	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
+	if (!skipCopy && framebuffer == currentRenderVfb_) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {
@@ -458,8 +454,14 @@ void FramebufferManagerD3D11::BindFramebufferColor(int stage, VirtualFramebuffer
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 		}
-	} else {
+	} else if (framebuffer != currentRenderVfb_) {
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+	} else {
+		// Badness on D3D11 to bind the currently rendered-to framebuffer as a texture.
+		ID3D11ShaderResourceView *view = nullptr;
+		context_->PSSetShaderResources(stage, 1, &view);
+		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+		return;
 	}
 }
 

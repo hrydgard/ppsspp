@@ -60,7 +60,7 @@ public:
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
 
-	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags);
+	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
