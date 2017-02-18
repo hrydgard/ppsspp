@@ -1128,7 +1128,6 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 	// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
 	u32 *mapData;
 	int mapRowPitch;
-
 	if (replaced.GetSize(level, w, h)) {
 		mapData = new u32[w * h]{};
 		mapRowPitch = w * 4;
@@ -1139,14 +1138,15 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		u32 texaddr = gstate.getTextureAddress(level);
 		int bufw = GetTextureBufw(level, texaddr, tfmt);
+		int roundH = (h + 3) & ~3;  // Need to leave space for DXT decoding!
 		int bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
 		mapRowPitch = std::max(bufw, w) * 4;
-		mapData = new u32[mapRowPitch / 4 * h]{};
+		mapData = new u32[mapRowPitch / 4 * roundH]{};
 
 		u32 *pixelData = (u32 *)mapData;
 		int decPitch = mapRowPitch;
 		if (scaleFactor > 1) {
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
+			tmpTexBufRearrange.resize(std::max(bufw, w) * roundH);
 			pixelData = tmpTexBufRearrange.data();
 			// We want to end up with a neatly packed texture for scaling.
 			decPitch = w * bpp;
