@@ -22,7 +22,7 @@ class D3D11RasterState;
 
 class D3D11DrawContext : public DrawContext {
 public:
-	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, HWND hWnd);
+	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, HWND hWnd);
 	~D3D11DrawContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -101,6 +101,10 @@ public:
 			return (uintptr_t)device_;
 		case NativeObject::CONTEXT:
 			return (uintptr_t)context_;
+		case NativeObject::DEVICE_EX:
+			return (uintptr_t)device1_;
+		case NativeObject::CONTEXT_EX:
+			return (uintptr_t)context1_;
 		case NativeObject::BACKBUFFER_COLOR_TEX:
 			return (uintptr_t)bbRenderTargetTex_;
 		case NativeObject::BACKBUFFER_DEPTH_TEX:
@@ -122,6 +126,8 @@ private:
 	HWND hWnd_;
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
+	ID3D11Device1 *device1_;
+	ID3D11DeviceContext1 *context1_;
 	IDXGISwapChain *swapChain_ = nullptr;
 	bool b4g4r4a4Supported_ = false;
 
@@ -168,7 +174,12 @@ static void GetRes(HWND hWnd, int &xres, int &yres) {
 	yres = rc.bottom - rc.top;
 }
 
-D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *context, HWND hWnd) : device_(device), context_(context), hWnd_(hWnd) {
+D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, HWND hWnd)
+	: device_(device),
+		context_(deviceContext1),
+		device1_(device1),
+		context1_(deviceContext1),
+		hWnd_(hWnd) {
 	HRESULT hr;
 	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
 	IDXGIFactory1* dxgiFactory = nullptr;
@@ -1256,8 +1267,8 @@ void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 	*h = fb->height;
 }
 
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, HWND hWnd) {
-	return new D3D11DrawContext(device, context, hWnd);
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, HWND hWnd) {
+	return new D3D11DrawContext(device, context, device1, context1, hWnd);
 }
 
 }  // namespace Draw

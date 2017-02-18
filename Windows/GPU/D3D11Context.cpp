@@ -88,6 +88,14 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		return false;
 	}
 
+	if (FAILED(device_->QueryInterface(__uuidof (ID3D11Device1), (void **)&device1_))) {
+		device1_ = nullptr;
+	}
+
+	if (FAILED(context_->QueryInterface(__uuidof (ID3D11DeviceContext1), (void **)&context1_))) {
+		context1_ = nullptr;
+	}
+
 #ifdef _DEBUG
 	if (SUCCEEDED(device_->QueryInterface(__uuidof(ID3D11Debug), (void**)&d3dDebug_))) {
 		if (SUCCEEDED(d3dDebug_->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&d3dInfoQueue_))) {
@@ -98,7 +106,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 #endif
 
-	draw_ = Draw::T3DCreateD3D11Context(device_, context_, hWnd_);
+	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, hWnd_);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER);
 	return true;
 }
@@ -125,8 +133,13 @@ void D3D11Context::Shutdown() {
 	d3dInfoQueue_->Release();
 #endif
 
+	if (context1_)
+		context1_->Release();
 	context_->Release();
 	context_ = nullptr;
+	if (device1_)
+		device1_->Release();
+	device1_ = nullptr;
 	device_->Release();
 	device_ = nullptr;
 	hWnd_ = nullptr;

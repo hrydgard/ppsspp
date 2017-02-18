@@ -27,6 +27,8 @@ struct IDirect3DDevice9Ex;
 struct IDirect3D9Ex;
 struct ID3D11Device;
 struct ID3D11DeviceContext;
+struct ID3D11Device1;
+struct ID3D11DeviceContext1;
 
 #endif
 
@@ -308,6 +310,7 @@ enum InfoField {
 
 enum class NativeObject {
 	CONTEXT,
+	CONTEXT_EX,
 	DEVICE,
 	DEVICE_EX,
 	BACKBUFFER_COLOR_VIEW,
@@ -660,7 +663,7 @@ extern const UniformBufferDesc UBPresetDesc;
 
 #ifdef _WIN32
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, HWND hWnd);
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, HWND hWnd);
 #endif
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *context);

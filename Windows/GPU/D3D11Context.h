@@ -22,6 +22,7 @@
 #include "Common/CommonWindows.h"
 #include "Windows/GPU/WindowsGraphicsContext.h"
 #include <d3d11.h>
+#include <d3d11_1.h>
 
 class DrawContext;
 
@@ -41,7 +42,9 @@ public:
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	ID3D11Device *device_ = nullptr;
+	ID3D11Device1 *device1_ = nullptr;
 	ID3D11DeviceContext *context_ = nullptr;
+	ID3D11DeviceContext1 *context1_ = nullptr;
 
 #ifdef _DEBUG
 	ID3D11Debug *d3dDebug_ = nullptr;

@@ -103,12 +103,22 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 	case GLSL_VULKAN:
 		return false;  // TODO
 #ifdef _WIN32
-	case HLSL_D3D11:
+	case HLSL_DX9:
 	{
 		spirv_cross::CompilerHLSL hlsl(spirv);
 		spirv_cross::CompilerHLSL::Options options{};
 		options.fixup_clipspace = true;
 		options.shader_model = 30;
+		hlsl.set_options(options);
+		*dest = hlsl.compile();
+		return true;
+	}
+	case HLSL_D3D11:
+	{
+		spirv_cross::CompilerHLSL hlsl(spirv);
+		spirv_cross::CompilerHLSL::Options options{};
+		options.fixup_clipspace = true;
+		options.shader_model = 50;
 		hlsl.set_options(options);
 		*dest = hlsl.compile();
 		return true;
