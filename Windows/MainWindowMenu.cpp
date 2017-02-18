@@ -1091,7 +1091,7 @@ namespace MainWindow {
 			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		if (!gl_extensions.OES_texture_npot) {
+		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !gl_extensions.OES_texture_npot) {
 			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_GRAYED);
 			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_GRAYED);
 		} else {

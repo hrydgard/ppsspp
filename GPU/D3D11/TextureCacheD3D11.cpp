@@ -1126,8 +1126,8 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 
 	gpuStats.numTexturesDecoded++;
 	// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
-	u32 *mapData;
-	int mapRowPitch;
+	u32 *mapData = nullptr;
+	int mapRowPitch = 0;
 	if (replaced.GetSize(level, w, h)) {
 		mapData = new u32[w * h]{};
 		mapRowPitch = w * 4;
@@ -1139,16 +1139,20 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		u32 texaddr = gstate.getTextureAddress(level);
 		int bufw = GetTextureBufw(level, texaddr, tfmt);
 		int bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
-		mapRowPitch = std::max(bufw, w) * 4;
-		mapData = new u32[mapRowPitch / 4 * h]{};
-
-		u32 *pixelData = (u32 *)mapData;
-		int decPitch = mapRowPitch;
+		u32 *pixelData;
+		int decPitch;
 		if (scaleFactor > 1) {
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			pixelData = tmpTexBufRearrange.data();
 			// We want to end up with a neatly packed texture for scaling.
 			decPitch = w * bpp;
+			mapData = new u32[(w * scaleFactor) * (h * scaleFactor)];
+			mapRowPitch = w * scaleFactor * 4;
+		} else {
+			mapRowPitch = std::max(bufw, w) * bpp;
+			mapData = new u32[mapRowPitch / bpp * h]{};
+			pixelData = (u32 *)mapData;
+			decPitch = mapRowPitch;
 		}
 
 		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false);
