@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <d3d11.h>
+#include <d3d11_1.h>
 
 #include "math/dataconv.h"
 
@@ -100,18 +101,17 @@ static const D3D11_PRIMITIVE_TOPOLOGY primToD3D11[8] = {
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
 };
 
-/*
 static const D3D11_LOGIC_OP logicOps[] = {
 	D3D11_LOGIC_OP_CLEAR,
 	D3D11_LOGIC_OP_AND,
 	D3D11_LOGIC_OP_AND_REVERSE,
 	D3D11_LOGIC_OP_COPY,
 	D3D11_LOGIC_OP_AND_INVERTED,
-	D3D11_LOGIC_OP_NO_OP,
+	D3D11_LOGIC_OP_NOOP,
 	D3D11_LOGIC_OP_XOR,
 	D3D11_LOGIC_OP_OR,
 	D3D11_LOGIC_OP_NOR,
-	D3D11_LOGIC_OP_EQUIVALENT,
+	D3D11_LOGIC_OP_EQUIV,
 	D3D11_LOGIC_OP_INVERT,
 	D3D11_LOGIC_OP_OR_REVERSE,
 	D3D11_LOGIC_OP_COPY_INVERTED,
@@ -119,7 +119,6 @@ static const D3D11_LOGIC_OP logicOps[] = {
 	D3D11_LOGIC_OP_NAND,
 	D3D11_LOGIC_OP_SET,
 };
-*/
 
 void DrawEngineD3D11::ResetShaderBlending() {
 	if (fboTexBound_) {
@@ -160,6 +159,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 	if (blendState.enabled) {
 		keys_.blend.blendEnable = true;
+		keys_.blend.logicOpEnable = false;
 		keys_.blend.blendOpColor = d3d11BlendEqLookup[(size_t)blendState.eqColor];
 		keys_.blend.blendOpAlpha = d3d11BlendEqLookup[(size_t)blendState.eqAlpha];
 		keys_.blend.srcColor = d3d11BlendFactorLookup[(size_t)blendState.srcColor];
@@ -222,7 +222,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			// Logic Ops
 			if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
 				keys_.blend.logicOpEnable = true;
-				// key.blendKey.logicOp = logicOps[gstate.getLogicOp()];
+				keys_.blend.logicOp = logicOps[gstate.getLogicOp()];
 			}
 			else {
 				keys_.blend.logicOpEnable = false;
@@ -370,6 +370,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		rt.SrcBlendAlpha = (D3D11_BLEND)keys_.blend.srcAlpha;
 		rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
 		rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
+		// TODO: Add logic op support, requires a device1_ and CreateBlendState1
 		device_->CreateBlendState(&desc, &bs);
 		blendCache_.insert(std::pair<uint64_t, ID3D11BlendState *>(keys_.blend.value, bs));
 	} else {

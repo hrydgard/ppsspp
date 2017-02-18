@@ -511,6 +511,10 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
 	features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+	if (draw_->GetDeviceCaps().logicOpSupported) {
+		// This requires a little bit more code in statemapping, and passing in a device1_ object.
+		// features |= GPU_SUPPORTS_LOGIC_OP;
+	}
 
 	if (!g_Config.bHighQualityDepth) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;

@@ -4,6 +4,7 @@
 #include "util/text/utf8.h"
 
 #include <d3d11.h>
+#include <d3d11_1.h>
 #include <d3dcompiler.h>
 
 namespace Draw {
@@ -189,6 +190,13 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *co
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.framebufferBlitSupported = false;
 
+	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
+	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
+	if (SUCCEEDED(result)) {
+		if (options.OutputMergerLogicOp) {
+			caps_.logicOpSupported = true;
+		}
+	}
 	int width;
 	int height;
 	GetRes(hWnd_, width, height);
