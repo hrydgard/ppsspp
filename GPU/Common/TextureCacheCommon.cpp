@@ -829,14 +829,13 @@ bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
+			int blockHeight = std::min(h - y, 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT1Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
+				DecodeDXT1Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32, blockHeight, false);
 				blockIndex++;
 			}
 		}
-		// TODO: Not height also?
 		w = (w + 3) & ~3;
-
 		if (reverseColors) {
 			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
 		}
@@ -852,14 +851,13 @@ bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
+			int blockHeight = std::min(h - y, 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT3Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
+				DecodeDXT3Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32, blockHeight);
 				blockIndex++;
 			}
 		}
-		// TODO: Not height also?
 		w = (w + 3) & ~3;
-
 		if (reverseColors) {
 			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
 		}
@@ -875,14 +873,13 @@ bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
+			int blockHeight = std::min(h - y, 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT5Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
+				DecodeDXT5Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32, blockHeight);
 				blockIndex++;
 			}
 		}
-		// TODO: Not height also?
 		w = (w + 3) & ~3;
-
 		if (reverseColors) {
 			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
 		}

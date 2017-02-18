@@ -328,7 +328,7 @@ static inline u32 makecol(int r, int g, int b, int a) {
 }
 
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
-void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha) {
+void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, bool ignore1bitAlpha) {
 	// S3TC Decoder
 	// Needs more speed and debugging.
 	u16 c1 = (src->color1);
@@ -356,7 +356,7 @@ void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitA
 		colors[3] = makecol(red2, green2, blue2, 0);	// Color2 but transparent
 	}
 
-	for (int y = 0; y < 4; y++) {
+	for (int y = 0; y < height; y++) {
 		int val = src->lines[y];
 		for (int x = 0; x < 4; x++) {
 			dst[x] = colors[val & 3];
@@ -366,11 +366,11 @@ void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitA
 	}
 }
 
-void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch)
+void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height)
 {
-	DecodeDXT1Block(dst, &src->color, pitch, true);
+	DecodeDXT1Block(dst, &src->color, pitch, height, true);
 
-	for (int y = 0; y < 4; y++) {
+	for (int y = 0; y < height; y++) {
 		u32 line = src->alphaLines[y];
 		for (int x = 0; x < 4; x++) {
 			const u8 a4 = line & 0xF;
@@ -392,8 +392,8 @@ static inline u8 lerp6(const DXT5Block *src, int n) {
 }
 
 // The alpha channel is not 100% correct 
-void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
-	DecodeDXT1Block(dst, &src->color, pitch, true);
+void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height) {
+	DecodeDXT1Block(dst, &src->color, pitch, height, true);
 	u8 alpha[8];
 
 	alpha[0] = src->alpha1;
@@ -416,7 +416,7 @@ void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 
 	u64 data = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
 
-	for (int y = 0; y < 4; y++) {
+	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < 4; x++) {
 			dst[x] = (dst[x] & 0xFFFFFF) | (alpha[data & 7] << 24);
 			data >>= 3;
