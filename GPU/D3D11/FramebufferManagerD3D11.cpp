@@ -871,6 +871,8 @@ bool FramebufferManagerD3D11::GetFramebuffer(u32 fb_address, int fb_stride, GEBu
 			fboForRead = vfb->fbo;
 		}
 	}
+	if (!fboForRead)
+		return false;
 
 	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
 
