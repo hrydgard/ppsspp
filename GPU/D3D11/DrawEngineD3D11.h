@@ -20,6 +20,7 @@
 #include <unordered_map>
 
 #include <d3d11.h>
+#include <d3d11_1.h>
 
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -172,7 +173,9 @@ private:
 
 	Draw::DrawContext *draw_;  // Used for framebuffer related things exclusively.
 	ID3D11Device *device_;
+	ID3D11Device1 *device1_;
 	ID3D11DeviceContext *context_;
+	ID3D11DeviceContext1 *context1_;
 
 	// Defer all vertex decoding to a Flush, so that we can hash and cache the
 	// generated buffers without having to redecode them every time.
@@ -236,13 +239,15 @@ private:
 
 	// D3D11 state object caches
 	std::map<uint64_t, ID3D11BlendState *> blendCache_;
+	std::map<uint64_t, ID3D11BlendState1 *> blendCache1_;
 	std::map<uint64_t, ID3D11DepthStencilState *> depthStencilCache_;
 	std::map<uint32_t, ID3D11RasterizerState *> rasterCache_;
 
 	// Keep the depth state between ApplyDrawState and ApplyDrawStateLate
-	ID3D11RasterizerState *rasterState_;
-	ID3D11BlendState *blendState_;
-	ID3D11DepthStencilState *depthStencilState_;
+	ID3D11RasterizerState *rasterState_ = nullptr;
+	ID3D11BlendState *blendState_ = nullptr;
+	ID3D11BlendState1 *blendState1_ = nullptr;
+	ID3D11DepthStencilState *depthStencilState_ = nullptr;
 
 	// State keys
 	D3D11StateKeys keys_{};

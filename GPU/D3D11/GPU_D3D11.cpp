@@ -517,8 +517,7 @@ void GPU_D3D11::CheckGPUFeatures() {
 	}
 
 	if (draw_->GetDeviceCaps().logicOpSupported) {
-		// This requires a little bit more code in statemapping, and passing in a device1_ object.
-		// features |= GPU_SUPPORTS_LOGIC_OP;
+		features |= GPU_SUPPORTS_LOGIC_OP;
 	}
 
 	if (!g_Config.bHighQualityDepth) {

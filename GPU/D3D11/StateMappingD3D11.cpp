@@ -355,29 +355,51 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	}
 
 	ID3D11BlendState *bs = nullptr;
+	ID3D11BlendState1 *bs1 = nullptr;
 	ID3D11DepthStencilState *ds = nullptr;
 	ID3D11RasterizerState *rs = nullptr;
 
-	auto blendIter = blendCache_.find(keys_.blend.value);
-	if (blendIter == blendCache_.end()) {
-		D3D11_BLEND_DESC desc{};
-		D3D11_RENDER_TARGET_BLEND_DESC &rt = desc.RenderTarget[0];
-		rt.BlendEnable = keys_.blend.blendEnable;
-		rt.BlendOp = (D3D11_BLEND_OP)keys_.blend.blendOpColor;
-		rt.BlendOpAlpha = (D3D11_BLEND_OP)keys_.blend.blendOpAlpha;
-		rt.SrcBlend = (D3D11_BLEND)keys_.blend.srcColor;
-		rt.DestBlend = (D3D11_BLEND)keys_.blend.destColor;
-		rt.SrcBlendAlpha = (D3D11_BLEND)keys_.blend.srcAlpha;
-		rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
-		rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
-		// TODO: Add logic op support, requires a device1_ and CreateBlendState1
-		device_->CreateBlendState(&desc, &bs);
-		blendCache_.insert(std::pair<uint64_t, ID3D11BlendState *>(keys_.blend.value, bs));
+	if (!device1_) {
+		auto blendIter = blendCache_.find(keys_.blend.value);
+		if (blendIter == blendCache_.end()) {
+			D3D11_BLEND_DESC desc{};
+			D3D11_RENDER_TARGET_BLEND_DESC &rt = desc.RenderTarget[0];
+			rt.BlendEnable = keys_.blend.blendEnable;
+			rt.BlendOp = (D3D11_BLEND_OP)keys_.blend.blendOpColor;
+			rt.BlendOpAlpha = (D3D11_BLEND_OP)keys_.blend.blendOpAlpha;
+			rt.SrcBlend = (D3D11_BLEND)keys_.blend.srcColor;
+			rt.DestBlend = (D3D11_BLEND)keys_.blend.destColor;
+			rt.SrcBlendAlpha = (D3D11_BLEND)keys_.blend.srcAlpha;
+			rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
+			rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
+			device_->CreateBlendState(&desc, &bs);
+			blendCache_.insert(std::pair<uint64_t, ID3D11BlendState *>(keys_.blend.value, bs));
+		} else {
+			bs = blendIter->second;
+		}
+		blendState_ = bs;
 	} else {
-		bs = blendIter->second;
+		auto blendIter = blendCache1_.find(keys_.blend.value);
+		if (blendIter == blendCache1_.end()) {
+			D3D11_BLEND_DESC1 desc1{};
+			D3D11_RENDER_TARGET_BLEND_DESC1 &rt = desc1.RenderTarget[0];
+			rt.BlendEnable = keys_.blend.blendEnable;
+			rt.BlendOp = (D3D11_BLEND_OP)keys_.blend.blendOpColor;
+			rt.BlendOpAlpha = (D3D11_BLEND_OP)keys_.blend.blendOpAlpha;
+			rt.SrcBlend = (D3D11_BLEND)keys_.blend.srcColor;
+			rt.DestBlend = (D3D11_BLEND)keys_.blend.destColor;
+			rt.SrcBlendAlpha = (D3D11_BLEND)keys_.blend.srcAlpha;
+			rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
+			rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
+			rt.LogicOpEnable = keys_.blend.logicOpEnable;
+			rt.LogicOp = (D3D11_LOGIC_OP)keys_.blend.logicOp;
+			device1_->CreateBlendState1(&desc1, &bs1);
+			blendCache1_.insert(std::pair<uint64_t, ID3D11BlendState1 *>(keys_.blend.value, bs1));
+		} else {
+			bs1 = blendIter->second;
+		}
+		blendState1_ = bs1;
 	}
-
-	blendState_ = bs;
 
 	auto depthIter = depthStencilCache_.find(keys_.depthStencil.value);
 	if (depthIter == depthStencilCache_.end()) {
@@ -433,6 +455,10 @@ void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRe
 	context_->RSSetViewports(1, &dynState_.viewport);
 	context_->RSSetScissorRects(1, &dynState_.scissor);
 	context_->RSSetState(rasterState_);
-	context_->OMSetBlendState(blendState_, blendColor, 0xFFFFFFFF);
+	if (device1_) {
+		context1_->OMSetBlendState(blendState1_, blendColor, 0xFFFFFFFF);
+	} else {
+		context_->OMSetBlendState(blendState_, blendColor, 0xFFFFFFFF);
+	}
 	context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : dynState_.stencilRef);
 }

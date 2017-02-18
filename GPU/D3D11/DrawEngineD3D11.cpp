@@ -83,6 +83,8 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
 		dcid_(0) {
+	device1_ = (ID3D11Device1 *)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
+	context1_ = (ID3D11DeviceContext1 *)draw->GetNativeObject(Draw::NativeObject::CONTEXT_EX);
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
 
