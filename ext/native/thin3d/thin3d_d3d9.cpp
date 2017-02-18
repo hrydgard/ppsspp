@@ -409,7 +409,7 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 					break;
 				case DataFormat::A4B4G4R4_UNORM_PACK16:
 					// Native
-					memcpy(dest, source, j * sizeof(uint16_t));
+					memcpy(dest, source, width * sizeof(uint16_t));
 					break;
 
 				case DataFormat::R8G8B8A8_UNORM:

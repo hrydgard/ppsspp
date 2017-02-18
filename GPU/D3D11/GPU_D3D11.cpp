@@ -511,6 +511,11 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
 	features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+
+	if (draw_->GetDataFormatSupport(Draw::DataFormat::A4B4G4R4_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+		features |= GPU_SUPPORTS_4BIT_FORMAT;
+	}
+
 	if (draw_->GetDeviceCaps().logicOpSupported) {
 		// This requires a little bit more code in statemapping, and passing in a device1_ object.
 		// features |= GPU_SUPPORTS_LOGIC_OP;

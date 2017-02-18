@@ -123,6 +123,7 @@ private:
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 	IDXGISwapChain *swapChain_ = nullptr;
+	bool b4g4r4a4Supported_ = false;
 
 	ID3D11Texture2D *bbRenderTargetTex_ = nullptr;
 	ID3D11RenderTargetView *bbRenderTargetView_ = nullptr;
@@ -197,6 +198,13 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *co
 			caps_.logicOpSupported = true;
 		}
 	}
+
+	UINT support;
+	result = device_->CheckFormatSupport(DXGI_FORMAT_B4G4R4A4_UNORM, &support);
+	if (SUCCEEDED(result)) {
+		b4g4r4a4Supported_ = true;
+	}
+
 	int width;
 	int height;
 	GetRes(hWnd_, width, height);
@@ -362,6 +370,9 @@ static DXGI_FORMAT dataFormatToD3D11(DataFormat format) {
 	case DataFormat::R32G32_FLOAT: return DXGI_FORMAT_R32G32_FLOAT;
 	case DataFormat::R32G32B32_FLOAT: return DXGI_FORMAT_R32G32B32_FLOAT;
 	case DataFormat::R32G32B32A32_FLOAT: return DXGI_FORMAT_R32G32B32A32_FLOAT;
+	case DataFormat::A4B4G4R4_UNORM_PACK16: return DXGI_FORMAT_B4G4R4A4_UNORM;
+	case DataFormat::A1R5G5B5_UNORM_PACK16: return DXGI_FORMAT_B5G5R5A1_UNORM;
+	case DataFormat::R5G6B5_UNORM_PACK16: return DXGI_FORMAT_B5G6R5_UNORM;
 	case DataFormat::R8G8B8A8_UNORM: return DXGI_FORMAT_R8G8B8A8_UNORM;
 	case DataFormat::R8G8B8A8_UNORM_SRGB: return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 	case DataFormat::B8G8R8A8_UNORM: return DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -1008,10 +1019,12 @@ uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {
 	case DataFormat::B8G8R8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE;
 
-	// D3D11 has no support for 4-bit component formats.
-	case DataFormat::B4G4R4A4_UNORM_PACK16:
-	case DataFormat::R4G4B4A4_UNORM_PACK16:
+	// D3D11 has no support for 4-bit component formats, except this one and only on Windows 8.
 	case DataFormat::A4B4G4R4_UNORM_PACK16:
+		return b4g4r4a4Supported_ ? FMT_TEXTURE : 0;
+
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
 		return 0;
 
 	case DataFormat::R8G8B8A8_UNORM:
