@@ -352,7 +352,7 @@ void DrawEngineGLES::ApplyDrawStateLate() {
 	if (!gstate.isModeClear()) {
 		if (fboTexNeedBind_) {
 			// Note that this is positions, not UVs, that we need the copy from.
-			framebufferManager_->BindFramebufferAsColorTexture(1, nullptr, BINDFBCOLOR_MAY_COPY);
+			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			framebufferManager_->RebindFramebuffer();
 
 			glActiveTexture(GL_TEXTURE1);
