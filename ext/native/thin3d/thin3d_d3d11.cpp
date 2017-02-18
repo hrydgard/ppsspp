@@ -206,7 +206,9 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
 	if (SUCCEEDED(result)) {
 		if (options.OutputMergerLogicOp) {
-			caps_.logicOpSupported = true;
+			// Actually, need to check that the format supports logic ops as well.
+			// Which normal UNORM formats don't seem to do. So meh.
+			// caps_.logicOpSupported = true;
 		}
 	}
 

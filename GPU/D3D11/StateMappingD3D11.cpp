@@ -221,6 +221,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
 			// Logic Ops
 			if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
+				keys_.blend.blendEnable = false;  // Can't have both blend & logic op - although I think the PSP can!
 				keys_.blend.logicOpEnable = true;
 				keys_.blend.logicOp = logicOps[gstate.getLogicOp()];
 			}
