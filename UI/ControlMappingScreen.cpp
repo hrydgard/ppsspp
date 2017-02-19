@@ -364,10 +364,10 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 
 class JoystickHistoryView : public UI::InertView {
 public:
-	JoystickHistoryView(int xAxis, int xDevice, int yAxis, int yDevice, UI::LayoutParams *layoutParams = nullptr)
+	JoystickHistoryView(int xAxis, int xDevice, int xDir, int yAxis, int yDevice, int yDir, UI::LayoutParams *layoutParams = nullptr)
 		: UI::InertView(layoutParams),
-			xAxis_(xAxis), xDevice_(xDevice),
-			yAxis_(yAxis), yDevice_(yDevice),
+			xAxis_(xAxis), xDevice_(xDevice), xDir_(xDir),
+			yAxis_(yAxis), yDevice_(yDevice), yDir_(xDir),
 			curX_(0.0f), curY_(0.0f),
 			maxCount_(500) {}
 	void Draw(UIContext &dc) override;
@@ -375,9 +375,9 @@ public:
 	void Axis(const AxisInput &input) override {
 		// TODO: Check input.deviceId?
 		if (input.axisId == xAxis_) {
-			curX_ = input.value;
+			curX_ = input.value * xDir_;
 		} else if (input.axisId == yAxis_) {
-			curY_ = input.value;
+			curY_ = input.value * yDir_;
 		}
 	}
 
@@ -391,8 +391,10 @@ private:
 
 	int xAxis_;
 	int xDevice_;
+	int xDir_;
 	int yAxis_;
 	int yDevice_;
+	int yDir_;
 
 	float curX_;
 	float curY_;
@@ -490,12 +492,12 @@ void AnalogTestScreen::CreateViews() {
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
 
-	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new LinearLayoutParams(1.0f)));
+	theTwo->Add(new JoystickHistoryView(axis1, device1, dir1, axis2, device2, dir2, new LinearLayoutParams(1.0f)));
 
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
 
-	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new LinearLayoutParams(1.0f)));
+	theTwo->Add(new JoystickHistoryView(axis1, device1, dir1, axis2, device2, dir2, new LinearLayoutParams(1.0f)));
 
 	root_->Add(theTwo);
 

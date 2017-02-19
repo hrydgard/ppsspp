@@ -229,7 +229,7 @@ protected:
 
 	void DecimateVideos();
 
-	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TexCacheEntry *entry) {
+	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TexCacheEntry *entry) const {
 		if (replacer.Enabled()) {
 			return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
 		}
