@@ -446,68 +446,6 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 	lastBoundTexture = INVALID_TEX;
 }
 
-bool TextureCacheD3D11::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
-	bool hashFail = false;
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
-	u32 fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
-	if (fullhash != entry->fullhash) {
-		hashFail = true;
-	} else {
-		if (g_Config.bTextureBackoffCache) {
-			if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-				// Reset to STATUS_HASHING.
-				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-				entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
-			}
-		} else if (entry->numFrames > TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST) {
-			entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
-		}
-	}
-
-	if (hashFail) {
-		entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
-		if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-			if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
-				entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
-			} else {
-				entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
-			}
-		}
-		entry->numFrames = 0;
-
-		// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
-		// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
-		if (g_Config.bTextureSecondaryCache) {
-			if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
-				u64 secondKey = fullhash | (u64)entry->cluthash << 32;
-				TexCache::iterator secondIter = secondCache_.find(secondKey);
-				if (secondIter != secondCache_.end()) {
-					TexCacheEntry *secondEntry = &secondIter->second;
-					if (secondEntry->Matches(entry->dim, entry->format, entry->maxLevel)) {
-						// Reset the numInvalidated value lower, we got a match.
-						if (entry->numInvalidated > 8) {
-							--entry->numInvalidated;
-						}
-						nextTexture_ = secondEntry;
-						return true;
-					}
-				} else {
-					secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
-					secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-					secondCache_[secondKey] = *entry;
-					doDelete = false;
-				}
-			}
-		}
-
-		// We know it failed, so update the full hash right away.
-		entry->fullhash = fullhash;
-		return false;
-	}
-
-	return true;
-}
 
 void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;

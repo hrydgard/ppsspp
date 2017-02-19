@@ -76,8 +76,6 @@ private:
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
-
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
 	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
