@@ -58,15 +58,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
 {
 	using namespace Draw;
-	TextureDesc desc{};
-	desc.type = TextureType::LINEAR2D;
-	desc.format = DataFormat::R8G8B8A8_UNORM;
-	desc.width = 480;
-	desc.height = 272;
-	desc.depth = 1;
-	desc.mipLevels = 1;
-	fbTex = draw_->CreateTexture(desc);
-
+	fbTex = nullptr;
 	InputLayoutDesc inputDesc = {
 		{
 			{ sizeof(Vertex), false },
@@ -124,9 +116,10 @@ SoftGPU::~SoftGPU() {
 	texColor->Release();
 	texColor = nullptr;
 
-	fbTex->Release();
-	fbTex = nullptr;
-
+	if (fbTex) {
+		fbTex->Release();
+		fbTex = nullptr;
+	}
 	vdata->Release();
 	vdata = nullptr;
 	idata->Release();
@@ -147,32 +140,38 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
-	using namespace Draw;
-
 	if (!draw_)
 		return;
 	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
 	float dstheight = (float)PSP_CoreParameter().pixelHeight;
 
-	Viewport viewport = {0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f};
+	Draw::Viewport viewport = {0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f};
 	draw_->SetViewports(1, &viewport);
-	SamplerState *sampler;
-	if (g_Config.iBufFilter == SCALE_NEAREST) {
-		sampler = samplerNearest;
-	} else {
-		sampler = samplerLinear;
-	}
 	draw_->SetScissorRect(0, 0, dstwidth, dstheight);
 
 	float u0 = 0.0f;
 	float u1;
+
+	if (fbTex) {
+		fbTex->Release();
+		fbTex = nullptr;
+	}
+
+	Draw::TextureDesc desc{};
+	desc.type = Draw::TextureType::LINEAR2D;
+	desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+	desc.depth = 1;
+	desc.mipLevels = 1;
 	bool hasImage = true;
 	if (!Memory::IsValidAddress(displayFramebuf_)) {
 		hasImage = false;
 		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
 		u8 *data = Memory::GetPointer(displayFramebuf_);
-		fbTex->SetImageData(0, 0, 0, displayStride_, srcheight, 1, 0, displayStride_ * 4, data);
+		desc.width = displayStride_;
+		desc.height = srcheight;
+		desc.initData.push_back(data);
+		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 		u1 = (float)srcwidth / displayStride_;
 	} else {
 		// TODO: This should probably be converted in a shader instead..
@@ -201,9 +200,16 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			}
 		}
 
-		fbTex->SetImageData(0, 0, 0, srcwidth, srcheight, 1, 0, srcwidth * 4, (const uint8_t *)&fbTexBuffer[0]);
+		desc.width = srcwidth;
+		desc.height = srcheight;
 		u1 = 1.0f;
 	}
+	if (!hasImage) {
+		draw_->Clear(Draw::FB_COLOR_BIT, 0, 0, 0);
+		return;
+	}
+
+	fbTex = draw_->CreateTexture(desc);
 
 	float x, y, w, h;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
@@ -224,46 +230,48 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	x2 -= 1.0f;
 	y2 -= 1.0f;
 
-	if (hasImage) {
-		float v0 = 1.0f;
-		float v1 = 0.0f;
+	float v0 = 1.0f;
+	float v1 = 0.0f;
 
-		if (GetGPUBackend() == GPUBackend::VULKAN) {
-			std::swap(v0, v1);
-		}
-
-		draw_->BindSamplerStates(0, 1, &sampler);
-
-		const Vertex verts[4] = {
-			{ x, y, 0,    u0, v0,  0xFFFFFFFF }, // TL
-			{ x, y2, 0,   u0, v1,  0xFFFFFFFF }, // BL
-			{ x2, y2, 0,  u1, v1,  0xFFFFFFFF }, // BR
-			{ x2, y, 0,   u1, v0,  0xFFFFFFFF }, // TR
-		};
-		draw_->UpdateBuffer(vdata, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
-
-		int indexes[] = { 0, 1, 2, 0, 2, 3 };
-		draw_->UpdateBuffer(idata, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
-
-		draw_->BindTexture(0, fbTex);
-
-		static const float identity4x4[16] = {
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f,
-		};
-
-		VsTexColUB ub{};
-		memcpy(ub.WorldViewProj, identity4x4, sizeof(float) * 16);
-		draw_->BindPipeline(texColor);
-		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
-		draw_->BindVertexBuffers(0, 1, &vdata, nullptr);
-		draw_->BindIndexBuffer(idata, 0);
-		draw_->DrawIndexed(6, 0);
-	} else {
-		draw_->Clear(Draw::FB_COLOR_BIT, 0, 0, 0);
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		std::swap(v0, v1);
 	}
+
+	Draw::SamplerState *sampler;
+	if (g_Config.iBufFilter == SCALE_NEAREST) {
+		sampler = samplerNearest;
+	} else {
+		sampler = samplerLinear;
+	}
+	draw_->BindSamplerStates(0, 1, &sampler);
+
+	const Vertex verts[4] = {
+		{ x, y, 0,    u0, v0,  0xFFFFFFFF }, // TL
+		{ x, y2, 0,   u0, v1,  0xFFFFFFFF }, // BL
+		{ x2, y2, 0,  u1, v1,  0xFFFFFFFF }, // BR
+		{ x2, y, 0,   u1, v0,  0xFFFFFFFF }, // TR
+	};
+	draw_->UpdateBuffer(vdata, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
+
+	int indexes[] = { 0, 1, 2, 0, 2, 3 };
+	draw_->UpdateBuffer(idata, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
+
+	draw_->BindTexture(0, fbTex);
+
+	static const float identity4x4[16] = {
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f,
+	};
+
+	Draw::VsTexColUB ub{};
+	memcpy(ub.WorldViewProj, identity4x4, sizeof(float) * 16);
+	draw_->BindPipeline(texColor);
+	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
+	draw_->BindVertexBuffers(0, 1, &vdata, nullptr);
+	draw_->BindIndexBuffer(idata, 0);
+	draw_->DrawIndexed(6, 0);
 }
 
 void SoftGPU::CopyDisplayToOutput()

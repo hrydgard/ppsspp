@@ -297,10 +297,10 @@ class D3D9Texture : public Texture {
 public:
 	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, const TextureDesc &desc);
 	~D3D9Texture();
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
 
 private:
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
 	bool Create(const TextureDesc &desc);
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
@@ -364,7 +364,7 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 
 	if (desc.initData.size()) {
 		for (int i = 0; i < desc.initData.size(); i++) {
-			this->SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
+			SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
 		}
 	}
 	return true;

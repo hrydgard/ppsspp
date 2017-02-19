@@ -476,12 +476,11 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 		TextureDesc desc{};
 		desc.type = TextureType::LINEAR2D;
-		desc.format = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
+		desc.format = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
 		desc.width = entry->bmWidth;
 		desc.height = entry->bmHeight;
 		desc.depth = 1;
 		desc.mipLevels = 1;
-		entry->texture = draw_->CreateTexture(desc);
 
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
 		for (int x = 0; x < entry->bmWidth; x++) {
@@ -489,10 +488,9 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 				bitmapData[entry->bmWidth * y + x] = 0xfff0 | image.pixel(x, y) >> 28;
 			}
 		}
-		entry->texture->SetImageData(0, 0, 0, entry->bmWidth, entry->bmHeight, 1, 0, entry->bmWidth * 2, (const uint8_t *)bitmapData);
-
+		desc.initData.push_back((uint8_t *)bitmapData);
+		entry->texture = draw_->CreateTexture(desc);
 		delete [] bitmapData;
-
 		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);
 	}
 	float w = entry->bmWidth * fontScaleX_;

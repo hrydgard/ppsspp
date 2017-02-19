@@ -647,10 +647,6 @@ public:
 			view->Release();
 	}
 
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-		ELOG("SetImageData not supported, create a new texture instead");
-	}
-
 	ID3D11Texture2D *tex = nullptr;
 	ID3D11ShaderResourceView *view = nullptr;
 };
