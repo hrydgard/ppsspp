@@ -98,28 +98,13 @@ void TextureCacheDX9::SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
 	framebufferManager_ = fbManager;
 }
 
-void TextureCacheDX9::Clear(bool delete_them) {
-	pD3Ddevice->SetTexture(0, NULL);
-	lastBoundTexture = INVALID_TEX;
-	if (delete_them) {
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texturePtr);
-			ReleaseTexture(&iter->second);
-		}
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texturePtr);
-			ReleaseTexture(&iter->second);
-		}
+void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry) {
+	DEBUG_LOG(G3D, "Deleting texture %p", entry->texturePtr);
+	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
+	if (texture) {
+		texture->Release();
+		texture = nullptr;
 	}
-	if (cache.size() + secondCache.size()) {
-		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
-		cache.clear();
-		secondCache.clear();
-		cacheSizeEstimate_ = 0;
-		secondCacheSizeEstimate_ = 0;
-	}
-	fbTexInfo_.clear();
-	videos_.clear();
 }
 
 void TextureCacheDX9::DeleteTexture(TexCache::iterator it) {
@@ -128,7 +113,6 @@ void TextureCacheDX9::DeleteTexture(TexCache::iterator it) {
 	if (fbInfo != fbTexInfo_.end()) {
 		fbTexInfo_.erase(fbInfo);
 	}
-
 	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
 	cache.erase(it);
 }

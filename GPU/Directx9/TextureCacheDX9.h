@@ -41,8 +41,6 @@ public:
 	~TextureCacheDX9();
 
 	void SetTexture(bool force = false);
-
-	void Clear(bool delete_them);
 	void StartFrame();
 
 	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
@@ -64,6 +62,7 @@ public:
 
 protected:
 	void Unbind() override;
+	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
@@ -82,13 +81,6 @@ private:
 
 	LPDIRECT3DTEXTURE9 &DxTex(TexCacheEntry *entry) {
 		return *(LPDIRECT3DTEXTURE9 *)&entry->texturePtr;
-	}
-	void ReleaseTexture(TexCacheEntry *entry) {
-		LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
-		if (texture) {
-			texture->Release();
-			texture = nullptr;
-		}
 	}
 
 	TextureScalerDX9 scaler;

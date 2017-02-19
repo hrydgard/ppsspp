@@ -134,29 +134,17 @@ void TextureCacheD3D11::SetFramebufferManager(FramebufferManagerD3D11 *fbManager
 	framebufferManager_ = fbManager;
 }
 
-void TextureCacheD3D11::Clear(bool delete_them) {
-	// ID3D11ShaderResourceView *srv = nullptr;
-	// context_->PSSetShaderResources(0, 1, &srv);
-	lastBoundTexture = INVALID_TEX;
-	if (delete_them) {
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texturePtr);
-			ReleaseTexture(&iter->second);
-		}
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texturePtr);
-			ReleaseTexture(&iter->second);
-		}
+void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry) {
+	ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
+	ID3D11ShaderResourceView *view = (ID3D11ShaderResourceView *)entry->textureView;
+	if (texture) {
+		texture->Release();
+		entry->texturePtr = nullptr;
 	}
-	if (cache.size() + secondCache.size()) {
-		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
-		cache.clear();
-		secondCache.clear();
-		cacheSizeEstimate_ = 0;
-		secondCacheSizeEstimate_ = 0;
+	if (view) {
+		view->Release();
+		entry->textureView = nullptr;
 	}
-	fbTexInfo_.clear();
-	videos_.clear();
 }
 
 void TextureCacheD3D11::DeleteTexture(TexCache::iterator it) {

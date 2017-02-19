@@ -965,6 +965,26 @@ bool TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 	return true;
 }
 
+void TextureCacheCommon::Clear(bool delete_them) {
+	ForgetLastTexture();
+	if (delete_them) {
+		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
+			ReleaseTexture(&iter->second);
+		}
+		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
+			ReleaseTexture(&iter->second);
+		}
+	}
+	if (cache.size() + secondCache.size()) {
+		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
+		cache.clear();
+		secondCache.clear();
+		cacheSizeEstimate_ = 0;
+		secondCacheSizeEstimate_ = 0;
+	}
+	fbTexInfo_.clear();
+	videos_.clear();
+}
 
 bool TextureCacheCommon::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
 	bool hashFail = false;

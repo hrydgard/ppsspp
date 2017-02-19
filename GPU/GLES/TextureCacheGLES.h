@@ -78,6 +78,7 @@ public:
 
 protected:
 	void Unbind() override;
+	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.

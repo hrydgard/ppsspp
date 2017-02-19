@@ -178,6 +178,7 @@ public:
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
 	virtual void ForgetLastTexture() = 0;
+	virtual void Clear(bool delete_them);
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
@@ -196,6 +197,7 @@ public:
 
 protected:
 	virtual void Unbind() = 0;
+	virtual void ReleaseTexture(TexCacheEntry *entry) = 0;
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
 

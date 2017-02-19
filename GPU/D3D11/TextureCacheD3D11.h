@@ -48,7 +48,6 @@ public:
 
 	void SetTexture(bool force = false);
 
-	void Clear(bool delete_them);
 	void StartFrame();
 
 	void SetFramebufferManager(FramebufferManagerD3D11 *fbManager);
@@ -70,6 +69,7 @@ public:
 
 protected:
 	void Unbind() override;
+	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
@@ -94,18 +94,6 @@ private:
 	}
 	ID3D11ShaderResourceView *DxView(TexCacheEntry *entry) {
 		return (ID3D11ShaderResourceView *)entry->textureView;
-	}
-	void ReleaseTexture(TexCacheEntry *entry) {
-		ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
-		ID3D11ShaderResourceView *view = (ID3D11ShaderResourceView *)entry->textureView;
-		if (texture) {
-			texture->Release();
-			entry->texturePtr = nullptr;
-		}
-		if (view) {
-			view->Release();
-			entry->textureView = nullptr;
-		}
 	}
 
 	TextureScalerD3D11 scaler;

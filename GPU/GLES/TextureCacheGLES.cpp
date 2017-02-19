@@ -86,32 +86,19 @@ void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) 
 	framebufferManager_ = fbManager;
 }
 
+void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry) {
+	DEBUG_LOG(G3D, "Deleting texture %i", entry->textureName);
+	glDeleteTextures(1, &entry->textureName);
+}
+
 void TextureCacheGLES::Clear(bool delete_them) {
-	glBindTexture(GL_TEXTURE_2D, 0);
-	lastBoundTexture = INVALID_TEX;
+	TextureCacheCommon::Clear(delete_them);
 	if (delete_them) {
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.textureName);
-			glDeleteTextures(1, &iter->second.textureName);
-		}
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.textureName);
-			glDeleteTextures(1, &iter->second.textureName);
-		}
 		if (!nameCache_.empty()) {
 			glDeleteTextures((GLsizei)nameCache_.size(), &nameCache_[0]);
 			nameCache_.clear();
 		}
 	}
-	if (cache.size() + secondCache.size()) {
-		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
-		cache.clear();
-		secondCache.clear();
-		cacheSizeEstimate_ = 0;
-		secondCacheSizeEstimate_ = 0;
-	}
-	fbTexInfo_.clear();
-	videos_.clear();
 }
 
 void TextureCacheGLES::DeleteTexture(TexCache::iterator it) {

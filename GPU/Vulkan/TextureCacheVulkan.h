@@ -68,7 +68,6 @@ public:
 	~TextureCacheVulkan();
 
 	void SetTexture();
-	void Clear(bool delete_them);
 	void StartFrame();
 	void EndFrame();
 
@@ -95,6 +94,7 @@ public:
 
 protected:
 	void Unbind() override;
+	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.

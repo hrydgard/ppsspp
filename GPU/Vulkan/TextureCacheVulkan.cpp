@@ -192,25 +192,9 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan) {
 	samplerCache_.DeviceRestore(vulkan);
 }
 
-void TextureCacheVulkan::Clear(bool delete_them) {
-	lastBoundTexture = nullptr;
-	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
-		DEBUG_LOG(G3D, "Deleting texture %p", iter->second.vkTex);
-		delete iter->second.vkTex;
-	}
-	for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
-		DEBUG_LOG(G3D, "Deleting texture %p", iter->second.vkTex);
-		delete iter->second.vkTex;
-	}
-	if (cache.size() + secondCache.size()) {
-		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
-		cache.clear();
-		secondCache.clear();
-		cacheSizeEstimate_ = 0;
-		secondCacheSizeEstimate_ = 0;
-	}
-	fbTexInfo_.clear();
-	videos_.clear();
+void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry) {
+	DEBUG_LOG(G3D, "Deleting texture %p", entry->vkTex);
+	delete entry->vkTex;
 }
 
 void TextureCacheVulkan::DeleteTexture(TexCache::iterator it) {
