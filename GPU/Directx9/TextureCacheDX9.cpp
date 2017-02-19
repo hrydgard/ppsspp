@@ -93,16 +93,6 @@ void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry) {
 	}
 }
 
-void TextureCacheDX9::DeleteTexture(TexCache::iterator it) {
-	ReleaseTexture(&it->second);
-	auto fbInfo = fbTexInfo_.find(it->first);
-	if (fbInfo != fbTexInfo_.end()) {
-		fbTexInfo_.erase(fbInfo);
-	}
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
-	cache_.erase(it);
-}
-
 void TextureCacheDX9::ForgetLastTexture() {
 	lastBoundTexture = INVALID_TEX;
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);

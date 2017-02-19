@@ -184,17 +184,6 @@ void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry) {
 	delete entry->vkTex;
 }
 
-void TextureCacheVulkan::DeleteTexture(TexCache::iterator it) {
-	delete it->second.vkTex;
-	auto fbInfo = fbTexInfo_.find(it->first);
-	if (fbInfo != fbTexInfo_.end()) {
-		fbTexInfo_.erase(fbInfo);
-	}
-
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
-	cache_.erase(it);
-}
-
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
