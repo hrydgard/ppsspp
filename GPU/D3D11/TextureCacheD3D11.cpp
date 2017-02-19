@@ -312,6 +312,14 @@ void TextureCacheD3D11::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBa
 	clutLastFormat_ = gstate.clutformat;
 }
 
+void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
+	ID3D11ShaderResourceView *textureView = DxView(entry);
+	if (textureView != lastBoundTexture) {
+		context_->PSSetShaderResources(0, 1, &textureView);
+		lastBoundTexture = textureView;
+	}
+}
+
 void TextureCacheD3D11::Unbind() {
 	ID3D11ShaderResourceView *nullView = nullptr;
 	context_->PSSetShaderResources(0, 1, &nullView);
@@ -363,11 +371,7 @@ void TextureCacheD3D11::ApplyTexture() {
 	if (entry->framebuffer) {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
-		ID3D11ShaderResourceView *textureView = DxView(entry);
-		if (textureView != lastBoundTexture) {
-			context_->PSSetShaderResources(0, 1, &textureView);
-			lastBoundTexture = textureView;
-		}
+		BindTexture(entry);
 		SamplerCacheKey key;
 		UpdateSamplingParams(*entry, key);
 		ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, key);

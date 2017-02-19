@@ -61,6 +61,7 @@ public:
 	void ApplyTexture();
 
 protected:
+	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry) override;
 

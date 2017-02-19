@@ -332,6 +332,14 @@ void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase
 	clutLastFormat_ = gstate.clutformat;
 }
 
+void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
+	LPDIRECT3DTEXTURE9 texture = DxTex(entry);
+	if (texture != lastBoundTexture) {
+		pD3Ddevice->SetTexture(0, texture);
+		lastBoundTexture = texture;
+	}
+}
+
 void TextureCacheDX9::Unbind() {
 	pD3Ddevice->SetTexture(0, NULL);
 }
@@ -382,11 +390,7 @@ void TextureCacheDX9::ApplyTexture() {
 	if (entry->framebuffer) {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
-		LPDIRECT3DTEXTURE9 texture = DxTex(entry);
-		if (texture != lastBoundTexture) {
-			pD3Ddevice->SetTexture(0, texture);
-			lastBoundTexture = texture;
-		}
+		BindTexture(entry);
 		UpdateSamplingParams(*entry, false);
 
 		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;

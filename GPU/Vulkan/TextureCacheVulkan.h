@@ -79,7 +79,7 @@ public:
 		depalShaderCache_ = dpCache;
 	}
 	void SetShaderManager(ShaderManagerVulkan *sm) {
-		shaderManager_ = sm;
+		shaderManagerVulkan_ = sm;
 	}
 	void SetDrawEngine(DrawEngineVulkan *td) {
 		drawEngine_ = td;
@@ -90,9 +90,10 @@ public:
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 
-	void ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler);
+	void ApplyTexture(VkImageView &imageView, VkSampler &sampler);
 
 protected:
+	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry) override;
 
@@ -109,7 +110,7 @@ private:
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
 	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	void BuildTexture(TexCacheEntry *const entry, VulkanPushBuffer *uploadBuffer);
+	void BuildTexture(TexCacheEntry *const entry);
 
 	VulkanContext *vulkan_;
 	VulkanDeviceAllocator *allocator_;
@@ -126,7 +127,7 @@ private:
 
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	DepalShaderCacheVulkan *depalShaderCache_;
-	ShaderManagerVulkan *shaderManager_;
+	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
 };
 

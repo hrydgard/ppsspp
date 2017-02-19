@@ -179,6 +179,7 @@ public:
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
+
 	virtual void ForgetLastTexture() = 0;
 	virtual void Clear(bool delete_them);
 
@@ -198,6 +199,7 @@ public:
 	}
 
 protected:
+	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry) = 0;
 	void DeleteTexture(TexCache::iterator it);

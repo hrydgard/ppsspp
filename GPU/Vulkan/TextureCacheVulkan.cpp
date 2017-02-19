@@ -397,10 +397,14 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	clutLastFormat_ = gstate.clutformat;
 }
 
+void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
+
+}
+
 void TextureCacheVulkan::Unbind() {
 }
 
-void TextureCacheVulkan::ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler) {
+void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler) {
 	TexCacheEntry *entry = nextTexture_;
 	if (entry == nullptr) {
 		imageView = VK_NULL_HANDLE;
@@ -440,7 +444,7 @@ void TextureCacheVulkan::ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageVie
 
 	// Okay, now actually rebuild the texture if needed.
 	if (nextNeedsRebuild_) {
-		BuildTexture(entry, uploadBuffer);
+		BuildTexture(entry);
 	}
 
 	entry->lastFrame = gpuStats.numFlips;
@@ -538,7 +542,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 			uv[3] = UV(uvleft, uvtop);
 		}
 
-		shaderManager_->DirtyLastShader();
+		shaderManagerVulkan_->DirtyLastShader();
 
 		//depalFBO->EndPass(cmd);
 		//depalFBO->TransitionToTexture(cmd);
@@ -901,7 +905,7 @@ bool TextureCacheVulkan::HandleTextureChange(TexCacheEntry *const entry, const c
 	return false;
 }
 
-void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, VulkanPushBuffer *uploadBuffer) {
+void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
@@ -1079,7 +1083,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, VulkanPushBuff
 			int size = stride * mipHeight;
 			uint32_t bufferOffset;
 			VkBuffer texBuf;
-			void *data = uploadBuffer->Push(size, &bufferOffset, &texBuf);
+			void *data = drawEngine_->GetPushBufferForTextureData()->Push(size, &bufferOffset, &texBuf);
 			if (replaced.Valid()) {
 				replaced.Load(i, data, stride);
 			} else {

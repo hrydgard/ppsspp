@@ -385,6 +385,13 @@ bool SetDebugTexture() {
 }
 #endif
 
+void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
+	if (entry->textureName != lastBoundTexture) {
+		glBindTexture(GL_TEXTURE_2D, entry->textureName);
+		lastBoundTexture = entry->textureName;
+	}
+}
+
 void TextureCacheGLES::Unbind() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -434,10 +441,7 @@ void TextureCacheGLES::ApplyTexture() {
 	if (entry->framebuffer) {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
-		if (entry->textureName != lastBoundTexture) {
-			glBindTexture(GL_TEXTURE_2D, entry->textureName);
-			lastBoundTexture = entry->textureName;
-		}
+		BindTexture(entry);
 		UpdateSamplingParams(*entry, false);
 
 		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
