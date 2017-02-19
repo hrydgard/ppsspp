@@ -705,7 +705,13 @@ OpenGLTexture::OpenGLTexture(const TextureDesc &desc) : tex_(0), target_(TypeToT
 		level++;
 	}
 
+#ifdef USING_GLES2
+	if (gl_extensions.GLES3) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, level - 1);
+	}
+#else
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, level - 1);
+#endif
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, level > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -753,12 +759,11 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case DataFormat::R4G4B4A4_UNORM_PACK16:
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
 		break;
-
 #ifndef USING_GLES2
 	case DataFormat::A4B4G4R4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
@@ -766,7 +771,6 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
 		break;
 #endif
-
 	default:
 		ELOG("Thin3d GL: Unsupported texture format %d", (int)format_);
 		return;
@@ -1645,12 +1649,14 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 	switch (fmt) {
 	case DataFormat::B8G8R8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE;
-	case DataFormat::R4G4B4A4_UNORM_PACK16:
-		return FMT_RENDERTARGET | FMT_TEXTURE;
 	case DataFormat::B4G4R4A4_UNORM_PACK16:
-		return 0;  // native support
+		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
 	case DataFormat::A4B4G4R4_UNORM_PACK16:
-		return 0;  // Can support this if _REV formats are supported.
+#ifndef USING_GLES2
+		// Can support this if _REV formats are supported.
+		return FMT_TEXTURE;
+#endif
+		return 0;
 
 	case DataFormat::R8G8B8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
