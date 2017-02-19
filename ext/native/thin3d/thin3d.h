@@ -406,8 +406,6 @@ public:
 
 class Texture : public RefCountedObject {
 public:
-	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
-
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Depth() { return depth_; }

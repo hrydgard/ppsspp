@@ -597,11 +597,11 @@ public:
 		Destroy();
 	}
 
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
-
 	VkImageView GetImageView() { return vkTex_->GetImageView(); }
 
 private:
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
+
 	bool Create(const TextureDesc &desc) {
 		format_ = desc.format;
 		mipLevels_ = desc.mipLevels;

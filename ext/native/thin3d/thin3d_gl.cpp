@@ -656,42 +656,9 @@ inline bool isPowerOf2(int n) {
 
 class OpenGLTexture : public Texture {
 public:
-	OpenGLTexture(const TextureDesc &desc) : tex_(0), target_(TypeToTarget(desc.type)), format_(desc.format), mipLevels_(desc.mipLevels) {
-		generatedMips_ = false;
-		canWrap_ = true;
-		width_ = desc.width;
-		height_ = desc.height;
-		depth_ = desc.depth;
-		canWrap_ = !isPowerOf2(width_) || !isPowerOf2(height_);
+	OpenGLTexture(const TextureDesc &desc);
+	~OpenGLTexture();
 
-		glGenTextures(1, &tex_);
-
-		if (!desc.initData.size())
-			return;
-
-		int level = 0;
-		for (auto data : desc.initData) {
-			SetImageData(0, 0, 0, width_, height_, depth_, level, 0, data);
-			width_ = (width_ + 1) /2;
-			height_ = (height_ + 1) /2;
-			level++;
-		}
-		if (desc.initData.size() < desc.mipLevels)
-			AutoGenMipmaps();
-	}
-	~OpenGLTexture() {
-		Destroy();
-	}
-
-	void Destroy() {
-		if (tex_) {
-			glDeleteTextures(1, &tex_);
-			tex_ = 0;
-			generatedMips_ = false;
-		}
-	}
-
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps();
 
 	bool HasMips() {
@@ -706,6 +673,8 @@ public:
 	}
 
 private:
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
+
 	GLuint tex_;
 	GLuint target_;
 
@@ -714,6 +683,43 @@ private:
 	bool generatedMips_;
 	bool canWrap_;
 };
+
+OpenGLTexture::OpenGLTexture(const TextureDesc &desc) : tex_(0), target_(TypeToTarget(desc.type)), format_(desc.format), mipLevels_(desc.mipLevels) {
+	generatedMips_ = false;
+	canWrap_ = true;
+	width_ = desc.width;
+	height_ = desc.height;
+	depth_ = desc.depth;
+	canWrap_ = !isPowerOf2(width_) || !isPowerOf2(height_);
+
+	glGenTextures(1, &tex_);
+
+	if (!desc.initData.size())
+		return;
+
+	int level = 0;
+	for (auto data : desc.initData) {
+		SetImageData(0, 0, 0, width_, height_, depth_, level, 0, data);
+		width_ = (width_ + 1) / 2;
+		height_ = (height_ + 1) / 2;
+		level++;
+	}
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, level - 1);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, level > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	if (desc.initData.size() < desc.mipLevels)
+		AutoGenMipmaps();
+}
+
+OpenGLTexture::~OpenGLTexture() {
+	if (tex_) {
+		glDeleteTextures(1, &tex_);
+		tex_ = 0;
+		generatedMips_ = false;
+	}
+}
 
 Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
 	return new OpenGLTexture(desc);
