@@ -80,7 +80,6 @@ protected:
 	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
-	void Decimate();  // Run this once per frame to get rid of old textures.
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, bool replaceImages, int scaleFactor, GLenum dstFmt);
 	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;

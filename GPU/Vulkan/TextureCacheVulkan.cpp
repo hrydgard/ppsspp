@@ -48,21 +48,9 @@
 #include <xmmintrin.h>
 #endif
 
-// If a texture hasn't been seen for this many frames, get rid of it.
-#define TEXTURE_KILL_AGE 200
-#define TEXTURE_KILL_AGE_LOWMEM 60
-// Not used in lowmem mode.
-#define TEXTURE_SECOND_KILL_AGE 100
-
-// Try to be prime to other decimation intervals.
-#define TEXCACHE_DECIMATION_INTERVAL 13
-
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
-
-#define TEXCACHE_MIN_PRESSURE (16 * 1024 * 1024)  // Total in GL
-#define TEXCACHE_SECOND_MIN_PRESSURE (4 * 1024 * 1024)
 
 #define TEXCACHE_MIN_SLAB_SIZE (4 * 1024 * 1024)
 #define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
@@ -144,7 +132,6 @@ TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *v
 		texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = nullptr;
-	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 
 	SetupTextureDecoder();
@@ -206,50 +193,6 @@ void TextureCacheVulkan::DeleteTexture(TexCache::iterator it) {
 
 	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
 	cache.erase(it);
-}
-
-// Removes old textures.
-void TextureCacheVulkan::Decimate() {
-	if (--decimationCounter_ <= 0) {
-		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
-	} else {
-		return;
-	}
-
-	if (cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
-		const u32 had = cacheSizeEstimate_;
-
-		lastBoundTexture = nullptr;
-		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
-			if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
-				DeleteTexture(iter++);
-			} else {
-				++iter;
-			}
-		}
-
-		VERBOSE_LOG(G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
-	}
-
-	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
-		const u32 had = secondCacheSizeEstimate_;
-
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
-			// In low memory mode, we kill them all.
-			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
-				delete iter->second.vkTex;
-				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(&iter->second);
-				secondCache.erase(iter++);
-			} else {
-				++iter;
-			}
-		}
-
-		VERBOSE_LOG(G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
-	}
-
-	DecimateVideos();
 }
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format) {

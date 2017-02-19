@@ -71,7 +71,6 @@ protected:
 	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
-	void Decimate();  // Run this once per frame to get rid of old textures.
 	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt);
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;

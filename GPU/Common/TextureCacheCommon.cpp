@@ -37,6 +37,18 @@
 // Videos should be updated every few frames, so we forge quickly.
 #define VIDEO_DECIMATE_AGE 4
 
+// If a texture hasn't been seen for this many frames, get rid of it.
+#define TEXTURE_KILL_AGE 200
+#define TEXTURE_KILL_AGE_LOWMEM 60
+// Not used in lowmem mode.
+#define TEXTURE_SECOND_KILL_AGE 100
+
+// Try to be prime to other decimation intervals.
+#define TEXCACHE_DECIMATION_INTERVAL 13
+
+#define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
+#define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
+
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 	: draw_(draw),
 		clearCacheNextFrame_(false),
@@ -50,6 +62,8 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 		clutMaxBytes_(0),
 		clutRenderAddress_(0xFFFFFFFF),
 		clutAlphaLinear_(false) {
+	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
+
 	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
 	clutBufConverted_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
@@ -156,6 +170,50 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 			entry->maxSeenV = 512;
 		}
 	}
+}
+
+// Removes old textures.
+void TextureCacheCommon::Decimate() {
+	if (--decimationCounter_ <= 0) {
+		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
+	} else {
+		return;
+	}
+
+	if (cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
+		const u32 had = cacheSizeEstimate_;
+
+		ForgetLastTexture();
+		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
+		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
+			if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
+				DeleteTexture(iter++);
+			} else {
+				++iter;
+			}
+		}
+
+		VERBOSE_LOG(G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
+	}
+
+	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
+		const u32 had = secondCacheSizeEstimate_;
+
+		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
+			// In low memory mode, we kill them all.
+			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
+				ReleaseTexture(&iter->second);
+				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(&iter->second);
+				secondCache.erase(iter++);
+			} else {
+				++iter;
+			}
+		}
+
+		VERBOSE_LOG(G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
+	}
+
+	DecimateVideos();
 }
 
 void TextureCacheCommon::DecimateVideos() {

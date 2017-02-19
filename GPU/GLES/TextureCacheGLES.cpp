@@ -43,33 +43,18 @@
 #include <xmmintrin.h>
 #endif
 
-// If a texture hasn't been seen for this many frames, get rid of it.
-#define TEXTURE_KILL_AGE 200
-#define TEXTURE_KILL_AGE_LOWMEM 60
-// Not used in lowmem mode.
-#define TEXTURE_SECOND_KILL_AGE 100
-
-// Try to be prime to other decimation intervals.
-#define TEXCACHE_DECIMATION_INTERVAL 13
-
-#define TEXCACHE_NAME_CACHE_SIZE 16
-
-#define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
-
-#define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in GL
-#define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
-
 #ifndef GL_UNPACK_ROW_LENGTH
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
 #define INVALID_TEX -1
 
+#define TEXCACHE_NAME_CACHE_SIZE 16
+
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
-	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 	SetupTextureDecoder();
@@ -99,51 +84,6 @@ void TextureCacheGLES::Clear(bool delete_them) {
 			nameCache_.clear();
 		}
 	}
-}
-
-// Removes old textures.
-void TextureCacheGLES::Decimate() {
-	if (--decimationCounter_ <= 0) {
-		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
-	} else {
-		return;
-	}
-
-	if (cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
-		const u32 had = cacheSizeEstimate_;
-
-		glBindTexture(GL_TEXTURE_2D, 0);
-		lastBoundTexture = INVALID_TEX;
-		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
-			if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
-				DeleteTexture(iter++);
-			} else {
-				++iter;
-			}
-		}
-
-		VERBOSE_LOG(G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
-	}
-
-	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
-		const u32 had = secondCacheSizeEstimate_;
-
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
-			// In low memory mode, we kill them all.
-			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
-				glDeleteTextures(1, &iter->second.textureName);
-				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(&iter->second);
-				secondCache.erase(iter++);
-			} else {
-				++iter;
-			}
-		}
-
-		VERBOSE_LOG(G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
-	}
-
-	DecimateVideos();
 }
 
 GLenum getClutDestFormat(GEPaletteFormat format) {
@@ -616,6 +556,7 @@ void TextureCacheGLES::SetTexture(bool force) {
 	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
+		Unbind();
 		glBindTexture(GL_TEXTURE_2D, 0);
 		lastBoundTexture = INVALID_TEX;
 		return;

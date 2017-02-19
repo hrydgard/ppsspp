@@ -101,7 +101,6 @@ protected:
 	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
-	void Decimate();  // Run this once per frame to get rid of old textures.
 	void DeleteTexture(TexCache::iterator it);
 	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);

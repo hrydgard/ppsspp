@@ -43,20 +43,6 @@ namespace DX9 {
 
 #define INVALID_TEX (LPDIRECT3DTEXTURE9)(-1)
 
-// If a texture hasn't been seen for this many frames, get rid of it.
-#define TEXTURE_KILL_AGE 200
-#define TEXTURE_KILL_AGE_LOWMEM 60
-// Not used in lowmem mode.
-#define TEXTURE_SECOND_KILL_AGE 100
-
-// Try to be prime to other decimation intervals.
-#define TEXCACHE_DECIMATION_INTERVAL 13
-
-#define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
-
-#define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
-#define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
-
 static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	{ 0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
 	{ 0, 12, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
@@ -66,7 +52,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw) {
 	lastBoundTexture = INVALID_TEX;
-	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	D3DCAPS9 pCaps;
 	ZeroMemory(&pCaps, sizeof(pCaps));
@@ -120,50 +105,6 @@ void TextureCacheDX9::DeleteTexture(TexCache::iterator it) {
 void TextureCacheDX9::ForgetLastTexture() {
 	lastBoundTexture = INVALID_TEX;
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-}
-
-// Removes old textures.
-void TextureCacheDX9::Decimate() {
-	if (--decimationCounter_ <= 0) {
-		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
-	} else {
-		return;
-	}
-
-	if (cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
-		const u32 had = cacheSizeEstimate_;
-
-		pD3Ddevice->SetTexture(0, NULL);
-		lastBoundTexture = INVALID_TEX;
-		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
-			if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
-				DeleteTexture(iter++);
-			} else {
-				++iter;
-			}
-		}
-
-		VERBOSE_LOG(G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
-	}
-
-	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
-		const u32 had = secondCacheSizeEstimate_;
-
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
-			// In low memory mode, we kill them all.
-			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
-				ReleaseTexture(&iter->second);
-				secondCache.erase(iter++);
-			} else {
-				++iter;
-			}
-		}
-
-		VERBOSE_LOG(G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
-	}
-
-	DecimateVideos();
 }
 
 D3DFORMAT getClutDestFormat(GEPaletteFormat format) {

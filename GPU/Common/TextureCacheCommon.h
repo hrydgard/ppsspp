@@ -45,6 +45,8 @@ enum FramebufferNotification {
 // Note: only used when hash backoff is disabled.
 #define TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST 33
 
+#define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
+
 struct VirtualFramebuffer;
 
 class CachedTextureVulkan;
@@ -204,6 +206,7 @@ protected:
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry) = 0;
 	void DeleteTexture(TexCache::iterator it);
+	void Decimate();
 
 	virtual void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) = 0;
 	virtual bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) = 0;
