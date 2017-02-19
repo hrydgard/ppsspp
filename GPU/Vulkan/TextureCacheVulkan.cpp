@@ -415,60 +415,6 @@ void TextureCacheVulkan::Unbind() {
 	sampler_ = VK_NULL_HANDLE;
 }
 
-void TextureCacheVulkan::ApplyTexture() {
-	TexCacheEntry *entry = nextTexture_;
-	if (entry == nullptr) {
-		// Unbind();
-		return;
-	}
-	nextTexture_ = nullptr;
-
-	UpdateMaxSeenV(entry, gstate.isModeThrough());
-
-	if (nextNeedsRebuild_) {
-		if (nextNeedsRehash_) {
-			// Update the hash on the texture.
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			entry->fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
-		}
-		if (nextNeedsChange_) {
-			// This texture existed previously, let's handle the change.
-			HandleTextureChange(entry, nextChangeReason_, false, true);
-		}
-
-		// We actually build afterward (shared with rehash rebuild.)
-	} else if (nextNeedsRehash_) {
-		// Okay, this matched and didn't change - but let's check the hash.  Maybe it will change.
-		bool doDelete = true;
-		if (!CheckFullHash(entry, doDelete)) {
-			HandleTextureChange(entry, "hash fail", true, doDelete);
-			nextNeedsRebuild_ = true;
-		} else if (nextTexture_ != nullptr) {
-			// Secondary cache picked a different texture, use it.
-			entry = nextTexture_;
-			nextTexture_ = nullptr;
-			UpdateMaxSeenV(entry, gstate.isModeThrough());
-		}
-	}
-
-	// Okay, now actually rebuild the texture if needed.
-	if (nextNeedsRebuild_) {
-		BuildTexture(entry);
-	}
-
-	entry->lastFrame = gpuStats.numFlips;
-	if (entry->framebuffer) {
-		ApplyTextureFramebuffer(entry, entry->framebuffer);
-	} else {
-		BindTexture(entry);
-		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
-		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
-
-		lastBoundTexture = entry->vkTex;
-	}
-}
-
 void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	DepalShaderVulkan *depal = nullptr;
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
@@ -906,7 +852,7 @@ bool TextureCacheVulkan::HandleTextureChange(TexCacheEntry *const entry, const c
 	return false;
 }
 
-void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
+void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.

@@ -90,7 +90,6 @@ public:
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 
-	void ApplyTexture();
 	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {
 		imageView = imageView_;
 		sampler = sampler_;
@@ -109,12 +108,12 @@ private:
 	VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	void BuildTexture(TexCacheEntry *const entry);
+	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
+	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) override;
+	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	VulkanContext *vulkan_;
 	VulkanDeviceAllocator *allocator_;

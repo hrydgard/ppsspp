@@ -329,59 +329,6 @@ void TextureCacheD3D11::Unbind() {
 	context_->PSSetShaderResources(0, 1, &nullView);
 }
 
-void TextureCacheD3D11::ApplyTexture() {
-	TexCacheEntry *entry = nextTexture_;
-	if (entry == nullptr) {
-		// Unbind?
-		return;
-	}
-	nextTexture_ = nullptr;
-
-	UpdateMaxSeenV(entry, gstate.isModeThrough());
-
-	bool replaceImages = false;
-	if (nextNeedsRebuild_) {
-		if (nextNeedsRehash_) {
-			// Update the hash on the texture.
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			entry->fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
-		}
-		if (nextNeedsChange_) {
-			// This texture existed previously, let's handle the change.
-			replaceImages = HandleTextureChange(entry, nextChangeReason_, false, true);
-		}
-
-		// We actually build afterward (shared with rehash rebuild.)
-	} else if (nextNeedsRehash_) {
-		// Okay, this matched and didn't change - but let's check the hash.  Maybe it will change.
-		bool doDelete = true;
-		if (!CheckFullHash(entry, doDelete)) {
-			replaceImages = HandleTextureChange(entry, "hash fail", true, doDelete);
-			nextNeedsRebuild_ = true;
-		} else if (nextTexture_ != nullptr) {
-			// Secondary cache picked a different texture, use it.
-			entry = nextTexture_;
-			nextTexture_ = nullptr;
-			UpdateMaxSeenV(entry, gstate.isModeThrough());
-		}
-	}
-
-	// Okay, now actually rebuild the texture if needed.
-	if (nextNeedsRebuild_) {
-		BuildTexture(entry, replaceImages);
-	}
-
-	entry->lastFrame = gpuStats.numFlips;
-	if (entry->framebuffer) {
-		ApplyTextureFramebuffer(entry, entry->framebuffer);
-	} else {
-		BindTexture(entry);
-		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
-		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
-	}
-}
-
 class TextureShaderApplierD3D11 {
 public:
 	struct Pos {

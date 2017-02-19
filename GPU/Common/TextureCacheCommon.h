@@ -175,6 +175,7 @@ public:
 	void LoadClut(u32 clutAddr, u32 loadBytes);
 	bool GetCurrentClutBuffer(GPUDebugBuffer &buffer);
 
+	void ApplyTexture();
 	bool SetOffsetTexture(u32 offset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
@@ -203,6 +204,10 @@ protected:
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry) = 0;
 	void DeleteTexture(TexCache::iterator it);
+
+	virtual void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) = 0;
+	virtual bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) = 0;
+	virtual void BuildTexture(TexCacheEntry *const entry, bool replaceImages) = 0;
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
 

@@ -58,8 +58,6 @@ public:
 
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
-	void ApplyTexture();
-
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
@@ -73,11 +71,11 @@ private:
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	void BuildTexture(TexCacheEntry *const entry, bool replaceImages);
+	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
+	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) override;
+	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	LPDIRECT3DTEXTURE9 &DxTex(TexCacheEntry *entry) {
 		return *(LPDIRECT3DTEXTURE9 *)&entry->texturePtr;

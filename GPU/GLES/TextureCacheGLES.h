@@ -74,8 +74,6 @@ public:
 
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
-	void ApplyTexture();
-
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
@@ -89,10 +87,10 @@ private:
 	void *DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, GLenum dstFmt, int scaleFactor, int *bufw = 0);
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
+	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
 
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	void BuildTexture(TexCacheEntry *const entry, bool replaceImages);
+	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) override;
+	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	std::vector<u32> nameCache_;
 
