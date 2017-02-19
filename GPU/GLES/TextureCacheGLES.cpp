@@ -221,7 +221,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 }
 
 void TextureCacheGLES::StartFrame() {
-	lastBoundTexture = INVALID_TEX;
+	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 
 	if (texelsScaledThisFrame_) {
@@ -529,45 +529,6 @@ GLenum ToGLESFormat(ReplacedTextureFormat fmt) {
 	case ReplacedTextureFormat::F_4444: return GL_UNSIGNED_SHORT_4_4_4_4;
 	case ReplacedTextureFormat::F_8888: default: return GL_UNSIGNED_BYTE;
 	}
-}
-
-bool TextureCacheGLES::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
-	bool replaceImages = false;
-
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-	entry->numInvalidated++;
-	gpuStats.numTextureInvalidations++;
-	DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
-	if (doDelete) {
-		if (initialMatch && standardScaleFactor_ == 1 && (entry->status & TexCacheEntry::STATUS_IS_SCALED) == 0) {
-			// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
-			// Instead, let's use glTexSubImage to replace the images.
-			replaceImages = true;
-		} else {
-			if (entry->textureName == lastBoundTexture) {
-				lastBoundTexture = INVALID_TEX;
-			}
-			ReleaseTexture(entry);
-			entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
-		}
-	}
-	// Clear the reliable bit if set.
-	if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-		entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-	}
-
-	// Also, mark any textures with the same address but different clut.  They need rechecking.
-	if (entry->cluthash != 0) {
-		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
-		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-		for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
-			if (it->second.cluthash != entry->cluthash) {
-				it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
-			}
-		}
-	}
-
-	return replaceImages;
 }
 
 void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {

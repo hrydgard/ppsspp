@@ -185,7 +185,7 @@ public:
 	void ClearNextFrame();
 
 	virtual void ForgetLastTexture() = 0;
-	virtual void InvalidateLastTexture() = 0;
+	virtual void InvalidateLastTexture(TexCacheEntry *entry = nullptr) = 0;
 	virtual void Clear(bool delete_them);
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
@@ -211,7 +211,7 @@ protected:
 	void Decimate();
 
 	virtual void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) = 0;
-	virtual bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) = 0;
+	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry, bool replaceImages) = 0;
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);

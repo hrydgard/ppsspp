@@ -88,8 +88,10 @@ public:
 		lastBoundTexture = nullptr;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
-	void InvalidateLastTexture() override {
-		lastBoundTexture = nullptr;
+	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override {
+		if (!entry || entry->vkTex == lastBoundTexture) {
+			lastBoundTexture = nullptr;
+		}
 	}
 
 	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {
@@ -113,7 +115,6 @@ private:
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) override;
 	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	VulkanContext *vulkan_;

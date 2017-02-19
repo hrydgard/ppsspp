@@ -64,8 +64,10 @@ public:
 		lastBoundTexture = INVALID_TEX;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
-	void InvalidateLastTexture() override {
-		lastBoundTexture = INVALID_TEX;
+	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override {
+		if (!entry || entry->textureName == lastBoundTexture) {
+			lastBoundTexture = INVALID_TEX;
+		}
 	}
 
 	u32 AllocTextureName();
@@ -89,7 +91,6 @@ private:
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
 
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) override;
 	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	std::vector<u32> nameCache_;

@@ -443,6 +443,43 @@ void TextureCacheCommon::DecimateVideos() {
 	}
 }
 
+bool TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
+	bool replaceImages = false;
+
+	cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
+	entry->numInvalidated++;
+	gpuStats.numTextureInvalidations++;
+	DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
+	if (doDelete) {
+		if (initialMatch && standardScaleFactor_ == 1 && (entry->status & TexCacheEntry::STATUS_IS_SCALED) == 0) {
+			// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
+			// Instead, let's use glTexSubImage to replace the images.
+			replaceImages = true;
+		} else {
+			InvalidateLastTexture(entry);
+			ReleaseTexture(entry);
+			entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
+		}
+	}
+	// Clear the reliable bit if set.
+	if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
+		entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+	}
+
+	// Also, mark any textures with the same address but different clut.  They need rechecking.
+	if (entry->cluthash != 0) {
+		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+		for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
+			if (it->second.cluthash != entry->cluthash) {
+				it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
+			}
+		}
+	}
+
+	return replaceImages;
+}
+
 void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
 	// Must be in VRAM so | 0x04000000 it is.  Also, ignore memory mirrors.
 	// These checks are mainly to reduce scanning all textures.

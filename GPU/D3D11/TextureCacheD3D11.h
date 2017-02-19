@@ -60,7 +60,7 @@ public:
 	bool DecodeTexture(u8 *output, const GPUgstate &state);
 
 	void ForgetLastTexture() override;
-	void InvalidateLastTexture() override;
+	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override;
 
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
@@ -79,7 +79,6 @@ private:
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
 
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) override;
 	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	ID3D11Device *device_;
