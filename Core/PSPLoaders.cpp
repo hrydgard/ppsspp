@@ -174,25 +174,21 @@ static const char *altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/ss.RAW",
 };
 
-bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string)
-{
+bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	// Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
-	if (fileInfo.exists)
-	{
+	if (fileInfo.exists) {
 		std::vector<u8> paramsfo;
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
-		if (g_paramSFO.ReadSFO(paramsfo))
-		{
+		if (g_paramSFO.ReadSFO(paramsfo)) {
 			char title[1024];
 			sprintf(title, "%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
 			INFO_LOG(LOADER, "%s", title);
 			host->SetWindowTitle(title);
 		}
 	}
-
 
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
 
@@ -251,8 +247,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string)
 	return __KernelLoadExec(bootpath.c_str(), 0, error_string);
 }
 
-static std::string NormalizePath(const std::string &path)
-{
+static std::string NormalizePath(const std::string &path) {
 #ifdef _WIN32
 	char buf[512] = {0};
 	if (GetFullPathNameA(path.c_str(), sizeof(buf) - 1, buf, NULL) == 0)
@@ -265,11 +260,9 @@ static std::string NormalizePath(const std::string &path)
 	return buf;
 }
 
-bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string)
-{
+bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	// This is really just for headless, might need tweaking later.
-	if (PSP_CoreParameter().mountIsoLoader != nullptr)
-	{
+	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
 		auto bd = constructBlockDevice(PSP_CoreParameter().mountIsoLoader);
 		if (bd != NULL) {
 			ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, bd);
@@ -283,7 +276,18 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string)
 	std::string full_path = fileLoader->Path();
 	std::string path, file, extension;
 	SplitPath(ReplaceAll(full_path, "\\", "/"), &path, &file, &extension);
+
+	size_t pos = path.find("/PSP/GAME/");
+	std::string ms_path;
+	if (pos != std::string::npos) {
+		ms_path = "ms0:" + path.substr(pos);
+	} else {
+		// Hmm..
+		ms_path = "umd0:";
+	}
+
 #ifdef _WIN32
+	// Turn the slashes back to the Windows way.
 	path = ReplaceAll(path, "/", "\\");
 #endif
 
@@ -303,15 +307,14 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string)
 		path = rootNorm + "/";
 		pspFileSystem.SetStartingDirectory(filepath);
 	} else {
-		size_t pos = path.find("/PSP/GAME/");
 		if (pos != std::string::npos) {
-			pspFileSystem.SetStartingDirectory("ms0:" + path.substr(pos));
+			pspFileSystem.SetStartingDirectory(ms_path);
 		}
 	}
 
 	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
 	pspFileSystem.Mount("umd0:", fs);
 
-	std::string finalName = "umd0:/" + file + extension;
+	std::string finalName = ms_path + file + extension;
 	return __KernelLoadExec(finalName.c_str(), 0, error_string);
 }
