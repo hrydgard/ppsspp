@@ -67,7 +67,6 @@ public:
 	TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
 	~TextureCacheVulkan();
 
-	void SetTexture();
 	void StartFrame();
 	void EndFrame();
 
@@ -109,7 +108,7 @@ private:
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);
 	VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h);
-	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
+	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);

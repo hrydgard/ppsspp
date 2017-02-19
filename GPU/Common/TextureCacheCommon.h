@@ -177,6 +177,7 @@ public:
 	void LoadClut(u32 clutAddr, u32 loadBytes);
 	bool GetCurrentClutBuffer(GPUDebugBuffer &buffer);
 
+	void SetTexture(bool force = false);
 	void ApplyTexture();
 	bool SetOffsetTexture(u32 offset);
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
@@ -212,7 +213,7 @@ protected:
 	virtual void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) = 0;
 	virtual bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) = 0;
 	virtual void BuildTexture(TexCacheEntry *const entry, bool replaceImages) = 0;
-
+	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
 
 	// Separate to keep main texture cache size down.
@@ -260,6 +261,10 @@ protected:
 		} else {
 			return 0;
 		}
+	}
+
+	static inline u32 MiniHash(const u32 *ptr) {
+		return ptr[0];
 	}
 
 	Draw::DrawContext *draw_;
@@ -312,6 +317,8 @@ protected:
 	bool nextNeedsRehash_;
 	bool nextNeedsChange_;
 	bool nextNeedsRebuild_;
+
+	bool isBgraBackend_;
 };
 
 inline bool TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) const {

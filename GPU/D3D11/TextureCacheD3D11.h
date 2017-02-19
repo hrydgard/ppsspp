@@ -46,8 +46,6 @@ public:
 	TextureCacheD3D11(Draw::DrawContext *draw);
 	~TextureCacheD3D11();
 
-	void SetTexture(bool force = false);
-
 	void StartFrame();
 
 	void SetFramebufferManager(FramebufferManagerD3D11 *fbManager);
@@ -76,7 +74,7 @@ private:
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt);
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
-	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
+	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
 
