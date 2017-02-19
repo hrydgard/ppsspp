@@ -101,17 +101,6 @@ void TextureCacheGLES::Clear(bool delete_them) {
 	}
 }
 
-void TextureCacheGLES::DeleteTexture(TexCache::iterator it) {
-	glDeleteTextures(1, &it->second.textureName);
-	auto fbInfo = fbTexInfo_.find(it->first);
-	if (fbInfo != fbTexInfo_.end()) {
-		fbTexInfo_.erase(fbInfo);
-	}
-
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
-	cache.erase(it);
-}
-
 // Removes old textures.
 void TextureCacheGLES::Decimate() {
 	if (--decimationCounter_ <= 0) {
@@ -352,10 +341,6 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	}
 
 	clutLastFormat_ = gstate.clutformat;
-}
-
-inline u32 TextureCacheGLES::GetCurrentClutHash() {
-	return clutHash_;
 }
 
 // #define DEBUG_TEXTURES
@@ -703,7 +688,7 @@ void TextureCacheGLES::SetTexture(bool force) {
 			// We update here because the clut format can be specified after the load.
 			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 		}
-		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
+		cluthash = clutHash_ ^ gstate.clutformat;
 	} else {
 		cluthash = 0;
 	}

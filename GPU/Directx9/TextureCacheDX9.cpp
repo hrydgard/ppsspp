@@ -332,10 +332,6 @@ void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase
 	clutLastFormat_ = gstate.clutformat;
 }
 
-inline u32 TextureCacheDX9::GetCurrentClutHash() {
-	return clutHash_;
-}
-
 void TextureCacheDX9::Unbind() {
 	pD3Ddevice->SetTexture(0, NULL);
 }
@@ -618,7 +614,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 			// We update here because the clut format can be specified after the load.
 			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 		}
-		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
+		cluthash = clutHash_ ^ gstate.clutformat;
 	} else {
 		cluthash = 0;
 	}

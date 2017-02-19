@@ -164,6 +164,8 @@ struct TexCacheEntry {
 };
 
 class FramebufferManagerCommon;
+// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
+typedef std::map<u64, TexCacheEntry> TexCache;
 
 class TextureCacheCommon {
 public:
@@ -198,11 +200,9 @@ public:
 protected:
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry) = 0;
+	void DeleteTexture(TexCache::iterator it);
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
-
-	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
-	typedef std::map<u64, TexCacheEntry> TexCache;
 
 	// Separate to keep main texture cache size down.
 	struct AttachedFramebufferInfo {
@@ -278,6 +278,8 @@ protected:
 	SimpleBuf<u32> tmpTexBufRearrange;
 
 	TexCacheEntry *nextTexture_;
+
+	u32 clutHash_ = 0;
 
 	// Raw is where we keep the original bytes.  Converted is where we swap colors if necessary.
 	u32 *clutBufRaw_;

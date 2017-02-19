@@ -397,10 +397,6 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	clutLastFormat_ = gstate.clutformat;
 }
 
-inline u32 TextureCacheVulkan::GetCurrentClutHash() {
-	return clutHash_;
-}
-
 void TextureCacheVulkan::Unbind() {
 }
 
@@ -639,7 +635,7 @@ void TextureCacheVulkan::SetTexture() {
 			// We update here because the clut format can be specified after the load.
 			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 		}
-		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
+		cluthash = clutHash_ ^ gstate.clutformat;
 	} else {
 		cluthash = 0;
 	}

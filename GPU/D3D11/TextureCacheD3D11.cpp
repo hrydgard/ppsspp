@@ -147,17 +147,6 @@ void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry) {
 	}
 }
 
-void TextureCacheD3D11::DeleteTexture(TexCache::iterator it) {
-	ReleaseTexture(&it->second);
-	auto fbInfo = fbTexInfo_.find(it->first);
-	if (fbInfo != fbTexInfo_.end()) {
-		fbTexInfo_.erase(fbInfo);
-	}
-
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
-	cache.erase(it);
-}
-
 void TextureCacheD3D11::ForgetLastTexture() {
 	lastBoundTexture = INVALID_TEX;
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
@@ -321,10 +310,6 @@ void TextureCacheD3D11::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBa
 	}
 
 	clutLastFormat_ = gstate.clutformat;
-}
-
-inline u32 TextureCacheD3D11::GetCurrentClutHash() {
-	return clutHash_;
 }
 
 void TextureCacheD3D11::Unbind() {
@@ -607,7 +592,7 @@ void TextureCacheD3D11::SetTexture(bool force) {
 			// We update here because the clut format can be specified after the load.
 			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 		}
-		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
+		cluthash = clutHash_ ^ gstate.clutformat;
 	} else {
 		cluthash = 0;
 	}

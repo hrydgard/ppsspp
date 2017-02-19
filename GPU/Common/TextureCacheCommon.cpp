@@ -986,6 +986,16 @@ void TextureCacheCommon::Clear(bool delete_them) {
 	videos_.clear();
 }
 
+void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
+	ReleaseTexture(&it->second);
+	auto fbInfo = fbTexInfo_.find(it->first);
+	if (fbInfo != fbTexInfo_.end()) {
+		fbTexInfo_.erase(fbInfo);
+	}
+	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
+	cache.erase(it);
+}
+
 bool TextureCacheCommon::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
 	bool hashFail = false;
 	int w = gstate.getTextureWidth(0);
