@@ -1,3 +1,4 @@
+
 // Copyright (c) 2015- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
@@ -411,6 +412,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerVulkan_->Init();
 	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
+	framebufferManagerVulkan_->SetShaderManager(shaderManagerVulkan_);
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
