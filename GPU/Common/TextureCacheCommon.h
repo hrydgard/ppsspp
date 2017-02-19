@@ -196,7 +196,7 @@ public:
 	int AttachedDrawingHeight();
 
 	size_t NumLoadedTextures() const {
-		return cache.size();
+		return cache_.size();
 	}
 
 	bool IsFakeMipmapChange() {
@@ -268,7 +268,7 @@ protected:
 	}
 
 	Draw::DrawContext *draw_;
-	TextureReplacer replacer;
+	TextureReplacer replacer_;
 	FramebufferManagerCommon *framebufferManager_;
 
 	bool clearCacheNextFrame_;
@@ -278,10 +278,10 @@ protected:
 	int texelsScaledThisFrame_;
 	int timesInvalidatedAllThisFrame_;
 
-	TexCache cache;
+	TexCache cache_;
 	u32 cacheSizeEstimate_;
 
-	TexCache secondCache;
+	TexCache secondCache_;
 	u32 secondCacheSizeEstimate_;
 
 	std::vector<VirtualFramebuffer *> fbCache_;
@@ -289,9 +289,9 @@ protected:
 
 	std::map<u32, int> videos_;
 
-	SimpleBuf<u32> tmpTexBuf32;
-	SimpleBuf<u16> tmpTexBuf16;
-	SimpleBuf<u32> tmpTexBufRearrange;
+	SimpleBuf<u32> tmpTexBuf32_;
+	SimpleBuf<u16> tmpTexBuf16_;
+	SimpleBuf<u32> tmpTexBufRearrange_;
 
 	TexCacheEntry *nextTexture_;
 

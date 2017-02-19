@@ -75,11 +75,11 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 	clutBuf_ = clutBufConverted_;
 
 	// These buffers will grow if necessary, but most won't need more than this.
-	tmpTexBuf32.resize(512 * 512);  // 1MB
-	tmpTexBuf16.resize(512 * 512);  // 0.5MB
-	tmpTexBufRearrange.resize(512 * 512);   // 1MB
+	tmpTexBuf32_.resize(512 * 512);  // 1MB
+	tmpTexBuf16_.resize(512 * 512);  // 0.5MB
+	tmpTexBufRearrange_.resize(512 * 512);   // 1MB
 
-	replacer.Init();
+	replacer_.Init();
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
@@ -228,13 +228,13 @@ void TextureCacheCommon::SetTexture(bool force) {
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
 
-	TexCache::iterator iter = cache.find(cachekey);
+	TexCache::iterator iter = cache_.find(cachekey);
 	TexCacheEntry *entry = NULL;
 	gstate_c.needShaderTexClamp = false;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 	gstate_c.bgraTexture = isBgraBackend_;
 
-	if (iter != cache.end()) {
+	if (iter != cache_.end()) {
 		entry = &iter->second;
 		// Validate the texture still matches the cache entry.
 		bool match = entry->Matches(dim, format, maxLevel);
@@ -335,13 +335,13 @@ void TextureCacheCommon::SetTexture(bool force) {
 	} else {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = { 0 };
-		cache[cachekey] = entryNew;
+		cache_[cachekey] = entryNew;
 
 		if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
 			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
 		}
 
-		entry = &cache[cachekey];
+		entry = &cache_[cachekey];
 		if (g_Config.bTextureBackoffCache) {
 			entry->status = TexCacheEntry::STATUS_HASHING;
 		} else {
@@ -400,7 +400,7 @@ void TextureCacheCommon::Decimate() {
 
 		ForgetLastTexture();
 		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
+		for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ) {
 			if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
 				DeleteTexture(iter++);
 			} else {
@@ -414,12 +414,12 @@ void TextureCacheCommon::Decimate() {
 	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
 		const u32 had = secondCacheSizeEstimate_;
 
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
+		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {
 			// In low memory mode, we kill them all.
 			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
 				ReleaseTexture(&iter->second);
 				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(&iter->second);
-				secondCache.erase(iter++);
+				secondCache_.erase(iter++);
 			} else {
 				++iter;
 			}
@@ -470,7 +470,7 @@ bool TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 	if (entry->cluthash != 0) {
 		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
 		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-		for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
+		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
 			if (it->second.cluthash != entry->cluthash) {
 				it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
 			}
@@ -501,11 +501,11 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		if (std::find(fbCache_.begin(), fbCache_.end(), framebuffer) == fbCache_.end()) {
 			fbCache_.push_back(framebuffer);
 		}
-		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
+		for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
 			AttachFramebuffer(&it->second, addr, framebuffer);
 		}
 		// Let's assume anything in mirrors is fair game to check.
-		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
+		for (auto it = cache_.lower_bound(mirrorCacheKey), end = cache_.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
 			const u64 mirrorlessKey = it->first & ~0x0060000000000000ULL;
 			// Let's still make sure it's in the cache range.
 			if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
@@ -524,7 +524,7 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 			// We might erase, so move to the next one already (which won't become invalid.)
 			++it;
 
-			DetachFramebuffer(&cache[cachekey], addr, framebuffer);
+			DetachFramebuffer(&cache_[cachekey], addr, framebuffer);
 		}
 		break;
 	}
@@ -742,8 +742,8 @@ bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
 
 	const u16 dim = gstate.getTextureDimension(0);
 	u64 cachekey = TexCacheEntry::CacheKey(texaddr, gstate.getTextureFormat(), dim, 0);
-	TexCache::iterator iter = cache.find(cachekey);
-	if (iter == cache.end()) {
+	TexCache::iterator iter = cache_.find(cachekey);
+	if (iter == cache_.end()) {
 		return false;
 	}
 	TexCacheEntry *entry = &iter->second;
@@ -804,7 +804,7 @@ void TextureCacheCommon::NotifyConfigChanged() {
 
 	standardScaleFactor_ = scaleFactor;
 
-	replacer.NotifyConfigChanged();
+	replacer_.NotifyConfigChanged();
 }
 
 void TextureCacheCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
@@ -995,9 +995,9 @@ bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 		if (swizzled) {
-			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
-			UnswizzleFromMem(tmpTexBuf32.data(), bufw / 2, texptr, bufw, h, 0);
-			texptr = (u8 *)tmpTexBuf32.data();
+			tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
+			UnswizzleFromMem(tmpTexBuf32_.data(), bufw / 2, texptr, bufw, h, 0);
+			texptr = (u8 *)tmpTexBuf32_.data();
 		}
 
 		switch (clutformat) {
@@ -1080,9 +1080,9 @@ bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 			}
 		} else {
 			// We don't have enough space for all rows in out, so use a temp buffer.
-			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
-			UnswizzleFromMem(tmpTexBuf32.data(), bufw * 2, texptr, bufw, h, 2);
-			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
+			tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
+			UnswizzleFromMem(tmpTexBuf32_.data(), bufw * 2, texptr, bufw, h, 2);
+			const u8 *unswizzled = (u8 *)tmpTexBuf32_.data();
 
 			if (reverseColors) {
 				for (int y = 0; y < h; ++y) {
@@ -1114,9 +1114,9 @@ bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 			}
 		} else {
 			// We don't have enough space for all rows in out, so use a temp buffer.
-			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
-			UnswizzleFromMem(tmpTexBuf32.data(), bufw * 4, texptr, bufw, h, 4);
-			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
+			tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
+			UnswizzleFromMem(tmpTexBuf32_.data(), bufw * 4, texptr, bufw, h, 4);
+			const u8 *unswizzled = (u8 *)tmpTexBuf32_.data();
 
 			if (reverseColors) {
 				for (int y = 0; y < h; ++y) {
@@ -1209,9 +1209,9 @@ bool TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 	int h = gstate.getTextureHeight(level);
 
 	if (gstate.isTextureSwizzled()) {
-		tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
-		UnswizzleFromMem(tmpTexBuf32.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
-		texptr = (u8 *)tmpTexBuf32.data();
+		tmpTexBuf32_.resize(bufw * ((h + 7) & ~7));
+		UnswizzleFromMem(tmpTexBuf32_.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
+		texptr = (u8 *)tmpTexBuf32_.data();
 	}
 
 	switch (gstate.getClutPaletteFormat()) {
@@ -1291,7 +1291,7 @@ void TextureCacheCommon::ApplyTexture() {
 			// Update the hash on the texture.
 			int w = gstate.getTextureWidth(0);
 			int h = gstate.getTextureHeight(0);
-			entry->fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+			entry->fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
 		}
 		if (nextNeedsChange_) {
 			// This texture existed previously, let's handle the change.
@@ -1330,17 +1330,17 @@ void TextureCacheCommon::ApplyTexture() {
 void TextureCacheCommon::Clear(bool delete_them) {
 	ForgetLastTexture();
 	if (delete_them) {
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
+		for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
 			ReleaseTexture(&iter->second);
 		}
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
+		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ++iter) {
 			ReleaseTexture(&iter->second);
 		}
 	}
-	if (cache.size() + secondCache.size()) {
-		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
-		cache.clear();
-		secondCache.clear();
+	if (cache_.size() + secondCache_.size()) {
+		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache_.size() + secondCache_.size()));
+		cache_.clear();
+		secondCache_.clear();
 		cacheSizeEstimate_ = 0;
 		secondCacheSizeEstimate_ = 0;
 	}
@@ -1355,14 +1355,14 @@ void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
 		fbTexInfo_.erase(fbInfo);
 	}
 	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
-	cache.erase(it);
+	cache_.erase(it);
 }
 
 bool TextureCacheCommon::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
 	bool hashFail = false;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	u32 fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+	u32 fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
 	if (fullhash != entry->fullhash) {
 		hashFail = true;
 	} else {
@@ -1393,8 +1393,8 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *const entry, bool &doDelet
 		if (g_Config.bTextureSecondaryCache) {
 			if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
 				u64 secondKey = fullhash | (u64)entry->cluthash << 32;
-				TexCache::iterator secondIter = secondCache.find(secondKey);
-				if (secondIter != secondCache.end()) {
+				TexCache::iterator secondIter = secondCache_.find(secondKey);
+				if (secondIter != secondCache_.end()) {
 					TexCacheEntry *secondEntry = &secondIter->second;
 					if (secondEntry->Matches(entry->dim, entry->format, entry->maxLevel)) {
 						// Reset the numInvalidated value lower, we got a match.
@@ -1407,7 +1407,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *const entry, bool &doDelet
 				} else {
 					secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
 					secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-					secondCache[secondKey] = *entry;
+					secondCache_[secondKey] = *entry;
 					doDelete = false;
 				}
 			}
@@ -1438,7 +1438,7 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 		endKey = (u64)-1;
 	}
 
-	for (TexCache::iterator iter = cache.lower_bound(startKey), end = cache.upper_bound(endKey); iter != end; ++iter) {
+	for (TexCache::iterator iter = cache_.lower_bound(startKey), end = cache_.upper_bound(endKey); iter != end; ++iter) {
 		u32 texAddr = iter->second.addr;
 		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
 
@@ -1476,7 +1476,7 @@ void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
 	}
 	timesInvalidatedAllThisFrame_++;
 
-	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
+	for (TexCache::iterator iter = cache_.begin(), end = cache_.end(); iter != end; ++iter) {
 		if (iter->second.GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
 			iter->second.SetHashStatus(TexCacheEntry::STATUS_HASHING);
 		}

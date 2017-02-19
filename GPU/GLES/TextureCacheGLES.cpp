@@ -590,10 +590,10 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	u64 cachekey = replacer.Enabled() ? entry->CacheKey() : 0;
+	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = replacer.FindReplacement(cachekey, entry->fullhash, w, h);
+	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
 		if (replaceImages) {
 			// Since we're replacing the texture, we can't replace the image inside.
@@ -764,9 +764,9 @@ void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteF
 		decPitch = bufw * pixelSize;
 	}
 
-	tmpTexBufRearrange.resize(std::max(w, bufw) * h);
-	if (DecodeTextureLevel((u8 *)tmpTexBufRearrange.data(), decPitch, format, clutformat, texaddr, level, bufw, true, UseBGRA8888())) {
-		finalBuf = tmpTexBufRearrange.data();
+	tmpTexBufRearrange_.resize(std::max(w, bufw) * h);
+	if (DecodeTextureLevel((u8 *)tmpTexBufRearrange_.data(), decPitch, format, clutformat, texaddr, level, bufw, true, UseBGRA8888())) {
+		finalBuf = tmpTexBufRearrange_.data();
 	} else {
 		finalBuf = nullptr;
 	}
@@ -814,10 +814,10 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	if (replaced.GetSize(level, w, h)) {
 		PROFILE_THIS_SCOPE("replacetex");
 
-		tmpTexBufRearrange.resize(w * h);
+		tmpTexBufRearrange_.resize(w * h);
 		int bpp = replaced.Format(level) == ReplacedTextureFormat::F_8888 ? 4 : 2;
-		replaced.Load(level, tmpTexBufRearrange.data(), bpp * w);
-		pixelData = tmpTexBufRearrange.data();
+		replaced.Load(level, tmpTexBufRearrange_.data(), bpp * w);
+		pixelData = tmpTexBufRearrange_.data();
 
 		dstFmt = ToGLESFormat(replaced.Format(level));
 
@@ -854,7 +854,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 		}
 
-		if (replacer.Enabled()) {
+		if (replacer_.Enabled()) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;
@@ -865,7 +865,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			replacedInfo.fmt = FromGLESFormat(dstFmt, useBGRA);
 
 			int bpp = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-			replacer.NotifyTextureDecoded(replacedInfo, pixelData, (useUnpack ? bufw : w) * bpp, level, w, h);
+			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, (useUnpack ? bufw : w) * bpp, level, w, h);
 		}
 	}
 

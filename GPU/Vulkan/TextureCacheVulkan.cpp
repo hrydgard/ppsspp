@@ -192,7 +192,7 @@ void TextureCacheVulkan::DeleteTexture(TexCache::iterator it) {
 	}
 
 	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
-	cache.erase(it);
+	cache_.erase(it);
 }
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format) {
@@ -488,7 +488,7 @@ bool TextureCacheVulkan::CheckFullHash(TexCacheEntry *const entry, bool &doDelet
 	bool hashFail = false;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	u32 fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+	u32 fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
 	if (fullhash != entry->fullhash) {
 		hashFail = true;
 	} else {
@@ -519,8 +519,8 @@ bool TextureCacheVulkan::CheckFullHash(TexCacheEntry *const entry, bool &doDelet
 		if (g_Config.bTextureSecondaryCache) {
 			if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
 				u64 secondKey = fullhash | (u64)entry->cluthash << 32;
-				TexCache::iterator secondIter = secondCache.find(secondKey);
-				if (secondIter != secondCache.end()) {
+				TexCache::iterator secondIter = secondCache_.find(secondKey);
+				if (secondIter != secondCache_.end()) {
 					TexCacheEntry *secondEntry = &secondIter->second;
 					if (secondEntry->Matches(entry->dim, entry->format, entry->maxLevel)) {
 						// Reset the numInvalidated value lower, we got a match.
@@ -533,7 +533,7 @@ bool TextureCacheVulkan::CheckFullHash(TexCacheEntry *const entry, bool &doDelet
 				} else {
 					secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
 					secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-					secondCache[secondKey] = *entry;
+					secondCache_[secondKey] = *entry;
 					doDelete = false;
 				}
 			}
@@ -601,10 +601,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	u64 cachekey = replacer.Enabled() ? entry->CacheKey() : 0;
+	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = replacer.FindReplacement(cachekey, entry->fullhash, w, h);
+	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
@@ -700,7 +700,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 	lastBoundTexture = entry->vkTex;
 
 	ReplacedTextureDecodeInfo replacedInfo;
-	if (replacer.Enabled() && !replaced.Valid()) {
+	if (replacer_.Enabled() && !replaced.Valid()) {
 		replacedInfo.cachekey = cachekey;
 		replacedInfo.hash = entry->fullhash;
 		replacedInfo.addr = entry->addr;
@@ -735,8 +735,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 					break;
 				} else
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
-				if (replacer.Enabled()) {
-					replacer.NotifyTextureDecoded(replacedInfo, data, stride, i, mipWidth, mipHeight);
+				if (replacer_.Enabled()) {
+					replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, mipWidth, mipHeight);
 				}
 			}
 			entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
@@ -813,8 +813,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		u32 *pixelData = (u32 *)writePtr;
 		int decPitch = rowPitch;
 		if (scaleFactor > 1) {
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			pixelData = tmpTexBufRearrange.data();
+			tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
+			pixelData = tmpTexBufRearrange_.data();
 			// We want to end up with a neatly packed texture for scaling.
 			decPitch = w * bpp;
 		}

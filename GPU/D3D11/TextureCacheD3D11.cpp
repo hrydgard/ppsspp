@@ -450,7 +450,7 @@ bool TextureCacheD3D11::CheckFullHash(TexCacheEntry *const entry, bool &doDelete
 	bool hashFail = false;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	u32 fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+	u32 fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
 	if (fullhash != entry->fullhash) {
 		hashFail = true;
 	} else {
@@ -481,8 +481,8 @@ bool TextureCacheD3D11::CheckFullHash(TexCacheEntry *const entry, bool &doDelete
 		if (g_Config.bTextureSecondaryCache) {
 			if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
 				u64 secondKey = fullhash | (u64)entry->cluthash << 32;
-				TexCache::iterator secondIter = secondCache.find(secondKey);
-				if (secondIter != secondCache.end()) {
+				TexCache::iterator secondIter = secondCache_.find(secondKey);
+				if (secondIter != secondCache_.end()) {
 					TexCacheEntry *secondEntry = &secondIter->second;
 					if (secondEntry->Matches(entry->dim, entry->format, entry->maxLevel)) {
 						// Reset the numInvalidated value lower, we got a match.
@@ -495,7 +495,7 @@ bool TextureCacheD3D11::CheckFullHash(TexCacheEntry *const entry, bool &doDelete
 				} else {
 					secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
 					secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-					secondCache[secondKey] = *entry;
+					secondCache_[secondKey] = *entry;
 					doDelete = false;
 				}
 			}
@@ -566,10 +566,10 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	u64 cachekey = replacer.Enabled() ? entry->CacheKey() : 0;
+	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = replacer.FindReplacement(cachekey, entry->fullhash, w, h);
+	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
 		if (replaceImages) {
 			// Since we're replacing the texture, we can't replace the image inside.
@@ -757,8 +757,8 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		u32 *pixelData;
 		int decPitch;
 		if (scaleFactor > 1) {
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			pixelData = tmpTexBufRearrange.data();
+			tmpTexBufRearrange_.resize(std::max(bufw, w) * h);
+			pixelData = tmpTexBufRearrange_.data();
 			// We want to end up with a neatly packed texture for scaling.
 			decPitch = w * bpp;
 			mapData = new u32[(w * scaleFactor) * (h * scaleFactor)];
@@ -802,7 +802,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 		}
 
-		if (replacer.Enabled()) {
+		if (replacer_.Enabled()) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;
@@ -812,7 +812,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			replacedInfo.scaleFactor = scaleFactor;
 			replacedInfo.fmt = FromD3D11Format(dstFmt);
 
-			replacer.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
+			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
 		}
 	}
 
