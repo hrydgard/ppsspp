@@ -19,6 +19,7 @@
 
 #include <map>
 #include <vector>
+#include <memory>
 
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
@@ -167,7 +168,7 @@ struct TexCacheEntry {
 
 class FramebufferManagerCommon;
 // Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
-typedef std::map<u64, TexCacheEntry> TexCache;
+typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 
 class TextureCacheCommon {
 public:
@@ -214,7 +215,7 @@ protected:
 	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
 	virtual void BuildTexture(TexCacheEntry *const entry, bool replaceImages) = 0;
 	virtual void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) = 0;
-	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
+	bool CheckFullHash(TexCacheEntry *entry, bool &doDelete);
 
 	// Separate to keep main texture cache size down.
 	struct AttachedFramebufferInfo {
