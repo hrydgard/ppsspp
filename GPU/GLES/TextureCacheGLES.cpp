@@ -390,6 +390,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		glBindTexture(GL_TEXTURE_2D, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
+	UpdateSamplingParams(*entry, false);
 }
 
 void TextureCacheGLES::Unbind() {
@@ -442,8 +443,6 @@ void TextureCacheGLES::ApplyTexture() {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
 		BindTexture(entry);
-		UpdateSamplingParams(*entry, false);
-
 		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 	}

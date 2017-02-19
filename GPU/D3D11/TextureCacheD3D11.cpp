@@ -318,6 +318,10 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		context_->PSSetShaderResources(0, 1, &textureView);
 		lastBoundTexture = textureView;
 	}
+	SamplerCacheKey key;
+	UpdateSamplingParams(*entry, key);
+	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, key);
+	context_->PSSetSamplers(0, 1, &state);
 }
 
 void TextureCacheD3D11::Unbind() {
@@ -328,6 +332,7 @@ void TextureCacheD3D11::Unbind() {
 void TextureCacheD3D11::ApplyTexture() {
 	TexCacheEntry *entry = nextTexture_;
 	if (entry == nullptr) {
+		// Unbind?
 		return;
 	}
 	nextTexture_ = nullptr;
@@ -372,10 +377,6 @@ void TextureCacheD3D11::ApplyTexture() {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
 		BindTexture(entry);
-		SamplerCacheKey key;
-		UpdateSamplingParams(*entry, key);
-		ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, key);
-		context_->PSSetSamplers(0, 1, &state);
 		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 	}

@@ -338,6 +338,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 		pD3Ddevice->SetTexture(0, texture);
 		lastBoundTexture = texture;
 	}
+	UpdateSamplingParams(*entry, false);
 }
 
 void TextureCacheDX9::Unbind() {
@@ -391,8 +392,6 @@ void TextureCacheDX9::ApplyTexture() {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
 		BindTexture(entry);
-		UpdateSamplingParams(*entry, false);
-
 		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 	}

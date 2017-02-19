@@ -398,17 +398,27 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 }
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
+	if (!entry || !entry->vkTex) {
+		imageView_ = VK_NULL_HANDLE;
+		sampler_ = VK_NULL_HANDLE;
+		return;
+	}
 
+	imageView_ = entry->vkTex->texture_->GetImageView();
+	SamplerCacheKey key;
+	UpdateSamplingParams(*entry, key);
+	sampler_ = samplerCache_.GetOrCreateSampler(key);
 }
 
 void TextureCacheVulkan::Unbind() {
+	imageView_ = VK_NULL_HANDLE;
+	sampler_ = VK_NULL_HANDLE;
 }
 
-void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler) {
+void TextureCacheVulkan::ApplyTexture() {
 	TexCacheEntry *entry = nextTexture_;
 	if (entry == nullptr) {
-		imageView = VK_NULL_HANDLE;
-		sampler = VK_NULL_HANDLE;
+		// Unbind();
 		return;
 	}
 	nextTexture_ = nullptr;
@@ -448,27 +458,18 @@ void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler
 	}
 
 	entry->lastFrame = gpuStats.numFlips;
-	VkCommandBuffer cmd = nullptr;
 	if (entry->framebuffer) {
-		ApplyTextureFramebuffer(cmd, entry, entry->framebuffer, imageView, sampler);
-	} else if (entry->vkTex) {
-		imageView = entry->vkTex->texture_->GetImageView();
-
-		SamplerCacheKey key;
-		UpdateSamplingParams(*entry, key);
-		sampler = samplerCache_.GetOrCreateSampler(key);
-
+		ApplyTextureFramebuffer(entry, entry->framebuffer);
+	} else {
+		BindTexture(entry);
 		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
 		lastBoundTexture = entry->vkTex;
-	} else {
-		imageView = VK_NULL_HANDLE;
-		sampler = VK_NULL_HANDLE;
 	}
 }
 
-void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEntry *entry, VirtualFramebuffer *framebuffer, VkImageView &imageView, VkSampler &sampler) {
+void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	DepalShaderVulkan *depal = nullptr;
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
@@ -574,7 +575,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 		SamplerCacheKey key;
 		UpdateSamplingParams(*entry, key);
 		key.mipEnable = false;
-		sampler = samplerCache_.GetOrCreateSampler(key);
+		sampler_ = samplerCache_.GetOrCreateSampler(key);
 
 		lastBoundTexture = nullptr;
 	}

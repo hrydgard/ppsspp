@@ -90,7 +90,11 @@ public:
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 
-	void ApplyTexture(VkImageView &imageView, VkSampler &sampler);
+	void ApplyTexture();
+	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {
+		imageView = imageView_;
+		sampler = sampler_;
+	}
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
@@ -105,7 +109,7 @@ private:
 	VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	void ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEntry *entry, VirtualFramebuffer *framebuffer, VkImageView &image, VkSampler &sampler);
+	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
 	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
@@ -129,6 +133,10 @@ private:
 	DepalShaderCacheVulkan *depalShaderCache_;
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
+
+	// Bound state to emulate an API similar to the others
+	VkImageView imageView_ = VK_NULL_HANDLE;
+	VkSampler sampler_ = VK_NULL_HANDLE;
 };
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format);

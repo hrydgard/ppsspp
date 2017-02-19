@@ -668,7 +668,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		}
 
 		if (textureNeedsApply) {
-			textureCache_->ApplyTexture(imageView, sampler);
+			textureCache_->ApplyTexture();
+			textureCache_->GetVulkanHandles(imageView, sampler);
 			if (imageView == VK_NULL_HANDLE)
 				imageView = nullTexture_->GetImageView();
 			if (sampler == VK_NULL_HANDLE)
@@ -768,7 +769,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (textureNeedsApply) {
-				textureCache_->ApplyTexture(imageView, sampler);
+				textureCache_->ApplyTexture();
+				textureCache_->GetVulkanHandles(imageView, sampler);
 				if (imageView == VK_NULL_HANDLE)
 					imageView = nullTexture_->GetImageView();
 				if (sampler == VK_NULL_HANDLE)
