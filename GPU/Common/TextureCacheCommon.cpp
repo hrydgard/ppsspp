@@ -239,7 +239,7 @@ void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFra
 		}
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
-		entry->status &= ~TextureCacheCommon::TexCacheEntry::STATUS_DEPALETTIZE;
+		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 		entry->maxLevel = 0;
 		fbTexInfo_[cachekey] = fbInfo;
 		framebuffer->last_frame_attached = gpuStats.numFlips;
@@ -258,7 +258,7 @@ void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualF
 		}
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
-		entry->status &= ~TextureCacheCommon::TexCacheEntry::STATUS_DEPALETTIZE;
+		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 		entry->maxLevel = 0;
 		fbTexInfo_[cachekey] = fbInfo;
 		host->GPUNotifyTextureAttachment(entry->addr);

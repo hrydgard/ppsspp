@@ -1173,7 +1173,7 @@ void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteF
 	return finalBuf;
 }
 
-TextureCacheGLES::TexCacheEntry::Status TextureCacheGLES::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
+TexCacheEntry::Status TextureCacheGLES::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:

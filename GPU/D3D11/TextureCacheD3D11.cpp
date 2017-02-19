@@ -1041,7 +1041,7 @@ DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFo
 	}
 }
 
-TextureCacheD3D11::TexCacheEntry::Status TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h) {
+TexCacheEntry::Status TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case DXGI_FORMAT_B4G4R4A4_UNORM:

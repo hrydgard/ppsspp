@@ -1149,7 +1149,7 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	}
 }
 
-TextureCacheVulkan::TexCacheEntry::Status TextureCacheVulkan::CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h) {
+TexCacheEntry::Status TextureCacheVulkan::CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case VULKAN_4444_FORMAT:

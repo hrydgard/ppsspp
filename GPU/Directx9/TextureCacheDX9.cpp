@@ -1058,7 +1058,7 @@ D3DFORMAT TextureCacheDX9::GetDestFormat(GETextureFormat format, GEPaletteFormat
 	}
 }
 
-TextureCacheDX9::TexCacheEntry::Status TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h) {
+TexCacheEntry::Status TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case D3DFMT_A4R4G4B4:
