@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <vector>
 #include <string>
+#include <algorithm>
 #include <map>
 
 #include "base/logging.h"
@@ -77,7 +78,7 @@ static const unsigned short texWrapToGL[] = {
 #if !defined(USING_GLES2)
 	GL_CLAMP_TO_BORDER,
 #else
-	GL_REPEAT,
+	GL_CLAMP_TO_EDGE,
 #endif
 };
 
@@ -193,30 +194,12 @@ public:
 
 class OpenGLSamplerState : public SamplerState {
 public:
-	// Old school. Should also support using a sampler object.
-
-	GLint wrapS;
-	GLint wrapT;
+	GLint wrapU;
+	GLint wrapV;
+	GLint wrapW;
 	GLint magFilt;
 	GLint minFilt;
 	GLint mipMinFilt;
-
-	void Apply(bool hasMips, bool canWrap) {
-		if (canWrap) {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
-		} else {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		}
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilt);
-		if (hasMips) {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mipMinFilt);
-		} else {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilt);
-		}
-	}
 };
 
 class OpenGLDepthStencilState : public DepthStencilState {
@@ -437,6 +420,7 @@ private:
 };
 
 class OpenGLFramebuffer;
+class OpenGLTexture;
 
 class OpenGLContext : public DrawContext {
 public:
@@ -484,23 +468,12 @@ public:
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
-		if (samplerStates_.size() < (size_t)(start + count)) {
-			samplerStates_.resize(start + count);
+		if (boundSamplers_.size() < (size_t)(start + count)) {
+			boundSamplers_.resize(start + count);
 		}
-		for (int i = 0; i < count; ++i) {
+		for (int i = 0; i < count; i++) {
 			int index = i + start;
-			OpenGLSamplerState *s = static_cast<OpenGLSamplerState *>(states[index]);
-
-			if (samplerStates_[index]) {
-				samplerStates_[index]->Release();
-			}
-			samplerStates_[index] = s;
-			samplerStates_[index]->AddRef();
-
-			// TODO: Ideally, get these from the texture and apply on the right stage?
-			if (index == 0) {
-				s->Apply(false, true);
-			}
+			boundSamplers_[index] = static_cast<OpenGLSamplerState *>(states[index]);
 		}
 	}
 
@@ -535,7 +508,7 @@ public:
 		curIBufferOffset_ = offset;
 	}
 
-	void UpdateDynamicUniformBuffer(const void *ub, size_t size);
+	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
 	// TODO: Add more sophisticated draws.
 	void Draw(int vertexCount, int offset) override;
@@ -581,13 +554,16 @@ public:
 
 	void HandleEvent(Event ev) override {}
 
+private:
 	OpenGLFramebuffer *fbo_ext_create(const FramebufferDesc &desc);
 	void fbo_bind_fb_target(bool read, GLuint name);
 	GLenum fbo_get_fb_target(bool read, GLuint **cached);
 	void fbo_unbind();
+	void ApplySamplers();
 
-private:
-	std::vector<OpenGLSamplerState *> samplerStates_;
+	std::vector<OpenGLSamplerState *> boundSamplers_;
+	OpenGLTexture *boundTextures_[8]{};
+	int maxTextures_ = 0;
 	DeviceCaps caps_;
 	
 	// Bound state
@@ -619,12 +595,7 @@ OpenGLContext::OpenGLContext() {
 }
 
 OpenGLContext::~OpenGLContext() {
-	for (OpenGLSamplerState *s : samplerStates_) {
-		if (s) {
-			s->Release();
-		}
-	}
-	samplerStates_.clear();
+	boundSamplers_.clear();
 }
 
 InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
@@ -646,7 +617,9 @@ GLuint TypeToTarget(TextureType type) {
 	case TextureType::ARRAY1D: return GL_TEXTURE_1D_ARRAY;
 #endif
 	case TextureType::ARRAY2D: return GL_TEXTURE_2D_ARRAY;
-	default: return GL_NONE;
+	default:
+		ELOG("Bad texture type %d", (int)type);
+		return GL_NONE;
 	}
 }
 
@@ -659,43 +632,48 @@ public:
 	OpenGLTexture(const TextureDesc &desc);
 	~OpenGLTexture();
 
-	void AutoGenMipmaps();
-
-	bool HasMips() {
+	bool HasMips() const {
 		return mipLevels_ > 1 || generatedMips_;
 	}
-	bool CanWrap() {
+	bool CanWrap() const {
 		return canWrap_;
 	}
-
+	TextureType GetType() const { return type_; }
 	void Bind() {
 		glBindTexture(target_, tex_);
 	}
 
+	void AutoGenMipmaps();
+
 private:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
 
-	GLuint tex_;
-	GLuint target_;
+	GLuint tex_ = 0;
+	GLuint target_ = 0;
 
 	DataFormat format_;
+	TextureType type_;
 	int mipLevels_;
 	bool generatedMips_;
 	bool canWrap_;
 };
 
-OpenGLTexture::OpenGLTexture(const TextureDesc &desc) : tex_(0), target_(TypeToTarget(desc.type)), format_(desc.format), mipLevels_(desc.mipLevels) {
+OpenGLTexture::OpenGLTexture(const TextureDesc &desc) {
 	generatedMips_ = false;
 	canWrap_ = true;
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
-	canWrap_ = !isPowerOf2(width_) || !isPowerOf2(height_);
-
-	glGenTextures(1, &tex_);
-
+	format_ = desc.format;
+	type_ = desc.type;
+	target_ = TypeToTarget(desc.type);
+	canWrap_ = isPowerOf2(width_) && isPowerOf2(height_);
 	if (!desc.initData.size())
 		return;
+
+	glActiveTexture(GL_TEXTURE0 + 0);
+	glGenTextures(1, &tex_);
+	glBindTexture(target_, tex_);
 
 	int level = 0;
 	for (auto data : desc.initData) {
@@ -704,19 +682,25 @@ OpenGLTexture::OpenGLTexture(const TextureDesc &desc) : tex_(0), target_(TypeToT
 		height_ = (height_ + 1) / 2;
 		level++;
 	}
+	mipLevels_ = level;
 
 #ifdef USING_GLES2
 	if (gl_extensions.GLES3) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, level - 1);
+		glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, level - 1);
 	}
 #else
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, level - 1);
+	glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, level - 1);
 #endif
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, level > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, level > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+	glTexParameteri(target_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	if (desc.initData.size() < desc.mipLevels)
+	if (desc.initData.size() < desc.mipLevels) {
+		ILOG("Generating mipmaps");
 		AutoGenMipmaps();
+	}
+
+	// Unbind.
+	glBindTexture(target_, 0);
 }
 
 OpenGLTexture::~OpenGLTexture() {
@@ -727,16 +711,10 @@ OpenGLTexture::~OpenGLTexture() {
 	}
 }
 
-Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
-	return new OpenGLTexture(desc);
-}
-
 void OpenGLTexture::AutoGenMipmaps() {
 	if (!generatedMips_) {
-		Bind();
+		glBindTexture(target_, tex_);
 		glGenerateMipmap(target_);
-		// TODO: Really, this should follow the sampler state.
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 		generatedMips_ = true;
 	}
 }
@@ -775,13 +753,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		ELOG("Thin3d GL: Unsupported texture format %d", (int)format_);
 		return;
 	}
-	/*
-	GLenum err = glGetError();
-	if (err) {
-		ELOG("Thin3D GL: Error before loading texture: %08x", err);
-	}*/
 
-	Bind();
 	switch (target_) {
 	case GL_TEXTURE_2D:
 		glTexImage2D(GL_TEXTURE_2D, level, internalFormat, width_, height_, 0, format, type, data);
@@ -795,6 +767,10 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	if (err2) {
 		ELOG("Thin3D GL: Error loading texture: %08x", err2);
 	}
+}
+
+Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
+	return new OpenGLTexture(desc);
 }
 
 OpenGLInputLayout::~OpenGLInputLayout() {
@@ -862,8 +838,9 @@ BlendState *OpenGLContext::CreateBlendState(const BlendStateDesc &desc) {
 
 SamplerState *OpenGLContext::CreateSamplerState(const SamplerStateDesc &desc) {
 	OpenGLSamplerState *samps = new OpenGLSamplerState();
-	samps->wrapS = texWrapToGL[(int)desc.wrapU];
-	samps->wrapT = texWrapToGL[(int)desc.wrapV];
+	samps->wrapU = texWrapToGL[(int)desc.wrapU];
+	samps->wrapV = texWrapToGL[(int)desc.wrapV];
+	samps->wrapW = texWrapToGL[(int)desc.wrapW];
 	samps->magFilt = texFilterToGL[(int)desc.magFilter];
 	samps->minFilt = texFilterToGL[(int)desc.minFilter];
 	samps->mipMinFilt = texMipFilterToGL[(int)desc.minFilter][(int)desc.mipFilter];
@@ -990,22 +967,49 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 }
 
 void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
+	maxTextures_ = std::max(maxTextures_, start + count);
 	for (int i = start; i < start + count; i++) {
 		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i]);
 		glActiveTexture(GL_TEXTURE0 + i);
 		if (!glTex) {
+			boundTextures_[i] = 0;
 			glBindTexture(GL_TEXTURE_2D, 0);
 			continue;
 		}
 		glTex->Bind();
-
-		if ((int)samplerStates_.size() > i && samplerStates_[i]) {
-			samplerStates_[i]->Apply(glTex->HasMips(), glTex->CanWrap());
-		}
+		boundTextures_[i] = glTex;
 	}
 	glActiveTexture(GL_TEXTURE0);
 }
 
+void OpenGLContext::ApplySamplers() {
+	for (int i = 0; i < maxTextures_; i++) {
+		if ((int)boundSamplers_.size() > i && boundSamplers_[i]) {
+			const OpenGLSamplerState *samp = boundSamplers_[i];
+			const OpenGLTexture *tex = boundTextures_[i];
+			if (!tex)
+				continue;
+			if (tex->CanWrap()) {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, samp->wrapU);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, samp->wrapV);
+#ifndef USING_GLES2
+				if (tex->GetType() == TextureType::LINEAR3D)
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, samp->wrapW);
+#endif
+			} else {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			}
+
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, samp->magFilt);
+			if (tex->HasMips()) {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, samp->mipMinFilt);
+			} else {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, samp->minFilt);
+			}
+		}
+	}
+}
 
 ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
 	OpenGLShaderModule *shader = new OpenGLShaderModule(stage);
@@ -1112,6 +1116,7 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 void OpenGLContext::Draw(int vertexCount, int offset) {
 	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
+	ApplySamplers();
 
 	glDrawArrays(curPipeline_->prim, offset, vertexCount);
 
@@ -1121,6 +1126,7 @@ void OpenGLContext::Draw(int vertexCount, int offset) {
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
+	ApplySamplers();
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
 	curIBuffer_->Bind(curIBufferOffset_);
 
@@ -1131,6 +1137,7 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	curPipeline_->inputLayout->Apply(vdata);
+	ApplySamplers();
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);

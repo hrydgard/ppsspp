@@ -111,8 +111,8 @@ enum class StencilOp {
 };
 
 enum class TextureFilter : int {
-	NEAREST,
-	LINEAR,
+	NEAREST = 0,
+	LINEAR = 1,
 };
 
 enum BufferUsageFlag : int {
@@ -273,7 +273,7 @@ enum {
 };
 
 enum class TextureAddressMode {
-	REPEAT,
+	REPEAT = 0,
 	REPEAT_MIRROR,
 	CLAMP_TO_EDGE,
 	CLAMP_TO_BORDER,

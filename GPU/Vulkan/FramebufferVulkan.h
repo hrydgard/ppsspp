@@ -122,7 +122,7 @@ public:
 protected:
 	void Bind2DShader() override;
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
-	void SetViewport2D(int x, int y, int w, int h);
+	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override {}
 	void ClearBuffer(bool keepState = false) override;
 	void FlushBeforeCopy() override;
@@ -135,7 +135,7 @@ protected:
 private:
 
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	void DoNotifyDraw();
 
 	VkCommandBuffer AllocFrameCommandBuffer();
