@@ -174,10 +174,9 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 	error = 0;
 
 #if HOST_IS_CASE_SENSITIVE
-	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE))
-	{
+	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE)) {
 		DEBUG_LOG(FILESYS, "Checking case for path %s", fileName.c_str());
-		if ( ! FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST) )
+		if (!FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST) )
 			return false;  // or go on and attempt (for a better error code than just 0?)
 	}
 	// else we try fopen first (in case we're lucky) before simulating case insensitivity
@@ -208,7 +207,11 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 		sharemode |= FILE_SHARE_WRITE;
 	}
 	if (access & FILEACCESS_CREATE) {
-		openmode = OPEN_ALWAYS;
+		if (access & FILEACCESS_EXCL) {
+			openmode = CREATE_NEW;
+		} else {
+			openmode = OPEN_ALWAYS;
+		}
 	} else {
 		openmode = OPEN_EXISTING;
 	}
@@ -250,6 +253,9 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 	if (access & FILEACCESS_CREATE) {
 		flags |= O_CREAT;
 	}
+	if (access & FILEACCESS_EXCL) {
+		flags |= O_EXCL;
+	}
 
 	hFile = open(fullName.c_str(), flags, 0666);
 	bool success = hFile != -1;
@@ -257,7 +263,7 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 
 #if HOST_IS_CASE_SENSITIVE
 	if (!success && !(access & FILEACCESS_CREATE)) {
-		if ( ! FixPathCase(basePath,fileName, FPC_PATH_MUST_EXIST) )
+		if (!FixPathCase(basePath,fileName, FPC_PATH_MUST_EXIST) )
 			return 0;  // or go on and attempt (for a better error code than just 0?)
 		fullName = GetLocalPath(basePath,fileName); 
 		const char *fullNameC = fullName.c_str();
@@ -277,6 +283,8 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 
 #ifndef _WIN32
 	if (success) {
+		// Reject directories, even if we succeed in opening them.
+		// TODO: Might want to do this stat first...
 		struct stat st;
 		if (fstat(hFile, &st) == 0 && S_ISDIR(st.st_mode)) {
 			close(hFile);

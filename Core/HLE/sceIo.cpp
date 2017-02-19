@@ -87,15 +87,16 @@ umd00: block access - umd
 umd01: block access - umd
 */
 
-#define O_RDONLY        0x0001
-#define O_WRONLY        0x0002
-#define O_RDWR          0x0003
-#define O_NBLOCK        0x0010
-#define O_APPEND        0x0100
-#define O_CREAT         0x0200
-#define O_TRUNC         0x0400
-#define O_NOWAIT        0x8000
-#define O_NPDRM         0x40000000
+#define PSP_O_RDONLY        0x0001
+#define PSP_O_WRONLY        0x0002
+#define PSP_O_RDWR          0x0003
+#define PSP_O_NBLOCK        0x0010
+#define PSP_O_APPEND        0x0100
+#define PSP_O_CREAT         0x0200
+#define PSP_O_TRUNC         0x0400
+#define PSP_O_EXCL          0x0800
+#define PSP_O_NOWAIT        0x8000
+#define PSP_O_NPDRM         0x40000000
 
 // chstat
 #define SCE_CST_MODE    0x0001
@@ -1326,16 +1327,18 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 static FileNode *__IoOpen(int &error, const char* filename, int flags, int mode) {
 	//memory stick filename
 	int access = FILEACCESS_NONE;
-	if (flags & O_RDONLY)
+	if (flags & PSP_O_RDONLY)
 		access |= FILEACCESS_READ;
-	if (flags & O_WRONLY)
+	if (flags & PSP_O_WRONLY)
 		access |= FILEACCESS_WRITE;
-	if (flags & O_APPEND)
+	if (flags & PSP_O_APPEND)
 		access |= FILEACCESS_APPEND;
-	if (flags & O_CREAT)
+	if (flags & PSP_O_CREAT)
 		access |= FILEACCESS_CREATE;
-	if (flags & O_TRUNC)
+	if (flags & PSP_O_TRUNC)
 		access |= FILEACCESS_TRUNCATE;
+	if (flags & PSP_O_EXCL)
+		access |= FILEACCESS_EXCL;
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 
@@ -1352,7 +1355,7 @@ static FileNode *__IoOpen(int &error, const char* filename, int flags, int mode)
 	f->info = info;
 	f->openMode = access;
 
-	f->npdrm = (flags & O_NPDRM)? true: false;
+	f->npdrm = (flags & PSP_O_NPDRM)? true: false;
 	f->pgd_offset = 0;
 
 	return f;
