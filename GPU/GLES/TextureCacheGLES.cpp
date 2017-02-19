@@ -47,8 +47,6 @@
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
-#define INVALID_TEX -1
-
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
@@ -541,13 +539,13 @@ void TextureCacheGLES::SetTexture(bool force) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
-		lastBoundTexture = INVALID_TEX;
+		InvalidateLastTexture();
 		return;
 	}
 #endif
 
 	if (force) {
-		lastBoundTexture = INVALID_TEX;
+		InvalidateLastTexture();
 	}
 
 	u8 level = 0;
@@ -557,7 +555,6 @@ void TextureCacheGLES::SetTexture(bool force) {
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
-		glBindTexture(GL_TEXTURE_2D, 0);
 		lastBoundTexture = INVALID_TEX;
 		return;
 	}
@@ -768,7 +765,7 @@ bool TextureCacheGLES::HandleTextureChange(TexCacheEntry *const entry, const cha
 			if (entry->textureName == lastBoundTexture) {
 				lastBoundTexture = INVALID_TEX;
 			}
-			glDeleteTextures(1, &entry->textureName);
+			ReleaseTexture(entry);
 			entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
 		}
 	}

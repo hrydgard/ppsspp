@@ -89,6 +89,9 @@ public:
 		lastBoundTexture = nullptr;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
+	void InvalidateLastTexture() override {
+		lastBoundTexture = nullptr;
+	}
 
 	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {
 		imageView = imageView_;

@@ -63,8 +63,11 @@ public:
 	}
 
 	void ForgetLastTexture() override {
-		lastBoundTexture = -1;
+		lastBoundTexture = INVALID_TEX;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	}
+	void InvalidateLastTexture() override {
+		lastBoundTexture = INVALID_TEX;
 	}
 
 	u32 AllocTextureName();
@@ -102,6 +105,8 @@ private:
 	DepalShaderCacheGLES *depalShaderCache_;
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
+
+	enum { INVALID_TEX = -1 };
 };
 
 GLenum getClutDestFormat(GEPaletteFormat format);

@@ -107,6 +107,10 @@ void TextureCacheDX9::ForgetLastTexture() {
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
+void TextureCacheDX9::InvalidateLastTexture() {
+	lastBoundTexture = INVALID_TEX;
+}
+
 D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
@@ -467,13 +471,13 @@ void TextureCacheDX9::SetTexture(bool force) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
-		lastBoundTexture = INVALID_TEX;
+		InvalidateLastTexture();
 		return;
 	}
 #endif
 
 	if (force) {
-		lastBoundTexture = INVALID_TEX;
+		InvalidateLastTexture();
 	}
 
 	u8 level = 0;

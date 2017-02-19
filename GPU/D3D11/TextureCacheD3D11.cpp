@@ -139,6 +139,10 @@ void TextureCacheD3D11::ForgetLastTexture() {
 	context_->PSSetShaderResources(0, 1, &nullTex);
 }
 
+void TextureCacheD3D11::InvalidateLastTexture() {
+	lastBoundTexture = INVALID_TEX;
+}
+
 DXGI_FORMAT getClutDestFormatD3D11(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
