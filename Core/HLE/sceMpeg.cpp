@@ -19,6 +19,7 @@
 // This code is part shamelessly "inspired" from JPSCP.
 #include <map>
 #include <algorithm>
+#include <memory>
 
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceKernelModule.h"
@@ -1426,7 +1427,7 @@ void PostPutAction::run(MipsCall &call) {
 	// It seems validation is done only by older mpeg libs.
 	if (mpegLibVersion < 0x0105 && packetsAdded > 0) {
 		// TODO: Faster / less wasteful validation.
-		MpegDemux *demuxer = new MpegDemux(packetsAdded * 2048, 0);
+		std::unique_ptr<MpegDemux> demuxer(new MpegDemux(packetsAdded * 2048, 0));
 		int readOffset = ringbuffer->packetsRead % (s32)ringbuffer->packets;
 		const u8 *buf = Memory::GetPointer(ringbuffer->data + readOffset * 2048);
 		bool invalid = false;
