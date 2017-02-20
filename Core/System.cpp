@@ -658,6 +658,11 @@ void InitSysDirectories() {
 			g_Config.memStickDirectory = myDocsPath;
 		INFO_LOG(COMMON, "Memstick directory not present, creating at '%s'", g_Config.memStickDirectory.c_str());
 	}
+	// Create the default directories that a real PSP creates. Good for homebrew so they can
+	// expect a standard environment. Skipping THEME though, that's pointless.
+	File::CreateDir(g_Config.memStickDirectory + "PSP/COMMON");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/GAME");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/SAVEDATA");
 
 	const std::string testFile = g_Config.memStickDirectory + "/_writable_test.$$$";
 
