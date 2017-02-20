@@ -79,10 +79,12 @@ struct SamplerCacheKey {
 	}
 };
 
-
-// Wow this is starting to grow big. Soon need to start looking at resizing it.
-// Must stay a POD.
+// TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
+	~TexCacheEntry() {
+		if (texturePtr || textureName || vkTex)
+			Crash();
+	}
 	// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
 	const static int FRAMES_REGAIN_TRUST = 1000;
 
@@ -109,12 +111,8 @@ struct TexCacheEntry {
 	int status;
 	u32 addr;
 	u32 hash;
-	VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO.
-	u32 sizeInRAM;
-	int lastFrame;
-	int numFrames;
-	int numInvalidated;
-	u32 framesUntilNextFullHash;
+	VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO. TODO: Collapse into texturePtr
+	u32 sizeInRAM;  // Could be computed
 	u8 format;
 	u8 maxLevel;
 	u16 dim;
@@ -128,13 +126,17 @@ struct TexCacheEntry {
 	void *textureView;  // Used by D3D11 only for the shader resource view.
 #endif
 	int invalidHint;
+	int lastFrame;
+	int numFrames;
+	int numInvalidated;
+	u32 framesUntilNextFullHash;
 	u32 fullhash;
 	u32 cluthash;
 	float lodBias;
 	u16 maxSeenV;
 
 	// Cache the current filter settings so we can avoid setting it again.
-	// (OpenGL madness where filter settings are attached to each texture. Unused in Vulkan).
+	// (OpenGL ES 2.0 madness where filter settings are attached to each texture. Unused in other backends).
 	u8 magFilt;
 	u8 minFilt;
 	bool sClamp;

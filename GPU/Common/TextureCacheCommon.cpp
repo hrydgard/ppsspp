@@ -916,8 +916,10 @@ bool TextureCacheCommon::GetCurrentClutBuffer(GPUDebugBuffer &buffer) {
 	return true;
 }
 
+// Host memory usage, not PSP memory usage.
 u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 	const u16 dim = entry->dim;
+	// TODO: This does not take into account the HD remaster's larger textures.
 	const u8 dimW = ((dim >> 0) & 0xf);
 	const u8 dimH = ((dim >> 8) & 0xf);
 

@@ -183,6 +183,8 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 	if (drawPixelsTex_ && (drawPixelsTexW_ != width || drawPixelsTexH_ != height)) {
 		drawPixelsTex_->Release();
 		drawPixelsTex_ = nullptr;
+		drawPixelsTexView_->Release();
+		drawPixelsTexView_ = nullptr;
 	}
 
 	if (!drawPixelsTex_) {
