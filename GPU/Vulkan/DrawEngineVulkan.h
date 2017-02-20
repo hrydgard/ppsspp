@@ -123,7 +123,7 @@ public:
 	void DirtyAllUBOs();
 
 	VulkanPushBuffer *GetPushBufferForTextureData() {
-		return frame_[curFrame_].pushUBO;
+		return frame_[curFrame_ & 1].pushUBO;
 	}
 
 	const DrawEngineVulkanStats &GetStats() const {

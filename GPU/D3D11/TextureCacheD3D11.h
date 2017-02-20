@@ -46,9 +46,6 @@ public:
 	TextureCacheD3D11(Draw::DrawContext *draw);
 	~TextureCacheD3D11();
 
-	void SetTexture(bool force = false);
-
-	void Clear(bool delete_them);
 	void StartFrame();
 
 	void SetFramebufferManager(FramebufferManagerD3D11 *fbManager);
@@ -63,28 +60,24 @@ public:
 	bool DecodeTexture(u8 *output, const GPUgstate &state);
 
 	void ForgetLastTexture() override;
+	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override;
 
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
-	void ApplyTexture();
-
 protected:
+	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
+	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
-	void Decimate();  // Run this once per frame to get rid of old textures.
-	void DeleteTexture(TexCache::iterator it);
 	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt);
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
-	u32 GetCurrentClutHash();
-	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
+	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	void BuildTexture(TexCacheEntry *const entry, bool replaceImages);
+	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
+	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
@@ -95,24 +88,10 @@ private:
 	ID3D11ShaderResourceView *DxView(TexCacheEntry *entry) {
 		return (ID3D11ShaderResourceView *)entry->textureView;
 	}
-	void ReleaseTexture(TexCacheEntry *entry) {
-		ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
-		ID3D11ShaderResourceView *view = (ID3D11ShaderResourceView *)entry->textureView;
-		if (texture) {
-			texture->Release();
-			entry->texturePtr = nullptr;
-		}
-		if (view) {
-			view->Release();
-			entry->textureView = nullptr;
-		}
-	}
 
 	TextureScalerD3D11 scaler;
 
 	SamplerCacheD3D11 samplerCache_;
-
-	u32 clutHash_;
 
 	ID3D11ShaderResourceView *lastBoundTexture;
 

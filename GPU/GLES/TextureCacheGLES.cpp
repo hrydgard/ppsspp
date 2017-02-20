@@ -43,33 +43,16 @@
 #include <xmmintrin.h>
 #endif
 
-// If a texture hasn't been seen for this many frames, get rid of it.
-#define TEXTURE_KILL_AGE 200
-#define TEXTURE_KILL_AGE_LOWMEM 60
-// Not used in lowmem mode.
-#define TEXTURE_SECOND_KILL_AGE 100
-
-// Try to be prime to other decimation intervals.
-#define TEXCACHE_DECIMATION_INTERVAL 13
-
-#define TEXCACHE_NAME_CACHE_SIZE 16
-
-#define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
-
-#define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in GL
-#define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
-
 #ifndef GL_UNPACK_ROW_LENGTH
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
-#define INVALID_TEX -1
+#define TEXCACHE_NAME_CACHE_SIZE 16
 
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
-	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 	SetupTextureDecoder();
@@ -86,88 +69,19 @@ void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) 
 	framebufferManager_ = fbManager;
 }
 
+void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry) {
+	DEBUG_LOG(G3D, "Deleting texture %i", entry->textureName);
+	glDeleteTextures(1, &entry->textureName);
+}
+
 void TextureCacheGLES::Clear(bool delete_them) {
-	glBindTexture(GL_TEXTURE_2D, 0);
-	lastBoundTexture = INVALID_TEX;
+	TextureCacheCommon::Clear(delete_them);
 	if (delete_them) {
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.textureName);
-			glDeleteTextures(1, &iter->second.textureName);
-		}
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.textureName);
-			glDeleteTextures(1, &iter->second.textureName);
-		}
 		if (!nameCache_.empty()) {
 			glDeleteTextures((GLsizei)nameCache_.size(), &nameCache_[0]);
 			nameCache_.clear();
 		}
 	}
-	if (cache.size() + secondCache.size()) {
-		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
-		cache.clear();
-		secondCache.clear();
-		cacheSizeEstimate_ = 0;
-		secondCacheSizeEstimate_ = 0;
-	}
-	fbTexInfo_.clear();
-	videos_.clear();
-}
-
-void TextureCacheGLES::DeleteTexture(TexCache::iterator it) {
-	glDeleteTextures(1, &it->second.textureName);
-	auto fbInfo = fbTexInfo_.find(it->first);
-	if (fbInfo != fbTexInfo_.end()) {
-		fbTexInfo_.erase(fbInfo);
-	}
-
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
-	cache.erase(it);
-}
-
-// Removes old textures.
-void TextureCacheGLES::Decimate() {
-	if (--decimationCounter_ <= 0) {
-		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
-	} else {
-		return;
-	}
-
-	if (cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
-		const u32 had = cacheSizeEstimate_;
-
-		glBindTexture(GL_TEXTURE_2D, 0);
-		lastBoundTexture = INVALID_TEX;
-		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
-			if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
-				DeleteTexture(iter++);
-			} else {
-				++iter;
-			}
-		}
-
-		VERBOSE_LOG(G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
-	}
-
-	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
-		const u32 had = secondCacheSizeEstimate_;
-
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
-			// In low memory mode, we kill them all.
-			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
-				glDeleteTextures(1, &iter->second.textureName);
-				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(&iter->second);
-				secondCache.erase(iter++);
-			} else {
-				++iter;
-			}
-		}
-
-		VERBOSE_LOG(G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
-	}
-
-	DecimateVideos();
 }
 
 GLenum getClutDestFormat(GEPaletteFormat format) {
@@ -307,7 +221,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 }
 
 void TextureCacheGLES::StartFrame() {
-	lastBoundTexture = INVALID_TEX;
+	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 
 	if (texelsScaledThisFrame_) {
@@ -320,10 +234,6 @@ void TextureCacheGLES::StartFrame() {
 	} else {
 		Decimate();
 	}
-}
-
-static inline u32 MiniHash(const u32 *ptr) {
-	return ptr[0];
 }
 
 void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
@@ -365,10 +275,6 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	}
 
 	clutLastFormat_ = gstate.clutformat;
-}
-
-inline u32 TextureCacheGLES::GetCurrentClutHash() {
-	return clutHash_;
 }
 
 // #define DEBUG_TEXTURES
@@ -413,64 +319,16 @@ bool SetDebugTexture() {
 }
 #endif
 
-void TextureCacheGLES::Unbind() {
-	glBindTexture(GL_TEXTURE_2D, 0);
+void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
+	if (entry->textureName != lastBoundTexture) {
+		glBindTexture(GL_TEXTURE_2D, entry->textureName);
+		lastBoundTexture = entry->textureName;
+	}
+	UpdateSamplingParams(*entry, false);
 }
 
-void TextureCacheGLES::ApplyTexture() {
-	TexCacheEntry *entry = nextTexture_;
-	if (entry == nullptr) {
-		return;
-	}
-	nextTexture_ = nullptr;
-
-	UpdateMaxSeenV(entry, gstate.isModeThrough());
-
-	bool replaceImages = false;
-	if (nextNeedsRebuild_) {
-		if (nextNeedsRehash_) {
-			// Update the hash on the texture.
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			entry->fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
-		}
-		if (nextNeedsChange_) {
-			// This texture existed previously, let's handle the change.
-			replaceImages = HandleTextureChange(entry, nextChangeReason_, false, true);
-		}
-		// We actually build afterward (shared with rehash rebuild.)
-	} else if (nextNeedsRehash_) {
-		// Okay, this matched and didn't change - but let's check the hash.  Maybe it will change.
-		bool doDelete = true;
-		if (!CheckFullHash(entry, doDelete)) {
-			replaceImages = HandleTextureChange(entry, "hash fail", true, doDelete);
-			nextNeedsRebuild_ = true;
-		} else if (nextTexture_ != nullptr) {
-			// Secondary cache picked a different texture, use it.
-			entry = nextTexture_;
-			nextTexture_ = nullptr;
-			UpdateMaxSeenV(entry, gstate.isModeThrough());
-		}
-	}
-
-	// Okay, now actually rebuild the texture if needed.
-	if (nextNeedsRebuild_) {
-		BuildTexture(entry, replaceImages);
-	}
-
-	entry->lastFrame = gpuStats.numFlips;
-	if (entry->framebuffer) {
-		ApplyTextureFramebuffer(entry, entry->framebuffer);
-	} else {
-		if (entry->textureName != lastBoundTexture) {
-			glBindTexture(GL_TEXTURE_2D, entry->textureName);
-			lastBoundTexture = entry->textureName;
-		}
-		UpdateSamplingParams(*entry, false);
-
-		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
-		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
-	}
+void TextureCacheGLES::Unbind() {
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 class TextureShaderApplier {
@@ -673,259 +531,6 @@ GLenum ToGLESFormat(ReplacedTextureFormat fmt) {
 	}
 }
 
-void TextureCacheGLES::SetTexture(bool force) {
-#ifdef DEBUG_TEXTURES
-	if (SetDebugTexture()) {
-		// A different texture was bound, let's rebind next time.
-		lastBoundTexture = INVALID_TEX;
-		return;
-	}
-#endif
-
-	if (force) {
-		lastBoundTexture = INVALID_TEX;
-	}
-
-	u8 level = 0;
-	if (IsFakeMipmapChange())
-		level = (gstate.texlevel >> 20) & 0xF;
-	u32 texaddr = gstate.getTextureAddress(level);
-	if (!Memory::IsValidAddress(texaddr)) {
-		// Bind a null texture and return.
-		glBindTexture(GL_TEXTURE_2D, 0);
-		lastBoundTexture = INVALID_TEX;
-		return;
-	}
-
-	const u16 dim = gstate.getTextureDimension(level);
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-
-	GETextureFormat format = gstate.getTextureFormat();
-	if (format >= 11) {
-		ERROR_LOG_REPORT(G3D, "Unknown texture format %i", format);
-		// TODO: Better assumption?
-		format = GE_TFMT_5650;
-	}
-	bool hasClut = gstate.isTextureFormatIndexed();
-
-	// Ignore uncached/kernel when caching.
-	u32 cluthash;
-	if (hasClut) {
-		if (clutLastFormat_ != gstate.clutformat) {
-			// We update here because the clut format can be specified after the load.
-			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
-		}
-		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
-	} else {
-		cluthash = 0;
-	}
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, format, dim, cluthash);
-
-	int bufw = GetTextureBufw(0, texaddr, format);
-	u8 maxLevel = gstate.getTextureMaxLevel();
-
-	u32 texhash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
-
-	TexCache::iterator iter = cache.find(cachekey);
-	TexCacheEntry *entry = NULL;
-	gstate_c.needShaderTexClamp = false;
-	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-
-	if (iter != cache.end()) {
-		entry = &iter->second;
-		// Validate the texture still matches the cache entry.
-		bool match = entry->Matches(dim, format, maxLevel);
-		const char *reason = "different params";
-
-		// Check for FBO - slow!
-		if (entry->framebuffer) {
-			if (match) {
-				if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
-					WARN_LOG_REPORT_ONCE(clutAndTexRender, G3D, "Using rendered texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-				}
-
-				SetTextureFramebuffer(entry, entry->framebuffer);
-				return;
-			} else {
-				// Make sure we re-evaluate framebuffers.
-				DetachFramebuffer(entry, texaddr, entry->framebuffer);
-				reason = "detached framebuf";
-				match = false;
-			}
-		}
-
-		bool rehash = entry->GetHashStatus() == TexCacheEntry::STATUS_UNRELIABLE;
-
-		// First let's see if another texture with the same address had a hashfail.
-		if (entry->status & TexCacheEntry::STATUS_CLUT_RECHECK) {
-			// Always rehash in this case, if one changed the rest all probably did.
-			rehash = true;
-			entry->status &= ~TexCacheEntry::STATUS_CLUT_RECHECK;
-		} else if (!gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE)) {
-			// Okay, just some parameter change - the data didn't change, no need to rehash.
-			rehash = false;
-		}
-
-		if (match) {
-			if (entry->lastFrame != gpuStats.numFlips) {
-				u32 diff = gpuStats.numFlips - entry->lastFrame;
-				entry->numFrames++;
-
-				if (entry->framesUntilNextFullHash < diff) {
-					// Exponential backoff up to 512 frames.  Textures are often reused.
-					if (entry->numFrames > 32) {
-						// Also, try to add some "randomness" to avoid rehashing several textures the same frame.
-						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + (entry->textureName & 15);
-					} else {
-						entry->framesUntilNextFullHash = entry->numFrames;
-					}
-					rehash = true;
-				} else {
-					entry->framesUntilNextFullHash -= diff;
-				}
-			}
-
-			// If it's not huge or has been invalidated many times, recheck the whole texture.
-			if (entry->invalidHint > 180 || (entry->invalidHint > 15 && (dim >> 8) < 9 && (dim & 0xF) < 9)) {
-				entry->invalidHint = 0;
-				rehash = true;
-			}
-
-			if (texhash != entry->hash) {
-				match = false;
-			} else if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-				rehash = false;
-			}
-		}
-
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && standardScaleFactor_ != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
-			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-				// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
-				match = false;
-				reason = "scaling";
-			}
-		}
-
-		if (match) {
-			// TODO: Mark the entry reliable if it's been safe for long enough?
-			//got one!
-			if (entry->textureName != lastBoundTexture) {
-				gstate_c.curTextureWidth = w;
-				gstate_c.curTextureHeight = h;
-			}
-			if (rehash) {
-				// Update in case any of these changed.
-				entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
-				entry->bufw = bufw;
-				entry->cluthash = cluthash;
-			}
-
-			nextTexture_ = entry;
-			nextNeedsRehash_ = rehash;
-			nextNeedsChange_ = false;
-			// Might need a rebuild if the hash fails.
-			nextNeedsRebuild_= false;
-			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
-			return; //Done!
-		} else {
-			nextChangeReason_ = reason;
-			nextNeedsChange_ = true;
-		}
-	} else {
-		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
-		TexCacheEntry entryNew = {0};
-		cache[cachekey] = entryNew;
-
-		if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
-			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-		}
-
-		entry = &cache[cachekey];
-		if (g_Config.bTextureBackoffCache) {
-			entry->status = TexCacheEntry::STATUS_HASHING;
-		} else {
-			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
-		}
-
-		nextNeedsChange_ = false;
-	}
-
-	// We have to decode it, let's setup the cache entry first.
-	entry->addr = texaddr;
-	entry->hash = texhash;
-	entry->dim = dim;
-	entry->format = format;
-	entry->maxLevel = maxLevel;
-
-	// This would overestimate the size in many case so we underestimate instead
-	// to avoid excessive clearing caused by cache invalidations.
-	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
-	entry->bufw = bufw;
-
-	entry->cluthash = cluthash;
-
-	gstate_c.curTextureWidth = w;
-	gstate_c.curTextureHeight = h;
-
-	// Before we go reading the texture from memory, let's check for render-to-texture.
-	// We must do this early so we have the right w/h.
-	entry->framebuffer = 0;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		AttachFramebuffer(entry, framebuffer->fb_address, framebuffer);
-	}
-
-	// If we ended up with a framebuffer, attach it - no texture decoding needed.
-	if (entry->framebuffer) {
-		SetTextureFramebuffer(entry, entry->framebuffer);
-	}
-
-	nextTexture_ = entry;
-	nextNeedsRehash_ = entry->framebuffer == nullptr;
-	// We still need to rebuild, to allocate a texture.  But we'll bail early.
-	nextNeedsRebuild_= true;
-}
-
-bool TextureCacheGLES::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
-	bool replaceImages = false;
-
-	cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-	entry->numInvalidated++;
-	gpuStats.numTextureInvalidations++;
-	DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
-	if (doDelete) {
-		if (initialMatch && standardScaleFactor_ == 1 && (entry->status & TexCacheEntry::STATUS_IS_SCALED) == 0) {
-			// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
-			// Instead, let's use glTexSubImage to replace the images.
-			replaceImages = true;
-		} else {
-			if (entry->textureName == lastBoundTexture) {
-				lastBoundTexture = INVALID_TEX;
-			}
-			glDeleteTextures(1, &entry->textureName);
-			entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
-		}
-	}
-	// Clear the reliable bit if set.
-	if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-		entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-	}
-
-	// Also, mark any textures with the same address but different clut.  They need rechecking.
-	if (entry->cluthash != 0) {
-		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
-		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-		for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
-			if (it->second.cluthash != entry->cluthash) {
-				it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
-			}
-		}
-	}
-
-	return replaceImages;
-}
-
 void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
@@ -985,10 +590,10 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	u64 cachekey = replacer.Enabled() ? entry->CacheKey() : 0;
+	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	ReplacedTexture &replaced = replacer.FindReplacement(cachekey, entry->fullhash, w, h);
+	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
 		if (replaceImages) {
 			// Since we're replacing the texture, we can't replace the image inside.
@@ -1159,9 +764,9 @@ void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteF
 		decPitch = bufw * pixelSize;
 	}
 
-	tmpTexBufRearrange.resize(std::max(w, bufw) * h);
-	if (DecodeTextureLevel((u8 *)tmpTexBufRearrange.data(), decPitch, format, clutformat, texaddr, level, bufw, true, UseBGRA8888())) {
-		finalBuf = tmpTexBufRearrange.data();
+	tmpTexBufRearrange_.resize(std::max(w, bufw) * h);
+	if (DecodeTextureLevel((u8 *)tmpTexBufRearrange_.data(), decPitch, format, clutformat, texaddr, level, bufw, true, UseBGRA8888())) {
+		finalBuf = tmpTexBufRearrange_.data();
 	} else {
 		finalBuf = nullptr;
 	}
@@ -1173,7 +778,7 @@ void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteF
 	return finalBuf;
 }
 
-TextureCacheGLES::TexCacheEntry::Status TextureCacheGLES::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
+TexCacheEntry::Status TextureCacheGLES::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -1209,10 +814,10 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	if (replaced.GetSize(level, w, h)) {
 		PROFILE_THIS_SCOPE("replacetex");
 
-		tmpTexBufRearrange.resize(w * h);
+		tmpTexBufRearrange_.resize(w * h);
 		int bpp = replaced.Format(level) == ReplacedTextureFormat::F_8888 ? 4 : 2;
-		replaced.Load(level, tmpTexBufRearrange.data(), bpp * w);
-		pixelData = tmpTexBufRearrange.data();
+		replaced.Load(level, tmpTexBufRearrange_.data(), bpp * w);
+		pixelData = tmpTexBufRearrange_.data();
 
 		dstFmt = ToGLESFormat(replaced.Format(level));
 
@@ -1249,7 +854,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 		}
 
-		if (replacer.Enabled()) {
+		if (replacer_.Enabled()) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			replacedInfo.cachekey = entry.CacheKey();
 			replacedInfo.hash = entry.fullhash;
@@ -1260,7 +865,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			replacedInfo.fmt = FromGLESFormat(dstFmt, useBGRA);
 
 			int bpp = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-			replacer.NotifyTextureDecoded(replacedInfo, pixelData, (useUnpack ? bufw : w) * bpp, level, w, h);
+			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, (useUnpack ? bufw : w) * bpp, level, w, h);
 		}
 	}
 

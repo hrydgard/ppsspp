@@ -46,8 +46,6 @@ public:
 	TextureCacheGLES(Draw::DrawContext *draw);
 	~TextureCacheGLES();
 
-	void SetTexture(bool force = false);
-
 	void Clear(bool delete_them);
 	void StartFrame();
 
@@ -63,8 +61,13 @@ public:
 	}
 
 	void ForgetLastTexture() override {
-		lastBoundTexture = -1;
+		lastBoundTexture = INVALID_TEX;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	}
+	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override {
+		if (!entry || entry->textureName == lastBoundTexture) {
+			lastBoundTexture = INVALID_TEX;
+		}
 	}
 
 	u32 AllocTextureName();
@@ -74,31 +77,25 @@ public:
 
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
-	void ApplyTexture();
-
 protected:
+	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
+	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
-	void Decimate();  // Run this once per frame to get rid of old textures.
-	void DeleteTexture(TexCache::iterator it);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, bool replaceImages, int scaleFactor, GLenum dstFmt);
 	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	void *DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, GLenum dstFmt, int scaleFactor, int *bufw = 0);
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h);
-	u32 GetCurrentClutHash();
-	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
+	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
+	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
 
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	void BuildTexture(TexCacheEntry *const entry, bool replaceImages);
+	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	std::vector<u32> nameCache_;
 
 	TextureScalerGLES scaler;
-
-	u32 clutHash_;
 
 	u32 lastBoundTexture;
 	float maxAnisotropyLevel;
@@ -107,6 +104,8 @@ private:
 	DepalShaderCacheGLES *depalShaderCache_;
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
+
+	enum { INVALID_TEX = -1 };
 };
 
 GLenum getClutDestFormat(GEPaletteFormat format);

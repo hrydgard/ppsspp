@@ -40,9 +40,6 @@ public:
 	TextureCacheDX9(Draw::DrawContext *draw);
 	~TextureCacheDX9();
 
-	void SetTexture(bool force = false);
-
-	void Clear(bool delete_them);
 	void StartFrame();
 
 	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
@@ -57,43 +54,30 @@ public:
 	bool DecodeTexture(u8 *output, const GPUgstate &state);
 
 	void ForgetLastTexture() override;
+	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override;
 
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
-	void ApplyTexture();
-
 protected:
+	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
+	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
-	void Decimate();  // Run this once per frame to get rid of old textures.
-	void DeleteTexture(TexCache::iterator it);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt);
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
-	u32 GetCurrentClutHash();
-	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
+	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	void BuildTexture(TexCacheEntry *const entry, bool replaceImages);
+	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
+	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	LPDIRECT3DTEXTURE9 &DxTex(TexCacheEntry *entry) {
 		return *(LPDIRECT3DTEXTURE9 *)&entry->texturePtr;
 	}
-	void ReleaseTexture(TexCacheEntry *entry) {
-		LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
-		if (texture) {
-			texture->Release();
-			texture = nullptr;
-		}
-	}
 
 	TextureScalerDX9 scaler;
-
-	u32 clutHash_;
 
 	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl;
 

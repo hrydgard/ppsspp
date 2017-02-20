@@ -67,8 +67,6 @@ public:
 	TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
 	~TextureCacheVulkan();
 
-	void SetTexture();
-	void Clear(bool delete_them);
 	void StartFrame();
 	void EndFrame();
 
@@ -80,7 +78,7 @@ public:
 		depalShaderCache_ = dpCache;
 	}
 	void SetShaderManager(ShaderManagerVulkan *sm) {
-		shaderManager_ = sm;
+		shaderManagerVulkan_ = sm;
 	}
 	void SetDrawEngine(DrawEngineVulkan *td) {
 		drawEngine_ = td;
@@ -90,27 +88,32 @@ public:
 		lastBoundTexture = nullptr;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
+	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override {
+		if (!entry || entry->vkTex == lastBoundTexture) {
+			lastBoundTexture = nullptr;
+		}
+	}
 
-	void ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler);
+	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {
+		imageView = imageView_;
+		sampler = sampler_;
+	}
+	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
 protected:
+	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
+	void ReleaseTexture(TexCacheEntry *entry) override;
 
 private:
-	void Decimate();  // Run this once per frame to get rid of old textures.
-	void DeleteTexture(TexCache::iterator it);
 	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);
 	VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h);
-	u32 GetCurrentClutHash();
-	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	void ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEntry *entry, VirtualFramebuffer *framebuffer, VkImageView &image, VkSampler &sampler);
-	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
+	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	void BuildTexture(TexCacheEntry *const entry, VulkanPushBuffer *uploadBuffer);
+	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
+	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	VulkanContext *vulkan_;
 	VulkanDeviceAllocator *allocator_;
@@ -118,8 +121,6 @@ private:
 	SamplerCache samplerCache_;
 
 	TextureScalerVulkan scaler;
-
-	u32 clutHash_;
 
 	CachedTextureVulkan *lastBoundTexture;
 
@@ -129,8 +130,12 @@ private:
 
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	DepalShaderCacheVulkan *depalShaderCache_;
-	ShaderManagerVulkan *shaderManager_;
+	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
+
+	// Bound state to emulate an API similar to the others
+	VkImageView imageView_ = VK_NULL_HANDLE;
+	VkSampler sampler_ = VK_NULL_HANDLE;
 };
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format);
