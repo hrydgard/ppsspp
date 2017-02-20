@@ -682,7 +682,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 	u32 *mapData = nullptr;
 	int mapRowPitch = 0;
 	if (replaced.GetSize(level, w, h)) {
-		mapData = new u32[w * h]{};
+		mapData = (u32 *)AllocateAlignedMemory(w * h * sizeof(u32), 16);
 		mapRowPitch = w * 4;
 		replaced.Load(level, mapData, mapRowPitch);
 		dstFmt = ToDXGIFormat(replaced.Format(level));
@@ -699,11 +699,11 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			pixelData = tmpTexBufRearrange_.data();
 			// We want to end up with a neatly packed texture for scaling.
 			decPitch = w * bpp;
-			mapData = new u32[(w * scaleFactor) * (h * scaleFactor)];
+			mapData = (u32 *)AllocateAlignedMemory(sizeof(u32) * (w * scaleFactor) * (h * scaleFactor), 16);
 			mapRowPitch = w * scaleFactor * 4;
 		} else {
 			mapRowPitch = std::max(bufw, w) * bpp;
-			mapData = new u32[mapRowPitch / bpp * h]{};
+			mapData = (u32 *)AllocateAlignedMemory(sizeof(u32) * (mapRowPitch / bpp) * h, 16);
 			pixelData = (u32 *)mapData;
 			decPitch = mapRowPitch;
 		}
@@ -755,7 +755,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 	}
 
 	context_->UpdateSubresource(texture, level, nullptr, mapData, mapRowPitch, 0);
-	delete[] mapData;
+	FreeAlignedMemory(mapData);
 }
 
 bool TextureCacheD3D11::DecodeTexture(u8 *output, const GPUgstate &state) {
