@@ -658,11 +658,6 @@ void InitSysDirectories() {
 			g_Config.memStickDirectory = myDocsPath;
 		INFO_LOG(COMMON, "Memstick directory not present, creating at '%s'", g_Config.memStickDirectory.c_str());
 	}
-	// Create the default directories that a real PSP creates. Good for homebrew so they can
-	// expect a standard environment. Skipping THEME though, that's pointless.
-	File::CreateDir(g_Config.memStickDirectory + "PSP/COMMON");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/GAME");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/SAVEDATA");
 
 	const std::string testFile = g_Config.memStickDirectory + "/_writable_test.$$$";
 
@@ -674,6 +669,18 @@ void InitSysDirectories() {
 	// Clean up our mess.
 	if (File::Exists(testFile))
 		File::Delete(testFile);
+
+	// Create the default directories that a real PSP creates. Good for homebrew so they can
+	// expect a standard environment. Skipping THEME though, that's pointless.
+	File::CreateDir(g_Config.memStickDirectory + "PSP");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/COMMON");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/GAME");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/SAVEDATA");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/PPSSPP_STATE");
+#ifdef ANDROID
+	// Avoid media scanners in PPSSPP_STATE directory
+	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/PPSSPP_STATE/.nomedia");
+#endif
 
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
