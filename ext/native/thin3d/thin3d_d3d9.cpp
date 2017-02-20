@@ -363,7 +363,7 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 	}
 
 	if (desc.initData.size()) {
-		for (int i = 0; i < desc.initData.size(); i++) {
+		for (int i = 0; i < (int)desc.initData.size(); i++) {
 			SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
 		}
 	}
@@ -558,18 +558,18 @@ private:
 	LPDIRECT3D9EX d3dEx_;
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
-	int adapterId_;
+	int adapterId_ = -1;
 	D3DADAPTER_IDENTIFIER9 identifier_;
 	D3DCAPS9 d3dCaps_;
 	char shadeLangVersion_[64];
-	DeviceCaps caps_;
+	DeviceCaps caps_{};
 
 	// Bound state
-	D3D9Pipeline *curPipeline_;
-	D3D9Buffer *curVBuffers_[4];
-	int curVBufferOffsets_[4];
-	D3D9Buffer *curIBuffer_;
-	int curIBufferOffset_;
+	D3D9Pipeline *curPipeline_ = nullptr;
+	D3D9Buffer *curVBuffers_[4]{};
+	int curVBufferOffsets_[4]{};
+	D3D9Buffer *curIBuffer_ = nullptr;
+	int curIBufferOffset_ = 0;
 
 	// Framebuffer state
 	LPDIRECT3DSURFACE9 deviceRTsurf = 0;

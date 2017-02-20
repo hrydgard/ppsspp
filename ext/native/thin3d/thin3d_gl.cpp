@@ -564,14 +564,14 @@ private:
 	std::vector<OpenGLSamplerState *> boundSamplers_;
 	OpenGLTexture *boundTextures_[8]{};
 	int maxTextures_ = 0;
-	DeviceCaps caps_;
+	DeviceCaps caps_{};
 	
 	// Bound state
-	OpenGLPipeline *curPipeline_;
-	OpenGLBuffer *curVBuffers_[4];
-	int curVBufferOffsets_[4];
-	OpenGLBuffer *curIBuffer_;
-	int curIBufferOffset_;
+	OpenGLPipeline *curPipeline_ = nullptr;
+	OpenGLBuffer *curVBuffers_[4]{};
+	int curVBufferOffsets_[4]{};
+	OpenGLBuffer *curIBuffer_ = nullptr;
+	int curIBufferOffset_ = 0;
 
 	// Framebuffer state
 	GLuint currentDrawHandle_ = 0;
@@ -694,7 +694,7 @@ OpenGLTexture::OpenGLTexture(const TextureDesc &desc) {
 	glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, level > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
 	glTexParameteri(target_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	if (desc.initData.size() < desc.mipLevels) {
+	if ((int)desc.initData.size() < desc.mipLevels) {
 		ILOG("Generating mipmaps");
 		AutoGenMipmaps();
 	}

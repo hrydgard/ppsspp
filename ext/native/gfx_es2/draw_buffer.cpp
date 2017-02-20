@@ -393,12 +393,13 @@ void DrawBuffer::MeasureTextCount(int font, const char *text, int count, float *
 		// Translate non-breaking space to space.
 		if (cval == 0xA0) {
 			cval = ' ';
-		}
-		if (cval == '\n') {
+		} else if (cval == '\n') {
 			maxX = std::max(maxX, wacc);
 			wacc = 0;
 			lines++;
 			continue;
+		} else if (cval == '\t') {
+			cval = ' ';
 		} else if (cval == '&' && utf.peek() != '&') {
 			// Ignore lone ampersands
 			continue;
@@ -523,11 +524,12 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 		// Translate non-breaking space to space.
 		if (cval == 0xA0) {
 			cval = ' ';
-		}
-		if (cval == '\n') {
+		} else if (cval == '\n') {
 			y += atlasfont.height * fontscaley;
 			x = sx;
 			continue;
+		} else if (cval == '\t') {
+			cval = ' ';
 		} else if (cval == '&' && utf.peek() != '&') {
 			// Ignore lone ampersands
 			continue;

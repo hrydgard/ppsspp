@@ -419,13 +419,13 @@ private:
 	void ApplyDynamicState();
 	void DirtyDynamicState();
 
-	VulkanContext *vulkan_;
+	VulkanContext *vulkan_ = nullptr;
 
-	VKPipeline *curPipeline_;
-	VKBuffer *curVBuffers_[4];
-	int curVBufferOffsets_[4];
-	VKBuffer *curIBuffer_;
-	int curIBufferOffset_;
+	VKPipeline *curPipeline_ = nullptr;
+	VKBuffer *curVBuffers_[4]{};
+	int curVBufferOffsets_[4]{};
+	VKBuffer *curIBuffer_ = nullptr;
+	int curIBufferOffset_ = 0;
 
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
@@ -438,7 +438,7 @@ private:
 
 	// State to apply at the next draw call if viewportDirty or scissorDirty are true.
 	bool viewportDirty_;
-	VkViewport viewport_;
+	VkViewport viewport_{};
 	bool scissorDirty_;
 	VkRect2D scissor_;
 
@@ -457,12 +457,12 @@ private:
 		VkDescriptorPool descriptorPool;
 	};
 
-	FrameData frame_[2];
+	FrameData frame_[2]{};
 
-	int frameNum_;
-	VulkanPushBuffer *push_;
+	int frameNum_ = 0;
+	VulkanPushBuffer *push_ = nullptr;
 
-	DeviceCaps caps_;
+	DeviceCaps caps_{};
 };
 
 static int GetBpp(VkFormat format) {
@@ -610,7 +610,7 @@ private:
 		depth_ = desc.depth;
 		vkTex_ = new VulkanTexture(vulkan_);
 		if (desc.initData.size()) {
-			for (int i = 0; i < desc.initData.size(); i++) {
+			for (int i = 0; i < (int)desc.initData.size(); i++) {
 				this->SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
 			}
 		}
@@ -836,7 +836,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	VKBlendState *blend = (VKBlendState *)desc.blend;
 	VKDepthStencilState *depth = (VKDepthStencilState *)desc.depthStencil;
 	VKRasterState *raster = (VKRasterState *)desc.raster;
-	for (int i = 0; i < input->bindings.size(); i++) {
+	for (int i = 0; i < (int)input->bindings.size(); i++) {
 		pipeline->stride[i] = input->bindings[i].stride;
 	}
 

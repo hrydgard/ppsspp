@@ -140,8 +140,8 @@ private:
 	ID3D11RenderTargetView *curRenderTargetView_ = nullptr;
 	ID3D11DepthStencilView *curDepthStencilView_ = nullptr;
 
-	D3D11Pipeline *curPipeline_;
-	DeviceCaps caps_;
+	D3D11Pipeline *curPipeline_ = nullptr;
+	DeviceCaps caps_{};
 
 	D3D11BlendState *curBlend_ = nullptr;
 	D3D11DepthStencilState *curDepth_ = nullptr;
@@ -676,7 +676,7 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	if (desc.initData.size()) {
 		int w = desc.width;
 		int h = desc.height;
-		for (int i = 0; i < desc.initData.size(); i++) {
+		for (int i = 0; i < (int)desc.initData.size(); i++) {
 			initData[i].pSysMem = desc.initData[0];
 			initData[i].SysMemPitch = (UINT)(w * DataFormatSizeInBytes(desc.format));
 			initData[i].SysMemSlicePitch = (UINT)(w * h * DataFormatSizeInBytes(desc.format));
