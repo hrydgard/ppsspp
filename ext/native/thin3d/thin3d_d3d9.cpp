@@ -395,7 +395,7 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 	{
 		D3DLOCKED_RECT rect;
 		if (x == 0 && y == 0) {
-			tex_->LockRect(level, &rect, NULL, 0);
+			tex_->LockRect(level, &rect, NULL, D3DLOCK_DISCARD);
 			for (int i = 0; i < height; i++) {
 				uint8_t *dest = (uint8_t *)rect.pBits + rect.Pitch * i;
 				const uint8_t *source = data + stride * i;

@@ -218,7 +218,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			return;
 		}
 
-		drawPixelsTex_->LockRect(0, &rect, NULL, 0);
+		drawPixelsTex_->LockRect(0, &rect, NULL, D3DLOCK_DISCARD);
 
 		convBuf = (u8*)rect.pBits;
 

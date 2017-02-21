@@ -684,9 +684,9 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 
 	D3DLOCKED_RECT rect;
 	if (IsFakeMipmapChange())
-		texture->LockRect(0, &rect, NULL, 0);
+		texture->LockRect(0, &rect, NULL, D3DLOCK_DISCARD);
 	else
-		texture->LockRect(level, &rect, NULL, 0);
+		texture->LockRect(level, &rect, NULL, D3DLOCK_DISCARD);
 
 	gpuStats.numTexturesDecoded++;
 	if (replaced.GetSize(level, w, h)) {
