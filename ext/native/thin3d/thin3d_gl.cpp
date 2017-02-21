@@ -1529,12 +1529,14 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
 	GLuint srcTex = 0;
 	GLuint dstTex = 0;
+	GLuint target = GL_TEXTURE_2D;
 	switch (channelBits) {
 	case FB_COLOR_BIT:
 		srcTex = src->color_texture;
 		dstTex = dst->color_texture;
 		break;
 	case FB_DEPTH_BIT:
+		target = GL_RENDERBUFFER;
 		srcTex = src->z_buffer ? src->z_buffer : src->z_stencil_buffer;
 		dstTex = dst->z_buffer ? dst->z_buffer : dst->z_stencil_buffer;
 		break;
@@ -1542,25 +1544,22 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 #if defined(USING_GLES2)
 #ifndef IOS
 	glCopyImageSubDataOES(
-		srcTex, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
-		dstTex, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+		srcTex, target, srcLevel, srcX, srcY, srcZ,
+		dstTex, target, dstLevel, dstX, dstY, dstZ,
 		width, height, depth);
-	return;
 #endif
 #else
 	if (gl_extensions.ARB_copy_image) {
 		glCopyImageSubData(
-			srcTex, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
-			dstTex, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+			srcTex, target, srcLevel, srcX, srcY, srcZ,
+			dstTex, target, dstLevel, dstX, dstY, dstZ,
 			width, height, depth);
-		return;
 	} else if (gl_extensions.NV_copy_image) {
 		// Older, pre GL 4.x NVIDIA cards.
 		glCopyImageSubDataNV(
-			srcTex, GL_TEXTURE_2D, srcLevel, srcX, srcY, srcZ,
-			dstTex, GL_TEXTURE_2D, dstLevel, dstX, dstY, dstZ,
+			srcTex, target, srcLevel, srcX, srcY, srcZ,
+			dstTex, target, dstLevel, dstX, dstY, dstZ,
 			width, height, depth);
-		return;
 	}
 #endif
 }
