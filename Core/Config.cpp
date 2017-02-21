@@ -1110,20 +1110,26 @@ void Config::AddRecent(const std::string &file) {
 	if (iMaxRecent <= 0)
 		return;
 
+#ifdef _WIN32
+	std::string filename = ReplaceAll(file, "\\", "/");
+#else
+	std::string filename = file;
+#endif
+
 	for (auto str = recentIsos.begin(); str != recentIsos.end(); ++str) {
 #ifdef _WIN32
-		if (!strcmpIgnore((*str).c_str(), file.c_str(), "\\", "/")) {
+		if (!strcmpIgnore((*str).c_str(), filename.c_str(), "\\", "/")) {
 #else
-		if (!strcmp((*str).c_str(), file.c_str())) {
+		if (!strcmp((*str).c_str(), filename.c_str())) {
 #endif
 			recentIsos.erase(str);
-			recentIsos.insert(recentIsos.begin(), file);
+			recentIsos.insert(recentIsos.begin(), filename);
 			if ((int)recentIsos.size() > iMaxRecent)
 				recentIsos.resize(iMaxRecent);
 			return;
 		}
 	}
-	recentIsos.insert(recentIsos.begin(), file);
+	recentIsos.insert(recentIsos.begin(), filename);
 	if ((int)recentIsos.size() > iMaxRecent)
 		recentIsos.resize(iMaxRecent);
 }
