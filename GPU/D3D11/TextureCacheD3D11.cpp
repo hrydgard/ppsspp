@@ -708,10 +708,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			decPitch = mapRowPitch;
 		}
 
-		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false);
-		if (!decSuccess) {
-			memset(pixelData, 0, decPitch * h);
-		}
+		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false);
 
 		if (scaleFactor > 1) {
 			scaler.ScaleAlways((u32 *)mapData, pixelData, dstFmt, w, h, scaleFactor);

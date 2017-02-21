@@ -745,11 +745,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			decPitch = w * bpp;
 		}
 
-		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false);
-		if (!decSuccess) {
-			memset(writePtr, 0, rowPitch * h);
-			return;
-		}
+		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false);
 		gpuStats.numTexturesDecoded++;
 
 		if (scaleFactor > 1) {

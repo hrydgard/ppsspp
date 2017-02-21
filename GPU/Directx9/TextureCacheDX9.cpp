@@ -564,8 +564,9 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 	if (IsFakeMipmapChange()) {
 		u8 level = (gstate.texlevel >> 20) & 0xF;
 		LoadTextureLevel(*entry, replaced, level, maxLevel, replaceImages, scaleFactor, dstFmt);
-	} else
+	} else {
 		LoadTextureLevel(*entry, replaced, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
+	}
 	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
 	if (!texture) {
 		return;
@@ -707,10 +708,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			decPitch = w * bpp;
 		}
 
-		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false);
-		if (!decSuccess) {
-			memset(pixelData, 0, decPitch * h);
-		}
+		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false);
 
 		if (scaleFactor > 1) {
 			scaler.ScaleAlways((u32 *)rect.pBits, pixelData, dstFmt, w, h, scaleFactor);

@@ -766,17 +766,8 @@ void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteF
 	}
 
 	tmpTexBufRearrange_.resize(std::max(w, bufw) * h);
-	if (DecodeTextureLevel((u8 *)tmpTexBufRearrange_.data(), decPitch, format, clutformat, texaddr, level, bufw, true, UseBGRA8888())) {
-		finalBuf = tmpTexBufRearrange_.data();
-	} else {
-		finalBuf = nullptr;
-	}
-
-	if (!finalBuf) {
-		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
-	}
-
-	return finalBuf;
+	DecodeTextureLevel((u8 *)tmpTexBufRearrange_.data(), decPitch, format, clutformat, texaddr, level, bufw, true, UseBGRA8888());
+	return tmpTexBufRearrange_.data();
 }
 
 TexCacheEntry::Status TextureCacheGLES::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {

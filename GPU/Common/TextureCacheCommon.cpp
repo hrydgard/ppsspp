@@ -974,7 +974,7 @@ static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt,
 	}
 }
 
-bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA) {
+void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA) {
 	bool swizzled = gstate.isTextureSwizzled();
 	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
 		// This means it's in a mirror, possibly a swizzled mirror.  Let's report.
@@ -1038,27 +1038,21 @@ bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 
 		default:
 			ERROR_LOG_REPORT(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
-			return false;
+			return;
 		}
 	}
 	break;
 
 	case GE_TFMT_CLUT8:
-		if (!ReadIndexedTex(out, outPitch, level, texptr, 1, bufw)) {
-			return false;
-		}
+		ReadIndexedTex(out, outPitch, level, texptr, 1, bufw);
 		break;
 
 	case GE_TFMT_CLUT16:
-		if (!ReadIndexedTex(out, outPitch, level, texptr, 2, bufw)) {
-			return false;
-		}
+		ReadIndexedTex(out, outPitch, level, texptr, 2, bufw);
 		break;
 
 	case GE_TFMT_CLUT32:
-		if (!ReadIndexedTex(out, outPitch, level, texptr, 4, bufw)) {
-			return false;
-		}
+		ReadIndexedTex(out, outPitch, level, texptr, 4, bufw);
 		break;
 
 	case GE_TFMT_4444:
@@ -1151,8 +1145,8 @@ bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 		if (reverseColors) {
 			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
 		}
+		break;
 	}
-	break;
 
 	case GE_TFMT_DXT3:
 	{
@@ -1173,8 +1167,8 @@ bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 		if (reverseColors) {
 			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
 		}
+		break;
 	}
-	break;
 
 	case GE_TFMT_DXT5:
 	{
@@ -1195,18 +1189,16 @@ bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 		if (reverseColors) {
 			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
 		}
+		break;
 	}
-	break;
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);
-		return false;
+		break;
 	}
-
-	return true;
 }
 
-bool TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw) {
+void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -1271,10 +1263,8 @@ bool TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Unhandled clut texture mode %d!!!", gstate.getClutPaletteFormat());
-		return false;
+		break;
 	}
-
-	return true;
 }
 
 
