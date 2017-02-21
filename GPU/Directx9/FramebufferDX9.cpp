@@ -431,48 +431,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 		bool matchingSize = src->width == dst->width && src->height == dst->height;
 		if (matchingDepthBuffer && matchingSize) {
-			// Doesn't work.  Use a shader maybe?
-			draw_->BindBackbufferAsRenderTarget();
-
-			LPDIRECT3DTEXTURE9 srcTex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(src->fbo, Draw::FB_DEPTH_BIT, 0);
-			LPDIRECT3DTEXTURE9 dstTex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(dst->fbo, Draw::FB_DEPTH_BIT, 0);
-
-			if (srcTex && dstTex) {
-				D3DSURFACE_DESC srcDesc;
-				srcTex->GetLevelDesc(0, &srcDesc);
-				D3DSURFACE_DESC dstDesc;
-				dstTex->GetLevelDesc(0, &dstDesc);
-
-				D3DLOCKED_RECT srcLock;
-				D3DLOCKED_RECT dstLock;
-				HRESULT srcLockRes = srcTex->LockRect(0, &srcLock, nullptr, D3DLOCK_READONLY);
-				HRESULT dstLockRes = dstTex->LockRect(0, &dstLock, nullptr, 0);
-				if (SUCCEEDED(srcLockRes) && SUCCEEDED(dstLockRes)) {
-					u32 pitch = std::min(srcLock.Pitch, dstLock.Pitch);
-					u32 w = std::min(pitch / 4, std::min(srcDesc.Width, dstDesc.Width));
-					u32 h = std::min(srcDesc.Height, dstDesc.Height);
-					const u8 *srcp = (const u8 *)srcLock.pBits;
-					u8 *dstp = (u8 *)dstLock.pBits;
-
-					if (w == pitch / 4 && srcLock.Pitch == dstLock.Pitch) {
-						CopyPixelDepthOnly((u32 *)dstp, (const u32 *)srcp, w * h);
-					} else {
-						for (u32 y = 0; y < h; ++y) {
-							CopyPixelDepthOnly((u32 *)dstp, (const u32 *)srcp, w);
-							dstp += dstLock.Pitch;
-							srcp += srcLock.Pitch;
-						}
-					}
-				}
-				if (SUCCEEDED(srcLockRes)) {
-					srcTex->UnlockRect(0);
-				}
-				if (SUCCEEDED(dstLockRes)) {
-					dstTex->UnlockRect(0);
-				}
-			}
-
-			RebindFramebuffer();
+			// Should use StretchRect here.
 		}
 	}
 
