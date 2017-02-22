@@ -654,10 +654,8 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		// Create texture
 		D3DPOOL pool = D3DPOOL_MANAGED;
 		int usage = 0;
-		if (pD3DdeviceEx) {
-			pool = D3DPOOL_DEFAULT;
-			usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
-		}
+		pool = D3DPOOL_DEFAULT;
+		usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
 		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
 		int tw = w, th = h;
 		D3DFORMAT tfmt = (D3DFORMAT)(dstFmt);
@@ -676,17 +674,24 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		else
 			hr = pD3Ddevice->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
 		if (FAILED(hr)) {
-			INFO_LOG(G3D, "Failed to create D3D texture");
+			INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
 			ReleaseTexture(&entry);
 			return;
 		}
 	}
 
 	D3DLOCKED_RECT rect;
+
+	HRESULT result;
+	uint32_t lockFlag = level == 0 ? D3DLOCK_DISCARD : 0;  // Can only discard the top level
 	if (IsFakeMipmapChange())
-		texture->LockRect(0, &rect, NULL, D3DLOCK_DISCARD);
+		result = texture->LockRect(0, &rect, NULL, lockFlag);
 	else
-		texture->LockRect(level, &rect, NULL, D3DLOCK_DISCARD);
+		result = texture->LockRect(level, &rect, NULL, lockFlag);
+	if (FAILED(result)) {
+		ERROR_LOG(G3D, "Failed to lock D3D texture: %dx%d", w, h);
+		return;
+	}
 
 	gpuStats.numTexturesDecoded++;
 	if (replaced.GetSize(level, w, h)) {
