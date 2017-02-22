@@ -14,8 +14,8 @@ static int SDLJoystickEventHandlerWrapper(void* userdata, SDL_Event* event)
 }
 
 SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
+	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 	if (init_SDL) {
-		SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
 	}
 	
