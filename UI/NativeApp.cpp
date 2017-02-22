@@ -992,6 +992,7 @@ void NativeMessageReceived(const char *message, const char *value) {
 
 void NativeResized() {
 	resized = true;
+	screenManager->RecreateAllViews();
 
 	if (uiContext) {
 		// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
