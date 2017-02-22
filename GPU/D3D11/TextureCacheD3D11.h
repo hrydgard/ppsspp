@@ -79,6 +79,8 @@ private:
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
 	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
+	DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);
+
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 

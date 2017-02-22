@@ -743,7 +743,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
 		break;
 #ifndef USING_GLES2
-	case DataFormat::A4B4G4R4_UNORM_PACK16:
+	case DataFormat::A4R4G4B4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
@@ -1657,7 +1657,7 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 		return FMT_RENDERTARGET | FMT_TEXTURE;
 	case DataFormat::B4G4R4A4_UNORM_PACK16:
 		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
-	case DataFormat::A4B4G4R4_UNORM_PACK16:
+	case DataFormat::A4R4G4B4_UNORM_PACK16:
 #ifndef USING_GLES2
 		// Can support this if _REV formats are supported.
 		return FMT_TEXTURE;

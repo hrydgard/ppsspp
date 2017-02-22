@@ -506,7 +506,7 @@ GPU_GLES::~GPU_GLES() {
 void GPU_GLES::CheckGPUFeatures() {
 	u32 features = 0;
 
-	features |= GPU_SUPPORTS_4BIT_FORMAT;
+	features |= GPU_SUPPORTS_16BIT_FORMATS;
 
 	if (gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended) {
 		if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL || !gl_extensions.VersionGEThan(3, 0, 0)) {

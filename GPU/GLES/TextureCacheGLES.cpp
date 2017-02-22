@@ -766,7 +766,7 @@ void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteF
 	}
 
 	tmpTexBufRearrange_.resize(std::max(w, bufw) * h);
-	DecodeTextureLevel((u8 *)tmpTexBufRearrange_.data(), decPitch, format, clutformat, texaddr, level, bufw, true, UseBGRA8888());
+	DecodeTextureLevel((u8 *)tmpTexBufRearrange_.data(), decPitch, format, clutformat, texaddr, level, bufw, true, UseBGRA8888(), false);
 	return tmpTexBufRearrange_.data();
 }
 

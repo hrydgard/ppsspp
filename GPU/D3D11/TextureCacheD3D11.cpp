@@ -146,7 +146,7 @@ void TextureCacheD3D11::InvalidateLastTexture(TexCacheEntry *entry) {
 	}
 }
 
-DXGI_FORMAT getClutDestFormatD3D11(GEPaletteFormat format) {
+DXGI_FORMAT TextureCacheD3D11::GetClutDestFormatD3D11(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
 		return DXGI_FORMAT_B4G4R4A4_UNORM;
@@ -427,7 +427,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-		TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatD3D11(clutFormat), clutTotalColors, clutTotalColors, 1);
+		TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, GetClutDestFormatD3D11(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.textureFullAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL;
 		gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 	} else {
@@ -708,7 +708,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			decPitch = mapRowPitch;
 		}
 
-		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false);
+		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, false);
 
 		if (scaleFactor > 1) {
 			scaler.ScaleAlways((u32 *)mapData, pixelData, dstFmt, w, h, scaleFactor);

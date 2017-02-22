@@ -383,7 +383,7 @@ static DXGI_FORMAT dataFormatToD3D11(DataFormat format) {
 	case DataFormat::R32G32_FLOAT: return DXGI_FORMAT_R32G32_FLOAT;
 	case DataFormat::R32G32B32_FLOAT: return DXGI_FORMAT_R32G32B32_FLOAT;
 	case DataFormat::R32G32B32A32_FLOAT: return DXGI_FORMAT_R32G32B32A32_FLOAT;
-	case DataFormat::A4B4G4R4_UNORM_PACK16: return DXGI_FORMAT_B4G4R4A4_UNORM;
+	case DataFormat::A4R4G4B4_UNORM_PACK16: return DXGI_FORMAT_B4G4R4A4_UNORM;
 	case DataFormat::A1R5G5B5_UNORM_PACK16: return DXGI_FORMAT_B5G5R5A1_UNORM;
 	case DataFormat::R5G6B5_UNORM_PACK16: return DXGI_FORMAT_B5G6R5_UNORM;
 	case DataFormat::R8G8B8A8_UNORM: return DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -1023,37 +1023,23 @@ void D3D11DrawContext::DrawUP(const void *vdata, int vertexCount) {
 }
 
 uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {
-	// TODO: Actually do proper checks
-	switch (fmt) {
-	case DataFormat::B8G8R8A8_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE;
-
-	// D3D11 has no support for 4-bit component formats, except this one and only on Windows 8.
-	case DataFormat::A4B4G4R4_UNORM_PACK16:
-		return b4g4r4a4Supported_ ? FMT_TEXTURE : 0;
-
-	case DataFormat::R4G4B4A4_UNORM_PACK16:
-	case DataFormat::B4G4R4A4_UNORM_PACK16:
+	DXGI_FORMAT giFmt = dataFormatToD3D11(fmt);
+	if (giFmt == DXGI_FORMAT_UNKNOWN)
 		return 0;
-
-	case DataFormat::R8G8B8A8_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
-
-	case DataFormat::R32_FLOAT:
-	case DataFormat::R32G32_FLOAT:
-	case DataFormat::R32G32B32_FLOAT:
-	case DataFormat::R32G32B32A32_FLOAT:
-		return FMT_INPUTLAYOUT;
-
-	case DataFormat::R8_UNORM:
+	UINT giSupport = 0;
+	HRESULT result = device_->CheckFormatSupport(giFmt, &giSupport);
+	if (FAILED(result))
 		return 0;
-	case DataFormat::BC1_RGBA_UNORM_BLOCK:
-	case DataFormat::BC2_UNORM_BLOCK:
-	case DataFormat::BC3_UNORM_BLOCK:
-		return FMT_TEXTURE;
-	default:
-		return 0;
-	}
+	uint32_t support = 0;
+	if (giSupport & D3D11_FORMAT_SUPPORT_TEXTURE2D)
+		support |= FMT_TEXTURE;
+	if (giSupport & D3D11_FORMAT_SUPPORT_RENDER_TARGET)
+		support |= FMT_RENDERTARGET;
+	if (giSupport & D3D11_FORMAT_SUPPORT_IA_VERTEX_BUFFER)
+		support |= FMT_INPUTLAYOUT;
+	if (giSupport & D3D11_FORMAT_SUPPORT_DEPTH_STENCIL)
+		support |= FMT_DEPTHSTENCIL;
+	return support;
 }
 
 // A D3D11Framebuffer is a D3D11Framebuffer plus all the textures it owns.
