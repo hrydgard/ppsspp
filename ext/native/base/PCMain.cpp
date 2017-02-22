@@ -420,6 +420,7 @@ int main(int argc, char *argv[]) {
 	bcm_host_init();
 #endif
 	putenv((char*)"SDL_VIDEO_CENTERED=1");
+	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
 
 	std::string app_name;
 	std::string app_name_nice;
