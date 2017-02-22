@@ -282,8 +282,8 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 		DataFormat texFormat;
 		// For our purposes these are equivalent, so just choose the supported one. D3D can emulate them.
-		if (draw_->GetDataFormatSupport(Draw::DataFormat::A4B4G4R4_UNORM_PACK16) & FMT_TEXTURE)
-			texFormat = Draw::DataFormat::A4B4G4R4_UNORM_PACK16;
+		if (draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16) & FMT_TEXTURE)
+			texFormat = Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
 		else if (draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
 			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
 		else
@@ -294,8 +294,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		TextureDesc desc{};
 		uint32_t *bitmapData32 = nullptr;
 		uint16_t *bitmapData16 = nullptr;
-		if (texFormat == Draw::DataFormat::R8G8B8A8_UNORM) {
-			// We need a full 32-bit format :(
+		if (texFormat == Draw::DataFormat::R8G8B8A8_UNORM || texFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
 			bitmapData32 = new uint32_t[entry->bmWidth * entry->bmHeight];
 			for (int y = 0; y < entry->bmHeight; y++) {
 				for (int x = 0; x < entry->bmWidth; x++) {
@@ -313,7 +312,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 				}
 			}
 			desc.initData.push_back((uint8_t *)bitmapData16);
-		} else {
+		} else if (texFormat == Draw::DataFormat::A4R4G4B4_UNORM_PACK16) {
 			bitmapData16 = new uint16_t[entry->bmWidth * entry->bmHeight];
 			for (int y = 0; y < entry->bmHeight; y++) {
 				for (int x = 0; x < entry->bmWidth; x++) {

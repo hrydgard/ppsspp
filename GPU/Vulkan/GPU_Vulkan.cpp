@@ -463,32 +463,34 @@ GPU_Vulkan::~GPU_Vulkan() {
 }
 
 void GPU_Vulkan::CheckGPUFeatures() {
-	gstate_c.featureFlags = 0;
-	gstate_c.featureFlags |= GPU_SUPPORTS_4BIT_FORMAT;
+	uint32_t features = 0;
+	features |= GPU_SUPPORTS_16BIT_FORMATS;
 	if (vulkan_->GetFeaturesEnabled().wideLines) {
-		gstate_c.featureFlags |= GPU_SUPPORTS_WIDE_LINES;
+		features |= GPU_SUPPORTS_WIDE_LINES;
 	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
-		gstate_c.featureFlags |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	}
 	if (vulkan_->GetFeaturesEnabled().logicOp) {
-		gstate_c.featureFlags |= GPU_SUPPORTS_LOGIC_OP;
+		features |= GPU_SUPPORTS_LOGIC_OP;
 	}
 	if (vulkan_->GetFeaturesEnabled().samplerAnisotropy) {
-		gstate_c.featureFlags |= GPU_SUPPORTS_ANISOTROPY;
+		features |= GPU_SUPPORTS_ANISOTROPY;
 	}
 
 	if (PSP_CoreParameter().compat.flags().ClearToRAM) {
-		gstate_c.featureFlags |= GPU_USE_CLEAR_RAM_HACK;
+		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
-	gstate_c.featureFlags |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	gstate_c.featureFlags |= GPU_SUPPORTS_FBO;
-	gstate_c.featureFlags |= GPU_SUPPORTS_BLEND_MINMAX;
-	gstate_c.featureFlags |= GPU_SUPPORTS_ANY_COPY_IMAGE;
-	gstate_c.featureFlags |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
-	gstate_c.featureFlags |= GPU_SUPPORTS_LARGE_VIEWPORTS;
+	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	features |= GPU_SUPPORTS_FBO;
+	features |= GPU_SUPPORTS_BLEND_MINMAX;
+	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
+	features |= GPU_SUPPORTS_16BIT_FORMATS;
+	gstate_c.featureFlags = features;
 }
 
 void GPU_Vulkan::BeginHostFrame() {

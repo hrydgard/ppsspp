@@ -512,8 +512,11 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
 
-	if (draw_->GetDataFormatSupport(Draw::DataFormat::A4B4G4R4_UNORM_PACK16) & Draw::FMT_TEXTURE) {
-		features |= GPU_SUPPORTS_4BIT_FORMAT;
+	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16);
+	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
+	uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::R5G6B5_UNORM_PACK16);
+	if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
+		features |= GPU_SUPPORTS_16BIT_FORMATS;
 	}
 
 	if (draw_->GetDeviceCaps().logicOpSupported) {

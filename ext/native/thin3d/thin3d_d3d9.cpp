@@ -122,7 +122,7 @@ D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::R4G4B4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
 	case DataFormat::B4G4R4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // native
-	case DataFormat::A4B4G4R4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
+	case DataFormat::A4R4G4B4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
 	case DataFormat::R5G6B5_UNORM_PACK16: return D3DFMT_R5G6B5;
 	case DataFormat::A1R5G5B5_UNORM_PACK16: return D3DFMT_A1R5G5B5;
 	case DataFormat::D24_S8: return D3DFMT_D24S8;
@@ -407,7 +407,7 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 						((uint16_t *)dest)[j] = (color << 12) | (color >> 4);
 					}
 					break;
-				case DataFormat::A4B4G4R4_UNORM_PACK16:
+				case DataFormat::A4R4G4B4_UNORM_PACK16:
 					// Native
 					memcpy(dest, source, width * sizeof(uint16_t));
 					break;
@@ -1162,7 +1162,7 @@ uint32_t D3D9Context::GetDataFormatSupport(DataFormat fmt) const {
 		return FMT_TEXTURE;  // emulated support
 	case DataFormat::R5G6B5_UNORM_PACK16:
 	case DataFormat::A1R5G5B5_UNORM_PACK16:
-	case DataFormat::A4B4G4R4_UNORM_PACK16:
+	case DataFormat::A4R4G4B4_UNORM_PACK16:
 		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
 
 	case DataFormat::R8G8B8A8_UNORM:

@@ -81,7 +81,7 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 		return oldtex->second->view;
 	}
 
-	DXGI_FORMAT dstFmt = getClutDestFormatD3D11(clutFormat);
+	DXGI_FORMAT dstFmt = GetClutDestFormatD3D11(clutFormat);
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
 	DepalTextureD3D11 *tex = new DepalTextureD3D11();

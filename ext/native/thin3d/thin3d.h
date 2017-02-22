@@ -192,14 +192,14 @@ enum class DataFormat : uint8_t {
 	R8G8B8A8_SINT,
 
 	R4G4_UNORM_PACK8,
-	A4B4G4R4_UNORM_PACK16,  // This is the one D3D supports
-	B4G4R4A4_UNORM_PACK16,  // Supported by Vulkan (guaranteed one), as is the below but not on all cards.
-	R4G4B4A4_UNORM_PACK16,  // This is the one OpenGL ES supports
+	A4R4G4B4_UNORM_PACK16,  // A4 in the UPPER bit
+	B4G4R4A4_UNORM_PACK16,
+	R4G4B4A4_UNORM_PACK16,
 	R5G6B5_UNORM_PACK16,
 	B5G6R5_UNORM_PACK16,
-	R5G5B5A1_UNORM_PACK16,
-	B5G5R5A1_UNORM_PACK16,
-	A1R5G5B5_UNORM_PACK16,
+	R5G5B5A1_UNORM_PACK16, // A1 in the LOWER bit
+	B5G5R5A1_UNORM_PACK16, // A1 in the LOWER bit
+	A1R5G5B5_UNORM_PACK16, // A1 in the UPPER bit.
 
 	R16_FLOAT,
 	R16G16_FLOAT,
@@ -297,6 +297,7 @@ enum FormatSupport {
 	FMT_RENDERTARGET = 1,
 	FMT_TEXTURE = 2,
 	FMT_INPUTLAYOUT = 4,
+	FMT_DEPTHSTENCIL = 8,
 };
 
 enum InfoField {

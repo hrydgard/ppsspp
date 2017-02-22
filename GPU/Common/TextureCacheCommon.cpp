@@ -49,6 +49,31 @@
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
+// Just for reference
+
+// PSP Color formats:
+// 565:  BBBBBGGGGGGRRRRR
+// 5551: ABBBBBGGGGGRRRRR
+// 4444: AAAABBBBGGGGRRRR
+// 8888: AAAAAAAABBBBBBBBGGGGGGGGRRRRRRRR (Bytes in memory: RGBA)
+
+// D3D11/9 Color formats:
+// DXGI_FORMAT_B4G4R4A4/D3DFMT_A4R4G4B4:  AAAARRRRGGGGBBBB
+// DXGI_FORMAT_B5G5R5A1/D3DFMT_A1R5G6B5:  ARRRRRGGGGGBBBBB
+// DXGI_FORMAT_B5G6R6/D3DFMT_R5G6B5:      RRRRRGGGGGGBBBBB
+// DXGI_FORMAT_B8G8R8A8:                  AAAAAAAARRRRRRRRGGGGGGGGBBBBBBBB  (Bytes in memory: BGRA)
+// These are Data::Format::   A4R4G4B4_PACK16, A1R5G6B5_PACK16, R5G6B5_PACK16, B8G8R8A8.
+// So these are good matches, just with R/B swapped.
+
+// OpenGL ES color formats:
+// GL_UNSIGNED_SHORT_4444: BBBBGGGGRRRRAAAA  (4-bit rotation)
+// GL_UNSIGNED_SHORT_565:  BBBBBGGGGGGRRRRR   (match)
+// GL_UNSIGNED_SHORT_1555: BBBBBGGGGGRRRRRA  (1-bit rotation)
+// GL_UNSIGNED_BYTE/RGBA:  AAAAAAAABBBBBBBBGGGGGGGGRRRRRRRR  (match)
+// These are Data::Format:: B4G4R4A4_PACK16, B5G6R6_PACK16, B5G5R5A1_PACK16, R8G8B8A8
+
+// Vulkan color formats:
+// TODO
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 	: draw_(draw),
 		clearCacheNextFrame_(false),
@@ -105,7 +130,7 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	sClamp = gstate.isTexCoordClampedS();
 	tClamp = gstate.isTexCoordClampedT();
 
-	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001 || (gstate.texlevel & 0xFFFFFF) == 0x100001 ;  // Fix texlevel at 0
+	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001 || (gstate.texlevel & 0xFFFFFF) == 0x100001;  // Fix texlevel at 0
 	if (IsFakeMipmapChange())
 		noMip = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST;
 
@@ -974,7 +999,7 @@ static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt,
 	}
 }
 
-void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA) {
+void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32bit) {
 	bool swizzled = gstate.isTextureSwizzled();
 	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
 		// This means it's in a mirror, possibly a swizzled mirror.  Let's report.
@@ -1008,7 +1033,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 		case GE_CMODE_16BIT_ABGR4444:
 		{
 			const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
-			if (clutAlphaLinear_ && mipmapShareClut) {
+			if (clutAlphaLinear_ && mipmapShareClut && !expandTo32bit) {
 				// Here, reverseColors means the CLUT is already reversed.
 				if (reverseColors) {
 					for (int y = 0; y < h; ++y) {
@@ -1020,8 +1045,26 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 					}
 				}
 			} else {
-				for (int y = 0; y < h; ++y) {
-					DeIndexTexture4((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
+				if (expandTo32bit && !reverseColors) {
+					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
+					switch (clutformat) {
+					case GE_CMODE_16BIT_ABGR4444:
+						ConvertRGBA4444ToRGBA8888(expandClut_, clut, 16);
+						break;
+					case GE_CMODE_16BIT_ABGR5551:
+						ConvertRGBA5551ToRGBA8888(expandClut_, clut, 16);
+						break;
+					case GE_CMODE_16BIT_BGR5650:
+						ConvertRGBA565ToRGBA8888(expandClut_, clut, 16);
+						break;
+					}
+					for (int y = 0; y < h; ++y) {
+						DeIndexTexture4((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_);
+					}
+				} else {
+					for (int y = 0; y < h; ++y) {
+						DeIndexTexture4((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
+					}
 				}
 			}
 		}
@@ -1044,15 +1087,15 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 	break;
 
 	case GE_TFMT_CLUT8:
-		ReadIndexedTex(out, outPitch, level, texptr, 1, bufw);
+		ReadIndexedTex(out, outPitch, level, texptr, 1, bufw, expandTo32bit);
 		break;
 
 	case GE_TFMT_CLUT16:
-		ReadIndexedTex(out, outPitch, level, texptr, 2, bufw);
+		ReadIndexedTex(out, outPitch, level, texptr, 2, bufw, expandTo32bit);
 		break;
 
 	case GE_TFMT_CLUT32:
-		ReadIndexedTex(out, outPitch, level, texptr, 4, bufw);
+		ReadIndexedTex(out, outPitch, level, texptr, 4, bufw, expandTo32bit);
 		break;
 
 	case GE_TFMT_4444:
@@ -1063,6 +1106,20 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 			if (reverseColors) {
 				for (int y = 0; y < h; ++y) {
 					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u16) * y, format, w, useBGRA);
+				}
+			} else if (expandTo32bit) {
+				for (int y = 0; y < h; ++y) {
+					switch (format) {
+					case GE_CMODE_16BIT_ABGR4444:
+						ConvertRGBA4444ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
+						break;
+					case GE_CMODE_16BIT_ABGR5551:
+						ConvertRGBA5551ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
+						break;
+					case GE_CMODE_16BIT_BGR5650:
+						ConvertRGBA565ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
+						break;
+					}
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1083,6 +1140,20 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 			if (reverseColors) {
 				for (int y = 0; y < h; ++y) {
 					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, format, w, useBGRA);
+				}
+			} else if (expandTo32bit) {
+				for (int y = 0; y < h; ++y) {
+					switch (format) {
+					case GE_CMODE_16BIT_ABGR4444:
+						ConvertRGBA4444ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
+						break;
+					case GE_CMODE_16BIT_ABGR5551:
+						ConvertRGBA5551ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
+						break;
+					case GE_CMODE_16BIT_BGR5650:
+						ConvertRGBA565ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
+						break;
+					}
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1198,7 +1269,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 	}
 }
 
-void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw) {
+void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool expandTo32Bit) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -1208,28 +1279,48 @@ void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 		texptr = (u8 *)tmpTexBuf32_.data();
 	}
 
-	switch (gstate.getClutPaletteFormat()) {
+	int palFormat = gstate.getClutPaletteFormat();
+
+	const u16 *clut16 = (const u16 *)clutBuf_;
+	const u32 *clut32 = (const u32 *)clutBuf_;
+
+	if (expandTo32Bit && palFormat != GE_CMODE_32BIT_ABGR8888) {
+		switch (palFormat) {
+		case GE_CMODE_16BIT_ABGR4444:
+			ConvertRGBA4444ToRGBA8888(expandClut_, clut16, 256);
+			break;
+		case GE_CMODE_16BIT_ABGR5551:
+			ConvertRGBA5551ToRGBA8888(expandClut_, clut16, 256);
+			break;
+		case GE_CMODE_16BIT_BGR5650:
+			ConvertRGBA565ToRGBA8888(expandClut_, clut16, 256);
+			break;
+		}
+		clut32 = expandClut_;
+		palFormat = GE_CMODE_32BIT_ABGR8888;
+	}
+
+	switch (palFormat) {
 	case GE_CMODE_16BIT_BGR5650:
 	case GE_CMODE_16BIT_ABGR5551:
 	case GE_CMODE_16BIT_ABGR4444:
 	{
-		const u16 *clut = GetCurrentClut<u16>();
 		switch (bytesPerIndex) {
 		case 1:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u16 *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut);
+				DeIndexTexture((u16 *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut16);
 			}
 			break;
 
 		case 2:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u16 *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut);
+				DeIndexTexture((u16 *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut16);
 			}
 			break;
 
 		case 4:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u16 *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut);
+				DeIndexTexture((u16 *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut16);
 			}
 			break;
 		}
@@ -1238,23 +1329,22 @@ void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 
 	case GE_CMODE_32BIT_ABGR8888:
 	{
-		const u32 *clut = GetCurrentClut<u32>();
 		switch (bytesPerIndex) {
 		case 1:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u32 *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut);
+				DeIndexTexture((u32 *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut32);
 			}
 			break;
 
 		case 2:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u32 *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut);
+				DeIndexTexture((u32 *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut32);
 			}
 			break;
 
 		case 4:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u32 *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut);
+				DeIndexTexture((u32 *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut32);
 			}
 			break;
 		}
