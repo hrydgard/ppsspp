@@ -143,6 +143,8 @@ public:
 	int iRemoteISOPort;
 	std::string sLastRemoteISOServer;
 	int iLastRemoteISOPort;
+	bool bRemoteISOManual;
+	std::string sRemoteISOSubdir;
 	bool bMemStickInserted;
 
 	int iScreenRotation;  // The rotation angle of the PPSSPP UI. Only supported on Android and possibly other mobile platforms.

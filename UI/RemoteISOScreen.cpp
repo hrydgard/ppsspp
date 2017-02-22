@@ -198,51 +198,52 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		return true;
 	}
 
-	// Start by requesting a list of recent local ips for this network.
-	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
-		if (http.Connect()) {
-			code = http.GET("/match/list", &result);
-			http.Disconnect();
-		}
-	}
-
-	if (code != 200 || scanCancelled) {
-		return false;
-	}
-
-	std::string json;
-	result.TakeAll(&json);
-
-	JsonReader reader(json.c_str(), json.size());
-	if (!reader.ok()) {
-		return false;
-	}
-
-	const json_value *entries = reader.root();
-	if (!entries) {
-		return false;
-	}
-
-	std::vector<std::string> servers;
-	const json_value *entry = entries->first_child;
-	while (entry) {
-		const char *host = entry->getString("ip", "");
-		int port = entry->getInt("p", 0);
-
-		char url[1024] = {};
-		snprintf(url, sizeof(url), "http://%s:%d", host, port);
-		servers.push_back(url);
-
-		if (http.Resolve(host, port) && http.Connect()) {
-			http.Disconnect();
-			resultHost = host;
-			resultPort = port;
-			return true;
+	if(!g_Config.bRemoteISOManual) {
+		// Start by requesting a list of recent local ips for this network.
+		if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
+			if (http.Connect()) {
+				code = http.GET("/match/list", &result);
+				http.Disconnect();
+			}
 		}
 
-		entry = entry->next_sibling;
-	}
+		if (code != 200 || scanCancelled) {
+			return false;
+		}
 
+		std::string json;
+		result.TakeAll(&json);
+
+		JsonReader reader(json.c_str(), json.size());
+		if (!reader.ok()) {
+			return false;
+		}
+
+		const json_value *entries = reader.root();
+		if (!entries) {
+			return false;
+		}
+
+		std::vector<std::string> servers;
+		const json_value *entry = entries->first_child;
+		while (entry) {
+			const char *host = entry->getString("ip", "");
+			int port = entry->getInt("p", 0);
+
+			char url[1024] = {};
+			snprintf(url, sizeof(url), "http://%s:%d", host, port);
+			servers.push_back(url);
+
+			if (http.Resolve(host, port) && http.Connect()) {
+				http.Disconnect();
+				resultHost = host;
+				resultPort = port;
+				return true;
+			}
+
+			entry = entry->next_sibling;
+		}
+	}
 	// None of the local IPs were reachable.
 	return false;
 }
@@ -252,8 +253,13 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	Buffer result;
 	int code = 500;
 	std::vector<std::string> responseHeaders;
+	std::string subdir ="/";
 
-	// Start by requesting a list of recent local ips for this network.
+	if (g_Config.bRemoteISOManual) {
+		subdir = g_Config.sRemoteISOSubdir;
+	}
+
+	// Start by requesting the list of games from the server.
 	if (http.Resolve(host.c_str(), port)) {
 		if (http.Connect()) {
 			code = http.GET("/", &result,responseHeaders);
@@ -291,12 +297,12 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 			}
 
 			char temp[1024] = {};
-			snprintf(temp, sizeof(temp) - 1, "http://%s:%d/%s", host.c_str(), port, item.c_str());
+			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s%s", host.c_str(), port, subdir.c_str(),item.c_str());
 			games.push_back(temp);
 		}
 	}
-	//save for next time
-	if (!games.empty()){
+	//save for next time unless manual is true
+	if (!games.empty() && !g_Config.bRemoteISOManual){
 		g_Config.sLastRemoteISOServer = host;
 		g_Config.iLastRemoteISOPort = port;
 	}
