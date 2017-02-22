@@ -71,15 +71,13 @@ protected:
 
 private:
 	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);
-	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt);
+	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, DXGI_FORMAT dstFmt);
 	DXGI_FORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
 	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
-
-	DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
@@ -106,4 +104,4 @@ private:
 	ShaderManagerD3D11 *shaderManager_;
 };
 
-DXGI_FORMAT getClutDestFormatD3D11(GEPaletteFormat format);
+DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);

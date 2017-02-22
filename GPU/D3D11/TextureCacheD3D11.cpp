@@ -146,21 +146,6 @@ void TextureCacheD3D11::InvalidateLastTexture(TexCacheEntry *entry) {
 	}
 }
 
-DXGI_FORMAT TextureCacheD3D11::GetClutDestFormatD3D11(GEPaletteFormat format) {
-	switch (format) {
-	case GE_CMODE_16BIT_ABGR4444:
-		return DXGI_FORMAT_B4G4R4A4_UNORM;
-	case GE_CMODE_16BIT_ABGR5551:
-		return DXGI_FORMAT_B5G5R5A1_UNORM;
-	case GE_CMODE_16BIT_BGR5650:
-		return DXGI_FORMAT_B5G6R5_UNORM;
-	case GE_CMODE_32BIT_ABGR8888:
-		return DXGI_FORMAT_B8G8R8A8_UNORM;
-	}
-	// Should never be here !
-	return DXGI_FORMAT_B8G8R8A8_UNORM;
-}
-
 void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key) {
 	// TODO: Make GetSamplingParams write SamplerCacheKey directly
 	int minFilt;
@@ -572,13 +557,32 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 	}
 }
 
+DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format) {
+	switch (format) {
+	case GE_CMODE_16BIT_ABGR4444:
+		return DXGI_FORMAT_B4G4R4A4_UNORM;
+	case GE_CMODE_16BIT_ABGR5551:
+		return DXGI_FORMAT_B5G5R5A1_UNORM;
+	case GE_CMODE_16BIT_BGR5650:
+		return DXGI_FORMAT_B5G6R5_UNORM;
+	case GE_CMODE_32BIT_ABGR8888:
+		return DXGI_FORMAT_B8G8R8A8_UNORM;
+	}
+	// Should never be here !
+	return DXGI_FORMAT_B8G8R8A8_UNORM;
+}
+
 DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
+	if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS)) {
+		return DXGI_FORMAT_B8G8R8A8_UNORM;
+	}
+
 	switch (format) {
 	case GE_TFMT_CLUT4:
 	case GE_TFMT_CLUT8:
 	case GE_TFMT_CLUT16:
 	case GE_TFMT_CLUT32:
-		return getClutDestFormatD3D11(clutFormat);
+		return GetClutDestFormatD3D11(clutFormat);
 	case GE_TFMT_4444:
 		return DXGI_FORMAT_B4G4R4A4_UNORM;
 	case GE_TFMT_5551:
@@ -633,7 +637,7 @@ DXGI_FORMAT ToDXGIFormat(ReplacedTextureFormat fmt) {
 	}
 }
 
-void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt) {
+void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, DXGI_FORMAT dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -642,14 +646,13 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		// Create texture
 		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
 		int tw = w, th = h;
-		DXGI_FORMAT tfmt = (DXGI_FORMAT)(dstFmt);
 		if (replaced.GetSize(level, tw, th)) {
-			tfmt = ToDXGIFormat(replaced.Format(level));
+			dstFmt = ToDXGIFormat(replaced.Format(level));
 		} else {
 			tw *= scaleFactor;
 			th *= scaleFactor;
 			if (scaleFactor > 1) {
-				tfmt = DXGI_FORMAT_B8G8R8A8_UNORM;
+				dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
 			}
 		}
 
@@ -661,7 +664,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		desc.SampleDesc.Count = 1;
 		desc.Width = tw;
 		desc.Height = th;
-		desc.Format = tfmt;
+		desc.Format = dstFmt;
 		desc.MipLevels = levels;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
@@ -708,10 +711,12 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			decPitch = mapRowPitch;
 		}
 
-		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, false);
+		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
+		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
 
 		if (scaleFactor > 1) {
-			scaler.ScaleAlways((u32 *)mapData, pixelData, dstFmt, w, h, scaleFactor);
+			u32 scaleFmt = (u32)dstFmt;
+			scaler.ScaleAlways((u32 *)mapData, pixelData, scaleFmt, w, h, scaleFactor);
 			pixelData = (u32 *)mapData;
 
 			// We always end up at 8888.  Other parts assume this.
