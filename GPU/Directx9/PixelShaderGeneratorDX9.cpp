@@ -142,7 +142,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 	if (enableFog) {
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 	}
-	if (lang == HLSL_D3D11 && replaceBlend == REPLACE_BLEND_COPY_FBO) {
+	if (lang == HLSL_D3D11 && ((replaceBlend == REPLACE_BLEND_COPY_FBO) || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT))) {
 		WRITE(p, "  float4 pixelPos : SV_POSITION;\n");
 	}
 	WRITE(p, "};\n");
@@ -152,11 +152,14 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 	} else {
 		WRITE(p, "struct PS_OUT {\n");
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-			WRITE(p, "	  float4 target : SV_Target0;\n");
-			WRITE(p, "	  float4 target1 : SV_Target1;\n");
+			WRITE(p, "  float4 target : SV_Target0;\n");
+			WRITE(p, "  float4 target1 : SV_Target1;\n");
 		}
 		else {
-			WRITE(p, "	  float4 target : SV_Target;\n");
+			WRITE(p, "  float4 target : SV_Target;\n");
+		}
+		if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+			WRITE(p, "  float depth : SV_DEPTH;\n");
 		}
 		WRITE(p, "};\n");
 		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
@@ -490,6 +493,24 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 		break;
 	case LOGICOPTYPE_NORMAL:
 		break;
+	}
+
+	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+		const double scale = DepthSliceFactor() * 65535.0;
+
+		WRITE(p, "  float z = In.pixelPos.z;\n");
+		if (gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+			// We center the depth with an offset, but only its fraction matters.
+			// When (DepthSliceFactor() - 1) is odd, it will be 0.5, otherwise 0.
+			if (((int)(DepthSliceFactor() - 1.0f) & 1) == 1) {
+				WRITE(p, "  z = (floor((z * %f) - (1.0 / 2.0)) + (1.0 / 2.0)) * (1.0 / %f);\n", scale, scale);
+			} else {
+				WRITE(p, "  z = floor(z * %f) * (1.0 / %f);\n", scale, scale);
+			}
+		} else {
+			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
+		}
+		WRITE(p, "  outfragment.depth = z;\n");
 	}
 
 	if (lang == HLSL_D3D11) {

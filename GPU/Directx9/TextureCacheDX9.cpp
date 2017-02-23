@@ -84,7 +84,7 @@ void TextureCacheDX9::SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
 	framebufferManager_ = fbManager;
 }
 
-void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry) {
+void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	DEBUG_LOG(G3D, "Deleting texture %p", entry->texturePtr);
 	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
 	if (texture) {
@@ -520,7 +520,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 	if (replaced.GetSize(0, w, h)) {
 		if (replaceImages) {
 			// Since we're replacing the texture, we can't replace the image inside.
-			ReleaseTexture(entry);
+			ReleaseTexture(entry, true);
 			replaceImages = false;
 		}
 		// We're replacing, so we won't scale.
@@ -675,7 +675,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			hr = pD3Ddevice->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
 		if (FAILED(hr)) {
 			INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
-			ReleaseTexture(&entry);
+			ReleaseTexture(&entry, true);
 			return;
 		}
 	}

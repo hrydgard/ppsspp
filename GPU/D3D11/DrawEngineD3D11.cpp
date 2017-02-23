@@ -145,6 +145,9 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 	for (auto &blend : blendCache_) {
 		blend.second->Release();
 	}
+	for (auto &blend1 : blendCache1_) {
+		blend1.second->Release();
+	}
 	for (auto &raster : rasterCache_) {
 		raster.second->Release();
 	}

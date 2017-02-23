@@ -503,7 +503,6 @@ void GPU_D3D11::CheckGPUFeatures() {
 	u32 features = 0;
 
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
-	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;  // Breaks text in PaRappa for some reason.
 	features |= GPU_SUPPORTS_ANISOTROPY;
@@ -511,6 +510,10 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
 	features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
+	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
+	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	features |= GPU_SUPPORTS_FBO;
 
 	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16);
 	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
@@ -523,13 +526,18 @@ void GPU_D3D11::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_LOGIC_OP;
 	}
 
-	if (!g_Config.bHighQualityDepth) {
+	if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		// Assume we always have a 24-bit depth buffer.
-		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+		// Use fragment rounding on desktop and GLES3, most accurate.
+		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
 	} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
+	}
+
+	// The Phantasy Star hack :(
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_SUPPORTS_ACCURATE_DEPTH) == 0) {
+		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 
 	if (PSP_CoreParameter().compat.flags().ClearToRAM) {

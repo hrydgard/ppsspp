@@ -1050,7 +1050,11 @@ bool FramebufferManagerD3D11::GetDepthStencilBuffer(VirtualFramebuffer *vfb, GPU
 	Draw::Framebuffer *fboForRead = nullptr;
 	fboForRead = vfb->fbo;
 
-	buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, !useBufferedRendering_);
+	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT_DIV_256, !useBufferedRendering_);
+	} else {
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, !useBufferedRendering_);
+	}
 
 	ID3D11Texture2D *packTex;
 	D3D11_TEXTURE2D_DESC packDesc{};

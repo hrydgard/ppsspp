@@ -69,9 +69,10 @@ void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) 
 	framebufferManager_ = fbManager;
 }
 
-void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry) {
+void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	DEBUG_LOG(G3D, "Deleting texture %i", entry->textureName);
-	glDeleteTextures(1, &entry->textureName);
+	if (delete_them)
+		glDeleteTextures(1, &entry->textureName);
 	entry->textureName = 0;
 }
 

@@ -209,7 +209,7 @@ public:
 protected:
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;
-	virtual void ReleaseTexture(TexCacheEntry *entry) = 0;
+	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
 	void DeleteTexture(TexCache::iterator it);
 	void Decimate();
 

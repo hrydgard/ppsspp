@@ -120,7 +120,7 @@ void TextureCacheD3D11::SetFramebufferManager(FramebufferManagerD3D11 *fbManager
 	framebufferManager_ = fbManager;
 }
 
-void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry) {
+void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
 	ID3D11ShaderResourceView *view = (ID3D11ShaderResourceView *)entry->textureView;
 	if (texture) {
@@ -496,7 +496,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 	if (replaced.GetSize(0, w, h)) {
 		if (replaceImages) {
 			// Since we're replacing the texture, we can't replace the image inside.
-			ReleaseTexture(entry);
+			ReleaseTexture(entry, true);
 			replaceImages = false;
 		}
 		// We're replacing, so we won't scale.
@@ -671,7 +671,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		HRESULT hr = device_->CreateTexture2D(&desc, nullptr, &texture);
 		if (FAILED(hr)) {
 			INFO_LOG(G3D, "Failed to create D3D texture");
-			ReleaseTexture(&entry);
+			ReleaseTexture(&entry, true);
 			return;
 		}
 		ID3D11ShaderResourceView *view;

@@ -179,7 +179,7 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan) {
 	samplerCache_.DeviceRestore(vulkan);
 }
 
-void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry) {
+void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	DEBUG_LOG(G3D, "Deleting texture %p", entry->vkTex);
 	delete entry->vkTex;
 	entry->vkTex = nullptr;

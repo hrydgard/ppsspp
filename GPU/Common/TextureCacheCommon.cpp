@@ -442,7 +442,7 @@ void TextureCacheCommon::Decimate() {
 		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {
 			// In low memory mode, we kill them all.
 			if (lowMemoryMode_ || iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
-				ReleaseTexture(iter->second.get());
+				ReleaseTexture(iter->second.get(), true);
 				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(iter->second.get());
 				secondCache_.erase(iter++);
 			} else {
@@ -482,7 +482,7 @@ bool TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 			replaceImages = true;
 		} else {
 			InvalidateLastTexture(entry);
-			ReleaseTexture(entry);
+			ReleaseTexture(entry, true);
 			entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
 		}
 	}
@@ -1411,13 +1411,11 @@ void TextureCacheCommon::ApplyTexture() {
 
 void TextureCacheCommon::Clear(bool delete_them) {
 	ForgetLastTexture();
-	if (delete_them) {
-		for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
-			ReleaseTexture(iter->second.get());
-		}
-		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ++iter) {
-			ReleaseTexture(iter->second.get());
-		}
+	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
+		ReleaseTexture(iter->second.get(), delete_them);
+	}
+	for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ++iter) {
+		ReleaseTexture(iter->second.get(), delete_them);
 	}
 	if (cache_.size() + secondCache_.size()) {
 		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache_.size() + secondCache_.size()));
@@ -1431,7 +1429,7 @@ void TextureCacheCommon::Clear(bool delete_them) {
 }
 
 void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
-	ReleaseTexture(it->second.get());
+	ReleaseTexture(it->second.get(), true);
 	auto fbInfo = fbTexInfo_.find(it->first);
 	if (fbInfo != fbTexInfo_.end()) {
 		fbTexInfo_.erase(fbInfo);
