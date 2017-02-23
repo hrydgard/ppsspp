@@ -13,11 +13,9 @@
 #include "thin3d/d3d11_loader.h"
 
 D3D11Context::D3D11Context() : draw_(nullptr), adapterId(-1), hDC(nullptr), hWnd_(nullptr), hD3D11(nullptr) {
-	LoadD3D11();
 }
 
 D3D11Context::~D3D11Context() {
-	UnloadD3D11();
 }
 
 void D3D11Context::SwapBuffers() {
@@ -31,13 +29,12 @@ void D3D11Context::SwapInterval(int interval) {
 	// Dummy
 }
 
-bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
+HRESULT D3D11Context::CreateTheDevice() {
 	bool windowed = true;
-	hWnd_ = wnd;
-
-	UINT createDeviceFlags = 0;
 #ifdef _DEBUG
-	createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+	UINT createDeviceFlags = D3D11_CREATE_DEVICE_DEBUG;
+#else
+	UINT createDeviceFlags = 0;
 #endif
 
 	static const D3D_DRIVER_TYPE driverTypes[] = {
@@ -45,7 +42,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		D3D_DRIVER_TYPE_WARP,
 		D3D_DRIVER_TYPE_REFERENCE,
 	};
-	UINT numDriverTypes = ARRAYSIZE(driverTypes);
+	const UINT numDriverTypes = ARRAYSIZE(driverTypes);
 
 	static const D3D_FEATURE_LEVEL featureLevels[] = {
 		D3D_FEATURE_LEVEL_11_1,
@@ -53,7 +50,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		D3D_FEATURE_LEVEL_10_1,
 		D3D_FEATURE_LEVEL_10_0,
 	};
-	UINT numFeatureLevels = ARRAYSIZE(featureLevels);
+	const UINT numFeatureLevels = ARRAYSIZE(featureLevels);
 
 	HRESULT hr = S_OK;
 	// Temporarily commenting out until we can dynamically load D3D11CreateDevice.
@@ -71,11 +68,31 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 			break;
 	}
 
+	return hr;
+}
+
+bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
+	hWnd_ = wnd;
+	LoadD3D11Error result = LoadD3D11();
+
+	HRESULT hr = E_FAIL;
+	if (result == LoadD3D11Error::SUCCESS) {
+		hr = CreateTheDevice();
+	}
+
 	if (FAILED(hr)) {
 		const char *defaultError = "Your GPU does not appear to support Direct3D 11.\n\nWould you like to try again using Direct3D 9 instead?";
 		I18NCategory *err = GetI18NCategory("Error");
 
-		std::wstring error = ConvertUTF8ToWString(err->T("D3D11NotSupported", defaultError));
+		std::wstring error;
+
+		if (result == LoadD3D11Error::FAIL_NO_COMPILER) {
+			error = ConvertUTF8ToWString(err->T("D3D11CompilerMissing", "D3DCompiler_47.dll not found. Please install. Or press Yes to try again using Direct3D9 instead."));
+		} else if (result == LoadD3D11Error::FAIL_NO_D3D11) {
+			error = ConvertUTF8ToWString(err->T("D3D11Missing", "Your operating system version does not include D3D11. Please run Windows Update.\n\nPress Yes to try again using Direct3D9 instead."));
+		}
+
+		error = ConvertUTF8ToWString(err->T("D3D11NotSupported", defaultError));
 		std::wstring title = ConvertUTF8ToWString(err->T("D3D11InitializationError", "Direct3D 11 initialization error"));
 		bool yes = IDYES == MessageBox(hWnd_, error.c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
 		if (yes) {
@@ -143,4 +160,5 @@ void D3D11Context::Shutdown() {
 	device_->Release();
 	device_ = nullptr;
 	hWnd_ = nullptr;
+	UnloadD3D11();
 }

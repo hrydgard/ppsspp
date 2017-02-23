@@ -161,7 +161,7 @@ void GameSettingsScreen::CreateViews() {
 	renderingBackendChoice->HideChoice(1);  // D3D9
 	renderingBackendChoice->HideChoice(2);  // D3D11
 #else
-	if (!DoesVersionMatchWindows(6, 0)) {
+	if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
 		// Hide the D3D11 choice if Windows version is older than Windows Vista.
 		renderingBackendChoice->HideChoice(2);  // D3D11
 	}

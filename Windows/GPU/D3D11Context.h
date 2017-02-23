@@ -40,6 +40,8 @@ public:
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 
 private:
+	HRESULT CreateTheDevice();
+
 	Draw::DrawContext *draw_ = nullptr;
 	ID3D11Device *device_ = nullptr;
 	ID3D11Device1 *device1_ = nullptr;

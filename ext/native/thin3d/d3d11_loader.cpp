@@ -9,28 +9,48 @@ LPD3D11CREATEDEVICE ptr_D3D11CreateDevice;
 LPD3D11CREATEDEVICEANDSWAPCHAIN ptr_D3D11CreateDeviceAndSwapChain;
 pD3DCompile ptr_D3DCompile;
 
-bool LoadD3D11() {
+LoadD3D11Error LoadD3D11() {
 	if (g_D3D11Module) {
-		return true;
+		// Already done
+		return LoadD3D11Error::SUCCESS;
 	}
 	g_D3D11Module = LoadLibrary(L"d3d11.dll");
 	if (g_D3D11Module) {
 		ptr_D3D11CreateDevice = (LPD3D11CREATEDEVICE)GetProcAddress(g_D3D11Module, "D3D11CreateDevice");
 		ptr_D3D11CreateDeviceAndSwapChain = (LPD3D11CREATEDEVICEANDSWAPCHAIN)GetProcAddress(g_D3D11Module, "D3D11CreateDeviceAndSwapChain");
+	} else {
+		return LoadD3D11Error::FAIL_NO_D3D11;
 	}
-	if (!ptr_CreateDXGIFactory) {
-		g_DXGIModule = LoadLibrary(L"dxgi.dll");
-		if (g_DXGIModule) {
-			ptr_CreateDXGIFactory = (LPCREATEDXGIFACTORY)GetProcAddress(g_DXGIModule, "CreateDXGIFactory1");
-		}
+
+	g_DXGIModule = LoadLibrary(L"dxgi.dll");
+	if (g_DXGIModule) {
+		ptr_CreateDXGIFactory = (LPCREATEDXGIFACTORY)GetProcAddress(g_DXGIModule, "CreateDXGIFactory1");
+	} else {
+		FreeLibrary(g_D3D11Module);
+		g_D3D11Module = nullptr;
+		return LoadD3D11Error::FAIL_NO_D3D11;
 	}
-	g_D3DCompileModule = LoadLibrary(L"D3dcompiler_47.dll");
+
+	g_D3DCompileModule = LoadLibrary(D3DCOMPILER_DLL);
+	if (!g_D3DCompileModule)
+		g_D3DCompileModule = LoadLibrary(L"D3dcompiler_42.dll");
+
+	if (!g_D3DCompileModule) {
+		FreeLibrary(g_D3D11Module);
+		g_D3D11Module = nullptr;
+		FreeLibrary(g_DXGIModule);
+		g_DXGIModule = nullptr;
+		return LoadD3D11Error::FAIL_NO_COMPILER;
+	}
 	ptr_D3DCompile = (pD3DCompile)GetProcAddress(g_D3DCompileModule, "D3DCompile");
 
-	return g_DXGIModule != nullptr && g_D3D11Module != nullptr && g_D3DCompileModule != nullptr;
+	return LoadD3D11Error::SUCCESS;
 }
 
 bool UnloadD3D11() {
+	if (!g_D3D11Module)
+		return false;
+
 	if (g_DXGIModule) {
 		FreeLibrary(g_DXGIModule);
 		g_DXGIModule = nullptr;
@@ -43,5 +63,6 @@ bool UnloadD3D11() {
 		FreeLibrary(g_D3DCompileModule);
 		g_D3DCompileModule = nullptr;
 	}
+
 	return true;
 }

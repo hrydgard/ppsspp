@@ -4,7 +4,7 @@
 
 #ifdef _MSC_VER
 
-bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor = 0, uint32_t spMinor = 0);
+bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, uint32_t spMinor, bool acceptGreater);
 std::string GetWindowsVersion();
 std::string GetWindowsSystemArchitecture();
 
