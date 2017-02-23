@@ -975,7 +975,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			// flip V.
 			if (needBackBufferYSwap_)
 				std::swap(v0, v1);
-			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
+			bool linearFilter = !postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR;
 
 			shaderManager_->DirtyLastShader();  // dirty lastShader_ BEFORE drawing
 			PostShaderUniforms uniforms{};
