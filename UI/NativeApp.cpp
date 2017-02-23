@@ -774,7 +774,26 @@ void NativeRender(GraphicsContext *graphicsContext) {
 
 	if (resized) {
 		resized = false;
+
+		if (uiContext) {
+			// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
+			// The UI now supports any offset but not the EmuScreen yet.
+			uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
+			// uiContext->SetBounds(Bounds(dp_xres/2, 0, dp_xres / 2, dp_yres / 2));
+
+
+			// OSX 10.6 and SDL 1.2 bug.
+#if defined(__APPLE__) && !defined(USING_QT_UI)
+			static int dp_xres_old = dp_xres;
+			if (dp_xres != dp_xres_old) {
+				// uiTexture->Load("ui_atlas.zim");
+				dp_xres_old = dp_xres;
+			}
+#endif
+		}
+
 		graphicsContext->Resize();
+		screenManager->resized();
 
 		// TODO: Move this to new GraphicsContext objects for each backend.
 #ifndef _WIN32
@@ -991,24 +1010,8 @@ void NativeMessageReceived(const char *message, const char *value) {
 }
 
 void NativeResized() {
+	// NativeResized can come from any thread so we just set a flag, then process it later.
 	resized = true;
-
-	if (uiContext) {
-		// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
-		// The UI now supports any offset but not the EmuScreen yet.
-		uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
-		// uiContext->SetBounds(Bounds(dp_xres/2, 0, dp_xres / 2, dp_yres / 2));
-
-
-// OSX 10.6 and SDL 1.2 bug.
-#if defined(__APPLE__) && !defined(USING_QT_UI)
-		static int dp_xres_old=dp_xres;
-		if (dp_xres != dp_xres_old) {
-			// uiTexture->Load("ui_atlas.zim");
-			dp_xres_old = dp_xres;
-		}
-#endif
-	}
 }
 
 void NativeShutdown() {

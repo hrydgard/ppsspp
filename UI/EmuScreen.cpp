@@ -1119,3 +1119,7 @@ void EmuScreen::releaseButtons() {
 	input.id = 0;
 	touch(input);
 }
+
+void EmuScreen::resized() {
+	RecreateViews();
+}

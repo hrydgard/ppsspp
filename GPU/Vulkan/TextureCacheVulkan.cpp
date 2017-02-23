@@ -182,6 +182,7 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan) {
 void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry) {
 	DEBUG_LOG(G3D, "Deleting texture %p", entry->vkTex);
 	delete entry->vkTex;
+	entry->vkTex = nullptr;
 }
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format) {

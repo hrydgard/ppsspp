@@ -41,6 +41,7 @@ public:
 	void deviceRestore() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void sendMessage(const char *msg, const char *value) override;
+	void resized() override;
 
 	bool touch(const TouchInput &touch) override;
 	bool key(const KeyInput &key) override;
