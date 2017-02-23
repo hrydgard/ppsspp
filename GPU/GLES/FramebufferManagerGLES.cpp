@@ -1366,6 +1366,10 @@ bool FramebufferManagerGLES::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z
 		return true;
 	}
 
+	if (!vfb->fbo) {
+		return false;
+	}
+
 	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
 		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT_DIV_256, !useBufferedRendering_);
 	} else {

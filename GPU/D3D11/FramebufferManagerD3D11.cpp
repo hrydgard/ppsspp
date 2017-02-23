@@ -908,12 +908,83 @@ bool FramebufferManagerD3D11::GetFramebuffer(u32 fb_address, int fb_stride, GEBu
 	return true;
 }
 
+bool FramebufferManagerD3D11::GetDepthStencilBuffer(VirtualFramebuffer *vfb, GPUDebugBuffer &buffer, bool stencil) {
+	int w = vfb->renderWidth, h = vfb->renderHeight;
+	Draw::Framebuffer *fboForRead = nullptr;
+	fboForRead = vfb->fbo;
+
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, !useBufferedRendering_);
+
+	ID3D11Texture2D *packTex;
+	D3D11_TEXTURE2D_DESC packDesc{};
+	packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	packDesc.BindFlags = 0;
+	packDesc.Width = w;
+	packDesc.Height = h;
+	packDesc.ArraySize = 1;
+	packDesc.MipLevels = 1;
+	packDesc.Usage = D3D11_USAGE_STAGING;
+	packDesc.SampleDesc.Count = 1;
+	packDesc.Format = (DXGI_FORMAT)draw_->GetFramebufferAPITexture(fboForRead, Draw::FB_DEPTH_BIT | Draw::FB_FORMAT_BIT, 0);
+	device_->CreateTexture2D(&packDesc, nullptr, &packTex);
+
+	ID3D11Texture2D *nativeTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(fboForRead, Draw::FB_DEPTH_BIT, 0);
+	context_->CopyResource(packTex, nativeTex);
+
+	D3D11_MAPPED_SUBRESOURCE map;
+	context_->Map(packTex, 0, D3D11_MAP_READ, 0, &map);
+
+	for (int y = 0; y < h; y++) {
+		float *dest = (float *)(buffer.GetData() + y * w * 4);
+		const uint32_t *src = (const uint32_t *)((const uint8_t *)map.pData + map.RowPitch * y);
+		for (int x = 0; x < w; x++) {
+			if (stencil) {
+				dest[x] = (src[x] >> 24) / (256.f);
+			} else {
+				dest[x] = (src[x] & 0xFFFFFF) / (256.f * 256.f * 256.f);
+			}
+		}
+	}
+
+	context_->Unmap(packTex, 0);
+	packTex->Release();
+	return true;
+}
+
 bool FramebufferManagerD3D11::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
-	return false;
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (!vfb) {
+		vfb = GetVFBAt(fb_address);
+	}
+
+	if (!vfb) {
+		// If there's no vfb and we're drawing there, must be memory?
+		buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+		return true;
+	}
+
+	if (!vfb->fbo) {
+		return false;
+	}
+
+	return GetDepthStencilBuffer(vfb, buffer, false);
 }
 
 bool FramebufferManagerD3D11::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {
-	return false;
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (!vfb) {
+		vfb = GetVFBAt(fb_address);
+	}
+
+	if (!vfb) {
+		return false;
+	}
+
+	if (!vfb->fbo) {
+		return false;
+	}
+
+	return GetDepthStencilBuffer(vfb, buffer, true);
 }
 
 bool FramebufferManagerD3D11::GetOutputFramebuffer(GPUDebugBuffer &buffer) {

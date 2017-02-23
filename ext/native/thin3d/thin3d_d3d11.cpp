@@ -1064,9 +1064,11 @@ public:
 	ID3D11Texture2D *colorTex = nullptr;
 	ID3D11RenderTargetView *colorRTView = nullptr;
 	ID3D11ShaderResourceView *colorSRView = nullptr;
+	DXGI_FORMAT colorFormat = DXGI_FORMAT_UNKNOWN;
 
 	ID3D11Texture2D *depthStencilTex = nullptr;
 	ID3D11DepthStencilView *depthStencilRTView = nullptr;
+	DXGI_FORMAT depthStencilFormat = DXGI_FORMAT_UNKNOWN;
 };
 
 Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
@@ -1074,14 +1076,14 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	D3D11Framebuffer *fb = new D3D11Framebuffer();
 	fb->width = desc.width;
 	fb->height = desc.height;
-
 	if (desc.numColorAttachments) {
+		fb->colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 		D3D11_TEXTURE2D_DESC descColor{};
 		descColor.Width = desc.width;
 		descColor.Height = desc.height;
 		descColor.MipLevels = 1;
 		descColor.ArraySize = 1;
-		descColor.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		descColor.Format = fb->colorFormat;
 		descColor.SampleDesc.Count = 1;
 		descColor.SampleDesc.Quality = 0;
 		descColor.Usage = D3D11_USAGE_DEFAULT;
@@ -1106,12 +1108,13 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	}
 
 	if (desc.z_stencil) {
+		fb->depthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		D3D11_TEXTURE2D_DESC descDepth{};
 		descDepth.Width = desc.width;
 		descDepth.Height = desc.height;
 		descDepth.MipLevels = 1;
 		descDepth.ArraySize = 1;
-		descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		descDepth.Format = fb->depthStencilFormat;
 		descDepth.SampleDesc.Count = 1;
 		descDepth.SampleDesc.Quality = 0;
 		descDepth.Usage = D3D11_USAGE_DEFAULT;
@@ -1240,6 +1243,9 @@ uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int chann
 	case FB_DEPTH_BIT: return (uintptr_t)fb->depthStencilTex;
 	case FB_COLOR_BIT | FB_VIEW_BIT: return (uintptr_t)fb->colorRTView;
 	case FB_DEPTH_BIT | FB_VIEW_BIT: return (uintptr_t)fb->depthStencilRTView;
+	case FB_COLOR_BIT | FB_FORMAT_BIT: return (uintptr_t)fb->colorFormat;
+	case FB_DEPTH_BIT | FB_FORMAT_BIT: return (uintptr_t)fb->depthStencilFormat;
+	case FB_STENCIL_BIT | FB_FORMAT_BIT: return (uintptr_t)fb->depthStencilFormat;
 	default:
 		return 0;
 	}

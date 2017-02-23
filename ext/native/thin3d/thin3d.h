@@ -334,7 +334,8 @@ enum FBChannel {
 
 	// Implementation specific
 	FB_SURFACE_BIT = 32,  // Used in conjunction with the others in D3D9 to get surfaces through get_api_texture
-	FB_VIEW_BIT = 64,  // Used in conjunction with the others in D3D11 to get shader resource views through get_api_texture
+	FB_VIEW_BIT = 64,     // Used in conjunction with the others in D3D11 to get shader resource views through get_api_texture
+	FB_FORMAT_BIT = 128,  // Actually retrieves the native format instead. D3D11 only.
 };
 
 enum FBBlitFilter {
