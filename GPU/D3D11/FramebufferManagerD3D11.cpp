@@ -15,11 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <d3d11.h>
+#include <D3Dcompiler.h>
+
 #include "math/lin/matrix4x4.h"
 #include "ext/native/thin3d/thin3d.h"
 #include "base/basictypes.h"
+#include "file/vfs.h"
+#include "file/zip_read.h"
+#include "i18n/i18n.h"
 
 #include "Common/ColorConv.h"
+#include "Common/MathUtil.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -30,11 +37,15 @@
 #include "GPU/Debugger/Stepping.h"
 
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/PostShader.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
+
+#include "UI/OnScreenDisplay.h"
 
 #include "ext/native/thin3d/thin3d.h"
 
@@ -76,6 +87,13 @@ const D3D11_INPUT_ELEMENT_DESC FramebufferManagerD3D11::g_QuadVertexElements[2] 
 	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
 };
 
+// The current simple shader translator outputs everything as semantic texcoords, so let's just play along
+// for simplicity.
+const D3D11_INPUT_ELEMENT_DESC FramebufferManagerD3D11::g_PostVertexElements[2] = {
+	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },
+	{ "TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
+};
+
 FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	: FramebufferManagerCommon(draw) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
@@ -105,6 +123,14 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	vb.Usage = D3D11_USAGE_DYNAMIC;
 	vb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	device_->CreateBuffer(&vb, nullptr, &quadBuffer_);
+	vb.ByteWidth = ROUND_UP(sizeof(PostShaderUniforms), 16);
+	vb.Usage = D3D11_USAGE_DYNAMIC;
+	vb.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	device_->CreateBuffer(&vb, nullptr, &postConstants_);
+
+	ShaderTranslationInit();
+
+	CompilePostShader();
 
 	D3D11_TEXTURE2D_DESC packDesc{};
 	packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
@@ -121,6 +147,8 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	packTexture_->Release();
+	ShaderTranslationShutdown();
+
 	// Drawing cleanup
 	if (quadVertexShader_)
 		quadVertexShader_->Release();
@@ -129,11 +157,22 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	quadInputLayout_->Release();
 	quadBuffer_->Release();
 	fsQuadBuffer_->Release();
+	postConstants_->Release();
 
 	if (drawPixelsTex_)
 		drawPixelsTex_->Release();
 	if (drawPixelsTexView_)
 		drawPixelsTexView_->Release();
+
+	if (postVertexShader_) {
+		postVertexShader_->Release();
+	}
+	if (postPixelShader_) {
+		postPixelShader_->Release();
+	}
+	if (postInputLayout_) {
+		postInputLayout_->Release();
+	}
 
 	// FBO cleanup
 	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
@@ -174,6 +213,75 @@ void FramebufferManagerD3D11::DisableState() {
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0xFF);
+}
+
+void FramebufferManagerD3D11::CompilePostShader() {
+	SetNumExtraFBOs(0);
+
+	std::string vsSource;
+	std::string psSource;
+
+	if (postVertexShader_) {
+		postVertexShader_->Release();
+		postVertexShader_ = nullptr;
+	}
+	if (postPixelShader_) {
+		postPixelShader_->Release();
+		postPixelShader_ = nullptr;
+	}
+	if (postInputLayout_) {
+		postInputLayout_->Release();
+		postInputLayout_ = nullptr;
+	}
+
+	const ShaderInfo *shaderInfo = 0;
+	if (g_Config.sPostShaderName == "Off") {
+		usePostShader_ = false;
+		return;
+	}
+
+	usePostShader_ = false;
+
+	shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	if (shaderInfo) {
+		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+		size_t sz;
+		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
+		if (!vs)
+			return;
+		char *ps = (char *)VFSReadFile(shaderInfo->fragmentShaderFile.c_str(), &sz);
+		if (!ps) {
+			free(vs);
+			return;
+		}
+		std::string vsSourceGLSL = vs;
+		std::string psSourceGLSL = ps;
+		free(vs);
+		free(ps);
+		TranslatedShaderMetadata metaVS, metaFS;
+		std::string errorVS, errorFS;
+		if (!TranslateShader(&vsSource, HLSL_D3D11, &metaVS, vsSourceGLSL, GLSL_140, Draw::ShaderStage::VERTEX, &errorVS))
+			return;
+		if (!TranslateShader(&psSource, HLSL_D3D11, &metaFS, psSourceGLSL, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorFS))
+			return;
+	} else {
+		return;
+	}
+	I18NCategory *gr = GetI18NCategory("Graphics");
+
+	UINT flags = D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
+	std::vector<uint8_t> byteCode;
+	postVertexShader_ = CreateVertexShaderD3D11(device_, vsSource.data(), vsSource.size(), &byteCode, flags);
+	if (!postVertexShader_) {
+		return;
+	}
+	postPixelShader_ = CreatePixelShaderD3D11(device_, psSource.data(), psSource.size(), flags);
+	if (!postPixelShader_) {
+		postVertexShader_->Release();
+		return;
+	}
+	device_->CreateInputLayout(g_PostVertexElements, 2, byteCode.data(), byteCode.size(), &postInputLayout_);
+	usePostShader_ = true;
 }
 
 void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -334,10 +442,27 @@ void FramebufferManagerD3D11::Bind2DShader() {
 }
 
 void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms) {
-	// TODO: Actually bind a post processing shader
-	context_->IASetInputLayout(quadInputLayout_);
-	context_->PSSetShader(quadPixelShader_, 0, 0);
-	context_->VSSetShader(quadVertexShader_, 0, 0);
+	if (!postPixelShader_) {
+		if (usePostShader_) {
+			CompilePostShader();
+		}
+		if (!usePostShader_) {
+			context_->IASetInputLayout(quadInputLayout_);
+			context_->PSSetShader(quadPixelShader_, 0, 0);
+			context_->VSSetShader(quadVertexShader_, 0, 0);
+			return;
+		}
+	}
+	context_->IASetInputLayout(postInputLayout_);
+	context_->PSSetShader(postPixelShader_, 0, 0);
+	context_->VSSetShader(postVertexShader_, 0, 0);
+
+	D3D11_MAPPED_SUBRESOURCE map;
+	context_->Map(postConstants_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	memcpy(map.pData, &uniforms, sizeof(uniforms));
+	context_->Unmap(postConstants_, 0);
+	context_->VSSetConstantBuffers(0, 1, &postConstants_);  // Probably not necessary
+	context_->PSSetConstantBuffers(0, 1, &postConstants_);
 }
 
 void FramebufferManagerD3D11::RebindFramebuffer() {
@@ -741,18 +866,27 @@ void FramebufferManagerD3D11::PackDepthbuffer(VirtualFramebuffer *vfb, int x, in
 void FramebufferManagerD3D11::EndFrame() {
 	if (resized_) {
 		DestroyAllFBOs(false);
+
+		// Check if postprocessing shader is doing upscaling as it requires native resolution
+		const ShaderInfo *shaderInfo = 0;
+		if (g_Config.sPostShaderName != "Off") {
+			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+		}
+
+		postShaderIsUpscalingFilter_ = shaderInfo ? shaderInfo->isUpscalingFilter : false;
+
 		// Actually, auto mode should be more granular...
 		// Round up to a zoom factor for the render size.
 		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) { // auto mode
-											// Use the longest dimension
+		if (zoom == 0) {
+			// auto mode, use the longest dimension
 			if (!g_Config.IsPortrait()) {
 				zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
 			} else {
 				zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
 			}
 		}
-		if (zoom <= 1)
+		if (zoom <= 1 || postShaderIsUpscalingFilter_)
 			zoom = 1;
 
 		if (g_Config.IsPortrait()) {
@@ -769,6 +903,9 @@ void FramebufferManagerD3D11::EndFrame() {
 			ShowScreenResolution();
 		}
 		resized_ = false;
+
+		// Might have a new post shader - let's compile it.
+		CompilePostShader();
 	}
 }
 

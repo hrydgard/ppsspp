@@ -112,6 +112,7 @@ private:
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
+	void CompilePostShader();
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
