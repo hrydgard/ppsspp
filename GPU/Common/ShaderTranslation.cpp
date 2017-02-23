@@ -58,6 +58,15 @@ void ShaderTranslationShutdown() {
 	glslang::FinalizeProcess();
 }
 
+std::string Preprocess(std::string code, ShaderLanguage lang) {
+	// This takes GL up to the version we need.
+	return code;
+}
+
+std::string Postprocess(std::string code, ShaderLanguage lang) {
+	return code;
+}
+
 bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, Draw::ShaderStage stage, std::string *errorMessage) {
 	if (srcLang != GLSL_300 && srcLang != GLSL_140)
 		return false;
@@ -73,6 +82,8 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 
 	EShLanguage shaderStage = GetLanguage(stage);
 	glslang::TShader shader(shaderStage);
+
+	std::string preprocessed = Preprocess(src, srcLang);
 
 	shaderStrings[0] = src.c_str();
 	shader.setStrings(shaderStrings, 1);
@@ -134,7 +145,8 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		options.fixup_clipspace = true;
 		options.shader_model = 50;
 		hlsl.set_options(options);
-		*dest = hlsl.compile();
+		std::string raw = hlsl.compile();
+		*dest = Postprocess(raw, destLang);
 		return true;
 	}
 #endif

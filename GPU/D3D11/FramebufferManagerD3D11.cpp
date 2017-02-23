@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <d3d11.h>
+#include <D3Dcompiler.h>
+
 #include "math/lin/matrix4x4.h"
 #include "ext/native/thin3d/thin3d.h"
 #include "base/basictypes.h"
@@ -79,6 +82,13 @@ static const char *pscode =
 const D3D11_INPUT_ELEMENT_DESC FramebufferManagerD3D11::g_QuadVertexElements[2] = {
 	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },
 	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
+};
+
+// The current simple shader translator outputs everything as semantic texcoords, so let's just play along
+// for simplicity.
+const D3D11_INPUT_ELEMENT_DESC FramebufferManagerD3D11::g_PostVertexElements[2] = {
+	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },
+	{ "TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
 };
 
 FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
@@ -149,6 +159,16 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	if (drawPixelsTexView_)
 		drawPixelsTexView_->Release();
 
+	if (postVertexShader_) {
+		postVertexShader_->Release();
+	}
+	if (postPixelShader_) {
+		postPixelShader_->Release();
+	}
+	if (postInputLayout_) {
+		postInputLayout_->Release();
+	}
+
 	// FBO cleanup
 	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
 		it->second.fbo->Release();
@@ -198,6 +218,19 @@ void FramebufferManagerD3D11::CompilePostShader() {
 	std::string vsSource;
 	std::string psSource;
 
+	if (postVertexShader_) {
+		postVertexShader_->Release();
+		postVertexShader_ = nullptr;
+	}
+	if (postPixelShader_) {
+		postPixelShader_->Release();
+		postPixelShader_ = nullptr;
+	}
+	if (postInputLayout_) {
+		postInputLayout_->Release();
+		postInputLayout_ = nullptr;
+	}
+
 	const ShaderInfo *shaderInfo = 0;
 	if (g_Config.sPostShaderName == "Off") {
 		return;
@@ -229,17 +262,18 @@ void FramebufferManagerD3D11::CompilePostShader() {
 		return;
 	}
 
+	UINT flags = D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
 	std::vector<uint8_t> byteCode;
-	postVertexShader_ = CreateVertexShaderD3D11(device_, vsSource.data(), vsSource.size(), &byteCode);
+	postVertexShader_ = CreateVertexShaderD3D11(device_, vsSource.data(), vsSource.size(), &byteCode, flags);
 	if (!postVertexShader_) {
 		return;
 	}
-	postPixelShader_ = CreatePixelShaderD3D11(device_, psSource.data(), psSource.size());
+	postPixelShader_ = CreatePixelShaderD3D11(device_, psSource.data(), psSource.size(), flags);
 	if (!postPixelShader_) {
 		postVertexShader_->Release();
 		return;
 	}
-	device_->CreateInputLayout(g_QuadVertexElements, 2, byteCode.data(), byteCode.size(), &postInputLayout_);
+	device_->CreateInputLayout(g_PostVertexElements, 2, byteCode.data(), byteCode.size(), &postInputLayout_);
 	usePostShader_ = true;
 }
 

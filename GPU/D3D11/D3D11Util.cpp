@@ -9,10 +9,10 @@
 
 #include "D3D11Util.h"
 
-static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t codeSize, const char *target) {
+static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t codeSize, const char *target, UINT flags) {
 	ID3DBlob *compiledCode = nullptr;
 	ID3DBlob *errorMsgs = nullptr;
-	HRESULT result = ptr_D3DCompile(code, codeSize, nullptr, nullptr, nullptr, "main", target, 0, 0, &compiledCode, &errorMsgs);
+	HRESULT result = ptr_D3DCompile(code, codeSize, nullptr, nullptr, nullptr, "main", target, flags, 0, &compiledCode, &errorMsgs);
 	std::string errors;
 	if (errorMsgs) {
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
@@ -30,8 +30,8 @@ static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t cod
 	return std::vector<uint8_t>();
 }
 
-ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, std::vector<uint8_t> *byteCodeOut) {
-	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "vs_5_0");
+ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, std::vector<uint8_t> *byteCodeOut, UINT flags) {
+	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "vs_5_0", flags);
 	if (byteCode.empty())
 		return nullptr;
 
@@ -42,8 +42,8 @@ ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *co
 	return vs;
 }
 
-ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize) {
-	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "ps_5_0");
+ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, UINT flags) {
+	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "ps_5_0", flags);
 	if (byteCode.empty())
 		return nullptr;
 
@@ -52,8 +52,8 @@ ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code
 	return ps;
 }
 
-ID3D11ComputeShader *CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize) {
-	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "cs_5_0");
+ID3D11ComputeShader *CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, UINT flags) {
+	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "cs_5_0", flags);
 	if (byteCode.empty())
 		return nullptr;
 
@@ -61,6 +61,17 @@ ID3D11ComputeShader *CreateComputeShaderD3D11(ID3D11Device *device, const char *
 	device->CreateComputeShader(byteCode.data(), byteCode.size(), nullptr, &cs);
 	return cs;
 }
+
+ID3D11GeometryShader *CreateGeometryShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, UINT flags) {
+	std::vector<uint8_t> byteCode = CompileShaderToBytecode(code, codeSize, "gs_5_0", flags);
+	if (byteCode.empty())
+		return nullptr;
+
+	ID3D11GeometryShader *gs;
+	device->CreateGeometryShader(byteCode.data(), byteCode.size(), nullptr, &gs);
+	return gs;
+}
+
 
 void StockObjectsD3D11::Create(ID3D11Device *device) {
 	D3D11_BLEND_DESC blend_desc{};
