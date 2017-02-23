@@ -161,10 +161,8 @@ void GameSettingsScreen::CreateViews() {
 	renderingBackendChoice->HideChoice(1);  // D3D9
 	renderingBackendChoice->HideChoice(2);  // D3D11
 #else
-	if (!DoesVersionMatchWindows(6, 2)) {
-		// Hide the D3D11 choice if Windows version is older than Windows 8.
-		// We will later be able to support Windows 7 and Vista (unofficially) as well,
-		// but we currently depend on a texture format that's only available in Win8+.
+	if (!DoesVersionMatchWindows(6, 0)) {
+		// Hide the D3D11 choice if Windows version is older than Windows Vista.
 		renderingBackendChoice->HideChoice(2);  // D3D11
 	}
 #endif
