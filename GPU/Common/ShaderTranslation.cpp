@@ -113,6 +113,7 @@ static const Builtin builtins[] = {
 
 static const Builtin replacements[] = {
 	{ "mix(", "lerp(" },
+	{ "fract(", "frac(" },
 };
 
 static const char *cbufferDecl = R"(
