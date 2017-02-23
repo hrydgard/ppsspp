@@ -423,6 +423,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		} else {
 			if (boot_filename.empty()) {
 				boot_filename = argv[i];
+#ifdef _WIN32
+				boot_filename = ReplaceAll(boot_filename, "\\", "/");
+#endif
 				skipLogo = true;
 
 				std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
