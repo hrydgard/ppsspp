@@ -125,6 +125,7 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	device_->CreateBuffer(&vb, nullptr, &quadBuffer_);
 	vb.ByteWidth = ROUND_UP(sizeof(PostShaderUniforms), 16);
 	vb.Usage = D3D11_USAGE_DYNAMIC;
+	vb.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	device_->CreateBuffer(&vb, nullptr, &postConstants_);
 
 	ShaderTranslationInit();
@@ -156,6 +157,7 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	quadInputLayout_->Release();
 	quadBuffer_->Release();
 	fsQuadBuffer_->Release();
+	postConstants_->Release();
 
 	if (drawPixelsTex_)
 		drawPixelsTex_->Release();
@@ -454,6 +456,13 @@ void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms)
 	context_->IASetInputLayout(postInputLayout_);
 	context_->PSSetShader(postPixelShader_, 0, 0);
 	context_->VSSetShader(postVertexShader_, 0, 0);
+
+	D3D11_MAPPED_SUBRESOURCE map;
+	context_->Map(postConstants_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	memcpy(map.pData, &uniforms, sizeof(uniforms));
+	context_->Unmap(postConstants_, 0);
+	context_->VSSetConstantBuffers(0, 1, &postConstants_);  // Probably not necessary
+	context_->PSSetConstantBuffers(0, 1, &postConstants_);
 }
 
 void FramebufferManagerD3D11::RebindFramebuffer() {
@@ -877,7 +886,7 @@ void FramebufferManagerD3D11::EndFrame() {
 				zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
 			}
 		}
-		if (zoom <= 1)
+		if (zoom <= 1 || postShaderIsUpscalingFilter_)
 			zoom = 1;
 
 		if (g_Config.IsPortrait()) {
