@@ -601,11 +601,10 @@ void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualF
 }
 
 void TextureCacheCommon::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
-	const u64 cachekey = entry->CacheKey();
-
 	if (entry->framebuffer == framebuffer) {
+		const u64 cachekey = entry->CacheKey();
 		cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-		entry->framebuffer = 0;
+		entry->framebuffer = nullptr;
 		fbTexInfo_.erase(cachekey);
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}

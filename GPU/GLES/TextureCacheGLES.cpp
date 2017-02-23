@@ -71,8 +71,11 @@ void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) 
 
 void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	DEBUG_LOG(G3D, "Deleting texture %i", entry->textureName);
-	if (delete_them)
-		glDeleteTextures(1, &entry->textureName);
+	if (delete_them) {
+		if (entry->textureName != 0) {
+			glDeleteTextures(1, &entry->textureName);
+		}
+	}
 	entry->textureName = 0;
 }
 
@@ -539,14 +542,16 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 
-	// Always generate a texture name, we might need it if the texture is replaced later.
-	if (!replaceImages) {
-		entry->textureName = AllocTextureName();
-	}
-
 	if (entry->framebuffer) {
 		// Nothing else to do here.
 		return;
+	}
+
+	// Always generate a texture name unless it's a framebuffer, we might need it if the texture is replaced later.
+	if (!replaceImages) {
+		if (!entry->textureName) {
+			entry->textureName = AllocTextureName();
+		}
 	}
 
 	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
