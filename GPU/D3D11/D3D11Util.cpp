@@ -26,7 +26,6 @@ static std::vector<uint8_t> CompileShaderToBytecode(const char *code, size_t cod
 		compiledCode->Release();
 		return compiled;
 	}
-	Crash();
 	return std::vector<uint8_t>();
 }
 

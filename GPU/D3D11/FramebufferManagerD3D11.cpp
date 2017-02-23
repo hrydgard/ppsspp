@@ -23,6 +23,7 @@
 #include "base/basictypes.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
+#include "i18n/i18n.h"
 
 #include "Common/ColorConv.h"
 #include "Common/MathUtil.h"
@@ -43,6 +44,8 @@
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
+
+#include "UI/OnScreenDisplay.h"
 
 #include "ext/native/thin3d/thin3d.h"
 
@@ -211,8 +214,6 @@ void FramebufferManagerD3D11::DisableState() {
 }
 
 void FramebufferManagerD3D11::CompilePostShader() {
-	usePostShader_ = false;
-
 	SetNumExtraFBOs(0);
 
 	std::string vsSource;
@@ -233,8 +234,11 @@ void FramebufferManagerD3D11::CompilePostShader() {
 
 	const ShaderInfo *shaderInfo = 0;
 	if (g_Config.sPostShaderName == "Off") {
+		usePostShader_ = false;
 		return;
 	}
+
+	usePostShader_ = false;
 
 	shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
 	if (shaderInfo) {
@@ -261,6 +265,7 @@ void FramebufferManagerD3D11::CompilePostShader() {
 	} else {
 		return;
 	}
+	I18NCategory *gr = GetI18NCategory("Graphics");
 
 	UINT flags = D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
 	std::vector<uint8_t> byteCode;
@@ -852,11 +857,20 @@ void FramebufferManagerD3D11::PackDepthbuffer(VirtualFramebuffer *vfb, int x, in
 void FramebufferManagerD3D11::EndFrame() {
 	if (resized_) {
 		DestroyAllFBOs(false);
+
+		// Check if postprocessing shader is doing upscaling as it requires native resolution
+		const ShaderInfo *shaderInfo = 0;
+		if (g_Config.sPostShaderName != "Off") {
+			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+		}
+
+		postShaderIsUpscalingFilter_ = shaderInfo ? shaderInfo->isUpscalingFilter : false;
+
 		// Actually, auto mode should be more granular...
 		// Round up to a zoom factor for the render size.
 		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) { // auto mode
-											// Use the longest dimension
+		if (zoom == 0) {
+			// auto mode, use the longest dimension
 			if (!g_Config.IsPortrait()) {
 				zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
 			} else {
@@ -880,6 +894,9 @@ void FramebufferManagerD3D11::EndFrame() {
 			ShowScreenResolution();
 		}
 		resized_ = false;
+
+		// Might have a new post shader - let's compile it.
+		CompilePostShader();
 	}
 }
 

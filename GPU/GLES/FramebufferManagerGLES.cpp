@@ -123,62 +123,65 @@ void FramebufferManagerGLES::CompileDraw2DProgram() {
 			glsl_bind(draw2dprogram_);
 			glUniform1i(draw2dprogram_->sampler0, 0);
 		}
-
-		SetNumExtraFBOs(0);
-		const ShaderInfo *shaderInfo = 0;
-		if (g_Config.sPostShaderName != "Off") {
-			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-		}
-
-		if (shaderInfo) {
-			postShaderAtOutputResolution_ = shaderInfo->outputResolution;
-			postShaderProgram_ = glsl_create(shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), &errorString);
-			if (!postShaderProgram_) {
-				// DO NOT turn this into a report, as it will pollute our logs with all kinds of
-				// user shader experiments.
-				ERROR_LOG(G3D, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
-				// let's show the first line of the error string as an OSM.
-				std::set<std::string> blacklistedLines;
-				// These aren't useful to show, skip to the first interesting line.
-				blacklistedLines.insert("Fragment shader failed to compile with the following errors:");
-				blacklistedLines.insert("Vertex shader failed to compile with the following errors:");
-				blacklistedLines.insert("Compile failed.");
-				blacklistedLines.insert("");
-
-				std::string firstLine;
-				size_t start = 0;
-				for (size_t i = 0; i < errorString.size(); i++) {
-					if (errorString[i] == '\n') {
-						firstLine = errorString.substr(start, i - start);
-						if (blacklistedLines.find(firstLine) == blacklistedLines.end()) {
-							break;
-						}
-						start = i + 1;
-						firstLine.clear();
-					}
-				}
-				if (!firstLine.empty()) {
-					host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
-				} else {
-					host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
-				}
-				usePostShader_ = false;
-			} else {
-				glsl_bind(postShaderProgram_);
-				glUniform1i(postShaderProgram_->sampler0, 0);
-				SetNumExtraFBOs(1);
-				deltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
-				pixelDeltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
-				timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
-				usePostShader_ = true;
-			}
-		} else {
-			postShaderProgram_ = nullptr;
-			usePostShader_ = false;
-		}
-
-		glsl_unbind();
+		CompilePostShader();
 	}
+}
+
+void FramebufferManagerGLES::CompilePostShader() {
+	SetNumExtraFBOs(0);
+	const ShaderInfo *shaderInfo = 0;
+	if (g_Config.sPostShaderName != "Off") {
+		shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	}
+
+	if (shaderInfo) {
+		std::string errorString;
+		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+		postShaderProgram_ = glsl_create(shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), &errorString);
+		if (!postShaderProgram_) {
+			// DO NOT turn this into a report, as it will pollute our logs with all kinds of
+			// user shader experiments.
+			ERROR_LOG(G3D, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
+			// let's show the first line of the error string as an OSM.
+			std::set<std::string> blacklistedLines;
+			// These aren't useful to show, skip to the first interesting line.
+			blacklistedLines.insert("Fragment shader failed to compile with the following errors:");
+			blacklistedLines.insert("Vertex shader failed to compile with the following errors:");
+			blacklistedLines.insert("Compile failed.");
+			blacklistedLines.insert("");
+
+			std::string firstLine;
+			size_t start = 0;
+			for (size_t i = 0; i < errorString.size(); i++) {
+				if (errorString[i] == '\n') {
+					firstLine = errorString.substr(start, i - start);
+					if (blacklistedLines.find(firstLine) == blacklistedLines.end()) {
+						break;
+					}
+					start = i + 1;
+					firstLine.clear();
+				}
+			}
+			if (!firstLine.empty()) {
+				host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+			} else {
+				host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+			}
+			usePostShader_ = false;
+		} else {
+			glsl_bind(postShaderProgram_);
+			glUniform1i(postShaderProgram_->sampler0, 0);
+			SetNumExtraFBOs(1);
+			deltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
+			pixelDeltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
+			timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
+			usePostShader_ = true;
+		}
+	} else {
+		postShaderProgram_ = nullptr;
+		usePostShader_ = false;
+	}
+	glsl_unbind();
 }
 
 void FramebufferManagerGLES::Bind2DShader() {

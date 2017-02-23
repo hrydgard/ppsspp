@@ -977,7 +977,6 @@ namespace MainWindow {
 				g_Config.sPostShaderName = availableShaders[index];
 
 				NativeMessageReceived("gpu resized", "");
-
 				break;
 			}
 
