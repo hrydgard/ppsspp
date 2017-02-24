@@ -430,11 +430,12 @@ void __AudioUpdate() {
 
 // numFrames is number of stereo frames.
 // This is called from *outside* the emulator thread.
-int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
+int __AudioMix(s16 *outstereo, int numFrames, int sampleRate) {
 	if (audioQueue) {
 		return audioQueue->Mix(outstereo, numFrames, false, sampleRate);
 	} else {
-		memset(outstereo, 0, numFrames * 2 * sizeof(short));
+		memset(outstereo, 0, numFrames * 2 * sizeof(s16));
+		return numFrames;
 	}
 }
 
