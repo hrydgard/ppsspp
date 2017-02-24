@@ -25,6 +25,7 @@ private:
 	double last_now_;
 	int buffered_;
 	int64_t mixed_samples_;
+	int curSampleRate_;
 	AudioDebugStats stats_;
 	bool lastUnthrottle_;
 };

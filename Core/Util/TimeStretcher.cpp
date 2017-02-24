@@ -27,7 +27,7 @@ namespace AudioCore {
 
 	struct TimeStretcher::Impl {
 		soundtouch::SoundTouch soundtouch;
-\
+
 		double frame_timer = 0.0;
 		size_t samples_queued = 0;
 
