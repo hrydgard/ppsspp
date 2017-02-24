@@ -1,5 +1,4 @@
-#ifndef _NET_HTTP_HTTP_CLIENT
-#define _NET_HTTP_HTTP_CLIENT
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -9,7 +8,9 @@
 #include "thread/thread.h"
 
 #ifdef _WIN32
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <winsock2.h>
 #else
 #include <netinet/in.h>
@@ -165,8 +166,4 @@ private:
 	std::vector<std::shared_ptr<Download>> downloads_;
 };
 
-
 }	// http
-
-#endif	// _NET_HTTP_HTTP_CLIENT
-

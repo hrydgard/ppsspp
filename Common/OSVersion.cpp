@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 
 #ifdef _MSC_VER
 
@@ -6,6 +7,12 @@
 #include "Common/CommonWindows.h"
 
 bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, uint32_t spMinor, bool greater) {
+#if PPSSPP_PLATFORM(UWP)
+	if (greater)
+		return true;
+	else
+		return major >= 7;
+#else
 	uint64_t conditionMask = 0;
 	OSVERSIONINFOEX osvi;
 	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
@@ -25,6 +32,7 @@ bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, u
 	const uint32_t typeMask = VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR;
 
 	return VerifyVersionInfo(&osvi, typeMask, conditionMask) != FALSE;
+#endif
 }
 
 std::string GetWindowsVersion() {

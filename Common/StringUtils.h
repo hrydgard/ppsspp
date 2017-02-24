@@ -23,6 +23,10 @@
 
 
 void truncate_cpy(char *dest, size_t destSize, const char *src);
+template<size_t Count>
+inline void truncate_cpy(char(&out)[Count], const char *src) {
+	truncate_cpy(out, Count, src);
+}
 
 long parseHexLong(std::string s);
 long parseLong(std::string s);

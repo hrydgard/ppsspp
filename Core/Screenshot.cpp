@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
+#include <algorithm>
 #ifdef USING_QT_UI
 #include <QtGui/QImage>
 #else
@@ -26,11 +29,8 @@
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
+#include "Core/Core.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#ifdef _WIN32
-#include "GPU/Directx9/GPU_DX9.h"
-#endif
-#include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 

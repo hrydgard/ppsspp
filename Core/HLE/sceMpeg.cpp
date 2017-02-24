@@ -901,6 +901,8 @@ static H264Frames *pmpframes;
 
 // decode pmp video to RGBA format
 static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
+
+#ifdef USE_FFMPEG
 	// the current video is pmp iff pmp_videoSource is a valid addresse
 	MpegContext* ctx = getMpegCtx(pmpctxAddr);
 	if (Memory::IsValidAddress(pmp_videoSource)){
@@ -1014,6 +1016,9 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 	}
 	// not a pmp video, return false
 	return false;
+#else
+	return false;
+#endif
 }
 
 
@@ -1098,6 +1103,7 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
 
 	if (ispmp){
+#ifdef USE_FFMPEG
 		while (pmp_queue.size() != 0){
 			// playing all pmp_queue frames
 			ctx->mediaengine->m_pFrameRGB = pmp_queue.front();
@@ -1110,6 +1116,7 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 			hleDelayResult(0, "pmp video decode", 30);
 			pmp_queue.pop_front();
 		}
+#endif
 	}
 	else if(ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);

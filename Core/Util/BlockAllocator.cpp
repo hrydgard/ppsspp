@@ -19,6 +19,7 @@
 
 #include "Common/Log.h"
 #include "Common/ChunkFile.h"
+#include "Common/StringUtils.h"
 #include "Core/Util/BlockAllocator.h"
 #include "Core/Reporting.h"
 
@@ -480,16 +481,15 @@ void BlockAllocator::DoState(PointerWrap &p)
 BlockAllocator::Block::Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next)
 : start(_start), size(_size), taken(_taken), prev(_prev), next(_next)
 {
-	strcpy(tag, "(untitled)");
+	truncate_cpy(tag, "(untitled)");
 }
 
 void BlockAllocator::Block::SetTag(const char *_tag)
 {
 	if (_tag)
-		strncpy(tag, _tag, 32);
+		truncate_cpy(tag, _tag);
 	else
-		strncpy(tag, "---", 32);
-	tag[31] = 0;
+		truncate_cpy(tag, "---");
 }
 
 void BlockAllocator::Block::DoState(PointerWrap &p)

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "file/file_util.h"
+#include "util/text/utf8.h"
 
 #include "Common/StringUtils.h"
 
@@ -249,15 +250,17 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 
 static std::string NormalizePath(const std::string &path) {
 #ifdef _WIN32
-	char buf[512] = {0};
-	if (GetFullPathNameA(path.c_str(), sizeof(buf) - 1, buf, NULL) == 0)
+	wchar_t buf[512] = {0};
+	std::wstring wpath = ConvertUTF8ToWString(path);
+	if (GetFullPathName(wpath.c_str(), sizeof(buf) - 1, buf, NULL) == 0)
 		return "";
+	return ConvertWStringToUTF8(buf);
 #else
 	char buf[PATH_MAX + 1];
 	if (realpath(path.c_str(), buf) == NULL)
 		return "";
-#endif
 	return buf;
+#endif
 }
 
 bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {

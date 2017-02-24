@@ -76,6 +76,12 @@
 #if defined(_WIN32)
     // Covers both 32 and 64bit Windows
     #define PPSSPP_PLATFORM_WINDOWS 1
+    // UWP trickery
+    #ifdef WINAPI_FAMILY
+        #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
+            #define PPSSPP_PLATFORM_UWP 1
+        #endif
+    #endif
 #elif defined(__APPLE__)
     #include <TargetConditionals.h>
     #if TARGET_IPHONE_SIMULATOR
