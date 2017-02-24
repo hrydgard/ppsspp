@@ -1,3 +1,5 @@
+#include "ppsspp_config.h"
+
 #include "thin3d/thin3d.h"
 #include "thin3d/d3d11_loader.h"
 #include "math/dataconv.h"
@@ -168,10 +170,16 @@ private:
 };
 
 static void GetRes(HWND hWnd, int &xres, int &yres) {
+#if PPSSPP_PLATFORM(UWP)
+	// TEMPORARY TODO UWP
+	xres = 1024;
+	yres = 768;
+#else
 	RECT rc;
 	GetClientRect(hWnd, &rc);
 	xres = rc.right - rc.left;
 	yres = rc.bottom - rc.top;
+#endif
 }
 
 D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, HWND hWnd)

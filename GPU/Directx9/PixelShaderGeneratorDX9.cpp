@@ -19,7 +19,6 @@
 
 #include "Core/Reporting.h"
 #include "Core/Config.h"
-#include "gfx/d3d9_shader.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/GPUStateUtils.h"

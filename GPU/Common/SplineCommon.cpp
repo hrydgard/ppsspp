@@ -1023,7 +1023,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	// Bezier patches share less control points than spline patches. Otherwise they are pretty much the same (except bezier don't support the open/close thing)
 	int num_patches_u = (count_u - 1) / 3;
 	int num_patches_v = (count_v - 1) / 3;
-	BezierPatch *patches;
+	BezierPatch *patches = nullptr;
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
 		for (int idx = 0; idx < count_u * count_v; idx++) {
 			SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(idx) : idx);

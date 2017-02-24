@@ -9,10 +9,8 @@
 #include "math/math_util.h"
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_debug_log.h"
-#include "gfx/gl_common.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/draw_text.h"
-#include "gfx_es2/glsl_program.h"
 #include "util/text/utf8.h"
 #include "util/text/wrap_text.h"
 

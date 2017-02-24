@@ -5,7 +5,7 @@
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #include "GL/wglew.h"
 #endif
 
