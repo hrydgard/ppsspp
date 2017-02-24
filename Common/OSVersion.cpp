@@ -35,6 +35,25 @@ bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, u
 #endif
 }
 
+bool IsVistaOrHigher() {
+#if PPSSPP_PLATFORM(UWP)
+	return true;
+#else
+	OSVERSIONINFOEX osvi;
+	DWORDLONG dwlConditionMask = 0;
+	int op = VER_GREATER_EQUAL;
+	ZeroMemory(&osvi, sizeof(osvi));
+	osvi.dwOSVersionInfoSize = sizeof(osvi);
+	osvi.dwMajorVersion = 6;  // Vista is 6.0
+	osvi.dwMinorVersion = 0;
+
+	VER_SET_CONDITION(dwlConditionMask, VER_MAJORVERSION, op);
+	VER_SET_CONDITION(dwlConditionMask, VER_MINORVERSION, op);
+
+	return VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, dwlConditionMask) != FALSE;
+#endif
+}
+
 std::string GetWindowsVersion() {
 	const bool IsWindowsXPSP2 = DoesVersionMatchWindows(5, 1, 2, 0, false);
 	const bool IsWindowsXPSP3 = DoesVersionMatchWindows(5, 1, 3, 0, false);

@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ppsspp_config.h"
 #include "CommonWindows.h"
 
 #include <WinUser.h>
@@ -8,19 +9,12 @@
 #include "Misc.h"
 #include "util/text/utf8.h"
 
-bool IsVistaOrHigher() {
-	OSVERSIONINFOEX osvi;
-	DWORDLONG dwlConditionMask = 0;
-	int op = VER_GREATER_EQUAL;
-	ZeroMemory(&osvi, sizeof(osvi));
-	osvi.dwOSVersionInfoSize = sizeof(osvi);
-	osvi.dwMajorVersion = 6;  // Vista is 6.0
-	osvi.dwMinorVersion = 0;
-
-	VER_SET_CONDITION(dwlConditionMask, VER_MAJORVERSION, op);
-	VER_SET_CONDITION(dwlConditionMask, VER_MINORVERSION, op);
-
-	return VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, dwlConditionMask) != FALSE;
+bool KeyDownAsync(int vkey) {
+#if PPSSPP_PLATFORM(UWP)
+	return 0;
+#else
+	return (GetAsyncKeyState(vkey) & 0x8000) != 0;
+#endif
 }
 
 namespace W32Util

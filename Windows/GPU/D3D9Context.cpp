@@ -9,6 +9,7 @@
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Common/OSVersion.h"
 #include "Windows/GPU/D3D9Context.h"
 #include "Windows/W32Util/Misc.h"
 #include "thin3d/thin3d.h"

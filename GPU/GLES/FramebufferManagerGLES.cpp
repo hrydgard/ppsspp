@@ -19,7 +19,7 @@
 #include <algorithm>
 
 #include "profiler/profiler.h"
-
+#include "gfx/gl_common.h"
 #include "gfx_es2/glsl_program.h"
 #include "thin3d/thin3d.h"
 

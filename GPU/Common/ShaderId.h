@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <cstring>
 #include <cstdint>
 #include "base/basictypes.h"
 
