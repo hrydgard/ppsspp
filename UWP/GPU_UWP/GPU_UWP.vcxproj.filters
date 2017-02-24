@@ -1,0 +1,291 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>{73b2cfa4-f51e-48f5-a9fd-2c4df203a4f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="D3D11">
+      <UniqueIdentifier>{7634891c-a60e-48d4-abdb-d8fe347dfef5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="D3D9">
+      <UniqueIdentifier>{508714cf-18c6-4a82-b92d-1527d9a100f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Software">
+      <UniqueIdentifier>{15dc3187-4c49-46a7-8027-6ff23564cc22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Debugger">
+      <UniqueIdentifier>{b5c82a80-e146-4133-b199-a07a427f04cc}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="..\..\GPU\Common\DepalettizeShaderCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\DrawEngineCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\FramebufferCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\GPUDebugInterface.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\GPUStateUtils.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\IndexGenerator.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\PostShader.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\ShaderId.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\ShaderTranslation.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\ShaderUniforms.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\SoftwareTransformCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\SplineCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\TextureCacheCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\TextureDecoder.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\TextureDecoderNEON.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\TextureScalerCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\TransformCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderArm.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderArm64.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderFake.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderX86.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\D3D11Util.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\DepalettizeShaderD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\DrawEngineD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\FragmentShaderGeneratorD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\FramebufferManagerD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\GPU_D3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\ShaderManagerD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\StateMappingD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\StencilBufferD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\TextureCacheD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\TextureScalerD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\D3D11\VertexShaderGeneratorD3D11.cpp">
+      <Filter>D3D11</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.cpp">
+      <Filter>D3D9</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Directx9\VertexShaderGeneratorDX9.cpp">
+      <Filter>D3D9</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\GeDisasm.cpp" />
+    <ClCompile Include="..\..\GPU\GPU.cpp" />
+    <ClCompile Include="..\..\GPU\GPUCommon.cpp" />
+    <ClCompile Include="..\..\GPU\GPUState.cpp" />
+    <ClCompile Include="..\..\GPU\Math3D.cpp" />
+    <ClCompile Include="..\..\GPU\Software\Clipper.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Software\Lighting.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Software\Rasterizer.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Software\SoftGpu.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Software\TransformUnit.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\ShaderCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\DrawEngineCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\FramebufferCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\GPUDebugInterface.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\GPUStateUtils.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\IndexGenerator.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\PostShader.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\ShaderCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\ShaderId.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\ShaderTranslation.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\ShaderUniforms.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\SoftwareLighting.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\SoftwareTransformCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\SplineCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\TextureCacheCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\TextureDecoder.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\TextureDecoderNEON.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\TextureScalerCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\TransformCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\VertexDecoderCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\D3D11Util.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\DepalettizeShaderD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\DrawEngineD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\FragmentShaderGeneratorD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\FramebufferManagerD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\GPU_D3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\ShaderManagerD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\StateMappingD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\TextureCacheD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\TextureScalerD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\D3D11\VertexShaderGeneratorD3D11.h">
+      <Filter>D3D11</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.h">
+      <Filter>D3D9</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Directx9\VertexShaderGeneratorDX9.h">
+      <Filter>D3D9</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\ge_constants.h" />
+    <ClInclude Include="..\..\GPU\GeDisasm.h" />
+    <ClInclude Include="..\..\GPU\GPU.h" />
+    <ClInclude Include="..\..\GPU\GPUCommon.h" />
+    <ClInclude Include="..\..\GPU\GPUInterface.h" />
+    <ClInclude Include="..\..\GPU\GPUState.h" />
+    <ClInclude Include="..\..\GPU\Math3D.h" />
+    <ClInclude Include="..\..\GPU\Software\Clipper.h">
+      <Filter>Software</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Software\Lighting.h">
+      <Filter>Software</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Software\Rasterizer.h">
+      <Filter>Software</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Software\SoftGpu.h">
+      <Filter>Software</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Software\TransformUnit.h">
+      <Filter>Software</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Debugger\Breakpoints.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Debugger\Stepping.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

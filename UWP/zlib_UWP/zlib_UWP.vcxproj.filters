@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\ext\zlib\adler32.c" />
+    <ClCompile Include="..\..\ext\zlib\compress.c" />
+    <ClCompile Include="..\..\ext\zlib\crc32.c" />
+    <ClCompile Include="..\..\ext\zlib\deflate.c" />
+    <ClCompile Include="..\..\ext\zlib\gzclose.c" />
+    <ClCompile Include="..\..\ext\zlib\gzlib.c" />
+    <ClCompile Include="..\..\ext\zlib\gzread.c" />
+    <ClCompile Include="..\..\ext\zlib\gzwrite.c" />
+    <ClCompile Include="..\..\ext\zlib\infback.c" />
+    <ClCompile Include="..\..\ext\zlib\inffast.c" />
+    <ClCompile Include="..\..\ext\zlib\inflate.c" />
+    <ClCompile Include="..\..\ext\zlib\inftrees.c" />
+    <ClCompile Include="..\..\ext\zlib\trees.c" />
+    <ClCompile Include="..\..\ext\zlib\uncompr.c" />
+    <ClCompile Include="..\..\ext\zlib\zutil.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="..\..\ext\zlib\crc32.h" />
+    <ClInclude Include="..\..\ext\zlib\deflate.h" />
+    <ClInclude Include="..\..\ext\zlib\gzguts.h" />
+    <ClInclude Include="..\..\ext\zlib\inffast.h" />
+    <ClInclude Include="..\..\ext\zlib\inffixed.h" />
+    <ClInclude Include="..\..\ext\zlib\inflate.h" />
+    <ClInclude Include="..\..\ext\zlib\inftrees.h" />
+    <ClInclude Include="..\..\ext\zlib\trees.h" />
+    <ClInclude Include="..\..\ext\zlib\zconf.h" />
+    <ClInclude Include="..\..\ext\zlib\zlib.h" />
+    <ClInclude Include="..\..\ext\zlib\zutil.h" />
+  </ItemGroup>
+</Project>

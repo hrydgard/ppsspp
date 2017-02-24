@@ -1,0 +1,335 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM">
+      <Configuration>Release</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{5d271429-c288-4534-98af-94475d940058}</ProjectGuid>
+    <Keyword>StaticLibrary</Keyword>
+    <RootNamespace>GPU_UWP</RootNamespace>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
+    <AppContainerApplication>true</AppContainerApplication>
+    <ApplicationType>Windows Store</ApplicationType>
+    <WindowsTargetPlatformVersion>10.0.10586.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.10240.0</WindowsTargetPlatformMinVersion>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../Common;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../Common;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|arm'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../Common;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|arm'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../Common;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../Common;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../..;../../ext/native;../../Common;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\DrawEngineCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\FramebufferCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\GPUDebugInterface.h" />
+    <ClInclude Include="..\..\GPU\Common\GPUStateUtils.h" />
+    <ClInclude Include="..\..\GPU\Common\IndexGenerator.h" />
+    <ClInclude Include="..\..\GPU\Common\PostShader.h" />
+    <ClInclude Include="..\..\GPU\Common\ShaderCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\ShaderId.h" />
+    <ClInclude Include="..\..\GPU\Common\ShaderTranslation.h" />
+    <ClInclude Include="..\..\GPU\Common\ShaderUniforms.h" />
+    <ClInclude Include="..\..\GPU\Common\SoftwareLighting.h" />
+    <ClInclude Include="..\..\GPU\Common\SoftwareTransformCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\SplineCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\TextureCacheCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\TextureDecoder.h" />
+    <ClInclude Include="..\..\GPU\Common\TextureDecoderNEON.h" />
+    <ClInclude Include="..\..\GPU\Common\TextureScalerCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\TransformCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\VertexDecoderCommon.h" />
+    <ClInclude Include="..\..\GPU\D3D11\D3D11Util.h" />
+    <ClInclude Include="..\..\GPU\D3D11\DepalettizeShaderD3D11.h" />
+    <ClInclude Include="..\..\GPU\D3D11\DrawEngineD3D11.h" />
+    <ClInclude Include="..\..\GPU\D3D11\FragmentShaderGeneratorD3D11.h" />
+    <ClInclude Include="..\..\GPU\D3D11\FramebufferManagerD3D11.h" />
+    <ClInclude Include="..\..\GPU\D3D11\GPU_D3D11.h" />
+    <ClInclude Include="..\..\GPU\D3D11\ShaderManagerD3D11.h" />
+    <ClInclude Include="..\..\GPU\D3D11\StateMappingD3D11.h" />
+    <ClInclude Include="..\..\GPU\D3D11\TextureCacheD3D11.h" />
+    <ClInclude Include="..\..\GPU\D3D11\TextureScalerD3D11.h" />
+    <ClInclude Include="..\..\GPU\D3D11\VertexShaderGeneratorD3D11.h" />
+    <ClInclude Include="..\..\GPU\Debugger\Breakpoints.h" />
+    <ClInclude Include="..\..\GPU\Debugger\Stepping.h" />
+    <ClInclude Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.h" />
+    <ClInclude Include="..\..\GPU\Directx9\VertexShaderGeneratorDX9.h" />
+    <ClInclude Include="..\..\GPU\GeDisasm.h" />
+    <ClInclude Include="..\..\GPU\ge_constants.h" />
+    <ClInclude Include="..\..\GPU\GPU.h" />
+    <ClInclude Include="..\..\GPU\GPUCommon.h" />
+    <ClInclude Include="..\..\GPU\GPUInterface.h" />
+    <ClInclude Include="..\..\GPU\GPUState.h" />
+    <ClInclude Include="..\..\GPU\Math3D.h" />
+    <ClInclude Include="..\..\GPU\Software\Clipper.h" />
+    <ClInclude Include="..\..\GPU\Software\Lighting.h" />
+    <ClInclude Include="..\..\GPU\Software\Rasterizer.h" />
+    <ClInclude Include="..\..\GPU\Software\SoftGpu.h" />
+    <ClInclude Include="..\..\GPU\Software\TransformUnit.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="targetver.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\GPU\Common\DepalettizeShaderCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\DrawEngineCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\FramebufferCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\GPUDebugInterface.cpp" />
+    <ClCompile Include="..\..\GPU\Common\GPUStateUtils.cpp" />
+    <ClCompile Include="..\..\GPU\Common\IndexGenerator.cpp" />
+    <ClCompile Include="..\..\GPU\Common\PostShader.cpp" />
+    <ClCompile Include="..\..\GPU\Common\ShaderCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\ShaderId.cpp" />
+    <ClCompile Include="..\..\GPU\Common\ShaderTranslation.cpp" />
+    <ClCompile Include="..\..\GPU\Common\ShaderUniforms.cpp" />
+    <ClCompile Include="..\..\GPU\Common\SoftwareTransformCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\SplineCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\TextureCacheCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\TextureDecoder.cpp" />
+    <ClCompile Include="..\..\GPU\Common\TextureDecoderNEON.cpp" />
+    <ClCompile Include="..\..\GPU\Common\TextureScalerCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\TransformCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderArm.cpp" />
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderArm64.cpp" />
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderFake.cpp" />
+    <ClCompile Include="..\..\GPU\Common\VertexDecoderX86.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\D3D11Util.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\DepalettizeShaderD3D11.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\DrawEngineD3D11.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\FragmentShaderGeneratorD3D11.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\FramebufferManagerD3D11.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\GPU_D3D11.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\ShaderManagerD3D11.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\StateMappingD3D11.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\StencilBufferD3D11.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\TextureCacheD3D11.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\TextureScalerD3D11.cpp" />
+    <ClCompile Include="..\..\GPU\D3D11\VertexShaderGeneratorD3D11.cpp" />
+    <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp" />
+    <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp" />
+    <ClCompile Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.cpp" />
+    <ClCompile Include="..\..\GPU\Directx9\VertexShaderGeneratorDX9.cpp" />
+    <ClCompile Include="..\..\GPU\GeDisasm.cpp" />
+    <ClCompile Include="..\..\GPU\GPU.cpp" />
+    <ClCompile Include="..\..\GPU\GPUCommon.cpp" />
+    <ClCompile Include="..\..\GPU\GPUState.cpp" />
+    <ClCompile Include="..\..\GPU\Math3D.cpp" />
+    <ClCompile Include="..\..\GPU\Software\Clipper.cpp" />
+    <ClCompile Include="..\..\GPU\Software\Lighting.cpp" />
+    <ClCompile Include="..\..\GPU\Software\Rasterizer.cpp" />
+    <ClCompile Include="..\..\GPU\Software\SoftGpu.cpp" />
+    <ClCompile Include="..\..\GPU\Software\TransformUnit.cpp" />
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CommonUWP\CommonUWP.vcxproj">
+      <Project>{acb316ca-3ecb-48e5-be0a-91e72d5b0f12}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\CoreUWP\CoreUWP.vcxproj">
+      <Project>{40b76674-02de-40ef-889b-fad1489685e7}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\glslang_UWP\glslang_UWP.vcxproj">
+      <Project>{d326891e-ece4-4b94-b5e7-8aa0a8e8ecbc}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\SPIRVCross_UWP\SPIRVCross_UWP.vcxproj">
+      <Project>{2b2d16bd-1d37-46af-a3f8-552900951b26}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

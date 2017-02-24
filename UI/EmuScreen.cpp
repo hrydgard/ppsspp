@@ -77,6 +77,9 @@
 #if !PPSSPP_PLATFORM(UWP)
 #include "gfx/gl_common.h"
 #endif
+#if !PPSSPP_PLATFORM(UWP)
+#include "gfx/gl_common.h"
+#endif
 
 #ifndef MOBILE_DEVICE
 AVIDump avi;
