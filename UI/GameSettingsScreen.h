@@ -78,6 +78,7 @@ private:
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	UI::EventReturn OnChangeproAdhocServerAddress(UI::EventParams &e);
 	UI::EventReturn OnChangeMacAddress(UI::EventParams &e);
+	UI::EventReturn OnChangeRemoteISOSubdir(UI::EventParams &e);
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnDisplayLayoutEditor(UI::EventParams &e);
