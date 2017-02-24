@@ -7,7 +7,6 @@
 
 #include <ext/soundtouch/include/SoundTouch.h>
 
-#include "base/mutex.h"
 #include "Core/Util/TimeStretcher.h"
 
 #include "Common/CommonTypes.h"
@@ -28,8 +27,7 @@ namespace AudioCore {
 
 	struct TimeStretcher::Impl {
 		soundtouch::SoundTouch soundtouch;
-		recursive_mutex mutex;
-
+\
 		double frame_timer = 0.0;
 		size_t samples_queued = 0;
 
@@ -68,7 +66,6 @@ namespace AudioCore {
 			rate /= ratio;
 		}
 
-		lock_guard guard(impl->mutex);
 		// SoundTouch's tempo definition the inverse of our ratio definition.
 		impl->soundtouch.setTempo(1.0 / ratio);
 		impl->soundtouch.setRate(rate);
@@ -90,10 +87,7 @@ namespace AudioCore {
 	}
 
 	TimeStretcher::~TimeStretcher() {
-		{
-			lock_guard guard(impl->mutex);
-			impl->soundtouch.clear();
-		}
+		impl->soundtouch.clear();
 		delete impl;
 	}
 
@@ -104,7 +98,6 @@ namespace AudioCore {
 	}
 
 	void TimeStretcher::AddSamples(const s16* buffer, size_t num_samples) {
-		lock_guard guard(impl->mutex);
 		impl->soundtouch.putSamples(buffer, static_cast<uint>(num_samples));
 		impl->samples_queued += num_samples;
 	}
@@ -114,7 +107,6 @@ namespace AudioCore {
 	}
 
 	void TimeStretcher::Flush() {
-		lock_guard guard(impl->mutex);
 		impl->soundtouch.flush();
 	}
 
@@ -157,7 +149,6 @@ namespace AudioCore {
 	}
 
 	std::vector<short> TimeStretcher::GetSamples() {
-		lock_guard guard(impl->mutex);
 		uint available = impl->soundtouch.numSamples();
 		std::vector<s16> output(static_cast<size_t>(available) * 2);
 		impl->soundtouch.receiveSamples(output.data(), available);

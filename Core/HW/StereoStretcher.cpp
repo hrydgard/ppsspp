@@ -32,10 +32,10 @@ unsigned int StereoStretcher::Mix(s16 *buffer, unsigned int numSamples, bool con
 			remaining_size = 0;
 		}
 	}
+	mutex_.unlock();
 	if (remaining_size > 0) {
 		memset(buffer, 0, remaining_size * sizeof(s16));
 	}
-	mutex_.unlock();
 	mixed_samples_ += numSamples;
 	return numSamples - remaining_size * 2;
 }
@@ -48,6 +48,8 @@ void StereoStretcher::PushSamples(const s32 * samples, unsigned int num_samples)
 		}
 	}
 	stats_.lastPushSize = num_samples;
+
+	lock_guard guard(mutex_);
 	s16 buffer[16384];
 	while (num_samples > 0) {
 		int mono_count = std::min(num_samples * 2, (unsigned int)ARRAY_SIZE(buffer));
@@ -63,7 +65,6 @@ void StereoStretcher::PushSamples(const s32 * samples, unsigned int num_samples)
 		return;
 
 	stats_.watermark = stretch_.GetSamplesQueued();
-	mutex_.lock();
 	size_t total_size = 0;
 	for (auto iter = queue.begin(); iter != queue.end(); ++iter) {
 		total_size += iter->size();
@@ -78,7 +79,6 @@ void StereoStretcher::PushSamples(const s32 * samples, unsigned int num_samples)
 	buffered_ = (int)total_size;
 	stats_.ratio = stretch_.GetCurrentRatio();
 	stats_.buffered = (int)total_size;
-	mutex_.unlock();
 }
 
 void StereoStretcher::GetAudioDebugStats(AudioDebugStats * stats) {
