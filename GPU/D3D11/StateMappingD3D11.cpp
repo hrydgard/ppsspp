@@ -335,8 +335,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	if (vpAndScissor.scissorEnable) {
 		scissor.left = vpAndScissor.scissorX;
 		scissor.top = vpAndScissor.scissorY;
-		scissor.right = vpAndScissor.scissorX + vpAndScissor.scissorW;
-		scissor.bottom = vpAndScissor.scissorY + vpAndScissor.scissorH;
+		scissor.right = vpAndScissor.scissorX + std::max(0, vpAndScissor.scissorW);
+		scissor.bottom = vpAndScissor.scissorY + std::max(0, vpAndScissor.scissorH);
 	}
 	else {
 		scissor.left = 0;
