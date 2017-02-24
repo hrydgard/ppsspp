@@ -144,16 +144,6 @@ void __AudioInit() {
 
 	resampler.Clear();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
-#ifndef MOBILE_DEVICE
-	if (g_Config.bDumpAudio)
-	{
-		std::string audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) + "audiodump.wav";
-		// Create the path just in case it doesn't exist
-		File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
-		File::CreateEmptyFile(audio_file_name);
-		__StartLogAudio(audio_file_name);
-	}
-#endif
 }
 
 void __AudioDoState(PointerWrap &p) {
@@ -200,8 +190,7 @@ void __AudioShutdown() {
 		chans[i].clear();
 
 #ifndef MOBILE_DEVICE
-	if (g_Config.bDumpAudio)
-	{
+	if (g_Config.bDumpAudio) {
 		__StopLogAudio();
 	}
 #endif
@@ -393,12 +382,23 @@ void __AudioUpdate() {
 	if (g_Config.bEnableSound) {
 		resampler.PushSamples(mixBuffer, hwBlockSize);
 #ifndef MOBILE_DEVICE
-		if (m_logAudio)
-		{
-			for (int i = 0; i < hwBlockSize * 2; i++) {
-				clampedMixBuffer[i] = clamp_s16(mixBuffer[i]);
+		if (!m_logAudio) {
+			if (g_Config.bDumpAudio) {
+				std::string audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) + "audiodump.wav";
+				// Create the path just in case it doesn't exist
+				File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
+				File::CreateEmptyFile(audio_file_name);
+				__StartLogAudio(audio_file_name);
 			}
-			g_wave_writer.AddStereoSamples(clampedMixBuffer, hwBlockSize);
+		} else {
+			if (g_Config.bDumpAudio) {
+				for (int i = 0; i < hwBlockSize * 2; i++) {
+					clampedMixBuffer[i] = clamp_s16(mixBuffer[i]);
+				}
+				g_wave_writer.AddStereoSamples(clampedMixBuffer, hwBlockSize);
+			} else {
+				__StopLogAudio();
+			}
 		}
 #endif
 	}
@@ -423,31 +423,23 @@ void __PushExternalAudio(const s32 *audio, int numSamples) {
 	}
 }
 #ifndef MOBILE_DEVICE
-void __StartLogAudio(const std::string& filename)
-{
-	if (!m_logAudio)
-	{
+void __StartLogAudio(const std::string& filename) {
+	if (!m_logAudio) {
 		m_logAudio = true;
 		g_wave_writer.Start(filename, 44100);
 		g_wave_writer.SetSkipSilence(false);
 		NOTICE_LOG(SCEAUDIO, "Starting Audio logging");
-	}
-	else
-	{
+	} else {
 		WARN_LOG(SCEAUDIO, "Audio logging has already been started");
 	}
 }
 
-void __StopLogAudio()
-{
-	if (m_logAudio)
-	{
+void __StopLogAudio() {
+	if (m_logAudio)	{
 		m_logAudio = false;
 		g_wave_writer.Stop();
 		NOTICE_LOG(SCEAUDIO, "Stopping Audio logging");
-	}
-	else
-	{
+	} else {
 		WARN_LOG(SCEAUDIO, "Audio logging has already been stopped");
 	}
 }
