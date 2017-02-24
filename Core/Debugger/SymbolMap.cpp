@@ -956,7 +956,7 @@ void SymbolMap::GetLabels(std::vector<LabelDefinition> &dest) const
 	}
 }
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
 struct DefaultSymbol {
 	u32 address;
@@ -1026,5 +1026,4 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) const {
 	SendMessage(listbox, WM_SETREDRAW, TRUE, 0);
 	RedrawWindow(listbox, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 }
-
 #endif

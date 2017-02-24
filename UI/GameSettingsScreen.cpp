@@ -25,6 +25,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
+#include "util/text/utf8.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui_context.h"
@@ -55,11 +56,10 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
 #include "Windows/MainWindow.h"
 #include <shlobj.h>
-#include "util/text/utf8.h"
 #include "Windows/W32Util/ShellUtil.h"
 #endif
 
@@ -1176,8 +1176,10 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show Developer Menu")));
 	list->Add(new CheckBox(&g_Config.bDumpDecryptedEboot, dev->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
 
+#if !PPSSPP_PLATFORM(UWP)
 	Choice *cpuTests = new Choice(dev->T("Run CPU Tests"));
 	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+
 #ifdef IOS
 	const std::string testDirectory = g_Config.flash0Directory + "../";
 #else
@@ -1186,6 +1188,7 @@ void DeveloperToolsScreen::CreateViews() {
 	if (!File::Exists(testDirectory + "pspautotests/tests/")) {
 		cpuTests->SetEnabled(false);
 	}
+#endif
 
 	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
@@ -1237,7 +1240,9 @@ UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnRunCPUTests(UI::EventParams &e) {
+#if !PPSSPP_PLATFORM(UWP)
 	RunTests();
+#endif
 	return UI::EVENT_DONE;
 }
 

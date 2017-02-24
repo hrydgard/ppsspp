@@ -1,13 +1,20 @@
+#include "ppsspp_config.h"
+
 #include <cstring>
 
 #include "base/logging.h"
 #include "base/stringutil.h"
+
+#if !PPSSPP_PLATFORM(UWP)
 #include "gfx/gl_common.h"
-#include "gfx_es2/gpu_features.h"
 
 #if defined(_WIN32)
 #include "GL/wglew.h"
 #endif
+#endif
+
+#include "gfx_es2/gpu_features.h"
+
 
 #if defined(USING_GLES2)
 #if defined(__ANDROID__)
@@ -75,6 +82,9 @@ void ProcessGPUFeatures() {
 // http://stackoverflow.com/questions/16147700/opengl-es-using-tegra-specific-extensions-gl-ext-texture-array
 
 void CheckGLExtensions() {
+
+#if !PPSSPP_PLATFORM(UWP)
+
 	// Make sure to only do this once. It's okay to call CheckGLExtensions from wherever.
 	if (extensionsDone)
 		return;
@@ -394,6 +404,9 @@ void CheckGLExtensions() {
 	int error = glGetError();
 	if (error)
 		ELOG("GL error in init: %i", error);
+
+#endif
+
 }
 
 void SetGLCoreContext(bool flag) {

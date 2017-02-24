@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include <map>
 #include <memory>
 
@@ -80,7 +82,7 @@ private:
 	TextDrawerContext *ctx_;
 #if defined(USING_QT_UI)
 	std::map<uint32_t, QFont *> fontMap_;
-#elif defined(_WIN32)
+#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
 #endif
 

@@ -456,7 +456,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 							char temp[512];
 							snprintf(temp, sizeof(temp), "count_u: %d count_v: %d patch_w: %d patch_h: %d  ii: %d  jj: %d  iu: %d  iv: %d  patch_div_s: %d  patch_div_t: %d\n", spatch.count_u, spatch.count_v, patch_w, patch_h, ii, jj, iu, iv, patch_div_s, patch_div_t);
 							OutputDebugStringA(temp);
-							DebugBreak();
+							Crash();
 						}*/
 						SimpleVertex *a = spatch.points[idx];
 						AccumulateWeighted(vert_pos, a->pos, fv);

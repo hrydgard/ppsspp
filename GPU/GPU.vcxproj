@@ -273,6 +273,7 @@
     <ClCompile Include="Common\GPUStateUtils.cpp" />
     <ClCompile Include="Common\IndexGenerator.cpp" />
     <ClCompile Include="Common\PostShader.cpp" />
+    <ClCompile Include="Common\ShaderCommon.cpp" />
     <ClCompile Include="Common\ShaderId.cpp" />
     <ClCompile Include="Common\ShaderTranslation.cpp" />
     <ClCompile Include="Common\ShaderUniforms.cpp" />

@@ -22,11 +22,11 @@
 
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/GLES/GPU_GLES.h"
 
 #if PPSSPP_PLATFORM(UWP)
 #include "GPU/D3D11/GPU_D3D11.h"
 #else
+#include "GPU/GLES/GPU_GLES.h"
 
 #ifndef NO_VULKAN
 #include "GPU/Vulkan/GPU_Vulkan.h"
