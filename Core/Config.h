@@ -21,7 +21,7 @@
 #include <map>
 #include <vector>
 
-#include "CommonTypes.h"
+#include "Common/CommonTypes.h"
 
 extern const char *PPSSPP_GIT_VERSION;
 

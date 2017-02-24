@@ -24,9 +24,9 @@
 #include <utility>
 
 #include "ppsspp_config.h"
-#include "Log.h"
 
-#include "CommonTypes.h"
+#include "Common/Log.h"
+#include "Common/CommonTypes.h"
 
 #define IS_LITTLE_ENDIAN (*(const u16 *)"\0\xff" >= 0x100)
 #define IS_BIG_ENDIAN (*(const u16 *)"\0\xff" < 0x100)
