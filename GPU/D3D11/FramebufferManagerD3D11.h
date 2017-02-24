@@ -31,7 +31,6 @@
 #include "Globals.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
-#include "Core/Config.h"
 #include "ext/native/thin3d/thin3d.h"
 
 class TextureCacheD3D11;

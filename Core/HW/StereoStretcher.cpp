@@ -81,9 +81,6 @@ void StereoStretcher::PushSamples(const s32 * samples, unsigned int num_samples)
 	mutex_.unlock();
 }
 
-void StereoStretcher::DoState(PointerWrap & p) {
-}
-
 void StereoStretcher::GetAudioDebugStats(AudioDebugStats * stats) {
 	*stats = stats_;
 }

@@ -41,8 +41,6 @@ public:
 	// This clamps the samples to 16-bit before starting to work on them.
 	void PushSamples(const s32* samples, unsigned int num_samples) override;
 
-	void DoState(PointerWrap &p) override;
-
 	void GetAudioDebugStats(AudioDebugStats *stats) override;
 	void Clear() override;
 

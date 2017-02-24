@@ -222,6 +222,7 @@ public:
 	bool bEnableSound;
 	int iAudioLatency; // 0 = low , 1 = medium(default) , 2 = high
 	int iAudioBackend;
+	bool bAudioTimestretch;  // enum AudioQueueType
 	int iGlobalVolume;
 	bool bExtraAudioBuffering;  // For bluetooth
 
@@ -234,7 +235,6 @@ public:
 
 	bool bShowDebugStats;
 	bool bShowAudioDebug;
-	bool bAudioResampler;
 
 	//Analog stick tilting
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input

@@ -45,7 +45,12 @@
 #include "Core/HW/StereoStretcher.h"
 #include "Core/Util/AudioFormat.h"
 
-AsyncAudioQueue *audioQueue = new StereoStretcher();
+static StereoStretcher timestretcher;
+static StereoResampler resampler;
+
+static AsyncAudioQueue *audioQueue = nullptr;
+static int lastQueueMode = -1;
+
 AudioDebugStats g_AudioDebugStats;
 
 // Should be used to lock anything related to the outAudioQueue.
@@ -103,6 +108,18 @@ static void __AudioCPUMHzChange() {
 	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * hostAttemptBlockSize / hwSampleRate);
 }
 
+static void UpdateAudioQueue() {
+	if (lastQueueMode != (int)g_Config.bAudioTimestretch) {
+		if (audioQueue)
+			audioQueue->Clear();
+		if (g_Config.bAudioTimestretch) {
+			audioQueue = &timestretcher;
+		} else {
+			audioQueue = &resampler;
+		}
+		lastQueueMode = g_Config.bAudioTimestretch;
+	}
+}
 
 void __AudioInit() {
 	memset(&g_AudioDebugStats, 0, sizeof(g_AudioDebugStats));
@@ -144,7 +161,9 @@ void __AudioInit() {
 	clampedMixBuffer = new s16[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	audioQueue->Clear();
+	timestretcher.Clear();
+	resampler.Clear();
+
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
@@ -161,7 +180,8 @@ void __AudioDoState(PointerWrap &p) {
 	p.Do(mixFrequency);
 
 	if (s >= 2) {
-		audioQueue->DoState(p);
+		// Dummy.
+		auto inner = p.Section("resampler", 1);
 	} else {
 		// Only to preserve the previous file format. Might cause a slight audio glitch on upgrades?
 		FixedSizeQueue<s16, 512 * 16> outAudioQueue;
@@ -257,8 +277,8 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	} else {
 		// Remember that maximum volume allowed is 0xFFFFF so left shift is no issue.
 		// This way we can optimally shift by 16.
-		leftVol <<=1;
-		rightVol <<=1;
+		leftVol <<= 1;
+		rightVol <<= 1;
 
 		if (chan.format == PSP_AUDIO_FORMAT_STEREO) {
 			const u32 totalSamples = chan.sampleCount * 2;
@@ -380,6 +400,9 @@ void __AudioUpdate() {
 		memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 	}
 
+	// Need to change audio queue?
+	UpdateAudioQueue();
+
 	if (g_Config.bEnableSound) {
 		audioQueue->PushSamples(mixBuffer, hwBlockSize);
 #ifndef MOBILE_DEVICE
@@ -408,7 +431,11 @@ void __AudioUpdate() {
 // numFrames is number of stereo frames.
 // This is called from *outside* the emulator thread.
 int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
-    return audioQueue->Mix(outstereo, numFrames, false, sampleRate);
+	if (audioQueue) {
+		return audioQueue->Mix(outstereo, numFrames, false, sampleRate);
+	} else {
+		memset(outstereo, 0, numFrames * 2 * sizeof(short));
+	}
 }
 
 const AudioDebugStats *__AudioGetDebugStats() {
@@ -417,6 +444,8 @@ const AudioDebugStats *__AudioGetDebugStats() {
 }
 
 void __PushExternalAudio(const s32 *audio, int numSamples) {
+	UpdateAudioQueue();
+
 	if (audio) {
 		audioQueue->PushSamples(audio, numSamples);
 	} else {
