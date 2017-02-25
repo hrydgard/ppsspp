@@ -758,13 +758,17 @@ UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
 	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
-	tessHWEnable_ = CheckSupportInstancedTessellation() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	bool isBackendSupportHWTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL || g_Config.iGPUBackend == GPU_BACKEND_VULKAN;
+	bool isDeviceSupportInstTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL ? CheckSupportInstancedTessellationGLES() : isBackendSupportHWTess;
+	tessHWEnable_ = isDeviceSupportInstTess && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
 	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	tessHWEnable_ = CheckSupportInstancedTessellation() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	bool isBackendSupportHWTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL || g_Config.iGPUBackend == GPU_BACKEND_VULKAN;
+	bool isDeviceSupportInstTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL ? CheckSupportInstancedTessellationGLES() : isBackendSupportHWTess;
+	tessHWEnable_ = isDeviceSupportInstTess && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
 
