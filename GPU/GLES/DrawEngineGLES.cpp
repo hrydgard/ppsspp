@@ -1120,7 +1120,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 #ifndef USING_GLES2
 	if (isAllowTexture1D) {
 		// Position
-		glActiveTexture(GL_TEXTURE3);
+		glActiveTexture(GL_TEXTURE4);
 		glBindTexture(GL_TEXTURE_1D, data_tex[0]);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1135,7 +1135,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 
 		// Texcoords
 		if (hasTexCoords) {
-			glActiveTexture(GL_TEXTURE4);
+			glActiveTexture(GL_TEXTURE5);
 			glBindTexture(GL_TEXTURE_1D, data_tex[1]);
 			glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1150,7 +1150,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 		}
 
 		// Color
-		glActiveTexture(GL_TEXTURE5);
+		glActiveTexture(GL_TEXTURE6);
 		glBindTexture(GL_TEXTURE_1D, data_tex[2]);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1167,7 +1167,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 #endif
 	{
 		// Position
-		glActiveTexture(GL_TEXTURE3);
+		glActiveTexture(GL_TEXTURE4);
 		glBindTexture(GL_TEXTURE_2D, data_tex[0]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1182,7 +1182,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 
 		// Texcoords
 		if (hasTexCoords) {
-			glActiveTexture(GL_TEXTURE4);
+			glActiveTexture(GL_TEXTURE5);
 			glBindTexture(GL_TEXTURE_2D, data_tex[1]);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1197,7 +1197,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 		}
 
 		// Color
-		glActiveTexture(GL_TEXTURE5);
+		glActiveTexture(GL_TEXTURE6);
 		glBindTexture(GL_TEXTURE_2D, data_tex[2]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);

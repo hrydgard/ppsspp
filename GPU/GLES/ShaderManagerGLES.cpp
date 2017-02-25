@@ -305,11 +305,11 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 
 	
 	if (u_tess_pos_tex != -1)
-		glUniform1i(u_tess_pos_tex, 3); // Texture unit 3
+		glUniform1i(u_tess_pos_tex, 4); // Texture unit 4
 	if (u_tess_tex_tex != -1)
-		glUniform1i(u_tess_tex_tex, 4); // Texture unit 4
+		glUniform1i(u_tess_tex_tex, 5); // Texture unit 5
 	if (u_tess_col_tex != -1)
-		glUniform1i(u_tess_col_tex, 5); // Texture unit 5
+		glUniform1i(u_tess_col_tex, 6); // Texture unit 6
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
