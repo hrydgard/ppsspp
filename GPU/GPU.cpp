@@ -15,12 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include "Common/GraphicsContext.h"
 #include "Core/Core.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
+
+#if PPSSPP_PLATFORM(UWP)
+#include "GPU/D3D11/GPU_D3D11.h"
+#else
 #include "GPU/GLES/GPU_GLES.h"
+
 #ifndef NO_VULKAN
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #endif
@@ -30,6 +37,8 @@
 #if defined(_WIN32)
 #include "GPU/Directx9/GPU_DX9.h"
 #include "GPU/D3D11/GPU_D3D11.h"
+#endif
+
 #endif
 
 GPUStatistics gpuStats;
@@ -47,6 +56,10 @@ static void SetGPU(T *obj) {
 #endif
 
 bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
+#if PPSSPP_PLATFORM(UWP)
+	SetGPU(new GPU_D3D11(ctx, draw));
+	return true;
+#else
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPUCORE_NULL:
 		SetGPU(new NullGPU());
@@ -83,6 +96,7 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 	}
 
 	return gpu != NULL;
+#endif
 }
 #ifdef USE_CRT_DBG
 #define new DBG_NEW

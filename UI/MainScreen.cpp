@@ -430,11 +430,15 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 	else
 		return UI::EVENT_DONE;
 #elif defined(_WIN32)
+#if PPSSPP_PLATFORM(UWP)
+	// TODO UWP
+#else
 	I18NCategory *mm = GetI18NCategory("MainMenu");
 	std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
 	if (!folder.size())
 		return UI::EVENT_DONE;
 	path_.SetPath(folder);
+#endif
 #else
 	path_.SetPath(getenv("HOME"));
 #endif

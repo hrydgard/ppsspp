@@ -40,12 +40,20 @@ void MemArena::ReleaseSpace() {
 
 void *MemArena::CreateView(s64 offset, size_t size, void *base) {
 	size = roundup(size);
+#if PPSSPP_PLATFORM(UWP)
+	// TODO
+	void *ptr = nullptr;
+#else
 	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, base);
+#endif
 	return ptr;
 }
 
 void MemArena::ReleaseView(void* view, size_t size) {
+#if PPSSPP_PLATFORM(UWP)
+#else
 	UnmapViewOfFile(view);
+#endif
 }
 
 bool MemArena::NeedsProbing() {

@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #ifdef _WIN32
 #pragma warning(disable:4091)
 #include "Common/CommonWindows.h"
@@ -616,10 +618,15 @@ void InitSysDirectories() {
 	g_Config.flash0Directory = path + "flash0/";
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
+#if PPSSPP_PLATFORM(UWP)
+	const std::string myDocsPath = "";  // TODO UWP
+	const HRESULT result = E_FAIL;
+
+#else
 	wchar_t myDocumentsPath[MAX_PATH];
 	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 	const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
-
+#endif
 	const std::string installedFile = path + "installed.txt";
 	const bool installed = File::Exists(installedFile);
 

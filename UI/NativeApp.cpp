@@ -23,6 +23,7 @@
 //
 // Windows has its own code that bypasses the framework entirely.
 
+#include "ppsspp_config.h"
 
 // Background worker threads should be spawned in NativeInit and joined
 // in NativeShutdown.
@@ -268,7 +269,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 #endif
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 bool CheckFontIsUsable(const wchar_t *fontFace) {
 	wchar_t actualFontFace[1024] = { 0 };
 
@@ -481,7 +482,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
 	// Only add it to your own personal copies of PPSSPP.
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	// TODO: Could allow a setting to specify a font file to load?
 	// TODO: Make this a constant if we can sanely load the font on other systems?
 	AddFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
@@ -535,7 +536,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
 	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
 	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);
@@ -582,7 +583,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	if (!uiTexture) {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 		UINT ExitCode = 0;
 		ExitProcess(ExitCode);
 #endif
@@ -633,7 +634,11 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
+#if PPSSPP_PLATFORM(UWP)
+	// TODO UWP
+#else
 	winAudioBackend->Init(MainWindow::GetHWND(), &Win32Mix, 44100);
+#endif
 #endif
 
 	g_gameInfoCache = new GameInfoCache();
@@ -1046,7 +1051,7 @@ void NativeShutdown() {
 	exit(0);
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	RemoveFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
 #endif
 }

@@ -22,6 +22,8 @@
 #endif
 #endif
 
+#include "ppsspp_config.h"
+
 #include "FileUtil.h"
 #include "StringUtils.h"
 
@@ -121,6 +123,9 @@ bool Exists(const std::string &filename) {
 	StripTailDirSlashes(fn);
 
 #if defined(_WIN32)
+#if PPSSPP_PLATFORM(UWP)
+	return false;
+#else
 	std::wstring copy = ConvertUTF8ToWString(fn);
 
 	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
@@ -128,6 +133,7 @@ bool Exists(const std::string &filename) {
 	bool success = GetFileAttributes(copy.c_str()) != INVALID_FILE_ATTRIBUTES;
 	SetErrorMode(OldMode);
 	return success;
+#endif
 #else
 	struct stat64 file_info;
 	return stat64(fn.c_str(), &file_info) == 0;
@@ -142,11 +148,12 @@ bool IsDirectory(const std::string &filename)
 
 #if defined(_WIN32)
 	std::wstring copy = ConvertUTF8ToWString(fn);
-	DWORD result = GetFileAttributes(copy.c_str());
-	if (result == INVALID_FILE_ATTRIBUTES) {
+	WIN32_FILE_ATTRIBUTE_DATA data{};
+	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data)) {
 		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x", fn.c_str(), GetLastError());
 		return false;
 	}
+	DWORD result = data.dwFileAttributes;
 	return (result & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
 #else
 	std::string copy(fn);
@@ -328,9 +335,14 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	INFO_LOG(COMMON, "Copy: %s --> %s", 
 			srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+	if (CopyFile2(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), nullptr))
+		return true;
+	return false;
+#else
 	if (CopyFile(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), FALSE))
 		return true;
-
+#endif
 	ERROR_LOG(COMMON, "Copy: failed %s --> %s: %s", 
 			srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
 	return false;
@@ -547,8 +559,13 @@ bool CreateEmptyFile(const std::string &filename)
 // Deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const std::string &directory)
 {
+#if PPSSPP_PLATFORM(UWP)
+	return false;
+#else
 	INFO_LOG(COMMON, "DeleteDirRecursively: %s", directory.c_str());
+
 #ifdef _WIN32
+
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
 	HANDLE hFind = FindFirstFile(ConvertUTF8ToWString(directory + "\\*").c_str(), &ffd);
@@ -613,9 +630,10 @@ bool DeleteDirRecursively(const std::string &directory)
 	closedir(dirp);
 #endif
 	File::DeleteDir(directory);
-		
 	return true;
+#endif
 }
+
 
 // Create directory and copy contents (does not overwrite existing files)
 void CopyDir(const std::string &source_path, const std::string &dest_path)
@@ -653,12 +671,17 @@ void CopyDir(const std::string &source_path, const std::string &dest_path)
 		else if (!File::Exists(dest)) File::Copy(source, dest);
 	}
 	closedir(dirp);
+#else
+	ERROR_LOG(COMMON, "CopyDir not supported on this platform");
 #endif
 }
 
 void openIniFile(const std::string fileName) {
 	std::string iniFile;
 #if defined(_WIN32)
+#if PPSSPP_PLATFORM(UWP)
+	// Not supported
+#else
 	iniFile = fileName;
 	// Can't rely on a .txt file extension to auto-open in the right editor,
 	// so let's find notepad
@@ -690,6 +713,7 @@ void openIniFile(const std::string fileName) {
 	}
 	CloseHandle(pi.hThread);
 	CloseHandle(pi.hProcess);
+#endif
 #elif !defined(MOBILE_DEVICE)
 #if defined(__APPLE__)
 	iniFile = "open ";

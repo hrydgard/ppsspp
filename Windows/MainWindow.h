@@ -1,10 +1,15 @@
 #pragma once
 
+#include "ppsspp_config.h"
+
+#if !PPSSPP_PLATFORM(UWP)
+
 #include "Common/CommonWindows.h"
 #include <string>
 
 #include "Core/System.h"
 #include "MainWindowMenu.h"
+
 
 namespace MainWindow
 {
@@ -68,3 +73,5 @@ namespace MainWindow
 	void SetInternalResolution(int res = -1);
 	void SetWindowSize(int zoom);
 }
+
+#endif

@@ -114,3 +114,6 @@ public:
 
 	virtual void DirtyLastShader() = 0;
 };
+
+struct TBuiltInResource;
+void init_resources(TBuiltInResource &Resources);

@@ -21,7 +21,6 @@
 #include <set>
 #include <algorithm>
 
-#include "gfx/gl_common.h"
 #include "ext/native/thin3d/thin3d.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
@@ -40,7 +39,7 @@ class ShaderManagerGLES;
 
 // Simple struct for asynchronous PBO readbacks
 struct AsyncPBO {
-	GLuint handle;
+	uint32_t handle;
 	u32 maxSize;
 
 	u32 fb_address;

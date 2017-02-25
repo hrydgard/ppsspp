@@ -35,7 +35,6 @@
 #include "md5.h"
 
 #include <string.h>
-#include <stdio.h>
 
 /*
  * 32-bit integer manipulation macros (little endian)
@@ -289,38 +288,6 @@ void md5( unsigned char *input, int ilen, unsigned char output[16] )
     md5_finish( &ctx, output );
 
     memset( &ctx, 0, sizeof( md5_context ) );
-}
-
-/*
- * output = MD5( file contents )
- */
-int md5_file( char *path, unsigned char output[16] )
-{
-    FILE *f;
-    size_t n;
-    md5_context ctx;
-    unsigned char buf[1024];
-
-    if( ( f = fopen( path, "rb" ) ) == NULL )
-        return( 1 );
-
-    md5_starts( &ctx );
-
-    while( ( n = fread( buf, 1, sizeof( buf ), f ) ) > 0 )
-        md5_update( &ctx, buf, (int) n );
-
-    md5_finish( &ctx, output );
-
-    memset( &ctx, 0, sizeof( md5_context ) );
-
-    if( ferror( f ) != 0 )
-    {
-        fclose( f );
-        return( 2 );
-    }
-
-    fclose( f );
-    return( 0 );
 }
 
 /*

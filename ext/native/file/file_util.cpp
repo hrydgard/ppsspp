@@ -1,3 +1,5 @@
+#include "ppsspp_config.h"
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -215,12 +217,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 #ifdef _WIN32
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
-#ifdef UNICODE
-
-	HANDLE hFind = FindFirstFile((ConvertUTF8ToWString(directory) + L"\\*").c_str(), &ffd);
-#else
-	HANDLE hFind = FindFirstFile((std::string(directory) + "\\*").c_str(), &ffd);
-#endif
+	HANDLE hFind = FindFirstFileEx((ConvertUTF8ToWString(directory) + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 	if (hFind == INVALID_HANDLE_VALUE) {
 		FindClose(hFind);
 		return 0;
@@ -296,6 +293,9 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 // Returns a vector with the device names
 std::vector<std::string> getWindowsDrives()
 {
+#if PPSSPP_PLATFORM(UWP)
+	return std::vector<std::string>();  // TODO UWP http://stackoverflow.com/questions/37404405/how-to-get-logical-drives-names-in-windows-10
+#else
 	std::vector<std::string> drives;
 
 	const DWORD buffsize = GetLogicalDriveStrings(0, NULL);
@@ -315,5 +315,6 @@ std::vector<std::string> getWindowsDrives()
 		}
 	}
 	return drives;
+#endif
 }
 #endif

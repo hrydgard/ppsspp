@@ -323,7 +323,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 			w = 144;
 			h = 80;
 			x = 27;
-			b = 1.2;
+			b = 1.2f;
 			PPGeDrawRect(x-b, y-b, x+w+b, y, CalcFadedColor(0xD0FFFFFF)); // top border
 			PPGeDrawRect(x-b, y, x, y+h, CalcFadedColor(0xD0FFFFFF)); // left border
 			PPGeDrawRect(x-b, y+h, x+w+b, y+h+b, CalcFadedColor(0xD0FFFFFF)); //bottom border

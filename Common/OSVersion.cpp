@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 
 #ifdef _MSC_VER
 
@@ -6,6 +7,12 @@
 #include "Common/CommonWindows.h"
 
 bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, uint32_t spMinor, bool greater) {
+#if PPSSPP_PLATFORM(UWP)
+	if (greater)
+		return true;
+	else
+		return major >= 7;
+#else
 	uint64_t conditionMask = 0;
 	OSVERSIONINFOEX osvi;
 	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
@@ -25,6 +32,26 @@ bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, u
 	const uint32_t typeMask = VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR;
 
 	return VerifyVersionInfo(&osvi, typeMask, conditionMask) != FALSE;
+#endif
+}
+
+bool IsVistaOrHigher() {
+#if PPSSPP_PLATFORM(UWP)
+	return true;
+#else
+	OSVERSIONINFOEX osvi;
+	DWORDLONG dwlConditionMask = 0;
+	int op = VER_GREATER_EQUAL;
+	ZeroMemory(&osvi, sizeof(osvi));
+	osvi.dwOSVersionInfoSize = sizeof(osvi);
+	osvi.dwMajorVersion = 6;  // Vista is 6.0
+	osvi.dwMinorVersion = 0;
+
+	VER_SET_CONDITION(dwlConditionMask, VER_MAJORVERSION, op);
+	VER_SET_CONDITION(dwlConditionMask, VER_MINORVERSION, op);
+
+	return VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, dwlConditionMask) != FALSE;
+#endif
 }
 
 std::string GetWindowsVersion() {

@@ -507,5 +507,8 @@
     <ClCompile Include="Common\ShaderTranslation.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="Common\ShaderCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

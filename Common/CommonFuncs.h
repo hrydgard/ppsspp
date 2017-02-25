@@ -78,10 +78,7 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#if _M_IX86
 		#define Crash() {__asm int 3}
 	#else
-extern "C" {
-	__declspec(dllimport) void __stdcall DebugBreak(void);
-}
-		#define Crash() {DebugBreak();}
+		#define Crash() {__debugbreak();}
 	#endif // M_IX86
 #endif // WIN32 ndef
 

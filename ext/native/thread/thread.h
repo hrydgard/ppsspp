@@ -29,7 +29,9 @@
 // WIN32
 
 #define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <Windows.h>
 
 #if defined(_MSC_VER) && defined(_MT)

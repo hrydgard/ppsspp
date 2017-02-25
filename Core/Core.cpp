@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <set>
 
 #include "base/NativeApp.h"
@@ -30,11 +32,9 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
+#include "Common/GraphicsContext.h"
 
 #ifdef _WIN32
-#include "Windows/GPU/WindowsGLContext.h"
-#include "Windows/GPU/D3D9Context.h"
-#include "Windows/GPU/WindowsVulkanContext.h"
 #include "Windows/InputDevice.h"
 #endif
 
@@ -131,12 +131,18 @@ bool Core_GetPowerSaving() {
 }
 
 #ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+static int ScreenDPI() {
+	return 96;  // TODO UWP
+}
+#else
 static int ScreenDPI() {
 	HDC screenDC = GetDC(nullptr);
 	int dotsPerInch = GetDeviceCaps(screenDC, LOGPIXELSY);
 	ReleaseDC(nullptr, screenDC);
 	return dotsPerInch;
 }
+#endif
 #endif
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {

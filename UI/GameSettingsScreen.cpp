@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include "base/display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 
 #include "base/colorutil.h"
@@ -23,6 +25,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
+#include "util/text/utf8.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui_context.h"
@@ -53,14 +56,15 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
 #include "Windows/MainWindow.h"
 #include <shlobj.h>
-#include "util/text/utf8.h"
 #include "Windows/W32Util/ShellUtil.h"
-#include "Windows/W32Util/Misc.h"
+#endif
 
+#if !PPSSPP_PLATFORM(UWP)
+#include "gfx/gl_common.h"
 #endif
 
 #ifdef IOS
@@ -80,6 +84,10 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 // This needs before run CheckGPUFeatures()
 // TODO: Remove this if fix the issue
 bool CheckSupportInstancedTessellation() {
+#if PPSSPP_PLATFORM(UWP)
+	return true;
+#else
+	// TODO: Make work with non-GL backends
 	int maxVertexTextureImageUnits;
 	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureImageUnits);
 	bool vertexTexture = maxVertexTextureImageUnits >= 3; // At least 3 for hardware tessellation
@@ -88,6 +96,7 @@ bool CheckSupportInstancedTessellation() {
 	bool textureFloat = gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float || gl_extensions.OES_texture_half_float;
 
 	return instanceRendering && vertexTexture && textureFloat;
+#endif
 }
 
 void GameSettingsScreen::CreateViews() {
@@ -647,7 +656,7 @@ void GameSettingsScreen::CreateViews() {
 #if defined(USING_WIN_UI)
 	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
 #endif
-#if defined(_WIN32)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
 	SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
 	SavePathInOtherChoice = systemSettings->Add(new CheckBox(&otherinstalled_, sy->T("Save path in installed.txt", "Save path in installed.txt")));
@@ -809,7 +818,7 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	const std::string PPSSPPpath = File::GetExeDirectory();
@@ -987,7 +996,7 @@ void GlobalSettingsScreen::CreateViews() {
 }*/
 
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
-#if defined(_WIN32)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	// If the user ends up deciding not to restart, set the config back to the current backend
 	// so it doesn't get switched by accident.
 	if (yes) {
@@ -1167,8 +1176,10 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show Developer Menu")));
 	list->Add(new CheckBox(&g_Config.bDumpDecryptedEboot, dev->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
 
+#if !PPSSPP_PLATFORM(UWP)
 	Choice *cpuTests = new Choice(dev->T("Run CPU Tests"));
 	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+
 #ifdef IOS
 	const std::string testDirectory = g_Config.flash0Directory + "../";
 #else
@@ -1177,6 +1188,7 @@ void DeveloperToolsScreen::CreateViews() {
 	if (!File::Exists(testDirectory + "pspautotests/tests/")) {
 		cpuTests->SetEnabled(false);
 	}
+#endif
 
 	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
@@ -1228,7 +1240,9 @@ UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnRunCPUTests(UI::EventParams &e) {
+#if !PPSSPP_PLATFORM(UWP)
 	RunTests();
+#endif
 	return UI::EVENT_DONE;
 }
 

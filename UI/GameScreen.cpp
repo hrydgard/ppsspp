@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
+#include "ppsspp_config.h"
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
@@ -253,7 +255,7 @@ void GameScreen::update(InputState &input) {
 }
 
 UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	std::string str = std::string("explorer.exe /select,\"") + ReplaceAll(gamePath_, "/", "\\") + "\"";
 	_wsystem(ConvertUTF8ToWString(str).c_str());
 #endif

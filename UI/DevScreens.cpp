@@ -359,9 +359,11 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Model", draw->GetInfoString(InfoField::RENDERER)));
 #ifdef _WIN32
 	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
+#if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		deviceSpecs->Add(new InfoItem("D3DX Version", StringFromFormat("%d", GetD3DXVersion())));
 	}
+#endif
 #endif
 	deviceSpecs->Add(new ItemHeader("OS Information"));
 	deviceSpecs->Add(new InfoItem("Memory Page Size", StringFromFormat("%d bytes", GetMemoryProtectPageSize())));

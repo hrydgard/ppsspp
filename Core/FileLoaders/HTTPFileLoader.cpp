@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "base/stringutil.h"
 #include "Common/Common.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"

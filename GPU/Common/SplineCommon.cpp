@@ -456,7 +456,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 							char temp[512];
 							snprintf(temp, sizeof(temp), "count_u: %d count_v: %d patch_w: %d patch_h: %d  ii: %d  jj: %d  iu: %d  iv: %d  patch_div_s: %d  patch_div_t: %d\n", spatch.count_u, spatch.count_v, patch_w, patch_h, ii, jj, iu, iv, patch_div_s, patch_div_t);
 							OutputDebugStringA(temp);
-							DebugBreak();
+							Crash();
 						}*/
 						SimpleVertex *a = spatch.points[idx];
 						AccumulateWeighted(vert_pos, a->pos, fv);
@@ -1023,7 +1023,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	// Bezier patches share less control points than spline patches. Otherwise they are pretty much the same (except bezier don't support the open/close thing)
 	int num_patches_u = (count_u - 1) / 3;
 	int num_patches_v = (count_v - 1) / 3;
-	BezierPatch *patches;
+	BezierPatch *patches = nullptr;
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
 		for (int idx = 0; idx < count_u * count_v; idx++) {
 			SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(idx) : idx);

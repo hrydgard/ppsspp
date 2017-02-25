@@ -15,14 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <stdio.h>
+#include <cstdio>
 
+#include "gfx_es2/gpu_features.h"
+
+#include "GPU/Common/ShaderId.h"
+#include "GPU/Common/ShaderCommon.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
-
 
 #define WRITE p+=sprintf
 

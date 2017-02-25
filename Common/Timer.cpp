@@ -17,6 +17,8 @@
 
 #include <time.h>
 
+#include "ppsspp_config.h"
+
 #ifdef _WIN32
 #include "CommonWindows.h"
 #include <mmsystem.h>
@@ -34,7 +36,11 @@ namespace Common
 u32 Timer::GetTimeMs()
 {
 #if defined(_WIN32)
+#if PPSSPP_PLATFORM(UWP)
+	return 0;  // TODO UWP
+#else
 	return timeGetTime();
+#endif
 #else
 	// REALTIME is probably not a good idea for measuring updates.
 	struct timeval t;

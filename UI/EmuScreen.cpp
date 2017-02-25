@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <algorithm>
 
 #include "base/display.h"
@@ -69,8 +71,11 @@
 #include "UI/InstallZipScreen.h"
 #include "UI/ProfilerDraw.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/MainWindow.h"
+#endif
+#if !PPSSPP_PLATFORM(UWP)
+#include "gfx/gl_common.h"
 #endif
 
 #ifndef MOBILE_DEVICE
@@ -150,14 +155,15 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
 	coreParam.gpuCore = GPUCORE_GLES;
 	switch (GetGPUBackend()) {
+	case GPUBackend::DIRECT3D11:
+		coreParam.gpuCore = GPUCORE_DIRECTX11;
+		break;
+#if !PPSSPP_PLATFORM(UWP)
 	case GPUBackend::OPENGL:
 		coreParam.gpuCore = GPUCORE_GLES;
 		break;
 	case GPUBackend::DIRECT3D9:
 		coreParam.gpuCore = GPUCORE_DIRECTX9;
-		break;
-	case GPUBackend::DIRECT3D11:
-		coreParam.gpuCore = GPUCORE_DIRECTX11;
 		break;
 	case GPUBackend::VULKAN:
 		coreParam.gpuCore = GPUCORE_VULKAN;
@@ -172,6 +178,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 #endif
 		}
 		break;
+#endif
 	}
 	if (g_Config.bSoftwareRendering) {
 		coreParam.gpuCore = GPUCORE_SOFTWARE;
@@ -228,6 +235,7 @@ void EmuScreen::bootComplete() {
 #endif
 	memset(virtKeys, 0, sizeof(virtKeys));
 
+#if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		const char *renderer = (const char*)glGetString(GL_RENDERER);
 		if (strstr(renderer, "Chainfire3D") != 0) {
@@ -240,6 +248,7 @@ void EmuScreen::bootComplete() {
 			osm.Show("WARNING: GfxDebugOutput is enabled via ppsspp.ini. Things may be slow.", 10.0f, 0xFF30a0FF, -1, true);
 		}
 	}
+#endif
 
 	if (Core_GetPowerSaving()) {
 		I18NCategory *sy = GetI18NCategory("System");

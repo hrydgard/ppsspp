@@ -19,6 +19,7 @@
 #include <snappy-c.h>
 
 #include "ChunkFile.h"
+#include "StringUtils.h"
 
 PointerWrapSection PointerWrap::Section(const char *title, int ver) {
 	return Section(title, ver, ver);
@@ -28,9 +29,8 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 	char marker[16] = {0};
 	int foundVersion = ver;
 
-	strncpy(marker, title, sizeof(marker));
-	if (!ExpectVoid(marker, sizeof(marker)))
-	{
+	truncate_cpy(marker, title);
+	if (!ExpectVoid(marker, sizeof(marker))) {
 		// Might be before we added name markers for safety.
 		if (foundVersion == 1 && ExpectVoid(&foundVersion, sizeof(foundVersion)))
 			DoMarker(title);
@@ -283,13 +283,11 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	header.Revision = REVISION_CURRENT;
 	header.ExpectedSize = (u32)sz;
 	header.UncompressedSize = (u32)sz;
-	strncpy(header.GitVersion, gitVersion, 32);
-	header.GitVersion[31] = '\0';
+	truncate_cpy(header.GitVersion, gitVersion);
 
 	// Setup the fixed-length title.
 	char titleFixed[128];
-	strncpy(titleFixed, title.c_str(), sizeof(titleFixed));
-	titleFixed[sizeof(titleFixed) - 1] = '\0';
+	truncate_cpy(titleFixed, title.c_str());
 
 	// Write to file
 	if (compress) {

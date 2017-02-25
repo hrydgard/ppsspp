@@ -32,7 +32,6 @@
 #include "Core/ELF/ParamSFO.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/FramebufferManagerGLES.h"
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"
@@ -452,7 +451,7 @@ namespace Reporting
 	bool IsSupported()
 	{
 		// Disabled when using certain hacks, because they make for poor reports.
-		if (g_Config.iRenderingMode >= FBO_READFBOMEMORY_MIN)
+		if (g_Config.iRenderingMode >= 2) // FBO_READFBOMEMORY_MIN
 			return false;
 		if (g_Config.bTimerHack)
 			return false;

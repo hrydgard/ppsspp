@@ -19,7 +19,6 @@
 
 #include "base/logging.h"
 
-#include "gfx/d3d9_state.h"
 #include "ext/native/thin3d/thin3d.h"
 #include "Core/Reporting.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"

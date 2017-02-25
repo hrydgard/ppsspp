@@ -31,7 +31,7 @@ float TextDrawerWordWrapper::MeasureWidth(const char *str, size_t bytes) {
 	return w;
 }
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(_WIN32) && !defined(USING_QT_UI) && !PPSSPP_PLATFORM(UWP)
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
