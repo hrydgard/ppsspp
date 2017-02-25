@@ -83,15 +83,11 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 
 // This needs before run CheckGPUFeatures()
 // TODO: Remove this if fix the issue
-<<<<<<< HEAD
-bool CheckSupportInstancedTessellation() {
+bool CheckSupportInstancedTessellationGLES() {
 #if PPSSPP_PLATFORM(UWP)
 	return true;
 #else
 	// TODO: Make work with non-GL backends
-=======
-bool CheckSupportInstancedTessellationGLES() {
->>>>>>> 4a6e0c9... [spline/bezier]Add support for unsupported device about HW tess.
 	int maxVertexTextureImageUnits;
 	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureImageUnits);
 	bool vertexTexture = maxVertexTextureImageUnits >= 3; // At least 3 for hardware tessellation
