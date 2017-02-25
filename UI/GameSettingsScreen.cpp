@@ -83,11 +83,15 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 
 // This needs before run CheckGPUFeatures()
 // TODO: Remove this if fix the issue
+<<<<<<< HEAD
 bool CheckSupportInstancedTessellation() {
 #if PPSSPP_PLATFORM(UWP)
 	return true;
 #else
 	// TODO: Make work with non-GL backends
+=======
+bool CheckSupportInstancedTessellationGLES() {
+>>>>>>> 4a6e0c9... [spline/bezier]Add support for unsupported device about HW tess.
 	int maxVertexTextureImageUnits;
 	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureImageUnits);
 	bool vertexTexture = maxVertexTextureImageUnits >= 3; // At least 3 for hardware tessellation
@@ -312,7 +316,9 @@ void GameSettingsScreen::CreateViews() {
 		bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
 		return UI::EVENT_CONTINUE;
 	});
-	tessHWEnable_ = CheckSupportInstancedTessellation() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	bool isBackendSupportHWTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL || g_Config.iGPUBackend == GPU_BACKEND_VULKAN;
+	bool isDeviceSupportInstTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL ? CheckSupportInstancedTessellationGLES() : isBackendSupportHWTess;
+	tessHWEnable_ = isDeviceSupportInstTess && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	tessellationHW->SetEnabledPtr(&tessHWEnable_);
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.

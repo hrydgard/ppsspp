@@ -41,6 +41,7 @@
 #include "base/NativeApp.h"
 #include "base/logging.h"
 #include "profiler/profiler.h"
+#include "i18n/i18n.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
@@ -474,6 +475,14 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
 	textureCache_->NotifyConfigChanged();
+
+	if (g_Config.bHardwareTessellation) {
+		// Disable hardware tessellation bacause DX11 is still unsupported.
+		g_Config.bHardwareTessellation = false;
+		ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
+		I18NCategory *gr = GetI18NCategory("Graphics");
+		host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
+	}
 }
 
 GPU_D3D11::~GPU_D3D11() {

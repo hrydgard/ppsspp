@@ -22,6 +22,7 @@
 #include "base/NativeApp.h"
 #include "base/logging.h"
 #include "profiler/profiler.h"
+#include "i18n/i18n.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
@@ -456,6 +457,14 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// We restore each frame anyway, but here is convenient for tests.
 	dxstate.Restore();
 	textureCache_->NotifyConfigChanged();
+
+	if (g_Config.bHardwareTessellation) {
+		// Disable hardware tessellation bacause DX9 is still unsupported.
+		g_Config.bHardwareTessellation = false;
+		ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
+		I18NCategory *gr = GetI18NCategory("Graphics");
+		host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
+	}
 }
 
 void GPU_DX9::UpdateCmdInfo() {
