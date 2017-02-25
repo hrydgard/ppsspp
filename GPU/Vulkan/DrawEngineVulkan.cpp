@@ -55,6 +55,9 @@ enum {
 	DRAW_BINDING_DYNUBO_BASE = 2,
 	DRAW_BINDING_DYNUBO_LIGHT = 3,
 	DRAW_BINDING_DYNUBO_BONE = 4,
+	DRAW_BINDING_TESS_POS_TEXTURE = 5,
+	DRAW_BINDING_TESS_TEX_TEXTURE = 6,
+	DRAW_BINDING_TESS_COL_TEXTURE = 7,
 };
 
 enum {
@@ -87,12 +90,12 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 
 	InitDeviceObjects();
 
-	tessDataTransfer = new TessellationDataTransferVulkan();
+	tessDataTransfer = new TessellationDataTransferVulkan(vulkan);
 }
 
 void DrawEngineVulkan::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
-	VkDescriptorSetLayoutBinding bindings[5];
+	VkDescriptorSetLayoutBinding bindings[8];
 	bindings[0].descriptorCount = 1;
 	bindings[0].pImmutableSamplers = nullptr;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -118,11 +121,27 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[4].binding = DRAW_BINDING_DYNUBO_BONE;
+	// Hardware tessellation
+	bindings[5].descriptorCount = 1;
+	bindings[5].pImmutableSamplers = nullptr;
+	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindings[5].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[5].binding = DRAW_BINDING_TESS_POS_TEXTURE;
+	bindings[6].descriptorCount = 1;
+	bindings[6].pImmutableSamplers = nullptr;
+	bindings[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindings[6].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[6].binding = DRAW_BINDING_TESS_TEX_TEXTURE;
+	bindings[7].descriptorCount = 1;
+	bindings[7].pImmutableSamplers = nullptr;
+	bindings[7].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindings[7].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[7].binding = DRAW_BINDING_TESS_COL_TEXTURE;
 
 	VkDevice device = vulkan_->GetDevice();
 
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-	dsl.bindingCount = 5;
+	dsl.bindingCount = 8;
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
@@ -512,9 +531,11 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	assert(bone != VK_NULL_HANDLE);
 
 	FrameData *frame = &frame_[curFrame_ & 1];
-	auto iter = frame->descSets.find(key);
-	if (iter != frame->descSets.end()) {
-		return iter->second;
+	if (!(gstate_c.bezier || gstate_c.spline)) { // Has no cache when HW tessellation.
+		auto iter = frame->descSets.find(key);
+		if (iter != frame->descSets.end()) {
+			return iter->second;
+		}
 	}
 
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
@@ -530,7 +551,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	assert(result == VK_SUCCESS);
 
 	// We just don't write to the slots we don't care about.
-	VkWriteDescriptorSet writes[4];
+	VkWriteDescriptorSet writes[7];
 	memset(writes, 0, sizeof(writes));
 	// Main texture
 	int n = 0;
@@ -551,6 +572,30 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	}
 
   // Skipping 2nd texture for now.
+
+	// Tessellation data textures
+	if (gstate_c.bezier || gstate_c.spline) {
+		VkDescriptorImageInfo tess_tex[3];
+		VkSampler sampler = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetSampler();
+		for (int i = 0; i < 3; i++) {
+			VulkanTexture *texture = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetTexture(i);
+			VkImageView imageView = texture->GetImageView();
+			if (i == 0 || imageView) {
+				tess_tex[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				tess_tex[i].imageView = imageView;
+				tess_tex[i].sampler = sampler;
+				writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				writes[n].pNext = nullptr;
+				writes[n].dstBinding = DRAW_BINDING_TESS_POS_TEXTURE + i;
+				writes[n].pImageInfo = &tess_tex[i];
+				writes[n].descriptorCount = 1;
+				writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				writes[n].dstSet = desc;
+				n++;
+			}
+		}
+	}
+
 	// Uniform buffer objects
 	VkDescriptorBufferInfo buf[3];
 	int count = 0;
@@ -580,7 +625,8 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 
 	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
 
-	frame->descSets[key] = desc;
+	if (!(gstate_c.bezier || gstate_c.spline)) // Avoid caching when HW tessellation.
+		frame->descSets[key] = desc;
 	return desc;
 }
 
@@ -721,7 +767,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			// TODO: Avoid rebinding vertex/index buffers if the vertex size stays the same by using the offset arguments
 			vkCmdBindVertexBuffers(cmd_, 0, 1, &vbuf, offsets);
 			vkCmdBindIndexBuffer(cmd_, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
-			vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, 0, 0);
+			int numInstances = (gstate_c.bezier || gstate_c.spline) ? numPatches : 1;
+			vkCmdDrawIndexed(cmd_, vertexCount, numInstances, 0, 0, 0);
 		} else {
 			vkCmdBindVertexBuffers(cmd_, 0, 1, &vbuf, offsets);
 			vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
@@ -900,6 +947,40 @@ bool DrawEngineVulkan::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
-void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords)
-{
+void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
+	int rowPitch;
+	u8 *data;
+
+	// Position
+	if (prevSize < size) {
+		prevSize = size;
+
+		data_tex[0]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	}
+	data = data_tex[0]->Lock(0, &rowPitch);
+	memcpy(data, pos, size * 3 * sizeof(float));
+	data_tex[0]->Unlock();
+
+	// Texcoords
+	if (hasTexCoords) {
+		if (prevSizeTex < size) {
+			prevSizeTex = size;
+
+			data_tex[1]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		}
+		data = data_tex[1]->Lock(0, &rowPitch);
+		memcpy(data, tex, size * 3 * sizeof(float));
+		data_tex[1]->Unlock();
+	}
+
+	// Color
+	int sizeColor = hasColor ? size : 1;
+	if (prevSizeCol < sizeColor) {
+		prevSizeCol = sizeColor;
+
+		data_tex[2]->CreateDirect(sizeColor, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	}
+	data = data_tex[2]->Lock(0, &rowPitch);
+	memcpy(data, col, sizeColor * 4 * sizeof(float));
+	data_tex[2]->Unlock();
 }

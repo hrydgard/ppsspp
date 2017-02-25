@@ -141,10 +141,19 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		const int h = gstate.getTextureHeight(0);
 		const float widthFactor = (float)w * invW;
 		const float heightFactor = (float)h * invH;
-		ub->uvScaleOffset[0] = widthFactor;
-		ub->uvScaleOffset[1] = heightFactor;
-		ub->uvScaleOffset[2] = 0.0f;
-		ub->uvScaleOffset[3] = 0.0f;
+		if (gstate_c.bezier || gstate_c.spline) {
+			// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
+			// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
+			ub->uvScaleOffset[0] = gstate_c.uv.uScale * widthFactor;
+			ub->uvScaleOffset[1] = gstate_c.uv.vScale * heightFactor;
+			ub->uvScaleOffset[2] = gstate_c.uv.uOff * widthFactor;
+			ub->uvScaleOffset[3] = gstate_c.uv.vOff * heightFactor;
+		} else {
+			ub->uvScaleOffset[0] = widthFactor;
+			ub->uvScaleOffset[1] = heightFactor;
+			ub->uvScaleOffset[2] = 0.0f;
+			ub->uvScaleOffset[3] = 0.0f;
+		}
 	}
 
 	if (dirtyUniforms & DIRTY_DEPTHRANGE) {
@@ -176,6 +185,20 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ub->depthRange[1] = viewZCenter;
 		ub->depthRange[2] = viewZCenter;
 		ub->depthRange[3] = viewZInvScale;
+	}
+
+	if (gstate_c.bezier) {
+		if (dirtyUniforms & DIRTY_BEZIERCOUNTU)
+			ub->spline_count_u = gstate_c.bezier_count_u;
+	} else if (gstate_c.spline) {
+		if (dirtyUniforms & DIRTY_SPLINECOUNTU)
+			ub->spline_count_u = gstate_c.spline_count_u;
+		if (dirtyUniforms & DIRTY_SPLINECOUNTV)
+			ub->spline_count_v = gstate_c.spline_count_v;
+		if (dirtyUniforms & DIRTY_SPLINETYPEU)
+			ub->spline_type_u = gstate_c.spline_type_u;
+		if (dirtyUniforms & DIRTY_SPLINETYPEV)
+			ub->spline_type_v = gstate_c.spline_type_v;
 	}
 }
 
