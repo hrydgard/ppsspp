@@ -646,13 +646,14 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		// Create texture
 		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
 		int tw = w, th = h;
+		DXGI_FORMAT tfmt = dstFmt;
 		if (replaced.GetSize(level, tw, th)) {
-			dstFmt = ToDXGIFormat(replaced.Format(level));
+			tfmt = ToDXGIFormat(replaced.Format(level));
 		} else {
 			tw *= scaleFactor;
 			th *= scaleFactor;
 			if (scaleFactor > 1) {
-				dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
+				tfmt = DXGI_FORMAT_B8G8R8A8_UNORM;
 			}
 		}
 
@@ -664,7 +665,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		desc.SampleDesc.Count = 1;
 		desc.Width = tw;
 		desc.Height = th;
-		desc.Format = dstFmt;
+		desc.Format = tfmt;
 		desc.MipLevels = levels;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
@@ -720,7 +721,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			pixelData = (u32 *)mapData;
 
 			// We always end up at 8888.  Other parts assume this.
-			assert(dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM);
+			assert(scaleFmt == DXGI_FORMAT_B8G8R8A8_UNORM);
 			bpp = sizeof(u32);
 			decPitch = w * bpp;
 

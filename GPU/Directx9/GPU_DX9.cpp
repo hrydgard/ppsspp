@@ -478,7 +478,6 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
-	features |= GPU_SUPPORTS_16BIT_FORMATS;
 
 	D3DCAPS9 caps;
 	ZeroMemory(&caps, sizeof(caps));
