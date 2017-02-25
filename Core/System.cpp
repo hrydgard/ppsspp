@@ -621,6 +621,7 @@ void InitSysDirectories() {
 #if PPSSPP_PLATFORM(UWP)
 	const std::string myDocsPath = "";  // TODO UWP
 	const HRESULT result = E_FAIL;
+
 #else
 	wchar_t myDocumentsPath[MAX_PATH];
 	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);

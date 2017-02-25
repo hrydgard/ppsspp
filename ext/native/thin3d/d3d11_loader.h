@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ppsspp_config.h"
+
 // Standard Windows includes
 #include <windows.h>
 #include <initguid.h>

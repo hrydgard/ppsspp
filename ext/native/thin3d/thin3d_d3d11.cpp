@@ -1,7 +1,11 @@
 #include "ppsspp_config.h"
 
 #include "thin3d/thin3d.h"
+#if PPSSPP_PLATFORM(UWP)
+#define ptr_D3DCompile D3DCompile
+#else
 #include "thin3d/d3d11_loader.h"
+#endif
 #include "math/dataconv.h"
 #include "util/text/utf8.h"
 

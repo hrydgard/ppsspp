@@ -1,9 +1,17 @@
+#include "ppsspp_config.h"
+
 #include <cstdint>
 #include <vector>
 #include <d3d11.h>
 #include <D3Dcompiler.h>
 
+
+#if PPSSPP_PLATFORM(UWP)
+#define ptr_D3DCompile D3DCompile
+#else
 #include "thin3d/d3d11_loader.h"
+#endif
+
 #include "base/logging.h"
 #include "base/stringutil.h"
 

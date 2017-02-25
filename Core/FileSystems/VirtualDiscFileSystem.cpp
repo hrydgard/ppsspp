@@ -808,9 +808,8 @@ void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogTy
 	}
 }
 
-#if !PPSSPP_PLATFORM(UWP)
-
 VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSystem *const sys) {
+#if !PPSSPP_PLATFORM(UWP)
 #ifdef _WIN32
 #define dlopen(name, ignore) (void *)LoadLibrary(ConvertUTF8ToWString(name).c_str())
 #define dlsym(mod, name) GetProcAddress((HMODULE)mod, name)
@@ -843,18 +842,20 @@ VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSys
 #undef dlsym
 #undef dlclose
 #endif
+#endif
 }
 
 VirtualDiscFileSystem::Handler::~Handler() {
 	if (library != NULL) {
 		Shutdown();
 
+#if !PPSSPP_PLATFORM(UWP)
 #ifdef _WIN32
 		FreeLibrary((HMODULE)library);
 #else
 		dlclose(library);
 #endif
+#endif
 	}
 }
 
-#endif

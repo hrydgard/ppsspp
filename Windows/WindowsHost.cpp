@@ -50,14 +50,10 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 
-#if PPSSPP_PLATFORM(UWP)
-#include "Windows/GPU/D3D11Context.h"
-#else
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
 #include "Windows/GPU/D3D9Context.h"
 #include "Windows/GPU/D3D11Context.h"
-#endif
 
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
