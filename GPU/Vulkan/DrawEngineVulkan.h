@@ -259,6 +259,8 @@ private:
 		~TessellationDataTransferVulkan() {
 			for (int i = 0; i < 3; i++)
 				delete data_tex[i];
+
+			vulkan->Delete().QueueDeleteSampler(sampler);
 		}
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
 		VulkanTexture *GetTexture(int i) const { return data_tex[i]; }
