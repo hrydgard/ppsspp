@@ -411,9 +411,17 @@ std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
 	auto alias = aliases_.find(key);
 	if (alias == aliases_.end()) {
 		// Also check for a few more aliases with zeroed portions:
-		// No data hash.
+		// Only clut hash (very dangerous in theory, in practice not more than missing "just" data hash)
+		key.cachekey = cachekey & 0xFFFFFFFFULL;
 		key.hash = 0;
 		alias = aliases_.find(key);
+
+		if (alias == aliases_.end()) {
+			// No data hash.
+			key.cachekey = cachekey;
+			key.hash = 0;
+			alias = aliases_.find(key);
+		}
 
 		if (alias == aliases_.end()) {
 			// No address.
