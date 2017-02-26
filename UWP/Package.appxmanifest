@@ -20,15 +20,15 @@
         </uap:DefaultTile>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
         <uap:InitialRotationPreference>
-          <uap:Rotation Preference="portrait" />
           <uap:Rotation Preference="landscape" />
-          <uap:Rotation Preference="portraitFlipped" />
-          <uap:Rotation Preference="landscapeFlipped" />
         </uap:InitialRotationPreference>
       </uap:VisualElements>
     </Application>
   </Applications>
   <Capabilities>
     <Capability Name="codeGeneration" />
+    <Capability Name="internetClient" />
+    <uap:Capability Name="removableStorage" />
+    <DeviceCapability Name="microphone" />
   </Capabilities>
 </Package>

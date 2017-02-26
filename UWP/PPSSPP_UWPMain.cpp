@@ -19,10 +19,14 @@
 
 using namespace UWP;
 using namespace Windows::Foundation;
+using namespace Windows::Storage;
 using namespace Windows::System::Threading;
 using namespace Concurrency;
 
+namespace UWP {
+
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
+// TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
 
 // Loads and initializes application assets when the application is loaded.
 PPSSPP_UWPMain::PPSSPP_UWPMain(const std::shared_ptr<DX::DeviceResources>& deviceResources) :
@@ -30,6 +34,8 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(const std::shared_ptr<DX::DeviceResources>& devic
 {
 	// Register to be notified if the Device is lost or recreated
 	m_deviceResources->RegisterDeviceNotify(this);
+
+	// create_task(KnownFolders::GetFolderForUserAsync(nullptr, KnownFolderId::RemovableDevices)).then([this](StorageFolder ^));
 
 	// TODO: Change the timer settings if you want something other than the default variable timestep mode.
 	// e.g. for 60 FPS fixed timestep update logic, call:
@@ -90,9 +96,12 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(const std::shared_ptr<DX::DeviceResources>& devic
 	NativeInit(1, argv, "", "", "", false);
 
 	NativeInitGraphics(m_graphicsContext.get());
+	NativeResized();
+	m_graphicsContext->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER);
 }
 
 PPSSPP_UWPMain::~PPSSPP_UWPMain() {
+	m_graphicsContext->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER);
 	NativeShutdownGraphics();
 	NativeShutdown();
 
@@ -120,6 +129,7 @@ bool PPSSPP_UWPMain::Render() {
 	// Reset the viewport to target the whole screen.
 	auto viewport = m_deviceResources->GetScreenViewport();
 
+	m_deviceResources->GetBackBufferRenderTargetView()
 	pixel_xres = viewport.Width;
 	pixel_yres = viewport.Height;
 
@@ -131,7 +141,6 @@ bool PPSSPP_UWPMain::Render() {
 	dp_xres = pixel_xres * g_dpi_scale;
 	dp_yres = pixel_yres * g_dpi_scale;
 
-	/*
 	context->RSSetViewports(1, &viewport);
 
 	// Reset render targets to the screen.
@@ -141,7 +150,6 @@ bool PPSSPP_UWPMain::Render() {
 	// Clear the back buffer and depth stencil view.
 	context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::CornflowerBlue);
 	context->ClearDepthStencilView(m_deviceResources->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-	*/
 	NativeRender(m_graphicsContext.get());
 	return true;
 }
@@ -155,6 +163,7 @@ void PPSSPP_UWPMain::OnDeviceLost() {
 void PPSSPP_UWPMain::OnDeviceRestored()
 {
 	CreateWindowSizeDependentResources();
+
 }
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
@@ -168,6 +177,8 @@ void UWPGraphicsContext::Shutdown() {
 void UWPGraphicsContext::SwapInterval(int interval) {
 	
 }
+
+}  // namespace UWP
 
 std::string System_GetProperty(SystemProperty prop) {
 	static bool hasCheckedGPUDriverVersion = false;

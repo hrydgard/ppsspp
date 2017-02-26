@@ -35,6 +35,9 @@
     <Image Include="Assets\Wide310x150Logo.scale-200.png">
       <Filter>Assets</Filter>
     </Image>
+    <Filter Include="Content">
+      <UniqueIdentifier>{ef87b390-608f-4c6d-a0ad-88963875ed11}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
@@ -54,11 +57,46 @@
     <Image Include="Assets\StoreLogo.png">
       <Filter>Assets</Filter>
     </Image>
+    <Image Include="Content\7z.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\rargray.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\unknown.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\zip.png">
+      <Filter>Content</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
   <ItemGroup>
     <None Include="UWP_TemporaryKey.pfx" />
+    <None Include="Content\ui_atlas.zim">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\compat.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\knownfuncs.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\langregion.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\ppge_atlas.zim">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\ui_atlas_lowmem.zim">
+      <Filter>Content</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Content\gamecontrollerdb.txt">
+      <Filter>Content</Filter>
+    </Text>
   </ItemGroup>
 </Project>

@@ -189,13 +189,36 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Image Include="Assets\LockScreenLogo.scale-200.png" />
-    <Image Include="Assets\SplashScreen.scale-200.png" />
-    <Image Include="Assets\Square150x150Logo.scale-200.png" />
-    <Image Include="Assets\Square44x44Logo.scale-200.png" />
-    <Image Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
-    <Image Include="Assets\StoreLogo.png" />
-    <Image Include="Assets\Wide310x150Logo.scale-200.png" />
+    <Image Include="Assets\LockScreenLogo.scale-200.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="Assets\SplashScreen.scale-200.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="Assets\Square150x150Logo.scale-200.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.scale-200.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="Assets\StoreLogo.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="Assets\Wide310x150Logo.scale-200.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="Content\7z.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="Content\unknown.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="Content\zip.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ppsspp_config.h" />
@@ -232,6 +255,28 @@
     <AppxManifest Include="Package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
+    <Image Include="Content\rargray.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="Content\ui_atlas.zim">
+      <DeploymentContent>true</DeploymentContent>
+      <FileType>Document</FileType>
+    </Image>
+    <None Include="Content\compat.ini">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\knownfuncs.ini">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\langregion.ini">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\ppge_atlas.zim">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\ui_atlas_lowmem.zim">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="UWP_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
@@ -262,6 +307,11 @@
     <ProjectReference Include="zlib_UWP\zlib_UWP.vcxproj">
       <Project>{ddf90203-0aae-4f38-b589-2e9637658ce6}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Content\gamecontrollerdb.txt">
+      <DeploymentContent>true</DeploymentContent>
+    </Text>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

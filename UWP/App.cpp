@@ -73,11 +73,11 @@ void App::SetWindow(CoreWindow^ window) {
 	DisplayInformation::DisplayContentsInvalidated +=
 		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &App::OnDisplayContentsInvalidated);
 
-	window->KeyDown += ref new TypedEventHandler<DisplayInformation, Object^>(this, &App::OnKeyDown);
+	// window->KeyDown += ref new TypedEventHandler<DisplayInformation, Object^>(this, &App::OnKeyDown);
 
 	m_deviceResources->SetWindow(window);
 }
-
+ 
 // Initializes scene resources, or loads a previously saved app state.
 void App::Load(Platform::String^ entryPoint) {
 	if (m_main == nullptr) {

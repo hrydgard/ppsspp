@@ -1280,6 +1280,7 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 
 // These functions should be self explanatory.
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
+	// TODO: deviceContext1 can actually discard. Useful on Windows Mobile.
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {
 		return;
