@@ -876,7 +876,18 @@ void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
 	int bytesRead = 0;
+
+	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.bezier = true;
+		if (gstate_c.bezier_count_u != bz_ucount) {
+		    gstate_c.Dirty(DIRTY_BEZIERCOUNTU);
+			gstate_c.bezier_count_u = bz_ucount;
+		}
+	}
+
 	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+
+	gstate_c.bezier = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = bz_ucount * bz_vcount;
@@ -923,8 +934,31 @@ void GPU_Vulkan::Execute_Spline(u32 op, u32 diff) {
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
 	u32 vertType = gstate.vertType;
+
+	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.spline = true;
+		if (gstate_c.spline_count_u != sp_ucount) {
+		    gstate_c.Dirty(DIRTY_SPLINECOUNTU);
+			gstate_c.spline_count_u = sp_ucount;
+		}
+		if (gstate_c.spline_count_v != sp_vcount) {
+		    gstate_c.Dirty(DIRTY_SPLINECOUNTV);
+			gstate_c.spline_count_v = sp_vcount;
+		}
+		if (gstate_c.spline_type_u != sp_utype) {
+		    gstate_c.Dirty(DIRTY_SPLINETYPEU);
+			gstate_c.spline_type_u = sp_utype;
+		}
+		if (gstate_c.spline_type_v != sp_vtype) {
+		    gstate_c.Dirty(DIRTY_SPLINETYPEV);
+			gstate_c.spline_type_v = sp_vtype;
+		}
+	}
+
 	int bytesRead = 0;
 	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
+
+	gstate_c.spline = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = sp_ucount * sp_vcount;

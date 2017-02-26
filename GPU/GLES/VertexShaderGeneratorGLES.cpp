@@ -488,7 +488,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 					WRITE(p, "  weights[1] = 3.0 * tess_pos * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
 					WRITE(p, "  weights[2] = 3.0 * tess_pos * tess_pos * (1.0 - tess_pos);\n");
 					WRITE(p, "  weights[3] = tess_pos * tess_pos * tess_pos;\n");
-				} else if (doSpline) {
+				} else { // Spline
 					WRITE(p, "  ivec2 spline_num_patches = ivec2(u_spline_count_u - 3, u_spline_count_v - 3);\n");
 					WRITE(p, "  ivec2 spline_type = ivec2(u_spline_type_u, u_spline_type_v);\n");
 					WRITE(p, "  vec2 knots[6];\n");
@@ -527,7 +527,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 
 						WRITE(p, "  vec3 du = tess_sample(_pos, bernderiv_u);\n");
 						WRITE(p, "  vec3 dv = tess_sample(_pos, bernderiv_v);\n");
-					} else if (doSpline) {
+					} else { // Spline
 						WRITE(p, "  vec2 tess_next_u = vec2(normal.x, 0.0);\n");
 						WRITE(p, "  vec2 tess_next_v = vec2(0.0, normal.y);\n");
 						// Right

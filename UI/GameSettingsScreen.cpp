@@ -83,7 +83,7 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 
 // This needs before run CheckGPUFeatures()
 // TODO: Remove this if fix the issue
-bool CheckSupportInstancedTessellation() {
+bool CheckSupportInstancedTessellationGLES() {
 #if PPSSPP_PLATFORM(UWP)
 	return true;
 #else
@@ -312,7 +312,9 @@ void GameSettingsScreen::CreateViews() {
 		bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
 		return UI::EVENT_CONTINUE;
 	});
-	tessHWEnable_ = CheckSupportInstancedTessellation() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	bool isBackendSupportHWTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL || g_Config.iGPUBackend == GPU_BACKEND_VULKAN;
+	bool isDeviceSupportInstTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL ? CheckSupportInstancedTessellationGLES() : isBackendSupportHWTess;
+	tessHWEnable_ = isDeviceSupportInstTess && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	tessellationHW->SetEnabledPtr(&tessHWEnable_);
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
@@ -752,13 +754,17 @@ UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
 	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
-	tessHWEnable_ = CheckSupportInstancedTessellation() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	bool isBackendSupportHWTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL || g_Config.iGPUBackend == GPU_BACKEND_VULKAN;
+	bool isDeviceSupportInstTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL ? CheckSupportInstancedTessellationGLES() : isBackendSupportHWTess;
+	tessHWEnable_ = isDeviceSupportInstTess && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
 	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	tessHWEnable_ = CheckSupportInstancedTessellation() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	bool isBackendSupportHWTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL || g_Config.iGPUBackend == GPU_BACKEND_VULKAN;
+	bool isDeviceSupportInstTess = g_Config.iGPUBackend == GPU_BACKEND_OPENGL ? CheckSupportInstancedTessellationGLES() : isBackendSupportHWTess;
+	tessHWEnable_ = isDeviceSupportInstTess && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
 

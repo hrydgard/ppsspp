@@ -245,12 +245,53 @@ private:
 	// Hardware tessellation
 	class TessellationDataTransferVulkan : public TessellationDataTransfer {
 	private:
-		int data_tex[3];
+		VulkanContext *vulkan;
+		VulkanTexture *data_tex[3];
+		VkSampler sampler;
 	public:
-		TessellationDataTransferVulkan() : TessellationDataTransfer(), data_tex() {
+		TessellationDataTransferVulkan(VulkanContext *vulkan) 
+			: TessellationDataTransfer(), vulkan(vulkan), data_tex(), sampler() {
+			for (int i = 0; i < 3; i++)
+				data_tex[i] = new VulkanTexture(vulkan);
+
+			CreateSampler();
 		}
 		~TessellationDataTransferVulkan() {
+			for (int i = 0; i < 3; i++)
+				delete data_tex[i];
+
+			vulkan->Delete().QueueDeleteSampler(sampler);
 		}
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+		VulkanTexture *GetTexture(int i) const { return data_tex[i]; }
+		VkSampler GetSampler() const { return sampler; }
+		void CreateSampler() {
+			VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+			samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+			samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+			samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+			samp.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+			samp.compareOp = VK_COMPARE_OP_NEVER;
+			samp.flags = 0;
+			samp.magFilter =VK_FILTER_NEAREST;
+			samp.minFilter = VK_FILTER_NEAREST;
+			samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
+			if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+				// Docs say the min of this value and the supported max are used.
+				samp.maxAnisotropy = 1 << g_Config.iAnisotropyLevel;
+				samp.anisotropyEnable = true;
+			} else {
+				samp.maxAnisotropy = 1.0f;
+				samp.anisotropyEnable = false;
+			}
+
+			samp.maxLod = 1.0f;
+			samp.minLod = 0.0f;
+			samp.mipLodBias = 0.0f;
+
+			VkResult res = vkCreateSampler(vulkan->GetDevice(), &samp, nullptr, &sampler);
+			assert(res == VK_SUCCESS);
+		}
 	};
 };
