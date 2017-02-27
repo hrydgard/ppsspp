@@ -224,6 +224,7 @@
     <ClInclude Include="..\ppsspp_config.h" />
     <ClInclude Include="App.h" />
     <ClInclude Include="Common\DeviceResources.h" />
+    <ClInclude Include="NKCodeFromWindowsSystem.h" />
     <ClInclude Include="PPSSPP_UWPMain.h" />
     <ClInclude Include="Common\DirectXHelper.h" />
     <ClInclude Include="pch.h" />
@@ -240,6 +241,7 @@
     </ClCompile>
     <ClCompile Include="App.cpp" />
     <ClCompile Include="Common\DeviceResources.cpp" />
+    <ClCompile Include="NKCodeFromWindowsSystem.cpp" />
     <ClCompile Include="PPSSPP_UWPMain.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

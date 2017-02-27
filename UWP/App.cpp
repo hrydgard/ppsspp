@@ -73,11 +73,21 @@ void App::SetWindow(CoreWindow^ window) {
 	DisplayInformation::DisplayContentsInvalidated +=
 		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &App::OnDisplayContentsInvalidated);
 
-	// window->KeyDown += ref new TypedEventHandler<DisplayInformation, Object^>(this, &App::OnKeyDown);
+	window->KeyDown += ref new TypedEventHandler<CoreWindow^, KeyEventArgs^>(this, &App::OnKeyDown);
+	window->KeyUp += ref new TypedEventHandler<CoreWindow^, KeyEventArgs^>(this, &App::OnKeyUp);
 
 	m_deviceResources->SetWindow(window);
 }
- 
+
+void App::OnKeyDown(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args) {
+	m_main->OnKeyDown(args->KeyStatus.ScanCode, args->VirtualKey, args->KeyStatus.RepeatCount);
+}
+
+void App::OnKeyUp(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args) {
+	m_main->OnKeyUp(args->KeyStatus.ScanCode, args->VirtualKey);
+}
+
+
 // Initializes scene resources, or loads a previously saved app state.
 void App::Load(Platform::String^ entryPoint) {
 	if (m_main == nullptr) {
@@ -90,7 +100,6 @@ void App::Run() {
 	while (!m_windowClosed) {
 		if (m_windowVisible) {
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
-			m_main->Update();
 			if (m_main->Render()) {
 				m_deviceResources->Present();
 			}
@@ -151,10 +160,6 @@ void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ ar
 
 void App::OnWindowClosed(CoreWindow^ sender, CoreWindowEventArgs^ args) {
 	m_windowClosed = true;
-}
-
-void App::OnKeyDown(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::WindowSizeChangedEventArgs^ args) {
-
 }
 
 // DisplayInformation event handlers.

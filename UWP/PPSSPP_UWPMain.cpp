@@ -8,6 +8,7 @@
 #include "Common/LogManager.h"
 #include "Core/System.h"
 #include "base/NativeApp.h"
+#include "base/timeutil.h"
 #include "input/input_state.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
@@ -15,6 +16,7 @@
 #include "base/display.h"
 #include "util/text/utf8.h"
 #include "Common/DirectXHelper.h"
+#include "NKCodeFromWindowsSystem.h"
 #include "XAudioSoundStream.h"
 
 using namespace UWP;
@@ -119,21 +121,18 @@ void PPSSPP_UWPMain::CreateWindowSizeDependentResources() {
 	NativeResized();
 }
 
-// Updates the application state once per frame.
-void PPSSPP_UWPMain::Update() {
-	InputState input{};
-	NativeUpdate(input);
-}
-
 // Renders the current frame according to the current application state.
 // Returns true if the frame was rendered and is ready to be displayed.
 bool PPSSPP_UWPMain::Render() {
+	InputState input{};
+	NativeUpdate(input);
+
+	time_update();
 	auto context = m_deviceResources->GetD3DDeviceContext();
 
 	// Reset the viewport to target the whole screen.
 	auto viewport = m_deviceResources->GetScreenViewport();
 
-	m_deviceResources->GetBackBufferRenderTargetView();
 	pixel_xres = viewport.Width;
 	pixel_yres = viewport.Height;
 
@@ -147,13 +146,8 @@ bool PPSSPP_UWPMain::Render() {
 
 	context->RSSetViewports(1, &viewport);
 
-	// Reset render targets to the screen.
-	ID3D11RenderTargetView *const targets[1] = { m_deviceResources->GetBackBufferRenderTargetView() };
-	context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
+	ctx_->GetDrawContext()->BindBackbufferAsRenderTarget();
 
-	// Clear the back buffer and depth stencil view.
-	context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::CornflowerBlue);
-	context->ClearDepthStencilView(m_deviceResources->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 	NativeRender(ctx_.get());
 	return true;
 }
@@ -169,6 +163,29 @@ void PPSSPP_UWPMain::OnDeviceRestored() {
 
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_DEVICE, 0, 0, nullptr);
 }
+
+void PPSSPP_UWPMain::OnKeyDown(int scanCode, Windows::System::VirtualKey virtualKey, int repeatCount) {
+	auto iter = virtualKeyCodeToNKCode.find(virtualKey);
+	if (iter != virtualKeyCodeToNKCode.end()) {
+		KeyInput key{};
+		key.deviceId = DEVICE_ID_KEYBOARD;
+		key.keyCode = iter->second;
+		key.flags = KEY_DOWN | (repeatCount > 1 ? KEY_IS_REPEAT : 0);
+		NativeKey(key);
+	}
+}
+
+void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKey) {
+	auto iter = virtualKeyCodeToNKCode.find(virtualKey);
+	if (iter != virtualKeyCodeToNKCode.end()) {
+		KeyInput key{};
+		key.deviceId = DEVICE_ID_KEYBOARD;
+		key.keyCode = iter->second;
+		key.flags = KEY_UP;
+		NativeKey(key);
+	}
+}
+
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
 	draw_ = Draw::T3DCreateD3D11Context(resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), 0);

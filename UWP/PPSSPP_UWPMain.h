@@ -31,12 +31,16 @@ public:
 	PPSSPP_UWPMain(const std::shared_ptr<DX::DeviceResources>& deviceResources);
 	~PPSSPP_UWPMain();
 	void CreateWindowSizeDependentResources();
-	void Update();
 	bool Render();
 
 	// IDeviceNotify
 	virtual void OnDeviceLost();
 	virtual void OnDeviceRestored();
+
+	// Various forwards from App, in simplified format.
+	// Not sure whether this abstraction is worth it.
+	void OnKeyDown(int scanCode, Windows::System::VirtualKey virtualKey, int repeatCount);
+	void OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKey);
 
 private:
 	// Cached pointer to device resources.

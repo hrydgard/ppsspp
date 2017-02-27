@@ -45,6 +45,7 @@
     <ClCompile Include="..\git-version.cpp" />
     <ClCompile Include="XAudioSoundStream.cpp" />
     <ClCompile Include="PPSSPP_UWPMain.cpp" />
+    <ClCompile Include="NKCodeFromWindowsSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
@@ -52,6 +53,7 @@
     <ClInclude Include="..\ppsspp_config.h" />
     <ClInclude Include="XAudioSoundStream.h" />
     <ClInclude Include="PPSSPP_UWPMain.h" />
+    <ClInclude Include="NKCodeFromWindowsSystem.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\StoreLogo.png">
@@ -69,15 +71,15 @@
     <Image Include="Content\zip.png">
       <Filter>Content</Filter>
     </Image>
+    <Image Include="Content\ui_atlas.zim">
+      <Filter>Content</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
   <ItemGroup>
     <None Include="UWP_TemporaryKey.pfx" />
-    <None Include="Content\ui_atlas.zim">
-      <Filter>Content</Filter>
-    </None>
     <None Include="Content\compat.ini">
       <Filter>Content</Filter>
     </None>
