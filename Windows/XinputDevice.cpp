@@ -1,4 +1,6 @@
-#include <limits.h>
+#include "ppsspp_config.h"
+
+#include <climits>
 #include <algorithm>
 
 #include "base/NativeApp.h"
@@ -10,6 +12,8 @@
 #include "XinputDevice.h"
 
 // Utilities to dynamically load XInput. Adapted from SDL.
+
+#if !PPSSPP_PLATFORM(UWP)
 
 typedef DWORD (WINAPI *XInputGetState_t) (DWORD dwUserIndex, XINPUT_STATE* pState);
 typedef DWORD (WINAPI *XInputSetState_t) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
@@ -65,6 +69,14 @@ static void UnloadXInputDLL() {
 		}
 	}
 }
+
+#else
+static int LoadXInputDLL() { return 0; }
+static void UnloadXInputDLL() {}
+#define PPSSPP_XInputGetState XInputGetState
+#define PPSSPP_XInputSetState XInputSetState
+#define PPSSPP_XInputGetCapabilities XInputGetCapabilities
+#endif
 
 #ifndef XUSER_MAX_COUNT
 #define XUSER_MAX_COUNT 4
@@ -201,8 +213,10 @@ bool NormalizedDeadzoneDiffers(u8 x1, u8 x2, const u8 thresh) {
 }
 
 int XinputDevice::UpdateState() {
+#if !PPSSPP_PLATFORM(UWP)
 	if (!s_pXInputDLL)
 		return 0;
+#endif
 
 	bool anySuccess = false;
 	for (int i = 0; i < XUSER_MAX_COUNT; i++) {

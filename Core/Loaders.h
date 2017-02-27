@@ -18,6 +18,7 @@
 #pragma	once
 
 #include <string>
+#include "Common/CommonTypes.h"
 
 enum class IdentifiedFileType {
 	ERROR_IDENTIFYING,
@@ -99,6 +100,8 @@ std::string ResolvePBPDirectory(const std::string &filename);
 std::string ResolvePBPFile(const std::string &filename);
 
 IdentifiedFileType Identify_File(FileLoader *fileLoader);
+
+void OverrideNextLoader(FileLoader *fileLoader, IdentifiedFileType fileType);
 
 // Can modify the string filename, as it calls IdentifyFile above.
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string);

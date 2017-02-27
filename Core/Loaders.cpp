@@ -35,9 +35,22 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 
+// Gross, gross hack! But necessary for UWP, fitting it in neatly would be a major refactor
+FileLoader *g_OverriddenLoader;
+IdentifiedFileType g_OverriddenFiletype;
+
+void OverrideNextLoader(FileLoader *fileLoader, IdentifiedFileType fileType) {
+	g_OverriddenLoader = fileLoader;
+	g_OverriddenFiletype = fileType;
+}
+
 FileLoader *ConstructFileLoader(const std::string &filename) {
 	if (filename.find("http://") == 0 || filename.find("https://") == 0)
 		return new CachingFileLoader(new DiskCachingFileLoader(new RetryingFileLoader(new HTTPFileLoader(filename))));
+	if (filename == "override://") {
+		g_OverriddenLoader = nullptr;
+		return g_OverriddenLoader;
+	}
 	return new LocalFileLoader(filename);
 }
 

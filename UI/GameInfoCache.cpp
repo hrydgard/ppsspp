@@ -228,7 +228,7 @@ bool GameInfo::LoadFromPath(const std::string &gamePath) {
 		title = File::GetFilename(filePath_);
 	}
 
-	return GetFileLoader()->Exists();
+	return fileLoader ? fileLoader->Exists() : true;
 }
 
 FileLoader *GameInfo::GetFileLoader() {

@@ -1,6 +1,10 @@
 ﻿#include "pch.h"
 #include "App.h"
 
+#include <mutex>
+
+#include "input/input_state.h"
+
 #include <ppltasks.h>
 
 using namespace UWP;
@@ -76,6 +80,14 @@ void App::SetWindow(CoreWindow^ window) {
 	window->KeyDown += ref new TypedEventHandler<CoreWindow^, KeyEventArgs^>(this, &App::OnKeyDown);
 	window->KeyUp += ref new TypedEventHandler<CoreWindow^, KeyEventArgs^>(this, &App::OnKeyUp);
 
+	window->PointerMoved += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerMoved);
+	window->PointerEntered += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerEntered);
+	window->PointerExited += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerExited);
+	window->PointerPressed += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerPressed);
+	window->PointerReleased += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerReleased);
+	window->PointerCaptureLost += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerCaptureLost);
+	window->PointerWheelChanged += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerWheelChanged);
+
 	m_deviceResources->SetWindow(window);
 }
 
@@ -87,11 +99,53 @@ void App::OnKeyUp(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyE
 	m_main->OnKeyUp(args->KeyStatus.ScanCode, args->VirtualKey);
 }
 
+void App::OnPointerMoved(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
+	int pointerId = args->CurrentPoint->PointerId;
+	float X = args->CurrentPoint->Position.X;
+	float Y = args->CurrentPoint->Position.Y;
+	int64_t timestamp = args->CurrentPoint->Timestamp;
+	m_main->OnTouchEvent(TOUCH_MOVE, pointerId, X, Y, timestamp);
+}
+
+void App::OnPointerEntered(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
+}
+
+void App::OnPointerExited(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
+}
+
+void App::OnPointerPressed(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
+	int pointerId = args->CurrentPoint->PointerId;
+	float X = args->CurrentPoint->Position.X;
+	float Y = args->CurrentPoint->Position.Y;
+	int64_t timestamp = args->CurrentPoint->Timestamp;
+	m_main->OnTouchEvent(TOUCH_DOWN|TOUCH_MOVE, pointerId, X, Y, timestamp);
+	sender->SetPointerCapture();
+}
+
+void App::OnPointerReleased(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
+	int pointerId = args->CurrentPoint->PointerId;
+	float X = args->CurrentPoint->Position.X;
+	float Y = args->CurrentPoint->Position.Y;
+	int64_t timestamp = args->CurrentPoint->Timestamp;
+	m_main->OnTouchEvent(TOUCH_UP|TOUCH_MOVE, pointerId, X, Y, timestamp);
+	sender->ReleasePointerCapture();
+}
+
+void App::OnPointerCaptureLost(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
+}
+
+void App::OnPointerWheelChanged(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
+	int pointerId = args->CurrentPoint->PointerId;
+	float X = args->CurrentPoint->Position.X;
+	float Y = args->CurrentPoint->Position.Y;
+	int64_t timestamp = args->CurrentPoint->Timestamp;
+	m_main->OnTouchEvent(TOUCH_WHEEL, pointerId, X, Y, timestamp);
+}
 
 // Initializes scene resources, or loads a previously saved app state.
 void App::Load(Platform::String^ entryPoint) {
 	if (m_main == nullptr) {
-		m_main = std::unique_ptr<PPSSPP_UWPMain>(new PPSSPP_UWPMain(m_deviceResources));
+		m_main = std::unique_ptr<PPSSPP_UWPMain>(new PPSSPP_UWPMain(this, m_deviceResources));
 	}
 }
 
@@ -130,10 +184,7 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
 	SuspendingDeferral^ deferral = args->SuspendingOperation->GetDeferral();
 
 	create_task([this, deferral]() {
-        m_deviceResources->Trim();
-
-		// Insert your code here.
-
+		m_deviceResources->Trim();
 		deferral->Complete();
 	});
 }
@@ -148,8 +199,7 @@ void App::OnResuming(Platform::Object^ sender, Platform::Object^ args) {
 
 // Window event handlers.
 
-void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args)
-{
+void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args) {
 	m_deviceResources->SetLogicalSize(Size(sender->Bounds.Width, sender->Bounds.Height));
 	m_main->CreateWindowSizeDependentResources();
 }

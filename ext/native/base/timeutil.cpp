@@ -111,9 +111,7 @@ int time_now_ms() {
 
 void sleep_ms(int ms) {
 #ifdef _WIN32
-#ifndef METRO
 	Sleep(ms);
-#endif
 #else
 	usleep(ms * 1000);
 #endif

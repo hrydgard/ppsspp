@@ -3,10 +3,12 @@
 
 #include <mutex>
 
+#include "base/basictypes.h"
 #include "Common/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Core/System.h"
+#include "Core/Loaders.h"
 #include "base/NativeApp.h"
 #include "base/timeutil.h"
 #include "input/input_state.h"
@@ -18,22 +20,32 @@
 #include "Common/DirectXHelper.h"
 #include "NKCodeFromWindowsSystem.h"
 #include "XAudioSoundStream.h"
+#include "UWPHost.h"
+#include "StorageFileLoader.h"
 
 using namespace UWP;
 using namespace Windows::Foundation;
 using namespace Windows::Storage;
+using namespace Windows::Storage::Streams;
 using namespace Windows::System::Threading;
+using namespace Windows::ApplicationModel::DataTransfer;
 using namespace Concurrency;
 
-namespace UWP {
+// UGLY!
+PPSSPP_UWPMain *g_main;
 
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
 // TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
+// TODO: Low latency input: https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/LowLatencyInput/cpp
 
 // Loads and initializes application assets when the application is loaded.
-PPSSPP_UWPMain::PPSSPP_UWPMain(const std::shared_ptr<DX::DeviceResources>& deviceResources) :
+PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResources>& deviceResources) :
+	app_(app),
 	m_deviceResources(deviceResources)
 {
+	g_main = this;
+
+	host = new UWPHost();
 	// Register to be notified if the Device is lost or recreated
 	m_deviceResources->RegisterDeviceNotify(this);
 
@@ -65,7 +77,6 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(const std::shared_ptr<DX::DeviceResources>& devic
 		langRegion = "en_US";
 	}
 
-
 	char configFilename[MAX_PATH] = { 0 };
 	char controlsConfigFilename[MAX_PATH] = { 0 };
 
@@ -83,6 +94,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(const std::shared_ptr<DX::DeviceResources>& devic
 	bool debugLogLevel = false;
 
 	g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D11;
+	g_Config.bSeparateCPUThread = false;
 
 #ifdef _DEBUG
 	g_Config.bEnableLogging = true;
@@ -124,8 +136,7 @@ void PPSSPP_UWPMain::CreateWindowSizeDependentResources() {
 // Renders the current frame according to the current application state.
 // Returns true if the frame was rendered and is ready to be displayed.
 bool PPSSPP_UWPMain::Render() {
-	InputState input{};
-	NativeUpdate(input);
+	NativeUpdate();
 
 	time_update();
 	auto context = m_deviceResources->GetD3DDeviceContext();
@@ -186,6 +197,40 @@ void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKe
 	}
 }
 
+void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp) {
+	// It appears that Windows' touchIds start from 1. Let's fix that.
+	touchId--;
+
+	TouchInput input{};
+	input.id = touchId;
+	input.x = x;
+	input.y = y;
+	input.flags = touchEvent;
+	input.timestamp = timestamp;
+	NativeTouch(input);
+
+	KeyInput key{};
+	key.deviceId = DEVICE_ID_MOUSE;
+	if (touchEvent & TOUCH_DOWN) {
+		key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
+		key.flags = KEY_DOWN;
+		NativeKey(key);
+	}
+	if (touchEvent & TOUCH_UP) {
+		key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
+		key.flags = KEY_UP;
+		NativeKey(key);
+	}
+}
+
+void PPSSPP_UWPMain::OnSuspend() {
+	// TODO
+}
+
+void PPSSPP_UWPMain::LoadStorageFile(StorageFile ^file) {
+	OverrideNextLoader(new StorageFileLoader(file), FILETYPE_PSP_ISO);
+	NativeMessageReceived("boot", "override://");
+}
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
 	draw_ = Draw::T3DCreateD3D11Context(resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), 0);
@@ -199,16 +244,20 @@ void UWPGraphicsContext::SwapInterval(int interval) {
 	
 }
 
-}  // namespace UWP
-
 std::string System_GetProperty(SystemProperty prop) {
 	static bool hasCheckedGPUDriverVersion = false;
 	switch (prop) {
 	case SYSPROP_NAME:
-		return "Windows 10";
+		return "Windows 10 Universal";
 	case SYSPROP_LANGREGION:
 		return "en_US";  // TODO UWP
 	case SYSPROP_CLIPBOARD_TEXT:
+		/* TODO: Need to either change this API or do this on a thread in an ugly fashion.
+		DataPackageView ^view = Clipboard::GetContent();
+		if (view) {
+			string text = await view->GetTextAsync();
+		}
+		*/
 		return "";
 	case SYSPROP_GPUDRIVER_VERSION:
 		return "";
@@ -225,24 +274,55 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
 		return DEVICE_TYPE_DESKTOP;
+	case SYSPROP_HAS_FILE_BROWSER:
+		return true;
 	default:
 		return -1;
 	}
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	// TODO UWP
+	using namespace concurrency;
+
+	if (!strcmp(command, "finish")) {
+		// Not really supposed to support this under UWP.
+	} else if (!strcmp(command, "browse_file")) {
+		auto picker = ref new Windows::Storage::Pickers::FileOpenPicker();
+		picker->ViewMode = Pickers::PickerViewMode::List;
+		picker->FileTypeFilter->Append(".cso");
+		picker->FileTypeFilter->Append(".iso");
+		picker->FileTypeFilter->Append(".bin");
+
+		create_task(picker->PickSingleFileAsync()).then([](StorageFile ^file){
+			g_main->LoadStorageFile(file);
+			/*
+			std::thread([file] {
+				create_task(file->OpenReadAsync()).then([](IRandomAccessStreamWithContentType^ imgStream) {
+					imgStream->Seek(0);
+					IBuffer ^buffer = ref new Streams::Buffer(2048);
+					auto readTask = create_task(imgStream->ReadAsync(buffer, 2048, InputStreamOptions::None));
+					readTask.wait();
+				});
+			}).detach();
+			*/
+		});
+	}
 }
 
 void LaunchBrowser(const char *url) {
-	// TODO UWP
+	Platform::String ^pstr = ref new Platform::String(ConvertUTF8ToWString(url).c_str());
+	auto uri = ref new Windows::Foundation::Uri(pstr);
+
+	create_task(Windows::System::Launcher::LaunchUriAsync(uri)).then([](bool b) {});
 }
 
 void Vibrate(int length_ms) {
-	// Ignore on PC
+	// TODO: Use Windows::Phone::Devices::Notification where available
 }
 
-void System_AskForPermission(SystemPermission permission) {}
+void System_AskForPermission(SystemPermission permission) {
+	// Do nothing
+}
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	return PERMISSION_STATUS_GRANTED;

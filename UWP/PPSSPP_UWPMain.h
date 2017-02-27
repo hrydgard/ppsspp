@@ -1,13 +1,18 @@
 ﻿#pragma once
 
+#include <mutex>
+
 #include "thin3d/thin3d.h"
+#include "input/input_state.h"
 
 #include "Common/GraphicsContext.h"
 #include "Common/DeviceResources.h"
 
 // Renders Direct2D and 3D content on the screen.
 namespace UWP {
-	
+
+ref class App;
+
 class UWPGraphicsContext : public GraphicsContext {
 public:
 	UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources);
@@ -28,7 +33,7 @@ private:
 class PPSSPP_UWPMain : public DX::IDeviceNotify
 {
 public:
-	PPSSPP_UWPMain(const std::shared_ptr<DX::DeviceResources>& deviceResources);
+	PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResources>& deviceResources);
 	~PPSSPP_UWPMain();
 	void CreateWindowSizeDependentResources();
 	bool Render();
@@ -42,7 +47,17 @@ public:
 	void OnKeyDown(int scanCode, Windows::System::VirtualKey virtualKey, int repeatCount);
 	void OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKey);
 
+	void OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp);
+
+	// Save state fast if we can!
+	void OnSuspend();
+	void Close();
+
+	void LoadStorageFile(Windows::Storage::StorageFile ^file);
+
 private:
+	App ^app_;
+
 	// Cached pointer to device resources.
 	std::shared_ptr<DX::DeviceResources> m_deviceResources;
 

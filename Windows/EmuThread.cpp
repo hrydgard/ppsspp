@@ -1,5 +1,3 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
 #include <mutex>
 
 #include "base/timeutil.h"
@@ -26,6 +24,7 @@
 #include <tchar.h>
 #include <process.h>
 #include <intrin.h>
+
 #pragma intrinsic(_InterlockedExchange)
 
 static std::mutex emuThreadLock;

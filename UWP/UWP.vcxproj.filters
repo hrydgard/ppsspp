@@ -46,6 +46,9 @@
     <ClCompile Include="XAudioSoundStream.cpp" />
     <ClCompile Include="PPSSPP_UWPMain.cpp" />
     <ClCompile Include="NKCodeFromWindowsSystem.cpp" />
+    <ClCompile Include="StorageFileLoader.cpp" />
+    <ClCompile Include="UWPHost.cpp" />
+    <ClCompile Include="..\Windows\XinputDevice.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
@@ -54,6 +57,9 @@
     <ClInclude Include="XAudioSoundStream.h" />
     <ClInclude Include="PPSSPP_UWPMain.h" />
     <ClInclude Include="NKCodeFromWindowsSystem.h" />
+    <ClInclude Include="StorageFileLoader.h" />
+    <ClInclude Include="UWPHost.h" />
+    <ClInclude Include="..\Windows\XinputDevice.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\StoreLogo.png">

@@ -163,9 +163,6 @@
     <ClCompile Include="..\..\ext\native\ui\viewgroup.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\ui\virtual_input.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\math\lin\matrix4x4.cpp">
       <Filter>math</Filter>
     </ClCompile>
@@ -606,9 +603,6 @@
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\ui\viewgroup.h">
-      <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ui\virtual_input.h">
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\math\lin\matrix4x4.h">
