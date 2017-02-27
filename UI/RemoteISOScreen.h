@@ -17,16 +17,12 @@
 
 #pragma once
 
-#include <functional>
+#include <thread>
 
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
-
-namespace std {
-	class thread;
-}
 
 class recursive_mutex;
 

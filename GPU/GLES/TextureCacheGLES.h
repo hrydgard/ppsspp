@@ -46,7 +46,7 @@ public:
 	TextureCacheGLES(Draw::DrawContext *draw);
 	~TextureCacheGLES();
 
-	void Clear(bool delete_them);
+	void Clear(bool delete_them) override;
 	void StartFrame();
 
 	void SetFramebufferManager(FramebufferManagerGLES *fbManager);
