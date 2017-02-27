@@ -17,9 +17,10 @@
 
 #pragma once
 
+#include <thread>
+
 #include "base/timeutil.h"
 #include "base/mutex.h"
-#include "thread/thread.h"
 #include "net/resolve.h"
 #include "Common/ChunkFile.h"
 

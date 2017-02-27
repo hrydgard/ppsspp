@@ -2,8 +2,7 @@
 
 #include <string>
 #include <vector>
-#include "thread/thread.h"
-
+#include <thread>
 
 namespace W32Util
 {

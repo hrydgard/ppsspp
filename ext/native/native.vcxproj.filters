@@ -176,9 +176,6 @@
     <ClInclude Include="thread\prioritizedworkqueue.h">
       <Filter>thread</Filter>
     </ClInclude>
-    <ClInclude Include="thread\thread.h">
-      <Filter>thread</Filter>
-    </ClInclude>
     <ClInclude Include="thread\threadutil.h">
       <Filter>thread</Filter>
     </ClInclude>

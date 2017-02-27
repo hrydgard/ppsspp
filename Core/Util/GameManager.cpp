@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <set>
 #include <cstring>
+#include <thread>
 
 #include "file/file_util.h"
 #ifdef SHARED_LIBZIP
@@ -25,7 +26,6 @@
 #else
 #include "ext/libzip/zip.h"
 #endif
-#include "thread/thread.h"
 #include "util/text/utf8.h"
 
 #include "Common/Log.h"

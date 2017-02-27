@@ -5,8 +5,8 @@
 #include "stdafx.h"
 
 #include <functional>
+#include <thread>
 
-#include "thread/thread.h"
 #include "util/text/utf8.h"
 #include "ShellUtil.h"
 #include "CommDlg.h"

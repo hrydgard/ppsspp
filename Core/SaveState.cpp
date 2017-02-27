@@ -17,11 +17,11 @@
 
 #include <algorithm>
 #include <vector>
+#include <thread>
 
 #include "base/mutex.h"
 #include "base/timeutil.h"
 #include "i18n/i18n.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 
 #include "Common/FileUtil.h"

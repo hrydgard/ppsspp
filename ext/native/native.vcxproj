@@ -273,7 +273,6 @@
     <ClInclude Include="thin3d\thin3d.h" />
     <ClInclude Include="thread\executor.h" />
     <ClInclude Include="thread\prioritizedworkqueue.h" />
-    <ClInclude Include="thread\thread.h" />
     <ClInclude Include="thread\threadpool.h" />
     <ClInclude Include="thread\threadutil.h" />
     <ClInclude Include="ui\screen.h" />

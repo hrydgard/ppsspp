@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "thread/thread.h"
+#include <thread>
 #include "net/http_client.h"
 
 class GameManager {

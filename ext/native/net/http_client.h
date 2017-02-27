@@ -2,10 +2,10 @@
 
 #include <functional>
 #include <memory>
+#include <thread>
 
 #include "base/basictypes.h"
 #include "base/buffer.h"
-#include "thread/thread.h"
 
 #ifdef _WIN32
 #ifndef NOMINMAX
