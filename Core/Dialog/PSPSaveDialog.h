@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "thread/thread.h"
+#include <thread>
+
 #include "base/mutex.h"
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/SavedataParam.h"

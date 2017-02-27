@@ -34,6 +34,7 @@
 #include <algorithm>
 #endif
 #include <memory>
+#include <thread>
 
 #if defined(_WIN32)
 #include "Windows/DSoundStream.h"
@@ -46,7 +47,6 @@
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
-#include "thread/thread.h"
 #include "net/http_client.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/gpu_features.h"

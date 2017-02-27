@@ -15,8 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <string.h>
-#include "thread/thread.h"
+#include <cstring>
+#include <thread>
+#include <algorithm>
+
 #include "thread/threadutil.h"
 #include "base/timeutil.h"
 #include "Core/FileLoaders/CachingFileLoader.h"

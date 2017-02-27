@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <thread>
+
 #include "base/timeutil.h"
 #include "ext/vjson/json.h"
 #include "file/fd_util.h"
@@ -23,7 +26,6 @@
 #include "net/http_server.h"
 #include "net/resolve.h"
 #include "net/sinks.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 #include "Common/Common.h"
 #include "Common/FileUtil.h"

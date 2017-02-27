@@ -17,8 +17,8 @@
 
 #include <cstdlib>
 #include <set>
+#include <thread>
 
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 #include "profiler/profiler.h"
 

@@ -16,10 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <list>
+#include <thread>
 #include <memory>
 #include "base/mutex.h"
 #include "input/input_state.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"

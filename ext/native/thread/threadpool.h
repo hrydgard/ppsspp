@@ -3,8 +3,8 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <thread>
 
-#include "thread.h"
 #include "base/mutex.h"
 
 // This is the simplest possible worker implementation I can think of

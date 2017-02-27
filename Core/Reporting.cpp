@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <thread>
+
 #include "Core/Reporting.h"
 
 #include "Common/CPUDetect.h"
@@ -38,7 +40,6 @@
 
 #include "base/stringutil.h"
 #include "base/buffer.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 #include "file/zip_read.h"
 

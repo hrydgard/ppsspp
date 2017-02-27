@@ -24,9 +24,9 @@
 #include <string>
 #include <codecvt>
 #endif
+#include <thread>
 
 #include "math/math_util.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 #include "base/mutex.h"
 #include "util/text/utf8.h"

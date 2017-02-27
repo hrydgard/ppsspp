@@ -15,8 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <thread>
+
 #include "i18n/i18n.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 
 #include "Common/ChunkFile.h"

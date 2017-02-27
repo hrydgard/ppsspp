@@ -28,11 +28,11 @@
 
 #include <cstdlib>
 #include <functional>
+#include <thread>
 
 #include "base/basictypes.h"
 #include "base/mutex.h"
 #include "profiler/profiler.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
