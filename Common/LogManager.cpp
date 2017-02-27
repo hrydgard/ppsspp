@@ -184,7 +184,7 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	if (level > log->GetLevel() || !log->IsEnabled() || !log->HasListeners())
 		return;
 
-	lock_guard lk(log_lock_);
+	std::lock_guard<std::mutex> lk(log_lock_);
 	static const char level_to_char[8] = "-NEWIDV";
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
@@ -263,19 +263,19 @@ LogChannel::LogChannel(const char* shortName, const char* fullName, bool enable)
 
 // LogContainer
 void LogChannel::AddListener(LogListener *listener) {
-	lock_guard lk(m_listeners_lock);
+	std::lock_guard<std::mutex> lk(m_listeners_lock);
 	m_listeners.insert(listener);
 	m_hasListeners = true;
 }
 
 void LogChannel::RemoveListener(LogListener *listener) {
-	lock_guard lk(m_listeners_lock);
+	std::lock_guard<std::mutex> lk(m_listeners_lock);
 	m_listeners.erase(listener);
 	m_hasListeners = !m_listeners.empty();
 }
 
 void LogChannel::Trigger(LogTypes::LOG_LEVELS level, const char *msg) {
-	lock_guard lk(m_listeners_lock);
+	std::lock_guard<std::mutex> lk(m_listeners_lock);
 
 	std::set<LogListener*>::const_iterator i;
 	for (i = m_listeners.begin(); i != m_listeners.end(); ++i) {
@@ -296,7 +296,7 @@ void FileLogListener::Log(LogTypes::LOG_LEVELS, const char *msg) {
 	if (!IsEnabled() || !IsValid())
 		return;
 
-	lock_guard lk(m_log_lock);
+	std::lock_guard<std::mutex> lk(m_log_lock);
 	m_logfile << msg << std::flush;
 }
 

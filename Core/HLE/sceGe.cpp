@@ -17,8 +17,8 @@
 
 #include <map>
 #include <vector>
+#include <mutex>
 
-#include "base/mutex.h"
 #include "Common/ChunkFile.h"
 #include "Common/ThreadSafeList.h"
 #include "Core/HLE/HLE.h"

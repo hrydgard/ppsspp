@@ -17,8 +17,8 @@
 
 #include <algorithm>
 #include <deque>
+#include <mutex>
 
-#include "base/mutex.h"
 #include "base/colorutil.h"
 #include "base/logging.h"
 #include "i18n/i18n.h"

@@ -15,11 +15,11 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <queue>
+#include <mutex>
 
 #include "base/basictypes.h"
 #include "base/stringutil.h"
 #include "base/display.h"
-#include "base/mutex.h"
 #include "base/NativeApp.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
@@ -319,7 +319,7 @@ void AndroidVulkanContext::Resize() {
 void AndroidVulkanContext::SwapInterval(int interval) {
 }
 
-static recursive_mutex frameCommandLock;
+static std::recursive_mutex frameCommandLock;
 static std::queue<FrameCommand> frameCommands;
 
 std::string systemName;
@@ -373,7 +373,7 @@ GraphicsContext *graphicsContext;
 static void ProcessFrameCommands(JNIEnv *env);
 
 void PushCommand(std::string cmd, std::string param) {
-	lock_guard guard(frameCommandLock);
+	std::lock_guard<std::mutex> guard(frameCommandLock);
 	frameCommands.push(FrameCommand(cmd, param));
 }
 
@@ -677,7 +677,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	if (renderer_inited) {
 		// TODO: Look into if these locks are a perf loss
 		{
-			lock_guard guard(input_state.lock);
+			std::lock_guard<std::mutex> guard(input_state.lock);
 
 			input_state.pad_lstick_x = left_joystick_x_async;
 			input_state.pad_lstick_y = left_joystick_y_async;
@@ -689,7 +689,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		NativeUpdate(input_state);
 
 		{
-			lock_guard guard(input_state.lock);
+			std::lock_guard<std::mutex> guard(input_state.lock);
 			EndInputState(&input_state);
 		}
 
@@ -705,7 +705,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
 
-	lock_guard guard(frameCommandLock);
+	std::lock_guard<std::mutex> guard(frameCommandLock);
 	if (!nativeActivity) {
 		while (!frameCommands.empty())
 			frameCommands.pop();
@@ -763,7 +763,7 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 
 	bool retval = NativeTouch(touch);
 	{
-		lock_guard guard(input_state.lock);
+		std::lock_guard<std::mutex> guard(input_state.lock);
 		if (pointerId >= MAX_POINTERS) {
 			ELOG("Too many pointers: %i", pointerId);
 			return false;	// We ignore 8+ pointers entirely.
@@ -1000,7 +1000,7 @@ extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHei
 }
 
 static void ProcessFrameCommands(JNIEnv *env) {
-	lock_guard guard(frameCommandLock);
+	std::lock_guard<std::mutex> guard(frameCommandLock);
 	while (!frameCommands.empty()) {
 		FrameCommand frameCmd;
 		frameCmd = frameCommands.front();
@@ -1062,7 +1062,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 		// TODO: Look into if these locks are a perf loss
 		{
-			lock_guard guard(input_state.lock);
+			std::lock_guard<std::mutex> guard(input_state.lock);
 
 			input_state.pad_lstick_x = left_joystick_x_async;
 			input_state.pad_lstick_y = left_joystick_y_async;
@@ -1074,7 +1074,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		NativeUpdate(input_state);
 
 		{
-			lock_guard guard(input_state.lock);
+			std::lock_guard<std::mutex> guard(input_state.lock);
 			EndInputState(&input_state);
 		}
 

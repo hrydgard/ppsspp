@@ -50,7 +50,7 @@ CachingFileLoader::~CachingFileLoader() {
 
 bool CachingFileLoader::Exists() {
 	if (exists_ == -1) {
-		lock_guard guard(backendMutex_);
+		std::lock_guard<std::mutex> guard(backendMutex_);
 		exists_ = backend_->Exists() ? 1 : 0;
 	}
 	return exists_ == 1;
@@ -58,7 +58,7 @@ bool CachingFileLoader::Exists() {
 
 bool CachingFileLoader::ExistsFast() {
 	if (exists_ == -1) {
-		lock_guard guard(backendMutex_);
+		std::lock_guard<std::mutex> guard(backendMutex_);
 		return backend_->ExistsFast();
 	}
 	return exists_ == 1;
@@ -66,7 +66,7 @@ bool CachingFileLoader::ExistsFast() {
 
 bool CachingFileLoader::IsDirectory() {
 	if (isDirectory_ == -1) {
-		lock_guard guard(backendMutex_);
+		std::lock_guard<std::mutex> guard(backendMutex_);
 		isDirectory_ = backend_->IsDirectory() ? 1 : 0;
 	}
 	return isDirectory_ == 1;
@@ -78,7 +78,7 @@ s64 CachingFileLoader::FileSize() {
 }
 
 std::string CachingFileLoader::Path() const {
-	lock_guard guard(backendMutex_);
+	std::lock_guard<std::mutex> guard(backendMutex_);
 	return backend_->Path();
 }
 
@@ -96,7 +96,7 @@ size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flag
 
 	size_t readSize = 0;
 	if ((flags & Flags::HINT_UNCACHED) != 0) {
-		lock_guard guard(backendMutex_);
+		std::lock_guard<std::mutex> guard(backendMutex_);
 		readSize = backend_->ReadAt(absolutePos, bytes, data, flags);
 	} else {
 		readSize = ReadFromCache(absolutePos, bytes, data);
@@ -132,7 +132,7 @@ void CachingFileLoader::ShutdownCache() {
 		sleep_ms(1);
 	}
 
-	lock_guard guard(blocksMutex_);
+	std::lock_guard<std::mutex> guard(blocksMutex_);
 	for (auto block : blocks_) {
 		delete [] block.second.ptr;
 	}
@@ -148,7 +148,7 @@ size_t CachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
 	size_t offset = (size_t)(pos - (cacheStartPos << BLOCK_SHIFT));
 	u8 *p = (u8 *)data;
 
-	lock_guard guard(blocksMutex_);
+	std::lock_guard<std::mutex> guard(blocksMutex_);
 	for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
 		auto block = blocks_.find(i);
 		if (block == blocks_.end()) {
@@ -170,7 +170,7 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 	s64 cacheStartPos = pos >> BLOCK_SHIFT;
 	s64 cacheEndPos = (pos + bytes - 1) >> BLOCK_SHIFT;
 
-	lock_guard guard(blocksMutex_);
+	std::lock_guard<std::mutex> guard(blocksMutex_);
 	size_t blocksToRead = 0;
 	for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
 		auto block = blocks_.find(i);
@@ -235,7 +235,7 @@ bool CachingFileLoader::MakeCacheSpaceFor(size_t blocks, bool readingAhead) {
 		return false;
 	}
 
-	lock_guard guard(blocksMutex_);
+	std::lock_guard<std::mutex> guard(blocksMutex_);
 	while (cacheSize_ > goal) {
 		u64 minGeneration = generation_;
 
@@ -274,7 +274,7 @@ bool CachingFileLoader::MakeCacheSpaceFor(size_t blocks, bool readingAhead) {
 }
 
 void CachingFileLoader::StartReadAhead(s64 pos) {
-	lock_guard guard(blocksMutex_);
+	std::lock_guard<std::mutex> guard(blocksMutex_);
 	if (aheadThread_) {
 		// Already going.
 		return;
@@ -288,7 +288,7 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 	std::thread th([this, pos] {
 		setCurrentThreadName("FileLoaderReadAhead");
 
-		lock_guard guard(blocksMutex_);
+		std::lock_guard<std::mutex> guard(blocksMutex_);
 		s64 cacheStartPos = pos >> BLOCK_SHIFT;
 		s64 cacheEndPos = cacheStartPos + BLOCK_READAHEAD - 1;
 

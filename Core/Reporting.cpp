@@ -85,8 +85,8 @@ namespace Reporting
 	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
 	static int payloadBufferPos = 0;
 
-	static recursive_mutex crcLock;
-	static condition_variable crcCond;
+	static std::mutex crcLock;
+	static std::condition_variable crcCond;
 	static std::string crcFilename;
 	static std::map<std::string, u32> crcResults;
 
@@ -105,7 +105,7 @@ namespace Reporting
 		delete blockDevice;
 		delete fileLoader;
 
-		lock_guard guard(crcLock);
+		std::lock_guard<std::mutex> guard(crcLock);
 		crcResults[crcFilename] = crc;
 		crcCond.notify_one();
 
@@ -113,7 +113,7 @@ namespace Reporting
 	}
 
 	void QueueCRC() {
-		lock_guard guard(crcLock);
+		std::lock_guard<std::mutex> guard(crcLock);
 
 		const std::string &gamePath = PSP_CoreParameter().fileToStart;
 		auto it = crcResults.find(gamePath);
@@ -137,10 +137,10 @@ namespace Reporting
 		const std::string &gamePath = PSP_CoreParameter().fileToStart;
 		QueueCRC();
 
-		lock_guard guard(crcLock);
+		std::unique_lock<std::mutex> guard(crcLock);
 		auto it = crcResults.find(gamePath);
 		while (it == crcResults.end()) {
-			crcCond.wait(crcLock);
+			crcCond.wait(guard);
 			it = crcResults.find(gamePath);
 		}
 

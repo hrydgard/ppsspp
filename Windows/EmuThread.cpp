@@ -1,8 +1,9 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
+#include <mutex>
+
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
-#include "base/mutex.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "util/text/utf8.h"
@@ -27,7 +28,7 @@
 #include <intrin.h>
 #pragma intrinsic(_InterlockedExchange)
 
-static recursive_mutex emuThreadLock;
+static std::mutex emuThreadLock;
 static HANDLE emuThread;
 static volatile long emuThreadReady;
 
@@ -46,7 +47,7 @@ enum EmuThreadStatus : long
 
 HANDLE EmuThread_GetThreadHandle()
 {
-	lock_guard guard(emuThreadLock);
+	std::lock_guard<std::mutex> guard(emuThreadLock);
 	return emuThread;
 }
 
@@ -54,7 +55,7 @@ unsigned int WINAPI TheThread(void *);
 
 void EmuThread_Start()
 {
-	lock_guard guard(emuThreadLock);
+	std::lock_guard<std::mutex> guard(emuThreadLock);
 	emuThread = (HANDLE)_beginthreadex(0, 0, &TheThread, 0, 0, 0);
 }
 
@@ -62,7 +63,7 @@ void EmuThread_Stop()
 {
 	// Already stopped?
 	{
-		lock_guard guard(emuThreadLock);
+		std::lock_guard<std::mutex> guard(emuThreadLock);
 		if (emuThread == NULL || emuThreadReady == THREAD_END)
 			return;
 	}
@@ -75,7 +76,7 @@ void EmuThread_Stop()
 		_dbg_assert_msg_(COMMON, false, "Wait for EmuThread timed out.");
 	}
 	{
-		lock_guard guard(emuThreadLock);
+		std::lock_guard<std::mutex> guard(emuThreadLock);
 		CloseHandle(emuThread);
 		emuThread = 0;
 	}

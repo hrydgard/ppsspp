@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
+#include <mutex>
 // sceNetAdhoc
 
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
@@ -37,8 +37,6 @@
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/proAdhocServer.h"
 
-#include "base/mutex.h"
-
 // shared in sceNetAdhoc.h since it need to be used from sceNet.cpp also
 // TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;
@@ -50,7 +48,7 @@ int netAdhocMatchingStarted = 0;
 
 SceUID threadAdhocID;
 
-recursive_mutex adhocEvtMtx;
+std::mutex adhocEvtMtx;
 std::vector<std::pair<u32, u32>> adhocctlEvents;
 std::vector<u64> matchingEvents;
 u32 dummyThreadHackAddr = 0;
@@ -121,13 +119,13 @@ void __NetAdhocDoState(PointerWrap &p) {
 }
 
 void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
-	lock_guard adhocGuard(adhocEvtMtx);
+	std::lock_guard<std::mutex> adhocGuard(adhocEvtMtx);
 	adhocctlEvents.push_back({ flag, error });
 }
 
 // TODO: MipsCall needs to be called from it's own PSP Thread instead of from any random PSP Thread
 void __UpdateMatchingHandler(u64 ArgsPtr) {
-	lock_guard adhocGuard(adhocEvtMtx);
+	std::lock_guard<std::mutex> adhocGuard(adhocEvtMtx);
 	matchingEvents.push_back(ArgsPtr);
 }
 
@@ -1100,7 +1098,7 @@ static u32 sceNetAdhocctlDisconnect() {
 		
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
 		{
-			lock_guard adhocGuard(adhocEvtMtx);
+			std::lock_guard<std::mutex> adhocGuard(adhocEvtMtx);
 			adhocctlEvents.push_back({ ADHOCCTL_EVENT_DISCONNECT, 0 });
 		}
 		// Return Success, some games might ignore returned value and always treat it as success, otherwise repeatedly calling this function
@@ -2668,9 +2666,9 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 								context->mac = localmac;
 
 								// Create locks
-								context->socketlock = new recursive_mutex;
-								context->eventlock = new recursive_mutex; 
-								context->inputlock = new recursive_mutex; 
+								context->socketlock = new std::recursive_mutex;
+								context->eventlock = new std::recursive_mutex; 
+								context->inputlock = new std::recursive_mutex; 
 
 								// Create fake thread
 								//#define PSP_THREAD_ATTR_KERNEL 0x00001000 // PSP_THREAD_ATTR_KERNEL is located in sceKernelThread.cpp instead of sceKernelThread.h :(
@@ -3472,7 +3470,7 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 void __NetTriggerCallbacks()
 {
 	{
-		lock_guard adhocGuard(adhocEvtMtx);
+		std::lock_guard<std::mutex> adhocGuard(adhocEvtMtx);
 
 		for (auto &params : adhocctlEvents)
 		{

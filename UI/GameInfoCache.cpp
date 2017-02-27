@@ -209,7 +209,7 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 }
 
 bool GameInfo::LoadFromPath(const std::string &gamePath) {
-	lock_guard guard(lock);
+	std::lock_guard<std::mutex> guard(lock);
 	// No need to rebuild if we already have it loaded.
 	if (filePath_ != gamePath) {
 		delete fileLoader;
@@ -290,26 +290,26 @@ void GameInfo::ParseParamSFO() {
 }
 
 std::string GameInfo::GetTitle() {
-	lock_guard guard(lock);
+	std::lock_guard<std::mutex> guard(lock);
 	return title;
 }
 
 bool GameInfo::IsPending() {
-	lock_guard guard(lock);
+	std::lock_guard<std::mutex> guard(lock);
 	return pending;
 }
 
 bool GameInfo::IsWorking() {
-	lock_guard guard(lock);
+	std::lock_guard<std::mutex> guard(lock);
 	return working;
 }
 
 void GameInfo::SetTitle(const std::string &newTitle) {
-	lock_guard guard(lock);
+	std::lock_guard<std::mutex> guard(lock);
 	title = newTitle;
 }
 
-static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents, recursive_mutex *mtx) {
+static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents, std::mutex *mtx) {
 	PSPFileInfo info = fs->GetFileInfo(filename);
 	if (!info.exists) {
 		return false;
@@ -321,7 +321,7 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 	}
 
 	if (mtx) {
-		lock_guard lock(*mtx);
+		std::lock_guard<std::mutex> lock(*mtx);
 		contents->resize(info.size);
 		fs->ReadFile(handle, (u8 *)contents->data(), info.size);
 	} else {
@@ -332,12 +332,12 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 	return true;
 }
 
-static bool ReadVFSToString(const char *filename, std::string *contents, recursive_mutex *mtx) {
+static bool ReadVFSToString(const char *filename, std::string *contents, std::mutex *mtx) {
 	size_t sz;
 	uint8_t *data = VFSReadFile(filename, &sz);
 	if (data) {
 		if (mtx) {
-			lock_guard lock(*mtx);
+			std::lock_guard<std::mutex> lock(*mtx);
 			*contents = std::string((const char *)data, sz);
 		} else {
 			*contents = std::string((const char *)data, sz);
@@ -363,7 +363,7 @@ public:
 			return;
 
 		{
-			lock_guard lock(info_->lock);
+			std::lock_guard<std::mutex> lock(info_->lock);
 			info_->working = true;
 			info_->fileType = Identify_File(info_->GetFileLoader());
 		}
@@ -394,14 +394,14 @@ public:
 				// First, PARAM.SFO.
 				std::vector<u8> sfoData;
 				if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
-					lock_guard lock(info_->lock);
+					std::lock_guard<std::mutex> lock(info_->lock);
 					info_->paramSFO.ReadSFO(sfoData);
 					info_->ParseParamSFO();
 				}
 
 				// Then, ICON0.PNG.
 				if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
-					lock_guard lock(info_->lock);
+					std::lock_guard<std::mutex> lock(info_->lock);
 					pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
 				} else {
 					// Read standard icon
@@ -412,19 +412,19 @@ public:
 
 				if (info_->wantFlags & GAMEINFO_WANTBG) {
 					if (pbp.GetSubFileSize(PBP_PIC0_PNG) > 0) {
-						lock_guard lock(info_->lock);
+						std::lock_guard<std::mutex> lock(info_->lock);
 						pbp.GetSubFileAsString(PBP_PIC0_PNG, &info_->pic0TextureData);
 						info_->pic0DataLoaded = true;
 					}
 					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0) {
-						lock_guard lock(info_->lock);
+						std::lock_guard<std::mutex> lock(info_->lock);
 						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
 						info_->pic1DataLoaded = true;
 					}
 				}
 				if (info_->wantFlags & GAMEINFO_WANTSND) {
 					if (pbp.GetSubFileSize(PBP_SND0_AT3) > 0) {
-						lock_guard lock(info_->lock);
+						std::lock_guard<std::mutex> lock(info_->lock);
 						pbp.GetSubFileAsString(PBP_SND0_AT3, &info_->sndFileData);
 						info_->sndDataLoaded = true;
 					}
@@ -436,7 +436,7 @@ public:
 handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
 			{
-				lock_guard lock(info_->lock);
+				std::lock_guard<std::mutex> lock(info_->lock);
 				info_->id = "ELF000000";
 				info_->id_version = "ELF000000_1.00";
 				info_->paramSFOLoaded = true;
@@ -456,7 +456,7 @@ handleELF:
 			// Alright, let's fetch the PARAM.SFO.
 			std::string paramSFOcontents;
 			if (ReadFileToString(&umd, "/PARAM.SFO", &paramSFOcontents, 0)) {
-				lock_guard lock(info_->lock);
+				std::lock_guard<std::mutex> lock(info_->lock);
 				info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 				info_->ParseParamSFO();
 			}
@@ -474,7 +474,7 @@ handleELF:
 		{
 			info_->SetTitle(SaveState::GetTitle(gamePath_));
 
-			lock_guard guard(info_->lock);
+			std::lock_guard<std::mutex> guard(info_->lock);
 
 			// Let's use the screenshot as an icon, too.
 			std::string screenshotPath = ReplaceAll(gamePath_, ".ppst", ".jpg");
@@ -495,7 +495,7 @@ handleELF:
 				// Alright, let's fetch the PARAM.SFO.
 				std::string paramSFOcontents;
 				if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, 0)) {
-					lock_guard lock(info_->lock);
+					std::lock_guard<std::mutex> lock(info_->lock);
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 					info_->ParseParamSFO();
 				}
@@ -531,18 +531,18 @@ handleELF:
 				// Alright, let's fetch the PARAM.SFO.
 				std::string paramSFOcontents;
 				if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, nullptr)) {
-					lock_guard lock(info_->lock);
+					std::lock_guard<std::mutex> lock(info_->lock);
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 					info_->ParseParamSFO();
 
 					if (info_->wantFlags & GAMEINFO_WANTBG) {
-						ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
+						ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, nullptr);
 						info_->pic0DataLoaded = true;
-						ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
+						ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, nullptr);
 						info_->pic1DataLoaded = true;
 					}
 					if (info_->wantFlags & GAMEINFO_WANTSND) {
-						ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, &info_->lock);
+						ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, nullptr);
 						info_->pic1DataLoaded = true;
 					}
 				}
@@ -589,13 +589,13 @@ handleELF:
 		info_->hasConfig = g_Config.hasGameConfig(info_->id);
 
 		if (info_->wantFlags & GAMEINFO_WANTSIZE) {
-			lock_guard lock(info_->lock);
+			std::lock_guard<std::mutex> lock(info_->lock);
 			info_->gameSize = info_->GetGameSizeInBytes();
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
 		}
 
-		lock_guard lock(info_->lock);
+		std::lock_guard<std::mutex> lock(info_->lock);
 		info_->pending = false;
 		info_->working = false;
 		// ILOG("Completed writing info for %s", info_->GetTitle().c_str());
@@ -640,7 +640,7 @@ void GameInfoCache::Clear() {
 	}
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
 		{
-			lock_guard lock(iter->second->lock);
+			std::lock_guard<std::mutex> lock(iter->second->lock);
 			if (!iter->second->pic0TextureData.empty()) {
 				iter->second->pic0TextureData.clear();
 				iter->second->pic0DataLoaded = false;
@@ -678,7 +678,7 @@ void GameInfoCache::Clear() {
 
 void GameInfoCache::FlushBGs() {
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
-		lock_guard lock(iter->second->lock);
+		std::lock_guard<std::mutex> lock(iter->second->lock);
 		if (!iter->second->pic0TextureData.empty()) {
 			iter->second->pic0TextureData.clear();
 			iter->second->pic0DataLoaded = false;
@@ -770,7 +770,7 @@ again:
 	}
 
 	{
-		lock_guard lock(info->lock);
+		std::lock_guard<std::mutex> lock(info->lock);
 		info->wantFlags |= wantFlags;
 		info->pending = true;
 	}

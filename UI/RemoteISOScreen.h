@@ -18,13 +18,12 @@
 #pragma once
 
 #include <thread>
+#include <mutex>
 
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
-
-class recursive_mutex;
 
 class RemoteISOScreen : public UIScreenWithBackground {
 public:
@@ -69,7 +68,7 @@ protected:
 	ScanStatus status_;
 	double nextRetry_;
 	std::thread *scanThread_;
-	recursive_mutex *statusLock_;
+	std::mutex statusLock_;
 	std::string host_;
 	int port_;
 	std::vector<std::string> games_;

@@ -14,10 +14,10 @@
 #pragma once
 
 #include <vector>
+#include <mutex>
 
 #include "base/basictypes.h"
 #include "base/logging.h"
-#include "base/mutex.h"
 #include "base/NativeApp.h"
 
 namespace UI {
@@ -130,7 +130,7 @@ public:
 
 	Screen *topScreen() const;
 
-	recursive_mutex inputLock_;
+	std::mutex inputLock_;
 
 private:
 	void pop();

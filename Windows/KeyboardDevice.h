@@ -1,7 +1,6 @@
 #pragma once
 
-#include <vector>
-#include "base/mutex.h"
+#include <map>
 #include "InputDevice.h"
 
 extern std::map<int, int> windowsTransTable;

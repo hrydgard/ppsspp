@@ -258,7 +258,7 @@ static GraphicsContext *graphicsContext;
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
 	{
-		lock_guard guard(input_state.lock);
+		std::lock_guard<std::mutex> guard(input_state.lock);
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
@@ -270,7 +270,7 @@ static GraphicsContext *graphicsContext;
 
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
 {
-	lock_guard guard(input_state.lock);
+	std::lock_guard<std::mutex> guard(input_state.lock);
 
 	float scale = [UIScreen mainScreen].scale;
 	

@@ -4,8 +4,7 @@
 #include <memory>
 #include <vector>
 #include <thread>
-
-#include "base/mutex.h"
+#include <mutex>
 
 // This is the simplest possible worker implementation I can think of
 // but entirely sufficient for the given purpose.
@@ -25,9 +24,9 @@ protected:
 	virtual void WorkFunc();
 
 	std::thread *thread; // the worker thread
-	::condition_variable signal; // used to signal new work
-	::condition_variable done; // used to signal work completion
-	::recursive_mutex mutex, doneMutex; // associated with each respective condition variable
+	std::condition_variable signal; // used to signal new work
+	std::condition_variable done; // used to signal work completion
+	std::mutex mutex, doneMutex; // associated with each respective condition variable
 	volatile bool active, started;
 
 private:
@@ -65,7 +64,7 @@ public:
 private:
 	int numThreads_;
 	std::vector<std::shared_ptr<LoopWorkerThread>> workers;
-	::recursive_mutex mutex; // used to sequentialize loop execution
+	std::mutex mutex; // used to sequentialize loop execution
 
 	bool workersStarted;
 	void StartWorkers();

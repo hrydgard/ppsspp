@@ -18,12 +18,13 @@
 #include "ppsspp_config.h"
 
 #include <set>
+#include <mutex>
 
 #include "base/NativeApp.h"
 #include "base/display.h"
-#include "base/mutex.h"
 #include "base/timeutil.h"
 #include "input/input_state.h"
+#include "thread/threadutil.h"
 #include "profiler/profiler.h"
 
 #include "Core/Core.h"
@@ -47,9 +48,9 @@
 static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
 
 static event m_hStepEvent;
-static recursive_mutex m_hStepMutex;
+static std::mutex m_hStepMutex;
 static event m_hInactiveEvent;
-static recursive_mutex m_hInactiveMutex;
+static std::mutex m_hInactiveMutex;
 static bool singleStepPending = false;
 static std::set<Core_ShutdownFunc> shutdownFuncs;
 static bool windowHidden = false;
@@ -198,7 +199,7 @@ void UpdateRunLoop(InputState *input_state) {
 	NativeUpdate(*input_state);
 
 	{
-		lock_guard guard(input_state->lock);
+		std::lock_guard<std::mutex> guard(input_state->lock);
 		EndInputState(input_state);
 	}
 

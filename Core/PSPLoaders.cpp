@@ -19,6 +19,9 @@
 #include "util/text/utf8.h"
 
 #include "Common/StringUtils.h"
+#ifdef _WIN32
+#include "Common/CommonWindows.h"
+#endif
 
 #include "Core/ELF/ElfReader.h"
 #include "Core/ELF/ParamSFO.h"

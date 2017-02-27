@@ -18,7 +18,7 @@
 #pragma once
 
 #include <set>
-#include "base/mutex.h"
+#include <mutex>
 #include "file/ini_file.h"
 #include "Log.h"
 #include "StringUtils.h"
@@ -50,7 +50,7 @@ public:
 	const char* GetName() const { return "file"; }
 
 private:
-	recursive_mutex m_log_lock;
+	std::mutex m_log_lock;
 	std::ofstream m_logfile;
 	bool m_enable;
 };
@@ -112,7 +112,7 @@ public:
 private:
 	char m_fullName[128];
 	char m_shortName[32];
-	recursive_mutex m_listeners_lock;
+	std::mutex m_listeners_lock;
 	std::set<LogListener*> m_listeners;
 	bool m_hasListeners;
 };
@@ -127,7 +127,7 @@ private:
 	DebuggerLogListener *debuggerLog_;
 	RingbufferLogListener *ringLog_;
 	static LogManager *logManager_;  // Singleton. Ugh.
-	recursive_mutex log_lock_;
+	std::mutex log_lock_;
 
 	LogManager();
 	~LogManager();

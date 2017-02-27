@@ -46,19 +46,19 @@ enum class ServerStatus {
 
 static std::thread *serverThread = nullptr;
 static ServerStatus serverStatus;
-static recursive_mutex serverStatusLock;
-static condition_variable serverStatusCond;
+static std::mutex serverStatusLock;
+static std::condition_variable serverStatusCond;
 
 static bool scanCancelled = false;
 
 static void UpdateStatus(ServerStatus s) {
-	lock_guard guard(serverStatusLock);
+	std::lock_guard<std::mutex> guard(serverStatusLock);
 	serverStatus = s;
 	serverStatusCond.notify_one();
 }
 
 static ServerStatus RetrieveStatus() {
-	lock_guard guard(serverStatusLock);
+	std::lock_guard<std::mutex> guard(serverStatusLock);
 	return serverStatus;
 }
 
@@ -351,7 +351,7 @@ void RemoteISOScreen::CreateViews() {
 }
 
 UI::EventReturn RemoteISOScreen::HandleStartServer(UI::EventParams &e) {
-	lock_guard guard(serverStatusLock);
+	std::lock_guard<std::mutex> guard(serverStatusLock);
 
 	if (serverStatus != ServerStatus::STOPPED) {
 		return EVENT_SKIPPED;
@@ -365,7 +365,7 @@ UI::EventReturn RemoteISOScreen::HandleStartServer(UI::EventParams &e) {
 }
 
 UI::EventReturn RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
-	lock_guard guard(serverStatusLock);
+	std::lock_guard<std::mutex> guard(serverStatusLock);
 
 	if (serverStatus != ServerStatus::RUNNING) {
 		return EVENT_SKIPPED;
@@ -385,7 +385,6 @@ UI::EventReturn RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
 
 RemoteISOConnectScreen::RemoteISOConnectScreen() : status_(ScanStatus::SCANNING), nextRetry_(0.0) {
 	scanCancelled = false;
-	statusLock_ = new recursive_mutex();
 
 	scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 		thiz->ExecuteScan();
@@ -404,7 +403,6 @@ RemoteISOConnectScreen::~RemoteISOConnectScreen() {
 		}
 	}
 	delete scanThread_;
-	delete statusLock_;
 }
 
 void RemoteISOConnectScreen::CreateViews() {
@@ -486,12 +484,12 @@ void RemoteISOConnectScreen::ExecuteScan() {
 		return;
 	}
 
-	lock_guard guard(*statusLock_);
+	std::lock_guard<std::mutex> guard(statusLock_);
 	status_ = host_.empty() ? ScanStatus::FAILED : ScanStatus::FOUND;
 }
 
 ScanStatus RemoteISOConnectScreen::GetStatus() {
-	lock_guard guard(*statusLock_);
+	std::lock_guard<std::mutex> guard(statusLock_);
 	return status_;
 }
 
@@ -501,7 +499,7 @@ void RemoteISOConnectScreen::ExecuteLoad() {
 		return;
 	}
 
-	lock_guard guard(*statusLock_);
+	std::lock_guard<std::mutex> guard(statusLock_);
 	status_ = result ? ScanStatus::LOADED : ScanStatus::FAILED;
 }
 

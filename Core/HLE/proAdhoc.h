@@ -18,9 +18,9 @@
 #pragma once
 
 #include <thread>
+#include <mutex>
 
 #include "base/timeutil.h"
-#include "base/mutex.h"
 #include "net/resolve.h"
 #include "Common/ChunkFile.h"
 
@@ -412,7 +412,7 @@ typedef struct SceNetAdhocMatchingContext {
   // Local PDP Socket
   s32_le socket;
   // Socket Lock
-  recursive_mutex *socketlock;
+  std::recursive_mutex *socketlock;
 
   // Receive Buffer Length
   s32_le rxbuflen;
@@ -468,11 +468,11 @@ typedef struct SceNetAdhocMatchingContext {
   bool inputRunning = false;
 
   // Event Caller Thread Message Stack
-  recursive_mutex *eventlock; // s32_le event_stack_lock;
+  std::recursive_mutex *eventlock; // s32_le event_stack_lock;
   ThreadMessage *event_stack;
 
   // IO Handler Thread Message Stack
-  recursive_mutex *inputlock; // s32_le input_stack_lock;
+  std::recursive_mutex *inputlock; // s32_le input_stack_lock;
   ThreadMessage *input_stack;
 
   // Socket Connectivity
@@ -788,7 +788,7 @@ extern int metasocket;
 extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
-extern recursive_mutex peerlock;
+extern std::mutex peerlock;
 extern SceNetAdhocPdpStat * pdp[255];
 extern SceNetAdhocPtpStat * ptp[255];
 extern std::map<int, AdhocctlHandler> adhocctlHandlers;

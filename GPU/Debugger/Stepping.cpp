@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/mutex.h"
+#include <mutex>
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GPUState.h"
@@ -36,11 +36,11 @@ enum PauseAction {
 
 static bool isStepping;
 
-static recursive_mutex pauseLock;
-static condition_variable pauseWait;
+static std::mutex pauseLock;
+static std::condition_variable pauseWait;
 static PauseAction pauseAction = PAUSE_CONTINUE;
-static recursive_mutex actionLock;
-static condition_variable actionWait;
+static std::mutex actionLock;
+static std::condition_variable actionWait;
 // In case of accidental wakeup.
 static volatile bool actionComplete;
 
@@ -59,22 +59,20 @@ static int bufferLevel;
 static u32 pauseSetCmdValue;
 
 static void SetPauseAction(PauseAction act, bool waitComplete = true) {
-	{
-		lock_guard guard(pauseLock);
-		actionLock.lock();
-		pauseAction = act;
-	}
+	pauseLock.lock();
+	std::unique_lock<std::mutex> guard(actionLock);
+	pauseAction = act;
+	pauseLock.unlock();
 
 	actionComplete = false;
 	pauseWait.notify_one();
 	while (waitComplete && !actionComplete) {
-		actionWait.wait(actionLock);
+		actionWait.wait(guard);
 	}
-	actionLock.unlock();
 }
 
 static void RunPauseAction() {
-	lock_guard guard(actionLock);
+	std::lock_guard<std::mutex> guard(actionLock);
 
 	switch (pauseAction) {
 	case PAUSE_CONTINUE:
@@ -118,7 +116,7 @@ static void RunPauseAction() {
 }
 
 bool EnterStepping(std::function<void()> callback) {
-	lock_guard guard(pauseLock);
+	std::unique_lock<std::mutex> guard(pauseLock);
 	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME) {
 		// Shutting down, don't try to step.
 		return false;
@@ -139,7 +137,7 @@ bool EnterStepping(std::function<void()> callback) {
 
 	do {
 		RunPauseAction();
-		pauseWait.wait(pauseLock);
+		pauseWait.wait(guard);
 	} while (pauseAction != PAUSE_CONTINUE);
 
 	gpuDebug->NotifySteppingExit();
@@ -203,4 +201,4 @@ void ForceUnpause() {
 	actionWait.notify_one();
 }
 
-};
+}  // namespace

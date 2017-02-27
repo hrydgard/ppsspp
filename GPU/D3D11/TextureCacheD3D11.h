@@ -17,9 +17,10 @@
 
 #pragma once
 
+#include "Common/CommonWindows.h"
+
 #include <d3d11.h>
 
-#include "../Globals.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/D3D11/TextureScalerD3D11.h"

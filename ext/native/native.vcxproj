@@ -197,7 +197,6 @@
     <ClInclude Include="base\compat.h" />
     <ClInclude Include="base\display.h" />
     <ClInclude Include="base\logging.h" />
-    <ClInclude Include="base\mutex.h" />
     <ClInclude Include="base\NativeApp.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />

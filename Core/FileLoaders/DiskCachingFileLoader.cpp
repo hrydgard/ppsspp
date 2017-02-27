@@ -18,11 +18,14 @@
 #include <algorithm>
 #include <cstddef>
 #include <set>
-#include <string.h>
+#include <mutex>
+#include <cstring>
+
 #include "file/file_util.h"
 #include "file/free.h"
 #include "util/text/utf8.h"
 #include "Common/FileUtil.h"
+#include "Common/CommonWindows.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/System.h"
 
@@ -34,7 +37,7 @@ static const u32 CACHE_SPACE_FLEX = 4;
 std::string DiskCachingFileLoaderCache::cacheDir_;
 
 std::map<std::string, DiskCachingFileLoaderCache *> DiskCachingFileLoader::caches_;
-recursive_mutex DiskCachingFileLoader::cachesMutex_;
+std::mutex DiskCachingFileLoader::cachesMutex_;
 
 // Takes ownership of backend.
 DiskCachingFileLoader::DiskCachingFileLoader(FileLoader *backend)
@@ -121,7 +124,7 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, 
 }
 
 std::vector<std::string> DiskCachingFileLoader::GetCachedPathsInUse() {
-	lock_guard guard(cachesMutex_);
+	std::lock_guard<std::mutex> guard(cachesMutex_);
 
 	// This is on the file loader so that it can manage the caches_.
 	std::vector<std::string> files;
@@ -134,7 +137,7 @@ std::vector<std::string> DiskCachingFileLoader::GetCachedPathsInUse() {
 }
 
 void DiskCachingFileLoader::InitCache() {
-	lock_guard guard(cachesMutex_);
+	std::lock_guard<std::mutex> guard(cachesMutex_);
 
 	std::string path = backend_->Path();
 	auto &entry = caches_[path];
@@ -147,7 +150,7 @@ void DiskCachingFileLoader::InitCache() {
 }
 
 void DiskCachingFileLoader::ShutdownCache() {
-	lock_guard guard(cachesMutex_);
+	std::lock_guard<std::mutex> guard(cachesMutex_);
 
 	if (cache_->Release()) {
 		// If it ran out of counts, delete it.
@@ -222,7 +225,7 @@ void DiskCachingFileLoaderCache::ShutdownCache() {
 }
 
 size_t DiskCachingFileLoaderCache::ReadFromCache(s64 pos, size_t bytes, void *data) {
-	lock_guard guard(lock_);
+	std::lock_guard<std::mutex> guard(lock_);
 
 	if (!f_) {
 		return 0;
@@ -257,7 +260,7 @@ size_t DiskCachingFileLoaderCache::ReadFromCache(s64 pos, size_t bytes, void *da
 }
 
 size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, size_t bytes, void *data, FileLoader::Flags flags) {
-	lock_guard guard(lock_);
+	std::lock_guard<std::mutex> guard(lock_);
 
 	if (!f_) {
 		// Just to keep things working.

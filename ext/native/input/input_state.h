@@ -10,9 +10,9 @@
 
 #include <map>
 #include <vector>
+#include <mutex>
 
 #include "math/lin/vec3.h"
-#include "base/mutex.h"
 #include "base/basictypes.h"
 #include "input/keycodes.h"
 
@@ -125,7 +125,7 @@ struct AxisPos {
 // deltas where applicable.
 struct InputState {
 	// Lock this whenever you access the data in this struct.
-	mutable recursive_mutex lock;
+	mutable std::mutex lock;
 	InputState()
 		: pad_buttons(0),
 			pad_last_buttons(0),

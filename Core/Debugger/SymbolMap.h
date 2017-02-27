@@ -21,8 +21,7 @@
 #include <set>
 #include <map>
 #include <string>
-
-#include "base/mutex.h"
+#include <mutex>
 
 #include "Common/CommonTypes.h"
 
@@ -169,7 +168,7 @@ private:
 	std::map<SymbolKey, DataEntry> data;
 	std::vector<ModuleEntry> modules;
 
-	mutable recursive_mutex lock_;
+	mutable std::recursive_mutex lock_;
 	bool sawUnknownModule;
 };
 

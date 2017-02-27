@@ -138,7 +138,7 @@ public:
 		_mm_empty();
 		return safeResult;
 #else
-		lock_guard guard(curTickEstLock_);
+		std::lock_guard<std::mutex> guard(curTickEstLock_);
 		return curTickEst_;
 #endif
 	}
@@ -222,9 +222,6 @@ protected:
 	virtual void FastRunLoop(DisplayList &list) = 0;
 	void SlowRunLoop(DisplayList &list);
 	void UpdatePC(u32 currentPC, u32 newPC);
-	void UpdatePC(u32 currentPC) {
-		UpdatePC(currentPC, currentPC);
-	}
 	void UpdateState(GPURunState state);
 	void PopDLQueue();
 	void CheckDrawSync();
@@ -248,10 +245,31 @@ protected:
 	void PerformStencilUploadInternal(u32 dest, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
+	// This mutex can be disabled, which is useful for single core mode.
+	class optional_mutex {
+	public:
+		optional_mutex() : enabled_(true) {}
+		void set_enabled(bool enabled) {
+			enabled_ = enabled;
+		}
+		void lock() {
+			if (enabled_)
+				mutex_.lock();
+		}
+		void unlock() {
+			if (enabled_)
+				mutex_.unlock();
+		}
+	private:
+		std::mutex mutex_;
+		bool enabled_;
+	};
+
+
 	// Allows early unlocking with a guard.  Do not double unlock.
 	class easy_guard {
 	public:
-		easy_guard(optional_recursive_mutex &mtx) : mtx_(mtx), locked_(true) { mtx_.lock(); }
+		easy_guard(optional_mutex &mtx) : mtx_(mtx), locked_(true) { mtx_.lock(); }
 		~easy_guard() {
 			if (locked_)
 				mtx_.unlock();
@@ -265,7 +283,7 @@ protected:
 		}
 
 	private:
-		optional_recursive_mutex &mtx_;
+		optional_mutex &mtx_;
 		bool locked_;
 	};
 
@@ -283,7 +301,7 @@ protected:
 	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
-	optional_recursive_mutex listLock;
+	optional_mutex listLock;
 
 	bool interruptRunning;
 	GPURunState gpuState;
@@ -309,7 +327,7 @@ private:
 	alignas(16) std::atomic<u64> curTickEst_;
 #else
 	volatile MEMORY_ALIGNED16(u64) curTickEst_;
-	recursive_mutex curTickEstLock_;
+	std::mutex curTickEstLock_;
 #endif
 
 	inline void UpdateTickEstimate(u64 value) {
@@ -320,7 +338,7 @@ private:
 		*(__m64 *)&curTickEst_ = result;
 		_mm_empty();
 #else
-		lock_guard guard(curTickEstLock_);
+		std::lock_guard<std::mutex> guard(curTickEstLock_);
 		curTickEst_ = value;
 #endif
 	}
