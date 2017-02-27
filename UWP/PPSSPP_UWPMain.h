@@ -17,11 +17,11 @@ public:
 	void SwapBuffers() override {}
 	void Resize() override {}
 	Draw::DrawContext * GetDrawContext() override {
-		return ctx_;
+		return draw_;
 	}
 
 private:
-	Draw::DrawContext *ctx_;
+	Draw::DrawContext *draw_;
 	std::shared_ptr<DX::DeviceResources> resources_;
 };
 
@@ -42,7 +42,7 @@ private:
 	// Cached pointer to device resources.
 	std::shared_ptr<DX::DeviceResources> m_deviceResources;
 
-	std::unique_ptr<UWPGraphicsContext> m_graphicsContext;
+	std::unique_ptr<UWPGraphicsContext> ctx_;
 };
 
 }

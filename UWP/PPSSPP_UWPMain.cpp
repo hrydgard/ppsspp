@@ -44,7 +44,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(const std::shared_ptr<DX::DeviceResources>& devic
 	m_timer.SetTargetElapsedSeconds(1.0 / 60);
 	*/
 
-	m_graphicsContext.reset(new UWPGraphicsContext(deviceResources));
+	ctx_.reset(new UWPGraphicsContext(deviceResources));
 
 	const std::string &exePath = File::GetExeDirectory();
 	VFSRegister("", new DirectoryAssetReader((exePath + "/Content/").c_str()));
@@ -95,13 +95,17 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(const std::shared_ptr<DX::DeviceResources>& devic
 
 	NativeInit(1, argv, "", "", "", false);
 
-	NativeInitGraphics(m_graphicsContext.get());
+	NativeInitGraphics(ctx_.get());
 	NativeResized();
-	m_graphicsContext->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER);
+
+	int width = m_deviceResources->GetScreenViewport().Width;
+	int height = m_deviceResources->GetScreenViewport().Height;
+
+	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, m_deviceResources->GetBackBufferRenderTargetView());
 }
 
 PPSSPP_UWPMain::~PPSSPP_UWPMain() {
-	m_graphicsContext->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER);
+	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
 	NativeShutdownGraphics();
 	NativeShutdown();
 
@@ -129,7 +133,7 @@ bool PPSSPP_UWPMain::Render() {
 	// Reset the viewport to target the whole screen.
 	auto viewport = m_deviceResources->GetScreenViewport();
 
-	m_deviceResources->GetBackBufferRenderTargetView()
+	m_deviceResources->GetBackBufferRenderTargetView();
 	pixel_xres = viewport.Width;
 	pixel_yres = viewport.Height;
 
@@ -150,28 +154,28 @@ bool PPSSPP_UWPMain::Render() {
 	// Clear the back buffer and depth stencil view.
 	context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::CornflowerBlue);
 	context->ClearDepthStencilView(m_deviceResources->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-	NativeRender(m_graphicsContext.get());
+	NativeRender(ctx_.get());
 	return true;
 }
 
 // Notifies renderers that device resources need to be released.
 void PPSSPP_UWPMain::OnDeviceLost() {
-
+	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_DEVICE, 0, 0, nullptr);
 }
 
 // Notifies renderers that device resources may now be recreated.
-void PPSSPP_UWPMain::OnDeviceRestored()
-{
+void PPSSPP_UWPMain::OnDeviceRestored() {
 	CreateWindowSizeDependentResources();
 
+	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_DEVICE, 0, 0, nullptr);
 }
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
-	ctx_ = Draw::T3DCreateD3D11Context(resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), 0);
+	draw_ = Draw::T3DCreateD3D11Context(resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), 0);
 }
 
 void UWPGraphicsContext::Shutdown() {
-	delete ctx_;
+	delete draw_;
 }
 
 void UWPGraphicsContext::SwapInterval(int interval) {

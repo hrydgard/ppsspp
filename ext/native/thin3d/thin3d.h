@@ -351,9 +351,14 @@ enum UpdateBufferFlags {
 };
 
 enum class Event {
-	// These happen on D3D resize
+	// These happen on D3D resize. Only the backbuffer needs to be resized.
 	LOST_BACKBUFFER,
 	GOT_BACKBUFFER,
+
+	// These are a bit more serious...
+	LOST_DEVICE,
+	GOT_DEVICE,
+
 	RESIZED,
 	PRESENT_REQUESTED,
 };
