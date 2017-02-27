@@ -1,6 +1,7 @@
 #pragma once
 
 #include "thin3d/thin3d.h"
+#include "Core/Config.h"
 #include "gfx/gl_lost_manager.h"
 
 enum ImageFileType {
@@ -14,12 +15,14 @@ enum ImageFileType {
 class ManagedTexture : public GfxResourceHolder {
 public:
 	ManagedTexture(Draw::DrawContext *draw) : draw_(draw), texture_(nullptr) {
-		register_gl_resource_holder(this);
+		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
+			register_gl_resource_holder(this);
 	}
 	~ManagedTexture() {
 		if (texture_)
 			texture_->Release();
-		unregister_gl_resource_holder(this);
+		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
+			unregister_gl_resource_holder(this);
 	}
 	void GLLost() override {
 		texture_->Release();

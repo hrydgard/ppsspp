@@ -112,7 +112,7 @@ public:
 		case NativeObject::CONTEXT_EX:
 			return (uintptr_t)context1_;
 		case NativeObject::BACKBUFFER_COLOR_TEX:
-			return (uintptr_t)bbRenderTargetTex_;
+			return (uintptr_t)0;
 		case NativeObject::BACKBUFFER_DEPTH_TEX:
 			return (uintptr_t)bbDepthStencilTex_;
 		case NativeObject::BACKBUFFER_COLOR_VIEW:
@@ -124,7 +124,7 @@ public:
 		}
 	}
 
-	void HandleEvent(Event ev) override;
+	void HandleEvent(Event ev, int width, int height, void *param) override;
 
 private:
 	void ApplyCurrentState();
@@ -134,10 +134,7 @@ private:
 	ID3D11DeviceContext *context_;
 	ID3D11Device1 *device1_;
 	ID3D11DeviceContext1 *context1_;
-	IDXGISwapChain *swapChain_ = nullptr;
-	bool b4g4r4a4Supported_ = false;
 
-	ID3D11Texture2D *bbRenderTargetTex_ = nullptr;
 	ID3D11RenderTargetView *bbRenderTargetView_ = nullptr;
 	// Strictly speaking we don't need a depth buffer for the backbuffer.
 	ID3D11Texture2D *bbDepthStencilTex_ = nullptr;
@@ -173,43 +170,12 @@ private:
 	std::string adapterDesc_;
 };
 
-static void GetRes(HWND hWnd, int &xres, int &yres) {
-#if PPSSPP_PLATFORM(UWP)
-	// TEMPORARY TODO UWP
-	xres = 1024;
-	yres = 768;
-#else
-	RECT rc;
-	GetClientRect(hWnd, &rc);
-	xres = rc.right - rc.left;
-	yres = rc.bottom - rc.top;
-#endif
-}
-
 D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, HWND hWnd)
 	: device_(device),
 		context_(deviceContext1),
 		device1_(device1),
 		context1_(deviceContext1),
 		hWnd_(hWnd) {
-	HRESULT hr;
-	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
-	IDXGIFactory1* dxgiFactory = nullptr;
-	IDXGIDevice* dxgiDevice = nullptr;
-	IDXGIAdapter* adapter = nullptr;
-	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
-	if (SUCCEEDED(hr)) {
-		hr = dxgiDevice->GetAdapter(&adapter);
-		if (SUCCEEDED(hr)) {
-			hr = adapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory));
-			DXGI_ADAPTER_DESC desc;
-			adapter->GetDesc(&desc);
-			adapterDesc_ = ConvertWStringToUTF8(std::wstring(desc.Description));
-			adapter->Release();
-		}
-		dxgiDevice->Release();
-	}
-
 	caps_.dualSourceBlend = true;
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.framebufferBlitSupported = false;
@@ -224,35 +190,6 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 		}
 	}
 
-	UINT support;
-	result = device_->CheckFormatSupport(DXGI_FORMAT_B4G4R4A4_UNORM, &support);
-	if (SUCCEEDED(result)) {
-		b4g4r4a4Supported_ = true;
-	}
-
-	int width;
-	int height;
-	GetRes(hWnd_, width, height);
-
-	// DirectX 11.0 systems
-	DXGI_SWAP_CHAIN_DESC sd;
-	ZeroMemory(&sd, sizeof(sd));
-	sd.BufferCount = 1;
-	sd.BufferDesc.Width = width;
-	sd.BufferDesc.Height = height;
-	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	sd.BufferDesc.RefreshRate.Numerator = 60;
-	sd.BufferDesc.RefreshRate.Denominator = 1;
-	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	sd.OutputWindow = hWnd_;
-	sd.SampleDesc.Count = 1;
-	sd.SampleDesc.Quality = 0;
-	sd.Windowed = TRUE;
-
-	hr = dxgiFactory->CreateSwapChain(device_, &sd, &swapChain_);
-	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
-	dxgiFactory->Release();
-
 	CreatePresets();
 }
 
@@ -264,18 +201,8 @@ D3D11DrawContext::~D3D11DrawContext() {
 	context_->PSSetShaderResources(0, 2, srv);
 }
 
-void D3D11DrawContext::HandleEvent(Event ev) {
+void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param) {
 	switch (ev) {
-	case Event::PRESENT_REQUESTED:
-		swapChain_->Present(0, 0);
-		break;
-	case Event::RESIZED: {
-		int width;
-		int height;
-		GetRes(hWnd_, width, height);
-		swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
-		break;
-	}
 	case Event::LOST_BACKBUFFER: {
 		if (curRenderTargetView_ == bbRenderTargetView_ || curDepthStencilView_ == bbDepthStencilView_) {
 			ID3D11RenderTargetView *view = nullptr;
@@ -283,10 +210,6 @@ void D3D11DrawContext::HandleEvent(Event ev) {
 			curRenderTargetView_ = nullptr;
 			curDepthStencilView_ = nullptr;
 		}
-		bbRenderTargetTex_->Release();
-		bbRenderTargetTex_ = nullptr;
-		bbRenderTargetView_->Release();
-		bbRenderTargetView_ = nullptr;
 		bbDepthStencilView_->Release();
 		bbDepthStencilView_ = nullptr;
 		bbDepthStencilTex_->Release();
@@ -294,19 +217,11 @@ void D3D11DrawContext::HandleEvent(Event ev) {
 		break;
 	}
 	case Event::GOT_BACKBUFFER: {
-		int width;
-		int height;
-		GetRes(hWnd_, width, height);
-		// Create a render target view
-		ID3D11Texture2D* pBackBuffer = nullptr;
-		HRESULT hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&bbRenderTargetTex_));
-		if (FAILED(hr))
-			return;
-		hr = device_->CreateRenderTargetView(bbRenderTargetTex_, nullptr, &bbRenderTargetView_);
-		if (FAILED(hr))
-			return;
+		bbRenderTargetView_ = (ID3D11RenderTargetView *)param;
 
-		// Create depth stencil texture
+		// Create matching depth stencil texture. This is not really needed for PPSSPP though,
+		// and probably not for most other renderers either as you're usually rendering to other render targets and
+		// then blitting them with a shader to the screen.
 		D3D11_TEXTURE2D_DESC descDepth{};
 		descDepth.Width = width;
 		descDepth.Height = height;
@@ -319,7 +234,7 @@ void D3D11DrawContext::HandleEvent(Event ev) {
 		descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 		descDepth.CPUAccessFlags = 0;
 		descDepth.MiscFlags = 0;
-		hr = device_->CreateTexture2D(&descDepth, nullptr, &bbDepthStencilTex_);
+		HRESULT hr = device_->CreateTexture2D(&descDepth, nullptr, &bbDepthStencilTex_);
 
 		// Create the depth stencil view
 		D3D11_DEPTH_STENCIL_VIEW_DESC descDSV{};

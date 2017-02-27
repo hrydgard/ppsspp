@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// Modelled on OpenD3DBase. Might make a cleaner interface later.
-
 #pragma once
+
+#include "ppsspp_config.h"
 
 #include "Common/CommonWindows.h"
 #include "Windows/GPU/WindowsGraphicsContext.h"
@@ -42,11 +42,18 @@ public:
 private:
 	HRESULT CreateTheDevice();
 
+	void LostBackbuffer();
+	void GotBackbuffer();
+
 	Draw::DrawContext *draw_ = nullptr;
+	IDXGISwapChain *swapChain_ = nullptr;
 	ID3D11Device *device_ = nullptr;
 	ID3D11Device1 *device1_ = nullptr;
 	ID3D11DeviceContext *context_ = nullptr;
 	ID3D11DeviceContext1 *context1_ = nullptr;
+
+	ID3D11Texture2D *bbRenderTargetTex_ = nullptr;
+	ID3D11RenderTargetView *bbRenderTargetView_ = nullptr;
 
 #ifdef _DEBUG
 	ID3D11Debug *d3dDebug_ = nullptr;
@@ -59,6 +66,6 @@ private:
 	HDC hDC;     // Private GDI Device Context
 	HWND hWnd_;   // Holds Our Window Handle
 	HMODULE hD3D11;
-	// D3DPRESENT_PARAMETERS pp;
+	int width;
+	int height;
 };
-

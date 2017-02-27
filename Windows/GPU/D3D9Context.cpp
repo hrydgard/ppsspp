@@ -166,7 +166,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 	draw_ = Draw::T3DCreateDX9Context(d3d_, d3dEx_, -1, device_, deviceEx_);
 	if (draw_)
-		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER);
+		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, 0, 0, nullptr);
 	return true;
 }
 
@@ -178,7 +178,7 @@ void D3D9Context::Resize() {
 	bool h_changed = presentParams_.BackBufferHeight != yres;
 
 	if (device_ && (w_changed || h_changed)) {
-		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER);
+		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
 		presentParams_.BackBufferWidth = xres;
 		presentParams_.BackBufferHeight = yres;
 		HRESULT hr = device_->Reset(&presentParams_);
@@ -187,12 +187,12 @@ void D3D9Context::Resize() {
 			ERROR_LOG_REPORT(G3D, "Unable to reset D3D device");
 			PanicAlert("Unable to reset D3D9 device");
 		}
-		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER);
+		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, 0, 0, nullptr);
 	}
 }
 
 void D3D9Context::Shutdown() {
-	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER);
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
 	delete draw_;
 	draw_ = nullptr;
 	device_->EndScene();

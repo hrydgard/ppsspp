@@ -413,7 +413,7 @@ public:
 		return 0;
 	}
 
-	void HandleEvent(Event ev) override {}
+	void HandleEvent(Event ev, int width, int height, void *param) override;
 
 private:
 	void ApplyDynamicState();
@@ -1314,6 +1314,10 @@ void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	*w = fb->width;
 	*h = fb->height;
+}
+
+void VKContext::HandleEvent(Event ev, int width, int height, void *param) {
+	// Noop
 }
 
 }  // namespace Draw

@@ -552,7 +552,7 @@ public:
 		return 0;
 	}
 
-	void HandleEvent(Event ev) override {}
+	void HandleEvent(Event ev, int width, int height, void *param) override {}
 
 private:
 	OpenGLFramebuffer *fbo_ext_create(const FramebufferDesc &desc);

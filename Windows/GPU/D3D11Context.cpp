@@ -1,3 +1,5 @@
+#include "ppsspp_config.h"
+
 #include "Common/CommonWindows.h"
 #include <d3d11.h>
 
@@ -19,7 +21,8 @@ D3D11Context::~D3D11Context() {
 }
 
 void D3D11Context::SwapBuffers() {
-	draw_->HandleEvent(Draw::Event::PRESENT_REQUESTED);
+	swapChain_->Present(0, 0);
+
 	// Might be a good idea.
 	// context_->ClearState();
 	//
@@ -69,6 +72,19 @@ HRESULT D3D11Context::CreateTheDevice() {
 	}
 
 	return hr;
+}
+
+static void GetRes(HWND hWnd, int &xres, int &yres) {
+#if PPSSPP_PLATFORM(UWP)
+	// TEMPORARY TODO UWP
+	xres = 1024;
+	yres = 768;
+#else
+	RECT rc;
+	GetClientRect(hWnd, &rc);
+	xres = rc.right - rc.left;
+	yres = rc.bottom - rc.top;
+#endif
 }
 
 bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
@@ -124,18 +140,88 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 #endif
 
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, hWnd_);
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER);
+
+	int width;
+	int height;
+	GetRes(hWnd_, width, height);
+
+	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
+	IDXGIFactory1* dxgiFactory = nullptr;
+	IDXGIDevice* dxgiDevice = nullptr;
+	IDXGIAdapter* adapter = nullptr;
+	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
+	if (SUCCEEDED(hr)) {
+		hr = dxgiDevice->GetAdapter(&adapter);
+		if (SUCCEEDED(hr)) {
+			hr = adapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory));
+			DXGI_ADAPTER_DESC desc;
+			adapter->GetDesc(&desc);
+			adapter->Release();
+		}
+		dxgiDevice->Release();
+	}
+
+	// DirectX 11.0 systems
+	DXGI_SWAP_CHAIN_DESC sd;
+	ZeroMemory(&sd, sizeof(sd));
+	sd.BufferCount = 1;
+	sd.BufferDesc.Width = width;
+	sd.BufferDesc.Height = height;
+	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.BufferDesc.RefreshRate.Numerator = 60;
+	sd.BufferDesc.RefreshRate.Denominator = 1;
+	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	sd.OutputWindow = hWnd_;
+	sd.SampleDesc.Count = 1;
+	sd.SampleDesc.Quality = 0;
+	sd.Windowed = TRUE;
+
+	hr = dxgiFactory->CreateSwapChain(device_, &sd, &swapChain_);
+	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
+	dxgiFactory->Release();
+
+	GotBackbuffer();
 	return true;
 }
 
+void D3D11Context::LostBackbuffer() {
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, width, height, nullptr);
+	bbRenderTargetTex_->Release();
+	bbRenderTargetTex_ = nullptr;
+	bbRenderTargetView_->Release();
+	bbRenderTargetView_ = nullptr;
+}
+
+void D3D11Context::GotBackbuffer() {
+	// Create a render target view
+	ID3D11Texture2D* pBackBuffer = nullptr;
+	HRESULT hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&bbRenderTargetTex_));
+	if (FAILED(hr))
+		return;
+
+	D3D11_TEXTURE2D_DESC bbDesc{};
+	bbRenderTargetTex_->GetDesc(&bbDesc);
+	width = bbDesc.Width;
+	height = bbDesc.Height;
+
+	hr = device_->CreateRenderTargetView(bbRenderTargetTex_, nullptr, &bbRenderTargetView_);
+	if (FAILED(hr))
+		return;
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, bbRenderTargetView_);
+}
+
 void D3D11Context::Resize() {
-	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER);
-	draw_->HandleEvent(Draw::Event::RESIZED);
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER);
+	LostBackbuffer();
+	int width;
+	int height;
+	GetRes(hWnd_, width, height);
+	swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+	GotBackbuffer();
 }
 
 void D3D11Context::Shutdown() {
-	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER);
+	LostBackbuffer();
+
 	delete draw_;
 	draw_ = nullptr;
 	context_->ClearState();

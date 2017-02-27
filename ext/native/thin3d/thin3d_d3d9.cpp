@@ -551,7 +551,7 @@ public:
 		}
 	}
 
-	void HandleEvent(Event ev) override;
+	void HandleEvent(Event ev, int width, int height, void *param) override;
 
 private:
 	LPDIRECT3D9 d3d_;
@@ -1124,7 +1124,7 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, filter == FB_BLIT_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
-void D3D9Context::HandleEvent(Event ev) {
+void D3D9Context::HandleEvent(Event ev, int width, int height, void *param) {
 	switch (ev) {
 	case Event::LOST_BACKBUFFER:
 		if (deviceRTsurf)
