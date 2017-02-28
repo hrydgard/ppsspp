@@ -18,6 +18,7 @@
 #pragma	once
 
 #include <string>
+
 #include "Common/CommonTypes.h"
 
 enum class IdentifiedFileType {
@@ -47,7 +48,7 @@ enum class IdentifiedFileType {
 	PSP_SAVEDATA_DIRECTORY,
 	PPSSPP_SAVESTATE,
 
-	UNKNOWN
+	UNKNOWN,
 };
 
 class FileLoader {
@@ -101,6 +102,7 @@ std::string ResolvePBPFile(const std::string &filename);
 
 IdentifiedFileType Identify_File(FileLoader *fileLoader);
 
+void RegisterFileLoaderFactory(std::string name, std::function<FileLoader*(std::string)> factoryFunc);
 void OverrideNextLoader(FileLoader *fileLoader, IdentifiedFileType fileType);
 
 // Can modify the string filename, as it calls IdentifyFile above.

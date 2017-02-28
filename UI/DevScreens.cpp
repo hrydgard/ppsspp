@@ -391,6 +391,12 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Memory Page Size", StringFromFormat("%d bytes", GetMemoryProtectPageSize())));
 	deviceSpecs->Add(new InfoItem("RW/RX exclusive: ", PlatformIsWXExclusive() ? "Yes" : "No"));
 
+	const char *build = "Release";
+#ifdef _DEBUG
+	build = "Debug";
+#endif
+	deviceSpecs->Add(new InfoItem("PPSSPP build: ", build));
+
 #ifdef __ANDROID__
 	deviceSpecs->Add(new ItemHeader("Audio Information"));
 	deviceSpecs->Add(new InfoItem("Sample rate", StringFromFormat("%d Hz", System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));

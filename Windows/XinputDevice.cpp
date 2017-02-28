@@ -138,7 +138,7 @@ inline float LinearMapf(float val, float a0, float a1, float b0, float b1) {
 }
 
 static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, float idz, float st) {
-	Stick s(x, y, 1.0 / 32767.0f);
+	Stick s(x, y, 1.0f / 32767.0f);
 
 	float magnitude = sqrtf(s.x * s.x + s.y * s.y);
 	if (magnitude > dz) {
@@ -194,8 +194,8 @@ static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, floa
 }
 
 bool NormalizedDeadzoneDiffers(short x1, short y1, short x2, short y2, const float dz) {
-	Stick s1(x1, y1, 1.0 / 32767.0f);
-	Stick s2(x2, y2, 1.0 / 32767.0f);
+	Stick s1(x1, y1, 1.0f / 32767.0f);
+	Stick s2(x2, y2, 1.0f / 32767.0f);
 
 	float magnitude1 = sqrtf(s1.x * s1.x + s1.y * s1.y);
 	float magnitude2 = sqrtf(s2.x * s2.x + s2.y * s2.y);

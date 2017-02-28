@@ -37,7 +37,7 @@
 
 // Gross, gross hack! But necessary for UWP, fitting it in neatly would be a major refactor
 FileLoader *g_OverriddenLoader;
-IdentifiedFileType g_OverriddenFiletype;
+IdentifiedFileType g_OverriddenFiletype = FILETYPE_UNKNOWN;
 
 void OverrideNextLoader(FileLoader *fileLoader, IdentifiedFileType fileType) {
 	g_OverriddenLoader = fileLoader;
@@ -48,7 +48,6 @@ FileLoader *ConstructFileLoader(const std::string &filename) {
 	if (filename.find("http://") == 0 || filename.find("https://") == 0)
 		return new CachingFileLoader(new DiskCachingFileLoader(new RetryingFileLoader(new HTTPFileLoader(filename))));
 	if (filename == "override://") {
-		g_OverriddenLoader = nullptr;
 		return g_OverriddenLoader;
 	}
 	return new LocalFileLoader(filename);
@@ -56,6 +55,9 @@ FileLoader *ConstructFileLoader(const std::string &filename) {
 
 // TODO : improve, look in the file more
 IdentifiedFileType Identify_File(FileLoader *fileLoader) {
+	if (g_OverriddenFiletype != FILETYPE_UNKNOWN)
+		return g_OverriddenFiletype;
+
 	if (fileLoader == nullptr) {
 		ERROR_LOG(LOADER, "Invalid fileLoader");
 		return IdentifiedFileType::ERROR_IDENTIFYING;

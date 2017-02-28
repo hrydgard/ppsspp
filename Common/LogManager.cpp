@@ -15,6 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include "ppsspp_config.h"
+
 #include <algorithm>
 
 #include "base/logging.h"
@@ -31,9 +33,11 @@ const char *hleCurrentThreadName = nullptr;
 
 static const char level_to_char[8] = "-NEWIDV";
 
-// Unfortunately this is quite slow.
+#if PPSSPP_PLATFORM(UWP) && defined(_DEBUG)
+#define LOG_MSC_OUTPUTDEBUG true
+#else
 #define LOG_MSC_OUTPUTDEBUG false
-// #define LOG_MSC_OUTPUTDEBUG true
+#endif
 
 void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char* fmt, ...) {
 	if (!g_Config.bEnableLogging)
@@ -121,7 +125,7 @@ LogManager::LogManager() {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 	AddListener(fileLog_);
 	AddListener(consoleLog_);
-#if defined(_MSC_VER) && defined(USING_WIN_UI)
+#if defined(_MSC_VER) && (defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP))
 	if (IsDebuggerPresent() && debuggerLog_ != NULL && LOG_MSC_OUTPUTDEBUG)
 		AddListener(debuggerLog_);
 #endif

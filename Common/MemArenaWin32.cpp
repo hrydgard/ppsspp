@@ -29,8 +29,12 @@ size_t MemArena::roundup(size_t x) {
 }
 
 void MemArena::GrabLowMemSpace(size_t size) {
+#if !PPSSPP_PLATFORM(UWP)
 	hMemoryMapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, (DWORD)(size), NULL);
 	GetSystemInfo(&sysInfo);
+#else
+	hMemoryMapping = 0;
+#endif
 }
 
 void MemArena::ReleaseSpace() {
@@ -41,8 +45,8 @@ void MemArena::ReleaseSpace() {
 void *MemArena::CreateView(s64 offset, size_t size, void *base) {
 	size = roundup(size);
 #if PPSSPP_PLATFORM(UWP)
-	// TODO
-	void *ptr = nullptr;
+	// Can't map views properly. We just grab some RAM.
+	void *ptr = VirtualAllocFromApp(NULL, size, MEM_COMMIT, PAGE_READWRITE);
 #else
 	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, base);
 #endif

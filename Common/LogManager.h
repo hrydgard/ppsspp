@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include <vector>
 #include <mutex>
 
@@ -160,10 +162,13 @@ public:
 
 	void ChangeFileLog(const char *filename);
 
-  void SaveConfig(IniFile::Section *section);
-  void LoadConfig(IniFile::Section *section, bool debugDefaults);
+	void SaveConfig(IniFile::Section *section);
+	void LoadConfig(IniFile::Section *section, bool debugDefaults);
 
 private:
+	LogManager();
+	~LogManager();
+
 	LogChannel log_[LogTypes::NUMBER_OF_LOGS];
 	FileLogListener *fileLog_;
 	ConsoleListener *consoleLog_;
@@ -174,7 +179,4 @@ private:
 
 	std::mutex listeners_lock_;
 	std::vector<LogListener*> listeners_;
-
-	LogManager();
-	~LogManager();
 };

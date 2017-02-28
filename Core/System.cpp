@@ -629,14 +629,12 @@ void InitSysDirectories() {
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
 #if PPSSPP_PLATFORM(UWP)
-	const std::string myDocsPath = "";  // TODO UWP
-	const HRESULT result = E_FAIL;
+	// We set g_Config.memStickDirectory outside.
 
 #else
 	wchar_t myDocumentsPath[MAX_PATH];
 	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 	const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
-#endif
 	const std::string installedFile = path + "installed.txt";
 	const bool installed = File::Exists(installedFile);
 
@@ -686,6 +684,7 @@ void InitSysDirectories() {
 	// Clean up our mess.
 	if (File::Exists(testFile))
 		File::Delete(testFile);
+#endif
 
 	// Create the default directories that a real PSP creates. Good for homebrew so they can
 	// expect a standard environment. Skipping THEME though, that's pointless.

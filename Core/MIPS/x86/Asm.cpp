@@ -170,8 +170,11 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 			MOV(32, R(EAX), M(&mips_->pc));
 			dispatcherInEAXNoCheck = GetCodePtr();
 
-#ifdef _M_IX86
+#ifdef MASKED_PSP_MEMORY
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+#endif
+
+#ifdef _M_IX86
 			_assert_msg_(CPU, Memory::base != 0, "Memory base bogus");
 			MOV(32, R(EAX), MDisp(EAX, (u32)Memory::base));
 #elif _M_X64

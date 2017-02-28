@@ -15,6 +15,8 @@
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "file/file_util.h"
+#include "net/http_client.h"
+#include "net/resolve.h"
 #include "base/display.h"
 #include "util/text/utf8.h"
 #include "Common/DirectXHelper.h"
@@ -44,6 +46,8 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	m_deviceResources(deviceResources)
 {
 	g_main = this;
+
+	net::Init();
 
 	host = new UWPHost();
 	// Register to be notified if the Device is lost or recreated
@@ -80,13 +84,18 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	char configFilename[MAX_PATH] = { 0 };
 	char controlsConfigFilename[MAX_PATH] = { 0 };
 
+	std::wstring memstickFolderW = ApplicationData::Current->LocalFolder->Path->Data();
+
+	g_Config.memStickDirectory = ReplaceAll(ConvertWStringToUTF8(memstickFolderW), "\\", "/");
+	if (g_Config.memStickDirectory.back() != '/')
+		g_Config.memStickDirectory += "/";
+
 	// On Win32 it makes more sense to initialize the system directories here 
 	// because the next place it was called was in the EmuThread, and it's too late by then.
 	InitSysDirectories();
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
-	g_Config.AddSearchPath("");
 	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load(configFilename, controlsConfigFilename);
@@ -102,12 +111,16 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	LogManager::Init();
 
-	if (debugLogLevel)
+	if (debugLogLevel) {
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
+	}
 
 	const char *argv[2] = { "fake", nullptr };
 
-	NativeInit(1, argv, "", "", "", false);
+
+	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->LocalFolder->Path->Data());
+	
+	NativeInit(1, argv, "", "", cacheFolder.c_str(), false);
 
 	NativeInitGraphics(ctx_.get());
 	NativeResized();
@@ -125,6 +138,7 @@ PPSSPP_UWPMain::~PPSSPP_UWPMain() {
 
 	// Deregister device notification
 	m_deviceResources->RegisterDeviceNotify(nullptr);
+	net::Shutdown();
 }
 
 // Updates application state when the window size changes (e.g. device orientation change)
@@ -293,6 +307,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 		picker->FileTypeFilter->Append(".cso");
 		picker->FileTypeFilter->Append(".iso");
 		picker->FileTypeFilter->Append(".bin");
+		picker->SuggestedStartLocation = Pickers::PickerLocationId::DocumentsLibrary;
 
 		create_task(picker->PickSingleFileAsync()).then([](StorageFile ^file){
 			g_main->LoadStorageFile(file);
@@ -318,7 +333,18 @@ void LaunchBrowser(const char *url) {
 }
 
 void Vibrate(int length_ms) {
-	// TODO: Use Windows::Phone::Devices::Notification where available
+#if _M_ARM
+	if (length_ms == -1 || length_ms == -3)
+		length_ms = 50;
+	else if (length_ms == -2)
+		length_ms = 25;
+	else
+		return;
+
+	auto timeSpan = Windows::Foundation::TimeSpan();
+	timeSpan.Duration = length_ms * 10000;
+	Windows::Phone::Devices::Notification::VibrationDevice::GetDefault()->Vibrate(timeSpan);
+#endif
 }
 
 void System_AskForPermission(SystemPermission permission) {

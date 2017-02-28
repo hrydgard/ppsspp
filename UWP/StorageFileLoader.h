@@ -10,6 +10,9 @@
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
 
+// This thing is a terrible abomination that wraps asynchronous file access behind a synchronous interface,
+// completely defeating MS' design goals for StorageFile. But hey, you gotta do what you gotta do.
+
 class StorageFileLoader : public FileLoader {
 public:
 	StorageFileLoader(Windows::Storage::StorageFile ^file);
@@ -28,6 +31,7 @@ public:
 
 private:
 	void threadfunc();
+	void EnsureOpen();
 
 	enum class OpType {
 		READ,
@@ -41,7 +45,9 @@ private:
 	};
 
 	bool active_ = false;
+	int64_t size_ = -1;
 	std::thread thread_;
+	Windows::Storage::StorageFile ^file_;
 	Windows::Storage::Streams::IRandomAccessStreamWithContentType ^stream_;
 	std::condition_variable cond_;
 	std::mutex mutex_;

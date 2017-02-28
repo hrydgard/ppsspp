@@ -531,6 +531,9 @@ handleELF:
 				// Let's assume it's an ISO.
 				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
 				// few files.
+				FileLoader *fl = info_->GetFileLoader();
+				if (!fl)
+					return;  // Happens with UWP currently, TODO...
 				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader());
 				if (!bd)
 					return;  // nothing to do here..
