@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "base/logging.h"
 #include "base/timeutil.h"
 
@@ -32,6 +34,7 @@
 
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
+
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"

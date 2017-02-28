@@ -29,9 +29,9 @@
 #include <cstdlib>
 #include <functional>
 #include <thread>
+#include <mutex>
 
 #include "base/basictypes.h"
-#include "base/mutex.h"
 #include "profiler/profiler.h"
 #include "thread/threadutil.h"
 #include "Common/Log.h"
@@ -91,10 +91,10 @@ struct SasThreadParams {
 };
 
 static std::thread *sasThread;
-static recursive_mutex sasWakeMutex;
-static recursive_mutex sasDoneMutex;
-static condition_variable sasWake;
-static condition_variable sasDone;
+static std::mutex sasWakeMutex;
+static std::mutex sasDoneMutex;
+static std::condition_variable sasWake;
+static std::condition_variable sasDone;
 static volatile int sasThreadState = SasThreadState::DISABLED;
 static SasThreadParams sasThreadParams;
 static int sasMixEvent = -1;
@@ -102,9 +102,9 @@ static int sasMixEvent = -1;
 int __SasThread() {
 	setCurrentThreadName("SAS");
 
-	lock_guard guard(sasWakeMutex);
+	std::unique_lock<std::mutex> guard(sasWakeMutex);
 	while (sasThreadState != SasThreadState::DISABLED) {
-		sasWake.wait(sasWakeMutex);
+		sasWake.wait(guard);
 		if (sasThreadState == SasThreadState::QUEUED) {
 			sas->Mix(sasThreadParams.outAddr, sasThreadParams.inAddr, sasThreadParams.leftVol, sasThreadParams.rightVol);
 
@@ -118,10 +118,9 @@ int __SasThread() {
 }
 
 static void __SasDrain() {
-	sasDoneMutex.lock();
+	std::unique_lock<std::mutex> guard(sasDoneMutex);
 	while (sasThreadState == SasThreadState::QUEUED)
-		sasDone.wait(sasDoneMutex);
-	sasDoneMutex.unlock();
+		sasDone.wait(guard);
 }
 
 static void __SasEnqueueMix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int rightVol = 0) {

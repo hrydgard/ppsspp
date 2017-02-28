@@ -116,9 +116,6 @@
     <ClInclude Include="ui\ui.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="base\mutex.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="data\listable.h">
       <Filter>data</Filter>
     </ClInclude>

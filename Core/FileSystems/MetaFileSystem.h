@@ -19,8 +19,8 @@
 
 #include <string>
 #include <vector>
+#include <mutex>
 
-#include "base/mutex.h"
 #include "Core/FileSystems/FileSystem.h"
 
 class MetaFileSystem : public IHandleAllocator, public IFileSystem {
@@ -42,7 +42,7 @@ private:
 
 	std::string startingDirectory;
 	int lastOpenError;
-	recursive_mutex lock;
+	std::recursive_mutex lock;  // must be recursive
 
 public:
 	MetaFileSystem() {
@@ -120,7 +120,7 @@ public:
 	int ReadEntireFile(const std::string &filename, std::vector<u8> &data);
 
 	void SetStartingDirectory(const std::string &dir) {
-		lock_guard guard(lock);
+		std::lock_guard<std::recursive_mutex> guard(lock);
 		startingDirectory = dir;
 	}
 };

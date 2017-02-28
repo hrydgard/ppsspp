@@ -18,9 +18,9 @@
 
 #include <vector>
 #include <cstdio>
+#include <mutex>
 
 #include "base/logging.h"
-#include "base/mutex.h"
 #include "profiler/profiler.h"
 
 #include "Common/MsgHandler.h"
@@ -86,7 +86,7 @@ s64 idledCycles;
 s64 lastGlobalTimeTicks;
 s64 lastGlobalTimeUs;
 
-static recursive_mutex externalEventSection;
+static std::mutex externalEventLock;
 
 std::vector<MHzChangeCallback> mhzChangeCallbacks;
 
@@ -226,7 +226,7 @@ void Shutdown()
 		delete ev;
 	}
 
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 	while(eventTsPool)
 	{
 		Event *ev = eventTsPool;
@@ -250,7 +250,7 @@ u64 GetIdleTicks()
 // schedule things to be executed on the main thread.
 void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata)
 {
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 	Event *ne = GetNewTsEvent();
 	ne->time = GetTicks() + cyclesIntoFuture;
 	ne->type = event_type;
@@ -271,7 +271,7 @@ void ScheduleEvent_Threadsafe_Immediate(int event_type, u64 userdata)
 {
 	if(false) //Core::IsCPUThread())
 	{
-		lock_guard lk(externalEventSection);
+		std::lock_guard<std::mutex> lk(externalEventLock);
 		event_types[event_type].callback(userdata, 0);
 	}
 	else
@@ -366,7 +366,7 @@ s64 UnscheduleEvent(int event_type, u64 userdata)
 s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 {
 	s64 result = 0;
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 	if (!tsFirst)
 		return result;
 	while(tsFirst)
@@ -470,7 +470,7 @@ void RemoveEvent(int event_type)
 
 void RemoveThreadsafeEvent(int event_type)
 {
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 	if (!tsFirst)
 	{
 		return;
@@ -544,7 +544,7 @@ void MoveEvents()
 {
 	Common::AtomicStoreRelease(hasTsEvents, 0);
 
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 	// Move events from async queue into main queue
 	while (tsFirst)
 	{
@@ -682,7 +682,7 @@ void Event_DoStateOld(PointerWrap &p, BaseEvent *ev)
 
 void DoState(PointerWrap &p)
 {
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 
 	auto s = p.Section("CoreTiming", 1, 3);
 	if (!s)

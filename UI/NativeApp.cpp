@@ -35,6 +35,7 @@
 #endif
 #include <memory>
 #include <thread>
+#include <mutex>
 
 #if defined(_WIN32)
 #include "Windows/DSoundStream.h"
@@ -43,7 +44,6 @@
 
 #include "base/display.h"
 #include "base/logging.h"
-#include "base/mutex.h"
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
@@ -139,7 +139,7 @@ struct PendingMessage {
 	std::string value;
 };
 
-static recursive_mutex pendingMutex;
+static std::mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
 static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
@@ -858,7 +858,7 @@ void NativeUpdate(InputState &input) {
 	PROFILE_END_FRAME();
 
 	{
-		lock_guard lock(pendingMutex);
+		std::lock_guard<std::mutex> lock(pendingMutex);
 		for (size_t i = 0; i < pendingMessages.size(); i++) {
 			HandleGlobalMessage(pendingMessages[i].msg, pendingMessages[i].value);
 			screenManager->sendMessage(pendingMessages[i].msg.c_str(), pendingMessages[i].value.c_str());
@@ -1010,7 +1010,7 @@ bool NativeAxis(const AxisInput &axis) {
 
 void NativeMessageReceived(const char *message, const char *value) {
 	// We can only have one message queued.
-	lock_guard lock(pendingMutex);
+	std::lock_guard<std::mutex> lock(pendingMutex);
 	PendingMessage pendingMessage;
 	pendingMessage.msg = message;
 	pendingMessage.value = value;

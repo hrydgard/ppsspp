@@ -360,13 +360,10 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 	return true;
 }
 
-
-recursive_mutex NPDRMDemoBlockDevice::mutex_;
-
 NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	: fileLoader_(fileLoader)
 {
-	lock_guard guard(mutex_);
+	std::lock_guard<std::mutex> guard(mutex_);
 	MAC_KEY mkey;
 	CIPHER_KEY ckey;
 	u8 np_header[256];
@@ -432,7 +429,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice()
 {
-	lock_guard guard(mutex_);
+	std::lock_guard<std::mutex> guard(mutex_);
 	delete [] table;
 	delete [] tempBuf;
 	delete [] blockBuf;
@@ -443,7 +440,7 @@ int lzrc_decompress(void *out, int out_len, void *in, int in_len);
 bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
-	lock_guard guard(mutex_);
+	std::lock_guard<std::mutex> guard(mutex_);
 	CIPHER_KEY ckey;
 	int block, lba, lzsize;
 	size_t readSize;

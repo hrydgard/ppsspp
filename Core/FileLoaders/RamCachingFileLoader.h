@@ -18,7 +18,8 @@
 #pragma once
 
 #include <vector>
-#include "base/mutex.h"
+#include <mutex>
+
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
 
@@ -69,8 +70,8 @@ private:
 	int isDirectory_;
 
 	std::vector<u8> blocks_;
-	recursive_mutex blocksMutex_;
-	mutable recursive_mutex backendMutex_;
+	std::mutex blocksMutex_;
+	mutable std::mutex backendMutex_;
 	u32 aheadRemaining_;
 	s64 aheadPos_;
 	bool aheadThread_;

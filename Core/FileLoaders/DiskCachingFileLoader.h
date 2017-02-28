@@ -19,7 +19,8 @@
 
 #include <vector>
 #include <map>
-#include "base/mutex.h"
+#include <mutex>
+
 #include "Common/Common.h"
 #include "Core/Loaders.h"
 
@@ -64,7 +65,7 @@ private:
 	// We don't support concurrent disk cache access (we use memory cached indexes.)
 	// So we have to ensure there's only one of these per.
 	static std::map<std::string, DiskCachingFileLoaderCache *> caches_;
-	static recursive_mutex cachesMutex_;
+	static std::mutex cachesMutex_;
 };
 
 class DiskCachingFileLoaderCache {
@@ -154,7 +155,7 @@ private:
 	u32 flags_;
 	size_t cacheSize_;
 	size_t indexCount_;
-	recursive_mutex lock_;
+	std::mutex lock_;
 	std::string origPath_;
 
 	struct FileHeader {

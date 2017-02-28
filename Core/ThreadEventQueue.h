@@ -17,10 +17,12 @@
 
 #pragma once
 
-#include "base/mutex.h"
+#include <mutex>
+#include <condition_variable>
+#include <deque>
+
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
-#include <deque>
 
 template <typename B, typename Event, typename EventType, EventType EVENT_INVALID, EventType EVENT_SYNC, EventType EVENT_FINISH>
 struct ThreadEventQueue : public B {
@@ -37,7 +39,7 @@ struct ThreadEventQueue : public B {
 
 	void ScheduleEvent(Event ev) {
 		if (threadEnabled_) {
-			lock_guard guard(eventsLock_);
+			std::lock_guard<std::recursive_mutex> guard(eventsLock_);
 			events_.push_back(ev);
 			eventsWait_.notify_one();
 		} else {
@@ -51,7 +53,7 @@ struct ThreadEventQueue : public B {
 
 	bool HasEvents() {
 		if (threadEnabled_) {
-			lock_guard guard(eventsLock_);
+			std::lock_guard<std::recursive_mutex> guard(eventsLock_);
 			return !events_.empty();
 		} else {
 			return !events_.empty();
@@ -60,14 +62,14 @@ struct ThreadEventQueue : public B {
 
 	void NotifyDrain() {
 		if (threadEnabled_) {
-			lock_guard guard(eventsLock_);
+			std::lock_guard<std::recursive_mutex> guard(eventsLock_);
 			eventsDrain_.notify_one();
 		}
 	}
 
 	Event GetNextEvent() {
 		if (threadEnabled_) {
-			lock_guard guard(eventsLock_);
+			std::lock_guard<std::recursive_mutex> guard(eventsLock_);
 			if (events_.empty()) {
 				NotifyDrain();
 				return EVENT_INVALID;
@@ -96,22 +98,22 @@ struct ThreadEventQueue : public B {
 			return;
 		}
 
-		lock_guard guard(eventsLock_);
+		std::unique_lock<std::recursive_mutex> guard(eventsLock_);
 		eventsRunning_ = true;
 		eventsHaveRun_ = true;
 		do {
-			while (!HasEvents() && !ShouldExitEventLoop()) {
-				eventsWait_.wait(eventsLock_);
+			while (events_.empty() && !ShouldExitEventLoop()) {
+				eventsWait_.wait(guard);
 			}
 			// Quit the loop if the queue is drained and coreState has tripped, or threading is disabled.
-			if (!HasEvents()) {
+			if (events_.empty()) {
 				break;
 			}
 
 			for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
-				eventsLock_.unlock();
+				guard.unlock();
 				ProcessEventIfApplicable(ev, globalticks);
-				eventsLock_.lock();
+				guard.lock();
 			}
 		} while (CoreTiming::GetTicks() < globalticks);
 
@@ -122,7 +124,7 @@ struct ThreadEventQueue : public B {
 
 	void SyncBeginFrame() {
 		if (threadEnabled_) {
-			lock_guard guard(eventsLock_);
+			std::lock_guard<std::recursive_mutex> guard(eventsLock_);
 			eventsHaveRun_ = false;
 		} else {
 			eventsHaveRun_ = false;
@@ -151,12 +153,12 @@ struct ThreadEventQueue : public B {
 			return;
 		}
 
-		lock_guard guard(eventsLock_);
+		std::unique_lock<std::recursive_mutex> guard(eventsLock_);
 		// While processing the last event, HasEvents() will be false even while not done.
 		// So we schedule a nothing event and wait for that to finish.
 		ScheduleEvent(EVENT_SYNC);
 		while (ShouldSyncThread(force)) {
-			eventsDrain_.wait(eventsLock_);
+			eventsDrain_.wait(guard);
 		}
 	}
 
@@ -165,7 +167,7 @@ struct ThreadEventQueue : public B {
 			return;
 		}
 
-		lock_guard guard(eventsLock_);
+		std::lock_guard<std::recursive_mutex> guard(eventsLock_);
 		// Don't schedule a finish if it's not even running.
 		if (eventsRunning_) {
 			ScheduleEvent(EVENT_FINISH);
@@ -197,7 +199,7 @@ private:
 	bool eventsRunning_;
 	bool eventsHaveRun_;
 	std::deque<Event> events_;
-	recursive_mutex eventsLock_;
-	condition_variable eventsWait_;
-	condition_variable eventsDrain_;
+	std::recursive_mutex eventsLock_;  // TODO: Should really make this non-recursive - condition_variable_any is dangerous
+	std::condition_variable_any eventsWait_;
+	std::condition_variable_any eventsDrain_;
 };

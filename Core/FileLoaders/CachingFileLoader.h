@@ -18,7 +18,8 @@
 #pragma once
 
 #include <map>
-#include "base/mutex.h"
+#include <mutex>
+
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
 
@@ -83,8 +84,8 @@ private:
 	};
 
 	std::map<s64, BlockInfo> blocks_;
-	recursive_mutex blocksMutex_;
-	mutable recursive_mutex backendMutex_;
+	std::mutex blocksMutex_;
+	mutable std::mutex backendMutex_;
 	bool aheadThread_;
 	bool prepared_;
 };

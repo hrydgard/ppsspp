@@ -673,7 +673,7 @@ const std::string GameBrowser::GetBaseName(const std::string &path) {
 
 UI::EventReturn GameBrowser::GameButtonClick(UI::EventParams &e) {
 	GameButton *button = static_cast<GameButton *>(e.v);
-	UI::EventParams e2;
+	UI::EventParams e2{};
 	e2.s = button->GamePath();
 	// Insta-update - here we know we are already on the right thread.
 	OnChoice.Trigger(e2);
@@ -682,7 +682,7 @@ UI::EventReturn GameBrowser::GameButtonClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::GameButtonHoldClick(UI::EventParams &e) {
 	GameButton *button = static_cast<GameButton *>(e.v);
-	UI::EventParams e2;
+	UI::EventParams e2{};
 	e2.s = button->GamePath();
 	// Insta-update - here we know we are already on the right thread.
 	OnHoldChoice.Trigger(e2);

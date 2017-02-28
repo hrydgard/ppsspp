@@ -26,14 +26,15 @@ void WorkerThread::Process(const std::function<void()>& work) {
 }
 
 void WorkerThread::WaitForCompletion() {
-	done.wait(doneMutex);
+	std::unique_lock<std::mutex> guard(doneMutex);
+	done.wait(guard);
 }
 
 void WorkerThread::WorkFunc() {
-	mutex.lock();
+	std::unique_lock<std::mutex> guard(mutex);
 	started = true;
 	while (active) {
-		signal.wait(mutex);
+		signal.wait(guard);
 		if (active) {
 			work_();
 			doneMutex.lock();
@@ -50,7 +51,7 @@ LoopWorkerThread::LoopWorkerThread() : WorkerThread(true) {
 }
 
 void LoopWorkerThread::Process(const std::function<void(int, int)> &work, int start, int end) {
-	mutex.lock();
+	std::lock_guard<std::mutex> guard(mutex);
 	work_ = work;
 	start_ = start;
 	end_ = end;
@@ -59,10 +60,10 @@ void LoopWorkerThread::Process(const std::function<void(int, int)> &work, int st
 }
 
 void LoopWorkerThread::WorkFunc() {
-	mutex.lock();
+	std::unique_lock<std::mutex> guard(mutex);
 	started = true;
 	while (active) {
-		signal.wait(mutex);
+		signal.wait(guard);
 		if (active) {
 			work_(start_, end_);
 			doneMutex.lock();
@@ -98,7 +99,7 @@ void ThreadPool::StartWorkers() {
 void ThreadPool::ParallelLoop(const std::function<void(int,int)> &loop, int lower, int upper) {
 	int range = upper - lower;
 	if (range >= numThreads_ * 2) { // don't parallelize tiny loops (this could be better, maybe add optional parameter that estimates work per iteration)
-		lock_guard guard(mutex);
+		std::lock_guard<std::mutex> guard(mutex);
 		StartWorkers();
 
 		// could do slightly better load balancing for the generic case, 

@@ -19,8 +19,8 @@
 
 #include <string>
 #include <map>
+#include <mutex>
 
-#include "base/mutex.h"
 #include "file/file_util.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Loaders.h"
@@ -129,7 +129,7 @@ public:
 	// Don't need to hold it when just passing around the pointer,
 	// and obviously also not when creating it and holding the only pointer
 	// to it.
-	recursive_mutex lock;
+	std::mutex lock;
 
 	std::string id;
 	std::string id_version;

@@ -2,9 +2,9 @@
 
 #include <vector>
 #include <limits>
+#include <mutex>
 
 #include "base/basictypes.h"
-#include "base/mutex.h"
 #include "thread/threadutil.h"
 
 // Priorities can change dynamically.
@@ -46,10 +46,10 @@ private:
 
 	bool done_;
 	bool working_;
-	recursive_mutex mutex_;
-	recursive_mutex drainMutex_;
-	condition_variable notEmpty_;
-	condition_variable drain_;
+	std::mutex mutex_;
+	std::mutex drainMutex_;
+	std::condition_variable notEmpty_;
+	std::condition_variable drain_;
 
 	std::vector<PrioritizedWorkQueueItem *> queue_;
 

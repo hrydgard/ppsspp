@@ -543,7 +543,7 @@ namespace MainWindow
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
 				{
-					lock_guard guard(input_state.lock);
+					std::lock_guard<std::mutex> guard(input_state.lock);
 					input_state.mouse_valid = true;
 					input_state.pointer_down[0] = true;
 
@@ -589,7 +589,7 @@ namespace MainWindow
 				prevCursorY = cursorY;
 
 				{
-					lock_guard guard(input_state.lock);
+					std::lock_guard<std::mutex> guard(input_state.lock);
 					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * g_dpi_scale;
 					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * g_dpi_scale;
 				}
@@ -612,7 +612,7 @@ namespace MainWindow
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
 				{
-					lock_guard guard(input_state.lock);
+					std::lock_guard<std::mutex> guard(input_state.lock);
 					input_state.pointer_down[0] = false;
 					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * g_dpi_scale;
 					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * g_dpi_scale;

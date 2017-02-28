@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
-
 #include "ppsspp_config.h"
-#include "base/mutex.h"
+
+#include <algorithm>
+#include <mutex>
+
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
 #include "Common/MemArena.h"
@@ -77,7 +78,7 @@ u32 g_MemorySize;
 // Used to store the PSP model on game startup.
 u32 g_PSPModel;
 
-recursive_mutex g_shutdownLock;
+std::mutex g_shutdownLock;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] =
@@ -315,7 +316,7 @@ void DoState(PointerWrap &p) {
 }
 
 void Shutdown() {
-	lock_guard guard(g_shutdownLock);
+	std::lock_guard<std::mutex> guard(g_shutdownLock);
 	u32 flags = 0;
 	MemoryMap_Shutdown(flags);
 	base = nullptr;

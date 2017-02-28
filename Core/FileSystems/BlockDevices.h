@@ -23,14 +23,14 @@
 // The ISOFileSystemReader reads from a BlockDevice, so it automatically works
 // with CISO images.
 
+#include <mutex>
+
 #include "Common/CommonTypes.h"
 #include "Core/ELF/PBPReader.h"
-#include "base/mutex.h"
 
 class FileLoader;
 
-class BlockDevice
-{
+class BlockDevice {
 public:
 	virtual ~BlockDevice() {}
 	virtual bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) = 0;
@@ -49,9 +49,7 @@ public:
 	u32 CalculateCRC();
 };
 
-
-class CISOFileBlockDevice : public BlockDevice
-{
+class CISOFileBlockDevice : public BlockDevice {
 public:
 	CISOFileBlockDevice(FileLoader *fileLoader);
 	~CISOFileBlockDevice();
@@ -73,8 +71,7 @@ private:
 };
 
 
-class FileBlockDevice : public BlockDevice
-{
+class FileBlockDevice : public BlockDevice {
 public:
 	FileBlockDevice(FileLoader *fileLoader);
 	~FileBlockDevice();
@@ -98,8 +95,7 @@ struct table_info {
 	int unk_1c;
 };
 
-class NPDRMDemoBlockDevice : public BlockDevice
-{
+class NPDRMDemoBlockDevice : public BlockDevice {
 public:
 	NPDRMDemoBlockDevice(FileLoader *fileLoader);
 	~NPDRMDemoBlockDevice();
@@ -109,7 +105,7 @@ public:
 
 private:
 	FileLoader *fileLoader_;
-	static recursive_mutex mutex_;
+	std::mutex mutex_;
 	u32 lbaSize;
 
 	u32 psarOffset;

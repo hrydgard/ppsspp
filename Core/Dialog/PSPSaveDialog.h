@@ -18,8 +18,8 @@
 #pragma once
 
 #include <thread>
+#include <mutex>
 
-#include "base/mutex.h"
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/SavedataParam.h"
 
@@ -154,7 +154,7 @@ private:
 	};
 
 	std::thread *ioThread;
-	recursive_mutex paramLock;
+	std::mutex paramLock;
 	volatile SaveIOStatus ioThreadStatus;
 };
 

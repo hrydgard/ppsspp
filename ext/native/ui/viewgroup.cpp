@@ -1,8 +1,8 @@
 #include <functional>
 #include <set>
+#include <mutex>
 
 #include "base/logging.h"
-#include "base/mutex.h"
 #include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "input/keycodes.h"
@@ -17,7 +17,7 @@ namespace UI {
 
 const float ITEM_HEIGHT = 64.f;
 
-static recursive_mutex focusLock;
+static std::mutex focusLock;
 static std::vector<int> focusMoves;
 extern bool focusForced;
 bool dragCaptured[MAX_POINTERS];
@@ -57,7 +57,7 @@ ViewGroup::~ViewGroup() {
 }
 
 void ViewGroup::RemoveSubview(View *view) {
-	lock_guard guard(modifyLock_);
+	std::lock_guard<std::mutex> guard(modifyLock_);
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i] == view) {
 			views_.erase(views_.begin() + i);
@@ -68,7 +68,7 @@ void ViewGroup::RemoveSubview(View *view) {
 }
 
 void ViewGroup::Clear() {
-	lock_guard guard(modifyLock_);
+	std::lock_guard<std::mutex> guard(modifyLock_);
 	for (size_t i = 0; i < views_.size(); i++) {
 		delete views_[i];
 		views_[i] = nullptr;
@@ -77,7 +77,7 @@ void ViewGroup::Clear() {
 }
 
 void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
-	lock_guard guard(modifyLock_);
+	std::lock_guard<std::mutex> guard(modifyLock_);
 
 	std::string tag = Tag();
 	if (tag.empty()) {
@@ -91,7 +91,7 @@ void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap
 }
 
 void ViewGroup::Touch(const TouchInput &input) {
-	lock_guard guard(modifyLock_);
+	std::lock_guard<std::mutex> guard(modifyLock_);
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if ((*iter)->GetVisibility() == V_VISIBLE)
@@ -109,7 +109,7 @@ void ViewGroup::Query(float x, float y, std::vector<View *> &list) {
 }
 
 bool ViewGroup::Key(const KeyInput &input) {
-	lock_guard guard(modifyLock_);
+	std::lock_guard<std::mutex> guard(modifyLock_);
 	bool ret = false;
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
@@ -120,7 +120,7 @@ bool ViewGroup::Key(const KeyInput &input) {
 }
 
 void ViewGroup::Axis(const AxisInput &input) {
-	lock_guard guard(modifyLock_);
+	std::lock_guard<std::mutex> guard(modifyLock_);
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if ((*iter)->GetVisibility() == V_VISIBLE)
@@ -165,7 +165,7 @@ void ViewGroup::Update(const InputState &input_state) {
 }
 
 bool ViewGroup::SetFocus() {
-	lock_guard guard(modifyLock_);
+	std::lock_guard<std::mutex> guard(modifyLock_);
 	if (!CanBeFocused() && !views_.empty()) {
 		for (size_t i = 0; i < views_.size(); i++) {
 			if (views_[i]->SetFocus())
@@ -1394,7 +1394,7 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 			}
 
 			heldKeys.insert(hk);
-			lock_guard lock(focusLock);
+			std::lock_guard<std::mutex> lock(focusLock);
 			focusMoves.push_back(key.keyCode);
 			retval = true;
 		}
@@ -1440,7 +1440,7 @@ restart:
 			key.flags = KEY_DOWN;
 			KeyEvent(key, root);
 
-			lock_guard lock(focusLock);
+			std::lock_guard<std::mutex> lock(focusLock);
 			focusMoves.push_back(key.keyCode);
 
 			// Cannot modify the current item when looping over a set, so let's do this instead.
@@ -1477,7 +1477,7 @@ void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 	}
 
 	if (focusMoves.size()) {
-		lock_guard lock(focusLock);
+		std::lock_guard<std::mutex> lock(focusLock);
 		EnableFocusMovement(true);
 		if (!GetFocusedView()) {
 			if (root->GetDefaultFocusView()) {

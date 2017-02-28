@@ -15,7 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/mutex.h"
+#include <atomic>
+#include <mutex>
 
 #include "Globals.h" // only for clamp_s16
 #include "Common/CommonTypes.h"
@@ -48,8 +49,7 @@ AudioDebugStats g_AudioDebugStats;
 
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
-atomic_flag atomicLock_;
-recursive_mutex mutex_;
+std::atomic_flag atomicLock_;
 
 enum latency {
 	LOW_LATENCY = 0,

@@ -792,7 +792,6 @@ add_library(native STATIC
 	ext/native/base/display.h
 	ext/native/base/linked_ptr.h
 	ext/native/base/logging.h
-	ext/native/base/mutex.h
 	ext/native/base/stringutil.cpp
 	ext/native/base/stringutil.h
 	ext/native/base/timeutil.cpp

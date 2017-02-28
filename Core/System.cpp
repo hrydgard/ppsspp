@@ -25,10 +25,10 @@
 #include <codecvt>
 #endif
 #include <thread>
+#include <mutex>
 
 #include "math/math_util.h"
 #include "thread/threadutil.h"
-#include "base/mutex.h"
 #include "util/text/utf8.h"
 
 #include "Core/MemMap.h"
@@ -80,9 +80,9 @@ static CoreParameter coreParameter;
 static FileLoader *loadedFile;
 static std::thread *cpuThread = nullptr;
 static std::thread::id cpuThreadID;
-static recursive_mutex cpuThreadLock;
-static condition_variable cpuThreadCond;
-static condition_variable cpuThreadReplyCond;
+static std::mutex cpuThreadLock;
+static std::condition_variable cpuThreadCond;
+static std::condition_variable cpuThreadReplyCond;
 static u64 cpuThreadUntil;
 bool audioInitialized;
 
@@ -133,17 +133,21 @@ bool IsOnSeparateCPUThread() {
 	}
 }
 
-void CPU_SetState(CPUThreadState to) {
-	lock_guard guard(cpuThreadLock);
+void CPU_SetStateNoLock(CPUThreadState to) {
 	cpuThreadState = to;
 	cpuThreadCond.notify_one();
 	cpuThreadReplyCond.notify_one();
 }
 
+void CPU_SetState(CPUThreadState to) {
+	std::lock_guard<std::mutex> guard(cpuThreadLock);
+	CPU_SetStateNoLock(to);
+}
+
 bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
-	lock_guard guard(cpuThreadLock);
+	std::lock_guard<std::mutex> guard(cpuThreadLock);
 	if (cpuThreadState == from) {
-		CPU_SetState(to);
+		CPU_SetStateNoLock(to);
 		return true;
 	} else {
 		return false;
@@ -151,9 +155,9 @@ bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
 }
 
 bool CPU_NextStateNot(CPUThreadState from, CPUThreadState to) {
-	lock_guard guard(cpuThreadLock);
+	std::lock_guard<std::mutex> guard(cpuThreadLock);
 	if (cpuThreadState != from) {
-		CPU_SetState(to);
+		CPU_SetStateNoLock(to);
 		return true;
 	} else {
 		return false;
@@ -172,10 +176,10 @@ bool CPU_HasPendingAction() {
 	return cpuThreadState != CPU_THREAD_RUNNING;
 }
 
-void CPU_WaitStatus(condition_variable &cond, bool (*pred)()) {
-	lock_guard guard(cpuThreadLock);
+void CPU_WaitStatus(std::condition_variable &cond, bool (*pred)()) {
+	std::unique_lock<std::mutex> guard(cpuThreadLock);
 	while (!pred()) {
-		cond.wait(cpuThreadLock);
+		cond.wait(guard);
 	}
 }
 

@@ -1,7 +1,7 @@
 #include <queue>
 #include <algorithm>
+#include <mutex>
 
-#include "base/mutex.h"
 #include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "input/input_state.h"
@@ -20,7 +20,7 @@ namespace UI {
 static View *focusedView;
 static bool focusMovementEnabled;
 bool focusForced;
-static recursive_mutex mutex_;
+static std::recursive_mutex eventMutex_;  // needs recursivity!
 
 const float ITEM_HEIGHT = 64.f;
 const float MIN_TEXT_SCALE = 0.8f;
@@ -33,9 +33,8 @@ struct DispatchQueueItem {
 
 std::deque<DispatchQueueItem> g_dispatchQueue;
 
-
 void EventTriggered(Event *e, EventParams params) {
-	lock_guard guard(mutex_);
+	std::unique_lock<std::recursive_mutex> guard(eventMutex_);
 
 	DispatchQueueItem item;
 	item.e = e;
@@ -44,7 +43,7 @@ void EventTriggered(Event *e, EventParams params) {
 }
 
 void DispatchEvents() {
-	lock_guard guard(mutex_);
+	std::unique_lock<std::recursive_mutex> guard(eventMutex_);
 
 	while (!g_dispatchQueue.empty()) {
 		DispatchQueueItem item = g_dispatchQueue.back();

@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <type_traits>
+#include <mutex>
 
-#include "base/mutex.h"
 #include "base/timeutil.h"
 #include "Common/ColorConv.h"
 #include "Core/Reporting.h"
@@ -679,7 +679,7 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	}
 
 	// Exit the runloop and recalculate things.  This happens a lot in some games.
-	easy_guard innerGuard(listLock);
+	// No need to lock, this function is always called under listLock.
 	if (currentList)
 		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - newPC) / 4;
 	else
@@ -936,7 +936,7 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 void GPUCommon::Execute_End(u32 op, u32 diff) {
 	easy_guard guard(listLock);
 	const u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
-	UpdatePC(currentList->pc);
+	UpdatePC(currentList->pc, currentList->pc);
 	// Count in a few extra cycles on END.
 	cyclesExecuted += 60;
 
@@ -1267,6 +1267,7 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
+	easy_guard innerGuard(listLock);
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
 }
@@ -1307,6 +1308,7 @@ void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
+	easy_guard innerGuard(listLock);
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
 }
@@ -1347,6 +1349,7 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0x1F);
 
 	// Skip over the loaded data, it's done now.
+	easy_guard innerGuard(listLock);
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
 }
@@ -1388,6 +1391,7 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
+	easy_guard innerGuard(listLock);
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
 }
@@ -1447,6 +1451,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
 
 	// Skip over the loaded data, it's done now.
+	easy_guard innerGuard(listLock);
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
 }

@@ -18,8 +18,8 @@
 #include <algorithm>
 #include <vector>
 #include <thread>
+#include <mutex>
 
-#include "base/mutex.h"
 #include "base/timeutil.h"
 #include "i18n/i18n.h"
 #include "thread/threadutil.h"
@@ -98,7 +98,7 @@ namespace SaveState
 
 		CChunkFileReader::Error Save()
 		{
-			lock_guard guard(lock_);
+			std::lock_guard<std::mutex> guard(lock_);
 
 			int n = next_++ % size_;
 			if ((next_ % size_) == first_)
@@ -129,7 +129,7 @@ namespace SaveState
 
 		CChunkFileReader::Error Restore()
 		{
-			lock_guard guard(lock_);
+			std::lock_guard<std::mutex> guard(lock_);
 
 			// No valid states left.
 			if (Empty())
@@ -155,7 +155,7 @@ namespace SaveState
 
 		void Compress(std::vector<u8> &result, const std::vector<u8> &state, const std::vector<u8> &base)
 		{
-			lock_guard guard(lock_);
+			std::lock_guard<std::mutex> guard(lock_);
 			// Bail if we were cleared before locking.
 			if (first_ == 0 && next_ == 0)
 				return;
@@ -176,7 +176,7 @@ namespace SaveState
 
 		void Decompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base)
 		{
-			lock_guard guard(lock_);
+			std::lock_guard<std::mutex> guard(lock_);
 			result.clear();
 			result.reserve(base.size());
 			auto basePos = base.begin();
@@ -203,7 +203,7 @@ namespace SaveState
 		void Clear()
 		{
 			// This lock is mainly for shutdown.
-			lock_guard guard(lock_);
+			std::lock_guard<std::mutex> guard(lock_);
 			first_ = 0;
 			next_ = 0;
 		}
@@ -226,7 +226,7 @@ namespace SaveState
 		std::vector<StateBuffer> states_;
 		StateBuffer bases_[2];
 		std::vector<int> baseMapping_;
-		recursive_mutex lock_;
+		std::mutex lock_;
 
 		int base_;
 		int baseUsage_;
@@ -234,7 +234,7 @@ namespace SaveState
 
 	static bool needsProcess = false;
 	static std::vector<Operation> pending;
-	static recursive_mutex mutex;
+	static std::mutex mutex;
 	static bool hasLoadedState = false;
 
 	// TODO: Should this be configurable?
@@ -278,7 +278,7 @@ namespace SaveState
 
 	void Enqueue(SaveState::Operation op)
 	{
-		lock_guard guard(mutex);
+		std::lock_guard<std::mutex> guard(mutex);
 		pending.push_back(op);
 
 		// Don't actually run it until next frame.
@@ -508,7 +508,7 @@ namespace SaveState
 
 	std::vector<Operation> Flush()
 	{
-		lock_guard guard(mutex);
+		std::lock_guard<std::mutex> guard(mutex);
 		std::vector<Operation> copy = pending;
 		pending.clear();
 
@@ -697,7 +697,7 @@ namespace SaveState
 		// Make sure there's a directory for save slots
 		pspFileSystem.MkDir("ms0:/PSP/PPSSPP_STATE");
 
-		lock_guard guard(mutex);
+		std::lock_guard<std::mutex> guard(mutex);
 		rewindStates.Clear();
 
 		hasLoadedState = false;
@@ -705,7 +705,7 @@ namespace SaveState
 
 	void Shutdown()
 	{
-		lock_guard guard(mutex);
+		std::lock_guard<std::mutex> guard(mutex);
 		rewindStates.Clear();
 	}
 }

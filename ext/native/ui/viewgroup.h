@@ -2,9 +2,9 @@
 
 #include <vector>
 #include <set>
+#include <mutex>
 
 #include "base/logging.h"
-#include "base/mutex.h"
 #include "math/geom2d.h"
 #include "input/gesture_detector.h"
 #include "ui/view.h"
@@ -44,7 +44,7 @@ public:
 	// Takes ownership! DO NOT add a view to multiple parents!
 	template <class T>
 	T *Add(T *view) {
-		lock_guard guard(modifyLock_);
+		std::lock_guard<std::mutex> guard(modifyLock_);
 		views_.push_back(view);
 		return view;
 	}
@@ -77,7 +77,7 @@ public:
 	std::string Describe() const override { return "ViewGroup: " + View::Describe(); }
 
 protected:
-	recursive_mutex modifyLock_;  // Hold this when changing the subviews.
+	std::mutex modifyLock_;  // Hold this when changing the subviews.
 	std::vector<View *> views_;
 	View *defaultFocusView_;
 	Drawable bg_;
