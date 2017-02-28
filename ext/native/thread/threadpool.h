@@ -5,6 +5,7 @@
 #include <vector>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 // This is the simplest possible worker implementation I can think of
 // but entirely sufficient for the given purpose.

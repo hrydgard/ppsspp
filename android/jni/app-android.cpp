@@ -16,6 +16,7 @@
 #include <GLES2/gl2ext.h>
 #include <queue>
 #include <mutex>
+#include <thread>
 
 #include "base/basictypes.h"
 #include "base/stringutil.h"
@@ -319,7 +320,7 @@ void AndroidVulkanContext::Resize() {
 void AndroidVulkanContext::SwapInterval(int interval) {
 }
 
-static std::recursive_mutex frameCommandLock;
+static std::mutex frameCommandLock;
 static std::queue<FrameCommand> frameCommands;
 
 std::string systemName;

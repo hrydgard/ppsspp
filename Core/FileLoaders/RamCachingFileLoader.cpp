@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <thread>
 #include <cstring>
+#include <cstdlib>
+
 #include "base/timeutil.h"
 #include "thread/threadutil.h"
 #include "Core/FileLoaders/RamCachingFileLoader.h"
