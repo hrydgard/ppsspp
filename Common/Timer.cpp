@@ -37,7 +37,7 @@ u32 Timer::GetTimeMs()
 {
 #if defined(_WIN32)
 #if PPSSPP_PLATFORM(UWP)
-	return 0;  // TODO UWP
+	return (u32)GetTickCount64();
 #else
 	return timeGetTime();
 #endif
