@@ -136,10 +136,8 @@ void App::OnPointerCaptureLost(Windows::UI::Core::CoreWindow^ sender, Windows::U
 
 void App::OnPointerWheelChanged(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
 	int pointerId = args->CurrentPoint->PointerId;
-	float X = args->CurrentPoint->Position.X;
-	float Y = args->CurrentPoint->Position.Y;
-	int64_t timestamp = args->CurrentPoint->Timestamp;
-	m_main->OnTouchEvent(TOUCH_WHEEL, pointerId, X, Y, timestamp);
+	float delta = args->CurrentPoint->GetCurrentPoint(args->CurrentPoint->PointerId)->Properties->MouseWheelDelta;
+	m_main->OnMouseWheel(delta);
 }
 
 // Initializes scene resources, or loads a previously saved app state.

@@ -212,6 +212,21 @@ void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKe
 	}
 }
 
+void PPSSPP_UWPMain::OnMouseWheel(float delta) {
+	int key = NKCODE_EXT_MOUSEWHEEL_UP;
+	if (delta < 0) {
+		key = NKCODE_EXT_MOUSEWHEEL_DOWN;
+	} else if (delta == 0) {
+		return;
+	}
+
+	KeyInput keyInput{};
+	keyInput.keyCode = key;
+	keyInput.deviceId = DEVICE_ID_MOUSE;
+	keyInput.flags = KEY_DOWN | KEY_UP;
+	NativeKey(keyInput);
+}
+
 void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp) {
 	// It appears that Windows' touchIds start from 1. Let's fix that.
 	touchId--;

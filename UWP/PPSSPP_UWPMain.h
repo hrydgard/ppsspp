@@ -49,6 +49,8 @@ public:
 
 	void OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp);
 
+	void OnMouseWheel(float delta);
+
 	// Save state fast if we can!
 	void OnSuspend();
 	void Close();
