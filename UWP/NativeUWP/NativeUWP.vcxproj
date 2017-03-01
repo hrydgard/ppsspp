@@ -279,7 +279,6 @@
     <ClInclude Include="..\..\ext\native\thin3d\thin3d.h" />
     <ClInclude Include="..\..\ext\native\thread\executor.h" />
     <ClInclude Include="..\..\ext\native\thread\prioritizedworkqueue.h" />
-    <ClInclude Include="..\..\ext\native\thread\thread.h" />
     <ClInclude Include="..\..\ext\native\thread\threadpool.h" />
     <ClInclude Include="..\..\ext\native\thread\threadutil.h" />
     <ClInclude Include="..\..\ext\native\ui\screen.h" />

@@ -129,6 +129,7 @@ inline static bool CanIgnoreView(const MemoryView &view) {
 	;
 #endif
 
+#if !PPSSPP_PLATFORM(UWP)
 static bool Memory_TryBase(u32 flags) {
 	// OK, we know where to find free space. Now grab it!
 	// We just mimic the popular BAT setup.
@@ -152,10 +153,7 @@ static bool Memory_TryBase(u32 flags) {
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
 		}
-#if PPSSPP_PLATFORM(UWP)
-		// For both 32-bit and 64-bit, we need to use address masking.
-		*(view.out_ptr) = (u8*)VirtualAllocFromApp(base + (view.virtual_address & MEMVIEW32_MASK), view.size, MEM_COMMIT, PAGE_READWRITE);
-#elif PPSSPP_ARCH(64BIT)
+#if PPSSPP_ARCH(64BIT)
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 		if (!*view.out_ptr) {
@@ -180,7 +178,6 @@ static bool Memory_TryBase(u32 flags) {
 	}
 
 	return true;
-#if !PPSSPP_PLATFORM(UWP)
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++) {
@@ -195,14 +192,18 @@ bail:
 		}
 	}
 	return false;
-#endif
 }
+#endif
 
 bool MemoryMap_Setup(u32 flags) {
 #if PPSSPP_PLATFORM(UWP)
 	// We just grab all 256MB.
 	// We should be able to avoid COMMIT-ing here, TODO.
 	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	for (int i = 0; i < num_views; i++) {
+		const MemoryView &view = views[i];
+		(*view.out_ptr) = (uint8_t *)base + (views[i].virtual_address & Memory::MEMVIEW32_MASK);
+	}
 	return true;
 #else
 	// Figure out how much memory we need to allocate in total.
@@ -265,6 +266,10 @@ void MemoryMap_Shutdown(u32 flags) {
 		*views[i].out_ptr = nullptr;
 	}
 	g_arena.ReleaseSpace();
+
+#if PPSSPP_PLATFORM(UWP)
+	VirtualFree(base, 0, MEM_RELEASE);
+#endif
 }
 
 void Init() {

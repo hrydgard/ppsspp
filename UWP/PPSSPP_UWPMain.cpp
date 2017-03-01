@@ -35,7 +35,7 @@ using namespace Concurrency;
 
 // UGLY!
 PPSSPP_UWPMain *g_main;
-
+extern WindowsAudioBackend *winAudioBackend;
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
 // TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
 // TODO: Low latency input: https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/LowLatencyInput/cpp
@@ -284,7 +284,7 @@ std::string System_GetProperty(SystemProperty prop) {
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
-		return 48000; //winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
+		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:

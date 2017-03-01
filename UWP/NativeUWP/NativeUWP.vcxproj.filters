@@ -515,9 +515,6 @@
     <ClInclude Include="..\..\ext\native\thread\prioritizedworkqueue.h">
       <Filter>thread</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\native\thread\thread.h">
-      <Filter>thread</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\thread\threadpool.h">
       <Filter>thread</Filter>
     </ClInclude>
