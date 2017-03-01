@@ -434,11 +434,11 @@ struct Atrac {
 	PSPPointer<SceAtracId> context_;
 
 #ifdef USE_FFMPEG
-	AVCodecContext  *codecCtx_;
-	SwrContext      *swrCtx_;
-	AVFrame         *frame_;
+	AVCodecContext  *codecCtx_ = nullptr;
+	SwrContext      *swrCtx_ = nullptr;
+	AVFrame         *frame_ = nullptr;
+	AVPacket        *packet_ = nullptr;
 #endif // USE_FFMPEG
-	AVPacket        *packet_;
 
 #ifdef USE_FFMPEG
 	void ReleaseFFMPEGContext() {
@@ -470,10 +470,10 @@ struct Atrac {
 	void ForceSeekToSample(int sample) {
 #ifdef USE_FFMPEG
 		avcodec_flush_buffers(codecCtx_);
-#endif
 
 		// Discard any pending packet data.
 		packet_->size = 0;
+#endif
 
 		currentSample_ = sample;
 	}
@@ -483,6 +483,7 @@ struct Atrac {
 	}
 
 	void SeekToSample(int sample) {
+#ifdef USE_FFMPEG
 		// Discard any pending packet data.
 		packet_->size = 0;
 
@@ -491,7 +492,6 @@ struct Atrac {
 		const u32 unalignedSamples = (offsetSamples + sample) % SamplesPerFrame();
 		int seekFrame = sample + offsetSamples - unalignedSamples;
 
-#ifdef USE_FFMPEG
 		if ((sample != currentSample_ || sample == 0) && codecCtx_ != nullptr) {
 			// Prefill the decode buffer with packets before the first sample offset.
 			avcodec_flush_buffers(codecCtx_);
@@ -524,10 +524,10 @@ struct Atrac {
 		if (off < first_.size) {
 #ifdef USE_FFMPEG
 			av_init_packet(packet_);
-#endif // USE_FFMPEG
 			packet_->data = BufferStart() + off;
 			packet_->size = std::min((u32)bytesPerFrame_, first_.size - off);
 			packet_->pos = off;
+#endif // USE_FFMPEG
 
 			return true;
 		} else {
@@ -540,11 +540,11 @@ struct Atrac {
 	bool FillLowLevelPacket(u8 *ptr) {
 #ifdef USE_FFMPEG
 		av_init_packet(packet_);
-#endif // USE_FFMPEG
 
 		packet_->data = ptr;
 		packet_->size = bytesPerFrame_;
 		packet_->pos = 0;
+#endif // USE_FFMPEG
 		return true;
 	}
 
