@@ -24,12 +24,13 @@ protected:
 	WorkerThread(bool ignored) : active(true), started(false) {}
 	virtual void WorkFunc();
 
-	std::thread *thread; // the worker thread
+	std::unique_ptr<std::thread> thread; // the worker thread
 	std::condition_variable signal; // used to signal new work
 	std::condition_variable done; // used to signal work completion
 	std::mutex mutex, doneMutex; // associated with each respective condition variable
 	volatile bool active, started;
-
+	int jobsDone = 0;
+	int jobsTarget = 0;
 private:
 	std::function<void()> work_; // the work to be done by this thread
 

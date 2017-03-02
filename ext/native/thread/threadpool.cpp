@@ -1,11 +1,11 @@
 #include "base/logging.h"
-#include "threadpool.h"
+#include "thread/threadpool.h"
+#include "thread/threadutil.h"
 
 ///////////////////////////// WorkerThread
 
 WorkerThread::WorkerThread() : active(true), started(false) {
-	thread = new std::thread(std::bind(&WorkerThread::WorkFunc, this));
-	doneMutex.lock();
+	thread.reset(new std::thread(std::bind(&WorkerThread::WorkFunc, this)));
 	while(!started) { };
 }
 
@@ -15,22 +15,25 @@ WorkerThread::~WorkerThread() {
 	signal.notify_one();
 	mutex.unlock();
 	thread->join();
-	delete thread;
 }
 
 void WorkerThread::Process(const std::function<void()>& work) {
 	mutex.lock();
 	work_ = work;
+	jobsTarget = jobsDone + 1;
 	signal.notify_one();
 	mutex.unlock();
 }
 
 void WorkerThread::WaitForCompletion() {
 	std::unique_lock<std::mutex> guard(doneMutex);
-	done.wait(guard);
+	if (jobsDone < jobsTarget) {
+		done.wait(guard);
+	}
 }
 
 void WorkerThread::WorkFunc() {
+	setCurrentThreadName("Worker");
 	std::unique_lock<std::mutex> guard(mutex);
 	started = true;
 	while (active) {
@@ -39,15 +42,15 @@ void WorkerThread::WorkFunc() {
 			work_();
 			doneMutex.lock();
 			done.notify_one();
+			jobsDone++;
 			doneMutex.unlock();
 		}
 	}
 }
 
 LoopWorkerThread::LoopWorkerThread() : WorkerThread(true) {
-	thread = new std::thread(std::bind(&LoopWorkerThread::WorkFunc, this));
-	doneMutex.lock();
-	while(!started) { };
+	thread.reset(new std::thread(std::bind(&LoopWorkerThread::WorkFunc, this)));
+	while (!started) { };
 }
 
 void LoopWorkerThread::Process(const std::function<void(int, int)> &work, int start, int end) {
@@ -55,11 +58,12 @@ void LoopWorkerThread::Process(const std::function<void(int, int)> &work, int st
 	work_ = work;
 	start_ = start;
 	end_ = end;
+	jobsTarget = jobsDone + 1;
 	signal.notify_one();
-	mutex.unlock();
 }
 
 void LoopWorkerThread::WorkFunc() {
+	setCurrentThreadName("LoopWorker");
 	std::unique_lock<std::mutex> guard(mutex);
 	started = true;
 	while (active) {
@@ -68,6 +72,7 @@ void LoopWorkerThread::WorkFunc() {
 			work_(start_, end_);
 			doneMutex.lock();
 			done.notify_one();
+			jobsDone++;
 			doneMutex.unlock();
 		}
 	}
