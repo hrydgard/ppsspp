@@ -177,16 +177,17 @@ bool Server::RunSlice(double timeout) {
 		return false;
 	}
 
-    sockaddr client_addr;
-    socklen_t client_addr_size = sizeof(client_addr);
-    int conn_fd = accept(listener_, &client_addr, &client_addr_size);
-    if (conn_fd >= 0) {
+	sockaddr client_addr;
+	socklen_t client_addr_size = sizeof(client_addr);
+	int conn_fd = accept(listener_, &client_addr, &client_addr_size);
+	if (conn_fd >= 0) {
 		executor_->Run(std::bind(&Server::HandleConnection, this, conn_fd));
 		return true;
-    } else {
-		FLOG("socket accept failed: %i", conn_fd);
+	}
+	else {
+		ELOG("socket accept failed: %i", conn_fd);
 		return false;
-    }
+	}
 }
 
 bool Server::Run(int port) {
