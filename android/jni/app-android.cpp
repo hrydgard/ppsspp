@@ -713,7 +713,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 			frameCommands.pop();
 		return;
 	}
-
+	// Still under lock here.
 	ProcessFrameCommands(env);
 }
 
@@ -1001,8 +1001,8 @@ extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHei
 	return desiredBackbufferSizeY;
 }
 
+// Call this under frameCommandLock.
 static void ProcessFrameCommands(JNIEnv *env) {
-	std::lock_guard<std::mutex> guard(frameCommandLock);
 	while (!frameCommands.empty()) {
 		FrameCommand frameCmd;
 		frameCmd = frameCommands.front();
