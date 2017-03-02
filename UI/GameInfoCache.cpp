@@ -222,6 +222,8 @@ bool GameInfo::LoadFromPath(const std::string &gamePath) {
 	if (filePath_ != gamePath) {
 		delete fileLoader;
 		fileLoader = ConstructFileLoader(gamePath);
+		if (!fileLoader)
+			return false;
 		filePath_ = gamePath;
 
 		// This is a fallback title, while we're loading / if unable to load.
@@ -413,7 +415,6 @@ public:
 					pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
 				} else {
 					// Read standard icon
-					DEBUG_LOG(LOADER, "Loading unknown.png because a PBP was missing an icon");
 					ReadVFSToString("unknown.png", &info_->iconTextureData, &info_->lock);
 				}
 				info_->iconDataLoaded = true;

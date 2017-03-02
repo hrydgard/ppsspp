@@ -237,6 +237,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="StorageFileLoader.h" />
     <ClInclude Include="UWPHost.h" />
+    <ClInclude Include="UWPUtil.h" />
     <ClInclude Include="XAudioSoundStream.h" />
   </ItemGroup>
   <ItemGroup>

@@ -18,11 +18,13 @@
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "base/display.h"
+#include "thread/threadutil.h"
 #include "util/text/utf8.h"
 #include "Common/DirectXHelper.h"
 #include "NKCodeFromWindowsSystem.h"
 #include "XAudioSoundStream.h"
 #include "UWPHost.h"
+#include "UWPUtil.h"
 #include "StorageFileLoader.h"
 
 using namespace UWP;
@@ -153,6 +155,12 @@ bool PPSSPP_UWPMain::Render() {
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::PRESENTED, 0, 0, nullptr, nullptr);
 	NativeUpdate();
 
+	static bool hasSetThreadName = false;
+	if (!hasSetThreadName) {
+		setCurrentThreadName("UWPRenderThread");
+		hasSetThreadName = true;
+	}
+
 	time_update();
 	auto context = m_deviceResources->GetD3DDeviceContext();
 
@@ -258,7 +266,8 @@ void PPSSPP_UWPMain::OnSuspend() {
 }
 
 void PPSSPP_UWPMain::LoadStorageFile(StorageFile ^file) {
-	OverrideNextLoader(new StorageFileLoader(file), FILETYPE_PSP_ISO);
+	std::unique_ptr<FileLoaderFactory> factory(new StorageFileLoaderFactory(file, IdentifiedFileType::PSP_ISO));
+	RegisterFileLoaderFactory("override://", std::move(factory));
 	NativeMessageReceived("boot", "override://");
 }
 
@@ -319,13 +328,20 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "browse_file")) {
 		auto picker = ref new Windows::Storage::Pickers::FileOpenPicker();
 		picker->ViewMode = Pickers::PickerViewMode::List;
+
+		// These are single files that can be loaded directly using StorageFileLoader.
 		picker->FileTypeFilter->Append(".cso");
 		picker->FileTypeFilter->Append(".iso");
-		picker->FileTypeFilter->Append(".bin");
+
+		// Can't load these this way currently, they require mounting the underlying folder.
+		// picker->FileTypeFilter->Append(".bin");
+		// picker->FileTypeFilter->Append(".elf");
 		picker->SuggestedStartLocation = Pickers::PickerLocationId::DocumentsLibrary;
 
 		create_task(picker->PickSingleFileAsync()).then([](StorageFile ^file){
-			g_main->LoadStorageFile(file);
+			if (file) {
+				g_main->LoadStorageFile(file);
+			}
 			/*
 			std::thread([file] {
 				create_task(file->OpenReadAsync()).then([](IRandomAccessStreamWithContentType^ imgStream) {
@@ -341,8 +357,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 }
 
 void LaunchBrowser(const char *url) {
-	Platform::String ^pstr = ref new Platform::String(ConvertUTF8ToWString(url).c_str());
-	auto uri = ref new Windows::Foundation::Uri(pstr);
+	auto uri = ref new Windows::Foundation::Uri(ToPlatformString(url));
 
 	create_task(Windows::System::Launcher::LaunchUriAsync(uri)).then([](bool b) {});
 }

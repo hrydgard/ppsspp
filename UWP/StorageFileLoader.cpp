@@ -1,7 +1,10 @@
 #include "pch.h"
 #include "ppltasks.h"
+#include "base/logging.h"
+#include "file/file_util.h"
+#include "thread/threadutil.h"
 #include "StorageFileLoader.h"
-
+#include "UWPUtil.h"
 
 using namespace Concurrency;
 using namespace Windows::Storage;
@@ -9,54 +12,93 @@ using namespace Windows::Storage::Streams;
 
 StorageFileLoader::StorageFileLoader(Windows::Storage::StorageFile ^file) {
 	file_ = file;
-	auto opentask = create_task(file->OpenReadAsync());
-	opentask.then([this](IRandomAccessStreamWithContentType ^stream) {
-		stream_ = stream;
-		active_ = true;
-		thread_ = std::thread([this]() { this->threadfunc(); });
-	});
-	auto attrtask = create_task(file->GetBasicPropertiesAsync());
-	attrtask.then([this](Windows::Storage::FileProperties::BasicProperties ^props) {
-		size_ = props->Size;
-	});
+	path_ = FromPlatformString(file_->Path);
+	thread_.reset(new std::thread([this]() { this->threadfunc(); }));
 }
 
 StorageFileLoader::~StorageFileLoader() {
 	active_ = false;
-	thread_.join();
+	operationRequested_ = false;
+	cond_.notify_all();
+	thread_->join();
 }
 
 void StorageFileLoader::threadfunc() {
+	setCurrentThreadName("StorageFileLoader");
+
+	initMutex.lock();
+
+	auto opentask = create_task(file_->OpenReadAsync()).then([this](IRandomAccessStreamWithContentType ^stream) {
+		stream_ = stream;
+		active_ = true;
+	});
+
+	try {
+		opentask.wait();
+	}
+	catch (const std::exception& e) {
+		operationFailed_ = true;
+		// TODO: What do we do?
+		const char *what = e.what();
+		ILOG("%s", what);
+	}
+
+	auto sizetask = create_task(file_->GetBasicPropertiesAsync()).then([this](Windows::Storage::FileProperties::BasicProperties ^props) {
+		size_ = props->Size;
+	});
+	try {
+		sizetask.wait();
+	}
+	catch (const std::exception& e) {
+		const char *what = e.what();
+		ILOG("%s", what);
+	}
+
+	initMutex.unlock();
+
 	std::unique_lock<std::mutex> lock(mutex_);
 	while (active_) {
-		cond_.wait(lock);
-		std::unique_lock<std::mutex> lock(mutexResponse_);
-		while (operations_.size()) {
-			Operation op = operations_.front();
-			operations_.pop();
-
-			switch (op.type) {
-			case OpType::READ: {
-				op.buffer = ref new Streams::Buffer(op.size);
-				auto task = create_task(stream_->ReadAsync(op.buffer, op.size, Streams::InputStreamOptions::None));
-				task.wait();
+		if (!operationRequested_) {
+			cond_.wait(lock);
+		}
+		if (operationRequested_) {
+			switch (operation_.type) {
+			case OpType::READ_AT: {
+				Streams::Buffer ^buf = ref new Streams::Buffer(operation_.size);
+				operationFailed_ = false;
+				stream_->Seek(operation_.offset);
+				auto task = create_task(stream_->ReadAsync(buf, operation_.size, Streams::InputStreamOptions::None));
+				Streams::IBuffer ^output = nullptr;
+				try {
+					task.wait();
+					output = task.get();
+				} catch (const std::exception& e) {
+					operationFailed_ = true;
+					const char *what = e.what();
+					ILOG("%s", what);
+				}
+				operationRequested_ = false;
+				std::unique_lock<std::mutex> lock(mutexResponse_);
+				response_.buffer = output;
+				responseAvailable_ = true;
+				condResponse_.notify_one();
 				break;
-				responses_.push(op);
 			}
 			default:
+				ELOG("Unknown operation");
+				operationRequested_ = false;
 				break;
 			}
 		}
-		// OK, done with all operations.
-		condResponse_.notify_one();
 	}
 }
 
 bool StorageFileLoader::Exists() {
-	return true;
+	return file_ != nullptr;
 }
+
 bool StorageFileLoader::ExistsFast() {
-	return true;
+	return file_ != nullptr;
 }
 
 bool StorageFileLoader::IsDirectory() {
@@ -64,20 +106,24 @@ bool StorageFileLoader::IsDirectory() {
 }
 
 s64 StorageFileLoader::FileSize() {
+	EnsureOpen();
 	if (size_ == -1)
 		__debugbreak();  // crude race condition detection
 	return size_;
 }
 
 std::string StorageFileLoader::Path() const {
-	return "";
+	return path_;
 }
 
 std::string StorageFileLoader::Extension() {
-	return "";
+	return "." + getFileExtension(path_);
 }
 
 void StorageFileLoader::EnsureOpen() {
+	// UGLY!
+	while (!thread_)
+		Sleep(100);
 	while (size_ == -1)
 		Sleep(100);
 }
@@ -89,40 +135,39 @@ void StorageFileLoader::Seek(s64 absolutePos) {
 }
 
 size_t StorageFileLoader::Read(size_t bytes, size_t count, void *data, Flags flags) {
-	EnsureOpen();
-	{
-		std::unique_lock<std::mutex> lock(mutex_);
-		operations_.push(Operation{ OpType::READ, seekPos_, (int64_t)(bytes * count) });
-		cond_.notify_one();
-	}
-	// OK, now wait for response...
-	{
-		std::unique_lock<std::mutex> responseLock(mutexResponse_);
-		condResponse_.wait(responseLock);
-		Operation resp = responses_.front();
-		responses_.pop();
-		DataReader ^rd = DataReader::FromBuffer(resp.buffer);
-		Platform::Array<uint8_t> ^bytearray = ref new Platform::Array<uint8_t>(resp.buffer->Length);
-		rd->ReadBytes(bytearray);
-		memcpy(data, bytearray->Data, bytes * count);
-		return 0;
-	}
+	size_t bytesRead = ReadAt(seekPos_, bytes, count, data, flags);
+	seekPos_ += bytesRead;
+	return bytesRead;
 }
 
 size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
 	EnsureOpen();
+	if (operationRequested_)
+		Crash();
 	{
 		std::unique_lock<std::mutex> lock(mutex_);
-		operations_.push(Operation{ OpType::READ, absolutePos, (int64_t)(bytes * count) });
+		operation_.type = OpType::READ_AT;
+		operation_.offset = absolutePos;
+		operation_.size = (int64_t)(bytes * count);
+		operationRequested_ = true;
 		cond_.notify_one();
 	}
+
 	// OK, now wait for response...
 	{
 		std::unique_lock<std::mutex> responseLock(mutexResponse_);
 		condResponse_.wait(responseLock);
-		Operation resp = responses_.front();
-		responses_.pop();
-		// memcpy(data,  bytes * count, )
-		return 0;
+		DataReader ^rd = DataReader::FromBuffer(response_.buffer);
+		size_t len = response_.buffer->Length;
+		Platform::Array<uint8_t> ^bytearray = ref new Platform::Array<uint8_t>((unsigned int)len);
+		rd->ReadBytes(bytearray);
+		memcpy(data, bytearray->Data, len);
+		responseAvailable_ = false;
+		response_.buffer = nullptr;
+		return len / bytes;
 	}
+}
+
+FileLoader *StorageFileLoaderFactory::ConstructFileLoader(const std::string &filename) {
+	return file_ ? new StorageFileLoader(file_) : nullptr;
 }

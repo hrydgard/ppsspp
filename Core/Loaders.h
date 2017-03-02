@@ -18,6 +18,7 @@
 #pragma	once
 
 #include <string>
+#include <memory>
 
 #include "Common/CommonTypes.h"
 
@@ -102,8 +103,11 @@ std::string ResolvePBPFile(const std::string &filename);
 
 IdentifiedFileType Identify_File(FileLoader *fileLoader);
 
-void RegisterFileLoaderFactory(std::string name, std::function<FileLoader*(std::string)> factoryFunc);
-void OverrideNextLoader(FileLoader *fileLoader, IdentifiedFileType fileType);
+class FileLoaderFactory {
+public:
+	virtual FileLoader *ConstructFileLoader(const std::string &filename) = 0;
+};
+void RegisterFileLoaderFactory(std::string name, std::unique_ptr<FileLoaderFactory> factory);
 
 // Can modify the string filename, as it calls IdentifyFile above.
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string);

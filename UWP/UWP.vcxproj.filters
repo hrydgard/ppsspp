@@ -60,6 +60,7 @@
     <ClInclude Include="StorageFileLoader.h" />
     <ClInclude Include="UWPHost.h" />
     <ClInclude Include="..\Windows\XinputDevice.h" />
+    <ClInclude Include="UWPUtil.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\StoreLogo.png">
