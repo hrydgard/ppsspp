@@ -37,7 +37,7 @@ public:
 // Caches both shaders and palette textures.
 class DepalShaderCacheDX9 {
 public:
-	DepalShaderCacheDX9();
+	DepalShaderCacheDX9(Draw::DrawContext *draw);
 	~DepalShaderCacheDX9();
 
 	// This also uploads the palette and binds the correct texture.
@@ -50,6 +50,7 @@ public:
 private:
 	u32 GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
 
+	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DVERTEXSHADER9 vertexShader_;
 	std::map<u32, DepalShaderDX9 *> cache_;
 	std::map<u32, DepalTextureDX9 *> texCache_;

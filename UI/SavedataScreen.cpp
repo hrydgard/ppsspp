@@ -35,6 +35,7 @@
 #include "Common/FileUtil.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
+#include "Core/Loaders.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 
@@ -75,7 +76,7 @@ public:
 		content->Add(toprow);
 
 		I18NCategory *sa = GetI18NCategory("Savedata");
-		if (ginfo->fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY) {
+		if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 			std::string savedata_detail = ginfo->paramSFO.GetValueString("SAVEDATA_DETAIL");
 			std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
 
@@ -341,8 +342,8 @@ SavedataScreen::SavedataScreen(std::string gamePath) : UIDialogScreenWithGameBac
 
 SavedataScreen::~SavedataScreen() {
 	if (g_gameInfoCache) {
-		g_gameInfoCache->PurgeType(FILETYPE_PPSSPP_SAVESTATE);
-		g_gameInfoCache->PurgeType(FILETYPE_PSP_SAVEDATA_DIRECTORY);
+		g_gameInfoCache->PurgeType(IdentifiedFileType::PPSSPP_SAVESTATE);
+		g_gameInfoCache->PurgeType(IdentifiedFileType::PSP_SAVEDATA_DIRECTORY);
 	}
 }
 

@@ -186,7 +186,7 @@ void Arm64Jit::CompileDelaySlot(int flags) {
 void Arm64Jit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
-		INFO_LOG(JIT, "Space left: %i", GetSpaceLeft());
+		INFO_LOG(JIT, "Space left: %d", (int)GetSpaceLeft());
 		ClearCache();
 	}
 

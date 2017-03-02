@@ -54,13 +54,15 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw)
 	lastBoundTexture = INVALID_TEX;
 	isBgraBackend_ = true;
 
+	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 	D3DCAPS9 pCaps;
 	ZeroMemory(&pCaps, sizeof(pCaps));
 	HRESULT result = 0;
-	if (pD3DdeviceEx) {
-		result = pD3DdeviceEx->GetDeviceCaps(&pCaps);
+	if (deviceEx_) {
+		result = deviceEx_->GetDeviceCaps(&pCaps);
 	} else {
-		result = pD3Ddevice->GetDeviceCaps(&pCaps);
+		result = device_->GetDeviceCaps(&pCaps);
 	}
 	if (FAILED(result)) {
 		WARN_LOG(G3D, "Failed to get the device caps!");
@@ -71,7 +73,7 @@ TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw)
 	SetupTextureDecoder();
 
 	nextTexture_ = nullptr;
-	pD3Ddevice->CreateVertexDeclaration(g_FramebufferVertexElements, &pFramebufferVertexDecl);
+	device_->CreateVertexDeclaration(g_FramebufferVertexElements, &pFramebufferVertexDecl);
 }
 
 TextureCacheDX9::~TextureCacheDX9() {
@@ -228,7 +230,7 @@ void TextureCacheDX9::StartFrame() {
 	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY)) {
 		DWORD aniso = 1 << g_Config.iAnisotropyLevel;
 		DWORD anisotropyLevel = aniso > maxAnisotropyLevel ? maxAnisotropyLevel : aniso;
-		pD3Ddevice->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
+		device_->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
 	}
 
 }
@@ -269,14 +271,14 @@ void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase
 void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 	LPDIRECT3DTEXTURE9 texture = DxTex(entry);
 	if (texture != lastBoundTexture) {
-		pD3Ddevice->SetTexture(0, texture);
+		device_->SetTexture(0, texture);
 		lastBoundTexture = texture;
 	}
 	UpdateSamplingParams(*entry, false);
 }
 
 void TextureCacheDX9::Unbind() {
-	pD3Ddevice->SetTexture(0, NULL);
+	device_->SetTexture(0, NULL);
 }
 
 class TextureShaderApplierDX9 {
@@ -306,8 +308,8 @@ public:
 		UV uv;
 	};
 
-	TextureShaderApplierDX9(LPDIRECT3DPIXELSHADER9 pshader, LPDIRECT3DVERTEXDECLARATION9 decl, float bufferW, float bufferH, int renderW, int renderH, float xoff, float yoff)
-		: pshader_(pshader), decl_(decl), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
+	TextureShaderApplierDX9(LPDIRECT3DDEVICE9 device, LPDIRECT3DPIXELSHADER9 pshader, LPDIRECT3DVERTEXDECLARATION9 decl, float bufferW, float bufferH, int renderW, int renderH, float xoff, float yoff)
+		: device_(device), pshader_(pshader), decl_(decl), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
 		static const Pos pos[4] = {
 			{-1,  1, 0},
 			{ 1,  1, 0},
@@ -366,23 +368,23 @@ public:
 	}
 
 	void Use(LPDIRECT3DVERTEXSHADER9 vshader) {
-		pD3Ddevice->SetPixelShader(pshader_);
-		pD3Ddevice->SetVertexShader(vshader);
-		pD3Ddevice->SetVertexDeclaration(decl_);
+		device_->SetPixelShader(pshader_);
+		device_->SetVertexShader(vshader);
+		device_->SetVertexDeclaration(decl_);
 	}
 
 	void Shade() {
-		pD3Ddevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-		pD3Ddevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
-		pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
-		pD3Ddevice->SetRenderState(D3DRS_ZENABLE, FALSE);
-		pD3Ddevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-		pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+		device_->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+		device_->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
+		device_->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
+		device_->SetRenderState(D3DRS_ZENABLE, FALSE);
+		device_->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+		device_->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
+		device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
 		D3DVIEWPORT9 vp{ 0, 0, (DWORD)renderW_, (DWORD)renderH_, 0.0f, 1.0f };
-		pD3Ddevice->SetViewport(&vp);
-		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, verts_, (3 + 2) * sizeof(float));
+		device_->SetViewport(&vp);
+		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, verts_, (3 + 2) * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
 		}
@@ -391,6 +393,7 @@ public:
 	}
 
 protected:
+	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DPIXELSHADER9 pshader_;
 	LPDIRECT3DVERTEXDECLARATION9 decl_;
 	PosUV verts_[4];
@@ -417,19 +420,19 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		float xoff = -0.5f / framebuffer->renderWidth;
 		float yoff = 0.5f / framebuffer->renderHeight;
 
-		TextureShaderApplierDX9 shaderApply(pshader, pFramebufferVertexDecl, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight, xoff, yoff);
+		TextureShaderApplierDX9 shaderApply(device_, pshader, pFramebufferVertexDecl, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight, xoff, yoff);
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
 		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader());
 
-		pD3Ddevice->SetTexture(1, clutTexture);
-		pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-		pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-		pD3Ddevice->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+		device_->SetTexture(1, clutTexture);
+		device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+		device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+		device_->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 
 		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
-		pD3Ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-		pD3Ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-		pD3Ddevice->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+		device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+		device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+		device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 
 		shaderApply.Shade();
 
@@ -554,7 +557,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 
 	if (replaceImages) {
 		// Make sure it's not currently set.
-		pD3Ddevice->SetTexture(0, NULL);
+		device_->SetTexture(0, NULL);
 	}
 	// Seems to cause problems in Tactics Ogre.
 	if (badMipSizes) {
@@ -670,9 +673,9 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		}
 		HRESULT hr;
 		if (IsFakeMipmapChange())
-			hr = pD3Ddevice->CreateTexture(tw, th, 1, usage, tfmt, pool, &texture, NULL);
+			hr = device_->CreateTexture(tw, th, 1, usage, tfmt, pool, &texture, NULL);
 		else
-			hr = pD3Ddevice->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
+			hr = device_->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
 		if (FAILED(hr)) {
 			INFO_LOG(G3D, "Failed to create D3D texture: %dx%d", tw, th);
 			ReleaseTexture(&entry, true);

@@ -205,7 +205,7 @@ int main(int argc, const char* argv[])
 	bool verbose = false;
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_NULL;
-	CPUCore cpuCore = CPU_CORE_JIT;
+	CPUCore cpuCore = CPUCore::JIT;
 	
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
@@ -230,11 +230,11 @@ int main(int argc, const char* argv[])
 		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
 		else if (!strcmp(argv[i], "-i"))
-			cpuCore = CPU_CORE_INTERPRETER;
+			cpuCore = CPUCore::INTERPRETER;
 		else if (!strcmp(argv[i], "-j"))
-			cpuCore = CPU_CORE_JIT;
+			cpuCore = CPUCore::JIT;
 		else if (!strcmp(argv[i], "--ir"))
-			cpuCore = CPU_CORE_IRJIT;
+			cpuCore = CPUCore::IR_JIT;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))

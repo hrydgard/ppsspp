@@ -92,7 +92,7 @@ static const D3DSTENCILOP stencilOps[] = {
 
 inline void DrawEngineDX9::ResetShaderBlending() {
 	if (fboTexBound_) {
-		pD3Ddevice->SetTexture(1, nullptr);
+		device_->SetTexture(1, nullptr);
 		fboTexBound_ = false;
 	}
 }
@@ -289,8 +289,8 @@ void DrawEngineDX9::ApplyDrawStateLate() {
 			// Note that this is positions, not UVs, that we need the copy from.
 			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			// If we are rendering at a higher resolution, linear is probably best for the dest color.
-			pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-			pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+			device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+			device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
 			fboTexBound_ = true;
 			fboTexNeedBind_ = false;
 		}

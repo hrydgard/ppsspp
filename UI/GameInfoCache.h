@@ -23,7 +23,6 @@
 
 #include "file/file_util.h"
 #include "Core/ELF/ParamSFO.h"
-#include "Core/Loaders.h"
 #include "UI/TextureUtil.h"
 
 namespace Draw {
@@ -54,6 +53,9 @@ enum GameInfoWantFlags {
 	GAMEINFO_WANTSIZE = 0x02,
 	GAMEINFO_WANTSND = 0x04,
 };
+
+class FileLoader;
+enum class IdentifiedFileType;
 
 // TODO: Need to use std::atomic<bool> instead.
 class CompletionFlag {
@@ -97,11 +99,7 @@ private:
 
 class GameInfo {
 public:
-	GameInfo()
-		: disc_total(0), disc_number(0), region(-1), fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false),
-			hasConfig(false), iconTexture(nullptr), pic0Texture(nullptr), pic1Texture(nullptr), wantFlags(0),
-		  lastAccessedTime(0.0), timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
-		  gameSize(0), saveDataSize(0), installDataSize(0), pending(true), working(false), fileLoader(nullptr) {}
+	GameInfo();
 	~GameInfo();
 
 	bool Delete();  // Better be sure what you're doing when calling this.
@@ -133,9 +131,9 @@ public:
 
 	std::string id;
 	std::string id_version;
-	int disc_total;
-	int disc_number;
-	int region;
+	int disc_total = 0;
+	int disc_number = 0;
+	int region = -1;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
 	bool paramSFOLoaded;

@@ -85,9 +85,8 @@ static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
 	D3DDECL_END()
 };
 
-DrawEngineDX9::DrawEngineDX9(LPDIRECT3DDEVICE9 device)
-	: device_(device),
-		decodedVerts_(0),
+DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw)
+	: decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
 		lastVType_(-1),
 		shaderManager_(0),
@@ -97,6 +96,7 @@ DrawEngineDX9::DrawEngineDX9(LPDIRECT3DDEVICE9 device)
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
 		dcid_(0) {
+	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
 
