@@ -47,6 +47,7 @@
 #include "UI/Store.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
+#include "Core/Loaders.h"
 #include "GPU/GPUInterface.h"
 #include "i18n/i18n.h"
 
@@ -1038,7 +1039,7 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 #endif
 	GameInfo *ginfo = 0;
 	ginfo = g_gameInfoCache->GetInfo(nullptr, path, GAMEINFO_WANTBG);
-	if (ginfo && ginfo->fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY) {
+	if (ginfo && ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 		return UI::EVENT_DONE;
 	}
 

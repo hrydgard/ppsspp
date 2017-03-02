@@ -37,12 +37,20 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/Loaders.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Config.h"
 #include "UI/GameInfoCache.h"
 #include "UI/TextureUtil.h"
 
 GameInfoCache *g_gameInfoCache;
+
+GameInfo::GameInfo()
+	: region(-1), fileType(IdentifiedFileType::UNKNOWN), paramSFOLoaded(false),
+	hasConfig(false), iconTexture(nullptr), pic0Texture(nullptr), pic1Texture(nullptr), wantFlags(0),
+	lastAccessedTime(0.0), timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
+	gameSize(0), saveDataSize(0), installDataSize(0), pending(true), working(false), fileLoader(nullptr) {
+}
 
 GameInfo::~GameInfo() {
 	delete iconTexture;
@@ -53,8 +61,8 @@ GameInfo::~GameInfo() {
 
 bool GameInfo::Delete() {
 	switch (fileType) {
-	case FILETYPE_PSP_ISO:
-	case FILETYPE_PSP_ISO_NP:
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
 		{
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
 			const char *fileToRemove = filePath_.c_str();
@@ -65,8 +73,8 @@ bool GameInfo::Delete() {
 			}
 			return true;
 		}
-	case FILETYPE_PSP_PBP_DIRECTORY:
-	case FILETYPE_PSP_SAVEDATA_DIRECTORY:
+	case IdentifiedFileType::PSP_PBP_DIRECTORY:
+	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
 			std::string directoryToRemove = ResolvePBPDirectory(filePath_);
@@ -78,19 +86,19 @@ bool GameInfo::Delete() {
 			g_Config.CleanRecent();
 			return true;
 		}
-	case FILETYPE_PSP_ELF:
-	case FILETYPE_UNKNOWN_BIN:
-	case FILETYPE_UNKNOWN_ELF:
-	case FILETYPE_ARCHIVE_RAR:
-	case FILETYPE_ARCHIVE_ZIP:
-	case FILETYPE_ARCHIVE_7Z:
+	case IdentifiedFileType::PSP_ELF:
+	case IdentifiedFileType::UNKNOWN_BIN:
+	case IdentifiedFileType::UNKNOWN_ELF:
+	case IdentifiedFileType::ARCHIVE_RAR:
+	case IdentifiedFileType::ARCHIVE_ZIP:
+	case IdentifiedFileType::ARCHIVE_7Z:
 		{
 			const std::string &fileToRemove = filePath_;
 			File::Delete(fileToRemove);
 			return true;
 		}
 
-	case FILETYPE_PPSSPP_SAVESTATE:
+	case IdentifiedFileType::PPSSPP_SAVESTATE:
 		{
 			const std::string &ppstPath = filePath_;
 			File::Delete(ppstPath);
@@ -124,8 +132,8 @@ static int64_t GetDirectoryRecursiveSize(const std::string &path) {
 
 u64 GameInfo::GetGameSizeInBytes() {
 	switch (fileType) {
-	case FILETYPE_PSP_PBP_DIRECTORY:
-	case FILETYPE_PSP_SAVEDATA_DIRECTORY:
+	case IdentifiedFileType::PSP_PBP_DIRECTORY:
+	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		return GetDirectoryRecursiveSize(ResolvePBPDirectory(filePath_));
 
 	default:
@@ -154,7 +162,7 @@ std::vector<std::string> GameInfo::GetSaveDataDirectories() {
 }
 
 u64 GameInfo::GetSaveDataSizeInBytes() {
-	if (fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY || fileType == FILETYPE_PPSSPP_SAVESTATE) {
+	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return 0;
 	}
 	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
@@ -181,7 +189,7 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 }
 
 u64 GameInfo::GetInstallDataSizeInBytes() {
-	if (fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY || fileType == FILETYPE_PPSSPP_SAVESTATE) {
+	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return 0;
 	}
 	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
@@ -369,12 +377,12 @@ public:
 		}
 
 		switch (info_->fileType) {
-		case FILETYPE_PSP_PBP:
-		case FILETYPE_PSP_PBP_DIRECTORY:
+		case IdentifiedFileType::PSP_PBP:
+		case IdentifiedFileType::PSP_PBP_DIRECTORY:
 			{
 				FileLoader *pbpLoader = info_->GetFileLoader();
 				std::unique_ptr<FileLoader> altLoader;
-				if (info_->fileType == FILETYPE_PSP_PBP_DIRECTORY) {
+				if (info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 					std::string ebootPath = ResolvePBPFile(gamePath_);
 					if (ebootPath != gamePath_) {
 						pbpLoader = ConstructFileLoader(ebootPath);
@@ -432,7 +440,7 @@ public:
 			}
 			break;
 
-		case FILETYPE_PSP_ELF:
+		case IdentifiedFileType::PSP_ELF:
 handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
 			{
@@ -448,7 +456,7 @@ handleELF:
 			info_->iconDataLoaded = true;
 			break;
 
-		case FILETYPE_PSP_SAVEDATA_DIRECTORY:
+		case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		{
 			SequentialHandleAllocator handles;
 			VirtualDiscFileSystem umd(&handles, gamePath_.c_str());
@@ -470,7 +478,7 @@ handleELF:
 			break;
 		}
 
-		case FILETYPE_PPSSPP_SAVESTATE:
+		case IdentifiedFileType::PPSSPP_SAVESTATE:
 		{
 			info_->SetTitle(SaveState::GetTitle(gamePath_));
 
@@ -486,9 +494,9 @@ handleELF:
 			break;
 		}
 
-		case FILETYPE_PSP_DISC_DIRECTORY:
+		case IdentifiedFileType::PSP_DISC_DIRECTORY:
 			{
-				info_->fileType = FILETYPE_PSP_ISO;
+				info_->fileType = IdentifiedFileType::PSP_ISO;
 				SequentialHandleAllocator handles;
 				VirtualDiscFileSystem umd(&handles, gamePath_.c_str());
 
@@ -515,10 +523,10 @@ handleELF:
 				break;
 			}
 
-		case FILETYPE_PSP_ISO:
-		case FILETYPE_PSP_ISO_NP:
+		case IdentifiedFileType::PSP_ISO:
+		case IdentifiedFileType::PSP_ISO_NP:
 			{
-				info_->fileType = FILETYPE_PSP_ISO;
+				info_->fileType = IdentifiedFileType::PSP_ISO;
 				SequentialHandleAllocator handles;
 				// Let's assume it's an ISO.
 				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
@@ -556,7 +564,7 @@ handleELF:
 				break;
 			}
 
-			case FILETYPE_ARCHIVE_ZIP:
+			case IdentifiedFileType::ARCHIVE_ZIP:
 				info_->paramSFOLoaded = true;
 				{
 					ReadVFSToString("zip.png", &info_->iconTextureData, &info_->lock);
@@ -564,7 +572,7 @@ handleELF:
 				}
 				break;
 
-			case FILETYPE_ARCHIVE_RAR:
+			case IdentifiedFileType::ARCHIVE_RAR:
 				info_->paramSFOLoaded = true;
 				{
 					ReadVFSToString("rargray.png", &info_->iconTextureData, &info_->lock);
@@ -572,7 +580,7 @@ handleELF:
 				}
 				break;
 
-			case FILETYPE_ARCHIVE_7Z:
+			case IdentifiedFileType::ARCHIVE_7Z:
 				info_->paramSFOLoaded = true;
 				{
 					ReadVFSToString("7z.png", &info_->iconTextureData, &info_->lock);
@@ -580,7 +588,7 @@ handleELF:
 				}
 				break;
 
-			case FILETYPE_NORMAL_DIRECTORY:
+			case IdentifiedFileType::NORMAL_DIRECTORY:
 			default:
 				info_->paramSFOLoaded = true;
 				break;
