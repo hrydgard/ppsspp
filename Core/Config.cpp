@@ -281,11 +281,11 @@ static int DefaultNumWorkers() {
 // TODO: Default to IRJit on iOS when it's done.
 static int DefaultCpuCore() {
 #ifdef IOS
-	return iosCanUseJit ? CPUCore::JIT : CPUCore::INTERPRETER;
+	return (int)(iosCanUseJit ? CPUCore::JIT : CPUCore::INTERPRETER);
 #elif defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
 	return (int)CPUCore::JIT;
 #else
-	return CPUCore::INTERPRETER;
+	return (int)CPUCore::INTERPRETER;
 #endif
 }
 

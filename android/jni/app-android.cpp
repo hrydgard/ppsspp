@@ -38,6 +38,7 @@
 
 #include "thin3d/thin3d.h"
 #include "Core/Config.h"
+#include "Core/Loaders.h"
 #include "Common/CPUDetect.h"
 #include "Common/GraphicsContext.h"
 #include "Common/GL/GLInterfaceBase.h"
@@ -1111,7 +1112,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 	// Wait until it's done: this is synchronous, unfortunately.
 	if (info) {
 		cache->WaitUntilDone(info);
-		if (info->fileType != FILETYPE_UNKNOWN) {
+		if (info->fileType != IdentifiedFileType::UNKNOWN) {
 			result = info->GetTitle();
 
 			// Pretty arbitrary, but the home screen will often truncate titles.
