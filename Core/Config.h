@@ -31,10 +31,10 @@ const int PSP_DEFAULT_FIRMWARE = 150;
 static const s8 VOLUME_OFF = 0;
 static const s8 VOLUME_MAX = 10;
 
-enum CPUCore {
-	CPU_CORE_INTERPRETER = 0,
-	CPU_CORE_JIT = 1,
-	CPU_CORE_IRJIT = 2,
+enum class CPUCore {
+	INTERPRETER = 0,
+	JIT = 1,
+	IR_JIT = 2,
 };
 
 enum {

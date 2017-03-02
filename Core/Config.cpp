@@ -281,11 +281,11 @@ static int DefaultNumWorkers() {
 // TODO: Default to IRJit on iOS when it's done.
 static int DefaultCpuCore() {
 #ifdef IOS
-	return iosCanUseJit ? CPU_CORE_JIT : CPU_CORE_INTERPRETER;
+	return iosCanUseJit ? CPUCore::JIT : CPUCore::INTERPRETER;
 #elif defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
-	return CPU_CORE_JIT;
+	return (int)CPUCore::JIT;
 #else
-	return CPU_CORE_INTERPRETER;
+	return CPUCore::INTERPRETER;
 #endif
 }
 
@@ -966,16 +966,16 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	// Override ppsspp.ini JIT value to prevent crashing
-	if (DefaultCpuCore() != CPU_CORE_JIT && g_Config.iCpuCore == CPU_CORE_JIT) {
+	if (DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT) {
 		jitForcedOff = true;
-		g_Config.iCpuCore = CPU_CORE_INTERPRETER;
+		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 	}
 }
 
 void Config::Save() {
 	if (jitForcedOff) {
 		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
-		g_Config.iCpuCore = CPU_CORE_JIT;
+		g_Config.iCpuCore = (int)CPUCore::JIT;
 	}
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
 
@@ -1044,7 +1044,7 @@ void Config::Save() {
 	}
 	if (jitForcedOff) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
-		g_Config.iCpuCore = CPU_CORE_INTERPRETER;
+		g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 	}
 }
 

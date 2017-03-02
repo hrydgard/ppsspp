@@ -397,15 +397,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				logLevel = LogTypes::LVERBOSE;
 				break;
 			case 'j':
-				g_Config.iCpuCore = CPU_CORE_JIT;
+				g_Config.iCpuCore = (int)CPUCore::JIT;
 				g_Config.bSaveSettings = false;
 				break;
 			case 'i':
-				g_Config.iCpuCore = CPU_CORE_INTERPRETER;
+				g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 				g_Config.bSaveSettings = false;
 				break;
 			case 'r':
-				g_Config.iCpuCore = CPU_CORE_IRJIT;
+				g_Config.iCpuCore = (int)CPUCore::IR_JIT;
 				g_Config.bSaveSettings = false;
 				break;
 			case '-':

@@ -19,7 +19,7 @@
 
 #include "util/random/rng.h"
 #include "Common/CommonTypes.h"
-#include "Core/CoreParameter.h"
+// #include "Core/CoreParameter.h"
 #include "Core/Opcode.h"
 
 class PointerWrap;
@@ -142,6 +142,8 @@ enum VCondition
 // were contiguous in memory. Also, matrices aren't but should be.
 extern u8 voffset[128];
 extern u8 fromvoffset[128];
+
+enum class CPUCore;
 
 class MIPSState
 {
