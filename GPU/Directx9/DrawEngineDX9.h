@@ -109,7 +109,7 @@ public:
 // Handles transform, lighting and drawing.
 class DrawEngineDX9 : public DrawEngineCommon {
 public:
-	DrawEngineDX9(LPDIRECT3DDEVICE9 device);
+	DrawEngineDX9(Draw::DrawContext *draw);
 	virtual ~DrawEngineDX9();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);

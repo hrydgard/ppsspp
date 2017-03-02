@@ -77,6 +77,9 @@ private:
 		return *(LPDIRECT3DTEXTURE9 *)&entry->texturePtr;
 	}
 
+	LPDIRECT3DDEVICE9 device_;
+	LPDIRECT3DDEVICE9EX deviceEx_;
+
 	TextureScalerDX9 scaler;
 
 	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl;

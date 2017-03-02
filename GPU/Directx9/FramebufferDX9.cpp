@@ -81,17 +81,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	D3DDECL_END()
 };
 
-static void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
-	D3DVIEWPORT9 vp;
-	vp.X = (DWORD)x;
-	vp.Y = (DWORD)y;
-	vp.Width = (DWORD)w;
-	vp.Height = (DWORD)h;
-	vp.MinZ = minZ;
-	vp.MaxZ = maxZ;
-	pD3Ddevice->SetViewport(&vp);
-}
-
 	void FramebufferManagerDX9::ClearBuffer(bool keepState) {
 		if (keepState) {
 			dxstate.scissorTest.force(false);
@@ -106,7 +95,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0);
 			dxstate.stencilMask.set(0xFF);
 		}
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), ToScaledDepth(0), 0);
+		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), ToScaledDepth(0), 0);
 		if (keepState) {
 			dxstate.scissorTest.restore();
 			dxstate.depthWrite.restore();
@@ -135,6 +124,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			stencilUploadFailed_(false) {
 
 		device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+		deviceEx_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 		std::string errorMsg;
 		if (!CompileVertexShader(device_, vscode, &pFramebufferVertexShader, nullptr, errorMsg)) {
 			OutputDebugStringA(errorMsg.c_str());
@@ -147,7 +137,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			}
 		}
 
-		pD3Ddevice->CreateVertexDeclaration(g_FramebufferVertexElements, &pFramebufferVertexDecl);
+		device_->CreateVertexDeclaration(g_FramebufferVertexElements, &pFramebufferVertexDecl);
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
@@ -201,11 +191,11 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		if (!drawPixelsTex_) {
 			int usage = 0;
 			D3DPOOL pool = D3DPOOL_MANAGED;
-			if (pD3DdeviceEx) {
+			if (deviceEx_) {
 				pool = D3DPOOL_DEFAULT;
 				usage = D3DUSAGE_DYNAMIC;
 			}
-			HRESULT hr = pD3Ddevice->CreateTexture(width, height, 1, usage, D3DFMT_A8R8G8B8, pool, &drawPixelsTex_, NULL);
+			HRESULT hr = device_->CreateTexture(width, height, 1, usage, D3DFMT_A8R8G8B8, pool, &drawPixelsTex_, NULL);
 			if (FAILED(hr)) {
 				drawPixelsTex_ = nullptr;
 				ERROR_LOG(G3D, "Failed to create drawpixels texture");
@@ -273,7 +263,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 	void FramebufferManagerDX9::SetViewport2D(int x, int y, int w, int h) {
 		D3DVIEWPORT9 vp{ (DWORD)x, (DWORD)y, (DWORD)w, (DWORD)h, 0.0f, 1.0f };
-		pD3Ddevice->SetViewport(&vp);
+		device_->SetViewport(&vp);
 	}
 
 	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
@@ -323,8 +313,8 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			dxstate.texMagFilter.set(D3DTEXF_POINT);
 			dxstate.texMinFilter.set(D3DTEXF_POINT);
 		}
-		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
+		device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "DrawActiveTexture() failed: %08x", hr);
 		}
@@ -339,9 +329,9 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 	}
 
 	void FramebufferManagerDX9::Bind2DShader() {
-		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
-		pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
-		pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
+		device_->SetVertexDeclaration(pFramebufferVertexDecl);
+		device_->SetPixelShader(pFramebufferPixelShader);
+		device_->SetVertexShader(pFramebufferVertexShader);
 	}
 
 	void FramebufferManagerDX9::BindPostShader(const PostShaderUniforms &uniforms) {
@@ -379,16 +369,17 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 			};
 
 			dxstate.cullMode.set(false, false);
-			pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
-			pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
-			pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
+			device_->SetVertexDeclaration(pFramebufferVertexDecl);
+			device_->SetPixelShader(pFramebufferPixelShader);
+			device_->SetVertexShader(pFramebufferVertexShader);
 			shaderManagerDX9_->DirtyLastShader();
-			pD3Ddevice->SetTexture(0, nullptr);
+			device_->SetTexture(0, nullptr);
 
-			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight, 0.0f, 1.0f);
+			D3DVIEWPORT9 vp{ 0, 0, (DWORD)vfb->renderWidth, (DWORD)vfb->renderHeight, 0.0f, 1.0f };
+			device_->SetViewport(&vp);
 
 			// This should clear stencil and alpha without changing the other colors.
-			HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
+			HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 			if (FAILED(hr)) {
 				ERROR_LOG_REPORT(G3D, "ReformatFramebufferFrom() failed: %08x", hr);
 			}
@@ -456,7 +447,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 		textureCacheDX9_->ForgetLastTexture();
 		LPDIRECT3DSURFACE9 offscreen = nullptr;
-		HRESULT hr = pD3Ddevice->CreateOffscreenPlainSurface(w, h, fmt, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+		HRESULT hr = device_->CreateOffscreenPlainSurface(w, h, fmt, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 		if (FAILED(hr) || !offscreen) {
 			ERROR_LOG_REPORT(G3D, "Unable to create offscreen surface %dx%d @%d", w, h, fmt);
 			return nullptr;
@@ -472,7 +463,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		}
 
 		if (!framebuffer->fbo || !useBufferedRendering_) {
-			pD3Ddevice->SetTexture(stage, nullptr);
+			device_->SetTexture(stage, nullptr);
 			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 			return;
 		}
@@ -709,7 +700,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 
 		LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget, vfb);
 		if (offscreen) {
-			HRESULT hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
+			HRESULT hr = device_->GetRenderTargetData(renderTarget, offscreen);
 			if (SUCCEEDED(hr)) {
 				D3DLOCKED_RECT locked;
 				u32 widthFactor = vfb->renderWidth / vfb->bufferWidth;
@@ -941,14 +932,14 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		draw_->BindBackbufferAsRenderTarget();
 
 		LPDIRECT3DSURFACE9 renderTarget = nullptr;
-		HRESULT hr = pD3Ddevice->GetRenderTarget(0, &renderTarget);
+		HRESULT hr = device_->GetRenderTarget(0, &renderTarget);
 		bool success = false;
 		if (renderTarget && SUCCEEDED(hr)) {
 			D3DSURFACE_DESC desc;
 			renderTarget->GetDesc(&desc);
 
 			LPDIRECT3DSURFACE9 offscreen = nullptr;
-			HRESULT hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+			HRESULT hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 			if (offscreen && SUCCEEDED(hr)) {
 				success = GetRenderTargetFramebuffer(renderTarget, offscreen, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, buffer);
 				offscreen->Release();
@@ -964,7 +955,7 @@ static void DXSetViewport(float x, float y, float w, float h, float minZ, float 
 		renderTarget->GetDesc(&desc);
 
 		bool success = false;
-		HRESULT hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
+		HRESULT hr = device_->GetRenderTargetData(renderTarget, offscreen);
 		if (SUCCEEDED(hr)) {
 			D3DLOCKED_RECT locked;
 			RECT rect = {0, 0, w, h};

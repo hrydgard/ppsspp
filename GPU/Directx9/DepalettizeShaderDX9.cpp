@@ -19,13 +19,13 @@
 #include <d3d9.h>
 
 #include "base/logging.h"
+#include "thin3d/thin3d.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DepalettizeShaderDX9.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 #include "gfx/d3d9_shader.h"
-#include "gfx/d3d9_state.h"
 
 namespace DX9 {
 
@@ -51,9 +51,10 @@ static const char *depalVShaderHLSL =
 "  return output;\n"
 "}\n";
 
-DepalShaderCacheDX9::DepalShaderCacheDX9() : vertexShader_(nullptr) {
+DepalShaderCacheDX9::DepalShaderCacheDX9(Draw::DrawContext *draw) : vertexShader_(nullptr) {
+	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	std::string errorMessage;
-	if (!DX9::CompileVertexShader(pD3Ddevice, depalVShaderHLSL, &vertexShader_, nullptr, errorMessage)) {
+	if (!DX9::CompileVertexShader(device_, depalVShaderHLSL, &vertexShader_, nullptr, errorMessage)) {
 		ERROR_LOG(G3D, "error compling depal vshader: %s", errorMessage.c_str());
 	}
 }
@@ -86,12 +87,12 @@ LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(GEPaletteFormat clutForma
 	// Create texture
 	D3DPOOL pool = D3DPOOL_MANAGED;
 	int usage = 0;
-	if (pD3DdeviceEx) {
+	if (device_) {
 		pool = D3DPOOL_DEFAULT;
 		usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
 	}
 
-	HRESULT hr = pD3Ddevice->CreateTexture(texturePixels, 1, 1, usage, dstFmt, pool, &tex->texture, NULL);
+	HRESULT hr = device_->CreateTexture(texturePixels, 1, 1, usage, dstFmt, pool, &tex->texture, NULL);
 	if (FAILED(hr)) {
 		ERROR_LOG(G3D, "Failed to create D3D texture for depal");
 		delete tex;
@@ -109,10 +110,10 @@ LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(GEPaletteFormat clutForma
 	memcpy(rect.pBits, rawClut, 1024);
 	tex->texture->UnlockRect(0);
 
-	pD3Ddevice->SetSamplerState(1, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
-	pD3Ddevice->SetSamplerState(1, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
-	pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-	pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+	device_->SetSamplerState(1, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
+	device_->SetSamplerState(1, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+	device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+	device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 
 	tex->lastFrame = gpuStats.numFlips;
 	texCache_[realClutID] = tex;
@@ -158,7 +159,7 @@ LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetDepalettizePixelShader(GEPaletteF
 
 	LPDIRECT3DPIXELSHADER9 pshader;
 	std::string errorMessage;
-	if (!CompilePixelShader(pD3Ddevice, buffer, &pshader, NULL, errorMessage)) {
+	if (!CompilePixelShader(device_, buffer, &pshader, NULL, errorMessage)) {
 		ERROR_LOG(G3D, "Failed to compile depal pixel shader: %s\n\n%s", buffer, errorMessage.c_str());
 		delete[] buffer;
 		return nullptr;

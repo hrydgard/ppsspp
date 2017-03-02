@@ -394,7 +394,9 @@ static const CommandTableEntry commandTable[] = {
 GPU_DX9::CommandInfo GPU_DX9::cmdInfo_[256];
 
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-: GPUCommon(gfxCtx, draw), drawEngine_((LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE)) {
+	: GPUCommon(gfxCtx, draw),
+		depalShaderCache_(draw),
+		drawEngine_(draw) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 	lastVsync_ = g_Config.bVSync ? 1 : 0;
