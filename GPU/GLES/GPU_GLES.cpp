@@ -594,7 +594,8 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
-	features |= GPU_SUPPORTS_ANISOTROPY;
+	if (gl_extensions.EXT_texture_filter_anisotropic)
+		features |= GPU_SUPPORTS_ANISOTROPY;
 
 	if (gl_extensions.GLES3 || gl_extensions.EXT_gpu_shader4
 		|| (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 1)/*GLSL 1.4*/))

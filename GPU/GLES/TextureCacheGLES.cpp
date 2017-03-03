@@ -709,7 +709,9 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY)) {
 		int aniso = 1 << g_Config.iAnisotropyLevel;
 		float anisotropyLevel = (float) aniso > maxAnisotropyLevel ? maxAnisotropyLevel : (float) aniso;
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
+		if (anisotropyLevel > 1.0f) {
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
+		}
 	}
 
 	// This will rebind it, but that's okay.

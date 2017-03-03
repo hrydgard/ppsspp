@@ -71,6 +71,7 @@ struct GLExtensions {
 	bool EXT_blend_minmax;
 	bool EXT_framebuffer_object;
 	bool EXT_copy_image;
+	bool EXT_texture_filter_anisotropic;
 	bool PBO_EXT;
 
 	// NV
