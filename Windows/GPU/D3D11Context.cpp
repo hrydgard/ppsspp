@@ -14,6 +14,10 @@
 #include "thin3d/thin3d.h"
 #include "thin3d/d3d11_loader.h"
 
+#if PPSSPP_PLATFORM(UWP)
+#error This file should not be compiled for UWP.
+#endif
+
 D3D11Context::D3D11Context() : draw_(nullptr), adapterId(-1), hDC(nullptr), hWnd_(nullptr), hD3D11(nullptr) {
 }
 

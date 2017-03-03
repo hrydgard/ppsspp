@@ -25,7 +25,7 @@
     #endif
 #endif
 
-#if defined(__arm__)
+#if defined(__arm__) || defined(_M_ARM)
     #define PPSSPP_ARCH_ARM 1
     #define PPSSPP_ARCH_32BIT 1
 
@@ -43,6 +43,10 @@
         #define PPSSPP_ARCH_ARM_NEON 1
     #endif
 
+    #if defined(_M_ARM)
+        #define PPSSPP_ARCH_ARMV7 1
+        #define PPSSPP_ARCH_ARM_NEON 1
+    #endif
     //TODO: Remove this compat define
     #ifndef ARM
         #define ARM 1

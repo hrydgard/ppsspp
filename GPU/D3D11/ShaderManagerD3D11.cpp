@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
@@ -25,7 +27,6 @@
 #include "math/math_util.h"
 #include "math/dataconv.h"
 #include "util/text/utf8.h"
-#include "thin3d/d3d11_loader.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"

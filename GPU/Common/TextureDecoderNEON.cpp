@@ -28,12 +28,16 @@
 
 static const u16 MEMORY_ALIGNED16(QuickTexHashInitial[8]) = {0xc00bU, 0x9bd9U, 0x4b73U, 0xb651U, 0x4d9bU, 0x4309U, 0x0083U, 0x0001U};
 
+#ifdef _MSC_VER
+#define __builtin_prefetch(a,b,c)
+#endif
+
 u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	u32 check = 0;
 	__builtin_prefetch(checkp, 0, 0);
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
-#if defined(IOS) || PPSSPP_ARCH(ARM64)
+#if defined(IOS) || PPSSPP_ARCH(ARM64) || defined(_MSC_VER)
 		uint32x4_t cursor = vdupq_n_u32(0);
 		uint16x8_t cursor2 = vld1q_u16(QuickTexHashInitial);
 		uint16x8_t update = vdupq_n_u16(0x2455U);
@@ -210,8 +214,7 @@ u32 ReliableHash32NEON(const void *input, size_t len, u32 seed) {
 		uint32x4_t prime32_2q = vdupq_n_u32(PRIME32_2);
 		uint32x4_t vq = vcombine_u32(vcreate_u32(v1 | ((U64)v2 << 32)), vcreate_u32(v3 | ((U64)v4 << 32)));
 
-		do
-		{
+		do {
 			__builtin_prefetch(p + 0xc0, 0, 0);
 			vq = vmlaq_u32(vq, vld1q_u32((const U32*)p), prime32_2q);
 			vq = vorrq_u32(vshlq_n_u32(vq, 13), vshrq_n_u32(vq, 32 - 13));
@@ -263,12 +266,15 @@ static inline bool VectorIsNonZeroNEON(const uint32x4_t &v) {
 	return (low | high) != 0;
 }
 
+#ifndef _MSC_VER
+// MSVC consider this function the same as the one above! uint16x8_t is typedef'd to the same type as uint32x4_t.
 static inline bool VectorIsNonZeroNEON(const uint16x8_t &v) {
 	u64 low = vgetq_lane_u64(vreinterpretq_u64_u16(v), 0);
 	u64 high = vgetq_lane_u64(vreinterpretq_u64_u16(v), 1);
 
 	return (low | high) != 0;
 }
+#endif
 
 CheckAlphaResult CheckAlphaRGBA8888NEON(const u32 *pixelData, int stride, int w, int h) {
 	const uint32x4_t zero = vdupq_n_u32(0);

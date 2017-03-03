@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string.h>
+#include <cstring>
 
 #include "base/arch.h"
 #include "base/backtrace.h"
@@ -22,8 +22,10 @@
 
 #ifdef _M_X64
 inline void Crash() { int *x = (int *)1337; *x = 1; }
-#else
+#elif defined(_M_IX86)
 inline void Crash() { __asm { int 3 }; }
+#elif defined(_M_ARM)
+inline void Crash() { int *x = (int *)1337; *x = 1; }
 #endif
 
 #else
