@@ -92,9 +92,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
+	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
-	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
@@ -104,6 +104,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
 	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
+	// {&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
@@ -117,9 +118,11 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
 	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
 	{&VertexDecoder::Step_Color5551, &VertexDecoderJitCache::Jit_Color5551},
+
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
 	{&VertexDecoder::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloat},
+
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
@@ -251,8 +254,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			SetCodePtr(const_cast<u8 *>(start));
 			char temp[1024] = {0};
 			dec.ToString(temp);
-			WARN_LOG(HLE, "Could not compile vertex decoder, failed at step %d: %s", i, temp);
-			return 0;
+			ERROR_LOG(HLE, "Could not compile vertex decoder, failed at step %d: %s", i, temp);
+			return nullptr;
 		}
 	}
 

@@ -89,17 +89,17 @@ static const X64Reg fpScratchReg4 = XMM4;
 static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
 	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
-	{&VertexDecoder::Step_WeightsU8ToFloat, &VertexDecoderJitCache::Jit_WeightsU8ToFloat},
-	{&VertexDecoder::Step_WeightsU16ToFloat, &VertexDecoderJitCache::Jit_WeightsU16ToFloat},
 	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
-
 	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
+	{&VertexDecoder::Step_WeightsU8ToFloat, &VertexDecoderJitCache::Jit_WeightsU8ToFloat},
+	{&VertexDecoder::Step_WeightsU16ToFloat, &VertexDecoderJitCache::Jit_WeightsU16ToFloat},
+
+	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
-	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
@@ -107,7 +107,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
-	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
+// 	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
 	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
@@ -878,6 +878,8 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	PUNPCKLWD(fpScratchReg, R(fpScratchReg2));
 	CVTDQ2PS(fpScratchReg, R(fpScratchReg));
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+
+	// TODO: This is missing updateSide!
 }
 
 void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
