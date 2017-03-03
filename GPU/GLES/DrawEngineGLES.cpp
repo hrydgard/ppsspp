@@ -1118,7 +1118,7 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 
 void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
 #ifndef USING_GLES2
-	if (isAllowTexture1D) {
+	if (isAllowTexture1D_) {
 		// Position
 		glActiveTexture(GL_TEXTURE4);
 		glBindTexture(GL_TEXTURE_1D, data_tex[0]);
