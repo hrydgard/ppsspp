@@ -78,7 +78,7 @@ u32 g_MemorySize;
 // Used to store the PSP model on game startup.
 u32 g_PSPModel;
 
-std::mutex g_shutdownLock;
+std::recursive_mutex g_shutdownLock;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] =
@@ -316,7 +316,7 @@ void DoState(PointerWrap &p) {
 }
 
 void Shutdown() {
-	std::lock_guard<std::mutex> guard(g_shutdownLock);
+	std::lock_guard<std::recursive_mutex> guard(g_shutdownLock);
 	u32 flags = 0;
 	MemoryMap_Shutdown(flags);
 	base = nullptr;
