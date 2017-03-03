@@ -72,6 +72,7 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
+#include "gfx/gl_debug_log.h"
 #include "profiler/profiler.h"
 
 #include "GPU/Math3D.h"
@@ -256,6 +257,7 @@ static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
 
 // TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
 static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u8 *vertexData) {
+	CHECK_GL_ERROR_IF_DEBUG();
 	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
 	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
 	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
@@ -263,6 +265,7 @@ static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt
 	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
 	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
 	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void DrawEngineGLES::SetupVertexDecoder(u32 vertType) {
@@ -643,14 +646,14 @@ void DrawEngineGLES::FreeVertexArray(VertexArrayInfo *vai) {
 
 void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
+	CHECK_GL_ERROR_IF_DEBUG();
+
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
-	// This is not done on every drawcall, we should collect vertex data
-	// until critical state changes. That's when we draw (flush).
-
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
+	CHECK_GL_ERROR_IF_DEBUG();
 
 	ShaderID vsid;
 	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_, &vsid);
@@ -1003,6 +1006,7 @@ rotateVBO:
 #ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();
 #endif
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void DrawEngineGLES::Resized() {
@@ -1212,4 +1216,5 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 		}
 	}
 	glActiveTexture(GL_TEXTURE0);
+	CHECK_GL_ERROR_IF_DEBUG();
 }

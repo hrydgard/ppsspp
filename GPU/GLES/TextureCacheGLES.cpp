@@ -19,6 +19,7 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
+#include "gfx/gl_debug_log.h"
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "profiler/profiler.h"
@@ -121,6 +122,7 @@ static const GLuint MagFiltGL[2] = {
 
 // This should not have to be done per texture! OpenGL is silly yo
 void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
+	CHECK_GL_ERROR_IF_DEBUG();
 	int minFilt;
 	int magFilt;
 	bool sClamp;
@@ -172,6 +174,7 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 		entry.tClamp = tClamp;
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
@@ -325,11 +328,14 @@ bool SetDebugTexture() {
 #endif
 
 void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
+	CHECK_GL_ERROR_IF_DEBUG();
 	if (entry->textureName != lastBoundTexture) {
 		glBindTexture(GL_TEXTURE_2D, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 	UpdateSamplingParams(*entry, false);
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void TextureCacheGLES::Unbind() {
@@ -514,6 +520,8 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	framebufferManagerGL_->RebindFramebuffer();
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
+	CHECK_GL_ERROR_IF_DEBUG();
+
 	lastBoundTexture = INVALID_TEX;
 }
 
@@ -675,7 +683,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 		LoadTextureLevel(*entry, replaced, level, replaceImages, scaleFactor, dstFmt);
 	} else
 		LoadTextureLevel(*entry, replaced, 0, replaceImages, scaleFactor, dstFmt);
-	
+
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && scaleFactor == 1) {
 		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
@@ -721,6 +729,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 u32 TextureCacheGLES::AllocTextureName() {
@@ -806,6 +815,8 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	bool useBGRA;
 	u32 *pixelData;
 
+	CHECK_GL_ERROR_IF_DEBUG();
+
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
@@ -871,6 +882,8 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 
+	CHECK_GL_ERROR_IF_DEBUG();
+
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 
 	GLuint components2 = components;
@@ -888,6 +901,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		else
 			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
 		if (!lowMemoryMode_) {
+			// TODO: We really, really should avoid calling glGetError.
 			GLenum err = glGetError();
 			if (err == GL_OUT_OF_MEMORY) {
 				WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
@@ -911,7 +925,9 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 				case GL_INVALID_VALUE: str = "invalid_value"; break;
 				}
 				// We checked the err anyway, might as well log if there is one.
-				WARN_LOG(G3D, "Got an error in texture upload: %08x (%s) (components=%04x components2=%04x dstFmt=%04x w=%d h=%d level=%d)", err, str, components, components2, dstFmt, w, h, level);
+				WARN_LOG(G3D, "Got an error in texture upload: %08x (%s) (components=%s components2=%s dstFmt=%s w=%d h=%d level=%d)",
+					err, str, GLEnumToString(components).c_str(), GLEnumToString(components2).c_str(), GLEnumToString(dstFmt).c_str(),
+					w, h, level);
 			}
 		}
 	}

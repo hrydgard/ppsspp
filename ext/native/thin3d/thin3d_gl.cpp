@@ -9,6 +9,7 @@
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "gfx/gl_common.h"
+#include "gfx/gl_debug_log.h"
 #include "gfx/GLStateCache.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx/gl_lost_manager.h"
@@ -754,6 +755,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		return;
 	}
 
+	CHECK_GL_ERROR_IF_DEBUG();
 	switch (target_) {
 	case GL_TEXTURE_2D:
 		glTexImage2D(GL_TEXTURE_2D, level, internalFormat, width_, height_, 0, format, type, data);
@@ -762,11 +764,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		ELOG("Thin3D GL: Targets other than GL_TEXTURE_2D not yet supported");
 		break;
 	}
-
-	GLenum err2 = glGetError();
-	if (err2) {
-		ELOG("Thin3D GL: Error loading texture: %08x", err2);
-	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
@@ -1336,6 +1334,7 @@ Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	}
 	// If GLES2, we have basic FBO support and can just proceed.
 #endif
+	CHECK_GL_ERROR_IF_DEBUG();
 
 	OpenGLFramebuffer *fbo = new OpenGLFramebuffer();
 	fbo->width = desc.width;
@@ -1444,6 +1443,7 @@ Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	// Unbind state we don't need
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+	CHECK_GL_ERROR_IF_DEBUG();
 
 	currentDrawHandle_ = fbo->handle;
 	currentReadHandle_ = fbo->handle;
@@ -1512,16 +1512,20 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
 	fbo_bind_fb_target(false, fb->handle);
 	// Always restore viewport after render target binding
 	glstate.viewport.restore();
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void OpenGLContext::BindBackbufferAsRenderTarget() {
+	CHECK_GL_ERROR_IF_DEBUG();
 	fbo_unbind();
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 // For GL_EXT_FRAMEBUFFER_BLIT and similar.
 void OpenGLContext::BindFramebufferForRead(Framebuffer *fbo) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	fbo_bind_fb_target(true, fb->handle);
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
@@ -1562,6 +1566,7 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 			width, height, depth);
 	}
 #endif
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter) {
@@ -1578,10 +1583,12 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 	BindFramebufferForRead(src);
 	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
 		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
+		CHECK_GL_ERROR_IF_DEBUG();
 #if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
 		return true;
 	} else if (gl_extensions.NV_framebuffer_blit) {
 		glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
+		CHECK_GL_ERROR_IF_DEBUG();
 #endif // defined(USING_GLES2) && defined(__ANDROID__)
 		return true;
 	} else {
@@ -1590,8 +1597,13 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 }
 
 uintptr_t OpenGLContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
-	// Unimplemented
-	return 0;
+	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
+	switch (channelBits) {
+	case FB_COLOR_BIT: return (uintptr_t)fb->color_texture;
+	case FB_DEPTH_BIT: return (uintptr_t)(fb->z_buffer ? fb->z_buffer : fb->z_stencil_buffer);
+	default:
+		return 0;
+	}
 }
 
 void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
@@ -1612,6 +1624,7 @@ void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBCh
 }
 
 OpenGLFramebuffer::~OpenGLFramebuffer() {
+	CHECK_GL_ERROR_IF_DEBUG();
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
 		glBindFramebuffer(GL_FRAMEBUFFER, handle);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);

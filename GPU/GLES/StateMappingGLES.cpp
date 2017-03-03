@@ -22,6 +22,7 @@
 
 #include "StateMappingGLES.h"
 #include "profiler/profiler.h"
+#include "gfx/gl_debug_log.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -344,6 +345,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	if (vpAndScissor.dirtyDepth) {
 		gstate_c.Dirty(DIRTY_DEPTHRANGE);
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void DrawEngineGLES::ApplyDrawStateLate() {
@@ -351,9 +353,11 @@ void DrawEngineGLES::ApplyDrawStateLate() {
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
 		if (fboTexNeedBind_) {
+			CHECK_GL_ERROR_IF_DEBUG();
 			// Note that this is positions, not UVs, that we need the copy from.
 			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			framebufferManager_->RebindFramebuffer();
+			CHECK_GL_ERROR_IF_DEBUG();
 
 			glActiveTexture(GL_TEXTURE1);
 			// If we are rendering at a higher resolution, linear is probably best for the dest color.
@@ -362,15 +366,19 @@ void DrawEngineGLES::ApplyDrawStateLate() {
 			glActiveTexture(GL_TEXTURE0);
 			fboTexBound_ = true;
 			fboTexNeedBind_ = false;
+			CHECK_GL_ERROR_IF_DEBUG();
 		}
+		CHECK_GL_ERROR_IF_DEBUG();
 
 		// Apply the texture after the FBO tex, since it might unbind the texture.
 		// TODO: Could use a separate texture unit to be safer?
 		textureCache_->ApplyTexture();
+		CHECK_GL_ERROR_IF_DEBUG();
 
 		// Apply last, once we know the alpha params of the texture.
 		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
 			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
 		}
+		CHECK_GL_ERROR_IF_DEBUG();
 	}
 }

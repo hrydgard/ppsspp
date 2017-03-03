@@ -86,7 +86,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.addressModeV = key.tClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.addressModeW = samp.addressModeU;  // irrelevant, but Mali recommends that all clamp modes are the same if possible.
 	samp.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 	samp.compareOp = VK_COMPARE_OP_ALWAYS;
 	samp.flags = 0;

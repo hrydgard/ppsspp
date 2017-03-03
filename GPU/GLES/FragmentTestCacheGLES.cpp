@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "gfx/gl_debug_log.h"
 #include "Core/Config.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 #include "GPU/GPUState.h"
@@ -55,10 +56,12 @@ void FragmentTestCacheGLES::BindTestTexture(GLenum unit) {
 			// Already bound, hurray.
 			return;
 		}
+		CHECK_GL_ERROR_IF_DEBUG();
 		glActiveTexture(unit);
 		glBindTexture(GL_TEXTURE_2D, tex);
 		// Always return to the default.
 		glActiveTexture(GL_TEXTURE0);
+		CHECK_GL_ERROR_IF_DEBUG();
 		lastTexture_ = tex;
 		return;
 	}

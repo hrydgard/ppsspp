@@ -20,6 +20,7 @@
 
 #include "profiler/profiler.h"
 #include "gfx/gl_common.h"
+#include "gfx/gl_debug_log.h"
 #include "gfx_es2/glsl_program.h"
 #include "thin3d/thin3d.h"
 
@@ -347,6 +348,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 		}
 	}
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf_ : srcPixels);
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::SetViewport2D(int x, int y, int w, int h) {
@@ -670,6 +672,7 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 		draw_->BindFramebufferAsRenderTarget(nvfb->fbo);
 		ClearBuffer();
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
@@ -721,6 +724,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
 		if (sameSize && sameDepth && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
 			draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT);
+			CHECK_GL_ERROR_IF_DEBUG();
 			return;
 		}
 	}
@@ -767,6 +771,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	}
 
 	glstate.scissorTest.restore();
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 // TODO: SSE/NEON
@@ -887,6 +892,7 @@ static void LogReadPixelsError(GLenum error) {
 #endif
 
 static void SafeGLReadPixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum fmt, GLenum type, void *pixels) {
+	CHECK_GL_ERROR_IF_DEBUG();
 	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA)) {
 		// Some drivers seem to require we specify this.  See #8254.
 		glPixelStorei(GL_PACK_ROW_LENGTH, w);
@@ -900,9 +906,11 @@ static void SafeGLReadPixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum fmt,
 	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
+	CHECK_GL_ERROR_IF_DEBUG();
 	const int MAX_PBO = 2;
 	GLubyte *packed = 0;
 	bool unbind = false;
@@ -1050,6 +1058,7 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	if (unbind) {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
@@ -1097,6 +1106,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 		if (UseBGRA8888()) {
 			glfmt = GL_BGRA_EXT;
 		}
+		CHECK_GL_ERROR_IF_DEBUG();
 
 		SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed);
 
@@ -1116,6 +1126,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
 		glInvalidateFramebuffer(target, 3, attachments);
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
@@ -1157,9 +1168,11 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 			depth[i] = (int)scaled;
 		}
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::EndFrame() {
+	CHECK_GL_ERROR_IF_DEBUG();
 	if (resized_) {
 		// TODO: Only do this if the new size actually changed the renderwidth/height.
 		DestroyAllFBOs(false);
@@ -1230,6 +1243,7 @@ void FramebufferManagerGLES::EndFrame() {
 		}
 		draw_->BindBackbufferAsRenderTarget();
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::DeviceLost() {
@@ -1258,6 +1272,7 @@ std::vector<FramebufferInfo> FramebufferManagerGLES::GetFramebufferList() {
 }
 
 void FramebufferManagerGLES::DestroyAllFBOs(bool forceDelete) {
+	CHECK_GL_ERROR_IF_DEBUG();
 	draw_->BindBackbufferAsRenderTarget();
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
@@ -1284,6 +1299,7 @@ void FramebufferManagerGLES::DestroyAllFBOs(bool forceDelete) {
 
 	draw_->BindBackbufferAsRenderTarget();
 	DisableState();
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::FlushBeforeCopy() {
@@ -1295,6 +1311,7 @@ void FramebufferManagerGLES::FlushBeforeCopy() {
 	// do something more focused here.
 	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	drawEngine_->Flush();
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::Resized() {
@@ -1343,6 +1360,7 @@ bool FramebufferManagerGLES::GetFramebuffer(u32 fb_address, int fb_stride, GEBuf
 
 	// We may have blitted to a temp FBO.
 	RebindFramebuffer();
+	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 }
 
@@ -1354,6 +1372,7 @@ bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	SafeGLReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
+	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 }
 
@@ -1384,7 +1403,7 @@ bool FramebufferManagerGLES::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
-
+	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 }
 
@@ -1409,7 +1428,7 @@ bool FramebufferManagerGLES::GetStencilbuffer(u32 fb_address, int fb_stride, GPU
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 2);
 	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, buffer.GetData());
-
+	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 #else
 	return false;

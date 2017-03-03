@@ -24,6 +24,7 @@
 
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "gfx/gl_debug_log.h"
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
@@ -80,6 +81,7 @@ Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform)
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 Shader::~Shader() {
@@ -313,6 +315,7 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 LinkedShader::~LinkedShader() {
@@ -435,6 +438,8 @@ void LinkedShader::stop() {
 }
 
 void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
+	CHECK_GL_ERROR_IF_DEBUG();
+
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 	if (!dirty)
@@ -743,6 +748,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		if (dirty & DIRTY_SPLINETYPEV)
 			glUniform1i(u_spline_type_v, gstate_c.spline_type_v);
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 ShaderManagerGLES::ShaderManagerGLES()
