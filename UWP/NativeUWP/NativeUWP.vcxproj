@@ -275,7 +275,6 @@
     <ClInclude Include="..\..\ext\native\net\resolve.h" />
     <ClInclude Include="..\..\ext\native\net\sinks.h" />
     <ClInclude Include="..\..\ext\native\net\url.h" />
-    <ClInclude Include="..\..\ext\native\thin3d\d3d11_loader.h" />
     <ClInclude Include="..\..\ext\native\thin3d\thin3d.h" />
     <ClInclude Include="..\..\ext\native\thread\executor.h" />
     <ClInclude Include="..\..\ext\native\thread\prioritizedworkqueue.h" />

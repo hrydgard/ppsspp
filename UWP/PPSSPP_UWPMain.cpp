@@ -373,7 +373,8 @@ void Vibrate(int length_ms) {
 
 	auto timeSpan = Windows::Foundation::TimeSpan();
 	timeSpan.Duration = length_ms * 10000;
-	Windows::Phone::Devices::Notification::VibrationDevice::GetDefault()->Vibrate(timeSpan);
+	// TODO: Can't use this?
+	// Windows::Phone::Devices::Notification::VibrationDevice::GetDefault()->Vibrate(timeSpan);
 #endif
 }
 
@@ -391,4 +392,21 @@ bool System_InputBoxGetString(const char *title, const char *defaultValue, char 
 
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) {
 	return false;
+}
+
+// Emulation of TlsAlloc for Windows 10. Used by glslang.
+
+extern "C" {
+DWORD WINAPI __imp_TlsAlloc() {
+	return FlsAlloc(nullptr);
+}
+BOOL WINAPI __imp_TlsFree(DWORD index) {
+	return FlsFree(index);
+}
+BOOL WINAPI __imp_TlsSetValue(DWORD dwTlsIndex, LPVOID lpTlsValue) {
+	return FlsSetValue(dwTlsIndex, lpTlsValue);
+}
+LPVOID WINAPI __imp_TlsGetValue(DWORD dwTlsIndex) {
+	return FlsGetValue(dwTlsIndex);
+}
 }

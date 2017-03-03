@@ -106,7 +106,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
-      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; kernel32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
@@ -121,7 +121,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <Link>
-      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; kernel32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
@@ -136,7 +136,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Link>
-      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; kernel32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/x86/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store; $(VCInstallDir)\lib</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
@@ -151,7 +151,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Link>
-      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; kernel32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/x86/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store; $(VCInstallDir)\lib</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
@@ -166,7 +166,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
-      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; kernel32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/x64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
@@ -181,7 +181,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
-      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; kernel32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib; d3d11.lib; dxgi.lib; windowscodecs.lib; dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/x64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>

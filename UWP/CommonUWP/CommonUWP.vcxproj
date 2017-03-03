@@ -208,7 +208,6 @@
   <ItemGroup>
     <ClInclude Include="..\..\Common\ABI.h" />
     <ClInclude Include="..\..\Common\Arm64Emitter.h" />
-    <ClInclude Include="..\..\Common\ArmABI.h" />
     <ClInclude Include="..\..\Common\ArmCommon.h" />
     <ClInclude Include="..\..\Common\ArmEmitter.h" />
     <ClInclude Include="..\..\Common\Atomics.h" />
@@ -256,7 +255,6 @@
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
     <ClCompile Include="..\..\Common\Arm64Emitter.cpp" />
-    <ClCompile Include="..\..\Common\ArmABI.cpp" />
     <ClCompile Include="..\..\Common\ArmCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\ArmEmitter.cpp" />
     <ClCompile Include="..\..\Common\ChunkFile.cpp" />
