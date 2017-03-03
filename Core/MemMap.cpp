@@ -208,6 +208,7 @@ bool MemoryMap_Setup(u32 flags) {
 	// Grab some pagefile backed memory out of the void ...
 	g_arena.GrabLowMemSpace(total_mem);
 
+#if !PPSSPP_PLATFORM(ANDROID)
 	if (g_arena.NeedsProbing()) {
 		int base_attempts = 0;
 #if defined(_WIN32) && PPSSPP_ARCH(32BIT)
@@ -217,7 +218,7 @@ bool MemoryMap_Setup(u32 flags) {
 		uintptr_t stride = 0x400000;
 #else
 		// iOS
-		uintptr_t max_base_addr = 0x1FFFF0000ULL - 0x80000000;
+		uintptr_t max_base_addr = 0x1FFFF0000ULL - 0x80000000ULL;
 		uintptr_t min_base_addr = 0x100000000ULL;
 		uintptr_t stride = 0x800000;
 #endif
@@ -232,7 +233,10 @@ bool MemoryMap_Setup(u32 flags) {
 		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Failed finding a memory base.");
 		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
 		return false;
-	} else {
+	}
+	else
+#endif
+	{
 		base = g_arena.Find4GBBase();
 	}
 
