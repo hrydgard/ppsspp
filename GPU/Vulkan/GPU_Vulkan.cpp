@@ -879,9 +879,9 @@ void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
 		gstate_c.bezier = true;
-		if (gstate_c.bezier_count_u != bz_ucount) {
+		if (gstate_c.spline_count_u != bz_ucount) {
 		    gstate_c.Dirty(DIRTY_BEZIERCOUNTU);
-			gstate_c.bezier_count_u = bz_ucount;
+			gstate_c.spline_count_u = bz_ucount;
 		}
 	}
 

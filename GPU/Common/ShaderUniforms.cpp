@@ -189,7 +189,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 
 	if (gstate_c.bezier) {
 		if (dirtyUniforms & DIRTY_BEZIERCOUNTU)
-			ub->spline_count_u = gstate_c.bezier_count_u;
+			ub->spline_count_u = gstate_c.spline_count_u;
 	} else if (gstate_c.spline) {
 		if (dirtyUniforms & DIRTY_SPLINECOUNTU)
 			ub->spline_count_u = gstate_c.spline_count_u;
