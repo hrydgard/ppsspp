@@ -236,9 +236,6 @@ void PPSSPP_UWPMain::OnMouseWheel(float delta) {
 }
 
 void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp) {
-	// It appears that Windows' touchIds start from 1. Let's fix that.
-	touchId--;
-
 	TouchInput input{};
 	input.id = touchId;
 	input.x = x;

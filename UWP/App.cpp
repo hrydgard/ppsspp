@@ -1,4 +1,6 @@
-﻿#include "pch.h"
+﻿#include "ppsspp_config.h"
+
+#include "pch.h"
 #include "App.h"
 
 #include <mutex>
@@ -100,7 +102,9 @@ void App::OnKeyUp(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyE
 }
 
 void App::OnPointerMoved(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
-	int pointerId = args->CurrentPoint->PointerId;
+	int pointerId = touchMap_.TouchId(args->CurrentPoint->PointerId);
+	if (pointerId < 0)
+		return;
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
@@ -114,28 +118,37 @@ void App::OnPointerExited(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Co
 }
 
 void App::OnPointerPressed(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
-	int pointerId = args->CurrentPoint->PointerId;
+	int pointerId = touchMap_.TouchId(args->CurrentPoint->PointerId);
+	if (pointerId < 0)
+		pointerId = touchMap_.AddNewTouch(args->CurrentPoint->PointerId);
+
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
 	m_main->OnTouchEvent(TOUCH_DOWN|TOUCH_MOVE, pointerId, X, Y, timestamp);
+#if !PPSSPP_ARCH(ARM)
 	sender->SetPointerCapture();
+#endif
 }
 
 void App::OnPointerReleased(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
-	int pointerId = args->CurrentPoint->PointerId;
+	int pointerId = touchMap_.RemoveTouch(args->CurrentPoint->PointerId);
+	if (pointerId < 0)
+		return;
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
 	m_main->OnTouchEvent(TOUCH_UP|TOUCH_MOVE, pointerId, X, Y, timestamp);
+#if !PPSSPP_ARCH(ARM)
 	sender->ReleasePointerCapture();
+#endif
 }
 
 void App::OnPointerCaptureLost(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
 }
 
 void App::OnPointerWheelChanged(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
-	int pointerId = args->CurrentPoint->PointerId;
+	int pointerId = 0;  // irrelevant
 	float delta = args->CurrentPoint->GetCurrentPoint(args->CurrentPoint->PointerId)->Properties->MouseWheelDelta;
 	m_main->OnMouseWheel(delta);
 }
