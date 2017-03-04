@@ -123,7 +123,7 @@ void DrawEngineD3D11::InitDeviceObjects() {
 	pushVerts_ = new PushBufferD3D11(device_, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
 	pushInds_ = new PushBufferD3D11(device_, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
 
-	tessDataTransfer = new TessellationDataTransferD3D11();
+	tessDataTransfer = new TessellationDataTransferD3D11(context_, device_);
 }
 
 void DrawEngineD3D11::ClearTrackedVertexArrays() {
@@ -796,7 +796,10 @@ rotateVBO:
 				memcpy(iptr, decIndex, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
-				context_->DrawIndexed(vertexCount, 0, 0);
+				if (gstate_c.bezier || gstate_c.spline)
+					context_->DrawIndexedInstanced(vertexCount, numPatches, 0, 0, 0);
+				else
+					context_->DrawIndexed(vertexCount, 0, 0);
 			} else {
 				context_->Draw(vertexCount, 0);
 			}
@@ -805,7 +808,10 @@ rotateVBO:
 			context_->IASetVertexBuffers(0, 1, &vb_, &stride, &offset);
 			if (useElements) {
 				context_->IASetIndexBuffer(ib_, DXGI_FORMAT_R16_UINT, 0);
-				context_->DrawIndexed(vertexCount, 0, 0);
+				if (gstate_c.bezier || gstate_c.spline)
+					context_->DrawIndexedInstanced(vertexCount, numPatches, 0, 0, 0);
+				else
+					context_->DrawIndexed(vertexCount, 0, 0);
 			} else {
 				context_->Draw(vertexCount, 0);
 			}
@@ -961,7 +967,70 @@ bool DrawEngineD3D11::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
-void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords)
-{
-	// HW tessellation not yet supported
+void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
+	// Position
+	if (prevSize < size) {
+		prevSize = size;
+		if (data_tex[0]) {
+			data_tex[0]->Release();
+			view[0]->Release();
+		}
+		desc.Width = size;
+		desc.Format = DXGI_FORMAT_R32G32B32_FLOAT;
+		HRESULT hr = device_->CreateTexture1D(&desc, nullptr, &data_tex[0]);
+		if (FAILED(hr)) {
+			INFO_LOG(G3D, "Failed to create D3D texture for HW tessellation");
+			data_tex[0]->Release();
+			return; // TODO: Turn off HW tessellation if texture creation error occured.
+		}
+		hr = device_->CreateShaderResourceView(data_tex[0], nullptr, &view[0]);
+		context_->VSSetShaderResources(0, 1, &view[0]);
+	}
+	dstBox.right = size;
+	context_->UpdateSubresource(data_tex[0], 0, &dstBox, pos, 0, 0);
+
+	// Texcoords
+	if (hasTexCoords) {
+		if (prevSizeTex < size) {
+			prevSizeTex = size;
+			if (data_tex[1]) {
+				data_tex[1]->Release();
+				view[1]->Release();
+			}
+			desc.Width = size;
+			desc.Format = DXGI_FORMAT_R32G32B32_FLOAT;
+			HRESULT hr = device_->CreateTexture1D(&desc, nullptr, &data_tex[1]);
+			if (FAILED(hr)) {
+				INFO_LOG(G3D, "Failed to create D3D texture for HW tessellation");
+				data_tex[1]->Release();
+				return;
+			}
+			hr = device_->CreateShaderResourceView(data_tex[1], nullptr, &view[1]);
+			context_->VSSetShaderResources(1, 1, &view[1]);
+		}
+		dstBox.right = size;
+		context_->UpdateSubresource(data_tex[1], 0, &dstBox, tex, 0, 0);
+	}
+
+	// Color
+	int sizeColor = hasColor ? size : 1;
+	if (prevSizeCol < sizeColor) {
+		prevSizeCol = sizeColor;
+		if (data_tex[2]) {
+			data_tex[2]->Release();
+			view[2]->Release();
+		}
+		desc.Width = sizeColor;
+		desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+		HRESULT hr = device_->CreateTexture1D(&desc, nullptr, &data_tex[2]);
+		if (FAILED(hr)) {
+			INFO_LOG(G3D, "Failed to create D3D texture for HW tessellation");
+			data_tex[2]->Release();
+			return;
+		}
+		hr = device_->CreateShaderResourceView(data_tex[2], nullptr, &view[2]);
+		context_->VSSetShaderResources(2, 1, &view[2]);
+	}
+	dstBox.right = sizeColor;
+	context_->UpdateSubresource(data_tex[2], 0, &dstBox, col, 0, 0);
 }

@@ -256,11 +256,28 @@ private:
 	// Hardware tessellation
 	class TessellationDataTransferD3D11 : public TessellationDataTransfer {
 	private:
-		int data_tex[3];
+		ID3D11DeviceContext *context_;
+		ID3D11Device *device_;
+		ID3D11Texture1D *data_tex[3];
+		ID3D11ShaderResourceView *view[3];
+		D3D11_TEXTURE1D_DESC desc;
+		D3D11_BOX dstBox;
 	public:
-		TessellationDataTransferD3D11() : TessellationDataTransfer(), data_tex() {
+		TessellationDataTransferD3D11(ID3D11DeviceContext *context_, ID3D11Device *device_)
+			: TessellationDataTransfer(), context_(context_), device_(device_), data_tex(), view(), desc(), dstBox{0, 0, 0, 1, 1, 1} {
+			desc.CPUAccessFlags = 0;
+			desc.Usage = D3D11_USAGE_DEFAULT;
+			desc.ArraySize = 1;
+			desc.MipLevels = 1;
+			desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 		}
 		~TessellationDataTransferD3D11() {
+			for (int i = 0; i < 3; i++) {
+				if (data_tex[i]) {
+					data_tex[i]->Release();
+					view[i]->Release();
+				}
+			}
 		}
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
 	};
