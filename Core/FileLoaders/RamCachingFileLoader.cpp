@@ -155,7 +155,7 @@ size_t RamCachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
 		if (pos >= filesize_) {
 			return 0;
 		}
-		bytes = filesize_ - pos;
+		bytes = (size_t)(filesize_ - pos);
 	}
 
 	std::lock_guard<std::mutex> guard(blocksMutex_);

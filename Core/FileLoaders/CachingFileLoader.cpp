@@ -91,7 +91,7 @@ size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flag
 	if (absolutePos >= filesize_) {
 		bytes = 0;
 	} else if (absolutePos + (s64)bytes >= filesize_) {
-		bytes = filesize_ - absolutePos;
+		bytes = (size_t)(filesize_ - absolutePos);
 	}
 
 	size_t readSize = 0;
