@@ -428,7 +428,8 @@ BlendState *D3D11DrawContext::CreateBlendState(const BlendStateDesc &desc) {
 class D3D11RasterState : public RasterState {
 public:
 	~D3D11RasterState() {
-		rs->Release();
+		if (rs)
+			rs->Release();
 	}
 	ID3D11RasterizerState *rs;
 };
@@ -445,6 +446,7 @@ RasterState *D3D11DrawContext::CreateRasterState(const RasterStateDesc &desc) {
 	}
 	d3ddesc.FrontCounterClockwise = desc.frontFace == Facing::CCW;
 	d3ddesc.ScissorEnable = true;  // We always run with scissor enabled
+	d3ddesc.DepthClipEnable = true;
 	if (SUCCEEDED(device_->CreateRasterizerState(&d3ddesc, &rs->rs)))
 		return rs;
 	delete rs;
@@ -454,9 +456,10 @@ RasterState *D3D11DrawContext::CreateRasterState(const RasterStateDesc &desc) {
 class D3D11SamplerState : public SamplerState {
 public:
 	~D3D11SamplerState() {
-		ss->Release();
+		if (ss)
+			ss->Release();
 	}
-	ID3D11SamplerState *ss;
+	ID3D11SamplerState *ss = nullptr;
 };
 
 static const D3D11_TEXTURE_ADDRESS_MODE taddrToD3D11[] = {
@@ -474,8 +477,13 @@ SamplerState *D3D11DrawContext::CreateSamplerState(const SamplerStateDesc &desc)
 	d3ddesc.AddressW = taddrToD3D11[(int)desc.wrapW];
 	// TODO: Needs improvement
 	d3ddesc.Filter = desc.magFilter == TextureFilter::LINEAR ? D3D11_FILTER_MIN_MAG_MIP_LINEAR : D3D11_FILTER_MIN_MAG_MIP_POINT;
-	d3ddesc.MaxAnisotropy = (UINT)desc.maxAniso;
+	d3ddesc.MaxAnisotropy = 1.0f; // (UINT)desc.maxAniso;
+	d3ddesc.MinLOD = -FLT_MAX;
+	d3ddesc.MaxLOD = FLT_MAX;
 	d3ddesc.ComparisonFunc = compareToD3D11[(int)desc.shadowCompareFunc];
+	for (int i = 0; i < 4; i++) {
+		d3ddesc.BorderColor[i] = 1.0f;
+	}
 	if (SUCCEEDED(device_->CreateSamplerState(&d3ddesc, &ss->ss)))
 		return ss;
 	delete ss;
@@ -660,14 +668,21 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	if (language == ShaderLanguage::HLSL_D3D11) {
 		const char *target = nullptr;
 		switch (stage) {
-		case ShaderStage::FRAGMENT: target = "ps_5_0"; break;
-		case ShaderStage::GEOMETRY: target = "gs_5_0"; break;
-		case ShaderStage::VERTEX: target = "vs_5_0"; break;
+#if PPSSPP_PLATFORM(UWP) && PPSSPP_ARCH(ARM)
+		case ShaderStage::FRAGMENT: target = "ps_4_0_level_9_1"; break;
+		case ShaderStage::VERTEX: target = "vs_4_0_level_9_1"; break;
 			break;
+#else
+		case ShaderStage::FRAGMENT: target = "ps_4_0"; break;
+		case ShaderStage::GEOMETRY: target = "gs_4_0"; break;
+		case ShaderStage::VERTEX: target = "vs_4_0"; break;
+			break;
+#endif
 		case ShaderStage::COMPUTE:
 		case ShaderStage::CONTROL:
 		case ShaderStage::EVALUATION:
 		default:
+			Crash();
 			break;
 		}
 		if (!target) {
