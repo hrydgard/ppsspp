@@ -631,7 +631,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// Also let's always flip for animated shaders
 	const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
 	bool postEffectRequiresFlip = false;
-	if (shaderInfo)
+	if (shaderInfo && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE)
 		postEffectRequiresFlip = g_Config.sPostShaderName != "Off" && shaderInfo->requires60fps;
 	const bool fbDirty = gpu->FramebufferDirty();
 	if (fbDirty || noRecentFlip || postEffectRequiresFlip) {
