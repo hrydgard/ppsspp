@@ -63,7 +63,7 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 	D3D11_SAMPLER_DESC samp{};
 	samp.AddressU = key.sClamp ? D3D11_TEXTURE_ADDRESS_CLAMP : D3D11_TEXTURE_ADDRESS_WRAP;
 	samp.AddressV = key.tClamp ? D3D11_TEXTURE_ADDRESS_CLAMP : D3D11_TEXTURE_ADDRESS_WRAP;
-	samp.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	samp.AddressW = samp.AddressU;  // Mali benefits from all clamps being the same, and this one is irrelevant.
 	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
 		samp.MaxAnisotropy = (float)(1 << g_Config.iAnisotropyLevel);
 	} else {
@@ -85,12 +85,21 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 		samp.Filter = D3D11_FILTER_ANISOTROPIC;
 	else
 		samp.Filter = filters[filterKey];
+#if PPSSPP_PLATFORM(UWP) && PPSSPP_ARCH(ARM)
+	// For some reason, can't set MaxLOD on mobile.
+	samp.MaxLOD = FLT_MAX;
+#else
 	samp.MaxLOD = key.maxLevel;
-	samp.MinLOD = 0.0f;
+#endif
+	samp.MinLOD = -FLT_MAX;
 	samp.MipLODBias = 0.0f;
+	samp.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	for (int i = 0; i < 4; i++) {
+		samp.BorderColor[i] = 1.0f;
+	}
 
 	ID3D11SamplerState *sampler;
-	device->CreateSamplerState(&samp, &sampler);
+	ASSERT_SUCCESS(device->CreateSamplerState(&samp, &sampler));
 	cache_[key] = sampler;
 	return sampler;
 }

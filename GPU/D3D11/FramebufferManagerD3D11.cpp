@@ -371,11 +371,6 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 	// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 }
 
-void FramebufferManagerD3D11::SetViewport2D(int x, int y, int w, int h) {
-	D3D11_VIEWPORT vp{ (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f };
-	context_->RSSetViewports(1, &vp);
-}
-
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
 	float coord[20] = {
 		x,y,0, u0,v0,
@@ -702,7 +697,7 @@ void FramebufferManagerD3D11::SimpleBlit(
 	};
 
 	D3D11_MAPPED_SUBRESOURCE map;
-	context_->Map(quadBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	ASSERT_SUCCESS(context_->Map(quadBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map));
 	memcpy(map.pData, vtx, 4 * sizeof(Vtx));
 	context_->Unmap(quadBuffer_, 0);
 

@@ -781,6 +781,11 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 	}
 }
 
+void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
+	Draw::Viewport vp{ (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f };
+	draw_->SetViewports(1, &vp);
+}
+
 void FramebufferManagerCommon::CopyDisplayToOutput() {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 

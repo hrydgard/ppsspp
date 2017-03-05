@@ -272,7 +272,7 @@ public:
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer) = 0;
 
 protected:
-	virtual void SetViewport2D(int x, int y, int w, int h) = 0;
+	virtual void SetViewport2D(int x, int y, int w, int h);
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms);
 	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
 	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) = 0;

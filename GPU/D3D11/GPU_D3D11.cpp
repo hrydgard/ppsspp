@@ -517,7 +517,12 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;  // Breaks text in PaRappa for some reason.
+
+#ifndef _M_ARM
+	// TODO: Do proper feature detection
 	features |= GPU_SUPPORTS_ANISOTROPY;
+#endif
+
 	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
 	features |= GPU_SUPPORTS_DUALSOURCE_BLEND;

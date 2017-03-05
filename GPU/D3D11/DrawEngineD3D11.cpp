@@ -38,6 +38,7 @@
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
