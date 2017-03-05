@@ -175,7 +175,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 		std::string errorMessage;
 		std::vector<uint8_t> byteCode;
 		stencilUploadVS_ = CreateVertexShaderD3D11(device_, stencil_vs, strlen(stencil_vs), &byteCode);
-		device_->CreateInputLayout(g_QuadVertexElements, 2, byteCode.data(), byteCode.size(), &stencilUploadInputLayout_);
+		ASSERT_SUCCESS(device_->CreateInputLayout(g_QuadVertexElements, 2, byteCode.data(), byteCode.size(), &stencilUploadInputLayout_));
 	}
 	if (!stencilValueBuffer_) {
 		D3D11_BUFFER_DESC desc{};
@@ -183,7 +183,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 		desc.Usage = D3D11_USAGE_DYNAMIC;
 		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		device_->CreateBuffer(&desc, nullptr, &stencilValueBuffer_);
+		ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &stencilValueBuffer_));
 	}
 
 	shaderManagerD3D11_->DirtyLastShader();

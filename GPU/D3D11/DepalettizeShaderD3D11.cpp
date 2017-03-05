@@ -59,7 +59,7 @@ DepalShaderCacheD3D11::DepalShaderCacheD3D11(ID3D11Device *device, ID3D11DeviceC
 	std::string errorMessage;
 	std::vector<uint8_t> vsByteCode;
 	vertexShader_ = CreateVertexShaderD3D11(device, depalVShaderHLSL, strlen(depalVShaderHLSL), &vsByteCode);
-	device_->CreateInputLayout(g_DepalVertexElements, ARRAY_SIZE(g_DepalVertexElements), vsByteCode.data(), vsByteCode.size(), &inputLayout_);
+	ASSERT_SUCCESS(device_->CreateInputLayout(g_DepalVertexElements, ARRAY_SIZE(g_DepalVertexElements), vsByteCode.data(), vsByteCode.size(), &inputLayout_));
 }
 
 DepalShaderCacheD3D11::~DepalShaderCacheD3D11() {
@@ -101,16 +101,8 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 	data.pSysMem = rawClut;
 	// Regardless of format, the CLUT should always be 1024 bytes.
 	data.SysMemPitch = 1024;
-	HRESULT hr = device_->CreateTexture2D(&desc, &data, &tex->texture);
-	if (FAILED(hr)) {
-		ERROR_LOG(G3D, "Failed to create D3D texture for depal");
-		delete tex;
-		return nullptr;
-	}
-	hr = device_->CreateShaderResourceView(tex->texture, nullptr, &tex->view);
-	if (FAILED(hr)) {
-		// ...
-	}
+	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, &data, &tex->texture));
+	ASSERT_SUCCESS(device_->CreateShaderResourceView(tex->texture, nullptr, &tex->view));
 	tex->lastFrame = gpuStats.numFlips;
 	texCache_[realClutID] = tex;
 	return tex->view;

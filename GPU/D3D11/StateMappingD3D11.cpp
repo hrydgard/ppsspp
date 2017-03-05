@@ -373,7 +373,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			rt.SrcBlendAlpha = (D3D11_BLEND)keys_.blend.srcAlpha;
 			rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
 			rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
-			device_->CreateBlendState(&desc, &bs);
+			ASSERT_SUCCESS(device_->CreateBlendState(&desc, &bs));
 			blendCache_.insert(std::pair<uint64_t, ID3D11BlendState *>(keys_.blend.value, bs));
 		} else {
 			bs = blendIter->second;
@@ -394,7 +394,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
 			rt.LogicOpEnable = keys_.blend.logicOpEnable;
 			rt.LogicOp = (D3D11_LOGIC_OP)keys_.blend.logicOp;
-			device1_->CreateBlendState1(&desc1, &bs1);
+			ASSERT_SUCCESS(device1_->CreateBlendState1(&desc1, &bs1));
 			blendCache1_.insert(std::pair<uint64_t, ID3D11BlendState1 *>(keys_.blend.value, bs1));
 		} else {
 			bs1 = blendIter->second;
@@ -416,7 +416,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		desc.FrontFace.StencilDepthFailOp = (D3D11_STENCIL_OP)keys_.depthStencil.stencilDepthFailOp;
 		desc.FrontFace.StencilFunc = (D3D11_COMPARISON_FUNC)keys_.depthStencil.stencilCompareFunc;
 		desc.BackFace = desc.FrontFace;
-		device_->CreateDepthStencilState(&desc, &ds);
+		ASSERT_SUCCESS(device_->CreateDepthStencilState(&desc, &ds));
 		depthStencilCache_.insert(std::pair<uint64_t, ID3D11DepthStencilState *>(keys_.depthStencil.value, ds));
 	} else {
 		ds = depthIter->second;
@@ -431,7 +431,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		desc.ScissorEnable = TRUE;
 		desc.FrontCounterClockwise = TRUE;
 		desc.DepthClipEnable = TRUE;
-		device_->CreateRasterizerState(&desc, &rs);
+		ASSERT_SUCCESS(device_->CreateRasterizerState(&desc, &rs));
 		rasterCache_.insert(std::pair<uint32_t, ID3D11RasterizerState *>(keys_.raster.value, rs));
 	} else {
 		rs = rasterIter->second;

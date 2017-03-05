@@ -84,4 +84,8 @@ public:
 	ID3D11SamplerState *samplerLinear2DClamp;
 };
 
+#define ASSERT_SUCCESS(x) \
+	if (!SUCCEEDED((x))) \
+		Crash();
+
 extern StockObjectsD3D11 stockD3D11;

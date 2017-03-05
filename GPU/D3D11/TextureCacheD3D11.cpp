@@ -669,14 +669,9 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		desc.MipLevels = levels;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
-		HRESULT hr = device_->CreateTexture2D(&desc, nullptr, &texture);
-		if (FAILED(hr)) {
-			INFO_LOG(G3D, "Failed to create D3D texture");
-			ReleaseTexture(&entry, true);
-			return;
-		}
+		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
 		ID3D11ShaderResourceView *view;
-		hr = device_->CreateShaderResourceView(texture, nullptr, &view);
+		ASSERT_SUCCESS(device_->CreateShaderResourceView(texture, nullptr, &view));
 		entry.texturePtr = texture;
 		entry.textureView = view;
 	}

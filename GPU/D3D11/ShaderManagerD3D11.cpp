@@ -99,11 +99,11 @@ ShaderManagerD3D11::ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext
 	ILOG("sizeof(ub_bones): %d", (int)sizeof(ub_bones));
 
 	D3D11_BUFFER_DESC desc{sizeof(ub_base), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
-	device_->CreateBuffer(&desc, nullptr, &push_base);
+	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_base));
 	desc.ByteWidth = sizeof(ub_lights);
-	device_->CreateBuffer(&desc, nullptr, &push_lights);
+	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_lights));
 	desc.ByteWidth = sizeof(ub_bones);
-	device_->CreateBuffer(&desc, nullptr, &push_bones);
+	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_bones));
 }
 
 ShaderManagerD3D11::~ShaderManagerD3D11() {

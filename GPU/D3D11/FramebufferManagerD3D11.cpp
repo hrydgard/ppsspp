@@ -104,7 +104,7 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	std::string errorMsg;
 	quadVertexShader_ = CreateVertexShaderD3D11(device_, vscode, strlen(vscode), &bytecode);
 	quadPixelShader_ = CreatePixelShaderD3D11(device_, pscode, strlen(pscode));
-	device_->CreateInputLayout(g_QuadVertexElements, ARRAY_SIZE(g_QuadVertexElements), bytecode.data(), bytecode.size(), &quadInputLayout_);
+	ASSERT_SUCCESS(device_->CreateInputLayout(g_QuadVertexElements, ARRAY_SIZE(g_QuadVertexElements), bytecode.data(), bytecode.size(), &quadInputLayout_));
 
 	// STRIP geometry
 	static const float fsCoord[20] = {
@@ -119,14 +119,14 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	vb.CPUAccessFlags = 0;
 	vb.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	D3D11_SUBRESOURCE_DATA data{ fsCoord };
-	device_->CreateBuffer(&vb, &data, &fsQuadBuffer_);
+	ASSERT_SUCCESS(device_->CreateBuffer(&vb, &data, &fsQuadBuffer_));
 	vb.Usage = D3D11_USAGE_DYNAMIC;
 	vb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	device_->CreateBuffer(&vb, nullptr, &quadBuffer_);
+	ASSERT_SUCCESS(device_->CreateBuffer(&vb, nullptr, &quadBuffer_));
 	vb.ByteWidth = ROUND_UP(sizeof(PostShaderUniforms), 16);
 	vb.Usage = D3D11_USAGE_DYNAMIC;
 	vb.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	device_->CreateBuffer(&vb, nullptr, &postConstants_);
+	ASSERT_SUCCESS(device_->CreateBuffer(&vb, nullptr, &postConstants_));
 
 	ShaderTranslationInit();
 
@@ -142,7 +142,7 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	packDesc.Usage = D3D11_USAGE_STAGING;
 	packDesc.SampleDesc.Count = 1;
 	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	device_->CreateTexture2D(&packDesc, nullptr, &packTexture_);
+	ASSERT_SUCCESS(device_->CreateTexture2D(&packDesc, nullptr, &packTexture_));
 }
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
@@ -280,7 +280,7 @@ void FramebufferManagerD3D11::CompilePostShader() {
 		postVertexShader_->Release();
 		return;
 	}
-	device_->CreateInputLayout(g_PostVertexElements, 2, byteCode.data(), byteCode.size(), &postInputLayout_);
+	ASSERT_SUCCESS(device_->CreateInputLayout(g_PostVertexElements, 2, byteCode.data(), byteCode.size(), &postInputLayout_));
 	usePostShader_ = true;
 }
 
@@ -307,8 +307,8 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 		desc.SampleDesc.Count = 1;
 		desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-		device_->CreateTexture2D(&desc, nullptr, &drawPixelsTex_);
-		device_->CreateShaderResourceView(drawPixelsTex_, nullptr, &drawPixelsTexView_);
+		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &drawPixelsTex_));
+		ASSERT_SUCCESS(device_->CreateShaderResourceView(drawPixelsTex_, nullptr, &drawPixelsTexView_));
 		drawPixelsTexW_ = width;
 		drawPixelsTexH_ = height;
 	}
@@ -458,7 +458,7 @@ void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms)
 	context_->VSSetShader(postVertexShader_, 0, 0);
 
 	D3D11_MAPPED_SUBRESOURCE map;
-	context_->Map(postConstants_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	ASSERT_SUCCESS(context_->Map(postConstants_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map));
 	memcpy(map.pData, &uniforms, sizeof(uniforms));
 	context_->Unmap(postConstants_, 0);
 	context_->VSSetConstantBuffers(0, 1, &postConstants_);  // Probably not necessary
@@ -1026,7 +1026,7 @@ bool FramebufferManagerD3D11::GetFramebuffer(u32 fb_address, int fb_stride, GEBu
 	packDesc.Usage = D3D11_USAGE_STAGING;
 	packDesc.SampleDesc.Count = 1;
 	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	device_->CreateTexture2D(&packDesc, nullptr, &packTex);
+	ASSERT_SUCCESS(device_->CreateTexture2D(&packDesc, nullptr, &packTex));
 
 	ID3D11Texture2D *nativeTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(fboForRead, Draw::FB_COLOR_BIT, 0);
 	context_->CopyResource(packTex, nativeTex);
@@ -1067,7 +1067,7 @@ bool FramebufferManagerD3D11::GetDepthStencilBuffer(VirtualFramebuffer *vfb, GPU
 	packDesc.Usage = D3D11_USAGE_STAGING;
 	packDesc.SampleDesc.Count = 1;
 	packDesc.Format = (DXGI_FORMAT)draw_->GetFramebufferAPITexture(fboForRead, Draw::FB_DEPTH_BIT | Draw::FB_FORMAT_BIT, 0);
-	device_->CreateTexture2D(&packDesc, nullptr, &packTex);
+	ASSERT_SUCCESS(device_->CreateTexture2D(&packDesc, nullptr, &packTex));
 
 	ID3D11Texture2D *nativeTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(fboForRead, Draw::FB_DEPTH_BIT, 0);
 	context_->CopyResource(packTex, nativeTex);
@@ -1147,7 +1147,7 @@ bool FramebufferManagerD3D11::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	packDesc.Usage = D3D11_USAGE_STAGING;
 	packDesc.SampleDesc.Count = 1;
 	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	device_->CreateTexture2D(&packDesc, nullptr, &packTex);
+	ASSERT_SUCCESS(device_->CreateTexture2D(&packDesc, nullptr, &packTex));
 
 	context_->CopyResource(packTex, backbuffer);
 

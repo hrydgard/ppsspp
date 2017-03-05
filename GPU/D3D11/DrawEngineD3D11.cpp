@@ -689,12 +689,12 @@ void DrawEngineD3D11::DoFlush() {
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
 						D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0 };
 						D3D11_SUBRESOURCE_DATA data{ decoded };
-						device_->CreateBuffer(&desc, &data, &vai->vbo);
+						ASSERT_SUCCESS(device_->CreateBuffer(&desc, &data, &vai->vbo));
 						if (useElements) {
 							u32 size = sizeof(short) * indexGen.VertexCount();
 							D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, 0 };
 							D3D11_SUBRESOURCE_DATA data{ decIndex };
-							device_->CreateBuffer(&desc, &data, &vai->ebo);
+							ASSERT_SUCCESS(device_->CreateBuffer(&desc, &data, &vai->ebo));
 						} else {
 							vai->ebo = 0;
 						}
@@ -873,7 +873,7 @@ rotateVBO:
 			auto iter = inputLayoutMap_.find(key);
 			ID3D11InputLayout *layout;
 			if (iter == inputLayoutMap_.end()) {
-				device_->CreateInputLayout(TransformedVertexElements, ARRAY_SIZE(TransformedVertexElements), vshader->bytecode().data(), vshader->bytecode().size(), &layout);
+				ASSERT_SUCCESS(device_->CreateInputLayout(TransformedVertexElements, ARRAY_SIZE(TransformedVertexElements), vshader->bytecode().data(), vshader->bytecode().size(), &layout));
 				inputLayoutMap_[key] = layout;
 			} else {
 				layout = iter->second;
@@ -984,6 +984,7 @@ void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const floa
 			return; // TODO: Turn off HW tessellation if texture creation error occured.
 		}
 		hr = device_->CreateShaderResourceView(data_tex[0], nullptr, &view[0]);
+		ASSERT_SUCCESS(hr);
 		context_->VSSetShaderResources(0, 1, &view[0]);
 	}
 	dstBox.right = size;
