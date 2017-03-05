@@ -52,6 +52,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/PostShader.h"
 
 struct FrameBufferState {
 	u32 topaddr;
@@ -627,8 +628,13 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// some work.
 	// But, let's flip at least once every 10 vblanks, to update fps, etc.
 	const bool noRecentFlip = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && numVBlanksSinceFlip >= 10;
+	// Also let's always flip for animated shaders
+	const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	bool postEffectRequiresFlip = false;
+	if (shaderInfo && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE)
+		postEffectRequiresFlip = g_Config.sPostShaderName != "Off" && shaderInfo->requires60fps;
 	const bool fbDirty = gpu->FramebufferDirty();
-	if (fbDirty || noRecentFlip) {
+	if (fbDirty || noRecentFlip || postEffectRequiresFlip) {
 		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4) {
 			CalculateFPS();
 		}
@@ -636,7 +642,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// Setting CORE_NEXTFRAME causes a swap.
 		// Check first though, might've just quit / been paused.
 		const bool fbReallyDirty = gpu->FramebufferReallyDirty();
-		if (fbReallyDirty || noRecentFlip) {
+		if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
 			if (coreState == CORE_RUNNING) {
 				coreState = CORE_NEXTFRAME;
 				gpu->CopyDisplayToOutput();
