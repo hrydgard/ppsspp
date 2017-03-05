@@ -6,6 +6,7 @@
 #else
 #include "thin3d/d3d11_loader.h"
 #endif
+#include "base/display.h"
 #include "math/dataconv.h"
 #include "util/text/utf8.h"
 
@@ -28,7 +29,7 @@ class D3D11RasterState;
 
 class D3D11DrawContext : public DrawContext {
 public:
-	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, HWND hWnd);
+	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd);
 	~D3D11DrawContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -127,7 +128,12 @@ public:
 	void HandleEvent(Event ev, int width, int height, void *param) override;
 
 private:
+	struct FRect {
+		float x, y, w, h;
+	};
+
 	void ApplyCurrentState();
+	void RotateRectToDisplay(FRect &rect);
 
 	HWND hWnd_;
 	ID3D11Device *device_;
@@ -142,6 +148,11 @@ private:
 
 	ID3D11RenderTargetView *curRenderTargetView_ = nullptr;
 	ID3D11DepthStencilView *curDepthStencilView_ = nullptr;
+	// Needed to rotate stencil/viewport rectangles properly
+	int bbWidth_ = 0;
+	int bbHeight_ = 0;
+	int curRTWidth_ = 0;
+	int curRTHeight_ = 0;
 
 	D3D11Pipeline *curPipeline_ = nullptr;
 	DeviceCaps caps_{};
@@ -167,14 +178,16 @@ private:
 	bool stencilRefDirty_;
 
 	// System info
+	D3D_FEATURE_LEVEL featureLevel_;
 	std::string adapterDesc_;
 };
 
-D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, HWND hWnd)
+D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd)
 	: device_(device),
 		context_(deviceContext1),
 		device1_(device1),
 		context1_(deviceContext1),
+		featureLevel_(featureLevel),
 		hWnd_(hWnd) {
 	caps_.dualSourceBlend = true;
 	caps_.depthRangeMinusOneToOne = false;
@@ -214,10 +227,14 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param)
 		bbDepthStencilView_ = nullptr;
 		bbDepthStencilTex_->Release();
 		bbDepthStencilTex_ = nullptr;
+		curRTWidth_ = 0;
+		curRTHeight_ = 0;
 		break;
 	}
 	case Event::GOT_BACKBUFFER: {
 		bbRenderTargetView_ = (ID3D11RenderTargetView *)param;
+		bbWidth_ = width;
+		bbHeight_ = height;
 
 		// Create matching depth stencil texture. This is not really needed for PPSSPP though,
 		// and probably not for most other renderers either as you're usually rendering to other render targets and
@@ -247,6 +264,39 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param)
 
 		curRenderTargetView_ = bbRenderTargetView_;
 		curDepthStencilView_ = bbDepthStencilView_;
+		curRTWidth_ = width;
+		curRTHeight_ = height;
+		break;
+	}
+	}
+}
+
+void D3D11DrawContext::RotateRectToDisplay(FRect &rect) {
+	if (g_display_rotation == DisplayRotation::ROTATE_0)
+		return;
+	if (curRenderTargetView_ != bbRenderTargetView_)
+		return;  // Only the backbuffer is actually rotated wrong!
+	switch (g_display_rotation) {
+	case DisplayRotation::ROTATE_180:
+		rect.x = curRTWidth_ - rect.w - rect.x;
+		rect.y = curRTHeight_ - rect.h - rect.y;
+		break;
+	case DisplayRotation::ROTATE_90: {
+		// Note that curRTWidth_ and curRTHeight_ are "swapped"!
+		float origX = rect.x;
+		float origY = rect.y;
+		float rtw = curRTHeight_;
+		float rth = curRTWidth_;
+		rect.x = rth - rect.h - origY;
+		rect.y = origX;
+		std::swap(rect.w, rect.h);
+		break;
+	}
+	case DisplayRotation::ROTATE_270: {
+		float origX = rect.x;
+		float origY = rect.y;
+		// TODO
+		std::swap(rect.w, rect.h);
 		break;
 	}
 	}
@@ -255,10 +305,12 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param)
 void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
 	D3D11_VIEWPORT vp[4];
 	for (int i = 0; i < count; i++) {
-		vp[i].TopLeftX = viewports[i].TopLeftX;
-		vp[i].TopLeftY = viewports[i].TopLeftY;
-		vp[i].Width = viewports[i].Width;
-		vp[i].Height = viewports[i].Height;
+		FRect rc{ viewports[i].TopLeftX , viewports[i].TopLeftY, viewports[i].Width, viewports[i].Height };
+		RotateRectToDisplay(rc);
+		vp[i].TopLeftX = rc.x;
+		vp[i].TopLeftY = rc.y;
+		vp[i].Width = rc.w;
+		vp[i].Height = rc.h;
 		vp[i].MinDepth = viewports[i].MinDepth;
 		vp[i].MaxDepth = viewports[i].MaxDepth;
 	}
@@ -266,11 +318,14 @@ void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
 }
 
 void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) {
+	FRect frc{ (float)left, (float)top, (float)width, (float)height };
+	RotateRectToDisplay(frc);
+
 	D3D11_RECT rc{};
-	rc.left = left;
-	rc.top = top;
-	rc.right = left + width;
-	rc.bottom = top + height;
+	rc.left = (INT)frc.x;
+	rc.top = (INT)frc.y;
+	rc.right = (INT)(frc.x + frc.w);
+	rc.bottom = (INT)(frc.y + frc.h);
 	context_->RSSetScissorRects(1, &rc);
 }
 
@@ -663,21 +718,27 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 		return nullptr;
 	}
 
+	const char *vertexModel = "vs_4_0";
+	const char *fragmentModel = "ps_4_0";
+	const char *geometryModel = "gs_4_0";
+	if (featureLevel_ <= D3D_FEATURE_LEVEL_9_3) {
+		vertexModel = "vs_4_0_level_9_1";
+		fragmentModel = "ps_4_0_level_9_1";
+		geometryModel = nullptr;
+	}
+
 	std::string compiled;
 	std::string errors;
 	if (language == ShaderLanguage::HLSL_D3D11) {
 		const char *target = nullptr;
 		switch (stage) {
-#if PPSSPP_PLATFORM(UWP) && PPSSPP_ARCH(ARM)
-		case ShaderStage::FRAGMENT: target = "ps_4_0_level_9_1"; break;
-		case ShaderStage::VERTEX: target = "vs_4_0_level_9_1"; break;
+		case ShaderStage::FRAGMENT: target = fragmentModel; break;
+		case ShaderStage::VERTEX: target = vertexModel; break;
+		case ShaderStage::GEOMETRY:
+			if (!geometryModel)
+				return nullptr;
+			target = geometryModel;
 			break;
-#else
-		case ShaderStage::FRAGMENT: target = "ps_4_0"; break;
-		case ShaderStage::GEOMETRY: target = "gs_4_0"; break;
-		case ShaderStage::VERTEX: target = "vs_4_0"; break;
-			break;
-#endif
 		case ShaderStage::COMPUTE:
 		case ShaderStage::CONTROL:
 		case ShaderStage::EVALUATION:
@@ -1160,6 +1221,8 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
 	context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
 	curRenderTargetView_ = fb->colorRTView;
 	curDepthStencilView_ = fb->depthStencilRTView;
+	curRTWidth_ = fb->width;
+	curRTHeight_ = fb->height;
 }
 
 // color must be 0, for now.
@@ -1176,6 +1239,8 @@ void D3D11DrawContext::BindBackbufferAsRenderTarget() {
 	context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
 	curRenderTargetView_ = bbRenderTargetView_;
 	curDepthStencilView_ = bbDepthStencilView_;
+	curRTWidth_ = bbWidth_;
+	curRTHeight_ = bbHeight_;
 }
 
 uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
@@ -1199,8 +1264,8 @@ void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 	*h = fb->height;
 }
 
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, HWND hWnd) {
-	return new D3D11DrawContext(device, context, device1, context1, hWnd);
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd) {
+	return new D3D11DrawContext(device, context, device1, context1, featureLevel, hWnd);
 }
 
 }  // namespace Draw

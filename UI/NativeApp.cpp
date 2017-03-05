@@ -764,6 +764,10 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		break;
 	}
 
+	if (g_display_rotation != DisplayRotation::ROTATE_0) {
+		ortho = ortho * g_display_rot_matrix;
+	}
+
 	ui_draw2d.SetDrawMatrix(ortho);
 	ui_draw2d_front.SetDrawMatrix(ortho);
 
