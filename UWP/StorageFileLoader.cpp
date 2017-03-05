@@ -13,7 +13,6 @@ using namespace Windows::Storage::Streams;
 std::mutex initMutex;
 
 StorageFileLoader::StorageFileLoader(Windows::Storage::StorageFile ^file) {
-	initMutex.lock();
 	file_ = file;
 	path_ = FromPlatformString(file_->Path);
 	thread_.reset(new std::thread([this]() { this->threadfunc(); }));
@@ -61,10 +60,8 @@ void StorageFileLoader::threadfunc() {
 	}
 	catch (Platform::COMException ^e) {
 		std::string what = FromPlatformString(e->ToString());
-		ILOG("%s", what);
+		ILOG("%s", what.c_str());
 	}
-
-	initMutex.unlock();
 
 	initMutex.unlock();
 

@@ -30,8 +30,7 @@ private:
 	std::shared_ptr<DX::DeviceResources> resources_;
 };
 
-class PPSSPP_UWPMain : public DX::IDeviceNotify
-{
+class PPSSPP_UWPMain : public DX::IDeviceNotify {
 public:
 	PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResources>& deviceResources);
 	~PPSSPP_UWPMain();
@@ -50,6 +49,9 @@ public:
 	void OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp);
 
 	void OnMouseWheel(float delta);
+
+
+	void RotateXYToDisplay(float &x, float &y);
 
 	// Save state fast if we can!
 	void OnSuspend();

@@ -167,8 +167,22 @@ bool PPSSPP_UWPMain::Render() {
 	// Reset the viewport to target the whole screen.
 	auto viewport = m_deviceResources->GetScreenViewport();
 
+	switch (m_deviceResources->ComputeDisplayRotation()) {
+	case DXGI_MODE_ROTATION_IDENTITY: g_display_rotation = DisplayRotation::ROTATE_0; break;
+	case DXGI_MODE_ROTATION_ROTATE90: g_display_rotation = DisplayRotation::ROTATE_90; break;
+	case DXGI_MODE_ROTATION_ROTATE180: g_display_rotation = DisplayRotation::ROTATE_180; break;
+	case DXGI_MODE_ROTATION_ROTATE270: g_display_rotation = DisplayRotation::ROTATE_270; break;
+	}
+	// Not super elegant but hey.
+	memcpy(&g_display_rot_matrix, &m_deviceResources->GetOrientationTransform3D(), sizeof(float) * 16);
+
 	pixel_xres = viewport.Width;
 	pixel_yres = viewport.Height;
+
+	if (g_display_rotation == DisplayRotation::ROTATE_90 || g_display_rotation == DisplayRotation::ROTATE_270) {
+		// We need to swap our width/height.
+		std::swap(pixel_xres, pixel_yres);
+	}
 
 	g_dpi = m_deviceResources->GetDpi();
 	g_dpi_scale = 96.0f / g_dpi;
@@ -235,9 +249,28 @@ void PPSSPP_UWPMain::OnMouseWheel(float delta) {
 	NativeKey(keyInput);
 }
 
+void PPSSPP_UWPMain::RotateXYToDisplay(float &x, float &y) {
+	switch (m_deviceResources->ComputeDisplayRotation()) {
+	case DXGI_MODE_ROTATION_IDENTITY:
+		// Nothing to do here.
+		break;
+	case DXGI_MODE_ROTATION_ROTATE90:
+		// TODO
+		break;
+	case DXGI_MODE_ROTATION_ROTATE180:
+		x = m_deviceResources->GetScreenViewport().Width - x;
+		y = m_deviceResources->GetScreenViewport().Height - y;
+		break;
+	case DXGI_MODE_ROTATION_ROTATE270:
+		// TODO
+		break;
+	}
+}
+
 void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp) {
 	TouchInput input{};
 	input.id = touchId;
+	RotateXYToDisplay(x, y);
 	input.x = x;
 	input.y = y;
 	input.flags = touchEvent;
@@ -269,7 +302,8 @@ void PPSSPP_UWPMain::LoadStorageFile(StorageFile ^file) {
 }
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
-	draw_ = Draw::T3DCreateD3D11Context(resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), 0);
+	draw_ = Draw::T3DCreateD3D11Context(
+		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0);
 }
 
 void UWPGraphicsContext::Shutdown() {

@@ -27,7 +27,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{0d070030-beb5-4f48-99a0-b1777297a468}</ProjectGuid>
+    <ProjectGuid>{01D7D581-09A3-4A26-94BD-A7C529B29329}</ProjectGuid>
     <Keyword>DirectXApp</Keyword>
     <RootNamespace>UWP</RootNamespace>
     <DefaultLanguage>en-US</DefaultLanguage>
