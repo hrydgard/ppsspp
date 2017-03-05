@@ -64,10 +64,10 @@ private:
 	bool nextMapDiscard_ = false;
 };
 
-ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, std::vector<uint8_t> *byteCodeOut, UINT flags = 0);
-ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, UINT flags = 0);
-ID3D11ComputeShader *CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, UINT flags = 0);
-ID3D11GeometryShader *CreateGeometryShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, UINT flags = 0);
+ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, std::vector<uint8_t> *byteCodeOut, D3D_FEATURE_LEVEL featureLevel, UINT flags = 0);
+ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags = 0);
+ID3D11ComputeShader *CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags = 0);
+ID3D11GeometryShader *CreateGeometryShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags = 0);
 
 class StockObjectsD3D11 {
 public:

@@ -19,8 +19,10 @@
 #include <vector>
 #include <cstdint>
 #include <d3d11.h>
+
 #include "Common/CommonTypes.h"
 #include "GPU/ge_constants.h"
+#include "thin3d/thin3d.h"
 
 class DepalShaderD3D11 {
 public:
@@ -43,7 +45,7 @@ public:
 // Caches both shaders and palette textures.
 class DepalShaderCacheD3D11 {
 public:
-	DepalShaderCacheD3D11(ID3D11Device *device, ID3D11DeviceContext *context);
+	DepalShaderCacheD3D11(Draw::DrawContext *draw);
 	~DepalShaderCacheD3D11();
 
 	// This also uploads the palette and binds the correct texture.
@@ -59,6 +61,7 @@ private:
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
+	D3D_FEATURE_LEVEL featureLevel_;
 	ID3D11VertexShader *vertexShader_ = nullptr;
 	ID3D11InputLayout *inputLayout_ = nullptr;
 

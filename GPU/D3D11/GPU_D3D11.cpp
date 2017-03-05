@@ -415,18 +415,19 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	(ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT)) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+	D3D_FEATURE_LEVEL featureLevel = (D3D_FEATURE_LEVEL)draw->GetNativeObject(Draw::NativeObject::FEATURE_LEVEL);
 	lastVsync_ = g_Config.bVSync ? 1 : 0;
 
 	stockD3D11.Create(device_);
 
-	shaderManagerD3D11_ = new ShaderManagerD3D11(device_, context_);
+	shaderManagerD3D11_ = new ShaderManagerD3D11(device_, context_, featureLevel);
 	framebufferManagerD3D11_ = new FramebufferManagerD3D11(draw);
 	framebufferManager_ = framebufferManagerD3D11_;
 	textureCacheD3D11_ = new TextureCacheD3D11(draw);
 	textureCache_ = textureCacheD3D11_;
 	drawEngineCommon_ = &drawEngine_;
 	shaderManager_ = shaderManagerD3D11_;
-	depalShaderCache_ = new DepalShaderCacheD3D11(device_, context_);
+	depalShaderCache_ = new DepalShaderCacheD3D11(draw);
 	drawEngine_.SetShaderManager(shaderManagerD3D11_);
 	drawEngine_.SetTextureCache(textureCacheD3D11_);
 	drawEngine_.SetFramebufferManager(framebufferManagerD3D11_);

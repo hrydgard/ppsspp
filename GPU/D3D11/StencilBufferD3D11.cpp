@@ -169,12 +169,12 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	// TODO: Helper with logging?
 	if (!stencilUploadPS_) {
 		std::string errorMessage;
-		stencilUploadPS_ = CreatePixelShaderD3D11(device_, stencil_ps, strlen(stencil_ps));
+		stencilUploadPS_ = CreatePixelShaderD3D11(device_, stencil_ps, strlen(stencil_ps), featureLevel_);
 	}
 	if (!stencilUploadVS_) {
 		std::string errorMessage;
 		std::vector<uint8_t> byteCode;
-		stencilUploadVS_ = CreateVertexShaderD3D11(device_, stencil_vs, strlen(stencil_vs), &byteCode);
+		stencilUploadVS_ = CreateVertexShaderD3D11(device_, stencil_vs, strlen(stencil_vs), &byteCode, featureLevel_);
 		ASSERT_SUCCESS(device_->CreateInputLayout(g_QuadVertexElements, 2, byteCode.data(), byteCode.size(), &stencilUploadInputLayout_));
 	}
 	if (!stencilValueBuffer_) {

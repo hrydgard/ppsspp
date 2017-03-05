@@ -98,12 +98,13 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	: FramebufferManagerCommon(draw) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+	featureLevel_ = (D3D_FEATURE_LEVEL)draw->GetNativeObject(Draw::NativeObject::FEATURE_LEVEL);
 
 	std::vector<uint8_t> bytecode;
 
 	std::string errorMsg;
-	quadVertexShader_ = CreateVertexShaderD3D11(device_, vscode, strlen(vscode), &bytecode);
-	quadPixelShader_ = CreatePixelShaderD3D11(device_, pscode, strlen(pscode));
+	quadVertexShader_ = CreateVertexShaderD3D11(device_, vscode, strlen(vscode), &bytecode, featureLevel_);
+	quadPixelShader_ = CreatePixelShaderD3D11(device_, pscode, strlen(pscode), featureLevel_);
 	ASSERT_SUCCESS(device_->CreateInputLayout(g_QuadVertexElements, ARRAY_SIZE(g_QuadVertexElements), bytecode.data(), bytecode.size(), &quadInputLayout_));
 
 	// STRIP geometry
@@ -271,11 +272,11 @@ void FramebufferManagerD3D11::CompilePostShader() {
 
 	UINT flags = D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
 	std::vector<uint8_t> byteCode;
-	postVertexShader_ = CreateVertexShaderD3D11(device_, vsSource.data(), vsSource.size(), &byteCode, flags);
+	postVertexShader_ = CreateVertexShaderD3D11(device_, vsSource.data(), vsSource.size(), &byteCode, featureLevel_, flags);
 	if (!postVertexShader_) {
 		return;
 	}
-	postPixelShader_ = CreatePixelShaderD3D11(device_, psSource.data(), psSource.size(), flags);
+	postPixelShader_ = CreatePixelShaderD3D11(device_, psSource.data(), psSource.size(), featureLevel_, flags);
 	if (!postPixelShader_) {
 		postVertexShader_->Release();
 		return;

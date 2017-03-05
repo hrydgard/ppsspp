@@ -133,6 +133,8 @@ public:
 			return (uintptr_t)bbRenderTargetView_;
 		case NativeObject::BACKBUFFER_DEPTH_VIEW:
 			return (uintptr_t)bbDepthStencilView_;
+		case NativeObject::FEATURE_LEVEL:
+			return (uintptr_t)featureLevel_;
 		default:
 			return 0;
 		}

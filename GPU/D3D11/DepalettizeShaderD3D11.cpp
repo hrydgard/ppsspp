@@ -54,11 +54,13 @@ static const D3D11_INPUT_ELEMENT_DESC g_DepalVertexElements[] = {
 	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
 };
 
-DepalShaderCacheD3D11::DepalShaderCacheD3D11(ID3D11Device *device, ID3D11DeviceContext *context)
-		: device_(device), context_(context) {
+DepalShaderCacheD3D11::DepalShaderCacheD3D11(Draw::DrawContext *draw) {
 	std::string errorMessage;
 	std::vector<uint8_t> vsByteCode;
-	vertexShader_ = CreateVertexShaderD3D11(device, depalVShaderHLSL, strlen(depalVShaderHLSL), &vsByteCode);
+	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+	featureLevel_ = (D3D_FEATURE_LEVEL)draw->GetNativeObject(Draw::NativeObject::FEATURE_LEVEL);
+	vertexShader_ = CreateVertexShaderD3D11(device_, depalVShaderHLSL, strlen(depalVShaderHLSL), &vsByteCode, featureLevel_);
 	ASSERT_SUCCESS(device_->CreateInputLayout(g_DepalVertexElements, ARRAY_SIZE(g_DepalVertexElements), vsByteCode.data(), vsByteCode.size(), &inputLayout_));
 }
 
@@ -144,7 +146,7 @@ ID3D11PixelShader *DepalShaderCacheD3D11::GetDepalettizePixelShader(GEPaletteFor
 
 	GenerateDepalShader(buffer, pixelFormat, HLSL_D3D11);
 
-	ID3D11PixelShader *pshader = CreatePixelShaderD3D11(device_, buffer, strlen(buffer));
+	ID3D11PixelShader *pshader = CreatePixelShaderD3D11(device_, buffer, strlen(buffer), featureLevel_);
 
 	if (!pshader) {
 		ERROR_LOG(G3D, "Failed to compile depal pixel shader");

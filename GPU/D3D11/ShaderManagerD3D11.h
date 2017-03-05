@@ -35,7 +35,7 @@ class D3D11PushBuffer;
 
 class D3D11FragmentShader {
 public:
-	D3D11FragmentShader(ID3D11Device *device, ShaderID id, const char *code, bool useHWTransform);
+	D3D11FragmentShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, ShaderID id, const char *code, bool useHWTransform);
 	~D3D11FragmentShader();
 
 	const std::string &source() const { return source_; }
@@ -58,7 +58,7 @@ protected:
 
 class D3D11VertexShader {
 public:
-	D3D11VertexShader(ID3D11Device *device, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting);
+	D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting);
 	~D3D11VertexShader();
 
 	const std::string &source() const { return source_; }
@@ -92,7 +92,7 @@ class D3D11PushBuffer;
 
 class ShaderManagerD3D11 : public ShaderManagerCommon {
 public:
-	ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext *context);
+	ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext *context, D3D_FEATURE_LEVEL featureLevel);
 	~ShaderManagerD3D11();
 
 	void GetShaders(int prim, u32 vertType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, bool useHWTransform);
@@ -126,6 +126,7 @@ private:
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
+	D3D_FEATURE_LEVEL featureLevel_;
 
 	typedef std::map<ShaderID, D3D11FragmentShader *> FSCache;
 	FSCache fsCache_;

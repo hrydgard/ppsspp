@@ -38,11 +38,11 @@
 #include "GPU/D3D11/VertexShaderGeneratorD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
 
-D3D11FragmentShader::D3D11FragmentShader(ID3D11Device *device, ShaderID id, const char *code, bool useHWTransform)
+D3D11FragmentShader::D3D11FragmentShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, ShaderID id, const char *code, bool useHWTransform)
 	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(0) {
 	source_ = code;
 
-	module_ = CreatePixelShaderD3D11(device, code, strlen(code));
+	module_ = CreatePixelShaderD3D11(device, code, strlen(code), featureLevel);
 	if (!module_)
 		failed_ = true;
 }
@@ -63,11 +63,11 @@ std::string D3D11FragmentShader::GetShaderString(DebugShaderStringType type) con
 	}
 }
 
-D3D11VertexShader::D3D11VertexShader(ID3D11Device *device, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting)
+D3D11VertexShader::D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting)
 	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr), usesLighting_(usesLighting) {
 	source_ = code;
 
-	module_ = CreateVertexShaderD3D11(device, code, strlen(code), &bytecode_);
+	module_ = CreateVertexShaderD3D11(device, code, strlen(code), &bytecode_, featureLevel);
 	if (!module_)
 		failed_ = true;
 }
@@ -88,8 +88,8 @@ std::string D3D11VertexShader::GetShaderString(DebugShaderStringType type) const
 	}
 }
 
-ShaderManagerD3D11::ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext *context)
-	: device_(device), context_(context), lastVShader_(nullptr), lastFShader_(nullptr) {
+ShaderManagerD3D11::ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext *context, D3D_FEATURE_LEVEL featureLevel)
+	: device_(device), context_(context), featureLevel_(featureLevel_), lastVShader_(nullptr), lastFShader_(nullptr) {
 	codeBuffer_ = new char[16384];
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
@@ -201,7 +201,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 		// Vertex shader not in cache. Let's compile it.
 		bool usesLighting;
 		GenerateVertexShaderD3D11(VSID, codeBuffer_, &usesLighting);
-		vs = new D3D11VertexShader(device_, VSID, codeBuffer_, vertType, useHWTransform, usesLighting);
+		vs = new D3D11VertexShader(device_, featureLevel_, VSID, codeBuffer_, vertType, useHWTransform, usesLighting);
 		vsCache_[VSID] = vs;
 	} else {
 		vs = vsIter->second;
@@ -213,7 +213,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 	if (fsIter == fsCache_.end()) {
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShaderD3D11(FSID, codeBuffer_);
-		fs = new D3D11FragmentShader(device_, FSID, codeBuffer_, useHWTransform);
+		fs = new D3D11FragmentShader(device_, featureLevel_, FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;

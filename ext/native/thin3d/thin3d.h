@@ -319,6 +319,7 @@ enum class NativeObject {
 	BACKBUFFER_DEPTH_VIEW,
 	BACKBUFFER_COLOR_TEX,
 	BACKBUFFER_DEPTH_TEX,
+	FEATURE_LEVEL,
 };
 
 enum FBColorDepth {

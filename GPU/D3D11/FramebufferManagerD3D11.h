@@ -108,6 +108,7 @@ private:
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
+	D3D_FEATURE_LEVEL featureLevel_;
 
 	// Used by DrawPixels
 	ID3D11Texture2D *drawPixelsTex_ = nullptr;
