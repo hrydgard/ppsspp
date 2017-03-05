@@ -53,6 +53,13 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
 			*num_levels = 1;
 			*fmt = Draw::DataFormat::R8G8B8A8_UNORM;
+			if (!image[0]) {
+				ELOG("WTF");
+				return false;
+			}
+		} else {
+			ELOG("PNG load failed");
+			return false;
 		}
 		break;
 
@@ -87,6 +94,10 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 	DataFormat fmt;
 	if (!LoadTextureLevels(data, dataSize, type, width, height, &num_levels, &fmt, image, &zim_flags)) {
 		return false;
+	}
+
+	if (!image[0]) {
+		Crash();
 	}
 
 	if (num_levels < 0 || num_levels >= 16) {
