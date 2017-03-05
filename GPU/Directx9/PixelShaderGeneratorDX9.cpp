@@ -117,8 +117,9 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 
 	if (enableAlphaTest) {
 		if (lang == HLSL_D3D11) {
-			WRITE(p, "uint roundAndScaleTo255i(float x) { return uint(floor(x * 255.0f + 0.5f)); }\n");
+			WRITE(p, "int roundAndScaleTo255i(float x) { return uint(floor(x * 255.0f + 0.5f)); }\n");
 		} else {
+			// D3D11 level 9 gets to take this path.
 			WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
 		}
 	}
@@ -141,7 +142,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 	if (enableFog) {
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 	}
-	if (lang == HLSL_D3D11 && ((replaceBlend == REPLACE_BLEND_COPY_FBO) || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT))) {
+	if ((lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) && ((replaceBlend == REPLACE_BLEND_COPY_FBO) || gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT))) {
 		WRITE(p, "  float4 pixelPos : SV_POSITION;\n");
 	}
 	WRITE(p, "};\n");
@@ -213,7 +214,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 				doTextureProjection = false;
 			}
 
-			if (lang == HLSL_D3D11) {
+			if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 				if (doTextureProjection) {
 					WRITE(p, "  float4 t = tex.Sample(samp, In.v_texcoord.xy / In.v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
 				} else {
@@ -296,10 +297,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 					}
 				} else {
 					// This means NEVER.  See above.
-					if (lang == HLSL_D3D11)
-						WRITE(p, "  discard;\n");
-					else
-						WRITE(p, "  clip(-1);\n");
+					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
 				}
 			}
 		}
@@ -315,7 +313,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, "  clip(-1);\n");
+					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
 				}
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
@@ -330,7 +328,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 					}
 				}
 				else {
-					WRITE(p, "  clip(-1);\n");
+					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
 				}
 			}
 		}
@@ -369,7 +367,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
 		}
 
-		if (lang == HLSL_D3D11 && replaceBlend == REPLACE_BLEND_COPY_FBO) {
+		if ((lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) && replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			WRITE(p, "  float4 destColor = fboTex.Load(int3((int)In.pixelPos.x, (int)In.pixelPos.y, 0));\n");
 
 			const char *srcFactor = "float3(1.0)";
@@ -439,7 +437,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
 		switch (replaceAlphaWithStencilType) {
 		case STENCIL_VALUE_UNIFORM:
-			replacedAlpha = lang == HLSL_D3D11 ? "u_fogcoef_stencilreplace.z" : "u_stencilReplaceValue";
+			replacedAlpha = (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) ? "u_fogcoef_stencilreplace.z" : "u_stencilReplaceValue";
 			break;
 
 		case STENCIL_VALUE_ZERO:
@@ -512,7 +510,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 		WRITE(p, "  outfragment.depth = z;\n");
 	}
 
-	if (lang == HLSL_D3D11) {
+	if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
 			WRITE(p, "  outfragment.target = float4(v.rgb, %s);\n", replacedAlpha.c_str());
 			WRITE(p, "  outfragment.target1 = float4(0.0, 0.0, 0.0, v.a);\n");

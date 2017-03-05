@@ -79,7 +79,6 @@ HRESULT D3D11Context::CreateTheDevice() {
 		if (SUCCEEDED(hr))
 			break;
 	}
-
 	return hr;
 }
 

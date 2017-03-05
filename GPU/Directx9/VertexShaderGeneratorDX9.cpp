@@ -264,7 +264,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 
 	// Hardware tessellation
 	if (doSpline || doBezier) {
-		if (lang == HLSL_D3D11) {
+		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 			WRITE(p, "Texture1D<float3> u_tess_pos_tex : register(t0);\n");
 			WRITE(p, "Texture1D<float3> u_tess_tex_tex : register(t1);\n");
 			WRITE(p, "Texture1D<float4> u_tess_col_tex : register(t2);\n");
@@ -367,7 +367,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		if (enableFog) {
 			WRITE(p, "  Out.v_fogdepth = In.position.w;\n");
 		}
-		if (lang == HLSL_D3D11) {
+		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 			if (gstate.isModeThrough()) {
 				WRITE(p, "  Out.gl_Position = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
 			} else {
@@ -528,7 +528,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 			}
 
 #else
-			if (lang == HLSL_D3D11) {
+			if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 				if (numBoneWeights == 1)
 					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1, u_bone[0])");
 				else
@@ -571,7 +571,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 
 		WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
 
-		if (lang == HLSL_D3D11) {
+		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 			// Final view and projection transforms.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(u_proj, viewPos));\n");
@@ -795,7 +795,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 
 		// Compute fogdepth
 		if (enableFog) {
-			if (lang == HLSL_D3D11) {
+			if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 				WRITE(p, "  Out.v_fogdepth = (viewPos.z + u_fogcoef_stencilreplace.x) * u_fogcoef_stencilreplace.y;\n");
 			} else {
 				WRITE(p, "  Out.v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");

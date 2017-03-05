@@ -200,7 +200,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 	if (vsIter == vsCache_.end()) {
 		// Vertex shader not in cache. Let's compile it.
 		bool usesLighting;
-		GenerateVertexShaderD3D11(VSID, codeBuffer_, &usesLighting);
+		GenerateVertexShaderD3D11(VSID, codeBuffer_, &usesLighting, featureLevel_ <= D3D_FEATURE_LEVEL_9_3 ? HLSL_D3D11_LEVEL9 : HLSL_D3D11);
 		vs = new D3D11VertexShader(device_, featureLevel_, VSID, codeBuffer_, vertType, useHWTransform, usesLighting);
 		vsCache_[VSID] = vs;
 	} else {
@@ -212,7 +212,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 	D3D11FragmentShader *fs;
 	if (fsIter == fsCache_.end()) {
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShaderD3D11(FSID, codeBuffer_);
+		GenerateFragmentShaderD3D11(FSID, codeBuffer_, featureLevel_ <= D3D_FEATURE_LEVEL_9_3 ? HLSL_D3D11_LEVEL9 : HLSL_D3D11);
 		fs = new D3D11FragmentShader(device_, featureLevel_, FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {
