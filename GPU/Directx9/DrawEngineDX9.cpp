@@ -783,7 +783,17 @@ rotateVBO:
 			device_->SetVertexDeclaration(pHardwareVertexDecl);
 			if (vb_ == NULL) {
 				if (useElements) {
+					if (gstate_c.bezier || gstate_c.spline) {
+						// Instanced rendering for instanced tessellation.
+						device_->SetStreamSourceFreq(0, D3DSTREAMSOURCE_INDEXEDDATA | numPatches);
+						device_->SetStreamSource(1, pInstanceBuffer, 0, sizeof(float) * 1);
+						device_->SetStreamSourceFreq(1, D3DSTREAMSOURCE_INSTANCEDATA | 1UL);
+					}
 					device_->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex + 1, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+					if (gstate_c.bezier || gstate_c.spline) {
+						device_->SetStreamSourceFreq(0, 1);
+						device_->SetStreamSourceFreq(1, 1);
+					}
 				} else {
 					device_->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
 				}
@@ -924,6 +934,8 @@ bool DrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
 }
 
 void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
+	D3DLOCKED_RECT rect;
+
 	// Position
 	if (prevSize < size) {
 		if (data_tex[0]) {
@@ -939,16 +951,10 @@ void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * 
 		prevSize = size;
 		gstate_c.curve_tex_width[0] = size;
 	}
-	{ // TODO:
-		D3DLOCKED_RECT rect;
-		data_tex[0]->LockRect(0, &rect, NULL, 0);
-		float *dst = (float *)rect.pBits;
-		for (int i = 0; i < size; i++) {
-			memcpy(dst, &pos[i * 3], sizeof(float) * 3);
-			dst += 4;
-		}
-		data_tex[0]->UnlockRect(0);
-	}
+	data_tex[0]->LockRect(0, &rect, NULL, 0);
+	for (int i = 0; i < size; i++)
+		memcpy((float *)rect.pBits + i * 4, &pos[i * 3], sizeof(float) * 3);
+	data_tex[0]->UnlockRect(0);
 
 	// Texcoords
 	if (hasTexCoords) {
@@ -966,16 +972,10 @@ void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * 
 			prevSizeTex = size;
 			gstate_c.curve_tex_width[1] = size;
 		}
-		{ // TODO:
-			D3DLOCKED_RECT rect;
-			data_tex[1]->LockRect(0, &rect, NULL, 0);
-			float *dst = (float *)rect.pBits;
-			for (int i = 0; i < size; i++) {
-				memcpy(dst, &tex[i * 3], sizeof(float) * 3);
-				dst += 4;
-			}
-			data_tex[1]->UnlockRect(0);
-		}
+		data_tex[1]->LockRect(0, &rect, NULL, 0);
+		for (int i = 0; i < size; i++)
+			memcpy((float *)rect.pBits + i * 4, &tex[i * 3], sizeof(float) * 3);
+		data_tex[1]->UnlockRect(0);
 	}
 
 	// Color
@@ -994,13 +994,9 @@ void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * 
 		prevSizeCol = sizeColor;
 		gstate_c.curve_tex_width[2] = sizeColor;
 	}
-	{ // TODO:
-		D3DLOCKED_RECT rect;
-		data_tex[2]->LockRect(0, &rect, NULL, 0);
-		float *dst = (float *)rect.pBits;
-		memcpy(dst, col, sizeof(float) * 4 * sizeColor);
-		data_tex[2]->UnlockRect(0);
-	}
+	data_tex[2]->LockRect(0, &rect, NULL, 0);
+	memcpy(rect.pBits, col, sizeof(float) * 4 * sizeColor);
+	data_tex[2]->UnlockRect(0);
 }
 
 }  // namespace

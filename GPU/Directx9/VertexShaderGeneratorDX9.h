@@ -62,5 +62,4 @@ namespace DX9 {
 #define CONST_VS_SPLINETYPEU 86
 #define CONST_VS_SPLINETYPEV 87
 #define CONST_VS_TEXWIDTH 88
-
 };
