@@ -1126,6 +1126,10 @@ bool FramebufferManagerD3D11::GetStencilbuffer(u32 fb_address, int fb_stride, GP
 
 bool FramebufferManagerD3D11::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	ID3D11Texture2D *backbuffer = (ID3D11Texture2D *)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_COLOR_TEX);
+	if (!backbuffer) {
+		ERROR_LOG(G3D, "Failed to get backbuffer from draw context");
+		return false;
+	}
 	D3D11_TEXTURE2D_DESC desc;
 	backbuffer->GetDesc(&desc);
 	int w = desc.Width;

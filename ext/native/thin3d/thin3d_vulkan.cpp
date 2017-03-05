@@ -413,7 +413,7 @@ public:
 		return 0;
 	}
 
-	void HandleEvent(Event ev, int width, int height, void *param) override;
+	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
 private:
 	void ApplyDynamicState();
@@ -1316,7 +1316,7 @@ void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	*h = fb->height;
 }
 
-void VKContext::HandleEvent(Event ev, int width, int height, void *param) {
+void VKContext::HandleEvent(Event ev, int width, int height, void *param1, void *param2) {
 	// Noop
 }
 

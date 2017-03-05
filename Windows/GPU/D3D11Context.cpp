@@ -216,7 +216,7 @@ void D3D11Context::GotBackbuffer() {
 	hr = device_->CreateRenderTargetView(bbRenderTargetTex_, nullptr, &bbRenderTargetView_);
 	if (FAILED(hr))
 		return;
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, bbRenderTargetView_);
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, bbRenderTargetView_, bbRenderTargetTex_);
 }
 
 void D3D11Context::Resize() {

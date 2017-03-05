@@ -126,7 +126,7 @@ public:
 		case NativeObject::CONTEXT_EX:
 			return (uintptr_t)context1_;
 		case NativeObject::BACKBUFFER_COLOR_TEX:
-			return (uintptr_t)0;
+			return (uintptr_t)bbRenderTargetTex_;
 		case NativeObject::BACKBUFFER_DEPTH_TEX:
 			return (uintptr_t)bbDepthStencilTex_;
 		case NativeObject::BACKBUFFER_COLOR_VIEW:
@@ -140,7 +140,7 @@ public:
 		}
 	}
 
-	void HandleEvent(Event ev, int width, int height, void *param) override;
+	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
 private:
 	struct FRect {
@@ -156,6 +156,7 @@ private:
 	ID3D11Device1 *device1_;
 	ID3D11DeviceContext1 *context1_;
 
+	ID3D11Texture2D *bbRenderTargetTex_ = nullptr; // NOT OWNED
 	ID3D11RenderTargetView *bbRenderTargetView_ = nullptr;
 	// Strictly speaking we don't need a depth buffer for the backbuffer.
 	ID3D11Texture2D *bbDepthStencilTex_ = nullptr;
@@ -229,7 +230,7 @@ D3D11DrawContext::~D3D11DrawContext() {
 	context_->PSSetShaderResources(0, 2, srv);
 }
 
-void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param) {
+void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1, void *param2) {
 	switch (ev) {
 	case Event::LOST_BACKBUFFER: {
 		if (curRenderTargetView_ == bbRenderTargetView_ || curDepthStencilView_ == bbDepthStencilView_) {
@@ -247,7 +248,8 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param)
 		break;
 	}
 	case Event::GOT_BACKBUFFER: {
-		bbRenderTargetView_ = (ID3D11RenderTargetView *)param;
+		bbRenderTargetView_ = (ID3D11RenderTargetView *)param1;
+		bbRenderTargetTex_ = (ID3D11Texture2D *)param2;
 		bbWidth_ = width;
 		bbHeight_ = height;
 
