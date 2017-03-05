@@ -207,9 +207,9 @@ void *AllocateExecutableMemory(size_t size) {
 
 void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 	size = round_page(size);
+#ifdef _WIN32
 	if (sys_info.dwPageSize == 0)
 		GetSystemInfo(&sys_info);
-#ifdef _WIN32
 	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
 #if PPSSPP_PLATFORM(UWP)
 	void* ptr = VirtualAllocFromApp(0, size, MEM_COMMIT, protect);
