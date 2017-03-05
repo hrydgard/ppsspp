@@ -190,7 +190,13 @@ bool PPSSPP_UWPMain::Render() {
 	}
 
 	g_dpi = m_deviceResources->GetDpi();
-	g_dpi_scale = 96.0f / g_dpi;
+
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		// Boost DPI a bit to look better.
+		g_dpi_scale = 120.0f / g_dpi;
+	} else {
+		g_dpi_scale = 96.0f / g_dpi;
+	}
 
 	pixel_in_dps = 1.0f / g_dpi_scale;
 
@@ -276,8 +282,8 @@ void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y,
 	TouchInput input{};
 	input.id = touchId;
 	RotateXYToDisplay(x, y);
-	input.x = x;
-	input.y = y;
+	input.x = x * pixel_in_dps;
+	input.y = y * pixel_in_dps;
 	input.flags = touchEvent;
 	input.timestamp = timestamp;
 	NativeTouch(input);
@@ -348,7 +354,12 @@ int System_GetPropertyInt(SystemProperty prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
+		// TODO: Detect touch screen instead.
+#ifdef _M_ARM
+		return DEVICE_TYPE_MOBILE;
+#else
 		return DEVICE_TYPE_DESKTOP;
+#endif
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
 	default:
