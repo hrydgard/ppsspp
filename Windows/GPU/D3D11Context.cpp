@@ -52,10 +52,15 @@ HRESULT D3D11Context::CreateTheDevice() {
 	const UINT numDriverTypes = ARRAYSIZE(driverTypes);
 
 	static const D3D_FEATURE_LEVEL featureLevels[] = {
+		D3D_FEATURE_LEVEL_12_1,
+		D3D_FEATURE_LEVEL_12_0,
 		D3D_FEATURE_LEVEL_11_1,
 		D3D_FEATURE_LEVEL_11_0,
 		D3D_FEATURE_LEVEL_10_1,
 		D3D_FEATURE_LEVEL_10_0,
+		D3D_FEATURE_LEVEL_9_3,
+		D3D_FEATURE_LEVEL_9_2,
+		D3D_FEATURE_LEVEL_9_1,
 	};
 	const UINT numFeatureLevels = ARRAYSIZE(featureLevels);
 
@@ -68,7 +73,7 @@ HRESULT D3D11Context::CreateTheDevice() {
 
 		if (hr == E_INVALIDARG) {
 			// DirectX 11.0 platforms will not recognize D3D_FEATURE_LEVEL_11_1 so we need to retry without it
-			hr = ptr_D3D11CreateDevice(nullptr, driverType_, nullptr, createDeviceFlags, (D3D_FEATURE_LEVEL *)&featureLevels[1], numFeatureLevels - 1,
+			hr = ptr_D3D11CreateDevice(nullptr, driverType_, nullptr, createDeviceFlags, (D3D_FEATURE_LEVEL *)&featureLevels[3], numFeatureLevels - 3,
 				D3D11_SDK_VERSION, &device_, &featureLevel_, &context_);
 		}
 		if (SUCCEEDED(hr))
@@ -143,7 +148,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 #endif
 
-	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, hWnd_);
+	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_);
 
 	int width;
 	int height;

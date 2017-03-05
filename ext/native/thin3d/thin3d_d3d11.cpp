@@ -10,6 +10,7 @@
 #include "math/dataconv.h"
 #include "util/text/utf8.h"
 
+#include <D3DCommon.h>
 #include <d3d11.h>
 #include <d3d11_1.h>
 #include <d3dcompiler.h>
@@ -92,11 +93,23 @@ public:
 
 	std::string GetInfoString(InfoField info) const override {
 		switch (info) {
-		case APIVERSION: return "Direct3D 11.0";
+		case APIVERSION: return "Direct3D 11";
 		case VENDORSTRING: return "N/A";
 		case VENDOR: return "-";
 		case RENDERER: return adapterDesc_;
-		case SHADELANGVERSION: return "HLSL 5";
+		case SHADELANGVERSION:
+			switch (featureLevel_) {
+			case D3D_FEATURE_LEVEL_9_1: return "Feature Level 9.1"; break;
+			case D3D_FEATURE_LEVEL_9_2: return "Feature Level 9.2"; break;
+			case D3D_FEATURE_LEVEL_9_3: return "Feature Level 9.3"; break;
+			case D3D_FEATURE_LEVEL_10_0: return "Feature Level 10.0"; break;
+			case D3D_FEATURE_LEVEL_10_1: return "Feature Level 10.1"; break;
+			case D3D_FEATURE_LEVEL_11_0: return "Feature Level 11.0"; break;
+			case D3D_FEATURE_LEVEL_11_1: return "Feature Level 11.1"; break;
+			case D3D_FEATURE_LEVEL_12_0: return "Feature Level 12.0"; break;
+			case D3D_FEATURE_LEVEL_12_1: return "Feature Level 12.1"; break;
+			}
+			return "Unknown feature level";
 		case APINAME: return "Direct3D 11";
 		default: return "?";
 		}
