@@ -430,6 +430,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		desc.FillMode = D3D11_FILL_SOLID;
 		desc.ScissorEnable = TRUE;
 		desc.FrontCounterClockwise = TRUE;
+		desc.DepthClipEnable = TRUE;
 		device_->CreateRasterizerState(&desc, &rs);
 		rasterCache_.insert(std::pair<uint32_t, ID3D11RasterizerState *>(keys_.raster.value, rs));
 	} else {
