@@ -18,7 +18,7 @@
 #pragma once
 
 #include <vector>
-#include <stdint.h>
+#include <cstdint>
 
 #include "Common.h"
 #include "ArmCommon.h"

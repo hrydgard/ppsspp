@@ -1,5 +1,9 @@
 #include "thin3d/d3d11_loader.h"
 
+#if PPSSPP_PLATFORM(UWP)
+#error This file should not be compiled for UWP.
+#endif
+
 static HMODULE g_DXGIModule;
 static HMODULE g_D3D11Module;
 static HMODULE g_D3DCompileModule;

@@ -15,8 +15,11 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include "ppsspp_config.h"
+
 #include "Common.h" // Local
 #include "StringUtils.h"
+#include "base/logging.h"
 #include "util/text/utf8.h"
 #include <string>
 
@@ -76,6 +79,9 @@ bool MsgHandler(const char* caption, const char* text, bool yes_no, int Style)
 	std::wstring wcaption = ConvertUTF8ToWString(caption);
 
 	return IDYES == MessageBox(0, wtext.c_str(), wcaption.c_str(), STYLE | (yes_no ? MB_YESNO : MB_OK));
+#elif PPSSPP_PLATFORM(UWP)
+	OutputDebugStringUTF8(text);
+	return true;
 #else
 	printf("%s\n", text);
 	return true;

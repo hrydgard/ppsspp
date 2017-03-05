@@ -156,7 +156,7 @@ namespace MIPSComp
 			} else {
 				fpr.MapRegV(vregs[i], MAP_DIRTY | MAP_NOINIT);
 				fpr.SpillLockV(vregs[i]);
-				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], SCRATCHREG1, (bool)negate);
+				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], SCRATCHREG1, negate != 0);
 			}
 		}
 	}
@@ -653,7 +653,7 @@ namespace MIPSComp
 		VectorSize sz = GetVecSize(op);
 
 		// TODO: Force read one of them into regs? probably not.
-		u8 sregs[4], tregs[4], dregs[1];
+		u8 sregs[4], dregs[1];
 		GetVectorRegsPrefixS(sregs, sz, vs);
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 

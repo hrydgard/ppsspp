@@ -21,7 +21,7 @@ class Matrix4x4;
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-
+#include <d3dcommon.h>
 struct IDirect3DDevice9;
 struct IDirect3D9;
 struct IDirect3DDevice9Ex;
@@ -664,7 +664,7 @@ extern const UniformBufferDesc UBPresetDesc;
 
 #ifdef _WIN32
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, HWND hWnd);
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd);
 #endif
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *context);

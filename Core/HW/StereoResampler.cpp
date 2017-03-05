@@ -152,7 +152,7 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 			samples[currentSample + 1] = r1;
 			indexR += 2;
 		}
-		sample_rate_ = sample_rate;
+		sample_rate_ = (float)sample_rate;
 	} else {
 		// Drift prevention mechanism
 		float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);
@@ -161,7 +161,7 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 		if (offset > MAX_FREQ_SHIFT) offset = MAX_FREQ_SHIFT;
 		if (offset < -MAX_FREQ_SHIFT) offset = -MAX_FREQ_SHIFT;
 
-		sample_rate_ = m_input_sample_rate + offset;
+		sample_rate_ = (float)(m_input_sample_rate + offset);
 		const u32 ratio = (u32)(65536.0 * sample_rate_ / (double)sample_rate);
 
 		// TODO: consider a higher-quality resampling algorithm.
@@ -248,7 +248,7 @@ void StereoResampler::GetAudioDebugStats(AudioDebugStats *stats) {
 	overrunCount_ = 0;
 	stats->watermark = m_lowwatermark;
 	stats->bufsize = m_bufsize * 2;
-	stats->instantSampleRate = sample_rate_;
+	stats->instantSampleRate = (int)sample_rate_;
 	stats->lastPushSize = lastPushSize_;
 }
 
