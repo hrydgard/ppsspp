@@ -216,15 +216,17 @@ const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u3
 }
 
 bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
+	if (!gpuDebug) {
+		ERROR_LOG(COMMON, "Can't take screenshots when GPU not running");
+		return false;
+	}
 	GPUDebugBuffer buf;
 	bool success = false;
 	u32 w = (u32)-1;
 	u32 h = (u32)-1;
 
 	if (type == SCREENSHOT_DISPLAY || type == SCREENSHOT_RENDER) {
-		if (gpuDebug) {
-			success = gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes);
-		}
+		success = gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes);
 
 		// Only crop to the top left when using a render screenshot.
 		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
