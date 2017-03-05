@@ -108,7 +108,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	g_Config.bSeparateCPUThread = false;
 
 #ifdef _DEBUG
-	g_Config.bEnableLogging = true;
+	g_Config.bEnableLogging = false;
 #endif
 
 	LogManager::Init();
