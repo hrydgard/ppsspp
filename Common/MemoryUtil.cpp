@@ -120,10 +120,10 @@ void *AllocateExecutableMemory(size_t size) {
 	DWORD prot = PAGE_EXECUTE_READWRITE;
 	if (PlatformIsWXExclusive())
 		prot = PAGE_READWRITE;
+	if (sys_info.dwPageSize == 0)
+		GetSystemInfo(&sys_info);
 #if defined(_M_X64)
 	if ((uintptr_t)&hint_location > 0xFFFFFFFFULL) {
-		if (sys_info.dwPageSize == 0)
-			GetSystemInfo(&sys_info);
 
 		size_t aligned_size = round_page(size);
 		ptr = SearchForFreeMem(aligned_size);
@@ -142,7 +142,11 @@ void *AllocateExecutableMemory(size_t size) {
 	else
 #endif
 	{
+#if PPSSPP_PLATFORM(UWP)
+		ptr = VirtualAllocFromApp(0, size, MEM_RESERVE | MEM_COMMIT, prot);
+#else
 		ptr = VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, prot);
+#endif
 	}
 #else
 	static char *map_hint = 0;
@@ -202,9 +206,15 @@ void *AllocateExecutableMemory(size_t size) {
 
 void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 	size = round_page(size);
+	if (sys_info.dwPageSize == 0)
+		GetSystemInfo(&sys_info);
 #ifdef _WIN32
 	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
+#if PPSSPP_PLATFORM(UWP)
+	void* ptr = VirtualAllocFromApp(0, size, MEM_COMMIT, protect);
+#else
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, protect);
+#endif
 	if (!ptr)
 		PanicAlert("Failed to allocate raw memory");
 #else
