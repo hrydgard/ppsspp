@@ -295,7 +295,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	setCurrentThreadName("Main");
 
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
-	net::Init();
+
+	// Windows, API init stuff
+	INITCOMMONCONTROLSEX comm;
+	comm.dwSize = sizeof(comm);
+	comm.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_TAB_CLASSES;
+	InitCommonControlsEx(&comm);
+
+	EnableCrashingOnCrashes();
+
 #ifdef _DEBUG
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
@@ -305,8 +313,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
 	_set_FMA3_enable(0);
 #endif
-
-	EnableCrashingOnCrashes();
 
 #ifndef _DEBUG
 	bool showLog = false;
@@ -434,12 +440,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	if (debugLogLevel)
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
 
-	// Windows, API init stuff
-	INITCOMMONCONTROLSEX comm;
-	comm.dwSize = sizeof(comm);
-	comm.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_TAB_CLASSES;
-	InitCommonControlsEx(&comm);
-	timeBeginPeriod(1);
+	timeBeginPeriod(1);  // TODO: Evaluate if this makes sense to keep.
+
 	MainWindow::Init(_hInstance);
 
 	g_hPopupMenus = LoadMenu(_hInstance, (LPCWSTR)IDR_POPUPMENUS);
@@ -521,6 +523,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	VFSShutdown();
 
 	InputDevice::StopPolling();
+
+	// The emuthread calls NativeShutdown when shutting down.
 	EmuThread_Stop();
 
 	MainWindow::DestroyDebugWindows();
@@ -528,14 +532,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	timeEndPeriod(1);
 	delete host;
 
-	g_Config.Save();
 	LogManager::Shutdown();
 
 	if (g_Config.bRestartRequired) {
 		W32Util::ExitAndRestart();
 	}
 
-	net::Shutdown();
 	CoUninitialize();
 
 	return 0;

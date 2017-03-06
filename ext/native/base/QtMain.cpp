@@ -443,7 +443,6 @@ int main(int argc, char *argv[])
 	pixel_yres = res.height();
 	g_dpi_scale = CalculateDPIScale();
 	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
-	net::Init();
 	std::string savegame_dir = ".";
 	std::string assets_dir = ".";
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
@@ -469,7 +468,6 @@ int main(int argc, char *argv[])
 	SDL_CloseAudio();
 #endif
 	NativeShutdown();
-	net::Shutdown();
 	return ret;
 }
 

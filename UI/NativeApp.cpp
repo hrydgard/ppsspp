@@ -48,6 +48,7 @@
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "net/http_client.h"
+#include "net/resolve.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx/gl_lost_manager.h"
@@ -298,6 +299,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
 	monstartup("ppsspp_jni.so");
 #endif
+
+	net::Init();
 
 	InitFastMath(cpu_info.bNEON);
 	SetupAudioFormats();
@@ -1038,9 +1041,8 @@ void NativeShutdown() {
 	delete host;
 	host = 0;
 	g_Config.Save();
-#ifndef _WIN32
 	LogManager::Shutdown();
-#endif
+
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();
 #endif
@@ -1048,15 +1050,14 @@ void NativeShutdown() {
 	ILOG("NativeShutdown called");
 
 	System_SendMessage("finish", "");
+
+	net::Shutdown();
+
 	// This means that the activity has been completely destroyed. PPSSPP does not
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	exit(0);
-#endif
-
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	RemoveFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
 #endif
 }
 

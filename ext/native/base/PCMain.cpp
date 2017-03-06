@@ -428,8 +428,6 @@ int main(int argc, char *argv[]) {
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_name_nice, &landscape, &version);
 
-	net::Init();
-
 	bool joystick_enabled = true;
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) < 0) {
 		joystick_enabled = false;
@@ -930,7 +928,6 @@ int main(int argc, char *argv[]) {
 #endif
 	SDL_GL_DeleteContext(glContext);
 	SDL_Quit();
-	net::Shutdown();
 #if PPSSPP_PLATFORM(RPI)
 	bcm_host_deinit();
 #endif
