@@ -1088,16 +1088,17 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
-	//sanity checks
+	//Conform to HTTP standards
 	for (size_t i = 0; i < g_Config.sRemoteISOSubdir.length(); i++)
 	{
 		if (g_Config.sRemoteISOSubdir[i] == ' ') g_Config.sRemoteISOSubdir[i] = '+';
 		if (g_Config.sRemoteISOSubdir[i] == '\\') g_Config.sRemoteISOSubdir[i] = '/';
 		if (g_Config.sRemoteISOSubdir[i] == '?') {
-			g_Config.sRemoteISOSubdir.erase(i); //truncate
+			g_Config.sRemoteISOSubdir.erase(i); //truncate for safety
 			break;
 		}
 	}
+	//Make sure it begins and ends with /
 	if (g_Config.sRemoteISOSubdir[0] != '/')
 		g_Config.sRemoteISOSubdir = "/" + g_Config.sRemoteISOSubdir;
 	if (g_Config.sRemoteISOSubdir[g_Config.sRemoteISOSubdir.length() - 1] != '/')

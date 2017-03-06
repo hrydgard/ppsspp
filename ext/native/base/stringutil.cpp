@@ -279,7 +279,7 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 	}
 }
 
-void FindQuotedStrings(const std::string& str, std::vector<std::string>& output)
+void GetQuotedStrings(const std::string& str, std::vector<std::string>& output)
 {
 	size_t next = 0;
 	bool even = 0;
