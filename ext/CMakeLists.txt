@@ -7,4 +7,4 @@ set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "let's not build binaries we don't ne
 add_subdirectory(glslang)
 add_subdirectory(snappy)
 add_subdirectory(udis86)
-add_subdirectory(SPIRV-Cross)
+add_subdirectory(SPIRV-Cross-build)
