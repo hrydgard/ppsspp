@@ -434,7 +434,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	if (debugLogLevel)
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
 
-	//Windows, API init stuff
+	// Windows, API init stuff
 	INITCOMMONCONTROLSEX comm;
 	comm.dwSize = sizeof(comm);
 	comm.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_TAB_CLASSES;
