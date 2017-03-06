@@ -206,6 +206,8 @@ public:
 		return PSP_CoreParameter().compat.flags().FakeMipmapChange && gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST;
 	}
 
+	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) { return false; }
+
 protected:
 	virtual void BindTexture(TexCacheEntry *entry) = 0;
 	virtual void Unbind() = 0;

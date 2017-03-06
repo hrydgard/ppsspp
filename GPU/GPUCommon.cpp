@@ -2149,3 +2149,7 @@ bool GPUCommon::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 bool GPUCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	return framebufferManager_->GetOutputFramebuffer(buffer);
 }
+
+bool GPUCommon::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
+	return textureCache_->GetCurrentTextureDebug(buffer, level);
+}

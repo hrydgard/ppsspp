@@ -1054,10 +1054,7 @@ bool GPU_D3D11::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	if (!gstate.isTextureMapEnabled()) {
 		return false;
 	}
-
-	// TODO: Implement!
-
-	return false;
+	return textureCacheD3D11_->GetCurrentTextureDebug(buffer, level);
 }
 
 bool GPU_D3D11::GetCurrentClut(GPUDebugBuffer &buffer) {

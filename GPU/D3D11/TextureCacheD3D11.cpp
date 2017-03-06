@@ -769,3 +769,48 @@ bool TextureCacheD3D11::DecodeTexture(u8 *output, const GPUgstate &state) {
 	OutputDebugStringA("TextureCache::DecodeTexture : FixMe\r\n");
 	return true;
 }
+
+bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
+	ApplyTexture();
+	SetTexture(false);
+	if (!nextTexture_)
+		return false;
+
+	ID3D11Texture2D *texture = (ID3D11Texture2D *)nextTexture_->texturePtr;
+	if (!texture)
+		return false;
+
+	D3D11_TEXTURE2D_DESC desc;
+	texture->GetDesc(&desc);
+
+	if (desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
+		// TODO: Support the other formats
+		return false;
+	}
+
+	desc.BindFlags = 0;
+	desc.Usage = D3D11_USAGE_STAGING;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+
+	ID3D11Texture2D *stagingCopy = nullptr;
+	device_->CreateTexture2D(&desc, nullptr, &stagingCopy);
+	context_->CopyResource(stagingCopy, texture);
+
+	int width = desc.Width >> level;
+	int height = desc.Height >> level;
+	buffer.Allocate(width, height, GPU_DBG_FORMAT_8888);
+
+	D3D11_MAPPED_SUBRESOURCE map;
+	if (FAILED(context_->Map(stagingCopy, level, D3D11_MAP_READ, 0, &map))) {
+		stagingCopy->Release();
+		return false;
+	}
+
+	for (int y = 0; y < height; y++) {
+		memcpy(buffer.GetData() + 4 * width * y, (const uint8_t *)map.pData + map.RowPitch * y, 4 * width);
+	}
+
+	context_->Unmap(stagingCopy, level);
+	stagingCopy->Release();
+	return true;
+}

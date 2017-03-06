@@ -165,6 +165,7 @@ public:
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) override;
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
 	std::vector<DisplayList> ActiveDisplayLists() override;
