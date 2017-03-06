@@ -155,11 +155,11 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	const u32 prim_type = (op >> 16) & 0x7;
 	int count = op & 0xFFFF;
 	if (prim_type >= 7) {
-		ERROR_LOG(COMMON, "Unsupported prim type: %x", op);
+		ERROR_LOG(G3D, "Unsupported prim type: %x", op);
 		return;
 	}
 	if (!gpuDebug) {
-		ERROR_LOG(COMMON, "Invalid debugging environment, shutting down?");
+		ERROR_LOG(G3D, "Invalid debugging environment, shutting down?");
 		return;
 	}
 	if (count == 0) {
@@ -171,7 +171,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	static std::vector<u16> indices;
 
 	if (!gpuDebug->GetCurrentSimpleVertices(count, vertices, indices)) {
-		ERROR_LOG(COMMON, "Vertex preview not yet supported");
+		ERROR_LOG(G3D, "Vertex preview not yet supported");
 		return;
 	}
 

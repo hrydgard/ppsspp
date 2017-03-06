@@ -82,7 +82,7 @@ namespace WindowsRawInput {
 		dev[2].dwFlags = 0;
 
 		if (!RegisterRawInputDevices(dev, 3, sizeof(RAWINPUTDEVICE))) {
-			WARN_LOG(COMMON, "Unable to register raw input devices: %s", GetLastErrorMsg());
+			WARN_LOG(SYSTEM, "Unable to register raw input devices: %s", GetLastErrorMsg());
 		}
 	}
 

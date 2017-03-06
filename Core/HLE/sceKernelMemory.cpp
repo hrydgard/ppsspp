@@ -347,15 +347,15 @@ struct SceKernelVplHeader {
 		while (b.ptr < lastBlock.ptr) {
 			bool isFree = b->next.ptr != SentinelPtr();
 			if (nextFreeBlock_ == b && isFree) {
-				NOTICE_LOG(HLE, "NEXT:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
+				NOTICE_LOG(SCEKERNEL, "NEXT:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
 			} else if (isFree) {
-				NOTICE_LOG(HLE, "FREE:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
+				NOTICE_LOG(SCEKERNEL, "FREE:  %x -> %x (size %x)", b.ptr - startPtr_, b->next.ptr - startPtr_, b->sizeInBlocks * 8);
 			} else {
-				NOTICE_LOG(HLE, "BLOCK: %x (size %x)", b.ptr - startPtr_, b->sizeInBlocks * 8);
+				NOTICE_LOG(SCEKERNEL, "BLOCK: %x (size %x)", b.ptr - startPtr_, b->sizeInBlocks * 8);
 			}
 			b += b->sizeInBlocks;
 		}
-		NOTICE_LOG(HLE, "LAST:  %x -> %x (size %x)", lastBlock.ptr - startPtr_, lastBlock->next.ptr - startPtr_, lastBlock->sizeInBlocks * 8);
+		NOTICE_LOG(SCEKERNEL, "LAST:  %x -> %x (size %x)", lastBlock.ptr - startPtr_, lastBlock->next.ptr - startPtr_, lastBlock->sizeInBlocks * 8);
 	}
 
 	PSPPointer<SceKernelVplBlock> MergeBlocks(PSPPointer<SceKernelVplBlock> first, PSPPointer<SceKernelVplBlock> second) {

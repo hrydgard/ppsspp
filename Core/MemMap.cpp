@@ -367,13 +367,13 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 			u32 op;
 			if (GetReplacedOpAt(address, &op)) {
 				if (MIPS_IS_EMUHACK(op)) {
-					ERROR_LOG(HLE,"WTF 1");
+					ERROR_LOG(MEMMAP, "WTF 1");
 					return Opcode(op);
 				} else {
 					return Opcode(op);
 				}
 			} else {
-				ERROR_LOG(HLE, "Replacement, but no replacement op? %08x", inst.encoding);
+				ERROR_LOG(MEMMAP, "Replacement, but no replacement op? %08x", inst.encoding);
 			}
 		}
 		return inst;
@@ -381,7 +381,7 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 		u32 op;
 		if (GetReplacedOpAt(address, &op)) {
 			if (MIPS_IS_EMUHACK(op)) {
-				ERROR_LOG(HLE,"WTF 2");
+				ERROR_LOG(MEMMAP, "WTF 2");
 				return Opcode(op);
 			} else {
 				return Opcode(op);

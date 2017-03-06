@@ -160,7 +160,7 @@ static void ExecuteServer() {
 
 	if (!http->Listen(g_Config.iRemoteISOPort)) {
 		if (!http->Listen(0)) {
-			ERROR_LOG(COMMON, "Unable to listen on any port");
+			ERROR_LOG(FILESYS, "Unable to listen on any port");
 			UpdateStatus(ServerStatus::STOPPED);
 			return;
 		}

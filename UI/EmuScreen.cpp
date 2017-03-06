@@ -991,7 +991,7 @@ void EmuScreen::render() {
 		SaveState::SaveToRam(freezeState_);
 	} else if (PSP_CoreParameter().frozen) {
 		if (CChunkFileReader::ERROR_NONE != SaveState::LoadFromRam(freezeState_)) {
-			ERROR_LOG(HLE, "Failed to load freeze state. Unfreezing.");
+			ERROR_LOG(SAVESTATE, "Failed to load freeze state. Unfreezing.");
 			PSP_CoreParameter().frozen = false;
 		}
 	}

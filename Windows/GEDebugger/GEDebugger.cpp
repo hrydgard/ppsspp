@@ -169,7 +169,7 @@ void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, wchar_t desc[25
 		return;
 	}
 
-	_assert_msg_(MASTER_LOG, primaryBuffer_ != nullptr, "Must have a valid primaryBuffer_");
+	_assert_msg_(G3D, primaryBuffer_ != nullptr, "Must have a valid primaryBuffer_");
 
 	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
 	case PRIMARY_FRAMEBUF:
@@ -727,14 +727,14 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			u32 pc = (u32)wParam;
 			ClearTempBreakpoints();
 			auto info = gpuDebug->DissassembleOp(pc);
-			NOTICE_LOG(COMMON, "Waiting at %08x, %s", pc, info.desc.c_str());
+			NOTICE_LOG(G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
 			UpdatePreviews();
 		}
 		break;
 
 	case WM_GEDBG_BREAK_DRAW:
 		{
-			NOTICE_LOG(COMMON, "Waiting at a draw");
+			NOTICE_LOG(G3D, "Waiting at a draw");
 			UpdatePreviews();
 		}
 		break;

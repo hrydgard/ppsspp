@@ -28,10 +28,10 @@
 
 static u32 sceAdler32(u32 adler, u32 data, u32 datalen) {
 	if (!Memory::IsValidAddress(data) || !Memory::IsValidAddress(data + datalen - 1)) {
-		ERROR_LOG(HLE, "sceAdler32(adler=%08x, data=%08x, datalen=%08x) - bad address(es)", adler, data, datalen);
+		ERROR_LOG(SCEMISC, "sceAdler32(adler=%08x, data=%08x, datalen=%08x) - bad address(es)", adler, data, datalen);
 		return -1;
 	}
-	INFO_LOG(HLE, "sceAdler32(adler=%08x, data=%08x, datalen=%08x)", adler, data, datalen);
+	INFO_LOG(SCEMISC, "sceAdler32(adler=%08x, data=%08x, datalen=%08x)", adler, data, datalen);
 
 	u8 *buf = Memory::GetPointerUnchecked(data);
 	u32 ret = adler32(adler, buf, datalen);
@@ -39,12 +39,10 @@ static u32 sceAdler32(u32 adler, u32 data, u32 datalen) {
 	return ret;
 }
 
-const HLEFunction sceAdler[] =
-{
-	{0X9702EF11, &WrapU_UUU<sceAdler32>,             "sceAdler32", 'x', "xxx"},
+const HLEFunction sceAdler[] = {
+	{0X9702EF11, &WrapU_UUU<sceAdler32>, "sceAdler32", 'x', "xxx"},
 };
 
-void Register_sceAdler()
-{
+void Register_sceAdler() {
 	RegisterModule("sceAdler", ARRAY_SIZE(sceAdler), sceAdler);
 }

@@ -201,7 +201,7 @@ UI::EventReturn LogScreen::OnSubmit(UI::EventParams &e) {
 
 	// TODO: Can add all sorts of fun stuff here that we can't be bothered writing proper UI for, like various memdumps etc.
 
-	NOTICE_LOG(HLE, "Submitted: %s", cmd.c_str());
+	NOTICE_LOG(SYSTEM, "Submitted: %s", cmd.c_str());
 
 	UpdateLog();
 	cmdLine_->SetText("");

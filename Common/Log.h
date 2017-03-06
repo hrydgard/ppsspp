@@ -36,8 +36,6 @@ namespace LogTypes
 {
 
 enum LOG_TYPE {
-	MASTER_LOG,
-
 	SCEAUDIO,
 	SCECTRL,
 	SCEDISPLAY,
@@ -51,7 +49,9 @@ enum LOG_TYPE {
 	SCERTC,
 	SCESAS,
 	SCEUTILITY,
+	SCEMISC,
 
+	SYSTEM,
 	BOOT,
 	COMMON,
 	CPU,
@@ -64,6 +64,7 @@ enum LOG_TYPE {
 	MEMMAP,
 	TIME,
 	SASMIX,
+	SAVESTATE,
 
 	NUMBER_OF_LOGS,  // Must be last
 };
@@ -132,7 +133,7 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 #endif // dbg_assert
 #endif // MAX_LOGLEVEL DEBUG
 
-#define _assert_(_a_) _dbg_assert_(MASTER_LOG, _a_)
+#define _assert_(_a_) _dbg_assert_(SYSTEM, _a_)
 
 #ifdef _MSC_VER
 #define _assert_msg_(_t_, _a_, _fmt_, ...)		\

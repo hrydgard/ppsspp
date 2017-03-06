@@ -278,7 +278,7 @@ UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 	if (installButton_) {
 		installButton_->SetEnabled(false);
 	}
-	INFO_LOG(HLE, "Triggering install of %s", zipUrl.c_str());
+	INFO_LOG(SYSTEM, "Triggering install of %s", zipUrl.c_str());
 	g_GameManager.DownloadAndInstall(zipUrl);
 	return UI::EVENT_DONE;
 }

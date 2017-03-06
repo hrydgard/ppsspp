@@ -305,7 +305,7 @@ bool HasKey(int key)
 		case 0x63: case 0x64:
 			return true;
 		default:
-			INFO_LOG(HLE, "Missing key %02X, cannot decrypt module", key);
+			INFO_LOG(LOADER, "Missing key %02X, cannot decrypt module", key);
 			return false;
 	}
 }

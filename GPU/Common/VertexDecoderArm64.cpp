@@ -254,7 +254,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			SetCodePtr(const_cast<u8 *>(start));
 			char temp[1024] = {0};
 			dec.ToString(temp);
-			ERROR_LOG(HLE, "Could not compile vertex decoder, failed at step %d: %s", i, temp);
+			ERROR_LOG(G3D, "Could not compile vertex decoder, failed at step %d: %s", i, temp);
 			return nullptr;
 		}
 	}
