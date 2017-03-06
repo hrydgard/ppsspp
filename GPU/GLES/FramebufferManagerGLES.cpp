@@ -406,6 +406,10 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 	}
 
 	const GLSLProgram *program = glsl_get_program();
+	if (!program) {
+		ERROR_LOG(G3D, "Trying to draw without a program");
+		return;
+	}
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
 	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
