@@ -56,38 +56,37 @@ LogManager *LogManager::logManager_ = NULL;
 struct LogNameTableEntry {
 	LogTypes::LOG_TYPE logType;
 	const char *name;
-	const char *longName;
 };
 
 static const LogNameTableEntry logTable[] = {
-	{LogTypes::MASTER_LOG, "*",       "Master Log"},
+	{LogTypes::SYSTEM,     "SYSTEM"},
+	{LogTypes::BOOT,       "BOOT"},
+	{LogTypes::COMMON,     "COMMON"},
+	{LogTypes::CPU,        "CPU"},
+	{LogTypes::FILESYS,    "FILESYS"},
+	{LogTypes::G3D,        "G3D"},
+	{LogTypes::HLE,        "HLE"},
+	{LogTypes::JIT,        "JIT"},
+	{LogTypes::LOADER,     "LOADER"},
+	{LogTypes::ME,         "ME"},  // Media Engine
+	{LogTypes::MEMMAP,     "MEMMAP"},
+	{LogTypes::SASMIX,     "SASMIX"},
+	{LogTypes::SAVESTATE,  "SAVESTATE"},
 
-	{LogTypes::SCEAUDIO   ,"AUDIO",   "sceAudio"},
-	{LogTypes::SCECTRL    ,"CTRL",    "sceCtrl"},
-	{LogTypes::SCEDISPLAY ,"DISP",    "sceDisplay"},
-	{LogTypes::SCEFONT    ,"FONT",    "sceFont"},
-	{LogTypes::SCEGE      ,"SCEGE",   "sceGe"},
-	{LogTypes::SCEINTC    ,"INTC",    "sceKernelInterrupt"},
-	{LogTypes::SCEIO      ,"IO",      "sceIo"},
-	{LogTypes::SCEKERNEL  ,"KERNEL",  "sceKernel*"},
-	{LogTypes::SCEMODULE  ,"MODULE",  "sceKernelModule"},
-	{LogTypes::SCENET     ,"NET",     "sceNet*"},
-	{LogTypes::SCERTC     ,"SCERTC",  "sceRtc"},
-	{LogTypes::SCESAS     ,"SCESAS",  "sceSas"},
-	{LogTypes::SCEUTILITY ,"UTIL",    "sceUtility"},
-
-	{LogTypes::BOOT       ,"BOOT",    "Boot"},
-	{LogTypes::COMMON     ,"COMMON",  "Common"},
-	{LogTypes::CPU        ,"CPU",     "CPU"},
-	{LogTypes::FILESYS    ,"FileSys", "File System"},
-	{LogTypes::G3D        ,"G3D",     "3D Graphics"},
-	{LogTypes::HLE        ,"HLE",     "HLE"},
-	{LogTypes::JIT        ,"JIT",     "JIT compiler"},
-	{LogTypes::LOADER     ,"LOAD",    "Loader"},
-	{LogTypes::ME         ,"ME",      "Media Engine"},
-	{LogTypes::MEMMAP     ,"MM",      "Memory Map"},
-	{LogTypes::TIME       ,"TIME",    "CoreTiming"},
-	{LogTypes::SASMIX     ,"SASMIX",  "Sound Mixer (Sas)"},
+	{LogTypes::SCEAUDIO,   "SCEAUDIO"},
+	{LogTypes::SCECTRL,    "SCECTRL"},
+	{LogTypes::SCEDISPLAY, "SCEDISP"},
+	{LogTypes::SCEFONT,    "SCEFONT"},
+	{LogTypes::SCEGE,      "SCESCEGE"},
+	{LogTypes::SCEINTC,    "SCEINTC"},
+	{LogTypes::SCEIO,      "SCEIO"},
+	{LogTypes::SCEKERNEL,  "SCEKERNEL"},
+	{LogTypes::SCEMODULE,  "SCEMODULE"},
+	{LogTypes::SCENET,     "SCENET"},
+	{LogTypes::SCERTC,     "SCERTC"},
+	{LogTypes::SCESAS,     "SCESAS"},
+	{LogTypes::SCEUTILITY, "SCEUTIL"},
+	{LogTypes::SCEMISC,    "SCEMISC"},
 };
 
 LogManager::LogManager() {
@@ -95,7 +94,7 @@ LogManager::LogManager() {
 		if (i != logTable[i].logType) {
 			FLOG("Bad logtable at %i", (int)i);
 		}
-		log_[logTable[i].logType] = new LogChannel(logTable[i].name, logTable[i].longName);
+		log_[logTable[i].logType] = new LogChannel(logTable[i].name);
 	}
 
 	// Remove file logging on small devices
@@ -168,12 +167,12 @@ void LogManager::SaveConfig(IniFile::Section *section) {
 	}
 }
 
-void LogManager::LoadConfig(IniFile::Section *section) {
+void LogManager::LoadConfig(IniFile::Section *section, bool debugDefaults) {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
-		bool enabled;
-		int level;
+		bool enabled = false;
+		int level = 0;
 		section->Get((std::string(log_[i]->GetShortName()) + "Enabled").c_str(), &enabled, true);
-		section->Get((std::string(log_[i]->GetShortName()) + "Level").c_str(), &level, 0);
+		section->Get((std::string(log_[i]->GetShortName()) + "Level").c_str(), &level, debugDefaults ? (int)LogTypes::LDEBUG : (int)LogTypes::LERROR);
 		log_[i]->SetEnable(enabled);
 		log_[i]->SetLevel((LogTypes::LOG_LEVELS)level);
 	}
@@ -250,9 +249,8 @@ void LogManager::Shutdown() {
 	logManager_ = NULL;
 }
 
-LogChannel::LogChannel(const char* shortName, const char* fullName, bool enable)
-	: enable_(enable), m_hasListeners(false) {
-	strncpy(m_fullName, fullName, 128);
+LogChannel::LogChannel(const char* shortName)
+	: enable_(false), m_hasListeners(false) {
 	strncpy(m_shortName, shortName, 32);
 #if defined(_DEBUG)
 	level_ = LogTypes::LDEBUG;

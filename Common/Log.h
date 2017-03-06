@@ -32,11 +32,22 @@
 
 #include <cstdio>
 
-namespace LogTypes
-{
+namespace LogTypes {
 
 enum LOG_TYPE {
-	MASTER_LOG,
+	SYSTEM = 0,
+	BOOT,
+	COMMON,
+	CPU,
+	FILESYS,
+	G3D,
+	HLE,  // dumping ground that we should get rid of
+	JIT,
+	LOADER,
+	ME,
+	MEMMAP,
+	SASMIX,
+	SAVESTATE,
 
 	SCEAUDIO,
 	SCECTRL,
@@ -51,19 +62,7 @@ enum LOG_TYPE {
 	SCERTC,
 	SCESAS,
 	SCEUTILITY,
-
-	BOOT,
-	COMMON,
-	CPU,
-	FILESYS,
-	G3D,
-	HLE,  // dumping ground that we should get rid off
-	JIT,
-	LOADER,
-	ME,
-	MEMMAP,
-	TIME,
-	SASMIX,
+	SCEMISC,
 
 	NUMBER_OF_LOGS,  // Must be last
 };
@@ -132,7 +131,7 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 #endif // dbg_assert
 #endif // MAX_LOGLEVEL DEBUG
 
-#define _assert_(_a_) _dbg_assert_(MASTER_LOG, _a_)
+#define _assert_(_a_) _dbg_assert_(SYSTEM, _a_)
 
 #ifdef _MSC_VER
 #define _assert_msg_(_t_, _a_, _fmt_, ...)		\

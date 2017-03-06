@@ -266,6 +266,8 @@ namespace MainWindow
 		// Moves the internal display window to match the inner size of the main window.
 		MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
 
+		INFO_LOG(SYSTEM, "New width/height: %dx%d", width, height);
+
 		// Setting pixelWidth to be too small could have odd consequences.
 		if (width >= 4 && height >= 4) {
 			// The framebuffer manager reads these once per frame, hopefully safe enough.. should really use a mutex or some
@@ -273,6 +275,8 @@ namespace MainWindow
 			PSP_CoreParameter().pixelWidth = width;
 			PSP_CoreParameter().pixelHeight = height;
 		}
+
+		INFO_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 		if (UpdateScreenScale(width, height)) {
 			NativeMessageReceived("gpu resized", "");

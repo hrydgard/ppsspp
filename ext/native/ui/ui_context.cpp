@@ -96,17 +96,19 @@ Bounds UIContext::GetScissorBounds() {
 void UIContext::ActivateTopScissor() {
 	Bounds bounds;
 	if (scissorStack_.size()) {
+		float scale = pixel_in_dps;
 		bounds = scissorStack_.back();
+		int x = floorf(scale * bounds.x);
+		int y = floorf(scale * bounds.y);
+		int w = ceilf(scale * bounds.w);
+		int h = ceilf(scale * bounds.h);
+		draw_->SetScissorRect(x, y, w, h);
 	}
 	else {
 		bounds = bounds_;
+		// Avoid rounding errors
+		draw_->SetScissorRect(0, 0, pixel_xres, pixel_yres);
 	}
-	float scale = pixel_in_dps;
-	int x = scale * bounds.x;
-	int y = scale * bounds.y;
-	int w = scale * bounds.w;
-	int h = scale * bounds.h;
-	draw_->SetScissorRect(x, y, w, h);
 }
 
 void UIContext::SetFontScale(float scaleX, float scaleY) {

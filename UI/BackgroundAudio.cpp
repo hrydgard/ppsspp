@@ -44,7 +44,7 @@ public:
 					codec = PSP_CODEC_AT3;
 					break;
 				default:
-					ERROR_LOG(HLE, "Unexpected SND0.AT3 format %04x", format);
+					ERROR_LOG(SCEAUDIO, "Unexpected SND0.AT3 format %04x", format);
 					return;
 				}
 

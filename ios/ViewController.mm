@@ -101,8 +101,6 @@ static GraphicsContext *graphicsContext;
 
 		memset(&input_state, 0, sizeof(input_state));
 
-		net::Init();
-
 		iosCanUseJit = true;
 		targetIsJailbroken = false;
 		NSArray *jailPath = [NSArray arrayWithObjects:

@@ -577,7 +577,7 @@ namespace SaveState
 
 		if (!__KernelIsRunning())
 		{
-			ERROR_LOG(COMMON, "Savestate failure: Unable to load without kernel, this should never happen.");
+			ERROR_LOG(SAVESTATE, "Savestate failure: Unable to load without kernel, this should never happen.");
 			return;
 		}
 
@@ -603,7 +603,7 @@ namespace SaveState
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
-				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
+				INFO_LOG(SAVESTATE, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, PPSSPP_GIT_VERSION, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
@@ -612,7 +612,7 @@ namespace SaveState
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
 					callbackMessage = i18nLoadFailure;
-					ERROR_LOG(COMMON, "Load state failure: %s", reason.c_str());
+					ERROR_LOG(SAVESTATE, "Load state failure: %s", reason.c_str());
 					callbackResult = false;
 				} else {
 					callbackMessage = sc->T(reason.c_str(), i18nLoadFailure);
@@ -621,7 +621,7 @@ namespace SaveState
 				break;
 
 			case SAVESTATE_SAVE:
-				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
+				INFO_LOG(SAVESTATE, "Saving state to %s", op.filename.c_str());
 				result = CChunkFileReader::Save(op.filename, g_paramSFO.GetValueString("TITLE"), PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Saved State");
@@ -629,7 +629,7 @@ namespace SaveState
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
 					callbackMessage = i18nSaveFailure;
-					ERROR_LOG(COMMON, "Save state failure: %s", reason.c_str());
+					ERROR_LOG(SAVESTATE, "Save state failure: %s", reason.c_str());
 					callbackResult = false;
 				} else {
 					callbackMessage = i18nSaveFailure;
@@ -640,14 +640,14 @@ namespace SaveState
 			case SAVESTATE_VERIFY:
 				callbackResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
 				if (callbackResult) {
-					INFO_LOG(COMMON, "Verified save state system");
+					INFO_LOG(SAVESTATE, "Verified save state system");
 				} else {
-					ERROR_LOG(COMMON, "Save state system verification failed");
+					ERROR_LOG(SAVESTATE, "Save state system verification failed");
 				}
 				break;
 
 			case SAVESTATE_REWIND:
-				INFO_LOG(COMMON, "Rewinding to recent savestate snapshot");
+				INFO_LOG(SAVESTATE, "Rewinding to recent savestate snapshot");
 				result = rewindStates.Restore();
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
@@ -673,12 +673,12 @@ namespace SaveState
 			case SAVESTATE_SAVE_SCREENSHOT:
 				callbackResult = TakeGameScreenshot(op.filename.c_str(), SCREENSHOT_JPG, SCREENSHOT_DISPLAY);
 				if (!callbackResult) {
-					ERROR_LOG(COMMON, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
+					ERROR_LOG(SAVESTATE, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
 				}
 				break;
 
 			default:
-				ERROR_LOG(COMMON, "Savestate failure: unknown operation type %d", op.type);
+				ERROR_LOG(SAVESTATE, "Savestate failure: unknown operation type %d", op.type);
 				callbackResult = false;
 				break;
 			}

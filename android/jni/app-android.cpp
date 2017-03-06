@@ -542,8 +542,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	std::string version;
 	bool landscape;
 
-	net::Init();
-
 	// Unfortunately, on the Samsung Galaxy S7, this isn't in /proc/cpuinfo.
 	// We also can't read it from __system_property_get.
 	if (buildBoard == "universal8890") {
@@ -611,7 +609,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- begin");
 	NativeShutdown();
 	VFSShutdown();
-	net::Shutdown();
 	ILOG("NativeApp.shutdown() -- end");
 }
 

@@ -1664,4 +1664,5 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 	messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
 
 	host->NotifyUserMessage(messageStream.str(), 2.0f, 0xFFFFFF, "resize");
+	INFO_LOG(SYSTEM, "%s", messageStream.str().c_str());
 }

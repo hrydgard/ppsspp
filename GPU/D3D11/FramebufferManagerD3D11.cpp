@@ -824,7 +824,7 @@ void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int
 
 	// We always need to convert from the framebuffer native format.
 	// Right now that's always 8888.
-	DEBUG_LOG(HLE, "Reading framebuffer to mem, fb_address = %08x", fb_address);
+	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 	ID3D11Texture2D *colorTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT, 0);
 
 	D3D11_BOX srcBox{ 0, 0, 0, vfb->width, vfb->height, 1 };

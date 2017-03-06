@@ -692,7 +692,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		// We always need to convert from the framebuffer native format.
 		// Right now that's always 8888.
-		DEBUG_LOG(HLE, "Reading framebuffer to mem, fb_address = %08x", fb_address);
+		DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 
 		LPDIRECT3DSURFACE9 renderTarget = (LPDIRECT3DSURFACE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0);
 		D3DSURFACE_DESC desc;

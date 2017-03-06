@@ -449,7 +449,7 @@ public:
 			break;
 
 		default:
-			ERROR_LOG(COMMON, "Savestate error: invalid mode %d.", mode);
+			ERROR_LOG(SAVESTATE, "Savestate error: invalid mode %d.", mode);
 		}
 	}
 
@@ -537,7 +537,7 @@ public:
 			{
 				if (shouldExist != 0)
 				{
-					WARN_LOG(COMMON, "Savestate failure: incorrect item marker %d", shouldExist);
+					WARN_LOG(SAVESTATE, "Savestate failure: incorrect item marker %d", shouldExist);
 					SetError(ERROR_FAILURE);
 				}
 				if (mode == MODE_READ)
@@ -629,7 +629,7 @@ public:
 			delete [] ptr;
 		}
 		
-		INFO_LOG(COMMON, "ChunkReader: Done loading %s", filename.c_str());
+		INFO_LOG(SAVESTATE, "ChunkReader: Done loading %s", filename.c_str());
 		if (error == ERROR_NONE) {
 			failureReason->clear();
 		}

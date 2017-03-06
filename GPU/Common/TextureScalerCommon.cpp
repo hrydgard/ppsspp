@@ -579,7 +579,7 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &
 #ifdef SCALING_MEASURE_TIME
 	if (width*height > 64 * 64 * factor*factor) {
 		double t = real_time_now() - t_start;
-		NOTICE_LOG(MASTER_LOG, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.2lf Mpixels/second)",
+		NOTICE_LOG(G3D, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.2lf Mpixels/second)",
 			width*height, t, (width*height) / (t * 1000 * 1000));
 	}
 #endif

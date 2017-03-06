@@ -55,25 +55,12 @@ static void __ResetInitNetLib() {
 
 void __NetInit() {
 	portOffset = g_Config.iPortOffset;
-	//net::Init();
-#ifdef _MSC_VER
-	WSADATA data;
-	int iResult = WSAStartup(MAKEWORD(2, 2), &data);
-	if (iResult != NOERROR){
-		ERROR_LOG(SCENET, "WSA Failed");
-	}
-#endif
 	__ResetInitNetLib();
 }
 
 void __NetShutdown() {
 	__ResetInitNetLib();
-	//net::Shutdown();
-#ifdef _MSC_VER
-	WSACleanup();
-#endif
 }
-
 
 static void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {
 	u32 args[5] = { 0, 0, 0, 0, 0 };

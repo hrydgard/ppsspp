@@ -48,6 +48,7 @@
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "net/http_client.h"
+#include "net/resolve.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx/gl_lost_manager.h"
@@ -299,6 +300,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	monstartup("ppsspp_jni.so");
 #endif
 
+	net::Init();
+
 	InitFastMath(cpu_info.bNEON);
 	SetupAudioFormats();
 
@@ -357,9 +360,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 #ifndef _WIN32
-	logger = new AndroidLogger();
-
 	LogManager::Init();
+	logger = new AndroidLogger();
 
 	g_Config.AddSearchPath(user_data_path);
 	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
@@ -370,6 +372,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	LogManager *logman = LogManager::GetInstance();
 
 #ifdef __ANDROID__
+	// TODO: This is also done elsewhere. Remove?
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
 	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
@@ -457,7 +460,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			g_Config.currentDirectory = "./";
 #endif
 	}
+#endif
 
+	// Hard reset the logs. TODO: Get rid of this and read from config.
+#ifndef _WIN32
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, true);
@@ -1038,9 +1044,8 @@ void NativeShutdown() {
 	delete host;
 	host = 0;
 	g_Config.Save();
-#ifndef _WIN32
 	LogManager::Shutdown();
-#endif
+
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();
 #endif
@@ -1048,15 +1053,14 @@ void NativeShutdown() {
 	ILOG("NativeShutdown called");
 
 	System_SendMessage("finish", "");
+
+	net::Shutdown();
+
 	// This means that the activity has been completely destroyed. PPSSPP does not
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	exit(0);
-#endif
-
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	RemoveFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
 #endif
 }
 

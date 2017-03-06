@@ -34,6 +34,7 @@
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/LogManager.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "GPU/Common/FramebufferCommon.h"
@@ -45,6 +46,13 @@ http::Downloader g_DownloadManager;
 Config g_Config;
 
 bool jitForcedOff;
+
+#ifdef _DEBUG
+static const char *logSectionName = "LogDebug";
+#else
+static const char *logSectionName = "Log";
+#endif
+
 
 #ifdef IOS
 extern bool iosCanUseJit;
@@ -844,6 +852,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (!File::Exists(currentDirectory))
 		currentDirectory = "";
 
+	IniFile::Section *log = iniFile.GetOrCreateSection(logSectionName);
+
+	bool debugDefaults = false;
+#ifdef _DEBUG
+	debugDefaults = true;
+#endif
+	LogManager::GetInstance()->LoadConfig(log, debugDefaults);
+
 	IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 	recent->Get("MaxRecent", &iMaxRecent, 30);
 
@@ -950,8 +966,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	//so this is all the way down here to overwrite the controller settings
 	//sadly it won't benefit from all the "version conversion" going on up-above
 	//but these configs shouldn't contain older versions anyhow
-	if (bGameSpecific)
-	{
+	if (bGameSpecific) {
 		loadGameConfig(gameId_);
 	}
 
@@ -1019,6 +1034,9 @@ void Config::Save() {
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Delete("DPadRadius");
+
+		IniFile::Section *log = iniFile.GetOrCreateSection(logSectionName);
+		LogManager::GetInstance()->SaveConfig(log);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());

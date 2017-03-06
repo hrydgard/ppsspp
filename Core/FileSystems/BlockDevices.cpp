@@ -51,7 +51,7 @@ u32 BlockDevice::CalculateCRC() {
 	u8 block[2048];
 	for (u32 i = 0; i < GetNumBlocks(); ++i) {
 		if (!ReadBlock(i, block, true)) {
-			ERROR_LOG(HLE, "Failed to read block for CRC");
+			ERROR_LOG(FILESYS, "Failed to read block for CRC");
 			return 0;
 		}
 		crc = crc32(crc, block, 2048);

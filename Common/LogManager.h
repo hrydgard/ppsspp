@@ -87,10 +87,9 @@ private:
 
 class LogChannel {
 public:
-	LogChannel(const char* shortName, const char* fullName, bool enable = false);
+	LogChannel(const char* shortName);
 	
 	const char* GetShortName() const { return m_shortName; }
-	const char* GetFullName() const { return m_fullName; }
 
 	void AddListener(LogListener* listener);
 	void RemoveListener(LogListener* listener);
@@ -110,7 +109,6 @@ public:
 	bool enable_;
 
 private:
-	char m_fullName[128];
 	char m_shortName[32];
 	std::mutex m_listeners_lock;
 	std::set<LogListener*> m_listeners;
@@ -197,5 +195,5 @@ public:
 	void ChangeFileLog(const char *filename);
 
   void SaveConfig(IniFile::Section *section);
-  void LoadConfig(IniFile::Section *section);
+  void LoadConfig(IniFile::Section *section, bool debugDefaults);
 };

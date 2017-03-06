@@ -78,9 +78,9 @@ bool GameInfo::Delete() {
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
 			std::string directoryToRemove = ResolvePBPDirectory(filePath_);
-			INFO_LOG(HLE, "Deleting %s", directoryToRemove.c_str());
+			INFO_LOG(SYSTEM, "Deleting %s", directoryToRemove.c_str());
 			if (!File::DeleteDirRecursively(directoryToRemove)) {
-				ERROR_LOG(HLE, "Failed to delete file");
+				ERROR_LOG(SYSTEM, "Failed to delete file");
 				return false;
 			}
 			g_Config.CleanRecent();

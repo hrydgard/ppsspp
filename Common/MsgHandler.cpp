@@ -54,7 +54,7 @@ bool MsgAlert(bool yes_no, int Style, const char* format, ...)
 	CharArrayFromFormatV(buffer, sizeof(buffer)-1, format, args);
 	va_end(args);
 
-	ERROR_LOG(MASTER_LOG, "%s: %s", caption, buffer);
+	ERROR_LOG(SYSTEM, "%s: %s", caption, buffer);
 
 	// Don't ignore questions, especially AskYesNo, PanicYesNo could be ignored
 	if (AlertEnabled || Style == QUESTION || Style == CRITICAL)
