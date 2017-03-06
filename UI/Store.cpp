@@ -201,7 +201,7 @@ void ProductItemView::Update(const InputState &input_state) {
 class ProductView : public UI::LinearLayout {
 public:
 	ProductView(const StoreEntry &entry)
-		: LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0), wasInstalled_(false) {
+		: LinearLayout(UI::ORIENT_VERTICAL), entry_(entry) {
 		CreateViews();
 	}
 
@@ -212,6 +212,7 @@ public:
 private:
 	void CreateViews();
 	UI::EventReturn OnInstall(UI::EventParams &e);
+	UI::EventReturn OnCancel(UI::EventParams &e);
 	UI::EventReturn OnUninstall(UI::EventParams &e);
 	UI::EventReturn OnLaunchClick(UI::EventParams &e);
 
@@ -220,8 +221,9 @@ private:
 	}
 
 	StoreEntry entry_;
-	UI::Button *installButton_;
-	bool wasInstalled_;
+	UI::Button *installButton_ = nullptr;
+	UI::Button *cancelButton_ = nullptr;
+	bool wasInstalled_ = false;
 };
 
 void ProductView::CreateViews() {
@@ -235,6 +237,7 @@ void ProductView::CreateViews() {
 	Add(new TextView(entry_.author));
 
 	I18NCategory *st = GetI18NCategory("Store");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	wasInstalled_ = IsGameInstalled();
 	if (!wasInstalled_) {
 		installButton_ = Add(new Button(st->T("Install")));
@@ -245,6 +248,10 @@ void ProductView::CreateViews() {
 		Add(new Button(st->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
 		Add(new Button(st->T("Launch Game")))->OnClick.Handle(this, &ProductView::OnLaunchClick);
 	}
+
+	cancelButton_ = Add(new Button(di->T("Cancel")));
+	cancelButton_->OnClick.Handle(this, &ProductView::OnCancel);
+	cancelButton_->SetVisibility(V_GONE);
 
 	// Add star rating, comments etc?
 	Add(new TextView(entry_.description));
@@ -261,8 +268,10 @@ void ProductView::Update(const InputState &input_state) {
 		CreateViews();
 	}
 	if (installButton_) {
-		installButton_->SetEnabled(!g_GameManager.IsInstallInProgress());
+		installButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
 	}
+	if (cancelButton_ && g_GameManager.GetState() != GameManagerState::DOWNLOADING)
+		cancelButton_->SetVisibility(UI::V_GONE);
 	View::Update(input_state);
 }
 
@@ -278,8 +287,16 @@ UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 	if (installButton_) {
 		installButton_->SetEnabled(false);
 	}
+	if (cancelButton_) {
+		cancelButton_->SetVisibility(UI::V_VISIBLE);
+	}
 	INFO_LOG(SYSTEM, "Triggering install of %s", zipUrl.c_str());
 	g_GameManager.DownloadAndInstall(zipUrl);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProductView::OnCancel(UI::EventParams &e) {
+	g_GameManager.CancelDownload();
 	return UI::EVENT_DONE;
 }
 
@@ -345,6 +362,19 @@ void StoreScreen::update(InputState &input) {
 		// Forget the listing.
 		listing_.reset();
 	}
+
+	const char *storeName = "PPSSPP Homebrew Store";
+	switch (g_GameManager.GetState()) {
+	case GameManagerState::DOWNLOADING:
+		titleText_->SetText(std::string(storeName) + " - downloading");
+		break;
+	case GameManagerState::INSTALLING:
+		titleText_->SetText(std::string(storeName) + " - installing");
+		break;
+	default:
+		titleText_->SetText(storeName);
+		break;
+	}
 }
 
 void StoreScreen::ParseListing(std::string json) {
@@ -391,7 +421,8 @@ void StoreScreen::CreateViews() {
 	// Top bar
 	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
 	topBar->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	topBar->Add(new TextView("PPSSPP Homebrew Store"));
+	titleText_ = new TextView("PPSSPP Homebrew Store");
+	topBar->Add(titleText_);
 	UI::Drawable solid(0xFFbd9939);
 	topBar->SetBG(solid);
 

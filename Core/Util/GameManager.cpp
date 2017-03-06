@@ -73,6 +73,15 @@ bool GameManager::DownloadAndInstall(std::string storeZipUrl) {
 	return true;
 }
 
+bool GameManager::CancelDownload() {
+	if (!curDownload_)
+		return false;
+
+	curDownload_->Cancel();
+	curDownload_.reset();
+	return true;
+}
+
 bool GameManager::Uninstall(std::string name) {
 	if (name.empty()) {
 		ERROR_LOG(HLE, "Cannot remove an empty-named game");

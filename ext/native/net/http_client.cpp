@@ -25,6 +25,7 @@
 #include "file/fd_util.h"
 #include "net/resolve.h"
 #include "net/url.h"
+#include "thread/threadutil.h"
 
 namespace net {
 
@@ -179,7 +180,7 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *prog
 	}
 }
 
-int Client::GET(const char *resource, Buffer *output, float *progress) {
+int Client::GET(const char *resource, Buffer *output, float *progress, bool *cancelled) {
 	const char *otherHeaders =
 		"Accept: */*\r\n"
 		"Accept-Encoding: gzip\r\n";
@@ -195,7 +196,7 @@ int Client::GET(const char *resource, Buffer *output, float *progress) {
 		return code;
 	}
 
-	err = ReadResponseEntity(&readbuf, responseHeaders, output, progress);
+	err = ReadResponseEntity(&readbuf, responseHeaders, output, progress, cancelled);
 	if (err < 0) {
 		return err;
 	}
@@ -301,7 +302,7 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 	return code;
 }
 
-int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress) {
+int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress, bool *cancelled) {
 	bool gzip = false;
 	bool chunked = false;
 	int contentLength = 0;
@@ -340,7 +341,7 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 			return -1;
 	} else {
 		// Let's read in chunks, updating progress between each.
-		if (!readbuf->ReadAllWithProgress(sock(), contentLength, progress))
+		if (!readbuf->ReadAllWithProgress(sock(), contentLength, progress, cancelled))
 			return -1;
 	}
 
@@ -391,6 +392,7 @@ void Download::SetFailed(int code) {
 }
 
 void Download::Do(std::shared_ptr<Download> self) {
+	setCurrentThreadName("Downloader::Do");
 	// as long as this is in scope, we won't get destructed.
 	// yeah this is ugly, I need to think about how life time should be managed for these...
 	std::shared_ptr<Download> self_ = self;
@@ -426,7 +428,7 @@ void Download::Do(std::shared_ptr<Download> self) {
 	}
 
 	// TODO: Allow cancelling during a GET somehow...
-	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_, &progress_);
+	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_, &progress_, &cancelled_);
 	if (resultCode == 200) {
 		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
 		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {

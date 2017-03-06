@@ -99,5 +99,6 @@ private:
 	std::string lang_;
 
 	UI::ViewGroup *productPanel_;
+	UI::TextView *titleText_;
 };
 

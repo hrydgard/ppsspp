@@ -183,7 +183,7 @@ bool Buffer::ReadAll(int fd, int hintSize) {
 	return true;
 }
 
-bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress) {
+bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress, bool *cancelled) {
 	std::vector<char> buf;
 	if (knownSize >= 65536 * 16) {
 		buf.resize(65536);
@@ -195,6 +195,8 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress) {
 
 	int total = 0;
 	while (true) {
+		if (cancelled && *cancelled)
+			return false;
 		int retval = recv(fd, &buf[0], (int)buf.size(), 0);
 		if (retval == 0) {
 			return true;

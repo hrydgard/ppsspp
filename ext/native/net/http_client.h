@@ -58,7 +58,7 @@ public:
 	~Client();
 
 	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
-	int GET(const char *resource, Buffer *output, float *progress = nullptr);
+	int GET(const char *resource, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
 
 	// Return value is the HTTP return code.
 	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, float *progress = nullptr);
@@ -70,7 +70,7 @@ public:
 	int SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders = nullptr, float *progress = nullptr);
 	int ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress = nullptr);
 	// If your response contains a response, you must read it.
-	int ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr);
+	int ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
 
 	const char *userAgent_;
 	const char *httpVersion_;
@@ -136,7 +136,7 @@ private:
 	int resultCode_;
 	bool completed_;
 	bool failed_;
-	volatile bool cancelled_;
+	bool cancelled_;
 	bool hidden_;
 	std::function<void(Download &)> callback_;
 };
