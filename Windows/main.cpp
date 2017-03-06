@@ -287,7 +287,6 @@ std::vector<std::wstring> GetWideCmdLine() {
 	wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
 
 	std::vector<std::wstring> wideArgs(wargv, wargv + wargc);
-
 	return wideArgs;
 }
 
@@ -352,6 +351,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			}
 		}
 	}
+
+	LogManager::Init();
 
 	// On Win32 it makes more sense to initialize the system directories here 
 	// because the next place it was called was in the EmuThread, and it's too late by then.
@@ -429,7 +430,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		g_Config.bFullScreen = true;
 	}
 
-	LogManager::Init();
 	// Consider at least the following cases before changing this code:
 	//   - By default in Release, the console should be hidden by default even if logging is enabled.
 	//   - By default in Debug, the console should be shown by default.

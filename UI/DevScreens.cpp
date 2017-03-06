@@ -243,7 +243,7 @@ void LogConfigScreen::CreateViews() {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(cellSize - 50, WRAP_CONTENT));
 		row->SetSpacing(0);
 		row->Add(new CheckBox(&chan->enable_, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
-		row->Add(new PopupMultiChoice(&chan->level_, chan->GetFullName(), logLevelList, 1, 6, 0, screenManager(), new LinearLayoutParams(1.0)));
+		row->Add(new PopupMultiChoice(&chan->level_, chan->GetShortName(), logLevelList, 1, 6, 0, screenManager(), new LinearLayoutParams(1.0)));
 		grid->Add(row);
 	}
 }

@@ -360,9 +360,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 #ifndef _WIN32
-	logger = new AndroidLogger();
-
 	LogManager::Init();
+	logger = new AndroidLogger();
 
 	g_Config.AddSearchPath(user_data_path);
 	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
@@ -461,7 +460,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			g_Config.currentDirectory = "./";
 #endif
 	}
+#endif
 
+	// Hard reset the logs. TODO: Get rid of this and read from config.
+#ifndef _WIN32
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, true);
