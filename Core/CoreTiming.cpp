@@ -181,7 +181,7 @@ int RegisterEvent(const char *name, TimedCallback callback)
 
 void AntiCrashCallback(u64 userdata, int cyclesLate)
 {
-	ERROR_LOG(TIME, "Savestate broken: an unregistered event was called.");
+	ERROR_LOG(SAVESTATE, "Savestate broken: an unregistered event was called.");
 	Core_Halt("invalid timing events");
 }
 
@@ -526,7 +526,7 @@ void ProcessFifoWaitEvents()
 	{
 		if (first->time <= (s64)GetTicks())
 		{
-//			LOG(TIMER, "[Scheduler] %s		 (%lld, %lld) ",
+//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ",
 //				first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
 			Event* evt = first;
 			first = first->next;
@@ -638,7 +638,7 @@ void Idle(int maxIdle)
 		}
 	}
 
-	VERBOSE_LOG(TIME, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
+	// VERBOSE_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
 	idledCycles += cyclesDown;
 	currentMIPS->downcount -= cyclesDown;

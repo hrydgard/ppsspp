@@ -59,6 +59,20 @@ struct LogNameTableEntry {
 };
 
 static const LogNameTableEntry logTable[] = {
+	{LogTypes::SYSTEM,     "SYSTEM"},
+	{LogTypes::BOOT,       "BOOT"},
+	{LogTypes::COMMON,     "COMMON"},
+	{LogTypes::CPU,        "CPU"},
+	{LogTypes::FILESYS,    "FILESYS"},
+	{LogTypes::G3D,        "G3D"},
+	{LogTypes::HLE,        "HLE"},
+	{LogTypes::JIT,        "JIT"},
+	{LogTypes::LOADER,     "LOADER"},
+	{LogTypes::ME,         "ME"},  // Media Engine
+	{LogTypes::MEMMAP,     "MEMMAP"},
+	{LogTypes::SASMIX,     "SASMIX"},
+	{LogTypes::SAVESTATE,  "SAVESTATE"},
+
 	{LogTypes::SCEAUDIO,   "SCEAUDIO"},
 	{LogTypes::SCECTRL,    "SCECTRL"},
 	{LogTypes::SCEDISPLAY, "SCEDISP"},
@@ -73,21 +87,6 @@ static const LogNameTableEntry logTable[] = {
 	{LogTypes::SCESAS,     "SCESAS"},
 	{LogTypes::SCEUTILITY, "SCEUTIL"},
 	{LogTypes::SCEMISC,    "SCEMISC"},
-
-	{LogTypes::SYSTEM,     "SYSTEM"},
-	{LogTypes::BOOT,       "BOOT"},
-	{LogTypes::COMMON,     "COMMON"},
-	{LogTypes::CPU,        "CPU"},
-	{LogTypes::FILESYS,    "FILESYS"},
-	{LogTypes::G3D,        "G3D"},
-	{LogTypes::HLE,        "HLE"},
-	{LogTypes::JIT,        "JIT"},
-	{LogTypes::LOADER,     "LOADER"},
-	{LogTypes::ME,         "ME"},
-	{LogTypes::MEMMAP,     "MEMMAP"},
-	{LogTypes::TIME,       "TIME"},
-	{LogTypes::SASMIX,     "SASMIX"},
-	{LogTypes::SAVESTATE,  "SAVESTATE"},
 };
 
 LogManager::LogManager() {

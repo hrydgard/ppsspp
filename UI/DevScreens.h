@@ -53,6 +53,8 @@ public:
 
 private:
 	UI::EventReturn OnToggleAll(UI::EventParams &e);
+	UI::EventReturn OnEnableAll(UI::EventParams &e);
+	UI::EventReturn OnDisableAll(UI::EventParams &e);
 	UI::EventReturn OnLogLevel(UI::EventParams &e);
 	UI::EventReturn OnLogLevelChange(UI::EventParams &e);
 };

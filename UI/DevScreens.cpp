@@ -223,6 +223,8 @@ void LogConfigScreen::CreateViews() {
 	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
 	topbar->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topbar->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
+	topbar->Add(new Choice(di->T("Enable All")))->OnClick.Handle(this, &LogConfigScreen::OnEnableAll);
+	topbar->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &LogConfigScreen::OnDisableAll);
 	topbar->Add(new Choice(dev->T("Log Level")))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
 
 	vert->Add(topbar);
@@ -250,13 +252,28 @@ void LogConfigScreen::CreateViews() {
 
 UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
-	
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		LogChannel *chan = logMan->GetLogChannel(type);
+		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
 		chan->enable_ = !chan->enable_;
 	}
+	return UI::EVENT_DONE;
+}
 
+UI::EventReturn LogConfigScreen::OnEnableAll(UI::EventParams &e) {
+	LogManager *logMan = LogManager::GetInstance();
+	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
+		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		chan->enable_ = true;
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn LogConfigScreen::OnDisableAll(UI::EventParams &e) {
+	LogManager *logMan = LogManager::GetInstance();
+	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
+		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		chan->enable_ = false;
+	}
 	return UI::EVENT_DONE;
 }
 

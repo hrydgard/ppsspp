@@ -151,7 +151,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	invalid_ = true;
 
-	CoreParameter coreParam;
+	CoreParameter coreParam{};
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
 	coreParam.gpuCore = GPUCORE_GLES;
 	switch (GetGPUBackend()) {
@@ -205,6 +205,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 		coreParam.renderWidth = 480 * g_Config.iInternalResolution;
 		coreParam.renderHeight = 272 * g_Config.iInternalResolution;
 	}
+	coreParam.pixelWidth = pixel_xres;
+	coreParam.pixelHeight = pixel_yres;
 
 	std::string error_string;
 	if (!PSP_InitStart(coreParam, &error_string)) {
@@ -792,9 +794,12 @@ void EmuScreen::update(InputState &input) {
 	// Simply forcibly update to the current screen size every frame. Doesn't cost much.
 	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
 	// TODO: Should be able to use g_dpi_scale here instead. Might want to store the dpi scale in the UI context too.
+
+#ifndef _WIN32
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	PSP_CoreParameter().pixelWidth = pixel_xres * bounds.w / dp_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres * bounds.h / dp_yres;
+#endif
 
 	if (!invalid_) {
 		UpdateUIState(UISTATE_INGAME);

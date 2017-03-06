@@ -32,10 +32,23 @@
 
 #include <cstdio>
 
-namespace LogTypes
-{
+namespace LogTypes {
 
 enum LOG_TYPE {
+	SYSTEM = 0,
+	BOOT,
+	COMMON,
+	CPU,
+	FILESYS,
+	G3D,
+	HLE,  // dumping ground that we should get rid of
+	JIT,
+	LOADER,
+	ME,
+	MEMMAP,
+	SASMIX,
+	SAVESTATE,
+
 	SCEAUDIO,
 	SCECTRL,
 	SCEDISPLAY,
@@ -50,21 +63,6 @@ enum LOG_TYPE {
 	SCESAS,
 	SCEUTILITY,
 	SCEMISC,
-
-	SYSTEM,
-	BOOT,
-	COMMON,
-	CPU,
-	FILESYS,
-	G3D,
-	HLE,  // dumping ground that we should get rid off
-	JIT,
-	LOADER,
-	ME,
-	MEMMAP,
-	TIME,
-	SASMIX,
-	SAVESTATE,
 
 	NUMBER_OF_LOGS,  // Must be last
 };

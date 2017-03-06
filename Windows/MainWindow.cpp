@@ -276,6 +276,8 @@ namespace MainWindow
 			PSP_CoreParameter().pixelHeight = height;
 		}
 
+		INFO_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+
 		if (UpdateScreenScale(width, height)) {
 			NativeMessageReceived("gpu resized", "");
 		}
