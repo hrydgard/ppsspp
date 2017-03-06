@@ -91,7 +91,8 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 	int img = I_BG;
 #endif
 
-	ui_draw2d.DrawImageStretch(img, dc.GetBounds());
+	uint32_t bgColor = whiteAlpha(alpha);
+	ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor);
 	float t = time_now();
 	for (int i = 0; i < 100; i++) {
 		float x = xbase[i] + dc.GetBounds().x;
@@ -409,10 +410,12 @@ void LogoScreen::Next() {
 	}
 }
 
+const float logoScreenSeconds = 2.5f;
+
 void LogoScreen::update(InputState &input_state) {
 	UIScreen::update(input_state);
 	frames_++;
-	if (frames_ > 180 || input_state.pointer_down[0]) {
+	if (frames_ > 60 * logoScreenSeconds || input_state.pointer_down[0]) {
 		Next();
 	}
 }
@@ -443,7 +446,7 @@ void LogoScreen::render() {
 	float yres = dc.GetBounds().h;
 
 	dc.Begin();
-	float t = (float)frames_ / 60.0f;
+	float t = (float)frames_ / (60.0f * logoScreenSeconds / 3.0f);
 
 	float alpha = t;
 	if (t > 1.0f)
