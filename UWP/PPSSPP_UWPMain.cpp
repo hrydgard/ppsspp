@@ -96,6 +96,8 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	// because the next place it was called was in the EmuThread, and it's too late by then.
 	InitSysDirectories();
 
+	LogManager::Init();
+
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.
 	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
@@ -110,8 +112,6 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 #ifdef _DEBUG
 	g_Config.bEnableLogging = false;
 #endif
-
-	LogManager::Init();
 
 	if (debugLogLevel) {
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
@@ -146,7 +146,12 @@ PPSSPP_UWPMain::~PPSSPP_UWPMain() {
 // Updates application state when the window size changes (e.g. device orientation change)
 void PPSSPP_UWPMain::CreateWindowSizeDependentResources() {
 	// TODO: Replace this with the size-dependent initialization of your app's content.
+	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
+
 	NativeResized();
+	int width = m_deviceResources->GetScreenViewport().Width;
+	int height = m_deviceResources->GetScreenViewport().Height;
+	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, m_deviceResources->GetBackBufferRenderTargetView());
 }
 
 // Renders the current frame according to the current application state.
