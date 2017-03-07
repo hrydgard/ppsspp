@@ -95,9 +95,9 @@ ShaderManagerD3D11::ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext
 	memset(&ub_lights, 0, sizeof(ub_lights));
 	memset(&ub_bones, 0, sizeof(ub_bones));
 
-	ILOG("sizeof(ub_base): %d", (int)sizeof(ub_base));
-	ILOG("sizeof(ub_lights): %d", (int)sizeof(ub_lights));
-	ILOG("sizeof(ub_bones): %d", (int)sizeof(ub_bones));
+	INFO_LOG(G3D, "sizeof(ub_base): %d", (int)sizeof(ub_base));
+	INFO_LOG(G3D, "sizeof(ub_lights): %d", (int)sizeof(ub_lights));
+	INFO_LOG(G3D, "sizeof(ub_bones): %d", (int)sizeof(ub_bones));
 
 	D3D11_BUFFER_DESC desc{sizeof(ub_base), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_base));
