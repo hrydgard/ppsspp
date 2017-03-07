@@ -899,7 +899,7 @@ void ArmJit::CompNEON_Vmscl(MIPSOpcode op) {
 
 	MatrixSize msz = GetMtxSize(op);
 
-	bool overlap = GetMatrixOverlap(_VD, _VS, msz);
+	bool overlap = GetMatrixOverlap(_VD, _VS, msz) != OVERLAP_NONE;
 	if (overlap) {
 		DISABLE;
 	}

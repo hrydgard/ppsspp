@@ -320,7 +320,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		gstate_c.Dirty(DIRTY_DEPTHRANGE);
 	}
 
-	D3D11_VIEWPORT &vp = dynState_.viewport;
+	Draw::Viewport &vp = dynState_.viewport;
 	vp.TopLeftX = vpAndScissor.viewportX;
 	vp.TopLeftY = vpAndScissor.viewportY;
 	vp.Width = vpAndScissor.viewportW;
@@ -443,19 +443,20 @@ void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRe
 	if (!gstate.isModeClear()) {
 		if (fboTexNeedBind_) {
 			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
-			// No sampler required, we do a Load in the pixel shader
-			// context_->PSSetSamplers(1, 1, &stockD3D11.samplerPoint2DClamp);
+			// No sampler required, we do a plain Load in the pixel shader.
 			fboTexBound_ = true;
 			fboTexNeedBind_ = false;
 		}
 		textureCache_->ApplyTexture();
 	}
 
-	// Need to do this AFTER ApplyTexture because the process of depalettization can ruin the blend state.
+	// Need to do this AFTER ApplyTexture because the process of depallettization can ruin the blend state.
 	float blendColor[4];
 	Uint8x4ToFloat4(blendColor, dynState_.blendColor);
-	context_->RSSetViewports(1, &dynState_.viewport);
-	context_->RSSetScissorRects(1, &dynState_.scissor);
+
+	// we go through Draw here because it automatically handles screen rotation, as needed in UWP on mobiles.
+	draw_->SetViewports(1, &dynState_.viewport);
+	draw_->SetScissorRect(dynState_.scissor.left, dynState_.scissor.top, dynState_.scissor.right - dynState_.scissor.left, dynState_.scissor.bottom - dynState_.scissor.top);
 	context_->RSSetState(rasterState_);
 	if (device1_) {
 		context1_->OMSetBlendState(blendState1_, blendColor, 0xFFFFFFFF);

@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <d3d11.h>
 
+#include "thin3d/thin3d.h"
+
 // TODO: Do this more progressively. No need to compute the entire state if the entire state hasn't changed.
-// In Vulkan, we simply collect all the state together into a "pipeline key" - we don't actually set any state here
-// (the caller is responsible for setting the little dynamic state that is supported, dynState).
 
 struct D3D11BlendKey {
 	union {
@@ -67,6 +67,6 @@ struct D3D11DynamicState {
 	uint32_t blendColor;
 	bool useStencil;
 	uint8_t stencilRef;
-	D3D11_VIEWPORT viewport;
+	Draw::Viewport viewport;
 	D3D11_RECT scissor;
 };

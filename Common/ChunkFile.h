@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 // Extremely simple serialization framework.
 // Currently mis-named, a native ChunkFile is something different (a RIFF file)
 
@@ -576,6 +578,7 @@ public:
 		ERROR_NONE,
 		ERROR_BAD_FILE,
 		ERROR_BROKEN_STATE,
+		ERROR_BAD_ALLOC,
 	};
 
 	// May fail badly if ptr doesn't point to valid data.
@@ -642,7 +645,17 @@ public:
 	{
 		// Get data
 		size_t const sz = MeasurePtr(_class);
-		u8 *buffer = new u8[sz];
+		u8 *buffer = nullptr;
+#if PPSSPP_PLATFORM(ANDROID)
+		buffer = new u8[sz];
+#else
+		try {
+			buffer = new u8[sz];
+		}
+		catch (std::bad_alloc e) {
+			return ERROR_BAD_ALLOC;
+		}
+#endif
 		Error error = SavePtr(buffer, _class);
 
 		// SaveFile takes ownership of buffer

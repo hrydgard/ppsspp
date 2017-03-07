@@ -18,6 +18,7 @@
 #include <d3d11.h>
 #include <D3Dcompiler.h>
 
+#include "base/display.h"
 #include "math/lin/matrix4x4.h"
 #include "ext/native/thin3d/thin3d.h"
 #include "base/basictypes.h"
@@ -372,11 +373,14 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 }
 
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
-	float coord[20] = {
-		x,y,0, u0,v0,
-		x + w,y,0, u1,v0,
-		x + w,y + h,0, u1,v1,
-		x,y + h,0, u0,v1,
+	struct Coord {
+		Vec3 pos; float u, v;
+	};
+	Coord coord[4] = {
+		{{x, y, 0}, u0, v0},
+		{{x + w, y, 0}, u1, v0},
+		{{x + w, y + h,0}, u1, v1},
+		{{x, y + h, 0}, u0, v1},
 	};
 
 	static const short indices[4] = { 0, 1, 3, 2 };
@@ -389,15 +393,14 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 		case ROTATION_LOCKED_VERTICAL: rotation = 1; break;
 		case ROTATION_LOCKED_VERTICAL180: rotation = 3; break;
 		}
-
 		for (int i = 0; i < 4; i++) {
-			temp[i * 2] = coord[((i + rotation) & 3) * 5 + 3];
-			temp[i * 2 + 1] = coord[((i + rotation) & 3) * 5 + 4];
+			temp[i * 2] = coord[((i + rotation) & 3)].u;
+			temp[i * 2 + 1] = coord[((i + rotation) & 3)].v;
 		}
 
 		for (int i = 0; i < 4; i++) {
-			coord[i * 5 + 3] = temp[i * 2];
-			coord[i * 5 + 4] = temp[i * 2 + 1];
+			coord[i].u = temp[i * 2];
+			coord[i].v = temp[i * 2 + 1];
 		}
 	}
 
@@ -406,18 +409,25 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 	float halfPixelX = invDestW * 0.5f;
 	float halfPixelY = invDestH * 0.5f;
 	for (int i = 0; i < 4; i++) {
-		coord[i * 5] = coord[i * 5] * invDestW - 1.0f - halfPixelX;
-		coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f - halfPixelY);
+		coord[i].pos.x = coord[i].pos.x * invDestW - 1.0f - halfPixelX;
+		coord[i].pos.y = -(coord[i].pos.y * invDestH - 1.0f - halfPixelY);
+	}
+
+	if (g_display_rotation != DisplayRotation::ROTATE_0) {
+		for (int i = 0; i < 4; i++) {
+			// backwards notation, should fix that...
+			coord[i].pos = coord[i].pos * g_display_rot_matrix;
+		}
 	}
 
 	// The above code is for FAN geometry but we can only do STRIP. So rearrange it a little.
 	D3D11_MAPPED_SUBRESOURCE map;
 	context_->Map(quadBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 	float *dest = (float *)map.pData;
-	memcpy(dest, coord, sizeof(float) * 5);
-	memcpy(dest + 5, coord + 5, sizeof(float) * 5);
-	memcpy(dest + 10, coord + 15, sizeof(float) * 5);
-	memcpy(dest + 15, coord + 10, sizeof(float) * 5);
+	memcpy(dest, coord, sizeof(Coord));
+	memcpy(dest + 5, coord + 1, sizeof(Coord));
+	memcpy(dest + 10, coord + 3, sizeof(Coord));
+	memcpy(dest + 15, coord + 2, sizeof(Coord));
 	context_->Unmap(quadBuffer_, 0);
 
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
