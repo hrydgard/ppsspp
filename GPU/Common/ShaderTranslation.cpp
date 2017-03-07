@@ -55,10 +55,15 @@ static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
 }
 
 void ShaderTranslationInit() {
+	// TODO: We have TLS issues on mobile
+#ifndef _M_ARM
 	glslang::InitializeProcess();
+#endif
 }
 void ShaderTranslationShutdown() {
+#ifndef _M_ARM
 	glslang::FinalizeProcess();
+#endif
 }
 
 std::string Preprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage stage) {
@@ -166,6 +171,10 @@ std::string Postprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage
 bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, Draw::ShaderStage stage, std::string *errorMessage) {
 	if (srcLang != GLSL_300 && srcLang != GLSL_140)
 		return false;
+
+#ifdef _M_ARM
+	return false;
+#endif
 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
