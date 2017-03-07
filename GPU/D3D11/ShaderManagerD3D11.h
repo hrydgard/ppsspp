@@ -25,9 +25,6 @@
 #include "Globals.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
-// #include "GPU/DX9/VertexShaderGeneratorD3D11.h"
-// #include "GPU/DX9/FragmentShaderGeneratorD3D11.h"
-#include "math/lin/matrix4x4.h"
 #include "GPU/Common/ShaderUniforms.h"
 
 class D3D11Context;
