@@ -443,6 +443,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return (int)(display_hz * 1000.0);
 	case SYSPROP_SUPPORTS_PERMISSIONS:
 		return androidVersion >= 23;	// 6.0 Marshmallow introduced run time permissions.
+	case SYSPROP_HAS_BACK_BUTTON:
+		return 1;
 	default:
 		return -1;
 	}

@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <set>
+
 #include "pch.h"
 #include "Common/DeviceResources.h"
 #include "PPSSPP_UWPMain.h"
@@ -45,6 +47,10 @@ namespace UWP {
 		Touch touches[maxTouches]{};
 	};
 
+	enum class HardwareButton {
+		BACK,
+	};
+
 	// Main entry point for our app. Connects the app with the Windows shell and handles application lifecycle events.
 	ref class App sealed : public Windows::ApplicationModel::Core::IFrameworkView {
 	public:
@@ -56,6 +62,8 @@ namespace UWP {
 		virtual void Load(Platform::String^ entryPoint);
 		virtual void Run();
 		virtual void Uninitialize();
+
+		bool HasBackButton();
 
 	protected:
 		// Application lifecycle event handlers.
@@ -85,8 +93,11 @@ namespace UWP {
 		void OnPointerCaptureLost(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args);
 		void OnPointerWheelChanged(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args);
 
+		void App_BackRequested(Platform::Object^ sender, Windows::UI::Core::BackRequestedEventArgs^ e);
+
 	private:
 		std::shared_ptr<DX::DeviceResources> m_deviceResources;
+		std::set<HardwareButton> m_hardwareButtons;
 		std::unique_ptr<PPSSPP_UWPMain> m_main;
 		bool m_windowClosed;
 		bool m_windowVisible;

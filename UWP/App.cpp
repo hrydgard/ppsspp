@@ -90,7 +90,24 @@ void App::SetWindow(CoreWindow^ window) {
 	window->PointerCaptureLost += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerCaptureLost);
 	window->PointerWheelChanged += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerWheelChanged);
 
+	if (Windows::Foundation::Metadata::ApiInformation::IsTypePresent("Windows.Phone.UI.Input.HardwareButtons")) {
+		m_hardwareButtons.insert(HardwareButton::BACK);
+	}
+
+	Windows::UI::Core::SystemNavigationManager::GetForCurrentView()->
+		BackRequested += ref new Windows::Foundation::EventHandler<
+		Windows::UI::Core::BackRequestedEventArgs^>(
+			this, &App::App_BackRequested);
+
 	m_deviceResources->SetWindow(window);
+}
+
+bool App::HasBackButton() {
+	return m_hardwareButtons.find(HardwareButton::BACK) != m_hardwareButtons.end();
+}
+
+void App::App_BackRequested(Platform::Object^ sender, Windows::UI::Core::BackRequestedEventArgs^ e) {
+	e->Handled = m_main->OnHardwareButton(HardwareButton::BACK);
 }
 
 void App::OnKeyDown(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args) {
@@ -185,6 +202,10 @@ void App::Uninitialize() {
 void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^ args) {
 	// Run() won't start until the CoreWindow is activated.
 	CoreWindow::GetForCurrentThread()->Activate();
+	// On mobile, we force-enter fullscreen mode.
+#ifdef _ARM
+	Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryEnterFullScreenMode();
+#endif
 }
 
 void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {

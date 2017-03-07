@@ -19,7 +19,7 @@ namespace DisplayMetrics
 	// games attempt to render at 60 frames per second at full fidelity.
 	// The decision to render at full fidelity across all platforms and form factors
 	// should be deliberate.
-	static const bool SupportHighResolutions = false;
+	static const bool SupportHighResolutions = true;
 
 	// The default thresholds that define a "high resolution" display. If the thresholds
 	// are exceeded and SupportHighResolutions is false, the dimensions will be scaled
@@ -441,7 +441,6 @@ void DX::DeviceResources::UpdateRenderTargetSize()
 			m_effectiveDpi /= 2.0f;
 		}
 	}
-
 	// Calculate the necessary render target size in pixels.
 	m_outputSize.Width = DX::ConvertDipsToPixels(m_logicalSize.Width, m_effectiveDpi);
 	m_outputSize.Height = DX::ConvertDipsToPixels(m_logicalSize.Height, m_effectiveDpi);

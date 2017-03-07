@@ -77,6 +77,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 #else
 		return DEVICE_TYPE_DESKTOP;
 #endif
+	case SYSPROP_HAS_BACK_BUTTON:
+		return 1;
   default:
     return -1;
   }

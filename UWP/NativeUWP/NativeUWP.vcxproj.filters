@@ -220,9 +220,6 @@
     <ClCompile Include="..\..\ext\native\ext\vjson\json.cpp">
       <Filter>ext\vjson</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\ext\vjson\main.cpp">
-      <Filter>ext\vjson</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\ext\libzip\mkstemp.c">
       <Filter>ext\libzip</Filter>
     </ClCompile>

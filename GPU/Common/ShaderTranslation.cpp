@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #if !defined(ANDROID)
 
 #include <memory>
@@ -55,13 +57,13 @@ static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
 }
 
 void ShaderTranslationInit() {
-	// TODO: We have TLS issues on mobile
-#ifndef _M_ARM
+	// TODO: We have TLS issues on UWP
+#if !PPSSPP_PLATFORM(UWP)
 	glslang::InitializeProcess();
 #endif
 }
 void ShaderTranslationShutdown() {
-#ifndef _M_ARM
+#if !PPSSPP_PLATFORM(UWP)
 	glslang::FinalizeProcess();
 #endif
 }
@@ -172,7 +174,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 	if (srcLang != GLSL_300 && srcLang != GLSL_140)
 		return false;
 
-#ifdef _M_ARM
+#if PPSSPP_PLATFORM(UWP)
 	return false;
 #endif
 

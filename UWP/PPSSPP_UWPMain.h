@@ -12,6 +12,7 @@
 namespace UWP {
 
 ref class App;
+enum class HardwareButton;
 
 class UWPGraphicsContext : public GraphicsContext {
 public:
@@ -50,6 +51,7 @@ public:
 
 	void OnMouseWheel(float delta);
 
+	bool OnHardwareButton(HardwareButton button);
 
 	void RotateXYToDisplay(float &x, float &y);
 

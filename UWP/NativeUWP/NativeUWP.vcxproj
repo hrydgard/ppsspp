@@ -1163,7 +1163,6 @@
     </ClCompile>
     <ClCompile Include="..\..\ext\native\ext\vjson\block_allocator.cpp" />
     <ClCompile Include="..\..\ext\native\ext\vjson\json.cpp" />
-    <ClCompile Include="..\..\ext\native\ext\vjson\main.cpp" />
     <ClCompile Include="..\..\ext\native\file\chunk_file.cpp" />
     <ClCompile Include="..\..\ext\native\file\fd_util.cpp" />
     <ClCompile Include="..\..\ext\native\file\file_util.cpp" />

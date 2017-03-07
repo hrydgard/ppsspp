@@ -26,6 +26,7 @@
 #include "UWPHost.h"
 #include "UWPUtil.h"
 #include "StorageFileLoader.h"
+#include "App.h"
 
 using namespace UWP;
 using namespace Windows::Foundation;
@@ -121,7 +122,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 
 	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->LocalFolder->Path->Data());
-	
+
 	NativeInit(1, argv, "", "", cacheFolder.c_str(), false);
 
 	NativeInitGraphics(ctx_.get());
@@ -145,10 +146,10 @@ PPSSPP_UWPMain::~PPSSPP_UWPMain() {
 
 // Updates application state when the window size changes (e.g. device orientation change)
 void PPSSPP_UWPMain::CreateWindowSizeDependentResources() {
-	// TODO: Replace this with the size-dependent initialization of your app's content.
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
 
 	NativeResized();
+
 	int width = m_deviceResources->GetScreenViewport().Width;
 	int height = m_deviceResources->GetScreenViewport().Height;
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, m_deviceResources->GetBackBufferRenderTargetView());
@@ -169,8 +170,12 @@ bool PPSSPP_UWPMain::Render() {
 	time_update();
 	auto context = m_deviceResources->GetD3DDeviceContext();
 
-	// Reset the viewport to target the whole screen.
-	auto viewport = m_deviceResources->GetScreenViewport();
+	auto bounds = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->VisibleBounds;
+
+	int boundTop = bounds.Top;
+	int boundLeft = bounds.Left;
+	int boundedWidth = bounds.Width;
+	int boundedHeight = bounds.Height;
 
 	switch (m_deviceResources->ComputeDisplayRotation()) {
 	case DXGI_MODE_ROTATION_IDENTITY: g_display_rotation = DisplayRotation::ROTATE_0; break;
@@ -181,6 +186,9 @@ bool PPSSPP_UWPMain::Render() {
 	// Not super elegant but hey.
 	memcpy(&g_display_rot_matrix, &m_deviceResources->GetOrientationTransform3D(), sizeof(float) * 16);
 
+	// Reset the viewport to target the whole screen.
+	auto viewport = m_deviceResources->GetScreenViewport();
+
 	pixel_xres = viewport.Width;
 	pixel_yres = viewport.Height;
 
@@ -189,14 +197,15 @@ bool PPSSPP_UWPMain::Render() {
 		std::swap(pixel_xres, pixel_yres);
 	}
 
-	g_dpi = m_deviceResources->GetDpi();
+	g_dpi = m_deviceResources->GetActualDpi();
+	pixel_xres = (g_dpi / 96.0f) * boundedWidth;
+	pixel_yres = (g_dpi / 96.0f) * boundedHeight;
 
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 		// Boost DPI a bit to look better.
-		g_dpi_scale = 120.0f / g_dpi;
-	} else {
-		g_dpi_scale = 96.0f / g_dpi;
+		g_dpi *= 96.0f / 136.0f;
 	}
+	g_dpi_scale = 96.0f / g_dpi;
 
 	pixel_in_dps = 1.0f / g_dpi_scale;
 
@@ -260,30 +269,29 @@ void PPSSPP_UWPMain::OnMouseWheel(float delta) {
 	NativeKey(keyInput);
 }
 
-void PPSSPP_UWPMain::RotateXYToDisplay(float &x, float &y) {
-	switch (m_deviceResources->ComputeDisplayRotation()) {
-	case DXGI_MODE_ROTATION_IDENTITY:
-		// Nothing to do here.
-		break;
-	case DXGI_MODE_ROTATION_ROTATE90:
-		// TODO
-		break;
-	case DXGI_MODE_ROTATION_ROTATE180:
-		x = m_deviceResources->GetScreenViewport().Width - x;
-		y = m_deviceResources->GetScreenViewport().Height - y;
-		break;
-	case DXGI_MODE_ROTATION_ROTATE270:
-		// TODO
-		break;
+bool PPSSPP_UWPMain::OnHardwareButton(HardwareButton button) {
+	KeyInput keyInput{};
+	keyInput.deviceId = DEVICE_ID_KEYBOARD;
+	keyInput.flags = KEY_DOWN | KEY_UP;
+	switch (button) {
+	case HardwareButton::BACK:
+		keyInput.keyCode = NKCODE_BACK;
+		return NativeKey(keyInput);
+	default:
+		return false;
 	}
 }
 
 void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp) {
+	// We get the coordinate in Windows' device independent pixels already. So let's undo that,
+	// and then apply our own "dpi".
+	float dpiFactor = m_deviceResources->GetActualDpi() / 96.0f;
+	dpiFactor /= pixel_in_dps;
+
 	TouchInput input{};
 	input.id = touchId;
-	RotateXYToDisplay(x, y);
-	input.x = x * pixel_in_dps;
-	input.y = y * pixel_in_dps;
+	input.x = x * dpiFactor;
+	input.y = y * dpiFactor;
 	input.flags = touchEvent;
 	input.timestamp = timestamp;
 	NativeTouch(input);
@@ -360,8 +368,10 @@ int System_GetPropertyInt(SystemProperty prop) {
 #else
 		return DEVICE_TYPE_DESKTOP;
 #endif
+	case SYSPROP_HAS_BACK_BUTTON:
+		return 1;
 	case SYSPROP_HAS_FILE_BROWSER:
-		return true;
+		return 1;
 	default:
 		return -1;
 	}
@@ -389,16 +399,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 			if (file) {
 				g_main->LoadStorageFile(file);
 			}
-			/*
-			std::thread([file] {
-				create_task(file->OpenReadAsync()).then([](IRandomAccessStreamWithContentType^ imgStream) {
-					imgStream->Seek(0);
-					IBuffer ^buffer = ref new Streams::Buffer(2048);
-					auto readTask = create_task(imgStream->ReadAsync(buffer, 2048, InputStreamOptions::None));
-					readTask.wait();
-				});
-			}).detach();
-			*/
 		});
 	}
 }
@@ -441,7 +441,7 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 	return false;
 }
 
-// Emulation of TlsAlloc for Windows 10. Used by glslang.
+// Emulation of TlsAlloc for Windows 10. Used by glslang. Doesn't actually seem to work, other than fixing the linking errors?
 
 extern "C" {
 DWORD WINAPI __imp_TlsAlloc() {
