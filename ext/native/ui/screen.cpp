@@ -25,7 +25,9 @@ void ScreenManager::switchScreen(Screen *screen) {
 	// until that switch.
 	// TODO: is this still true?
 	if (nextScreen_ != 0) {
-		FLOG("Already had a nextScreen_");
+		ELOG("Already had a nextScreen_! Asynchronous open while doing something? Deleting the new screen.");
+		delete screen;
+		return;
 	}
 	if (screen == 0) {
 		WLOG("Swiching to a zero screen, this can't be good");
