@@ -110,23 +110,27 @@ LogManager::LogManager() {
 #endif
 	}
 
-	// Remove file logging on small devices
+	// Remove file logging on small devices in Release mode.
+#if PPSSPP_PLATFORM(UWP)
+	if (IsDebuggerPresent())
+		debuggerLog_ = new OutputDebugStringLogListener();
+#else
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 	fileLog_ = new FileLogListener("");
 	consoleLog_ = new ConsoleListener();
-	debuggerLog_ = new DebuggerLogListener();
-#else
-	fileLog_ = nullptr;
-	consoleLog_ = nullptr;
-	debuggerLog_ = nullptr;
+#ifdef _WIN32
+	if (IsDebuggerPresent())
+		debuggerLog_ = new OutputDebugStringLogListener();
+#endif
 #endif
 	ringLog_ = new RingbufferLogListener();
+#endif
 
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 	AddListener(fileLog_);
 	AddListener(consoleLog_);
 #if defined(_MSC_VER) && (defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP))
-	if (IsDebuggerPresent() && debuggerLog_ != NULL && LOG_MSC_OUTPUTDEBUG)
+	if (IsDebuggerPresent() && debuggerLog_ && LOG_MSC_OUTPUTDEBUG)
 		AddListener(debuggerLog_);
 #endif
 	AddListener(ringLog_);
@@ -292,7 +296,7 @@ void FileLogListener::Log(const LogMessage &message) {
 	m_logfile << message.header << " " << message.msg << std::flush;
 }
 
-void DebuggerLogListener::Log(const LogMessage &message) {
+void OutputDebugStringLogListener::Log(const LogMessage &message) {
 #if _MSC_VER
 	OutputDebugStringUTF8(message.msg.c_str());
 #endif

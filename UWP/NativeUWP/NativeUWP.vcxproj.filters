@@ -454,6 +454,9 @@
     <ClCompile Include="..\..\ext\native\gfx\gl_lost_manager.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\native\base\logging.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />

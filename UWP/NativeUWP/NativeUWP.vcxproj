@@ -396,6 +396,7 @@
     <ClCompile Include="..\..\ext\native\base\colorutil.cpp" />
     <ClCompile Include="..\..\ext\native\base\compat.cpp" />
     <ClCompile Include="..\..\ext\native\base\display.cpp" />
+    <ClCompile Include="..\..\ext\native\base\logging.cpp" />
     <ClCompile Include="..\..\ext\native\base\stringutil.cpp" />
     <ClCompile Include="..\..\ext\native\base\timeutil.cpp" />
     <ClCompile Include="..\..\ext\native\data\compression.cpp" />

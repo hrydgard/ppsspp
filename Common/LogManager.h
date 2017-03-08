@@ -66,7 +66,7 @@ private:
 	bool m_enable;
 };
 
-class DebuggerLogListener : public LogListener {
+class OutputDebugStringLogListener : public LogListener {
 public:
 	void Log(const LogMessage &msg);
 };
@@ -104,6 +104,20 @@ struct LogChannel {
 class ConsoleListener;
 
 class LogManager : NonCopyable {
+private:
+	LogManager();
+	~LogManager();
+
+	LogChannel log_[LogTypes::NUMBER_OF_LOGS];
+	FileLogListener *fileLog_ = nullptr;
+	ConsoleListener *consoleLog_ = nullptr;
+	OutputDebugStringLogListener *debuggerLog_ = nullptr;
+	RingbufferLogListener *ringLog_ = nullptr;
+	static LogManager *logManager_;  // Singleton. Ugh.
+
+	std::mutex log_lock_;
+	std::mutex listeners_lock_;
+	std::vector<LogListener*> listeners_;
 public:
 	void AddListener(LogListener *listener);
 	void RemoveListener(LogListener *listener);
@@ -141,7 +155,7 @@ public:
 		return consoleLog_;
 	}
 
-	DebuggerLogListener *GetDebuggerListener() const {
+	OutputDebugStringLogListener *GetDebuggerListener() const {
 		return debuggerLog_;
 	}
 
@@ -164,19 +178,4 @@ public:
 
 	void SaveConfig(IniFile::Section *section);
 	void LoadConfig(IniFile::Section *section, bool debugDefaults);
-
-private:
-	LogManager();
-	~LogManager();
-
-	LogChannel log_[LogTypes::NUMBER_OF_LOGS];
-	FileLogListener *fileLog_;
-	ConsoleListener *consoleLog_;
-	DebuggerLogListener *debuggerLog_;
-	RingbufferLogListener *ringLog_;
-	static LogManager *logManager_;  // Singleton. Ugh.
-	std::mutex log_lock_;
-
-	std::mutex listeners_lock_;
-	std::vector<LogListener*> listeners_;
 };

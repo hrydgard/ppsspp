@@ -110,10 +110,6 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D11;
 	g_Config.bSeparateCPUThread = false;
 
-#ifdef _DEBUG
-	g_Config.bEnableLogging = false;
-#endif
-
 	if (debugLogLevel) {
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
 	}
