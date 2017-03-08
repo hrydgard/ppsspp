@@ -760,6 +760,10 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 void Jit::Comp_Syscall(MIPSOpcode op)
 {
+	if (op.encoding == 0x03FFFFcc) {
+		WARN_LOG(JIT, "Encountered bad syscall instruction at %08x (%08x)", js.compilerPC, op.encoding);
+	}
+
 	if (!g_Config.bSkipDeadbeefFilling)
 	{
 		// All of these will be overwritten with DEADBEEF anyway.

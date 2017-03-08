@@ -175,24 +175,18 @@ const char *GetFuncName(const char *moduleName, u32 nib)
 	return temp;
 }
 
-u32 GetSyscallOp(const char *moduleName, u32 nib)
-{
+u32 GetSyscallOp(const char *moduleName, u32 nib) {
 	// Special case to hook up bad imports.
-	if (moduleName == NULL)
-	{
+	if (moduleName == NULL) {
 		return (0x03FFFFCC);	// invalid syscall
 	}
 
 	int modindex = GetModuleIndex(moduleName);
-	if (modindex != -1)
-	{
+	if (modindex != -1) {
 		int funcindex = GetFuncIndex(modindex, nib);
-		if (funcindex != -1)
-		{
+		if (funcindex != -1) {
 			return (0x0000000c | (modindex<<18) | (funcindex<<6));
-		}
-		else
-		{
+		} else {
 			INFO_LOG(HLE, "Syscall (%s, %08x) unknown", moduleName, nib);
 			return (0x0003FFCC | (modindex<<18));  // invalid syscall
 		}
@@ -484,7 +478,7 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op)
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
 	if (funcnum == 0xfff) {
-		ERROR_LOG(HLE, "Unknown syscall: Module: %s", modulenum > (int) moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name); 
+		ERROR_LOG(HLE, "Unknown syscall: Module: %s (module: %d func: %d)", modulenum > (int)moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name, modulenum, funcnum);
 		return NULL;
 	}
 	if (modulenum >= (int)moduleDB.size()) {
