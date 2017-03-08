@@ -1128,6 +1128,19 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 	tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
 }
 
+void TabHolder::SetCurrentTab(int tab) {
+	if (tab >= (int)tabs_.size()) {
+		// Ignore
+		return;
+	}
+	if (tab != currentTab_) {
+		tabs_[currentTab_]->SetVisibility(V_GONE);
+		currentTab_ = tab;
+		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+	}
+	tabStrip_->SetSelection(tab);
+}
+
 EventReturn TabHolder::OnTabClick(EventParams &e) {
 	// We have e.b set when it was an explicit click action.
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.

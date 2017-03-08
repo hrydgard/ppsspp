@@ -132,8 +132,7 @@ LogManager::LogManager() {
 LogManager::~LogManager() {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-		if (fileLog_ != NULL)
-			RemoveListener(fileLog_);
+		RemoveListener(fileLog_);
 		RemoveListener(consoleLog_);
 #if defined(_MSC_VER) && defined(USING_WIN_UI)
 		RemoveListener(debuggerLog_);
@@ -257,11 +256,15 @@ void LogManager::Shutdown() {
 }
 
 void LogManager::AddListener(LogListener *listener) {
+	if (!listener)
+		return;
 	std::lock_guard<std::mutex> lk(listeners_lock_);
 	listeners_.push_back(listener);
 }
 
 void LogManager::RemoveListener(LogListener *listener) {
+	if (!listener)
+		return;
 	std::lock_guard<std::mutex> lk(listeners_lock_);
 	auto iter = std::find(listeners_.begin(), listeners_.end(), listener);
 	if (iter != listeners_.end())

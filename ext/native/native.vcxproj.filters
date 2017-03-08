@@ -763,6 +763,9 @@
     <ClCompile Include="thin3d\d3d11_loader.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
+    <ClCompile Include="base\logging.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">

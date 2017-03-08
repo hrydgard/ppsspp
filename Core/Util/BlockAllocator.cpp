@@ -59,7 +59,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 sizeGrain, u32 grain, bool fromT
 {
 	// Sanity check
 	if (size == 0 || size > rangeSize_) {
-		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
+		ERROR_LOG(SCEKERNEL, "Clearly bogus size: %08x - failing allocation", size);
 		return -1;
 	}
 
@@ -137,7 +137,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 sizeGrain, u32 grain, bool fromT
 
 	//Out of memory :(
 	ListBlocks();
-	ERROR_LOG(HLE, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, size, size);
+	ERROR_LOG(SCEKERNEL, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, size, size);
 	return -1;
 }
 
@@ -151,7 +151,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 {
 	CheckBlocks();
 	if (size > rangeSize_) {
-		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
+		ERROR_LOG(SCEKERNEL, "Clearly bogus size: %08x - failing allocation", size);
 		return -1;
 	}
 
@@ -159,7 +159,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 	u32 alignedPosition = position;
 	u32 alignedSize = size;
 	if (position & (grain_ - 1)) {
-		DEBUG_LOG(HLE, "Position %08x does not align to grain.", position);
+		DEBUG_LOG(SCEKERNEL, "Position %08x does not align to grain.", position);
 		alignedPosition &= ~(grain_ - 1);
 
 		// Since the position was decreased, size must increase.
@@ -177,7 +177,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 		Block &b = *bp;
 		if (b.taken)
 		{
-			ERROR_LOG(HLE, "Block allocator AllocAt failed, block taken! %08x, %i", position, size);
+			ERROR_LOG(SCEKERNEL, "Block allocator AllocAt failed, block taken! %08x, %i", position, size);
 			return -1;
 		}
 		else
@@ -185,7 +185,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 			// Make sure the block is big enough to split.
 			if (b.start + b.size < alignedPosition + alignedSize)
 			{
-				ERROR_LOG(HLE, "Block allocator AllocAt failed, not enough contiguous space %08x, %i", position, size);
+				ERROR_LOG(SCEKERNEL, "Block allocator AllocAt failed, not enough contiguous space %08x, %i", position, size);
 				return -1;
 			}
 			//good to go
@@ -212,24 +212,24 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 	}
 	else
 	{
-		ERROR_LOG(HLE, "Block allocator AllocAt failed :( %08x, %i", position, size);
+		ERROR_LOG(SCEKERNEL, "Block allocator AllocAt failed :( %08x, %i", position, size);
 	}
 
 
 	//Out of memory :(
 	ListBlocks();
-	ERROR_LOG(HLE, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, alignedSize, alignedSize);
+	ERROR_LOG(SCEKERNEL, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, alignedSize, alignedSize);
 	return -1;
 }
 
 void BlockAllocator::MergeFreeBlocks(Block *fromBlock)
 {
-	DEBUG_LOG(HLE, "Merging Blocks");
+	DEBUG_LOG(SCEKERNEL, "Merging Blocks");
 
 	Block *prev = fromBlock->prev;
 	while (prev != NULL && prev->taken == false)
 	{
-		DEBUG_LOG(HLE, "Block Alloc found adjacent free blocks - merging");
+		DEBUG_LOG(SCEKERNEL, "Block Alloc found adjacent free blocks - merging");
 		prev->size += fromBlock->size;
 		if (fromBlock->next == NULL)
 			top_ = prev;
@@ -249,7 +249,7 @@ void BlockAllocator::MergeFreeBlocks(Block *fromBlock)
 	Block *next = fromBlock->next;
 	while (next != NULL && next->taken == false)
 	{
-		DEBUG_LOG(HLE, "Block Alloc found adjacent free blocks - merging");
+		DEBUG_LOG(SCEKERNEL, "Block Alloc found adjacent free blocks - merging");
 		fromBlock->size += next->size;
 		fromBlock->next = next->next;
 		delete next;
@@ -273,7 +273,7 @@ bool BlockAllocator::Free(u32 position)
 	}
 	else
 	{
-		ERROR_LOG(HLE, "BlockAllocator : invalid free %08x", position);
+		ERROR_LOG(SCEKERNEL, "BlockAllocator : invalid free %08x", position);
 		return false;
 	}
 }
@@ -289,7 +289,7 @@ bool BlockAllocator::FreeExact(u32 position)
 	}
 	else
 	{
-		ERROR_LOG(HLE, "BlockAllocator : invalid free %08x", position);
+		ERROR_LOG(SCEKERNEL, "BlockAllocator : invalid free %08x", position);
 		return false;
 	}
 }
@@ -389,13 +389,13 @@ u32 BlockAllocator::GetBlockSizeFromAddress(u32 addr) const
 
 void BlockAllocator::ListBlocks() const
 {
-	INFO_LOG(HLE,"-----------");
+	INFO_LOG(SCEKERNEL,"-----------");
 	for (const Block *bp = bottom_; bp != NULL; bp = bp->next)
 	{
 		const Block &b = *bp;
-		INFO_LOG(HLE, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
+		INFO_LOG(SCEKERNEL, "Block: %08x - %08x size %08x taken=%i tag=%s", b.start, b.start+b.size, b.size, b.taken ? 1:0, b.tag);
 	}
-	INFO_LOG(HLE,"-----------");
+	INFO_LOG(SCEKERNEL,"-----------");
 }
 
 u32 BlockAllocator::GetLargestFreeBlockSize() const

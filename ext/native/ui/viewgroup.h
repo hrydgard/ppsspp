@@ -321,14 +321,7 @@ public:
 		return tabContents;
 	}
 
-	void SetCurrentTab(int tab) {
-		if (tab != currentTab_) {
-			tabs_[currentTab_]->SetVisibility(V_GONE);
-			currentTab_ = tab;
-			tabs_[currentTab_]->SetVisibility(V_VISIBLE);
-		}
-		tabStrip_->SetSelection(tab);
-	}
+	void SetCurrentTab(int tab);
 
 	int GetCurrentTab() const { return currentTab_; }
 	std::string Describe() const override { return "TabHolder: " + View::Describe(); }

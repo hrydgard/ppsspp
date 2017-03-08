@@ -74,10 +74,12 @@ void OutputDebugStringUTF8(const char *p);
 
 #ifdef _WIN32
 
+const char *GetFn(const char *fn);
+
 #define XLOG_IMPL(type, ...) do {\
 	char temp[512]; \
 	char *p = temp; \
-	int len = snprintf(p, sizeof(temp), type ": %s:%i: ", __FILE__, __LINE__); \
+	int len = snprintf(p, sizeof(temp), type ": %s:%i: ", GetFn(__FILE__), __LINE__); \
 	if (len < sizeof(temp)) { \
 		p += len; \
 		p += snprintf(p, sizeof(temp) - len - 3, type ": " __VA_ARGS__);  \
