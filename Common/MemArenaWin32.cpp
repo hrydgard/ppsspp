@@ -42,13 +42,13 @@ void MemArena::ReleaseSpace() {
 	hMemoryMapping = 0;
 }
 
-void *MemArena::CreateView(s64 offset, size_t size, void *base) {
+void *MemArena::CreateView(s64 offset, size_t size, void *viewbase) {
 	size = roundup(size);
 #if PPSSPP_PLATFORM(UWP)
-	// Can't map views properly. We just grab some RAM.
-	void *ptr = VirtualAllocFromApp(NULL, size, MEM_COMMIT, PAGE_READWRITE);
+	// We just grabbed some RAM before using RESERVE. This commits it.
+	void *ptr = VirtualAllocFromApp(viewbase, size, MEM_COMMIT, PAGE_READWRITE);
 #else
-	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, base);
+	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, viewbase);
 #endif
 	return ptr;
 }

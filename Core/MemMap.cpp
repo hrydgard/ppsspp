@@ -17,6 +17,10 @@
 
 #include "ppsspp_config.h"
 
+#if PPSSPP_PLATFORM(UWP)
+#include "Common/CommonWindows.h"
+#endif
+
 #include <algorithm>
 #include <mutex>
 
@@ -129,7 +133,6 @@ inline static bool CanIgnoreView(const MemoryView &view) {
 	;
 #endif
 
-#if !PPSSPP_PLATFORM(UWP)
 static bool Memory_TryBase(u32 flags) {
 	// OK, we know where to find free space. Now grab it!
 	// We just mimic the popular BAT setup.
@@ -153,7 +156,7 @@ static bool Memory_TryBase(u32 flags) {
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
 		}
-#if PPSSPP_ARCH(64BIT)
+#ifndef MASKED_PSP_MEMORY
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 		if (!*view.out_ptr) {
@@ -193,19 +196,13 @@ bail:
 	}
 	return false;
 }
-#endif
 
 bool MemoryMap_Setup(u32 flags) {
 #if PPSSPP_PLATFORM(UWP)
-	// We just grab all 256MB.
-	// We should be able to avoid COMMIT-ing here, TODO.
-	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	for (int i = 0; i < num_views; i++) {
-		const MemoryView &view = views[i];
-		(*view.out_ptr) = (uint8_t *)base + (views[i].virtual_address & Memory::MEMVIEW32_MASK);
-	}
-	return true;
+	// We reserve the memory, then simply commit in TryBase.
+	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);
 #else
+
 	// Figure out how much memory we need to allocate in total.
 	size_t total_mem = 0;
 	for (int i = 0; i < num_views; i++) {
@@ -218,6 +215,7 @@ bool MemoryMap_Setup(u32 flags) {
 
 	// Grab some pagefile backed memory out of the void ...
 	g_arena.GrabLowMemSpace(total_mem);
+#endif
 
 #if !PPSSPP_PLATFORM(ANDROID)
 	if (g_arena.NeedsProbing()) {
@@ -248,12 +246,13 @@ bool MemoryMap_Setup(u32 flags) {
 	else
 #endif
 	{
+#if !PPSSPP_PLATFORM(UWP)
 		base = g_arena.Find4GBBase();
+#endif
 	}
 
 	// Should return true...
 	return Memory_TryBase(flags);
-#endif
 }
 
 void MemoryMap_Shutdown(u32 flags) {
