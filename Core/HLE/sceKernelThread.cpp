@@ -2149,6 +2149,8 @@ void sceKernelExitDeleteThread(int exitStatus)
 	if (thread)
 	{
 		INFO_LOG(SCEKERNEL,"sceKernelExitDeleteThread(%d)", exitStatus);
+		uint32_t thread_attr = thread->nt.attr;
+		uint32_t uid = thread->GetUID();
 		__KernelDeleteThread(currentThread, exitStatus, "thread exited with delete");
 		// Temporary hack since we don't reschedule within callbacks.
 		g_inCbCount = 0;
@@ -2156,7 +2158,7 @@ void sceKernelExitDeleteThread(int exitStatus)
 		hleReSchedule("thread exited with delete");
 
 		// TODO: This should trigger ON the thread when it exits.
-		__KernelThreadTriggerEvent((thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, thread->GetUID(), THREADEVENT_EXIT);
+		__KernelThreadTriggerEvent((thread_attr & PSP_THREAD_ATTR_KERNEL) != 0, uid, THREADEVENT_EXIT);
 	}
 	else
 		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelExitDeleteThread(%d) ERROR - could not find myself!", exitStatus);
