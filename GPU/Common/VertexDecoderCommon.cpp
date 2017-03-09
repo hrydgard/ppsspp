@@ -1244,8 +1244,9 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	size *= morphcount;
 	DEBUG_LOG(G3D, "SVT : size = %i, aligned to biggest %i", size, biggest);
 
-	// Attempt to JIT as well
-	if (jitCache && g_Config.bVertexDecoderJit) {
+	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
+	// debugging attempts - if the main JIT doesn't work, this one won't do any better, probably.
+	if (jitCache && g_Config.bVertexDecoderJit && g_Config.iCpuCore == (int)CPUCore::JIT) {
 		jitted_ = jitCache->Compile(*this, &jittedSize_);
 		if (!jitted_) {
 			WARN_LOG(G3D, "Vertex decoder JIT failed! fmt = %08x (%s)", fmt_, GetString(SHADER_STRING_SHORT_DESC).c_str());
