@@ -407,7 +407,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 			float bnrm[3], bpos[3];
 
 			if (vertType & GE_VTYPE_NRM_MASK) {
-				// Normals are generated during tesselation anyway, not sure if any need to supply
+				// Normals are generated during tessellation anyway, not sure if any need to supply
 				reader.ReadNrm(nrm);
 			} else {
 				nrm[0] = 0;
@@ -443,7 +443,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 			if (vertType & GE_VTYPE_TC_MASK) {
 				reader.ReadUV(sv.uv);
 			} else {
-				sv.uv[0] = 0.0f;  // This will get filled in during tesselation
+				sv.uv[0] = 0.0f;  // This will get filled in during tessellation
 				sv.uv[1] = 0.0f;
 			}
 			if (vertType & GE_VTYPE_COL_MASK) {
@@ -452,7 +452,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 				memcpy(sv.color, defaultColor, 4);
 			}
 			if (vertType & GE_VTYPE_NRM_MASK) {
-				// Normals are generated during tesselation anyway, not sure if any need to supply
+				// Normals are generated during tessellation anyway, not sure if any need to supply
 				reader.ReadNrm((float *)&sv.nrm);
 			} else {
 				sv.nrm.x = 0.0f;
