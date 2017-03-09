@@ -151,7 +151,7 @@ size_t StorageFileLoader::Read(size_t bytes, size_t count, void *data, Flags fla
 
 size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
 	EnsureOpen();
-	if (operationRequested_)
+	if (operationRequested_ || responseAvailable_)
 		Crash();
 	{
 		std::unique_lock<std::mutex> lock(mutex_);
@@ -165,7 +165,12 @@ size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, vo
 	// OK, now wait for response...
 	{
 		std::unique_lock<std::mutex> responseLock(mutexResponse_);
-		condResponse_.wait(responseLock);
+		while (!responseAvailable_) {
+			condResponse_.wait(responseLock);
+		}
+		if (operationFailed_) {
+			return 0;
+		}
 		DataReader ^rd = DataReader::FromBuffer(response_.buffer);
 		size_t len = response_.buffer->Length;
 		Platform::Array<uint8_t> ^bytearray = ref new Platform::Array<uint8_t>((unsigned int)len);
