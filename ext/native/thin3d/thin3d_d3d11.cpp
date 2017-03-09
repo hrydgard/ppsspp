@@ -205,7 +205,10 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 		context1_(deviceContext1),
 		featureLevel_(featureLevel),
 		hWnd_(hWnd) {
-	caps_.dualSourceBlend = true;
+
+	// Seems like a fair approximation...
+	caps_.dualSourceBlend = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
+
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.framebufferBlitSupported = false;
 

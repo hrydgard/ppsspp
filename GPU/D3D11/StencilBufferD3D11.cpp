@@ -235,6 +235,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &quadStride_, &quadOffset_);
+	context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DClamp);
 	context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
 
 	for (int i = 1; i < values; i += i) {
