@@ -354,7 +354,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	spline_knot(spatch.count_u - 1, spatch.type_u, knot_u);
 	spline_knot(spatch.count_v - 1, spatch.type_v, knot_v);
 
-	// Increase tesselation based on the size. Should be approximately right?
+	// Increase tessellation based on the size. Should be approximately right?
 	int patch_div_s = (spatch.count_u - 3) * spatch.tess_u;
 	int patch_div_t = (spatch.count_v - 3) * spatch.tess_v;
 	if (quality > 1) {
@@ -367,7 +367,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 		}
 	}
 
-	// Downsample until it fits, in case crazy tesselation factors are sent.
+	// Downsample until it fits, in case crazy tessellation factors are sent.
 	while ((patch_div_s + 1) * (patch_div_t + 1) > maxVertices) {
 		patch_div_s /= 2;
 		patch_div_t /= 2;
@@ -543,7 +543,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	}
 
 	GEPatchPrimType prim_type = spatch.primType;
-	// Tesselate.
+	// Tessellate.
 	for (int tile_v = 0; tile_v < patch_div_t; ++tile_v) {
 		for (int tile_u = 0; tile_u < patch_div_s; ++tile_u) {
 			int idx0 = tile_v * (patch_div_s + 1) + tile_u;
@@ -594,7 +594,7 @@ static void SplinePatchFullQualityDispatch(u8 *&dest, u16 *indices, int &count, 
 		SplinePatchFullQualityDispatch2<false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
 }
 
-void TesselateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int maxVertexCount) {
+void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int maxVertexCount) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
 		_SplinePatchLowQuality(dest, indices, count, spatch, origVertType);
@@ -797,7 +797,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 }
 
 // Prepare mesh of one patch for "Instanced Tessellation".
-static void TesselateBezierPatchHardware(u8 *&dest, u16 *indices, int &count, int tess_u, int tess_v, GEPatchPrimType primType) {
+static void TessellateBezierPatchHardware(u8 *&dest, u16 *indices, int &count, int tess_u, int tess_v, GEPatchPrimType primType) {
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
 
 	float inv_u = 1.0f / (float)tess_u;
@@ -827,7 +827,7 @@ static void TesselateBezierPatchHardware(u8 *&dest, u16 *indices, int &count, in
 	}
 }
 
-void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
+void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
 		_BezierPatchLowQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
@@ -947,7 +947,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		numPatches = (count_u - 3) * (count_v - 3);
 	} else {
 		int maxVertexCount = SPLINE_BUFFER_SIZE / vertexSize;
-		TesselateSplinePatch(dest, quadIndices_, count, patch, origVertType, maxVertexCount);
+		TessellateSplinePatch(dest, quadIndices_, count, patch, origVertType, maxVertexCount);
 	}
 	delete[] points;
 
@@ -1067,18 +1067,18 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	u16 *inds = quadIndices_;
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
 		tessDataTransfer->SendDataToShader(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
-		TesselateBezierPatchHardware(dest, inds, count, tess_u, tess_v, prim_type);
+		TessellateBezierPatchHardware(dest, inds, count, tess_u, tess_v, prim_type);
 		numPatches = num_patches_u * num_patches_v;
 	} else {
 		int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;
-		// Downsample until it fits, in case crazy tesselation factors are sent.
+		// Downsample until it fits, in case crazy tessellation factors are sent.
 		while ((tess_u + 1) * (tess_v + 1) * num_patches_u * num_patches_v > maxVertices) {
 			tess_u /= 2;
 			tess_v /= 2;
 		}
 		for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
 			const BezierPatch &patch = patches[patch_idx];
-			TesselateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
+			TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
 		}
 		delete[] patches;
 	}
