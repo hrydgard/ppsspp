@@ -38,14 +38,14 @@ static const char *stencil_ps = R"(
 SamplerState samp : register(s0);
 Texture2D<float4> tex : register(t0);
 cbuffer base : register(b0) {
-  uint4 u_stencilValue;
+  int4 u_stencilValue;
 };
 struct PS_IN {
   float2 v_texcoord0 : TEXCOORD0;
 };
 float4 main(PS_IN In) : SV_Target {
   float4 index = tex.Sample(samp, In.v_texcoord0);
-	uint indexBits = uint(index.a * 256.0);
+	int indexBits = int(index.a * 256.0);
 	if ((indexBits & u_stencilValue.x) == 0)
 		discard;
   return index.aaaa;
