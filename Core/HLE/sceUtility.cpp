@@ -185,8 +185,15 @@ static int sceUtilitySavedataInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
-		WARN_LOG(SCEUTILITY, "sceUtilitySavedataInitStart(%08x): wrong dialog type", paramAddr);
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
+		if (g_Config.bSavedataCorrectionForyugioh)
+		{
+			WARN_LOG(SCEUTILITY, "Savedata Correction");
+			g_Config.bSavedataCorrectionForyugioh = false;
+		}
+		else {
+			WARN_LOG(SCEUTILITY, "sceUtilitySavedataInitStart(%08x): wrong dialog type", paramAddr);
+			return SCE_ERROR_UTILITY_WRONG_TYPE;
+		}
 	}
 
 	oldStatus = 100;
