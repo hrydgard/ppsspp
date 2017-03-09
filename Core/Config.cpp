@@ -408,6 +408,14 @@ static int DefaultInternalResolution() {
 #endif
 }
 
+static bool DefaultFrameskipUnthrottle() {
+#if !PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(UWP)
+	return true;
+#else
+	return false;
+#endif
+}
+
 static int DefaultZoomType() {
 	return 2;
 }
@@ -457,13 +465,11 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0, true, true),
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit, 0, true, true),
+	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, &DefaultFrameskipUnthrottle, true, false),
 #ifdef _WIN32
-	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, false, true, true),
 #if defined(USING_WIN_UI)
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #endif
-#else
-	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
 #endif
 	ReportedConfigSetting("ForceMaxEmulatedFPS", &g_Config.iForceMaxEmulatedFPS, 60, true, true),
 

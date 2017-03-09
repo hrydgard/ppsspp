@@ -525,7 +525,8 @@ void GPU_D3D11::CheckGPUFeatures() {
 
 	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
-	features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+	if (draw_->GetDeviceCaps().dualSourceBlend)
+		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;

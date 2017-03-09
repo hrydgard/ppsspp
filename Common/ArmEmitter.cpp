@@ -754,6 +754,7 @@ void ARMXEmitter::BL(ARMReg src)
 {
 	Write32(condition | 0x012FFF30 | src);
 }
+
 void ARMXEmitter::PUSH(const int num, ...)
 {
 	u16 RegList = 0;
@@ -761,14 +762,14 @@ void ARMXEmitter::PUSH(const int num, ...)
 	int i;
 	va_list vl;
 	va_start(vl, num);
-	for (i=0;i<num;i++)
-	{
+	for (i = 0; i < num; i++) {
 		Reg = va_arg(vl, u32);
 		RegList |= (1 << Reg);
 	}
 	va_end(vl);
 	Write32(condition | (2349 << 16) | RegList);
 }
+
 void ARMXEmitter::POP(const int num, ...)
 {
 	u16 RegList = 0;
