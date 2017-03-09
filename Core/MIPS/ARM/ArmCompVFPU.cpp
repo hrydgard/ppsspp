@@ -2171,6 +2171,10 @@ namespace MIPSComp
 			DISABLE;
 		}
 
+#if PPSSPP_ARCH(ARM_HARDFP)
+		DISABLE;
+#endif
+
 		int vd = _VD;
 		int vs = _VS;
 

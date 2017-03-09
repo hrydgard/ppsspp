@@ -15,6 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include "ppsspp_config.h"
+
 #include "base/logging.h"
 
 #include <assert.h>
@@ -32,6 +34,10 @@
 #include "MemoryUtil.h"
 #include "ArmEmitter.h"
 #include "CPUDetect.h"
+
+#ifdef _WIN32
+#include "CommonWindows.h"
+#endif
 
 // Want it in release builds too
 #ifdef __ANDROID__
@@ -626,14 +632,18 @@ void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 #if defined(IOS)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
-#elif !defined(_WIN32)
-#if defined(ARM)
+#elif PPSSPP_PLATFORM(WINDOWS)
+#if !PPSSPP_PLATFORM(UWP)  // Not available on UWP, which is very bad!
+	FlushInstructionCache(GetCurrentProcess(), start, end - start);
+#endif
+#elif PPSSPP_ARCH(ARM)
+
 #if defined(__clang__) || defined(__ANDROID__)
 	__clear_cache(start, end);
 #else
 	__builtin___clear_cache(start, end);
 #endif
-#endif
+
 #endif
 }
 

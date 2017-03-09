@@ -2,6 +2,8 @@
 // Licensed under GPLv2
 // Refer to the license.txt file included.
 
+#include "ppsspp_config.h"
+
 #include <limits>
 #include <algorithm>
 #include <vector>
@@ -12,12 +14,14 @@
 #include <string.h>
 
 #include "base/basictypes.h"
-#include "ppsspp_config.h"
 
 #include "Arm64Emitter.h"
 #include "MathUtil.h"
 #include "CommonTypes.h"
+#include "CommonWindows.h"
 #include "CPUDetect.h"
+
+#include "CommonWindows.h"
 
 #ifdef IOS
 #include <libkern/OSCacheControl.h>
@@ -322,7 +326,11 @@ void ARM64XEmitter::FlushIcacheSection(u8* start, u8* end)
 #if defined(IOS)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
-#elif	PPSSPP_ARCH(ARM64)
+#elif PPSSPP_PLATFORM(WINDOWS)
+#if !PPSSPP_PLATFORM(UWP)  // Not available on UWP, which is very bad!
+	FlushInstructionCache(GetCurrentProcess(), start, end - start);
+#endif
+#elif PPSSPP_ARCH(ARM64)
 	// Code from Dolphin, contributed by the Mono project.
 
 	// Don't rely on GCC's __clear_cache implementation, as it caches

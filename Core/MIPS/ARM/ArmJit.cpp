@@ -83,7 +83,7 @@ ArmJit::ArmJit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), fpr(m
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
 
-	INFO_LOG(JIT, "ARM JIT initialized: %d MB of code space", GetSpaceLeft() / 1024 * 1024);
+	INFO_LOG(JIT, "ARM JIT initialized: %d MB of code space", GetSpaceLeft() / (1024 * 1024));
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 }
@@ -197,6 +197,15 @@ void ArmJit::CompileDelaySlot(int flags)
 
 void ArmJit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
+
+	// If I keep any of these, it works on UWP for ARM!
+#if PPSSPP_PLATFORM(UWP)
+	INFO_LOG(JIT, "Compiling at %08x", em_address);
+#endif
+	// Sleep(1);
+	// Unfortunately Microsoft forgot to expose FlushInstructionCache to UWP applications... even though they expose
+	// the ability to generate code :( This will work great on x86 but on ARM we're out of luck.
+
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		ClearCache();
 	}
