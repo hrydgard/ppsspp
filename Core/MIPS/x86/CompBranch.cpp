@@ -790,7 +790,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	// Skip the CallSyscall where possible.
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc)
-		ABI_CallFunctionP(quickFunc, (void *)GetSyscallInfo(op));
+		ABI_CallFunctionP(quickFunc, (void *)GetSyscallFuncPointer(op));
 	else
 		ABI_CallFunctionC(&CallSyscall, op.encoding);
 #endif

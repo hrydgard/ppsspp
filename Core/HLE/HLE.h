@@ -148,7 +148,7 @@ void CallSyscall(MIPSOpcode op);
 void WriteFuncStub(u32 stubAddr, u32 symAddr);
 void WriteFuncMissingStub(u32 stubAddr, u32 nid);
 
-const HLEFunction *GetSyscallInfo(MIPSOpcode op);
+const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op);
 // For jit, takes arg: const HLEFunction *
 void *GetQuickSyscallFunc(MIPSOpcode op);
 

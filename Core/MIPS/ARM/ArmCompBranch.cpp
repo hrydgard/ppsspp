@@ -620,7 +620,7 @@ void ArmJit::Comp_Syscall(MIPSOpcode op)
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc)
 	{
-		gpr.SetRegImm(R0, (u32)(intptr_t)GetSyscallInfo(op));
+		gpr.SetRegImm(R0, (u32)(intptr_t)GetSyscallFuncPointer(op));
 		// Already flushed, so R1 is safe.
 		QuickCallFunction(R1, quickFunc);
 	}

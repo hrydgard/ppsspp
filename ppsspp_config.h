@@ -84,6 +84,9 @@
     #if defined(WINAPI_FAMILY) && defined(WINAPI_FAMILY_PARTITION)
         #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
             #define PPSSPP_PLATFORM_UWP 1
+            #ifdef _M_ARM
+                #define PPSSPP_ARCH_ARM_HARDFP 1
+            #endif
         #endif
     #endif
 #elif defined(__APPLE__)

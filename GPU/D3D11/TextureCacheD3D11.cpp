@@ -711,7 +711,12 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			mapRowPitch = w * scaleFactor * 4;
 		} else {
 			mapRowPitch = std::max(bufw, w) * bpp;
-			mapData = (u32 *)AllocateAlignedMemory(sizeof(u32) * (mapRowPitch / bpp) * h, 16);
+			size_t bufSize = sizeof(u32) * (mapRowPitch / bpp) * h;
+			mapData = (u32 *)AllocateAlignedMemory(bufSize, 16);
+			if (!mapData) {
+				ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (alloc size: %d, %dx%d)", bufSize, mapRowPitch / sizeof(u32), h);
+				return;
+			}
 			pixelData = (u32 *)mapData;
 			decPitch = mapRowPitch;
 		}

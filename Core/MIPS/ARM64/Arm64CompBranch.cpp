@@ -602,7 +602,7 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 	// Skip the CallSyscall where possible.
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc) {
-		MOVI2R(X0, (uintptr_t)GetSyscallInfo(op));
+		MOVI2R(X0, (uintptr_t)GetSyscallFuncPointer(op));
 		// Already flushed, so X1 is safe.
 		QuickCallFunction(X1, quickFunc);
 	} else {

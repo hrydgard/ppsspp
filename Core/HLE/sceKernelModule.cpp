@@ -722,7 +722,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
 	// It hasn't been exported yet, but hopefully it will later.
 	bool isKnownModule = GetModuleIndex(func.moduleName) != -1;
 	if (isKnownModule) {
-		WARN_LOG_REPORT(LOADER, "Unknown syscall in known module: %s 0x%08x", func.moduleName, func.nid);
+		WARN_LOG_REPORT(LOADER, "Unknown syscall in known module '%s': 0x%08x", func.moduleName, func.nid);
 	} else {
 		INFO_LOG(LOADER, "Function (%s,%08x) unresolved, storing for later resolving", func.moduleName, func.nid);
 	}
@@ -1443,29 +1443,26 @@ static Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::
 {
 	Module *module = 0;
 	// Check for PBP
-	if (memcmp(fileptr, "\0PBP", 4) == 0)
-	{
+	if (memcmp(fileptr, "\0PBP", 4) == 0) {
 		// PBP!
 		u32_le version;
 		memcpy(&version, fileptr + 4, 4);
 		u32_le offset0, offsets[16];
-		int numfiles;
 
 		memcpy(&offset0, fileptr + 8, 4);
-		numfiles = (offset0 - 8)/4;
+		int numfiles = (offset0 - 8)/4;
 		offsets[0] = offset0;
 		for (int i = 1; i < numfiles; i++)
 			memcpy(&offsets[i], fileptr + 12 + 4*i, 4);
+
 		u32 magic = 0;
-
-
 		u8 *temp = 0;
 		if (offsets[5] & 3) {
 			// Our loader does NOT like to load from an unaligned address on ARM!
 			size_t size = offsets[6] - offsets[5];
 			temp = new u8[size];
 			memcpy(temp, fileptr + offsets[5], size);
-			INFO_LOG(LOADER, "Elf unaligned, aligning!");
+			INFO_LOG(LOADER, "PBP: ELF unaligned (%d: %d), aligning!", offsets[5], offsets[5] & 3);
 		}
 
 		u32 error;

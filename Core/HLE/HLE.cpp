@@ -478,7 +478,7 @@ inline void CallSyscallWithoutFlags(const HLEFunction *info)
 		SetDeadbeefRegs();
 }
 
-const HLEFunction *GetSyscallInfo(MIPSOpcode op)
+const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op)
 {
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
@@ -488,13 +488,14 @@ const HLEFunction *GetSyscallInfo(MIPSOpcode op)
 		return NULL;
 	}
 	if (modulenum >= (int)moduleDB.size()) {
-		ERROR_LOG(HLE, "Syscall had bad module number %i - probably executing garbage", modulenum);
+		ERROR_LOG(HLE, "Syscall had bad module number %d - probably executing garbage", modulenum);
 		return NULL;
 	}
 	if (funcnum >= moduleDB[modulenum].numFunctions) {
-		ERROR_LOG(HLE, "Syscall had bad function number %i in module %i - probably executing garbage", funcnum, modulenum);
+		ERROR_LOG(HLE, "Syscall had bad function number %d in module %d - probably executing garbage", funcnum, modulenum);
 		return NULL;
 	}
+	INFO_LOG(HLE, "Compiling syscall to %s", moduleDB[modulenum].funcTable[funcnum].name);
 	return &moduleDB[modulenum].funcTable[funcnum];
 }
 
@@ -504,7 +505,7 @@ void *GetQuickSyscallFunc(MIPSOpcode op)
 	if (g_Config.bShowDebugStats)
 		return NULL;
 
-	const HLEFunction *info = GetSyscallInfo(op);
+	const HLEFunction *info = GetSyscallFuncPointer(op);
 	if (!info || !info->func)
 		return NULL;
 
@@ -532,7 +533,7 @@ void CallSyscall(MIPSOpcode op)
 		start = time_now_d();
 	}
 
-	const HLEFunction *info = GetSyscallInfo(op);
+	const HLEFunction *info = GetSyscallFuncPointer(op);
 	if (!info) {
 		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
 		return;
