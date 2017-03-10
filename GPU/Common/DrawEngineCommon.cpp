@@ -127,7 +127,10 @@ void DrawEngineCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 cl
 	const int stride = gstate.FrameBufStride();
 	const int width = x2 - x1;
 
-	// Simple, but often alpha is different and gums up the works.
+	// Can use memset for simple cases. Often alpha is different and gums up the works.
+	// The check for bpp==4 etc is because we don't properly convert the clear color to the correct
+	// 16-bit format before computing the singleByteClear value. That could be done, but it was easier
+	// to just fall back to the generic case.
 	if (singleByteClear && (bpp == 4 || clearColor == 0)) {
 		const int byteStride = stride * bpp;
 		const int byteWidth = width * bpp;
