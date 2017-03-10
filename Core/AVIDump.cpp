@@ -274,6 +274,6 @@ void AVIDump::CheckResolution(int width, int height) {
 		s_current_width = width;
 		s_current_height = height;
 	}
-#endif USE_FFMPEG
+#endif // USE_FFMPEG
 }
 #endif
