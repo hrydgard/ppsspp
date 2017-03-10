@@ -198,7 +198,7 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		return true;
 	}
 
-    //don't scan if in manual mode
+	//don't scan if in manual mode
 	if (g_Config.bRemoteISOManual) {
 		return false;
 	}
@@ -258,9 +258,15 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	int code = 500;
 	std::vector<std::string> responseHeaders;
 	std::string subdir ="/";
+	size_t offset;
 
 	if (g_Config.bRemoteISOManual) {
 		subdir = g_Config.sRemoteISOSubdir;
+		offset=subdir.find_last_of("/");
+		if (offset != subdir.length() && offset != subdir.npos) {
+			//truncate everything after last / 
+			subdir.erase(offset + 1);
+		}
 	}
 
 	// Start by requesting the list of games from the server.
@@ -279,7 +285,7 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	std::vector<std::string> items;
 	result.TakeAll(&listing);
 
-	if (startsWith(responseHeaders[0],"Server: PPSSPPServer") || startsWith(responseHeaders[0], "Server: SuperDuperServer")) {
+	if (startsWith(responseHeaders[1],"Content-Type: text/plain")) {
 		//ppsspp server
 		SplitString(listing, '\n', items);
 		for (const std::string &item : items) {
