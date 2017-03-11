@@ -263,7 +263,7 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	if (g_Config.bRemoteISOManual) {
 		subdir = g_Config.sRemoteISOSubdir;
 		offset=subdir.find_last_of("/");
-		if (offset != subdir.length() && offset != subdir.npos) {
+		if (offset != subdir.length() - 1 && offset != subdir.npos) {
 			//truncate everything after last / 
 			subdir.erase(offset + 1);
 		}
@@ -272,7 +272,7 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	// Start by requesting the list of games from the server.
 	if (http.Resolve(host.c_str(), port)) {
 		if (http.Connect()) {
-			code = http.GET("/", &result,responseHeaders);
+			code = http.GET(subdir.c_str(), &result,responseHeaders);
 			http.Disconnect();
 		}
 	}
@@ -652,19 +652,11 @@ void RemoteISOSettingsScreen::CreateViews() {
 
 UI::EventReturn RemoteISOSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
 	//Conform to HTTP standards
-	for (size_t i = 0; i < g_Config.sRemoteISOSubdir.length(); i++)
-	{
-		if (g_Config.sRemoteISOSubdir[i] == ' ') g_Config.sRemoteISOSubdir[i] = '+';
-		if (g_Config.sRemoteISOSubdir[i] == '\\') g_Config.sRemoteISOSubdir[i] = '/';
-		if (g_Config.sRemoteISOSubdir[i] == '?') {
-			g_Config.sRemoteISOSubdir.erase(i); //truncate for safety
-			break;
-		}
-	}
-	//Make sure it begins and ends with /
+	ReplaceAll(g_Config.sRemoteISOSubdir, " ", "%20");
+	ReplaceAll(g_Config.sRemoteISOSubdir, "\\", "/");
+	//Make sure it begins with /
 	if (g_Config.sRemoteISOSubdir[0] != '/')
 		g_Config.sRemoteISOSubdir = "/" + g_Config.sRemoteISOSubdir;
-	if (g_Config.sRemoteISOSubdir[g_Config.sRemoteISOSubdir.length() - 1] != '/')
-		g_Config.sRemoteISOSubdir += "/";
+	
 	return UI::EVENT_DONE;
 }
