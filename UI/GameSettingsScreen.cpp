@@ -594,16 +594,6 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset(0 = PSP compatibility)"), 100, screenManager()));
-	networkingSettings->Add(new ItemHeader(ms->T("Remote Disc Streaming")));
-	networkingSettings->Add(new CheckBox(&g_Config.bRemoteISOManual , n->T("Manual Mode Client", "Manual Mode Client")));
-	PopupTextInputChoice *remoteServer = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, n->T("Remote Server"), "", 255, screenManager()));
-	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
-	PopupSliderChoice *remotePort = networkingSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort , 0, 65535, n->T("Remote Port", "Remote Port"), 100, screenManager()));
-	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
-	PopupTextInputChoice *remoteSubdir = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sRemoteISOSubdir , n->T("Remote Subdirectory"), "", 255, screenManager()));
-	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
-	remoteSubdir->OnChange.Handle(this, &GameSettingsScreen::OnChangeRemoteISOSubdir);
-	networkingSettings->Add(new PopupSliderChoice(&g_Config.iRemoteISOPort , 0, 65535, n->T("Local Server Port", "Local Server Port"), 100, screenManager()));
 
 	ViewGroup *toolsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	toolsScroll->SetTag("GameSettingsTools");
@@ -1084,25 +1074,6 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 	g_Config.sMACAddress = std::string(CreateRandMAC());
 
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
-	//Conform to HTTP standards
-	for (size_t i = 0; i < g_Config.sRemoteISOSubdir.length(); i++)
-	{
-		if (g_Config.sRemoteISOSubdir[i] == ' ') g_Config.sRemoteISOSubdir[i] = '+';
-		if (g_Config.sRemoteISOSubdir[i] == '\\') g_Config.sRemoteISOSubdir[i] = '/';
-		if (g_Config.sRemoteISOSubdir[i] == '?') {
-			g_Config.sRemoteISOSubdir.erase(i); //truncate for safety
-			break;
-		}
-	}
-	//Make sure it begins and ends with /
-	if (g_Config.sRemoteISOSubdir[0] != '/')
-		g_Config.sRemoteISOSubdir = "/" + g_Config.sRemoteISOSubdir;
-	if (g_Config.sRemoteISOSubdir[g_Config.sRemoteISOSubdir.length() - 1] != '/')
-		g_Config.sRemoteISOSubdir += "/";
 	return UI::EVENT_DONE;
 }
 

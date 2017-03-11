@@ -370,6 +370,8 @@ void RemoteISOScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(sy->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
 		browseChoice->SetEnabled(true);
 	}
+	Choice *settingsChoice = new Choice(sy->T("Settings"));
+	rightColumnItems->Add(settingsChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleSettings);
 
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -412,6 +414,11 @@ UI::EventReturn RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
 
 UI::EventReturn RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
 	screenManager()->push(new RemoteISOConnectScreen());
+	return EVENT_DONE;
+}
+
+UI::EventReturn RemoteISOScreen::HandleSettings(UI::EventParams &e) {
+	screenManager()->push(new RemoteISOSettingsScreen());
 	return EVENT_DONE;
 }
 
@@ -613,4 +620,51 @@ void RemoteISOBrowseScreen::CreateViews() {
 	root_->SetDefaultFocusView(tabHolder_);
 
 	upgradeBar_ = 0;
+}
+
+void RemoteISOSettingsScreen::CreateViews() {
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *n = GetI18NCategory("Networking");
+	I18NCategory *ms = GetI18NCategory("MainSettings");
+	
+	ViewGroup *remoteisoSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	remoteisoSettingsScroll->SetTag("GameSettingsNetworking");
+	LinearLayout *remoteisoSettings = new LinearLayout(ORIENT_VERTICAL);
+	remoteisoSettings->SetSpacing(0);
+	remoteisoSettingsScroll->Add(remoteisoSettings);
+
+	remoteisoSettings->Add(new ItemHeader(ms->T("Remote Disc Streaming")));
+	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, n->T("Manual Mode Client", "Manual Mode Client")));
+	PopupTextInputChoice *remoteServer = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, n->T("Remote Server"), "", 255, screenManager()));
+	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
+	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, n->T("Remote Port", "Remote Port"), 100, screenManager()));
+	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
+	PopupTextInputChoice *remoteSubdir = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sRemoteISOSubdir, n->T("Remote Subdirectory"), "", 255, screenManager()));
+	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
+	remoteSubdir->OnChange.Handle(this, &RemoteISOSettingsScreen::OnChangeRemoteISOSubdir);
+	remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, n->T("Local Server Port", "Local Server Port"), 100, screenManager()));
+	remoteisoSettings->Add(new Spacer(25.0));
+	remoteisoSettings->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_->Add(remoteisoSettings);
+}
+
+UI::EventReturn RemoteISOSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
+	//Conform to HTTP standards
+	for (size_t i = 0; i < g_Config.sRemoteISOSubdir.length(); i++)
+	{
+		if (g_Config.sRemoteISOSubdir[i] == ' ') g_Config.sRemoteISOSubdir[i] = '+';
+		if (g_Config.sRemoteISOSubdir[i] == '\\') g_Config.sRemoteISOSubdir[i] = '/';
+		if (g_Config.sRemoteISOSubdir[i] == '?') {
+			g_Config.sRemoteISOSubdir.erase(i); //truncate for safety
+			break;
+		}
+	}
+	//Make sure it begins and ends with /
+	if (g_Config.sRemoteISOSubdir[0] != '/')
+		g_Config.sRemoteISOSubdir = "/" + g_Config.sRemoteISOSubdir;
+	if (g_Config.sRemoteISOSubdir[g_Config.sRemoteISOSubdir.length() - 1] != '/')
+		g_Config.sRemoteISOSubdir += "/";
+	return UI::EVENT_DONE;
 }
