@@ -345,10 +345,12 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 		pool = D3DPOOL_DEFAULT;
 		usage = D3DUSAGE_DYNAMIC;
 	}
+	if (desc.generateMips)
+		usage |= D3DUSAGE_AUTOGENMIPMAP;
 	switch (type_) {
 	case TextureType::LINEAR1D:
 	case TextureType::LINEAR2D:
-		hr = device_->CreateTexture(desc.width, desc.height, desc.mipLevels, usage, d3dfmt_, pool, &tex_, NULL);
+		hr = device_->CreateTexture(desc.width, desc.height, desc.generateMips ? 0 : desc.mipLevels, usage, d3dfmt_, pool, &tex_, NULL);
 		break;
 	case TextureType::LINEAR3D:
 		hr = device_->CreateVolumeTexture(desc.width, desc.height, desc.depth, desc.mipLevels, usage, d3dfmt_, pool, &volTex_, NULL);
@@ -363,7 +365,10 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 	}
 
 	if (desc.initData.size()) {
-		for (int i = 0; i < (int)desc.initData.size(); i++) {
+		// In D3D9, after setting D3DUSAGE_AUTOGENMIPS, we can only access the top layer. The rest will be
+		// automatically generated.
+		int maxLevel = desc.generateMips ? 1 : (int)desc.initData.size();
+		for (int i = 0; i < maxLevel; i++) {
 			SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
 		}
 	}
@@ -1154,7 +1159,7 @@ DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapt
 uint32_t D3D9Context::GetDataFormatSupport(DataFormat fmt) const {
 	switch (fmt) {
 	case DataFormat::B8G8R8A8_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE;
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_AUTOGEN_MIPS;
 
 	case DataFormat::R4G4B4A4_UNORM_PACK16:
 		return 0;
@@ -1163,10 +1168,10 @@ uint32_t D3D9Context::GetDataFormatSupport(DataFormat fmt) const {
 	case DataFormat::R5G6B5_UNORM_PACK16:
 	case DataFormat::A1R5G5B5_UNORM_PACK16:
 	case DataFormat::A4R4G4B4_UNORM_PACK16:
-		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_AUTOGEN_MIPS;  // native support
 
 	case DataFormat::R8G8B8A8_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT | FMT_AUTOGEN_MIPS;
 
 	case DataFormat::R32_FLOAT:
 	case DataFormat::R32G32_FLOAT:

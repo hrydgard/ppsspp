@@ -683,19 +683,19 @@ OpenGLTexture::OpenGLTexture(const TextureDesc &desc) {
 		height_ = (height_ + 1) / 2;
 		level++;
 	}
-	mipLevels_ = level;
+	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
 
 #ifdef USING_GLES2
 	if (gl_extensions.GLES3) {
-		glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, level - 1);
+		glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, mipLevels_ - 1);
 	}
 #else
-	glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, level - 1);
+	glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, mipLevels_ - 1);
 #endif
-	glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, level > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+	glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, mipLevels_ > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
 	glTexParameteri(target_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	if ((int)desc.initData.size() < desc.mipLevels) {
+	if ((int)desc.initData.size() < desc.mipLevels && desc.generateMips) {
 		ILOG("Generating mipmaps");
 		AutoGenMipmaps();
 	}
@@ -1667,9 +1667,9 @@ void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 	switch (fmt) {
 	case DataFormat::B8G8R8A8_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE;
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_AUTOGEN_MIPS;
 	case DataFormat::B4G4R4A4_UNORM_PACK16:
-		return FMT_RENDERTARGET | FMT_TEXTURE;  // native support
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_AUTOGEN_MIPS;  // native support
 	case DataFormat::A4R4G4B4_UNORM_PACK16:
 #ifndef USING_GLES2
 		// Can support this if _REV formats are supported.
@@ -1678,7 +1678,7 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 		return 0;
 
 	case DataFormat::R8G8B8A8_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT | FMT_AUTOGEN_MIPS;
 
 	case DataFormat::R32_FLOAT:
 	case DataFormat::R32G32_FLOAT:

@@ -669,6 +669,12 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 		return false;
 	}
 
+	bool generateMips = desc.generateMips;
+	if (desc.generateMips && !(GetDataFormatSupport(desc.format) & FMT_AUTOGEN_MIPS)) {
+		// D3D11 does not support autogenerating mipmaps for this format.
+		generateMips = false;
+	}
+
 	D3D11_TEXTURE2D_DESC descColor{};
 	descColor.Width = desc.width;
 	descColor.Height = desc.height;
@@ -678,12 +684,12 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	descColor.SampleDesc.Count = 1;
 	descColor.SampleDesc.Quality = 0;
 	descColor.Usage = D3D11_USAGE_DEFAULT;
-	descColor.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	descColor.BindFlags = generateMips ? (D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET) : D3D11_BIND_SHADER_RESOURCE;
+	descColor.MiscFlags = generateMips ? D3D11_RESOURCE_MISC_GENERATE_MIPS : 0;
 	descColor.CPUAccessFlags = 0;
-	descColor.MiscFlags = 0;
 
 	D3D11_SUBRESOURCE_DATA initData[12]{};
-	if (desc.initData.size()) {
+	if (desc.initData.size() && !generateMips) {
 		int w = desc.width;
 		int h = desc.height;
 		for (int i = 0; i < (int)desc.initData.size(); i++) {
@@ -695,7 +701,7 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 		}
 	}
 
-	HRESULT hr = device_->CreateTexture2D(&descColor, desc.initData.size() ? initData : nullptr, &tex->tex);
+	HRESULT hr = device_->CreateTexture2D(&descColor, (desc.initData.size() && !generateMips) ? initData : nullptr, &tex->tex);
 	if (!SUCCEEDED(hr)) {
 		delete tex;
 		return nullptr;
@@ -704,6 +710,10 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	if (!SUCCEEDED(hr)) {
 		delete tex;
 		return nullptr;
+	}
+	if (generateMips && desc.initData.size() >= 1) {
+		context_->UpdateSubresource(tex->tex, 0, nullptr, desc.initData[0], desc.width * (int)DataFormatSizeInBytes(desc.format), 0);
+		context_->GenerateMips(tex->view);
 	}
 	return tex;
 }
@@ -1062,6 +1072,8 @@ uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {
 		support |= FMT_INPUTLAYOUT;
 	if (giSupport & D3D11_FORMAT_SUPPORT_DEPTH_STENCIL)
 		support |= FMT_DEPTHSTENCIL;
+	if (giSupport & D3D11_FORMAT_SUPPORT_MIP_AUTOGEN)
+		support |= FMT_AUTOGEN_MIPS;
 	return support;
 }
 

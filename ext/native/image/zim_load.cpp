@@ -5,6 +5,7 @@
 #include "base/logging.h"
 #include "zlib.h"
 #include "image/zim_load.h"
+#include "math/math_util.h"
 #include "file/vfs.h"
 
 int ezuncompress(unsigned char* pDest, long* pnDestLen, const unsigned char* pSrc, long nSrcLen) {
@@ -44,14 +45,6 @@ int ezuncompress(unsigned char* pDest, long* pnDestLen, const unsigned char* pSr
 	if (err != Z_OK) return err;
 
 	return nExtraChunks ? Z_BUF_ERROR : Z_OK;
-}
-
-static unsigned int log2i(unsigned int val) {
-	unsigned int ret = -1;
-	while (val != 0) {
-		val >>= 1; ret++;
-	}
-	return ret;
 }
 
 int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int *flags, uint8_t **image) {

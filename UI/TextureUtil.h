@@ -42,8 +42,8 @@ public:
 		}
 	}
 
-	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT);
-	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type = ImageFileType::DETECT);
+	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT, bool generateMips = false);
+	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type = ImageFileType::DETECT, bool generateMips = false);
 	Draw::Texture *GetTexture() { return texture_; }  // For immediate use, don't store.
 	int Width() const { return texture_->Width(); }
 	int Height() const { return texture_->Height(); }
@@ -54,6 +54,5 @@ private:
 	std::string filename_;  // Textures that are loaded from files can reload themselves automatically.
 };
 
-// Common Thin3D function, uses CreateTexture
-ManagedTexture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType fileType);
-ManagedTexture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType fileType);
+ManagedTexture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType fileType, bool generateMips = false);
+ManagedTexture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType fileType, bool generateMips = false);
