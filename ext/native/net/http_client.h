@@ -59,6 +59,7 @@ public:
 
 	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
 	int GET(const char *resource, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
+	int GET(const char *resource, Buffer *output, std::vector<std::string> &responseHeaders, float *progress = nullptr, bool *cancelled = nullptr);
 
 	// Return value is the HTTP return code.
 	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, float *progress = nullptr);

@@ -180,7 +180,7 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *prog
 	}
 }
 
-int Client::GET(const char *resource, Buffer *output, float *progress, bool *cancelled) {
+int Client::GET(const char *resource, Buffer *output, std::vector<std::string> &responseHeaders, float *progress, bool *cancelled) {
 	const char *otherHeaders =
 		"Accept: */*\r\n"
 		"Accept-Encoding: gzip\r\n";
@@ -190,7 +190,6 @@ int Client::GET(const char *resource, Buffer *output, float *progress, bool *can
 	}
 
 	Buffer readbuf;
-	std::vector<std::string> responseHeaders;
 	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress);
 	if (code < 0) {
 		return code;
@@ -200,6 +199,12 @@ int Client::GET(const char *resource, Buffer *output, float *progress, bool *can
 	if (err < 0) {
 		return err;
 	}
+	return code;
+}
+
+int Client::GET(const char *resource, Buffer *output, float *progress, bool *cancelled) {
+	std::vector<std::string> responseHeaders;
+	int code = GET(resource, output, responseHeaders, progress,  cancelled);
 	return code;
 }
 

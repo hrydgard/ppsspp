@@ -251,11 +251,12 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	http::Client http;
 	Buffer result;
 	int code = 500;
+	std::vector<std::string> responseHeaders;
 
 	// Start by requesting a list of recent local ips for this network.
 	if (http.Resolve(host.c_str(), port)) {
 		if (http.Connect()) {
-			code = http.GET("/", &result);
+			code = http.GET("/", &result,responseHeaders);
 			http.Disconnect();
 		}
 	}
@@ -268,17 +269,32 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	std::vector<std::string> items;
 	result.TakeAll(&listing);
 
-	SplitString(listing, '\n', items);
-	for (const std::string &item : items) {
-		if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
-			continue;
+	if (startsWith(responseHeaders[0],"Server: SuperDuperServer")) {
+		//ppsspp server
+		SplitString(listing, '\n', items);
+		for (const std::string &item : items) {
+			if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
+				continue;
+			}
+
+			char temp[1024] = {};
+			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
+			games.push_back(temp);
 		}
+	} else {
+		//other webserver
+		FindQuotedStrings(listing, items);
+		for (const std::string &item : items) {
+			
+			if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
+				continue;
+			}
 
-		char temp[1024] = {};
-		snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
-		games.push_back(temp);
+			char temp[1024] = {};
+			snprintf(temp, sizeof(temp) - 1, "http://%s:%d/%s", host.c_str(), port, item.c_str());
+			games.push_back(temp);
+		}
 	}
-
 	//save for next time
 	if (!games.empty()){
 		g_Config.sLastRemoteISOServer = host;
