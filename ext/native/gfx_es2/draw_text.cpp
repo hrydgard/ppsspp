@@ -51,8 +51,8 @@ public:
 		if (hFont) {
 			Destroy();
 		}
-		// TODO: Should the 72 really be 96? Oh well...
-		int nHeight = -MulDiv(height, g_dpi, 72);
+		// We apparently specify all font sizes in pts (1pt = 1.33px), so divide by only 72 for pixels.
+		int nHeight = -MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72);
 		hFont = CreateFont(nHeight, 0, 0, 0, bold, 0,
 			FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
 			CLIP_DEFAULT_PRECIS, PROOF_QUALITY,
@@ -67,6 +67,7 @@ public:
 	std::wstring fname;
 	int height;
 	int bold;
+	float dpiScale;
 };
 
 struct TextDrawerContext {
@@ -79,7 +80,7 @@ TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : draw_(thin3d), ctx_(nullptr)
 	// These probably shouldn't be state.
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
-	last_dpi_scale_ = g_dpi_scale;
+	dpiScale_ = CalculateDPIScale();
 
 	ctx_ = new TextDrawerContext();
 	ctx_->hDC = CreateCompatibleDC(NULL);
@@ -130,6 +131,7 @@ uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 	font->bold = FW_LIGHT;
 	font->height = size;
 	font->fname = fname;
+	font->dpiScale = dpiScale_;
 	font->Create();
 
 	fontMap_[fontHash] = std::unique_ptr<TextDrawerFontContext>(font);
@@ -173,8 +175,8 @@ void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) 
 	}
 
 	entry->lastUsedFrame = frameCount_;
-	*w = entry->width * fontScaleX_ * g_dpi_scale;
-	*h = entry->height * fontScaleY_ * g_dpi_scale;
+	*w = entry->width * fontScaleX_ * dpiScale_;
+	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
 void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
@@ -218,8 +220,8 @@ void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bo
 		}
 		total_h += entry->height * fontScaleY_;
 	}
-	*w = total_w * g_dpi_scale;
-	*h = total_h * g_dpi_scale;
+	*w = total_w * dpiScale_;
+	*h = total_h * dpiScale_;
 }
 
 void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
@@ -340,8 +342,8 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	draw_->BindTexture(0, entry->texture);
 
 	// Okay, the texture is bound, let's draw.
-	float w = entry->bmWidth * fontScaleX_ * g_dpi_scale;
-	float h = entry->bmHeight * fontScaleY_ * g_dpi_scale;
+	float w = entry->bmWidth * fontScaleX_ * dpiScale_;
+	float h = entry->bmHeight * fontScaleY_ * dpiScale_;
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
 	target.Flush(true);
@@ -547,8 +549,9 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bound
 void TextDrawer::OncePerFrame() {
 	frameCount_++;
 	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
-	if (g_dpi_scale != last_dpi_scale_) {
-		last_dpi_scale_ = g_dpi_scale;
+	float newDpiScale = CalculateDPIScale();
+	if (newDpiScale != dpiScale_) {
+		dpiScale_ = newDpiScale;
 		ClearCache();
 		RecreateFonts();
 	}
@@ -573,4 +576,12 @@ void TextDrawer::OncePerFrame() {
 			}
 		}
 	}
+}
+
+float TextDrawer::CalculateDPIScale() {
+	float scale = g_dpi_scale;
+	if (scale >= 1.0f) {
+		scale = 1.0f;
+	}
+	return scale;
 }

@@ -66,6 +66,7 @@ public:
 	void DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align);
 	// Use for housekeeping like throwing out old strings.
 	void OncePerFrame();
+	float CalculateDPIScale();
 
 private:
 	Draw::DrawContext *draw_;
@@ -77,7 +78,7 @@ private:
 	int frameCount_;
 	float fontScaleX_;
 	float fontScaleY_;
-	float last_dpi_scale_;
+	float dpiScale_;
 
 	TextDrawerContext *ctx_;
 #if defined(USING_QT_UI)
