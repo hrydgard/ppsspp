@@ -914,8 +914,8 @@ int main(int argc, char *argv[]) {
 #endif
 	NativeShutdownGraphics();
 	graphicsContext->Shutdown();
-	delete graphicsContext;
 	NativeShutdown();
+	delete graphicsContext;
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
 #ifndef MOBILE_DEVICE
