@@ -841,6 +841,9 @@ void GPU_Vulkan::Execute_VertexType(u32 op, u32 diff) {
 void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 	SetDrawType(DRAW_BEZIER);
 
+	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -896,6 +899,9 @@ void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 
 void GPU_Vulkan::Execute_Spline(u32 op, u32 diff) {
 	SetDrawType(DRAW_SPLINE);
+
+	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);

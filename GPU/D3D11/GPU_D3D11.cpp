@@ -336,7 +336,7 @@ static const CommandTableEntry commandTable[] = {
 	{ GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPU_D3D11::Execute_BJump },  // EXECUTE
 	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPU_D3D11::Execute_BoundingBox }, // + FLUSHBEFORE when we implement... or not, do we need to?
 
-																																					// Changing the vertex type requires us to flush.
+	// Changing the vertex type requires us to flush.
 	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPU_D3D11::Execute_VertexType },
 
 	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPU_D3D11::Execute_Bezier },
@@ -849,6 +849,9 @@ void GPU_D3D11::Execute_Prim(u32 op, u32 diff) {
 void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
 	SetDrawType(DRAW_BEZIER);
 
+	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+
 	// This also make skipping drawing very effective.
 	framebufferManagerD3D11_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -904,6 +907,9 @@ void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
 
 void GPU_D3D11::Execute_Spline(u32 op, u32 diff) {
 	SetDrawType(DRAW_SPLINE);
+
+	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
 	// This also make skipping drawing very effective.
 	framebufferManagerD3D11_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
