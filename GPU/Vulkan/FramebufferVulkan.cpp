@@ -1045,6 +1045,7 @@ void FramebufferManagerVulkan::EndFrame() {
 		// Check if postprocessing shader is doing upscaling as it requires native resolution
 		const ShaderInfo *shaderInfo = 0;
 		if (g_Config.sPostShaderName != "Off") {
+			ReloadAllPostShaderInfo();
 			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
 		}
 

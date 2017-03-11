@@ -286,6 +286,7 @@ UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 
 PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title) {
 	I18NCategory *ps = GetI18NCategory("PostShaders");
+	ReloadAllPostShaderInfo();
 	shaders_ = GetAllPostShaderInfo();
 	std::vector<std::string> items;
 	int selected = -1;

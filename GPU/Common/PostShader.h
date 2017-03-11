@@ -47,6 +47,7 @@ struct ShaderInfo {
 	}
 };
 
-const ShaderInfo *GetPostShaderInfo(std::string name);
+void ReloadAllPostShaderInfo();
 
+const ShaderInfo *GetPostShaderInfo(std::string name);
 const std::vector<ShaderInfo> &GetAllPostShaderInfo();

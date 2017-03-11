@@ -132,6 +132,7 @@ void FramebufferManagerGLES::CompilePostShader() {
 	SetNumExtraFBOs(0);
 	const ShaderInfo *shaderInfo = 0;
 	if (g_Config.sPostShaderName != "Off") {
+		ReloadAllPostShaderInfo();
 		shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
 	}
 

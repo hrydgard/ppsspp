@@ -174,6 +174,7 @@ namespace MainWindow {
 		RemoveMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_BYPOSITION);
 		InsertMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)shaderMenu, key.c_str());
 
+		ReloadAllPostShaderInfo();
 		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
 		availableShaders.clear();
 

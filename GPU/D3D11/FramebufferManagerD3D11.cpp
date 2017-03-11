@@ -236,7 +236,7 @@ void FramebufferManagerD3D11::CompilePostShader() {
 		postInputLayout_ = nullptr;
 	}
 
-	const ShaderInfo *shaderInfo = 0;
+	const ShaderInfo *shaderInfo = nullptr;
 	if (g_Config.sPostShaderName == "Off") {
 		usePostShader_ = false;
 		return;
@@ -244,6 +244,7 @@ void FramebufferManagerD3D11::CompilePostShader() {
 
 	usePostShader_ = false;
 
+	ReloadAllPostShaderInfo();
 	shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
 	if (shaderInfo) {
 		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
