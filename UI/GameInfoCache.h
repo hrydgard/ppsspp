@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+﻿// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include <string>
 #include <map>
 #include <mutex>
+#include <atomic>
 
 #include "file/file_util.h"
 #include "Core/ELF/ParamSFO.h"
@@ -56,46 +57,6 @@ enum GameInfoWantFlags {
 
 class FileLoader;
 enum class IdentifiedFileType;
-
-// TODO: Need to use std::atomic<bool> instead.
-class CompletionFlag {
-public:
-	CompletionFlag() : pending(1) {
-	}
-
-	void SetDone() {
-#if defined(_WIN32)
-		_WriteBarrier();
-		pending = 0;
-#else
-		__sync_lock_release(&pending);
-#endif
-	}
-
-	bool IsDone() {
-		const bool done = pending == 0;
-#if defined(_WIN32)
-		_ReadBarrier();
-#else
-		__sync_synchronize();
-#endif
-		return done;
-	}
-
-	CompletionFlag &operator =(const bool &v) {
-		pending = v ? 0 : 1;
-		return *this;
-	}
-
-	operator bool() {
-		return IsDone();
-	}
-
-private:
-	volatile u32 pending;
-
-	DISALLOW_COPY_AND_ASSIGN(CompletionFlag);
-};
 
 class GameInfo {
 public:
@@ -159,10 +120,10 @@ public:
 	double timePic0WasLoaded;
 	double timePic1WasLoaded;
 
-	CompletionFlag iconDataLoaded;
-	CompletionFlag pic0DataLoaded;
-	CompletionFlag pic1DataLoaded;
-	CompletionFlag sndDataLoaded;
+	std::atomic<bool> iconDataLoaded;
+	std::atomic<bool> pic0DataLoaded;
+	std::atomic<bool> pic1DataLoaded;
+	std::atomic<bool> sndDataLoaded;
 
 	u64 gameSize;
 	u64 saveDataSize;

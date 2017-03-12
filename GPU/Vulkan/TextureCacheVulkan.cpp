@@ -45,7 +45,7 @@
 #include "GPU/Common/TextureDecoder.h"
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 #endif
 
 #define TEXCACHE_NAME_CACHE_SIZE 16

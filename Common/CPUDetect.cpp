@@ -52,7 +52,7 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
 #else
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 
 #define _XCR_XFEATURE_ENABLED_MASK 0
 static unsigned long long _xgetbv(unsigned int index)

@@ -53,7 +53,7 @@
 #include <algorithm>
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 #endif
 
 static const char *vscode =

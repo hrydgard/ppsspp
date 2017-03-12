@@ -28,7 +28,7 @@
 // TODO: Move some common things into here.
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 #if _M_SSE >= 0x401
 #include <smmintrin.h>
 #endif

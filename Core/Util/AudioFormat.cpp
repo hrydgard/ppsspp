@@ -22,7 +22,7 @@
 #include "Globals.h"
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 #endif
 
 void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {

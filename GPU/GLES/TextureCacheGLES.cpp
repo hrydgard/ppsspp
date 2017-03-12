@@ -41,7 +41,7 @@
 #include "GPU/Common/TextureDecoder.h"
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 #endif
 
 #ifndef GL_UNPACK_ROW_LENGTH

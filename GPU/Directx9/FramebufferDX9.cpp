@@ -41,7 +41,7 @@
 #include <algorithm>
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 #endif
 
 namespace DX9 {

@@ -20,7 +20,7 @@
 
 #include <cmath>
 #include <limits>
-#include <xmmintrin.h>
+#include <emmintrin.h>
 
 #include "base/logging.h"
 #include "math/math_util.h"

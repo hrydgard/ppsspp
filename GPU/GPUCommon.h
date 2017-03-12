@@ -10,7 +10,7 @@
 #if defined(__ANDROID__)
 #include <atomic>
 #elif defined(_M_SSE)
-#include <xmmintrin.h>
+#include <emmintrin.h>
 #endif
 
 typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID, GPU_EVENT_SYNC_THREAD, GPU_EVENT_FINISH_EVENT_LOOP> GPUThreadEventQueue;
