@@ -166,6 +166,8 @@ bool UpdateScreenScale(int width, int height) {
 	g_dpi = 96;
 	g_dpi_scale = 1.0f;
 #endif
+	g_dpi_scale_real = g_dpi_scale;
+
 	smallWindow = IsWindowSmall(width, height);
 	if (smallWindow) {
 		g_dpi /= 2;

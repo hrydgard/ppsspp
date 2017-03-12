@@ -636,6 +636,7 @@ int main(int argc, char *argv[]) {
 
 	pixel_in_dps = (float)pixel_xres / dp_xres;
 	g_dpi_scale = dp_xres / (float)pixel_xres;
+	g_dpi_scale_real = g_dpi_scale;
 
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);

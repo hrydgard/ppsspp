@@ -636,6 +636,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayResize(JNIEnv *, jo
 	/*
 	g_dpi = dpi;
 	g_dpi_scale = 240.0f / (float)g_dpi;
+	g_dpi_scale_real = g_dpi_scale;
 
 	pixel_xres = w;
 	pixel_yres = h;
@@ -652,6 +653,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayResize(JNIEnv *, jo
 
 	g_dpi = (int)display_dpi;
 	g_dpi_scale = 240.0f / (float)g_dpi;
+	g_dpi_scale_real = g_dpi_scale;
 
 	dp_xres = display_xres * g_dpi_scale;
 	dp_yres = display_yres * g_dpi_scale;
@@ -968,6 +970,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 
 	g_dpi = (int)display_dpi;
 	g_dpi_scale = 240.0f / (float)g_dpi;
+	g_dpi_scale_real = g_dpi_scale;
 
 	dp_xres = display_xres * g_dpi_scale;
 	dp_yres = display_yres * g_dpi_scale;

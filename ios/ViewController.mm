@@ -177,6 +177,7 @@ static GraphicsContext *graphicsContext;
 
 	g_dpi = (IS_IPAD() ? 200 : 150) * scale;
 	g_dpi_scale = 240.0f / (float)g_dpi;
+	g_dpi_scale_real = g_dpi_scale;
 	pixel_xres = size.width * scale;
 	pixel_yres = size.height * scale;
 

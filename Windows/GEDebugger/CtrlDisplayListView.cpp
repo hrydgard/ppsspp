@@ -45,8 +45,10 @@ CtrlDisplayListView::CtrlDisplayListView(HWND _wnd)
 	
 	instructionSize = 4;
 
-	int fontHeight = g_Config.iFontHeight / g_dpi_scale;
-	int charWidth = g_Config.iFontWidth / g_dpi_scale;
+	// In small window mode, g_dpi_scal may have been adjusted.
+	const float fontScale = 1.0f / g_dpi_scale_real;
+	int fontHeight = g_Config.iFontHeight * fontScale;
+	int charWidth = g_Config.iFontWidth * fontScale;
 
 	rowHeight = fontHeight +2;
 

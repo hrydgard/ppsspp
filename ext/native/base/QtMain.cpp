@@ -442,6 +442,7 @@ int main(int argc, char *argv[])
 	pixel_xres = res.width();
 	pixel_yres = res.height();
 	g_dpi_scale = CalculateDPIScale();
+	g_dpi_scale_real = g_dpi_scale;
 	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
 	std::string savegame_dir = ".";
 	std::string assets_dir = ".";
