@@ -300,7 +300,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	monstartup("ppsspp_jni.so");
 #endif
 
-	net::Init();
+	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	InitFastMath(cpu_info.bNEON);
 	SetupAudioFormats();

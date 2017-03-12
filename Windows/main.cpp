@@ -294,6 +294,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	setCurrentThreadName("Main");
 
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	// Windows, API init stuff
 	INITCOMMONCONTROLSEX comm;
@@ -538,6 +539,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		W32Util::ExitAndRestart();
 	}
 
+	net::Shutdown();
 	CoUninitialize();
 
 	return 0;
