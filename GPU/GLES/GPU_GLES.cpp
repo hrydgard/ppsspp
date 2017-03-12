@@ -606,7 +606,7 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (maxVertexTextureImageUnits >= 3) // At least 3 for hardware tessellation
 		features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 
-	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float || gl_extensions.OES_texture_half_float)
+	if (gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float)
 		features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 
 	// If we already have a 16-bit depth buffer, we don't need to round.
