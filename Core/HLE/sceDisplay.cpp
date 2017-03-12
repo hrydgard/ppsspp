@@ -31,15 +31,17 @@
 // and move everything into native...
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "i18n/i18n.h"
 #include "profiler/profiler.h"
 
 #include "gfx_es2/gpu_features.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
+#include "Core/Host.h"
 #include "Core/Reporting.h"
-#include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -146,8 +148,10 @@ static int lastFpsFrame = 0;
 static double lastFpsTime = 0.0;
 static double fps = 0.0;
 static double fpsHistory[120];
-static size_t fpsHistoryPos = 0;
-static size_t fpsHistoryValid = 0;
+static int fpsHistorySize = (int)ARRAY_SIZE(fpsHistory);
+static int fpsHistoryPos = 0;
+static int fpsHistoryValid = 0;
+static double monitorFpsUntil = 0.0;
 static int lastNumFlips = 0;
 static float flips = 0.0f;
 static int actualFlips = 0;  // taking frameskip into account
@@ -389,16 +393,32 @@ void __DisplayGetVPS(float *out_vps) {
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
 	float avg = 0.0;
 	if (fpsHistoryValid > 0) {
-		if (fpsHistoryValid > ARRAY_SIZE(fpsHistory)) {
-			fpsHistoryValid = ARRAY_SIZE(fpsHistory);
-		}
-		for (size_t i = 0; i < fpsHistoryValid; ++i) {
+		for (int i = 0; i < fpsHistoryValid; ++i) {
 			avg += fpsHistory[i];
 		}
 		avg /= (double) fpsHistoryValid;
 	}
 
 	*out_vps = *out_fps = avg;
+}
+
+static bool IsRunningSlow() {
+	// Allow for some startup turbulence for 8 seconds before assuming things are bad.
+	if (fpsHistoryValid >= 8) {
+		// Look at only the last 15 samples (starting at the 14th sample behind current.)
+		int rangeStart = fpsHistoryPos - std::min(fpsHistoryValid, 14);
+
+		double best = 0.0f;
+		for (int i = rangeStart; i <= fpsHistoryPos; ++i) {
+			// rangeStart may have been negative if near a wrap around.
+			int index = (fpsHistorySize + i) % fpsHistorySize;
+			best = std::max(fpsHistory[index], best);
+		}
+
+		return best < 59.94;
+	}
+
+	return false;
 }
 
 static void CalculateFPS() {
@@ -418,8 +438,10 @@ static void CalculateFPS() {
 		lastFpsTime = now;
 
 		fpsHistory[fpsHistoryPos++] = fps;
-		fpsHistoryPos = fpsHistoryPos % ARRAY_SIZE(fpsHistory);
-		++fpsHistoryValid;
+		fpsHistoryPos = fpsHistoryPos % fpsHistorySize;
+		if (fpsHistoryValid < fpsHistorySize) {
+			++fpsHistoryValid;
+		}
 	}
 }
 
@@ -508,7 +530,7 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
 		}
-	} else if (g_Config.iFrameSkip >= 1)	{
+	} else if (g_Config.iFrameSkip >= 1) {
 		// fixed frameskip
 		if (numSkippedFrames >= g_Config.iFrameSkip)
 			skipFrame = false;
@@ -635,8 +657,15 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		postEffectRequiresFlip = shaderInfo->requires60fps;
 	const bool fbDirty = gpu->FramebufferDirty();
 	if (fbDirty || noRecentFlip || postEffectRequiresFlip) {
-		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4) {
-			CalculateFPS();
+		CalculateFPS();
+
+		// Let the user know if we're running slow, so they know to adjust settings.
+		// Sometimes users just think the sound emulation is broken.
+		static bool hasNotifiedSlow = false;
+		if (!hasNotifiedSlow && IsRunningSlow()) {
+			I18NCategory *err = GetI18NCategory("Error");
+			host->NotifyUserMessage(err->T("Running slow: try frameskip, sound is choppy when slow"), 6.0f, 0xFF3030FF);
+			hasNotifiedSlow = true;
 		}
 
 		// Setting CORE_NEXTFRAME causes a swap.
