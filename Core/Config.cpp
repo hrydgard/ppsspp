@@ -384,6 +384,7 @@ static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_FAST, true, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
+	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, false, true, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, true, true),
 
 	ConfigSetting(false),

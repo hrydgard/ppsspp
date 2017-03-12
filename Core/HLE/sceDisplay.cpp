@@ -662,7 +662,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// Let the user know if we're running slow, so they know to adjust settings.
 		// Sometimes users just think the sound emulation is broken.
 		static bool hasNotifiedSlow = false;
-		if (!hasNotifiedSlow && IsRunningSlow()) {
+		if (!g_Config.bHideSlowWarnings && !hasNotifiedSlow && IsRunningSlow()) {
 			I18NCategory *err = GetI18NCategory("Error");
 			host->NotifyUserMessage(err->T("Running slow: try frameskip, sound is choppy when slow"), 6.0f, 0xFF3030FF);
 			hasNotifiedSlow = true;
