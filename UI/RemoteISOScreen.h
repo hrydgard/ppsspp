@@ -87,7 +87,6 @@ protected:
 
 class RemoteISOSettingsScreen : public UIScreenWithBackground {
 public:
-//	RemoteISOSettingsScreen();
 
 protected:
 	void CreateViews() override;

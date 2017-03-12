@@ -285,7 +285,22 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	std::vector<std::string> items;
 	result.TakeAll(&listing);
 
-	if (startsWith(responseHeaders[1],"Content-Type: text/plain")) {
+	std::string contentType;
+	for (const std::string &header : responseHeaders) {
+		if (startsWithNoCase(header, "Content-Type:")) {
+			contentType = header.substr(strlen("Content-Type:"));
+			// Strip any whitespace (TODO: maybe move this to stringutil?)
+			contentType.erase(0, contentType.find_first_not_of(" \t\r\n"));
+			contentType.erase(contentType.find_last_not_of(" \t\r\n") + 1);
+		}
+	}
+
+	// TODO: Technically, "TExt/hTml    ; chaRSet    =    Utf8" should pass, but "text/htmlese" should not.
+	// But unlikely that'll be an issue.
+	bool parseHtml = startsWithNoCase(contentType, "text/html");
+	bool parseText = startsWithNoCase(contentType, "text/plain");
+
+	if (parseText) {
 		//ppsspp server
 		SplitString(listing, '\n', items);
 		for (const std::string &item : items) {
@@ -297,7 +312,7 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
 			games.push_back(temp);
 		}
-	} else {
+	} else if (parseHtml) {
 		//other webserver
 		GetQuotedStrings(listing, items);
 		for (const std::string &item : items) {
@@ -310,7 +325,11 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s%s", host.c_str(), port, subdir.c_str(),item.c_str());
 			games.push_back(temp);
 		}
+	} else {
+		ERROR_LOG(FILESYS, "Unsupported Content-Type: %s", contentType.c_str());
+		return false;
 	}
+
 	//save for next time unless manual is true
 	if (!games.empty() && !g_Config.bRemoteISOManual){
 		g_Config.sLastRemoteISOServer = host;
@@ -353,8 +372,6 @@ void RemoteISOScreen::CreateViews() {
 
 	leftColumnItems->Add(new TextView(sy->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	leftColumnItems->Add(new TextView(sy->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
-
-	// TODO: Could display server address for manual entry.
 
 	rightColumnItems->SetSpacing(0.0f);
 	Choice *browseChoice = new Choice(sy->T("Browse Games"));
