@@ -299,6 +299,7 @@ enum FormatSupport {
 	FMT_TEXTURE = 2,
 	FMT_INPUTLAYOUT = 4,
 	FMT_DEPTHSTENCIL = 8,
+	FMT_AUTOGEN_MIPS = 16,
 };
 
 enum InfoField {
@@ -552,6 +553,7 @@ struct TextureDesc {
 	int height;
 	int depth;
 	int mipLevels;
+	bool generateMips;
 	std::vector<uint8_t *> initData;
 };
 

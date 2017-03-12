@@ -1,6 +1,9 @@
+#include <algorithm>
+
 #include "thin3d/thin3d.h"
 #include "image/zim_load.h"
 #include "image/png_load.h"
+#include "math/math_util.h"
 #include "file/vfs.h"
 #include "ext/jpge/jpgd.h"
 #include "UI/TextureUtil.h"
@@ -83,7 +86,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 	return *num_levels > 0;
 }
 
-bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type) {
+bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips) {
 	using namespace Draw;
 
 	int width[16]{}, height[16]{};
@@ -110,13 +113,16 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		texture_ = nullptr;
 	}
 
+	int potentialLevels = std::min(log2i(width[0]), log2i(height[0]));
+
 	TextureDesc desc{};
 	desc.type = TextureType::LINEAR2D;
 	desc.format = fmt;
 	desc.width = width[0];
 	desc.height = height[0];
 	desc.depth = 1;
-	desc.mipLevels = num_levels;
+	desc.mipLevels = generateMips ? potentialLevels : num_levels;
+	desc.generateMips = generateMips && potentialLevels > num_levels;
 	for (int i = 0; i < num_levels; i++) {
 		desc.initData.push_back(image[i]);
 	}
@@ -125,10 +131,11 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		if (image[i])
 			free(image[i]);
 	}
+
 	return true;
 }
 
-bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType type) {
+bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType type, bool generateMips) {
 	filename_ = "";
 	size_t fileSize;
 	uint8_t *buffer = VFSReadFile(filename.c_str(), &fileSize);
@@ -136,7 +143,7 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 		ELOG("Failed to read file %s", filename.c_str());
 		return false;
 	}
-	bool retval = LoadFromFileData(buffer, fileSize, type);
+	bool retval = LoadFromFileData(buffer, fileSize, type, generateMips);
 	if (retval) {
 		filename_ = filename;
 	} else {
@@ -146,11 +153,11 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 	return retval;
 }
 
-ManagedTexture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type) {
+ManagedTexture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
 	if (!draw)
 		return nullptr;
 	ManagedTexture *mtex = new ManagedTexture(draw);
-	if (!mtex->LoadFromFile(filename, type)) {
+	if (!mtex->LoadFromFile(filename, type, generateMips)) {
 		delete mtex;
 		return nullptr;
 	}
@@ -158,10 +165,10 @@ ManagedTexture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filen
 }
 
 // TODO: Remove the code duplication between this and LoadFromFileData
-ManagedTexture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType type) {
+ManagedTexture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType type, bool generateMips) {
 	if (!draw)
 		return nullptr;
 	ManagedTexture *mtex = new ManagedTexture(draw);
-	mtex->LoadFromFileData(data, size, type);
+	mtex->LoadFromFileData(data, size, type, generateMips);
 	return mtex;
 }
