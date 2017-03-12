@@ -198,6 +198,11 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		return true;
 	}
 
+	//don't scan if in manual mode
+	if (g_Config.bRemoteISOManual) {
+		return false;
+	}
+
 	// Start by requesting a list of recent local ips for this network.
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
 		if (http.Connect()) {
@@ -251,11 +256,23 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	http::Client http;
 	Buffer result;
 	int code = 500;
+	std::vector<std::string> responseHeaders;
+	std::string subdir ="/";
+	size_t offset;
 
-	// Start by requesting a list of recent local ips for this network.
+	if (g_Config.bRemoteISOManual) {
+		subdir = g_Config.sRemoteISOSubdir;
+		offset=subdir.find_last_of("/");
+		if (offset != subdir.length() - 1 && offset != subdir.npos) {
+			//truncate everything after last / 
+			subdir.erase(offset + 1);
+		}
+	}
+
+	// Start by requesting the list of games from the server.
 	if (http.Resolve(host.c_str(), port)) {
 		if (http.Connect()) {
-			code = http.GET("/", &result);
+			code = http.GET(subdir.c_str(), &result,responseHeaders);
 			http.Disconnect();
 		}
 	}
@@ -268,19 +285,53 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	std::vector<std::string> items;
 	result.TakeAll(&listing);
 
-	SplitString(listing, '\n', items);
-	for (const std::string &item : items) {
-		if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
-			continue;
+	std::string contentType;
+	for (const std::string &header : responseHeaders) {
+		if (startsWithNoCase(header, "Content-Type:")) {
+			contentType = header.substr(strlen("Content-Type:"));
+			// Strip any whitespace (TODO: maybe move this to stringutil?)
+			contentType.erase(0, contentType.find_first_not_of(" \t\r\n"));
+			contentType.erase(contentType.find_last_not_of(" \t\r\n") + 1);
 		}
-
-		char temp[1024] = {};
-		snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
-		games.push_back(temp);
 	}
 
-	//save for next time
-	if (!games.empty()){
+	// TODO: Technically, "TExt/hTml    ; chaRSet    =    Utf8" should pass, but "text/htmlese" should not.
+	// But unlikely that'll be an issue.
+	bool parseHtml = startsWithNoCase(contentType, "text/html");
+	bool parseText = startsWithNoCase(contentType, "text/plain");
+
+	if (parseText) {
+		//ppsspp server
+		SplitString(listing, '\n', items);
+		for (const std::string &item : items) {
+			if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
+				continue;
+			}
+
+			char temp[1024] = {};
+			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
+			games.push_back(temp);
+		}
+	} else if (parseHtml) {
+		//other webserver
+		GetQuotedStrings(listing, items);
+		for (const std::string &item : items) {
+			
+			if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
+				continue;
+			}
+
+			char temp[1024] = {};
+			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s%s", host.c_str(), port, subdir.c_str(),item.c_str());
+			games.push_back(temp);
+		}
+	} else {
+		ERROR_LOG(FILESYS, "Unsupported Content-Type: %s", contentType.c_str());
+		return false;
+	}
+
+	//save for next time unless manual is true
+	if (!games.empty() && !g_Config.bRemoteISOManual){
 		g_Config.sLastRemoteISOServer = host;
 		g_Config.iLastRemoteISOPort = port;
 	}
@@ -322,8 +373,6 @@ void RemoteISOScreen::CreateViews() {
 	leftColumnItems->Add(new TextView(sy->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	leftColumnItems->Add(new TextView(sy->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 
-	// TODO: Could display server address for manual entry.
-
 	rightColumnItems->SetSpacing(0.0f);
 	Choice *browseChoice = new Choice(sy->T("Browse Games"));
 	rightColumnItems->Add(browseChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleBrowse);
@@ -338,6 +387,8 @@ void RemoteISOScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(sy->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
 		browseChoice->SetEnabled(true);
 	}
+	Choice *settingsChoice = new Choice(sy->T("Settings"));
+	rightColumnItems->Add(settingsChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleSettings);
 
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -380,6 +431,11 @@ UI::EventReturn RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
 
 UI::EventReturn RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
 	screenManager()->push(new RemoteISOConnectScreen());
+	return EVENT_DONE;
+}
+
+UI::EventReturn RemoteISOScreen::HandleSettings(UI::EventParams &e) {
+	screenManager()->push(new RemoteISOSettingsScreen());
 	return EVENT_DONE;
 }
 
@@ -581,4 +637,43 @@ void RemoteISOBrowseScreen::CreateViews() {
 	root_->SetDefaultFocusView(tabHolder_);
 
 	upgradeBar_ = 0;
+}
+
+void RemoteISOSettingsScreen::CreateViews() {
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *n = GetI18NCategory("Networking");
+	I18NCategory *ms = GetI18NCategory("MainSettings");
+	
+	ViewGroup *remoteisoSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	remoteisoSettingsScroll->SetTag("GameSettingsNetworking");
+	LinearLayout *remoteisoSettings = new LinearLayout(ORIENT_VERTICAL);
+	remoteisoSettings->SetSpacing(0);
+	remoteisoSettingsScroll->Add(remoteisoSettings);
+
+	remoteisoSettings->Add(new ItemHeader(ms->T("Remote Disc Streaming")));
+	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, n->T("Manual Mode Client", "Manual Mode Client")));
+	PopupTextInputChoice *remoteServer = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, n->T("Remote Server"), "", 255, screenManager()));
+	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
+	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, n->T("Remote Port", "Remote Port"), 100, screenManager()));
+	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
+	PopupTextInputChoice *remoteSubdir = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sRemoteISOSubdir, n->T("Remote Subdirectory"), "", 255, screenManager()));
+	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
+	remoteSubdir->OnChange.Handle(this, &RemoteISOSettingsScreen::OnChangeRemoteISOSubdir);
+	remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, n->T("Local Server Port", "Local Server Port"), 100, screenManager()));
+	remoteisoSettings->Add(new Spacer(25.0));
+	remoteisoSettings->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_->Add(remoteisoSettings);
+}
+
+UI::EventReturn RemoteISOSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
+	//Conform to HTTP standards
+	ReplaceAll(g_Config.sRemoteISOSubdir, " ", "%20");
+	ReplaceAll(g_Config.sRemoteISOSubdir, "\\", "/");
+	//Make sure it begins with /
+	if (g_Config.sRemoteISOSubdir[0] != '/')
+		g_Config.sRemoteISOSubdir = "/" + g_Config.sRemoteISOSubdir;
+	
+	return UI::EVENT_DONE;
 }

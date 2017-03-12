@@ -36,6 +36,7 @@ protected:
 	UI::EventReturn HandleStartServer(UI::EventParams &e);
 	UI::EventReturn HandleStopServer(UI::EventParams &e);
 	UI::EventReturn HandleBrowse(UI::EventParams &e);
+	UI::EventReturn HandleSettings(UI::EventParams &e);
 
 	bool serverRunning_;
 	bool serverStopping_;
@@ -82,4 +83,14 @@ protected:
 	void CreateViews() override;
 
 	std::vector<std::string> games_;
+};
+
+class RemoteISOSettingsScreen : public UIScreenWithBackground {
+public:
+
+protected:
+	void CreateViews() override;
+
+	UI::EventReturn OnChangeRemoteISOSubdir(UI::EventParams &e);
+
 };

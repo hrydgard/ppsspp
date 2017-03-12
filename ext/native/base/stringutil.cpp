@@ -279,6 +279,26 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 	}
 }
 
+void GetQuotedStrings(const std::string& str, std::vector<std::string>& output)
+{
+	size_t next = 0;
+	bool even = 0;
+	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
+		if (str[pos] == '\"' || str[pos] == '\'') {
+			if (even) {
+				//quoted text
+				output.push_back(str.substr(next, pos - next));
+				even = 0;
+			} else {
+				//non quoted text
+				even = 1;
+			}
+			// Skip the delimiter itself.
+			next = pos + 1;
+		}
+	}
+}
+
 std::string ReplaceAll(std::string result, const std::string& src, const std::string& dest)
 {
 	size_t pos = 0;
