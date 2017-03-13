@@ -377,6 +377,7 @@ copy AssetsGold\*.* Assets /Y</Command>
     <ClInclude Include="Common\DirectXHelper.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="StorageFileLoader.h" />
+    <ClInclude Include="StorageFolderBrowser.h" />
     <ClInclude Include="UWPHost.h" />
     <ClInclude Include="UWPUtil.h" />
     <ClInclude Include="XAudioSoundStream.h" />
@@ -410,6 +411,7 @@ copy AssetsGold\*.* Assets /Y</Command>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="StorageFileLoader.cpp" />
+    <ClCompile Include="StorageFolderBrowser.cpp" />
     <ClCompile Include="UWPHost.cpp" />
     <ClCompile Include="XAudioSoundStream.cpp" />
   </ItemGroup>

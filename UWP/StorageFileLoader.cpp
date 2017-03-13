@@ -10,7 +10,7 @@ using namespace Concurrency;
 using namespace Windows::Storage;
 using namespace Windows::Storage::Streams;
 
-std::mutex initMutex;
+static std::mutex initMutex;
 
 StorageFileLoader::StorageFileLoader(Windows::Storage::StorageFile ^file) {
 	file_ = file;

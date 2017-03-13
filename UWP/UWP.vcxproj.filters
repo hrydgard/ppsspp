@@ -49,6 +49,7 @@
     <ClCompile Include="StorageFileLoader.cpp" />
     <ClCompile Include="UWPHost.cpp" />
     <ClCompile Include="..\Windows\XinputDevice.cpp" />
+    <ClCompile Include="StorageFolderBrowser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
@@ -61,6 +62,7 @@
     <ClInclude Include="UWPHost.h" />
     <ClInclude Include="..\Windows\XinputDevice.h" />
     <ClInclude Include="UWPUtil.h" />
+    <ClInclude Include="StorageFolderBrowser.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\StoreLogo.png">
