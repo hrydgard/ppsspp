@@ -1236,6 +1236,23 @@ void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 
 	if (channelBit != FBChannel::FB_DEPTH_BIT) {
 		// Non-full copies are not supported for the depth channel.
+		// Note that we need to clip the source box.
+		if (x < 0) {
+			width += x;  // note that x is negative
+			dstX -= x;
+			x = 0;
+		}
+		if (y < 0) {
+			height += y;  // note that y is negative
+			dstY -= y;
+			y = 0;
+		}
+		if (x + width > src->width) {
+			width = src->width - x;
+		}
+		if (y + height > src->height) {
+			height = src->height - y;
+		}
 		D3D11_BOX srcBox{ (UINT)x, (UINT)y, (UINT)z, (UINT)(x + width), (UINT)(y + height), (UINT)(z + depth) };
 		context_->CopySubresourceRegion(dstTex, dstLevel, dstX, dstY, dstZ, srcTex, level, &srcBox);
 	}
