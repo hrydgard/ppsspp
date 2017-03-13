@@ -3460,7 +3460,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 
 	bool negSin1 = (imm & 0x10) ? true : false;
 
-#ifdef _M_X64
+#if defined(_M_X64) || defined(_WIN32)
 	MOVSS(XMM0, fpr.V(sreg));
 	ABI_CallFunction(negSin1 ? (const void *)&SinCosNegSin : (const void *)&SinCos);
 #else
