@@ -983,7 +983,7 @@ add_library(xxhash STATIC
 include_directories(ext/xxhash)
 
 set(CoreExtra)
-set(CoreExtraLibs)
+set(CoreExtraLibs armips)
 
 set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRCompALU.cpp
@@ -1693,7 +1693,7 @@ set(WindowsFiles
 list(APPEND LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput armips)
+	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput)
 	#setup_target_project(${TargetBin} Windows)
 	list(APPEND NativeAppSource ${WindowsFiles})
 endif()
