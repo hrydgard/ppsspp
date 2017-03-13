@@ -367,6 +367,7 @@ static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loo
 	v.vagSize = size;
 	v.loop = loop ? true : false;
 	v.ChangedParams(vagAddr == prevVagAddr);
+	WARN_LOG(SAS,"This is a VAG audio");
 	return 0;
 }
 
@@ -404,6 +405,7 @@ static u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int 
 	v.loop = loopPos >= 0 ? true : false;
 	v.playing = true;
 	v.ChangedParams(pcmAddr == prevPcmAddr);
+	WARN_LOG(SAS,"This is a PCM audio");
 	return 0;
 }
 
