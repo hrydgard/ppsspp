@@ -1267,6 +1267,9 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 // These functions should be self explanatory.
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
+	if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {
+		return;
+	}
 	context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
 	curRenderTargetView_ = fb->colorRTView;
 	curDepthStencilView_ = fb->depthStencilRTView;
@@ -1285,6 +1288,8 @@ void D3D11DrawContext::BindFramebufferForRead(Framebuffer *fbo) {
 }
 
 void D3D11DrawContext::BindBackbufferAsRenderTarget() {
+	if (curRenderTargetView_ == bbRenderTargetView_ && curDepthStencilView_ == bbDepthStencilView_)
+		return;
 	context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
 	curRenderTargetView_ = bbRenderTargetView_;
 	curDepthStencilView_ = bbDepthStencilView_;
