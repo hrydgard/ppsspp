@@ -1209,6 +1209,8 @@ set(GPU_SOURCES
 	GPU/Common/ShaderId.h
 	GPU/Common/ShaderUniforms.cpp
 	GPU/Common/ShaderUniforms.h
+	GPU/Common/ShaderCommon.cpp
+	GPU/Common/ShaderCommon.h
 	GPU/Common/SplineCommon.cpp
 	GPU/Common/SplineCommon.h
 	GPU/Common/SoftwareTransformCommon.cpp
