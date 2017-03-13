@@ -16,6 +16,9 @@ endif()
 include_directories(${ARMIPS_PATH})
 
 add_library(armips
+	${ARMIPS_PATH}/stdafx.cpp
+	${ARMIPS_PATH}/stdafx.h
+
 	${ARMIPS_PATH}/Util/ByteArray.cpp
 	${ARMIPS_PATH}/Util/ByteArray.h
 	${ARMIPS_PATH}/Util/CRC.cpp

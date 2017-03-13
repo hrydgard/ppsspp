@@ -9,7 +9,6 @@ project(PPSSPP)
 enable_language(ASM)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
-add_definitions(-DPPSSPP)
 add_definitions(-D__STDC_CONSTANT_MACROS)
 
 # Of the CMake platforms, we only support Vulkan on Android and Windows.
@@ -50,8 +49,10 @@ include(ccache)
 # Remove soon?
 set(USE_FFMPEG ON)
 
-if(ARM OR SIMULATOR)
-	set(USING_EGL ON)
+if(NOT ANDROID)
+	if(ARM OR SIMULATOR)
+		set(USING_EGL ON)
+	endif()
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -168,21 +169,23 @@ if(X86_64)
 	message("Generating for x86_64, ${CMAKE_BUILD_TYPE}")
 endif()
 if(ARM64)
-  message("Generating for ARMv8, ${CMAKE_BUILD_TYPE}")
+	message("Generating for ARMv8, ${CMAKE_BUILD_TYPE}")
 endif()
-
+message("hello")
 if(NOT MSVC)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-  if (NOT ANDROID)
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
-    set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -D_NDEBUG")
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
-    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -D_DEBUG")
-    set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
-    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -D_NDEBUG")
-    set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
-  endif()
+	if (NOT ANDROID)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
+		set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -D_NDEBUG")
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
+		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -D_DEBUG")
+		set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
+		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -D_NDEBUG")
+		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
+	else()
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -Wno-switch -Wno-uninitialized")
+	endif()
 	#TODO: Remove this and include the file properly everywhere it makes sense
 	# First step is too use the macros everywhere
 	# Second step is to remove the compatibility defines
@@ -192,6 +195,7 @@ if(NOT MSVC)
 
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
+	add_definitions(-Wno-deprecated-register)
 
 	# Don't compile with strict aliasing, we're not 100% aliasing-safe
 	add_definitions(-fno-strict-aliasing)
@@ -206,17 +210,19 @@ if(NOT MSVC)
 
 	if(IOS)
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-        # We want C++11, so target 10.7+
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=10.7")
+		# We want C++11, so target 10.7+
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=10.7")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=10.7 -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
-	else()
+	elseif(NOT ANDROID)
 		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel" AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
 			add_definitions(-Wno-psabi)
 		endif()
 		add_definitions(-D_XOPEN_SOURCE=700)
 		add_definitions(-D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
 		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
+	elseif(ANDROID)
+		add_definitions(-fsigned-char)
 	endif()
 else()
 	# Disable warnings about MS-specific _s variants of libc functions
@@ -228,8 +234,10 @@ else()
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
 endif()
 
+if(NOT ANDROID)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+endif()
 
 # This sets up the MSVC project dirs according to the physical project dirs
 macro(setup_target_project TargetName ProjectDir)
@@ -287,7 +295,7 @@ if(NOT (X86 OR ARM OR MIPS))
 	set(CommonFake
 		Common/FakeCPUDetect.cpp
 		Common/FakeEmitter.h)
-    source_group(Fake FILES ${CommonFake})
+	source_group(Fake FILES ${CommonFake})
 endif()
 
 set(CommonWindows
@@ -395,12 +403,12 @@ if(USE_FFMPEG)
       if(ANDROID)
         if(ARMV7)
           set(PLATFORM_ARCH "android/armv7")
-        elseif(ARM)
-          set(PLATFORM_ARCH "android/arm")
+        elseif(ARM64)
+          set(PLATFORM_ARCH "android/arm64")
+        elseif(X86_64)
+          set(PLATFORM_ARCH "android/x86_64")
         elseif(X86)
           set(PLATFORM_ARCH "android/x86")
-        else()
-          set(PLATFORM_ARCH "android/x86_64")
         endif()
       elseif(IOS)
         set(PLATFORM_ARCH "ios/universal")
@@ -417,7 +425,7 @@ if(USE_FFMPEG)
           set(PLATFORM_ARCH "linux/mips32")
         elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
           set(PLATFORM_ARCH "linux/x86_64")
-        else()
+        elseif(X86)
           set(PLATFORM_ARCH "linux/x86")
         endif()
       elseif(WIN32)
@@ -439,7 +447,7 @@ if(USE_FFMPEG)
 endif(USE_FFMPEG)
 
 find_package(ZLIB)
-if(ZLIB_FOUND)
+if(ZLIB_FOUND AND NOT ANDROID)
 	include_directories(${ZLIB_INCLUDE_DIR})
 	add_definitions(-DSHARED_ZLIB)
 else()
@@ -1569,6 +1577,8 @@ if(ANDROID)
     set(CoreExtraLibs -Wl,--gc-sections -Wl,--exclude-libs,ALL)
   endif()
 endif()	
+ 
+set(CoreExtraLibs ${CoreExtraLibs} armips)
 
 set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper)
 
@@ -1773,9 +1783,10 @@ if (TargetBin)
 endif()
 
 # installs
+if(NOT ANDROID)
 file(INSTALL ${NativeAssets} DESTINATION assets)
 file(INSTALL flash0 DESTINATION assets)
-
+endif()
 # packaging and code signing
 if(IOS)
 	file(GLOB IOSAssets ios/assets/*.png)
