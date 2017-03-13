@@ -29,6 +29,8 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 	char marker[16] = {0};
 	int foundVersion = ver;
 
+	// This is strncpy because we rely on its weird non-null-terminating truncation behaviour.
+	// Can't replace it with the more sensible truncate_cpy because that would break savestates.
 	strncpy(marker, title, sizeof(marker));
 	if (!ExpectVoid(marker, sizeof(marker)))
 	{
@@ -284,13 +286,11 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	header.Revision = REVISION_CURRENT;
 	header.ExpectedSize = (u32)sz;
 	header.UncompressedSize = (u32)sz;
-	strncpy(header.GitVersion, gitVersion, 32);
-	header.GitVersion[31] = '\0';
+	truncate_cpy(header.GitVersion, gitVersion);
 
 	// Setup the fixed-length title.
 	char titleFixed[128];
-	strncpy(titleFixed, title.c_str(), sizeof(titleFixed));
-	titleFixed[sizeof(titleFixed) - 1] = '\0';
+	truncate_cpy(titleFixed, title.c_str());
 
 	// Write to file
 	if (compress) {
