@@ -143,7 +143,7 @@ void FramebufferManagerGLES::CompilePostShader() {
 		if (!postShaderProgram_) {
 			// DO NOT turn this into a report, as it will pollute our logs with all kinds of
 			// user shader experiments.
-			ERROR_LOG(G3D, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
+			ERROR_LOG(FRAMEBUF, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
 			// let's show the first line of the error string as an OSM.
 			std::set<std::string> blacklistedLines;
 			// These aren't useful to show, skip to the first interesting line.
@@ -408,9 +408,10 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 
 	const GLSLProgram *program = glsl_get_program();
 	if (!program) {
-		ERROR_LOG(G3D, "Trying to draw without a program");
+		ERROR_LOG(FRAMEBUF, "Trying to DrawActiveTexture() without a program");
 		return;
 	}
+
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
 	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
@@ -655,7 +656,7 @@ bool FramebufferManagerGLES::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 
 	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth });
 	if (!nvfb->fbo) {
-		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+		ERROR_LOG(FRAMEBUF, "Error creating GL FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
 	}
 
@@ -867,30 +868,30 @@ static void LogReadPixelsError(GLenum error) {
 	case GL_NO_ERROR:
 		break;
 	case GL_INVALID_ENUM:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_ENUM");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_ENUM");
 		break;
 	case GL_INVALID_VALUE:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_VALUE");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_VALUE");
 		break;
 	case GL_INVALID_OPERATION:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_OPERATION");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_OPERATION");
 		break;
 	case GL_INVALID_FRAMEBUFFER_OPERATION:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
 		break;
 	case GL_OUT_OF_MEMORY:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_OUT_OF_MEMORY");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_OUT_OF_MEMORY");
 		break;
 #ifndef USING_GLES2
 	case GL_STACK_UNDERFLOW:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_STACK_UNDERFLOW");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_UNDERFLOW");
 		break;
 	case GL_STACK_OVERFLOW:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_STACK_OVERFLOW");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_OVERFLOW");
 		break;
 #endif
     default:
-        ERROR_LOG(SCEGE, "glReadPixels: %08x", error);
+        ERROR_LOG(FRAMEBUF, "glReadPixels: %08x", error);
         break;
 	}
 }
@@ -953,7 +954,7 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 #endif
 
 		if (packed) {
-			DEBUG_LOG(SCEGE, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
+			DEBUG_LOG(FRAMEBUF, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
 			pbo.size, packed, pbo.fb_address, pbo.stride, nextPBO);
 
 			if (useCPU || (UseBGRA8888() && pbo.format == GE_FORMAT_8888)) {
@@ -1104,7 +1105,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 	}
 
 	if (packed) {
-		DEBUG_LOG(SCEGE, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
+		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
 		GLenum glfmt = GL_RGBA;
@@ -1153,7 +1154,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 		convBufSize_ = bufSize;
 	}
 
-	DEBUG_LOG(SCEGE, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
+	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->z_stride, h, GL_DEPTH_COMPONENT, GL_FLOAT, convBuf_);
@@ -1286,7 +1287,7 @@ void FramebufferManagerGLES::DestroyAllFBOs(bool forceDelete) {
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		INFO_LOG(SCEGE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		INFO_LOG(FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		DestroyFramebuf(vfb);
 	}
 	vfbs_.clear();

@@ -666,7 +666,7 @@ bool FramebufferManagerD3D11::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb)
 
 	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
 	if (!(nvfb->fbo)) {
-		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
 	}
 
@@ -951,7 +951,7 @@ void FramebufferManagerD3D11::DestroyAllFBOs(bool forceDelete) {
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		INFO_LOG(SCEGE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		INFO_LOG(FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		DestroyFramebuf(vfb);
 	}
 	vfbs_.clear();

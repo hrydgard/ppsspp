@@ -567,7 +567,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
 		if (!(nvfb->fbo)) {
-			ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+			ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 			return false;
 		}
 
@@ -731,7 +731,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		// We always read the depth buffer in 24_8 format.
 		const u32 z_address = (0x04000000) | vfb->z_address;
 
-		DEBUG_LOG(SCEGE, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
+		DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
 		LPDIRECT3DTEXTURE9 tex = (LPDIRECT3DTEXTURE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_DEPTH_BIT, 0);
 		if (tex) {
@@ -851,7 +851,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *vfb = vfbs_[i];
-			INFO_LOG(SCEGE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+			INFO_LOG(FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 			DestroyFramebuf(vfb);
 		}
 		vfbs_.clear();

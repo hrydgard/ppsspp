@@ -692,7 +692,7 @@ bool FramebufferManagerVulkan::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb
 	/*
 	nvfb->fbo = CreateFramebuffer(nvfb->width, nvfb->height, 1, false, (FBOColorDepth)nvfb->colorDepth);
 	if (!(nvfb->fbo)) {
-		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
 	}
 
@@ -850,30 +850,30 @@ static void LogReadPixelsError(GLenum error) {
 	case GL_NO_ERROR:
 		break;
 	case GL_INVALID_ENUM:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_ENUM");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_ENUM");
 		break;
 	case GL_INVALID_VALUE:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_VALUE");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_VALUE");
 		break;
 	case GL_INVALID_OPERATION:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_OPERATION");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_OPERATION");
 		break;
 	case GL_INVALID_FRAMEBUFFER_OPERATION:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
 		break;
 	case GL_OUT_OF_MEMORY:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_OUT_OF_MEMORY");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_OUT_OF_MEMORY");
 		break;
 #ifndef USING_GLES2
 	case GL_STACK_UNDERFLOW:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_STACK_UNDERFLOW");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_UNDERFLOW");
 		break;
 	case GL_STACK_OVERFLOW:
-		ERROR_LOG(SCEGE, "glReadPixels: GL_STACK_OVERFLOW");
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_OVERFLOW");
 		break;
 #endif
 	default:
-		ERROR_LOG(SCEGE, "glReadPixels: %08x", error);
+		ERROR_LOG(FRAMEBUF, "glReadPixels: %08x", error);
 		break;
 	}
 }
@@ -914,7 +914,7 @@ void FramebufferManagerVulkan::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		// packed = (GLubyte *)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, pbo.size, GL_MAP_READ_BIT);
 
 		if (packed) {
-			DEBUG_LOG(SCEGE, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
+			DEBUG_LOG(FRAMEBUF, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
 				pbo.size, packed, pbo.fb_address, pbo.stride, nextPBO);
 
 			// We don't need to convert, GPU already did (or should have)
@@ -1140,7 +1140,7 @@ void FramebufferManagerVulkan::DestroyAllFBOs(bool forceDelete) {
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		INFO_LOG(SCEGE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		INFO_LOG(FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		DestroyFramebuf(vfb);
 	}
 	vfbs_.clear();

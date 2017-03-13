@@ -432,7 +432,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 		NotifyRenderFramebufferCreated(vfb);
 
-		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		INFO_LOG(FRAMEBUF, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
@@ -474,7 +474,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 		// Use it as a render target.
-		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		DEBUG_LOG(FRAMEBUF, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
@@ -681,7 +681,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), fmt, vfb->fb_stride, vfb->width, vfb->height);
 					SetColorUpdated(vfb, gstate_c.skipDrawReason);
 				} else {
-					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+					INFO_LOG(FRAMEBUF, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 					DestroyFramebuf(vfb);
 					vfbs_.erase(vfbs_.begin() + i--);
 				}
@@ -794,7 +794,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	currentRenderVfb_ = 0;
 
 	if (displayFramebufPtr_ == 0) {
-		DEBUG_LOG(SCEGE, "Display disabled, displaying only black");
+		DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
 		// No framebuffer to display! Clear to black.
 		ClearBuffer();
 		return;
@@ -867,7 +867,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 				return;
 			}
 		} else {
-			DEBUG_LOG(SCEGE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
+			DEBUG_LOG(FRAMEBUF, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
 			// No framebuffer to display! Clear to black.
 			ClearBuffer();
 			return;
@@ -888,7 +888,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	displayFramebuf_ = vfb;
 
 	if (vfb->fbo) {
-		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
+		DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
 
 		draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
@@ -944,7 +944,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			// Use the extra FBO, with applied post-processing shader, as a texture.
 			// fbo_bind_as_texture(extraFBOs_[0], FB_COLOR_BIT, 0);
 			if (extraFBOs_.size() == 0) {
-				ERROR_LOG(G3D, "WTF?");
+				ERROR_LOG(FRAMEBUF, "Unexpected: No extra FBOs?");
 				return;
 			}
 			draw_->BindFramebufferAsTexture(extraFBOs_[0], 0, Draw::FB_COLOR_BIT, 0);
@@ -1001,6 +1001,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			}
 		}
 	}
+	else {
+		WARN_LOG(FRAMEBUF, "Current VFB lacks an FBO: %08x", vfb->fb_address);
+	}
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
@@ -1023,7 +1026,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 
 		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
 			if (age > FBO_OLD_AGE) {
-				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
+				INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
 				DestroyFramebuf(vfb);
 				vfbs_.erase(vfbs_.begin() + i--);
 			}
@@ -1045,7 +1048,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 		VirtualFramebuffer *vfb = bvfbs_[i];
 		int age = frameLastFramebufUsed_ - vfb->last_frame_render;
 		if (age > FBO_OLD_AGE) {
-			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
+			INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
 		}
@@ -1108,7 +1111,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
 	if (old.fbo) {
-		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
+		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 			ClearBuffer();
@@ -1123,7 +1126,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	}
 
 	if (!vfb->fbo) {
-		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
+		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 	}
 }
 
