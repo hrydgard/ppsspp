@@ -17,6 +17,7 @@
 
 #pragma once
 
+#ifdef _WIN32
 #ifndef _WIN32_WINNT
 
 #if _MSC_VER < 1700
@@ -36,3 +37,4 @@
 #include "CommonWindows.h"
 #include <tchar.h>
 #include <vector>
+#endif

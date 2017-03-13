@@ -356,6 +356,9 @@ add_library(Common STATIC
 	Common/ThreadSafeList.h
 	Common/Timer.cpp
 	Common/Timer.h)
+
+add_subdirectory(ext)
+
 include_directories(Common)
 setup_target_project(Common Common)
 
@@ -373,8 +376,6 @@ endif()
 if(USING_GLES2)
 	find_package(X11)
 endif()
-
-add_subdirectory(ext)
 
 add_library(vjson STATIC
 	ext/native/ext/vjson/json.cpp
