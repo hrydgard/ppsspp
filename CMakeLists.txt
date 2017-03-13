@@ -983,7 +983,11 @@ add_library(xxhash STATIC
 include_directories(ext/xxhash)
 
 set(CoreExtra)
-set(CoreExtraLibs armips)
+set(CoreExtraLibs)
+
+if(WINDOWS OR ANDROID)
+	set(CoreExtraLibs ${CoreExtraLibs} armips)
+endif()
 
 set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRCompALU.cpp
