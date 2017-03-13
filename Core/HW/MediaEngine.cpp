@@ -280,7 +280,7 @@ bool MediaEngine::openContext(bool keepReadPos) {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
 
-	if (m_pFormatCtx || !m_pdata)
+	if (!m_pFormatCtx || !m_pdata)
 		return false;
 	if (!keepReadPos) {
 		m_mpegheaderReadPos = 0;
