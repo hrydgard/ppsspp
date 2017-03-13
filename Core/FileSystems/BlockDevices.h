@@ -105,7 +105,7 @@ public:
 
 private:
 	FileLoader *fileLoader_;
-	std::mutex mutex_;
+	static std::mutex mutex_;
 	u32 lbaSize;
 
 	u32 psarOffset;

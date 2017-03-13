@@ -30,6 +30,8 @@ extern "C"
 #include "ext/libkirk/kirk_engine.h"
 };
 
+std::mutex NPDRMDemoBlockDevice::mutex_;
+
 BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 	// Check for CISO
 	if (!fileLoader->Exists())
