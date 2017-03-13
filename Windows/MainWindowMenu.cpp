@@ -66,8 +66,9 @@ namespace MainWindow {
 		EnableMenuItem(menu, ID_DEBUG_LOADSYMFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SAVESYMFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE, menuEnable);
-		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
 
 		// While playing, this pop up doesn't work - and probably doesn't make sense.
 		EnableMenuItem(menu, ID_OPTIONS_LANGUAGE, state == UISTATE_INGAME ? MF_GRAYED : MF_ENABLED);
