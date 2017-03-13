@@ -626,7 +626,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			dst->fbo, dstX1, dstY1, dstX2, dstY2,
 			Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
 		if (!result) {
-			ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit: %08x (%08x -> %08x)", src->fb_address, dst->fb_address);
+			ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit (%08x -> %08x)", src->fb_address, dst->fb_address);
 		}
 	}
 
