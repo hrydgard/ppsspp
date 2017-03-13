@@ -113,6 +113,7 @@ static void __CtrlUpdateLatch()
 		buttons &= CTRL_EMU_RAPIDFIRE_MASK;
 	}
 
+	memset(&latch, 0, sizeof(CtrlLatch));
 	u32 changed = buttons ^ ctrlOldButtons;
 	latch.btnMake |= buttons & changed;
 	latch.btnBreak |= ctrlOldButtons & changed;
@@ -517,7 +518,9 @@ static u32 sceCtrlReadLatch(u32 latchDataPtr)
 	if (Memory::IsValidAddress(latchDataPtr))
 		Memory::WriteStruct(latchDataPtr, &latch);
 
-	return __CtrlResetLatch();
+	int oldBufs = ctrlLatchBufs;
+	ctrlLatchBufs = 0;
+	return oldBufs;
 }
 
 static const HLEFunction sceCtrl[] =
