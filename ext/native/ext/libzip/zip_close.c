@@ -34,6 +34,8 @@
 #ifdef _MSC_VER
 #pragma warning (disable:4996)
 #pragma warning (disable:4244)
+#else
+#include <unistd.h>
 #endif
 
 #include <stdio.h>
