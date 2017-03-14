@@ -256,9 +256,7 @@ static GraphicsContext *graphicsContext;
 {
 	{
 		std::lock_guard<std::mutex> guard(input_state.lock);
-		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
-		EndInputState(&input_state);
 	}
 
 	NativeRender(graphicsContext);

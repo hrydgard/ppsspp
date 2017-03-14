@@ -27,7 +27,6 @@
 #include "base/NativeApp.h"
 #include "base/timeutil.h"
 #include "math/math_util.h"
-#include "ui/virtual_input.h"
 #include "ui/ui_context.h"
 
 static u32 GetButtonColor() {

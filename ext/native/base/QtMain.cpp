@@ -338,7 +338,6 @@ void MainUI::paintGL()
     SDL_PumpEvents();
 #endif
     updateAccelerometer();
-    UpdateInputState(&input_state);
     time_update();
     UpdateRunLoop(&input_state);
 }

@@ -932,7 +932,6 @@ bool NativeKey(const KeyInput &key) {
 		}
 	}
 #endif
-	g_buttonTracker.Process(key);
 	bool retval = false;
 	if (screenManager)
 		retval = screenManager->key(key);

@@ -200,11 +200,6 @@ void UpdateRunLoop(InputState *input_state) {
 	}
 	NativeUpdate(*input_state);
 
-	{
-		std::lock_guard<std::mutex> guard(input_state->lock);
-		EndInputState(input_state);
-	}
-
 	if (GetUIState() != UISTATE_EXIT) {
 		NativeRender(graphicsContext);
 	}

@@ -90,7 +90,6 @@ LOCAL_SRC_FILES :=\
     ui/ui_screen.cpp \
     ui/ui_context.cpp \
     ui/screen.cpp \
-    ui/virtual_input.cpp \
     util/text/utf8.cpp \
     util/text/parsers.cpp \
     util/text/wrap_text.cpp \

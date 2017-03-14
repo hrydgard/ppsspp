@@ -909,8 +909,6 @@ add_library(native STATIC
 	ext/native/ui/view.h
 	ext/native/ui/viewgroup.cpp
 	ext/native/ui/viewgroup.h
-	ext/native/ui/virtual_input.cpp
-	ext/native/ui/virtual_input.h
 	ext/native/util/hash/hash.cpp
 	ext/native/util/hash/hash.h
 	ext/native/util/random/rng.h
