@@ -45,6 +45,22 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_TEXOFFSETU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetU },
 	{ GE_CMD_TEXOFFSETV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetV },
 
+	// Ignored commands
+	{ GE_CMD_TEXFLUSH, 0 },
+	{ GE_CMD_TEXLODSLOPE, 0 },
+	{ GE_CMD_TEXSYNC, 0 },
+
+	// These are just nop or part of other later commands.
+	{ GE_CMD_NOP, 0 },
+	{ GE_CMD_BASE, 0 },
+	{ GE_CMD_TRANSFERSRC, 0 },
+	{ GE_CMD_TRANSFERSRCW, 0 },
+	{ GE_CMD_TRANSFERDST, 0 },
+	{ GE_CMD_TRANSFERDSTW, 0 },
+	{ GE_CMD_TRANSFERSRCPOS, 0 },
+	{ GE_CMD_TRANSFERDSTPOS, 0 },
+	{ GE_CMD_TRANSFERSIZE, 0 },
+
 	// We don't use the dither table.
 	{ GE_CMD_DITH0 },
 	{ GE_CMD_DITH1 },

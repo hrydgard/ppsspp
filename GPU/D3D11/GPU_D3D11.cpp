@@ -278,22 +278,6 @@ static const D3D11CommandTableEntry commandTable[] = {
 	{ GE_CMD_LDC3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_LIGHT3 },
 	{ GE_CMD_LSC3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_LIGHT3 },
 
-	// Ignored commands
-	{ GE_CMD_TEXFLUSH, 0 },
-	{ GE_CMD_TEXLODSLOPE, 0 },
-	{ GE_CMD_TEXSYNC, 0 },
-
-	// These are just nop or part of other later commands.
-	{ GE_CMD_NOP, 0 },
-	{ GE_CMD_BASE, 0 },
-	{ GE_CMD_TRANSFERSRC, 0 },
-	{ GE_CMD_TRANSFERSRCW, 0 },
-	{ GE_CMD_TRANSFERDST, 0 },
-	{ GE_CMD_TRANSFERDSTW, 0 },
-	{ GE_CMD_TRANSFERSRCPOS, 0 },
-	{ GE_CMD_TRANSFERDSTPOS, 0 },
-	{ GE_CMD_TRANSFERSIZE, 0 },
-
 	// From Common. No flushing but definitely need execute.
 	{ GE_CMD_OFFSETADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_OffsetAddr },
 	{ GE_CMD_ORIGIN, FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_Origin },
