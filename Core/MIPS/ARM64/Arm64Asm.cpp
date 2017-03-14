@@ -217,13 +217,15 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		QuickCallFunction(SCRATCH1_64, &CoreTiming::Advance);
 		ApplyRoundingMode(true);
 		LoadStaticRegisters();
-		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
+		FixupBranch skipToCoreStateCheck = B();  //skip the downcount check
 
 		dispatcherCheckCoreState = GetCodePtr();
 
 		// The result of slice decrementation should be in flags if somebody jumped here
 		// IMPORTANT - We jump on negative, not carry!!!
 		FixupBranch bailCoreState = B(CC_MI);
+
+		SetJumpTarget(skipToCoreStateCheck);
 
 		MOVP2R(SCRATCH1_64, &coreState);
 		LDR(INDEX_UNSIGNED, SCRATCH1, SCRATCH1_64, 0);
@@ -242,7 +244,6 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 			// IMPORTANT - We jump on negative, not carry!!!
 			FixupBranch bail = B(CC_MI);
 
-			SetJumpTarget(skipToRealDispatch);
 			SetJumpTarget(skipToRealDispatch2);
 
 			dispatcherNoCheck = GetCodePtr();
