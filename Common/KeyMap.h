@@ -21,7 +21,7 @@
 #include <map>
 #include <vector>
 #include <set>
-#include "input/input_state.h" // KeyDef, AxisPos
+#include "input/input_state.h" // KeyDef
 #include "input/keycodes.h"     // keyboard keys
 #include "../Core/HLE/sceCtrl.h"   // psp keys
 

@@ -105,22 +105,6 @@ public:
 	}
 };
 
-// Represents a single bindable axis direction
-struct AxisPos {
-	int axis;
-	float position;
-
-	bool operator < (const AxisPos &other) const {
-		if (axis < other.axis) return true;
-		if (axis > other.axis) return false;
-		return position < other.position;
-	}
-	bool operator == (const AxisPos &other) const {
-		return axis == other.axis && position == other.position;
-	}
-};
-
-
 // Collection of all possible inputs, and automatically computed
 // deltas where applicable.
 struct InputState {
