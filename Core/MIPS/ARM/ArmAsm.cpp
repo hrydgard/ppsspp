@@ -177,13 +177,15 @@ void ArmJit::GenerateFixedCode() {
 		QuickCallFunction(R0, &CoreTiming::Advance);
 		ApplyRoundingMode(true);
 		RestoreDowncount();
-		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
+		FixupBranch skipToCoreStateCheck = B(); //skip the downcount check
 
 		dispatcherCheckCoreState = GetCodePtr();
 
 		// The result of slice decrementation should be in flags if somebody jumped here
 		// IMPORTANT - We jump on negative, not carry!!!
 		FixupBranch bailCoreState = B_CC(CC_MI);
+
+		SetJumpTarget(skipToCoreStateCheck);
 
 		MOVI2R(R0, (u32)(uintptr_t)&coreState);
 		LDR(R0, R0);
@@ -202,7 +204,6 @@ void ArmJit::GenerateFixedCode() {
 			// IMPORTANT - We jump on negative, not carry!!!
 			FixupBranch bail = B_CC(CC_MI);
 
-			SetJumpTarget(skipToRealDispatch);
 			SetJumpTarget(skipToRealDispatch2);
 
 			dispatcherNoCheck = GetCodePtr();

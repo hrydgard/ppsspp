@@ -144,7 +144,7 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		RestoreRoundingMode(true);
 		ABI_CallFunction(reinterpret_cast<void *>(&CoreTiming::Advance));
 		ApplyRoundingMode(true);
-		FixupBranch skipToRealDispatch = J(); //skip the sync and compare first time
+		FixupBranch skipToCoreStateCheck = J();  //skip the downcount check
 
 		dispatcherCheckCoreState = GetCodePtr();
 
@@ -152,6 +152,7 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		// IMPORTANT - We jump on negative, not carry!!!
 		FixupBranch bailCoreState = J_CC(CC_S, true);
 
+		SetJumpTarget(skipToCoreStateCheck);
 		CMP(32, M(&coreState), Imm32(0));
 		FixupBranch badCoreState = J_CC(CC_NZ, true);
 		FixupBranch skipToRealDispatch2 = J(); //skip the sync and compare first time
@@ -162,7 +163,6 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 			// IMPORTANT - We jump on negative, not carry!!!
 			FixupBranch bail = J_CC(CC_S, true);
 
-			SetJumpTarget(skipToRealDispatch);
 			SetJumpTarget(skipToRealDispatch2);
 
 			dispatcherNoCheck = GetCodePtr();
