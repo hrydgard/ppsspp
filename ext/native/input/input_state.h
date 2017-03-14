@@ -127,20 +127,12 @@ struct InputState {
 	// Lock this whenever you access the data in this struct.
 	mutable std::mutex lock;
 	InputState()
-		: pad_buttons(0),
-			pad_last_buttons(0),
-			pad_buttons_down(0),
-			pad_buttons_up(0),
-			mouse_valid(false),
+		: mouse_valid(false),
 			accelerometer_valid(false) {
 		memset(pointer_down, 0, sizeof(pointer_down));
 	}
 
 	// Gamepad style input. For ease of use.
-	int pad_buttons; // bitfield
-	int pad_last_buttons;
-	int pad_buttons_down;	// buttons just pressed this frame
-	int pad_buttons_up;	// buttons just pressed last frame
 	float pad_lstick_x;
 	float pad_lstick_y;
 	float pad_rstick_x;

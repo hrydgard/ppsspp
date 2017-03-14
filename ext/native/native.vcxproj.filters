@@ -146,9 +146,6 @@
     <ClInclude Include="util\random\rng.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="ui\virtual_input.h">
-      <Filter>ui</Filter>
-    </ClInclude>
     <ClInclude Include="math\curves.h">
       <Filter>math</Filter>
     </ClInclude>
@@ -414,9 +411,6 @@
     </ClCompile>
     <ClCompile Include="math\lin\plane.cpp">
       <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\virtual_input.cpp">
-      <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="math\curves.cpp">
       <Filter>math</Filter>
