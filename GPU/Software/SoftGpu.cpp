@@ -202,6 +202,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 		desc.width = srcwidth;
 		desc.height = srcheight;
+		desc.initData.push_back((uint8_t *)fbTexBuffer.data());
 		u1 = 1.0f;
 	}
 	if (!hasImage) {
