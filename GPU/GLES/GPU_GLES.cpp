@@ -161,19 +161,19 @@ static const GLESCommandTableEntry commandTable[] = {
 	// From Common. No flushing but definitely need execute.
 	{GE_CMD_OFFSETADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_OffsetAddr},
 	{GE_CMD_ORIGIN, FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_Origin},
-	{GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPU_GLES::Execute_Prim},
 	{GE_CMD_JUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Jump},
 	{GE_CMD_CALL, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Call},
 	{GE_CMD_RET, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Ret},
-	{GE_CMD_END, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_End},  // Flush?
+	{GE_CMD_END, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_End},
 	{GE_CMD_VADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_Vaddr},
 	{GE_CMD_IADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_Iaddr},
 	{GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BJump},  // EXECUTE
-	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPU_GLES::Execute_BoundingBox}, // + FLUSHBEFORE when we implement... or not, do we need to?
+	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPUCommon::Execute_BoundingBox}, // + FLUSHBEFORE when we implement... or not, do we need to?
 
 	// Changing the vertex type requires us to flush.
 	{GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPU_GLES::Execute_VertexType},
 
+	{GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPU_GLES::Execute_Prim},
 	{GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPU_GLES::Execute_Bezier},
 	{GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPU_GLES::Execute_Spline},
 
