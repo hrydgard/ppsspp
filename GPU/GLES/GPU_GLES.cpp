@@ -62,10 +62,6 @@ struct GLESCommandTableEntry {
 // This table gets crunched into a faster form by init.
 // TODO: Share this table between the backends. Will have to make another indirection for the function pointers though..
 static const GLESCommandTableEntry commandTable[] = {
-	// Should these maybe flush?
-	{GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE},
-	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE},
-
 	// Changes that dirty the current texture.
 	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, DIRTY_UVSCALEOFFSET, &GPU_GLES::Execute_TexSize0},
 

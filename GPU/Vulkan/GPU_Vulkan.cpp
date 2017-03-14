@@ -58,10 +58,6 @@ GPU_Vulkan::CommandInfo GPU_Vulkan::cmdInfo_[256];
 // This table gets crunched into a faster form by init.
 // TODO: Share this table between the backends. Will have to make another indirection for the function pointers though..
 static const VulkanCommandTableEntry commandTable[] = {
-	// Should these maybe flush?
-	{ GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE },
-	{ GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE },
-
 	// Changes that dirty the current texture.
 	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_TexSize0 },
 

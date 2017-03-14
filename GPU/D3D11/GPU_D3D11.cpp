@@ -74,10 +74,6 @@ struct D3D11CommandTableEntry {
 };
 
 static const D3D11CommandTableEntry commandTable[] = {
-	// Should these maybe flush?
-	{ GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE },
-	{ GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE },
-
 	// Changes that dirty the current texture.
 	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_D3D11::Execute_TexSize0 },
 
