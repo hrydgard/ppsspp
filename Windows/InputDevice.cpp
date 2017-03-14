@@ -44,10 +44,6 @@ inline static void ExecuteInputPoll() {
 	// If that becomes an issue, maybe should poll to a copy of inputstate and only hold the lock while
 	// copying that one to the real one?
 	std::lock_guard<std::mutex> guard(input_state.lock);
-	input_state.pad_lstick_x = 0;
-	input_state.pad_lstick_y = 0;
-	input_state.pad_rstick_x = 0;
-	input_state.pad_rstick_y = 0;
 	if (host && (focused || !g_Config.bGamepadOnlyFocused)) {
 		host->PollControllers(input_state);
 	}

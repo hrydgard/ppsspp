@@ -346,14 +346,6 @@ int System_GetPropertyInt(SystemProperty prop) {
 
 InputState input_state;
 
-void SimulateGamepad(const uint8_t *keys, InputState *input) {
-	// Legacy key mapping.
-	input->pad_lstick_x = 0;
-	input->pad_lstick_y = 0;
-	input->pad_rstick_x = 0;
-	input->pad_rstick_y = 0;
-}
-
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 	NativeMix((short *)stream, len / 4);
 }
@@ -843,7 +835,6 @@ int main(int argc, char *argv[]) {
 		if (g_QuitRequested)
 			break;
 		const uint8_t *keys = SDL_GetKeyboardState(NULL);
-		SimulateGamepad(keys, &input_state);
 		UpdateRunLoop(&input_state);
 		if (g_QuitRequested)
 			break;

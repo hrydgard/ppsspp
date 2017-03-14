@@ -132,14 +132,6 @@ struct InputState {
 		memset(pointer_down, 0, sizeof(pointer_down));
 	}
 
-	// Gamepad style input. For ease of use.
-	float pad_lstick_x;
-	float pad_lstick_y;
-	float pad_rstick_x;
-	float pad_rstick_y;
-	float pad_ltrigger;
-	float pad_rtrigger;
-
 	// Mouse/touch style input
 	// There are up to 8 mice / fingers.
 	volatile bool mouse_valid;
