@@ -844,7 +844,6 @@ int main(int argc, char *argv[]) {
 			break;
 		const uint8_t *keys = SDL_GetKeyboardState(NULL);
 		SimulateGamepad(keys, &input_state);
-		UpdateInputState(&input_state, true);
 		UpdateRunLoop(&input_state);
 		if (g_QuitRequested)
 			break;

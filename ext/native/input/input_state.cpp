@@ -88,34 +88,3 @@ void SetTabLeftRightKeys(const std::vector<KeyDef> &tabLeft, const std::vector<K
 	tabLeftKeys = tabLeft;
 	tabRightKeys = tabRight;
 }
-
-uint32_t ButtonTracker::Update() {
-	pad_buttons_ |= pad_buttons_async_set;
-	pad_buttons_ &= ~pad_buttons_async_clear;
-	return pad_buttons_;
-}
-
-void ButtonTracker::Process(const KeyInput &input) {
-	int btn = MapPadButtonFixed(input.keyCode);
-	if (btn == 0)
-		return;
-
-	// For now, use a fixed mapping. Good enough for the basics on most platforms.
-	if (input.flags & KEY_DOWN) {
-		pad_buttons_async_set |= btn;
-		pad_buttons_async_clear &= ~btn;
-	}
-	if (input.flags & KEY_UP) {
-		pad_buttons_async_set &= ~btn;
-		pad_buttons_async_clear |= btn;
-	}
-}
-
-ButtonTracker g_buttonTracker;
-
-void UpdateInputState(InputState *input, bool merge) {
-}
-
-void EndInputState(InputState *input) {
-}
-

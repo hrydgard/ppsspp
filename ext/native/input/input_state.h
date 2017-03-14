@@ -156,9 +156,6 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(InputState);
 };
 
-void UpdateInputState(InputState *input, bool merge = false);
-void EndInputState(InputState *input);
-
 enum {
 	TOUCH_MOVE = 1 << 0,
 	TOUCH_DOWN = 1 << 1,
@@ -213,28 +210,6 @@ struct AxisInput {
 	float value;
 	int flags;
 };
-
-
-class ButtonTracker {
-public:
-	ButtonTracker() { Reset(); }
-	void Reset() { 
-		pad_buttons_ = 0;
-		pad_buttons_async_set = 0;
-		pad_buttons_async_clear = 0;
-	}
-	void Process(const KeyInput &input);
-	uint32_t Update();
-	uint32_t GetPadButtons() const { return pad_buttons_; }
-
-private:
-	uint32_t pad_buttons_;
-	uint32_t pad_buttons_async_set;
-	uint32_t pad_buttons_async_clear;
-};
-
-// Platforms should call g_buttonTracker.Process().
-extern ButtonTracker g_buttonTracker;
 
 // Is there a nicer place for this stuff? It's here to avoid dozens of linking errors in UnitTest..
 extern std::vector<KeyDef> dpadKeys;

@@ -51,7 +51,6 @@ inline static void ExecuteInputPoll() {
 	if (host && (focused || !g_Config.bGamepadOnlyFocused)) {
 		host->PollControllers(input_state);
 	}
-	UpdateInputState(&input_state);
 }
 
 static void RunInputThread() {

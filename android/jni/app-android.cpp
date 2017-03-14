@@ -512,8 +512,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
 
-	g_buttonTracker.Reset();
-
 	left_joystick_x_async = 0;
 	left_joystick_y_async = 0;
 	right_joystick_x_async = 0;
@@ -682,15 +680,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 			input_state.pad_lstick_y = left_joystick_y_async;
 			input_state.pad_rstick_x = right_joystick_x_async;
 			input_state.pad_rstick_y = right_joystick_y_async;
-
-			UpdateInputState(&input_state);
 		}
 		NativeUpdate(input_state);
-
-		{
-			std::lock_guard<std::mutex> guard(input_state.lock);
-			EndInputState(&input_state);
-		}
 
 		NativeRender(graphicsContext);
 		time_update();
@@ -1067,15 +1058,8 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 			input_state.pad_lstick_y = left_joystick_y_async;
 			input_state.pad_rstick_x = right_joystick_x_async;
 			input_state.pad_rstick_y = right_joystick_y_async;
-
-			UpdateInputState(&input_state);
 		}
 		NativeUpdate(input_state);
-
-		{
-			std::lock_guard<std::mutex> guard(input_state.lock);
-			EndInputState(&input_state);
-		}
 
 		NativeRender(graphicsContext);
 		time_update();
