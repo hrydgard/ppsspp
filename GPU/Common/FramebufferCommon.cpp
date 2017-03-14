@@ -1001,7 +1001,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			}
 		}
 	}
-	else {
+	else if (useBufferedRendering_) {
 		WARN_LOG(FRAMEBUF, "Current VFB lacks an FBO: %08x", vfb->fb_address);
 	}
 }
