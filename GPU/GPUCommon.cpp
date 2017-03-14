@@ -26,6 +26,65 @@
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 
+const CommonCommandTableEntry commonCommandTable[] = {
+	// Changes that dirty the framebuffer
+	{ GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS },
+	{ GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS },
+	{ GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS },
+	{ GE_CMD_ZBUFPTR, FLAG_FLUSHBEFOREONCHANGE },
+	{ GE_CMD_ZBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE },
+
+	// Changes that dirty uniforms
+	{ GE_CMD_FOGCOLOR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOLOR },
+	{ GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF },
+	{ GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF },
+
+	{ GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE, 0 },
+	{ GE_CMD_TEXSCALEU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleU },
+	{ GE_CMD_TEXSCALEV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleV },
+	{ GE_CMD_TEXOFFSETU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetU },
+	{ GE_CMD_TEXOFFSETV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetV },
+
+	// Vertex Screen/Texture/Color
+	{ GE_CMD_VSCX, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VSCY, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VSCZ, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VTCS, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VTCT, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VTCQ, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VCV, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VAP, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VFC, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VSCV, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+
+	// "Missing" commands (gaps in the sequence)
+	{ GE_CMD_UNKNOWN_03, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_0D, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_11, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_29, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_34, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_35, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_39, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_4E, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_4F, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_52, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_59, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_5A, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_B6, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_B7, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_D1, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_ED, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_EF, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_FA, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_FB, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_FC, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_FD, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_UNKNOWN_FE, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	// Appears to be debugging related or something?  Hit a lot in GoW.
+	{ GE_CMD_UNKNOWN_FF, 0 },
+};
+size_t commonCommandTableSize = ARRAY_SIZE(commonCommandTable);
+
 void GPUCommon::Flush() {
 	drawEngineCommon_->DispatchFlush();
 }

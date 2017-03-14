@@ -52,17 +52,7 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
 
-enum {
-	FLAG_FLUSHBEFORE = 1,
-	FLAG_FLUSHBEFOREONCHANGE = 2,
-	FLAG_EXECUTE = 4,  // needs to actually be executed. unused for now.
-	FLAG_EXECUTEONCHANGE = 8,
-	FLAG_READS_PC = 16,
-	FLAG_WRITES_PC = 32,
-	// No flag for dirtying needed - if the dirty flag is non zero, it's "on change".
-};
-
-struct CommandTableEntry {
+struct GLESCommandTableEntry {
 	uint8_t cmd;
 	uint8_t flags;
 	uint64_t dirty;
@@ -71,28 +61,10 @@ struct CommandTableEntry {
 
 // This table gets crunched into a faster form by init.
 // TODO: Share this table between the backends. Will have to make another indirection for the function pointers though..
-static const CommandTableEntry commandTable[] = {
-	// Changes that dirty the framebuffer
-	{GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS},
-	{GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS},
-	{GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS},
-	{GE_CMD_ZBUFPTR, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_ZBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE},
-
-	// Changes that dirty uniforms
-	{GE_CMD_FOGCOLOR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOLOR},
-	{GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF},
-	{GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FOGCOEF},
-
+static const GLESCommandTableEntry commandTable[] = {
 	// Should these maybe flush?
 	{GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE},
 	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE},
-
-	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE, 0},
-	{GE_CMD_TEXSCALEU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleU},
-	{GE_CMD_TEXSCALEV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleV},
-	{GE_CMD_TEXOFFSETU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetU},
-	{GE_CMD_TEXOFFSETV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetV},
 
 	// Changes that dirty the current texture.
 	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, DIRTY_UVSCALEOFFSET, &GPU_GLES::Execute_TexSize0},
@@ -352,44 +324,6 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_TgenMtxData},
 	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BoneMtxNum},
 	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_BoneMtxData},
-
-	// Vertex Screen/Texture/Color
-	{GE_CMD_VSCX, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_VSCY, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_VSCZ, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_VTCS, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_VTCT, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_VTCQ, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_VCV, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_VAP, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_VFC, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_VSCV, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-
-	// "Missing" commands (gaps in the sequence)
-	{GE_CMD_UNKNOWN_03, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_0D, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_11, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_29, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_34, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_35, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_39, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_4E, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_4F, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_52, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_59, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_5A, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_B6, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_B7, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_D1, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_ED, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_EF, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_FA, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_FB, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_FC, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_FD, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	{GE_CMD_UNKNOWN_FE, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown},
-	// Appears to be debugging related or something?  Hit a lot in GoW.
-	{GE_CMD_UNKNOWN_FF, 0},
 };
 
 GPU_GLES::CommandInfo GPU_GLES::cmdInfo_[256];
@@ -427,9 +361,24 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
 	}
 
-	// Sanity check cmdInfo_ table - no dupes please
-	std::set<u8> dupeCheck;
 	memset(cmdInfo_, 0, sizeof(cmdInfo_));
+
+	// Import both the global and local command tables, and check for dupes
+	std::set<u8> dupeCheck;
+	for (size_t i = 0; i < commonCommandTableSize; i++) {
+		const u8 cmd = commonCommandTable[i].cmd;
+		if (dupeCheck.find(cmd) != dupeCheck.end()) {
+			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
+		} else {
+			dupeCheck.insert(cmd);
+		}
+		cmdInfo_[cmd].flags |= (uint64_t)commonCommandTable[i].flags | (commonCommandTable[i].dirty << 8);
+		cmdInfo_[cmd].func = commonCommandTable[i].func;
+		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
+			Crash();
+		}
+	}
+
 	for (size_t i = 0; i < ARRAY_SIZE(commandTable); i++) {
 		const u8 cmd = commandTable[i].cmd;
 		if (dupeCheck.find(cmd) != dupeCheck.end()) {

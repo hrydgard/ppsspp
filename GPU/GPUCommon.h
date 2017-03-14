@@ -30,6 +30,16 @@ enum DrawType {
 	DRAW_BEZIER,
 };
 
+enum {
+	FLAG_FLUSHBEFORE = 1,
+	FLAG_FLUSHBEFOREONCHANGE = 2,
+	FLAG_EXECUTE = 4,  // needs to actually be executed. unused for now.
+	FLAG_EXECUTEONCHANGE = 8,
+	FLAG_READS_PC = 16,
+	FLAG_WRITES_PC = 32,
+	FLAG_DIRTYONCHANGE = 64,  // NOTE: Either this or FLAG_EXECUTE*, not both!
+};
+
 class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface {
 public:
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
@@ -206,6 +216,8 @@ public:
 		return "N/A";
 	}
 
+	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);
+
 protected:
 	void SetDrawType(DrawType type) {
 		if (type != lastDraw_) {
@@ -348,3 +360,13 @@ private:
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
 };
+
+struct CommonCommandTableEntry {
+	uint8_t cmd;
+	uint8_t flags;
+	uint64_t dirty;
+	GPUCommon::CmdFunc func;
+};
+
+extern const CommonCommandTableEntry commonCommandTable[];
+extern size_t commonCommandTableSize;
