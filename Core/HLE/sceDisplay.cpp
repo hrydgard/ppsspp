@@ -663,8 +663,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// Sometimes users just think the sound emulation is broken.
 		static bool hasNotifiedSlow = false;
 		if (!g_Config.bHideSlowWarnings && !hasNotifiedSlow && IsRunningSlow()) {
+#ifndef _DEBUG
 			I18NCategory *err = GetI18NCategory("Error");
 			host->NotifyUserMessage(err->T("Running slow: try frameskip, sound is choppy when slow"), 6.0f, 0xFF3030FF);
+#endif
 			hasNotifiedSlow = true;
 		}
 
