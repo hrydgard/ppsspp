@@ -208,6 +208,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
 
+
 	std::string error_string;
 	if (!PSP_InitStart(coreParam, &error_string)) {
 		bootPending_ = false;
@@ -215,6 +216,11 @@ void EmuScreen::bootGame(const std::string &filename) {
 		errorMessage_ = error_string;
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
 		System_SendMessage("event", "failstartgame");
+	}
+
+	if (PSP_CoreParameter().compat.flags().RequireBufferedRendering && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		I18NCategory *gr = GetI18NCategory("Graphics");
+		host->NotifyUserMessage(gr->T("BufferedRenderingRequired", "Warning: This game requires Rendering Mode to be set to Buffered."), 15.0f);
 	}
 }
 

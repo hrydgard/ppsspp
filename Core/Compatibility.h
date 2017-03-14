@@ -52,6 +52,7 @@ struct CompatFlags {
 	bool Force04154000Download;
 	bool DrawSyncEatCycles;
 	bool FakeMipmapChange;
+	bool RequireBufferedRendering;
 };
 
 class IniFile;
