@@ -165,13 +165,6 @@ static const D3D11CommandTableEntry commandTable[] = {
 	{ GE_CMD_ZTESTENABLE, FLAG_FLUSHBEFOREONCHANGE },
 	{ GE_CMD_ZWRITEDISABLE, FLAG_FLUSHBEFOREONCHANGE },
 
-	// These can't be emulated in D3D (except a few special cases)
-	{ GE_CMD_LOGICOP, FLAG_FLUSHBEFOREONCHANGE },
-	{ GE_CMD_LOGICOPENABLE, FLAG_FLUSHBEFOREONCHANGE },
-
-	// Can probably ignore this one as we don't support AA lines.
-	{ GE_CMD_ANTIALIASENABLE, FLAG_FLUSHBEFOREONCHANGE },
-
 	// Changing the vertex type requires us to flush.
 	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPU_D3D11::Execute_VertexType },
 
