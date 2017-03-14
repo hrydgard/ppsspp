@@ -39,6 +39,10 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BJump },  // EXECUTE
 	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPUCommon::Execute_BoundingBox }, // + FLUSHBEFORE when we implement... or not, do we need to?
 
+	// These two are actually processed in CMD_END. Not sure if FLAG_FLUSHBEFORE matters.
+	{ GE_CMD_SIGNAL, FLAG_FLUSHBEFORE },
+	{ GE_CMD_FINISH, FLAG_FLUSHBEFORE },
+
 	// Changes that dirty the framebuffer
 	{ GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS },
