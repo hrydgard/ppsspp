@@ -832,45 +832,6 @@ void EmuScreen::update(InputState &input) {
 	// Virtual keys.
 	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
 
-	// Apply tilt to left stick
-	// TODO: Make into an axis
-#ifdef MOBILE_DEVICE
-	/*
-	if (g_Config.bAccelerometerToAnalogHoriz) {
-		// Get the "base" coordinate system which is setup by the calibration system
-		float base_x = g_Config.fTiltBaseX;
-		float base_y = g_Config.fTiltBaseY;
-
-		//convert the current input into base coordinates and normalize
-		//TODO: check if all phones give values between [-50, 50]. I'm not sure how iOS works.
-		float normalized_input_x = (input.acc.y - base_x) / 50.0 ;
-		float normalized_input_y = (input.acc.x - base_y) / 50.0 ;
-
-		//TODO: need a better name for computed x and y.
-		float delta_x =  tiltInputCurve(normalized_input_x * 2.0 * (g_Config.iTiltSensitivityX)) ;
-
-		//if the invert is enabled, invert the motion
-		if (g_Config.bInvertTiltX) {
-			delta_x *= -1;
-		}
-
-		float delta_y =  tiltInputCurve(normalized_input_y * 2.0 * (g_Config.iTiltSensitivityY)) ;
-
-		if (g_Config.bInvertTiltY) {
-			delta_y *= -1;
-		}
-
-		//clamp the delta between [-1, 1]
-		leftstick_x += clamp1(delta_x);
-		__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
-
-
-		leftstick_y += clamp1(delta_y);
-		__CtrlSetAnalogY(clamp1(leftstick_y), CTRL_STICK_LEFT);
-	}
-	*/
-#endif
-
 	// Make sure fpsLimit starts at 0
 	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1) {
 		PSP_CoreParameter().fpsLimit = 0;
