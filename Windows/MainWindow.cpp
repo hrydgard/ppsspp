@@ -96,7 +96,6 @@ struct VerySleepy_AddrInfo {
 
 static RECT g_normalRC = {0};
 static std::wstring windowTitle;
-extern InputState input_state;
 extern ScreenManager *screenManager;
 
 #define TIMER_CURSORUPDATE 1
@@ -538,27 +537,23 @@ namespace MainWindow
 			// Then never erase, let the OpenGL drawing take care of everything.
 			return 1;
 
-		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
-		// and as asynchronous touch events for minimal latency.
+		// Poor man's touch - mouse input. We send the data  asynchronous touch events for minimal latency.
 		case WM_LBUTTONDOWN:
 			if (!touchHandler.hasTouch() ||
 				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
-				{
-					std::lock_guard<std::mutex> guard(input_state.lock);
-					input_state.pointer_down[0] = true;
 
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * g_dpi_scale;
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * g_dpi_scale;
-				}
+				float x = GET_X_LPARAM(lParam) * g_dpi_scale;
+				float y = GET_Y_LPARAM(lParam) * g_dpi_scale;
+				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch;
 				touch.id = 0;
 				touch.flags = TOUCH_DOWN;
-				touch.x = input_state.pointer_x[0];
-				touch.y = input_state.pointer_y[0];
+				touch.x = x;
+				touch.y = y;
 				NativeTouch(touch);
 				SetCapture(hWnd);
 
@@ -591,18 +586,16 @@ namespace MainWindow
 				prevCursorX = cursorX;
 				prevCursorY = cursorY;
 
-				{
-					std::lock_guard<std::mutex> guard(input_state.lock);
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * g_dpi_scale;
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * g_dpi_scale;
-				}
+				float x = GET_X_LPARAM(lParam) * g_dpi_scale;
+				float y = GET_Y_LPARAM(lParam) * g_dpi_scale;
+				WindowsRawInput::SetMousePos(x, y);
 
 				if (wParam & MK_LBUTTON) {
 					TouchInput touch;
 					touch.id = 0;
 					touch.flags = TOUCH_MOVE;
-					touch.x = input_state.pointer_x[0];
-					touch.y = input_state.pointer_y[0];
+					touch.x = x;
+					touch.y = y;
 					NativeTouch(touch);
 				}
 			}
@@ -614,17 +607,16 @@ namespace MainWindow
 			{
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
-				{
-					std::lock_guard<std::mutex> guard(input_state.lock);
-					input_state.pointer_down[0] = false;
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * g_dpi_scale;
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * g_dpi_scale;
-				}
+
+				float x = GET_X_LPARAM(lParam) * g_dpi_scale;
+				float y = GET_Y_LPARAM(lParam) * g_dpi_scale;
+				WindowsRawInput::SetMousePos(x, y);
+
 				TouchInput touch;
 				touch.id = 0;
 				touch.flags = TOUCH_UP;
-				touch.x = input_state.pointer_x[0];
-				touch.y = input_state.pointer_y[0];
+				touch.x = x;
+				touch.y = y;
 				NativeTouch(touch);
 				ReleaseCapture();
 			}

@@ -18,11 +18,11 @@
 #include <set>
 #include <algorithm>
 #include <vector>
-#include "base/NativeApp.h"
 
+#include "base/NativeApp.h"
 #include "base/display.h"
-#include "Common/Log.h"
 #include "input/input_state.h"
+#include "Common/Log.h"
 #include "Windows/RawInput.h"
 #include "Windows/KeyboardDevice.h"
 #include "Windows/MainWindow.h"
@@ -55,8 +55,6 @@
 #define HID_USAGE_GENERIC_MULTIAXIS    ((USHORT) 0x07)
 #endif
 
-extern InputState input_state;
-
 namespace WindowsRawInput {
 	static std::set<int> keyboardKeysDown;
 	static void *rawInputBuffer;
@@ -64,6 +62,8 @@ namespace WindowsRawInput {
 	static bool menuActive;
 	static bool focused = true;
 	static bool mouseRightDown = false;
+	static float mouseX = 0.0f;
+	static float mouseY = 0.0f;
 
 	void Init() {
 		RAWINPUTDEVICE dev[3];
@@ -197,8 +197,8 @@ namespace WindowsRawInput {
 		TouchInput touch;
 		touch.id = 0;
 		touch.flags = TOUCH_MOVE;
-		touch.x = input_state.pointer_x[0];
-		touch.y = input_state.pointer_y[0];
+		touch.x = mouseX;
+		touch.y = mouseY;
 
 		KeyInput key;
 		key.deviceId = DEVICE_ID_MOUSE;
@@ -271,6 +271,11 @@ namespace WindowsRawInput {
 
 		// Docs say to call DefWindowProc to perform necessary cleanup.
 		return DefWindowProc(hWnd, WM_INPUT, wParam, lParam);
+	}
+
+	void SetMousePos(float x, float y) {
+		mouseX = x;
+		mouseY = y;
 	}
 
 	void GainFocus() {
