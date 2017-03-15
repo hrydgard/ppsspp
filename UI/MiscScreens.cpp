@@ -416,7 +416,7 @@ const float logoScreenSeconds = 2.5f;
 void LogoScreen::update(InputState &input_state) {
 	UIScreen::update(input_state);
 	frames_++;
-	if (frames_ > 60 * logoScreenSeconds || input_state.pointer_down[0]) {
+	if (frames_ > 60 * logoScreenSeconds) {
 		Next();
 	}
 }
@@ -429,6 +429,14 @@ void LogoScreen::sendMessage(const char *message, const char *value) {
 
 bool LogoScreen::key(const KeyInput &key) {
 	if (key.deviceId != DEVICE_ID_MOUSE) {
+		Next();
+		return true;
+	}
+	return false;
+}
+
+bool LogoScreen::touch(const TouchInput &touch) {
+	if (touch.flags & TOUCH_DOWN) {
 		Next();
 		return true;
 	}

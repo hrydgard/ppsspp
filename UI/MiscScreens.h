@@ -115,6 +115,7 @@ public:
 	LogoScreen()
 		: frames_(0), switched_(false) {}
 	bool key(const KeyInput &key) override;
+	bool touch(const TouchInput &touch) override;
 	void update(InputState &input) override;
 	void render() override;
 	void sendMessage(const char *message, const char *value) override;
