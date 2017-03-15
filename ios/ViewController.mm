@@ -253,11 +253,7 @@ static GraphicsContext *graphicsContext;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-	{
-		std::lock_guard<std::mutex> guard(input_state.lock);
-		NativeUpdate(input_state);
-	}
-
+	NativeUpdate(input_state);
 	NativeRender(graphicsContext);
 	time_update();
 }
