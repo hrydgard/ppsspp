@@ -488,9 +488,7 @@ int main(int argc, char *argv[]) {
 	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
 		pixel_xres = g_DesktopWidth;
 		pixel_yres = g_DesktopHeight;
-#ifdef PPSSPP
 		g_Config.bFullScreen = true;
-#endif
 	} else {
 		// set a sensible default resolution (2x)
 		pixel_xres = 480 * 2 * set_scale;
@@ -498,9 +496,7 @@ int main(int argc, char *argv[]) {
 		if (portrait) {
 			std::swap(pixel_xres, pixel_yres);
 		}
-#ifdef PPSSPP
 		g_Config.bFullScreen = false;
-#endif
 	}
 
 	set_dpi = 1.0f / set_dpi;
@@ -547,9 +543,7 @@ int main(int argc, char *argv[]) {
 	EGL_Init();
 #endif
 
-#ifdef PPSSPP
 	SDL_SetWindowTitle(g_Screen, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
-#endif
 
 #ifdef MOBILE_DEVICE
 	SDL_ShowCursor(SDL_DISABLE);

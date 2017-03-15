@@ -47,20 +47,21 @@ PPSSPPControls.dat
 # Qt Linguist files
 *.qm
 
-#Android stuff
+# Gradle/Android Studio
+.gradle
 .idea
-android/.idea
+*.iml
+build
+build.ios
+
+build*/
+
 
 Logs
 Memstick
 memstick
 Cheats
 
-bin
-gen
-libs
-obj
-build*/
 /git-version.cpp
 
 .pspsh.hist

@@ -1,0 +1,87 @@
+apply plugin: 'com.android.application'
+
+android {
+	signingConfigs {
+		config {
+		}
+	}
+	compileSdkVersion 25
+	buildToolsVersion '25.0.0'
+	defaultConfig {
+		applicationId 'org.ppsspp.ppsspp'
+		minSdkVersion 9
+		targetSdkVersion 25
+		ndk {
+			abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+		}
+		signingConfig signingConfigs.config
+	}
+	buildTypes {
+		release {
+			minifyEnabled = false
+			signingConfig signingConfigs.config
+		}
+		debug {
+			minifyEnabled = false
+			jniDebuggable true
+		}
+	}
+	externalNativeBuild {
+		cmake {
+			path '../CMakeLists.txt'
+		}
+	}
+	sourceSets {
+		main {
+			manifest.srcFile 'AndroidManifest.xml'
+			res.srcDirs = ['res']
+			java.srcDirs = ['src']
+			aidl.srcDirs = ['src']
+			resources.srcDirs = ['src']
+			assets.srcDirs = [
+					'assets',
+			]
+			jni.srcDirs = ['..']
+		}
+
+	}
+	productFlavors {
+		normal {
+			applicationId 'org.ppsspp.ppsspp'
+			signingConfig signingConfigs.config
+			externalNativeBuild {
+				cmake {
+					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
+					arguments '-DANDROID=true',
+							'-DANDROID_PLATFORM=android-15',
+							'-DANDROID_TOOLCHAIN=clang',
+							'-DANDROID_CPP_FEATURES=',
+							'-DANDROID_STL=gnustl_static',
+							'-DANDROID_ARM_NEON=TRUE'
+				}
+			}
+		}
+		gold {
+			applicationId 'org.ppsspp.ppssppgold'
+			signingConfig signingConfigs.config
+			externalNativeBuild {
+				cmake {
+					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
+					arguments '-DANDROID=true',
+							'-DANDROID_PLATFORM=android-15',
+							'-DANDROID_TOOLCHAIN=clang',
+							'-DANDROID_CPP_FEATURES=',
+							'-DANDROID_STL=gnustl_static',
+							'-DANDROID_ARM_NEON=TRUE',
+							'-DGOLD=TRUE'
+				}
+			}
+		}
+	}
+}
+afterEvaluate {
+	android.sourceSets.main.assets.getSrcDirs().each { println it }
+}
+dependencies {
+	compile project(':com.bda.controller')
+}

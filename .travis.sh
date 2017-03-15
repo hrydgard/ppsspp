@@ -119,6 +119,10 @@ travis_script() {
         pushd android
         ./ab.sh -j2 APP_ABI=$APP_ABI
         popd
+
+#        When we can get this to work...
+#        chmod +x gradlew
+#        ./gradlew assembleRelease
     fi
     if [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
         ./b.sh --ios
