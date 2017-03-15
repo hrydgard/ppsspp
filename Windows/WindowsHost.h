@@ -41,7 +41,7 @@ public:
 
 	// If returns false, will return a null context
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
-	void PollControllers(InputState &input_state) override;
+	void PollControllers() override;
 	void ShutdownGraphics() override;
 
 	void InitSound() override;

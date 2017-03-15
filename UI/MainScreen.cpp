@@ -132,7 +132,7 @@ public:
 		return Clickable::Key(key);
 	}
 
-	void Update(const InputState &input_state) override {
+	void Update() override {
 		// Hold button for 1.5 seconds to launch the game options
 		if (holdEnabled_ && holdStart_ != 0.0 && holdStart_ < time_now_d() - 1.5) {
 			TriggerOnHoldClick();
@@ -949,8 +949,8 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
-void MainScreen::update(InputState &input) {
-	UIScreen::update(input);
+void MainScreen::update() {
+	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
 	bool vertical = UseVerticalLayout();
 	if (vertical != lastVertical_) {
@@ -1239,9 +1239,9 @@ void UmdReplaceScreen::CreateViews() {
 	root_->Add(rightColumn);
 }
 
-void UmdReplaceScreen::update(InputState &input) {
+void UmdReplaceScreen::update() {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	UIScreen::update(input);
+	UIScreen::update();
 }
 
 UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {

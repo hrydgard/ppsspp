@@ -360,8 +360,6 @@ static bool renderLoopRunning;
 static float dp_xscale = 1.0f;
 static float dp_yscale = 1.0f;
 
-InputState input_state;
-
 static bool renderer_inited = false;
 static bool renderer_ever_inited = false;
 // See NativeQueryConfig("androidJavaGL") to change this value.
@@ -506,7 +504,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	ILOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
-	memset(&input_state, 0, sizeof(input_state));
 	renderer_inited = false;
 	renderer_ever_inited = false;
 	androidVersion = jAndroidVersion;
@@ -672,7 +669,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 
 	if (renderer_inited) {
-		NativeUpdate(input_state);
+		NativeUpdate();
 
 		NativeRender(graphicsContext);
 		time_update();
@@ -1018,7 +1015,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 			setCurrentThreadName("AndroidRender");
 		}
 
-		NativeUpdate(input_state);
+		NativeUpdate();
 
 		NativeRender(graphicsContext);
 		time_update();

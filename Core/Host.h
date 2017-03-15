@@ -20,7 +20,6 @@
 #include <string>
 #include "Common/CommonTypes.h"
 
-struct InputState;
 class GraphicsContext;
 
 // TODO: Whittle this down. Collecting a bunch of random stuff like this isn't good design :P
@@ -41,7 +40,7 @@ public:
 	virtual void UpdateSound() {}
 	virtual void GoFullscreen(bool) {}
 	virtual void ShutdownSound() = 0;
-	virtual void PollControllers(InputState &input_state) {}
+	virtual void PollControllers() {}
 	virtual void ToggleDebugConsoleVisibility() {}
 
 	//this is sent from EMU thread! Make sure that Host handles it properly!

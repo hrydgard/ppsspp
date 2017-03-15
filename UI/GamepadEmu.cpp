@@ -41,7 +41,7 @@ void GamepadView::Touch(const TouchInput &input) {
 	secondsWithoutTouch_ = 0.0f;
 }
 
-void GamepadView::Update(const InputState &input) {
+void GamepadView::Update() {
 	const float now = time_now();
 	float delta = now - lastFrameTime_;
 	if (delta > 0) {

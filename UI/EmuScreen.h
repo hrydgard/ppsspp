@@ -35,7 +35,7 @@ public:
 	EmuScreen(const std::string &filename);
 	~EmuScreen();
 
-	void update(InputState &input) override;
+	void update() override;
 	void render() override;
 	void deviceLost() override;
 	void deviceRestore() override;

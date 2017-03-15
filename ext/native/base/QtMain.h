@@ -36,7 +36,7 @@ QTM_USE_NAMESPACE
 #include "Core/Config.h"
 
 // Input
-void SimulateGamepad(InputState *input);
+void SimulateGamepad();
 
 class QtDummyGraphicsContext : public DummyGraphicsContext {
 public:
@@ -81,7 +81,6 @@ protected:
 	void updateAccelerometer();
 
 private:
-	InputState input_state;
 	QtDummyGraphicsContext *graphicsContext;
 
 	float xscale, yscale;

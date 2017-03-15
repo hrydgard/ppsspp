@@ -146,7 +146,6 @@ private:
 	QString currentLanguage;
 
 	CoreState nextState;
-	InputState input_state;
 	GlobalUIState lastUIState;
 
 	Debugger_Disasm *dialogDisasm;

@@ -413,8 +413,8 @@ void LogoScreen::Next() {
 
 const float logoScreenSeconds = 2.5f;
 
-void LogoScreen::update(InputState &input_state) {
-	UIScreen::update(input_state);
+void LogoScreen::update() {
+	UIScreen::update();
 	frames_++;
 	if (frames_ > 60 * logoScreenSeconds) {
 		Next();
@@ -558,8 +558,8 @@ UI::EventReturn CreditsScreen::OnOK(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void CreditsScreen::update(InputState &input_state) {
-	UIScreen::update(input_state);
+void CreditsScreen::update() {
+	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
 	frames_++;
 }

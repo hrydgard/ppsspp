@@ -1107,7 +1107,7 @@ void Slider::Draw(UIContext &dc) {
 	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
 }
 
-void Slider::Update(const InputState &input_state) {
+void Slider::Update() {
 	if (repeat_ >= 0) {
 		repeat_++;
 	}
@@ -1216,7 +1216,7 @@ void SliderFloat::Draw(UIContext &dc) {
 	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
 }
 
-void SliderFloat::Update(const InputState &input_state) {
+void SliderFloat::Update() {
 	if (repeat_ >= 0) {
 		repeat_++;
 	}

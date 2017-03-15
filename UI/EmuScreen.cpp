@@ -785,11 +785,11 @@ UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-void EmuScreen::update(InputState &input) {
+void EmuScreen::update() {
 	if (bootPending_)
 		bootGame(gamePath_);
 
-	UIScreen::update(input);
+	UIScreen::update();
 
 	// Simply forcibly update to the current screen size every frame. Doesn't cost much.
 	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.

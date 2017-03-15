@@ -31,7 +31,7 @@ public:
 	bool Key(const KeyInput &input) override {
 		return false;
 	}
-	void Update(const InputState &input) override;
+	void Update() override;
 
 protected:
 	float GetButtonOpacity();

@@ -8,8 +8,7 @@
 // from the framework, which exposes the native JNI api which is a bit
 // more complicated.
 
-// This is defined in input/input_state.h.
-struct InputState;
+// These are defined in input/input_state.h.
 struct TouchInput;
 struct KeyInput;
 struct AxisInput;
@@ -66,7 +65,7 @@ void NativeResized();
 
 // Called ~sixty times a second, delivers the current input state.
 // Main thread.
-void NativeUpdate(InputState &input);
+void NativeUpdate();
 
 // Delivers touch events "instantly", without waiting for the next frame so that NativeUpdate can deliver.
 // Useful for triggering audio events, saving a few ms.

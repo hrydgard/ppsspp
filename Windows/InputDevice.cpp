@@ -37,14 +37,9 @@ static std::mutex inputMutex;
 static std::condition_variable inputEndCond;
 static bool focused = true;
 
-extern InputState input_state;
-
 inline static void ExecuteInputPoll() {
-	// Hm, we may hold the input_state lock for quite a while (time it takes to poll all devices)...
-	// If that becomes an issue, maybe should poll to a copy of inputstate and only hold the lock while
-	// copying that one to the real one?
 	if (host && (focused || !g_Config.bGamepadOnlyFocused)) {
-		host->PollControllers(input_state);
+		host->PollControllers();
 	}
 }
 

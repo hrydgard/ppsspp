@@ -50,11 +50,11 @@ void UIScreen::DoRecreateViews() {
 	}
 }
 
-void UIScreen::update(InputState &input) {
+void UIScreen::update() {
 	DoRecreateViews();
 
 	if (root_) {
-		UpdateViewHierarchy(input, root_);
+		UpdateViewHierarchy(root_);
 	}
 }
 
@@ -340,7 +340,7 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void PopupMultiChoice::Update(const InputState &input_state) {
+void PopupMultiChoice::Update() {
 	UpdateText();
 }
 

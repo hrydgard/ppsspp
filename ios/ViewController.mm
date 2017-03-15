@@ -57,7 +57,6 @@ double lastStartPress = 0.0f;
 bool simulateAnalog = false;
 
 extern ScreenManager *screenManager;
-InputState input_state;
 
 extern bool iosCanUseJit;
 extern bool targetIsJailbroken;
@@ -253,7 +252,7 @@ static GraphicsContext *graphicsContext;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-	NativeUpdate(input_state);
+	NativeUpdate();
 	NativeRender(graphicsContext);
 	time_update();
 }

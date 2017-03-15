@@ -19,7 +19,6 @@
 
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
-#include "input/input_state.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -31,9 +30,8 @@
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 
-struct InputState;
 // Temporary hacks around annoying linking errors.  Copied from Headless.
-void NativeUpdate(InputState &input_state) { }
+void NativeUpdate() { }
 void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 

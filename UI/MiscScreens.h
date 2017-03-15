@@ -116,7 +116,7 @@ public:
 		: frames_(0), switched_(false) {}
 	bool key(const KeyInput &key) override;
 	bool touch(const TouchInput &touch) override;
-	void update(InputState &input) override;
+	void update() override;
 	void render() override;
 	void sendMessage(const char *message, const char *value) override;
 	void CreateViews() override {}
@@ -130,7 +130,7 @@ private:
 class CreditsScreen : public UIDialogScreenWithBackground {
 public:
 	CreditsScreen() : frames_(0) {}
-	void update(InputState &input) override;
+	void update() override;
 	void render() override;
 
 	void CreateViews() override;

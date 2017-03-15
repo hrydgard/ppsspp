@@ -30,7 +30,6 @@
 
 #include <string.h>
 
-InputState input_state;
 MainUI *emugl = NULL;
 
 #ifdef SDL
@@ -325,7 +324,7 @@ void MainUI::paintGL()
 #endif
     updateAccelerometer();
     time_update();
-    UpdateRunLoop(&input_state);
+    UpdateRunLoop();
 }
 
 void MainUI::updateAccelerometer()

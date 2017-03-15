@@ -20,6 +20,9 @@ const float ITEM_HEIGHT = 64.f;
 static std::mutex focusLock;
 static std::vector<int> focusMoves;
 extern bool focusForced;
+
+// TODO: Seems like this drag stuff is no longer used.
+#define MAX_POINTERS 10
 bool dragCaptured[MAX_POINTERS];
 
 void CaptureDrag(int id) {
@@ -156,11 +159,11 @@ void ViewGroup::Draw(UIContext &dc) {
 	}
 }
 
-void ViewGroup::Update(const InputState &input_state) {
+void ViewGroup::Update() {
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if ((*iter)->GetVisibility() != V_GONE)
-			(*iter)->Update(input_state);
+			(*iter)->Update();
 	}
 }
 
@@ -938,11 +941,11 @@ bool ScrollView::CanScroll() const {
 	}
 }
 
-void ScrollView::Update(const InputState &input_state) {
+void ScrollView::Update() {
 	if (visibility_ != V_VISIBLE) {
 		inertia_ = 0.0f;
 	}
-	ViewGroup::Update(input_state);
+	ViewGroup::Update();
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 	gesture_.UpdateFrame();
@@ -1467,7 +1470,7 @@ bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 	return true;
 }
 
-void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
+void UpdateViewHierarchy(ViewGroup *root) {
 	ProcessHeldKeys(root);
 	frameCount++;
 
@@ -1499,7 +1502,7 @@ void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 		focusMoves.clear();
 	}
 
-	root->Update(input_state);
+	root->Update();
 	DispatchEvents();
 }
 

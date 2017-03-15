@@ -344,8 +344,6 @@ int System_GetPropertyInt(SystemProperty prop) {
 	}
 }
 
-InputState input_state;
-
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 	NativeMix((short *)stream, len / 4);
 }
@@ -824,7 +822,7 @@ int main(int argc, char *argv[]) {
 		if (g_QuitRequested)
 			break;
 		const uint8_t *keys = SDL_GetKeyboardState(NULL);
-		UpdateRunLoop(&input_state);
+		UpdateRunLoop();
 		if (g_QuitRequested)
 			break;
 #if defined(PPSSPP) && !defined(MOBILE_DEVICE)

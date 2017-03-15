@@ -188,8 +188,8 @@ UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
 	return UI::EVENT_DONE;
 }
 
-void GameScreen::update(InputState &input) {
-	UIScreen::update(input);
+void GameScreen::update() {
+	UIScreen::update();
 
 	I18NCategory *ga = GetI18NCategory("Game");
 

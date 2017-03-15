@@ -76,7 +76,7 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-void InstallZipScreen::update(InputState &input) {
+void InstallZipScreen::update() {
 	I18NCategory *iz = GetI18NCategory("InstallZip");
 
 	using namespace UI;
@@ -95,5 +95,5 @@ void InstallZipScreen::update(InputState &input) {
 			MainScreen::showHomebrewTab = true;
 		}
 	}
-	UIScreen::update(input);
+	UIScreen::update();
 }

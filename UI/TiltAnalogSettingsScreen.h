@@ -27,7 +27,6 @@ public:
 	TiltAnalogSettingsScreen() : currentTiltX_(0), currentTiltY_(0) {}
 
 	void CreateViews() override;
-	void update(InputState &input) override;
 	bool axis(const AxisInput &axis) override;
 
 private:

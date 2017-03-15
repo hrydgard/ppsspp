@@ -196,14 +196,14 @@ void WindowsHost::SetDebugMode(bool mode) {
 			PostDialogMessage(disasmWindow[i], WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
 }
 
-void WindowsHost::PollControllers(InputState &input_state) {
+void WindowsHost::PollControllers() {
 	bool doPad = true;
 	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
 	{
 		auto device = *iter;
 		if (!doPad && device->IsPad())
 			continue;
-		if (device->UpdateState(input_state) == InputDevice::UPDATESTATE_SKIP_PAD)
+		if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
 			doPad = false;
 	}
 

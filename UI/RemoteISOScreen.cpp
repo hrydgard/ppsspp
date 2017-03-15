@@ -342,8 +342,8 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 RemoteISOScreen::RemoteISOScreen() : serverRunning_(false), serverStopping_(false) {
 }
 
-void RemoteISOScreen::update(InputState &input) {
-	UIScreenWithBackground::update(input);
+void RemoteISOScreen::update() {
+	UIScreenWithBackground::update();
 
 	bool nowRunning = RetrieveStatus() != ServerStatus::STOPPED;
 	if (serverStopping_ && !nowRunning) {
@@ -486,10 +486,10 @@ void RemoteISOConnectScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 }
 
-void RemoteISOConnectScreen::update(InputState &input) {
+void RemoteISOConnectScreen::update() {
 	I18NCategory *sy = GetI18NCategory("System");
 
-	UIScreenWithBackground::update(input);
+	UIScreenWithBackground::update();
 
 	ScanStatus s = GetStatus();
 	switch (s) {

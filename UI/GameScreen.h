@@ -33,7 +33,7 @@ public:
 	GameScreen(const std::string &gamePath);
 	~GameScreen();
 
-	virtual void update(InputState &input);
+	virtual void update();
 
 	virtual std::string tag() const { return "game"; }
 

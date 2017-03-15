@@ -168,8 +168,8 @@ void LogScreen::UpdateLog() {
 	toBottom_ = true;
 }
 
-void LogScreen::update(InputState &input) {
-	UIDialogScreenWithBackground::update(input);
+void LogScreen::update() {
+	UIDialogScreenWithBackground::update();
 	if (toBottom_) {
 		toBottom_ = false;
 		scroll_->ScrollToBottom();

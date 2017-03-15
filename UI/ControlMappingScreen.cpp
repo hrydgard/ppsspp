@@ -41,7 +41,7 @@ class ControlMapper : public UI::LinearLayout {
 public:
 	ControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
 
-	virtual void Update(const InputState &input);
+	void Update() override;
 	int GetPspKey() const { return pspKey_; }
 private:
 	void Refresh();
@@ -74,7 +74,7 @@ ControlMapper::ControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::
 	Refresh();
 }
 
-void ControlMapper::Update(const InputState &input) {
+void ControlMapper::Update() {
 	if (refresh_) {
 		refresh_ = false;
 		Refresh();
@@ -371,7 +371,7 @@ public:
 			curX_(0.0f), curY_(0.0f),
 			maxCount_(500) {}
 	void Draw(UIContext &dc) override;
-	void Update(const InputState &input_state) override;
+	void Update() override;
 	void Axis(const AxisInput &input) override {
 		// TODO: Check input.deviceId?
 		if (input.axisId == xAxis_) {
@@ -427,7 +427,7 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 	}
 }
 
-void JoystickHistoryView::Update(const InputState &input_state) {
+void JoystickHistoryView::Update() {
 	locations_.push_back(Location(curX_, curY_));
 	if ((int)locations_.size() > maxCount_) {
 		locations_.pop_front();

@@ -15,7 +15,7 @@ public:
 	UIScreen();
 	~UIScreen();
 
-	virtual void update(InputState &input) override;
+	virtual void update() override;
 	virtual void preRender() override;
 	virtual void render() override;
 	virtual void postRender() override;
@@ -222,7 +222,7 @@ public:
 	}
 
 	virtual void Draw(UIContext &dc) override;
-	virtual void Update(const InputState &input_state) override;
+	virtual void Update() override;
 
 	void HideChoice(int c) {
 		hidden_.insert(c);

@@ -62,11 +62,11 @@ public:
 	StoreScreen();
 	~StoreScreen();
 
-	virtual void update(InputState &input);
-	virtual std::string tag() const { return "store"; }
+	void update() override;
+	std::string tag() const override { return "store"; }
 
 protected:
-	virtual void CreateViews();
+	void CreateViews() override;
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
 	UI::EventReturn OnRetry(UI::EventParams &e);
 	UI::EventReturn OnGameLaunch(UI::EventParams &e);

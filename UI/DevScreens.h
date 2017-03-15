@@ -63,7 +63,7 @@ class LogScreen : public UIDialogScreenWithBackground {
 public:
 	LogScreen() : toBottom_(false) {}
 	void CreateViews() override;
-	void update(InputState &input) override;
+	void update() override;
 
 private:
 	void UpdateLog();
