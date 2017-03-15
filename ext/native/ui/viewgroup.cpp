@@ -21,22 +21,6 @@ static std::mutex focusLock;
 static std::vector<int> focusMoves;
 extern bool focusForced;
 
-// TODO: Seems like this drag stuff is no longer used.
-#define MAX_POINTERS 10
-bool dragCaptured[MAX_POINTERS];
-
-void CaptureDrag(int id) {
-	dragCaptured[id] = true;
-}
-
-void ReleaseDrag(int id) {
-	dragCaptured[id] = false;
-}
-
-bool IsDragCaptured(int id) {
-	return dragCaptured[id];
-}
-
 void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
 	inner.w = w;
 	inner.h = h;
@@ -753,13 +737,13 @@ void ScrollView::Touch(const TouchInput &input) {
 
 	if (input.flags & TOUCH_UP) {
 		float info[4];
-		if (!IsDragCaptured(input.id) && gesture_.GetGestureInfo(gesture, info)) {
+		if (gesture_.GetGestureInfo(gesture, info)) {
 			inertia_ = info[1];
 		}
 	}
 
 	TouchInput input2;
-	if (CanScroll() && !IsDragCaptured(input.id)) {
+	if (CanScroll()) {
 		input2 = gesture_.Update(input, bounds_);
 		float info[4];
 		if (gesture_.GetGestureInfo(gesture, info) && !(input.flags & TOUCH_DOWN)) {

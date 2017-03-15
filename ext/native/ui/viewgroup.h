@@ -414,8 +414,4 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root);
 bool TouchEvent(const TouchInput &touch, ViewGroup *root);
 bool AxisEvent(const AxisInput &axis, ViewGroup *root);
 
-void CaptureDrag(int id);
-void ReleaseDrag(int id);
-bool IsDragCaptured(int id);
-
 }  // namespace UI
