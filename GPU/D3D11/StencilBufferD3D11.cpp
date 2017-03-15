@@ -45,7 +45,7 @@ struct PS_IN {
 };
 float4 main(PS_IN In) : SV_Target {
   float4 index = tex.Sample(samp, In.v_texcoord0);
-	int indexBits = int(index.a * 256.0);
+	int indexBits = int(index.a * 255.99);
 	if ((indexBits & u_stencilValue.x) == 0)
 		discard;
   return index.aaaa;
