@@ -654,7 +654,6 @@ int main(int argc, char *argv[]) {
 	float t = 0;
 	float lastT = 0;
 	while (true) {
-		input_state.accelerometer_valid = false;
 		input_state.mouse_valid = true;
 
 		SDL_Event event;

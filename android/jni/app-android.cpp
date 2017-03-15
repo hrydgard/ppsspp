@@ -828,14 +828,6 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEn
 	if (!renderer_inited)
 		return false;
 
-	// Theoretically this needs locking but I doubt it matters. Worst case, the X
-	// from one "sensor frame" will be used together with Y from the next.
-	// Should look into quantization though, for compressed movement storage.
-	input_state.accelerometer_valid = true;
-	input_state.acc.x = x;
-	input_state.acc.y = y;
-	input_state.acc.z = z;
-
 	AxisInput axis;
 	axis.deviceId = DEVICE_ID_ACCELEROMETER;
 	axis.flags = 0;

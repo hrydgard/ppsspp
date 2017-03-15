@@ -111,8 +111,7 @@ struct InputState {
 	// Lock this whenever you access the data in this struct.
 	mutable std::mutex lock;
 	InputState()
-		: mouse_valid(false),
-			accelerometer_valid(false) {
+		: mouse_valid(false) {
 		memset(pointer_down, 0, sizeof(pointer_down));
 	}
 
@@ -123,10 +122,6 @@ struct InputState {
 	int pointer_x[MAX_POINTERS];
 	int pointer_y[MAX_POINTERS];
 	bool pointer_down[MAX_POINTERS];
-
-	// Accelerometer
-	bool accelerometer_valid;
-	Vec3 acc;
 
 private:
 	DISALLOW_COPY_AND_ASSIGN(InputState);
