@@ -3,8 +3,8 @@ project(armips)
 
 option(ARMIPS_REGEXP "Enable regexp expression functions" ON)
 
-if(NOT WIN32)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+if(NOT WIN32 AND NOT ANDROID)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif()
 
 set(ARMIPS_PATH ../../armips)
