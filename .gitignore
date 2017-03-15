@@ -54,6 +54,9 @@ PPSSPPControls.dat
 build
 build.ios
 
+build*/
+
+
 Logs
 Memstick
 memstick
