@@ -30,7 +30,6 @@
 
 #include <string.h>
 
-InputState input_state;
 MainUI *emugl = NULL;
 
 #ifdef SDL
@@ -249,10 +248,6 @@ bool MainUI::event(QEvent *e)
                 break;
             case Qt::TouchPointPressed:
             case Qt::TouchPointReleased:
-                input_state.pointer_down[touchPoint.id()] = (touchPoint.state() == Qt::TouchPointPressed);
-                input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * g_dpi_scale * xscale;
-                input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * g_dpi_scale * yscale;
-
                 input.x = touchPoint.pos().x() * g_dpi_scale * xscale;
                 input.y = touchPoint.pos().y() * g_dpi_scale * yscale;
                 input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
@@ -260,9 +255,6 @@ bool MainUI::event(QEvent *e)
                 NativeTouch(input);
                 break;
             case Qt::TouchPointMoved:
-                input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * g_dpi_scale * xscale;
-                input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * g_dpi_scale * yscale;
-
                 input.x = touchPoint.pos().x() * g_dpi_scale * xscale;
                 input.y = touchPoint.pos().y() * g_dpi_scale * yscale;
                 input.flags = TOUCH_MOVE;
@@ -280,10 +272,6 @@ bool MainUI::event(QEvent *e)
         break;
     case QEvent::MouseButtonPress:
     case QEvent::MouseButtonRelease:
-        input_state.pointer_down[0] = (e->type() == QEvent::MouseButtonPress);
-        input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
-        input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
-
         input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
         input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
         input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
@@ -291,9 +279,6 @@ bool MainUI::event(QEvent *e)
         NativeTouch(input);
         break;
     case QEvent::MouseMove:
-        input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
-        input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
-
         input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
         input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
         input.flags = TOUCH_MOVE;
@@ -339,7 +324,7 @@ void MainUI::paintGL()
 #endif
     updateAccelerometer();
     time_update();
-    UpdateRunLoop(&input_state);
+    UpdateRunLoop();
 }
 
 void MainUI::updateAccelerometer()
@@ -348,23 +333,20 @@ void MainUI::updateAccelerometer()
         // TODO: Toggle it depending on whether it is enabled
         QAccelerometerReading *reading = acc->reading();
         if (reading) {
-            input_state.acc.x = reading->x();
-            input_state.acc.y = reading->y();
-            input_state.acc.z = reading->z();
             AxisInput axis;
             axis.deviceId = DEVICE_ID_ACCELEROMETER;
             axis.flags = 0;
 
             axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
-            axis.value = input_state.acc.x;
+            axis.value = reading->x();
             NativeAxis(axis);
 
             axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
-            axis.value = input_state.acc.y;
+            axis.value = reading->y();
             NativeAxis(axis);
 
             axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
-            axis.value = input_state.acc.z;
+            axis.value = reading->z();
             NativeAxis(axis);
         }
 #endif

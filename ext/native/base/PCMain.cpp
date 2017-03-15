@@ -344,8 +344,6 @@ int System_GetPropertyInt(SystemProperty prop) {
 	}
 }
 
-InputState input_state;
-
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 	NativeMix((short *)stream, len / 4);
 }
@@ -654,10 +652,9 @@ int main(int argc, char *argv[]) {
 	int framecount = 0;
 	float t = 0;
 	float lastT = 0;
-	while (true) {
-		input_state.accelerometer_valid = false;
-		input_state.mouse_valid = true;
+	bool mouseDown = false;
 
+	while (true) {
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			float mx = event.motion.x * g_dpi_scale;
@@ -744,10 +741,7 @@ int main(int argc, char *argv[]) {
 				switch (event.button.button) {
 				case SDL_BUTTON_LEFT:
 					{
-						input_state.pointer_x[0] = mx;
-						input_state.pointer_y[0] = my;
-						input_state.pointer_down[0] = true;
-						input_state.mouse_valid = true;
+						mouseDown = true;
 						TouchInput input;
 						input.x = mx;
 						input.y = my;
@@ -785,10 +779,7 @@ int main(int argc, char *argv[]) {
 					NativeKey(key);
 				}
 			case SDL_MOUSEMOTION:
-				if (input_state.pointer_down[0]) {
-					input_state.pointer_x[0] = mx;
-					input_state.pointer_y[0] = my;
-					input_state.mouse_valid = true;
+				if (mouseDown) {
 					TouchInput input;
 					input.x = mx;
 					input.y = my;
@@ -801,11 +792,7 @@ int main(int argc, char *argv[]) {
 				switch (event.button.button) {
 				case SDL_BUTTON_LEFT:
 					{
-						input_state.pointer_x[0] = mx;
-						input_state.pointer_y[0] = my;
-						input_state.pointer_down[0] = false;
-						input_state.mouse_valid = true;
-						//input_state.mouse_buttons_up = 1;
+						mouseDown = false;
 						TouchInput input;
 						input.x = mx;
 						input.y = my;
@@ -836,7 +823,7 @@ int main(int argc, char *argv[]) {
 		if (g_QuitRequested)
 			break;
 		const uint8_t *keys = SDL_GetKeyboardState(NULL);
-		UpdateRunLoop(&input_state);
+		UpdateRunLoop();
 		if (g_QuitRequested)
 			break;
 #if defined(PPSSPP) && !defined(MOBILE_DEVICE)

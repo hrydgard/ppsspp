@@ -57,7 +57,6 @@ double lastStartPress = 0.0f;
 bool simulateAnalog = false;
 
 extern ScreenManager *screenManager;
-InputState input_state;
 
 extern bool iosCanUseJit;
 extern bool targetIsJailbroken;
@@ -254,19 +253,13 @@ static GraphicsContext *graphicsContext;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-	{
-		std::lock_guard<std::mutex> guard(input_state.lock);
-		NativeUpdate(input_state);
-	}
-
+	NativeUpdate();
 	NativeRender(graphicsContext);
 	time_update();
 }
 
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
 {
-	std::lock_guard<std::mutex> guard(input_state.lock);
-
 	float scale = [UIScreen mainScreen].scale;
 	
 	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
@@ -277,19 +270,14 @@ static GraphicsContext *graphicsContext;
 	float scaledY = (int)(y * dp_yscale) * scale;
 
 	TouchInput input;
-
-	input_state.pointer_x[pointerId] = scaledX;
-	input_state.pointer_y[pointerId] = scaledY;
 	input.x = scaledX;
 	input.y = scaledY;
 	switch (code) {
 		case 1 :
-			input_state.pointer_down[pointerId] = true;
 			input.flags = TOUCH_DOWN;
 			break;
 
 		case 2 :
-			input_state.pointer_down[pointerId] = false;
 			input.flags = TOUCH_UP;
 			break;
 
@@ -297,7 +285,6 @@ static GraphicsContext *graphicsContext;
 			input.flags = TOUCH_MOVE;
 			break;
 	}
-	input_state.mouse_valid = true;
 	input.id = pointerId;
 	NativeTouch(input);
 }

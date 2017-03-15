@@ -34,7 +34,7 @@ public:
 
 protected:
 	virtual void CreateViews() override;
-	virtual void update(InputState &input) override;
+	virtual void update() override;
 	virtual void sendMessage(const char *message, const char *value) override;
 	void CallbackDeleteConfig(bool yes);
 

@@ -19,7 +19,6 @@
 #include "Log.h"
 #include "LogManager.h"
 #include "base/NativeApp.h"
-#include "input/input_state.h"
 #include "base/timeutil.h"
 
 #include "Compare.h"
@@ -64,9 +63,8 @@ public:
 	}
 };
 
-struct InputState;
 // Temporary hacks around annoying linking errors.
-void NativeUpdate(InputState &input_state) { }
+void NativeUpdate() { }
 void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 

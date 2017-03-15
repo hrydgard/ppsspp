@@ -200,7 +200,7 @@ bool NormalizedDeadzoneDiffers(u8 x1, u8 x2, const u8 thresh) {
 	return false;
 }
 
-int XinputDevice::UpdateState(InputState &input_state) {
+int XinputDevice::UpdateState() {
 	if (!s_pXInputDLL)
 		return 0;
 
@@ -212,7 +212,7 @@ int XinputDevice::UpdateState(InputState &input_state) {
 			continue;
 		DWORD dwResult = PPSSPP_XInputGetState(i, &state);
 		if (dwResult == ERROR_SUCCESS) {
-			UpdatePad(i, state, input_state);
+			UpdatePad(i, state);
 			anySuccess = true;
 		}
 	}
@@ -221,13 +221,13 @@ int XinputDevice::UpdateState(InputState &input_state) {
 	return anySuccess ? UPDATESTATE_SKIP_PAD : 0;
 }
 
-void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, InputState &input_state) {
+void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state) {
 	static bool notified = false;
 	if (!notified) {
 		notified = true;
 		KeyMap::NotifyPadConnected("Xbox 360 Pad");
 	}
-	ApplyButtons(pad, state, input_state);
+	ApplyButtons(pad, state);
 
 	const float STICK_DEADZONE = g_Config.fXInputAnalogDeadzone;
 	const int STICK_INV_MODE = g_Config.iXInputAnalogInverseMode;
@@ -288,7 +288,7 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, InputState &inp
 	this->check_delay[pad] = 0;
 }
 
-void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state, InputState &input_state) {
+void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 	u32 buttons = state.Gamepad.wButtons;
 
 	u32 downMask = buttons & (~prevButtons[pad]);

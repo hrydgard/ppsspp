@@ -27,7 +27,6 @@
 struct KeyInput;
 struct TouchInput;
 struct AxisInput;
-struct InputState;
 
 class DrawBuffer;
 class Texture;
@@ -362,7 +361,7 @@ public:
 	virtual bool Key(const KeyInput &input) { return false; }
 	virtual void Touch(const TouchInput &input) {}
 	virtual void Axis(const AxisInput &input) {}
-	virtual void Update(const InputState &input_state) {}
+	virtual void Update() {}
 
 	// If this view covers these coordinates, it should add itself and its children to the list.
 	virtual void Query(float x, float y, std::vector<View *> &list);
@@ -456,7 +455,7 @@ public:
 	bool Key(const KeyInput &input) override { return false; }
 	void Touch(const TouchInput &input) override {}
 	bool CanBeFocused() const override { return false; }
-	void Update(const InputState &input_state) override {}
+	void Update() override {}
 };
 
 
@@ -515,7 +514,7 @@ public:
 	void Draw(UIContext &dc) override;
 	bool Key(const KeyInput &input) override;
 	void Touch(const TouchInput &input) override;
-	void Update(const InputState &input_state) override;
+	void Update() override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void SetShowPercent(bool s) { showPercent_ = s; }
 
@@ -545,7 +544,7 @@ public:
 	void Draw(UIContext &dc) override;
 	bool Key(const KeyInput &input) override;
 	void Touch(const TouchInput &input) override;
-	void Update(const InputState &input_state) override;
+	void Update() override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 	// OK to call this from the outside after having modified *value_

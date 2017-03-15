@@ -32,8 +32,6 @@ static std::mutex emuThreadLock;
 static HANDLE emuThread;
 static volatile long emuThreadReady;
 
-InputState input_state;
-
 extern std::vector<std::wstring> GetWideCmdLine();
 
 enum EmuThreadStatus : long
@@ -191,7 +189,7 @@ unsigned int WINAPI TheThread(void *)
 		if (!Core_IsActive())
 			UpdateUIState(UISTATE_MENU);
 
-		Core_Run(graphicsContext, &input_state);
+		Core_Run(graphicsContext);
 	}
 
 shutdown:

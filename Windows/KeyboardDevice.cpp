@@ -117,7 +117,7 @@ std::map<int, int> windowsTransTable = InitConstMap<int, int>
 	(VK_LBUTTON, NKCODE_EXT_MOUSEBUTTON_1)
 	(VK_RBUTTON, NKCODE_EXT_MOUSEBUTTON_2);
 
-int KeyboardDevice::UpdateState(InputState &input_state) {
+int KeyboardDevice::UpdateState() {
 	// Nothing to do, all done in WM_INPUT
 	return 0;
 }

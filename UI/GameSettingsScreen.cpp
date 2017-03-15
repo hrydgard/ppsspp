@@ -953,8 +953,8 @@ UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void GameSettingsScreen::update(InputState &input) {
-	UIScreen::update(input);
+void GameSettingsScreen::update() {
+	UIScreen::update();
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
 
 	g_Config.iFpsLimit = (iAlternateSpeedPercent_ * 60) / 100;

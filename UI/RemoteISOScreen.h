@@ -30,7 +30,7 @@ public:
 	RemoteISOScreen();
 
 protected:
-	void update(InputState &input) override;
+	void update() override;
 	void CreateViews() override;
 
 	UI::EventReturn HandleStartServer(UI::EventParams &e);
@@ -57,7 +57,7 @@ public:
 	~RemoteISOConnectScreen() override;
 
 protected:
-	void update(InputState &input) override;
+	void update() override;
 	void CreateViews() override;
 
 	ScanStatus GetStatus();

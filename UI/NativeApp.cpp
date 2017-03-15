@@ -864,7 +864,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	}
 }
 
-void NativeUpdate(InputState &input) {
+void NativeUpdate() {
 	PROFILE_END_FRAME();
 
 	{
@@ -877,7 +877,7 @@ void NativeUpdate(InputState &input) {
 	}
 
 	g_DownloadManager.Update();
-	screenManager->update(input);
+	screenManager->update();
 }
 
 void NativeDeviceLost() {

@@ -38,13 +38,13 @@ void ScreenManager::switchScreen(Screen *screen) {
 	}
 }
 
-void ScreenManager::update(InputState &input) {
+void ScreenManager::update() {
 	if (nextScreen_) {
 		switchToNext();
 	}
 
 	if (stack_.size()) {
-		stack_.back().screen->update(input);
+		stack_.back().screen->update();
 	}
 }
 

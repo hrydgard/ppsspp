@@ -20,19 +20,6 @@ const float ITEM_HEIGHT = 64.f;
 static std::mutex focusLock;
 static std::vector<int> focusMoves;
 extern bool focusForced;
-bool dragCaptured[MAX_POINTERS];
-
-void CaptureDrag(int id) {
-	dragCaptured[id] = true;
-}
-
-void ReleaseDrag(int id) {
-	dragCaptured[id] = false;
-}
-
-bool IsDragCaptured(int id) {
-	return dragCaptured[id];
-}
 
 void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
 	inner.w = w;
@@ -156,11 +143,11 @@ void ViewGroup::Draw(UIContext &dc) {
 	}
 }
 
-void ViewGroup::Update(const InputState &input_state) {
+void ViewGroup::Update() {
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if ((*iter)->GetVisibility() != V_GONE)
-			(*iter)->Update(input_state);
+			(*iter)->Update();
 	}
 }
 
@@ -750,13 +737,13 @@ void ScrollView::Touch(const TouchInput &input) {
 
 	if (input.flags & TOUCH_UP) {
 		float info[4];
-		if (!IsDragCaptured(input.id) && gesture_.GetGestureInfo(gesture, info)) {
+		if (gesture_.GetGestureInfo(gesture, info)) {
 			inertia_ = info[1];
 		}
 	}
 
 	TouchInput input2;
-	if (CanScroll() && !IsDragCaptured(input.id)) {
+	if (CanScroll()) {
 		input2 = gesture_.Update(input, bounds_);
 		float info[4];
 		if (gesture_.GetGestureInfo(gesture, info) && !(input.flags & TOUCH_DOWN)) {
@@ -938,11 +925,11 @@ bool ScrollView::CanScroll() const {
 	}
 }
 
-void ScrollView::Update(const InputState &input_state) {
+void ScrollView::Update() {
 	if (visibility_ != V_VISIBLE) {
 		inertia_ = 0.0f;
 	}
-	ViewGroup::Update(input_state);
+	ViewGroup::Update();
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 	gesture_.UpdateFrame();
@@ -1467,7 +1454,7 @@ bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 	return true;
 }
 
-void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
+void UpdateViewHierarchy(ViewGroup *root) {
 	ProcessHeldKeys(root);
 	frameCount++;
 
@@ -1499,7 +1486,7 @@ void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 		focusMoves.clear();
 	}
 
-	root->Update(input_state);
+	root->Update();
 	DispatchEvents();
 }
 

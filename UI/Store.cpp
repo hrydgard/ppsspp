@@ -175,12 +175,12 @@ public:
 	ProductItemView(const StoreEntry &entry, UI::LayoutParams *layoutParams = 0)
 		: UI::Choice(entry.name, layoutParams), entry_(entry) {}
 
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 300;
 		h = 164;
 	}
-	virtual void Update(const InputState &input_state);
-	virtual void Draw(UIContext &dc);
+	void Update() override;
+	void Draw(UIContext &dc) override;
 
 	StoreEntry GetEntry() const { return entry_; }
 
@@ -193,8 +193,8 @@ void ProductItemView::Draw(UIContext &dc) {
 	// dc.DrawText(entry_.name.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
 }
 
-void ProductItemView::Update(const InputState &input_state) {
-	View::Update(input_state);
+void ProductItemView::Update() {
+	View::Update();
 }
 
 // This is a "details" view of a game. Lets you install it.
@@ -205,7 +205,7 @@ public:
 		CreateViews();
 	}
 
-	virtual void Update(const InputState &input_state);
+	void Update() override;
 
 	UI::Event OnClickLaunch;
 
@@ -263,7 +263,7 @@ void ProductView::CreateViews() {
 	Add(new TextView(temp));
 }
 
-void ProductView::Update(const InputState &input_state) {
+void ProductView::Update() {
 	if (wasInstalled_ != IsGameInstalled()) {
 		CreateViews();
 	}
@@ -272,7 +272,7 @@ void ProductView::Update(const InputState &input_state) {
 	}
 	if (cancelButton_ && g_GameManager.GetState() != GameManagerState::DOWNLOADING)
 		cancelButton_->SetVisibility(UI::V_GONE);
-	View::Update(input_state);
+	View::Update();
 }
 
 UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
@@ -336,8 +336,8 @@ StoreScreen::~StoreScreen() {
 }
 
 // Handle async download tasks
-void StoreScreen::update(InputState &input) {
-	UIDialogScreenWithBackground::update(input);
+void StoreScreen::update() {
+	UIDialogScreenWithBackground::update();
 
 	g_DownloadManager.Update();
 

@@ -23,7 +23,6 @@
 #include "base/NativeApp.h"
 #include "base/display.h"
 #include "base/timeutil.h"
-#include "input/input_state.h"
 #include "thread/threadutil.h"
 #include "profiler/profiler.h"
 
@@ -193,25 +192,25 @@ bool UpdateScreenScale(int width, int height) {
 	return false;
 }
 
-void UpdateRunLoop(InputState *input_state) {
+void UpdateRunLoop() {
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
 		return;
 	}
-	NativeUpdate(*input_state);
+	NativeUpdate();
 
 	if (GetUIState() != UISTATE_EXIT) {
 		NativeRender(graphicsContext);
 	}
 }
 
-void Core_RunLoop(GraphicsContext *ctx, InputState *input_state) {
+void Core_RunLoop(GraphicsContext *ctx) {
 	graphicsContext = ctx;
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		time_update();
 #if defined(USING_WIN_UI)
 		double startTime = time_now_d();
-		UpdateRunLoop(input_state);
+		UpdateRunLoop();
 
 		// Simple throttling to not burn the GPU in the menu.
 		time_update();
@@ -223,13 +222,13 @@ void Core_RunLoop(GraphicsContext *ctx, InputState *input_state) {
 			ctx->SwapBuffers();
 		}
 #else
-		UpdateRunLoop(input_state);
+		UpdateRunLoop();
 #endif
 	}
 
 	while (!coreState && GetUIState() == UISTATE_INGAME) {
 		time_update();
-		UpdateRunLoop(input_state);
+		UpdateRunLoop();
 #if defined(USING_WIN_UI)
 		if (!windowHidden && !Core_IsStepping()) {
 			ctx->SwapBuffers();
@@ -270,7 +269,7 @@ static inline void CoreStateProcessed() {
 }
 
 // Some platforms, like Android, do not call this function but handle things on their own.
-void Core_Run(GraphicsContext *ctx, InputState *input_state)
+void Core_Run(GraphicsContext *ctx)
 {
 #if defined(_DEBUG)
 	host->UpdateDisassembly();
@@ -285,7 +284,7 @@ reswitch:
 			if (GetUIState() == UISTATE_EXIT) {
 				return;
 			}
-			Core_RunLoop(ctx, input_state);
+			Core_RunLoop(ctx);
 #if defined(USING_QT_UI) && !defined(MOBILE_DEVICE)
 			return;
 #else
@@ -297,7 +296,7 @@ reswitch:
 		{
 		case CORE_RUNNING:
 			// enter a fast runloop
-			Core_RunLoop(ctx, input_state);
+			Core_RunLoop(ctx);
 			break;
 
 		// We should never get here on Android.

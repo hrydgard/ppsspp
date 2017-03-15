@@ -28,7 +28,7 @@ public:
 	ReportScreen(const std::string &gamePath);
 
 protected:
-	void update(InputState &input) override;
+	void update() override;
 	void CreateViews() override;
 	void UpdateSubmit();
 
@@ -56,7 +56,7 @@ public:
 	ReportFinishScreen(const std::string &gamePath);
 
 protected:
-	void update(InputState &input) override;
+	void update() override;
 	void CreateViews() override;
 
 	UI::EventReturn HandleViewFeedback(UI::EventParams &e);

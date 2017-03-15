@@ -360,8 +360,6 @@ static bool renderLoopRunning;
 static float dp_xscale = 1.0f;
 static float dp_yscale = 1.0f;
 
-InputState input_state;
-
 static bool renderer_inited = false;
 static bool renderer_ever_inited = false;
 // See NativeQueryConfig("androidJavaGL") to change this value.
@@ -506,7 +504,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	ILOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
-	memset(&input_state, 0, sizeof(input_state));
 	renderer_inited = false;
 	renderer_ever_inited = false;
 	androidVersion = jAndroidVersion;
@@ -674,7 +671,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 
 	if (renderer_inited) {
-		NativeUpdate(input_state);
+		NativeUpdate();
 
 		NativeRender(graphicsContext);
 		time_update();
@@ -738,23 +735,8 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	touch.x = scaledX;
 	touch.y = scaledY;
 	touch.flags = code;
-	if (code & 2) {
-		input_state.pointer_down[pointerId] = true;
-	} else if (code & 4) {
-		input_state.pointer_down[pointerId] = false;
-	}
 
 	bool retval = NativeTouch(touch);
-	{
-		std::lock_guard<std::mutex> guard(input_state.lock);
-		if (pointerId >= MAX_POINTERS) {
-			ELOG("Too many pointers: %i", pointerId);
-			return false;	// We ignore 8+ pointers entirely.
-		}
-		input_state.pointer_x[pointerId] = scaledX;
-		input_state.pointer_y[pointerId] = scaledY;
-		input_state.mouse_valid = true;
-	}
 	return retval;
 }
 
@@ -829,14 +811,6 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
 	if (!renderer_inited)
 		return false;
-
-	// Theoretically this needs locking but I doubt it matters. Worst case, the X
-	// from one "sensor frame" will be used together with Y from the next.
-	// Should look into quantization though, for compressed movement storage.
-	input_state.accelerometer_valid = true;
-	input_state.acc.x = x;
-	input_state.acc.y = y;
-	input_state.acc.z = z;
 
 	AxisInput axis;
 	axis.deviceId = DEVICE_ID_ACCELEROMETER;
@@ -1044,7 +1018,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 			setCurrentThreadName("AndroidRender");
 		}
 
-		NativeUpdate(input_state);
+		NativeUpdate();
 
 		NativeRender(graphicsContext);
 		time_update();

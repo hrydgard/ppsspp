@@ -32,7 +32,7 @@ public:
 	// By default, a container will layout to its own bounds.
 	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override = 0;
 	virtual void Layout() override = 0;
-	virtual void Update(const InputState &input_state) override;
+	virtual void Update() override;
 	virtual void Query(float x, float y, std::vector<View *> &list) override;
 
 	virtual void Draw(UIContext &dc) override;
@@ -244,7 +244,7 @@ public:
 	void ScrollToBottom();
 	void ScrollRelative(float distance);
 	bool CanScroll() const;
-	void Update(const InputState &input_state) override;
+	void Update() override;
 
 	// Override so that we can scroll to the active one after moving the focus.
 	bool SubviewFocused(View *view) override;
@@ -408,14 +408,10 @@ private:
 };
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root);
-void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root);
+void UpdateViewHierarchy(ViewGroup *root);
 // Hooks arrow keys for navigation
 bool KeyEvent(const KeyInput &key, ViewGroup *root);
 bool TouchEvent(const TouchInput &touch, ViewGroup *root);
 bool AxisEvent(const AxisInput &axis, ViewGroup *root);
-
-void CaptureDrag(int id);
-void ReleaseDrag(int id);
-bool IsDragCaptured(int id);
 
 }  // namespace UI

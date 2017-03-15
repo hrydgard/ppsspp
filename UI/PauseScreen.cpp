@@ -264,9 +264,9 @@ UI::EventReturn SaveSlotView::OnScreenshotClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void GamePauseScreen::update(InputState &input) {
+void GamePauseScreen::update() {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	UIScreen::update(input);
+	UIScreen::update();
 
 	if (finishNextFrame_) {
 		screenManager()->finishDialog(this, DR_CANCEL);

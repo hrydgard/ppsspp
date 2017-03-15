@@ -28,7 +28,7 @@ class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
 	GameSettingsScreen(std::string gamePath, std::string gameID = "", bool editThenRestore = false);
 
-	virtual void update(InputState &input);
+	virtual void update();
 	virtual void onFinish(DialogResult result);
 
 	UI::Event OnRecentChanged;

@@ -24,8 +24,6 @@ namespace UI {
 	class View;
 }
 
-struct InputState;
-
 enum DialogResult {
 	DR_OK,
 	DR_CANCEL,
@@ -49,7 +47,7 @@ public:
 	}
 
 	virtual void onFinish(DialogResult reason) {}
-	virtual void update(InputState &input) {}
+	virtual void update() {}
 	virtual void preRender() {}
 	virtual void render() {}
 	virtual void postRender() {}
@@ -97,7 +95,7 @@ public:
 	virtual ~ScreenManager();
 
 	void switchScreen(Screen *screen);
-	void update(InputState &input);
+	void update();
 
 	void setUIContext(UIContext *context) { uiContext_ = context; }
 	UIContext *getUIContext() { return uiContext_; }

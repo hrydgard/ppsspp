@@ -41,7 +41,7 @@ public:
 	Event OnChoice;
 
 protected:
-	void Update(const InputState &input_state) override;
+	void Update() override;
 
 	virtual void SetupChoices();
 	virtual int TotalChoices() {
@@ -73,8 +73,8 @@ RatingChoice::RatingChoice(const char *captionKey, int *value, LayoutParams *lay
 	SetupChoices();
 }
 
-void RatingChoice::Update(const InputState &input_state) {
-	LinearLayout::Update(input_state);
+void RatingChoice::Update() {
+	LinearLayout::Update();
 
 	for (int i = 0; i < TotalChoices(); i++) {
 		StickyChoice *chosen = GetChoice(i);
@@ -160,7 +160,7 @@ ReportScreen::ReportScreen(const std::string &gamePath)
 	ratingEnabled_ = enableReporting_;
 }
 
-void ReportScreen::update(InputState &input) {
+void ReportScreen::update() {
 	if (screenshot_) {
 		if (includeScreenshot_) {
 			screenshot_->SetVisibility(V_VISIBLE);
@@ -168,7 +168,7 @@ void ReportScreen::update(InputState &input) {
 			screenshot_->SetVisibility(V_GONE);
 		}
 	}
-	UIScreenWithGameBackground::update(input);
+	UIScreenWithGameBackground::update();
 }
 
 EventReturn ReportScreen::HandleChoice(EventParams &e) {
@@ -332,7 +332,7 @@ void ReportFinishScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 }
 
-void ReportFinishScreen::update(InputState &input) {
+void ReportFinishScreen::update() {
 	I18NCategory *rp = GetI18NCategory("Reporting");
 
 	if (!setStatus_) {
@@ -353,7 +353,7 @@ void ReportFinishScreen::update(InputState &input) {
 		}
 	}
 
-	UIScreenWithGameBackground::update(input);
+	UIScreenWithGameBackground::update();
 }
 
 UI::EventReturn ReportFinishScreen::HandleViewFeedback(UI::EventParams &e) {
