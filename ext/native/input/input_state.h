@@ -122,7 +122,7 @@ enum {
 struct TouchInput {
 	float x;
 	float y;
-	int id;
+	int id; // Needs to be <= GestureDetector::MAX_PTRS (10.)
 	int flags;
 	double timestamp;
 };

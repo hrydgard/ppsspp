@@ -44,15 +44,20 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 			sizeof(TOUCHINPUT)))
 		{
 			for (UINT i = 0; i < inputCount; i++) {
-				int id = 0;
+				int id = -1;
 
-				// Find or allocate an id for the touch.
-				auto it = touchTranslate.find(inputs[i].dwID);
-				if (it != touchTranslate.end()) {
-					id = it->second;
-				} else {
-					id = (int)touchTranslate.size();
-					touchTranslate[inputs[i].dwID] = id;
+				// Find or allocate an id for the touch.  Avoid 0 (mouse.)
+				for (int localId = 1; localId < (int)ARRAY_SIZE(touchIds); ++localId) {
+					if (touchIds[localId] == inputs[i].dwID || touchIds[localId] == 0) {
+						touchIds[localId] = inputs[i].dwID;
+						id = localId;
+						break;
+					}
+				}
+				if (id == -1) {
+					id = 0;
+					// TODO: Better to just ignore this touch instead?
+					touchUp(id, 0, 0);
 				}
 
 				POINT point;
@@ -71,7 +76,7 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 					if (inputs[i].dwFlags & TOUCHEVENTF_UP)
 					{
 						touchUp(id, point.x, point.y);
-						touchTranslate.erase(touchTranslate.find(inputs[i].dwID));
+						touchIds[id] = 0;
 					}
 				}
 			}
