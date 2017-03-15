@@ -548,7 +548,6 @@ namespace MainWindow
 				mouseButtonDown = true;
 				{
 					std::lock_guard<std::mutex> guard(input_state.lock);
-					input_state.mouse_valid = true;
 					input_state.pointer_down[0] = true;
 
 					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * g_dpi_scale;

@@ -736,23 +736,8 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	touch.x = scaledX;
 	touch.y = scaledY;
 	touch.flags = code;
-	if (code & 2) {
-		input_state.pointer_down[pointerId] = true;
-	} else if (code & 4) {
-		input_state.pointer_down[pointerId] = false;
-	}
 
 	bool retval = NativeTouch(touch);
-	{
-		std::lock_guard<std::mutex> guard(input_state.lock);
-		if (pointerId >= MAX_POINTERS) {
-			ELOG("Too many pointers: %i", pointerId);
-			return false;	// We ignore 8+ pointers entirely.
-		}
-		input_state.pointer_x[pointerId] = scaledX;
-		input_state.pointer_y[pointerId] = scaledY;
-		input_state.mouse_valid = true;
-	}
 	return retval;
 }
 

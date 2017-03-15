@@ -110,14 +110,9 @@ public:
 struct InputState {
 	// Lock this whenever you access the data in this struct.
 	mutable std::mutex lock;
-	InputState()
-		: mouse_valid(false) {
+	InputState() {
 		memset(pointer_down, 0, sizeof(pointer_down));
 	}
-
-	// Mouse/touch style input
-	// There are up to 8 mice / fingers.
-	volatile bool mouse_valid;
 
 	int pointer_x[MAX_POINTERS];
 	int pointer_y[MAX_POINTERS];
