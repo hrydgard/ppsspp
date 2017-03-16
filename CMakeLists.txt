@@ -79,6 +79,10 @@ if(NOT DEFINED HEADLESS)
 	set(HEADLESS OFF)
 endif()
 
+if(GOLD)
+	add_definitions(-DGOLD)
+endif()
+
 # Doesn't link on some platforms
 #if(NOT DEFINED UNITTEST)
 #	set(UNITTEST OFF)
