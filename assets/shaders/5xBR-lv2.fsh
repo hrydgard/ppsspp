@@ -84,6 +84,12 @@ float c_df(vec3 c1, vec3 c2) {
 
 void main() {
 
+ bool upscale = u_texelDelta.x > (1.6 * u_pixelDelta.x);
+ vec3 res = texture2D(sampler0, v_texcoord0.xy).xyz;
+
+ // Let's skip the whole scaling if output size smaller than 1.6x of input size
+ if (upscale) {
+
 	vec4 edri, edr, edr_l, edr_u, px; // px = pixel, edr = edge detection rule
 	vec4 irlv0, irlv1, irlv2l, irlv2u;
 	vec4 fx, fx_l, fx_u; // inequations of straight lines.
@@ -205,8 +211,8 @@ void main() {
 	res2 = mix(res2, mix(F, B, px.y), maximos.y);
 	res2 = mix(res2, mix(D, H, px.w), maximos.w);
 
-	vec3 res = mix(res1, res2, step(c_df(E, res1), c_df(E, res2)));
-
+	res = mix(res1, res2, step(c_df(E, res1), c_df(E, res2)));
+ }
 	gl_FragColor.xyz = res;
 	gl_FragColor.a = 1.0;
 }
