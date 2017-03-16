@@ -360,7 +360,7 @@ enum class Event {
 	GOT_DEVICE,
 
 	RESIZED,
-	PRESENT_REQUESTED,
+	PRESENTED,
 };
 
 struct FramebufferDesc {

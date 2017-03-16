@@ -302,6 +302,11 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 		curRTHeight_ = height;
 		break;
 	}
+	case Event::PRESENTED:
+		// Make sure that we don't eliminate the next time the render target is set.
+		curRenderTargetView_ = nullptr;
+		curDepthStencilView_ = nullptr;
+		break;
 	}
 }
 
