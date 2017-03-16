@@ -452,32 +452,36 @@ int main(int argc, char *argv[]) {
 	float set_dpi = 1.0f;
 	float set_scale = 1.0f;
 
+	// Produce a new set of arguments with the ones we skip.
+	int remain_argc = 1;
+	const char *remain_argv[256] = { argv[0] };
+
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-		if (set_xres == -2) {
+		else if (set_xres == -2)
 			set_xres = parseInt(argv[i]);
-		} else if (set_yres == -2) {
+		else if (set_yres == -2)
 			set_yres = parseInt(argv[i]);
-		}
-		if (set_dpi == -2)
+		else if (set_dpi == -2)
 			set_dpi = parseFloat(argv[i]);
-		if (set_scale == -2)
+		else if (set_scale == -2)
 			set_scale = parseFloat(argv[i]);
-
-		if (!strcmp(argv[i],"--xres"))
+		else if (!strcmp(argv[i],"--xres"))
 			set_xres = -2;
-		if (!strcmp(argv[i],"--yres"))
+		else if (!strcmp(argv[i],"--yres"))
 			set_yres = -2;
-		if (!strcmp(argv[i],"--dpi"))
+		else if (!strcmp(argv[i],"--dpi"))
 			set_dpi = -2;
-		if (!strcmp(argv[i],"--scale"))
+		else if (!strcmp(argv[i],"--scale"))
 			set_scale = -2;
-	
-		if (!strcmp(argv[i],"--ipad"))
+		else if (!strcmp(argv[i],"--ipad"))
 			set_ipad = true;
-		if (!strcmp(argv[i],"--portrait"))
+		else if (!strcmp(argv[i],"--portrait"))
 			portrait = true;
+		else {
+			remain_argv[remain_argc++] = argv[i];
+		}
 	}
 
 	// Is resolution is too low to run windowed
@@ -591,9 +595,9 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifdef _WIN32
-	NativeInit(argc, (const char **)argv, path, "D:\\", nullptr);
+	NativeInit(remain_argc, (const char **)remain_argv, path, "D:\\", nullptr);
 #else
-	NativeInit(argc, (const char **)argv, path, "/tmp", nullptr);
+	NativeInit(remain_argc, (const char **)remain_argv, path, "/tmp", nullptr);
 #endif
 
 	pixel_in_dps = (float)pixel_xres / dp_xres;
