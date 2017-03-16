@@ -204,6 +204,8 @@ void ArmJit::Compile(u32 em_address) {
 	// the ability to generate code :( This works great on x86 but on ARM we're out of luck.
 	// This seems to be enough to flush the instruction cache:
 	// If this OutputDebugStringUTF8 is not called, we crash.
+	// But it only helps if the debugger is attached :( If not, we still crash.
+	// So really, the JIT is broken on Windows UWP ARM.
 	OutputDebugStringUTF8("JITHACK");
 #endif
 
