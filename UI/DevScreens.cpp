@@ -375,8 +375,11 @@ void SystemInfoScreen::CreateViews() {
 	DrawContext *draw = screenManager()->getDrawContext();
 
 	deviceSpecs->Add(new InfoItem("3D API", std::string(draw->GetInfoString(InfoField::APINAME))));
-	deviceSpecs->Add(new InfoItem("Vendor", std::string(draw->GetInfoString(InfoField::VENDORSTRING)) + " (" + draw->GetInfoString(InfoField::VENDOR) + ")"));
-	deviceSpecs->Add(new InfoItem("Model", draw->GetInfoString(InfoField::RENDERER)));
+	deviceSpecs->Add(new InfoItem("Vendor", std::string(draw->GetInfoString(InfoField::VENDORSTRING))));
+	std::string vendor = draw->GetInfoString(InfoField::VENDOR);
+	if (vendor.size())
+		deviceSpecs->Add(new InfoItem("Vendor (detected)", vendor));
+	deviceSpecs->Add(new InfoItem("Driver", draw->GetInfoString(InfoField::DRIVER)));
 #ifdef _WIN32
 	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 #if !PPSSPP_PLATFORM(UWP)

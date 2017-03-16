@@ -542,7 +542,7 @@ public:
 					return "VENDOR_UNKNOWN";
 				}
 				break;
-			case RENDERER: return (const char *)glGetString(GL_RENDERER);
+			case DRIVER: return (const char *)glGetString(GL_RENDERER);
 			case SHADELANGVERSION: return (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
 			case APIVERSION: return (const char *)glGetString(GL_VERSION);
 			default: return "?";

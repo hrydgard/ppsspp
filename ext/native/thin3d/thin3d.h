@@ -308,7 +308,7 @@ enum InfoField {
 	VENDORSTRING,
 	VENDOR,
 	SHADELANGVERSION,
-	RENDERER,
+	DRIVER,
 };
 
 enum class NativeObject {

@@ -86,17 +86,17 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 			return false;
 		}
 	}
+	adapterId_ = D3DADAPTER_DEFAULT;
 
 	D3DCAPS9 d3dCaps;
 
 	D3DDISPLAYMODE d3ddm;
-	if (FAILED(d3d_->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &d3ddm))) {
+	if (FAILED(d3d_->GetAdapterDisplayMode(adapterId_, &d3ddm))) {
 		*error_message = "GetAdapterDisplayMode failed";
 		d3d_->Release();
 		return false;
 	}
 
-	adapterId_ = D3DADAPTER_DEFAULT;
 	if (FAILED(d3d_->GetDeviceCaps(adapterId_, D3DDEVTYPE_HAL, &d3dCaps))) {
 		*error_message = "GetDeviceCaps failed (???)";
 		d3d_->Release();
@@ -104,7 +104,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 
 	HRESULT hr;
-	if (FAILED(hr = d3d_->CheckDeviceFormat(D3DADAPTER_DEFAULT,
+	if (FAILED(hr = d3d_->CheckDeviceFormat(adapterId_,
 		D3DDEVTYPE_HAL,
 		d3ddm.Format,
 		D3DUSAGE_DEPTHSTENCIL,
@@ -164,7 +164,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		// TODO: This makes it slower?
 		//deviceEx->SetMaximumFrameLatency(1);
 	}
-	draw_ = Draw::T3DCreateDX9Context(d3d_, d3dEx_, -1, device_, deviceEx_);
+	draw_ = Draw::T3DCreateDX9Context(d3d_, d3dEx_, adapterId_, device_, deviceEx_);
 	if (draw_)
 		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, 0, 0, nullptr);
 	return true;

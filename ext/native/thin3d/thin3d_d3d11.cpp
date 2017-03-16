@@ -94,9 +94,9 @@ public:
 	std::string GetInfoString(InfoField info) const override {
 		switch (info) {
 		case APIVERSION: return "Direct3D 11";
-		case VENDORSTRING: return "N/A";
-		case VENDOR: return "-";
-		case RENDERER: return adapterDesc_;
+		case VENDORSTRING: return adapterDesc_;
+		case VENDOR: return "";
+		case DRIVER: return "-";
 		case SHADELANGVERSION:
 			switch (featureLevel_) {
 			case D3D_FEATURE_LEVEL_9_1: return "Feature Level 9.1"; break;
@@ -221,7 +221,21 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 			// caps_.logicOpSupported = true;
 		}
 	}
-
+	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
+	IDXGIFactory1* dxgiFactory = nullptr;
+	IDXGIDevice* dxgiDevice = nullptr;
+	IDXGIAdapter* adapter = nullptr;
+	HRESULT hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
+	if (SUCCEEDED(hr)) {
+		hr = dxgiDevice->GetAdapter(&adapter);
+		if (SUCCEEDED(hr)) {
+			DXGI_ADAPTER_DESC desc;
+			adapter->GetDesc(&desc);
+			adapterDesc_ = ConvertWStringToUTF8(desc.Description);
+			adapter->Release();
+		}
+		dxgiDevice->Release();
+	}
 	CreatePresets();
 }
 

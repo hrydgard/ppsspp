@@ -548,8 +548,8 @@ public:
 		switch (info) {
 		case APIVERSION: return "DirectX 9.0";
 		case VENDORSTRING: return identifier_.Description;
-		case VENDOR: return "-";
-		case RENDERER: return identifier_.Driver;  // eh, sort of
+		case VENDOR: return "";
+		case DRIVER: return identifier_.Driver;  // eh, sort of
 		case SHADELANGVERSION: return shadeLangVersion_;
 		case APINAME: return "Direct3D 9";
 		default: return "?";
@@ -564,9 +564,9 @@ private:
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
 	int adapterId_ = -1;
-	D3DADAPTER_IDENTIFIER9 identifier_;
+	D3DADAPTER_IDENTIFIER9 identifier_{};
 	D3DCAPS9 d3dCaps_;
-	char shadeLangVersion_[64];
+	char shadeLangVersion_[64]{};
 	DeviceCaps caps_{};
 
 	// Bound state
@@ -588,7 +588,9 @@ private:
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
 	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx), caps_{} {
 	CreatePresets();
-	d3d->GetAdapterIdentifier(adapterId, 0, &identifier_);
+	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
+		ELOG("Failed to get adapter identifier: %d", adapterId);
+	}
 	if (!FAILED(device->GetDeviceCaps(&d3dCaps_))) {
 		sprintf(shadeLangVersion_, "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
 	} else {

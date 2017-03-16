@@ -394,7 +394,7 @@ public:
 		case APINAME: return "Vulkan";
 		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties().deviceName;
 		case VENDOR: return StringFromFormat("%08x", vulkan_->GetPhysicalDeviceProperties().vendorID);
-		case RENDERER: return StringFromFormat("%08x", vulkan_->GetPhysicalDeviceProperties().driverVersion);
+		case DRIVER: return StringFromFormat("%08x", vulkan_->GetPhysicalDeviceProperties().driverVersion);
 		case SHADELANGVERSION: return "N/A";;
 		case APIVERSION: 
 		{
