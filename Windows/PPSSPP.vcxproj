@@ -228,6 +228,9 @@
       <Command>../Windows/git-version-gen.cmd</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
+    <ResourceCompile>
+      <PreprocessorDefinitions>$(EXTERNAL_RC_DEFINITIONS);_VC80_UPGRADE=0x0710;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -269,6 +272,9 @@
       <Command>../Windows/git-version-gen.cmd</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
+    <ResourceCompile>
+      <PreprocessorDefinitions>$(EXTERNAL_RC_DEFINITIONS);_VC80_UPGRADE=0x0710;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\android\jni\app-android.cpp">
@@ -510,7 +516,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="aboutbox.rc" />
-    <ResourceCompile Include="ppsspp.rc" />
+    <ResourceCompile Include="ppsspp.rc">
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EXTERNAL_RC_DEFINITIONS);_VC80_UPGRADE=0x0710;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EXTERNAL_RC_DEFINITIONS);_VC80_UPGRADE=0x0710;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
     <None Include="version.rc" />
   </ItemGroup>
   <ItemGroup>
@@ -541,6 +550,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="PPSSPP.manifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="ppsspp_gold.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

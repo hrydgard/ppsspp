@@ -576,15 +576,6 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	ui_theme.popupTitle.fgColor = 0xFFE3BE59;
 
-#ifdef GOLD
-	ui_theme.itemFocusedStyle.background = UI::Drawable(0xFF4cc2ed);
-	ui_theme.itemDownStyle.background = UI::Drawable(0xFF39a9ee);
-	ui_theme.itemDisabledStyle.background = UI::Drawable(0x55AFD4E0);
-	ui_theme.itemHighlightedStyle.background = UI::Drawable(0x5539BBbd);
-
-	ui_theme.popupTitle.fgColor = 0xFF59BEE3;
-#endif
-
 	uiTexture = CreateTextureFromFile(g_draw, "ui_atlas.zim", ImageFileType::ZIM);
 	if (!uiTexture) {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");

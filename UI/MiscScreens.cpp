@@ -85,11 +85,7 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 		last_yres = yres;
 	}
 	
-#ifdef GOLD
-	int img = I_BG_GOLD;
-#else
 	int img = I_BG;
-#endif
 
 	uint32_t bgColor = whiteAlpha(alpha);
 	ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor);
@@ -675,7 +671,11 @@ void CreditsScreen::render() {
 
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
+#ifdef GOLD
+	snprintf(temp, sizeof(temp), "PPSSPP Gold %s", PPSSPP_GIT_VERSION);
+#else
 	snprintf(temp, sizeof(temp), "PPSSPP %s", PPSSPP_GIT_VERSION);
+#endif
 	credits[0] = (const char *)temp;
 
 	UIContext &dc = *screenManager()->getUIContext();
