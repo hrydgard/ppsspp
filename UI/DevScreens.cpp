@@ -437,6 +437,26 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Display resolution", temp));
 #endif
 
+	ViewGroup *buildConfigScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	buildConfigScroll->SetTag("DevSystemInfoBuildConfig");
+	LinearLayout *buildConfig = new LinearLayout(ORIENT_VERTICAL);
+	buildConfig->SetSpacing(0);
+	buildConfigScroll->Add(buildConfig);
+	tabHolder->AddTab("Build Config", buildConfigScroll);
+
+	buildConfig->Add(new ItemHeader("Build Configuration"));
+#ifdef _DEBUG
+	buildConfig->Add(new InfoItem("_DEBUG", ""));
+#else
+	buildConfig->Add(new InfoItem("NDEBUG", ""));
+#endif
+#ifdef USING_GLES2
+	buildConfig->Add(new InfoItem("USING_GLES2", ""));
+#endif
+#ifdef MOBILE_DEVICE
+	buildConfig->Add(new InfoItem("MOBILE_DEVICE", ""));
+#endif
+
 	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	cpuExtensionsScroll->SetTag("DevSystemInfoCPUExt");
 	LinearLayout *cpuExtensions = new LinearLayout(ORIENT_VERTICAL);
