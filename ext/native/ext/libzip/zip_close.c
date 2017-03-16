@@ -699,7 +699,7 @@ _zip_create_temp_output(struct zip *za, FILE **outp)
     }
 
 #ifdef UNICODE
-		swprintf(temp, L"%s.XXXXXX", za->zn);
+		swprintf(temp, 256, L"%s.XXXXXX", za->zn);
 #else
 		sprintf(temp, "%s.XXXXXX", za->zn);
 #endif
