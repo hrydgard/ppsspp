@@ -2,7 +2,13 @@ apply plugin: 'com.android.application'
 
 android {
 	signingConfigs {
-		config {
+		debug {
+			storeFile file("debug.keystore")
+		}
+		optimized {
+			storeFile file("debug.keystore")
+		}
+		release {
 		}
 	}
 	compileSdkVersion 25
@@ -14,16 +20,22 @@ android {
 		ndk {
 			abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
 		}
-		signingConfig signingConfigs.config
+		signingConfig signingConfigs.debug
 	}
 	buildTypes {
-		release {
-			minifyEnabled = false
-			signingConfig signingConfigs.config
-		}
 		debug {
 			minifyEnabled = false
 			jniDebuggable true
+			signingConfig signingConfigs.debug
+		}
+		release {
+			minifyEnabled = false
+			signingConfig signingConfigs.release
+		}
+		optimized {
+			// Debug signed but optimized.
+			minifyEnabled = false
+			signingConfig android.buildTypes.debug.signingConfig
 		}
 	}
 	externalNativeBuild {
@@ -48,7 +60,6 @@ android {
 	productFlavors {
 		normal {
 			applicationId 'org.ppsspp.ppsspp'
-			signingConfig signingConfigs.config
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
@@ -63,7 +74,6 @@ android {
 		}
 		gold {
 			applicationId 'org.ppsspp.ppssppgold'
-			signingConfig signingConfigs.config
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
