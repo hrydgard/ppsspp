@@ -10,8 +10,8 @@ OutputDir=.
 UsePreviousLanguage=no
 
 [CustomMessages]
-AppName=PPSSPP
-LaunchProgram=Start PPSSPP after finishing installation
+AppName={#ApplicationName}
+LaunchProgram=Start {#ApplicationName} after finishing installation
 
 [Files]
 Source: "PPSSPPWindows.exe"; DestDir: "{app}"
