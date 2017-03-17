@@ -396,7 +396,8 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 	}
 
 	if (pshader) {
-		ID3D11ShaderResourceView *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
+		ID3D11ShaderResourceView *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_, expand32);
 
 		Draw::Framebuffer *depalFBO = framebufferManagerD3D11_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
 		shaderManager_->DirtyLastShader();
