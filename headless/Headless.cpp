@@ -301,8 +301,8 @@ int main(int argc, const char* argv[])
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, fullLog);
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
-		logman->AddListener(type, printfLogger);
 	}
+	logman->AddListener(printfLogger);
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;

@@ -91,18 +91,12 @@ public:
 	
 	const char* GetShortName() const { return m_shortName; }
 
-	void AddListener(LogListener* listener);
-	void RemoveListener(LogListener* listener);
-
-	void Trigger(LogTypes::LOG_LEVELS, const char *msg);
-
 	bool IsEnabled() const { return enable_; }
 	void SetEnable(bool enable) { enable_ = enable; }
 
 	LogTypes::LOG_LEVELS GetLevel() const { return (LogTypes::LOG_LEVELS)level_; }
 
 	void SetLevel(LogTypes::LOG_LEVELS level) {	level_ = level; }
-	bool HasListeners() const { return m_hasListeners; }
 
 	// Although not elegant, easy to set with a PopupMultiChoice...
 	int level_;
@@ -110,27 +104,14 @@ public:
 
 private:
 	char m_shortName[32];
-	std::mutex m_listeners_lock;
-	std::set<LogListener*> m_listeners;
-	bool m_hasListeners;
 };
 
 class ConsoleListener;
 
 class LogManager : NonCopyable {
-private:
-	LogChannel* log_[LogTypes::NUMBER_OF_LOGS];
-	FileLogListener *fileLog_;
-	ConsoleListener *consoleLog_;
-	DebuggerLogListener *debuggerLog_;
-	RingbufferLogListener *ringLog_;
-	static LogManager *logManager_;  // Singleton. Ugh.
-	std::mutex log_lock_;
-
-	LogManager();
-	~LogManager();
-
 public:
+	void AddListener(LogListener* listener);
+	void RemoveListener(LogListener* listener);
 
 	static u32 GetMaxLevel() { return MAX_LOGLEVEL;	}
 	static int GetNumChannels() { return LogTypes::NUMBER_OF_LOGS; }
@@ -161,14 +142,6 @@ public:
 		return log_[type]->GetLevel();
 	}
 
-	void AddListener(LogTypes::LOG_TYPE type, LogListener *listener) {
-		log_[type]->AddListener(listener);
-	}
-
-	void RemoveListener(LogTypes::LOG_TYPE type, LogListener *listener) {
-		log_[type]->RemoveListener(listener);
-	}
-
 	ConsoleListener *GetConsoleListener() const {
 		return consoleLog_;
 	}
@@ -196,4 +169,22 @@ public:
 
   void SaveConfig(IniFile::Section *section);
   void LoadConfig(IniFile::Section *section, bool debugDefaults);
+
+private:
+	void Trigger(LogTypes::LOG_LEVELS, const char *msg);
+
+	LogChannel* log_[LogTypes::NUMBER_OF_LOGS];
+	FileLogListener *fileLog_;
+	ConsoleListener *consoleLog_;
+	DebuggerLogListener *debuggerLog_;
+	RingbufferLogListener *ringLog_;
+	static LogManager *logManager_;  // Singleton. Ugh.
+	std::mutex log_lock_;
+
+	std::mutex m_listeners_lock;
+	std::set<LogListener*> m_listeners;
+	bool m_hasListeners;
+
+	LogManager();
+	~LogManager();
 };

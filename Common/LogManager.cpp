@@ -16,12 +16,14 @@
 // http://code.google.com/p/dolphin-emu/
 
 #include <algorithm>
+
 #include "base/logging.h"
 #include "util/text/utf8.h"
 #include "LogManager.h"
 #include "ConsoleListener.h"
 #include "Timer.h"
 #include "FileUtil.h"
+#include "StringUtils.h"
 #include "../Core/Config.h"
 
 // Don't need to savestate this.
@@ -112,26 +114,27 @@ LogManager::LogManager() {
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
 		log_[i]->SetEnable(true);
-#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-		log_[i]->AddListener(fileLog_);
-		log_[i]->AddListener(consoleLog_);
-#if defined(_MSC_VER) && defined(USING_WIN_UI)
-		if (IsDebuggerPresent() && debuggerLog_ != NULL && LOG_MSC_OUTPUTDEBUG)
-			log_[i]->AddListener(debuggerLog_);
-#endif
-		log_[i]->AddListener(ringLog_);
-#endif
 	}
+
+#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
+	AddListener(fileLog_);
+	AddListener(consoleLog_);
+#if defined(_MSC_VER) && defined(USING_WIN_UI)
+	if (IsDebuggerPresent() && debuggerLog_ != NULL && LOG_MSC_OUTPUTDEBUG)
+		AddListener(debuggerLog_);
+#endif
+	AddListener(ringLog_);
+#endif
 }
 
 LogManager::~LogManager() {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 		if (fileLog_ != NULL)
-			logManager_->RemoveListener((LogTypes::LOG_TYPE)i, fileLog_);
-		logManager_->RemoveListener((LogTypes::LOG_TYPE)i, consoleLog_);
+			RemoveListener(fileLog_);
+		RemoveListener(consoleLog_);
 #if defined(_MSC_VER) && defined(USING_WIN_UI)
-		logManager_->RemoveListener((LogTypes::LOG_TYPE)i, debuggerLog_);
+		RemoveListener(debuggerLog_);
 #endif
 #endif
 	}
@@ -149,15 +152,13 @@ LogManager::~LogManager() {
 
 void LogManager::ChangeFileLog(const char *filename) {
 	if (fileLog_ != NULL) {
-		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
-			logManager_->RemoveListener((LogTypes::LOG_TYPE)i, fileLog_);
+		RemoveListener(fileLog_);
 		delete fileLog_;
 	}
 
 	if (filename != NULL) {
 		fileLog_ = new FileLogListener(filename);
-		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
-			log_[i]->AddListener(fileLog_);
+		AddListener(fileLog_);
 	}
 }
 
@@ -181,7 +182,7 @@ void LogManager::LoadConfig(IniFile::Section *section, bool debugDefaults) {
 
 void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *format, va_list args) {
 	LogChannel *log = log_[type];
-	if (level > log->GetLevel() || !log->IsEnabled() || !log->HasListeners())
+	if (level > log->GetLevel() || !log->IsEnabled())
 		return;
 
 	std::lock_guard<std::mutex> lk(log_lock_);
@@ -231,12 +232,13 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 		msgPos[neededBytes] = '\n';
 		msgPos[neededBytes + 1] = '\0';
 	}
-	log->Trigger(level, msg);
+
+	Trigger(level, msg);
 }
 
 bool LogManager::IsEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
 	LogChannel *log = log_[type];
-	if (level > log->GetLevel() || !log->IsEnabled() || !log->HasListeners())
+	if (level > log->GetLevel() || !log->IsEnabled())
 		return false;
 	return true;
 }
@@ -251,8 +253,8 @@ void LogManager::Shutdown() {
 }
 
 LogChannel::LogChannel(const char* shortName)
-	: enable_(false), m_hasListeners(false) {
-	strncpy(m_shortName, shortName, 32);
+	: enable_(false) {
+	truncate_cpy(m_shortName, shortName);
 #if defined(_DEBUG)
 	level_ = LogTypes::LDEBUG;
 #else
@@ -261,19 +263,19 @@ LogChannel::LogChannel(const char* shortName)
 }
 
 // LogContainer
-void LogChannel::AddListener(LogListener *listener) {
+void LogManager::AddListener(LogListener *listener) {
 	std::lock_guard<std::mutex> lk(m_listeners_lock);
 	m_listeners.insert(listener);
 	m_hasListeners = true;
 }
 
-void LogChannel::RemoveListener(LogListener *listener) {
+void LogManager::RemoveListener(LogListener *listener) {
 	std::lock_guard<std::mutex> lk(m_listeners_lock);
 	m_listeners.erase(listener);
 	m_hasListeners = !m_listeners.empty();
 }
 
-void LogChannel::Trigger(LogTypes::LOG_LEVELS level, const char *msg) {
+void LogManager::Trigger(LogTypes::LOG_LEVELS level, const char *msg) {
 	std::lock_guard<std::mutex> lk(m_listeners_lock);
 
 	std::set<LogListener*>::const_iterator i;
