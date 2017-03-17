@@ -426,6 +426,12 @@ void GPU_GLES::DumpNextFrame() {
 void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
+	if (resized_) {
+		CheckGPUFeatures();
+		drawEngine_.Resized();
+		shaderManagerGL_->DirtyShader();
+		textureCacheGL_->NotifyConfigChanged();
+	}
 }
 
 void GPU_GLES::BeginFrame() {
@@ -476,11 +482,6 @@ void GPU_GLES::ReapplyGfxStateInternal() {
 }
 
 void GPU_GLES::BeginFrameInternal() {
-	if (resized_) {
-		CheckGPUFeatures();
-		drawEngine_.Resized();
-		textureCacheGL_->NotifyConfigChanged();
-	}
 	UpdateVsyncInterval(resized_);
 	resized_ = false;
 

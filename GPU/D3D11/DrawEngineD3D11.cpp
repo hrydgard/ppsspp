@@ -133,15 +133,24 @@ void DrawEngineD3D11::ClearTrackedVertexArrays() {
 	vai_.clear();
 }
 
-void DrawEngineD3D11::DestroyDeviceObjects() {
-	ClearTrackedVertexArrays();
-	delete tessDataTransfer;
-	delete pushVerts_;
-	delete pushInds_;
-
+void DrawEngineD3D11::ClearInputLayoutMap() {
 	for (auto &decl : inputLayoutMap_) {
 		decl.second->Release();
 	}
+	inputLayoutMap_.clear();
+}
+
+void DrawEngineD3D11::Resized() {
+	DrawEngineCommon::Resized();
+	ClearInputLayoutMap();
+}
+
+void DrawEngineD3D11::DestroyDeviceObjects() {
+	ClearTrackedVertexArrays();
+	ClearInputLayoutMap();
+	delete tessDataTransfer;
+	delete pushVerts_;
+	delete pushInds_;
 	for (auto &depth : depthStencilCache_) {
 		depth.second->Release();
 	}

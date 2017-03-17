@@ -58,7 +58,7 @@ public:
 	std::vector<std::string> DebugGetVertexLoaderIDs();
 	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
 
-	void Resized();
+	virtual void Resized();
 
 protected:
 	virtual void ClearTrackedVertexArrays() {}

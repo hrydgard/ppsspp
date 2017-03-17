@@ -155,6 +155,8 @@ public:
 
 	void ClearTrackedVertexArrays() override;
 
+	void Resized() override;
+
 private:
 	void DecodeVerts();
 	void DecodeVertsStep();
@@ -163,6 +165,8 @@ private:
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef);
 	void ResetShaderBlending();
+
+	void ClearInputLayoutMap();
 
 	ID3D11InputLayout *SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 

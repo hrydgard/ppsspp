@@ -300,6 +300,12 @@ void GPU_D3D11::DumpNextFrame() {
 void GPU_D3D11::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
+	if (resized_) {
+		drawEngine_.Resized();
+		textureCacheD3D11_->NotifyConfigChanged();
+		shaderManagerD3D11_->DirtyShader();
+		resized_ = false;
+	}
 }
 
 void GPU_D3D11::BeginFrame() {
@@ -319,12 +325,6 @@ void GPU_D3D11::EndHostFrame() {
 }
 
 void GPU_D3D11::BeginFrameInternal() {
-	if (resized_) {
-		drawEngine_.Resized();
-		textureCacheD3D11_->NotifyConfigChanged();
-		resized_ = false;
-	}
-
 	textureCacheD3D11_->StartFrame();
 	drawEngine_.BeginFrame();
 	depalShaderCache_->Decimate();

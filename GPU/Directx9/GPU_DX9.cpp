@@ -267,6 +267,12 @@ void GPU_DX9::DumpNextFrame() {
 void GPU_DX9::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
+	if (resized_) {
+		drawEngine_.Resized();
+		shaderManagerDX9_->DirtyShader();
+		textureCacheDX9_->NotifyConfigChanged();
+		resized_ = false;
+	}
 }
 
 void GPU_DX9::BeginFrame() {
@@ -279,12 +285,6 @@ void GPU_DX9::ReapplyGfxStateInternal() {
 }
 
 void GPU_DX9::BeginFrameInternal() {
-	if (resized_) {
-		drawEngine_.Resized();
-		textureCacheDX9_->NotifyConfigChanged();
-		resized_ = false;
-	}
-
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
