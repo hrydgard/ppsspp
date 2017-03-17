@@ -187,6 +187,21 @@ std::string System_GetProperty(SystemProperty prop) {
 // Ugly!
 extern WindowsAudioBackend *winAudioBackend;
 
+#ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+static int ScreenDPI() {
+	return 96;  // TODO UWP
+}
+#else
+static int ScreenDPI() {
+	HDC screenDC = GetDC(nullptr);
+	int dotsPerInch = GetDeviceCaps(screenDC, LOGPIXELSY);
+	ReleaseDC(nullptr, screenDC);
+	return dotsPerInch;
+}
+#endif
+#endif
+
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
@@ -195,6 +210,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
 		return DEVICE_TYPE_DESKTOP;
+	case SYSPROP_DISPLAY_DPI:
+		return ScreenDPI();
 	default:
 		return -1;
 	}

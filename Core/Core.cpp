@@ -130,21 +130,6 @@ bool Core_GetPowerSaving() {
 	return powerSaving;
 }
 
-#ifdef _WIN32
-#if PPSSPP_PLATFORM(UWP)
-static int ScreenDPI() {
-	return 96;  // TODO UWP
-}
-#else
-static int ScreenDPI() {
-	HDC screenDC = GetDC(nullptr);
-	int dotsPerInch = GetDeviceCaps(screenDC, LOGPIXELSY);
-	ReleaseDC(nullptr, screenDC);
-	return dotsPerInch;
-}
-#endif
-#endif
-
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	// Can't take this from config as it will not be set if windows is maximized.
 	int w = (int)(pixelWidth * g_dpi_scale);
@@ -156,10 +141,7 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 bool UpdateScreenScale(int width, int height) {
 	bool smallWindow;
 #ifdef _WIN32
-	// Use legacy DPI handling, because we still compile as XP compatible we don't get the new SDK, unless
-	// we do unholy tricks.
-
-	g_dpi = ScreenDPI();
+	g_dpi = System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
 	g_dpi_scale = 96.0f / g_dpi;
 #else
 	g_dpi = 96;

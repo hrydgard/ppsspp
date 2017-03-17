@@ -394,7 +394,12 @@ namespace MainWindow
 		if (g_Config.iWindowWidth <= 0 || g_Config.iWindowHeight <= 0) {
 			RECT rcInner = rc, rcOuter;
 			bool portrait = g_Config.IsPortrait();
-			GetWindowRectAtResolution(2 * (portrait ? 272 : 480), 2 * (portrait ? 480 : 272), rcInner, rcOuter);
+
+			// We want to adjust for DPI but still get an integer pixel scaling ratio.
+			double dpi_scale = 96.0 / System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
+			int scale = (int)ceil(2.0 / dpi_scale);
+
+			GetWindowRectAtResolution(scale * (portrait ? 272 : 480), scale * (portrait ? 480 : 272), rcInner, rcOuter);
 			rc.right = rc.left + (rcOuter.right - rcOuter.left);
 			rc.bottom = rc.top + (rcOuter.bottom - rcOuter.top);
 			g_Config.iWindowWidth = rc.right - rc.left;
