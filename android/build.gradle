@@ -55,7 +55,9 @@ android {
 			]
 			jni.srcDirs = ['..']
 		}
-
+		gold {
+			res.srcDirs = ['gold/res']
+		}
 	}
 	productFlavors {
 		normal {

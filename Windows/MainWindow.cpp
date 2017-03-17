@@ -126,7 +126,6 @@ namespace MainWindow
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
 
 #define MAX_LOADSTRING 100
-	const TCHAR *szTitle = TEXT("PPSSPP");
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
 	const TCHAR *szDisplayClass = TEXT("PPSSPPDisplay");
 

@@ -81,6 +81,9 @@ endif()
 
 if(GOLD)
 	add_definitions(-DGOLD)
+	message("Gold Build")
+else()
+	message("Normal Build")
 endif()
 
 # Doesn't link on some platforms

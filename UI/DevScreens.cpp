@@ -358,9 +358,6 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Name", System_GetProperty(SYSPROP_NAME)));
 	deviceSpecs->Add(new InfoItem("Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
 	deviceSpecs->Add(new InfoItem("ABI", GetCompilerABI()));
-#ifdef JENKINS
-	deviceSpecs->Add(new InfoItem("Built by", "Jenkins"));
-#endif
 	deviceSpecs->Add(new ItemHeader("CPU Information"));
 	deviceSpecs->Add(new InfoItem("Name", cpu_info.brand_string));
 #if defined(ARM) || defined(ARM64) || defined(MIPS)
@@ -445,6 +442,9 @@ void SystemInfoScreen::CreateViews() {
 	tabHolder->AddTab("Build Config", buildConfigScroll);
 
 	buildConfig->Add(new ItemHeader("Build Configuration"));
+#ifdef JENKINS
+	buildConfig->Add(new InfoItem("Built by", "Jenkins"));
+#endif
 #ifdef _DEBUG
 	buildConfig->Add(new InfoItem("_DEBUG", ""));
 #else
@@ -455,6 +455,9 @@ void SystemInfoScreen::CreateViews() {
 #endif
 #ifdef MOBILE_DEVICE
 	buildConfig->Add(new InfoItem("MOBILE_DEVICE", ""));
+#endif
+#ifdef GOLD
+	buildConfig->Add(new InfoItem("GOLD", ""));
 #endif
 
 	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
