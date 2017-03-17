@@ -339,7 +339,7 @@ public:
 			const float right = u2 * invHalfWidth - 1.0f + xoff;
 			const float top = v1 * invHalfHeight - 1.0f + yoff;
 			const float bottom = v2 * invHalfHeight - 1.0f + yoff;
-			float z = 0.0f;  // was -1.0f for some reason
+			float z = 0.0f;
 			// Points are: BL, BR, TL, TR.
 			verts_[0].pos = Pos(left, bottom, z);
 			verts_[1].pos = Pos(right, bottom, z);

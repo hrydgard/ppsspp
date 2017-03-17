@@ -349,11 +349,13 @@ public:
 			const float right = u2 * invHalfWidth - 1.0f + xoff;
 			const float top = v1 * invHalfHeight - 1.0f + yoff;
 			const float bottom = v2 * invHalfHeight - 1.0f + yoff;
+
+			float z = 0.0f;
 			// Points are: BL, BR, TR, TL.
-			verts_[0].pos = Pos(left, bottom, -1.0f);
-			verts_[1].pos = Pos(right, bottom, -1.0f);
-			verts_[2].pos = Pos(right, top, -1.0f);
-			verts_[3].pos = Pos(left, top, -1.0f);
+			verts_[0].pos = Pos(left, bottom, z);
+			verts_[1].pos = Pos(right, bottom, z);
+			verts_[2].pos = Pos(right, top, z);
+			verts_[3].pos = Pos(left, top, z);
 
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
