@@ -351,6 +351,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 void TextDrawer::RecreateFonts() {
 	for (auto &iter : fontMap_) {
+		iter.second->dpiScale = dpiScale_;
 		iter.second->Create();
 	}
 }
