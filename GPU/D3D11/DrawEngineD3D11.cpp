@@ -79,7 +79,6 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 		context_(context),
 		decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
-		lastVType_(-1),
 		shaderManager_(0),
 		textureCache_(0),
 		framebufferManager_(0),
@@ -952,16 +951,6 @@ rotateVBO:
 	gstate_c.vertBounds.maxV = 0;
 
 	host->GPUNotifyDraw();
-}
-
-void DrawEngineD3D11::Resized() {
-	decJitCache_->Clear();
-	lastVType_ = -1;
-	dec_ = NULL;
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
-		delete iter->second;
-	}
-	decoderMap_.clear();
 }
 
 bool DrawEngineD3D11::IsCodePtrVertexDecoder(const u8 *ptr) const {

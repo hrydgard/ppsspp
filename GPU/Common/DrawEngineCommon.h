@@ -58,7 +58,11 @@ public:
 	std::vector<std::string> DebugGetVertexLoaderIDs();
 	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
 
+	void Resized();
+
 protected:
+	virtual void ClearTrackedVertexArrays() {}
+
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
 
@@ -83,6 +87,7 @@ protected:
 	u8 *splineBuffer;
 
 	// Cached vertex decoders
+	u32 lastVType_ = -1;
 	std::unordered_map<u32, VertexDecoder *> decoderMap_;
 	VertexDecoder *dec_;
 	VertexDecoderJitCache *decJitCache_;

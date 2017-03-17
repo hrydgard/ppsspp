@@ -29,7 +29,6 @@ public:
 	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename), finishNextFrame_(false), gamePath_(filename) {}
 	virtual ~GamePauseScreen();
 
-	void onFinish(DialogResult result) override;
 	virtual void dialogFinished(const Screen *dialog, DialogResult dr) override;
 
 protected:

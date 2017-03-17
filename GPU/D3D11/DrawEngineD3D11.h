@@ -128,10 +128,7 @@ public:
 	void DestroyDeviceObjects();
 	void GLLost() {};
 
-	void Resized();  // TODO: Call
-
 	void BeginFrame();
-	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
 	void SetupVertexDecoderInternal(u32 vertType);
@@ -155,6 +152,8 @@ public:
 	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
 		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
 	}
+
+	void ClearTrackedVertexArrays() override;
 
 private:
 	void DecodeVerts();
@@ -194,8 +193,6 @@ private:
 	IndexGenerator indexGen;
 	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
-
-	u32 lastVType_;
 	
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;

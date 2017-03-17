@@ -352,13 +352,6 @@ UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void GamePauseScreen::onFinish(DialogResult result) {
-	// Do we really always need to "gpu->Resized" here?
-	if (gpu)
-		gpu->Resized();
-	Reporting::UpdateConfig();
-}
-
 UI::EventReturn GamePauseScreen::OnState(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;

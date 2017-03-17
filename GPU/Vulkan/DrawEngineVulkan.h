@@ -88,7 +88,6 @@ public:
 		framebufferManager_ = fbManager;
 	}
 
-	void Resized();
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
 

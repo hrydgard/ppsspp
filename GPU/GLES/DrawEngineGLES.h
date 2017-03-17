@@ -131,10 +131,9 @@ public:
 	void DestroyDeviceObjects();
 	void GLLost() override;
 	void GLRestore() override;
-	void Resized();
 
+	void ClearTrackedVertexArrays() override;
 	void DecimateTrackedVertexArrays();
-	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
 	inline void SetupVertexDecoderInternal(u32 vertType);

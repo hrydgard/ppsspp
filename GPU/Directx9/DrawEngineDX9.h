@@ -127,10 +127,8 @@ public:
 	void DestroyDeviceObjects();
 	void GLLost() {};
 
-	void Resized();  // TODO: Call
-
+	void ClearTrackedVertexArrays() override;
 	void DecimateTrackedVertexArrays();
-	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
 	void SetupVertexDecoderInternal(u32 vertType);

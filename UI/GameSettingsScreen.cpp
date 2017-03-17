@@ -924,9 +924,6 @@ UI::EventReturn GameSettingsScreen::OnDisplayLayoutEditor(UI::EventParams &e) {
 };
 
 UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
-	if (gpu) {
-		gpu->Resized();
-	}
 	if (g_Config.iAndroidHwScale == 1) {
 		RecreateActivity();
 	}
@@ -996,6 +993,11 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	host->UpdateUI();
 
 	KeyMap::UpdateNativeMenuKeys();
+
+	// Wipe some caches after potentially changing settings.
+	if (gpu)
+		gpu->Resized();
+	Reporting::UpdateConfig();
 }
 
 /*

@@ -1009,16 +1009,6 @@ rotateVBO:
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-void DrawEngineGLES::Resized() {
-	decJitCache_->Clear();
-	lastVType_ = -1;
-	dec_ = NULL;
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
-		delete iter->second;
-	}
-	decoderMap_.clear();
-}
-
 GLuint DrawEngineGLES::BindBuffer(const void *p, size_t sz) {
 	// Get a new buffer each time we need one.
 	GLuint buf = AllocateBuffer(sz);

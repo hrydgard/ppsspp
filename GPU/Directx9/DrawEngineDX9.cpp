@@ -902,16 +902,6 @@ rotateVBO:
 	host->GPUNotifyDraw();
 }
 
-void DrawEngineDX9::Resized() {
-	decJitCache_->Clear();
-	lastVType_ = -1;
-	dec_ = NULL;
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
-		delete iter->second;
-	}
-	decoderMap_.clear();
-}
-
 bool DrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
