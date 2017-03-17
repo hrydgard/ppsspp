@@ -52,7 +52,7 @@ public:
 	ID3D11PixelShader *GetDepalettizePixelShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
 	ID3D11VertexShader *GetDepalettizeVertexShader() { return vertexShader_; }
 	ID3D11InputLayout *GetInputLayout() { return inputLayout_; }
-	ID3D11ShaderResourceView *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	ID3D11ShaderResourceView *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut, bool expandTo32bit);
 	void Clear();
 	void Decimate();
 

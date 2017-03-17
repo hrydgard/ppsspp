@@ -21,6 +21,7 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "Common/Log.h"
+#include "Common/ColorConv.h"
 #include "Core/Reporting.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DepalettizeShaderD3D11.h"
@@ -74,7 +75,7 @@ u32 DepalShaderCacheD3D11::GenerateShaderID(GEPaletteFormat clutFormat, GEBuffer
 	return (clutFormat & 0xFFFFFF) | (pixelFormat << 24);
 }
 
-ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut) {
+ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut, bool expandTo32bit) {
 	const u32 realClutID = clutID ^ clutFormat;
 
 	auto oldtex = texCache_.find(realClutID);
@@ -83,11 +84,29 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 		return oldtex->second->view;
 	}
 
-	DXGI_FORMAT dstFmt = GetClutDestFormatD3D11(clutFormat);
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
-	DepalTextureD3D11 *tex = new DepalTextureD3D11();
-	// TODO: Look into 1D textures
+	DXGI_FORMAT dstFmt;
+	uint32_t *expanded = nullptr;
+	if (expandTo32bit && clutFormat != GE_CMODE_32BIT_ABGR8888) {
+		expanded = new uint32_t[texturePixels];
+		switch (clutFormat) {
+		case GE_CMODE_16BIT_ABGR4444:
+			ConvertRGBA4444ToRGBA8888(expanded, (const uint16_t *)rawClut, texturePixels);
+			break;
+		case GE_CMODE_16BIT_ABGR5551:
+			ConvertRGBA5551ToRGBA8888(expanded, (const uint16_t *)rawClut, texturePixels);
+			break;
+		case GE_CMODE_16BIT_BGR5650:
+			ConvertRGBA565ToRGBA8888(expanded, (const uint16_t *)rawClut, texturePixels);
+			break;
+		}
+		rawClut = expanded;
+		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
+	}
+	else {
+		dstFmt = GetClutDestFormatD3D11(clutFormat);
+	}
 
 	D3D11_TEXTURE2D_DESC desc{};
 	desc.Width = texturePixels;
@@ -103,10 +122,17 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 	data.pSysMem = rawClut;
 	// Regardless of format, the CLUT should always be 1024 bytes.
 	data.SysMemPitch = 1024;
+
+	DepalTextureD3D11 *tex = new DepalTextureD3D11();
+	// TODO: Look into 1D textures
 	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, &data, &tex->texture));
 	ASSERT_SUCCESS(device_->CreateShaderResourceView(tex->texture, nullptr, &tex->view));
 	tex->lastFrame = gpuStats.numFlips;
 	texCache_[realClutID] = tex;
+
+	if (expandTo32bit) {
+		delete[] expanded;
+	}
 	return tex->view;
 }
 
