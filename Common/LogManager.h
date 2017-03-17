@@ -19,6 +19,7 @@
 
 #include <set>
 #include <mutex>
+
 #include "file/ini_file.h"
 #include "Log.h"
 #include "StringUtils.h"
@@ -171,8 +172,6 @@ public:
   void LoadConfig(IniFile::Section *section, bool debugDefaults);
 
 private:
-	void Trigger(LogTypes::LOG_LEVELS, const char *msg);
-
 	LogChannel* log_[LogTypes::NUMBER_OF_LOGS];
 	FileLogListener *fileLog_;
 	ConsoleListener *consoleLog_;
@@ -181,9 +180,8 @@ private:
 	static LogManager *logManager_;  // Singleton. Ugh.
 	std::mutex log_lock_;
 
-	std::mutex m_listeners_lock;
-	std::set<LogListener*> m_listeners;
-	bool m_hasListeners;
+	std::mutex listeners_lock_;
+	std::set<LogListener*> listeners_;
 
 	LogManager();
 	~LogManager();

@@ -233,7 +233,11 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 		msgPos[neededBytes + 1] = '\0';
 	}
 
-	Trigger(level, msg);
+	std::lock_guard<std::mutex> listeners_lock(listeners_lock_);
+	std::set<LogListener*>::const_iterator i;
+	for (i = listeners_.begin(); i != listeners_.end(); ++i) {
+		(*i)->Log(level, msg);
+	}
 }
 
 bool LogManager::IsEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
@@ -264,24 +268,13 @@ LogChannel::LogChannel(const char* shortName)
 
 // LogContainer
 void LogManager::AddListener(LogListener *listener) {
-	std::lock_guard<std::mutex> lk(m_listeners_lock);
-	m_listeners.insert(listener);
-	m_hasListeners = true;
+	std::lock_guard<std::mutex> lk(listeners_lock_);
+	listeners_.insert(listener);
 }
 
 void LogManager::RemoveListener(LogListener *listener) {
-	std::lock_guard<std::mutex> lk(m_listeners_lock);
-	m_listeners.erase(listener);
-	m_hasListeners = !m_listeners.empty();
-}
-
-void LogManager::Trigger(LogTypes::LOG_LEVELS level, const char *msg) {
-	std::lock_guard<std::mutex> lk(m_listeners_lock);
-
-	std::set<LogListener*>::const_iterator i;
-	for (i = m_listeners.begin(); i != m_listeners.end(); ++i) {
-		(*i)->Log(level, msg);
-	}
+	std::lock_guard<std::mutex> lk(listeners_lock_);
+	listeners_.erase(listener);
 }
 
 FileLogListener::FileLogListener(const char *filename) {
