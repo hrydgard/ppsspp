@@ -85,7 +85,7 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 	}
 
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
-
+	int bpp = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
 	DXGI_FORMAT dstFmt;
 	uint32_t *expanded = nullptr;
 	if (expandTo32bit && clutFormat != GE_CMODE_32BIT_ABGR8888) {
@@ -103,6 +103,7 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 		}
 		rawClut = expanded;
 		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
+		bpp = 4;
 	}
 	else {
 		dstFmt = GetClutDestFormatD3D11(clutFormat);
@@ -121,7 +122,7 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 	D3D11_SUBRESOURCE_DATA data{};
 	data.pSysMem = rawClut;
 	// Regardless of format, the CLUT should always be 1024 bytes.
-	data.SysMemPitch = 1024;
+	data.SysMemPitch = texturePixels * bpp;
 
 	DepalTextureD3D11 *tex = new DepalTextureD3D11();
 	// TODO: Look into 1D textures
