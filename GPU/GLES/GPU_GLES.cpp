@@ -423,6 +423,11 @@ void GPU_GLES::DumpNextFrame() {
 	dumpNextFrame_ = true;
 }
 
+void GPU_GLES::BeginHostFrame() {
+	GPUCommon::BeginHostFrame();
+	UpdateCmdInfo();
+}
+
 void GPU_GLES::BeginFrame() {
 	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
 }
@@ -473,7 +478,6 @@ void GPU_GLES::ReapplyGfxStateInternal() {
 void GPU_GLES::BeginFrameInternal() {
 	if (resized_) {
 		CheckGPUFeatures();
-		UpdateCmdInfo();
 		drawEngine_.Resized();
 		textureCacheGL_->NotifyConfigChanged();
 	}

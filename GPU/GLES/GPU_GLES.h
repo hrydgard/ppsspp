@@ -91,6 +91,8 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
 
+	void BeginHostFrame() override;
+
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void FinishDeferred() override;

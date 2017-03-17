@@ -264,6 +264,11 @@ void GPU_DX9::DumpNextFrame() {
 	dumpNextFrame_ = true;
 }
 
+void GPU_DX9::BeginHostFrame() {
+	GPUCommon::BeginHostFrame();
+	UpdateCmdInfo();
+}
+
 void GPU_DX9::BeginFrame() {
 	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
 }
@@ -275,7 +280,6 @@ void GPU_DX9::ReapplyGfxStateInternal() {
 
 void GPU_DX9::BeginFrameInternal() {
 	if (resized_) {
-		UpdateCmdInfo();
 		drawEngine_.Resized();
 		textureCacheDX9_->NotifyConfigChanged();
 		resized_ = false;

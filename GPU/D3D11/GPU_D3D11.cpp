@@ -297,6 +297,11 @@ void GPU_D3D11::DumpNextFrame() {
 	dumpNextFrame_ = true;
 }
 
+void GPU_D3D11::BeginHostFrame() {
+	GPUCommon::BeginHostFrame();
+	UpdateCmdInfo();
+}
+
 void GPU_D3D11::BeginFrame() {
 	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
 	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
@@ -315,7 +320,6 @@ void GPU_D3D11::EndHostFrame() {
 
 void GPU_D3D11::BeginFrameInternal() {
 	if (resized_) {
-		UpdateCmdInfo();
 		drawEngine_.Resized();
 		textureCacheD3D11_->NotifyConfigChanged();
 		resized_ = false;
