@@ -2,6 +2,13 @@
 // For license safety, just run this as a build tool, don't build it into your game/program.
 // https://github.com/zorbathut/glorp
 
+// Horrible build instructions:
+// * Download freetype, put in ppsspp/ext as freetype/
+// * Open tools.sln
+// * In Code Generation on freetype, change from Multithreaded DLL to Multithreaded.
+// * Build
+// * Move exe file to ext/native/tools/build
+
 // data we need to provide:
 // sx, sy
 // dx, dy
@@ -13,13 +20,7 @@
 
 #include <libpng17/png.h>
 #include <ft2build.h>
-#include FT_FREETYPE_H
-#ifdef _WIN32
-// Hackery for our broken path structure
-#include <ftbitmap.h>
-#else
-#include <freetype2/ftbitmap.h>
-#endif
+#include <freetype/ftbitmap.h>
 #include <set>
 #include <map>
 #include <vector>
