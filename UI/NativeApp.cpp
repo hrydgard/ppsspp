@@ -469,10 +469,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnabled(type, true);
 		logman->SetLogLevel(type, logLevel);
-#ifdef __ANDROID__
-		logman->AddListener(type, logger);
-#endif
 	}
+#ifdef __ANDROID__
+	logman->AddListener(logger);
+#endif
 #endif
 
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
