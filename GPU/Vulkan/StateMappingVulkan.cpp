@@ -128,119 +128,79 @@ void ResetShaderBlending() {
 // TODO: Do this more progressively. No need to compute the entire state if the entire state hasn't changed.
 // In Vulkan, we simply collect all the state together into a "pipeline key" - we don't actually set any state here
 // (the caller is responsible for setting the little dynamic state that is supported, dynState).
-void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
-	memset(&key, 0, sizeof(key));
-	memset(&dynState, 0, sizeof(dynState));
-	// Unfortunately, this isn't implemented yet.
-	gstate_c.allowShaderBlend = false;
-
-	// Set blend - unless we need to do it in the shader.
-	GenericBlendState blendState;
-	ConvertBlendState(blendState, gstate_c.allowShaderBlend);
-
-	if (blendState.applyShaderBlending) {
-		if (ApplyShaderBlending()) {
-			// We may still want to do something about stencil -> alpha.
-			ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
-		}
-		else {
-			// Until next time, force it off.
-			ResetShaderBlending();
-			gstate_c.allowShaderBlend = false;
-		}
-	}
-	else if (blendState.resetShaderBlending) {
-		ResetShaderBlending();
-	}
-
-	if (blendState.enabled) {
-		key.blendEnable = true;
-		key.blendOpColor = vkBlendEqLookup[(size_t)blendState.eqColor];
-		key.blendOpAlpha = vkBlendEqLookup[(size_t)blendState.eqAlpha];
-		key.srcColor = vkBlendFactorLookup[(size_t)blendState.srcColor];
-		key.srcAlpha = vkBlendFactorLookup[(size_t)blendState.srcAlpha];
-		key.destColor = vkBlendFactorLookup[(size_t)blendState.dstColor];
-		key.destAlpha = vkBlendFactorLookup[(size_t)blendState.dstAlpha];
-		if (blendState.dirtyShaderBlend) {
-			gstate_c.Dirty(DIRTY_SHADERBLEND);
-		}
-		dynState.useBlendColor = blendState.useBlendColor;
-		if (blendState.useBlendColor) {
-			dynState.blendColor = blendState.blendColor;
-		}
-	}
-	else {
-		key.blendEnable = false;
-		dynState.useBlendColor = false;
-	}
-
-	dynState.useStencil = false;
-
-	// Set ColorMask/Stencil/Depth
+void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanDynamicState &dynState) {
 	if (gstate.isModeClear()) {
-		key.logicOpEnable = false;
-		key.cullMode = VK_CULL_MODE_NONE;
+		key_.blendEnable = false;
+		key_.blendOpColor = VK_BLEND_OP_ADD;
+		key_.blendOpAlpha = VK_BLEND_OP_ADD;
+		key_.srcColor = VK_BLEND_FACTOR_ONE;
+		key_.srcAlpha = VK_BLEND_FACTOR_ONE;
+		key_.destColor = VK_BLEND_FACTOR_ONE;
+		key_.destAlpha = VK_BLEND_FACTOR_ONE;
 
-		key.depthTestEnable = true;
-		key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
-		key.depthWriteEnable = gstate.isClearModeDepthMask();
-		if (gstate.isClearModeDepthMask()) {
-			fbManager.SetDepthUpdated();
-		}
-
-		// Color Test
+		// Color Mask
 		bool colorMask = gstate.isClearModeColorMask();
 		bool alphaMask = gstate.isClearModeAlphaMask();
-		key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
-
-		// Stencil Test
-		if (alphaMask) {
-			key.stencilTestEnable = true;
-			key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
-			key.stencilPassOp = VK_STENCIL_OP_REPLACE;
-			key.stencilFailOp = VK_STENCIL_OP_REPLACE;
-			key.stencilDepthFailOp = VK_STENCIL_OP_REPLACE;
-			dynState.useStencil = true;
-			// In clear mode, the stencil value is set to the alpha value of the vertex.
-			// A normal clear will be 2 points, the second point has the color.
-			// We override this value in the pipeline from software transform for clear rectangles.
-			dynState.stencilRef = 0xFF;
-			dynState.stencilWriteMask = 0xFF;
-		}
-		else {
-			key.stencilTestEnable = false;
-			dynState.useStencil = false;
-		}
-	}
-	else {
+		key_.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
+	} else {
 		if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
 			// Logic Ops
 			if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
-				key.logicOpEnable = true;
-				key.logicOp = logicOps[gstate.getLogicOp()];
+				key_.logicOpEnable = true;
+				key_.logicOp = logicOps[gstate.getLogicOp()];
 			}
 			else {
-				key.logicOpEnable = false;
+				key_.logicOpEnable = false;
 			}
 		}
 
-		// Set cull
-		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
+		// Unfortunately, this isn't implemented yet.
+		gstate_c.allowShaderBlend = false;
 
-		// Depth Test
-		if (gstate.isDepthTestEnabled()) {
-			key.depthTestEnable = true;
-			key.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
-			key.depthWriteEnable = gstate.isDepthWriteEnabled();
-			if (gstate.isDepthWriteEnabled()) {
-				fbManager.SetDepthUpdated();
+		// Set blend - unless we need to do it in the shader.
+		GenericBlendState blendState;
+		ConvertBlendState(blendState, gstate_c.allowShaderBlend);
+
+		if (blendState.applyShaderBlending) {
+			if (ApplyShaderBlending()) {
+				// We may still want to do something about stencil -> alpha.
+				ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+			}
+			else {
+				// Until next time, force it off.
+				ResetShaderBlending();
+				gstate_c.allowShaderBlend = false;
+			}
+		}
+		else if (blendState.resetShaderBlending) {
+			ResetShaderBlending();
+		}
+
+		if (blendState.enabled) {
+			key_.blendEnable = true;
+			key_.blendOpColor = vkBlendEqLookup[(size_t)blendState.eqColor];
+			key_.blendOpAlpha = vkBlendEqLookup[(size_t)blendState.eqAlpha];
+			key_.srcColor = vkBlendFactorLookup[(size_t)blendState.srcColor];
+			key_.srcAlpha = vkBlendFactorLookup[(size_t)blendState.srcAlpha];
+			key_.destColor = vkBlendFactorLookup[(size_t)blendState.dstColor];
+			key_.destAlpha = vkBlendFactorLookup[(size_t)blendState.dstAlpha];
+			if (blendState.dirtyShaderBlend) {
+				gstate_c.Dirty(DIRTY_SHADERBLEND);
+			}
+			dynState.useBlendColor = blendState.useBlendColor;
+			if (blendState.useBlendColor) {
+				dynState.blendColor = blendState.blendColor;
 			}
 		}
 		else {
-			key.depthTestEnable = false;
-			key.depthWriteEnable = false;
-			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+			key_.blendEnable = false;
+			key_.blendOpColor = VK_BLEND_OP_ADD;
+			key_.blendOpAlpha = VK_BLEND_OP_ADD;
+			key_.srcColor = VK_BLEND_FACTOR_ONE;
+			key_.srcAlpha = VK_BLEND_FACTOR_ONE;
+			key_.destColor = VK_BLEND_FACTOR_ONE;
+			key_.destAlpha = VK_BLEND_FACTOR_ONE;
+			dynState.useBlendColor = false;
 		}
 
 		// PSP color/alpha mask is per bit but we can only support per byte.
@@ -275,30 +235,95 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			}
 		}
 
-		key.colorWriteMask = (rmask ? VK_COLOR_COMPONENT_R_BIT : 0) | (gmask ? VK_COLOR_COMPONENT_G_BIT : 0) | (bmask ? VK_COLOR_COMPONENT_B_BIT : 0) | (amask ? VK_COLOR_COMPONENT_A_BIT : 0);
+		key_.colorWriteMask = (rmask ? VK_COLOR_COMPONENT_R_BIT : 0) | (gmask ? VK_COLOR_COMPONENT_G_BIT : 0) | (bmask ? VK_COLOR_COMPONENT_B_BIT : 0) | (amask ? VK_COLOR_COMPONENT_A_BIT : 0);
+	}
+
+	// Set raster
+	if (gstate.isModeClear()) {
+		key_.cullMode = VK_CULL_MODE_NONE;
+	} else {
+		// Set cull
+		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		key_.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
+	}
+
+	// Set ColorMask/Stencil/Depth
+	if (gstate.isModeClear()) {
+		key_.logicOpEnable = false;
+
+		key_.depthTestEnable = true;
+		key_.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+		key_.depthWriteEnable = gstate.isClearModeDepthMask();
+		if (gstate.isClearModeDepthMask()) {
+			fbManager.SetDepthUpdated();
+		}
+
+		bool alphaMask = gstate.isClearModeAlphaMask();
+		// Stencil Test
+		if (alphaMask) {
+			key_.stencilTestEnable = true;
+			key_.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
+			key_.stencilPassOp = VK_STENCIL_OP_REPLACE;
+			key_.stencilFailOp = VK_STENCIL_OP_REPLACE;
+			key_.stencilDepthFailOp = VK_STENCIL_OP_REPLACE;
+			dynState.useStencil = true;
+			// In clear mode, the stencil value is set to the alpha value of the vertex.
+			// A normal clear will be 2 points, the second point has the color.
+			// We override this value in the pipeline from software transform for clear rectangles.
+			dynState.stencilRef = 0xFF;
+			dynState.stencilWriteMask = 0xFF;
+		}
+		else {
+			key_.stencilTestEnable = false;
+			key_.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
+			key_.stencilPassOp = VK_STENCIL_OP_REPLACE;
+			key_.stencilFailOp = VK_STENCIL_OP_REPLACE;
+			key_.stencilDepthFailOp = VK_STENCIL_OP_REPLACE;
+			dynState.useStencil = false;
+		}
+	}
+	else {
+		// Depth Test
+		if (gstate.isDepthTestEnabled()) {
+			key_.depthTestEnable = true;
+			key_.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
+			key_.depthWriteEnable = gstate.isDepthWriteEnabled();
+			if (gstate.isDepthWriteEnabled()) {
+				fbManager.SetDepthUpdated();
+			}
+		}
+		else {
+			key_.depthTestEnable = false;
+			key_.depthWriteEnable = false;
+			key_.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+		}
 
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
 
 		// Stencil Test
 		if (stencilState.enabled) {
-			key.stencilTestEnable = true;
-			key.stencilCompareOp = compareOps[stencilState.testFunc];
-			key.stencilPassOp = stencilOps[stencilState.zPass];
-			key.stencilFailOp = stencilOps[stencilState.sFail];
-			key.stencilDepthFailOp = stencilOps[stencilState.zFail];
+			key_.stencilTestEnable = true;
+			key_.stencilCompareOp = compareOps[stencilState.testFunc];
+			key_.stencilPassOp = stencilOps[stencilState.zPass];
+			key_.stencilFailOp = stencilOps[stencilState.sFail];
+			key_.stencilDepthFailOp = stencilOps[stencilState.zFail];
 			dynState.useStencil = true;
 			dynState.stencilRef = stencilState.testRef;
 			dynState.stencilCompareMask = stencilState.testMask;
 			dynState.stencilWriteMask = stencilState.writeMask;
 		}
 		else {
-			key.stencilTestEnable = false;
+			key_.stencilTestEnable = false;
+			key_.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
+			key_.stencilPassOp = VK_STENCIL_OP_KEEP;
+			key_.stencilFailOp = VK_STENCIL_OP_KEEP;
+			key_.stencilDepthFailOp = VK_STENCIL_OP_KEEP;
 			dynState.useStencil = false;
 		}
 	}
 
-	key.topology = primToVulkan[prim];
+	key_.topology = primToVulkan[prim];
 }
 
 void DrawEngineVulkan::ApplyStateLate() {
@@ -338,7 +363,6 @@ void DrawEngineVulkan::ApplyStateLate() {
 			gstate_c.Dirty(DIRTY_DEPTHRANGE);
 		}
 
-		// TODO: Dirty-flag these.
 		vkCmdSetScissor(cmd_, 0, 1, &scissor);
 		vkCmdSetViewport(cmd_, 0, 1, &vp);
 	}

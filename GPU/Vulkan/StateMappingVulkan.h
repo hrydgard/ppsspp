@@ -58,4 +58,3 @@ struct VulkanPipelineRasterStateKey {
 };
 
 class ShaderManagerVulkan;
-void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);

@@ -132,7 +132,7 @@ public:
 private:
 	struct FrameData;
 
-	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
+	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanDynamicState &dynState);
 	void ApplyStateLate();
 
 	void InitDeviceObjects();
@@ -217,6 +217,9 @@ private:
 	PipelineManagerVulkan *pipelineManager_ = nullptr;
 	TextureCacheVulkan *textureCache_ = nullptr;
 	FramebufferManagerVulkan *framebufferManager_ = nullptr;
+
+	// Current pipeline key. Updated progressively.
+	VulkanPipelineRasterStateKey key_{};
 
 	VkSampler depalSampler_;
 

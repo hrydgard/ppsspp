@@ -722,10 +722,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				sampler = nullSampler_;
 		}
 
-		VulkanPipelineRasterStateKey pipelineKey;
 		VulkanDynamicState dynState;
-		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);
-
+		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, dynState);
 		ApplyStateLate();
 
 		if (dynState.useStencil) {
@@ -742,7 +740,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
 		shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
-		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, true);
+		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, key_, dec_, vshader, fshader, true);
 		if (!pipeline) {
 			// Already logged, let's bail out.
 			return;
@@ -824,9 +822,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 					sampler = nullSampler_;
 			}
 
-			VulkanPipelineRasterStateKey pipelineKey;
 			VulkanDynamicState dynState;
-			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);
+			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, dynState);
 			ApplyStateLate();
 			// TODO: Dirty-flag these.
 			if (dynState.useStencil) {
@@ -847,7 +844,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
 			shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, false);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, key_, dec_, vshader, fshader, false);
 			if (!pipeline) {
 				// Already logged, let's bail out.
 				return;
