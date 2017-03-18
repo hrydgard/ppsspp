@@ -1292,8 +1292,4 @@ namespace MainWindow {
 		}
 		return FALSE;
 	}
-
-	void ChangeMenu() {
-		SetIngameMenuItemStates(GetMenu(GetHWND()), UISTATE_INGAME);
-	}
 }
