@@ -411,8 +411,8 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 					break;
 				}
 			}
-			if (!foundMatch)
-				fprintf(stderr, "WARNING: No font contains character %x.\n", kar);
+			//if (!foundMatch)
+			//	fprintf(stderr, "WARNING: No font contains character %x.\n", kar);
 
 			Image<unsigned int> img;
 			if (filtered || 0 != FT_Load_Char(font, kar, FT_LOAD_RENDER|FT_LOAD_MONOCHROME)) {
@@ -969,5 +969,4 @@ int main(int argc, char **argv) {
   fprintf(h_file, "extern const Atlas %s_atlas;\n", atlas_name);
   fprintf(h_file, "extern const AtlasImage %s_images[%i];\n", atlas_name, (int)images.size());
   fclose(h_file);
-  // TODO: Turn into C++ arrays.
 }
