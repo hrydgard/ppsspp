@@ -20,6 +20,7 @@
 #include "Common/Log.h"
 #include "Common/CommonWindows.h"
 #include "gfx/gl_common.h"
+#include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
@@ -263,8 +264,6 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 	if (gl_extensions.IsCoreContext)
 		glGetError();
 
-	CheckGLExtensions();
-
 	int contextFlags = g_Config.bGfxDebugOutput ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
 
 	// Alright, now for the modernity. First try a 4.4, then 4.3, context, if that fails try 3.3.
@@ -273,21 +272,21 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
 		WGL_CONTEXT_MINOR_VERSION_ARB, 4,
 		WGL_CONTEXT_FLAGS_ARB, contextFlags,
-		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+		WGL_CONTEXT_PROFILE_MASK_ARB, gl_extensions.IsCoreContext ? WGL_CONTEXT_CORE_PROFILE_BIT_ARB : WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
 		0
 	};
 	const int attribs43[] = {
 		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
 		WGL_CONTEXT_MINOR_VERSION_ARB, 3,
 		WGL_CONTEXT_FLAGS_ARB, contextFlags,
-		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+		WGL_CONTEXT_PROFILE_MASK_ARB, gl_extensions.IsCoreContext ? WGL_CONTEXT_CORE_PROFILE_BIT_ARB : WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
 		0
 	};
 	const int attribs33[] = {
 		WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
 		WGL_CONTEXT_MINOR_VERSION_ARB, 3,
 		WGL_CONTEXT_FLAGS_ARB, contextFlags,
-		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+		WGL_CONTEXT_PROFILE_MASK_ARB, gl_extensions.IsCoreContext ? WGL_CONTEXT_CORE_PROFILE_BIT_ARB : WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
 		0
 	};
 
@@ -316,6 +315,9 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 		*error_message = "Failed to re-initialize GLEW.";
 		return false;
 	}
+	// Unfortunately, glew will generate an invalid enum error, ignore.
+	if (gl_extensions.IsCoreContext)
+		glGetError();
 
 	if (!m_hrc) {
 		*error_message = "No m_hrc";
@@ -364,6 +366,7 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
+	CHECK_GL_ERROR_IF_DEBUG();
 	return true;												// Success
 }
 
