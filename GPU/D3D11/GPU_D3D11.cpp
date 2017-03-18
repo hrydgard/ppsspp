@@ -343,6 +343,8 @@ void GPU_D3D11::BeginFrameInternal() {
 }
 
 void GPU_D3D11::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+	// TODO: Some games like Spongebob - Yellow Avenger, never change framebuffer, they blit to it.
+	// So breaking on frames doesn't work. Might want to move this to sceDisplay vsync.
 	host->GPUNotifyDisplay(framebuf, stride, format);
 	framebufferManagerD3D11_->SetDisplayFramebuffer(framebuf, stride, format);
 }
