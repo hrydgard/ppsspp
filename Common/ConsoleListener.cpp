@@ -610,7 +610,7 @@ void ConsoleListener::Log(const LogMessage &msg) {
 	if (bUseColor)
 	{
 		strcpy(ResetAttr, "\033[0m");
-		switch (msg.Level)
+		switch (msg.level)
 		{
 		case NOTICE_LEVEL: // light green
 			strcpy(ColorAttr, "\033[92m");
