@@ -349,11 +349,12 @@ void TextureCacheCommon::SetTexture(bool force) {
 			nextTexture_ = entry;
 			nextNeedsRehash_ = rehash;
 			nextNeedsChange_ = false;
-			// Might need a rebuild if the hash fails.
+			// Might need a rebuild if the hash fails, but that will be set later.
 			nextNeedsRebuild_ = false;
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
+			// Wasn't a match, we will rebuild.
 			nextChangeReason_ = reason;
 			nextNeedsChange_ = true;
 		}
@@ -501,6 +502,16 @@ bool TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 			}
 		}
 	}
+
+	entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
+	if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
+		if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
+			entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
+		} else {
+			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+		}
+	}
+	entry->numFrames = 0;
 
 	return replaceImages;
 }
@@ -1356,7 +1367,6 @@ void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 	}
 }
 
-
 void TextureCacheCommon::ApplyTexture() {
 	TexCacheEntry *entry = nextTexture_;
 	if (entry == nullptr) {
@@ -1456,19 +1466,12 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 		return true;
 	}
 
-	entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
-	if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-		if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
-			entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
-		} else {
-			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
-		}
-	}
-	entry->numFrames = 0;
-
 	// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
 	// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
 	if (g_Config.bTextureSecondaryCache) {
+		// Don't forget this one was unreliable (in case we match a secondary entry.)
+		entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
+
 		if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
 			u64 secondKey = fullhash | (u64)entry->cluthash << 32;
 			TexCache::iterator secondIter = secondCache_.find(secondKey);
