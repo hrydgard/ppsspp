@@ -1378,6 +1378,13 @@ void TextureCacheCommon::ApplyTexture() {
 
 	bool replaceImages = false;
 	if (nextNeedsRebuild_) {
+		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
+		// This prevents temporary scaling perf hits on the first second of video.
+		bool isVideo = videos_.find(entry->addr & 0x3FFFFFFF) != videos_.end();
+		if (isVideo) {
+			entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+		}
+
 		if (nextNeedsRehash_) {
 			// Update the hash on the texture.
 			int w = gstate.getTextureWidth(0);
