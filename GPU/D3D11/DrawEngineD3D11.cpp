@@ -135,7 +135,8 @@ void DrawEngineD3D11::ClearTrackedVertexArrays() {
 
 void DrawEngineD3D11::ClearInputLayoutMap() {
 	for (auto &decl : inputLayoutMap_) {
-		decl.second->Release();
+		if (decl.second)
+			decl.second->Release();
 	}
 	inputLayoutMap_.clear();
 }
@@ -258,7 +259,7 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 			inputLayout = nullptr;
 		}
 
-		// Add it to map
+		// Add it to map, even if it failed, to avoid trying over and over again. Shouldn't fail though.
 		inputLayoutMap_[key] = inputLayout;
 		return inputLayout;
 	} else {
@@ -593,7 +594,7 @@ void DrawEngineD3D11::DoFlush() {
 	// until critical state changes. That's when we draw (flush).
 
 	GEPrimitiveType prim = prevPrim_;
-	ApplyDrawState(prim);
+	ApplyDrawState();
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
@@ -775,7 +776,7 @@ rotateVBO:
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		ApplyDrawStateLate(true, dynState_.stencilRef);
+		ApplyDrawStateLate(prim, true, dynState_.stencilRef);
 
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
@@ -866,7 +867,7 @@ rotateVBO:
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			const int vertexSize = sizeof(transformed[0]);
 
-			ApplyDrawStateLate(result.setStencil, result.stencilValue);
+			ApplyDrawStateLate(prim, result.setStencil, result.stencilValue);
 
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;

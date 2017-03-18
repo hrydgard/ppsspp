@@ -162,8 +162,8 @@ private:
 	void DecodeVertsStep();
 	void DoFlush();
 
-	void ApplyDrawState(int prim);
-	void ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef);
+	void ApplyDrawState();
+	void ApplyDrawStateLate(int prim, bool applyStencilRef, uint8_t stencilRef);
 	void ResetShaderBlending();
 
 	void ClearInputLayoutMap();
@@ -243,12 +243,6 @@ private:
 	std::map<uint64_t, ID3D11BlendState1 *> blendCache1_;
 	std::map<uint64_t, ID3D11DepthStencilState *> depthStencilCache_;
 	std::map<uint32_t, ID3D11RasterizerState *> rasterCache_;
-
-	// Keep the depth state between ApplyDrawState and ApplyDrawStateLate
-	ID3D11RasterizerState *rasterState_ = nullptr;
-	ID3D11BlendState *blendState_ = nullptr;
-	ID3D11BlendState1 *blendState1_ = nullptr;
-	ID3D11DepthStencilState *depthStencilState_ = nullptr;
 
 	// State keys
 	D3D11StateKeys keys_{};

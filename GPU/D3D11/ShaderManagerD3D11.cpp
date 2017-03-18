@@ -178,7 +178,13 @@ void ShaderManagerD3D11::BindUniforms() {
 void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, bool useHWTransform) {
 	ShaderID VSID;
 	ShaderID FSID;
-	ComputeVertexShaderID(&VSID, vertType, useHWTransform);
+	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
+		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
+		ComputeVertexShaderID(&VSID, vertType, useHWTransform);
+	} else {
+		VSID = lastVSID_;
+	}
+
 	ComputeFragmentShaderID(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.

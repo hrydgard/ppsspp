@@ -499,6 +499,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	gstate_c.curRTHeight = vfb->height;
 	gstate_c.curRTRenderWidth = vfb->renderWidth;
 	gstate_c.curRTRenderHeight = vfb->renderHeight;
+
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 	return vfb;
 }
 
@@ -1004,6 +1006,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	else if (useBufferedRendering_) {
 		WARN_LOG(FRAMEBUF, "Current VFB lacks an FBO: %08x", vfb->fb_address);
 	}
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
