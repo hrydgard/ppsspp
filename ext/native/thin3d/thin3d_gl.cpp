@@ -369,7 +369,7 @@ class OpenGLPipeline : public Pipeline, GfxResourceHolder {
 public:
 	OpenGLPipeline() {
 		program_ = 0;
-		register_gl_resource_holder(this);
+		register_gl_resource_holder(this, "drawcontext_pipeline");
 	}
 	~OpenGLPipeline() {
 		unregister_gl_resource_holder(this);
@@ -890,7 +890,7 @@ public:
 		totalSize_ = size;
 		glBindBuffer(target_, buffer_);
 		glBufferData(target_, size, NULL, usage_);
-		register_gl_resource_holder(this);
+		register_gl_resource_holder(this, "drawcontext_buffer");
 	}
 	~OpenGLBuffer() override {
 		unregister_gl_resource_holder(this);
