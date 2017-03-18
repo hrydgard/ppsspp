@@ -34,7 +34,7 @@
 #include <emmintrin.h>
 #endif
 
-// Videos should be updated every few frames, so we forge quickly.
+// Videos should be updated every few frames, so we forget quickly.
 #define VIDEO_DECIMATE_AGE 4
 
 // If a texture hasn't been seen for this many frames, get rid of it.

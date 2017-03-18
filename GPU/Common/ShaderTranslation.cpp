@@ -210,7 +210,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 	// Can't fail, parsing worked, "linking" worked.
 	glslang::GlslangToSpv(*program.getIntermediate(shaderStage), spirv);
 
-	// Alright, step 1 done. Now let's takes this SPIR-V shader and output in our desired format.
+	// Alright, step 1 done. Now let's take this SPIR-V shader and output in our desired format.
 
 	switch (destLang) {
 	case GLSL_VULKAN:
