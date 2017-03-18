@@ -1,5 +1,5 @@
 // This is generic code that is included in all Android apps that use the
-// Native framework by Henrik Rydgård (https://github.com/hrydgard/native).
+// Native framework by Henrik Rydgard (https://github.com/hrydgard/native).
 
 // It calls a set of methods defined in NativeApp.h. These should be implemented
 // by your game or app.
@@ -602,6 +602,14 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- begin");
+	if (renderer_inited) {
+		NativeShutdownGraphics();
+		graphicsContext->Shutdown();
+		delete graphicsContext;
+		graphicsContext = nullptr;
+		renderer_inited = false;
+	}
+
 	NativeShutdown();
 	VFSShutdown();
 	ILOG("NativeApp.shutdown() -- end");
@@ -612,16 +620,23 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	if (javaGL && !graphicsContext) {
 		graphicsContext = new AndroidJavaEGLGraphicsContext();
 	}
-	ILOG("NativeApp.displayInit() (graphicsContext=%p)", graphicsContext);
 
-	if (!renderer_inited) {
+	if (renderer_inited) {
+		ILOG("NativeApp.displayInit() restoring");
+		NativeDeviceLost();
+		NativeShutdownGraphics();
+		NativeDeviceRestore();
+		NativeInitGraphics(graphicsContext);
+
+		ILOG("Restored.");
+	} else {
+		ILOG("NativeApp.displayInit() first time");
 		NativeInitGraphics(graphicsContext);
 		renderer_inited = true;
 		renderer_ever_inited = true;
-	} else {
-		NativeDeviceRestore();
-		ILOG("displayInit: NativeDeviceRestore completed.");
 	}
+
+	NativeMessageReceived("recreateviews", "");
 }
 
 // JavaEGL
@@ -693,19 +708,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 	// Still under lock here.
 	ProcessFrameCommands(env);
-}
-
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayShutdown(JNIEnv *env, jobject obj) {
-	ILOG("NativeApp.displayShutdown()");
-	if (renderer_inited) {
-		NativeDeviceLost();
-		NativeShutdownGraphics();
-		graphicsContext->Shutdown();
-		delete graphicsContext;
-		graphicsContext = nullptr;
-		renderer_inited = false;
-		NativeMessageReceived("recreateviews", "");
-	}
 }
 
 void System_AskForPermission(SystemPermission permission) {

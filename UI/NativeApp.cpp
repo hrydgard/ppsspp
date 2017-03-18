@@ -534,6 +534,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 }
 
 void NativeInitGraphics(GraphicsContext *graphicsContext) {
+	ILOG("NativeInitGraphics");
+
 	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
@@ -640,15 +642,16 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 #endif
 
 	g_gameInfoCache = new GameInfoCache();
+	ILOG("NativeInitGraphics completed");
 }
 
 void NativeShutdownGraphics() {
+	ILOG("NativeShutdownGraphics");
+
 #ifdef _WIN32
 	delete winAudioBackend;
 	winAudioBackend = NULL;
 #endif
-
-	screenManager->deviceLost();
 
 	delete g_gameInfoCache;
 	g_gameInfoCache = nullptr;
@@ -664,6 +667,8 @@ void NativeShutdownGraphics() {
 
 	colorPipeline->Release();
 	texColorPipeline->Release();
+
+	ILOG("NativeShutdownGraphics done");
 }
 
 void TakeScreenshot() {
@@ -873,20 +878,21 @@ void NativeUpdate() {
 }
 
 void NativeDeviceLost() {
-	if (g_gameInfoCache)
-		g_gameInfoCache->Clear();
-	screenManager->deviceLost();
+	// We start by calling gl_lost - this lets objects zero their native GL objects
+	// so they then don't try to delete them as well.
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost();
 	}
+	if (g_gameInfoCache)
+		g_gameInfoCache->Clear();
+	screenManager->deviceLost();
 }
 
 void NativeDeviceRestore() {
-	NativeDeviceLost();
-	screenManager->deviceRestore();
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_restore();
 	}
+	screenManager->deviceRestore();
 }
 
 bool NativeIsAtTopLevel() {

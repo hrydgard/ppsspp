@@ -145,7 +145,7 @@ DrawEngineGLES::DrawEngineGLES()
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
-	register_gl_resource_holder(this);
+	register_gl_resource_holder(this, "drawengine_gles", 1);
 
 	tessDataTransfer = new TessellationDataTransferGLES(gl_extensions.VersionGEThan(3, 0, 0));
 }
@@ -200,7 +200,6 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 		bufferNameInfo_.clear();
 		freeSizedBuffers_.clear();
 		bufferNameCacheSize_ = 0;
-
 		if (sharedVao_ != 0) {
 			glDeleteVertexArrays(1, &sharedVao_);
 		}
@@ -209,7 +208,7 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 
 void DrawEngineGLES::GLLost() {
 	ILOG("TransformDrawEngine::GLLost()");
-	// The objects have already been deleted.
+	// The objects have already been deleted by losing the context, so we don't call DestroyDeviceObjects.
 	bufferNameCache_.clear();
 	bufferNameInfo_.clear();
 	freeSizedBuffers_.clear();

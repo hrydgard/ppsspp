@@ -271,16 +271,18 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 	}
 }
 
-// Not registering this as a resource holder, instead Pipeline is registered. It will
-// invoke Compile again to recreate the shader then link them together.
-class OpenGLShaderModule : public ShaderModule {
+class OpenGLShaderModule : public ShaderModule, public GfxResourceHolder {
 public:
-	OpenGLShaderModule(ShaderStage stage) : stage_(stage), shader_(0) {
+	OpenGLShaderModule(ShaderStage stage) : stage_(stage) {
+		register_gl_resource_holder(this, "drawcontext_shader_module", 0);
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
 
 	~OpenGLShaderModule() {
-		glDeleteShader(shader_);
+		ILOG("Shader module destroyed");
+		if (shader_)
+			glDeleteShader(shader_);
+		unregister_gl_resource_holder(this);
 	}
 
 	bool Compile(ShaderLanguage language, const uint8_t *data, size_t dataSize);
@@ -289,9 +291,6 @@ public:
 	}
 	const std::string &GetSource() const { return source_; }
 
-	void Unset() {
-		shader_ = 0;
-	}
 	ShaderLanguage GetLanguage() {
 		return language_;
 	}
@@ -299,12 +298,25 @@ public:
 		return stage_;
 	}
 
+	void GLLost() override {
+		ILOG("Shader module lost");
+		// Shader has been destroyed since the old context is gone, so let's zero it.
+		shader_ = 0;
+	}
+
+	void GLRestore() override {
+		ILOG("Shader module being restored");
+		if (!Compile(language_, (const uint8_t *)source_.data(), source_.size())) {
+			ELOG("Shader restore compilation failed: %s", source_.c_str());
+		}
+	}
+
 private:
 	ShaderStage stage_;
 	ShaderLanguage language_;
-	GLuint shader_;
-	GLuint glstage_;
-	bool ok_;
+	GLuint shader_ = 0;
+	GLuint glstage_ = 0;
+	bool ok_ = false;
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
@@ -369,11 +381,12 @@ class OpenGLPipeline : public Pipeline, GfxResourceHolder {
 public:
 	OpenGLPipeline() {
 		program_ = 0;
-		register_gl_resource_holder(this);
+		// Priority 1 so this gets restored after the shaders.
+		register_gl_resource_holder(this, "drawcontext_pipeline", 1);
 	}
 	~OpenGLPipeline() {
 		unregister_gl_resource_holder(this);
-		for (auto iter : shaders) {
+		for (auto &iter : shaders) {
 			iter->Release();
 		}
 		glDeleteProgram(program_);
@@ -389,15 +402,10 @@ public:
 
 	void GLLost() override {
 		program_ = 0;
-		for (auto iter : shaders) {
-			iter->Unset();
-		}
 	}
 
 	void GLRestore() override {
-		for (auto iter : shaders) {
-			iter->Compile(iter->GetLanguage(), (const uint8_t *)iter->GetSource().c_str(), iter->GetSource().size());
-		}
+		// Shaders will have been restored before the pipeline.
 		LinkShaders();
 	}
 
@@ -890,7 +898,7 @@ public:
 		totalSize_ = size;
 		glBindBuffer(target_, buffer_);
 		glBufferData(target_, size, NULL, usage_);
-		register_gl_resource_holder(this);
+		register_gl_resource_holder(this, "drawcontext_buffer", 0);
 	}
 	~OpenGLBuffer() override {
 		unregister_gl_resource_holder(this);
@@ -959,6 +967,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			pipeline->dynamicUniforms = *desc.uniformDesc;
 		return pipeline;
 	} else {
+		ELOG("Failed to create pipeline - shaders failed to link");
 		delete pipeline;
 		return NULL;
 	}
@@ -1048,6 +1057,8 @@ bool OpenGLPipeline::LinkShaders() {
 			OutputDebugStringUTF8(buf);
 #endif
 			delete[] buf;
+		} else {
+			ELOG("Could not link program with %d shaders for unknown reason:", (int)shaders.size());
 		}
 		return false;
 	}
@@ -1228,9 +1239,25 @@ void OpenGLInputLayout::Unapply() {
 	}
 }
 
-class OpenGLFramebuffer : public Framebuffer {
+class OpenGLFramebuffer : public Framebuffer, public GfxResourceHolder {
 public:
+	OpenGLFramebuffer() {
+		register_gl_resource_holder(this, "framebuffer", 0);
+	}
 	~OpenGLFramebuffer();
+
+	void GLLost() override {
+		handle = 0;
+		color_texture = 0;
+		z_stencil_buffer = 0;
+		z_buffer = 0;
+		stencil_buffer = 0;
+	}
+
+	void GLRestore() override {
+		ELOG("Restoring framebuffers not yet implemented");
+	}
+
 	GLuint handle = 0;
 	GLuint color_texture = 0;
 	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
@@ -1624,14 +1651,16 @@ void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBCh
 }
 
 OpenGLFramebuffer::~OpenGLFramebuffer() {
+	unregister_gl_resource_holder(this);
 	CHECK_GL_ERROR_IF_DEBUG();
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
-		glBindFramebuffer(GL_FRAMEBUFFER, handle);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		if (handle)
+		if (handle) {
+			glBindFramebuffer(GL_FRAMEBUFFER, handle);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glDeleteFramebuffers(1, &handle);
+		}
 		if (z_stencil_buffer)
 			glDeleteRenderbuffers(1, &z_stencil_buffer);
 		if (z_buffer)
@@ -1640,12 +1669,13 @@ OpenGLFramebuffer::~OpenGLFramebuffer() {
 			glDeleteRenderbuffers(1, &stencil_buffer);
 	} else if (gl_extensions.EXT_framebuffer_object) {
 #ifndef USING_GLES2
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, handle);
-		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-		if (handle)
+		if (handle) {
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, handle);
+			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 			glDeleteFramebuffersEXT(1, &handle);
+		}
 		if (z_stencil_buffer)
 			glDeleteRenderbuffers(1, &z_stencil_buffer);
 		if (z_buffer)

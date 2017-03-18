@@ -59,6 +59,7 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	}
 
 	public void onSurfaceCreated(GL10 unused, EGLConfig config) {
+		Log.i(TAG, "onSurfaceCreated");
 		// Log.i(TAG, "onSurfaceCreated - EGL context is new or was lost");
 		// Actually, it seems that it is here we should recreate lost GL objects.
 		displayInit();
@@ -71,18 +72,13 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 		double actualH = sz.y;
 		dpi_scale_x = ((double)width / (double)actualW);
 		dpi_scale_y = ((double)height / (double)actualH);
-		Log.i(TAG, "onSurfaceChanged: " + dpi_scale_x + "x" + dpi_scale_y + " (width=" + width + ", actualW=" + actualW);
+		Log.i(TAG, "onSurfaceChanged: Scale: " + dpi_scale_x + "x" + dpi_scale_y + " (width=" + width + ", actualW=" + actualW);
 		int scaled_dpi = (int)((double)dpi * dpi_scale_x);
 		displayResize(width, height, scaled_dpi, refreshRate);
 		last_width = width;
 		last_height = height;
 	}
 
-	// Not override, it's custom.
-	public void onDestroyed() {
-		displayShutdown();
-	}
-	
 	// NATIVE METHODS
 
 	// Note: This also means "device lost" and you should reload
@@ -90,5 +86,4 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	public native void displayInit(); 
 	public native void displayResize(int w, int h, int dpi, float refreshRate);
 	public native void displayRender();
-	public native void displayShutdown();
 }

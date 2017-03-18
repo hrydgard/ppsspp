@@ -589,7 +589,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		if (javaGL) {
 			Log.i(TAG, "onDestroy");
 			mGLSurfaceView.onDestroy();
-			nativeRenderer.onDestroyed();
 			NativeApp.audioShutdown();
 			// Probably vain attempt to help the garbage collector...
 			mGLSurfaceView = null;
