@@ -725,9 +725,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		VulkanPipelineRasterStateKey pipelineKey;
 		VulkanDynamicState dynState;
 		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);
-		// TODO: Dirty-flag these.
-		vkCmdSetScissor(cmd_, 0, 1, &dynState.scissor);
-		vkCmdSetViewport(cmd_, 0, 1, &dynState.viewport);
+
+		ApplyStateLate();
+
 		if (dynState.useStencil) {
 			vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
 			vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
@@ -827,9 +827,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			VulkanPipelineRasterStateKey pipelineKey;
 			VulkanDynamicState dynState;
 			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);
+			ApplyStateLate();
 			// TODO: Dirty-flag these.
-			vkCmdSetScissor(cmd_, 0, 1, &dynState.scissor);
-			vkCmdSetViewport(cmd_, 0, 1, &dynState.viewport);
 			if (dynState.useStencil) {
 				vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
 				vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);

@@ -138,24 +138,18 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	GenericBlendState blendState;
 	ConvertBlendState(blendState, gstate_c.allowShaderBlend);
 
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-
-	ViewportAndScissor vpAndScissor;
-	ConvertViewportAndScissor(useBufferedRendering,
-		fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
-		fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
-		vpAndScissor);
-
 	if (blendState.applyShaderBlending) {
 		if (ApplyShaderBlending()) {
 			// We may still want to do something about stencil -> alpha.
 			ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
-		} else {
+		}
+		else {
 			// Until next time, force it off.
 			ResetShaderBlending();
 			gstate_c.allowShaderBlend = false;
 		}
-	} else if (blendState.resetShaderBlending) {
+	}
+	else if (blendState.resetShaderBlending) {
 		ResetShaderBlending();
 	}
 
@@ -174,7 +168,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		if (blendState.useBlendColor) {
 			dynState.blendColor = blendState.blendColor;
 		}
-	} else {
+	}
+	else {
 		key.blendEnable = false;
 		dynState.useBlendColor = false;
 	}
@@ -211,17 +206,20 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			// We override this value in the pipeline from software transform for clear rectangles.
 			dynState.stencilRef = 0xFF;
 			dynState.stencilWriteMask = 0xFF;
-		} else {
+		}
+		else {
 			key.stencilTestEnable = false;
 			dynState.useStencil = false;
 		}
-	} else {
+	}
+	else {
 		if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
 			// Logic Ops
 			if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
 				key.logicOpEnable = true;
 				key.logicOp = logicOps[gstate.getLogicOp()];
-			} else {
+			}
+			else {
 				key.logicOpEnable = false;
 			}
 		}
@@ -238,7 +236,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			if (gstate.isDepthWriteEnabled()) {
 				fbManager.SetDepthUpdated();
 			}
-		} else {
+		}
+		else {
 			key.depthTestEnable = false;
 			key.depthWriteEnable = false;
 			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
@@ -268,7 +267,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		// Let's not write to alpha if stencil isn't enabled.
 		if (!gstate.isStencilTestEnabled()) {
 			amask = false;
-		} else {
+		}
+		else {
 			// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
 			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
 				amask = false;
@@ -291,37 +291,55 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			dynState.stencilRef = stencilState.testRef;
 			dynState.stencilCompareMask = stencilState.testMask;
 			dynState.stencilWriteMask = stencilState.writeMask;
-		} else {
+		}
+		else {
 			key.stencilTestEnable = false;
 			dynState.useStencil = false;
 		}
 	}
 
 	key.topology = primToVulkan[prim];
+}
 
-	VkViewport &vp = dynState.viewport;
-	vp.x = vpAndScissor.viewportX;
-	vp.y = vpAndScissor.viewportY;
-	vp.width = vpAndScissor.viewportW;
-	vp.height = vpAndScissor.viewportH;
-	vp.minDepth = vpAndScissor.depthRangeMin;
-	vp.maxDepth = vpAndScissor.depthRangeMax;
-	if (vpAndScissor.dirtyProj) {
-		gstate_c.Dirty(DIRTY_PROJMATRIX);
-	}
+void DrawEngineVulkan::ApplyStateLate() {
+	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
 
-	VkRect2D &scissor = dynState.scissor;
-	scissor.offset.x = vpAndScissor.scissorX;
-	scissor.offset.y = vpAndScissor.scissorY;
-	scissor.extent.width = vpAndScissor.scissorW;
-	scissor.extent.height = vpAndScissor.scissorH;
+		ViewportAndScissor vpAndScissor;
+		bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		ConvertViewportAndScissor(useBufferedRendering,
+			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+			vpAndScissor);
 
-	float depthMin = vpAndScissor.depthRangeMin;
-	float depthMax = vpAndScissor.depthRangeMax;
+		VkViewport vp;
+		vp.x = vpAndScissor.viewportX;
+		vp.y = vpAndScissor.viewportY;
+		vp.width = vpAndScissor.viewportW;
+		vp.height = vpAndScissor.viewportH;
+		vp.minDepth = vpAndScissor.depthRangeMin;
+		vp.maxDepth = vpAndScissor.depthRangeMax;
+		if (vpAndScissor.dirtyProj) {
+			gstate_c.Dirty(DIRTY_PROJMATRIX);
+		}
 
-	if (depthMin < 0.0f) depthMin = 0.0f;
-	if (depthMax > 1.0f) depthMax = 1.0f;
-	if (vpAndScissor.dirtyDepth) {
-		gstate_c.Dirty(DIRTY_DEPTHRANGE);
+		VkRect2D scissor;
+		scissor.offset.x = vpAndScissor.scissorX;
+		scissor.offset.y = vpAndScissor.scissorY;
+		scissor.extent.width = vpAndScissor.scissorW;
+		scissor.extent.height = vpAndScissor.scissorH;
+
+		float depthMin = vpAndScissor.depthRangeMin;
+		float depthMax = vpAndScissor.depthRangeMax;
+
+		if (depthMin < 0.0f) depthMin = 0.0f;
+		if (depthMax > 1.0f) depthMax = 1.0f;
+		if (vpAndScissor.dirtyDepth) {
+			gstate_c.Dirty(DIRTY_DEPTHRANGE);
+		}
+
+		// TODO: Dirty-flag these.
+		vkCmdSetScissor(cmd_, 0, 1, &scissor);
+		vkCmdSetViewport(cmd_, 0, 1, &vp);
 	}
 }

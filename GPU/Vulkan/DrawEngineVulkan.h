@@ -133,6 +133,7 @@ private:
 	struct FrameData;
 
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
+	void ApplyStateLate();
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

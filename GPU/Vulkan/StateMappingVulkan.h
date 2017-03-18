@@ -7,8 +7,6 @@
 class FramebufferManagerVulkan;
 
 struct VulkanDynamicState {
-	VkViewport viewport;
-	VkRect2D scissor;
 	bool useBlendColor;
 	uint32_t blendColor;
 	bool useStencil;
