@@ -156,22 +156,23 @@ std::thread *graphicsLoadThread;
 
 class AndroidLogger : public LogListener {
 public:
-	void Log(LogTypes::LOG_LEVELS level, const char *msg) {
-		switch (level) {
+	void Log(const LogMessage &message) override {
+		// Log with simplified headers as Android already provides timestamp etc.
+		switch (message.level) {
 		case LogTypes::LVERBOSE:
 		case LogTypes::LDEBUG:
 		case LogTypes::LINFO:
-			ILOG("%s", msg);
+			ILOG("[%s] %s", message.log, message.msg.c_str());
 			break;
 		case LogTypes::LERROR:
-			ELOG("%s", msg);
+			ELOG("[%s] %s", message.log, message.msg.c_str());
 			break;
 		case LogTypes::LWARNING:
-			WLOG("%s", msg);
+			WLOG("[%s] %s", message.log, message.msg.c_str());
 			break;
 		case LogTypes::LNOTICE:
 		default:
-			ILOG("%s", msg);
+			ILOG("[%s] !!! %s", message.log, message.msg.c_str());
 			break;
 		}
 	}
@@ -466,12 +467,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #ifndef _WIN32
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		logman->SetEnable(type, true);
+		logman->SetEnabled(type, true);
 		logman->SetLogLevel(type, logLevel);
-#ifdef __ANDROID__
-		logman->AddListener(type, logger);
-#endif
 	}
+#ifdef __ANDROID__
+	logman->AddListener(logger);
+#endif
 #endif
 
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 

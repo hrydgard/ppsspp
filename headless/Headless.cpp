@@ -33,31 +33,28 @@
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-class PrintfLogger : public LogListener
-{
+class PrintfLogger : public LogListener {
 public:
-	void Log(LogTypes::LOG_LEVELS level, const char *msg)
-	{
-		switch (level)
-		{
+	void Log(const LogMessage &message) {
+		switch (message.level) {
 		case LogTypes::LVERBOSE:
-			fprintf(stderr, "V %s", msg);
+			fprintf(stderr, "V %s", message.msg.c_str());
 			break;
 		case LogTypes::LDEBUG:
-			fprintf(stderr, "D %s", msg);
+			fprintf(stderr, "D %s", message.msg.c_str());
 			break;
 		case LogTypes::LINFO:
-			fprintf(stderr, "I %s", msg);
+			fprintf(stderr, "I %s", message.msg.c_str());
 			break;
 		case LogTypes::LERROR:
-			fprintf(stderr, "E %s", msg);
+			fprintf(stderr, "E %s", message.msg.c_str());
 			break;
 		case LogTypes::LWARNING:
-			fprintf(stderr, "W %s", msg);
+			fprintf(stderr, "W %s", message.msg.c_str());
 			break;
 		case LogTypes::LNOTICE:
 		default:
-			fprintf(stderr, "N %s", msg);
+			fprintf(stderr, "N %s", message.msg.c_str());
 			break;
 		}
 	}
@@ -299,10 +296,10 @@ int main(int argc, const char* argv[])
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		logman->SetEnable(type, fullLog);
+		logman->SetEnabled(type, fullLog);
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
-		logman->AddListener(type, printfLogger);
 	}
+	logman->AddListener(printfLogger);
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;

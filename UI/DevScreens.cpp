@@ -83,7 +83,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 
 	RingbufferLogListener *ring = LogManager::GetInstance()->GetRingbufferListener();
 	if (ring) {
-		ring->SetEnable(true);
+		ring->SetEnabled(true);
 	}
 }
 
@@ -244,8 +244,8 @@ void LogConfigScreen::CreateViews() {
 		LogChannel *chan = logMan->GetLogChannel(type);
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(cellSize - 50, WRAP_CONTENT));
 		row->SetSpacing(0);
-		row->Add(new CheckBox(&chan->enable_, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
-		row->Add(new PopupMultiChoice(&chan->level_, chan->GetShortName(), logLevelList, 1, 6, 0, screenManager(), new LinearLayoutParams(1.0)));
+		row->Add(new CheckBox(&chan->enabled, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
+		row->Add(new PopupMultiChoice((int *)&chan->level, chan->m_shortName, logLevelList, 1, 6, 0, screenManager(), new LinearLayoutParams(1.0)));
 		grid->Add(row);
 	}
 }
@@ -254,7 +254,7 @@ UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
 		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
-		chan->enable_ = !chan->enable_;
+		chan->enabled = !chan->enabled;
 	}
 	return UI::EVENT_DONE;
 }
@@ -263,7 +263,7 @@ UI::EventReturn LogConfigScreen::OnEnableAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
 		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
-		chan->enable_ = true;
+		chan->enabled = true;
 	}
 	return UI::EVENT_DONE;
 }
@@ -272,7 +272,7 @@ UI::EventReturn LogConfigScreen::OnDisableAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
 		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
-		chan->enable_ = false;
+		chan->enabled = false;
 	}
 	return UI::EVENT_DONE;
 }
@@ -309,8 +309,8 @@ void LogLevelScreen::OnCompleted(DialogResult result) {
 	for (int i = 0; i < LogManager::GetNumChannels(); ++i) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		LogChannel *chan = logMan->GetLogChannel(type);
-		if(chan->enable_ )
-			chan->level_ = selected + 1;
+		if (chan->enabled)
+			chan->level = (LogTypes::LOG_LEVELS)(selected + 1);
 	}
 }
 

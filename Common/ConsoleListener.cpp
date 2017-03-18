@@ -585,20 +585,24 @@ void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool 
 	COORD Coo = GetCoordinates(OldCursor, LBufWidth);
 	SetConsoleCursorPosition(hConsole, Coo);
 
-	if (SLog.length() > 0) Log(LogTypes::LNOTICE, SLog.c_str());
+	// if (SLog.length() > 0) Log(LogTypes::LNOTICE, SLog.c_str());
 
 	// Resize the window too
 	if (Resize) MoveWindow(GetConsoleWindow(), Left,Top, (Width + 100),Height, true);
 #endif
 }
 
-void ConsoleListener::Log(LogTypes::LOG_LEVELS Level, const char *Text)
-{
+void ConsoleListener::Log(const LogMessage &msg) {
+	char Text[2048];
+	snprintf(Text, sizeof(Text), "%s %s", msg.header, msg.msg.c_str());
+	Text[sizeof(Text) - 2] = '\n';
+	Text[sizeof(Text) - 1] = '\0';
+
 #if defined(USING_WIN_UI)
 	if (hThread == NULL && IsOpen())
-		WriteToConsole(Level, Text, strlen(Text));
+		WriteToConsole(msg.level, Text, strlen(Text));
 	else
-		SendToThread(Level, Text);
+		SendToThread(msg.level, Text);
 #else
 	char ColorAttr[16] = "";
 	char ResetAttr[16] = "";
@@ -606,7 +610,7 @@ void ConsoleListener::Log(LogTypes::LOG_LEVELS Level, const char *Text)
 	if (bUseColor)
 	{
 		strcpy(ResetAttr, "\033[0m");
-		switch (Level)
+		switch (msg.level)
 		{
 		case NOTICE_LEVEL: // light green
 			strcpy(ColorAttr, "\033[92m");

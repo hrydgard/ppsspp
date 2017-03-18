@@ -68,7 +68,7 @@ enum LOG_TYPE {
 	NUMBER_OF_LOGS,  // Must be last
 };
 
-enum LOG_LEVELS {
+enum LOG_LEVELS : int {
 	LNOTICE = NOTICE_LEVEL,
 	LERROR = ERROR_LEVEL,
 	LWARNING = WARNING_LEVEL,
