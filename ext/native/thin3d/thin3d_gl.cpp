@@ -1228,9 +1228,25 @@ void OpenGLInputLayout::Unapply() {
 	}
 }
 
-class OpenGLFramebuffer : public Framebuffer {
+class OpenGLFramebuffer : public Framebuffer, public GfxResourceHolder {
 public:
+	OpenGLFramebuffer() {
+		register_gl_resource_holder(this, "framebuffer");
+	}
 	~OpenGLFramebuffer();
+
+	void GLLost() override {
+		handle = 0;
+		color_texture = 0;
+		z_stencil_buffer = 0;
+		z_buffer = 0;
+		stencil_buffer = 0;
+	}
+
+	void GLRestore() override {
+		ELOG("Restoring framebuffers not yet implemented");
+	}
+
 	GLuint handle = 0;
 	GLuint color_texture = 0;
 	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
@@ -1624,14 +1640,16 @@ void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBCh
 }
 
 OpenGLFramebuffer::~OpenGLFramebuffer() {
+	unregister_gl_resource_holder(this);
 	CHECK_GL_ERROR_IF_DEBUG();
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
-		glBindFramebuffer(GL_FRAMEBUFFER, handle);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		if (handle)
+		if (handle) {
+			glBindFramebuffer(GL_FRAMEBUFFER, handle);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glDeleteFramebuffers(1, &handle);
+		}
 		if (z_stencil_buffer)
 			glDeleteRenderbuffers(1, &z_stencil_buffer);
 		if (z_buffer)
@@ -1640,12 +1658,13 @@ OpenGLFramebuffer::~OpenGLFramebuffer() {
 			glDeleteRenderbuffers(1, &stencil_buffer);
 	} else if (gl_extensions.EXT_framebuffer_object) {
 #ifndef USING_GLES2
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, handle);
-		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-		if (handle)
+		if (handle) {
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, handle);
+			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 			glDeleteFramebuffersEXT(1, &handle);
+		}
 		if (z_stencil_buffer)
 			glDeleteRenderbuffers(1, &z_stencil_buffer);
 		if (z_buffer)

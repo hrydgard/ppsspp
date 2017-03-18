@@ -11,6 +11,10 @@
 // However, with D3D UWP, and potentially other platforms, there is a lost event.
 // So we keep that infrastructure, but with GL we simply call both Lost and Restore when we detect a Restore.
 
+// For code simplicity, it may be a good idea to manually tear down and recreate everything. Even in this case,
+// it's important to use this to zero out resource handles in GLLost() - gl_lost should be called before you
+// tear things down, so then you can check if handles are zero and avoid deleting resources that are already gone.
+
 class GfxResourceHolder {
 public:
 	virtual ~GfxResourceHolder() {}
