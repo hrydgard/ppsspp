@@ -788,7 +788,7 @@ extern int metasocket;
 extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
-extern std::mutex peerlock;
+extern std::recursive_mutex peerlock;
 extern SceNetAdhocPdpStat * pdp[255];
 extern SceNetAdhocPtpStat * ptp[255];
 extern std::map<int, AdhocctlHandler> adhocctlHandlers;

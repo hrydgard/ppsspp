@@ -51,7 +51,7 @@ int metasocket;
 SceNetAdhocctlParameter parameter;
 SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;
-std::mutex peerlock;
+std::recursive_mutex peerlock;
 SceNetAdhocPdpStat * pdp[255];
 SceNetAdhocPtpStat * ptp[255];
 uint32_t localip;
@@ -104,7 +104,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 	if (packet == NULL) return;
 
 	// Multithreading Lock
-	std::lock_guard<std::mutex> guard(peerlock);
+	std::lock_guard<std::recursive_mutex> guard(peerlock);
 
 	SceNetAdhocctlPeerInfo * peer = findFriend(&packet->mac);
 	// Already existed
@@ -1525,7 +1525,7 @@ bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
 	}
 
 	// Multithreading Lock
-	std::lock_guard<std::mutex> guard(peerlock);
+	std::lock_guard<std::recursive_mutex> guard(peerlock);
 
 	// Peer Reference
 	SceNetAdhocctlPeerInfo * peer = friends;
