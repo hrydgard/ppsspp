@@ -104,6 +104,9 @@ struct TexCacheEntry {
 		STATUS_DEPALETTIZE = 0x40,     // Needs to go through a depalettize pass.
 		STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
 		STATUS_IS_SCALED = 0x100,      // Has been scaled (can't be replaceImages'd.)
+		// When hashing large textures, we optimize 512x512 down to 512x272 by default, since this
+		// is commonly the only part accessed.  If access is made above 272, we hash the entire
+		// texture, and set this flag to allow scaling the texture just once for the new hash.
 		STATUS_FREE_CHANGE = 0x200,    // Allow one change before marking "frequent".
 	};
 
