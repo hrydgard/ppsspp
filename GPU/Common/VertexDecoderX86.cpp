@@ -107,7 +107,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
-// 	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
+	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
 	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
@@ -874,12 +874,27 @@ void VertexDecoderJitCache::Jit_TcU16Through() {
 
 void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	PXOR(fpScratchReg2, R(fpScratchReg2));
-	MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->tcoff));
+	MOV(32, R(tempReg1), MDisp(srcReg, dec_->tcoff));
+	MOVD_xmm(fpScratchReg, R(tempReg1));
 	PUNPCKLWD(fpScratchReg, R(fpScratchReg2));
 	CVTDQ2PS(fpScratchReg, R(fpScratchReg));
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 
-	// TODO: This is missing updateSide!
+	MOV(32, R(tempReg2), R(tempReg1));
+	SHR(32, R(tempReg2), Imm8(16));
+
+	auto updateSide = [&](X64Reg r, CCFlags skipCC, u16 *value) {
+		CMP(16, R(r), M(value));
+		FixupBranch skip = J_CC(skipCC);
+		MOV(16, M(value), R(r));
+		SetJumpTarget(skip);
+	};
+
+	// TODO: Can this actually be fast?  Hmm, floats aren't better.
+	updateSide(tempReg1, CC_GE, &gstate_c.vertBounds.minU);
+	updateSide(tempReg1, CC_LE, &gstate_c.vertBounds.maxU);
+	updateSide(tempReg2, CC_GE, &gstate_c.vertBounds.minV);
+	updateSide(tempReg2, CC_LE, &gstate_c.vertBounds.maxV);
 }
 
 void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
