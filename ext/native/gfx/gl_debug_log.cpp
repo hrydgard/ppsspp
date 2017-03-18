@@ -11,6 +11,7 @@ std::string GLEnumToString(uint16_t value) {
 	case GL_UNSIGNED_SHORT_4_4_4_4: return "GL_UNSIGNED_SHORT_4_4_4_4";
 	case GL_UNSIGNED_SHORT_5_5_5_1: return "GL_UNSIGNED_SHORT_5_5_5_1";
 	case GL_UNSIGNED_SHORT_5_6_5: return "GL_UNSIGNED_SHORT_5_6_5";
+	case GL_UNSIGNED_BYTE: return "GL_UNSIGNED_BYTE";
 	case GL_RGBA: return "GL_RGBA";
 	case GL_RGB: return "GL_RGB";
 #if !defined(USING_GLES2)
