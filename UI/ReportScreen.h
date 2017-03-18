@@ -23,7 +23,7 @@
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
 
-class ReportScreen : public UIScreenWithGameBackground {
+class ReportScreen : public UIDialogScreenWithGameBackground {
 public:
 	ReportScreen(const std::string &gamePath);
 

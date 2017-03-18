@@ -154,7 +154,7 @@ void CompatRatingChoice::SetupChoices() {
 }
 
 ReportScreen::ReportScreen(const std::string &gamePath)
-	: UIScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1),
+	: UIDialogScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1),
 	includeScreenshot_(true) {
 	enableReporting_ = Reporting::IsEnabled();
 	ratingEnabled_ = enableReporting_;
@@ -168,7 +168,7 @@ void ReportScreen::update() {
 			screenshot_->SetVisibility(V_GONE);
 		}
 	}
-	UIScreenWithGameBackground::update();
+	UIDialogScreenWithGameBackground::update();
 }
 
 EventReturn ReportScreen::HandleChoice(EventParams &e) {
