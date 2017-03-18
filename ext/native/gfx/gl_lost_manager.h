@@ -26,7 +26,7 @@ void gl_lost_manager_init();
 void gl_lost_manager_shutdown();
 
 // The string pointed to by desc must be a constant or otherwise live for the entire registered lifetime of the object.
-void register_gl_resource_holder(GfxResourceHolder *holder, const char *desc);
+void register_gl_resource_holder(GfxResourceHolder *holder, const char *desc, int priority);
 void unregister_gl_resource_holder(GfxResourceHolder *holder);
 
 // Notifies all objects it's time to forget / delete things.

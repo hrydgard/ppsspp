@@ -16,7 +16,7 @@ class ManagedTexture : public GfxResourceHolder {
 public:
 	ManagedTexture(Draw::DrawContext *draw) : draw_(draw), texture_(nullptr) {
 		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
-			register_gl_resource_holder(this, "managed_texture");
+			register_gl_resource_holder(this, "managed_texture", 0);
 	}
 	~ManagedTexture() {
 		if (texture_)

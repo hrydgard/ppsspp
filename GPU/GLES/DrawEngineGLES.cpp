@@ -145,7 +145,7 @@ DrawEngineGLES::DrawEngineGLES()
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
-	register_gl_resource_holder(this, "drawengine_gles");
+	register_gl_resource_holder(this, "drawengine_gles", 1);
 
 	tessDataTransfer = new TessellationDataTransferGLES(gl_extensions.VersionGEThan(3, 0, 0));
 }

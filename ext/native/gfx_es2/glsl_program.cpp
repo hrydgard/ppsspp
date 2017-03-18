@@ -49,7 +49,7 @@ GLSLProgram *glsl_create(const char *vshader, const char *fshader, std::string *
 		delete program;
 		return 0;
 	}
-	register_gl_resource_holder(program, "glsl_program");
+	register_gl_resource_holder(program, "glsl_program", 0);
 	return program;
 }
 
@@ -70,7 +70,7 @@ GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src
 		delete program;
 		return 0;
 	}
-	register_gl_resource_holder(program, "glsl_program_src");
+	register_gl_resource_holder(program, "glsl_program_src", 0);
 	return program;
 }
 

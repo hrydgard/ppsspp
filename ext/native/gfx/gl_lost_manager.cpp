@@ -7,20 +7,24 @@
 struct Holder {
 	GfxResourceHolder *holder;
 	const char *desc;
+	int priority;
 };
 
 std::vector<Holder> *holders;
 
 static bool inLost;
 static bool inRestore;
+static int g_max_priority = 0;
 
-void register_gl_resource_holder(GfxResourceHolder *holder, const char *desc) {
+void register_gl_resource_holder(GfxResourceHolder *holder, const char *desc, int priority) {
 	if (inLost || inRestore) {
 		FLOG("BAD: Should not call register_gl_resource_holder from lost/restore path");
 		return;
 	}
 	if (holders) {
-		holders->push_back({ holder, desc });
+		holders->push_back({ holder, desc, priority });
+		if (g_max_priority < priority)
+			g_max_priority = priority;
 	} else {
 		WLOG("GL resource holder not initialized, cannot register resource");
 	}
@@ -53,9 +57,14 @@ void gl_restore() {
 	}
 
 	ILOG("gl_restore() restoring %d items:", (int)holders->size());
-	for (size_t i = 0; i < holders->size(); i++) {
-		ILOG("gl_restore(%d / %d, %s)", (int)(i + 1), (int)holders->size(), (*holders)[i].desc);
-		(*holders)[i].holder->GLRestore();
+	for (int p = 0; p <= g_max_priority; p++) {
+		for (size_t i = 0; i < holders->size(); i++) {
+			if ((*holders)[i].priority == p) {
+				ILOG("GLRestore(%d / %d, %s, prio %d)", (int)(i + 1), (int)holders->size(),
+					 (*holders)[i].desc, (*holders)[i].priority);
+				(*holders)[i].holder->GLRestore();
+			}
+		}
 	}
 	ILOG("gl_restore() completed on %d items:", (int)holders->size());
 	inRestore = false;
@@ -70,9 +79,14 @@ void gl_lost() {
 	}
 
 	ILOG("gl_lost() clearing %i items:", (int)holders->size());
-	for (size_t i = 0; i < holders->size(); i++) {
-		ILOG("gl_lost(%d / %d, %s)", (int)(i + 1), (int)holders->size(), (*holders)[i].desc);
-		(*holders)[i].holder->GLLost();
+	for (int p = g_max_priority; p >= 0; p--) {
+		for (size_t i = 0; i < holders->size(); i++) {
+			if ((*holders)[i].priority == p) {
+				ILOG("gl_lost(%d / %d, %s, prio %d)", (int) (i + 1), (int) holders->size(),
+					 (*holders)[i].desc, (*holders)[i].priority);
+				(*holders)[i].holder->GLLost();
+			}
+		}
 	}
 	ILOG("gl_lost() completed on %i items:", (int)holders->size());
 	inLost = false;
@@ -83,6 +97,7 @@ void gl_lost_manager_init() {
 		FLOG("Double GL lost manager init");
 		// Dead here (FLOG), no need to delete holders
 	}
+	g_max_priority = 0;
 	holders = new std::vector<Holder>();
 }
 

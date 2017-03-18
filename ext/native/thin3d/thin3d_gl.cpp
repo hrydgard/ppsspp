@@ -271,16 +271,18 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 	}
 }
 
-// Not registering this as a resource holder, instead Pipeline is registered. It will
-// invoke Compile again to recreate the shader then link them together.
-class OpenGLShaderModule : public ShaderModule {
+class OpenGLShaderModule : public ShaderModule, public GfxResourceHolder {
 public:
-	OpenGLShaderModule(ShaderStage stage) : stage_(stage), shader_(0) {
+	OpenGLShaderModule(ShaderStage stage) : stage_(stage) {
+		register_gl_resource_holder(this, "drawcontext_shader_module", 0);
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
 
 	~OpenGLShaderModule() {
-		glDeleteShader(shader_);
+		ILOG("Shader module destroyed");
+		if (shader_)
+			glDeleteShader(shader_);
+		unregister_gl_resource_holder(this);
 	}
 
 	bool Compile(ShaderLanguage language, const uint8_t *data, size_t dataSize);
@@ -289,9 +291,6 @@ public:
 	}
 	const std::string &GetSource() const { return source_; }
 
-	void Unset() {
-		shader_ = 0;
-	}
 	ShaderLanguage GetLanguage() {
 		return language_;
 	}
@@ -299,12 +298,25 @@ public:
 		return stage_;
 	}
 
+	void GLLost() override {
+		ILOG("Shader module lost");
+		// Shader has been destroyed since the old context is gone, so let's zero it.
+		shader_ = 0;
+	}
+
+	void GLRestore() override {
+		ILOG("Shader module being restored");
+		if (!Compile(language_, (const uint8_t *)source_.data(), source_.size())) {
+			ELOG("Shader restore compilation failed: %s", source_.c_str());
+		}
+	}
+
 private:
 	ShaderStage stage_;
 	ShaderLanguage language_;
-	GLuint shader_;
-	GLuint glstage_;
-	bool ok_;
+	GLuint shader_ = 0;
+	GLuint glstage_ = 0;
+	bool ok_ = false;
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
@@ -369,11 +381,12 @@ class OpenGLPipeline : public Pipeline, GfxResourceHolder {
 public:
 	OpenGLPipeline() {
 		program_ = 0;
-		register_gl_resource_holder(this, "drawcontext_pipeline");
+		// Priority 1 so this gets restored after the shaders.
+		register_gl_resource_holder(this, "drawcontext_pipeline", 1);
 	}
 	~OpenGLPipeline() {
 		unregister_gl_resource_holder(this);
-		for (auto iter : shaders) {
+		for (auto &iter : shaders) {
 			iter->Release();
 		}
 		glDeleteProgram(program_);
@@ -389,15 +402,10 @@ public:
 
 	void GLLost() override {
 		program_ = 0;
-		for (auto iter : shaders) {
-			iter->Unset();
-		}
 	}
 
 	void GLRestore() override {
-		for (auto iter : shaders) {
-			iter->Compile(iter->GetLanguage(), (const uint8_t *)iter->GetSource().c_str(), iter->GetSource().size());
-		}
+		// Shaders will have been restored before the pipeline.
 		LinkShaders();
 	}
 
@@ -890,7 +898,7 @@ public:
 		totalSize_ = size;
 		glBindBuffer(target_, buffer_);
 		glBufferData(target_, size, NULL, usage_);
-		register_gl_resource_holder(this, "drawcontext_buffer");
+		register_gl_resource_holder(this, "drawcontext_buffer", 0);
 	}
 	~OpenGLBuffer() override {
 		unregister_gl_resource_holder(this);
@@ -959,6 +967,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			pipeline->dynamicUniforms = *desc.uniformDesc;
 		return pipeline;
 	} else {
+		ELOG("Failed to create pipeline - shaders failed to link");
 		delete pipeline;
 		return NULL;
 	}
@@ -1048,6 +1057,8 @@ bool OpenGLPipeline::LinkShaders() {
 			OutputDebugStringUTF8(buf);
 #endif
 			delete[] buf;
+		} else {
+			ELOG("Could not link program with %d shaders for unknown reason:", (int)shaders.size());
 		}
 		return false;
 	}
@@ -1231,7 +1242,7 @@ void OpenGLInputLayout::Unapply() {
 class OpenGLFramebuffer : public Framebuffer, public GfxResourceHolder {
 public:
 	OpenGLFramebuffer() {
-		register_gl_resource_holder(this, "framebuffer");
+		register_gl_resource_holder(this, "framebuffer", 0);
 	}
 	~OpenGLFramebuffer();
 
