@@ -265,7 +265,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	B(CC_NEQ, loopStart);
 
 	if (dec.col) {
-		MOVP2R(tempRegPtr, &gstate_c.vertexFullAlpha);
+		MOVP2R(tempRegPtr, &gstate_c.decoderVertexFullAlpha);
 		CMP(fullAlphaReg, 0);
 		FixupBranch skip = B(CC_NEQ);
 		STRB(INDEX_UNSIGNED, fullAlphaReg, tempRegPtr, 0);

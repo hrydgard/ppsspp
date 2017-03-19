@@ -513,6 +513,12 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetVertexFullAlpha(bool fullAlpha) {
+		if (fullAlpha != vertexFullAlpha) {
+			vertexFullAlpha = fullAlpha;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
 	void SetNeedShaderTexclamp(bool need) {
 		if (need != needShaderTexClamp) {
 			needShaderTexClamp = need;
@@ -537,6 +543,7 @@ struct GPUStateCache {
 	bool textureFullAlpha;
 	bool textureSimpleAlpha;
 	bool vertexFullAlpha;
+	bool decoderVertexFullAlpha;
 
 	int skipDrawReason;
 

@@ -372,6 +372,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 		}
 	}
 
+	// Unchanged, doesn't need to dirty.
 	gstate_c.vertexFullAlpha = savedVertexFullAlpha;
 
 	return true;

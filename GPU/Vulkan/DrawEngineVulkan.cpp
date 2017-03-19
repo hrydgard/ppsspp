@@ -708,9 +708,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255));
 		} else {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255));
 		}
 
 		if (textureNeedsApply) {
@@ -776,9 +776,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		DecodeVerts(nullptr, nullptr, nullptr);
 		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255));
 		} else {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255));
 		}
 
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
@@ -892,7 +892,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	numDrawCalls = 0;
 	vertexCountInDrawCalls = 0;
 	prevPrim_ = GE_PRIM_INVALID;
-	gstate_c.vertexFullAlpha = true;
+	gstate_c.decoderVertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 	// Now seems as good a time as any to reset the min/max coords, which we may examine later.
