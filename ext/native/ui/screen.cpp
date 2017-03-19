@@ -124,7 +124,7 @@ void ScreenManager::render() {
 				backback.screen->preRender();
 				backback.screen->render();
 				stack_.back().screen->render();
-				stack_.back().screen->postRender();
+				backback.screen->postRender();
 				break;
 			}
 		default:
