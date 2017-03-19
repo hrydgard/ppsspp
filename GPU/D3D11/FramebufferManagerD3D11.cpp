@@ -614,11 +614,16 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 void FramebufferManagerD3D11::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
 	if (vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
 		OptimizeDownloadRange(vfb, x, y, w, h);
-		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-
-		PackFramebufferD3D11_(nvfb, x, y, w, h);
+		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
+			// No need to blit
+			PackFramebufferD3D11_(vfb, x, y, w, h);
+		}
+		else {
+			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
+			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+			PackFramebufferD3D11_(nvfb, x, y, w, h);
+		}
 
 		textureCacheD3D11_->ForgetLastTexture();
 		RebindFramebuffer();
@@ -840,8 +845,7 @@ void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int
 	ID3D11Texture2D *colorTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT, 0);
 
 	// TODO: Only copy the necessary rectangle.
-	// D3D11_BOX srcBox{ 0, 0, 0, vfb->width, vfb->height, 1 };
-	D3D11_BOX srcBox{ x, y, 0, vfb->width, vfb->height, 1 };
+	D3D11_BOX srcBox{ x, y, 0, x+w, y+h, 1 };
 	context_->CopySubresourceRegion(packTexture_, 0, x, y, 0, colorTex, 0, &srcBox);
 
 	// Ideally, we'd round robin between two packTexture_, and simply use the other one. Though if the game
