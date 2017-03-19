@@ -132,7 +132,7 @@ public:
 private:
 	struct FrameData;
 
-	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanDynamicState &dynState);
+	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanDynamicState &dynState, bool overrideStencilRef, uint8_t stencilRef);
 	void ApplyStateLate();
 
 	void InitDeviceObjects();

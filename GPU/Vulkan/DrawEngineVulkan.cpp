@@ -723,7 +723,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		}
 
 		VulkanDynamicState dynState;
-		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, dynState);
+		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, dynState, false, 0);
 		ApplyStateLate();
 
 		if (dynState.useStencil) {
@@ -823,18 +823,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			}
 
 			VulkanDynamicState dynState;
-			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, dynState);
+			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, dynState, result.setStencil, result.stencilValue);
 			ApplyStateLate();
-			// TODO: Dirty-flag these.
-			if (dynState.useStencil) {
-				vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
-				vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
-			}
-			if (result.setStencil) {
-				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, result.stencilValue);
-			} else if (dynState.useStencil) {
-				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
-			}
 			if (dynState.useBlendColor) {
 				float bc[4];
 				Uint8x4ToFloat4(bc, dynState.blendColor);
