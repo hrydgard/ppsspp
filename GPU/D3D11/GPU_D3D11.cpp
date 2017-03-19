@@ -588,6 +588,7 @@ void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
 	bool patchFacing = gstate.patchfacing & 1;
 
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.bezier = true;
 		if (gstate_c.spline_count_u != bz_ucount) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
@@ -598,6 +599,8 @@ void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
 	int bytesRead = 0;
 	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
 
+	if (gstate_c.bezier)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	gstate_c.bezier = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -649,6 +652,7 @@ void GPU_D3D11::Execute_Spline(u32 op, u32 diff) {
 	u32 vertType = gstate.vertType;
 
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.spline = true;
 		bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
 		bool typesChanged = gstate_c.spline_type_u != sp_utype || gstate_c.spline_type_v != sp_vtype;
@@ -663,6 +667,8 @@ void GPU_D3D11::Execute_Spline(u32 op, u32 diff) {
 	int bytesRead = 0;
 	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
 
+	if (gstate_c.spline)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	gstate_c.spline = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
