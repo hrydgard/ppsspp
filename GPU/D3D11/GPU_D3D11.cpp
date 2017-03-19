@@ -303,7 +303,7 @@ void GPU_D3D11::BeginHostFrame() {
 	if (resized_) {
 		drawEngine_.Resized();
 		textureCacheD3D11_->NotifyConfigChanged();
-		shaderManagerD3D11_->DirtyShader();
+		shaderManagerD3D11_->DirtyLastShader();
 		resized_ = false;
 	}
 }
@@ -337,7 +337,7 @@ void GPU_D3D11::BeginFrameInternal() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
-	shaderManagerD3D11_->DirtyShader();
+	shaderManagerD3D11_->DirtyLastShader();
 
 	framebufferManagerD3D11_->BeginFrame();
 }

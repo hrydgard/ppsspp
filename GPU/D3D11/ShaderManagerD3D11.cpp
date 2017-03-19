@@ -130,19 +130,13 @@ void ShaderManagerD3D11::Clear() {
 
 void ShaderManagerD3D11::ClearShaders() {
 	Clear();
-	DirtyShader();
+	DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 }
 
-void ShaderManagerD3D11::DirtyShader() {
-	// Forget the last shader ID
+void ShaderManagerD3D11::DirtyLastShader() {
 	lastFSID_.clear();
 	lastVSID_.clear();
-	lastVShader_ = nullptr;
-	lastFShader_ = nullptr;
-}
-
-void ShaderManagerD3D11::DirtyLastShader() { // disables vertex arrays
 	lastVShader_ = nullptr;
 	lastFShader_ = nullptr;
 }

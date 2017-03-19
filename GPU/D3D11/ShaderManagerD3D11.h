@@ -94,7 +94,6 @@ public:
 
 	void GetShaders(int prim, u32 vertType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, bool useHWTransform);
 	void ClearShaders();
-	void DirtyShader();
 	void DirtyLastShader() override;
 
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
