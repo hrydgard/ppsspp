@@ -692,6 +692,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 
 		RebindFramebuffer();
 	}
+	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -1007,7 +1008,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	else if (useBufferedRendering_) {
 		WARN_LOG(FRAMEBUF, "Current VFB lacks an FBO: %08x", vfb->fb_address);
 	}
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {

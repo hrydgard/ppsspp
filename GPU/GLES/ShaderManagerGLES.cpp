@@ -894,7 +894,13 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 
 LinkedShader *ShaderManagerGLES::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim) {
 	ShaderID FSID;
-	ComputeFragmentShaderID(&FSID);
+	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
+		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
+		ComputeFragmentShaderID(&FSID);
+	} else {
+		FSID = lastFSID_;
+	}
+
 	if (lastVShaderSame_ && FSID == lastFSID_) {
 		lastShader_->UpdateUniforms(vertType, VSID);
 		return lastShader_;
