@@ -716,6 +716,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	bool linearFilter = vfb || g_Config.iBufFilter == SCALE_LINEAR;
 	Bind2DShader();
 	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
 void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
