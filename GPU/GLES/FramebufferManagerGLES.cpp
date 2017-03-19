@@ -114,6 +114,8 @@ void FramebufferManagerGLES::DisableState() {
 #endif
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glstate.stencilMask.set(0xFF);
+
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
 void FramebufferManagerGLES::CompileDraw2DProgram() {

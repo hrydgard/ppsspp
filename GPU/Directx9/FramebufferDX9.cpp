@@ -115,6 +115,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		dxstate.stencilTest.disable();
 		dxstate.colorMask.set(true, true, true, true);
 		dxstate.stencilMask.set(0xFF);
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 
 	FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
