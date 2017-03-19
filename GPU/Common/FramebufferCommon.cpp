@@ -692,6 +692,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 
 		RebindFramebuffer();
 	}
+	// TODO: Necessary?
 	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 }
 

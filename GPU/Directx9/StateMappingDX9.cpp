@@ -137,7 +137,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		gstate_c.Clean(DIRTY_BLEND_STATE);
 		// Unfortunately, this isn't implemented yet.
-		gstate_c.allowShaderBlend = false;
+		gstate_c.SetAllowShaderBlend(false);
 		// Set ColorMask/Stencil/Depth
 		if (gstate.isModeClear()) {
 			dxstate.blend.disable();
@@ -156,7 +156,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
-					gstate_c.allowShaderBlend = false;
+					gstate_c.SetAllowShaderBlend(false);
 				}
 			} else if (blendState.resetShaderBlending) {
 				ResetShaderBlending();

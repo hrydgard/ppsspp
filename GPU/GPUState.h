@@ -519,6 +519,12 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetAllowShaderBlend(bool allow) {
+		if (allow != allowShaderBlend) {
+			allowShaderBlend = allow;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
 
 	u32 featureFlags;
 

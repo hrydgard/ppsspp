@@ -163,7 +163,7 @@ void DrawEngineD3D11::ApplyDrawStateLate(int prim, bool applyStencilRef, uint8_t
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		gstate_c.Clean(DIRTY_BLEND_STATE);
-		gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
+		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
 
 		if (gstate.isModeClear()) {
 			keys_.blend.logicOpEnable = false;
@@ -206,7 +206,7 @@ void DrawEngineD3D11::ApplyDrawStateLate(int prim, bool applyStencilRef, uint8_t
 				else {
 					// Until next time, force it off.
 					ResetShaderBlending();
-					gstate_c.allowShaderBlend = false;
+					gstate_c.SetAllowShaderBlend(false);
 				}
 			}
 			else if (blendState.resetShaderBlending) {
