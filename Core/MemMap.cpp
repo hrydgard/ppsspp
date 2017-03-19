@@ -157,7 +157,7 @@ static bool Memory_TryBase(u32 flags) {
 			position, view.size, base + view.virtual_address);
 		if (!*view.out_ptr) {
 			goto bail;
-			ERROR_LOG(MEMMAP, "Failed at view %d", i);
+			DEBUG_LOG(MEMMAP, "Failed at view %d", i);
 		}
 #else
 		if (CanIgnoreView(view)) {
@@ -167,7 +167,7 @@ static bool Memory_TryBase(u32 flags) {
 			*view.out_ptr = (u8*)g_arena.CreateView(
 				position, view.size, base + (view.virtual_address & MEMVIEW32_MASK));
 			if (!*view.out_ptr) {
-				ERROR_LOG(MEMMAP, "Failed at view %d", i);
+				DEBUG_LOG(MEMMAP, "Failed at view %d", i);
 				goto bail;
 			}
 		}
