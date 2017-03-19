@@ -11,7 +11,9 @@
 static const bool ClickDebug = false;
 
 UIScreen::UIScreen()
-	: Screen(), root_(0), recreateViews_(true), hatDown_(0) {
+	: Screen(), root_(nullptr), recreateViews_(true), hatDown_(0) {
+	translation_ = Vec3(0.0f);
+	scale_ = Vec3(1.0f);
 }
 
 UIScreen::~UIScreen() {
@@ -88,14 +90,31 @@ void UIScreen::render() {
 	DoRecreateViews();
 
 	if (root_) {
-		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+		UIContext *uiContext = screenManager()->getUIContext();
+		UI::LayoutViewHierarchy(*uiContext, root_);
 
-		screenManager()->getUIContext()->Begin();
-		DrawBackground(*screenManager()->getUIContext());
-		root_->Draw(*screenManager()->getUIContext());
-		screenManager()->getUIContext()->End();
-		screenManager()->getUIContext()->Flush();
+		uiContext->PushTransform({translation_, scale_, alpha_});
+
+		uiContext->Begin();
+		DrawBackground(*uiContext);
+		root_->Draw(*uiContext);
+		uiContext->End();
+		uiContext->Flush();
+
+		uiContext->PopTransform();
 	}
+}
+
+TouchInput UIScreen::transformTouch(const TouchInput &touch) {
+	TouchInput updated = touch;
+
+	float x = touch.x - translation_.x;
+	float y = touch.y - translation_.y;
+	// Scale around the center as the origin.
+	updated.x = (x - dp_xres * 0.5f) / scale_.x + dp_xres * 0.5f;
+	updated.y = (y - dp_yres * 0.5f) / scale_.y + dp_yres * 0.5f;
+
+	return updated;
 }
 
 bool UIScreen::touch(const TouchInput &touch) {

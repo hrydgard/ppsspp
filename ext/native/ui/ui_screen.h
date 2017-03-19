@@ -24,6 +24,8 @@ public:
 	virtual bool key(const KeyInput &touch) override;
 	virtual bool axis(const AxisInput &touch) override;
 
+	virtual TouchInput transformTouch(const TouchInput &touch) override;
+
 	// Some useful default event handlers
 	UI::EventReturn OnOK(UI::EventParams &e);
 	UI::EventReturn OnCancel(UI::EventParams &e);
@@ -36,6 +38,9 @@ protected:
 	virtual void RecreateViews() override { recreateViews_ = true; }
 
 	UI::ViewGroup *root_;
+	Vec3 translation_;
+	Vec3 scale_;
+	float alpha_ = 1.0f;
 
 private:
 	void DoRecreateViews();

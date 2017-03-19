@@ -772,8 +772,8 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		ortho = ortho * g_display_rot_matrix;
 	}
 
-	ui_draw2d.SetDrawMatrix(ortho);
-	ui_draw2d_front.SetDrawMatrix(ortho);
+	ui_draw2d.PushDrawMatrix(ortho);
+	ui_draw2d_front.PushDrawMatrix(ortho);
 
 	screenManager->render();
 	if (screenManager->getUIContext()->Text()) {
@@ -820,6 +820,9 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		}
 #endif
 	}
+
+	ui_draw2d.PopDrawMatrix();
+	ui_draw2d_front.PopDrawMatrix();
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {

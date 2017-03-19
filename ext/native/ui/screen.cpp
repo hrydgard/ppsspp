@@ -71,7 +71,8 @@ void ScreenManager::switchToNext() {
 bool ScreenManager::touch(const TouchInput &touch) {
 	std::lock_guard<std::mutex> guard(inputLock_);
 	if (!stack_.empty()) {
-		return stack_.back().screen->touch(touch);
+		Screen *screen = stack_.back().screen;
+		return screen->touch(screen->transformTouch(touch));
 	} else {
 		return false;
 	}

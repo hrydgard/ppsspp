@@ -130,12 +130,11 @@ void ViewGroup::Draw(UIContext &dc) {
 	}
 
 	dc.FillRect(bg_, bounds_);
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() == V_VISIBLE) {
+	for (View *view : views_) {
+		if (view->GetVisibility() == V_VISIBLE) {
 			// Check if bounds are in current scissor rectangle.
-			if (dc.GetScissorBounds().Intersects((*iter)->GetBounds()))
-				(*iter)->Draw(dc);
+			if (dc.GetScissorBounds().Intersects(dc.TransformBounds(view->GetBounds())))
+				view->Draw(dc);
 		}
 	}
 	if (clip_) {
@@ -144,10 +143,9 @@ void ViewGroup::Draw(UIContext &dc) {
 }
 
 void ViewGroup::Update() {
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() != V_GONE)
-			(*iter)->Update();
+	for (View *view : views_) {
+		if (view->GetVisibility() != V_GONE)
+			view->Update();
 	}
 }
 
