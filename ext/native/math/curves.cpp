@@ -45,6 +45,27 @@ float ease(int t, int fadeLength)
 	return ease((float)t / (float)fadeLength);
 }
 
+float bezierEaseInOut(float val) {
+	static const float x1 = 0.42f, x2 = 0.58f;
+	static const float a = 1.0f - 3.0f * x2 + 3.0f * x1;
+	static const float b = 3.0f * x2 - 6.0f * x1;
+	static const float c = 3.0f * x1;
+
+	float guess = val;
+	for (int i = 0; i < 4; ++i) {
+		float slope = 3.0f * a * guess * guess + 2.0f * b * guess + c;
+		if (slope == 0.0f) {
+			break;
+		}
+
+		float x = ((a * guess + b) * guess + c) * guess - val;
+		guess -= x / slope;
+	}
+
+
+	return (-2.0f * guess + 3.0f) * guess * guess;
+}
+
 float sawtooth(int t, int period) {
 	return (t % period) * (1.0f / (period - 1));
 }

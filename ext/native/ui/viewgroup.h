@@ -69,6 +69,7 @@ public:
 	View *GetViewByIndex(int index) { return views_[index]; }
 	int GetNumSubviews() const { return (int)views_.size(); }
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
+	void SetDropShadowExpand(float s) { dropShadowExpand_ = s; }
 
 	void Lock() { modifyLock_.lock(); }
 	void Unlock() { modifyLock_.unlock(); }
@@ -81,6 +82,7 @@ protected:
 	std::vector<View *> views_;
 	View *defaultFocusView_;
 	Drawable bg_;
+	float dropShadowExpand_ = 0.0f;
 	bool hasDropShadow_;
 	bool clip_;
 };

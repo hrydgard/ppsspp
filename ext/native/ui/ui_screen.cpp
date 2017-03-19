@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <map>
 #include "base/display.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "math/curves.h"
 #include "ui/ui_screen.h"
 #include "ui/ui_context.h"
 #include "ui/screen.h"
@@ -213,6 +215,8 @@ PopupScreen::PopupScreen(std::string title, std::string button1, std::string but
 		button1_ = di->T(button1.c_str());
 	if (!button2.empty())
 		button2_ = di->T(button2.c_str());
+
+	alpha_ = 0.0f;
 }
 
 bool PopupScreen::touch(const TouchInput &touch) {
@@ -238,6 +242,24 @@ bool PopupScreen::key(const KeyInput &key) {
 	return UIDialogScreen::key(key);
 }
 
+void PopupScreen::update() {
+	UIDialogScreen::update();
+
+	static const int FRAMES_LEAD_IN = 6;
+	if (++frames_ < FRAMES_LEAD_IN) {
+		float leadIn = bezierEaseInOut(frames_ * (1.0f / (float)FRAMES_LEAD_IN));
+		alpha_ = leadIn;
+		scale_.x = 0.9f + leadIn * 0.1f;
+		scale_.y =  0.9f + leadIn * 0.1f;
+		translation_.y = -dp_yres * (1.0f - leadIn) * 0.5f;
+	} else {
+		alpha_ = 1.0f;
+		scale_.x = 1.0f;
+		scale_.y = 1.0f;
+		translation_.y = 0.0f;
+	}
+}
+
 void PopupScreen::CreateViews() {
 	using namespace UI;
 
@@ -255,6 +277,8 @@ void PopupScreen::CreateViews() {
 	root_->Add(box_);
 	box_->SetBG(UI::Drawable(0xFF303030));
 	box_->SetHasDropShadow(true);
+	// Since we scale a bit, make the dropshadow bleed past the edges.
+	box_->SetDropShadowExpand(std::max(dp_xres, dp_yres));
 
 	View *title = new PopupHeader(title_);
 	box_->Add(title);

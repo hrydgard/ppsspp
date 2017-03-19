@@ -76,6 +76,8 @@ protected:
 	virtual bool ShowButtons() const { return true; }
 	virtual void OnCompleted(DialogResult result) {}
 
+	virtual void update() override;
+
 private:
 	UI::EventReturn OnOK(UI::EventParams &e);
 	UI::EventReturn OnCancel(UI::EventParams &e);
@@ -85,6 +87,8 @@ private:
 	std::string title_;
 	std::string button1_;
 	std::string button2_;
+
+	int frames_ = 0;
 };
 
 class ListPopupScreen : public PopupScreen {

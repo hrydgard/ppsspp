@@ -14,6 +14,8 @@ float linearOut(int t, int fadeInLength);
 float ease(float val);
 float ease(int t, int fadeLength);
 
+float bezierEaseInOut(float val);
+
 // need a bouncy ease
 
 // waveforms [0, 1]
