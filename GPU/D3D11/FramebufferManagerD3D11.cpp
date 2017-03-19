@@ -509,6 +509,8 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 		context_->RSSetViewports(1, &vp);
 		context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 		context_->Draw(4, 0);
+
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 
 	RebindFramebuffer();
