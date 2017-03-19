@@ -386,7 +386,7 @@ add_subdirectory(ext)
 include_directories(Common)
 setup_target_project(Common Common)
 
-target_link_libraries(Common Snappy::Snappy)
+target_link_libraries(Common Ext::Snappy)
 
 if(WIN32)
 	include_directories(dx9sdk/Include)
