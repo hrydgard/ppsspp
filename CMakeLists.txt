@@ -386,7 +386,7 @@ add_subdirectory(ext)
 include_directories(Common)
 setup_target_project(Common Common)
 
-target_link_libraries(Common Snappy::Snappy)
+target_link_libraries(Common Ext::Snappy)
 
 if(WIN32)
 	include_directories(dx9sdk/Include)
@@ -960,8 +960,8 @@ if(ANDROID)
 endif()
 
 target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
-if(TARGET glew)
-  target_link_libraries(native glew)
+if(TARGET Ext::GLEW)
+  target_link_libraries(native Ext::GLEW)
 endif()
 
 if(ANDROID)
