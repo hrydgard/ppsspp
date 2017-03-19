@@ -272,6 +272,9 @@ void TextureCacheCommon::SetTexture(bool force) {
 	TexCacheEntry *entry = nullptr;
 	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
+	if (gstate_c.bgraTexture != isBgraBackend_) {
+		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+	}
 	gstate_c.bgraTexture = isBgraBackend_;
 
 	if (iter != cache_.end()) {
@@ -759,6 +762,11 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
+		if (gstate_c.bgraTexture) {
+			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		} else if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
+			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
 		gstate_c.bgraTexture = false;
 		gstate_c.curTextureXOffset = fbInfo.xOffset;
 		gstate_c.curTextureYOffset = fbInfo.yOffset;
