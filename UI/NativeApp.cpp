@@ -320,7 +320,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #elif defined(IOS)
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(external_dir));
-#elif !defined(MOBILE_DEVICE) && !defined(_WIN32)
+#endif
+#if !defined(MOBILE_DEVICE) && !defined(_WIN32)
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
 	VFSRegister("", new DirectoryAssetReader("/usr/share/ppsspp/assets/"));
