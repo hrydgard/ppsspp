@@ -841,6 +841,7 @@ void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int
 	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 	ID3D11Texture2D *colorTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT, 0);
 
+	// TODO: Only copy the necessary rectangle.
 	D3D11_BOX srcBox{ 0, 0, 0, vfb->width, vfb->height, 1 };
 	context_->CopySubresourceRegion(packTexture_, 0, 0, 0, 0, colorTex, 0, &srcBox);
 
@@ -858,7 +859,7 @@ void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int
 	const int srcByteOffset = y * map.RowPitch + x * 4;
 	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
 	// Pixel size always 4 here because we always request BGRA8888.
-	ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)map.pData, vfb->fb_stride, map.RowPitch/4, w, h, vfb->format);
+	ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)map.pData + srcByteOffset, vfb->fb_stride, map.RowPitch/4, w, h, vfb->format);
 	context_->Unmap(packTexture_, 0);
 }
 
