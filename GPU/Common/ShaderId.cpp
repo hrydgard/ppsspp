@@ -236,6 +236,7 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
+		// Note that checking this means that we must dirty the fragment shader ID whenever textureFullAlpha changes.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 			doTextureAlpha = false;
 

@@ -508,16 +508,28 @@ struct GPUStateCache {
 		return (dirty & what) != 0ULL;
 	}
 	void SetTextureFullAlpha(bool fullAlpha) {
-		textureFullAlpha = fullAlpha;
+		if (fullAlpha != textureFullAlpha) {
+			textureFullAlpha = fullAlpha;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
 	}
 	void SetTextureSimpleAlpha(bool simpleAlpha) {
-		textureSimpleAlpha = simpleAlpha;
+		if (simpleAlpha != textureSimpleAlpha) {
+			textureSimpleAlpha = simpleAlpha;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
 	}
 	void SetNeedShaderTexclamp(bool need) {
-		needShaderTexClamp = need;
+		if (need != needShaderTexClamp) {
+			needShaderTexClamp = need;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
 	}
 	void SetAllowShaderBlend(bool allow) {
-		allowShaderBlend = allow;
+		if (allowShaderBlend != allow) {
+			allowShaderBlend = allow;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
 	}
 
 	u32 featureFlags;
