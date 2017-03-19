@@ -407,11 +407,9 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 
 	float invDestW = 1.0f / (destW * 0.5f);
 	float invDestH = 1.0f / (destH * 0.5f);
-	float halfPixelX = invDestW * 0.5f;
-	float halfPixelY = invDestH * 0.5f;
 	for (int i = 0; i < 4; i++) {
-		coord[i].pos.x = coord[i].pos.x * invDestW - 1.0f - halfPixelX;
-		coord[i].pos.y = -(coord[i].pos.y * invDestH - 1.0f - halfPixelY);
+		coord[i].pos.x = coord[i].pos.x * invDestW - 1.0f;
+		coord[i].pos.y = -(coord[i].pos.y * invDestH - 1.0f);
 	}
 
 	if (g_display_rotation != DisplayRotation::ROTATE_0) {
@@ -842,8 +840,9 @@ void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int
 	ID3D11Texture2D *colorTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT, 0);
 
 	// TODO: Only copy the necessary rectangle.
-	D3D11_BOX srcBox{ 0, 0, 0, vfb->width, vfb->height, 1 };
-	context_->CopySubresourceRegion(packTexture_, 0, 0, 0, 0, colorTex, 0, &srcBox);
+	// D3D11_BOX srcBox{ 0, 0, 0, vfb->width, vfb->height, 1 };
+	D3D11_BOX srcBox{ x, y, 0, vfb->width, vfb->height, 1 };
+	context_->CopySubresourceRegion(packTexture_, 0, x, y, 0, colorTex, 0, &srcBox);
 
 	// Ideally, we'd round robin between two packTexture_, and simply use the other one. Though if the game
 	// does a once-off copy, that won't work at all.
