@@ -1060,10 +1060,12 @@ bool FramebufferManagerD3D11::GetDepthStencilBuffer(VirtualFramebuffer *vfb, GPU
 	Draw::Framebuffer *fboForRead = nullptr;
 	fboForRead = vfb->fbo;
 
-	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
-		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT_DIV_256, !useBufferedRendering_);
+	if (stencil) {
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT);
+	} else if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT_DIV_256);
 	} else {
-		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, !useBufferedRendering_);
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT);
 	}
 
 	ID3D11Texture2D *packTex;
@@ -1087,10 +1089,11 @@ bool FramebufferManagerD3D11::GetDepthStencilBuffer(VirtualFramebuffer *vfb, GPU
 
 	for (int y = 0; y < h; y++) {
 		float *dest = (float *)(buffer.GetData() + y * w * 4);
+		u8 *destStencil = buffer.GetData() + y * w;
 		const uint32_t *src = (const uint32_t *)((const uint8_t *)map.pData + map.RowPitch * y);
 		for (int x = 0; x < w; x++) {
 			if (stencil) {
-				dest[x] = (src[x] >> 24) / (256.f);
+				destStencil[x] = src[x] >> 24;
 			} else {
 				dest[x] = (src[x] & 0xFFFFFF) / (256.f * 256.f * 256.f);
 			}

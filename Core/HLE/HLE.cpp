@@ -489,7 +489,7 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op)
 		ERROR_LOG(HLE, "Syscall had bad function number %d in module %d - probably executing garbage", funcnum, modulenum);
 		return NULL;
 	}
-	INFO_LOG(HLE, "Compiling syscall to %s", moduleDB[modulenum].funcTable[funcnum].name);
+	DEBUG_LOG(HLE, "Compiling syscall to %s", moduleDB[modulenum].funcTable[funcnum].name);
 	return &moduleDB[modulenum].funcTable[funcnum];
 }
 

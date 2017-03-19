@@ -188,7 +188,7 @@ private:
 		freeInfo->allocator->ExecuteFree(freeInfo);
 	}
 
-	bool AllocateSlab(size_t minBytes);
+	bool AllocateSlab(VkDeviceSize minBytes);
 	bool AllocateFromSlab(Slab &slab, size_t &start, size_t blocks);
 	void Decimate();
 	void ExecuteFree(FreeInfo *userdata);

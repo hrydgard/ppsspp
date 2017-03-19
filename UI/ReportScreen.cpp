@@ -301,7 +301,7 @@ EventReturn ReportScreen::HandleBrowser(EventParams &e) {
 }
 
 ReportFinishScreen::ReportFinishScreen(const std::string &gamePath)
-	: UIScreenWithGameBackground(gamePath), resultNotice_(nullptr), setStatus_(false) {
+	: UIDialogScreenWithGameBackground(gamePath), resultNotice_(nullptr), setStatus_(false) {
 }
 
 void ReportFinishScreen::CreateViews() {
@@ -353,7 +353,7 @@ void ReportFinishScreen::update() {
 		}
 	}
 
-	UIScreenWithGameBackground::update();
+	UIDialogScreenWithGameBackground::update();
 }
 
 UI::EventReturn ReportFinishScreen::HandleViewFeedback(UI::EventParams &e) {
