@@ -410,11 +410,19 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 				v = MeasureSpec(AT_MOST, measuredHeight_);
 			view->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)margins.vert());
+			if (horiz.type == AT_MOST && view->GetMeasuredWidth() + margins.horiz() > horiz.size - weightZeroSum) {
+				// Try again, this time with AT_MOST.
+				view->Measure(dc, horiz, v - (float)margins.vert());
+			}
 		} else if (orientation_ == ORIENT_VERTICAL) {
 			MeasureSpec h = horiz;
 			if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 				h = MeasureSpec(AT_MOST, measuredWidth_);
 			view->Measure(dc, h - (float)margins.horiz(), MeasureSpec(UNSPECIFIED, measuredHeight_));
+			if (vert.type == AT_MOST && view->GetMeasuredHeight() + margins.vert() > vert.size - weightZeroSum) {
+				// Try again, this time with AT_MOST.
+				view->Measure(dc, h - (float)margins.horiz(), vert);
+			}
 		}
 
 		float amount;
