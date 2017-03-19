@@ -264,7 +264,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		// Dither
 		if (gstate.isDitherEnabled()) {
 			glstate.dither.enable();
-			glstate.dither.set(GL_TRUE);
+			glstate.dither.set(true);
 		} else {
 			glstate.dither.disable();
 		}
