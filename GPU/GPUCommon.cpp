@@ -368,6 +368,9 @@ GPUCommon::~GPUCommon() {
 
 void GPUCommon::BeginHostFrame() {
 	ReapplyGfxState();
+
+	// TODO: Assume config may have changed - maybe move to resize.
+	gstate_c.Dirty(DIRTY_ALL);
 }
 
 void GPUCommon::EndHostFrame() {
