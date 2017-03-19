@@ -102,6 +102,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			dxstate.colorMask.restore();
 			dxstate.stencilFunc.restore();
 			dxstate.stencilMask.restore();
+		} else {
+			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 		}
 	}
 
@@ -360,6 +362,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			dxstate.colorMask.set(false, false, false, true);
 			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0);
 			dxstate.stencilMask.set(0xFF);
+			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 
 			float coord[20] = {
 				-1.0f,-1.0f,0, 0,0,

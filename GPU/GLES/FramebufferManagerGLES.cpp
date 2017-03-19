@@ -98,6 +98,8 @@ void FramebufferManagerGLES::ClearBuffer(bool keepState) {
 		glstate.colorMask.restore();
 		glstate.stencilFunc.restore();
 		glstate.stencilMask.restore();
+	} else {
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 }
 
@@ -478,6 +480,8 @@ void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GE
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClearStencil(0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 
 	RebindFramebuffer();
