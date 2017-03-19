@@ -1009,6 +1009,28 @@ static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt,
 	}
 }
 
+static inline void ConvertFormatToRGBA8888(GETextureFormat format, u32 *dst, const u16 *src, u32 numPixels) {
+	switch (format) {
+	case GE_TFMT_4444:
+		ConvertRGBA4444ToRGBA8888(dst, src, numPixels);
+		break;
+	case GE_TFMT_5551:
+		ConvertRGBA5551ToRGBA8888(dst, src, numPixels);
+		break;
+	case GE_TFMT_5650:
+		ConvertRGBA565ToRGBA8888(dst, src, numPixels);
+		break;
+	default:
+		_dbg_assert_msg_(G3D, false, "Incorrect texture format.");
+		break;
+	}
+}
+
+static inline void ConvertFormatToRGBA8888(GEPaletteFormat format, u32 *dst, const u16 *src, u32 numPixels) {
+	// The supported values are 1:1 identical.
+	ConvertFormatToRGBA8888(GETextureFormat(format), dst, src, numPixels);
+}
+
 void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA, bool expandTo32bit) {
 	bool swizzled = gstate.isTextureSwizzled();
 	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
@@ -1057,17 +1079,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 			} else {
 				if (expandTo32bit && !reverseColors) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
-					switch (clutformat) {
-					case GE_CMODE_16BIT_ABGR4444:
-						ConvertRGBA4444ToRGBA8888(expandClut_, clut, 16);
-						break;
-					case GE_CMODE_16BIT_ABGR5551:
-						ConvertRGBA5551ToRGBA8888(expandClut_, clut, 16);
-						break;
-					case GE_CMODE_16BIT_BGR5650:
-						ConvertRGBA565ToRGBA8888(expandClut_, clut, 16);
-						break;
-					}
+					ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 16);
 					for (int y = 0; y < h; ++y) {
 						DeIndexTexture4((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_);
 					}
@@ -1119,17 +1131,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 				}
 			} else if (expandTo32bit) {
 				for (int y = 0; y < h; ++y) {
-					switch (format) {
-					case GE_CMODE_16BIT_ABGR4444:
-						ConvertRGBA4444ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
-						break;
-					case GE_CMODE_16BIT_ABGR5551:
-						ConvertRGBA5551ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
-						break;
-					case GE_CMODE_16BIT_BGR5650:
-						ConvertRGBA565ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
-						break;
-					}
+					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1153,17 +1155,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 				}
 			} else if (expandTo32bit) {
 				for (int y = 0; y < h; ++y) {
-					switch (format) {
-					case GE_CMODE_16BIT_ABGR4444:
-						ConvertRGBA4444ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
-						break;
-					case GE_CMODE_16BIT_ABGR5551:
-						ConvertRGBA5551ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
-						break;
-					case GE_CMODE_16BIT_BGR5650:
-						ConvertRGBA565ToRGBA8888((u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
-						break;
-					}
+					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1295,17 +1287,7 @@ void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 	const u32 *clut32 = (const u32 *)clutBuf_;
 
 	if (expandTo32Bit && palFormat != GE_CMODE_32BIT_ABGR8888) {
-		switch (palFormat) {
-		case GE_CMODE_16BIT_ABGR4444:
-			ConvertRGBA4444ToRGBA8888(expandClut_, clut16, 256);
-			break;
-		case GE_CMODE_16BIT_ABGR5551:
-			ConvertRGBA5551ToRGBA8888(expandClut_, clut16, 256);
-			break;
-		case GE_CMODE_16BIT_BGR5650:
-			ConvertRGBA565ToRGBA8888(expandClut_, clut16, 256);
-			break;
-		}
+		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16, 256);
 		clut32 = expandClut_;
 		palFormat = GE_CMODE_32BIT_ABGR8888;
 	}
