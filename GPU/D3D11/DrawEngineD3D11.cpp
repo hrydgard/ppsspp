@@ -444,9 +444,10 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 
 	if (sz > 100) {
 		size_t step = sz / 4;
+		size_t len = std::min((int)step, 100);
 		u32 hash = 0;
 		for (size_t i = 0; i < sz; i += step) {
-			hash += DoReliableHash32(p + i, 100, 0x3A44B9C4);
+			hash += DoReliableHash32(p + i, len, 0x3A44B9C4);
 		}
 		return hash;
 	} else {
