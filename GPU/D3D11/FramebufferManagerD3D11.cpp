@@ -716,9 +716,10 @@ void FramebufferManagerD3D11::SimpleBlit(
 	memcpy(map.pData, vtx, 4 * sizeof(Vtx));
 	context_->Unmap(quadBuffer_, 0);
 
-	// Bind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures).
-	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
+	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
+	draw_->BindTexture(0, nullptr);
 	draw_->BindFramebufferAsRenderTarget(dest);
+	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
 
 	Bind2DShader();
 	D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)destW, (float)destH, 0.0f, 1.0f };
