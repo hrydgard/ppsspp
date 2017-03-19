@@ -51,7 +51,7 @@ protected:
 	bool includeScreenshot_;
 };
 
-class ReportFinishScreen : public UIScreenWithGameBackground {
+class ReportFinishScreen : public UIDialogScreenWithGameBackground {
 public:
 	ReportFinishScreen(const std::string &gamePath);
 
