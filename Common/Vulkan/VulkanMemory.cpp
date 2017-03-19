@@ -143,8 +143,8 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 		return ALLOCATE_FAILED;
 	}
 
-	size_t align = reqs.alignment <= SLAB_GRAIN_SIZE ? 1 : (reqs.alignment >> SLAB_GRAIN_SHIFT);
-	size_t blocks = (reqs.size + SLAB_GRAIN_SIZE - 1) >> SLAB_GRAIN_SHIFT;
+	size_t align = reqs.alignment <= SLAB_GRAIN_SIZE ? 1 : (size_t)(reqs.alignment >> SLAB_GRAIN_SHIFT);
+	size_t blocks = (size_t)((reqs.size + SLAB_GRAIN_SIZE - 1) >> SLAB_GRAIN_SHIFT);
 
 	const size_t numSlabs = slabs_.size();
 	for (size_t i = 0; i < numSlabs; ++i) {
@@ -298,7 +298,7 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 	delete userdata;
 }
 
-bool VulkanDeviceAllocator::AllocateSlab(size_t minBytes) {
+bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes) {
 	assert(!destroyed_);
 	if (!slabs_.empty() && minSlabSize_ < maxSlabSize_) {
 		// We're allocating an additional slab, so rachet up its size.
@@ -325,7 +325,7 @@ bool VulkanDeviceAllocator::AllocateSlab(size_t minBytes) {
 	slabs_.resize(slabs_.size() + 1);
 	Slab &slab = slabs_[slabs_.size() - 1];
 	slab.deviceMemory = deviceMemory;
-	slab.usage.resize(alloc.allocationSize >> SLAB_GRAIN_SHIFT);
+	slab.usage.resize((size_t)(alloc.allocationSize >> SLAB_GRAIN_SHIFT));
 
 	return true;
 }

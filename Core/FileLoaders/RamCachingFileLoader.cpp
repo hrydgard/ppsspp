@@ -160,7 +160,7 @@ size_t RamCachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
 
 	std::lock_guard<std::mutex> guard(blocksMutex_);
 	for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
-		if (blocks_[i] == 0) {
+		if (blocks_[(size_t)i] == 0) {
 			return readSize;
 		}
 
@@ -186,7 +186,7 @@ void RamCachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags) {
 	{
 		std::lock_guard<std::mutex> guard(blocksMutex_);
 		for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
-			if (blocks_[i] == 0) {
+			if (blocks_[(size_t)i] == 0) {
 				++blocksToRead;
 				if (blocksToRead >= MAX_BLOCKS_PER_READ) {
 					break;
@@ -208,8 +208,8 @@ void RamCachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags) {
 		// In case they were simultaneously read.
 		u32 blocksRead = 0;
 		for (size_t i = 0; i < blocksActuallyRead; ++i) {
-			if (blocks_[cacheStartPos + i] == 0) {
-				blocks_[cacheStartPos + i] = 1;
+			if (blocks_[(size_t)cacheStartPos + i] == 0) {
+				blocks_[(size_t)cacheStartPos + i] = 1;
 				++blocksRead;
 			}
 		}

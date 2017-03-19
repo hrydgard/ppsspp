@@ -117,7 +117,7 @@ bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage
 
 	if (enableAlphaTest) {
 		if (lang == HLSL_D3D11) {
-			WRITE(p, "int roundAndScaleTo255i(float x) { return uint(floor(x * 255.0f + 0.5f)); }\n");
+			WRITE(p, "int roundAndScaleTo255i(float x) { return int(floor(x * 255.0f + 0.5f)); }\n");
 		} else {
 			// D3D11 level 9 gets to take this path.
 			WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
