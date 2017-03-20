@@ -1,0 +1,5 @@
+# We copy other files on top of these at build time, depending on configuration (Normal/Gold)
+
+Package.appxmanifest
+Assets
+x64

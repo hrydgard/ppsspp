@@ -1,6 +1,6 @@
 CONVERT=/c/batch/convert.exe
 ICON=../source_assets/image/icon_regular.png
-ASSET_DIR=Assets
+ASSET_DIR=AssetsNormal
 
 mkdir -p $ASSET_DIR
 $CONVERT ${ICON} -resize 48x48 $ASSET_DIR/LockScreenLogo.scale-200.png
