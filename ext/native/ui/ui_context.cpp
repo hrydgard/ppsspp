@@ -70,10 +70,10 @@ void UIContext::End() {
 	Flush();
 }
 
-// TODO: Support transformed bounds using stencil
+// TODO: Support transformed bounds using stencil instead.
 void UIContext::PushScissor(const Bounds &bounds) {
 	Flush();
-	Bounds clipped = bounds;
+	Bounds clipped = TransformBounds(bounds);
 	if (scissorStack_.size())
 		clipped.Clip(scissorStack_.back());
 	scissorStack_.push_back(clipped);
@@ -103,9 +103,7 @@ void UIContext::ActivateTopScissor() {
 		int w = ceilf(scale * bounds.w);
 		int h = ceilf(scale * bounds.h);
 		draw_->SetScissorRect(x, y, w, h);
-	}
-	else {
-		bounds = bounds_;
+	} else {
 		// Avoid rounding errors
 		draw_->SetScissorRect(0, 0, pixel_xres, pixel_yres);
 	}
@@ -202,4 +200,45 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 	case UI::DRAW_NOTHING:
 		break;
 	} 
+}
+
+void UIContext::PushTransform(const UITransform &transform) {
+	Flush();
+
+	Matrix4x4 m = Draw()->GetDrawMatrix();
+	const Vec3 &t = transform.translate;
+	Vec3 scaledTranslate = Vec3(
+		t.x * m.xx + t.y * m.xy + t.z * m.xz + m.xw,
+		t.x * m.yx + t.y * m.yy + t.z * m.yz + m.yw,
+		t.x * m.zx + t.y * m.zy + t.z * m.zz + m.zw);
+
+	m.translateAndScale(scaledTranslate, transform.scale);
+	Draw()->PushDrawMatrix(m);
+	Draw()->PushAlpha(transform.alpha);
+
+	transformStack_.push_back(transform);
+}
+
+void UIContext::PopTransform() {
+	Flush();
+
+	transformStack_.pop_back();
+
+	Draw()->PopDrawMatrix();
+	Draw()->PopAlpha();
+}
+
+Bounds UIContext::TransformBounds(const Bounds &bounds) {
+	if (!transformStack_.empty()) {
+		const UITransform t = transformStack_.back();
+		Bounds translated = bounds.Offset(t.translate.x, t.translate.y);
+
+		// Scale around the center as the origin.
+		float scaledX = (translated.x - dp_xres * 0.5f) * t.scale.x + dp_xres * 0.5f;
+		float scaledY = (translated.y - dp_yres * 0.5f) * t.scale.y + dp_yres * 0.5f;
+
+		return Bounds(scaledX, scaledY, translated.w * t.scale.x, translated.h * t.scale.y);
+	}
+
+	return bounds;
 }

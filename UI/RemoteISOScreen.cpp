@@ -528,7 +528,7 @@ void RemoteISOConnectScreen::update() {
 		break;
 
 	case ScanStatus::LOADED:
-		screenManager()->finishDialog(this, DR_OK);
+		TriggerFinish(DR_OK);
 		screenManager()->push(new RemoteISOBrowseScreen(games_));
 		break;
 	}

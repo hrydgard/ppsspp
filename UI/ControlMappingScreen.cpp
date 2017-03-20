@@ -310,7 +310,7 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 
 		mapped_ = true;
 		KeyDef kdf(key.deviceId, key.keyCode);
-		screenManager()->finishDialog(this, DR_OK);
+		TriggerFinish(DR_OK);
 		if (callback_)
 			callback_(kdf);
 	}
@@ -347,7 +347,7 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
-		screenManager()->finishDialog(this, DR_OK);
+		TriggerFinish(DR_OK);
 		if (callback_)
 			callback_(kdf);
 	}
@@ -355,7 +355,7 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value < -AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
-		screenManager()->finishDialog(this, DR_OK);
+		TriggerFinish(DR_OK);
 		if (callback_)
 			callback_(kdf);
 	}
@@ -437,7 +437,7 @@ void JoystickHistoryView::Update() {
 bool AnalogTestScreen::key(const KeyInput &key) {
 	bool retval = true;
 	if (UI::IsEscapeKey(key)) {
-		screenManager()->finishDialog(this, DR_BACK);
+		TriggerFinish(DR_BACK);
 		return true;
 	}
 

@@ -269,7 +269,7 @@ void GamePauseScreen::update() {
 	UIScreen::update();
 
 	if (finishNextFrame_) {
-		screenManager()->finishDialog(this, DR_CANCEL);
+		TriggerFinish(DR_CANCEL);
 		finishNextFrame_ = false;
 	}
 }
@@ -353,7 +353,7 @@ UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
 }
 
 UI::EventReturn GamePauseScreen::OnState(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_CANCEL);
+	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
@@ -387,7 +387,7 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 }
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 
@@ -399,7 +399,7 @@ UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
 UI::EventReturn GamePauseScreen::OnRewind(UI::EventParams &e) {
 	SaveState::Rewind(&AfterSaveStateAction);
 
-	screenManager()->finishDialog(this, DR_CANCEL);
+	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 

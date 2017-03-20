@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <map>
 #include "base/display.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "math/curves.h"
 #include "ui/ui_screen.h"
 #include "ui/ui_context.h"
 #include "ui/screen.h"
@@ -11,7 +13,9 @@
 static const bool ClickDebug = false;
 
 UIScreen::UIScreen()
-	: Screen(), root_(0), recreateViews_(true), hatDown_(0) {
+	: Screen(), root_(nullptr), recreateViews_(true), hatDown_(0) {
+	translation_ = Vec3(0.0f);
+	scale_ = Vec3(1.0f);
 }
 
 UIScreen::~UIScreen() {
@@ -88,14 +92,31 @@ void UIScreen::render() {
 	DoRecreateViews();
 
 	if (root_) {
-		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+		UIContext *uiContext = screenManager()->getUIContext();
+		UI::LayoutViewHierarchy(*uiContext, root_);
 
-		screenManager()->getUIContext()->Begin();
-		DrawBackground(*screenManager()->getUIContext());
-		root_->Draw(*screenManager()->getUIContext());
-		screenManager()->getUIContext()->End();
-		screenManager()->getUIContext()->Flush();
+		uiContext->PushTransform({translation_, scale_, alpha_});
+
+		uiContext->Begin();
+		DrawBackground(*uiContext);
+		root_->Draw(*uiContext);
+		uiContext->End();
+		uiContext->Flush();
+
+		uiContext->PopTransform();
 	}
+}
+
+TouchInput UIScreen::transformTouch(const TouchInput &touch) {
+	TouchInput updated = touch;
+
+	float x = touch.x - translation_.x;
+	float y = touch.y - translation_.y;
+	// Scale around the center as the origin.
+	updated.x = (x - dp_xres * 0.5f) / scale_.x + dp_xres * 0.5f;
+	updated.y = (y - dp_yres * 0.5f) / scale_.y + dp_yres * 0.5f;
+
+	return updated;
 }
 
 bool UIScreen::touch(const TouchInput &touch) {
@@ -122,6 +143,10 @@ bool UIScreen::key(const KeyInput &key) {
 	return false;
 }
 
+void UIScreen::TriggerFinish(DialogResult result) {
+	screenManager()->finishDialog(this, result);
+}
+
 bool UIDialogScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
 	if (!retval && (key.flags & KEY_DOWN) && UI::IsEscapeKey(key)) {
@@ -129,7 +154,7 @@ bool UIDialogScreen::key(const KeyInput &key) {
 			ELOG("Screen already finished");
 		} else {
 			finished_ = true;
-			screenManager()->finishDialog(this, DR_BACK);
+			TriggerFinish(DR_BACK);
 		}
 		return true;
 	}
@@ -173,17 +198,17 @@ bool UIScreen::axis(const AxisInput &axis) {
 }
 
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_BACK);
+	TriggerFinish(DR_BACK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn UIScreen::OnOK(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn UIScreen::OnCancel(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_CANCEL);
+	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
@@ -194,6 +219,8 @@ PopupScreen::PopupScreen(std::string title, std::string button1, std::string but
 		button1_ = di->T(button1.c_str());
 	if (!button2.empty())
 		button2_ = di->T(button2.c_str());
+
+	alpha_ = 0.0f;
 }
 
 bool PopupScreen::touch(const TouchInput &touch) {
@@ -202,7 +229,7 @@ bool PopupScreen::touch(const TouchInput &touch) {
 	}
 
 	if (!box_->GetBounds().Contains(touch.x, touch.y))
-		screenManager()->finishDialog(this, DR_BACK);
+		TriggerFinish(DR_BACK);
 
 	return UIDialogScreen::touch(touch);
 }
@@ -217,6 +244,45 @@ bool PopupScreen::key(const KeyInput &key) {
 	}
 
 	return UIDialogScreen::key(key);
+}
+
+void PopupScreen::update() {
+	UIDialogScreen::update();
+
+	static const int FRAMES_LEAD_IN = 6;
+	static const int FRAMES_LEAD_OUT = 4;
+
+	++frames_;
+	if (frames_ < FRAMES_LEAD_IN) {
+		float leadIn = bezierEaseInOut(frames_ * (1.0f / (float)FRAMES_LEAD_IN));
+		alpha_ = leadIn;
+		scale_.x = 0.9f + leadIn * 0.1f;
+		scale_.y =  0.9f + leadIn * 0.1f;
+		translation_.y = -dp_yres * (1.0f - leadIn) * 0.5f;
+	} else if (finishFrame_ > 0) {
+		float leadOut = bezierEaseInOut((frames_ - finishFrame_) * (1.0f / (float)FRAMES_LEAD_OUT));
+		alpha_ = 1.0f - leadOut;
+		scale_.x = 0.9f + (1.0f - leadOut) * 0.1f;
+		scale_.y =  0.9f + (1.0f - leadOut) * 0.1f;
+		translation_.y = -dp_yres * leadOut * 0.5f;
+
+		if (frames_ >= finishFrame_ + FRAMES_LEAD_OUT) {
+			// Actual finish happens here.
+			screenManager()->finishDialog(this, finishResult_);
+		}
+	} else {
+		alpha_ = 1.0f;
+		scale_.x = 1.0f;
+		scale_.y = 1.0f;
+		translation_.y = 0.0f;
+	}
+}
+
+void PopupScreen::TriggerFinish(DialogResult result) {
+	finishFrame_ = frames_;
+	finishResult_ = result;
+
+	OnCompleted(result);
 }
 
 void PopupScreen::CreateViews() {
@@ -236,6 +302,8 @@ void PopupScreen::CreateViews() {
 	root_->Add(box_);
 	box_->SetBG(UI::Drawable(0xFF303030));
 	box_->SetHasDropShadow(true);
+	// Since we scale a bit, make the dropshadow bleed past the edges.
+	box_->SetDropShadowExpand(std::max(dp_xres, dp_yres));
 
 	View *title = new PopupHeader(title_);
 	box_->Add(title);
@@ -252,14 +320,14 @@ void PopupScreen::CreateViews() {
 		// Adjust button order to the platform default.
 #if defined(_WIN32)
 		defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f, buttonMargins)));
-		defaultButton_->OnClick.Handle(this, &PopupScreen::OnOK);
+		defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 		if (!button2_.empty())
-			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 #else
 		if (!button2_.empty())
-			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 		defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)));
-		defaultButton_->OnClick.Handle(this, &PopupScreen::OnOK);
+		defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 #endif
 
 		box_->Add(buttonRow);
@@ -283,18 +351,6 @@ void MessagePopupScreen::OnCompleted(DialogResult result) {
 	}
 }
 
-UI::EventReturn PopupScreen::OnOK(UI::EventParams &e) {
-	OnCompleted(DR_OK);
-	screenManager()->finishDialog(this, DR_OK);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn PopupScreen::OnCancel(UI::EventParams &e) {
-	OnCompleted(DR_CANCEL);
-	screenManager()->finishDialog(this, DR_CANCEL);
-	return UI::EVENT_DONE;
-}
-
 void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
@@ -307,8 +363,7 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	adaptor_.SetSelected(e.a);
 	if (callback_)
 		callback_(adaptor_.GetSelected());
-	screenManager()->finishDialog(this, DR_OK);
-	OnCompleted(DR_OK);
+	TriggerFinish(DR_OK);
 	OnChoice.Dispatch(e);
 	return UI::EVENT_DONE;
 }

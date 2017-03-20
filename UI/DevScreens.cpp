@@ -61,7 +61,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	I18NCategory *dev = GetI18NCategory("Developer");
 	I18NCategory *sy = GetI18NCategory("System");
 
-	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
 
 #if !defined(MOBILE_DEVICE)
@@ -143,7 +143,7 @@ void DevMenu::dialogFinished(const Screen *dialog, DialogResult result) {
 	UpdateUIState(UISTATE_INGAME);
 	// Close when a subscreen got closed.
 	// TODO: a bug in screenmanager causes this not to work here.
-	// screenManager()->finishDialog(this, DR_OK);
+	// TriggerFinish(DR_OK);
 }
 
 void LogScreen::UpdateLog() {
@@ -607,8 +607,7 @@ bool AddressPromptScreen::key(const KeyInput &key) {
 		} else if (key.keyCode == NKCODE_DEL) {
 			BackspaceDigit();
 		} else if (key.keyCode == NKCODE_ENTER) {
-			OnCompleted(DR_OK);
-			screenManager()->finishDialog(this, DR_OK);
+			TriggerFinish(DR_OK);
 		} else {
 			return UIDialogScreen::key(key);
 		}

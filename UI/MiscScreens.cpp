@@ -270,13 +270,13 @@ void PromptScreen::CreateViews() {
 
 UI::EventReturn PromptScreen::OnYes(UI::EventParams &e) {
 	callback_(true);
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 	callback_(false);
-	screenManager()->finishDialog(this, DR_CANCEL);
+	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
@@ -550,7 +550,7 @@ UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
 }
 
 UI::EventReturn CreditsScreen::OnOK(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 

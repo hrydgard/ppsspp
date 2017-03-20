@@ -19,6 +19,7 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/NativeApp.h"
+#include "input/input_state.h"
 
 namespace UI {
 	class View;
@@ -73,6 +74,8 @@ public:
 
 	virtual bool isTransparent() const { return false; }
 	virtual bool isTopLevel() const { return false; }
+
+	virtual TouchInput transformTouch(const TouchInput &touch) { return touch; }
 
 private:
 	ScreenManager *screenManager_;

@@ -118,8 +118,8 @@ void ViewGroup::Axis(const AxisInput &input) {
 void ViewGroup::Draw(UIContext &dc) {
 	if (hasDropShadow_) {
 		// Darken things behind.
-		dc.FillRect(UI::Drawable(0x60000000), dc.GetBounds());
-		float dropsize = 30;
+		dc.FillRect(UI::Drawable(0x60000000), dc.GetBounds().Expand(dropShadowExpand_));
+		float dropsize = 30.0f;
 		dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid,
 			bounds_.x - dropsize, bounds_.y,
 			bounds_.x2() + dropsize, bounds_.y2()+dropsize*1.5, 0xDF000000, 3.0f);
@@ -130,12 +130,11 @@ void ViewGroup::Draw(UIContext &dc) {
 	}
 
 	dc.FillRect(bg_, bounds_);
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() == V_VISIBLE) {
+	for (View *view : views_) {
+		if (view->GetVisibility() == V_VISIBLE) {
 			// Check if bounds are in current scissor rectangle.
-			if (dc.GetScissorBounds().Intersects((*iter)->GetBounds()))
-				(*iter)->Draw(dc);
+			if (dc.GetScissorBounds().Intersects(dc.TransformBounds(view->GetBounds())))
+				view->Draw(dc);
 		}
 	}
 	if (clip_) {
@@ -144,10 +143,9 @@ void ViewGroup::Draw(UIContext &dc) {
 }
 
 void ViewGroup::Update() {
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() != V_GONE)
-			(*iter)->Update();
+	for (View *view : views_) {
+		if (view->GetVisibility() != V_GONE)
+			view->Update();
 	}
 }
 
@@ -412,11 +410,19 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 				v = MeasureSpec(AT_MOST, measuredHeight_);
 			view->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)margins.vert());
+			if (horiz.type == AT_MOST && view->GetMeasuredWidth() + margins.horiz() > horiz.size - weightZeroSum) {
+				// Try again, this time with AT_MOST.
+				view->Measure(dc, horiz, v - (float)margins.vert());
+			}
 		} else if (orientation_ == ORIENT_VERTICAL) {
 			MeasureSpec h = horiz;
 			if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 				h = MeasureSpec(AT_MOST, measuredWidth_);
 			view->Measure(dc, h - (float)margins.horiz(), MeasureSpec(UNSPECIFIED, measuredHeight_));
+			if (vert.type == AT_MOST && view->GetMeasuredHeight() + margins.vert() > vert.size - weightZeroSum) {
+				// Try again, this time with AT_MOST.
+				view->Measure(dc, h - (float)margins.horiz(), vert);
+			}
 		}
 
 		float amount;

@@ -24,6 +24,10 @@ public:
 	virtual bool key(const KeyInput &touch) override;
 	virtual bool axis(const AxisInput &touch) override;
 
+	virtual TouchInput transformTouch(const TouchInput &touch) override;
+
+	virtual void TriggerFinish(DialogResult result);
+
 	// Some useful default event handlers
 	UI::EventReturn OnOK(UI::EventParams &e);
 	UI::EventReturn OnCancel(UI::EventParams &e);
@@ -36,6 +40,9 @@ protected:
 	virtual void RecreateViews() override { recreateViews_ = true; }
 
 	UI::ViewGroup *root_;
+	Vec3 translation_;
+	Vec3 scale_;
+	float alpha_ = 1.0f;
 
 private:
 	void DoRecreateViews();
@@ -65,21 +72,26 @@ public:
 	virtual bool touch(const TouchInput &touch) override;
 	virtual bool key(const KeyInput &key) override;
 
+	virtual void TriggerFinish(DialogResult result) override;
+
 protected:
 	virtual bool FillVertical() const { return false; }
 	virtual UI::Size PopupWidth() const { return 550; }
 	virtual bool ShowButtons() const { return true; }
 	virtual void OnCompleted(DialogResult result) {}
 
-private:
-	UI::EventReturn OnOK(UI::EventParams &e);
-	UI::EventReturn OnCancel(UI::EventParams &e);
+	virtual void update() override;
 
+private:
 	UI::ViewGroup *box_;
 	UI::Button *defaultButton_;
 	std::string title_;
 	std::string button1_;
 	std::string button2_;
+
+	int frames_ = 0;
+	int finishFrame_ = 0;
+	DialogResult finishResult_;
 };
 
 class ListPopupScreen : public PopupScreen {

@@ -4,6 +4,7 @@
 
 #include "base/basictypes.h"
 #include "math/geom2d.h"
+#include "math/lin/vec3.h"
 #include "gfx/texture_atlas.h"
 
 // Everything you need to draw a UI collected into a single unit that can be passed around.
@@ -30,6 +31,13 @@ namespace UI {
 }
 
 class DrawBuffer;
+
+struct UITransform {
+	// TODO: Or just use a matrix?
+	Vec3 translate;
+	Vec3 scale;
+	float alpha;
+};
 
 class UIContext {
 public:
@@ -78,6 +86,10 @@ public:
 	const Bounds &GetBounds() const { return bounds_; }
 	Draw::DrawContext *GetDrawContext() { return draw_; }
 
+	void PushTransform(const UITransform &transform);
+	void PopTransform();
+	Bounds TransformBounds(const Bounds &bounds);
+
 private:
 	Draw::DrawContext *draw_;
 	Bounds bounds_;
@@ -96,4 +108,5 @@ private:
 	DrawBuffer *uidrawbufferTop_;
 
 	std::vector<Bounds> scissorStack_;
+	std::vector<UITransform> transformStack_;
 };

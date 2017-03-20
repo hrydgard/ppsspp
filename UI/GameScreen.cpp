@@ -268,7 +268,7 @@ UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnSwitchBack(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 
