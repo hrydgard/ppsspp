@@ -230,8 +230,8 @@ struct ud
   uint8_t   vex_b2;
   uint8_t   primary_opcode;
   void *    user_opaque_data;
-  struct ud_itab_entry * itab_entry;
-  struct ud_lookup_table_list_entry *le;
+  const struct ud_itab_entry * itab_entry;
+	const struct ud_lookup_table_list_entry *le;
 };
 
 /* -----------------------------------------------------------------------------
