@@ -250,18 +250,39 @@ void PopupScreen::update() {
 	UIDialogScreen::update();
 
 	static const int FRAMES_LEAD_IN = 6;
-	if (++frames_ < FRAMES_LEAD_IN) {
+	static const int FRAMES_LEAD_OUT = 4;
+
+	++frames_;
+	if (frames_ < FRAMES_LEAD_IN) {
 		float leadIn = bezierEaseInOut(frames_ * (1.0f / (float)FRAMES_LEAD_IN));
 		alpha_ = leadIn;
 		scale_.x = 0.9f + leadIn * 0.1f;
 		scale_.y =  0.9f + leadIn * 0.1f;
 		translation_.y = -dp_yres * (1.0f - leadIn) * 0.5f;
+	} else if (finishFrame_ > 0) {
+		float leadOut = bezierEaseInOut((frames_ - finishFrame_) * (1.0f / (float)FRAMES_LEAD_OUT));
+		alpha_ = 1.0f - leadOut;
+		scale_.x = 0.9f + (1.0f - leadOut) * 0.1f;
+		scale_.y =  0.9f + (1.0f - leadOut) * 0.1f;
+		translation_.y = -dp_yres * leadOut * 0.5f;
+
+		if (frames_ >= finishFrame_ + FRAMES_LEAD_OUT) {
+			// Actual finish happens here.
+			screenManager()->finishDialog(this, finishResult_);
+		}
 	} else {
 		alpha_ = 1.0f;
 		scale_.x = 1.0f;
 		scale_.y = 1.0f;
 		translation_.y = 0.0f;
 	}
+}
+
+void PopupScreen::TriggerFinish(DialogResult result) {
+	finishFrame_ = frames_;
+	finishResult_ = result;
+
+	OnCompleted(result);
 }
 
 void PopupScreen::CreateViews() {
@@ -299,14 +320,14 @@ void PopupScreen::CreateViews() {
 		// Adjust button order to the platform default.
 #if defined(_WIN32)
 		defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f, buttonMargins)));
-		defaultButton_->OnClick.Handle(this, &PopupScreen::OnOK);
+		defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 		if (!button2_.empty())
-			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 #else
 		if (!button2_.empty())
-			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 		defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)));
-		defaultButton_->OnClick.Handle(this, &PopupScreen::OnOK);
+		defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 #endif
 
 		box_->Add(buttonRow);
@@ -330,18 +351,6 @@ void MessagePopupScreen::OnCompleted(DialogResult result) {
 	}
 }
 
-UI::EventReturn PopupScreen::OnOK(UI::EventParams &e) {
-	OnCompleted(DR_OK);
-	TriggerFinish(DR_OK);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn PopupScreen::OnCancel(UI::EventParams &e) {
-	OnCompleted(DR_CANCEL);
-	TriggerFinish(DR_CANCEL);
-	return UI::EVENT_DONE;
-}
-
 void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
@@ -355,7 +364,6 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	if (callback_)
 		callback_(adaptor_.GetSelected());
 	TriggerFinish(DR_OK);
-	OnCompleted(DR_OK);
 	OnChoice.Dispatch(e);
 	return UI::EVENT_DONE;
 }

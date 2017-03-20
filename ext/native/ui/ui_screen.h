@@ -72,6 +72,8 @@ public:
 	virtual bool touch(const TouchInput &touch) override;
 	virtual bool key(const KeyInput &key) override;
 
+	virtual void TriggerFinish(DialogResult result) override;
+
 protected:
 	virtual bool FillVertical() const { return false; }
 	virtual UI::Size PopupWidth() const { return 550; }
@@ -81,9 +83,6 @@ protected:
 	virtual void update() override;
 
 private:
-	UI::EventReturn OnOK(UI::EventParams &e);
-	UI::EventReturn OnCancel(UI::EventParams &e);
-
 	UI::ViewGroup *box_;
 	UI::Button *defaultButton_;
 	std::string title_;
@@ -91,6 +90,8 @@ private:
 	std::string button2_;
 
 	int frames_ = 0;
+	int finishFrame_ = 0;
+	DialogResult finishResult_;
 };
 
 class ListPopupScreen : public PopupScreen {

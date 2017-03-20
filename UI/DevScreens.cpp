@@ -607,7 +607,6 @@ bool AddressPromptScreen::key(const KeyInput &key) {
 		} else if (key.keyCode == NKCODE_DEL) {
 			BackspaceDigit();
 		} else if (key.keyCode == NKCODE_ENTER) {
-			OnCompleted(DR_OK);
 			TriggerFinish(DR_OK);
 		} else {
 			return UIDialogScreen::key(key);
