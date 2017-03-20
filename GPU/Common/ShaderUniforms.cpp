@@ -197,18 +197,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ub->depthRange[3] = viewZInvScale;
 	}
 
-	if (gstate_c.bezier) {
-		if (dirtyUniforms & DIRTY_BEZIERCOUNTU)
-			ub->spline_count_u = gstate_c.spline_count_u;
-	} else if (gstate_c.spline) {
-		if (dirtyUniforms & DIRTY_SPLINECOUNTU)
-			ub->spline_count_u = gstate_c.spline_count_u;
-		if (dirtyUniforms & DIRTY_SPLINECOUNTV)
-			ub->spline_count_v = gstate_c.spline_count_v;
-		if (dirtyUniforms & DIRTY_SPLINETYPEU)
-			ub->spline_type_u = gstate_c.spline_type_u;
-		if (dirtyUniforms & DIRTY_SPLINETYPEV)
-			ub->spline_type_v = gstate_c.spline_type_v;
+	if (dirtyUniforms & DIRTY_BEZIERSPLINE) {
+		ub->spline_count_u = gstate_c.spline_count_u;
+		ub->spline_count_v = gstate_c.spline_count_v;
+		ub->spline_type_u = gstate_c.spline_type_u;
+		ub->spline_type_v = gstate_c.spline_type_v;
 	}
 }
 

@@ -553,7 +553,6 @@ struct GPUStateCache {
 
 	bool bezier;
 	bool spline;
-	int bezier_count_u;
 	int spline_count_u;
 	int spline_count_v;
 	int spline_type_u;
