@@ -26,6 +26,8 @@ public:
 
 	virtual TouchInput transformTouch(const TouchInput &touch) override;
 
+	virtual void TriggerFinish(DialogResult result);
+
 	// Some useful default event handlers
 	UI::EventReturn OnOK(UI::EventParams &e);
 	UI::EventReturn OnCancel(UI::EventParams &e);

@@ -142,7 +142,7 @@ private:
 UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
 	GameInfo *ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
 	ginfo->Delete();
-	screenManager()->finishDialog(this, DR_NO);
+	TriggerFinish(DR_NO);
 	return UI::EVENT_DONE;
 }
 

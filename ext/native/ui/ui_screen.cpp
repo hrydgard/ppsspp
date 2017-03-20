@@ -143,6 +143,10 @@ bool UIScreen::key(const KeyInput &key) {
 	return false;
 }
 
+void UIScreen::TriggerFinish(DialogResult result) {
+	screenManager()->finishDialog(this, result);
+}
+
 bool UIDialogScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
 	if (!retval && (key.flags & KEY_DOWN) && UI::IsEscapeKey(key)) {
@@ -150,7 +154,7 @@ bool UIDialogScreen::key(const KeyInput &key) {
 			ELOG("Screen already finished");
 		} else {
 			finished_ = true;
-			screenManager()->finishDialog(this, DR_BACK);
+			TriggerFinish(DR_BACK);
 		}
 		return true;
 	}
@@ -194,17 +198,17 @@ bool UIScreen::axis(const AxisInput &axis) {
 }
 
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_BACK);
+	TriggerFinish(DR_BACK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn UIScreen::OnOK(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn UIScreen::OnCancel(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_CANCEL);
+	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
@@ -225,7 +229,7 @@ bool PopupScreen::touch(const TouchInput &touch) {
 	}
 
 	if (!box_->GetBounds().Contains(touch.x, touch.y))
-		screenManager()->finishDialog(this, DR_BACK);
+		TriggerFinish(DR_BACK);
 
 	return UIDialogScreen::touch(touch);
 }
@@ -328,13 +332,13 @@ void MessagePopupScreen::OnCompleted(DialogResult result) {
 
 UI::EventReturn PopupScreen::OnOK(UI::EventParams &e) {
 	OnCompleted(DR_OK);
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn PopupScreen::OnCancel(UI::EventParams &e) {
 	OnCompleted(DR_CANCEL);
-	screenManager()->finishDialog(this, DR_CANCEL);
+	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
@@ -350,7 +354,7 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	adaptor_.SetSelected(e.a);
 	if (callback_)
 		callback_(adaptor_.GetSelected());
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	OnCompleted(DR_OK);
 	OnChoice.Dispatch(e);
 	return UI::EVENT_DONE;

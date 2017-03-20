@@ -143,7 +143,7 @@ void DevMenu::dialogFinished(const Screen *dialog, DialogResult result) {
 	UpdateUIState(UISTATE_INGAME);
 	// Close when a subscreen got closed.
 	// TODO: a bug in screenmanager causes this not to work here.
-	// screenManager()->finishDialog(this, DR_OK);
+	// TriggerFinish(DR_OK);
 }
 
 void LogScreen::UpdateLog() {
@@ -608,7 +608,7 @@ bool AddressPromptScreen::key(const KeyInput &key) {
 			BackspaceDigit();
 		} else if (key.keyCode == NKCODE_ENTER) {
 			OnCompleted(DR_OK);
-			screenManager()->finishDialog(this, DR_OK);
+			TriggerFinish(DR_OK);
 		} else {
 			return UIDialogScreen::key(key);
 		}

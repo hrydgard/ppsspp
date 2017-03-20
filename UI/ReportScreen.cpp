@@ -289,7 +289,7 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 
 	std::string filename = includeScreenshot_ ? screenshotFilename_ : "";
 	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	screenManager()->push(new ReportFinishScreen(gamePath_));
 	return EVENT_DONE;
 }
