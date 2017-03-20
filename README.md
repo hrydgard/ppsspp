@@ -18,6 +18,15 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+What's new in 1.4.0
+-------------------
+* Support D3D11 (performs better than OpenGL or D3D9 on most hardware)
+* Audio quality improvement (linear interpolation) (#8950)
+* Hardware spline/bezier tesselation in OpenGL, D3D11 and Vulkan (...)
+* Post-processing shaders in D3D11
+* Prescale UV setting removed, now the default (improves perf) (#9176)
+* Assorted minor compatibility fixes, code cleanup and performance improvements
+
 What's new in 1.3.0
 -------------------
 * Fix JIT problems on Galaxy S7 and iOS 9+ devices. (#8965, #8937)
