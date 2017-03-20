@@ -115,11 +115,9 @@ enum {
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
-
 DrawEngineGLES::DrawEngineGLES()
 	: decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
-		lastVType_(-1),
 		shaderManager_(nullptr),
 		textureCache_(nullptr),
 		framebufferManager_(nullptr),

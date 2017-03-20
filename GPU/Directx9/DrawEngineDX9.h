@@ -187,8 +187,6 @@ private:
 	IndexGenerator indexGen;
 	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
-
-	u32 lastVType_;
 	
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;

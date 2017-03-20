@@ -88,7 +88,6 @@ static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
 DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw)
 	: decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
-		lastVType_(-1),
 		shaderManager_(0),
 		textureCache_(0),
 		framebufferManager_(0),
