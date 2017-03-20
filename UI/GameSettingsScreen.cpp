@@ -211,6 +211,10 @@ void GameSettingsScreen::CreateViews() {
 	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer (unfinished)")));
+	blockTransfer->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("SimulateBlockTransfer Tip", "Some games require that, check it if graphic have issue"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
@@ -300,13 +304,6 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
 	framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	// Seems solid, so we hide the setting.
-	/*CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gr->T("Vertex Decoder JIT")));
-
-	if (PSP_IsInited()) {
-		vtxJit->SetEnabled(false);
-	}*/
-
 	static const char *quality[] = { "Low", "Medium", "High"};
 	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
 	beziersChoice->OnChoice.Add([=](EventParams &e) {
@@ -357,7 +354,11 @@ void GameSettingsScreen::CreateViews() {
 
 	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
 	deposterize->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("Deposterize Tip", "Fixes small in-texture glitches that may happen when the texture is upscaled"), e.v);
+		if (g_Config.bTexDeposterize == true) {
+			settingInfo_->Show(gr->T("DeposterizeTrue Tip", "Fixes small in-texture glitches that may happen when the texture is upscaled"), e.v);
+		} else {
+			settingInfo_->Show(gr->T("DeposterizeFalse Tip", "May cause some artifacts after you have set the Upscale Level when uncheck it"), e.v);
+		}
 		return UI::EVENT_CONTINUE;
 	});
 	deposterize->SetDisabledPtr(&g_Config.bSoftwareRendering);
