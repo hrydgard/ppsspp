@@ -38,7 +38,7 @@ enum {
 	PSP_SAS_PITCH_MAX = 0x4000,
 
 	PSP_SAS_VOL_MAX = 0x1000,
-	PSP_SAS_MAX_GRAIN = 1024,   // VERY conservative! 256 is quite common but don't think I've ever seen bigger.
+	PSP_SAS_MAX_GRAIN = 2048,   // Matches the max value of the parameter to sceSasInit
 
 	PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE = 0,
 	PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE = 1,
