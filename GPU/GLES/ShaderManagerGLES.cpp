@@ -292,11 +292,10 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 				u_lightpos[i] != -1)
 			availableUniforms |= DIRTY_LIGHT0 << i;
 	}
-	if (u_spline_count_u != -1) availableUniforms |= DIRTY_BEZIERCOUNTU;
-	if (u_spline_count_u != -1) availableUniforms |= DIRTY_SPLINECOUNTU;
-	if (u_spline_count_v != -1) availableUniforms |= DIRTY_SPLINECOUNTV;
-	if (u_spline_type_u != -1) availableUniforms |= DIRTY_SPLINETYPEU;
-	if (u_spline_type_v != -1) availableUniforms |= DIRTY_SPLINETYPEV;
+	if (u_spline_count_u != -1) availableUniforms |= DIRTY_BEZIERSPLINE;
+	if (u_spline_count_v != -1) availableUniforms |= DIRTY_BEZIERSPLINE;
+	if (u_spline_type_u != -1) availableUniforms |= DIRTY_BEZIERSPLINE;
+	if (u_spline_type_v != -1) availableUniforms |= DIRTY_BEZIERSPLINE;
 
 	glUseProgram(program);
 
@@ -735,17 +734,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		}
 	}
 
-	if (gstate_c.bezier) {
-		if (dirty & DIRTY_BEZIERCOUNTU)
-			glUniform1i(u_spline_count_u, gstate_c.bezier_count_u);
-	} else if (gstate_c.spline) {
-		if (dirty & DIRTY_SPLINECOUNTU)
-			glUniform1i(u_spline_count_u, gstate_c.spline_count_u);
-		if (dirty & DIRTY_SPLINECOUNTV)
+	if (dirty & DIRTY_BEZIERSPLINE) {
+		glUniform1i(u_spline_count_u, gstate_c.spline_count_u);
+		if (u_spline_count_v != -1)
 			glUniform1i(u_spline_count_v, gstate_c.spline_count_v);
-		if (dirty & DIRTY_SPLINETYPEU)
+		if (u_spline_type_u != -1)
 			glUniform1i(u_spline_type_u, gstate_c.spline_type_u);
-		if (dirty & DIRTY_SPLINETYPEV)
+		if (u_spline_type_v != -1)
 			glUniform1i(u_spline_type_v, gstate_c.spline_type_v);
 	}
 	CHECK_GL_ERROR_IF_DEBUG();

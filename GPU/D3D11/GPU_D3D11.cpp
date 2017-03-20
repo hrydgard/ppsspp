@@ -596,7 +596,7 @@ void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
 		gstate_c.bezier = true;
 		if (gstate_c.spline_count_u != bz_ucount) {
-			gstate_c.Dirty(DIRTY_BEZIERCOUNTU);
+			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
 			gstate_c.spline_count_u = bz_ucount;
 		}
 	}
@@ -657,20 +657,13 @@ void GPU_D3D11::Execute_Spline(u32 op, u32 diff) {
 
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
 		gstate_c.spline = true;
-		if (gstate_c.spline_count_u != sp_ucount) {
-			gstate_c.Dirty(DIRTY_SPLINECOUNTU);
+		bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
+		bool typesChanged = gstate_c.spline_type_u != sp_utype || gstate_c.spline_type_v != sp_vtype;
+		if (countsChanged || typesChanged) {
+			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
 			gstate_c.spline_count_u = sp_ucount;
-		}
-		if (gstate_c.spline_count_v != sp_vcount) {
-			gstate_c.Dirty(DIRTY_SPLINECOUNTV);
 			gstate_c.spline_count_v = sp_vcount;
-		}
-		if (gstate_c.spline_type_u != sp_utype) {
-			gstate_c.Dirty(DIRTY_SPLINETYPEU);
 			gstate_c.spline_type_u = sp_utype;
-		}
-		if (gstate_c.spline_type_v != sp_vtype) {
-			gstate_c.Dirty(DIRTY_SPLINETYPEV);
 			gstate_c.spline_type_v = sp_vtype;
 		}
 	}
