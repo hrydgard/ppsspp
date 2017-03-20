@@ -10,3 +10,4 @@ build:
   project: Windows/PPSSPP.sln
   parallel: true
   verbosity: normal
+test: off

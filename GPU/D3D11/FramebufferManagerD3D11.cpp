@@ -846,7 +846,7 @@ void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int
 	ID3D11Texture2D *colorTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT, 0);
 
 	// TODO: Only copy the necessary rectangle.
-	D3D11_BOX srcBox{ x, y, 0, x+w, y+h, 1 };
+	D3D11_BOX srcBox{ (UINT)x, (UINT)y, 0, (UINT)(x+w), (UINT)(y+h), 1 };
 	context_->CopySubresourceRegion(packTexture_, 0, x, y, 0, colorTex, 0, &srcBox);
 
 	// Ideally, we'd round robin between two packTexture_, and simply use the other one. Though if the game
