@@ -45,13 +45,22 @@ float ease(int t, int fadeLength)
 	return ease((float)t / (float)fadeLength);
 }
 
-float bezierEaseInOut(float val) {
-	static const float x1 = 0.42f, x2 = 0.58f;
-	static const float a = 1.0f - 3.0f * x2 + 3.0f * x1;
-	static const float b = 3.0f * x2 - 6.0f * x1;
-	static const float c = 3.0f * x1;
+template <int hundredthsX1, int hundredthsX2, int hundredthsY1 = 0, int hundredthsY2 = 100>
+inline float bezierEaseFunc(float val) {
+	constexpr float x1 = hundredthsX1 / 100.0f;
+	constexpr float x2 = hundredthsX2 / 100.0f;
+	constexpr float a = 1.0f - 3.0f * x2 + 3.0f * x1;
+	constexpr float b = 3.0f * x2 - 6.0f * x1;
+	constexpr float c = 3.0f * x1;
+
+	constexpr float y1 = hundredthsY1 / 100.0f;
+	constexpr float y2 = hundredthsY2 / 100.0f;
+	constexpr float ya = 1.0f - 3.0f * y2 + 3.0f * y1;
+	constexpr float yb = 3.0f * y2 - 6.0f * y1;
+	constexpr float yc = 3.0f * y1;
 
 	float guess = val;
+	// Newton-Raphson calculation, no need to be too precise.
 	for (int i = 0; i < 4; ++i) {
 		float slope = 3.0f * a * guess * guess + 2.0f * b * guess + c;
 		if (slope == 0.0f) {
@@ -62,8 +71,23 @@ float bezierEaseInOut(float val) {
 		guess -= x / slope;
 	}
 
+	return ((ya * guess + yb) * guess + yc) * guess;
+}
 
-	return (-2.0f * guess + 3.0f) * guess * guess;
+float bezierEase(float val) {
+	return bezierEaseFunc<25, 25, 10, 100>(val);
+}
+
+float bezierEaseInOut(float val) {
+	return bezierEaseFunc<42, 58>(val);
+}
+
+float bezierEaseIn(float val) {
+	return bezierEaseFunc<42, 100>(val);
+}
+
+float bezierEaseOut(float val) {
+	return bezierEaseFunc<0, 58>(val);
 }
 
 float sawtooth(int t, int period) {
