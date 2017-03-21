@@ -211,6 +211,10 @@ void GameSettingsScreen::CreateViews() {
 	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer (unfinished)")));
+	blockTransfer->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require that"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
@@ -277,6 +281,10 @@ void GameSettingsScreen::CreateViews() {
 	hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
+	swSkin->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("SoftwareSkinning Tip", "Reduce drawcalls and faster in games that use the advanced skinning technique, but some games slower"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
@@ -311,7 +319,7 @@ void GameSettingsScreen::CreateViews() {
 	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
 	beziersChoice->OnChoice.Add([=](EventParams &e) {
 		if (g_Config.iSplineBezierQuality != 0) {
-			settingInfo_->Show(gr->T("LowCurves Tip", "This option will significantly improve/reduce the quality of rendered splines and bezier curves"), e.v);
+			settingInfo_->Show(gr->T("LowCurves Tip", "Improve/Reduce the quality of rendered splines and bezier curves"), e.v);
 		}
 		return UI::EVENT_CONTINUE;
 	});
@@ -321,6 +329,7 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
 	tessellationHW->OnClick.Add([=](EventParams &e) {
 		bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
+		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Using hardware to tessellate, can't work together with Spline/Bezier curves setting "), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	tessHWEnable_ = IsBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
@@ -357,7 +366,11 @@ void GameSettingsScreen::CreateViews() {
 
 	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
 	deposterize->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("Deposterize Tip", "Fixes small in-texture glitches that may happen when the texture is upscaled"), e.v);
+		if (g_Config.bTexDeposterize == true) {
+			settingInfo_->Show(gr->T("Deposterize Tip", "Fixes small in-texture glitches that may happen when the texture is upscaled"), e.v);
+		} else {
+			settingInfo_->Show(gr->T("Deposterize Tip", "You may seem to have some artifacts in the game if you uncheck that after you have set the Upscale Level"), e.v);
+		}
 		return UI::EVENT_CONTINUE;
 	});
 	deposterize->SetDisabledPtr(&g_Config.bSoftwareRendering);
