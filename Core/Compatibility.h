@@ -53,6 +53,7 @@ struct CompatFlags {
 	bool DrawSyncEatCycles;
 	bool FakeMipmapChange;
 	bool RequireBufferedRendering;
+	bool RequireBlockTransfer;
 };
 
 class IniFile;

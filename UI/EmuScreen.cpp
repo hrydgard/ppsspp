@@ -222,6 +222,11 @@ void EmuScreen::bootGame(const std::string &filename) {
 		I18NCategory *gr = GetI18NCategory("Graphics");
 		host->NotifyUserMessage(gr->T("BufferedRenderingRequired", "Warning: This game requires Rendering Mode to be set to Buffered."), 15.0f);
 	}
+
+	if (PSP_CoreParameter().compat.flags().RequireBlockTransfer && g_Config.bBlockTransferGPU == false) {
+		I18NCategory *gr = GetI18NCategory("Graphics");
+		host->NotifyUserMessage(gr->T("BlockTransferRequired", "Warning: This game requires Simulate Block Transfer Mode to be set to On."), 15.0f);
+	}
 }
 
 void EmuScreen::bootComplete() {
