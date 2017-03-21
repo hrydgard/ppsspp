@@ -1,6 +1,7 @@
 #include "SDL/SDLJoystick.h"
 #include "Core/Config.h"
 #include "Common/FileUtil.h"
+#include "file/vfs.h"
 
 #include <iostream>
 #include <string>
@@ -18,31 +19,22 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
 	if (init_SDL) {
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
 	}
-	
-	char* dbEnvPath = getenv("PPSSPP_GAME_CONTROLLER_DB_PATH");
-	if (dbEnvPath != NULL) {
-		if (!File::Exists(dbEnvPath)) {
-			cout << "WARNING! " << dbEnvPath << " does not exist!" << endl;
-		} else {
-			cout << "loading control pad mappings from " << dbEnvPath << ": ";
-			if (SDL_GameControllerAddMappingsFromFile(dbEnvPath) == -1) {
-				cout << "FAILED! Will try load from your assests directory instead..." << endl;
-			} else {
-				cout << "SUCCESS!" << endl;
-				setUpControllers();
-				return;
-			}
-		}
-	}
-		
-	auto dbPath = File::GetExeDirectory() + "assets/gamecontrollerdb.txt";
+
+	const char *dbPath = "gamecontrollerdb.txt";
 	cout << "loading control pad mappings from " << dbPath << ": ";
 
-	if (SDL_GameControllerAddMappingsFromFile(dbPath.c_str()) == -1) {
-		cout << "FAILED! Please place gamecontrollerdb.txt in your assets directory." << endl;
-		return;
+	size_t size;
+	u8 *mappingData = VFSReadFile(dbPath, &size);
+	if (mappingData) {
+		SDL_RWops *rw = SDL_RWFromConstMem(mappingData, size);
+		// 1 to free the rw after use
+		if (SDL_GameControllerAddMappingsFromRW(rw, 1) == -1) {
+			cout << "Failed to read mapping data - corrupt?" << endl;
+		}
+		delete[] mappingData;
+	} else {
+		cout << "gamecontrollerdb.txt missing" << endl;
 	}
-	
 	cout << "SUCCESS!" << endl;
 	setUpControllers();
 }
@@ -124,8 +116,10 @@ keycode_t SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
 		return NKCODE_BUTTON_THUMBL;
 	case SDL_CONTROLLER_BUTTON_RIGHTSTICK:
 		return NKCODE_BUTTON_THUMBR;
+	case SDL_CONTROLLER_BUTTON_INVALID:
+	default:
+		return NKCODE_UNKNOWN;
 	}
-	return NKCODE_UNKNOWN;
 }
 
 void SDLJoystick::ProcessInput(SDL_Event &event){
