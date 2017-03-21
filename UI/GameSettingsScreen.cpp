@@ -210,9 +210,9 @@ void GameSettingsScreen::CreateViews() {
 	});
 	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer (unfinished)")));
+	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer")));
 	blockTransfer->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require that"), e.v);
+		settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require this to be On for correct graphics"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
@@ -368,8 +368,6 @@ void GameSettingsScreen::CreateViews() {
 	deposterize->OnClick.Add([=](EventParams &e) {
 		if (g_Config.bTexDeposterize == true) {
 			settingInfo_->Show(gr->T("Deposterize Tip", "Fixes small in-texture glitches that may happen when the texture is upscaled"), e.v);
-		} else {
-			settingInfo_->Show(gr->T("Deposterize Tip", "You may seem to have some artifacts in the game if you uncheck that after you have set the Upscale Level"), e.v);
 		}
 		return UI::EVENT_CONTINUE;
 	});
