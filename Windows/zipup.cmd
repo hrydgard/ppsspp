@@ -13,9 +13,11 @@ del %name%
 
 echo Adding files to %name%
 REM Not distributing the 10 version because it's not compatible with older Windows.
-cp dx9sdk\8.1\Redist\D3D\x64\d3dcompiler_47.dll .
-cp dx9sdk\8.1\Redist\D3D\x86\d3dcompiler_47.dll .\d3dcompiler_47.x86.dll
+copy dx9sdk\8.1\Redist\D3D\x64\d3dcompiler_47.dll .
+copy dx9sdk\8.1\Redist\D3D\x86\d3dcompiler_47.dll .\d3dcompiler_47.x86.dll
+@echo on
 zip --recurse-paths %name% assets flash0 PPSSPPWindows.exe PPSSPPWindows64.exe d3dcompiler_47.dll d3dcompiler_47.x86.dll README.md
+@echo off
 del d3dcompiler_47.dll d3dcompiler_v47.x86.dll
 
 echo Done: %name%
