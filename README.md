@@ -30,7 +30,7 @@ What's new in 1.4.0
 * Various desktop gamepad compatibility fixes
 * Assorted minor compatibility fixes, code cleanup and performance improvements
 
-Support for Symbian, Maemo and Blackbarry has been removed.
+Support for Symbian, Maemo and Blackberry has been removed.
 
 What's new in 1.3.0
 -------------------
