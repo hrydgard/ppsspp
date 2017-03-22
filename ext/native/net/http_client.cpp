@@ -73,7 +73,7 @@ bool Connection::Resolve(const char *host, int port) {
 	return true;
 }
 
-bool Connection::Connect(int maxTries, double timeout) {
+bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 	if (port_ <= 0) {
 		ELOG("Bad port");
 		return false;
@@ -106,10 +106,26 @@ bool Connection::Connect(int maxTries, double timeout) {
 			}
 		}
 
-		struct timeval tv;
-		tv.tv_sec = floor(timeout);
-		tv.tv_usec = (timeout - floor(timeout)) * 1000000.0;
-		if (select(maxfd, NULL, &fds, NULL, &tv) > 0) {
+		int selectResult = 0;
+		long timeoutHalfSeconds = floor(2 * timeout);
+		while (timeoutHalfSeconds >= 0 && selectResult == 0) {
+			struct timeval tv;
+			tv.tv_sec = 0;
+			if (timeoutHalfSeconds > 0) {
+				// Wait up to 0.5 seconds between cancel checks.
+				tv.tv_usec = 500000;
+			} else {
+				// Wait the remaining <= 0.5 seconds.  Possibly 0, but that's okay.
+				tv.tv_usec = (timeout - floor(2 * timeout) / 2) * 1000000.0;
+			}
+			--timeoutHalfSeconds;
+
+			selectResult = select(maxfd, nullptr, &fds, nullptr, &tv);
+			if (cancelConnect && *cancelConnect) {
+				break;
+			}
+		}
+		if (selectResult > 0) {
 			// Something connected.  Pick the first one that did (if multiple.)
 			for (int sock : sockets) {
 				if ((intptr_t)sock_ == -1 && FD_ISSET(sock, &fds)) {
@@ -123,6 +139,11 @@ bool Connection::Connect(int maxTries, double timeout) {
 			// Great, now we're good to go.
 			return true;
 		}
+
+		if (cancelConnect && *cancelConnect) {
+			break;
+		}
+
 		sleep_ms(1);
 	}
 

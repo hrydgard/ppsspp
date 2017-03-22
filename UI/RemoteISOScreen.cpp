@@ -50,6 +50,7 @@ static std::mutex serverStatusLock;
 static std::condition_variable serverStatusCond;
 
 static bool scanCancelled = false;
+static bool scanAborted = false;
 
 static void UpdateStatus(ServerStatus s) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
@@ -69,7 +70,7 @@ static void RegisterServer(int port) {
 	Buffer theVoid;
 
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
-		if (http.Connect()) {
+		if (http.Connect(2, 20.0, &scanCancelled)) {
 			char resource[1024] = {};
 			std::string ip = fd_util::GetLocalIP(http.sock());
 			snprintf(resource, sizeof(resource) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
@@ -190,12 +191,24 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	Buffer result;
 	int code = 500;
 
+	auto TryServer = [&](const std::string &host, int port) {
+		// Don't wait as long for a connect - we need a good connection for smooth streaming anyway.
+		// This way if it's down, we'll find the right one faster.
+		if (http.Resolve(host.c_str(), port) && http.Connect(1, 10.0, &scanCancelled)) {
+			http.Disconnect();
+			resultHost = host;
+			resultPort = port;
+			return true;
+		}
+
+		return false;
+	};
+
 	// Try last server first, if it is set
-	if (g_Config.iLastRemoteISOPort && g_Config.sLastRemoteISOServer != "" && http.Resolve(g_Config.sLastRemoteISOServer.c_str(), g_Config.iLastRemoteISOPort) && http.Connect()) {
-		http.Disconnect();
-		resultHost = g_Config.sLastRemoteISOServer;
-		resultPort = g_Config.iLastRemoteISOPort;
-		return true;
+	if (g_Config.iLastRemoteISOPort && g_Config.sLastRemoteISOServer != "") {
+		if (TryServer(g_Config.sLastRemoteISOServer.c_str(), g_Config.iLastRemoteISOPort)) {
+			return true;
+		}
 	}
 
 	//don't scan if in manual mode
@@ -205,7 +218,7 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 
 	// Start by requesting a list of recent local ips for this network.
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
-		if (http.Connect()) {
+		if (http.Connect(2, 20.0, &scanCancelled)) {
 			code = http.GET("/match/list", &result);
 			http.Disconnect();
 		}
@@ -230,7 +243,7 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 
 	std::vector<std::string> servers;
 	const json_value *entry = entries->first_child;
-	while (entry) {
+	while (entry && !scanCancelled) {
 		const char *host = entry->getString("ip", "");
 		int port = entry->getInt("p", 0);
 
@@ -238,10 +251,7 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		snprintf(url, sizeof(url), "http://%s:%d", host, port);
 		servers.push_back(url);
 
-		if (http.Resolve(host, port) && http.Connect()) {
-			http.Disconnect();
-			resultHost = host;
-			resultPort = port;
+		if (TryServer(host, port)) {
 			return true;
 		}
 
@@ -271,7 +281,7 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 
 	// Start by requesting the list of games from the server.
 	if (http.Resolve(host.c_str(), port)) {
-		if (http.Connect()) {
+		if (http.Connect(2, 20.0, &scanCancelled)) {
 			code = http.GET(subdir.c_str(), &result,responseHeaders);
 			http.Disconnect();
 		}
@@ -441,6 +451,7 @@ UI::EventReturn RemoteISOScreen::HandleSettings(UI::EventParams &e) {
 
 RemoteISOConnectScreen::RemoteISOConnectScreen() : status_(ScanStatus::SCANNING), nextRetry_(0.0) {
 	scanCancelled = false;
+	scanAborted = false;
 
 	scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 		thiz->ExecuteScan();
@@ -455,6 +466,7 @@ RemoteISOConnectScreen::~RemoteISOConnectScreen() {
 		sleep_ms(1);
 		if (--maxWait < 0) {
 			// If it does ever wake up, it may crash... but better than hanging?
+			scanAborted = true;
 			break;
 		}
 	}
@@ -536,7 +548,7 @@ void RemoteISOConnectScreen::update() {
 
 void RemoteISOConnectScreen::ExecuteScan() {
 	FindServer(host_, port_);
-	if (scanCancelled) {
+	if (scanAborted) {
 		return;
 	}
 
@@ -551,7 +563,7 @@ ScanStatus RemoteISOConnectScreen::GetStatus() {
 
 void RemoteISOConnectScreen::ExecuteLoad() {
 	bool result = LoadGameList(host_, port_, games_);
-	if (scanCancelled) {
+	if (scanAborted) {
 		return;
 	}
 
