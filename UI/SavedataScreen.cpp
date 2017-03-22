@@ -330,7 +330,8 @@ void SavedataBrowser::Refresh() {
 
 UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 	SavedataButton *button = static_cast<SavedataButton *>(e.v);
-	UI::EventParams e2;
+	UI::EventParams e2{};
+	e2.v = e.v;
 	e2.s = button->GamePath();
 	// Insta-update - here we know we are already on the right thread.
 	OnChoice.Trigger(e2);
@@ -378,7 +379,11 @@ void SavedataScreen::CreateViews() {
 
 UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 	GameInfo *ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), e.s, 0);
-	screenManager()->push(new SavedataPopupScreen(e.s, ginfo->GetTitle()));
+	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(e.s, ginfo->GetTitle());
+	if (e.v) {
+		popupScreen->SetPopupOrigin(e.v);
+	}
+	screenManager()->push(popupScreen);
 	// the game path: e.s;
 	return UI::EVENT_DONE;
 }

@@ -74,6 +74,8 @@ public:
 
 	virtual void TriggerFinish(DialogResult result) override;
 
+	void SetPopupOrigin(const UI::View *view);
+
 protected:
 	virtual bool FillVertical() const { return false; }
 	virtual UI::Size PopupWidth() const { return 550; }
@@ -92,6 +94,8 @@ private:
 	int frames_ = 0;
 	int finishFrame_ = 0;
 	DialogResult finishResult_;
+	bool hasPopupOrigin_ = false;
+	Point popupOrigin_;
 };
 
 class ListPopupScreen : public PopupScreen {

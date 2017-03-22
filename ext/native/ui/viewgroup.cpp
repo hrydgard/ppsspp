@@ -1212,7 +1212,7 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 		}
 	}
 
-	EventParams e2;
+	EventParams e2{};
 	e2.v = views_[selected_];
 	e2.a = selected_;
 	// Set to 1 to indicate an explicit click.
@@ -1232,7 +1232,7 @@ void ChoiceStrip::SetSelection(int sel) {
 		newChoice->Press();
 
 		if (topTabs_ && prevSelected != selected_) {
-			EventParams e;
+			EventParams e{};
 			e.v = views_[selected_];
 			e.a = selected_;
 			// Set to 0 to indicate a selection change (not a click.)
@@ -1305,8 +1305,8 @@ void ListView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert)
 }
 
 EventReturn ListView::OnItemCallback(int num, EventParams &e) {
-	EventParams ev;
-	ev.v = 0;
+	EventParams ev{};
+	ev.v = nullptr;
 	ev.a = num;
 	adaptor_->SetSelected(num);
 	View *focused = GetFocusedView();

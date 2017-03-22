@@ -237,7 +237,7 @@ bool PopupScreen::touch(const TouchInput &touch) {
 bool PopupScreen::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode == NKCODE_ENTER && defaultButton_) {
-			UI::EventParams e;
+			UI::EventParams e{};
 			defaultButton_->OnClick.Trigger(e);
 			return true;
 		}
@@ -252,30 +252,49 @@ void PopupScreen::update() {
 	static const int FRAMES_LEAD_IN = 6;
 	static const int FRAMES_LEAD_OUT = 4;
 
+	float animatePos = 1.0f;
+
 	++frames_;
 	if (frames_ < FRAMES_LEAD_IN) {
 		float leadIn = bezierEaseInOut(frames_ * (1.0f / (float)FRAMES_LEAD_IN));
-		alpha_ = leadIn;
-		scale_.x = 0.9f + leadIn * 0.1f;
-		scale_.y =  0.9f + leadIn * 0.1f;
-		translation_.y = -dp_yres * (1.0f - leadIn) * 0.5f;
+		animatePos = leadIn;
 	} else if (finishFrame_ > 0) {
 		float leadOut = bezierEaseInOut((frames_ - finishFrame_) * (1.0f / (float)FRAMES_LEAD_OUT));
-		alpha_ = 1.0f - leadOut;
-		scale_.x = 0.9f + (1.0f - leadOut) * 0.1f;
-		scale_.y =  0.9f + (1.0f - leadOut) * 0.1f;
-		translation_.y = -dp_yres * leadOut * 0.5f;
+		animatePos = 1.0f - leadOut;
 
 		if (frames_ >= finishFrame_ + FRAMES_LEAD_OUT) {
 			// Actual finish happens here.
 			screenManager()->finishDialog(this, finishResult_);
 		}
+	}
+
+	if (animatePos < 1.0f) {
+		alpha_ = animatePos;
+		scale_.x = 0.9f + animatePos * 0.1f;
+		scale_.y =  0.9f + animatePos * 0.1f;
+
+		if (hasPopupOrigin_) {
+			float xoff = popupOrigin_.x - dp_xres / 2;
+			float yoff = popupOrigin_.y - dp_yres / 2;
+
+			// Pull toward the origin a bit.
+			translation_.x = xoff * (1.0f - animatePos) * 0.2f;
+			translation_.y = yoff * (1.0f - animatePos) * 0.2f;
+		} else {
+			translation_.y = -dp_yres * (1.0f - animatePos) * 0.2f;
+		}
 	} else {
 		alpha_ = 1.0f;
 		scale_.x = 1.0f;
 		scale_.y = 1.0f;
+		translation_.x = 0.0f;
 		translation_.y = 0.0f;
 	}
+}
+
+void PopupScreen::SetPopupOrigin(const UI::View *view) {
+	hasPopupOrigin_ = true;
+	popupOrigin_ = view->GetBounds().Center();
 }
 
 void PopupScreen::TriggerFinish(DialogResult result) {
@@ -391,6 +410,8 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_,
 		std::bind(&PopupMultiChoice::ChoiceCallback, this, std::placeholders::_1));
 	popupScreen->SetHiddenChoices(hidden_);
+	if (e.v)
+		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
 	return UI::EVENT_DONE;
 }
@@ -414,7 +435,7 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 		*value_ = num + minVal_;
 		UpdateText();
 
-		UI::EventParams e;
+		UI::EventParams e{};
 		e.v = this;
 		e.a = num;
 		OnChoice.Trigger(e);
@@ -470,6 +491,8 @@ EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 
 	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
+	if (e.v)
+		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
 }
@@ -512,6 +535,8 @@ EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 
 	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
+	if (e.v)
+		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
 }
@@ -691,8 +716,8 @@ EventReturn SliderFloatPopupScreen::OnTextChange(EventParams &params) {
 void SliderPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
 		*value_ = sliderValue_;
-		EventParams e;
-		e.v = 0;
+		EventParams e{};
+		e.v = nullptr;
 		e.a = *value_;
 		OnChange.Trigger(e);
 	}
@@ -701,8 +726,8 @@ void SliderPopupScreen::OnCompleted(DialogResult result) {
 void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
 		*value_ = sliderValue_;
-		EventParams e;
-		e.v = 0;
+		EventParams e{};
+		e.v = nullptr;
 		e.a = (int)*value_;
 		e.f = *value_;
 		OnChange.Trigger(e);
@@ -719,6 +744,8 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 
 	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, ChopTitle(text_), maxLen_);
 	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
+	if (e.v)
+		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
 }
@@ -765,7 +792,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void TextEditPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
 		*value_ = edit_->GetText();
-		EventParams e;
+		EventParams e{};
 		e.v = edit_;
 		OnChange.Trigger(e);
 	}

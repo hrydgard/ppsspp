@@ -287,6 +287,8 @@ UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 
 	auto logLevelScreen = new LogLevelScreen(dev->T("Log Level"));
 	logLevelScreen->OnChoice.Handle(this, &LogConfigScreen::OnLogLevelChange);
+	if (e.v)
+		logLevelScreen->SetPopupOrigin(e.v);
 	screenManager()->push(logLevelScreen);
 	return UI::EVENT_DONE;
 }
@@ -294,7 +296,7 @@ UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 LogLevelScreen::LogLevelScreen(const std::string &title) : ListPopupScreen(title) {
 	int NUMLOGLEVEL = 6;    
 	std::vector<std::string> list;
-	for(int i = 0; i < NUMLOGLEVEL; ++i) {
+	for (int i = 0; i < NUMLOGLEVEL; ++i) {
 		list.push_back(logLevelList[i]);
 	}
 	adaptor_ = UI::StringVectorListAdaptor(list, -1);
@@ -552,7 +554,7 @@ void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 void AddressPromptScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
-		UI::EventParams e;
+		UI::EventParams e{};
 		e.v = root_;
 		e.a = addr_;
 		OnChoice.Trigger(e);
@@ -655,7 +657,7 @@ void JitCompareScreen::CreateViews() {
 	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
 	blockStats_ = leftColumn->Add(new TextView(""));
 
-	EventParams ignore = {0};
+	EventParams ignore{};
 	OnCurrentBlock(ignore);
 }
 
