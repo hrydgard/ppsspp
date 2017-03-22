@@ -1175,8 +1175,10 @@ UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
 
 void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
-	root_ = new ScrollView(ORIENT_VERTICAL);
-	root_->SetTag("DevToolsSettings");
+	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	settingsScroll->SetTag("DevToolsSettings");
+	root_->Add(settingsScroll);
 
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *dev = GetI18NCategory("Developer");
@@ -1184,7 +1186,9 @@ void DeveloperToolsScreen::CreateViews() {
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *sy = GetI18NCategory("System");
 
-	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	AddStandardBack(root_);
+
+	LinearLayout *list = settingsScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->SetSpacing(0);
 	list->Add(new ItemHeader(sy->T("General")));
 
@@ -1227,8 +1231,6 @@ void DeveloperToolsScreen::CreateViews() {
 #if !defined(MOBILE_DEVICE)
 	list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")))->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
 #endif
-	list->Add(new ItemHeader(""));
-	list->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
