@@ -379,7 +379,11 @@ void SavedataScreen::CreateViews() {
 
 UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 	GameInfo *ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), e.s, 0);
-	screenManager()->push(new SavedataPopupScreen(e.s, ginfo->GetTitle()));
+	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(e.s, ginfo->GetTitle());
+	if (e.v) {
+		popupScreen->SetPopupOrigin(e.v);
+	}
+	screenManager()->push(popupScreen);
 	// the game path: e.s;
 	return UI::EVENT_DONE;
 }

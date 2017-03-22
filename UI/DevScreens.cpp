@@ -287,6 +287,8 @@ UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 
 	auto logLevelScreen = new LogLevelScreen(dev->T("Log Level"));
 	logLevelScreen->OnChoice.Handle(this, &LogConfigScreen::OnLogLevelChange);
+	if (e.v)
+		logLevelScreen->SetPopupOrigin(e.v);
 	screenManager()->push(logLevelScreen);
 	return UI::EVENT_DONE;
 }
@@ -294,7 +296,7 @@ UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 LogLevelScreen::LogLevelScreen(const std::string &title) : ListPopupScreen(title) {
 	int NUMLOGLEVEL = 6;    
 	std::vector<std::string> list;
-	for(int i = 0; i < NUMLOGLEVEL; ++i) {
+	for (int i = 0; i < NUMLOGLEVEL; ++i) {
 		list.push_back(logLevelList[i]);
 	}
 	adaptor_ = UI::StringVectorListAdaptor(list, -1);

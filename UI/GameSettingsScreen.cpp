@@ -1101,6 +1101,8 @@ UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 	I18NCategory *dev = GetI18NCategory("Developer");
 	auto langScreen = new NewLanguageScreen(dev->T("Language"));
 	langScreen->OnChoice.Handle(this, &GameSettingsScreen::OnLanguageChange);
+	if (e.v)
+		langScreen->SetPopupOrigin(e.v);
 	screenManager()->push(langScreen);
 	return UI::EVENT_DONE;
 }
@@ -1118,6 +1120,8 @@ UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
 	I18NCategory *gr = GetI18NCategory("Graphics");
 	auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"));
 	procScreen->OnChoice.Handle(this, &GameSettingsScreen::OnPostProcShaderChange);
+	if (e.v)
+		procScreen->SetPopupOrigin(e.v);
 	screenManager()->push(procScreen);
 	return UI::EVENT_DONE;
 }

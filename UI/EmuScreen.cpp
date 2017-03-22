@@ -792,7 +792,10 @@ void EmuScreen::CreateViews() {
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 	releaseButtons();
-	screenManager()->push(new DevMenu());
+	DevMenu *devMenu = new DevMenu();
+	if (params.v)
+		devMenu->SetPopupOrigin(params.v);
+	screenManager()->push(devMenu);
 	return UI::EVENT_DONE;
 }
 

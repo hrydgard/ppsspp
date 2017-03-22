@@ -266,6 +266,8 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	}
 	I18NCategory *km = GetI18NCategory("KeyMapping");
 	ListPopupScreen *autoConfList = new ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
+	if (params.v)
+		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);
 	return UI::EVENT_DONE;
 }
