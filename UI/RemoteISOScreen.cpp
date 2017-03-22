@@ -375,7 +375,7 @@ void RemoteISOScreen::CreateViews() {
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f, contentMargins));
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 0.4f, contentMargins));
 	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(WRAP_CONTENT, FILL_PARENT));
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
@@ -400,12 +400,12 @@ void RemoteISOScreen::CreateViews() {
 	Choice *settingsChoice = new Choice(sy->T("Settings"));
 	rightColumnItems->Add(settingsChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleSettings);
 
-	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-	root_->Add(leftColumn);
-	root_->Add(rightColumn);
+	LinearLayout *beforeBack = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+	beforeBack->Add(leftColumn);
+	beforeBack->Add(rightColumn);
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_->Add(beforeBack);
+	root_->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	leftColumn->Add(leftColumnItems);
 	rightColumn->Add(rightColumnItems);
@@ -484,8 +484,6 @@ void RemoteISOConnectScreen::CreateViews() {
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
 	statusView_ = leftColumnItems->Add(new TextView(sy->T("RemoteISOScanning", "Scanning... click Share Games on your desktop"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
-
-	// TODO: Here would be a good place for manual entry.
 
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumnItems->Add(new Choice(sy->T("Cancel"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -651,13 +649,27 @@ void RemoteISOBrowseScreen::CreateViews() {
 	upgradeBar_ = 0;
 }
 
+RemoteISOSettingsScreen::RemoteISOSettingsScreen() {
+	serverRunning_ = RetrieveStatus() != ServerStatus::STOPPED;;
+}
+
+void RemoteISOSettingsScreen::update() {
+	UIDialogScreenWithBackground::update();
+
+	bool nowRunning = RetrieveStatus() != ServerStatus::STOPPED;
+	if (serverRunning_ != nowRunning) {
+		RecreateViews();
+	}
+	serverRunning_ = nowRunning;
+}
+
 void RemoteISOSettingsScreen::CreateViews() {
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *n = GetI18NCategory("Networking");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 	
-	ViewGroup *remoteisoSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	remoteisoSettingsScroll->SetTag("GameSettingsNetworking");
+	ViewGroup *remoteisoSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	remoteisoSettingsScroll->SetTag("RemoteISOSettings");
 	LinearLayout *remoteisoSettings = new LinearLayout(ORIENT_VERTICAL);
 	remoteisoSettings->SetSpacing(0);
 	remoteisoSettingsScroll->Add(remoteisoSettings);
@@ -671,12 +683,15 @@ void RemoteISOSettingsScreen::CreateViews() {
 	PopupTextInputChoice *remoteSubdir = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sRemoteISOSubdir, n->T("Remote Subdirectory"), "", 255, screenManager()));
 	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
 	remoteSubdir->OnChange.Handle(this, &RemoteISOSettingsScreen::OnChangeRemoteISOSubdir);
-	remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, n->T("Local Server Port", "Local Server Port"), 100, screenManager()));
+
+	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, n->T("Local Server Port", "Local Server Port"), 100, screenManager());
+	remoteisoSettings->Add(portChoice);
+	portChoice->SetDisabledPtr(&serverRunning_);
 	remoteisoSettings->Add(new Spacer(25.0));
-	remoteisoSettings->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	root_->Add(remoteisoSettings);
+	root_->Add(remoteisoSettingsScroll);
+	AddStandardBack(root_);
 }
 
 UI::EventReturn RemoteISOSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {

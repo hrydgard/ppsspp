@@ -85,12 +85,15 @@ protected:
 	std::vector<std::string> games_;
 };
 
-class RemoteISOSettingsScreen : public UIScreenWithBackground {
+class RemoteISOSettingsScreen : public UIDialogScreenWithBackground {
 public:
+	RemoteISOSettingsScreen();
 
 protected:
+	void update() override;
 	void CreateViews() override;
 
 	UI::EventReturn OnChangeRemoteISOSubdir(UI::EventParams &e);
 
+	bool serverRunning_ = false;
 };
