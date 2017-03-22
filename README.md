@@ -25,7 +25,12 @@ What's new in 1.4.0
 * Hardware spline/bezier tesselation in OpenGL, D3D11 and Vulkan (...)
 * Post-processing shaders in D3D11
 * Prescale UV setting removed, now the default (improves perf) (#9176)
+* High DPI display fixes
+* New audio setting to improve compatibility with Bluetooth headsets
+* Various desktop gamepad compatibility fixes
 * Assorted minor compatibility fixes, code cleanup and performance improvements
+
+Support for Symbian, Maemo and Blackbarry has been removed.
 
 What's new in 1.3.0
 -------------------
