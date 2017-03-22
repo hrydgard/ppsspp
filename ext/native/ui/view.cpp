@@ -299,7 +299,7 @@ bool IsAcceptKey(const KeyInput &key) {
 		if (key.deviceId == DEVICE_ID_KEYBOARD) {
 			return key.keyCode == NKCODE_SPACE || key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_Z;
 		} else {
-			return key.keyCode == NKCODE_BUTTON_A || key.keyCode == NKCODE_BUTTON_CROSS || key.keyCode == NKCODE_BUTTON_1;
+			return key.keyCode == NKCODE_BUTTON_A || key.keyCode == NKCODE_BUTTON_CROSS || key.keyCode == NKCODE_BUTTON_1 || key.keyCode == NKCODE_DPAD_CENTER;
 		}
 	} else {
 		return MatchesKeyDef(confirmKeys, key);
