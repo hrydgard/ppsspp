@@ -211,8 +211,8 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		}
 	}
 
-	//don't scan if in manual mode
-	if (g_Config.bRemoteISOManual) {
+	// Don't scan if in manual mode.
+	if (g_Config.bRemoteISOManual || scanCancelled) {
 		return false;
 	}
 
