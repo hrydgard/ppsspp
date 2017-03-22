@@ -234,7 +234,7 @@ bool View::SetFocus() {
 }
 
 void Clickable::Click() {
-	UI::EventParams e;
+	UI::EventParams e{};
 	e.v = this;
 	OnClick.Trigger(e);
 };
@@ -874,7 +874,8 @@ bool TextEdit::Key(const KeyInput &input) {
 			break;
 		case NKCODE_ENTER:
 			{
-				EventParams e;
+				EventParams e{};
+				e.v = this;
 				e.s = text_;
 				OnEnter.Trigger(e);
 				break;
@@ -955,7 +956,7 @@ bool TextEdit::Key(const KeyInput &input) {
 	}
 
 	if (textChanged) {
-		UI::EventParams e;
+		UI::EventParams e{};
 		e.v = this;
 		OnTextChange.Trigger(e);
 	}
@@ -1071,7 +1072,7 @@ void Slider::Touch(const TouchInput &input) {
 		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = floorf(relativeX * (maxValue_ - minValue_) + minValue_ + 0.5f);
 		Clamp();
-		EventParams params;
+		EventParams params{};
 		params.v = this;
 		params.a = (uint32_t)(*value_);
 		params.f = (float)(*value_);
@@ -1183,7 +1184,7 @@ void SliderFloat::Touch(const TouchInput &input) {
 		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = (relativeX * (maxValue_ - minValue_) + minValue_);
 		Clamp();
-		EventParams params;
+		EventParams params{};
 		params.v = this;
 		params.a = (uint32_t)(*value_);
 		params.f = (float)(*value_);

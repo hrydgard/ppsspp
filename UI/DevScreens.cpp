@@ -552,7 +552,7 @@ void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 void AddressPromptScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
-		UI::EventParams e;
+		UI::EventParams e{};
 		e.v = root_;
 		e.a = addr_;
 		OnChoice.Trigger(e);
@@ -655,7 +655,7 @@ void JitCompareScreen::CreateViews() {
 	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
 	blockStats_ = leftColumn->Add(new TextView(""));
 
-	EventParams ignore = {0};
+	EventParams ignore{};
 	OnCurrentBlock(ignore);
 }
 

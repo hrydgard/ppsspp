@@ -242,7 +242,7 @@ static void AfterSaveStateAction(bool status, const std::string &message, void *
 UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
 	g_Config.iCurrentStateSlot = slot_;
 	SaveState::LoadSlot(gamePath_, slot_, &AfterSaveStateAction);
-	UI::EventParams e2;
+	UI::EventParams e2{};
 	e2.v = this;
 	OnStateLoaded.Trigger(e2);
 	return UI::EVENT_DONE;
@@ -251,14 +251,14 @@ UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
 UI::EventReturn SaveSlotView::OnSaveState(UI::EventParams &e) {
 	g_Config.iCurrentStateSlot = slot_;
 	SaveState::SaveSlot(gamePath_, slot_, &AfterSaveStateAction);
-	UI::EventParams e2;
+	UI::EventParams e2{};
 	e2.v = this;
 	OnStateSaved.Trigger(e2);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn SaveSlotView::OnScreenshotClick(UI::EventParams &e) {
-	UI::EventParams e2;
+	UI::EventParams e2{};
 	e2.v = this;
 	OnScreenshotClicked.Trigger(e2);
 	return UI::EVENT_DONE;

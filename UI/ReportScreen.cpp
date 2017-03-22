@@ -119,7 +119,7 @@ EventReturn RatingChoice::OnChoiceClick(EventParams &e) {
 		}
 	}
 
-	EventParams e2;
+	EventParams e2{};
 	e2.v = e.v;
 	e2.a = *value_;
 	// Dispatch immediately (we're already on the UI thread as we're in an event handler).

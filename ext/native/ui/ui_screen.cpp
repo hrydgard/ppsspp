@@ -237,7 +237,7 @@ bool PopupScreen::touch(const TouchInput &touch) {
 bool PopupScreen::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode == NKCODE_ENTER && defaultButton_) {
-			UI::EventParams e;
+			UI::EventParams e{};
 			defaultButton_->OnClick.Trigger(e);
 			return true;
 		}
@@ -414,7 +414,7 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 		*value_ = num + minVal_;
 		UpdateText();
 
-		UI::EventParams e;
+		UI::EventParams e{};
 		e.v = this;
 		e.a = num;
 		OnChoice.Trigger(e);
@@ -691,8 +691,8 @@ EventReturn SliderFloatPopupScreen::OnTextChange(EventParams &params) {
 void SliderPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
 		*value_ = sliderValue_;
-		EventParams e;
-		e.v = 0;
+		EventParams e{};
+		e.v = nullptr;
 		e.a = *value_;
 		OnChange.Trigger(e);
 	}
@@ -701,8 +701,8 @@ void SliderPopupScreen::OnCompleted(DialogResult result) {
 void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
 		*value_ = sliderValue_;
-		EventParams e;
-		e.v = 0;
+		EventParams e{};
+		e.v = nullptr;
 		e.a = (int)*value_;
 		e.f = *value_;
 		OnChange.Trigger(e);
@@ -765,7 +765,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void TextEditPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
 		*value_ = edit_->GetText();
-		EventParams e;
+		EventParams e{};
 		e.v = edit_;
 		OnChange.Trigger(e);
 	}

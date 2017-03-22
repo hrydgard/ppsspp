@@ -330,7 +330,8 @@ void SavedataBrowser::Refresh() {
 
 UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 	SavedataButton *button = static_cast<SavedataButton *>(e.v);
-	UI::EventParams e2;
+	UI::EventParams e2{};
+	e2.v = e.v;
 	e2.s = button->GamePath();
 	// Insta-update - here we know we are already on the right thread.
 	OnChoice.Trigger(e2);

@@ -313,7 +313,8 @@ UI::EventReturn ProductView::OnLaunchClick(UI::EventParams &e) {
 	path = ReplaceAll(path, "\\", "/");
 #endif
 
-	UI::EventParams e2;
+	UI::EventParams e2{};
+	e2.v = e.v;
 	e2.s = path;
 	// Insta-update - here we know we are already on the right thread.
 	OnClickLaunch.Trigger(e2);

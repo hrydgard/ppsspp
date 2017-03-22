@@ -150,14 +150,14 @@ public:
 private:
 	void TriggerOnHoldClick() {
 		holdStart_ = 0.0;
-		UI::EventParams e;
+		UI::EventParams e{};
 		e.v = this;
 		e.s = gamePath_;
 		down_ = false;
 		OnHoldClick.Trigger(e);
 	}
 	void TriggerOnHighlight(int focusFlags) {
-		UI::EventParams e;
+		UI::EventParams e{};
 		e.v = this;
 		e.s = gamePath_;
 		e.a = focusFlags;
