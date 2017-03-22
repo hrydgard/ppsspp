@@ -319,7 +319,7 @@ void GameSettingsScreen::CreateViews() {
 	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
 	beziersChoice->OnChoice.Add([=](EventParams &e) {
 		if (g_Config.iSplineBezierQuality != 0) {
-			settingInfo_->Show(gr->T("LowCurves Tip", "Improve/Reduce the quality of rendered splines and bezier curves"), e.v);
+			settingInfo_->Show(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves"), e.v);
 		}
 		return UI::EVENT_CONTINUE;
 	});
@@ -329,7 +329,7 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
 	tessellationHW->OnClick.Add([=](EventParams &e) {
 		bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
-		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Using hardware to tessellate, can't work together with Spline/Bezier curves setting "), e.v);
+		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves, always uses a fixed quality"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	tessHWEnable_ = IsBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
@@ -367,7 +367,7 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
 	deposterize->OnClick.Add([=](EventParams &e) {
 		if (g_Config.bTexDeposterize == true) {
-			settingInfo_->Show(gr->T("Deposterize Tip", "Fixes small in-texture glitches that may happen when the texture is upscaled"), e.v);
+			settingInfo_->Show(gr->T("Deposterize Tip", "Fixes visual banding glitches in upscaled textures"), e.v);
 		}
 		return UI::EVENT_CONTINUE;
 	});
@@ -400,7 +400,7 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	CheckBox *timerHack = graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gr->T("Timer Hack")));
 	timerHack->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("TimerHack Tip", "Faster some games when emulation speed is slower , but may cause glitches/breaking"), e.v);
+		settingInfo_->Show(gr->T("TimerHack Tip", "Changes game clock based on emu speed, may break games"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 
@@ -440,7 +440,8 @@ void GameSettingsScreen::CreateViews() {
 	// We normally use software rendering to debug so put it in debugging.
 	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (experimental)")));
 	softwareGPU->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
+		if (g_Config.bSoftwareRendering)
+			settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
 		bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
 		return UI::EVENT_CONTINUE;
 	});
@@ -644,7 +645,8 @@ void GameSettingsScreen::CreateViews() {
 	auto separateCPUThread = new CheckBox(&g_Config.bSeparateCPUThread, sy->T("Multithreaded (experimental)"));
 	systemSettings->Add(separateCPUThread);
 	separateCPUThread->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(sy->T("Multithreaded Tip", "Not always faster, causes glitches/crashing"), e.v);
+		if (g_Config.bSeparateCPUThread)
+			settingInfo_->Show(sy->T("Multithreaded Tip", "Not always faster, causes glitches/crashing"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, sy->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
