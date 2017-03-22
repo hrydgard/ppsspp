@@ -3,3 +3,4 @@
 Package.appxmanifest
 Assets
 x64
+*.VC.db
