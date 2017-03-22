@@ -24,6 +24,8 @@ Source: "assets\*.*"; DestDir: "{app}\assets"
 Source: "assets\shaders\*.*"; DestDir: "{app}\assets\shaders"
 Source: "assets\lang\*.ini"; DestDir: "{app}\assets\lang"
 Source: "flash0\font\*.*"; DestDir: "{app}\flash0\font"
+Source: "dx9sdk\8.1\Redist\D3D\x64\d3dcompiler_47.dll"; DestDir: "{app}"
+Source: "dx9sdk\8.1\Redist\D3D\x86\d3dcompiler_47.dll"; DestName: "d3dcompiler_47.x86.dll"; DestDir: "{app}"
 
 [Run]
 Filename: {app}\PPSSPPWindows.exe; Description: {cm:LaunchProgram,{cm:AppName}}; Flags: nowait postinstall skipifsilent

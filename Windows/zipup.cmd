@@ -12,7 +12,11 @@ echo Deleting old file %name%
 del %name%
 
 echo Adding files to %name%
-zip --recurse-paths %name% assets flash0 PPSSPPWindows.exe PPSSPPWindows64.exe README.md
+REM Not distributing the 10 version because it's not compatible with older Windows.
+cp dx9sdk\8.1\Redist\D3D\x64\d3dcompiler_47.dll .
+cp dx9sdk\8.1\Redist\D3D\x86\d3dcompiler_47.dll .\d3dcompiler_47.x86.dll
+zip --recurse-paths %name% assets flash0 PPSSPPWindows.exe PPSSPPWindows64.exe d3dcompiler_47.dll d3dcompiler_47.x86.dll README.md
+del d3dcompiler_47.dll d3dcompiler_v47.x86.dll
 
 echo Done: %name%
 goto DONE
