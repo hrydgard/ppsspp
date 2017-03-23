@@ -28,6 +28,7 @@ What's new in 1.4.0
 * High DPI display fixes
 * New audio setting to improve compatibility with Bluetooth headsets
 * Various desktop gamepad compatibility fixes
+* Workaround for mipmap issue, fixing fonts in Tactics Ogre Japanese
 * Assorted minor compatibility fixes, code cleanup and performance improvements
 
 Support for Symbian, Maemo and Blackberry has been removed.
