@@ -944,7 +944,7 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 	if (prevSize < size) {
 		prevSize = size;
 
-		data_tex[0]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		data_tex[0]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
 	pos = (float *)data_tex[0]->Lock(0, &rowPitch);
 
@@ -953,7 +953,7 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 		if (prevSizeTex < size) {
 			prevSizeTex = size;
 
-			data_tex[1]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+			data_tex[1]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		}
 		tex = (float *)data_tex[1]->Lock(0, &rowPitch);
 	}

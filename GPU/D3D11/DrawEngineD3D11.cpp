@@ -975,7 +975,7 @@ void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const floa
 			view[0]->Release();
 		}
 		desc.Width = size;
-		desc.Format = DXGI_FORMAT_R32G32B32_FLOAT;
+		desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 		HRESULT hr = device_->CreateTexture1D(&desc, nullptr, &data_tex[0]);
 		if (FAILED(hr)) {
 			INFO_LOG(G3D, "Failed to create D3D texture for HW tessellation");
@@ -998,7 +998,7 @@ void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const floa
 				view[1]->Release();
 			}
 			desc.Width = size;
-			desc.Format = DXGI_FORMAT_R32G32B32_FLOAT;
+			desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 			HRESULT hr = device_->CreateTexture1D(&desc, nullptr, &data_tex[1]);
 			if (FAILED(hr)) {
 				INFO_LOG(G3D, "Failed to create D3D texture for HW tessellation");
