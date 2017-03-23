@@ -698,6 +698,7 @@ int main(int argc, char *argv[]) {
 #endif
 			case SDL_KEYDOWN:
 				{
+					if (event.key.repeat > 0) { break;}
 					int k = event.key.keysym.sym;
 					KeyInput key;
 					key.flags = KEY_DOWN;
@@ -712,6 +713,7 @@ int main(int argc, char *argv[]) {
 				}
 			case SDL_KEYUP:
 				{
+					if (event.key.repeat > 0) { break;}
 					int k = event.key.keysym.sym;
 					KeyInput key;
 					key.flags = KEY_UP;
