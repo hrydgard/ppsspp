@@ -1019,6 +1019,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	int num_patches_v = (count_v - 1) / 3;
 	BezierPatch *patches = nullptr;
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		tessDataTransfer->PrepareBuffers(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
 		for (int idx = 0; idx < count_u * count_v; idx++) {
 			SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
 			memcpy(pos + idx * 3, point->pos.AsArray(), 3 * sizeof(float));
