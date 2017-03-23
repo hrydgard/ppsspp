@@ -409,13 +409,13 @@ static bool TestVertexColor8888() {
 	dec.AddFloat(1.0f, 0.5f, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		gstate_c.vertexFullAlpha = true;
+		gstate_c.decoderVertexFullAlpha = true;
 		dec.Execute(vtype, 0, jit == 1);
 		dec.Assert8("TestVertexColor8888-Col", 1, 2, 3, 4);
 		dec.AssertFloat("TestVertexColor8888-Pos", 1.0f, 0.5f, -1.0f);
 
-		if (gstate_c.vertexFullAlpha) {
-			printf("TestVertexColor8888: failed to clear vertexFullAlpha\n");
+		if (gstate_c.decoderVertexFullAlpha) {
+			printf("TestVertexColor8888: failed to clear decoderVertexFullAlpha\n");
 			failed = true;
 		}
 	}
@@ -424,13 +424,13 @@ static bool TestVertexColor8888() {
 	dec.AddFloat(1.0f, 0.5f, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		gstate_c.vertexFullAlpha = true;
+		gstate_c.decoderVertexFullAlpha = true;
 		dec.Execute(vtype, 0, jit == 1);
 		dec.Assert8("TestVertexColor8888-Col", 255, 255, 255, 255);
 		dec.AssertFloat("TestVertexColor8888-Pos", 1.0f, 0.5f, -1.0f);
 
-		if (!gstate_c.vertexFullAlpha) {
-			printf("TestVertexColor8888: cleared vertexFullAlpha\n");
+		if (!gstate_c.decoderVertexFullAlpha) {
+			printf("TestVertexColor8888: cleared decoderVertexFullAlpha\n");
 			failed = true;
 		}
 	}
@@ -447,13 +447,13 @@ static bool TestVertexColor4444() {
 	dec.AddFloat(1.0f, 0.5f, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		gstate_c.vertexFullAlpha = true;
+		gstate_c.decoderVertexFullAlpha = true;
 		dec.Execute(vtype, 0, jit == 1);
 		dec.Assert8("TestVertexColor4444-Col", 0x44, 0x33, 0x22, 0x11);
 		dec.AssertFloat("TestVertexColor4444-Pos", 1.0f, 0.5f, -1.0f);
 
-		if (gstate_c.vertexFullAlpha) {
-			printf("TestVertexColor4444: failed to clear vertexFullAlpha\n");
+		if (gstate_c.decoderVertexFullAlpha) {
+			printf("TestVertexColor4444: failed to clear decoderVertexFullAlpha\n");
 			failed = true;
 		}
 	}
@@ -462,13 +462,13 @@ static bool TestVertexColor4444() {
 	dec.AddFloat(1.0f, 0.5f, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		gstate_c.vertexFullAlpha = true;
+		gstate_c.decoderVertexFullAlpha = true;
 		dec.Execute(vtype, 0, jit == 1);
 		dec.Assert8("TestVertexColor4444-Col", 255, 255, 255, 255);
 		dec.AssertFloat("TestVertexColor4444-Pos", 1.0f, 0.5f, -1.0f);
 
-		if (!gstate_c.vertexFullAlpha) {
-			printf("TestVertexColor4444: cleared vertexFullAlpha\n");
+		if (!gstate_c.decoderVertexFullAlpha) {
+			printf("TestVertexColor4444: cleared decoderVertexFullAlpha\n");
 			failed = true;
 		}
 	}
@@ -485,13 +485,13 @@ static bool TestVertexColor5551() {
 	dec.AddFloat(1.0f, 0.5f, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		gstate_c.vertexFullAlpha = true;
+		gstate_c.decoderVertexFullAlpha = true;
 		dec.Execute(vtype, 0, jit == 1);
 		dec.Assert8("TestVertexColor5551-Col", 0x18, 0x10, 0x8, 0x0);
 		dec.AssertFloat("TestVertexColor5551-Pos", 1.0f, 0.5f, -1.0f);
 
-		if (gstate_c.vertexFullAlpha) {
-			printf("TestVertexColor5551: failed to clear vertexFullAlpha\n");
+		if (gstate_c.decoderVertexFullAlpha) {
+			printf("TestVertexColor5551: failed to clear decoderVertexFullAlpha\n");
 			failed = true;
 		}
 	}
@@ -500,13 +500,13 @@ static bool TestVertexColor5551() {
 	dec.AddFloat(1.0f, 0.5f, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		gstate_c.vertexFullAlpha = true;
+		gstate_c.decoderVertexFullAlpha = true;
 		dec.Execute(vtype, 0, jit == 1);
 		dec.Assert8("TestVertexColor5551-Col", 255, 255, 255, 255);
 		dec.AssertFloat("TestVertexColor5551-Pos", 1.0f, 0.5f, -1.0f);
 
-		if (!gstate_c.vertexFullAlpha) {
-			printf("TestVertexColor5551: cleared vertexFullAlpha\n");
+		if (!gstate_c.decoderVertexFullAlpha) {
+			printf("TestVertexColor5551: cleared decoderVertexFullAlpha\n");
 			failed = true;
 		}
 	}
@@ -523,13 +523,13 @@ static bool TestVertexColor565() {
 	dec.AddFloat(1.0f, 0.5f, -1.0f);
 
 	for (int jit = 0; jit <= 1; ++jit) {
-		gstate_c.vertexFullAlpha = true;
+		gstate_c.decoderVertexFullAlpha = true;
 		dec.Execute(vtype, 0, jit == 1);
 		dec.Assert8("TestVertexColor565-Col", 0x18, 0x8, 0x8, 255);
 		dec.AssertFloat("TestVertexColor565-Pos", 1.0f, 0.5f, -1.0f);
 
-		if (!gstate_c.vertexFullAlpha) {
-			printf("TestVertexColor565: cleared vertexFullAlpha\n");
+		if (!gstate_c.decoderVertexFullAlpha) {
+			printf("TestVertexColor565: cleared decoderVertexFullAlpha\n");
 			failed = true;
 		}
 	}

@@ -499,6 +499,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	gstate_c.curRTHeight = vfb->height;
 	gstate_c.curRTRenderWidth = vfb->renderWidth;
 	gstate_c.curRTRenderHeight = vfb->renderHeight;
+
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 	return vfb;
 }
 
@@ -649,6 +651,8 @@ void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, 
 			DEBUG_LOG(ME, "Changing stride for %08x from %d to %d", addr, vfb->fb_stride, width);
 			const int bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
 			ResizeFramebufFBO(vfb, width, size / (bpp * width));
+			// Resizing may change the viewport/etc.
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			vfb->fb_stride = width;
 			// This might be a bit wider than necessary, but we'll redetect on next render.
 			vfb->width = width;
@@ -690,6 +694,8 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 
 		RebindFramebuffer();
 	}
+	// TODO: Necessary?
+	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -714,6 +720,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	bool linearFilter = vfb || g_Config.iBufFilter == SCALE_LINEAR;
 	Bind2DShader();
 	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
 void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
@@ -1004,6 +1011,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	else if (useBufferedRendering_) {
 		WARN_LOG(FRAMEBUF, "Current VFB lacks an FBO: %08x", vfb->fb_address);
 	}
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
@@ -1530,6 +1538,8 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 					// The buffer isn't big enough, and we have a clear hint of size.  Resize.
 					// This happens in Valkyrie Profile when uploading video at the ending.
 					ResizeFramebufFBO(dstBuffer, dstWidth, dstHeight, false, true);
+					// Resizing may change the viewport/etc.
+					gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 				}
 				DrawPixels(dstBuffer, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstBuffer->format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstWidth * dstXFactor), dstHeight);
 				SetColorUpdated(dstBuffer, skipDrawReason);

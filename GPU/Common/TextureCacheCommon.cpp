@@ -255,8 +255,11 @@ void TextureCacheCommon::SetTexture(bool force) {
 
 	TexCache::iterator iter = cache_.find(cachekey);
 	TexCacheEntry *entry = nullptr;
-	gstate_c.needShaderTexClamp = false;
+	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
+	if (gstate_c.bgraTexture != isBgraBackend_) {
+		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+	}
 	gstate_c.bgraTexture = isBgraBackend_;
 
 	if (iter != cache_.end()) {
@@ -743,13 +746,19 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
+		if (gstate_c.bgraTexture) {
+			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		} else if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
+			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
 		gstate_c.bgraTexture = false;
 		gstate_c.curTextureXOffset = fbInfo.xOffset;
 		gstate_c.curTextureYOffset = fbInfo.yOffset;
-		gstate_c.needShaderTexClamp = gstate_c.curTextureWidth != (u32)gstate.getTextureWidth(0) || gstate_c.curTextureHeight != (u32)gstate.getTextureHeight(0);
+		bool need = gstate_c.curTextureWidth != (u32)gstate.getTextureWidth(0) || gstate_c.curTextureHeight != (u32)gstate.getTextureHeight(0);
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
-			gstate_c.needShaderTexClamp = true;
+			need = true;
 		}
+		gstate_c.SetNeedShaderTexclamp(need);
 
 		nextTexture_ = entry;
 	} else {
@@ -758,7 +767,7 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 			framebuffer->fbo = nullptr;
 		}
 		Unbind();
-		gstate_c.needShaderTexClamp = false;
+		gstate_c.SetNeedShaderTexclamp(false);
 	}
 
 	nextNeedsRehash_ = false;
@@ -1410,8 +1419,8 @@ void TextureCacheCommon::ApplyTexture() {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
 		BindTexture(entry);
-		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
-		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
+		gstate_c.SetTextureSimpleAlpha(entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 	}
 }
 

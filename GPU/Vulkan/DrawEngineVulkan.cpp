@@ -708,9 +708,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255));
 		} else {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255));
 		}
 
 		if (textureNeedsApply) {
@@ -722,12 +722,10 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				sampler = nullSampler_;
 		}
 
-		VulkanPipelineRasterStateKey pipelineKey;
 		VulkanDynamicState dynState;
-		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);
-		// TODO: Dirty-flag these.
-		vkCmdSetScissor(cmd_, 0, 1, &dynState.scissor);
-		vkCmdSetViewport(cmd_, 0, 1, &dynState.viewport);
+		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, dynState, false, 0);
+		ApplyStateLate();
+
 		if (dynState.useStencil) {
 			vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
 			vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
@@ -742,7 +740,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
 		shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
-		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, true);
+		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, key_, dec_, vshader, fshader, true);
 		if (!pipeline) {
 			// Already logged, let's bail out.
 			return;
@@ -778,9 +776,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		DecodeVerts(nullptr, nullptr, nullptr);
 		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255));
 		} else {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255));
 		}
 
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
@@ -824,21 +822,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 					sampler = nullSampler_;
 			}
 
-			VulkanPipelineRasterStateKey pipelineKey;
 			VulkanDynamicState dynState;
-			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);
-			// TODO: Dirty-flag these.
-			vkCmdSetScissor(cmd_, 0, 1, &dynState.scissor);
-			vkCmdSetViewport(cmd_, 0, 1, &dynState.viewport);
-			if (dynState.useStencil) {
-				vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
-				vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
-			}
-			if (result.setStencil) {
-				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, result.stencilValue);
-			} else if (dynState.useStencil) {
-				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
-			}
+			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, dynState, result.setStencil, result.stencilValue);
+			ApplyStateLate();
 			if (dynState.useBlendColor) {
 				float bc[4];
 				Uint8x4ToFloat4(bc, dynState.blendColor);
@@ -848,7 +834,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
 			shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, false);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, key_, dec_, vshader, fshader, false);
 			if (!pipeline) {
 				// Already logged, let's bail out.
 				return;
@@ -906,7 +892,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	numDrawCalls = 0;
 	vertexCountInDrawCalls = 0;
 	prevPrim_ = GE_PRIM_INVALID;
-	gstate_c.vertexFullAlpha = true;
+	gstate_c.decoderVertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 	// Now seems as good a time as any to reset the min/max coords, which we may examine later.

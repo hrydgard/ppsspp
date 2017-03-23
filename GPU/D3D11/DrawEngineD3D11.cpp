@@ -135,7 +135,8 @@ void DrawEngineD3D11::ClearTrackedVertexArrays() {
 
 void DrawEngineD3D11::ClearInputLayoutMap() {
 	for (auto &decl : inputLayoutMap_) {
-		decl.second->Release();
+		if (decl.second)
+			decl.second->Release();
 	}
 	inputLayoutMap_.clear();
 }
@@ -258,7 +259,7 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 			inputLayout = nullptr;
 		}
 
-		// Add it to map
+		// Add it to map, even if it failed, to avoid trying over and over again. Shouldn't fail though.
 		inputLayoutMap_[key] = inputLayout;
 		return inputLayout;
 	} else {
@@ -593,7 +594,7 @@ void DrawEngineD3D11::DoFlush() {
 	// until critical state changes. That's when we draw (flush).
 
 	GEPrimitiveType prim = prevPrim_;
-	ApplyDrawState(prim);
+	ApplyDrawState();
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
@@ -636,7 +637,7 @@ void DrawEngineD3D11::DoFlush() {
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
-					vai->flags = gstate_c.vertexFullAlpha ? VAI11_FLAG_VERTEXFULLALPHA : 0;
+					vai->flags = gstate_c.decoderVertexFullAlpha ? VAI11_FLAG_VERTEXFULLALPHA : 0;
 					goto rotateVBO;
 				}
 
@@ -686,7 +687,7 @@ void DrawEngineD3D11::DoFlush() {
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
 						vai->maxIndex = indexGen.MaxIndex();
-						vai->flags = gstate_c.vertexFullAlpha ? VAI11_FLAG_VERTEXFULLALPHA : 0;
+						vai->flags = gstate_c.decoderVertexFullAlpha ? VAI11_FLAG_VERTEXFULLALPHA : 0;
 						useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
@@ -711,7 +712,7 @@ void DrawEngineD3D11::DoFlush() {
 						gpuStats.numCachedDrawCalls++;
 						useElements = vai->ebo ? true : false;
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
-						gstate_c.vertexFullAlpha = vai->flags & VAI11_FLAG_VERTEXFULLALPHA;
+						gstate_c.decoderVertexFullAlpha = vai->flags & VAI11_FLAG_VERTEXFULLALPHA;
 					}
 					vb_ = vai->vbo;
 					ib_ = vai->ebo;
@@ -738,7 +739,7 @@ void DrawEngineD3D11::DoFlush() {
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 
-					gstate_c.vertexFullAlpha = vai->flags & VAI11_FLAG_VERTEXFULLALPHA;
+					gstate_c.decoderVertexFullAlpha = vai->flags & VAI11_FLAG_VERTEXFULLALPHA;
 					break;
 				}
 
@@ -770,12 +771,12 @@ rotateVBO:
 		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255));
 		} else {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255));
 		}
 
-		ApplyDrawStateLate(true, dynState_.stencilRef);
+		ApplyDrawStateLate(prim, true, dynState_.stencilRef);
 
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
@@ -829,9 +830,9 @@ rotateVBO:
 		DecodeVerts();
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255));
 		} else {
-			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+			gstate_c.SetVertexFullAlpha(gstate_c.decoderVertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255));
 		}
 
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
@@ -866,7 +867,7 @@ rotateVBO:
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			const int vertexSize = sizeof(transformed[0]);
 
-			ApplyDrawStateLate(result.setStencil, result.stencilValue);
+			ApplyDrawStateLate(prim, result.setStencil, result.stencilValue);
 
 			D3D11VertexShader *vshader;
 			D3D11FragmentShader *fshader;
@@ -950,7 +951,7 @@ rotateVBO:
 	decodeCounter_ = 0;
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
-	gstate_c.vertexFullAlpha = true;
+	gstate_c.decoderVertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 	// Now seems as good a time as any to reset the min/max coords, which we may examine later.

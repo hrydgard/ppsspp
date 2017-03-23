@@ -924,7 +924,7 @@ void VertexDecoderJitCache::Jit_Color8888() {
 
 	CMP(32, R(tempReg1), Imm32(0xFF000000));
 	FixupBranch skip = J_CC(CC_AE, false);
-	MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
+	MOV(8, M(&gstate_c.decoderVertexFullAlpha), Imm8(0));
 	SetJumpTarget(skip);
 }
 
@@ -998,7 +998,7 @@ void VertexDecoderJitCache::Jit_Color4444() {
 
 	CMP(32, R(tempReg2), Imm32(0xFF000000));
 	FixupBranch skip = J_CC(CC_AE, false);
-	MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
+	MOV(8, M(&gstate_c.decoderVertexFullAlpha), Imm8(0));
 	SetJumpTarget(skip);
 }
 
@@ -1075,7 +1075,7 @@ void VertexDecoderJitCache::Jit_Color5551() {
 
 	CMP(32, R(tempReg2), Imm32(0xFF000000));
 	FixupBranch skip = J_CC(CC_AE, false);
-	MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
+	MOV(8, M(&gstate_c.decoderVertexFullAlpha), Imm8(0));
 	SetJumpTarget(skip);
 }
 
@@ -1280,7 +1280,7 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	if (checkAlpha) {
 		CMP(32, R(tempReg1), Imm32(0xFF000000));
 		FixupBranch skip = J_CC(CC_AE, false);
-		MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
+		MOV(8, M(&gstate_c.decoderVertexFullAlpha), Imm8(0));
 		SetJumpTarget(skip);
 	} else {
 		// Force alpha to full if we're not checking it.

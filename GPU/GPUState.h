@@ -501,6 +501,36 @@ struct GPUStateCache {
 	bool IsDirty(u64 what) const {
 		return (dirty & what) != 0ULL;
 	}
+	void SetTextureFullAlpha(bool fullAlpha) {
+		if (fullAlpha != textureFullAlpha) {
+			textureFullAlpha = fullAlpha;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
+	void SetTextureSimpleAlpha(bool simpleAlpha) {
+		if (simpleAlpha != textureSimpleAlpha) {
+			textureSimpleAlpha = simpleAlpha;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
+	void SetVertexFullAlpha(bool fullAlpha) {
+		if (fullAlpha != vertexFullAlpha) {
+			vertexFullAlpha = fullAlpha;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
+	void SetNeedShaderTexclamp(bool need) {
+		if (need != needShaderTexClamp) {
+			needShaderTexClamp = need;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
+	void SetAllowShaderBlend(bool allow) {
+		if (allow != allowShaderBlend) {
+			allowShaderBlend = allow;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
 
 	u32 featureFlags;
 
@@ -513,6 +543,7 @@ struct GPUStateCache {
 	bool textureFullAlpha;
 	bool textureSimpleAlpha;
 	bool vertexFullAlpha;
+	bool decoderVertexFullAlpha;
 
 	int skipDrawReason;
 
