@@ -172,7 +172,8 @@
     <PreBuildEvent>
       <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
 mkdir Assets
-copy AssetsNormal\*.* Assets /Y</Command>
+copy AssetsNormal\*.* Assets /Y
+../Windows/git-version-gen.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
@@ -192,7 +193,8 @@ copy AssetsNormal\*.* Assets /Y</Command>
     <PreBuildEvent>
       <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
 mkdir Assets
-copy AssetsNormal\*.* Assets /Y</Command>
+copy AssetsNormal\*.* Assets /Y
+../Windows/git-version-gen.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">
@@ -212,7 +214,8 @@ copy AssetsNormal\*.* Assets /Y</Command>
     <PreBuildEvent>
       <Command>copy PackageGold.appxmanifest Package.appxmanifest /Y
 mkdir Assets
-copy AssetsGold\*.* Assets /Y</Command>
+copy AssetsGold\*.* Assets /Y
+../Windows/git-version-gen.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -232,7 +235,8 @@ copy AssetsGold\*.* Assets /Y</Command>
     <PreBuildEvent>
       <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
 mkdir Assets
-copy AssetsNormal\*.* Assets /Y</Command>
+copy AssetsNormal\*.* Assets /Y
+../Windows/git-version-gen.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -252,7 +256,8 @@ copy AssetsNormal\*.* Assets /Y</Command>
     <PreBuildEvent>
       <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
 mkdir Assets
-copy AssetsNormal\*.* Assets /Y</Command>
+copy AssetsNormal\*.* Assets /Y
+../Windows/git-version-gen.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
@@ -272,7 +277,8 @@ copy AssetsNormal\*.* Assets /Y</Command>
     <PreBuildEvent>
       <Command>copy PackageGold.appxmanifest Package.appxmanifest /Y
 mkdir Assets
-copy AssetsGold\*.* Assets /Y</Command>
+copy AssetsGold\*.* Assets /Y
+../Windows/git-version-gen.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -292,7 +298,8 @@ copy AssetsGold\*.* Assets /Y</Command>
     <PreBuildEvent>
       <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
 mkdir Assets
-copy AssetsNormal\*.* Assets /Y</Command>
+copy AssetsNormal\*.* Assets /Y
+../Windows/git-version-gen.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -312,7 +319,8 @@ copy AssetsNormal\*.* Assets /Y</Command>
     <PreBuildEvent>
       <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
 mkdir Assets
-copy AssetsNormal\*.* Assets /Y</Command>
+copy AssetsNormal\*.* Assets /Y
+../Windows/git-version-gen.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
@@ -332,7 +340,8 @@ copy AssetsNormal\*.* Assets /Y</Command>
     <PreBuildEvent>
       <Command>copy PackageGold.appxmanifest Package.appxmanifest /Y
 mkdir Assets
-copy AssetsGold\*.* Assets /Y</Command>
+copy AssetsGold\*.* Assets /Y
+../Windows/git-version-gen.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
