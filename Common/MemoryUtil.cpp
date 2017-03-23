@@ -16,6 +16,7 @@
 // http://code.google.com/p/dolphin-emu/
 
 #include "ppsspp_config.h"
+
 #include "Common.h"
 #include "MemoryUtil.h"
 #include "StringUtils.h"
@@ -280,7 +281,7 @@ void FreeAlignedMemory(void* ptr) {
 bool PlatformIsWXExclusive() {
 	// Only iOS really needs this mode currently. Even without block linking, still should be much faster than IR JIT.
 	// This might also come in useful for UWP (Universal Windows Platform) if I'm understanding things correctly.
-#ifdef IOS
+#if defined(IOS) || PPSSPP_PLATFORM(UWP)
 	return true;
 #else
 	// Returning true here lets you test the W^X path on Windows and other non-W^X platforms.
@@ -302,11 +303,20 @@ bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 	// mprotect does not seem to, at least not on Android unless I made a mistake somewhere, so we manually round.
 #ifdef _WIN32
 	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
+
+#if PPSSPP_PLATFORM(UWP)
+	DWORD oldValue;
+	if (!VirtualProtectFromApp((void *)ptr, size, protect, &oldValue)) {
+		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
+		return false;
+	}
+#else
 	DWORD oldValue;
 	if (!VirtualProtect((void *)ptr, size, protect, &oldValue)) {
 		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
 		return false;
 	}
+#endif
 	return true;
 #else
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);

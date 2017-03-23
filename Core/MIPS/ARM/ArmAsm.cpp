@@ -57,6 +57,7 @@ extern volatile CoreState coreState;
 
 void ShowPC(u32 sp) {
 	ERROR_LOG(JIT, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
+	// Sleep(1);
 }
 
 void DisassembleArm(const u8 *data, int size);

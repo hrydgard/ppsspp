@@ -177,7 +177,11 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 		MIPSComp::jit->ClearCache();
 	}
 	TriggerFinish(DR_OK);
+#if PPSSPP_PLATFORM(UWP)
+	LaunchBrowser(activeCheatFile.c_str());
+#else
 	File::openIniFile(activeCheatFile);
+#endif
 	return UI::EVENT_DONE;
 }
 

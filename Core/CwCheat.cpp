@@ -155,7 +155,6 @@ void CWCheatEngine::CreateCheatFile() {
 			I18NCategory *err = GetI18NCategory("Error");
 			host->NotifyUserMessage(err->T("Unable to create cheat file, disk may be full"));
 		}
-
 	}
 }
 

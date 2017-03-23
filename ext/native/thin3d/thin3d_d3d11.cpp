@@ -302,6 +302,11 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 		curRTHeight_ = height;
 		break;
 	}
+	case Event::PRESENTED:
+		// Make sure that we don't eliminate the next time the render target is set.
+		curRenderTargetView_ = nullptr;
+		curDepthStencilView_ = nullptr;
+		break;
 	}
 }
 
@@ -1280,6 +1285,7 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 
 // These functions should be self explanatory.
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
+	// TODO: deviceContext1 can actually discard. Useful on Windows Mobile.
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {
 		return;

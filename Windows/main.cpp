@@ -212,6 +212,10 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return DEVICE_TYPE_DESKTOP;
 	case SYSPROP_DISPLAY_DPI:
 		return ScreenDPI();
+	case SYSPROP_HAS_FILE_BROWSER:
+		return true;
+	case SYSPROP_HAS_BACK_BUTTON:
+		return 1;
 	default:
 		return -1;
 	}

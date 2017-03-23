@@ -187,7 +187,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	treeroot->valid = false;
 
 	if (memcmp(desc.cd001, "CD001", 5)) {
-		ERROR_LOG(FILESYS, "ISO looks bogus? Giving up...");
+		ERROR_LOG(FILESYS, "ISO looks bogus, expected CD001 signature not present? Giving up...");
 		return;
 	}
 

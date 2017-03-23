@@ -1,4 +1,6 @@
-#include <limits.h>
+#include "ppsspp_config.h"
+
+#include <climits>
 #include <algorithm>
 
 #include "base/NativeApp.h"
@@ -10,6 +12,8 @@
 #include "XinputDevice.h"
 
 // Utilities to dynamically load XInput. Adapted from SDL.
+
+#if !PPSSPP_PLATFORM(UWP)
 
 typedef DWORD (WINAPI *XInputGetState_t) (DWORD dwUserIndex, XINPUT_STATE* pState);
 typedef DWORD (WINAPI *XInputSetState_t) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
@@ -65,6 +69,14 @@ static void UnloadXInputDLL() {
 		}
 	}
 }
+
+#else
+static int LoadXInputDLL() { return 0; }
+static void UnloadXInputDLL() {}
+#define PPSSPP_XInputGetState XInputGetState
+#define PPSSPP_XInputSetState XInputSetState
+#define PPSSPP_XInputGetCapabilities XInputGetCapabilities
+#endif
 
 #ifndef XUSER_MAX_COUNT
 #define XUSER_MAX_COUNT 4
@@ -126,7 +138,7 @@ inline float LinearMapf(float val, float a0, float a1, float b0, float b1) {
 }
 
 static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, float idz, float st) {
-	Stick s(x, y, 1.0 / 32767.0f);
+	Stick s(x, y, 1.0f / 32767.0f);
 
 	float magnitude = sqrtf(s.x * s.x + s.y * s.y);
 	if (magnitude > dz) {
@@ -182,8 +194,8 @@ static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, floa
 }
 
 bool NormalizedDeadzoneDiffers(short x1, short y1, short x2, short y2, const float dz) {
-	Stick s1(x1, y1, 1.0 / 32767.0f);
-	Stick s2(x2, y2, 1.0 / 32767.0f);
+	Stick s1(x1, y1, 1.0f / 32767.0f);
+	Stick s2(x2, y2, 1.0f / 32767.0f);
 
 	float magnitude1 = sqrtf(s1.x * s1.x + s1.y * s1.y);
 	float magnitude2 = sqrtf(s2.x * s2.x + s2.y * s2.y);
@@ -201,8 +213,10 @@ bool NormalizedDeadzoneDiffers(u8 x1, u8 x2, const u8 thresh) {
 }
 
 int XinputDevice::UpdateState() {
+#if !PPSSPP_PLATFORM(UWP)
 	if (!s_pXInputDLL)
 		return 0;
+#endif
 
 	bool anySuccess = false;
 	for (int i = 0; i < XUSER_MAX_COUNT; i++) {

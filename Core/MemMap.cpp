@@ -17,6 +17,10 @@
 
 #include "ppsspp_config.h"
 
+#if PPSSPP_PLATFORM(UWP)
+#include "Common/CommonWindows.h"
+#endif
+
 #include <algorithm>
 #include <mutex>
 
@@ -152,7 +156,7 @@ static bool Memory_TryBase(u32 flags) {
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
 		}
-#if PPSSPP_ARCH(64BIT)
+#ifndef MASKED_PSP_MEMORY
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 		if (!*view.out_ptr) {
@@ -177,7 +181,6 @@ static bool Memory_TryBase(u32 flags) {
 	}
 
 	return true;
-
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++) {
@@ -195,6 +198,11 @@ bail:
 }
 
 bool MemoryMap_Setup(u32 flags) {
+#if PPSSPP_PLATFORM(UWP)
+	// We reserve the memory, then simply commit in TryBase.
+	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);
+#else
+
 	// Figure out how much memory we need to allocate in total.
 	size_t total_mem = 0;
 	for (int i = 0; i < num_views; i++) {
@@ -207,6 +215,7 @@ bool MemoryMap_Setup(u32 flags) {
 
 	// Grab some pagefile backed memory out of the void ...
 	g_arena.GrabLowMemSpace(total_mem);
+#endif
 
 #if !PPSSPP_PLATFORM(ANDROID)
 	if (g_arena.NeedsProbing()) {
@@ -237,7 +246,9 @@ bool MemoryMap_Setup(u32 flags) {
 	else
 #endif
 	{
+#if !PPSSPP_PLATFORM(UWP)
 		base = g_arena.Find4GBBase();
+#endif
 	}
 
 	// Should return true...
@@ -254,6 +265,10 @@ void MemoryMap_Shutdown(u32 flags) {
 		*views[i].out_ptr = nullptr;
 	}
 	g_arena.ReleaseSpace();
+
+#if PPSSPP_PLATFORM(UWP)
+	VirtualFree(base, 0, MEM_RELEASE);
+#endif
 }
 
 void Init() {

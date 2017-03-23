@@ -123,17 +123,20 @@ bool Exists(const std::string &filename) {
 	StripTailDirSlashes(fn);
 
 #if defined(_WIN32)
-#if PPSSPP_PLATFORM(UWP)
-	return false;
-#else
 	std::wstring copy = ConvertUTF8ToWString(fn);
 
 	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
+#if !PPSSPP_PLATFORM(UWP)
 	int OldMode = SetErrorMode(SEM_FAILCRITICALERRORS);
-	bool success = GetFileAttributes(copy.c_str()) != INVALID_FILE_ATTRIBUTES;
-	SetErrorMode(OldMode);
-	return success;
 #endif
+	WIN32_FILE_ATTRIBUTE_DATA data{};
+	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+		return false;
+	}
+#if !PPSSPP_PLATFORM(UWP)
+	SetErrorMode(OldMode);
+#endif
+	return true;
 #else
 	struct stat64 file_info;
 	return stat64(fn.c_str(), &file_info) == 0;
@@ -149,7 +152,7 @@ bool IsDirectory(const std::string &filename)
 #if defined(_WIN32)
 	std::wstring copy = ConvertUTF8ToWString(fn);
 	WIN32_FILE_ATTRIBUTE_DATA data{};
-	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data)) {
+	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x", fn.c_str(), GetLastError());
 		return false;
 	}
@@ -170,28 +173,24 @@ bool IsDirectory(const std::string &filename)
 
 // Deletes a given filename, return true on success
 // Doesn't supports deleting a directory
-bool Delete(const std::string &filename)
-{
+bool Delete(const std::string &filename) {
 	INFO_LOG(COMMON, "Delete: file %s", filename.c_str());
 
 	// Return true because we care about the file no 
 	// being there, not the actual delete.
-	if (!Exists(filename))
-	{
+	if (!Exists(filename)) {
 		WARN_LOG(COMMON, "Delete: %s does not exists", filename.c_str());
 		return true;
 	}
 
 	// We can't delete a directory
-	if (IsDirectory(filename))
-	{
+	if (IsDirectory(filename)) {
 		WARN_LOG(COMMON, "Delete failed: %s is a directory", filename.c_str());
 		return false;
 	}
 
 #ifdef _WIN32
-	if (!DeleteFile(ConvertUTF8ToWString(filename).c_str()))
-	{
+	if (!DeleteFile(ConvertUTF8ToWString(filename).c_str())) {
 		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", 
 				 filename.c_str(), GetLastErrorMsg());
 		return false;
@@ -680,7 +679,7 @@ void openIniFile(const std::string fileName) {
 	std::string iniFile;
 #if defined(_WIN32)
 #if PPSSPP_PLATFORM(UWP)
-	// Not supported
+	// Do nothing.
 #else
 	iniFile = fileName;
 	// Can't rely on a .txt file extension to auto-open in the right editor,

@@ -18,6 +18,7 @@
 #include <cmath>
 #include <algorithm>
 
+#include "ppsspp_config.h"
 #include "base/colorutil.h"
 #include "base/display.h"
 #include "base/timeutil.h"
@@ -857,8 +858,12 @@ void MainScreen::CreateViews() {
 	gold->OnClick.Handle(this, &MainScreen::OnSupport);
 	gold->SetIcon(I_ICONGOLD);
 #endif
+
+#if !PPSSPP_PLATFORM(UWP)
+	// Having an exit button is against UWP guidelines.
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+#endif
 
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
@@ -972,6 +977,8 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 		g_Config.Save();
 		screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
 	}
+#elif PPSSPP_PLATFORM(UWP)
+	System_SendMessage("browse_file", "");
 #elif defined(USING_WIN_UI)
 	MainWindow::BrowseAndBoot("");
 #endif

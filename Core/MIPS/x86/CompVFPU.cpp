@@ -314,7 +314,7 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 			GetVectorRegs(vregs, V_Quad, vt);
 			MOV(32, R(EAX), gpr.R(rs));
 			ADD(32, R(EAX), Imm32(imm));
-#ifdef _M_IX86
+#ifdef MASKED_PSP_MEMORY
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
 #endif
 			MOV(32, R(ECX), R(EAX));

@@ -66,6 +66,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
 		return DEVICE_TYPE_MOBILE;
+	case SYSPROP_HAS_BACK_BUTTON:
+		return 0;
 	default:
 		return -1;
 	}

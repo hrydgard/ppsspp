@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 #include "Core/Config.h"
@@ -84,11 +85,15 @@ bool JitSafeMem::PrepareWrite(OpArg &dest, int size)
 		if (ImmValid())
 		{
 			MemCheckImm(MEM_WRITE);
+			u32 addr = (iaddr_ & alignMask_);
+#ifdef MASKED_PSP_MEMORY
+			addr &= Memory::MEMVIEW32_MASK;
+#endif
 
-#ifdef _M_IX86
-			dest = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK & alignMask_));
+#if PPSSPP_ARCH(32BIT)
+			dest = M(Memory::base + addr);
 #else
-			dest = MDisp(MEMBASEREG, iaddr_ & alignMask_);
+			dest = MDisp(MEMBASEREG, addr);
 #endif
 			return true;
 		}
@@ -109,11 +114,15 @@ bool JitSafeMem::PrepareRead(OpArg &src, int size)
 		if (ImmValid())
 		{
 			MemCheckImm(MEM_READ);
+			u32 addr = (iaddr_ & alignMask_);
+#ifdef MASKED_PSP_MEMORY
+			addr &= Memory::MEMVIEW32_MASK;
+#endif
 
-#ifdef _M_IX86
-			src = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK & alignMask_));
+#if PPSSPP_ARCH(32BIT)
+			src = M(Memory::base + addr);
 #else
-			src = MDisp(MEMBASEREG, iaddr_ & alignMask_);
+			src = MDisp(MEMBASEREG, addr);
 #endif
 			return true;
 		}
@@ -130,9 +139,12 @@ OpArg JitSafeMem::NextFastAddress(int suboffset)
 	if (iaddr_ != (u32) -1)
 	{
 		u32 addr = (iaddr_ + suboffset) & alignMask_;
+#ifdef MASKED_PSP_MEMORY
+		addr &= Memory::MEMVIEW32_MASK;
+#endif
 
-#ifdef _M_IX86
-		return M(Memory::base + (addr & Memory::MEMVIEW32_MASK));
+#if PPSSPP_ARCH(32BIT)
+		return M(Memory::base + addr);
 #else
 		return MDisp(MEMBASEREG, addr);
 #endif
@@ -140,7 +152,7 @@ OpArg JitSafeMem::NextFastAddress(int suboffset)
 
 	_dbg_assert_msg_(JIT, (suboffset & alignMask_) == suboffset, "suboffset must be aligned");
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(32BIT)
 	return MDisp(xaddr_, (u32) Memory::base + offset_ + suboffset);
 #else
 	return MComplex(MEMBASEREG, xaddr_, SCALE_1, offset_ + suboffset);
@@ -152,7 +164,7 @@ OpArg JitSafeMem::PrepareMemoryOpArg(MemoryOpType type)
 	// We may not even need to move into EAX as a temporary.
 	bool needTemp = alignMask_ != 0xFFFFFFFF;
 
-#ifdef _M_IX86
+#ifdef MASKED_PSP_MEMORY
 	bool needMask = true; // raddr_ != MIPS_REG_SP;    // Commented out this speedhack due to low impact
 	// We always mask on 32 bit in fast memory mode.
 	needTemp = needTemp || (fast_ && needMask);
@@ -184,7 +196,7 @@ OpArg JitSafeMem::PrepareMemoryOpArg(MemoryOpType type)
 	}
 	else
 	{
-#ifdef _M_IX86
+#ifdef MASKED_PSP_MEMORY
 		if (needMask) {
 			jit_->AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
 		}
@@ -200,7 +212,7 @@ OpArg JitSafeMem::PrepareMemoryOpArg(MemoryOpType type)
 		jit_->SUB(32, R(xaddr_), Imm32(offset_));
 	}
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(32BIT)
 	return MDisp(xaddr_, (u32) Memory::base + offset_);
 #else
 	return MComplex(MEMBASEREG, xaddr_, SCALE_1, offset_);
@@ -249,7 +261,7 @@ void JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg& src, int suboffs
 			jit_->AND(32, R(EAX), Imm32(alignMask_));
 	}
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(32BIT)
 	jit_->PUSH(EDX);
 #endif
 	if (!src.IsSimpleReg(EDX)) {
@@ -260,7 +272,7 @@ void JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg& src, int suboffs
 	}
 	// This is a special jit-ABI'd function.
 	jit_->CALL(safeFunc);
-#ifdef _M_IX86
+#if PPSSPP_ARCH(32BIT)
 	jit_->POP(EDX);
 #endif
 	needsCheck_ = true;
@@ -449,7 +461,7 @@ void JitSafeMemFuncs::CreateReadFunc(int bits, const void *fallbackFunc) {
 	CheckDirectEAX();
 
 	// Since we were CALLed, we need to align the stack before calling C++.
-#ifdef _M_IX86
+#if PPSSPP_ARCH(32BIT)
 	SUB(32, R(ESP), Imm8(16 - 4));
 	ABI_CallFunctionA(thunks_->ProtectFunction(fallbackFunc, 1), R(EAX));
 	ADD(32, R(ESP), Imm8(16 - 4));
@@ -463,7 +475,7 @@ void JitSafeMemFuncs::CreateReadFunc(int bits, const void *fallbackFunc) {
 
 	StartDirectAccess();
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(32BIT)
 	MOVZX(32, bits, EAX, MDisp(EAX, (u32)Memory::base));
 #else
 	MOVZX(32, bits, EAX, MRegSum(MEMBASEREG, EAX));
@@ -476,7 +488,7 @@ void JitSafeMemFuncs::CreateWriteFunc(int bits, const void *fallbackFunc) {
 	CheckDirectEAX();
 
 	// Since we were CALLed, we need to align the stack before calling C++.
-#ifdef _M_IX86
+#if PPSSPP_ARCH(32BIT)
 	// 4 for return, 4 for saved reg on stack.
 	SUB(32, R(ESP), Imm8(16 - 4 - 4));
 	ABI_CallFunctionAA(thunks_->ProtectFunction(fallbackFunc, 2), R(EDX), R(EAX));
@@ -491,7 +503,7 @@ void JitSafeMemFuncs::CreateWriteFunc(int bits, const void *fallbackFunc) {
 
 	StartDirectAccess();
 
-#ifdef _M_IX86
+#if PPSSPP_ARCH(32BIT)
 	MOV(bits, MDisp(EAX, (u32)Memory::base), R(EDX));
 #else
 	MOV(bits, MRegSum(MEMBASEREG, EAX), R(EDX));
