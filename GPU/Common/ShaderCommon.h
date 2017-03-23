@@ -92,7 +92,7 @@ enum : uint64_t {
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
-	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFFULL,
+	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFULL,
 
 	// Other dirty elements that aren't uniforms!
 	DIRTY_FRAMEBUF = 1ULL << 40,
