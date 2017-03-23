@@ -287,7 +287,7 @@ void FramebufferManagerD3D11::CompilePostShader() {
 	usePostShader_ = true;
 }
 
-void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
 	u8 *convBuf = NULL;
 
 	// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?

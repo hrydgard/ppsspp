@@ -178,7 +178,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		shaderManager_ = sm;
 	}
 
-	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
 		u8 *convBuf = NULL;
 		D3DLOCKED_RECT rect;
 

@@ -272,15 +272,25 @@ FramebufferManagerGLES::~FramebufferManagerGLES() {
 	delete [] convBuf_;
 }
 
-void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTexW_ != width || drawPixelsTexH_ != height)) {
+void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
+	// Optimization: skip a copy if possible in a common case.
+	int texWidth = width;
+	if (srcPixelFormat == GE_FORMAT_8888 && width < srcStride) {
+		// Don't up the upload requirements too much if subimages are unsupported.
+		if (gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE) || width >= 480) {
+			texWidth = srcStride;
+			u1 *= (float)width / texWidth;
+		}
+	}
+
+	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTexW_ != texWidth || drawPixelsTexH_ != height)) {
 		glDeleteTextures(1, &drawPixelsTex_);
 		drawPixelsTex_ = 0;
 	}
 
 	if (!drawPixelsTex_) {
 		drawPixelsTex_ = textureCacheGL_->AllocTextureName();
-		drawPixelsTexW_ = width;
+		drawPixelsTexW_ = texWidth;
 		drawPixelsTexH_ = height;
 
 		// Initialize backbuffer texture for DrawPixels
@@ -291,7 +301,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		drawPixelsTexFormat_ = srcPixelFormat;
 	} else {
 		glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
@@ -300,9 +310,9 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
 	bool useConvBuf = false;
-	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
+	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != texWidth) {
 		useConvBuf = true;
-		u32 neededSize = width * height * 4;
+		u32 neededSize = texWidth * height * 4;
 		if (!convBuf_ || convBufSize_ < neededSize) {
 			delete [] convBuf_;
 			convBuf_ = new u8[neededSize];
@@ -313,7 +323,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 			case GE_FORMAT_565:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf_ + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * texWidth * y;
 					ConvertRGBA565ToRGBA8888((u32 *)dst, src, width);
 				}
 				break;
@@ -321,7 +331,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 			case GE_FORMAT_5551:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf_ + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * texWidth * y;
 					ConvertRGBA5551ToRGBA8888((u32 *)dst, src, width);
 				}
 				break;
@@ -329,7 +339,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 			case GE_FORMAT_4444:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf_ + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * texWidth * y;
 					ConvertRGBA4444ToRGBA8888((u32 *)dst, src, width);
 				}
 				break;
@@ -337,7 +347,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 			case GE_FORMAT_8888:
 				{
 					const u8 *src = srcPixels + srcStride * 4 * y;
-					u8 *dst = convBuf_ + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * texWidth * y;
 					memcpy(dst, src, 4 * width);
 				}
 				break;
@@ -348,7 +358,15 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 			}
 		}
 	}
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf_ : srcPixels);
+
+	// Try to skip uploading the unnecessary parts.
+	if (gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE) && width != texWidth) {
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, texWidth);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf_ : srcPixels);
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	} else {
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, texWidth, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf_ : srcPixels);
+	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 

@@ -106,7 +106,7 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void Bind2DShader() override;
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void CompileDraw2DProgram();

@@ -695,7 +695,11 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();  // On GL, important that this is BEFORE drawing
+	float u0 = 0.0f, u1 = 1.0f;
 	float v0 = 0.0f, v1 = 1.0f;
+
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height, u1, v1);
+
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
@@ -707,20 +711,20 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 		SetViewport2D(x, y, w, h);
 	}
-
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	DisableState();
 
 	bool linearFilter = vfb || g_Config.iBufFilter == SCALE_LINEAR;
 	Bind2DShader();
-	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 }
 
 void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
 
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
+	float u0 = 0.0f, u1 = 480.0f / 512.0f;
+	float v0 = 0.0f, v1 = 1.0f;
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272, u1, v1);
 
 	DisableState();
 
@@ -745,8 +749,6 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	} else {
 		Bind2DShader();
 	}
-	float u0 = 0.0f, u1 = 480.0f / 512.0f;
-	float v0 = 0.0f, v1 = 1.0f;
 
 	// We are drawing directly to the back buffer.
 	if (needBackBufferYSwap_)

@@ -226,7 +226,9 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	D3DVIEWPORT9 vp{ 0, 0, w, h, 0.0f, 1.0f };
 	device_->SetViewport(&vp);
 
-	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
+	float u1 = 1.0f;
+	float v1 = 1.0f;
+	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
 
 	device_->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_STENCIL, D3DCOLOR_RGBA(0, 0, 0, 0), 0.0f, 0);
 
@@ -236,9 +238,9 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	float fh = dstBuffer->height;
 	float coord[20] = {
 		0.0f,0.0f,0.0f, 0.0f,0.0f,
-		fw,0.0f,0.0f, 1.0f,0.0f,
-		fw,fh,0.0f, 1.0f,1.0f,
-		0.0f,fh,0.0f, 0.0f,1.0f,
+		fw,0.0f,0.0f, u1,0.0f,
+		fw,fh,0.0f, u1,v1,
+		0.0f,fh,0.0f, 0.0f,v1,
 	};
 	float invDestW = 1.0f / (fw * 0.5f);
 	float invDestH = 1.0f / (fh * 0.5f);

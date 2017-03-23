@@ -97,7 +97,7 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	bool GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer);
