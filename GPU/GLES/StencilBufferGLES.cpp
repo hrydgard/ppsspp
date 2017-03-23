@@ -189,7 +189,9 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	}
 	glViewport(0, 0, w, h);
 
-	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
+	float u1 = 1.0f;
+	float v1 = 1.0f;
+	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
 	textureCacheGL_->ForgetLastTexture();
 
 	glClearStencil(0);
@@ -213,7 +215,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 			glstate.stencilMask.set(i);
 			glUniform1f(u_stencilValue, i * (1.0f / 255.0f));
 		}
-		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, false);
+		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, false);
 	}
 	glstate.stencilMask.set(0xFF);
 

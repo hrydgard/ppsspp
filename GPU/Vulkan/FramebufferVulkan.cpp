@@ -335,7 +335,7 @@ void FramebufferManagerVulkan::Init() {
 	resized_ = true;
 }
 
-void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
 	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTex_->GetWidth() != width || drawPixelsTex_->GetHeight() != height)) {
 		delete drawPixelsTex_;
 		drawPixelsTex_ = nullptr;

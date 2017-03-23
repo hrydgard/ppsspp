@@ -135,7 +135,7 @@ protected:
 private:
 
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void DoNotifyDraw();
 
 	VkCommandBuffer AllocFrameCommandBuffer();

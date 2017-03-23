@@ -190,7 +190,9 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;
-	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
+	float u1 = 1.0f;
+	float v1 = 1.0f;
+	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
 	if (dstBuffer->fbo) {
 		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo);
 	} else {
@@ -207,9 +209,9 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 
 	float coord[20] = {
 		0.0f,0.0f,0.0f, 0.0f,0.0f,
-		fw,0.0f,0.0f, 1.0f,0.0f,
-		0.0f,fh,0.0f, 0.0f,1.0f,
-		fw,fh,0.0f, 1.0f,1.0f,
+		fw,0.0f,0.0f, u1,0.0f,
+		0.0f,fh,0.0f, 0.0f,v1,
+		fw,fh,0.0f, u1,v1,
 	};
 	// I think all these calculations pretty much cancel out?
 	float invDestW = 1.0f / (fw * 0.5f);
