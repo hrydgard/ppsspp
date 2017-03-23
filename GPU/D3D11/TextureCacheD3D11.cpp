@@ -549,7 +549,12 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 		maxLevel = 0;
 	}
 
-	LoadTextureLevel(*entry, replaced, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
+	if (IsFakeMipmapChange()) {
+		u8 level = (gstate.texlevel >> 20) & 0xF;
+		LoadTextureLevel(*entry, replaced, level, maxLevel, replaceImages, scaleFactor, dstFmt);
+	} else {
+		LoadTextureLevel(*entry, replaced, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
+	}
 	ID3D11ShaderResourceView *textureView = DxView(entry);
 	if (!textureView) {
 		return;
@@ -652,7 +657,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 	int h = gstate.getTextureHeight(level);
 
 	ID3D11Texture2D *texture = DxTex(&entry);
-	if (level == 0 && (!replaceImages || texture == nullptr)) {
+	if ((level == 0 || IsFakeMipmapChange()) && (!replaceImages || texture == nullptr)) {
 		// Create texture
 		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
 		int tw = w, th = h;
@@ -676,7 +681,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		desc.Width = tw;
 		desc.Height = th;
 		desc.Format = tfmt;
-		desc.MipLevels = levels;
+		desc.MipLevels = IsFakeMipmapChange() ? 1 :levels;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));
@@ -767,7 +772,10 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		}
 	}
 
-	context_->UpdateSubresource(texture, level, nullptr, mapData, mapRowPitch, 0);
+	if (IsFakeMipmapChange())
+		context_->UpdateSubresource(texture, 0, nullptr, mapData, mapRowPitch, 0);
+	else
+		context_->UpdateSubresource(texture, level, nullptr, mapData, mapRowPitch, 0);
 	FreeAlignedMemory(mapData);
 }
 
