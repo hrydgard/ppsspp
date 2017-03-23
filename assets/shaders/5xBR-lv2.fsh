@@ -96,7 +96,7 @@ void main() {
 
 	vec2 pS  = 1.0 / u_texelDelta.xy;
 	vec2 fp  = fract(v_texcoord0.xy*pS.xy);
-	vec2 TexCoord_0 = v_texcoord0.xy-fp*u_texelDelta.xy;
+	vec2 TexCoord_0 = v_texcoord0.xy-fp*u_pixelDelta.xy;
 	vec2 dx  = vec2(u_texelDelta.x,0.0);
 	vec2 dy  = vec2(0.0,u_texelDelta.y);
 	vec2 y2  = dy + dy; vec2 x2  = dx + dx;
