@@ -235,6 +235,7 @@ public:
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
 
+	bool bLogFrameDrops;
 	bool bShowDebugStats;
 	bool bShowAudioDebug;
 	bool bAudioResampler;

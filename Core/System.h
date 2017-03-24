@@ -97,6 +97,8 @@ enum CoreState
 	CORE_ERROR,
 };
 
+extern bool coreCollectDebugStats;
+
 extern volatile CoreState coreState;
 extern volatile bool coreStatePending;
 void Core_UpdateState(CoreState newState);

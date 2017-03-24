@@ -477,6 +477,19 @@ static bool FrameTimingThrottled() {
 	return !PSP_CoreParameter().unthrottle;
 }
 
+static void DoFrameDropLogging(float scaledTimestep) {
+	if (lastFrameTime != 0.0 && !wasPaused && lastFrameTime + scaledTimestep < curFrameTime) {
+		const double actualTimestep = curFrameTime - lastFrameTime;
+
+		char stats[4096];
+		__DisplayGetDebugStats(stats, sizeof(stats));
+		NOTICE_LOG(HLE, "Dropping frames - budget = %.2fms / %.1ffps, actual = %.2fms (+%.2fms) / %.1ffps\n%s", scaledTimestep * 1000.0, 1.0 / scaledTimestep, actualTimestep * 1000.0, (actualTimestep - scaledTimestep) * 1000.0, 1.0 / actualTimestep, stats);
+	} else {
+		gpuStats.ResetFrame();
+		kernelStats.ResetFrame();
+	}
+}
+
 // Let's collect all the throttling and frameskipping logic here.
 static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	PROFILE_THIS_SCOPE("timing");
@@ -509,8 +522,6 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 
 	if (lastFrameTime == 0.0 || wasPaused) {
 		nextFrameTime = time_now_d() + scaledTimestep;
-		if (wasPaused)
-			wasPaused = false;
 	} else {
 		// Advance lastFrameTime by a constant amount each frame,
 		// but don't let it get too far behind as things can get very jumpy.
@@ -519,6 +530,10 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		nextFrameTime = std::max(lastFrameTime + scaledTimestep, time_now_d() - maxFallBehindFrames * scaledTimestep);
 	}
 	curFrameTime = time_now_d();
+
+	if (g_Config.bLogFrameDrops) {
+		DoFrameDropLogging(scaledTimestep);
+	}
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
 	bool useAutoFrameskip = g_Config.bAutoFrameSkip && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
@@ -556,6 +571,7 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	}
 
 	lastFrameTime = nextFrameTime;
+	wasPaused = false;
 }
 
 static void DoFrameIdleTiming() {

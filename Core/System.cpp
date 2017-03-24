@@ -86,6 +86,9 @@ static std::condition_variable cpuThreadReplyCond;
 static u64 cpuThreadUntil;
 bool audioInitialized;
 
+bool coreCollectDebugStats = false;
+bool coreCollectDebugStatsForced = false;
+
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING;
 // Note: intentionally not used for CORE_NEXTFRAME.
@@ -367,6 +370,13 @@ void Core_UpdateState(CoreState newState) {
 	Core_UpdateSingleStep();
 }
 
+static void Core_UpdateCollectDebugStats(bool flag) {
+	if (coreCollectDebugStats != flag) {
+		coreCollectDebugStats = flag;
+		mipsr4k.ClearJitCache();
+	}
+}
+
 void System_Wake() {
 	// Ping the threads so they check coreState.
 	CPU_NextStateNot(CPU_THREAD_NOT_RUNNING, CPU_THREAD_SHUTDOWN);
@@ -517,6 +527,8 @@ void PSP_EndHostFrame() {
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
+	Core_UpdateCollectDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
+
 	SaveState::Process();
 	if (coreState == CORE_POWERDOWN || coreState == CORE_ERROR) {
 		return;
