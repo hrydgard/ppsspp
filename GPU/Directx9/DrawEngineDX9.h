@@ -256,6 +256,7 @@ private:
 		}
 		~TessellationDataTransferDX9() {}
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+		void PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) override;
 	};
 };
 

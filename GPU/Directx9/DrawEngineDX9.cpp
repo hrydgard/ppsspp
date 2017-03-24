@@ -933,7 +933,7 @@ bool DrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
-void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
+void DrawEngineDX9::TessellationDataTransferDX9::PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) {
 	D3DLOCKED_RECT rect;
 
 	// Position
@@ -952,9 +952,7 @@ void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * 
 		gstate_c.curve_tex_width[0] = size;
 	}
 	data_tex[0]->LockRect(0, &rect, NULL, 0);
-	for (int i = 0; i < size; i++)
-		memcpy((float *)rect.pBits + i * 4, &pos[i * 3], sizeof(float) * 3);
-	data_tex[0]->UnlockRect(0);
+	pos = (float *)rect.pBits;
 
 	// Texcoords
 	if (hasTexCoords) {
@@ -973,9 +971,7 @@ void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * 
 			gstate_c.curve_tex_width[1] = size;
 		}
 		data_tex[1]->LockRect(0, &rect, NULL, 0);
-		for (int i = 0; i < size; i++)
-			memcpy((float *)rect.pBits + i * 4, &tex[i * 3], sizeof(float) * 3);
-		data_tex[1]->UnlockRect(0);
+		tex = (float *)rect.pBits;
 	}
 
 	// Color
@@ -995,7 +991,18 @@ void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * 
 		gstate_c.curve_tex_width[2] = sizeColor;
 	}
 	data_tex[2]->LockRect(0, &rect, NULL, 0);
-	memcpy(rect.pBits, col, sizeof(float) * 4 * sizeColor);
+	col = (float *)rect.pBits;
+}
+
+void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
+	// Position
+	data_tex[0]->UnlockRect(0);
+
+	// Texcoords
+	if (hasTexCoords)
+		data_tex[1]->UnlockRect(0);
+
+	// Color
 	data_tex[2]->UnlockRect(0);
 }
 
