@@ -98,7 +98,6 @@ enum CoreState
 };
 
 extern bool coreCollectDebugStats;
-void Core_ForceCollectDebugStats(bool flag);
 
 extern volatile CoreState coreState;
 extern volatile bool coreStatePending;
