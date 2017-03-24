@@ -56,6 +56,9 @@
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/PostShader.h"
 
+// Enable to log info about any dropped frames.
+static const bool logFrameDrops = true;
+
 struct FrameBufferState {
 	u32 topaddr;
 	GEBufferFormat fmt;
@@ -479,6 +482,19 @@ static bool FrameTimingThrottled() {
 	return !PSP_CoreParameter().unthrottle;
 }
 
+static void DoFrameDropLogging(float scaledTimestep) {
+	// Make sure we're collecting so we can log.
+	Core_ForceCollectDebugStats(true);
+
+	if (lastFrameTime != 0.0 && lastFrameTime + scaledTimestep < curFrameTime) {
+		const double actualTimestep = curFrameTime - lastFrameTime;
+
+		char stats[4096];
+		__DisplayGetDebugStats(stats, sizeof(stats));
+		NOTICE_LOG(HLE, "Dropping frames (budget = %.2fms / %.1ffps), actual = %.2fms (+%.2fms) %.1ffps\n%s", scaledTimestep * 1000.0, 1.0 / scaledTimestep, actualTimestep * 1000.0, (actualTimestep - scaledTimestep) * 1000.0, 1.0 / actualTimestep, stats);
+	}
+}
+
 // Let's collect all the throttling and frameskipping logic here.
 static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	PROFILE_THIS_SCOPE("timing");
@@ -521,6 +537,10 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		nextFrameTime = std::max(lastFrameTime + scaledTimestep, time_now_d() - maxFallBehindFrames * scaledTimestep);
 	}
 	curFrameTime = time_now_d();
+
+	if (logFrameDrops) {
+		DoFrameDropLogging(scaledTimestep);
+	}
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
 	bool useAutoFrameskip = g_Config.bAutoFrameSkip && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
