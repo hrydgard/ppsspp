@@ -937,30 +937,25 @@ bool DrawEngineVulkan::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
-void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
+void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) {
 	int rowPitch;
-	u8 *data;
 
 	// Position
 	if (prevSize < size) {
 		prevSize = size;
 
-		data_tex[0]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		data_tex[0]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
-	data = data_tex[0]->Lock(0, &rowPitch);
-	memcpy(data, pos, size * 3 * sizeof(float));
-	data_tex[0]->Unlock();
+	pos = (float *)data_tex[0]->Lock(0, &rowPitch);
 
 	// Texcoords
 	if (hasTexCoords) {
 		if (prevSizeTex < size) {
 			prevSizeTex = size;
 
-			data_tex[1]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+			data_tex[1]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		}
-		data = data_tex[1]->Lock(0, &rowPitch);
-		memcpy(data, tex, size * 3 * sizeof(float));
-		data_tex[1]->Unlock();
+		tex = (float *)data_tex[1]->Lock(0, &rowPitch);
 	}
 
 	// Color
@@ -970,7 +965,17 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const fl
 
 		data_tex[2]->CreateDirect(sizeColor, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
-	data = data_tex[2]->Lock(0, &rowPitch);
-	memcpy(data, col, sizeColor * 4 * sizeof(float));
+	col = (float *)data_tex[2]->Lock(0, &rowPitch);
+}
+
+void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
+	// Position
+	data_tex[0]->Unlock();
+
+	// Texcoords
+	if (hasTexCoords)
+		data_tex[1]->Unlock();
+
+	// Color
 	data_tex[2]->Unlock();
 }

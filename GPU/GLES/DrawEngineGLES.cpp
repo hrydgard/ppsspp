@@ -1118,10 +1118,10 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		if (prevSize < size) {
-			glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, size, 0, GL_RGB, GL_FLOAT, (GLfloat*)pos);
+			glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA32F, size, 0, GL_RGBA, GL_FLOAT, (GLfloat*)pos);
 			prevSize = size;
 		} else {
-			glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RGB, GL_FLOAT, (GLfloat*)pos);
+			glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RGBA, GL_FLOAT, (GLfloat*)pos);
 		}
 
 		// Texcoords
@@ -1133,10 +1133,10 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 			glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			if (prevSizeTex < size) {
-				glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, size, 0, GL_RGB, GL_FLOAT, (GLfloat*)tex);
+				glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA32F, size, 0, GL_RGBA, GL_FLOAT, (GLfloat*)tex);
 				prevSizeTex = size;
 			} else {
-				glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RGB, GL_FLOAT, (GLfloat*)tex);
+				glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RGBA, GL_FLOAT, (GLfloat*)tex);
 			}
 		}
 
@@ -1165,10 +1165,10 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		if (prevSize < size) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, size, 1, 0, GL_RGB, GL_FLOAT, (GLfloat*)pos);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, size, 1, 0, GL_RGBA, GL_FLOAT, (GLfloat*)pos);
 			prevSize = size;
 		} else {
-			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, 1, GL_RGB, GL_FLOAT, (GLfloat*)pos);
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, 1, GL_RGBA, GL_FLOAT, (GLfloat*)pos);
 		}
 
 		// Texcoords
@@ -1180,10 +1180,10 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			if (prevSizeTex < size) {
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, size, 1, 0, GL_RGB, GL_FLOAT, (GLfloat*)tex);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, size, 1, 0, GL_RGBA, GL_FLOAT, (GLfloat*)tex);
 				prevSizeTex = size;
 			} else {
-				glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, 1, GL_RGB, GL_FLOAT, (GLfloat*)tex);
+				glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, 1, GL_RGBA, GL_FLOAT, (GLfloat*)tex);
 			}
 		}
 
