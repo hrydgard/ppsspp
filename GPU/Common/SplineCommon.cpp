@@ -926,19 +926,18 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	patch.patchFacing = patchFacing;
 
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
-		int stride = g_Config.iGPUBackend == GPU_BACKEND_VULKAN || g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D11 ? 4 : 3;
-		float *pos = (float*)(decoded + 65536 * 18); // Size 3 float (4 for Vulkan and D3D11)
-		float *tex = pos + count_u * count_v * stride; // Size 3 float (4 for Vulkan and D3D11)
-		float *col = tex + count_u * count_v * stride; // Size 4 float
+	
+		float *pos = (float*)(decoded + 65536 * 18); // Size 4 float
+		float *tex = pos + count_u * count_v * 4; // Size 4 float
+		float *col = tex + count_u * count_v * 4; // Size 4 float
 		const bool hasColor = (origVertType & GE_VTYPE_COL_MASK) != 0;
 		const bool hasTexCoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
-		if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN)
-			tessDataTransfer->PrepareBuffers(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
+		tessDataTransfer->PrepareBuffers(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
 		for (int idx = 0; idx < count_u * count_v; idx++) {
-			memcpy(pos + idx * stride, points[idx]->pos.AsArray(), 3 * sizeof(float));
+			memcpy(pos + idx * 4, points[idx]->pos.AsArray(), 3 * sizeof(float));
 			if (hasTexCoords)
-				memcpy(tex + idx * stride, points[idx]->uv, 2 * sizeof(float));
+				memcpy(tex + idx * 4, points[idx]->uv, 2 * sizeof(float));
 			if (hasColor)
 				memcpy(col + idx * 4, Vec4f::FromRGBA(points[idx]->color_32).AsArray(), 4 * sizeof(float));
 		}
@@ -1011,10 +1010,10 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
 
-	int stride = g_Config.iGPUBackend == GPU_BACKEND_VULKAN || g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D11 ? 4 : 3;
-	float *pos = (float*)(decoded + 65536 * 18); // Size 3 float (4 for Vulkan and D3D11)
-	float *tex = pos + count_u * count_v * stride; // Size 3 float (4 for Vulkan and D3D11)
-	float *col = tex + count_u * count_v * stride; // Size 4 float
+
+	float *pos = (float*)(decoded + 65536 * 18); // Size 4 float
+	float *tex = pos + count_u * count_v * 4; // Size 4 float
+	float *col = tex + count_u * count_v * 4; // Size 4 float
 	const bool hasColor = (origVertType & GE_VTYPE_COL_MASK) != 0;
 	const bool hasTexCoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
@@ -1023,13 +1022,12 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	int num_patches_v = (count_v - 1) / 3;
 	BezierPatch *patches = nullptr;
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
-		if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN)
-			tessDataTransfer->PrepareBuffers(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
+		tessDataTransfer->PrepareBuffers(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
 		for (int idx = 0; idx < count_u * count_v; idx++) {
 			SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
-			memcpy(pos + idx * stride, point->pos.AsArray(), 3 * sizeof(float));
+			memcpy(pos + idx * 4, point->pos.AsArray(), 3 * sizeof(float));
 			if (hasTexCoords)
-				memcpy(tex + idx * stride, point->uv, 2 * sizeof(float));
+				memcpy(tex + idx * 4, point->uv, 2 * sizeof(float));
 			if (hasColor)
 				memcpy(col + idx * 4, Vec4f::FromRGBA(point->color_32).AsArray(), 4 * sizeof(float));
 		}
