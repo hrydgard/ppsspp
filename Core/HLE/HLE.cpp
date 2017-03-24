@@ -493,18 +493,16 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op)
 	return &moduleDB[modulenum].funcTable[funcnum];
 }
 
-void *GetQuickSyscallFunc(MIPSOpcode op)
-{
-	// TODO: Clear jit cache on g_Config.bShowDebugStats change?
-	if (g_Config.bShowDebugStats)
-		return NULL;
+void *GetQuickSyscallFunc(MIPSOpcode op) {
+	if (coreCollectDebugStats)
+		return nullptr;
 
 	const HLEFunction *info = GetSyscallFuncPointer(op);
 	if (!info || !info->func)
-		return NULL;
+		return nullptr;
 
 	// TODO: Do this with a flag?
-	if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
+	if (op == idleOp)
 		return (void *)info->func;
 	if (info->flags != 0)
 		return (void *)&CallSyscallWithFlags;
@@ -520,8 +518,8 @@ void hleSetSteppingTime(double t)
 void CallSyscall(MIPSOpcode op)
 {
 	PROFILE_THIS_SCOPE("syscall");
-	double start = 0.0;  // need to initialize to fix the race condition where g_Config.bShowDebugStats is enabled in the middle of this func.
-	if (g_Config.bShowDebugStats)
+	double start = 0.0;  // need to initialize to fix the race condition where coreCollectDebugStats is enabled in the middle of this func.
+	if (coreCollectDebugStats)
 	{
 		time_update();
 		start = time_now_d();
@@ -546,7 +544,7 @@ void CallSyscall(MIPSOpcode op)
 		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
 	}
 
-	if (g_Config.bShowDebugStats)
+	if (coreCollectDebugStats)
 	{
 		time_update();
 		u32 callno = (op >> 6) & 0xFFFFF; //20 bits

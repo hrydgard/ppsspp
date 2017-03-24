@@ -848,13 +848,13 @@ u32 GPUCommon::Break(int mode) {
 }
 
 void GPUCommon::NotifySteppingEnter() {
-	if (g_Config.bShowDebugStats) {
+	if (coreCollectDebugStats) {
 		time_update();
 		timeSteppingStarted_ = time_now_d();
 	}
 }
 void GPUCommon::NotifySteppingExit() {
-	if (g_Config.bShowDebugStats) {
+	if (coreCollectDebugStats) {
 		if (timeSteppingStarted_ <= 0.0) {
 			ERROR_LOG(G3D, "Mismatched stepping enter/exit.");
 		}
@@ -867,7 +867,7 @@ void GPUCommon::NotifySteppingExit() {
 bool GPUCommon::InterpretList(DisplayList &list) {
 	// Initialized to avoid a race condition with bShowDebugStats changing.
 	double start = 0.0;
-	if (g_Config.bShowDebugStats) {
+	if (coreCollectDebugStats) {
 		time_update();
 		start = time_now_d();
 	}
@@ -936,7 +936,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 
 	list.offsetAddr = gstate_c.offsetAddr;
 
-	if (g_Config.bShowDebugStats) {
+	if (coreCollectDebugStats) {
 		time_update();
 		double total = time_now_d() - start - timeSpentStepping_;
 		hleSetSteppingTime(timeSpentStepping_);
@@ -984,7 +984,7 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	cyclesExecuted += 2 * executed;
 	cycleLastPC = newPC;
 
-	if (g_Config.bShowDebugStats) {
+	if (coreCollectDebugStats) {
 		gpuStats.otherGPUCycles += 2 * executed;
 		gpuStats.gpuCommandsAtCallLevel[std::min(currentList->stackptr, 3)] += executed;
 	}
