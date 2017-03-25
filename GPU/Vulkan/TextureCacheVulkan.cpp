@@ -271,7 +271,7 @@ void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 }
 
 void TextureCacheVulkan::StartFrame() {
-	lastBoundTexture = nullptr;
+	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 	texelsScaledThisFrame_ = 0;
 
@@ -342,6 +342,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 void TextureCacheVulkan::Unbind() {
 	imageView_ = VK_NULL_HANDLE;
 	sampler_ = VK_NULL_HANDLE;
+	InvalidateLastTexture();
 }
 
 void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
@@ -452,7 +453,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		key.mipEnable = false;
 		sampler_ = samplerCache_.GetOrCreateSampler(key);
 
-		lastBoundTexture = nullptr;
+		InvalidateLastTexture();
 	}
 }
 

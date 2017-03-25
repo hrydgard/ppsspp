@@ -219,7 +219,6 @@ void TextureCacheCommon::SetTexture(bool force) {
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
-		InvalidateLastTexture();
 		return;
 	}
 
@@ -482,7 +481,7 @@ bool TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 			// Instead, let's use glTexSubImage to replace the images.
 			replaceImages = true;
 		} else {
-			InvalidateLastTexture(entry);
+			InvalidateLastTexture();
 			ReleaseTexture(entry, true);
 			entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
 		}

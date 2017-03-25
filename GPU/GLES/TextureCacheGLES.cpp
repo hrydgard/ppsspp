@@ -340,6 +340,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 
 void TextureCacheGLES::Unbind() {
 	glBindTexture(GL_TEXTURE_2D, 0);
+	InvalidateLastTexture();
 }
 
 class TextureShaderApplier {
@@ -522,7 +523,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 
 	CHECK_GL_ERROR_IF_DEBUG();
 
-	lastBoundTexture = INVALID_TEX;
+	InvalidateLastTexture();
 }
 
 ReplacedTextureFormat FromGLESFormat(GLenum fmt, bool useBGRA = false) {
