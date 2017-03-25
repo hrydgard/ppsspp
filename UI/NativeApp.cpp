@@ -842,6 +842,10 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 			g_Config.sNickName = setString;
 		inputboxValue.clear();
 	}
+	if (msg == "bgImage_updated") {
+		UIBackgroundShutdown();
+		UIBackgroundInit(*uiContext);
+	}
 	if (msg == "savestate_displayslot") {
 		I18NCategory *sy = GetI18NCategory("System");
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
