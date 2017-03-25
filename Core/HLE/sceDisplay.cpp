@@ -596,10 +596,9 @@ static void DoFrameIdleTiming() {
 
 	// If we have over at least a vblank of spare time, maintain at least 30fps in delay.
 	// This prevents fast forward during loading screens.
-	const double thresh = lastFrameTime + (numVBlanksSinceFlip - 1) * scaledVblank;
-	if (numVBlanksSinceFlip >= 2 && time_now_d() < thresh) {
-		// Give a little extra wiggle room in case the next vblank does more work.
-		const double goal = lastFrameTime + numVBlanksSinceFlip * scaledVblank - 0.001;
+	// Give a little extra wiggle room in case the next vblank does more work.
+	const double goal = lastFrameTime + (numVBlanksSinceFlip - 1) * scaledVblank - 0.001;
+	if (numVBlanksSinceFlip >= 2 && time_now_d() < goal) {
 		while (time_now_d() < goal) {
 #ifdef _WIN32
 			sleep_ms(1);
