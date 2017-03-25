@@ -20,7 +20,7 @@ android {
 		} else {
 			release {
 				// Can't build release builds without a key store.
-				throw new GradleException('This build type should only be invoked from CI. Use Optimized builds instead.')
+				println 'This build type should only be invoked from CI. Use Optimized builds instead.'
 			}
 		}
 	}
