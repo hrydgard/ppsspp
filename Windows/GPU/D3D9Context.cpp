@@ -108,8 +108,6 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		D3DDEVTYPE_HAL,
 		d3ddm.Format,
 		D3DUSAGE_DEPTHSTENCIL,
-		// TODO: Check for VTF
-	//	D3DUSAGE_DEPTHSTENCIL | D3DUSAGE_QUERY_VERTEXTEXTURE,
 		D3DRTYPE_SURFACE,
 		D3DFMT_D24S8))) {
 		if (hr == D3DERR_NOTAVAILABLE) {
@@ -117,6 +115,16 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 			d3d_->Release();
 			return false;
 		}
+	}
+	if (SUCCEEDED(hr = d3d_->CheckDeviceFormat(adapterId_,
+		D3DDEVTYPE_HAL,
+		d3ddm.Format,
+		D3DUSAGE_QUERY_VERTEXTEXTURE,
+		D3DRTYPE_TEXTURE,
+		D3DFMT_A32B32G32R32F))) {
+
+		DX9::dx_extensions.vertex_texture_fetch = true;
+		DX9::dx_extensions.texture_float = true;
 	}
 
 	DWORD dwBehaviorFlags = D3DCREATE_MULTITHREADED | D3DCREATE_FPU_PRESERVE;

@@ -6,7 +6,7 @@
 namespace DX9 {
 
 DirectXState dxstate;
-GLExtensions gl_extensions;
+DXExtensions dx_extensions;
 
 LPDIRECT3DDEVICE9 pD3Ddevice = nullptr;
 LPDIRECT3DDEVICE9EX pD3DdeviceEx = nullptr;
@@ -63,12 +63,12 @@ void DirectXState::Restore() {
 	texAddressV.restore(); count++;
 }
 
-void CheckGLExtensions() {
+void CheckDXExtensions() {
 	static bool done = false;
 	if (done)
 		return;
 	done = true;
-	memset(&gl_extensions, 0, sizeof(gl_extensions));
+	memset(&dx_extensions, 0, sizeof(dx_extensions));
 }
 
 void DirectXState::SetVSyncInterval(int interval) {

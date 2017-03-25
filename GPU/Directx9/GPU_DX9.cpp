@@ -160,8 +160,8 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCache_->NotifyConfigChanged();
 
 	if (g_Config.bHardwareTessellation) {
-		if (false) { // TODO: Check GPU features
-			// Disable hardware tessellation bacause DX9 is still unsupported.
+		// Disable hardware tessellation if device is unsupported.
+		if (!gstate_c.SupportsAll(GPU_SUPPORTS_INSTANCE_RENDERING | GPU_SUPPORTS_VERTEX_TEXTURE_FETCH | GPU_SUPPORTS_TEXTURE_FLOAT)) {
 			g_Config.bHardwareTessellation = false;
 			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
 			I18NCategory *gr = GetI18NCategory("Graphics");
@@ -190,6 +190,7 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 
 	D3DCAPS9 caps;
 	ZeroMemory(&caps, sizeof(caps));
@@ -207,6 +208,12 @@ void GPU_DX9::CheckGPUFeatures() {
 		if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0)
 			features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 	}
+
+	if (dx_extensions.vertex_texture_fetch)
+		features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
+
+	if (dx_extensions.texture_float)
+		features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 
 	if (!g_Config.bHighQualityDepth) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
