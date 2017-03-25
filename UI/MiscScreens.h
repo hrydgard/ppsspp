@@ -28,6 +28,8 @@
 struct ShaderInfo;
 
 extern std::string boot_filename;
+void UIBackgroundInit(UIContext &dc);
+void UIBackgroundShutdown();
 
 inline void NoOpVoidBool(bool) {}
 
@@ -147,7 +149,3 @@ private:
 
 	int frames_;
 };
-
-
-// Utility functions that create various popup screens
-ListPopupScreen *CreateLanguageScreen();

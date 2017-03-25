@@ -633,6 +633,8 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	screenManager->setUIContext(uiContext);
 	screenManager->setDrawContext(g_draw);
 
+	UIBackgroundInit(*uiContext);
+
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
 #if PPSSPP_PLATFORM(UWP)
@@ -651,17 +653,19 @@ void NativeShutdownGraphics() {
 
 #ifdef _WIN32
 	delete winAudioBackend;
-	winAudioBackend = NULL;
+	winAudioBackend = nullptr;
 #endif
 
 	delete g_gameInfoCache;
 	g_gameInfoCache = nullptr;
 
+	UIBackgroundShutdown();
+
 	delete uiTexture;
 	uiTexture = nullptr;
 
 	delete uiContext;
-	uiContext = NULL;
+	uiContext = nullptr;
 
 	ui_draw2d.Shutdown();
 	ui_draw2d_front.Shutdown();

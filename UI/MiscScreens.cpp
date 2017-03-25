@@ -69,7 +69,23 @@ static const uint32_t colors[4] = {
 	0xC0FFFFFF,
 };
 
-void DrawBackground(UIContext &dc, float alpha = 1.0f) {
+static ManagedTexture *bgTexture = nullptr;
+
+void UIBackgroundInit(UIContext &dc) {
+	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
+	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
+	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
+		const std::string &bgFile = File::Exists(bgPng) ? bgPng : bgJpg;
+		bgTexture = CreateTextureFromFile(dc.GetDrawContext(), bgFile.c_str(), DETECT, true);
+	}
+}
+
+void UIBackgroundShutdown() {
+	delete bgTexture;
+	bgTexture = nullptr;
+}
+
+void DrawBackground(UIContext &dc, float alpha) {
 	static float xbase[100] = {0};
 	static float ybase[100] = {0};
 	float xres = dc.GetBounds().w;
@@ -87,10 +103,20 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 		last_yres = yres;
 	}
 	
-	int img = I_BG;
-
 	uint32_t bgColor = whiteAlpha(alpha);
-	ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor);
+
+	if (bgTexture != nullptr) {
+		dc.Flush();
+		dc.GetDrawContext()->BindTexture(0, bgTexture->GetTexture());
+		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, bgColor);
+
+		dc.Flush();
+		dc.RebindTexture();
+	} else {
+		ImageID img = I_BG;
+		ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor);
+	}
+
 	float t = time_now();
 	for (int i = 0; i < 100; i++) {
 		float x = xbase[i] + dc.GetBounds().x;
@@ -216,7 +242,7 @@ UI::EventReturn UIDialogScreenWithBackground::OnLanguageChange(UI::EventParams &
 }
 
 void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
-	::DrawBackground(dc);
+	::DrawBackground(dc, 1.0f);
 	dc.Flush();
 }
 
