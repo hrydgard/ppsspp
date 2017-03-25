@@ -1486,6 +1486,9 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 				secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 				// Is this wise? We simply copy the entry.
 				secondCache_[secondKey].reset(new TexCacheEntry(*entry));
+
+				// Make sure we don't delete the texture we just copied.
+				entry->texturePtr = nullptr;
 				doDelete = false;
 			}
 		}
