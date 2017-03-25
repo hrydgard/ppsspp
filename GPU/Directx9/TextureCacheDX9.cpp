@@ -96,7 +96,7 @@ void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 }
 
 void TextureCacheDX9::ForgetLastTexture() {
-	lastBoundTexture = INVALID_TEX;
+	InvalidateLastTexture();
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 }
 
@@ -213,7 +213,7 @@ void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHe
 }
 
 void TextureCacheDX9::StartFrame() {
-	lastBoundTexture = INVALID_TEX;
+	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 
 	if (texelsScaledThisFrame_) {
@@ -279,6 +279,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 
 void TextureCacheDX9::Unbind() {
 	device_->SetTexture(0, NULL);
+	InvalidateLastTexture();
 }
 
 class TextureShaderApplierDX9 {
@@ -458,7 +459,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 	framebufferManagerDX9_->RebindFramebuffer();
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
-	lastBoundTexture = INVALID_TEX;
+	InvalidateLastTexture();
 }
 
 void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {

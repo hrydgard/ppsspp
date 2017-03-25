@@ -143,7 +143,7 @@ void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 }
 
 void TextureCacheD3D11::ForgetLastTexture() {
-	lastBoundTexture = INVALID_TEX;
+	InvalidateLastTexture();
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	ID3D11ShaderResourceView *nullTex = nullptr;
 	context_->PSSetShaderResources(0, 1, &nullTex);
@@ -201,7 +201,7 @@ void TextureCacheD3D11::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffer
 }
 
 void TextureCacheD3D11::StartFrame() {
-	lastBoundTexture = INVALID_TEX;
+	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 
 	if (texelsScaledThisFrame_) {
@@ -264,6 +264,7 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 void TextureCacheD3D11::Unbind() {
 	ID3D11ShaderResourceView *nullView = nullptr;
 	context_->PSSetShaderResources(0, 1, &nullView);
+	InvalidateLastTexture();
 }
 
 class TextureShaderApplierD3D11 {
@@ -438,7 +439,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
-	lastBoundTexture = INVALID_TEX;
+	InvalidateLastTexture();
 }
 
 

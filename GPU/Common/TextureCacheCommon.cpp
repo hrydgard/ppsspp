@@ -219,7 +219,6 @@ void TextureCacheCommon::SetTexture(bool force) {
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
-		InvalidateLastTexture();
 		return;
 	}
 
@@ -482,7 +481,7 @@ bool TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 			// Instead, let's use glTexSubImage to replace the images.
 			replaceImages = true;
 		} else {
-			InvalidateLastTexture(entry);
+			InvalidateLastTexture();
 			ReleaseTexture(entry, true);
 			entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
 		}
@@ -1498,16 +1497,28 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 }
 
 void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type) {
+	// They could invalidate inside the texture, let's just give a bit of leeway.
+	const int LARGEST_TEXTURE_SIZE = 512 * 512 * 4;
+
+	addr &= 0x3FFFFFFF;
+	const u32 addr_end = addr + size;
+
+	if (type == GPU_INVALIDATE_ALL) {
+		// This is an active signal from the game that something in the texture cache may have changed.
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+	} else {
+		// Do a quick check to see if the current texture is in range.
+		const u32 currentAddr = gstate.getTextureAddress(0);
+		if (addr_end >= currentAddr && addr < currentAddr + LARGEST_TEXTURE_SIZE) {
+			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+		}
+	}
+
 	// If we're hashing every use, without backoff, then this isn't needed.
 	if (!g_Config.bTextureBackoffCache) {
 		return;
 	}
 
-	addr &= 0x3FFFFFFF;
-	const u32 addr_end = addr + size;
-
-	// They could invalidate inside the texture, let's just give a bit of leeway.
-	const int LARGEST_TEXTURE_SIZE = 512 * 512 * 4;
 	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
 	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
 	if (endKey < startKey) {
