@@ -111,8 +111,6 @@ bool IsBackendSupportHWTess() {
 }
 
 void GameSettingsScreen::CreateViews() {
-	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-
 	if (editThenRestore_) {
 		g_Config.loadGameConfig(gameID_);
 	}
