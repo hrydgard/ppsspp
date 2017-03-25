@@ -463,6 +463,7 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		}
 
 		AVDictionary *opt = nullptr;
+		// Allow ffmpeg to use any number of threads it wants.  Without this, it doesn't use threads.
 		av_dict_set(&opt, "threads", "0", 0);
 		int openResult = avcodec_open2(m_pCodecCtx, pCodec, &opt);
 		av_dict_free(&opt);

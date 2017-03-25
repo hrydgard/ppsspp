@@ -49,7 +49,7 @@ GameScreen::~GameScreen() {
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
-	if (!info->id.empty())
+	if (info && !info->id.empty())
 		saveDirs = info->GetSaveDataDirectories(); // Get's very heavy, let's not do it in update()
 
 	I18NCategory *di = GetI18NCategory("Dialog");
@@ -155,9 +155,11 @@ UI::Choice *GameScreen::AddOtherChoice(UI::Choice *choice) {
 	return choice;
 }
 
-UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e)
-{
-	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_,0);
+UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e) {
+	GameInfo *info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+	if (!info) {
+		return UI::EVENT_SKIPPED;
+	}
 	g_Config.createGameConfig(info->id);
 	g_Config.saveGameConfig(info->id);
 	info->hasConfig = true;
@@ -166,11 +168,12 @@ UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e)
 	return UI::EVENT_DONE;
 }
 
-void GameScreen::CallbackDeleteConfig(bool yes)
-{
-	if (yes)
-	{
-		GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+void GameScreen::CallbackDeleteConfig(bool yes) {
+	if (yes) {
+		GameInfo *info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+		if (!info) {
+			return;
+		}
 		g_Config.deleteGameConfig(info->id);
 		info->hasConfig = false;
 		screenManager()->RecreateAllViews();

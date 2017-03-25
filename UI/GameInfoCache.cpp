@@ -744,7 +744,7 @@ void GameInfoCache::WaitUntilDone(GameInfo *info) {
 
 // Runs on the main thread.
 GameInfo *GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags) {
-	GameInfo *info = 0;
+	GameInfo *info = nullptr;
 
 	auto iter = info_.find(gamePath);
 	if (iter != info_.end()) {
