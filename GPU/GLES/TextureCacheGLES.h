@@ -33,14 +33,6 @@ class DepalShaderCacheGLES;
 class ShaderManagerGLES;
 class DrawEngineGLES;
 
-inline bool UseBGRA8888() {
-	// TODO: Other platforms?  May depend on vendor which is faster?
-#ifdef _WIN32
-	return gl_extensions.EXT_bgra;
-#endif
-	return false;
-}
-
 class TextureCacheGLES : public TextureCacheCommon {
 public:
 	TextureCacheGLES(Draw::DrawContext *draw);
