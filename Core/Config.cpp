@@ -63,65 +63,77 @@ struct ConfigSetting {
 		TYPE_TERMINATOR,
 		TYPE_BOOL,
 		TYPE_INT,
+		TYPE_UINT32,
 		TYPE_FLOAT,
 		TYPE_STRING,
 	};
 	union Value {
 		bool b;
 		int i;
+		uint32_t u;
 		float f;
 		const char *s;
 	};
 	union SettingPtr {
 		bool *b;
 		int *i;
+		uint32_t *u;
 		float *f;
 		std::string *s;
 	};
 
 	typedef bool (*BoolDefaultCallback)();
 	typedef int (*IntDefaultCallback)();
+	typedef uint32_t (*Uint32DefaultCallback)();
 	typedef float (*FloatDefaultCallback)();
 	typedef const char *(*StringDefaultCallback)();
 
 	union Callback {
 		BoolDefaultCallback b;
 		IntDefaultCallback i;
+		Uint32DefaultCallback u;
 		FloatDefaultCallback f;
 		StringDefaultCallback s;
 	};
 
 	ConfigSetting(bool v)
 		: ini_(""), type_(TYPE_TERMINATOR), report_(false), save_(false), perGame_(false) {
-		ptr_.b = NULL;
-		cb_.b = NULL;
+		ptr_.b = nullptr;
+		cb_.b = nullptr;
 	}
 
 	ConfigSetting(const char *ini, bool *v, bool def, bool save = true, bool perGame = false)
 		: ini_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
 		ptr_.b = v;
-		cb_.b = NULL;
+		cb_.b = nullptr;
 		default_.b = def;
 	}
 
 	ConfigSetting(const char *ini, int *v, int def, bool save = true, bool perGame = false)
 		: ini_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
 		ptr_.i = v;
-		cb_.i = NULL;
+		cb_.i = nullptr;
 		default_.i = def;
+	}
+
+	ConfigSetting(const char *ini, uint32_t *v, uint32_t def, bool save = true, bool perGame = false)
+		: ini_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
+		ptr_.u = v;
+		cb_.u = nullptr;
+		default_.u = def;
 	}
 
 	ConfigSetting(const char *ini, float *v, float def, bool save = true, bool perGame = false)
 		: ini_(ini), type_(TYPE_FLOAT), report_(false), save_(save), perGame_(perGame) {
 		ptr_.f = v;
-		cb_.f = NULL;
+		cb_.f = nullptr;
 		default_.f = def;
 	}
 
 	ConfigSetting(const char *ini, std::string *v, const char *def, bool save = true, bool perGame = false)
 		: ini_(ini), type_(TYPE_STRING), report_(false), save_(save), perGame_(perGame) {
 		ptr_.s = v;
-		cb_.s = NULL;
+		cb_.s = nullptr;
 		default_.s = def;
 	}
 
@@ -133,8 +145,14 @@ struct ConfigSetting {
 
 	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, bool save = true, bool perGame = false)
 		: ini_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
-		ptr_ .i= v;
+		ptr_ .i = v;
 		cb_.i = def;
+	}
+
+	ConfigSetting(const char *ini, uint32_t *v, Uint32DefaultCallback def, bool save = true, bool perGame = false)
+		: ini_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
+		ptr_ .u = v;
+		cb_.u = def;
 	}
 
 	ConfigSetting(const char *ini, float *v, FloatDefaultCallback def, bool save = true, bool perGame = false)
@@ -165,6 +183,11 @@ struct ConfigSetting {
 				default_.i = cb_.i();
 			}
 			return section->Get(ini_, ptr_.i, default_.i);
+		case TYPE_UINT32:
+			if (cb_.u) {
+				default_.u = cb_.u();
+			}
+			return section->Get(ini_, ptr_.u, default_.u);
 		case TYPE_FLOAT:
 			if (cb_.f) {
 				default_.f = cb_.f();
@@ -190,6 +213,8 @@ struct ConfigSetting {
 			return section->Set(ini_, *ptr_.b);
 		case TYPE_INT:
 			return section->Set(ini_, *ptr_.i);
+		case TYPE_UINT32:
+			return section->Set(ini_, *ptr_.u);
 		case TYPE_FLOAT:
 			return section->Set(ini_, *ptr_.f);
 		case TYPE_STRING:
@@ -209,6 +234,8 @@ struct ConfigSetting {
 			return data.Add(prefix + ini_, *ptr_.b);
 		case TYPE_INT:
 			return data.Add(prefix + ini_, *ptr_.i);
+		case TYPE_UINT32:
+			return data.Add(prefix + ini_, *ptr_.u);
 		case TYPE_FLOAT:
 			return data.Add(prefix + ini_, *ptr_.f);
 		case TYPE_STRING:
@@ -770,6 +797,39 @@ static ConfigSetting upgradeSettings[] = {
 	ConfigSetting(false),
 };
 
+static ConfigSetting themeSettings[] = {
+	ConfigSetting("ItemStyleFg", &g_Config.uItemStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("ItemStyleBg", &g_Config.uItemStyleBg, 0x55000000, true, false),
+	ConfigSetting("ItemFocusedStyleFg", &g_Config.uItemFocusedStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("ItemFocusedStyleBg", &g_Config.uItemFocusedStyleBg, 0xFFEDC24C, true, false),
+	ConfigSetting("ItemDownStyleFg", &g_Config.uItemDownStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("ItemDownStyleBg", &g_Config.uItemDownStyleBg, 0xFFBD9939, true, false),
+	ConfigSetting("ItemDisabledStyleFg", &g_Config.uItemDisabledStyleFg, 0x80EEEEEE, true, false),
+	ConfigSetting("ItemDisabledStyleBg", &g_Config.uItemDisabledStyleBg, 0x55E0D4AF, true, false),
+	ConfigSetting("ItemHighlightedStyleFg", &g_Config.uItemHighlightedStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("ItemHighlightedStyleBg", &g_Config.uItemHighlightedStyleBg, 0x55BDBB39, true, false),
+
+	ConfigSetting("ButtonStyleFg", &g_Config.uButtonStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("ButtonStyleBg", &g_Config.uButtonStyleBg, 0x55000000, true, false),
+	ConfigSetting("ButtonFocusedStyleFg", &g_Config.uButtonFocusedStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("ButtonFocusedStyleBg", &g_Config.uButtonFocusedStyleBg, 0xFFEDC24C, true, false),
+	ConfigSetting("ButtonDownStyleFg", &g_Config.uButtonDownStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("ButtonDownStyleBg", &g_Config.uButtonDownStyleBg, 0xFFBD9939, true, false),
+	ConfigSetting("ButtonDisabledStyleFg", &g_Config.uButtonDisabledStyleFg, 0x80EEEEEE, true, false),
+	ConfigSetting("ButtonDisabledStyleBg", &g_Config.uButtonDisabledStyleBg, 0x55E0D4AF, true, false),
+	ConfigSetting("ButtonHighlightedStyleFg", &g_Config.uButtonHighlightedStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("ButtonHighlightedStyleBg", &g_Config.uButtonHighlightedStyleBg, 0x55BDBB39, true, false),
+
+	ConfigSetting("HeaderStyleFg", &g_Config.uHeaderStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("InfoStyleFg", &g_Config.uInfoStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("InfoStyleBg", &g_Config.uInfoStyleBg, 0x00000000U, true, false),
+	ConfigSetting("PopupTitleStyleFg", &g_Config.uPopupTitleStyleFg, 0xFFE3BE59, true, false),
+	ConfigSetting("PopupStyleFg", &g_Config.uPopupStyleFg, 0xFFFFFFFF, true, false),
+	ConfigSetting("PopupStyleBg", &g_Config.uPopupStyleBg, 0xFF303030, true, false),
+
+	ConfigSetting(false),
+};
+
 static ConfigSectionSettings sections[] = {
 	{"General", generalSettings},
 	{"CPU", cpuSettings},
@@ -782,6 +842,7 @@ static ConfigSectionSettings sections[] = {
 	{"SpeedHacks", speedHackSettings},
 	{"JIT", jitSettings},
 	{"Upgrade", upgradeSettings},
+	{"Theme", themeSettings},
 };
 
 static void IterateSettings(IniFile &iniFile, std::function<void(IniFile::Section *section, ConfigSetting *setting)> func) {
