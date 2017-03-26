@@ -278,6 +278,8 @@ void CheckGLExtensions() {
 	gl_extensions.ARB_vertex_array_object = strstr(extString, "GL_ARB_vertex_array_object") != 0;
 	gl_extensions.ARB_texture_float = strstr(extString, "GL_ARB_texture_float") != 0;
 	gl_extensions.EXT_texture_filter_anisotropic = strstr(extString, "GL_EXT_texture_filter_anisotropic") != 0;
+	gl_extensions.EXT_draw_instanced = strstr(extString, "GL_EXT_draw_instanced") != 0;
+	gl_extensions.ARB_draw_instanced = strstr(extString, "GL_ARB_draw_instanced") != 0;
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.OES_texture_npot = strstr(extString, "GL_OES_texture_npot") != 0;
