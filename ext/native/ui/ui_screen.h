@@ -91,8 +91,13 @@ private:
 	std::string button1_;
 	std::string button2_;
 
+	enum {
+		FRAMES_LEAD_IN = 6,
+		FRAMES_LEAD_OUT = 4,
+	};
+
 	int frames_ = 0;
-	int finishFrame_ = 0;
+	int finishFrame_ = -1;
 	DialogResult finishResult_;
 	bool hasPopupOrigin_ = false;
 	Point popupOrigin_;

@@ -249,16 +249,10 @@ bool PopupScreen::key(const KeyInput &key) {
 void PopupScreen::update() {
 	UIDialogScreen::update();
 
-	static const int FRAMES_LEAD_IN = 6;
-	static const int FRAMES_LEAD_OUT = 4;
-
 	float animatePos = 1.0f;
 
 	++frames_;
-	if (frames_ < FRAMES_LEAD_IN) {
-		float leadIn = bezierEaseInOut(frames_ * (1.0f / (float)FRAMES_LEAD_IN));
-		animatePos = leadIn;
-	} else if (finishFrame_ > 0) {
+	if (finishFrame_ >= 0) {
 		float leadOut = bezierEaseInOut((frames_ - finishFrame_) * (1.0f / (float)FRAMES_LEAD_OUT));
 		animatePos = 1.0f - leadOut;
 
@@ -266,6 +260,9 @@ void PopupScreen::update() {
 			// Actual finish happens here.
 			screenManager()->finishDialog(this, finishResult_);
 		}
+	} else if (frames_ < FRAMES_LEAD_IN) {
+		float leadIn = bezierEaseInOut(frames_ * (1.0f / (float)FRAMES_LEAD_IN));
+		animatePos = leadIn;
 	}
 
 	if (animatePos < 1.0f) {
