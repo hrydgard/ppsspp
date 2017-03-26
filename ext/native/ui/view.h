@@ -117,8 +117,10 @@ struct Theme {
 	Style itemHighlightedStyle;
 
 	Style headerStyle;
+	Style infoStyle;
 
 	Style popupTitle;
+	Style popupStyle;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
@@ -759,7 +761,7 @@ public:
 	void SetText(const std::string &text) { text_ = text; }
 	const std::string &GetText() const { return text_; }
 	void SetSmall(bool small) { small_ = small; }
-	void SetTextColor(uint32_t color) { textColor_ = color; }
+	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	void SetShadow(bool shadow) { shadow_ = shadow; }
 	void SetFocusable(bool focusable) { focusable_ = focusable; }
 	void SetClip(bool clip) { clip_ = clip; }
@@ -770,6 +772,7 @@ private:
 	std::string text_;
 	int textAlign_;
 	uint32_t textColor_;
+	bool hasTextColor_ = false;
 	bool small_;
 	bool shadow_;
 	bool focusable_;
@@ -780,6 +783,7 @@ class TextEdit : public View {
 public:
 	TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams = 0);
 	void SetText(const std::string &text) { text_ = text; caret_ = (int)text_.size(); }
+	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	const std::string &GetText() const { return text_; }
 	void SetMaxLen(size_t maxLen) { maxLen_ = maxLen; }
 
@@ -797,9 +801,11 @@ private:
 	std::string text_;
 	std::string undo_;
 	std::string placeholderText_;
+	uint32_t textColor_;
+	bool hasTextColor_ = false;
 	int caret_;
 	size_t maxLen_;
-	bool ctrlDown_;  // TODO: Make some global mechanism for this.
+	bool ctrlDown_ = false;  // TODO: Make some global mechanism for this.
 	// TODO: Selections
 };
 

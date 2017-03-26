@@ -565,6 +565,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
 	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.itemFocusedStyle.background = UI::Drawable(0xFFedc24c);
+	ui_theme.itemFocusedStyle.fgColor = ui_theme.itemStyle.fgColor;
 	ui_theme.itemDownStyle.background = UI::Drawable(0xFFbd9939);
 	ui_theme.itemDownStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.itemDisabledStyle.background = UI::Drawable(0x55E0D4AF);
@@ -578,7 +579,13 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_theme.buttonDisabledStyle = ui_theme.itemDisabledStyle;
 	ui_theme.buttonHighlightedStyle = ui_theme.itemHighlightedStyle;
 
+	ui_theme.headerStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.infoStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.infoStyle.background = UI::Drawable(0x00000000);
+
 	ui_theme.popupTitle.fgColor = 0xFFE3BE59;
+	ui_theme.popupStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.popupStyle.background = UI::Drawable(0xFF303030);
 
 	uiTexture = CreateTextureFromFile(g_draw, "ui_atlas.zim", ImageFileType::ZIM);
 	if (!uiTexture) {
