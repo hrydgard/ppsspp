@@ -64,7 +64,7 @@ struct GameInfoTex {
 	// The time at which the Icon and the BG were loaded.
 	// Can be useful to fade them in smoothly once they appear.
 	double timeLoaded = 0.0;
-	std::atomic<bool> dataLoaded = false;
+	std::atomic<bool> dataLoaded{};
 
 	void Clear() {
 		if (!data.empty()) {
@@ -126,7 +126,7 @@ public:
 	GameInfoTex pic1;
 
 	std::string sndFileData;
-	std::atomic<bool> sndDataLoaded = false;
+	std::atomic<bool> sndDataLoaded{};
 
 	int wantFlags = 0;
 
