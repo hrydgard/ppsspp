@@ -202,15 +202,15 @@ void GameScreen::update() {
 
 	if (tvTitle_)
 		tvTitle_->SetText(info->GetTitle() + " (" + info->id + ")");
-	if (info->iconTexture && texvGameIcon_)	{
-		texvGameIcon_->SetTexture(info->iconTexture->GetTexture());
+	if (info->icon.texture && texvGameIcon_) {
+		texvGameIcon_->SetTexture(info->icon.texture->GetTexture());
 		// Fade the icon with the background.
-		double loadTime = info->timeIconWasLoaded;
-		if (info->pic1Texture) {
-			loadTime = std::max(loadTime, info->timePic1WasLoaded);
+		double loadTime = info->icon.timeLoaded;
+		if (info->pic1.texture) {
+			loadTime = std::max(loadTime, info->pic1.timeLoaded);
 		}
-		if (info->pic0Texture) {
-			loadTime = std::max(loadTime, info->timePic0WasLoaded);
+		if (info->pic0.texture) {
+			loadTime = std::max(loadTime, info->pic0.timeLoaded);
 		}
 		uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
 		texvGameIcon_->SetColor(color);

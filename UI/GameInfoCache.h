@@ -58,6 +58,26 @@ enum GameInfoWantFlags {
 class FileLoader;
 enum class IdentifiedFileType;
 
+struct GameInfoTex {
+	std::string data;
+	ManagedTexture *texture = nullptr;
+	// The time at which the Icon and the BG were loaded.
+	// Can be useful to fade them in smoothly once they appear.
+	double timeLoaded = 0.0;
+	std::atomic<bool> dataLoaded = false;
+
+	void Clear() {
+		if (!data.empty()) {
+			data.clear();
+			dataLoaded = false;
+		}
+		if (texture) {
+			delete texture;
+			texture = nullptr;
+		}
+	}
+};
+
 class GameInfo {
 public:
 	GameInfo();
@@ -97,45 +117,32 @@ public:
 	int region = -1;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
-	bool paramSFOLoaded;
-	bool hasConfig;
+	bool paramSFOLoaded = false;
+	bool hasConfig = false;
 
 	// Pre read the data, create a texture the next time (GL thread..)
-	std::string iconTextureData;
-	ManagedTexture *iconTexture;
-	std::string pic0TextureData;
-	ManagedTexture *pic0Texture;
-	std::string pic1TextureData;
-	ManagedTexture *pic1Texture;
+	GameInfoTex icon;
+	GameInfoTex pic0;
+	GameInfoTex pic1;
 
 	std::string sndFileData;
+	std::atomic<bool> sndDataLoaded = false;
 
-	int wantFlags;
+	int wantFlags = 0;
 
-	double lastAccessedTime;
+	double lastAccessedTime = 0.0;
 
-	// The time at which the Icon and the BG were loaded.
-	// Can be useful to fade them in smoothly once they appear.
-	double timeIconWasLoaded;
-	double timePic0WasLoaded;
-	double timePic1WasLoaded;
-
-	std::atomic<bool> iconDataLoaded;
-	std::atomic<bool> pic0DataLoaded;
-	std::atomic<bool> pic1DataLoaded;
-	std::atomic<bool> sndDataLoaded;
-
-	u64 gameSize;
-	u64 saveDataSize;
-	u64 installDataSize;
-	bool pending;
-	bool working;
+	u64 gameSize = 0;
+	u64 saveDataSize = 0;
+	u64 installDataSize = 0;
+	bool pending = true;
+	bool working = false;
 
 protected:
 	// Note: this can change while loading, use GetTitle().
 	std::string title;
 
-	FileLoader *fileLoader;
+	FileLoader *fileLoader = nullptr;
 	std::string filePath_;
 };
 
@@ -148,7 +155,7 @@ public:
 	void Clear();
 	void PurgeType(IdentifiedFileType fileType);
 
-	// All data in GameInfo including iconTexture may be zero the first time you call this
+	// All data in GameInfo including icon.texture may be zero the first time you call this
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
@@ -162,7 +169,7 @@ public:
 private:
 	void Init();
 	void Shutdown();
-	void SetupTexture(GameInfo *info, std::string &textureData, Draw::DrawContext *draw, ManagedTexture *&tex, double &loadTime);
+	void SetupTexture(GameInfo *info, Draw::DrawContext *draw, GameInfoTex &icon);
 
 	// Maps ISO path to info.
 	std::map<std::string, GameInfo *> info_;
