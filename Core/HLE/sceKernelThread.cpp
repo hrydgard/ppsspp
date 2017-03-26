@@ -319,14 +319,16 @@ public:
 
 		int chainedActionType = 0;
 		if (chainedAction != NULL)
-			chainedActionType = chainedAction->actionTypeID;
-		p.Do(chainedActionType);
-
-		if (chainedActionType != 0)
 		{
-			if (p.mode == p.MODE_READ)
-				chainedAction = __KernelCreateAction(chainedActionType);
-			chainedAction->DoState(p);
+			chainedActionType = chainedAction->actionTypeID;
+			p.Do(chainedActionType);
+
+			if (chainedActionType != 0)
+			{
+				if (p.mode == p.MODE_READ)
+					chainedAction = __KernelCreateAction(chainedActionType);
+				chainedAction->DoState(p);
+			}
 		}
 	}
 
@@ -710,13 +712,15 @@ void MipsCall::DoState(PointerWrap &p)
 
 	int actionTypeID = 0;
 	if (doAfter != NULL)
-		actionTypeID = doAfter->actionTypeID;
-	p.Do(actionTypeID);
-	if (actionTypeID != 0)
 	{
-		if (p.mode == p.MODE_READ)
-			doAfter = __KernelCreateAction(actionTypeID);
-		doAfter->DoState(p);
+		actionTypeID = doAfter->actionTypeID;
+		p.Do(actionTypeID);
+		if (actionTypeID != 0)
+		{
+			if (p.mode == p.MODE_READ)
+				doAfter = __KernelCreateAction(actionTypeID);
+			doAfter->DoState(p);
+		}
 	}
 }
 
