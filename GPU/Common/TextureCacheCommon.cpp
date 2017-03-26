@@ -1484,6 +1484,13 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 			} else {
 				secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
 				secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
+
+				// If the entry already exists in the secondary texture cache, drop it nicely.
+				auto oldIter = secondCache_.find(secondKey);
+				if (oldIter != secondCache_.end()) {
+					ReleaseTexture(oldIter->second.get(), true);
+				}
+
 				// Is this wise? We simply copy the entry.
 				secondCache_[secondKey].reset(new TexCacheEntry(*entry));
 
