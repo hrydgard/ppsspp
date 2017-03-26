@@ -436,11 +436,12 @@ void TextureCacheCommon::Decimate() {
 		VERBOSE_LOG(G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
 	}
 
+	// If enabled, we also need to clear the secondary cache.
 	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
 		const u32 had = secondCacheSizeEstimate_;
 
 		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {
-			// In low memory mode, we kill them all.
+			// In low memory mode, we kill them all since secondary cache is disabled.
 			if (lowMemoryMode_ || iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
 				ReleaseTexture(iter->second.get(), true);
 				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(iter->second.get());
@@ -1379,6 +1380,9 @@ void TextureCacheCommon::ApplyTexture() {
 			int w = gstate.getTextureWidth(0);
 			int h = gstate.getTextureHeight(0);
 			entry->fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+
+			// TODO: Here we could check the secondary cache; maybe the texture is in there?
+			// We would need to abort the build if so.
 		}
 		if (nextNeedsChange_) {
 			// This texture existed previously, let's handle the change.
@@ -1392,7 +1396,8 @@ void TextureCacheCommon::ApplyTexture() {
 			replaceImages = HandleTextureChange(entry, "hash fail", true, doDelete);
 			nextNeedsRebuild_ = true;
 		} else if (nextTexture_ != nullptr) {
-			// Secondary cache picked a different texture, use it.
+			// The secondary cache may choose an entry from its storage by setting nextTexture_.
+			// This means we should set that, instead of our previous entry.
 			entry = nextTexture_;
 			nextTexture_ = nullptr;
 			UpdateMaxSeenV(entry, gstate.isModeThrough());
@@ -1419,6 +1424,7 @@ void TextureCacheCommon::Clear(bool delete_them) {
 	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
 		ReleaseTexture(iter->second.get(), delete_them);
 	}
+	// In case the setting was changed, we ALWAYS clear the secondary cache (enabled or not.)
 	for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ++iter) {
 		ReleaseTexture(iter->second.get(), delete_them);
 	}
@@ -1463,25 +1469,32 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	}
 
 	// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
-	// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
 	if (g_Config.bTextureSecondaryCache) {
 		// Don't forget this one was unreliable (in case we match a secondary entry.)
 		entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 
+		// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
+		// In that case, skip.
 		if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
+			// We have a new hash: look for that hash in the secondary cache.
 			u64 secondKey = fullhash | (u64)entry->cluthash << 32;
 			TexCache::iterator secondIter = secondCache_.find(secondKey);
 			if (secondIter != secondCache_.end()) {
+				// Found it, but does it match our current params?  If not, abort.
 				TexCacheEntry *secondEntry = secondIter->second.get();
 				if (secondEntry->Matches(entry->dim, entry->format, entry->maxLevel)) {
 					// Reset the numInvalidated value lower, we got a match.
 					if (entry->numInvalidated > 8) {
 						--entry->numInvalidated;
 					}
+
+					// Now just use our archived texture, instead of entry.
 					nextTexture_ = secondEntry;
 					return true;
 				}
 			} else {
+				// It wasn't found, so we're about to throw away entry and rebuild a texture.
+				// Let's save this in the secondary cache in case it gets used again.
 				secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
 				secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 
@@ -1491,10 +1504,11 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 					ReleaseTexture(oldIter->second.get(), true);
 				}
 
-				// Is this wise? We simply copy the entry.
+				// Archive the entire texture entry as is, since we'll use its params if it is seen again.
+				// We keep parameters on the current entry, since we are STILL building a new texture here.
 				secondCache_[secondKey].reset(new TexCacheEntry(*entry));
 
-				// Make sure we don't delete the texture we just copied.
+				// Make sure we don't delete the texture we just archived.
 				entry->texturePtr = nullptr;
 				doDelete = false;
 			}
