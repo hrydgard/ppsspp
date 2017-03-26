@@ -59,6 +59,7 @@ struct GLExtensions {
 	bool ARB_copy_image;
 	bool ARB_vertex_array_object;
 	bool ARB_texture_float;
+	bool ARB_draw_instanced;
 
 	// EXT
 	bool EXT_swap_control_tear;
@@ -72,6 +73,7 @@ struct GLExtensions {
 	bool EXT_copy_image;
 	bool EXT_texture_filter_anisotropic;
 	bool PBO_EXT;
+	bool EXT_draw_instanced;
 
 	// NV
 	bool NV_shader_framebuffer_fetch;
