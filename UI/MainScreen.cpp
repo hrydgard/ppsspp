@@ -180,8 +180,8 @@ void GameButton::Draw(UIContext &dc) {
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 
-	if (ginfo->iconTexture) {
-		texture = ginfo->iconTexture->GetTexture();
+	if (ginfo->icon.texture) {
+		texture = ginfo->icon.texture->GetTexture();
 	}
 
 	int x = bounds_.x;
@@ -207,8 +207,8 @@ void GameButton::Draw(UIContext &dc) {
 	}
 
 	if (texture) {
-		color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
-		shadowColor = blackAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
+		color = whiteAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
+		shadowColor = blackAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
 		float tw = texture->Width();
 		float th = texture->Height();
 
@@ -1017,17 +1017,17 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 		dc.RebindTexture();
 
 		// Let's not bother if there's no picture.
-		if (!ginfo || (!ginfo->pic1Texture && !ginfo->pic0Texture)) {
+		if (!ginfo || (!ginfo->pic1.texture && !ginfo->pic0.texture)) {
 			return false;
 		}
 	} else {
 		return false;
 	}
 
-	if (ginfo->pic1Texture) {
-		dc.GetDrawContext()->BindTexture(0, ginfo->pic1Texture->GetTexture());
-	} else if (ginfo->pic0Texture) {
-		dc.GetDrawContext()->BindTexture(0, ginfo->pic0Texture->GetTexture());
+	if (ginfo->pic1.texture) {
+		dc.GetDrawContext()->BindTexture(0, ginfo->pic1.texture->GetTexture());
+	} else if (ginfo->pic0.texture) {
+		dc.GetDrawContext()->BindTexture(0, ginfo->pic0.texture->GetTexture());
 	}
 
 	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;
