@@ -27,6 +27,10 @@
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
+#include "Common/FileUtil.h"
+#include "Core/Host.h"
+#include "Core/Config.h"
+#include "Core/System.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameScreen.h"
@@ -35,9 +39,6 @@
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
 #include "UI/BackgroundAudio.h"
-
-#include "Core/Host.h"
-#include "Core/Config.h"
 
 GameScreen::GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	SetBackgroundAudioGame(gamePath);
@@ -107,27 +108,20 @@ void GameScreen::CreateViews() {
 
 	rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
 
-	if (info) {
-		btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
-		btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
-		btnDeleteGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
-		btnDeleteGameConfig_->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
-		btnCreateGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Create Game Config")));
-		btnCreateGameConfig_->OnClick.Handle(this, &GameScreen::OnCreateConfig);
+	btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
+	btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
+	btnDeleteGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
+	btnDeleteGameConfig_->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
+	btnCreateGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Create Game Config")));
+	btnCreateGameConfig_->OnClick.Handle(this, &GameScreen::OnCreateConfig);
 
-		btnGameSettings_->SetVisibility(V_GONE);
-		btnDeleteGameConfig_->SetVisibility(V_GONE);
-		btnCreateGameConfig_->SetVisibility(V_GONE);
+	btnGameSettings_->SetVisibility(V_GONE);
+	btnDeleteGameConfig_->SetVisibility(V_GONE);
+	btnCreateGameConfig_->SetVisibility(V_GONE);
 
-		btnDeleteSaveData_ = new Choice(ga->T("Delete Save Data"));
-		rightColumnItems->Add(btnDeleteSaveData_)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
-		btnDeleteSaveData_->SetVisibility(V_GONE);
-	} else {
-		btnGameSettings_ = nullptr;
-		btnCreateGameConfig_ = nullptr;
-		btnDeleteGameConfig_ = nullptr;
-		btnDeleteSaveData_ = nullptr;
-	}
+	btnDeleteSaveData_ = new Choice(ga->T("Delete Save Data"));
+	rightColumnItems->Add(btnDeleteSaveData_)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
+	btnDeleteSaveData_->SetVisibility(V_GONE);
 
 	if (info && !info->IsPending()) {
 		otherChoices_.clear();
@@ -146,6 +140,10 @@ void GameScreen::CreateViews() {
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(AddOtherChoice(new Choice(pa->T("Cheats"))))->OnClick.Handle(this, &GameScreen::OnCwCheat);
 	}
+
+	btnSetBackground_ = rightColumnItems->Add(new Choice(ga->T("Use UI background")));
+	btnSetBackground_->OnClick.Handle(this, &GameScreen::OnSetBackground);
+	btnSetBackground_->SetVisibility(V_GONE);
 }
 
 UI::Choice *GameScreen::AddOtherChoice(UI::Choice *choice) {
@@ -247,6 +245,9 @@ void GameScreen::update() {
 
 		if (saveDirs.size()) {
 			btnDeleteSaveData_->SetVisibility(UI::V_VISIBLE);
+		}
+		if (info->pic0.texture || info->pic1.texture) {
+			btnSetBackground_->SetVisibility(UI::V_VISIBLE);
 		}
 	}
 	if (!info->IsPending()) {
@@ -374,5 +375,77 @@ UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 			return UI::EVENT_DONE;
 		}
 	}
+	return UI::EVENT_DONE;
+}
+
+class SetBackgroundPopupScreen : public PopupScreen {
+public:
+	SetBackgroundPopupScreen(const std::string &title, const std::string &gamePath);
+
+protected:
+	bool FillVertical() const override { return false; }
+	bool ShowButtons() const override { return false; }
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+	void update() override;
+
+private:
+	std::string gamePath_;
+	double timeStart_;
+	double timeDone_ = 0.0;
+
+	enum class Status {
+		PENDING,
+		DELAY,
+		DONE,
+	};
+	Status status_ = Status::PENDING;
+};
+
+SetBackgroundPopupScreen::SetBackgroundPopupScreen(const std::string &title, const std::string &gamePath)
+	: PopupScreen(title), gamePath_(gamePath) {
+	timeStart_ = time_now_d();
+}
+
+void SetBackgroundPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	I18NCategory *ga = GetI18NCategory("Game");
+	parent->Add(new UI::TextView(ga->T("One moment please..."), ALIGN_LEFT | ALIGN_VCENTER, false, new UI::LinearLayoutParams(UI::Margins(10, 0, 10, 10))));
+}
+
+void SetBackgroundPopupScreen::update() {
+	PopupScreen::update();
+
+	GameInfo *info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTBGDATA);
+	if (status_ == Status::PENDING && info && !info->IsPending()) {
+		GameInfoTex *pic = nullptr;
+		if (info->pic1.dataLoaded && info->pic1.data.size()) {
+			pic = &info->pic1;
+		} else if (info->pic0.dataLoaded && info->pic0.data.size()) {
+			pic = &info->pic0;
+		}
+
+		if (pic) {
+			const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
+			writeStringToFile(false, pic->data, bgPng.c_str());
+		}
+
+		NativeMessageReceived("bgImage_updated", "");
+
+		// It's worse if it flickers, stay open for at least 1s.
+		timeDone_ = timeStart_ + 1.0;
+		status_ = Status::DELAY;
+	}
+
+	if (status_ == Status::DELAY && timeDone_ <= time_now_d()) {
+		TriggerFinish(DR_OK);
+		status_ = Status::DONE;
+	}
+}
+
+UI::EventReturn GameScreen::OnSetBackground(UI::EventParams &e) {
+	I18NCategory *ga = GetI18NCategory("Game");
+	SetBackgroundPopupScreen *pop = new SetBackgroundPopupScreen(ga->T("Setting Background"), gamePath_);
+	if (e.v)
+		pop->SetPopupOrigin(e.v);
+	screenManager()->push(pop);
 	return UI::EVENT_DONE;
 }
