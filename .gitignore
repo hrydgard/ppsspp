@@ -53,6 +53,8 @@ PPSSPPControls.dat
 *.iml
 build
 build.ios
+versionname.txt
+versioncode.txt
 
 build*/
 

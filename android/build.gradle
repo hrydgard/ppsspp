@@ -46,6 +46,9 @@ android {
 			println "(not using these:) Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code();
 		}
 
+		new File("versionname.txt").write(androidGitVersion.name())
+		new File("versioncode.txt").write(androidGitVersion.code().toString())
+
 		minSdkVersion 9
 		targetSdkVersion 25
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
