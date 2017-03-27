@@ -1,4 +1,13 @@
+plugins {
+	id 'com.gladed.androidgitversion' version '0.3.3'
+}
 apply plugin: 'com.android.application'
+
+androidGitVersion {
+	codeFormat = "MNPPBBBB"
+	format = "%tag%%-count%%-branch%%-dirty%"
+	prefix = "v"  // Only tags beginning with v are considered.
+}
 
 android {
 	signingConfigs {
@@ -28,6 +37,15 @@ android {
 	buildToolsVersion '25.0.0'
 	defaultConfig {
 		applicationId 'org.ppsspp.ppsspp'
+		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
+			// Start using automatic Android version numbers from version 1.4.
+			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code();
+			versionName androidGitVersion.name()
+			versionCode androidGitVersion.code()
+		} else {
+			println "(not using these:) Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code();
+		}
+
 		minSdkVersion 9
 		targetSdkVersion 25
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
