@@ -327,7 +327,7 @@ void GameSettingsScreen::CreateViews() {
 	bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
 	beziersChoice->SetDisabledPtr(&bezierChoiceDisable_);
 
-	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
+	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation", "Hardware tessellation (experimental)")));
 	tessellationHW->OnClick.Add([=](EventParams &e) {
 		bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
 		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves, always uses a fixed quality"), e.v);
