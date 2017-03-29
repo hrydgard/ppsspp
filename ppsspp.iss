@@ -1,10 +1,5 @@
 [Setup]
-#ifdef ApplicationVersion
 AppVersion={#ApplicationVersion}
-#else
-; TODO: Get rid of this.
-AppVersion=1.3.0
-#endif
 AppName={cm:AppName}
 DefaultDirName={pf}\PPSSPP
 ; Since no icons will be created in "{group}", we don't need the wizard
