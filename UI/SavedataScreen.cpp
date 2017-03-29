@@ -67,6 +67,9 @@ public:
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;
+		UIContext &dc = *screenManager()->getUIContext();
+		const Style &textStyle = dc.theme->popupStyle;
+
 		GameInfo *ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
 		parent->Add(content);
@@ -85,12 +88,12 @@ public:
 			}
 			LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 			topright->SetSpacing(1.0f);
-			topright->Add(new TextView(savedata_title, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
-			topright->Add(new TextView(StringFromFormat("%d kB", ginfo->gameSize / 1024), 0, true));
-			topright->Add(new TextView(GetFileDateAsString(savePath_ + "/PARAM.SFO"), 0, true));
+			topright->Add(new TextView(savedata_title, ALIGN_LEFT | FLAG_WRAP_TEXT, false))->SetTextColor(textStyle.fgColor);
+			topright->Add(new TextView(StringFromFormat("%d kB", ginfo->gameSize / 1024), 0, true))->SetTextColor(textStyle.fgColor);
+			topright->Add(new TextView(GetFileDateAsString(savePath_ + "/PARAM.SFO"), 0, true))->SetTextColor(textStyle.fgColor);
 			toprow->Add(topright);
 			content->Add(new Spacer(3.0));
-			content->Add(new TextView(ReplaceAll(savedata_detail, "\r", ""), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))));
+			content->Add(new TextView(ReplaceAll(savedata_detail, "\r", ""), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))))->SetTextColor(textStyle.fgColor);
 			content->Add(new Spacer(3.0));
 		} else {
 			std::string image_path = ReplaceAll(savePath_, ".ppst", ".jpg");
@@ -98,9 +101,9 @@ public:
 				PrioritizedWorkQueue *wq = g_gameInfoCache->WorkQueue();
 				toprow->Add(new AsyncImageFileView(image_path, IS_DEFAULT, wq, new LinearLayoutParams(480, 272, Margins(10, 0))));
 			} else {
-				toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))));
+				toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
 			}
-			content->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))));
+			content->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
 		}
 
 		I18NCategory *di = GetI18NCategory("Dialog");

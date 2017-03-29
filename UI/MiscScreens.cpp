@@ -69,7 +69,23 @@ static const uint32_t colors[4] = {
 	0xC0FFFFFF,
 };
 
-void DrawBackground(UIContext &dc, float alpha = 1.0f) {
+static ManagedTexture *bgTexture = nullptr;
+
+void UIBackgroundInit(UIContext &dc) {
+	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
+	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
+	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
+		const std::string &bgFile = File::Exists(bgPng) ? bgPng : bgJpg;
+		bgTexture = CreateTextureFromFile(dc.GetDrawContext(), bgFile.c_str(), DETECT, true);
+	}
+}
+
+void UIBackgroundShutdown() {
+	delete bgTexture;
+	bgTexture = nullptr;
+}
+
+void DrawBackground(UIContext &dc, float alpha) {
 	static float xbase[100] = {0};
 	static float ybase[100] = {0};
 	float xres = dc.GetBounds().w;
@@ -87,10 +103,20 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 		last_yres = yres;
 	}
 	
-	int img = I_BG;
-
 	uint32_t bgColor = whiteAlpha(alpha);
-	ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor);
+
+	if (bgTexture != nullptr) {
+		dc.Flush();
+		dc.GetDrawContext()->BindTexture(0, bgTexture->GetTexture());
+		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, bgColor);
+
+		dc.Flush();
+		dc.RebindTexture();
+	} else {
+		ImageID img = I_BG;
+		ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor);
+	}
+
 	float t = time_now();
 	for (int i = 0; i < 100; i++) {
 		float x = xbase[i] + dc.GetBounds().x;
@@ -216,7 +242,7 @@ UI::EventReturn UIDialogScreenWithBackground::OnLanguageChange(UI::EventParams &
 }
 
 void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
-	::DrawBackground(dc);
+	::DrawBackground(dc, 1.0f);
 	dc.Flush();
 }
 
@@ -461,6 +487,7 @@ void LogoScreen::render() {
 	float alphaText = alpha;
 	if (t > 2.0f)
 		alphaText = 3.0f - t;
+	uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alphaText);
 
 	::DrawBackground(dc, alpha);
 
@@ -469,24 +496,24 @@ void LogoScreen::render() {
 	// Manually formatting utf-8 is fun.  \xXX doesn't work everywhere.
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
 #ifdef GOLD
-	dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
 #else
-	dc.Draw()->DrawImage(I_ICON, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawImage(I_ICON, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
 #endif
-	dc.Draw()->DrawImage(I_LOGO, bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", xres / 2, yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawImage(I_LOGO, bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, textColor, ALIGN_CENTER);
+	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", xres / 2, yres / 2 - 30, textColor, ALIGN_CENTER);
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	dc.DrawText(cr->T("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	dc.DrawText("www.ppsspp.org", bounds.centerX(), yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, textColor, ALIGN_CENTER);
+	dc.DrawText(cr->T("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, textColor, ALIGN_CENTER);
+	dc.DrawText("www.ppsspp.org", bounds.centerX(), yres / 2 + 130, textColor, ALIGN_CENTER);
 	if (boot_filename.size()) {
-		dc.DrawTextShadow(boot_filename.c_str(), bounds.centerX(), bounds.centerY() + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+		dc.DrawTextShadow(boot_filename.c_str(), bounds.centerX(), bounds.centerY() + 180, textColor, ALIGN_CENTER);
 	}
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	// Draw the graphics API, except on UWP where it's always D3D11
-	dc.DrawText(screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME).c_str(), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME).c_str(), bounds.centerX(), bounds.y2() - 100, textColor, ALIGN_CENTER);
 #endif
 
 	dc.End();
@@ -691,9 +718,11 @@ void CreditsScreen::render() {
 	int y = bounds.y2() - (frames_ % totalHeight);
 	for (int i = 0; i < numItems; i++) {
 		float alpha = linearInOut(y+32, 64, bounds.y2() - 192, 64);
+		uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alpha);
+
 		if (alpha > 0.0f) {
 			dc.SetFontScale(ease(alpha), ease(alpha));
-			dc.DrawText(credits[i], dc.GetBounds().centerX(), y, whiteAlpha(alpha), ALIGN_HCENTER);
+			dc.DrawText(credits[i], dc.GetBounds().centerX(), y, textColor, ALIGN_HCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 		y += itemHeight;

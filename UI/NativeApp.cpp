@@ -534,18 +534,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 }
 
-void NativeInitGraphics(GraphicsContext *graphicsContext) {
-	ILOG("NativeInitGraphics");
+static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
+	UI::Style s;
+	s.background = UI::Drawable(bg);
+	s.fgColor = fg;
 
-	using namespace Draw;
-	Core_SetGraphicsContext(graphicsContext);
-	g_draw = graphicsContext->GetDrawContext();
+	return s;
+}
 
-	ui_draw2d.SetAtlas(&ui_atlas);
-	ui_draw2d_front.SetAtlas(&ui_atlas);
-
-	// memset(&ui_theme, 0, sizeof(ui_theme));
-	// New style theme
+static void UIThemeInit() {
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
 	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
@@ -562,23 +559,36 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_theme.sliderKnob = I_CIRCLE;
 	ui_theme.dropShadow4Grid = I_DROP_SHADOW;
 
-	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
-	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.itemFocusedStyle.background = UI::Drawable(0xFFedc24c);
-	ui_theme.itemDownStyle.background = UI::Drawable(0xFFbd9939);
-	ui_theme.itemDownStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.itemDisabledStyle.background = UI::Drawable(0x55E0D4AF);
-	ui_theme.itemDisabledStyle.fgColor = 0x80EEEEEE;
-	ui_theme.itemHighlightedStyle.background = UI::Drawable(0x55bdBB39);
-	ui_theme.itemHighlightedStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.itemStyle = MakeStyle(g_Config.uItemStyleFg, g_Config.uItemStyleBg);
+	ui_theme.itemFocusedStyle = MakeStyle(g_Config.uItemFocusedStyleFg, g_Config.uItemFocusedStyleBg);
+	ui_theme.itemDownStyle = MakeStyle(g_Config.uItemDownStyleFg, g_Config.uItemDownStyleBg);
+	ui_theme.itemDisabledStyle = MakeStyle(g_Config.uItemDisabledStyleFg, g_Config.uItemDisabledStyleBg);
+	ui_theme.itemHighlightedStyle = MakeStyle(g_Config.uItemHighlightedStyleFg, g_Config.uItemHighlightedStyleBg);
 
-	ui_theme.buttonStyle = ui_theme.itemStyle;
-	ui_theme.buttonFocusedStyle = ui_theme.itemFocusedStyle;
-	ui_theme.buttonDownStyle = ui_theme.itemDownStyle;
-	ui_theme.buttonDisabledStyle = ui_theme.itemDisabledStyle;
-	ui_theme.buttonHighlightedStyle = ui_theme.itemHighlightedStyle;
+	ui_theme.buttonStyle = MakeStyle(g_Config.uButtonStyleFg, g_Config.uButtonStyleBg);
+	ui_theme.buttonFocusedStyle = MakeStyle(g_Config.uButtonFocusedStyleFg, g_Config.uButtonFocusedStyleBg);
+	ui_theme.buttonDownStyle = MakeStyle(g_Config.uButtonDownStyleFg, g_Config.uButtonDownStyleBg);
+	ui_theme.buttonDisabledStyle = MakeStyle(g_Config.uButtonDisabledStyleFg, g_Config.uButtonDisabledStyleBg);
+	ui_theme.buttonHighlightedStyle = MakeStyle(g_Config.uButtonHighlightedStyleFg, g_Config.uButtonHighlightedStyleBg);
 
-	ui_theme.popupTitle.fgColor = 0xFFE3BE59;
+	ui_theme.headerStyle.fgColor = g_Config.uHeaderStyleFg;
+	ui_theme.infoStyle = MakeStyle(g_Config.uInfoStyleFg, g_Config.uInfoStyleBg);
+
+	ui_theme.popupTitle.fgColor = g_Config.uPopupTitleStyleFg;
+	ui_theme.popupStyle = MakeStyle(g_Config.uPopupStyleFg, g_Config.uPopupStyleBg);
+}
+
+void NativeInitGraphics(GraphicsContext *graphicsContext) {
+	ILOG("NativeInitGraphics");
+
+	using namespace Draw;
+	Core_SetGraphicsContext(graphicsContext);
+	g_draw = graphicsContext->GetDrawContext();
+
+	ui_draw2d.SetAtlas(&ui_atlas);
+	ui_draw2d_front.SetAtlas(&ui_atlas);
+
+	UIThemeInit();
 
 	uiTexture = CreateTextureFromFile(g_draw, "ui_atlas.zim", ImageFileType::ZIM);
 	if (!uiTexture) {
@@ -633,6 +643,8 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	screenManager->setUIContext(uiContext);
 	screenManager->setDrawContext(g_draw);
 
+	UIBackgroundInit(*uiContext);
+
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
 #if PPSSPP_PLATFORM(UWP)
@@ -651,17 +663,19 @@ void NativeShutdownGraphics() {
 
 #ifdef _WIN32
 	delete winAudioBackend;
-	winAudioBackend = NULL;
+	winAudioBackend = nullptr;
 #endif
 
 	delete g_gameInfoCache;
 	g_gameInfoCache = nullptr;
 
+	UIBackgroundShutdown();
+
 	delete uiTexture;
 	uiTexture = nullptr;
 
 	delete uiContext;
-	uiContext = NULL;
+	uiContext = nullptr;
 
 	ui_draw2d.Shutdown();
 	ui_draw2d_front.Shutdown();
@@ -837,6 +851,10 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		if (inputboxValue[0] == "nickname")
 			g_Config.sNickName = setString;
 		inputboxValue.clear();
+	}
+	if (msg == "bgImage_updated") {
+		UIBackgroundShutdown();
+		UIBackgroundInit(*uiContext);
 	}
 	if (msg == "savestate_displayslot") {
 		I18NCategory *sy = GetI18NCategory("System");

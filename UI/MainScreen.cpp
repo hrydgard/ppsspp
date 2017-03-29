@@ -985,8 +985,6 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-extern void DrawBackground(UIContext &dc, float alpha);
-
 void MainScreen::DrawBackground(UIContext &dc) {
 	UIScreenWithBackground::DrawBackground(dc);
 	if (highlightedGamePath_.empty() && prevHighlightedGamePath_.empty()) {

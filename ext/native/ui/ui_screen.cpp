@@ -249,16 +249,10 @@ bool PopupScreen::key(const KeyInput &key) {
 void PopupScreen::update() {
 	UIDialogScreen::update();
 
-	static const int FRAMES_LEAD_IN = 6;
-	static const int FRAMES_LEAD_OUT = 4;
-
 	float animatePos = 1.0f;
 
 	++frames_;
-	if (frames_ < FRAMES_LEAD_IN) {
-		float leadIn = bezierEaseInOut(frames_ * (1.0f / (float)FRAMES_LEAD_IN));
-		animatePos = leadIn;
-	} else if (finishFrame_ > 0) {
+	if (finishFrame_ >= 0) {
 		float leadOut = bezierEaseInOut((frames_ - finishFrame_) * (1.0f / (float)FRAMES_LEAD_OUT));
 		animatePos = 1.0f - leadOut;
 
@@ -266,6 +260,9 @@ void PopupScreen::update() {
 			// Actual finish happens here.
 			screenManager()->finishDialog(this, finishResult_);
 		}
+	} else if (frames_ < FRAMES_LEAD_IN) {
+		float leadIn = bezierEaseInOut(frames_ * (1.0f / (float)FRAMES_LEAD_IN));
+		animatePos = leadIn;
 	}
 
 	if (animatePos < 1.0f) {
@@ -306,7 +303,6 @@ void PopupScreen::TriggerFinish(DialogResult result) {
 
 void PopupScreen::CreateViews() {
 	using namespace UI;
-
 	UIContext &dc = *screenManager()->getUIContext();
 
 	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -319,7 +315,7 @@ void PopupScreen::CreateViews() {
 		new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), dc.GetBounds().centerY(), NONE, NONE, true));
 
 	root_->Add(box_);
-	box_->SetBG(UI::Drawable(0xFF303030));
+	box_->SetBG(dc.theme->popupStyle.background);
 	box_->SetHasDropShadow(true);
 	// Since we scale a bit, make the dropshadow bleed past the edges.
 	box_->SetDropShadowExpand(std::max(dp_xres, dp_yres));
@@ -354,10 +350,13 @@ void PopupScreen::CreateViews() {
 }
 
 void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
+
 	std::vector<std::string> messageLines;
 	SplitString(message_, '\n', messageLines);
 	for (const auto& lineOfText : messageLines)
-		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER, false));
+		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER, false))->SetTextColor(dc.theme->popupStyle.fgColor);
 }
 
 void MessagePopupScreen::OnCompleted(DialogResult result) {
@@ -621,23 +620,29 @@ EventReturn SliderPopupScreen::OnTextChange(EventParams &params) {
 
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
+
 	sliderValue_ = *value_;
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
 	slider_->OnChange.Handle(this, &SliderPopupScreen::OnSliderChange);
 	vert->Add(slider_);
+
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
 	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
+
 	char temp[64];
 	sprintf(temp, "%d", sliderValue_);
 	edit_ = new TextEdit(temp, "", new LinearLayoutParams(10.0f));
 	edit_->SetMaxLen(16);
+	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
 	edit_->OnTextChange.Handle(this, &SliderPopupScreen::OnTextChange);
 	changing_ = false;
 	lin->Add(edit_);
+
 	if (!units_.empty())
-		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
+		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->popupStyle.fgColor);
 
 	if (IsFocusMovementEnabled())
 		UI::SetFocusedView(slider_);
@@ -645,23 +650,28 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
+
 	sliderValue_ = *value_;
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	slider_ = new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
 	slider_->OnChange.Handle(this, &SliderFloatPopupScreen::OnSliderChange);
 	vert->Add(slider_);
+
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
 	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
+
 	char temp[64];
 	sprintf(temp, "%0.3f", sliderValue_);
 	edit_ = new TextEdit(temp, "", new LinearLayoutParams(10.0f));
 	edit_->SetMaxLen(16);
+	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
 	edit_->OnTextChange.Handle(this, &SliderFloatPopupScreen::OnTextChange);
 	changing_ = false;
 	lin->Add(edit_);
 	if (!units_.empty())
-		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
+		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->popupStyle.fgColor);
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	if (IsFocusMovementEnabled())
@@ -778,11 +788,13 @@ EventReturn PopupTextInputChoice::HandleChange(EventParams &e) {
 
 void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
 
 	textEditValue_ = *value_;
 	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams((UI::Size)300, WRAP_CONTENT)));
 	edit_ = new TextEdit(textEditValue_, placeholder_, new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(maxLen_);
+	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
 	lin->Add(edit_);
 
 	if (IsFocusMovementEnabled())
