@@ -18,8 +18,12 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
-What's new in 1.4.0
+What's new in 1.4-2
 -------------------
+* Bugfix release - build system didn't copy the flash0 directory to the APK on Android.
+
+What's new in 1.4
+-----------------
 * Support D3D11 (performs better than OpenGL or D3D9 on most hardware)
 * Audio quality improvement (linear interpolation) (#8950)
 * Hardware spline/bezier tesselation in OpenGL, D3D11 and Vulkan (...)
