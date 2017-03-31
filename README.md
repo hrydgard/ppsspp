@@ -26,6 +26,7 @@ What's new in 1.4.0
 * Post-processing shaders in D3D11
 * Prescale UV setting removed, now the default (improves perf) (#9176)
 * High DPI display fixes
+* Various fixes for UMD switching for multi-UMD games (#9245, #9256)
 * New audio setting to improve compatibility with Bluetooth headsets
 * Various desktop gamepad compatibility fixes
 * Workaround for mipmap issue, fixing fonts in Tactics Ogre Japanese
