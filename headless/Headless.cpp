@@ -365,7 +365,7 @@ int main(int argc, const char* argv[])
 	}
 	// Or else, maybe in the executable's dir.
 	if (!File::Exists(g_Config.flash0Directory))
-		g_Config.flash0Directory = File::GetExeDirectory() + "flash0/";
+		g_Config.flash0Directory = File::GetExeDirectory() + "assets/flash0/";
 
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
