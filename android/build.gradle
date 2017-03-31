@@ -1,5 +1,5 @@
 plugins {
-	id 'com.gladed.androidgitversion' version '0.3.3'
+	id 'com.gladed.androidgitversion' version '0.3.4'
 }
 apply plugin: 'com.android.application'
 
@@ -89,7 +89,7 @@ android {
 			aidl.srcDirs = ['src']
 			resources.srcDirs = ['src']
 			assets.srcDirs = [
-					'assets',
+					'../assets',
 			]
 			jni.srcDirs = ['..']
 		}
