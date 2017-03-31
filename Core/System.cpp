@@ -637,7 +637,7 @@ void InitSysDirectories() {
 	const std::string path = File::GetExeDirectory();
 
 	// Mount a filesystem
-	g_Config.flash0Directory = path + "flash0/";
+	g_Config.flash0Directory = path + "assets/flash0/";
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
 #if PPSSPP_PLATFORM(UWP)

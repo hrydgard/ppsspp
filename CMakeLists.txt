@@ -1780,7 +1780,7 @@ if (TargetBin)
 		# TODO: there must a native way to copy these.
 		# Now this is very prone to errors when changes occur.
 		# Also better to have assets under Resources dir for OS X.
-		file(GLOB_RECURSE FLASH0_FILES flash0/*)
+		file(GLOB_RECURSE FLASH0_FILES assets/flash0/*)
 		file(GLOB_RECURSE LANG_FILES assets/lang/*)
 		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
 
@@ -1805,7 +1805,7 @@ endif()
 # installs
 if(NOT ANDROID)
 file(INSTALL ${NativeAssets} DESTINATION assets)
-file(INSTALL flash0 DESTINATION assets)
+file(INSTALL assets/flash0 DESTINATION assets)
 endif()
 # packaging and code signing
 if(IOS)

@@ -353,7 +353,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		config = "./config";
 
 	g_Config.memStickDirectory = config + "/ppsspp/";
-	g_Config.flash0Directory = File::GetExeDirectory() + "/flash0/";
+	g_Config.flash0Directory = File::GetExeDirectory() + "/assets/flash0/";
 #endif
 
 	if (cache_dir && strlen(cache_dir)) {
