@@ -35,6 +35,7 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
@@ -414,6 +415,11 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		}
 	}
 #endif
+	if (dirtyUniforms & DIRTY_GUARDBAND) {
+		float gb[4];
+		ComputeGuardband(gb, 0.0f);
+		VSSetFloatUniform4(CONST_VS_GUARDBAND, gb);
+	}
 
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {

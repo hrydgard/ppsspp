@@ -47,11 +47,7 @@ static const char *vulkan_glsl_preamble =
 // texcoord = 2
 // fog = 3
 
-
-
-
 #undef WRITE
-
 #define WRITE p+=sprintf
 
 static const char * const boneWeightDecl[9] = {
@@ -71,6 +67,13 @@ enum DoLightComputation {
 	LIGHT_SHADE,
 	LIGHT_FULL,
 };
+
+static void WriteGuardBand(char *&p) {
+	WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w; \n");
+	WRITE(p, "  if (outPos.w >= base.guardband.z) {\n");
+	WRITE(p, "		if (abs(projPos.x) > base.guardband.x || projPos.y < -base.guardband.y) outPos.w = base.guardband.w;\n");
+	WRITE(p, "  }\n");
+}
 
 // Depth range and viewport
 //
@@ -318,15 +321,17 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (isModeThrough) {
-			WRITE(p, "  gl_Position = base.proj_through_mtx * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  vec4 outPos = base.proj_through_mtx * vec4(position.xyz, 1.0);\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  gl_Position = depthRoundZVP(base.proj_mtx * vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(base.proj_mtx * vec4(position.xyz, 1.0));\n");
 			} else {
-				WRITE(p, "  gl_Position = base.proj_mtx * vec4(position.xyz, 1.0);\n");
+				WRITE(p, "  vec4 outPos = base.proj_mtx * vec4(position.xyz, 1.0);\n");
 			}
 		}
+		WriteGuardBand(p);
+		WRITE(p, "  gl_Position = outPos;\n");
 	} else {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
@@ -473,10 +478,12 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  gl_Position = depthRoundZVP(base.proj_mtx * viewPos);\n");
+			WRITE(p, "  vec4 outPos = depthRoundZVP(base.proj_mtx * viewPos);\n");
 		} else {
-			WRITE(p, "  gl_Position = base.proj_mtx * viewPos;\n");
+			WRITE(p, "  vec4 outPos = base.proj_mtx * viewPos;\n");
 		}
+		WriteGuardBand(p);
+		WRITE(p, "  gl_Position = outPos;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 

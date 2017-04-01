@@ -25,6 +25,25 @@ static void ConvertProjMatrixToD3D11(Matrix4x4 &in) {
 	in.translateAndScale(trans, scale);
 }
 
+void ComputeGuardband(float gb[4], float zmin) {
+	float vpWidth = fabsf(gstate_c.vpWidth);
+	float vpHeight = fabsf(gstate_c.vpHeight);
+	// Avoid bad values during initialization. Doubt these are really needed.
+	if (vpWidth == 0.0)
+		vpWidth = 480;
+	if (vpHeight == 0.0)
+		vpHeight = 272;
+
+	// We assume a symmetric guardband, even though it's not entirely correct to do so - but nearly everything does it
+	// this way and we have space for the NAN in the uniform.
+	// We also assume that everything behind the near clipping plane gets clipped and will thus not in reality
+	// exceed the guardband. This is a bit rough but should be ok.
+	gb[0] = (2048.0f / (vpWidth*0.5f));
+	gb[1] = (2048.0f / (vpHeight*0.5f));
+	gb[2] = zmin;
+	gb[3] = NAN;
+}
+
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		Uint8x3ToFloat4(ub->texEnvColor, gstate.texenvcolor);
@@ -58,7 +77,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ub->texClampOffset[0] = gstate_c.curTextureXOffset * invW;
 		ub->texClampOffset[1] = gstate_c.curTextureYOffset * invH;
 	}
-
+	if (dirtyUniforms & DIRTY_GUARDBAND) {
+		float gb[4];
+		ComputeGuardband(gb, 0.0f);
+		memcpy(ub->guardband, gb, sizeof(float) * 4);
+	}
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
@@ -100,6 +123,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE && g_display_rotation != DisplayRotation::ROTATE_0) {
 			proj_through = proj_through * g_display_rot_matrix;
 		}
+		// proj_through.translateAndScale(Vec3(0, 0, 0), Vec3(1.0f / debugscale, 1.0f / debugscale, 0));
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
 	}
 

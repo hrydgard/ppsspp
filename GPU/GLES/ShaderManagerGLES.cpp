@@ -43,6 +43,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
+#include "GPU/Common/ShaderUniforms.h"
 #include "FramebufferManagerGLES.h"
 
 Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
@@ -134,6 +135,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_uvscaleoffset, "u_uvscaleoffset" });
 	queries.push_back({ &u_texclamp, "u_texclamp" });
 	queries.push_back({ &u_texclampoff, "u_texclampoff" });
+	queries.push_back({ &u_guardband, "u_guardband" });
 
 	for (int i = 0; i < 4; i++) {
 		static const char * const lightPosNames[4] = { "u_lightpos0", "u_lightpos1", "u_lightpos2", "u_lightpos3", };
@@ -461,6 +463,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(render_, &u_texmtx, gstate.tgenMatrix);
 	}
+
+	if (dirty & DIRTY_GUARDBAND) {
+		float gb[4];
+		ComputeGuardband(gb, 0.0f);
+		SetFloatUniform4(render_, &u_guardband, gb);
+	}
+
 	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
 		// Since depth is [-1, 1] mapping to [minz, maxz], this is easyish.
 		float vpZScale = gstate.getViewportZScale();
