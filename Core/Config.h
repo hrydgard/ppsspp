@@ -395,10 +395,6 @@ public:
 	float fXInputAnalogSensitivity;
 
 	float fAnalogLimiterDeadzone;
-	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into
-	// proper options when good enough.
-	bool bDisableAlphaTest;  // Helps PowerVR performance immensely, breaks some graphics
-	// End GLES hacks.
 
 	// Use the hardware scaler to scale up the image to save fillrate. Similar to Windows' window size, really.
 	int iAndroidHwScale;  // 0 = device resolution. 1 = 480x272 (extended to correct aspect), 2 = 960x544 etc.
