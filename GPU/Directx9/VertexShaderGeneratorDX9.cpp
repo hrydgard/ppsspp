@@ -37,6 +37,16 @@
 
 namespace DX9 {
 
+// The PSP does not have a proper triangle clipper, but it does have a guard band and can rasterize rather large
+// triangles that go outside the viewport. However, there are limits, and it will drop triangles that are very
+// large. Some games appear to draw broken geometry, probably game bugs that were never discovered because the PSP
+// would drop the geometry, including Parappa The Rapper in an obscure case and Outrun. Try to get rid of those
+// triangles by setting the W of one of the vertices to NaN if they are discovered.
+const bool guardBandCulling = true;
+// Not sure what a good value for this is, it should probably depend on the framebuffer size.
+// Let's be conservative.
+const float guardBand = 64.0f;
+
 static const char * const boneWeightAttrDecl[9] = {	
 	"#ERROR#",
 	"float  a_w1:TEXCOORD1;\n",
@@ -344,6 +354,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		}
 	}
 
+
 	WRITE(p, "VS_OUT main(VS_IN In) {\n");
 	WRITE(p, "  VS_OUT Out;\n");  
 	if (!useHWTransform) {
@@ -369,26 +380,32 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		}
 		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 			if (gstate.isModeThrough()) {
-				WRITE(p, "  Out.gl_Position = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
+				WRITE(p, "  float4 outPos = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
 			} else {
 				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-					WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(u_proj, float4(In.position.xyz, 1.0)));\n");
+					WRITE(p, "  float4 outPos = depthRoundZVP(mul(u_proj, float4(In.position.xyz, 1.0)));\n");
 				} else {
-					WRITE(p, "  Out.gl_Position = mul(u_proj, float4(In.position.xyz, 1.0));\n");
+					WRITE(p, "  float4 outPos = mul(u_proj, float4(In.position.xyz, 1.0));\n");
 				}
 			}
 		} else {
 			if (gstate.isModeThrough()) {
-				WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
+				WRITE(p, "  float4 outPos = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
 			} else {
 				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-					WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
+					WRITE(p, "  float4 outPos = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
 				} else {
-					WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj);\n");
+					WRITE(p, "  float4 outPos = mul(float4(In.position.xyz, 1.0), u_proj);\n");
 				}
 			}
 		}
-	}  else {
+		if (lang != HLSL_DX9 && guardBandCulling) {
+			// Guard band culling
+			WRITE(p, "  float2 projPos = outPos.xy / outPos.w;\n");
+			WRITE(p, "  if (abs(projPos.x) > %f || abs(projPos.y) > %f) outPos.w = nanValue;\n", guardBand, guardBand);
+		}
+		WRITE(p, "  Out.gl_Position = outPos;\n");
+	} else {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
 			// Hardware tessellation
@@ -574,18 +591,23 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 			// Final view and projection transforms.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(u_proj, viewPos));\n");
+				WRITE(p, "  float4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
 			} else {
-				WRITE(p, "  Out.gl_Position = mul(u_proj, viewPos);\n");
+				WRITE(p, "  float4 outPos = mul(u_proj, viewPos);\n");
 			}
 		} else {
 			// Final view and projection transforms.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(viewPos, u_proj));\n");
+				WRITE(p, "  float4 outPos = depthRoundZVP(mul(viewPos, u_proj));\n");
 			} else {
-				WRITE(p, "  Out.gl_Position = mul(viewPos, u_proj);\n");
+				WRITE(p, "  float4 outPos = mul(viewPos, u_proj);\n");
 			}
 		}
+		if (lang != HLSL_DX9 && guardBandCulling) {
+			WRITE(p, "  float2 projPos = outPos.xy / outPos.w;\n");
+			WRITE(p, "  if (abs(projPos.x) > %f || abs(projPos.y) > %f) outPos.w = nanValue;\n", guardBand, guardBand);
+		}
+		WRITE(p, "  Out.gl_Position = outPos;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 

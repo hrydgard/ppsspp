@@ -34,7 +34,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		Uint8x3ToInt4_Alpha(ub->colorTestMask, gstate.getColorTestMask(), gstate.getAlphaTestMask());
 	}
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
-		Uint8x3ToFloat4(ub->fogColor, gstate.fogcolor);
+		Uint8x3ToFloat4_Alpha(ub->fogColor, gstate.fogcolor, NAN);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
 		Uint8x3ToFloat4(ub->blendFixA, gstate.getFixA());
