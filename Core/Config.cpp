@@ -777,12 +777,6 @@ static ConfigSetting debuggerSettings[] = {
 	ConfigSetting(false),
 };
 
-static ConfigSetting speedHackSettings[] = {
-	ReportedConfigSetting("DisableAlphaTest", &g_Config.bDisableAlphaTest, false, true, true),
-
-	ConfigSetting(false),
-};
-
 static ConfigSetting jitSettings[] = {
 	ReportedConfigSetting("DiscardRegsOnJRRA", &g_Config.bDiscardRegsOnJRRA, false, false),
 
@@ -839,7 +833,6 @@ static ConfigSectionSettings sections[] = {
 	{"Network", networkSettings},
 	{"SystemParam", systemParamSettings},
 	{"Debugger", debuggerSettings},
-	{"SpeedHacks", speedHackSettings},
 	{"JIT", jitSettings},
 	{"Upgrade", upgradeSettings},
 	{"Theme", themeSettings},

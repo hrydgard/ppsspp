@@ -405,14 +405,6 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 
-	CheckBox *alphaHack = graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gr->T("Disable Alpha Test (PowerVR speedup)")));
-	alphaHack->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("DisableAlphaTest Tip", "Faster by sometimes drawing ugly boxes around things"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	alphaHack->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
-	alphaHack->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
 	CheckBox *stencilTest = graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gr->T("Disable Stencil Test")));
 	stencilTest->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
