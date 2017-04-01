@@ -8,11 +8,11 @@ Additional code by many contributors, see the Credits screen
 Originally released under the GPL 2.0 (and later) in November 2012
 
 Official website:
-http://www.ppsspp.org/
+https://www.ppsspp.org/
 
 No BIOS file required to play, PPSSPP is in many ways a "HLE" emulator.
 
-To contribute, see [the development page](http://www.ppsspp.org/development.html).
+To contribute, see [the development page](https://www.ppsspp.org/development.html).
 
 For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
 
@@ -155,7 +155,7 @@ What's new in 1.0
 
 ADHOC SUPPORT (by Igor Calabria)
 ================================
-This is based on coldbird's code: http://code.google.com/p/aemu/
+This is based on coldbird's code: https://code.google.com/archive/p/aemu/
 All credit goes to him!
 
 Status
