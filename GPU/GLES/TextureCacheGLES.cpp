@@ -576,9 +576,15 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 			break;
 		}
 
+		// If size reaches 1, stop, and override maxlevel.
+		int tw = gstate.getTextureWidth(i);
+		int th = gstate.getTextureHeight(i);
+		if (tw == 1 || th == 1) {
+			maxLevel = i;
+			break;
+		}
+
 		if (i > 0 && gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-			int tw = gstate.getTextureWidth(i);
-			int th = gstate.getTextureHeight(i);
 			if (tw != 1 && tw != (gstate.getTextureWidth(i - 1) >> 1))
 				badMipSizes = true;
 			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
