@@ -41,6 +41,7 @@ namespace MainWindow {
 	static const int numCPUs = 1;  // what?
 	extern bool noFocusPause;
 	static W32Util::AsyncBrowseDialog *browseDialog;
+	static W32Util::AsyncBrowseDialog *browseImageDialog;
 	static bool browsePauseAfter;
 
 	static std::map<int, std::string> initialMenuKeys;
@@ -399,6 +400,37 @@ namespace MainWindow {
 		browseDialog = 0;
 	}
 
+	void BrowseBackground() {
+		static std::wstring filter = L"All supported images (*.jpg *.png)|*.jpg;*.png|All files (*.*)|*.*||";
+		for (size_t i = 0; i < filter.length(); i++) {
+			if (filter[i] == '|')
+				filter[i] = '\0';
+		}
+
+		W32Util::MakeTopMost(GetHWND(), false);
+		browseImageDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BG_DONE, L"LoadFile", L"", filter, L"*.jpg;*.png;");
+	}
+
+	void BrowseBackgroundDone() {
+		std::string filename;
+		if (browseImageDialog->GetResult(filename)) {
+			std::wstring src = ConvertUTF8ToWString(filename);
+			std::wstring dest;
+			if (filename.size() >= 4 && filename.substr(filename.size() - 4) == ".jpg") {
+				dest = ConvertUTF8ToWString(GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg");
+			} else {
+				dest = ConvertUTF8ToWString(GetSysDirectory(DIRECTORY_SYSTEM) + "background.png");
+			}
+
+			CopyFileW(src.c_str(), dest.c_str(), FALSE);
+			NativeMessageReceived("bgImage_updated", "");
+		}
+
+		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
+
+		delete browseImageDialog;
+		browseImageDialog = nullptr;
+	}
 
 	static void UmdSwitchAction() {
 		std::string fn;

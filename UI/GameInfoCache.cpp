@@ -673,7 +673,7 @@ void GameInfoCache::FlushBGs() {
 			iter->second->sndFileData.clear();
 			iter->second->sndDataLoaded = false;
 		}
-		iter->second->wantFlags &= ~(GAMEINFO_WANTBG | GAMEINFO_WANTSND);
+		iter->second->wantFlags &= ~(GAMEINFO_WANTBG | GAMEINFO_WANTSND | GAMEINFO_WANTBGDATA);
 	}
 }
 
@@ -758,7 +758,9 @@ void GameInfoCache::SetupTexture(GameInfo *info, Draw::DrawContext *thin3d, Game
 				icon.timeLoaded = time_now_d();
 			}
 		}
-		icon.data.clear();
-		icon.dataLoaded = false;
+		if ((info->wantFlags & GAMEINFO_WANTBGDATA) == 0) {
+			icon.data.clear();
+			icon.dataLoaded = false;
+		}
 	}
 }

@@ -53,6 +53,7 @@ enum GameInfoWantFlags {
 	GAMEINFO_WANTBG = 0x01,
 	GAMEINFO_WANTSIZE = 0x02,
 	GAMEINFO_WANTSND = 0x04,
+	GAMEINFO_WANTBGDATA = 0x08, // Use with WANTBG.
 };
 
 class FileLoader;
