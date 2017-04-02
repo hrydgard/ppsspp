@@ -36,9 +36,6 @@ void ComputeGuardband(float gb[4], float zmin) {
 	// this way and we have space for the NAN in the uniform.
 	// We also assume that everything behind the near clipping plane gets clipped and will thus not in reality
 	// exceed the guardband. This is a bit rough but should be ok.
-	float offsetX = gstate.getOffsetX();
-	float offsetY = gstate.getOffsetY();
-	float nearPlane = 0.0;
 	gb[0] = (2048.0f / (vpWidth*0.5f));
 	gb[1] = (2048.0f / (vpHeight*0.5f));
 	gb[2] = zmin;
