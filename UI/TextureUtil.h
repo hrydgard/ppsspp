@@ -14,7 +14,7 @@ enum ImageFileType {
 
 class ManagedTexture : public GfxResourceHolder {
 public:
-	ManagedTexture(Draw::DrawContext *draw) : draw_(draw), texture_(nullptr) {
+	ManagedTexture(Draw::DrawContext *draw) : draw_(draw) {
 		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
 			register_gl_resource_holder(this, "managed_texture", 0);
 	}
@@ -25,7 +25,8 @@ public:
 			unregister_gl_resource_holder(this);
 	}
 	void GLLost() override {
-		texture_->Release();
+		if (texture_)
+			texture_->Release();
 		texture_ = nullptr;
 	}
 	void GLRestore() override {
@@ -49,7 +50,7 @@ public:
 	int Height() const { return texture_->Height(); }
 
 private:
-	Draw::Texture *texture_;
+	Draw::Texture *texture_ = nullptr;
 	Draw::DrawContext *draw_;
 	std::string filename_;  // Textures that are loaded from files can reload themselves automatically.
 };
