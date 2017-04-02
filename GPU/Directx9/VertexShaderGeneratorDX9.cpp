@@ -67,17 +67,17 @@ enum DoLightComputation {
 #ifdef COLORGUARDBAND
 // Coloring debug version
 static void WriteGuardBand(char *&p) {
-	WRITE(p, "  float3 projPos = outPos.xyz / outPos.w; \n");
-	WRITE(p, "  if (outPos.w >= u_guardband.z) {\n");
-	WRITE(p, "		if (abs(projPos.x) > u_guardband.x || projPos.y > u_guardband.y) colorOverride.g = 0.0;\n");//outPos.w = u_guardband.w;\n");
+	WRITE(p, "  if (outPos.w >= 0.0) {\n");
+	WRITE(p, "		float3 projPos = outPos.xyz / outPos.w; \n");
+	WRITE(p, "		if (projPos.z >= 0.0 && projPos.z <= 1.0 && (abs(projPos.x) > u_guardband.x || projPos.y > u_guardband.y)) colorOverride.g = 0.0;\n");//outPos.w = u_guardband.w;\n");
 	WRITE(p, "  } else { colorOverride.b = 0.0; } \n");
 }
 #else
 // NOTE: We are skipping the bottom check. This fixes TOCA but I am dubious about it...
 static void WriteGuardBand(char *&p) {
-	WRITE(p, "  float3 projPos = outPos.xyz / outPos.w; \n");
-	WRITE(p, "  if (outPos.w >= u_guardband.z) {\n");
-	WRITE(p, "		if (abs(projPos.x) > u_guardband.x || projPos.y > u_guardband.y) outPos.w = u_guardband.w;\n");
+	WRITE(p, "  if (outPos.w >= 0.0) {\n");
+	WRITE(p, "		float3 projPos = outPos.xyz / outPos.w; \n");
+	WRITE(p, "		if (projPos.z >= 0.0 && projPos.z <= 1.0 && (abs(projPos.x) > u_guardband.x || abs(projPos.y) > u_guardband.y)) outPos.w = u_guardband.w;\n");
 	WRITE(p, "  }\n");
 }
 #endif
