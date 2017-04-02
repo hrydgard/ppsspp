@@ -370,11 +370,14 @@ void Core_UpdateState(CoreState newState) {
 	Core_UpdateSingleStep();
 }
 
-static void Core_UpdateCollectDebugStats(bool flag) {
+static void Core_UpdateDebugStats(bool flag) {
 	if (coreCollectDebugStats != flag) {
 		coreCollectDebugStats = flag;
 		mipsr4k.ClearJitCache();
 	}
+
+	kernelStats.ResetFrame();
+	gpuStats.ResetFrame();
 }
 
 void System_Wake() {
@@ -527,7 +530,7 @@ void PSP_EndHostFrame() {
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
-	Core_UpdateCollectDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
+	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
 	SaveState::Process();
 	if (coreState == CORE_POWERDOWN || coreState == CORE_ERROR) {

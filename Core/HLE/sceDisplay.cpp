@@ -457,8 +457,6 @@ void __DisplayGetDebugStats(char *stats, size_t bufsize) {
 		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
 		kernelStats.summedSlowestSyscallTime * 1000.0f,
 		statbuf);
-	gpuStats.ResetFrame();
-	kernelStats.ResetFrame();
 }
 
 enum {
@@ -484,9 +482,6 @@ static void DoFrameDropLogging(float scaledTimestep) {
 		char stats[4096];
 		__DisplayGetDebugStats(stats, sizeof(stats));
 		NOTICE_LOG(SCEDISPLAY, "Dropping frames - budget = %.2fms / %.1ffps, actual = %.2fms (+%.2fms) / %.1ffps\n%s", scaledTimestep * 1000.0, 1.0 / scaledTimestep, actualTimestep * 1000.0, (actualTimestep - scaledTimestep) * 1000.0, 1.0 / actualTimestep, stats);
-	} else {
-		gpuStats.ResetFrame();
-		kernelStats.ResetFrame();
 	}
 }
 
@@ -684,9 +679,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		}
 
 		// Setting CORE_NEXTFRAME causes a swap.
-		// Check first though, might've just quit / been paused.
 		const bool fbReallyDirty = gpu->FramebufferReallyDirty();
 		if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
+			// Check first though, might've just quit / been paused.
 			if (coreState == CORE_RUNNING) {
 				coreState = CORE_NEXTFRAME;
 				gpu->CopyDisplayToOutput();
