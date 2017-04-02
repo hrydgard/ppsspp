@@ -111,6 +111,10 @@ XinputDevice::XinputDevice() {
 	if (LoadXInputDLL() != 0) {
 		WARN_LOG(SCECTRL, "Failed to load XInput! DLL missing");
 	}
+
+	for (size_t i = 0; i < ARRAY_SIZE(check_delay); ++i) {
+		check_delay[i] = i;
+	}
 }
 
 XinputDevice::~XinputDevice() {
@@ -228,10 +232,13 @@ int XinputDevice::UpdateState() {
 		if (dwResult == ERROR_SUCCESS) {
 			UpdatePad(i, state);
 			anySuccess = true;
+		} else {
+			check_delay[i] = 30;
 		}
 	}
 
-	// If we get XInput, skip the others. This might not actually be a good idea.
+	// If we get XInput, skip the others. This might not actually be a good idea,
+	// and was done to avoid conflicts between DirectInput and XInput.
 	return anySuccess ? UPDATESTATE_SKIP_PAD : 0;
 }
 
@@ -298,8 +305,8 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state) {
 		NativeAxis(axis);
 	}
 
-	this->prevState[pad] = state;
-	this->check_delay[pad] = 0;
+	prevState[pad] = state;
+	check_delay[pad] = 0;
 }
 
 void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
