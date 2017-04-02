@@ -443,6 +443,8 @@ void SetBackgroundPopupScreen::update() {
 
 UI::EventReturn GameScreen::OnSetBackground(UI::EventParams &e) {
 	I18NCategory *ga = GetI18NCategory("Game");
+	// This popup is used to prevent any race condition:
+	// g_gameInfoCache may take time to load the data, and a crash could happen if they exit before then.
 	SetBackgroundPopupScreen *pop = new SetBackgroundPopupScreen(ga->T("Setting Background"), gamePath_);
 	if (e.v)
 		pop->SetPopupOrigin(e.v);
