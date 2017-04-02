@@ -875,6 +875,10 @@ namespace MainWindow
 			BrowseAndBootDone();
 			break;
 
+		case WM_USER_BROWSE_BG_DONE:
+			BrowseBackgroundDone();
+			break;
+
 		case WM_MENUSELECT:
 			// Unfortunately, accelerate keys (hotkeys) shares the same enabled/disabled states
 			// with corresponding menu items.

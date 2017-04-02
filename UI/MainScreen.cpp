@@ -977,11 +977,11 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 		g_Config.Save();
 		screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
 	}
-#elif PPSSPP_PLATFORM(UWP)
-	System_SendMessage("browse_file", "");
-#elif defined(USING_WIN_UI)
-	MainWindow::BrowseAndBoot("");
 #endif
+
+	if (System_GetPropertyInt(SYSPROP_HAS_FILE_BROWSER)) {
+		System_SendMessage("browse_file", "");
+	}
 	return UI::EVENT_DONE;
 }
 
