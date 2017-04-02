@@ -22,8 +22,12 @@ void PipelineManagerVulkan::Clear() {
 	// This could also be an opportunity to store the whole cache to disk. Will need to also
 	// store the keys.
 	for (auto &iter : pipelines_) {
-		vulkan_->Delete().QueueDeletePipeline(iter.second->pipeline);
-		delete iter.second;
+		if (iter.second) {
+			vulkan_->Delete().QueueDeletePipeline(iter.second->pipeline);
+			delete iter.second;
+		} else {
+			Crash();  // null pipeline was created somehow.
+		}
 	}
 	pipelines_.clear();
 }
@@ -307,6 +311,9 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, vulkan_->GetSurfaceRenderPass(), 
 		rasterKey, vtxDec, vs, fs, useHwTransform);
+	if (!pipeline) {
+		Crash();
+	}
 	pipelines_[key] = pipeline;
 	return pipeline;
 }

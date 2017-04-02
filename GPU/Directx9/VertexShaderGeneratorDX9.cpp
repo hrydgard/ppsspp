@@ -37,15 +37,12 @@
 
 namespace DX9 {
 
-// The PSP does not have a proper triangle clipper, but it does have a guard band and can rasterize rather large
+// The PSP does not have a proper triangle clipper on the sides. It does have on for the front plane.
+// It has a guard band though and can rasterize rather large
 // triangles that go outside the viewport. However, there are limits, and it will drop triangles that are very
 // large. Some games appear to draw broken geometry, probably game bugs that were never discovered because the PSP
 // would drop the geometry, including Parappa The Rapper in an obscure case and Outrun. Try to get rid of those
 // triangles by setting the W of one of the vertices to NaN if they are discovered.
-const bool guardBandCulling = true;
-// Not sure what a good value for this is, it should probably depend on the framebuffer size.
-// Let's be conservative.
-const float guardBand = 64.0f;
 
 static const char * const boneWeightAttrDecl[9] = {	
 	"#ERROR#",
@@ -64,6 +61,26 @@ enum DoLightComputation {
 	LIGHT_SHADE,
 	LIGHT_FULL,
 };
+
+// #define COLORGUARDBAND
+
+#ifdef COLORGUARDBAND
+// Coloring debug version
+static void WriteGuardBand(char *&p) {
+	WRITE(p, "  float3 projPos = outPos.xyz / outPos.w; \n");
+	WRITE(p, "  if (outPos.w >= u_guardband.z) {\n");
+	WRITE(p, "		if (abs(projPos.x) > u_guardband.x || projPos.y > u_guardband.y) colorOverride.g = 0.0;\n");//outPos.w = u_guardband.w;\n");
+	WRITE(p, "  } else { colorOverride.b = 0.0; } \n");
+}
+#else
+// NOTE: We are skipping the bottom check. This fixes TOCA but I am dubious about it...
+static void WriteGuardBand(char *&p) {
+	WRITE(p, "  float3 projPos = outPos.xyz / outPos.w; \n");
+	WRITE(p, "  if (outPos.w >= u_guardband.z) {\n");
+	WRITE(p, "		if (abs(projPos.x) > u_guardband.x || projPos.y > u_guardband.y) outPos.w = u_guardband.w;\n");
+	WRITE(p, "  }\n");
+}
+#endif
 
 void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
@@ -128,6 +145,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 			WRITE(p, "float4x4 u_proj : register(c%i);\n", CONST_VS_PROJ);
 			// Add all the uniforms we'll need to transform properly.
 		}
+		WRITE(p, "float4 u_guardband : register(c%i);\n", CONST_VS_GUARDBAND);
 
 		if (enableFog) {
 			WRITE(p, "float2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
@@ -354,9 +372,11 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		}
 	}
 
-
 	WRITE(p, "VS_OUT main(VS_IN In) {\n");
 	WRITE(p, "  VS_OUT Out;\n");  
+#ifdef COLORGUARDBAND
+	WRITE(p, "	float4 colorOverride = float4(1.0, 1.0, 1.0, 1.0);\n");
+#endif
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
@@ -399,10 +419,8 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 				}
 			}
 		}
-		if (lang != HLSL_DX9 && guardBandCulling) {
-			// Guard band culling
-			WRITE(p, "  float2 projPos = outPos.xy / outPos.w;\n");
-			WRITE(p, "  if (abs(projPos.x) > %f || abs(projPos.y) > %f) outPos.w = nanValue;\n", guardBand, guardBand);
+		if (lang != HLSL_DX9) {
+			WriteGuardBand(p);
 		}
 		WRITE(p, "  Out.gl_Position = outPos;\n");
 	} else {
@@ -603,10 +621,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 				WRITE(p, "  float4 outPos = mul(viewPos, u_proj);\n");
 			}
 		}
-		if (lang != HLSL_DX9 && guardBandCulling) {
-			WRITE(p, "  float2 projPos = outPos.xy / outPos.w;\n");
-			WRITE(p, "  if (abs(projPos.x) > %f || abs(projPos.y) > %f) outPos.w = nanValue;\n", guardBand, guardBand);
-		}
+		WriteGuardBand(p);
 		WRITE(p, "  Out.gl_Position = outPos;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -825,6 +840,9 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		}
 	}
 
+#ifdef COLORGUARDBAND
+	WRITE(p, "  Out.v_color0 *= colorOverride;\n");
+#endif
 	WRITE(p, "  return Out;\n");
 	WRITE(p, "}\n");
 }

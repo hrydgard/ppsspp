@@ -427,10 +427,11 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	if (rasterIter == rasterCache_.end()) {
 		D3D11_RASTERIZER_DESC desc{};
 		desc.CullMode = (D3D11_CULL_MODE)(keys_.raster.cullMode);
+		// desc.FillMode = gstate.isModeThrough() ? D3D11_FILL_SOLID : D3D11_FILL_WIREFRAME;
 		desc.FillMode = D3D11_FILL_SOLID;
 		desc.ScissorEnable = TRUE;
 		desc.FrontCounterClockwise = TRUE;
-		desc.DepthClipEnable = TRUE;
+		desc.DepthClipEnable = TRUE;  // FALSE
 		ASSERT_SUCCESS(device_->CreateRasterizerState(&desc, &rs));
 		rasterCache_.insert(std::pair<uint32_t, ID3D11RasterizerState *>(keys_.raster.value, rs));
 	} else {
