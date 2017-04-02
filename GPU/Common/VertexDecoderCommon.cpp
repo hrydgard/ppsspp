@@ -1262,24 +1262,17 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowe
 
 	int count = indexUpperBound - indexLowerBound + 1;
 	int stride = decFmt.stride;
-	if (jitted_) {
-		// Check alignment before running the decoder, as we may crash if it's bad (as should the real PSP but doesn't always)
-		bool bad = false;
-		if (biggest == 4) {
-			if (((uintptr_t)verts & 3) != 0)
-				bad = true;
-		} else if (biggest == 2) {
-			if (((uintptr_t)verts & 1) != 0)
-				bad = true;
-		}
 
+	// Check alignment before running the decoder, as we may crash if it's bad (as should the real PSP but doesn't always)
+	if (((uintptr_t)verts & (biggest - 1)) != 0) {
+		// Bad alignment. Not really sure what to do here... zero the verts to be safe?
+		memset(decodedptr, 0, count * stride);
+		return;
+	}
+
+	if (jitted_) {
 		// We've compiled the steps into optimized machine code, so just jump!
-		if (!bad) {
-			jitted_(ptr_, decoded_, count);
-		} else {
-			// Not really sure what to do here... zero the verts to be safe?
-			memset(decodedptr, 0, count * stride);
-		}
+		jitted_(ptr_, decoded_, count);
 	} else {
 		// Interpret the decode steps
 		for (; count; count--) {
