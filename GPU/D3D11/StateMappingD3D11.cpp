@@ -279,6 +279,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	dynState_.useStencil = false;
 
 	{
+		keys_.raster.value = 0;
 		if (gstate.isModeClear()) {
 			keys_.raster.cullMode = D3D11_CULL_NONE;
 		} else {
@@ -306,6 +307,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	{
 		// Set ColorMask/Stencil/Depth
 		if (gstate.isModeClear()) {
+			keys_.depthStencil.value = 0;
 			keys_.depthStencil.depthTestEnable = true;
 			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
 			keys_.depthStencil.depthWriteEnable = gstate.isClearModeDepthMask();
@@ -333,6 +335,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			}
 
 		} else {
+			keys_.depthStencil.value = 0;
 			// Depth Test
 			if (gstate.isDepthTestEnabled()) {
 				keys_.depthStencil.depthTestEnable = true;
