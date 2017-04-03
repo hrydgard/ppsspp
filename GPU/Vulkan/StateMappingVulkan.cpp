@@ -129,9 +129,6 @@ void ResetShaderBlending() {
 // In Vulkan, we simply collect all the state together into a "pipeline key" - we don't actually set any state here
 // (the caller is responsible for setting the little dynamic state that is supported, dynState).
 void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
-	memset(&key, 0, sizeof(key));
-	memset(&dynState, 0, sizeof(dynState));
-
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	{
@@ -139,7 +136,14 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		gstate_c.SetAllowShaderBlend(false);
 		if (gstate.isModeClear()) {
 			key.logicOpEnable = false;
+			key.logicOp = VK_LOGIC_OP_CLEAR;
 			key.blendEnable = false;
+			key.blendOpColor = VK_BLEND_OP_ADD;
+			key.blendOpAlpha = VK_BLEND_OP_ADD;
+			key.srcColor = VK_BLEND_FACTOR_ONE;
+			key.srcAlpha = VK_BLEND_FACTOR_ONE;
+			key.destColor = VK_BLEND_FACTOR_ZERO;
+			key.destAlpha = VK_BLEND_FACTOR_ZERO;
 			dynState.useBlendColor = false;
 
 			// Color Mask
@@ -182,6 +186,12 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				}
 			} else {
 				key.blendEnable = false;
+				key.blendOpColor = VK_BLEND_OP_ADD;
+				key.blendOpAlpha = VK_BLEND_OP_ADD;
+				key.srcColor = VK_BLEND_FACTOR_ONE;
+				key.srcAlpha = VK_BLEND_FACTOR_ONE;
+				key.destColor = VK_BLEND_FACTOR_ZERO;
+				key.destAlpha = VK_BLEND_FACTOR_ZERO;
 				dynState.useBlendColor = false;
 			}
 
@@ -256,6 +266,10 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				dynState.stencilWriteMask = 0xFF;
 			} else {
 				key.stencilTestEnable = false;
+				key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
+				key.stencilPassOp = VK_STENCIL_OP_REPLACE;
+				key.stencilFailOp = VK_STENCIL_OP_REPLACE;
+				key.stencilDepthFailOp = VK_STENCIL_OP_REPLACE;
 				dynState.useStencil = false;
 			}
 		} else {
@@ -299,6 +313,10 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				dynState.stencilWriteMask = stencilState.writeMask;
 			} else {
 				key.stencilTestEnable = false;
+				key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
+				key.stencilPassOp = VK_STENCIL_OP_REPLACE;
+				key.stencilFailOp = VK_STENCIL_OP_REPLACE;
+				key.stencilDepthFailOp = VK_STENCIL_OP_REPLACE;
 				dynState.useStencil = false;
 			}
 		}
