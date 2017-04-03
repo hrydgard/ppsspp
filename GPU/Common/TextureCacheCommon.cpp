@@ -1414,8 +1414,8 @@ void TextureCacheCommon::ApplyTexture() {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
 		BindTexture(entry);
-		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
-		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
+		gstate_c.SetTextureSimpleAlpha(entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 	}
 }
 

@@ -159,7 +159,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	{
-		gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
+		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
 
 		if (gstate.isModeClear()) {
 			glstate.blend.disable();
@@ -186,7 +186,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
-					gstate_c.allowShaderBlend = false;
+					gstate_c.SetAllowShaderBlend(false);
 				}
 			} else if (blendState.resetShaderBlending) {
 				ResetShaderBlending();

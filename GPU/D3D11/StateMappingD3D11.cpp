@@ -139,7 +139,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 	// Blend
 	{
-		gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
+		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
 		if (gstate.isModeClear()) {
 			keys_.blend.value = 0;  // full wipe
 			keys_.blend.blendEnable = false;
@@ -159,7 +159,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
-					gstate_c.allowShaderBlend = false;
+					gstate_c.SetAllowShaderBlend(false);
 				}
 			} else if (blendState.resetShaderBlending) {
 				ResetShaderBlending();

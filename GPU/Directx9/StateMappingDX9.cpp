@@ -117,7 +117,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 	{
 		// Unfortunately, this isn't implemented yet.
-		gstate_c.allowShaderBlend = false;
+		gstate_c.SetAllowShaderBlend(false);
 		if (gstate.isModeClear()) {
 			dxstate.blend.disable();
 
@@ -137,7 +137,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
-					gstate_c.allowShaderBlend = false;
+					gstate_c.SetAllowShaderBlend(false);
 				}
 			} else if (blendState.resetShaderBlending) {
 				ResetShaderBlending();

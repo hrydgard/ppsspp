@@ -136,7 +136,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 
 	{
 		// Unfortunately, this isn't implemented yet.
-		gstate_c.allowShaderBlend = false;
+		gstate_c.SetAllowShaderBlend(false);
 		if (gstate.isModeClear()) {
 			key.logicOpEnable = false;
 			key.blendEnable = false;
@@ -159,7 +159,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
-					gstate_c.allowShaderBlend = false;
+					gstate_c.SetAllowShaderBlend(false);
 				}
 			} else if (blendState.resetShaderBlending) {
 				ResetShaderBlending();
