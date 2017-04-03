@@ -254,7 +254,7 @@ void TextureCacheCommon::SetTexture(bool force) {
 
 	TexCache::iterator iter = cache_.find(cachekey);
 	TexCacheEntry *entry = nullptr;
-	gstate_c.needShaderTexClamp = false;
+	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 	gstate_c.bgraTexture = isBgraBackend_;
 
@@ -746,9 +746,9 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		gstate_c.bgraTexture = false;
 		gstate_c.curTextureXOffset = fbInfo.xOffset;
 		gstate_c.curTextureYOffset = fbInfo.yOffset;
-		gstate_c.needShaderTexClamp = gstate_c.curTextureWidth != (u32)gstate.getTextureWidth(0) || gstate_c.curTextureHeight != (u32)gstate.getTextureHeight(0);
+		gstate_c.SetNeedShaderTexclamp(gstate_c.curTextureWidth != (u32)gstate.getTextureWidth(0) || gstate_c.curTextureHeight != (u32)gstate.getTextureHeight(0));
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
-			gstate_c.needShaderTexClamp = true;
+			gstate_c.SetNeedShaderTexclamp(true);
 		}
 
 		nextTexture_ = entry;
@@ -758,7 +758,7 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 			framebuffer->fbo = nullptr;
 		}
 		Unbind();
-		gstate_c.needShaderTexClamp = false;
+		gstate_c.SetNeedShaderTexclamp(false);
 	}
 
 	nextNeedsRehash_ = false;
