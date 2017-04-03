@@ -482,8 +482,6 @@ void GPU_D3D11::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 }
 
 void GPU_D3D11::Execute_Prim(u32 op, u32 diff) {
-	SetDrawType(DRAW_PRIM);
-
 	// This drives all drawing. All other state we just buffer up, then we apply it only
 	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
@@ -494,6 +492,8 @@ void GPU_D3D11::Execute_Prim(u32 op, u32 diff) {
 
 	if (count == 0)
 		return;
+
+	SetDrawType(DRAW_PRIM, prim);
 
 	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
 
@@ -553,8 +553,6 @@ void GPU_D3D11::Execute_Prim(u32 op, u32 diff) {
 }
 
 void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
-	SetDrawType(DRAW_BEZIER);
-
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
@@ -588,6 +586,8 @@ void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(patchPrim));
+
 	int bz_ucount = op & 0xFF;
 	int bz_vcount = (op >> 8) & 0xFF;
 	bool computeNormals = gstate.isLightingEnabled();
@@ -612,8 +612,6 @@ void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPU_D3D11::Execute_Spline(u32 op, u32 diff) {
-	SetDrawType(DRAW_SPLINE);
-
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
@@ -651,6 +649,7 @@ void GPU_D3D11::Execute_Spline(u32 op, u32 diff) {
 	int sp_utype = (op >> 16) & 0x3;
 	int sp_vtype = (op >> 18) & 0x3;
 	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(patchPrim));
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
 	u32 vertType = gstate.vertType;

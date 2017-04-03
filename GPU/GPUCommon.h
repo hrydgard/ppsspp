@@ -219,7 +219,7 @@ public:
 	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);
 
 protected:
-	void SetDrawType(DrawType type) {
+	void SetDrawType(DrawType type, GEPrimitiveType prim) {
 		if (type != lastDraw_) {
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 			lastDraw_ = type;

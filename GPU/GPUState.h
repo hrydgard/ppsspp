@@ -501,6 +501,18 @@ struct GPUStateCache {
 	bool IsDirty(u64 what) const {
 		return (dirty & what) != 0ULL;
 	}
+	void SetTextureFullAlpha(bool fullAlpha) {
+		textureFullAlpha = fullAlpha;
+	}
+	void SetTextureSimpleAlpha(bool simpleAlpha) {
+		textureSimpleAlpha = simpleAlpha;
+	}
+	void SetNeedShaderTexclamp(bool need) {
+		needShaderTexClamp = need;
+	}
+	void SetAllowShaderBlend(bool allow) {
+		allowShaderBlend = allow;
+	}
 
 	u32 featureFlags;
 

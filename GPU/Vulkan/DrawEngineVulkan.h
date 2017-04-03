@@ -241,6 +241,9 @@ private:
 
 	DrawEngineVulkanStats stats_;
 
+	VulkanPipelineRasterStateKey pipelineKey_{};
+	VulkanDynamicState dynState_{};
+
 	// Hardware tessellation
 	class TessellationDataTransferVulkan : public TessellationDataTransfer {
 	private:
