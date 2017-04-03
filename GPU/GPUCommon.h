@@ -232,6 +232,12 @@ protected:
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 			lastDraw_ = type;
 		}
+		// Prim == RECTANGLES can cause CanUseHardwareTransform to flip, so we need to dirty.
+		// Also, culling may be affected.
+		if ((prim == GE_PRIM_RECTANGLES) != (lastPrim_ == GE_PRIM_RECTANGLES)) {
+			gstate_c.Dirty(DIRTY_RASTER_STATE);
+			lastPrim_ = prim;
+		}
 	}
 
 	virtual void InitClearInternal() {}
