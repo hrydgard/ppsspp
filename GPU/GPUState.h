@@ -567,6 +567,13 @@ struct GPUStateCache {
 	u32 curRTHeight;
 	u32 curRTRenderWidth;
 	u32 curRTRenderHeight;
+
+	void SetCurRTOffsetX(int off) {
+		if (off != curRTOffsetX) {
+			curRTOffsetX = off;
+			Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+		}
+	}
 	u32 curRTOffsetX;
 
 	bool bezier;

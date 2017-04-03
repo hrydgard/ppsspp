@@ -302,7 +302,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(params.fb_address, params.fmt, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, 4), drawing_width, drawing_height);
 
-	gstate_c.curRTOffsetX = 0;
+	gstate_c.SetCurRTOffsetX(0);
 	bool vfbFormatChanged = false;
 
 	// Find a matching framebuffer
@@ -335,7 +335,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			if (v->format == params.fmt && v->fb_stride == params.fb_stride && x_offset < params.fb_stride && v->height >= drawing_height) {
 				WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset: %08x +%dx%d", v->fb_address, x_offset, 0);
 				vfb = v;
-				gstate_c.curRTOffsetX = x_offset;
+				gstate_c.SetCurRTOffsetX(x_offset);
 				vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
 				// To prevent the newSize code from being confused.
 				drawing_width += x_offset;
