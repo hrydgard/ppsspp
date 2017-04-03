@@ -236,10 +236,18 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	dynState_.useStencil = false;
 
 	{
-		// Set ColorMask/Stencil/Depth
 		if (gstate.isModeClear()) {
 			keys_.raster.cullMode = D3D11_CULL_NONE;
+		} else {
+			// Set cull
+			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
+		}
+	}
 
+	{
+		// Set ColorMask/Stencil/Depth
+		if (gstate.isModeClear()) {
 			keys_.depthStencil.depthTestEnable = true;
 			keys_.depthStencil.depthCompareOp = D3D11_COMPARISON_ALWAYS;
 			keys_.depthStencil.depthWriteEnable = gstate.isClearModeDepthMask();
@@ -267,10 +275,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			}
 
 		} else {
-			// Set cull
-			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-			keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
-
 			// Depth Test
 			if (gstate.isDepthTestEnabled()) {
 				keys_.depthStencil.depthTestEnable = true;

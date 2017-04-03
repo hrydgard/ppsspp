@@ -221,10 +221,18 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 
 	{
-		// Set Stencil/Depth
 		if (gstate.isModeClear()) {
 			key.cullMode = VK_CULL_MODE_NONE;
+		} else {
+			// Set cull
+			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
+		}
+	}
 
+	{
+		// Set Stencil/Depth
+		if (gstate.isModeClear()) {
 			key.depthTestEnable = true;
 			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
 			key.depthWriteEnable = gstate.isClearModeDepthMask();
@@ -260,10 +268,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 					key.logicOpEnable = false;
 				}
 			}
-
-			// Set cull
-			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-			key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
 
 			// Depth Test
 			if (gstate.isDepthTestEnabled()) {
@@ -333,5 +337,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			gstate_c.Dirty(DIRTY_DEPTHRANGE);
 		}
 	}
+
 	key.topology = primToVulkan[prim];
 }

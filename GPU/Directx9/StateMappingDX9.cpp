@@ -198,19 +198,26 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
 
-	// Set Dither
-	if (gstate.isDitherEnabled()) {
-		dxstate.dither.enable();
-	} else {
-		dxstate.dither.disable();
+	{
+		// Set Dither
+		if (gstate.isDitherEnabled()) {
+			dxstate.dither.enable();
+		} else {
+			dxstate.dither.disable();
+		}
+		if (gstate.isModeClear()) {
+			// Set Cull 
+			dxstate.cullMode.set(false, false);
+		} else {
+			// Set cull
+			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			dxstate.cullMode.set(wantCull, gstate.getCullMode());
+		}
 	}
 
 	{
 		// Set Stencil/Depth
 		if (gstate.isModeClear()) {
-			// Set Cull 
-			dxstate.cullMode.set(false, false);
-
 			// Depth Test
 			dxstate.depthTest.enable();
 			dxstate.depthFunc.set(D3DCMP_ALWAYS);
@@ -231,10 +238,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			}
 
 		} else {
-			// Set cull
-			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-			dxstate.cullMode.set(wantCull, gstate.getCullMode());
-
 			// Depth Test
 			if (gstate.isDepthTestEnabled()) {
 				dxstate.depthTest.enable();
