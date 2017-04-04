@@ -124,7 +124,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	}
 
 	if (language == HLSL_D3D11) {
-		WRITE(p, "  return pal.Load(int3(index, 0, 0));\n");
+		WRITE(p, "  return pal.Load(int3(index, 0, 0)).bgra;\n");
 	} else {
 		WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	}
