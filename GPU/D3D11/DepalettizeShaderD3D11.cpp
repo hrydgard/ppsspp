@@ -22,6 +22,7 @@
 #include "base/logging.h"
 #include "Common/Log.h"
 #include "Common/ColorConv.h"
+#include "Common/StringUtils.h"
 #include "Core/Reporting.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DepalettizeShaderD3D11.h"
@@ -71,8 +72,8 @@ DepalShaderCacheD3D11::~DepalShaderCacheD3D11() {
 	inputLayout_->Release();
 }
 
-u32 DepalShaderCacheD3D11::GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
-	return (clutFormat & 0xFFFFFF) | (pixelFormat << 24);
+u32 DepalShaderCacheD3D11::GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) {
+	return (clutMode & 0xFFFFFF) | (pixelFormat << 24);
 }
 
 ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut, bool expandTo32bit) {
@@ -161,8 +162,8 @@ void DepalShaderCacheD3D11::Decimate() {
 	}
 }
 
-ID3D11PixelShader *DepalShaderCacheD3D11::GetDepalettizePixelShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
-	u32 id = GenerateShaderID(clutFormat, pixelFormat);
+ID3D11PixelShader *DepalShaderCacheD3D11::GetDepalettizePixelShader(uint32_t clutMode, GEBufferFormat pixelFormat) {
+	u32 id = GenerateShaderID(clutMode, pixelFormat);
 
 	auto shader = cache_.find(id);
 	if (shader != cache_.end()) {
@@ -183,10 +184,36 @@ ID3D11PixelShader *DepalShaderCacheD3D11::GetDepalettizePixelShader(GEPaletteFor
 
 	DepalShaderD3D11 *depal = new DepalShaderD3D11();
 	depal->pixelShader = pshader;
+	depal->code = buffer;
 
 	cache_[id] = depal;
+
 
 	delete[] buffer;
 
 	return depal->pixelShader;
+}
+
+std::vector<std::string> DepalShaderCacheD3D11::DebugGetShaderIDs(DebugShaderType type) {
+	std::vector<std::string> ids;
+	for (auto &iter : cache_) {
+		ids.push_back(StringFromFormat("%08x", iter.first));
+	}
+	return ids;
+}
+
+std::string DepalShaderCacheD3D11::DebugGetShaderString(std::string idstr, DebugShaderType type, DebugShaderStringType stringType) {
+	uint32_t id;
+	sscanf(idstr.c_str(), "%08x", &id);
+	auto iter = cache_.find(id);
+	if (iter == cache_.end())
+		return "";
+	switch (stringType) {
+	case SHADER_STRING_SHORT_DESC:
+		return idstr;
+	case SHADER_STRING_SOURCE_CODE:
+		return iter->second->code;
+	default:
+		return "";
+	}
 }

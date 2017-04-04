@@ -20,6 +20,7 @@
 #include "Common/CommonTypes.h"
 #include "gfx/gl_common.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/ShaderCommon.h"
 
 class DepalShader {
 public:
@@ -27,6 +28,7 @@ public:
 	GLuint fragShader;
 	GLint a_position;
 	GLint a_texcoord0;
+	std::string code;
 };
 
 class DepalTexture {
@@ -42,13 +44,15 @@ public:
 	~DepalShaderCacheGLES();
 
 	// This also uploads the palette and binds the correct texture.
-	DepalShader *GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	DepalShader *GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat);
 	GLuint GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 	void Clear();
 	void Decimate();
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 private:
-	u32 GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	u32 GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat);
 	bool CreateVertexShader();
 
 	bool useGL3_;

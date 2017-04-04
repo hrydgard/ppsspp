@@ -204,7 +204,7 @@ static void VertexAttribSetup(D3D11_INPUT_ELEMENT_DESC * VertexElement, u8 fmt, 
 ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
 	// TODO: Instead of one for each vshader, we can reduce it to one for each type of shader
 	// that reads TEXCOORD or not, etc. Not sure if worth it.
-	InputLayoutKey key{ pspFmt, vshader };
+	InputLayoutKey key{ vshader, pspFmt };
 	auto vertexDeclCached = inputLayoutMap_.find(key);
 	if (vertexDeclCached == inputLayoutMap_.end()) {
 		D3D11_INPUT_ELEMENT_DESC VertexElements[8];
@@ -878,7 +878,7 @@ rotateVBO:
 
 			// We really do need a vertex layout for each vertex shader (or at least check its ID bits for what inputs it uses)!
 			// Some vertex shaders ignore one of the inputs, and then the layout created from it will lack it, which will be a problem for others.
-			InputLayoutKey key{ 0xFFFFFFFF, vshader };  // Let's use 0xFFFFFFFF to signify TransformedVertex
+			InputLayoutKey key{ vshader, 0xFFFFFFFF };  // Let's use 0xFFFFFFFF to signify TransformedVertex
 			auto iter = inputLayoutMap_.find(key);
 			ID3D11InputLayout *layout;
 			if (iter == inputLayoutMap_.end()) {

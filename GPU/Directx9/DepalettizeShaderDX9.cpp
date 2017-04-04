@@ -21,6 +21,7 @@
 #include "base/logging.h"
 #include "thin3d/thin3d.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Core/Reporting.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DepalettizeShaderDX9.h"
@@ -66,8 +67,8 @@ DepalShaderCacheDX9::~DepalShaderCacheDX9() {
 	}
 }
 
-u32 DepalShaderCacheDX9::GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
-	return (clutFormat & 0xFFFFFF) | (pixelFormat << 24);
+u32 DepalShaderCacheDX9::GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) {
+	return (clutMode & 0xFFFFFF) | (pixelFormat << 24);
 }
 
 LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut) {
@@ -145,8 +146,8 @@ void DepalShaderCacheDX9::Decimate() {
 	}
 }
 
-LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetDepalettizePixelShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
-	u32 id = GenerateShaderID(clutFormat, pixelFormat);
+LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetDepalettizePixelShader(uint32_t clutMode, GEBufferFormat pixelFormat) {
+	u32 id = GenerateShaderID(clutMode, pixelFormat);
 
 	auto shader = cache_.find(id);
 	if (shader != cache_.end()) {
@@ -167,12 +168,37 @@ LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetDepalettizePixelShader(GEPaletteF
 
 	DepalShaderDX9 *depal = new DepalShaderDX9();
 	depal->pixelShader = pshader;
+	depal->code = buffer;
 
 	cache_[id] = depal;
 
 	delete[] buffer;
 
 	return depal->pixelShader;
+}
+
+std::vector<std::string> DepalShaderCacheDX9::DebugGetShaderIDs(DebugShaderType type) {
+	std::vector<std::string> ids;
+	for (auto &iter : cache_) {
+		ids.push_back(StringFromFormat("%08x", iter.first));
+	}
+	return ids;
+}
+
+std::string DepalShaderCacheDX9::DebugGetShaderString(std::string idstr, DebugShaderType type, DebugShaderStringType stringType) {
+	uint32_t id;
+	sscanf(idstr.c_str(), "%08x", &id);
+	auto iter = cache_.find(id);
+	if (iter == cache_.end())
+		return "";
+	switch (stringType) {
+	case SHADER_STRING_SHORT_DESC:
+		return idstr;
+	case SHADER_STRING_SOURCE_CODE:
+		return iter->second->code;
+	default:
+		return "";
+	}
 }
 
 }  // namespace

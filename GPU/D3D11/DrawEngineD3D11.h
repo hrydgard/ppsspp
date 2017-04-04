@@ -204,8 +204,8 @@ private:
 	std::unordered_map<u32, VertexArrayInfoD3D11 *> vai_;
 
 	struct InputLayoutKey {
-		u32 vertType;
 		D3D11VertexShader *vshader;
+		u32 vertType;
 		bool operator <(const InputLayoutKey &other) const {
 			if (vertType < other.vertType)
 				return true;

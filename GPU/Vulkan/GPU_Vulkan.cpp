@@ -846,6 +846,9 @@ std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
 		return drawEngine_.DebugGetVertexLoaderIDs();
 	} else if (type == SHADER_TYPE_PIPELINE) {
 		return pipelineManager_->DebugGetObjectIDs(type);
+	} else if (type == SHADER_TYPE_DEPAL) {
+		///...
+		return std::vector<std::string>();
 	} else {
 		return shaderManagerVulkan_->DebugGetShaderIDs(type);
 	}
@@ -856,6 +859,8 @@ std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType typ
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
 	} else if (type == SHADER_TYPE_PIPELINE) {
 		return pipelineManager_->DebugGetObjectString(id, type, stringType);
+	} else if (type == SHADER_TYPE_DEPAL) {
+		return "";
 	} else {
 		return shaderManagerVulkan_->DebugGetShaderString(id, type, stringType);
 	}

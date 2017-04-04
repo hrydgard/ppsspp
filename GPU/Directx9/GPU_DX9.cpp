@@ -793,17 +793,23 @@ bool GPU_DX9::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &v
 }
 
 std::vector<std::string> GPU_DX9::DebugGetShaderIDs(DebugShaderType type) {
-	if (type == SHADER_TYPE_VERTEXLOADER) {
+	switch (type) {
+	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderIDs();
-	} else {
+	case SHADER_TYPE_DEPAL:
+		return depalShaderCache_.DebugGetShaderIDs(type);
+	default:
 		return shaderManagerDX9_->DebugGetShaderIDs(type);
 	}
 }
 
 std::string GPU_DX9::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	if (type == SHADER_TYPE_VERTEXLOADER) {
+	switch (type) {
+	case SHADER_TYPE_VERTEXLOADER:
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
-	} else {
+	case SHADER_TYPE_DEPAL:
+		return depalShaderCache_.DebugGetShaderString(id, type, stringType);
+	default:
 		return shaderManagerDX9_->DebugGetShaderString(id, type, stringType);
 	}
 }

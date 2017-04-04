@@ -27,6 +27,7 @@
 class DepalShaderD3D11 {
 public:
 	ID3D11PixelShader *pixelShader;
+	std::string code;
 };
 
 class DepalTextureD3D11 {
@@ -49,15 +50,17 @@ public:
 	~DepalShaderCacheD3D11();
 
 	// This also uploads the palette and binds the correct texture.
-	ID3D11PixelShader *GetDepalettizePixelShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	ID3D11PixelShader *GetDepalettizePixelShader(uint32_t clutMode, GEBufferFormat pixelFormat);
 	ID3D11VertexShader *GetDepalettizeVertexShader() { return vertexShader_; }
 	ID3D11InputLayout *GetInputLayout() { return inputLayout_; }
 	ID3D11ShaderResourceView *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut, bool expandTo32bit);
 	void Clear();
 	void Decimate();
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 private:
-	u32 GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	u32 GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat);
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
