@@ -12,4 +12,5 @@ namespace MainWindow {
 	void BrowseBackground();
 	void BrowseBackgroundDone();
 	void setTexScalingMultiplier(int level);
+	void SetIngameMenuItemStates(HMENU menu, const GlobalUIState state);
 }

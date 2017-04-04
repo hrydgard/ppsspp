@@ -540,19 +540,15 @@ bool getUMDReplacePermit() {
 	return UMDReplacePermit;
 }
 
-static u32 sceUmdReplaceProhibit()
-{
+static u32 sceUmdReplaceProhibit() {
 	UMDReplacePermit = false;
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
-	host->UpdateUI();
 	return 0;
 }
 
-static u32 sceUmdReplacePermit()
-{
+static u32 sceUmdReplacePermit() {
 	UMDReplacePermit = true;
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
-	host->UpdateUI();
 	return 0;
 }
 

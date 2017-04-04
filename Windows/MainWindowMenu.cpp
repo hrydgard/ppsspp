@@ -337,10 +337,6 @@ namespace MainWindow {
 		// Help menu: it's translated in CreateHelpMenu.
 		CreateHelpMenu(menu);
 
-		// TODO: Urgh! Why do we need this here?
-		// The menu is supposed to enable/disable this stuff directly afterward.
-		SetIngameMenuItemStates(menu, GetUIState());
-
 		DrawMenuBar(hWnd);
 		UpdateMenus();
 	}
