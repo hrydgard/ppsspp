@@ -549,7 +549,6 @@ static u32 sceUmdReplaceProhibit() {
 static u32 sceUmdReplacePermit() {
 	UMDReplacePermit = true;
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
-	host->UpdateUI();
 	return 0;
 }
 
