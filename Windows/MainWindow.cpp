@@ -880,9 +880,10 @@ namespace MainWindow
 			break;
 
 		case WM_MENUSELECT:
-			// Unfortunately, accelerate keys (hotkeys) shares the same enabled/disabled states
-			// with corresponding menu items.
+			// Called when a menu is opened. Also when an item is selected, but meh.
+			// This is a good place to update the enabled/disabled state of menu items.
 			UpdateMenus();
+			SetIngameMenuItemStates(menu, GetUIState());
 			WindowsRawInput::NotifyMenu();
 			break;
 
