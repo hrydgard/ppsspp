@@ -74,6 +74,8 @@ public:
 	bool LoadIni(const std::string &languageID, const std::string &overridePath = ""); // NOT the filename!
 	void SaveIni(const std::string &languageID);
 
+	std::string LanguageID();
+
 	I18NCategory *GetCategory(const char *categoryName);
 	const char *T(const char *category, const char *key, const char *def = 0);
 
@@ -84,6 +86,7 @@ private:
 	void SaveSection(IniFile &ini, IniFile::Section *section, I18NCategory *cat);
 
 	std::map<std::string, I18NCategory *> cats_;
+	std::string languageID_;
 
 	DISALLOW_COPY_AND_ASSIGN(I18NRepo);
 };

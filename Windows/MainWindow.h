@@ -60,7 +60,7 @@ namespace MainWindow
 	void CreateDebugWindows();
 	void DestroyDebugWindows();
 	void Close();
-	void UpdateMenus();
+	void UpdateMenus(bool isMenuSelect = false);
 	void UpdateCommands();
 	void SetWindowTitle(const wchar_t *title);
 	void Redraw();

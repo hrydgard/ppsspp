@@ -45,8 +45,10 @@ namespace MainWindow {
 	static bool browsePauseAfter;
 
 	static std::map<int, std::string> initialMenuKeys;
-	static std::vector<std::string> countryCodes;
 	static std::vector<std::string> availableShaders;
+	static std::string menuLanguageID = "";
+	static bool menuShaderInfoLoaded = false;
+	std::vector<ShaderInfo> menuShaderInfo;
 
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
@@ -164,7 +166,18 @@ namespace MainWindow {
 			CheckMenuItem(menu, item++, ((g_Config.sPostShaderName == availableShaders[i]) ? MF_CHECKED : MF_UNCHECKED));
 	}
 
-	void CreateShadersSubmenu(HMENU menu) {
+	bool CreateShadersSubmenu(HMENU menu) {
+		// We only reload this initially and when a menu is actually opened.
+		if (!menuShaderInfoLoaded) {
+			ReloadAllPostShaderInfo();
+			menuShaderInfoLoaded = true;
+		}
+		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
+
+		if (menuShaderInfo.size() != info.size() || !std::equal(info.begin(), info.end(), menuShaderInfo.begin())) {
+			return false;
+		}
+
 		I18NCategory *des = GetI18NCategory("DesktopUI");
 		I18NCategory *ps = GetI18NCategory("PostShaders");
 		const std::wstring key = ConvertUTF8ToWString(des->T("Postprocessing Shader"));
@@ -176,15 +189,12 @@ namespace MainWindow {
 		RemoveMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_BYPOSITION);
 		InsertMenu(optionsMenu, SUBMENU_CUSTOM_SHADERS, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)shaderMenu, key.c_str());
 
-		ReloadAllPostShaderInfo();
-		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
-		availableShaders.clear();
-
 		int item = ID_SHADERS_BASE + 1;
 		int checkedStatus = -1;
 
 		const char *translatedShaderName = nullptr;
 
+		availableShaders.clear();
 		for (auto i = info.begin(); i != info.end(); ++i) {
 			checkedStatus = MF_UNCHECKED;
 			availableShaders.push_back(i->section);
@@ -196,6 +206,9 @@ namespace MainWindow {
 
 			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
 		}
+
+		menuShaderInfo = info;
+		return true;
 	}
 
 	static void _TranslateMenuItem(const HMENU hMenu, const int menuIDOrPosition, const char *key, bool byCommand = false, const std::wstring& accelerator = L"") {
@@ -224,7 +237,7 @@ namespace MainWindow {
 		_TranslateMenuItem(GetSubMenu(menu, mainMenuItem), subMenuItem, key, false, accelerator);
 	}
 
-	void TranslateMenus(HWND hWnd, HMENU menu) {
+	void DoTranslateMenus(HWND hWnd, HMENU menu) {
 		// Menu headers and submenu headers don't have resource IDs,
 		// So we have to hardcode strings here, unfortunately.
 		TranslateMenu(menu, "File", MENU_FILE);
@@ -232,8 +245,6 @@ namespace MainWindow {
 		TranslateMenu(menu, "Debugging", MENU_DEBUG);
 		TranslateMenu(menu, "Game Settings", MENU_OPTIONS);
 		TranslateMenu(menu, "Help", MENU_HELP);
-
-		CreateShadersSubmenu(menu);
 
 		// File menu
 		TranslateMenuItem(menu, ID_FILE_LOAD);
@@ -336,9 +347,25 @@ namespace MainWindow {
 
 		// Help menu: it's translated in CreateHelpMenu.
 		CreateHelpMenu(menu);
+	}
 
-		DrawMenuBar(hWnd);
-		UpdateMenus();
+	void TranslateMenus(HWND hWnd, HMENU menu) {
+		bool changed = false;
+
+		const std::string curLanguageID = i18nrepo.LanguageID();
+		if (curLanguageID != menuLanguageID) {
+			DoTranslateMenus(hWnd, menu);
+			menuLanguageID = curLanguageID;
+			changed = true;
+		}
+
+		if (CreateShadersSubmenu(menu)) {
+			changed = true;
+		}
+
+		if (changed) {
+			DrawMenuBar(hWnd);
+		}
 	}
 
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
@@ -1016,7 +1043,11 @@ namespace MainWindow {
 		}
 	}
 
-	void UpdateMenus() {
+	void UpdateMenus(bool isMenuSelect) {
+		if (isMenuSelect) {
+			menuShaderInfoLoaded = false;
+		}
+
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
@@ -1279,19 +1310,18 @@ namespace MainWindow {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
 		static CoreState lastCoreState = CORE_ERROR;
 
+		HMENU menu = GetMenu(GetHWND());
+		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
+		SetIngameMenuItemStates(menu, GetUIState());
+
 		if (lastGlobalUIState == GetUIState() && lastCoreState == coreState)
 			return;
 
 		lastCoreState = coreState;
 		lastGlobalUIState = GetUIState();
 
-		HMENU menu = GetMenu(GetHWND());
-
 		bool isPaused = Core_IsStepping() && GetUIState() == UISTATE_INGAME;
 		TranslateMenuItem(menu, ID_TOGGLE_PAUSE, L"\tF8", isPaused ? "Run" : "Pause");
-
-		SetIngameMenuItemStates(menu, GetUIState());
-		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
 	}
 
 	// Message handler for about box.

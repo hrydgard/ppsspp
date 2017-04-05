@@ -466,6 +466,9 @@ namespace MainWindow
 		for (int i = 0; i < GetMenuItemCount(menu); i++) {
 			SetMenuInfo(GetSubMenu(menu,i), &info);
 		}
+
+		// Always translate first: translating resets the menu.
+		TranslateMenus(hwndMain, menu);
 		UpdateMenus();
 
 		// Accept dragged files.
@@ -863,8 +866,9 @@ namespace MainWindow
 			break;
 
 		case WM_USER_UPDATE_UI:
-			// This also calls ChangeMenu
 			TranslateMenus(hwndMain, menu);
+			// Update checked status immediately for accelerators.
+			UpdateMenus();
 			break;
 
 		case WM_USER_WINDOW_TITLE_CHANGED:
@@ -881,9 +885,7 @@ namespace MainWindow
 
 		case WM_MENUSELECT:
 			// Called when a menu is opened. Also when an item is selected, but meh.
-			// This is a good place to update the enabled/disabled state of menu items.
-			UpdateMenus();
-			SetIngameMenuItemStates(menu, GetUIState());
+			UpdateMenus(true);
 			WindowsRawInput::NotifyMenu();
 			break;
 
