@@ -329,7 +329,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(savegame_dir));
 
-#if defined(MOBILE_DEVICE) || !defined(USING_QT_UI)
+#if defined(MOBILE_DEVICE) || !defined(USING_QT_UI) && !PPSSPP_PLATFORM(UWP)
 	host = new NativeHost();
 #endif
 
@@ -1060,7 +1060,9 @@ void NativeShutdown() {
 	delete screenManager;
 	screenManager = 0;
 
+#if !PPSSPP_PLATFORM(UWP)
 	delete host;
+#endif
 	host = 0;
 	g_Config.Save();
 	LogManager::Shutdown();

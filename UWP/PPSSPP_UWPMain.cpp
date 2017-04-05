@@ -128,9 +128,11 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	int height = m_deviceResources->GetScreenViewport().Height;
 
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, m_deviceResources->GetBackBufferRenderTargetView());
+	InputDevice::BeginPolling();
 }
 
 PPSSPP_UWPMain::~PPSSPP_UWPMain() {
+	InputDevice::StopPolling();
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::LOST_BACKBUFFER, 0, 0, nullptr);
 	NativeShutdownGraphics();
 	NativeShutdown();
