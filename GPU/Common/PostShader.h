@@ -45,6 +45,9 @@ struct ShaderInfo {
 	bool operator == (const std::string &other) {
 		return name == other;
 	}
+	bool operator == (const ShaderInfo &other) {
+		return name == other.name;
+	}
 };
 
 void ReloadAllPostShaderInfo();
