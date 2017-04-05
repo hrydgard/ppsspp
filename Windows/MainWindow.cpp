@@ -466,6 +466,9 @@ namespace MainWindow
 		for (int i = 0; i < GetMenuItemCount(menu); i++) {
 			SetMenuInfo(GetSubMenu(menu,i), &info);
 		}
+
+		// Always translate first: translating resets the menu.
+		TranslateMenus(hwndMain, menu);
 		UpdateMenus();
 
 		// Accept dragged files.

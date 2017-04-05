@@ -53,15 +53,6 @@ namespace MainWindow {
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
 	void SetIngameMenuItemStates(HMENU menu, const GlobalUIState state) {
-		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
-		static bool lastUMDPermit = false;
-
-		if (lastGlobalUIState == GetUIState() && lastUMDPermit == getUMDReplacePermit())
-			return;
-
-		lastGlobalUIState = GetUIState();
-		lastUMDPermit = getUMDReplacePermit();
-
 		UINT menuEnable = state == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		UINT umdSwitchEnable = state == UISTATE_INGAME && getUMDReplacePermit() ? MF_ENABLED : MF_GRAYED;
 
