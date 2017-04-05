@@ -62,7 +62,6 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 				POINT point;
 				point.x = (float)(TOUCH_COORD_TO_PIXEL(inputs[i].x));
 				point.y = (float)(TOUCH_COORD_TO_PIXEL(inputs[i].y));
-
 				if (ScreenToClient(hWnd, &point)) {
 					point.x *= g_dpi_scale;
 					point.y *= g_dpi_scale;

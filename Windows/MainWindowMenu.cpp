@@ -1331,11 +1331,7 @@ namespace MainWindow {
 		{
 			W32Util::CenterWindow(hDlg);
 			HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
-#ifdef GOLD
-			std::string windowText = "PPSSPP Gold ";
-#else
-			std::string windowText = "PPSSPP ";
-#endif
+			std::string windowText = System_GetPropertyInt(SYSPROP_APP_GOLD) ? "PPSSPP Gold " : "PPSSPP ";
 			windowText.append(PPSSPP_GIT_VERSION);
 			SetWindowText(versionBox, ConvertUTF8ToWString(windowText).c_str());
 		}

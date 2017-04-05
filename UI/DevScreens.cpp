@@ -464,9 +464,9 @@ void SystemInfoScreen::CreateViews() {
 #ifdef MOBILE_DEVICE
 	buildConfig->Add(new InfoItem("MOBILE_DEVICE", ""));
 #endif
-#ifdef GOLD
-	buildConfig->Add(new InfoItem("GOLD", ""));
-#endif
+	if (System_GetPropertyInt(SYSPROP_APP_GOLD)) {
+		buildConfig->Add(new InfoItem("GOLD", ""));
+	}
 
 	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	cpuExtensionsScroll->SetTag("DevSystemInfoCPUExt");

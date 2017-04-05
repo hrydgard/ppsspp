@@ -341,6 +341,12 @@ int System_GetPropertyInt(SystemProperty prop) {
 #endif
 	case SYSPROP_HAS_BACK_BUTTON:
 		return 1;
+	case SYSPROP_APP_GOLD:
+#ifdef GOLD
+		return 1;
+#else
+		return 0;
+#endif
 	default:
 		return -1;
 	}

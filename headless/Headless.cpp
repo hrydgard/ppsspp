@@ -66,7 +66,13 @@ void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
-int System_GetPropertyInt(SystemProperty prop) { return -1; }
+int System_GetPropertyInt(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_APP_GOLD:
+		return 0;
+	}
+	return -1;
+}
 void System_SendMessage(const char *command, const char *parameter) {}
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
 void System_AskForPermission(SystemPermission permission) {}

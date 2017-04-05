@@ -49,7 +49,13 @@
 #include "unittest/UnitTest.h"
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
-int System_GetPropertyInt(SystemProperty prop) { return -1; }
+int System_GetPropertyInt(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_APP_GOLD:
+		return 0;
+	}
+	return -1;
+}
 
 #ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923
