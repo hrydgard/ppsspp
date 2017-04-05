@@ -41,8 +41,7 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 		if (touchInfo((HTOUCHINPUT) lParam,
 			inputCount,
 			inputs,
-			sizeof(TOUCHINPUT)))
-		{
+			sizeof(TOUCHINPUT))) {
 			for (UINT i = 0; i < inputCount; i++) {
 				int id = -1;
 
@@ -61,29 +60,26 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 				}
 
 				POINT point;
-				point.x = (float)(TOUCH_COORD_TO_PIXEL(inputs[i].x)) * g_dpi_scale;
-				point.y = (float)(TOUCH_COORD_TO_PIXEL(inputs[i].y)) * g_dpi_scale;
+				point.x = (float)(TOUCH_COORD_TO_PIXEL(inputs[i].x));
+				point.y = (float)(TOUCH_COORD_TO_PIXEL(inputs[i].y));
 
-				if (ScreenToClient(hWnd, &point)){
-					if (inputs[i].dwFlags & TOUCHEVENTF_DOWN)
-					{
+				if (ScreenToClient(hWnd, &point)) {
+					point.x *= g_dpi_scale;
+					point.y *= g_dpi_scale;
+					if (inputs[i].dwFlags & TOUCHEVENTF_DOWN) {
 						touchDown(id, point.x, point.y);
 					}
-					if (inputs[i].dwFlags & TOUCHEVENTF_MOVE)
-					{
+					if (inputs[i].dwFlags & TOUCHEVENTF_MOVE) {
 						touchMove(id, point.x, point.y);
 					}
-					if (inputs[i].dwFlags & TOUCHEVENTF_UP)
-					{
+					if (inputs[i].dwFlags & TOUCHEVENTF_UP) {
 						touchUp(id, point.x, point.y);
 						touchIds[id] = 0;
 					}
 				}
 			}
 			closeTouch((HTOUCHINPUT) lParam);
-		}
-		else
-		{
+		} else {
 			// GetLastError() and error handling.
 		}
 		delete [] inputs;
