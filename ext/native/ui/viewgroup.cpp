@@ -734,25 +734,27 @@ const float friction = 0.92f;
 const float stop_threshold = 0.1f;
 
 void ScrollView::Touch(const TouchInput &input) {
-	if ((input.flags & TOUCH_DOWN) && input.id == 0) {
+	if ((input.flags & TOUCH_DOWN) && scrollTouchId_ == -1) {
 		scrollStart_ = scrollPos_;
 		inertia_ = 0.0f;
+		scrollTouchId_ = input.id;
 	}
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 
-	if (input.flags & TOUCH_UP) {
+	if ((input.flags & TOUCH_UP) && input.id == scrollTouchId_) {
 		float info[4];
 		if (gesture_.GetGestureInfo(gesture, info)) {
 			inertia_ = info[1];
 		}
+		scrollTouchId_ = -1;
 	}
 
 	TouchInput input2;
 	if (CanScroll()) {
 		input2 = gesture_.Update(input, bounds_);
 		float info[4];
-		if (gesture_.GetGestureInfo(gesture, info) && !(input.flags & TOUCH_DOWN)) {
+		if (gesture_.GetGestureInfo(gesture, info) && !(input.flags & TOUCH_DOWN) && input.id == scrollTouchId_) {
 			float pos = scrollStart_ - info[0];
 			scrollPos_ = pos;
 			scrollTarget_ = pos;

@@ -222,17 +222,8 @@ private:
 // A scrollview usually contains just a single child - a linear layout or similar.
 class ScrollView : public ViewGroup {
 public:
-	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0) :
-		ViewGroup(layoutParams),
-		orientation_(orientation),
-		scrollPos_(0),
-		scrollStart_(0),
-		scrollTarget_(0),
-		scrollToTarget_(false),
-		inertia_(0.0f),
-		pull_(0.0f),
-		lastViewSize_(0.0f),
-		scrollToTopOnSizeChange_(false) {}
+	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0)
+		: ViewGroup(layoutParams), orientation_(orientation) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
@@ -261,14 +252,15 @@ private:
 
 	GestureDetector gesture_;
 	Orientation orientation_;
-	float scrollPos_;
-	float scrollStart_;
-	float scrollTarget_;
-	bool scrollToTarget_;
-	float inertia_;
-	float pull_;
-	float lastViewSize_;
-	bool scrollToTopOnSizeChange_;
+	float scrollPos_ = 0.0f;
+	float scrollStart_ = 0.0f;
+	float scrollTarget_ = 0.0f;
+	int scrollTouchId_ = -1;
+	bool scrollToTarget_ = false;
+	float inertia_ = 0.0f;
+	float pull_ = 0.0f;
+	float lastViewSize_ = 0.0f;
+	bool scrollToTopOnSizeChange_ = false;
 };
 
 class ViewPager : public ScrollView {
