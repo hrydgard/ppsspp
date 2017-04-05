@@ -53,6 +53,15 @@ namespace MainWindow {
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
 	void SetIngameMenuItemStates(HMENU menu, const GlobalUIState state) {
+		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
+		static bool lastUMDPermit = false;
+
+		if (lastGlobalUIState == GetUIState() && lastUMDPermit == getUMDReplacePermit())
+			return;
+
+		lastGlobalUIState = GetUIState();
+		lastUMDPermit = getUMDReplacePermit();
+
 		UINT menuEnable = state == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		UINT umdSwitchEnable = state == UISTATE_INGAME && getUMDReplacePermit() ? MF_ENABLED : MF_GRAYED;
 
@@ -1312,6 +1321,7 @@ namespace MainWindow {
 
 		HMENU menu = GetMenu(GetHWND());
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
+		SetIngameMenuItemStates(menu, GetUIState());
 
 		if (lastGlobalUIState == GetUIState() && lastCoreState == coreState)
 			return;
@@ -1321,8 +1331,6 @@ namespace MainWindow {
 
 		bool isPaused = Core_IsStepping() && GetUIState() == UISTATE_INGAME;
 		TranslateMenuItem(menu, ID_TOGGLE_PAUSE, L"\tF8", isPaused ? "Run" : "Pause");
-
-		SetIngameMenuItemStates(menu, GetUIState());
 	}
 
 	// Message handler for about box.
