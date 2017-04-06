@@ -752,7 +752,7 @@ void ScrollView::Touch(const TouchInput &input) {
 
 	TouchInput input2;
 	if (CanScroll()) {
-		input2 = gesture_.Update(input, scrollTouchId_, bounds_);
+		input2 = gesture_.Update(input, bounds_);
 		float info[4];
 		if (input.id == scrollTouchId_ && gesture_.GetGestureInfo(gesture, input.id, info) && !(input.flags & TOUCH_DOWN)) {
 			float pos = scrollStart_ - info[0];
@@ -890,7 +890,7 @@ float ScrollView::ClampedScrollPos(float pos) {
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 
-	if (gesture_.IsGestureActive(gesture)) {
+	if (scrollTouchId_ != -1 && gesture_.IsGestureActive(gesture, scrollTouchId_)) {
 		float maxPull = bounds_.h * 0.1f;
 		if (pos < 0.0f) {
 			float dist = std::min(-pos * (1.0f / bounds_.h), 1.0f);
@@ -951,14 +951,14 @@ void ScrollView::Update() {
 		} else {
 			scrollPos_ += (target - scrollPos_) * 0.3f;
 		}
-	} else if (inertia_ != 0.0f && !gesture_.IsGestureActive(gesture)) {
+	} else if (inertia_ != 0.0f && !gesture_.IsGestureActive(gesture, scrollTouchId_)) {
 		scrollPos_ -= inertia_;
 		inertia_ *= friction;
 		if (fabsf(inertia_) < stop_threshold)
 			inertia_ = 0.0f;
 	}
 
-	if (!gesture_.IsGestureActive(gesture)) {
+	if (!gesture_.IsGestureActive(gesture, scrollTouchId_)) {
 		scrollPos_ = ClampedScrollPos(scrollPos_);
 
 		pull_ *= friction;

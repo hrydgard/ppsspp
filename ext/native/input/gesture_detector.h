@@ -16,14 +16,12 @@ enum Gesture {
 // with the gesture you are interested in.
 class GestureDetector {
 public:
-	GestureDetector();
-	TouchInput Update(const TouchInput &touch, int scrollTouchId, const Bounds &bounds);
+	TouchInput Update(const TouchInput &touch, const Bounds &bounds);
 	void UpdateFrame();
-	bool IsGestureActive(Gesture gesture) const;
+	bool IsGestureActive(Gesture gesture, int touchId) const;
 	bool GetGestureInfo(Gesture gesture, int touchId, float info[4]) const;
 
 private:
-	// jazzhands!
 	enum Locals {
 		MAX_PTRS = 10,
 	};
@@ -39,13 +37,11 @@ private:
 		float deltaY;
 		float distanceX;
 		float distanceY;
+		float estimatedInertiaX;
+		float estimatedInertiaY;
+
+		uint32_t active;
 	};
 
-	Pointer pointers[MAX_PTRS];
-
-	uint32_t active_;
-
-	// For inertia estimation
-	float estimatedInertiaX_;
-	float estimatedInertiaY_;
+	Pointer pointers[MAX_PTRS]{};
 };
