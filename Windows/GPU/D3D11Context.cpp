@@ -84,16 +84,10 @@ HRESULT D3D11Context::CreateTheDevice() {
 }
 
 static void GetRes(HWND hWnd, int &xres, int &yres) {
-#if PPSSPP_PLATFORM(UWP)
-	// TEMPORARY TODO UWP
-	xres = 1024;
-	yres = 768;
-#else
 	RECT rc;
 	GetClientRect(hWnd, &rc);
 	xres = rc.right - rc.left;
 	yres = rc.bottom - rc.top;
-#endif
 }
 
 bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
