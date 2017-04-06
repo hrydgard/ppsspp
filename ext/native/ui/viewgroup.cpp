@@ -752,7 +752,7 @@ void ScrollView::Touch(const TouchInput &input) {
 
 	TouchInput input2;
 	if (CanScroll()) {
-		input2 = gesture_.Update(input, bounds_);
+		input2 = gesture_.Update(input, scrollTouchId_, bounds_);
 		float info[4];
 		if (input.id == scrollTouchId_ && gesture_.GetGestureInfo(gesture, input.id, info) && !(input.flags & TOUCH_DOWN)) {
 			float pos = scrollStart_ - info[0];

@@ -16,7 +16,7 @@ GestureDetector::GestureDetector()
 	memset(pointers, 0, sizeof(pointers));
 }
 
-TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds) {
+TouchInput GestureDetector::Update(const TouchInput &touch, int scrollTouchId, const Bounds &bounds) {
 	// Mouse / 1-finger-touch control.
 	Pointer &p = pointers[touch.id];
 	if ((touch.flags & TOUCH_DOWN) && bounds.Contains(touch.x, touch.y)) {
@@ -45,7 +45,7 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 		p.lastY = touch.y;
 	}
 
-	if (touch.id == 0 && p.distanceY > p.distanceX) {
+	if (touch.id == scrollTouchId && p.distanceY > p.distanceX) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
 			if (!active_ && p.distanceY * timeDown > 3) {
@@ -60,7 +60,7 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 		}
 	}
 
-	if (touch.id == 0 && p.distanceX > p.distanceY) {
+	if (touch.id == scrollTouchId && p.distanceX > p.distanceY) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
 			if (!active_ && p.distanceX * timeDown > 3) {
@@ -88,20 +88,18 @@ bool GestureDetector::IsGestureActive(Gesture gesture) const {
 }
 
 bool GestureDetector::GetGestureInfo(Gesture gesture, int touchId, float info[4]) const {
+	memset(info, 0, sizeof(float) * 4);
 	if (!(active_ & gesture)) {
-		memset(info, 0, sizeof(float) * 4);
 		return false;
 	}
 
-	memset(info, 0, sizeof(float) * 4);
-
 	switch (gesture) {
 	case GESTURE_DRAG_HORIZONTAL:
-		info[0] = pointers[0].lastX - pointers[0].downX;
+		info[0] = pointers[touchId].lastX - pointers[touchId].downX;
 		info[1] = estimatedInertiaX_;
 		return true;
 	case GESTURE_DRAG_VERTICAL:
-		info[0] = pointers[0].lastY - pointers[0].downY;
+		info[0] = pointers[touchId].lastY - pointers[touchId].downY;
 		info[1] = estimatedInertiaY_;
 		return true;
 	default:
