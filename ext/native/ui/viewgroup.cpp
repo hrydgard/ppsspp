@@ -744,7 +744,7 @@ void ScrollView::Touch(const TouchInput &input) {
 
 	if ((input.flags & TOUCH_UP) && input.id == scrollTouchId_) {
 		float info[4];
-		if (gesture_.GetGestureInfo(gesture, info)) {
+		if (gesture_.GetGestureInfo(gesture, input.id, info)) {
 			inertia_ = info[1];
 		}
 		scrollTouchId_ = -1;
@@ -754,7 +754,7 @@ void ScrollView::Touch(const TouchInput &input) {
 	if (CanScroll()) {
 		input2 = gesture_.Update(input, bounds_);
 		float info[4];
-		if (gesture_.GetGestureInfo(gesture, info) && !(input.flags & TOUCH_DOWN) && input.id == scrollTouchId_) {
+		if (input.id == scrollTouchId_ && gesture_.GetGestureInfo(gesture, input.id, info) && !(input.flags & TOUCH_DOWN)) {
 			float pos = scrollStart_ - info[0];
 			scrollPos_ = pos;
 			scrollTarget_ = pos;

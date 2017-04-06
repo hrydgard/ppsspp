@@ -20,7 +20,7 @@ public:
 	TouchInput Update(const TouchInput &touch, const Bounds &bounds);
 	void UpdateFrame();
 	bool IsGestureActive(Gesture gesture) const;
-	bool GetGestureInfo(Gesture gesture, float info[4]) const;
+	bool GetGestureInfo(Gesture gesture, int touchId, float info[4]) const;
 
 private:
 	// jazzhands!

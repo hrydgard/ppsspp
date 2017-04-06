@@ -87,7 +87,7 @@ bool GestureDetector::IsGestureActive(Gesture gesture) const {
 	return (active_ & gesture) != 0;
 }
 
-bool GestureDetector::GetGestureInfo(Gesture gesture, float info[4]) const {
+bool GestureDetector::GetGestureInfo(Gesture gesture, int touchId, float info[4]) const {
 	if (!(active_ & gesture)) {
 		memset(info, 0, sizeof(float) * 4);
 		return false;
