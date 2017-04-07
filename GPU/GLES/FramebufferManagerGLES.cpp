@@ -547,28 +547,7 @@ void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFra
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
 
-			int x = 0;
-			int y = 0;
-			int w = framebuffer->drawnWidth;
-			int h = framebuffer->drawnHeight;
-
-			// If max is not > min, we probably could not detect it.  Skip.
-			// See the vertex decoder, where this is updated.
-			if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
-				x = gstate_c.vertBounds.minU;
-				y = gstate_c.vertBounds.minV;
-				w = gstate_c.vertBounds.maxU - x;
-				h = gstate_c.vertBounds.maxV - y;
-
-				// If we bound a framebuffer, apply the byte offset as pixels to the copy too.
-				if (flags & BINDFBCOLOR_APPLY_TEX_OFFSET) {
-					x += gstate_c.curTextureXOffset;
-					y += gstate_c.curTextureYOffset;
-				}
-			}
-
-			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
-
+			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
 			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
