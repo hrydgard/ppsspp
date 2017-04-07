@@ -718,6 +718,32 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 }
 
+void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags) {
+	int x = 0;
+	int y = 0;
+	int w = src->drawnWidth;
+	int h = src->drawnHeight;
+
+	// If max is not > min, we probably could not detect it.  Skip.
+	// See the vertex decoder, where this is updated.
+	if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
+		x = std::max(gstate_c.vertBounds.minU, (u16)0);
+		y = std::max(gstate_c.vertBounds.minV, (u16)0);
+		w = std::min(gstate_c.vertBounds.maxU, src->drawnWidth) - x;
+		h = std::min(gstate_c.vertBounds.maxV, src->drawnHeight) - y;
+
+		// If we bound a framebuffer, apply the byte offset as pixels to the copy too.
+		if (flags & BINDFBCOLOR_APPLY_TEX_OFFSET) {
+			x += gstate_c.curTextureXOffset;
+			y += gstate_c.curTextureYOffset;
+		}
+	}
+
+	if (x < src->drawnWidth && y < src->drawnHeight && w > 0 && h > 0) {
+		BlitFramebuffer(dst, x, y, src, x, y, w, h, 0);
+	}
+}
+
 void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
