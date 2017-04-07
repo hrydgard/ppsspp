@@ -49,7 +49,7 @@ std::string GameManager::GetTempFilename() const {
 	GetTempFileName(tempPath, L"PSP", 1, buffer);
 	return ConvertWStringToUTF8(buffer);
 #else
-	return g_Config.externalDirectory + "/ppsspp.dl";
+	return g_Config.memStickDirectory + "/ppsspp.dl";
 #endif
 }
 
