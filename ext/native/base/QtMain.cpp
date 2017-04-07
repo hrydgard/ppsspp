@@ -434,21 +434,20 @@ int main(int argc, char *argv[])
 	g_dpi_scale_real = g_dpi_scale;
 	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
 	std::string savegame_dir = ".";
-	std::string assets_dir = ".";
+	std::string external_dir = ".";
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
 	savegame_dir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation).toStdString();
-	assets_dir = QStandardPaths::writableLocation(QStandardPaths::DataLocation).toStdString();
+	external_dir = QStandardPaths::writableLocation(QStandardPaths::DataLocation).toStdString();
 #endif
 	savegame_dir += "/";
-	assets_dir += "/";
+	external_dir += "/";
 	
 	bool fullscreenCLI=false;
-	for (int i = 1; i < argc; i++) 
-	{
+	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			fullscreenCLI=true;
 	}
-	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), assets_dir.c_str(), nullptr, fullscreenCLI);
+	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr, fullscreenCLI);
 	
 	int ret = mainInternal(a);
 
