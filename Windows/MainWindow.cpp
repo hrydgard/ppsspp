@@ -407,11 +407,13 @@ namespace MainWindow
 		}
 
 		// Then center if necessary. One dimension at a time.
+		// Max is to make sure that if we end up making the window bigger than the screen (which is not ideal), the top left
+		// corner, and thus the menu etc, will be visible. Also potential workaround for #9563.
 		if (resetPositionX) {
-			g_Config.iWindowX = (currentScreenWidth - g_Config.iWindowWidth) / 2;
+			g_Config.iWindowX = std::max(0, (currentScreenWidth - g_Config.iWindowWidth) / 2);
 		}
 		if (resetPositionY) {
-			g_Config.iWindowY = (currentScreenHeight - g_Config.iWindowHeight) / 2;
+			g_Config.iWindowY = std::max(0, (currentScreenHeight - g_Config.iWindowHeight) / 2);
 		}
 
 		RECT rc;
