@@ -385,6 +385,11 @@ namespace MainWindow
 				resetPositionY = false;
 		}
 
+		// Try to workaround #9563.
+		if (!resetPositionY && g_Config.iWindowY < 0) {
+			g_Config.iWindowY = 0;
+		}
+
 		int windowWidth = g_Config.iWindowWidth;
 		int windowHeight = g_Config.iWindowHeight;
 
