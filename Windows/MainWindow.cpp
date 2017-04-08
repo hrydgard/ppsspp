@@ -362,20 +362,22 @@ namespace MainWindow
 
 	// Note that this also updates the config! Not very clean.
 	RECT DetermineWindowRectangle() {
-		const int screenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-		const int screenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-		const int screenX = GetSystemMetrics(SM_XVIRTUALSCREEN);
-		const int screenY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+		const int virtualScreenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+		const int virtualScreenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+		const int virtualScreenX = GetSystemMetrics(SM_XVIRTUALSCREEN);
+		const int virtualScreenY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+		const int currentScreenWidth = GetSystemMetrics(SM_CXSCREEN);
+		const int currentScreenHeight = GetSystemMetrics(SM_CYSCREEN);
 
 		bool resetPositionX = true;
 		bool resetPositionY = true;
 
 		if (g_Config.iWindowWidth > 0 && g_Config.iWindowHeight > 0 && !g_Config.bFullScreen) {
-			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= screenX) &&
-				((g_Config.iWindowX + g_Config.iWindowWidth) < (screenWidth + g_Config.iWindowWidth));
+			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= virtualScreenX) &&
+				((g_Config.iWindowX + g_Config.iWindowWidth) < (virtualScreenWidth + g_Config.iWindowWidth));
 
-			bool visibleVertically = ((g_Config.iWindowY + g_Config.iWindowHeight) >= screenY) &&
-				((g_Config.iWindowY + g_Config.iWindowHeight) < (screenHeight + g_Config.iWindowHeight));
+			bool visibleVertically = ((g_Config.iWindowY + g_Config.iWindowHeight) >= virtualScreenY) &&
+				((g_Config.iWindowY + g_Config.iWindowHeight) < (virtualScreenHeight + g_Config.iWindowHeight));
 
 			if (visibleHorizontally)
 				resetPositionX = false;
@@ -401,10 +403,10 @@ namespace MainWindow
 
 		// Then center if necessary. One dimension at a time.
 		if (resetPositionX) {
-			g_Config.iWindowX = screenX + (screenWidth - g_Config.iWindowWidth) / 2;
+			g_Config.iWindowX = (currentScreenWidth - g_Config.iWindowWidth) / 2;
 		}
 		if (resetPositionY) {
-			g_Config.iWindowY = screenY + (screenHeight - g_Config.iWindowHeight) / 2;
+			g_Config.iWindowY = (currentScreenHeight - g_Config.iWindowHeight) / 2;
 		}
 
 		RECT rc;
