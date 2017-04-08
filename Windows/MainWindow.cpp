@@ -381,7 +381,7 @@ namespace MainWindow
 
 			if (visibleHorizontally)
 				resetPositionX = false;
-			if (!visibleVertically)
+			if (visibleVertically)
 				resetPositionY = false;
 		}
 
