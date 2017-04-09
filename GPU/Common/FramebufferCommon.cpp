@@ -23,6 +23,7 @@
 #include "gfx_es2/gpu_features.h"
 
 #include "i18n/i18n.h"
+#include "Common/ColorConv.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
@@ -564,6 +565,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
+		vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 	} else {
 		DownloadFramebufferOnSwitch(prevVfb);
 	}
@@ -776,6 +778,7 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 		// Saving each frame would be slow.
 		if (!g_Config.bDisableSlowFramebufEffects) {
 			ReadFramebufferToMemory(vfb, true, 0, 0, vfb->safeWidth, vfb->safeHeight);
+			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			vfb->firstFrameSaved = true;
 			vfb->safeWidth = 0;
 			vfb->safeHeight = 0;
@@ -1021,6 +1024,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
 			bool sync = gl_extensions.IsGLES;
 			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
+			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
 
 		// Let's also "decimate" the usageFlags.
@@ -1239,6 +1243,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			WARN_LOG_REPORT_ONCE(btdcpyheight, G3D, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
 		} else if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
 			ReadFramebufferToMemory(srcBuffer, true, 0, srcY, srcBuffer->width, srcH);
+			srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}
 		return false;
 	} else {
@@ -1393,6 +1398,86 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 	return nvfb;
 }
 
+void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor) {
+	if (currentRenderVfb_) {
+		if ((currentRenderVfb_->usageFlags & FB_USAGE_DOWNLOAD_CLEAR) != 0) {
+			// Already zeroed in memory.
+			return;
+		}
+	}
+
+	u8 *addr = Memory::GetPointer(gstate.getFrameBufAddress());
+	const bool singleByteClear = (clearColor >> 16) == (clearColor & 0xFFFF) && (clearColor >> 24) == (clearColor & 0xFF);
+	const int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	const int stride = gstate.FrameBufStride();
+	const int width = x2 - x1;
+
+	// Can use memset for simple cases. Often alpha is different and gums up the works.
+	// The check for bpp==4 etc is because we don't properly convert the clear color to the correct
+	// 16-bit format before computing the singleByteClear value. That could be done, but it was easier
+	// to just fall back to the generic case.
+	if (singleByteClear && (bpp == 4 || clearColor == 0)) {
+		const int byteStride = stride * bpp;
+		const int byteWidth = width * bpp;
+		addr += x1 * bpp;
+		for (int y = y1; y < y2; ++y) {
+			memset(addr + y * byteStride, clearColor, byteWidth);
+		}
+	} else {
+		u16 clear16 = 0;
+		switch (gstate.FrameBufFormat()) {
+		case GE_FORMAT_565: ConvertRGBA8888ToRGB565(&clear16, &clearColor, 1); break;
+		case GE_FORMAT_5551: ConvertRGBA8888ToRGBA5551(&clear16, &clearColor, 1); break;
+		case GE_FORMAT_4444: ConvertRGBA8888ToRGBA4444(&clear16, &clearColor, 1); break;
+		}
+
+		// This will most often be true - rarely is the width not aligned.
+		// TODO: We should really use non-temporal stores here to avoid the cache,
+		// as it's unlikely that these bytes will be read.
+		if ((width & 3) == 0 && (x1 & 3) == 0) {
+			u64 val64 = clearColor | ((u64)clearColor << 32);
+			int xstride = 2;
+			if (bpp == 2) {
+				// Spread to all eight bytes.
+				u64 c2 = clear16 | (clear16 << 16);
+				val64 = c2 | (c2 << 32);
+				xstride = 4;
+			}
+
+			u64 *addr64 = (u64 *)addr;
+			const int stride64 = stride / xstride;
+			const int x1_64 = x1 / xstride;
+			const int x2_64 = x2 / xstride;
+			for (int y = y1; y < y2; ++y) {
+				for (int x = x1_64; x < x2_64; ++x) {
+					addr64[y * stride64 + x] = val64;
+				}
+			}
+		} else if (bpp == 4) {
+			u32 *addr32 = (u32 *)addr;
+			for (int y = y1; y < y2; ++y) {
+				for (int x = x1; x < x2; ++x) {
+					addr32[y * stride + x] = clearColor;
+				}
+			}
+		} else if (bpp == 2) {
+			u16 *addr16 = (u16 *)addr;
+			for (int y = y1; y < y2; ++y) {
+				for (int x = x1; x < x2; ++x) {
+					addr16[y * stride + x] = clear16;
+				}
+			}
+		}
+	}
+
+	if (currentRenderVfb_) {
+		// The current content is in memory now, so update the flag.
+		if (x1 == 0 && y1 == 0 && x2 >= currentRenderVfb_->width && y2 >= currentRenderVfb_->height) {
+			currentRenderVfb_->usageFlags |= FB_USAGE_DOWNLOAD_CLEAR;
+		}
+	}
+}
+
 void FramebufferManagerCommon::OptimizeDownloadRange(VirtualFramebuffer * vfb, int & x, int & y, int & w, int & h) {
 	if (gameUsesSequentialCopies_) {
 		// Ignore the x/y/etc., read the entire thing.
@@ -1404,6 +1489,7 @@ void FramebufferManagerCommon::OptimizeDownloadRange(VirtualFramebuffer * vfb, i
 	if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
 		// Mark it as fully downloaded until next render to it.
 		vfb->memoryUpdated = true;
+		vfb->usageFlags |= FB_USAGE_DOWNLOAD;
 	} else {
 		// Let's try to set the flag eventually, if the game copies a lot.
 		// Some games copy subranges very frequently.
@@ -1485,6 +1571,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				if (tooTall)
 					WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x dangerous, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
 				ReadFramebufferToMemory(srcBuffer, true, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcWidth * srcXFactor), srcHeight);
+				srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			}
 		}
 		return false;  // Let the bit copy happen

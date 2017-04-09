@@ -976,7 +976,7 @@ rotateVBO:
 			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
 
 			if (g_Config.bBlockTransferGPU && (gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate.FrameBufFormat() == GE_FORMAT_565)) {
-				ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
+				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
 		}
 	}
