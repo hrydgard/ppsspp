@@ -140,7 +140,7 @@ namespace SaveState
 				return CChunkFileReader::ERROR_BAD_FILE;
 
 			static std::vector<u8> buffer;
-			Decompress(buffer, states_[n], bases_[baseMapping_[n]]);
+			LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
 			return LoadFromRam(buffer);
 		}
 
@@ -174,9 +174,8 @@ namespace SaveState
 			}
 		}
 
-		void Decompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base)
+		void LockedDecompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base)
 		{
-			std::lock_guard<std::mutex> guard(lock_);
 			result.clear();
 			result.reserve(base.size());
 			auto basePos = base.begin();
