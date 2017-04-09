@@ -189,32 +189,27 @@ namespace MainWindow
 		}
 	}
 
-	static void GetWindowRectAtResolution(int xres, int yres, RECT &rcInner, RECT &rcOuter) {
-		rcInner.left = 0;
-		rcInner.top = 0;
-
-		rcInner.right = xres;
-		rcInner.bottom = yres;
-
-		rcOuter = rcInner;
-		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
-		rcOuter.right += g_Config.iWindowX - rcOuter.left;
-		rcOuter.bottom += g_Config.iWindowY - rcOuter.top;
-		rcOuter.left = g_Config.iWindowX;
-		rcOuter.top = g_Config.iWindowY;
+	static void GetWindowSizeAtResolution(int xres, int yres, int *windowWidth, int *windowHeight) {
+		RECT rc{};
+		rc.right = xres;
+		rc.bottom = yres;
+		AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
+		*windowWidth = rc.right - rc.left;
+		*windowHeight = rc.bottom - rc.top;
 	}
 
 	void SetWindowSize(int zoom) {
 		AssertCurrentThreadName("Main");
-		RECT rc, rcOuter;
-
 		// Actually, auto mode should be more granular...
+		int width, height;
 		if (g_Config.IsPortrait()) {
-			GetWindowRectAtResolution(272 * (int)zoom, 480 * (int)zoom, rc, rcOuter);
+			GetWindowSizeAtResolution(272 * (int)zoom, 480 * (int)zoom, &width, &height);
 		} else {
-			GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
+			GetWindowSizeAtResolution(480 * (int)zoom, 272 * (int)zoom, &width, &height);
 		}
-		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
+		g_Config.iWindowWidth = width;
+		g_Config.iWindowHeight = height;
+		MoveWindow(hwndMain, g_Config.iWindowX, g_Config.iWindowY, width, height, TRUE);
 	}
 
 	void SetInternalResolution(int res) {
@@ -365,63 +360,67 @@ namespace MainWindow
 		ShowWindow(hwndMain, SW_MINIMIZE);
 	}
 
+	// Note that this also updates the config! Not very clean.
 	RECT DetermineWindowRectangle() {
-		RECT rc;
+		const int virtualScreenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+		const int virtualScreenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+		const int virtualScreenX = GetSystemMetrics(SM_XVIRTUALSCREEN);
+		const int virtualScreenY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+		const int currentScreenWidth = GetSystemMetrics(SM_CXSCREEN);
+		const int currentScreenHeight = GetSystemMetrics(SM_CYSCREEN);
 
-		const int screenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-		const int screenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-		const int screenX = GetSystemMetrics(SM_XVIRTUALSCREEN);
-		const int screenY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+		bool resetPositionX = true;
+		bool resetPositionY = true;
 
-		if (!g_Config.bFullScreen) {
-			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= screenX) &&
-				((g_Config.iWindowX + g_Config.iWindowWidth) < (screenWidth + g_Config.iWindowWidth));
+		if (g_Config.iWindowWidth > 0 && g_Config.iWindowHeight > 0 && !g_Config.bFullScreen) {
+			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= virtualScreenX) &&
+				((g_Config.iWindowX + g_Config.iWindowWidth) < (virtualScreenWidth + g_Config.iWindowWidth));
 
-			bool visibleVertically = ((g_Config.iWindowY + g_Config.iWindowHeight) >= screenY) &&
-				((g_Config.iWindowY + g_Config.iWindowHeight) < (screenHeight + g_Config.iWindowHeight));
+			bool visibleVertically = ((g_Config.iWindowY + g_Config.iWindowHeight) >= virtualScreenY) &&
+				((g_Config.iWindowY + g_Config.iWindowHeight) < (virtualScreenHeight + g_Config.iWindowHeight));
 
-			if (!visibleHorizontally)
-				g_Config.iWindowX = -1;
-
-			if (!visibleVertically)
-				g_Config.iWindowY = -1;
+			if (visibleHorizontally)
+				resetPositionX = false;
+			if (visibleVertically)
+				resetPositionY = false;
 		}
 
-		rc.left = g_Config.iWindowX;
-		rc.top = g_Config.iWindowY;
+		// Try to workaround #9563.
+		if (!resetPositionY && g_Config.iWindowY < 0) {
+			g_Config.iWindowY = 0;
+		}
+
+		int windowWidth = g_Config.iWindowWidth;
+		int windowHeight = g_Config.iWindowHeight;
 
 		// First, get the w/h right.
-		if (g_Config.iWindowWidth <= 0 || g_Config.iWindowHeight <= 0) {
-			RECT rcInner = rc, rcOuter;
+		if (windowWidth <= 0 || windowHeight <= 0) {
 			bool portrait = g_Config.IsPortrait();
 
 			// We want to adjust for DPI but still get an integer pixel scaling ratio.
 			double dpi_scale = 96.0 / System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
 			int scale = (int)ceil(2.0 / dpi_scale);
 
-			GetWindowRectAtResolution(scale * (portrait ? 272 : 480), scale * (portrait ? 480 : 272), rcInner, rcOuter);
-			rc.right = rc.left + (rcOuter.right - rcOuter.left);
-			rc.bottom = rc.top + (rcOuter.bottom - rcOuter.top);
-			g_Config.iWindowWidth = rc.right - rc.left;
-			g_Config.iWindowHeight = rc.bottom - rc.top;
-		} else {
-			rc.right = rc.left + g_Config.iWindowWidth;
-			rc.bottom = rc.top + g_Config.iWindowHeight;
+			GetWindowSizeAtResolution(scale * (portrait ? 272 : 480), scale * (portrait ? 480 : 272), &windowWidth, &windowHeight);
+			g_Config.iWindowWidth = windowWidth;
+			g_Config.iWindowHeight = windowHeight;
 		}
 
-		// Then center if necessary.
-		if (g_Config.iWindowX == -1 && g_Config.iWindowY == -1) {
-			// Center the window.
-			const int primaryScreenWidth = GetSystemMetrics(SM_CXSCREEN);
-			const int primaryScreenHeight = GetSystemMetrics(SM_CYSCREEN);
-			g_Config.iWindowX = (primaryScreenWidth - g_Config.iWindowWidth) / 2;
-			g_Config.iWindowY = (primaryScreenHeight - g_Config.iWindowHeight) / 2;
-			rc.left = g_Config.iWindowX;
-			rc.top = g_Config.iWindowY;
-			rc.right = rc.left + g_Config.iWindowWidth;
-			rc.bottom = rc.top + g_Config.iWindowHeight;
+		// Then center if necessary. One dimension at a time.
+		// Max is to make sure that if we end up making the window bigger than the screen (which is not ideal), the top left
+		// corner, and thus the menu etc, will be visible. Also potential workaround for #9563.
+		if (resetPositionX) {
+			g_Config.iWindowX = std::max(0, (currentScreenWidth - g_Config.iWindowWidth) / 2);
+		}
+		if (resetPositionY) {
+			g_Config.iWindowY = std::max(0, (currentScreenHeight - g_Config.iWindowHeight) / 2);
 		}
 
+		RECT rc;
+		rc.left = g_Config.iWindowX;
+		rc.right = rc.left + g_Config.iWindowWidth;
+		rc.top = g_Config.iWindowY;
+		rc.bottom = rc.top + g_Config.iWindowHeight;
 		return rc;
 	}
 
