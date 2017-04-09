@@ -1407,42 +1407,39 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 	}
 
 	u8 *addr = Memory::GetPointer(gstate.getFrameBufAddress());
-	const bool singleByteClear = (clearColor >> 16) == (clearColor & 0xFFFF) && (clearColor >> 24) == (clearColor & 0xFF);
 	const int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
-	const int stride = gstate.FrameBufStride();
-	const int width = x2 - x1;
 
-	// Can use memset for simple cases. Often alpha is different and gums up the works.
-	// The check for bpp==4 etc is because we don't properly convert the clear color to the correct
-	// 16-bit format before computing the singleByteClear value. That could be done, but it was easier
-	// to just fall back to the generic case.
-	if (singleByteClear && (bpp == 4 || clearColor == 0)) {
-		const int byteStride = stride * bpp;
-		const int byteWidth = width * bpp;
-		addr += x1 * bpp;
-		for (int y = y1; y < y2; ++y) {
-			memset(addr + y * byteStride, clearColor, byteWidth);
-		}
-	} else {
+	u32 clearBits = clearColor;
+	if (bpp == 2) {
 		u16 clear16 = 0;
 		switch (gstate.FrameBufFormat()) {
 		case GE_FORMAT_565: ConvertRGBA8888ToRGB565(&clear16, &clearColor, 1); break;
 		case GE_FORMAT_5551: ConvertRGBA8888ToRGBA5551(&clear16, &clearColor, 1); break;
 		case GE_FORMAT_4444: ConvertRGBA8888ToRGBA4444(&clear16, &clearColor, 1); break;
+		default: _dbg_assert_(G3D, 0); break;
 		}
+		clearBits = clear16 | (clear16 << 16);
+	}
 
+	const bool singleByteClear = (clearBits >> 16) == (clearBits & 0xFFFF) && (clearBits >> 24) == (clearBits & 0xFF);
+	const int stride = gstate.FrameBufStride();
+	const int width = x2 - x1;
+
+	// Can use memset for simple cases. Often alpha is different and gums up the works.
+	if (singleByteClear) {
+		const int byteStride = stride * bpp;
+		const int byteWidth = width * bpp;
+		addr += x1 * bpp;
+		for (int y = y1; y < y2; ++y) {
+			memset(addr + y * byteStride, clearBits, byteWidth);
+		}
+	} else {
 		// This will most often be true - rarely is the width not aligned.
 		// TODO: We should really use non-temporal stores here to avoid the cache,
 		// as it's unlikely that these bytes will be read.
 		if ((width & 3) == 0 && (x1 & 3) == 0) {
-			u64 val64 = clearColor | ((u64)clearColor << 32);
-			int xstride = 2;
-			if (bpp == 2) {
-				// Spread to all eight bytes.
-				u64 c2 = clear16 | (clear16 << 16);
-				val64 = c2 | (c2 << 32);
-				xstride = 4;
-			}
+			u64 val64 = clearBits | ((u64)clearBits << 32);
+			int xstride = 8 / bpp;
 
 			u64 *addr64 = (u64 *)addr;
 			const int stride64 = stride / xstride;
@@ -1457,14 +1454,14 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 			u32 *addr32 = (u32 *)addr;
 			for (int y = y1; y < y2; ++y) {
 				for (int x = x1; x < x2; ++x) {
-					addr32[y * stride + x] = clearColor;
+					addr32[y * stride + x] = clearBits;
 				}
 			}
 		} else if (bpp == 2) {
 			u16 *addr16 = (u16 *)addr;
 			for (int y = y1; y < y2; ++y) {
 				for (int x = x1; x < x2; ++x) {
-					addr16[y * stride + x] = clear16;
+					addr16[y * stride + x] = (u16)clearBits;
 				}
 			}
 		}
