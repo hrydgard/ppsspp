@@ -692,20 +692,20 @@ static u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
 
 static u32 sceUtilityGetSystemParamInt_(u32 id, u32 value)
 {
-	        switch (id) {
-            case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
-                if (value != 0 && value != 1 && value != 6 && value != 11) {
-                    return ERROR_UTILITY_INVALID_ADHOC_CHANNEL;
-                }
-                //Settings.getInstance().writeInt(SYSTEMPARAM_SETTINGS_OPTION_ADHOC_CHANNEL, value);
-                break;
-            case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
-               // Settings.getInstance().writeInt(SYSTEMPARAM_SETTINGS_OPTION_WLAN_POWER_SAVE, value);
-                break;
-            default:
-                // PSP can only set above int parameters
-                return ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID;
-        }
+	switch (id) {
+	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
+		if (value != 0 && value != 1 && value != 6 && value != 11) {
+			return ERROR_UTILITY_INVALID_ADHOC_CHANNEL;
+		}
+		//Settings.getInstance().writeInt(SYSTEMPARAM_SETTINGS_OPTION_ADHOC_CHANNEL, value);
+		break;
+	case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
+		// Settings.getInstance().writeInt(SYSTEMPARAM_SETTINGS_OPTION_WLAN_POWER_SAVE, value);
+		break;
+	default:
+		// PSP can only set above int parameters
+		return ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID;
+	}
 	return 0;
 }
 
