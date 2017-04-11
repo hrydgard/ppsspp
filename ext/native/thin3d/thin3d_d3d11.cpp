@@ -184,6 +184,8 @@ private:
 
 	ID3D11Buffer *nextVertexBuffers_[4]{};
 	int nextVertexBufferOffsets_[4]{};
+
+	bool dirtyIndexBuffer_ = false;
 	ID3D11Buffer *nextIndexBuffer_ = nullptr;
 	int nextIndexBufferOffset_ = 0;
 
@@ -978,8 +980,9 @@ void D3D11DrawContext::ApplyCurrentState() {
 
 	int numVBs = (int)curPipeline_->input->strides.size();
 	context_->IASetVertexBuffers(0, 1, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
-	if (nextIndexBuffer_) {
+	if (dirtyIndexBuffer_) {
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
+		dirtyIndexBuffer_ = false;
 	}
 	if (curPipeline_->dynamicUniforms) {
 		context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
@@ -1055,8 +1058,9 @@ void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers,
 void D3D11DrawContext::BindIndexBuffer(Buffer *indexBuffer, int offset) {
 	D3D11Buffer *buf = (D3D11Buffer *)indexBuffer;
 	// Lazy application
-	nextIndexBuffer_ = buf->buf;
-	nextIndexBufferOffset_ = offset;
+	dirtyIndexBuffer_ = true;
+	nextIndexBuffer_ = buf ? buf->buf : 0;
+	nextIndexBufferOffset_ = buf ? offset : 0;
 }
 
 void D3D11DrawContext::Draw(int vertexCount, int offset) {

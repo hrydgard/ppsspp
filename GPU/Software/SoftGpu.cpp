@@ -237,6 +237,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		std::swap(v0, v1);
 	}
+	draw_->BindBackbufferAsRenderTarget();
+	draw_->Clear(Draw::FB_COLOR_BIT, 0, 0, 0);
 
 	Draw::SamplerState *sampler;
 	if (g_Config.iBufFilter == SCALE_NEAREST) {
@@ -273,6 +275,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	draw_->BindVertexBuffers(0, 1, &vdata, nullptr);
 	draw_->BindIndexBuffer(idata, 0);
 	draw_->DrawIndexed(6, 0);
+	draw_->BindIndexBuffer(nullptr, 0);
 }
 
 void SoftGPU::CopyDisplayToOutput()
