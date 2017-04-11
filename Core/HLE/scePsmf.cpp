@@ -1229,6 +1229,10 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 	psmfplayer->videoWidth = buf[142] * 16;
 	psmfplayer->videoHeight = buf[143] * 16;
 
+	// Reflect these values to memory - LocoRoco2 reads the height directly here.
+	Memory::Write_U32(psmfplayer->videoWidth, psmfPlayer + 0xBC);
+	Memory::Write_U32(psmfplayer->videoHeight, psmfPlayer + 0xC0);
+
 	psmfplayer->playerVersion = PSMF_PLAYER_VERSION_FULL;
 	for (u16 i = 0; i < numStreams; i++) {
 		const u8 *currentStreamAddr = buf + 0x82 + i * 16;
@@ -1737,7 +1741,7 @@ static u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 	return 0;
 }
 
-static u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr, u32 widthAddr, u32 heightAddr) {
+static u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr) {
 	auto info = PSPPointer<PsmfInfo>::Create(psmfInfoAddr);
 	if (!Memory::IsValidAddress(psmfPlayer) || !info.IsValid()) {
 		ERROR_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x, %08x): invalid addresses", psmfPlayer, psmfInfoAddr);
@@ -1763,19 +1767,6 @@ static u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr, u32 widthA
 	// pcm stream num?
 	info->numPCMStreams = 0;
 	info->playerVersion = psmfplayer->playerVersion;
-
-	if (psmfPlayerLibVersion >= 0x03090510) {
-		// LocoRoco 2 depends on these for sizing its video output. Without this, its height is zero
-		// and nothing is drawn.
-		// Can't ask mediaengine for width/height here, it's too early, so we grabbed it from the
-		// header in scePsmfPlayerSetPsmf.
-		if (Memory::IsValidAddress(widthAddr) && psmfplayer->videoWidth) {
-			Memory::Write_U32(psmfplayer->videoWidth, widthAddr);
-		}
-		if (Memory::IsValidAddress(heightAddr) && psmfplayer->videoHeight) {
-			Memory::Write_U32(psmfplayer->videoHeight, heightAddr);
-		}
-	}
 	return 0;
 }
 
@@ -2146,7 +2137,7 @@ const HLEFunction scePsmfPlayer[] =
 	{0XA3D81169, &WrapU_UII<scePsmfPlayerChangePlayMode>,              "scePsmfPlayerChangePlayMode",              'x', "xii"},
 	{0XB8D10C56, &WrapU_U<scePsmfPlayerSelectAudio>,                   "scePsmfPlayerSelectAudio",                 'x', "x"  },
 	{0XB9848A74, &WrapI_UU<scePsmfPlayerGetAudioData>,                 "scePsmfPlayerGetAudioData",                'i', "xx" },
-	{0XDF089680, &WrapU_UUUU<scePsmfPlayerGetPsmfInfo>,                  "scePsmfPlayerGetPsmfInfo",                 'x', "xxxx" },
+	{0XDF089680, &WrapU_UU<scePsmfPlayerGetPsmfInfo>,                  "scePsmfPlayerGetPsmfInfo",                 'x', "xxxx" },
 	{0XE792CD94, &WrapI_U<scePsmfPlayerReleasePsmf>,                   "scePsmfPlayerReleasePsmf",                 'i', "x"  },
 	{0XF3EFAA91, &WrapU_UUU<scePsmfPlayerGetCurrentPlayMode>,          "scePsmfPlayerGetCurrentPlayMode",          'x', "xxx"},
 	{0XF8EF08A6, &WrapI_U<scePsmfPlayerGetCurrentStatus>,              "scePsmfPlayerGetCurrentStatus",            'i', "x"  },
