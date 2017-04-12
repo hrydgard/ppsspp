@@ -27,6 +27,7 @@ public:
 
 private:
 	int ToTouchID(int windowsID, bool allowAllocate = true);
+	bool GetTouchPoint(HWND hWnd, const TOUCHINPUT &input, float &x, float &y);
 
 	void disablePressAndHold(HWND hWnd);
 	void touchUp(int id, float x, float y);

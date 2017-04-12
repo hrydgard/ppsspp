@@ -6,6 +6,7 @@
 
 #include "base/display.h"
 #include "Common/CommonWindows.h"
+#include "Common/CommonFuncs.h"
 #include "base/NativeApp.h"
 #include "Windows/MainWindow.h"
 
@@ -59,38 +60,48 @@ int TouchInputHandler::ToTouchID(int windowsID, bool allowAllocate) {
 	return -1;
 }
 
+bool TouchInputHandler::GetTouchPoint(HWND hWnd, const TOUCHINPUT &input, float &x, float &y) {
+	POINT point;
+	point.x = (LONG)(TOUCH_COORD_TO_PIXEL(input.x));
+	point.y = (LONG)(TOUCH_COORD_TO_PIXEL(input.y));
+	if (ScreenToClient(hWnd, &point)) {
+		x = point.x * g_dpi_scale;
+		y = point.y * g_dpi_scale;
+		return true;
+	}
+
+	return false;
+}
+
 void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	if (hasTouch()) {
 		UINT inputCount = LOWORD(wParam);
-		HTOUCHINPUT touchInputData = (HTOUCHINPUT) lParam;
+		HTOUCHINPUT touchInputData = (HTOUCHINPUT)lParam;
 		TOUCHINPUT *inputs = new TOUCHINPUT[inputCount];
 		if (touchInfo(touchInputData, inputCount, inputs, sizeof(TOUCHINPUT))) {
 			for (UINT i = 0; i < inputCount; i++) {
-				POINT point;
-				point.x = (float)(TOUCH_COORD_TO_PIXEL(inputs[i].x));
-				point.y = (float)(TOUCH_COORD_TO_PIXEL(inputs[i].y));
-				if (ScreenToClient(hWnd, &point)) {
-					point.x *= g_dpi_scale;
-					point.y *= g_dpi_scale;
-					if (inputs[i].dwFlags & TOUCHEVENTF_DOWN) {
-						touchDown(ToTouchID(inputs[i].dwID), point.x, point.y);
-					}
-					if (inputs[i].dwFlags & TOUCHEVENTF_MOVE) {
-						touchMove(ToTouchID(inputs[i].dwID), point.x, point.y);
-					}
-					if (inputs[i].dwFlags & TOUCHEVENTF_UP) {
-						int id = ToTouchID(inputs[i].dwID, false);
-						if (id >= 0) {
-							touchUp(id, point.x, point.y);
-							touchIds[id] = 0;
-						}
+				float x, y;
+				if (!GetTouchPoint(hWnd, inputs[i], x, y))
+					continue;
+
+				if (inputs[i].dwFlags & TOUCHEVENTF_DOWN) {
+					touchDown(ToTouchID(inputs[i].dwID), x, y);
+				}
+				if (inputs[i].dwFlags & TOUCHEVENTF_MOVE) {
+					touchMove(ToTouchID(inputs[i].dwID), x, y);
+				}
+				if (inputs[i].dwFlags & TOUCHEVENTF_UP) {
+					int id = ToTouchID(inputs[i].dwID, false);
+					if (id >= 0) {
+						touchUp(id, x, y);
+						touchIds[id] = 0;
 					}
 				}
 			}
-			closeTouch((HTOUCHINPUT) lParam);
+			closeTouch(touchInputData);
 		} else {
-			// GetLastError() and error handling.
+			WARN_LOG(SYSTEM, "Failed to read input data: %s", GetLastErrorMsg());
 		}
 		delete [] inputs;
 	}
