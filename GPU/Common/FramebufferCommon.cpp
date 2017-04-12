@@ -334,7 +334,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			// Keep track, but this isn't really used.
 			vfb->z_stride = params.z_stride;
 			// Heuristic: In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
-			if (params.isModeThrough && (int)vfb->width < params.fb_stride) {
+			if (params.isModeThrough && (int)vfb->width <= params.fb_stride) {
 				vfb->width = std::max((int)vfb->width, drawing_width);
 				vfb->height = std::max((int)vfb->height, drawing_height);
 			} else {
