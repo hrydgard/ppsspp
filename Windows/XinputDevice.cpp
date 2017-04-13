@@ -113,7 +113,7 @@ XinputDevice::XinputDevice() {
 	}
 
 	for (size_t i = 0; i < ARRAY_SIZE(check_delay); ++i) {
-		check_delay[i] = i;
+		check_delay[i] = (int)i;
 	}
 }
 

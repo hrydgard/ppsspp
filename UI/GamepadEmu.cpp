@@ -628,7 +628,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 		const int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
 		static const int comboKeyImages[5] = { I_1, I_2, I_3, I_4, I_5 };
 
-		if (!System_GetPropertyInt(SYSPROP_HAS_BACK_BUTTON)) {
+		if (!System_GetPropertyInt(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause) {
 			root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
 		}
 
@@ -682,7 +682,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	}
 	else {
 		// If there's no hardware back button (or ESC key), add a soft button.
-		if (!System_GetPropertyInt(SYSPROP_HAS_BACK_BUTTON)) {
+		if (!System_GetPropertyInt(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause) {
 			root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
 		}
 	}
