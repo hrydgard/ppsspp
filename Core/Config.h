@@ -378,9 +378,8 @@ public:
 	int iCombokey3;
 	int iCombokey4;
 
-#if !defined(IOS)
+	// Ignored on iOS and other platforms that lack pause.
 	bool bShowTouchPause;
-#endif
 
 	bool bHapticFeedback;
 
