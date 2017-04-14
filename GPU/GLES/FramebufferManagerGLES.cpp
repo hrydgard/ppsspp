@@ -1150,11 +1150,8 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 void FramebufferManagerGLES::EndFrame() {
 	CHECK_GL_ERROR_IF_DEBUG();
 	if (resized_) {
-		// TODO: Only do this if the new size actually changed the renderwidth/height.
-		DestroyAllFBOs();
-
 		// Check if postprocessing shader is doing upscaling as it requires native resolution
-		const ShaderInfo *shaderInfo = 0;
+		const ShaderInfo *shaderInfo = nullptr;
 		if (g_Config.sPostShaderName != "Off") {
 			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
 		}
@@ -1183,7 +1180,9 @@ void FramebufferManagerGLES::EndFrame() {
 			PSP_CoreParameter().renderHeight = 272 * zoom;
 		}
 
-		UpdateSize();
+		if (UpdateSize() || g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+			DestroyAllFBOs();
+		}
 
 		resized_ = false;
 #ifdef _WIN32
@@ -1192,7 +1191,6 @@ void FramebufferManagerGLES::EndFrame() {
 			ShowScreenResolution();
 		}
 #endif
-		ClearBuffer();
 		DestroyDraw2DProgram();
 		SetLineWidth();
 	}
