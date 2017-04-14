@@ -859,7 +859,7 @@ void FramebufferManagerD3D11::PackDepthbuffer(VirtualFramebuffer *vfb, int x, in
 
 void FramebufferManagerD3D11::EndFrame() {
 	if (resized_) {
-		DestroyAllFBOs(false);
+		DestroyAllFBOs();
 
 		// Check if postprocessing shader is doing upscaling as it requires native resolution
 		const ShaderInfo *shaderInfo = 0;
@@ -904,7 +904,7 @@ void FramebufferManagerD3D11::EndFrame() {
 }
 
 void FramebufferManagerD3D11::DeviceLost() {
-	DestroyAllFBOs(false);
+	DestroyAllFBOs();
 	resized_ = false;
 }
 
@@ -927,7 +927,7 @@ std::vector<FramebufferInfo> FramebufferManagerD3D11::GetFramebufferList() {
 	return list;
 }
 
-void FramebufferManagerD3D11::DestroyAllFBOs(bool forceDelete) {
+void FramebufferManagerD3D11::DestroyAllFBOs() {
 	draw_->BindBackbufferAsRenderTarget();
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;

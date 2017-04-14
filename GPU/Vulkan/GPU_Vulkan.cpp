@@ -157,7 +157,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
-	framebufferManagerVulkan_->DestroyAllFBOs(true);
+	framebufferManagerVulkan_->DestroyAllFBOs();
 	depalShaderCache_.Clear();
 	delete pipelineManager_;
 	delete shaderManagerVulkan_;
@@ -315,7 +315,7 @@ void GPU_Vulkan::BuildReportingInfo() {
 void GPU_Vulkan::ReinitializeInternal() {
 	textureCacheVulkan_->Clear(true);
 	depalShaderCache_.Clear();
-	framebufferManagerVulkan_->DestroyAllFBOs(true);
+	framebufferManagerVulkan_->DestroyAllFBOs();
 	framebufferManagerVulkan_->Resized();
 }
 
@@ -823,7 +823,7 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 		depalShaderCache_.Clear();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManagerVulkan_->DestroyAllFBOs(true);
+		framebufferManagerVulkan_->DestroyAllFBOs();
 		shaderManagerVulkan_->ClearShaders();
 		pipelineManager_->Clear();
 	}

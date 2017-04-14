@@ -752,7 +752,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 	void FramebufferManagerDX9::EndFrame() {
 		if (resized_) {
-			DestroyAllFBOs(false);
+			DestroyAllFBOs();
 			// Actually, auto mode should be more granular...
 			// Round up to a zoom factor for the render size.
 			int zoom = g_Config.iInternalResolution;
@@ -785,7 +785,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	void FramebufferManagerDX9::DeviceLost() {
-		DestroyAllFBOs(false);
+		DestroyAllFBOs();
 		resized_ = false;
 	}
 
@@ -821,7 +821,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 	}
 
-	void FramebufferManagerDX9::DestroyAllFBOs(bool forceDelete) {
+	void FramebufferManagerDX9::DestroyAllFBOs() {
 		draw_->BindBackbufferAsRenderTarget();
 		currentRenderVfb_ = 0;
 		displayFramebuf_ = 0;

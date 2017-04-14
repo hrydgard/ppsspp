@@ -223,7 +223,7 @@ void GPU_DX9::CheckGPUFeatures() {
 }
 
 GPU_DX9::~GPU_DX9() {
-	framebufferManagerDX9_->DestroyAllFBOs(true);
+	framebufferManagerDX9_->DestroyAllFBOs();
 	delete framebufferManagerDX9_;
 	delete textureCache_;
 	shaderManagerDX9_->ClearCache(true);
@@ -690,7 +690,7 @@ void GPU_DX9::DoState(PointerWrap &p) {
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManagerDX9_->DestroyAllFBOs(true);
+		framebufferManagerDX9_->DestroyAllFBOs();
 		shaderManagerDX9_->ClearCache(true);
 	}
 }

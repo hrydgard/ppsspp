@@ -1151,7 +1151,7 @@ void FramebufferManagerGLES::EndFrame() {
 	CHECK_GL_ERROR_IF_DEBUG();
 	if (resized_) {
 		// TODO: Only do this if the new size actually changed the renderwidth/height.
-		DestroyAllFBOs(false);
+		DestroyAllFBOs();
 
 		// Check if postprocessing shader is doing upscaling as it requires native resolution
 		const ShaderInfo *shaderInfo = 0;
@@ -1223,7 +1223,7 @@ void FramebufferManagerGLES::EndFrame() {
 }
 
 void FramebufferManagerGLES::DeviceLost() {
-	DestroyAllFBOs(false);
+	DestroyAllFBOs();
 	DestroyDraw2DProgram();
 	resized_ = false;
 }
@@ -1247,7 +1247,7 @@ std::vector<FramebufferInfo> FramebufferManagerGLES::GetFramebufferList() {
 	return list;
 }
 
-void FramebufferManagerGLES::DestroyAllFBOs(bool forceDelete) {
+void FramebufferManagerGLES::DestroyAllFBOs() {
 	CHECK_GL_ERROR_IF_DEBUG();
 	draw_->BindBackbufferAsRenderTarget();
 	currentRenderVfb_ = 0;
