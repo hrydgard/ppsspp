@@ -413,7 +413,7 @@ static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_FAST, true, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
-	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, false, true, true),
+	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, false, true, false),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, true, true),
 
 	ConfigSetting(false),
@@ -612,9 +612,9 @@ static ConfigSetting controlSettings[] = {
 #if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
 	// sense to default this to on.
-	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, true, true, true),
+	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, true, true, false),
 #else
-	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, false, true, true),
+	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, false, true, false),
 #endif
 #if defined(USING_WIN_UI)
 	ConfigSetting("IgnoreWindowsKey", &g_Config.bIgnoreWindowsKey, false, true, true),

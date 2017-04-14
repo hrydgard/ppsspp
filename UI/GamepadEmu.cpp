@@ -680,12 +680,6 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 		if (g_Config.bShowComboKey4)
 			root->Add(new ComboKey(g_Config.iCombokey4, roundImage, comboKeyImages[4], combo4_key_scale, new AnchorLayoutParams(combo4_key_X, combo4_key_Y, NONE, NONE, true)));
 	}
-	else {
-		// If there's no hardware back button (or ESC key), add a soft button.
-		if (!System_GetPropertyInt(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause) {
-			root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
-		}
-	}
 
 	return root;
 }
