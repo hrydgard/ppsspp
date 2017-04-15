@@ -1039,9 +1039,6 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 
 void FramebufferManagerVulkan::EndFrame() {
 	if (resized_) {
-		// TODO: Only do this if the new size actually changed the renderwidth/height.
-		DestroyAllFBOs(false);
-
 		// Check if postprocessing shader is doing upscaling as it requires native resolution
 		const ShaderInfo *shaderInfo = 0;
 		if (g_Config.sPostShaderName != "Off") {
@@ -1073,7 +1070,9 @@ void FramebufferManagerVulkan::EndFrame() {
 			PSP_CoreParameter().renderHeight = 272 * zoom;
 		}
 
-		UpdateSize();
+		if (UpdateSize() || g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+			DestroyAllFBOs();
+		}
 
 		resized_ = false;
 #ifdef _WIN32
@@ -1082,7 +1081,6 @@ void FramebufferManagerVulkan::EndFrame() {
 			ShowScreenResolution();
 		}
 #endif
-		ClearBuffer();
 	}
 
 	// We flush to memory last requested framebuffer, if any.
@@ -1101,7 +1099,7 @@ void FramebufferManagerVulkan::EndFrame() {
 void FramebufferManagerVulkan::DeviceLost() {
 	vulkan2D_.DeviceLost();
 
-	DestroyAllFBOs(false);
+	DestroyAllFBOs();
 	DestroyDeviceObjects();
 	resized_ = false;
 }
@@ -1132,7 +1130,7 @@ std::vector<FramebufferInfo> FramebufferManagerVulkan::GetFramebufferList() {
 	return list;
 }
 
-void FramebufferManagerVulkan::DestroyAllFBOs(bool forceDelete) {
+void FramebufferManagerVulkan::DestroyAllFBOs() {
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
 	prevDisplayFramebuf_ = 0;

@@ -285,7 +285,7 @@ protected:
 	// Cardboard Settings Calculator
 	void GetCardboardSettings(CardboardSettings *cardboardSettings);
 
-	void UpdateSize();
+	bool UpdateSize();
 	void SetNumExtraFBOs(int num);
 
 	virtual void DisableState() = 0;
@@ -368,6 +368,8 @@ protected:
 	float renderHeight_;
 	int pixelWidth_;
 	int pixelHeight_;
+	int bloomHack_ = 0;
+	bool trueColor_ = false;
 
 	// Used by post-processing shaders
 	std::vector<Draw::Framebuffer *> extraFBOs_;

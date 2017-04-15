@@ -190,7 +190,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 GPU_D3D11::~GPU_D3D11() {
 	delete depalShaderCache_;
-	framebufferManagerD3D11_->DestroyAllFBOs(true);
+	framebufferManagerD3D11_->DestroyAllFBOs();
 	delete framebufferManagerD3D11_;
 	shaderManagerD3D11_->ClearShaders();
 	delete shaderManagerD3D11_;
@@ -750,7 +750,7 @@ void GPU_D3D11::DoState(PointerWrap &p) {
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManagerD3D11_->DestroyAllFBOs(true);
+		framebufferManagerD3D11_->DestroyAllFBOs();
 		shaderManagerD3D11_->ClearShaders();
 	}
 }

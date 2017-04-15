@@ -188,7 +188,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 GPU_GLES::~GPU_GLES() {
-	framebufferManagerGL_->DestroyAllFBOs(true);
+	framebufferManagerGL_->DestroyAllFBOs();
 	shaderManagerGL_->ClearCache(true);
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
@@ -405,7 +405,7 @@ void GPU_GLES::DeviceRestore() {
 void GPU_GLES::ReinitializeInternal() {
 	textureCacheGL_->Clear(true);
 	depalShaderCache_.Clear();
-	framebufferManagerGL_->DestroyAllFBOs(true);
+	framebufferManagerGL_->DestroyAllFBOs();
 	framebufferManagerGL_->Resized();
 }
 
@@ -932,7 +932,7 @@ void GPU_GLES::DoState(PointerWrap &p) {
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManagerGL_->DestroyAllFBOs(true);
+		framebufferManagerGL_->DestroyAllFBOs();
 		shaderManagerGL_->ClearCache(true);
 	}
 }
