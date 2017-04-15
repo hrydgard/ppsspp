@@ -191,7 +191,10 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
 	}
 	g_Vulkan->InitSurfaceWin32(hInst, hWnd);
-	g_Vulkan->InitObjects(true);
+	if (!g_Vulkan->InitObjects(true)) {
+		Shutdown();
+		return false;
+	}
 
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
 

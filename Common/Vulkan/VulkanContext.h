@@ -206,8 +206,8 @@ public:
 	void ReinitSurfaceAndroid(int width, int height);
 #endif
 	void InitQueue();
-	void InitObjects(bool depthPresent);
-	void InitSwapchain(VkCommandBuffer cmd);
+	bool InitObjects(bool depthPresent);
+	bool InitSwapchain(VkCommandBuffer cmd);
 	void InitSurfaceRenderPass(bool include_depth, bool clear);
 	void InitFramebuffers(bool include_depth);
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);
@@ -365,14 +365,14 @@ private:
 
 	struct {
 		VkFormat format;
-		VkImage image;
-		VkDeviceMemory mem;
-		VkImageView view;
+		VkImage image = VK_NULL_HANDLE;
+		VkDeviceMemory mem = VK_NULL_HANDLE;
+		VkImageView view = VK_NULL_HANDLE;
 	} depth;
 
-	VkRenderPass surface_render_pass_;
-	uint32_t current_buffer;
-	uint32_t queue_count;
+	VkRenderPass surface_render_pass_ = VK_NULL_HANDLE;
+	uint32_t current_buffer = 0;
+	uint32_t queue_count = 0;
 
 	VkPhysicalDeviceFeatures featuresAvailable_;
 	VkPhysicalDeviceFeatures featuresEnabled_;
