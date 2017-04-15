@@ -1094,7 +1094,8 @@ void Config::Save() {
 		control->Delete("DPadRadius");
 
 		IniFile::Section *log = iniFile.GetOrCreateSection(logSectionName);
-		LogManager::GetInstance()->SaveConfig(log);
+		if (LogManager::GetInstance())
+			LogManager::GetInstance()->SaveConfig(log);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());

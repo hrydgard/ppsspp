@@ -134,6 +134,7 @@ bool targetIsJailbroken;
 bool g_TakeScreenshot;
 static bool isOuya;
 static bool resized = false;
+static bool restarting = false;
 
 struct PendingMessage {
 	std::string msg;
@@ -361,8 +362,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		g_Config.appCacheDirectory = cache_dir;
 	}
 
+	if (!LogManager::GetInstance())
+		LogManager::Init();
+
 #ifndef _WIN32
-	LogManager::Init();
 	logger = new AndroidLogger();
 
 	g_Config.AddSearchPath(user_data_path);
@@ -532,6 +535,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost_manager_init();
 	}
+
+	// Must be done restarting by now.
+	restarting = false;
 }
 
 static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
@@ -1051,6 +1057,14 @@ void NativeResized() {
 	resized = true;
 }
 
+void NativeSetRestarting() {
+	restarting = true;
+}
+
+bool NativeIsRestarting() {
+	return restarting;
+}
+
 void NativeShutdown() {
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost_manager_shutdown();
@@ -1065,7 +1079,10 @@ void NativeShutdown() {
 #endif
 	host = 0;
 	g_Config.Save();
-	LogManager::Shutdown();
+
+	// Avoid shutting this down when restaring core.
+	if (!restarting)
+		LogManager::Shutdown();
 
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();
