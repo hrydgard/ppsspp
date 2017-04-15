@@ -211,6 +211,9 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	if (id == "NPJH00100" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/DATA/GIM/GBL").exists) {
 		bootpath = "disc0:/PSP_GAME/USRDIR/DATA/GIM/GBL";
 	}
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
+		bootpath = "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
+	}
 
 	bool hasEncrypted = false;
 	u32 fd;
