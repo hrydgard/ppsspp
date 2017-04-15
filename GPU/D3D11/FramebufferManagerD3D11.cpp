@@ -859,8 +859,6 @@ void FramebufferManagerD3D11::PackDepthbuffer(VirtualFramebuffer *vfb, int x, in
 
 void FramebufferManagerD3D11::EndFrame() {
 	if (resized_) {
-		DestroyAllFBOs(false);
-
 		// Check if postprocessing shader is doing upscaling as it requires native resolution
 		const ShaderInfo *shaderInfo = 0;
 		if (g_Config.sPostShaderName != "Off") {
@@ -891,7 +889,10 @@ void FramebufferManagerD3D11::EndFrame() {
 			PSP_CoreParameter().renderHeight = 272 * zoom;
 		}
 
-		UpdateSize();
+		if (UpdateSize() || g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+			DestroyAllFBOs();
+		}
+
 		// Seems related - if you're ok with numbers all the time, show some more :)
 		if (g_Config.iShowFPSCounter != 0) {
 			ShowScreenResolution();
@@ -904,7 +905,7 @@ void FramebufferManagerD3D11::EndFrame() {
 }
 
 void FramebufferManagerD3D11::DeviceLost() {
-	DestroyAllFBOs(false);
+	DestroyAllFBOs();
 	resized_ = false;
 }
 
@@ -927,7 +928,7 @@ std::vector<FramebufferInfo> FramebufferManagerD3D11::GetFramebufferList() {
 	return list;
 }
 
-void FramebufferManagerD3D11::DestroyAllFBOs(bool forceDelete) {
+void FramebufferManagerD3D11::DestroyAllFBOs() {
 	draw_->BindBackbufferAsRenderTarget();
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;

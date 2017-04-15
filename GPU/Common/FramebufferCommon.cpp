@@ -140,11 +140,18 @@ void FramebufferManagerCommon::Init() {
 	BeginFrame();
 }
 
-void FramebufferManagerCommon::UpdateSize() {
+bool FramebufferManagerCommon::UpdateSize() {
+	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight;
+	const bool newSettings = bloomHack_ != g_Config.iBloomHack || trueColor_ != g_Config.bTrueColor;
+
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
 	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
 	pixelWidth_ = PSP_CoreParameter().pixelWidth;
 	pixelHeight_ = PSP_CoreParameter().pixelHeight;
+	bloomHack_ = g_Config.iBloomHack;
+	trueColor_ = g_Config.bTrueColor;
+
+	return newRender || newSettings;
 }
 
 void FramebufferManagerCommon::BeginFrame() {
@@ -1105,7 +1112,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 
 	SetRenderSize(vfb);
 
-	bool trueColor = g_Config.bTrueColor;
+	bool trueColor = trueColor_;
 	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) {
 		trueColor = true;
 	}
@@ -1660,7 +1667,7 @@ void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
 	float renderWidthFactor = renderWidth_ / 480.0f;
 	float renderHeightFactor = renderHeight_ / 272.0f;
 	bool force1x = false;
-	switch (g_Config.iBloomHack) {
+	switch (bloomHack_) {
 	case 1:
 		force1x = vfb->bufferWidth <= 128 || vfb->bufferHeight <= 64;
 		break;
