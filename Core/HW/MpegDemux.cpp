@@ -187,7 +187,7 @@ bool MpegDemux::skipPackHeader() {
 
 bool MpegDemux::demux(int audioChannel)
 {
-	if (audioChannel >= 0)
+	if (audioChannel > 1)
 		m_audioChannel = audioChannel;
 
 	bool looksValid = false;
