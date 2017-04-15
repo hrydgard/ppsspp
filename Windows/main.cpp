@@ -572,10 +572,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	LogManager::Shutdown();
 
-	if (g_Config.bRestartRequired) {
-		W32Util::ExitAndRestart();
-	}
-
 	net::Shutdown();
 	CoUninitialize();
 
