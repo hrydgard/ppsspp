@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="GameInfoCache.cpp" />
+    <ClCompile Include="GamepadEmu.cpp" />
+    <ClCompile Include="NativeApp.cpp" />
+    <ClCompile Include="ui_atlas.cpp" />
+    <ClCompile Include="UIShader.cpp" />
+    <ClCompile Include="OnScreenDisplay.cpp" />
+    <ClCompile Include="EmuScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="GameScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="GameSettingsScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="MainScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="MiscScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="ControlMappingScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="DevScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="CwCheatScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="TouchControlLayoutScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="TouchControlVisibilityScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="TiltAnalogSettingsScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="TiltEventProcessor.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="InstallZipScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="Store.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="GameInfoCache.h" />
+    <ClInclude Include="GamepadEmu.h" />
+    <ClInclude Include="ui_atlas.h" />
+    <ClInclude Include="UIShader.h" />
+    <ClInclude Include="OnScreenDisplay.h" />
+    <ClInclude Include="EmuScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="GameScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="GameSettingsScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="MainScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="MiscScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ControlMappingScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="DevScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="CwCheatScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TouchControlLayoutScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TouchControlVisibilityScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TiltAnalogSettingsScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TiltEventProcessor.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="InstallZipScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="Store.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Screens">
+      <UniqueIdentifier>{faee5dce-633b-4ba6-b19d-ea70ee3c1c38}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
