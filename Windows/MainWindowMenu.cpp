@@ -770,26 +770,22 @@ namespace MainWindow {
 
 		case ID_OPTIONS_DIRECT3D9:
 			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 			break;
 
 		case ID_OPTIONS_DIRECT3D11:
 			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D11;
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 			break;
 
 		case ID_OPTIONS_OPENGL:
 			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 			break;
 
 		case ID_OPTIONS_VULKAN:
 			g_Config.iGPUBackend = GPU_BACKEND_VULKAN;
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 			break;
 
 		case ID_OPTIONS_NONBUFFEREDRENDERING:   setRenderingMode(FB_NON_BUFFERED_MODE); break;
