@@ -97,6 +97,10 @@ static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
 static GPUBackend gpuBackend;
 
+void ResetUIState() {
+	globalUIState = UISTATE_MENU;
+}
+
 void UpdateUIState(GlobalUIState newState) {
 	// Never leave the EXIT state.
 	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {

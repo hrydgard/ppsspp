@@ -113,8 +113,6 @@ public:
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
-
-	bool bRestartRequired;
 #endif
 
 	bool bPauseWhenMinimized;

@@ -231,7 +231,11 @@ int System_GetPropertyInt(SystemProperty prop) {
 
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
-		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		if (!NativeIsRestarting()) {
+			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		}
+	} else if (!strcmp(command, "graphics_restart")) {
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
 	} else if (!strcmp(command, "setclipboardtext")) {
 		if (OpenClipboard(MainWindow::GetDisplayHWND())) {
 			std::wstring data = ConvertUTF8ToWString(parameter);
@@ -567,10 +571,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	delete host;
 
 	LogManager::Shutdown();
-
-	if (g_Config.bRestartRequired) {
-		W32Util::ExitAndRestart();
-	}
 
 	net::Shutdown();
 	CoUninitialize();

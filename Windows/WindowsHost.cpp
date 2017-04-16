@@ -146,7 +146,6 @@ void WindowsHost::ShutdownGraphics() {
 	gfx_->Shutdown();
 	delete gfx_;
 	gfx_ = nullptr;
-	PostMessage(mainWindow_, WM_CLOSE, 0, 0);
 }
 
 void WindowsHost::SetWindowTitle(const char *message) {

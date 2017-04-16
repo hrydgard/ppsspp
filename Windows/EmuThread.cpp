@@ -112,6 +112,7 @@ unsigned int WINAPI TheThread(void *)
 		args.push_back(string.c_str());
 	}
 
+	bool performingRestart = NativeIsRestarting();
 	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", nullptr);
 
 	Host *nativeHost = host;
@@ -123,6 +124,14 @@ unsigned int WINAPI TheThread(void *)
 
 	std::string error_string;
 	if (!host->InitGraphics(&error_string, &graphicsContext)) {
+		// Before anything: are we restarting right now?
+		if (performingRestart) {
+			// Okay, switching graphics didn't work out.  Probably a driver bug - fallback to restart.
+			// This happens on NVIDIA when switching OpenGL -> Vulkan.
+			g_Config.Save();
+			W32Util::ExitAndRestart();
+		}
+
 		I18NCategory *err = GetI18NCategory("Error");
 		Reporting::ReportMessage("Graphics init error: %s", error_string.c_str());
 

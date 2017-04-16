@@ -54,6 +54,7 @@ enum PSPDirectories {
 class GraphicsContext;
 enum class GPUBackend;
 
+void ResetUIState();
 void UpdateUIState(GlobalUIState newState);
 GlobalUIState GetUIState();
 

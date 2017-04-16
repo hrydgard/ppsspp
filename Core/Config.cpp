@@ -496,9 +496,6 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit, 0, true, true),
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, &DefaultFrameskipUnthrottle, true, false),
-#if defined(USING_WIN_UI)
-	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
-#endif
 	ReportedConfigSetting("ForceMaxEmulatedFPS", &g_Config.iForceMaxEmulatedFPS, 60, true, true),
 
 	// TODO: Hm, on fast mobile GPUs we should definitely default to at least 4 (setting = 2)...
@@ -1094,7 +1091,8 @@ void Config::Save() {
 		control->Delete("DPadRadius");
 
 		IniFile::Section *log = iniFile.GetOrCreateSection(logSectionName);
-		LogManager::GetInstance()->SaveConfig(log);
+		if (LogManager::GetInstance())
+			LogManager::GetInstance()->SaveConfig(log);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());

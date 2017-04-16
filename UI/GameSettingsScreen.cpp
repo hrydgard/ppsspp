@@ -1057,8 +1057,7 @@ void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 	// If the user ends up deciding not to restart, set the config back to the current backend
 	// so it doesn't get switched by accident.
 	if (yes) {
-		g_Config.bRestartRequired = true;
-		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		System_SendMessage("graphics_restart", "");
 	} else {
 		g_Config.iGPUBackend = (int)GetGPUBackend();
 	}

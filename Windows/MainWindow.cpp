@@ -882,6 +882,14 @@ namespace MainWindow
 			BrowseBackgroundDone();
 			break;
 
+		case WM_USER_RESTART_EMUTHREAD:
+			NativeSetRestarting();
+			EmuThread_Stop();
+			coreState = CORE_POWERUP;
+			ResetUIState();
+			EmuThread_Start();
+			break;
+
 		case WM_MENUSELECT:
 			// Called when a menu is opened. Also when an item is selected, but meh.
 			UpdateMenus(true);
