@@ -106,6 +106,35 @@ inline int RoundUp4(int x) {
 	return (x + 3) & ~3;
 }
 
+class IndexConverter {
+private:
+	union {
+		const void *indices;
+		const u8 *indices8;
+		const u16 *indices16;
+		const u32 *indices32;
+	};
+	u32 indexType;
+
+public:
+	IndexConverter(u32 vertType, const void *indices)
+		: indices(indices), indexType(vertType & GE_VTYPE_IDX_MASK) {
+	}
+
+	inline u32 convert(u32 index) const {
+		switch (indexType) {
+		case GE_VTYPE_IDX_8BIT:
+			return indices8[index];
+		case GE_VTYPE_IDX_16BIT:
+			return indices16[index];
+		case GE_VTYPE_IDX_32BIT:
+			return indices32[index];
+		default:
+			return index;
+		}
+	}
+};
+
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
 class VertexReader {
 public:

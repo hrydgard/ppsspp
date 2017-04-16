@@ -841,31 +841,6 @@ void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int
 	}
 }
 
-class IndexConverter {
-private:
-	union {
-		const void *indices;
-		const u8 *indices8;
-		const u16 *indices16;
-		const u32 *indices32;
-	};
-	u32 indexType;
-public:
-	IndexConverter(u32 vertType, const void *indices) : indices(indices), indexType(vertType & GE_VTYPE_IDX_MASK) {}
-
-	inline u32 convert(u32 index) const {
-		switch (indexType) {
-		case GE_VTYPE_IDX_8BIT:
-			return indices8[index];
-		case GE_VTYPE_IDX_16BIT:
-			return indices16[index];
-		case GE_VTYPE_IDX_32BIT:
-			return indices32[index];
-		}
-		return index;
-	}
-};
-
 // This maps GEPatchPrimType to GEPrimitiveType.
 const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
 

@@ -322,11 +322,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = vertex_count - 1;
-	bool indices_16bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	bool indices_32bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
-	u8 *indices8 = (u8 *)indices;
-	u16 *indices16 = (u16 *)indices;
-	u32 *indices32 = (u32 *)indices;
+	IndexConverter idxConv(vertex_type, indices);
+
 	if (indices)
 		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
 	vdecoder.DecodeVerts(buf, vertices, index_lower_bound, index_upper_bound);
@@ -357,15 +354,9 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 			for (int vtx = 0; vtx < vertex_count; vtx += vtcs_per_prim) {
 				for (int i = 0; i < vtcs_per_prim; ++i) {
 					if (indices) {
-						if (indices_32bit) {
-							vreader.Goto(indices32[vtx + i] - index_lower_bound);
-						} else if (indices_16bit) {
-							vreader.Goto(indices16[vtx + i] - index_lower_bound);
-						} else {
-							vreader.Goto(indices8[vtx + i] - index_lower_bound);
-						}
+						vreader.Goto(idxConv.convert(vtx + i) - index_lower_bound);
 					} else {
-						vreader.Goto(vtx+i);
+						vreader.Goto(vtx + i);
 					}
 
 					data[i] = ReadVertex(vreader);
@@ -411,13 +402,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 			int skip_count = 1; // Don't draw a line when loading the first vertex
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
-					if (indices_32bit) {
-						vreader.Goto(indices32[vtx] - index_lower_bound);
-					} else if (indices_16bit) {
-						vreader.Goto(indices16[vtx] - index_lower_bound);
-					} else {
-						vreader.Goto(indices8[vtx] - index_lower_bound);
-					}
+					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
 				} else {
 					vreader.Goto(vtx);
 				}
@@ -445,13 +430,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
-					if (indices_32bit) {
-						vreader.Goto(indices32[vtx] - index_lower_bound);
-					} else if (indices_16bit) {
-						vreader.Goto(indices16[vtx] - index_lower_bound);
-					} else {
-						vreader.Goto(indices8[vtx] - index_lower_bound);
-					}
+					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
 				} else {
 					vreader.Goto(vtx);
 				}
@@ -488,13 +467,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 			unsigned int skip_count = 1; // Don't draw a triangle when loading the first two vertices
 
 			if (indices) {
-				if (indices_32bit) {
-					vreader.Goto(indices32[0] - index_lower_bound);
-				} else if (indices_16bit) {
-					vreader.Goto(indices16[0] - index_lower_bound);
-				} else {
-					vreader.Goto(indices8[0] - index_lower_bound);
-				}
+				vreader.Goto(idxConv.convert(0) - index_lower_bound);
 			} else {
 				vreader.Goto(0);
 			}
@@ -502,13 +475,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 			for (int vtx = 1; vtx < vertex_count; ++vtx) {
 				if (indices) {
-					if (indices_32bit) {
-						vreader.Goto(indices32[vtx] - index_lower_bound);
-					} else if (indices_16bit) {
-						vreader.Goto(indices16[vtx] - index_lower_bound);
-					} else {
-						vreader.Goto(indices8[vtx] - index_lower_bound);
-					}
+					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
 				} else {
 					vreader.Goto(vtx);
 				}
