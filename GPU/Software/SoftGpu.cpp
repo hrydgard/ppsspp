@@ -434,19 +434,9 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 			bool computeNormals = gstate.isLightingEnabled();
 			bool patchFacing = gstate.patchfacing & 1;
 
-			if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
-				gstate_c.bezier = true;
-				if (gstate_c.spline_count_u != bz_ucount) {
-					gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-					gstate_c.spline_count_u = bz_ucount;
-				}
-			}
-
 			int bytesRead = 0;
 			drawEngineCommon_->SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
 			framebufferDirty_ = true;
-
-			gstate_c.bezier = false;
 
 			// After drawing, we advance pointers - see SubmitPrim which does the same.
 			int count = bz_ucount * bz_vcount;
@@ -497,24 +487,9 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 			bool patchFacing = gstate.patchfacing & 1;
 			u32 vertType = gstate.vertType;
 
-			if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
-				gstate_c.spline = true;
-				bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
-				bool typesChanged = gstate_c.spline_type_u != sp_utype || gstate_c.spline_type_v != sp_vtype;
-				if (countsChanged || typesChanged) {
-					gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-					gstate_c.spline_count_u = sp_ucount;
-					gstate_c.spline_count_v = sp_vcount;
-					gstate_c.spline_type_u = sp_utype;
-					gstate_c.spline_type_v = sp_vtype;
-				}
-			}
-
 			int bytesRead = 0;
 			drawEngineCommon_->SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
 			framebufferDirty_ = true;
-
-			gstate_c.spline = false;
 
 			// After drawing, we advance pointers - see SubmitPrim which does the same.
 			int count = sp_ucount * sp_vcount;
