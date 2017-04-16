@@ -34,6 +34,7 @@
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Software/Rasterizer.h"
+#include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 
 const int FB_WIDTH = 480;
@@ -53,6 +54,23 @@ static Draw::SamplerState *samplerNearest = nullptr;
 static Draw::SamplerState *samplerLinear = nullptr;
 static Draw::Buffer *vdata = nullptr;
 static Draw::Buffer *idata = nullptr;
+
+class SoftwareDrawEngine : public DrawEngineCommon {
+public:
+	SoftwareDrawEngine() {
+		// All this is a LOT of memory, need to see if we can cut down somehow.  Used for splines.
+		decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+		decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+		splineBuffer = (u8 *)AllocateMemoryPages(SPLINE_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	}
+
+	virtual void DispatchFlush() {
+	}
+
+	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
+		TransformUnit::SubmitPrimitive(verts, inds, prim, vertexCount, vertType, bytesRead);
+	}
+};
 
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
@@ -102,6 +120,8 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	displayFramebuf_ = 0;
 	displayStride_ = 512;
 	displayFormat_ = GE_FORMAT_8888;
+
+	drawEngineCommon_ = new SoftwareDrawEngine();
 }
 
 void SoftGPU::DeviceLost() {
@@ -288,6 +308,15 @@ void SoftGPU::CopyDisplayToOutputInternal()
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	framebufferDirty_ = false;
+
+	// Force the render params to 480x272 so other things work.
+	if (g_Config.IsPortrait()) {
+		PSP_CoreParameter().renderWidth = 272;
+		PSP_CoreParameter().renderHeight = 480;
+	} else {
+		PSP_CoreParameter().renderWidth = 480;
+		PSP_CoreParameter().renderHeight = 272;
+	}
 }
 
 void SoftGPU::ProcessEvent(GPUEvent ev) {
@@ -366,44 +395,105 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_BEZIER:
 		{
-			int bz_ucount = data & 0xFF;
-			int bz_vcount = (data >> 8) & 0xFF;
-			DEBUG_LOG(G3D,"DL DRAW BEZIER: %i x %i", bz_ucount, bz_vcount);
+			// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+
+			// This also make skipping drawing very effective.
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+				return;
+			}
+
+			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				return;
+			}
+
+			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+			void *indices = NULL;
+			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					return;
+				}
+				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+			}
+
+			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+				DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+			}
+			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+			}
+
+			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+			SetDrawType(DRAW_BEZIER, PatchPrimToPrim(patchPrim));
+
+			int bz_ucount = op & 0xFF;
+			int bz_vcount = (op >> 8) & 0xFF;
+			bool computeNormals = gstate.isLightingEnabled();
+			bool patchFacing = gstate.patchfacing & 1;
+
+			int bytesRead = 0;
+			drawEngineCommon_->SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+			framebufferDirty_ = true;
+
+			// After drawing, we advance pointers - see SubmitPrim which does the same.
+			int count = bz_ucount * bz_vcount;
+			AdvanceVerts(gstate.vertType, count, bytesRead);
 		}
 		break;
 
 	case GE_CMD_SPLINE:
 		{
-			int sp_ucount = data & 0xFF;
-			int sp_vcount = (data >> 8) & 0xFF;
-			int sp_utype = (data >> 16) & 0x3;
-			int sp_vtype = (data >> 18) & 0x3;
+			// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+
+			// This also make skipping drawing very effective.
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+				return;
+			}
 
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Software: Bad vertex address %08x!", gstate_c.vertexAddr);
-				break;
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				return;
 			}
 
-			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-			// void *indices = NULL;
+			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Software: Bad index address %08x!", gstate_c.indexAddr);
-					break;
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					return;
 				}
-				// indices = Memory::GetPointer(gstate_c.indexAddr);
+				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
-			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG_REPORT(G3D, "Software: Unsupported patch primitive %x", gstate.patchprimitive&3);
-				break;
+			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+				DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+			}
+			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
 			}
 
-			if (!(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)) {
-				//TransformUnit::SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, gstate.getPatchPrimitiveType(), gstate.vertType);
-			}
+			int sp_ucount = op & 0xFF;
+			int sp_vcount = (op >> 8) & 0xFF;
+			int sp_utype = (op >> 16) & 0x3;
+			int sp_vtype = (op >> 18) & 0x3;
+			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+			SetDrawType(DRAW_SPLINE, PatchPrimToPrim(patchPrim));
+			bool computeNormals = gstate.isLightingEnabled();
+			bool patchFacing = gstate.patchfacing & 1;
+			u32 vertType = gstate.vertType;
+
+			int bytesRead = 0;
+			drawEngineCommon_->SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
 			framebufferDirty_ = true;
-			DEBUG_LOG(G3D,"DL DRAW SPLINE: %i x %i, %i x %i", sp_ucount, sp_vcount, sp_utype, sp_vtype);
+
+			// After drawing, we advance pointers - see SubmitPrim which does the same.
+			int count = sp_ucount * sp_vcount;
+			AdvanceVerts(gstate.vertType, count, bytesRead);
 		}
 		break;
 
