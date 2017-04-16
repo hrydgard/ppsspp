@@ -34,6 +34,7 @@
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Software/Rasterizer.h"
+#include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 
 const int FB_WIDTH = 480;
@@ -53,6 +54,16 @@ static Draw::SamplerState *samplerNearest = nullptr;
 static Draw::SamplerState *samplerLinear = nullptr;
 static Draw::Buffer *vdata = nullptr;
 static Draw::Buffer *idata = nullptr;
+
+class SoftwareDrawEngine : public DrawEngineCommon {
+public:
+	virtual void DispatchFlush() {
+	}
+
+	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
+		TransformUnit::SubmitPrimitive(verts, inds, prim, vertexCount, vertType, bytesRead);
+	}
+};
 
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
@@ -102,6 +113,8 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	displayFramebuf_ = 0;
 	displayStride_ = 512;
 	displayFormat_ = GE_FORMAT_8888;
+
+	drawEngineCommon_ = new SoftwareDrawEngine();
 }
 
 void SoftGPU::DeviceLost() {
