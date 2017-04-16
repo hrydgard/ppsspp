@@ -1,0 +1,23 @@
+ppsspp-sdl (0.9.9.1-0ubuntu1) unstable; urgency=medium
+
+  * Upstream new release
+
+ -- Sérgio Benjamim <sergio_br2@yahoo.com.br>  Mon, 18 Aug 2014 17:53:00 -0300
+
+ppsspp-sdl (0.9.9-0ubuntu3) unstable; urgency=medium
+
+  * Optimization of the packaging using quilt patch
+
+ -- Sérgio Benjamim <sergio_br2@yahoo.com.br>  Mon, 04 Aug 2014 00:52:00 -0300
+
+ppsspp-sdl (0.9.9-0ubuntu2) unstable; urgency=medium
+
+  * Fixed missing assets folder. 
+
+ -- Sérgio Benjamim <sergio_br2@yahoo.com.br>  Sun, 03 Aug 2014 16:43:00 -0300
+
+ppsspp-sdl (0.9.9-0ubuntu1) unstable; urgency=medium
+
+  * Initial release. (Closes: #697821)
+
+ -- Sérgio Benjamim <sergio_br2@yahoo.com.br>  Sun, 27 Jul 2014 00:37:00 -0300

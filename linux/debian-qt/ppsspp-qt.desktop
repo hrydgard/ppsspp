@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=PPSSPP
+GenericName=PSP Emulator
+Comment=PlayStation Portable Simulator Suitable for Playing Portably (PPSSPP)
+Exec=ppsspp %f
+Icon=ppsspp
+Categories=Game

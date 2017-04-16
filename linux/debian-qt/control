@@ -1,0 +1,26 @@
+Source: ppsspp-qt
+Section: games
+Priority: extra
+Maintainer: Sérgio Benjamim <sergio_br2@yahoo.com.br>
+Build-Depends: 	debhelper (>= 9), 
+		libsdl1.2-dev, 
+		qt4-qmake, 
+		libqt4-dev, 
+		libqt4-opengl-dev
+Standards-Version: 3.9.5
+Homepage: http://www.ppsspp.org/
+Vcs-Git: git://github.com/hrydgard/ppsspp.git
+Vcs-Browser: https://github.com/hrydgard/ppsspp
+
+Package: ppsspp-qt
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Conflicts: ppsspp-sdl
+Description: Sony PSP emulator
+ PPSSPP can run your PSP games on your PC in full HD resolution. It can even 
+ upscale textures that would otherwise be too blurry as they were made for 
+ the small screen of the original PSP.
+ .
+ All trademarks are property of their respective owners. The emulator is for 
+ educational and development purposes only and it may not be used to play games
+ you do not legally own.

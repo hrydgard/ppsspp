@@ -1,0 +1,135 @@
+Index: ppsspp/Core/HLE/sceAtrac.cpp
+===================================================================
+--- ppsspp.orig/Core/HLE/sceAtrac.cpp	2014-08-12 23:12:04.287101148 -0300
++++ ppsspp/Core/HLE/sceAtrac.cpp	2014-08-13 00:04:19.943078015 -0300
+@@ -75,9 +75,9 @@
+ #ifdef USE_FFMPEG
+ 
+ extern "C" {
+-#include <libavformat/avformat.h>
+-#include <libswresample/swresample.h>
+-#include <libavutil/samplefmt.h>
++#include "libavformat/avformat.h"
++#include "libswresample/swresample.h"
++#include "libavutil/samplefmt.h"
+ }
+ 
+ #endif // USE_FFMPEG
+Index: ppsspp/Core/HLE/sceMpeg.cpp
+===================================================================
+--- ppsspp.orig/Core/HLE/sceMpeg.cpp	2014-08-12 23:12:04.295101148 -0300
++++ ppsspp/Core/HLE/sceMpeg.cpp	2014-08-13 00:05:04.223077688 -0300
+@@ -95,8 +95,8 @@
+ #ifdef USE_FFMPEG 
+ 
+ extern "C" {
+-#include <libavformat/avformat.h>
+-#include <libswscale/swscale.h>
++#include "libavformat/avformat.h"
++#include "libswscale/swscale.h"
+ }
+ static AVPixelFormat pmp_want_pix_fmt;
+ 
+Index: ppsspp/Core/HW/SimpleAudioDec.cpp
+===================================================================
+--- ppsspp.orig/Core/HW/SimpleAudioDec.cpp	2014-08-12 23:12:04.299101148 -0300
++++ ppsspp/Core/HW/SimpleAudioDec.cpp	2014-08-13 00:05:45.707077382 -0300
+@@ -26,9 +26,9 @@
+ #ifdef USE_FFMPEG
+ 
+ extern "C" {
+-#include <libavformat/avformat.h>
+-#include <libswresample/swresample.h>
+-#include <libavutil/samplefmt.h>
++#include "libavformat/avformat.h"
++#include "libswresample/swresample.h"
++#include "libavutil/samplefmt.h"
+ }
+ 
+ #endif  // USE_FFMPEG
+Index: ppsspp/native/ext/glew/GL/glxew.h
+===================================================================
+--- ppsspp.orig/native/ext/glew/GL/glxew.h	2014-08-12 23:22:35.663096490 -0300
++++ ppsspp/native/ext/glew/GL/glxew.h	2014-08-13 00:07:49.895076466 -0300
+@@ -97,7 +97,7 @@
+ #include <X11/Xlib.h>
+ #include <X11/Xutil.h>
+ #include <X11/Xmd.h>
+-#include <GL/glew.h>
++#include "glew.h"
+ 
+ #ifdef __cplusplus
+ extern "C" {
+Index: ppsspp/native/ext/glew/glew.c
+===================================================================
+--- ppsspp.orig/native/ext/glew/glew.c	2014-08-12 23:22:35.667096490 -0300
++++ ppsspp/native/ext/glew/glew.c	2014-08-13 00:08:45.067076059 -0300
+@@ -29,12 +29,12 @@
+ ** THE POSSIBILITY OF SUCH DAMAGE.
+ */
+ 
+-#include <GL/glew.h>
++#include "GL/glew.h"
+ 
+ #if defined(_WIN32)
+-#  include <GL/wglew.h>
++#  include "GL/wglew.h"
+ #elif !defined(__ANDROID__) && !defined(__native_client__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX))
+-#  include <GL/glxew.h>
++#  include "GL/glxew.h"
+ #endif
+ 
+ /*
+Index: ppsspp/native/ext/glew/glewinfo.c
+===================================================================
+--- ppsspp.orig/native/ext/glew/glewinfo.c	2014-08-12 23:22:35.667096490 -0300
++++ ppsspp/native/ext/glew/glewinfo.c	2014-08-13 00:09:37.887075669 -0300
+@@ -32,11 +32,11 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#include <GL/glew.h>
++#include "GL/glew.h"
+ #if defined(_WIN32)
+-#include <GL/wglew.h>
++#include "GL/wglew.h"
+ #elif !defined(__APPLE__) || defined(GLEW_APPLE_GLX)
+-#include <GL/glxew.h>
++#include "GL/glxew.h"
+ #endif
+ 
+ #ifdef GLEW_REGAL
+Index: ppsspp/native/ext/glew/visualinfo.c
+===================================================================
+--- ppsspp.orig/native/ext/glew/visualinfo.c	2014-08-12 23:22:35.667096490 -0300
++++ ppsspp/native/ext/glew/visualinfo.c	2014-08-13 00:10:12.219075416 -0300
+@@ -32,13 +32,13 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#include <GL/glew.h>
++#include "GL/glew.h"
+ #if defined(_WIN32)
+-#include <GL/wglew.h>
++#include "GL/wglew.h"
+ #elif defined(__APPLE__) && !defined(GLEW_APPLE_GLX)
+ #include <AGL/agl.h>
+ #else
+-#include <GL/glxew.h>
++#include "GL/glxew.h"
+ #endif
+ 
+ #ifdef GLEW_MX
+Index: ppsspp/native/gfx/gl_common.h
+===================================================================
+--- ppsspp.orig/native/gfx/gl_common.h	2014-08-12 23:22:35.691096490 -0300
++++ ppsspp/native/gfx/gl_common.h	2014-08-13 00:10:37.475075230 -0300
+@@ -11,7 +11,7 @@
+ typedef char GLchar;
+ #define GL_BGRA_EXT 0x80E1
+ #else // OpenGL
+-#include <GL/glew.h>
++#include "GL/glew.h"
+ #if defined(__APPLE__)
+ #include <OpenGL/gl.h>
+ #else
