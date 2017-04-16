@@ -358,11 +358,11 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 				for (int i = 0; i < vtcs_per_prim; ++i) {
 					if (indices) {
 						if (indices_32bit) {
-							vreader.Goto(indices32[vtx + i]);
+							vreader.Goto(indices32[vtx + i] - index_lower_bound);
 						} else if (indices_16bit) {
-							vreader.Goto(indices16[vtx + i]);
+							vreader.Goto(indices16[vtx + i] - index_lower_bound);
 						} else {
-							vreader.Goto(indices8[vtx + i]);
+							vreader.Goto(indices8[vtx + i] - index_lower_bound);
 						}
 					} else {
 						vreader.Goto(vtx+i);
@@ -410,10 +410,17 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 		{
 			int skip_count = 1; // Don't draw a line when loading the first vertex
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				if (indices)
-					vreader.Goto(indices_16bit ? indices16[vtx] : indices8[vtx]);
-				else
+				if (indices) {
+					if (indices_32bit) {
+						vreader.Goto(indices32[vtx] - index_lower_bound);
+					} else if (indices_16bit) {
+						vreader.Goto(indices16[vtx] - index_lower_bound);
+					} else {
+						vreader.Goto(indices8[vtx] - index_lower_bound);
+					}
+				} else {
 					vreader.Goto(vtx);
+				}
 
 				data[vtx & 1] = ReadVertex(vreader);
 				if (outside_range_flag) {
@@ -437,10 +444,17 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 			int skip_count = 2; // Don't draw a triangle when loading the first two vertices
 
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				if (indices)
-					vreader.Goto(indices_16bit ? indices16[vtx] : indices8[vtx]);
-				else
+				if (indices) {
+					if (indices_32bit) {
+						vreader.Goto(indices32[vtx] - index_lower_bound);
+					} else if (indices_16bit) {
+						vreader.Goto(indices16[vtx] - index_lower_bound);
+					} else {
+						vreader.Goto(indices8[vtx] - index_lower_bound);
+					}
+				} else {
 					vreader.Goto(vtx);
+				}
 
 				data[vtx % 3] = ReadVertex(vreader);
 				if (outside_range_flag) {
@@ -473,17 +487,31 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 		{
 			unsigned int skip_count = 1; // Don't draw a triangle when loading the first two vertices
 
-			if (indices)
-				vreader.Goto(indices_16bit ? indices16[0] : indices8[0]);
-			else
+			if (indices) {
+				if (indices_32bit) {
+					vreader.Goto(indices32[0] - index_lower_bound);
+				} else if (indices_16bit) {
+					vreader.Goto(indices16[0] - index_lower_bound);
+				} else {
+					vreader.Goto(indices8[0] - index_lower_bound);
+				}
+			} else {
 				vreader.Goto(0);
+			}
 			data[0] = ReadVertex(vreader);
 
 			for (int vtx = 1; vtx < vertex_count; ++vtx) {
-				if (indices)
-					vreader.Goto(indices_16bit ? indices16[vtx] : indices8[vtx]);
-				else
+				if (indices) {
+					if (indices_32bit) {
+						vreader.Goto(indices32[vtx] - index_lower_bound);
+					} else if (indices_16bit) {
+						vreader.Goto(indices16[vtx] - index_lower_bound);
+					} else {
+						vreader.Goto(indices8[vtx] - index_lower_bound);
+					}
+				} else {
 					vreader.Goto(vtx);
+				}
 
 				data[2 - (vtx % 2)] = ReadVertex(vreader);
 				if (outside_range_flag) {
