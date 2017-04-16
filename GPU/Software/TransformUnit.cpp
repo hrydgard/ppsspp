@@ -191,8 +191,8 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 
 		Lighting::Process(vertex, vreader.hasColor0());
 	} else {
-		vertex.screenpos.x = (u32)pos[0] * 16 + gstate.getOffsetX16();
-		vertex.screenpos.y = (u32)pos[1] * 16 + gstate.getOffsetY16();
+		vertex.screenpos.x = (int)(pos[0] * 16) + gstate.getOffsetX16();
+		vertex.screenpos.y = (int)(pos[1] * 16) + gstate.getOffsetY16();
 		vertex.screenpos.z = pos[2];
 		vertex.clippos.w = 1.f;
 		vertex.fogdepth = 1.f;

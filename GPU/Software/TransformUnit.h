@@ -23,7 +23,6 @@
 
 using namespace Math3D;
 
-typedef u16 fixed16;
 typedef u16 u10; // TODO: erm... :/
 
 typedef Vec3<float> ModelCoords;
@@ -36,17 +35,17 @@ struct SplinePatch;
 struct ScreenCoords
 {
 	ScreenCoords() {}
-	ScreenCoords(fixed16 x, fixed16 y, u16 z) : x(x), y(y), z(z) {}
+	ScreenCoords(int x, int y, u16 z) : x(x), y(y), z(z) {}
 
-	fixed16 x;
-	fixed16 y;
+	int x;
+	int y;
 	u16 z;
 
-	Vec2<fixed16> xy() const { return Vec2<fixed16>(x, y); }
+	Vec2<int> xy() const { return Vec2<int>(x, y); }
 
 	ScreenCoords operator * (const float t) const
 	{
-		return ScreenCoords((fixed16)(x * t), (fixed16)(y * t), (u16)(z * t));
+		return ScreenCoords((int)(x * t), (int)(y * t), (u16)(z * t));
 	}
 
 	ScreenCoords operator / (const int t) const
