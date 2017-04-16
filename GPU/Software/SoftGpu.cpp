@@ -301,6 +301,15 @@ void SoftGPU::CopyDisplayToOutputInternal()
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	framebufferDirty_ = false;
+
+	// Force the render params to 480x272 so other things work.
+	if (g_Config.IsPortrait()) {
+		PSP_CoreParameter().renderWidth = 272;
+		PSP_CoreParameter().renderHeight = 480;
+	} else {
+		PSP_CoreParameter().renderWidth = 480;
+		PSP_CoreParameter().renderHeight = 272;
+	}
 }
 
 void SoftGPU::ProcessEvent(GPUEvent ev) {
