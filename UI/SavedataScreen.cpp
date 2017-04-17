@@ -148,11 +148,10 @@ private:
 	void TriggerOnHighlight(int focusFlags) {
 		UI::EventParams e{};
 		e.v = this;
-		e.s = gamePath_;
+		e.s = savePath_;
 		e.a = focusFlags;
 		OnHighlight.Trigger(e);
 	}
-	std::string gamePath_;
 	std::string savePath_;
 	std::string title_;
 	std::string subtitle_;
