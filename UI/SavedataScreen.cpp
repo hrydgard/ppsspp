@@ -136,7 +136,23 @@ public:
 
 	std::string GetGamePath() const { return savePath_; }
 
+	void FocusChanged(int focusFlags) override {
+		UI::Clickable::FocusChanged(focusFlags);
+		TriggerOnHighlight(focusFlags);
+	}
+
+	UI::Event OnHighlight;
+
+
 private:
+	void TriggerOnHighlight(int focusFlags) {
+		UI::EventParams e{};
+		e.v = this;
+		e.s = gamePath_;
+		e.a = focusFlags;
+		OnHighlight.Trigger(e);
+	}
+	std::string gamePath_;
 	std::string savePath_;
 	std::string title_;
 	std::string subtitle_;
@@ -322,6 +338,7 @@ void SavedataBrowser::Refresh() {
 	for (size_t i = 0; i < savedataButtons.size(); i++) {
 		SavedataButton *b = gameList_->Add(savedataButtons[i]);
 		b->OnClick.Handle(this, &SavedataBrowser::SavedataButtonClick);
+		b->OnHighlight.Handle(this, &SavedataBrowser::SaveButtonHighlight);
 	}
 
 	if (savedataButtons.empty()) {
@@ -338,6 +355,12 @@ UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 	e2.s = button->GamePath();
 	// Insta-update - here we know we are already on the right thread.
 	OnChoice.Trigger(e2);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn SavedataBrowser::SaveButtonHighlight(UI::EventParams &e) {
+	// Insta-update - here we know we are already on the right thread.
+	OnHighlight.Trigger(e);
 	return UI::EVENT_DONE;
 }
 

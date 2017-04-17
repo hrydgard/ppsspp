@@ -31,10 +31,12 @@ public:
 	SavedataBrowser(std::string path, UI::LayoutParams *layoutParams = 0);
 
 	UI::Event OnChoice;
+	UI::Event OnHighlight;
 
 private:
 	void Refresh();
 	UI::EventReturn SavedataButtonClick(UI::EventParams &e);
+	UI::EventReturn SaveButtonHighlight(UI::EventParams &e);
 
 	UI::ViewGroup *gameList_;
 	std::string path_;
@@ -53,4 +55,8 @@ protected:
 	void CreateViews() override;
 	bool gridStyle_;
 	SavedataBrowser *browser_;
+};
+
+class SavedataBackground : public UIScreenWithBackground {
+
 };
