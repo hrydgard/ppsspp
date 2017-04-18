@@ -1100,7 +1100,6 @@ UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnGameSettings(UI::EventParams &e) {
-	// screenManager()->push(new SettingsScreen());
 	auto gameSettings = new GameSettingsScreen("", "");
 	gameSettings->OnRecentChanged.Handle(this, &MainScreen::OnRecentChange);
 	screenManager()->push(gameSettings);

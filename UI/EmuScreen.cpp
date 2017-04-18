@@ -122,6 +122,8 @@ EmuScreen::EmuScreen(const std::string &filename)
 	frameStep_ = false;
 	lastNumFlips = gpuStats.numFlips;
 	startDumping = false;
+
+	OnDevMenu.Handle(this, &EmuScreen::OnDevTools);
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
@@ -453,9 +455,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		break;
 
 	case VIRTKEY_DEVMENU:
-		releaseButtons();
-		screenManager()->push(new DevMenu());
+	{
+		UI::EventParams e{};
+		OnDevMenu.Trigger(e);
 		break;
+	}
 
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:

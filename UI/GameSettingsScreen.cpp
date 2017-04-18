@@ -519,7 +519,7 @@ void GameSettingsScreen::CreateViews() {
 
 		// Combo key setup
 		Choice *comboKey = controlsSettings->Add(new Choice(co->T("Combo Key Setup")));
-		comboKey->OnClick.Handle(this, &GameSettingsScreen::OnCombo_key);
+		comboKey->OnClick.Handle(this, &GameSettingsScreen::OnComboKey);
 		comboKey->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		// On non iOS systems, offer to let the user see this button.
@@ -1122,7 +1122,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnCombo_key(UI::EventParams &e) {
+UI::EventReturn GameSettingsScreen::OnComboKey(UI::EventParams &e) {
 	screenManager()->push(new Combo_keyScreen(&g_Config.iComboMode));
 	return UI::EVENT_DONE;
 }
