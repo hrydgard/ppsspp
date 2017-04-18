@@ -56,7 +56,3 @@ protected:
 	bool gridStyle_;
 	SavedataBrowser *browser_;
 };
-
-class SavedataBackground : public UIScreenWithBackground {
-
-};
