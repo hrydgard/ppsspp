@@ -36,7 +36,7 @@ public:
 private:
 	void Refresh();
 	UI::EventReturn SavedataButtonClick(UI::EventParams &e);
-	UI::EventReturn SaveButtonHighlight(UI::EventParams &e);
+	UI::EventReturn SavedataButtonHighlight(UI::EventParams &e);
 
 	UI::ViewGroup *gameList_;
 	std::string path_;

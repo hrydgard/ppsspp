@@ -337,7 +337,7 @@ void SavedataBrowser::Refresh() {
 	for (size_t i = 0; i < savedataButtons.size(); i++) {
 		SavedataButton *b = gameList_->Add(savedataButtons[i]);
 		b->OnClick.Handle(this, &SavedataBrowser::SavedataButtonClick);
-		b->OnHighlight.Handle(this, &SavedataBrowser::SaveButtonHighlight);
+		b->OnHighlight.Handle(this, &SavedataBrowser::SavedataButtonHighlight);
 	}
 
 	if (savedataButtons.empty()) {
@@ -357,7 +357,7 @@ UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn SavedataBrowser::SaveButtonHighlight(UI::EventParams &e) {
+UI::EventReturn SavedataBrowser::SavedataButtonHighlight(UI::EventParams &e) {
 	// Insta-update - here we know we are already on the right thread.
 	OnHighlight.Trigger(e);
 	return UI::EVENT_DONE;
