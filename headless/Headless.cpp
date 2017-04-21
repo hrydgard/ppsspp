@@ -9,6 +9,7 @@
 #include "file/zip_read.h"
 #include "profiler/profiler.h"
 #include "Common/FileUtil.h"
+#include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -292,7 +293,7 @@ int main(int argc, const char* argv[])
 	host = headlessHost;
 
 	std::string error_string;
-	GraphicsContext *graphicsContext;
+	GraphicsContext *graphicsContext = nullptr;
 	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
 	LogManager::Init();
@@ -311,6 +312,7 @@ int main(int argc, const char* argv[])
 	coreParameter.cpuCore = cpuCore;
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
 	coreParameter.graphicsContext = graphicsContext;
+	coreParameter.thin3d = graphicsContext ? graphicsContext->GetDrawContext() : nullptr;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.mountRoot = mountRoot ? mountRoot : "";
