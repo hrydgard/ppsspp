@@ -33,6 +33,8 @@ public:
 	UI::Event OnChoice;
 	UI::Event OnHighlight;
 
+	void FocusSave(std::string savePath);
+
 private:
 	void Refresh();
 	UI::EventReturn SavedataButtonClick(UI::EventParams &e);
@@ -40,6 +42,7 @@ private:
 
 	UI::ViewGroup *gameList_;
 	std::string path_;
+	std::string focusSavePath_;
 };
 
 class SavedataScreen : public UIDialogScreenWithGameBackground {

@@ -298,6 +298,12 @@ SavedataBrowser::SavedataBrowser(std::string path, UI::LayoutParams *layoutParam
 	Refresh();
 }
 
+void SavedataBrowser::FocusSave(std::string savePath) {
+	focusSavePath_ = savePath;
+	Refresh();
+	focusSavePath_.clear();
+}
+
 void SavedataBrowser::Refresh() {
 	using namespace UI;
 
@@ -338,6 +344,10 @@ void SavedataBrowser::Refresh() {
 		SavedataButton *b = gameList_->Add(savedataButtons[i]);
 		b->OnClick.Handle(this, &SavedataBrowser::SavedataButtonClick);
 		b->OnHighlight.Handle(this, &SavedataBrowser::SavedataButtonHighlight);
+
+		if (!focusSavePath_.empty() && b->GamePath() == focusSavePath_) {
+			b->SetFocus();
+		}
 	}
 
 	if (savedataButtons.empty()) {
