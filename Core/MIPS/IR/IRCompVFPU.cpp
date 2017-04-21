@@ -833,6 +833,8 @@ namespace MIPSComp {
 				ir.Write(IROp::FNeg, tempregs[i], tempregs[i]);
 				break;
 			case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
+				DISABLE;
+				break;
 			default:
 				INVALIDOP;
 			}
@@ -1276,7 +1278,7 @@ namespace MIPSComp {
 		}
 		// Otherwise, n should already be ins + 1.
 		else if (n != ins + 1) {
-			DISABLE;
+			INVALIDOP;
 		}
 
 		u8 sregs[16], dregs[4], tregs[4];
@@ -1895,7 +1897,7 @@ namespace MIPSComp {
 		int n = GetNumVectorElements(sz);
 		if (n != 2 && n != 4) {
 			// Bad instructions
-			DISABLE;
+			INVALIDOP;
 		}
 
 		u8 sregs[4], dregs[4];
