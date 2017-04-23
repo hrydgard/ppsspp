@@ -1180,6 +1180,17 @@ static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &
 #endif
 }
 
+static inline Vec4<float> Interpolate(const float &c0, const float &c1, const float &c2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	__m128 v = _mm_mul_ps(_mm_cvtepi32_ps(w0.ivec), _mm_set1_ps(c0));
+	v = _mm_add_ps(v, _mm_mul_ps(_mm_cvtepi32_ps(w1.ivec), _mm_set1_ps(c1)));
+	v = _mm_add_ps(v, _mm_mul_ps(_mm_cvtepi32_ps(w2.ivec), _mm_set1_ps(c2)));
+	return _mm_mul_ps(v, wsum_recip.vec);
+#else
+	return (w0.Cast<float>() * c0 + w1.Cast<float>() * c1 + w2.Cast<float>() * c2) * wsum_recip;
+#endif
+}
+
 struct TriangleEdge {
 	Vec4<int> Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin);
 	inline Vec4<int> StepX(const Vec4<int> &w);
@@ -1205,7 +1216,11 @@ Vec4<int> TriangleEdge::Start(const ScreenCoords &v0, const ScreenCoords &v1, co
 }
 
 inline Vec4<int> TriangleEdge::StepX(const Vec4<int> &w) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return _mm_add_epi32(w.ivec, stepX.ivec);
+#else
 	return w + stepX;
+#endif
 }
 
 inline Vec4<int> TriangleEdge::StepY(const Vec4<int> &w) {
@@ -1311,9 +1326,10 @@ void DrawTriangleSlice(
 
 				if (gstate.isTextureMapEnabled() && !clearMode) {
 					if (gstate.isModeThrough()) {
+						Vec4<float> s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1, w2, wsum_recip);
+						Vec4<float> t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1, w2, wsum_recip);
 						for (int i = 0; i < 4; ++i) {
-							Vec2<float> texcoords = Interpolate(v0.texturecoords, v1.texturecoords, v2.texturecoords, w0[i], w1[i], w2[i], wsum_recip[i]);
-							ApplyTexturing(prim_color[i], texcoords.s(), texcoords.t(), maxTexLevel, magFilt, texptr, texbufwidthbytes);
+							ApplyTexturing(prim_color[i], s[i], t[i], maxTexLevel, magFilt, texptr, texbufwidthbytes);
 						}
 					} else {
 						// Texture coordinate interpolation must definitely be perspective-correct.
