@@ -160,17 +160,26 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		GETexLevelMode mode = gstate.getTexLevelMode();
 		switch (mode) {
 		case GE_TEXLEVEL_MODE_AUTO:
-			// TODO
+			dxstate.texMaxMipLevel.set(0);
+			dxstate.texMipLodBias.set(lodBias);
 			break;
 		case GE_TEXLEVEL_MODE_CONST:
-			dxstate.texMipLodBias.set(lodBias);
-			// TODO
+			// TODO: This is just an approximation - texMaxMipLevel sets the lowest numbered mip to use.
+			// Unfortunately, this doesn't support a const 1.5 or etc.
+			dxstate.texMaxMipLevel.set((int)lodBias);
+			dxstate.texMipLodBias.set(-1000.0f);
 			break;
 		case GE_TEXLEVEL_MODE_SLOPE:
-			// TODO
+			WARN_LOG_REPORT_ONCE(texSlope, G3D, "Unsupported texture lod slope: %f + %f", gstate.getTextureLodSlope(), lodBias);
+			// TODO: This behavior isn't correct.
+			dxstate.texMaxMipLevel.set(0);
+			dxstate.texMipLodBias.set(lodBias);
 			break;
 		}
 		entry.lodBias = lodBias;
+	} else {
+		dxstate.texMaxMipLevel.set(0);
+		dxstate.texMipLodBias.set(0.0f);
 	}
 
 	D3DTEXTUREFILTERTYPE minf = (D3DTEXTUREFILTERTYPE)MinFilt[minFilt];
@@ -199,6 +208,8 @@ void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHe
 	dxstate.texMinFilter.set(MinFilt[minFilt]);
 	dxstate.texMipFilter.set(MipFilt[minFilt]);
 	dxstate.texMagFilter.set(MagFilt[magFilt]);
+	dxstate.texMipLodBias.set(0.0f);
+	dxstate.texMaxMipLevel.set(0.0f);
 
 	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
 	// This happens whether we have OES_texture_npot or not.
@@ -437,6 +448,8 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
 		device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+		device_->SetSamplerState(0, D3DSAMP_MIPMAPLODBIAS, 0);
+		device_->SetSamplerState(0, D3DSAMP_MAXMIPLEVEL, 0);
 
 		shaderApply.Shade();
 

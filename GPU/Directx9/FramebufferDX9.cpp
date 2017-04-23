@@ -313,6 +313,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			dxstate.texMagFilter.set(D3DTEXF_POINT);
 			dxstate.texMinFilter.set(D3DTEXF_POINT);
 		}
+		dxstate.texMipLodBias.set(0.0f);
+		dxstate.texMaxMipLevel.set(0);
 		device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
