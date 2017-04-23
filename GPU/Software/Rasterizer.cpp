@@ -58,6 +58,62 @@ static inline int orient2dIncY(int dX01)
 	return -dX01;
 }
 
+// Only OK on x64 where our stack is aligned
+#if defined(_M_SSE) && !defined(_M_IX86)
+static inline __m128 Interpolate(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
+	__m128 v = _mm_mul_ps(c0, _mm_cvtepi32_ps(_mm_set1_epi32(w0)));
+	v = _mm_add_ps(v, _mm_mul_ps(c1, _mm_cvtepi32_ps(_mm_set1_epi32(w1))));
+	v = _mm_add_ps(v, _mm_mul_ps(c2, _mm_cvtepi32_ps(_mm_set1_epi32(w2))));
+	return _mm_mul_ps(v, _mm_set_ps1(wsum));
+}
+
+static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
+	return _mm_cvtps_epi32(Interpolate(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
+}
+#endif
+
+// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
+// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
+
+static inline Vec4<int> Interpolate(const Vec4<int> &c0, const Vec4<int> &c1, const Vec4<int> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return Vec4<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#else
+	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
+#endif
+}
+
+static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, const Vec3<int> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return Vec3<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#else
+	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
+#endif
+}
+
+static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &c1, const Vec2<float> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return Vec2<float>(Interpolate(c0.vec, c1.vec, c2.vec, w0, w1, w2, wsum));
+#else
+	return (c0 * w0 + c1 * w1 + c2 * w2) * wsum;
+#endif
+}
+
+static inline Vec4<float> Interpolate(const float &c0, const float &c1, const float &c2, const Vec4<float> &w0, const Vec4<float> &w1, const Vec4<float> &w2, const Vec4<float> &wsum_recip) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	__m128 v = _mm_mul_ps(w0.vec, _mm_set1_ps(c0));
+	v = _mm_add_ps(v, _mm_mul_ps(w1.vec, _mm_set1_ps(c1)));
+	v = _mm_add_ps(v, _mm_mul_ps(w2.vec, _mm_set1_ps(c2)));
+	return _mm_mul_ps(v, wsum_recip.vec);
+#else
+	return (w0 * c0 + w1 * c1 + w2 * c2) * wsum_recip;
+#endif
+}
+
+static inline Vec4<float> Interpolate(const float &c0, const float &c1, const float &c2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip) {
+	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
+}
+
 template <unsigned int texel_size_bits>
 static inline int GetPixelDataOffset(unsigned int row_pitch_bytes, unsigned int u, unsigned int v)
 {
@@ -212,7 +268,7 @@ static inline void GetTexelCoordinatesThroughQuad(int level, int s, int t, int *
 	}
 }
 
-static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
+static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t)
 {
 	switch (gstate.getUVGenMode()) {
 	case GE_TEXMAP_TEXTURE_COORDS:
@@ -224,30 +280,34 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			float q0 = 1.f / v0.clippos.w;
 			float q1 = 1.f / v1.clippos.w;
 			float q2 = 1.f / v2.clippos.w;
-			float q_recip = 1.0f / (q0 * w0 + q1 * w1 + q2 * w2);
-			s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) * q_recip;
-			t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) * q_recip;
+			Vec4<float> wq0 = w0.Cast<float>() * q0;
+			Vec4<float> wq1 = w1.Cast<float>() * q1;
+			Vec4<float> wq2 = w2.Cast<float>() * q2;
+
+			Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
+			s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
+			t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
 		}
 		break;
 	case GE_TEXMAP_TEXTURE_MATRIX:
-		{
+		for (int i = 0; i < 4; ++i) {
 			// projection mapping, TODO: Move this code to TransformUnit!
 			Vec3<float> source;
 			switch (gstate.getUVProjMode()) {
 			case GE_PROJMAP_POSITION:
-				source = (v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0 + w1 + w2);
+				source = (v0.modelpos * w0[i] + v1.modelpos * w1[i] + v2.modelpos * w2[i]) * wsum_recip[i];
 				break;
 
 			case GE_PROJMAP_UV:
-				source = Vec3f((v0.texturecoords * w0 + v1.texturecoords * w1 + v2.texturecoords * w2) / (w0 + w1 + w2), 0.0f);
+				source = Vec3f((v0.texturecoords * w0[i] + v1.texturecoords * w1[i] + v2.texturecoords * w2[i]) * wsum_recip[i], 0.0f);
 				break;
 
 			case GE_PROJMAP_NORMALIZED_NORMAL:
-				source = (v0.normal.Normalized() * w0 + v1.normal.Normalized() * w1 + v2.normal.Normalized() * w2) / (w0 + w1 + w2);
+				source = (v0.normal.Normalized() * w0[i] + v1.normal.Normalized() * w1[i] + v2.normal.Normalized() * w2[i]) * wsum_recip[i];
 				break;
 
 			case GE_PROJMAP_NORMAL:
-				source = (v0.normal * w0 + v1.normal * w1 + v2.normal * w2) / (w0 + w1 + w2);
+				source = (v0.normal * w0[i] + v1.normal * w1[i] + v2.normal * w2[i]) * wsum_recip[i];
 				break;
 
 			default:
@@ -258,12 +318,14 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			Mat3x3<float> tgen(gstate.tgenMatrix);
 			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
 			float z_recip = 1.0f / stq.z;
-			s = stq.x * z_recip;
-			t = stq.y * z_recip;
+			s[i] = stq.x * z_recip;
+			t[i] = stq.y * z_recip;
 		}
 		break;
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture mapping mode %x!", gstate.getUVGenMode());
+		s = Vec4<float>::AssignToAll(0.0f);
+		t = Vec4<float>::AssignToAll(0.0f);
 		break;
 	}	
 }
@@ -1139,58 +1201,6 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 	prim_color = GetTextureFunctionOutput(prim_color, texcolor);
 }
 
-// Only OK on x64 where our stack is aligned
-#if defined(_M_SSE) && !defined(_M_IX86)
-static inline __m128 Interpolate(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
-	__m128 v = _mm_mul_ps(c0, _mm_cvtepi32_ps(_mm_set1_epi32(w0)));
-	v = _mm_add_ps(v, _mm_mul_ps(c1, _mm_cvtepi32_ps(_mm_set1_epi32(w1))));
-	v = _mm_add_ps(v, _mm_mul_ps(c2, _mm_cvtepi32_ps(_mm_set1_epi32(w2))));
-	return _mm_mul_ps(v, _mm_set_ps1(wsum));
-}
-
-static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
-	return _mm_cvtps_epi32(Interpolate(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
-}
-#endif
-
-// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
-// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
-
-static inline Vec4<int> Interpolate(const Vec4<int> &c0, const Vec4<int> &c1, const Vec4<int> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !defined(_M_IX86)
-	return Vec4<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
-#else
-	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
-#endif
-}
-
-static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, const Vec3<int> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !defined(_M_IX86)
-	return Vec3<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
-#else
-	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
-#endif
-}
-
-static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &c1, const Vec2<float> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !defined(_M_IX86)
-	return Vec2<float>(Interpolate(c0.vec, c1.vec, c2.vec, w0, w1, w2, wsum));
-#else
-	return (c0 * w0 + c1 * w1 + c2 * w2) * wsum;
-#endif
-}
-
-static inline Vec4<float> Interpolate(const float &c0, const float &c1, const float &c2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip) {
-#if defined(_M_SSE) && !defined(_M_IX86)
-	__m128 v = _mm_mul_ps(_mm_cvtepi32_ps(w0.ivec), _mm_set1_ps(c0));
-	v = _mm_add_ps(v, _mm_mul_ps(_mm_cvtepi32_ps(w1.ivec), _mm_set1_ps(c1)));
-	v = _mm_add_ps(v, _mm_mul_ps(_mm_cvtepi32_ps(w2.ivec), _mm_set1_ps(c2)));
-	return _mm_mul_ps(v, wsum_recip.vec);
-#else
-	return (w0.Cast<float>() * c0 + w1.Cast<float>() * c1 + w2.Cast<float>() * c2) * wsum_recip;
-#endif
-}
-
 struct TriangleEdge {
 	Vec4<int> Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin);
 	inline Vec4<int> StepX(const Vec4<int> &w);
@@ -1306,8 +1316,7 @@ void DrawTriangleSlice(
 			// If p is on or inside all edges, render pixel
 			Vec4<int> mask = (w0 + bias0) | (w1 + bias1) | (w2 + bias2);
 			if (mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0) {
-				Vec4<float> wsum = (w0 + w1 + w2).Cast<float>();
-				Vec4<float> wsum_recip(1.0f / wsum.x, 1.0f / wsum.y, 1.0f / wsum.z, 1.0f / wsum.w);
+				Vec4<float> wsum_recip = (w0 + w1 + w2).Cast<float>().Reciprocal();
 
 				Vec4<int> prim_color[4];
 				Vec3<int> sec_color[4];
@@ -1325,19 +1334,17 @@ void DrawTriangleSlice(
 				}
 
 				if (gstate.isTextureMapEnabled() && !clearMode) {
+					Vec4<float> s, t;
 					if (gstate.isModeThrough()) {
-						Vec4<float> s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1, w2, wsum_recip);
-						Vec4<float> t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1, w2, wsum_recip);
-						for (int i = 0; i < 4; ++i) {
-							ApplyTexturing(prim_color[i], s[i], t[i], maxTexLevel, magFilt, texptr, texbufwidthbytes);
-						}
+						s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1, w2, wsum_recip);
+						t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1, w2, wsum_recip);
 					} else {
 						// Texture coordinate interpolation must definitely be perspective-correct.
-						for (int i = 0; i < 4; ++i) {
-							float s = 0, t = 0;
-							GetTextureCoordinates(v0, v1, v2, w0[i], w1[i], w2[i], s, t);
-							ApplyTexturing(prim_color[i], s, t, maxTexLevel, magFilt, texptr, texbufwidthbytes);
-						}
+						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
+					}
+
+					for (int i = 0; i < 4; ++i) {
+						ApplyTexturing(prim_color[i], s[i], t[i], maxTexLevel, magFilt, texptr, texbufwidthbytes);
 					}
 				}
 

@@ -634,6 +634,12 @@ public:
 		return Vec4(VecClamp(x, l, h), VecClamp(y, l, h), VecClamp(z, l, h), VecClamp(w, l, h));
 	}
 
+	Vec4 Reciprocal() const
+	{
+		const T one = 1.0f;
+		return Vec4(one / x, one / y, one / z, one / w);
+	}
+
 	// Only implemented for T=float
 	float Length() const;
 	void SetLength(const float l);
