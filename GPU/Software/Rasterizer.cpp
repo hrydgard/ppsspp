@@ -1180,19 +1180,47 @@ static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &
 #endif
 }
 
+struct TriangleEdge {
+	Vec4<int> Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin);
+	inline Vec4<int> StepX(const Vec4<int> &w);
+	inline Vec4<int> StepY(const Vec4<int> &w);
+
+	Vec4<int> stepX;
+	Vec4<int> stepY;
+};
+
+Vec4<int> TriangleEdge::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
+	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(0, 16, 0, 16);
+	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y) + Vec4<int>(0, 0, 16, 16);
+
+	// orient2d refactored.
+	int xf = v0.y - v1.y;
+	int yf = v1.x - v0.x;
+	int c = v1.y * v0.x - v1.x * v0.y;
+
+	stepX = Vec4<int>::AssignToAll(xf * 16 * 2);
+	stepY = Vec4<int>::AssignToAll(yf * 16 * 2);
+
+	return Vec4<int>::AssignToAll(xf) * initX + Vec4<int>::AssignToAll(yf) * initY + Vec4<int>::AssignToAll(c);
+}
+
+inline Vec4<int> TriangleEdge::StepX(const Vec4<int> &w) {
+	return w + stepX;
+}
+
+inline Vec4<int> TriangleEdge::StepY(const Vec4<int> &w) {
+	return w + stepY;
+}
+
 template <bool clearMode>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int minX, int minY, int maxX, int maxY,
-	int y1, int y2)
+	int hy1, int hy2)
 {
-	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
-	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
-	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
-
-	int bias0 = IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0;
-	int bias1 = IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0;
-	int bias2 = IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0;
+	Vec4<int> bias0 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0);
+	Vec4<int> bias1 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0);
+	Vec4<int> bias2 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0);
 
 	int texbufwidthbytes[8] = {0};
 
@@ -1225,89 +1253,118 @@ void DrawTriangleSlice(
 		}
 	}
 
+	TriangleEdge e0;
+	TriangleEdge e1;
+	TriangleEdge e2;
+
 	ScreenCoords pprime(minX, minY, 0);
-	int w0_base = orient2d(v1.screenpos, v2.screenpos, pprime);
-	int w1_base = orient2d(v2.screenpos, v0.screenpos, pprime);
-	int w2_base = orient2d(v0.screenpos, v1.screenpos, pprime);
+	Vec4<int> w0_base = e0.Start(v1.screenpos, v2.screenpos, pprime);
+	Vec4<int> w1_base = e1.Start(v2.screenpos, v0.screenpos, pprime);
+	Vec4<int> w2_base = e2.Start(v0.screenpos, v1.screenpos, pprime);
 
 	// Step forward to y1 (slice..)
-	w0_base += orient2dIncY(d12.x) * 16 * y1;
-	w1_base += orient2dIncY(-d02.x) * 16 * y1;
-	w2_base += orient2dIncY(d01.x) * 16 * y1;
+	w0_base += e0.stepY * hy1;
+	w1_base += e1.stepY * hy1;
+	w2_base += e2.stepY * hy1;
 
 	// All the z values are the same, no interpolation required.
 	// This is common, and when we interpolate, we lose accuracy.
 	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
 
-	for (pprime.y = minY + y1 * 16; pprime.y < minY + y2 * 16; pprime.y += 16,
-										w0_base += orient2dIncY(d12.x)*16,
-										w1_base += orient2dIncY(-d02.x)*16,
-										w2_base += orient2dIncY(d01.x)*16) {
-		int w0 = w0_base;
-		int w1 = w1_base;
-		int w2 = w2_base;
+	for (pprime.y = minY + hy1 * 32; pprime.y < minY + hy2 * 32; pprime.y += 32,
+										w0_base = e0.StepY(w0_base),
+										w1_base = e1.StepY(w1_base),
+										w2_base = e2.StepY(w2_base)) {
+		Vec4<int> w0 = w0_base;
+		Vec4<int> w1 = w1_base;
+		Vec4<int> w2 = w2_base;
 
 		pprime.x = minX;
 		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
-		for (; pprime.x <= maxX; pprime.x +=16,
-			w0 += orient2dIncX(d12.y)*16,
-			w1 += orient2dIncX(-d02.y)*16,
-			w2 += orient2dIncX(d01.y)*16,
-			p.x = (p.x + 1) & 0x3FF) {
+		for (; pprime.x <= maxX; pprime.x += 32,
+			w0 = e0.StepX(w0),
+			w1 = e1.StepX(w1),
+			w2 = e2.StepX(w2),
+			p.x = (p.x + 2) & 0x3FF) {
 
 			// If p is on or inside all edges, render pixel
-			if (w0 + bias0 >= 0 && w1 + bias1 >= 0 && w2 + bias2 >= 0) {
-				int wsum = w0 + w1 + w2;
-				if (wsum == 0.0f)
-					continue;
-				float wsum_recip = 1.0f / (float)wsum;
+			Vec4<int> mask = (w0 + bias0) | (w1 + bias1) | (w2 + bias2);
+			if (mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0) {
+				Vec4<float> wsum = (w0 + w1 + w2).Cast<float>();
+				Vec4<float> wsum_recip(1.0f / wsum.x, 1.0f / wsum.y, 1.0f / wsum.z, 1.0f / wsum.w);
 
-				Vec4<int> prim_color;
-				Vec3<int> sec_color;
+				Vec4<int> prim_color[4];
+				Vec3<int> sec_color[4];
 				if (gstate.getShadeMode() == GE_SHADE_GOURAUD && !clearMode) {
 					// Does the PSP do perspective-correct color interpolation? The GC doesn't.
-					prim_color = Interpolate(v0.color0, v1.color0, v2.color0, w0, w1, w2, wsum_recip);
-					sec_color = Interpolate(v0.color1, v1.color1, v2.color1, w0, w1, w2, wsum_recip);
+					for (int i = 0; i < 4; ++i) {
+						prim_color[i] = Interpolate(v0.color0, v1.color0, v2.color0, w0[i], w1[i], w2[i], wsum_recip[i]);
+						sec_color[i] = Interpolate(v0.color1, v1.color1, v2.color1, w0[i], w1[i], w2[i], wsum_recip[i]);
+					}
 				} else {
-					prim_color = v2.color0;
-					sec_color = v2.color1;
+					for (int i = 0; i < 4; ++i) {
+						prim_color[i] = v2.color0;
+						sec_color[i] = v2.color1;
+					}
 				}
 
 				if (gstate.isTextureMapEnabled() && !clearMode) {
 					if (gstate.isModeThrough()) {
-						Vec2<float> texcoords = Interpolate(v0.texturecoords, v1.texturecoords, v2.texturecoords, w0, w1, w2, wsum_recip);
-						ApplyTexturing(prim_color, texcoords.s(), texcoords.t(), maxTexLevel, magFilt, texptr, texbufwidthbytes);
+						for (int i = 0; i < 4; ++i) {
+							Vec2<float> texcoords = Interpolate(v0.texturecoords, v1.texturecoords, v2.texturecoords, w0[i], w1[i], w2[i], wsum_recip[i]);
+							ApplyTexturing(prim_color[i], texcoords.s(), texcoords.t(), maxTexLevel, magFilt, texptr, texbufwidthbytes);
+						}
 					} else {
 						// Texture coordinate interpolation must definitely be perspective-correct.
-						float s = 0, t = 0;
-						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
-						ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbytes);
+						for (int i = 0; i < 4; ++i) {
+							float s = 0, t = 0;
+							GetTextureCoordinates(v0, v1, v2, w0[i], w1[i], w2[i], s, t);
+							ApplyTexturing(prim_color[i], s, t, maxTexLevel, magFilt, texptr, texbufwidthbytes);
+						}
 					}
 				}
 
 				if (!clearMode) {
-					// TODO: Tried making Vec4 do this, but things got slower.
+					for (int i = 0; i < 4; ++i) {
 #if defined(_M_SSE)
-					const __m128i sec = _mm_and_si128(sec_color.ivec, _mm_set_epi32(0, -1, -1, -1));
-					prim_color.ivec = _mm_add_epi32(prim_color.ivec, sec);
+						// TODO: Tried making Vec4 do this, but things got slower.
+						const __m128i sec = _mm_and_si128(sec_color[i].ivec, _mm_set_epi32(0, -1, -1, -1));
+						prim_color[i].ivec = _mm_add_epi32(prim_color[i].ivec, sec);
 #else
-					prim_color += Vec4<int>(sec_color, 0);
+						prim_color[i] += Vec4<int>(sec_color[i], 0);
 #endif
+					}
 				}
 
-				int fog = 255;
+				Vec4<int> fog = Vec4<int>::AssignToAll(255);
 				if (gstate.isFogEnabled() && !clearMode) {
-					fog = ClampFogDepth(((float)v0.fogdepth * w0 + (float)v1.fogdepth * w1 + (float)v2.fogdepth * w2) * wsum_recip);
+					Vec4<float> fogdepths = w0.Cast<float>() * v0.fogdepth + w1.Cast<float>() * v1.fogdepth + w2.Cast<float>() * v2.fogdepth;
+					fogdepths = fogdepths * wsum_recip;
+					for (int i = 0; i < 4; ++i) {
+						fog[i] = ClampFogDepth(fogdepths[i]);
+					}
 				}
 
-				u16 z = v2.screenpos.z;
-				// TODO: Is that the correct way to interpolate?
-				// Without the (u32), this causes an ICE in some versions of gcc.
-				if (!flatZ)
-					z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum_recip);
+				Vec4<int> z;
+				if (flatZ) {
+					z = Vec4<int>::AssignToAll(v2.screenpos.z);
+				} else {
+					// TODO: Is that the correct way to interpolate?
+					Vec4<float> zfloats = w0.Cast<float>() * v0.screenpos.z + w1.Cast<float>() * v1.screenpos.z + w2.Cast<float>() * v2.screenpos.z;
+					z = (zfloats * wsum_recip).Cast<int>();
+				}
 
-				DrawSinglePixel<clearMode>(p, z, fog, prim_color);
+				DrawingCoords subp = p;
+				for (int i = 0; i < 4; ++i) {
+					if (mask[i] < 0) {
+						continue;
+					}
+					subp.x = p.x + (i & 1);
+					subp.y = p.y + (i / 2);
+
+					DrawSinglePixel<clearMode>(subp, (u16)z[i], fog[i], prim_color[i]);
+				}
 			}
 		}
 	}
@@ -1338,9 +1395,10 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
 	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
 
-	int range = (maxY - minY) / 16 + 1;
+	// 32 because we do two pixels at once, and we don't want overlap.
+	int range = (maxY - minY) / 32 + 1;
 	if (gstate.isModeClear()) {
-		if (range >= 24 && (maxX - minX) >= 24 * 16) {
+		if (range >= 12 && (maxX - minX) >= 24 * 16) {
 			auto bound = [&](int a, int b) -> void {
 				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
 			};
@@ -1349,7 +1407,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
 		}
 	} else {
-		if (range >= 24 && (maxX - minX) >= 24 * 16) {
+		if (range >= 12 && (maxX - minX) >= 24 * 16) {
 			auto bound = [&](int a, int b) -> void {
 				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
 			};

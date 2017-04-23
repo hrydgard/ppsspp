@@ -599,6 +599,10 @@ public:
 	{
 		return Vec4(x*other.x, y*other.y, z*other.z, w*other.w);
 	}
+	Vec4 operator | (const Vec4 &other) const
+	{
+		return Vec4(x | other.x, y | other.y, z | other.z, w | other.w);
+	}
 	template<typename V>
 	Vec4 operator * (const V& f) const
 	{
