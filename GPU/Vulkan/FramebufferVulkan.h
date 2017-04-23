@@ -152,8 +152,8 @@ private:
 	// The command buffer of the current framebuffer pass being rendered to.
 	// One framebuffer can be used as a texturing source at multiple times in a frame,
 	// but then the contents have to be copied out into a new texture every time.
-	VkCommandBuffer curCmd_;
-	VkCommandBuffer cmdInit_;
+	VkCommandBuffer curCmd_ = VK_NULL_HANDLE;
+	VkCommandBuffer cmdInit_ = VK_NULL_HANDLE;
 
 	// Used by DrawPixels
 	VulkanTexture *drawPixelsTex_;
