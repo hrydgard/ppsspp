@@ -137,13 +137,13 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 				switch (mode) {
 				case GE_TEXLEVEL_MODE_AUTO:
 #ifndef USING_GLES2
+					// Sigh, LOD_BIAS is not even in ES 3.0.. but we could do it in the shader via texture()...
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
 #endif
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry.maxLevel);
 					break;
 				case GE_TEXLEVEL_MODE_CONST:
-					// Sigh, LOD_BIAS is not even in ES 3.0.. but we could do it in the shader via texture()...
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, lodBias);
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, lodBias);
 					break;
@@ -160,7 +160,7 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 			}
 			entry.lodBias = lodBias;
 		}
-	} else {
+	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0.0f);
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0.0f);
 	}
