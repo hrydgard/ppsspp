@@ -94,7 +94,7 @@ int printUsage(const char *progname, const char *reason)
 #if defined(HEADLESSHOST_CLASS)
 	{
 		fprintf(stderr, "  --graphics=BACKEND    use the full gpu backend (slower)\n");
-		fprintf(stderr, "                        options: gles, software, directx9\n");
+		fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
 		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	}
 #endif
@@ -157,6 +157,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	static double deadline;
 	deadline = time_now() + timeout;
 
+	PSP_BeginHostFrame();
+
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
 	{
@@ -179,6 +181,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			Core_Stop();
 		}
 	}
+
+	PSP_EndHostFrame();
 
 	PSP_Shutdown();
 
@@ -250,6 +254,8 @@ int main(int argc, const char* argv[])
 				gpuCore = GPUCORE_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
 				gpuCore = GPUCORE_DIRECTX9;
+			else if (!strcasecmp(gpuName, "directx11"))
+				gpuCore = GPUCORE_DIRECTX11;
 			else if (!strcasecmp(gpuName, "vulkan"))
 				gpuCore = GPUCORE_VULKAN;
 			else if (!strcasecmp(gpuName, "null"))
@@ -356,6 +362,7 @@ int main(int argc, const char* argv[])
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bBlockTransferGPU = true;
 	g_Config.iSplineBezierQuality = 2;
+	g_Config.bMipMap = true;
 
 #ifdef _WIN32
 	InitSysDirectories();

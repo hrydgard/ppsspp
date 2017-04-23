@@ -59,6 +59,7 @@ void DirectXState::Restore() {
 	texMagFilter.restore(); count++;
 	texMipFilter.restore(); count++;
 	texMipLodBias.restore(); count++;
+	texMaxMipLevel.restore(); count++;
 	texAddressU.restore(); count++;
 	texAddressV.restore(); count++;
 }

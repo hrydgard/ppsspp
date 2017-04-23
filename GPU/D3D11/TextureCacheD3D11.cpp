@@ -88,11 +88,25 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 #if PPSSPP_PLATFORM(UWP) && PPSSPP_ARCH(ARM)
 	// For some reason, can't set MaxLOD on mobile.
 	samp.MaxLOD = FLT_MAX;
-#else
-	samp.MaxLOD = key.maxLevel;
-#endif
 	samp.MinLOD = -FLT_MAX;
 	samp.MipLODBias = 0.0f;
+#else
+	if (!key.mipEnable) {
+		samp.MaxLOD = 0.0f;
+		samp.MinLOD = 0.0f;
+		samp.MipLODBias = 0.0f;
+	} else if (key.lodAuto) {
+		// Auto selected mip + bias.
+		samp.MaxLOD = key.maxLevel;
+		samp.MinLOD = 0.0f;
+		samp.MipLODBias = (float)key.lodBias / 16.0f;
+	} else {
+		// Constant mip at bias.
+		samp.MaxLOD = (float)key.lodBias / 16.0f;
+		samp.MinLOD = (float)key.lodBias / 16.0f;
+		samp.MipLODBias = 0.0f;
+	}
+#endif
 	samp.ComparisonFunc = D3D11_COMPARISON_NEVER;
 	for (int i = 0; i < 4; i++) {
 		samp.BorderColor[i] = 1.0f;
@@ -169,7 +183,13 @@ void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheK
 	key.magFilt = magFilt & 1;
 	key.sClamp = sClamp;
 	key.tClamp = tClamp;
+	key.lodBias = (s8)((gstate.texlevel >> 16) & 0xFF);
+	if (key.lodBias > entry.maxLevel * 16) {
+		key.lodBias = entry.maxLevel * 16;
+	}
 	key.maxLevel = entry.maxLevel;
+	key.lodAuto = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_AUTO;
+	// TODO: GE_TEXLEVEL_MODE_SLOPE
 
 	if (entry.framebuffer) {
 		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
