@@ -769,7 +769,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
 	// (it always runs at output resolution so FXAA may look odd).
 	float x, y, w, h;
-	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+	int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 	if (applyPostShader && useBufferedRendering_) {
 		// Might've changed if the shader was just changed to Off.
@@ -930,7 +930,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 
 		draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
 
-		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+		int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 
 		// Output coordinates
 		float x, y, w, h;
@@ -1044,7 +1044,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
-	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+	if (useBufferedRendering_) {
 		draw_->BindBackbufferAsRenderTarget();
 	}
 	currentRenderVfb_ = 0;
