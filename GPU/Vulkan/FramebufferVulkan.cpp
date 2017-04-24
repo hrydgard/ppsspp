@@ -1070,7 +1070,7 @@ void FramebufferManagerVulkan::EndFrame() {
 			PSP_CoreParameter().renderHeight = 272 * zoom;
 		}
 
-		if (UpdateSize() || g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		if (UpdateSize()) {
 			DestroyAllFBOs();
 		}
 

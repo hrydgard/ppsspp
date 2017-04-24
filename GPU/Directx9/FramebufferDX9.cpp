@@ -776,7 +776,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 				PSP_CoreParameter().renderHeight = 272 * zoom;
 			}
 
-			if (UpdateSize() || g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+			if (UpdateSize()) {
 				DestroyAllFBOs();
 			}
 			// Seems related - if you're ok with numbers all the time, show some more :)
