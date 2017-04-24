@@ -383,8 +383,7 @@ void PSPSaveDialog::DisplaySaveIcon()
 		PPGeDisableTexture();
 	}
 	PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, textureColor);
-	if (curSave.texture != NULL)
-		PPGeSetDefaultTexture();
+	PPGeSetDefaultTexture();
 }
 
 void PSPSaveDialog::DisplaySaveDataInfo1()
