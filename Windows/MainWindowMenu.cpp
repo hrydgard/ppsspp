@@ -174,7 +174,7 @@ namespace MainWindow {
 		}
 		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
 
-		if (menuShaderInfo.size() != info.size() || !std::equal(info.begin(), info.end(), menuShaderInfo.begin())) {
+		if (menuShaderInfo.size() == info.size() && std::equal(info.begin(), info.end(), menuShaderInfo.begin())) {
 			return false;
 		}
 
