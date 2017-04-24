@@ -489,7 +489,6 @@ const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op)
 		ERROR_LOG(HLE, "Syscall had bad function number %d in module %d - probably executing garbage", funcnum, modulenum);
 		return NULL;
 	}
-	DEBUG_LOG(HLE, "Compiling syscall to %s", moduleDB[modulenum].funcTable[funcnum].name);
 	return &moduleDB[modulenum].funcTable[funcnum];
 }
 
@@ -500,6 +499,7 @@ void *GetQuickSyscallFunc(MIPSOpcode op) {
 	const HLEFunction *info = GetSyscallFuncPointer(op);
 	if (!info || !info->func)
 		return nullptr;
+	DEBUG_LOG(HLE, "Compiling syscall to %s", info->name);
 
 	// TODO: Do this with a flag?
 	if (op == idleOp)
