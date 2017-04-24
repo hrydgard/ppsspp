@@ -1736,6 +1736,8 @@ void FramebufferManagerCommon::Resized() {
 		PSP_CoreParameter().renderHeight = 272 * zoom;
 	}
 
+	gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
+
 #ifdef _WIN32
 	// Seems related - if you're ok with numbers all the time, show some more :)
 	if (g_Config.iShowFPSCounter != 0) {
