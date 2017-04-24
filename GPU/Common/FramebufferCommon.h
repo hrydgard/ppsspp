@@ -75,6 +75,7 @@ struct VirtualFramebuffer {
 	int last_frame_render;
 	int last_frame_displayed;
 	int last_frame_clut;
+	int last_frame_failed;
 	u32 clutUpdatedBytes;
 	bool memoryUpdated;
 	bool depthUpdated;

@@ -579,16 +579,15 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	textureCache_->ForgetLastTexture();
 
 	if (useBufferedRendering_) {
-
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 		} else {
-			// wtf? This should only happen very briefly when toggling bBufferedRendering
-			draw_->BindBackbufferAsRenderTarget();
+			// This should only happen very briefly when toggling useBufferedRendering_.
+			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
 		}
 	} else {
 		if (vfb->fbo) {
-			// wtf? This should only happen very briefly when toggling bBufferedRendering
+			// This should only happen very briefly when toggling useBufferedRendering_.
 			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
 			delete vfb->fbo;
 			vfb->fbo = nullptr;
@@ -1147,6 +1146,10 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 		}
 		return;
 	}
+	if (!old.fbo && vfb->last_frame_failed != 0 && vfb->last_frame_failed - gpuStats.numFlips < 63) {
+		// Don't constantly retry FBOs which failed to create.
+		return;
+	}
 
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
 	if (old.fbo) {
@@ -1166,6 +1169,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 
 	if (!vfb->fbo) {
 		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
+		vfb->last_frame_failed = gpuStats.numFlips;
 	}
 }
 
