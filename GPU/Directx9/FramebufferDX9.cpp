@@ -753,43 +753,10 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	void FramebufferManagerDX9::EndFrame() {
-		if (resized_) {
-			// Actually, auto mode should be more granular...
-			// Round up to a zoom factor for the render size.
-			int zoom = g_Config.iInternalResolution;
-			if (zoom == 0) { // auto mode
-											 // Use the longest dimension
-				if (!g_Config.IsPortrait()) {
-					zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
-				} else {
-					zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
-				}
-			}
-			if (zoom <= 1)
-				zoom = 1;
-
-			if (g_Config.IsPortrait()) {
-				PSP_CoreParameter().renderWidth = 272 * zoom;
-				PSP_CoreParameter().renderHeight = 480 * zoom;
-			} else {
-				PSP_CoreParameter().renderWidth = 480 * zoom;
-				PSP_CoreParameter().renderHeight = 272 * zoom;
-			}
-
-			if (UpdateSize()) {
-				DestroyAllFBOs();
-			}
-			// Seems related - if you're ok with numbers all the time, show some more :)
-			if (g_Config.iShowFPSCounter != 0) {
-				ShowScreenResolution();
-			}
-			resized_ = false;
-		}
 	}
 
 	void FramebufferManagerDX9::DeviceLost() {
 		DestroyAllFBOs();
-		resized_ = false;
 	}
 
 	std::vector<FramebufferInfo> FramebufferManagerDX9::GetFramebufferList() {
@@ -868,7 +835,11 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	void FramebufferManagerDX9::Resized() {
-		resized_ = true;
+		FramebufferManagerCommon::Resized();
+
+		if (UpdateSize()) {
+			DestroyAllFBOs();
+		}
 	}
 
 	bool FramebufferManagerDX9::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat fb_format, GPUDebugBuffer &buffer, int maxRes) {

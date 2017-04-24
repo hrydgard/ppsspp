@@ -230,7 +230,6 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	deltaLoc_(-1),
 	textureCacheGL_(nullptr),
 	shaderManagerGL_(nullptr),
-	resized_(false),
 	pixelBufObj_(nullptr),
 	currentPBO_(0)
 {
@@ -240,7 +239,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 void FramebufferManagerGLES::Init() {
 	FramebufferManagerCommon::Init();
 	// Workaround for upscaling shaders where we force x1 resolution without saving it
-	resized_ = true;
+	Resized();
 	CompileDraw2DProgram();
 	SetLineWidth();
 }
@@ -1149,55 +1148,6 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 void FramebufferManagerGLES::EndFrame() {
 	CHECK_GL_ERROR_IF_DEBUG();
-	if (resized_) {
-		// Check if postprocessing shader is doing upscaling as it requires native resolution
-		const ShaderInfo *shaderInfo = nullptr;
-		if (g_Config.sPostShaderName != "Off") {
-			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-		}
-
-		postShaderIsUpscalingFilter_ = shaderInfo ? shaderInfo->isUpscalingFilter : false;
-
-		// Actually, auto mode should be more granular...
-		// Round up to a zoom factor for the render size.
-		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) { // auto mode
-											// Use the longest dimension
-			if (!g_Config.IsPortrait()) {
-				zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
-			} else {
-				zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
-			}
-		}
-		if (zoom <= 1 || postShaderIsUpscalingFilter_)
-			zoom = 1;
-
-		if (g_Config.IsPortrait()) {
-			PSP_CoreParameter().renderWidth = 272 * zoom;
-			PSP_CoreParameter().renderHeight = 480 * zoom;
-		} else {
-			PSP_CoreParameter().renderWidth = 480 * zoom;
-			PSP_CoreParameter().renderHeight = 272 * zoom;
-		}
-
-		if (UpdateSize()) {
-			DestroyAllFBOs();
-		}
-
-		resized_ = false;
-#ifdef _WIN32
-		// Seems related - if you're ok with numbers all the time, show some more :)
-		if (g_Config.iShowFPSCounter != 0) {
-			ShowScreenResolution();
-		}
-#endif
-		DestroyDraw2DProgram();
-		SetLineWidth();
-	}
-
-	if (!draw2dprogram_) {
-		CompileDraw2DProgram();
-	}
 
 	// We flush to memory last requested framebuffer, if any.
 	// Only do this in the read-framebuffer modes.
@@ -1223,7 +1173,6 @@ void FramebufferManagerGLES::EndFrame() {
 void FramebufferManagerGLES::DeviceLost() {
 	DestroyAllFBOs();
 	DestroyDraw2DProgram();
-	resized_ = false;
 }
 
 std::vector<FramebufferInfo> FramebufferManagerGLES::GetFramebufferList() {
@@ -1289,7 +1238,18 @@ void FramebufferManagerGLES::FlushBeforeCopy() {
 }
 
 void FramebufferManagerGLES::Resized() {
-	resized_ = true;
+	FramebufferManagerCommon::Resized();
+
+	if (UpdateSize()) {
+		DestroyAllFBOs();
+	}
+
+	DestroyDraw2DProgram();
+	SetLineWidth();
+
+	if (!draw2dprogram_) {
+		CompileDraw2DProgram();
+	}
 }
 
 bool FramebufferManagerGLES::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) {

@@ -89,7 +89,6 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	convBufSize_(0),
 	textureCacheVulkan_(nullptr),
 	shaderManagerVulkan_(nullptr),
-	resized_(false),
 	pixelBufObj_(nullptr),
 	currentPBO_(0),
 	curFrame_(0),
@@ -332,7 +331,7 @@ void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int buf
 void FramebufferManagerVulkan::Init() {
 	FramebufferManagerCommon::Init();
 	// Workaround for upscaling shaders where we force x1 resolution without saving it
-	resized_ = true;
+	Resized();
 }
 
 void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
@@ -1038,51 +1037,6 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 }
 
 void FramebufferManagerVulkan::EndFrame() {
-	if (resized_) {
-		// Check if postprocessing shader is doing upscaling as it requires native resolution
-		const ShaderInfo *shaderInfo = 0;
-		if (g_Config.sPostShaderName != "Off") {
-			ReloadAllPostShaderInfo();
-			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-		}
-
-		postShaderIsUpscalingFilter_ = shaderInfo ? shaderInfo->isUpscalingFilter : false;
-
-		// Actually, auto mode should be more granular...
-		// Round up to a zoom factor for the render size.
-		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) { // auto mode
-										 // Use the longest dimension
-			if (!g_Config.IsPortrait()) {
-				zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
-			} else {
-				zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
-			}
-		}
-		if (zoom <= 1 || postShaderIsUpscalingFilter_)
-			zoom = 1;
-
-		if (g_Config.IsPortrait()) {
-			PSP_CoreParameter().renderWidth = 272 * zoom;
-			PSP_CoreParameter().renderHeight = 480 * zoom;
-		} else {
-			PSP_CoreParameter().renderWidth = 480 * zoom;
-			PSP_CoreParameter().renderHeight = 272 * zoom;
-		}
-
-		if (UpdateSize()) {
-			DestroyAllFBOs();
-		}
-
-		resized_ = false;
-#ifdef _WIN32
-		// Seems related - if you're ok with numbers all the time, show some more :)
-		if (g_Config.iShowFPSCounter != 0) {
-			ShowScreenResolution();
-		}
-#endif
-	}
-
 	// We flush to memory last requested framebuffer, if any.
 	// Only do this in the read-framebuffer modes.
 	if (updateVRAM_)
@@ -1101,7 +1055,6 @@ void FramebufferManagerVulkan::DeviceLost() {
 
 	DestroyAllFBOs();
 	DestroyDeviceObjects();
-	resized_ = false;
 }
 
 void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
@@ -1162,7 +1115,11 @@ void FramebufferManagerVulkan::FlushBeforeCopy() {
 }
 
 void FramebufferManagerVulkan::Resized() {
-	resized_ = true;
+	FramebufferManagerCommon::Resized();
+
+	if (UpdateSize()) {
+		DestroyAllFBOs();
+	}
 }
 
 bool FramebufferManagerVulkan::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxStride) {
