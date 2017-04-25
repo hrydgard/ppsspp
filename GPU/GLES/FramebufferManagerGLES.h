@@ -138,8 +138,6 @@ private:
 	ShaderManagerGLES *shaderManagerGL_;
 	DrawEngineGLES *drawEngine_;
 
-	bool resized_;
-
 	// Not used under ES currently.
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;

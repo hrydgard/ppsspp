@@ -206,6 +206,7 @@ void GPU_Vulkan::BeginHostFrame() {
 		// In case the GPU changed.
 		BuildReportingInfo();
 		UpdateCmdInfo();
+		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		textureCacheVulkan_->NotifyConfigChanged();
 	}
@@ -316,7 +317,6 @@ void GPU_Vulkan::ReinitializeInternal() {
 	textureCacheVulkan_->Clear(true);
 	depalShaderCache_.Clear();
 	framebufferManagerVulkan_->DestroyAllFBOs();
-	framebufferManagerVulkan_->Resized();
 }
 
 void GPU_Vulkan::InitClearInternal() {

@@ -128,8 +128,6 @@ private:
 	// Used by post-processing shader
 	std::vector<Draw::Framebuffer *> extraFBOs_;
 
-	bool resized_;
-
 	struct TempFBO {
 		Draw::Framebuffer *fbo;
 		int last_frame_used;

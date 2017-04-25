@@ -224,8 +224,7 @@ namespace MainWindow
 		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO)
 			setTexScalingMultiplier(0);
 
-		if (gpu)
-			gpu->Resized();
+		NativeMessageReceived("gpu resized", "");
 	}
 
 	void CorrectCursor() {

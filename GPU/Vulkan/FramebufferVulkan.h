@@ -166,8 +166,6 @@ private:
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
 
-	bool resized_;
-
 	AsyncPBOVulkan *pixelBufObj_;
 	int currentPBO_;
 

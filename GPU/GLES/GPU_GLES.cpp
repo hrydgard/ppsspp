@@ -406,7 +406,6 @@ void GPU_GLES::ReinitializeInternal() {
 	textureCacheGL_->Clear(true);
 	depalShaderCache_.Clear();
 	framebufferManagerGL_->DestroyAllFBOs();
-	framebufferManagerGL_->Resized();
 }
 
 void GPU_GLES::InitClearInternal() {
@@ -429,6 +428,7 @@ void GPU_GLES::BeginHostFrame() {
 	UpdateCmdInfo();
 	if (resized_) {
 		CheckGPUFeatures();
+		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		shaderManagerGL_->DirtyShader();
 		textureCacheGL_->NotifyConfigChanged();
