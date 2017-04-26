@@ -61,6 +61,7 @@ namespace WindowsRawInput {
 	static size_t rawInputBufferSize;
 	static bool menuActive;
 	static bool focused = true;
+	static bool mouseLeftDown = false;
 	static bool mouseRightDown = false;
 	static float mouseX = 0.0f;
 	static float mouseY = 0.0f;
@@ -205,6 +206,36 @@ namespace WindowsRawInput {
 
 		g_mouseDeltaX += raw->data.mouse.lLastX;
 		g_mouseDeltaY += raw->data.mouse.lLastY;
+
+		if (g_Config.bMouseControl && (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse)) {
+			if (raw->data.mouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN) {
+				key.flags = KEY_DOWN;
+				key.keyCode = windowsTransTable[VK_LBUTTON];
+				NativeTouch(touch);
+				if (MouseInWindow(hWnd)) {
+					NativeKey(key);
+				}
+				mouseLeftDown = true;
+			} else if (raw->data.mouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP) {
+				key.flags = KEY_UP;
+				key.keyCode = windowsTransTable[VK_LBUTTON];
+				NativeTouch(touch);
+				if (MouseInWindow(hWnd)) {
+					if (!mouseLeftDown) {
+						// This means they were focused outside, and left clicked inside.
+						// Seems intentional, so send a down first.
+						key.flags = KEY_DOWN;
+						NativeKey(key);
+						key.flags = KEY_UP;
+						NativeKey(key);
+					}
+					else {
+						NativeKey(key);
+					}
+				}
+				mouseLeftDown = false;
+			}
+		}
 
 		if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN) {
 			key.flags = KEY_DOWN;

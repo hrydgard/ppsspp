@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2013- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -575,6 +575,12 @@ void GameSettingsScreen::CreateViews() {
 		settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
+#if defined(USING_WIN_UI)
+	controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse Control Settings")));
+	controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"));
+#endif
 
 	ViewGroup *networkingSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	networkingSettingsScroll->SetTag("GameSettingsNetworking");

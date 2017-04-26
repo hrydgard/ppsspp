@@ -228,8 +228,8 @@ namespace MainWindow
 	}
 
 	void CorrectCursor() {
-		bool autoHide = g_Config.bFullScreen && !mouseButtonDown && GetUIState() == UISTATE_INGAME;
-		if (autoHide && hideCursor) {
+		bool autoHide = ((g_Config.bFullScreen && !mouseButtonDown) || g_Config.bMouseControl) && GetUIState() == UISTATE_INGAME;
+		if (autoHide && (hideCursor || g_Config.bMouseControl)) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
 			}
@@ -566,7 +566,7 @@ namespace MainWindow
 				static double lastMouseDown;
 				double now = real_time_now();
 				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
-					if (!g_Config.bShowTouchControls && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
+					if (!g_Config.bShowTouchControls && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
 						SendToggleFullscreen(!g_Config.bFullScreen);
 					}
 					lastMouseDown = 0.0;

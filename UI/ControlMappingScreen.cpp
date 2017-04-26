@@ -168,6 +168,7 @@ void ControlMapper::MappedCallback(KeyDef kdf) {
 	default:
 		;
 	}
+	g_Config.bMapMouse = false;
 	refresh_ = true;
 	ctrlScreen_->KeyMapped(pspKey_);
 	// After this, we do not exist any more. So the refresh_ = true is probably irrelevant.
@@ -217,6 +218,8 @@ void ControlMappingScreen::CreateViews() {
 		leftColumn->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
 	leftColumn->Add(new Choice(km->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
+	if (g_Config.bMouseControl)
+		leftColumn->Add(new CheckBox(&g_Config.bMapMouse, km->T("Map Mouse")));
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);
 
@@ -306,7 +309,7 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (mapped_)
 		return false;
 	if (key.flags & KEY_DOWN) {
-		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
+		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1 && !g_Config.bMapMouse) {
 			return true;
 		}
 
