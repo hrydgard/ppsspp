@@ -118,6 +118,7 @@ namespace WindowsRawInput {
 				vKey = VK_RMENU;  // Right Alt / AltGr
 			else
 				vKey = VK_LMENU;  // Left Alt
+			break;
 
 		//case VK_RETURN:
 			// if (kb.Flags & RI_KEY_E0)
