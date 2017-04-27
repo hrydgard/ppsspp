@@ -47,6 +47,7 @@ private:
 	void Refresh();
 
 	UI::EventReturn OnAdd(UI::EventParams &params);
+	UI::EventReturn OnAddMouse(UI::EventParams &params);
 	UI::EventReturn OnDelete(UI::EventParams &params);
 	UI::EventReturn OnReplace(UI::EventParams &params);
 	UI::EventReturn OnReplaceAll(UI::EventParams &params);
@@ -119,6 +120,10 @@ void ControlMapper::Refresh() {
 
 	Choice *p = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
 	p->OnClick.Handle(this, &ControlMapper::OnAdd);
+	if (g_Config.bMouseControl) {
+		Choice *p = root->Add(new Choice("M", new LayoutParams(WRAP_CONTENT, itemH)));
+		p->OnClick.Handle(this, &ControlMapper::OnAddMouse);
+	}
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	rightColumn->SetSpacing(2.0f);
@@ -192,6 +197,12 @@ UI::EventReturn ControlMapper::OnAdd(UI::EventParams &params) {
 	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
 	return UI::EVENT_DONE;
 }
+UI::EventReturn ControlMapper::OnAddMouse(UI::EventParams &params) {
+	action_ = ADD;
+	g_Config.bMapMouse = true;
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
+	return UI::EVENT_DONE;
+}
 
 UI::EventReturn ControlMapper::OnDelete(UI::EventParams &params) {
 	int index = atoi(params.v->Tag().c_str());
@@ -218,8 +229,6 @@ void ControlMappingScreen::CreateViews() {
 		leftColumn->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
 	leftColumn->Add(new Choice(km->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
-	if (g_Config.bMouseControl)
-		leftColumn->Add(new CheckBox(&g_Config.bMapMouse, km->T("Map Mouse")));
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);
 
