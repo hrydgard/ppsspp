@@ -200,7 +200,7 @@ UI::EventReturn ControlMapper::OnAdd(UI::EventParams &params) {
 UI::EventReturn ControlMapper::OnAddMouse(UI::EventParams &params) {
 	action_ = ADD;
 	g_Config.bMapMouse = true;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
+	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
 	return UI::EVENT_DONE;
 }
 
@@ -318,13 +318,41 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (mapped_)
 		return false;
 	if (key.flags & KEY_DOWN) {
-		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1 && !g_Config.bMapMouse) {
+		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
 			return true;
 		}
 
 		mapped_ = true;
 		KeyDef kdf(key.deviceId, key.keyCode);
 		TriggerFinish(DR_OK);
+		if (callback_)
+			callback_(kdf);
+	}
+	return true;
+}
+
+void KeyMappingNewMouseKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+
+	parent->Add(new TextView(std::string(km->T("You can press ESC to cancel.")), new LinearLayoutParams(Margins(10, 0))));
+}
+
+bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
+	if (mapped_)
+		return false;
+	if (key.flags & KEY_DOWN) {
+		if (key.keyCode == NKCODE_ESCAPE) {
+			TriggerFinish(DR_OK);
+			g_Config.bMapMouse = false;
+			return false;
+		}
+
+		mapped_ = true;
+		KeyDef kdf(key.deviceId, key.keyCode);
+		TriggerFinish(DR_OK);
+		g_Config.bMapMouse = false;
 		if (callback_)
 			callback_(kdf);
 	}
@@ -353,6 +381,30 @@ static bool IgnoreAxisForMapping(int axis) {
 
 
 bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
+	if (mapped_)
+		return false;
+	if (IgnoreAxisForMapping(axis.axisId))
+		return false;
+
+	if (axis.value > AXIS_BIND_THRESHOLD) {
+		mapped_ = true;
+		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
+		TriggerFinish(DR_OK);
+		if (callback_)
+			callback_(kdf);
+	}
+
+	if (axis.value < -AXIS_BIND_THRESHOLD) {
+		mapped_ = true;
+		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
+		TriggerFinish(DR_OK);
+		if (callback_)
+			callback_(kdf);
+	}
+	return true;
+}
+
+bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	if (mapped_)
 		return false;
 	if (IgnoreAxisForMapping(axis.axisId))
