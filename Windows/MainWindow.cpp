@@ -233,12 +233,20 @@ namespace MainWindow
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
 			}
+			if (g_Config.bMouseConfine) {
+				RECT rc;
+				GetClientRect(hwndDisplay, &rc);
+				ClientToScreen(hwndDisplay, reinterpret_cast<POINT*>(&rc.left));
+				ClientToScreen(hwndDisplay, reinterpret_cast<POINT*>(&rc.right));
+				ClipCursor(&rc);
+			}
 		} else {
 			hideCursor = !autoHide;
 			if (cursorCounter < 0) {
 				cursorCounter = ShowCursor(TRUE);
 				SetCursor(LoadCursor(NULL, IDC_ARROW));
 			}
+			ClipCursor(NULL);
 		}
 	}
 

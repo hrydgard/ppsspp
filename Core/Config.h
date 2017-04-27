@@ -395,6 +395,7 @@ public:
 
 	bool bMouseControl;
 	bool bMapMouse; // Workaround for mapping screen:|
+	bool bMouseConfine; // Trap inside the window.
 	float fMouseSensitivity;
 	float fMouseSmoothing;
 
