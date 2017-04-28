@@ -227,8 +227,21 @@ void D3D11Context::Shutdown() {
 
 	delete draw_;
 	draw_ = nullptr;
+
+	swapChain_->Release();
+	swapChain_ = nullptr;
+	if (context1_)
+		context1_->Release();
+	if (device1_)
+		device1_->Release();
+	device1_ = nullptr;
+	device_->Release();
+	device_ = nullptr;
+
 	context_->ClearState();
 	context_->Flush();
+	context_->Release();
+	context_ = nullptr;
 
 #ifdef _DEBUG
 	d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, false);
@@ -239,15 +252,6 @@ void D3D11Context::Shutdown() {
 	d3dInfoQueue_->Release();
 #endif
 
-	if (context1_)
-		context1_->Release();
-	context_->Release();
-	context_ = nullptr;
-	if (device1_)
-		device1_->Release();
-	device1_ = nullptr;
-	device_->Release();
-	device_ = nullptr;
 	hWnd_ = nullptr;
 	UnloadD3D11();
 }
