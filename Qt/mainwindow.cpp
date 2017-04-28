@@ -8,6 +8,7 @@
 #include <QMessageBox>
 
 #include "base/display.h"
+#include "base/NativeApp.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/SaveState.h"
@@ -94,8 +95,7 @@ void MainWindow::updateMenus()
 	foreach(QAction * action, displayLayoutGroup->actions()) {
 		if (g_Config.iSmallDisplayZoomType == action->data().toInt()) {
 
-			if (gpu)
-				gpu->Resized();
+			NativeMessageReceived("gpu_resized", "");
 
 			action->setChecked(true);
 			break;
@@ -379,8 +379,7 @@ void MainWindow::fullscrAct()
 
 		showFullScreen();
 
-		if (gpu)
-			gpu->Resized();
+		NativeMessageReceived("gpu_resized", "");
 		InitPadLayout(dp_xres, dp_yres);
 		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));

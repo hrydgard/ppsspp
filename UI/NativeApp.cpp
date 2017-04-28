@@ -836,7 +836,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		if (GetGPUBackend() == GPUBackend::OPENGL) {
 			PSP_CoreParameter().pixelWidth = pixel_xres;
 			PSP_CoreParameter().pixelHeight = pixel_yres;
-			NativeMessageReceived("gpu resized", "");
+			NativeMessageReceived("gpu_resized", "");
 		}
 #endif
 	}
@@ -868,7 +868,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		// Show for the same duration as the preview.
 		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
 	}
-	if (msg == "gpu resized" || msg == "gpu clear cache") {
+	if (msg == "gpu_resized" || msg == "gpu_clearCache") {
 		if (gpu) {
 			gpu->ClearCacheNextFrame();
 			gpu->Resized();
