@@ -133,6 +133,7 @@ bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, in
 void AndroidEGLGraphicsContext::Shutdown() {
 	delete draw_;
 	draw_ = nullptr;
+	NativeShutdownGraphics();
 	gl->ClearCurrent();
 	gl->Shutdown();
 	delete gl;
@@ -293,12 +294,14 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 }
 
 void AndroidVulkanContext::Shutdown() {
+	delete draw_;
+	draw_ = nullptr;
+	NativeShutdownGraphics();
+
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDebugMsgCallback();
 	g_Vulkan->DestroyDevice();
-	delete draw_;
-	draw_ = nullptr;
 
 	delete g_Vulkan;
 	g_Vulkan = nullptr;
@@ -611,7 +614,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- begin");
 	if (renderer_inited) {
-		NativeShutdownGraphics();
 		graphicsContext->Shutdown();
 		delete graphicsContext;
 		graphicsContext = nullptr;
@@ -1042,7 +1044,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	g_gameInfoCache->WorkQueue()->Flush();
 
 	NativeDeviceLost();
-	NativeShutdownGraphics();
 	renderer_inited = false;
 
 	graphicsContext->Shutdown();

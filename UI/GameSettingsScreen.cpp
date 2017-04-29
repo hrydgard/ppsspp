@@ -1128,7 +1128,7 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
-	g_Config.sMACAddress = std::string(CreateRandMAC());
+	g_Config.sMACAddress = CreateRandMAC();
 
 	return UI::EVENT_DONE;
 }
