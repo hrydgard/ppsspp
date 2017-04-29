@@ -218,7 +218,7 @@ QString MainUI::InputBoxGetQString(QString title, QString defaultValue)
 void MainUI::resizeGL(int w, int h)
 {
     if (UpdateScreenScale(w, h)) {
-        NativeMessageReceived("gpu resized", "");
+        NativeMessageReceived("gpu_resized", "");
     }
     xscale = w / this->width();
     yscale = h / this->height();

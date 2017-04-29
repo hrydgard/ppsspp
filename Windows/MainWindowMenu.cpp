@@ -484,7 +484,7 @@ namespace MainWindow {
 	// not static
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
-		NativeMessageReceived("gpu clear cache", "");
+		NativeMessageReceived("gpu_clearCache", "");
 	}
 
 	static void setTexFiltering(int type) {
@@ -497,7 +497,7 @@ namespace MainWindow {
 
 	static void setTexScalingType(int type) {
 		g_Config.iTexScalingType = type;
-		NativeMessageReceived("gpu clear cache", "");
+		NativeMessageReceived("gpu_clearCache", "");
 	}
 
 	static void setRenderingMode(int mode) {
@@ -529,7 +529,7 @@ namespace MainWindow {
 			break;
 		}
 
-		NativeMessageReceived("gpu resized", "");
+		NativeMessageReceived("gpu_resized", "");
 	}
 
 	static void setFpsLimit(int fps) {
@@ -563,7 +563,7 @@ namespace MainWindow {
 
 	static void setDisplayOptions(int options) {
 		g_Config.iSmallDisplayZoomType = options;
-		NativeMessageReceived("gpu resized", "");
+		NativeMessageReceived("gpu_resized", "");
 	}
 
 	void MainWindowMenu_Process(HWND hWnd, WPARAM wParam) {
@@ -765,7 +765,7 @@ namespace MainWindow {
 
 		case ID_TEXTURESCALING_DEPOSTERIZE:
 			g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-			NativeMessageReceived("gpu clear cache", "");
+			NativeMessageReceived("gpu_clearCache", "");
 			break;
 
 		case ID_OPTIONS_DIRECT3D9:
@@ -1029,7 +1029,7 @@ namespace MainWindow {
 			if (index < availableShaders.size()) {
 				g_Config.sPostShaderName = availableShaders[index];
 
-				NativeMessageReceived("gpu resized", "");
+				NativeMessageReceived("gpu_resized", "");
 				break;
 			}
 

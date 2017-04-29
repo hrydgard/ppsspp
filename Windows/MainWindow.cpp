@@ -224,7 +224,7 @@ namespace MainWindow
 		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO)
 			setTexScalingMultiplier(0);
 
-		NativeMessageReceived("gpu resized", "");
+		NativeMessageReceived("gpu_resized", "");
 	}
 
 	void CorrectCursor() {
@@ -279,7 +279,7 @@ namespace MainWindow
 		INFO_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 		if (UpdateScreenScale(width, height)) {
-			NativeMessageReceived("gpu resized", "");
+			NativeMessageReceived("gpu_resized", "");
 		}
 
 		if (screenManager) {

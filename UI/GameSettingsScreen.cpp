@@ -1051,9 +1051,8 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	KeyMap::UpdateNativeMenuKeys();
 
 	// Wipe some caches after potentially changing settings.
-	if (gpu)
-		gpu->Resized();
-	Reporting::UpdateConfig();
+	NativeMessageReceived("gpu_resized", "");
+	NativeMessageReceived("gpu_clearCache", "");
 }
 
 /*
@@ -1129,7 +1128,7 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
-	g_Config.sMACAddress = std::string(CreateRandMAC());
+	g_Config.sMACAddress = CreateRandMAC();
 
 	return UI::EVENT_DONE;
 }
@@ -1169,10 +1168,7 @@ UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
-	if (gpu) {
-		gpu->Resized();
-	}
-	Reporting::UpdateConfig();
+	NativeMessageReceived("gpu_resized", "");
 	return UI::EVENT_DONE;
 }
 

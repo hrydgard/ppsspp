@@ -515,7 +515,7 @@ private:
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
-const char *CreateRandMAC();
+std::string CreateRandMAC();
 
 // TODO: Find a better place for this.
 extern http::Downloader g_DownloadManager;

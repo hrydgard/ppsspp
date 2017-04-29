@@ -331,7 +331,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new DirectoryAssetReader(savegame_dir));
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
-	host = new NativeHost();
+	if (host == nullptr) {
+		host = new NativeHost();
+	}
 #endif
 
 #if defined(__ANDROID__)
@@ -526,7 +528,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
 	MainWindow* mainWindow = new MainWindow(0,fs);
 	mainWindow->show();
-	host = new QtHost(mainWindow);
+	if (host == nullptr) {
+		host = new QtHost(mainWindow);
+	}
 #endif
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
@@ -836,7 +840,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		if (GetGPUBackend() == GPUBackend::OPENGL) {
 			PSP_CoreParameter().pixelWidth = pixel_xres;
 			PSP_CoreParameter().pixelHeight = pixel_yres;
-			NativeMessageReceived("gpu resized", "");
+			NativeMessageReceived("gpu_resized", "");
 		}
 #endif
 	}
@@ -868,7 +872,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		// Show for the same duration as the preview.
 		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
 	}
-	if (msg == "gpu resized" || msg == "gpu clear cache") {
+	if (msg == "gpu_resized" || msg == "gpu_clearCache") {
 		if (gpu) {
 			gpu->ClearCacheNextFrame();
 			gpu->Resized();
@@ -1066,18 +1070,19 @@ bool NativeIsRestarting() {
 }
 
 void NativeShutdown() {
+	screenManager->shutdown();
+	delete screenManager;
+	screenManager = nullptr;
+
+	host->ShutdownGraphics();
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost_manager_shutdown();
 	}
 
-	screenManager->shutdown();
-	delete screenManager;
-	screenManager = 0;
-
 #if !PPSSPP_PLATFORM(UWP)
 	delete host;
+	host = nullptr;
 #endif
-	host = 0;
 	g_Config.Save();
 
 	// Avoid shutting this down when restaring core.

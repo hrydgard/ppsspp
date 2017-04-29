@@ -77,7 +77,7 @@ void EmuThread_Stop()
 		CloseHandle(emuThread);
 		emuThread = 0;
 	}
-	host->UpdateUI();
+	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
 bool EmuThread_Ready()
@@ -90,10 +90,6 @@ unsigned int WINAPI TheThread(void *)
 	_InterlockedExchange(&emuThreadReady, THREAD_INIT);
 
 	setCurrentThreadName("Emu");  // And graphics...
-
-	// Native overwrites host. Can't allow that.
-
-	Host *oldHost = host;
 
 	// Convert the command-line arguments to Unicode, then to proper UTF-8 
 	// (the benefit being that we don't have to pollute the UI project with win32 ifdefs and lots of Convert<whatever>To<whatever>).
@@ -114,9 +110,6 @@ unsigned int WINAPI TheThread(void *)
 
 	bool performingRestart = NativeIsRestarting();
 	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", nullptr);
-
-	Host *nativeHost = host;
-	host = oldHost;
 
 	host->UpdateUI();
 
@@ -204,12 +197,7 @@ shutdown:
 	_InterlockedExchange(&emuThreadReady, THREAD_SHUTDOWN);
 
 	NativeShutdownGraphics();
-
-	host->ShutdownSound();
-	host = nativeHost;
 	NativeShutdown();
-	host = oldHost;
-	host->ShutdownGraphics();
 	
 	_InterlockedExchange(&emuThreadReady, THREAD_END);
 

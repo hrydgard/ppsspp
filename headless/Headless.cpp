@@ -200,6 +200,10 @@ int main(int argc, const char* argv[])
 {
 	PROFILE_INIT();
 
+#ifdef _DEBUG
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
@@ -433,8 +437,12 @@ int main(int argc, const char* argv[])
 
 	host->ShutdownGraphics();
 	delete host;
-	host = NULL;
-	headlessHost = NULL;
+	host = nullptr;
+	headlessHost = nullptr;
+
+	VFSShutdown();
+	LogManager::Shutdown();
+	delete printfLogger;
 
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();

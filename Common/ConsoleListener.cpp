@@ -181,8 +181,6 @@ void ConsoleListener::UpdateHandle()
 void ConsoleListener::Close()
 {
 #if defined(USING_WIN_UI)
-	if (hConsole == NULL)
-		return;
 
 	if (--refCount <= 0)
 	{
@@ -209,8 +207,10 @@ void ConsoleListener::Close()
 		refCount = 0;
 	}
 
-	FreeConsole();
-	hConsole = NULL;
+	if (hConsole != NULL) {
+		FreeConsole();
+		hConsole = NULL;
+	}
 #else
 	fflush(NULL);
 #endif

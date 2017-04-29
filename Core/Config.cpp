@@ -292,7 +292,7 @@ const char *DefaultLangRegion() {
 	return defaultLangRegion.c_str();
 }
 
-const char *CreateRandMAC() {
+std::string CreateRandMAC() {
 	std::stringstream randStream;
 	srand(time(nullptr));
 	for (int i = 0; i < 6; i++) {
@@ -305,8 +305,7 @@ const char *CreateRandMAC() {
 			randStream << ':'; //we need a : between every octet
 		}
 	}
-	// It's ok to strdup, this runs once and will be freed by exiting the process anyway
-	return strdup(randStream.str().c_str());
+	return randStream.str();
 }
 
 static int DefaultNumWorkers() {
@@ -737,7 +736,7 @@ static ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, true, true),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", true, true),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "coldbird.net", true, true),
-	ConfigSetting("MacAddress", &g_Config.sMACAddress, &CreateRandMAC, true, true),
+	ConfigSetting("MacAddress", &g_Config.sMACAddress, "", true, true),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, true, true),
 	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR, true, true),
@@ -1033,7 +1032,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	CleanRecent();
 
-	// Fix Wrong MAC address by old version by "Change MAC address"
+	// Set a default MAC, and correct if it's an old format.
 	if (sMACAddress.length() != 17)
 		sMACAddress = CreateRandMAC();
 
