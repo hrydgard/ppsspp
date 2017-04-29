@@ -576,7 +576,7 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 #if defined(USING_WIN_UI)
-	controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse Control Settings")));
+	controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
 	CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
 	mouseControl->OnClick.Add([=](EventParams &e) {
 		if(g_Config.bMouseControl)
