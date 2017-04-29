@@ -859,6 +859,10 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		inputboxValue.clear();
 	}
 	if (msg == "bgImage_updated") {
+		if (!value.empty()) {
+			std::string dest = GetSysDirectory(DIRECTORY_SYSTEM) + (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
+			File::Copy(value, dest);
+		}
 		UIBackgroundShutdown();
 		UIBackgroundInit(*uiContext);
 	}
