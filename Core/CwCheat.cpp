@@ -442,7 +442,7 @@ void CWCheatEngine::Run() {
 						if (i+1 < count) {
 							code = GetNextCode();
 							if (code.size() < 2) {
-								// Code broken. Should warn but would be very spammy...
+								// User provided incomplete cheat. Should warn but would be very spammy...
 								break;
 							}
 							int arg3 = code[0];

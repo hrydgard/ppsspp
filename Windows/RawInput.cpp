@@ -245,7 +245,7 @@ namespace WindowsRawInput {
 					NativeTouch(touch);
 					if (MouseInWindow(hWnd)) {
 						if (!mouseDown[i]) {
-							// This means they were focused outside, and left clicked inside.
+							// This means they were focused outside, and clicked inside.
 							// Seems intentional, so send a down first.
 							key.flags = KEY_DOWN;
 							NativeKey(key);
@@ -259,9 +259,6 @@ namespace WindowsRawInput {
 				}
 			}
 		}
-
-		// TODO : Smooth and translate to an axis every frame.
-		// NativeAxis()
 	}
 
 	void ProcessHID(RAWINPUT *raw, bool foreground) {
