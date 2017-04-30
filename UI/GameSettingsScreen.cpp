@@ -524,7 +524,7 @@ void GameSettingsScreen::CreateViews() {
 
 		// On non iOS systems, offer to let the user see this button.
 		// Some Windows touch devices don't have a back button or other button to call up the menu.
-		if (System_GetPropertyInt(SYSPROP_HAS_BACK_BUTTON)) {
+		if (System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON)) {
 			CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, co->T("Show Touch Pause Menu Button")));
 
 			// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
@@ -684,7 +684,7 @@ void GameSettingsScreen::CreateViews() {
 	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
-	} else if (System_GetPropertyInt(SYSPROP_HAS_IMAGE_BROWSER)) {
+	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
 	} else {
 		backgroundChoice_ = nullptr;
@@ -947,7 +947,7 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 
 		NativeMessageReceived("bgImage_updated", "");
 	} else {
-		if (System_GetPropertyInt(SYSPROP_HAS_IMAGE_BROWSER)) {
+		if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
 			System_SendMessage("bgImage_browse", "");
 		}
 	}

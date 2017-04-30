@@ -60,9 +60,9 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 int System_GetPropertyInt(SystemProperty prop) {
-  switch (prop) {
-  case SYSPROP_AUDIO_SAMPLE_RATE:
-    return 44100;
+	switch (prop) {
+	case SYSPROP_AUDIO_SAMPLE_RATE:
+		return 44100;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
@@ -77,17 +77,24 @@ int System_GetPropertyInt(SystemProperty prop) {
 #else
 		return DEVICE_TYPE_DESKTOP;
 #endif
+	default:
+		return -1;
+	}
+}
+
+bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
 	case SYSPROP_HAS_BACK_BUTTON:
-		return 1;
+		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
-		return 1;
+		return true;
 #else
-		return 0;
+		return false;
 #endif
 	default:
-    return -1;
-  }
+		return false;
+	}
 }
 
 void System_SendMessage(const char *command, const char *parameter) {

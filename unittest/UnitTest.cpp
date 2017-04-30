@@ -50,11 +50,10 @@
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) {
-	switch (prop) {
-	case SYSPROP_APP_GOLD:
-		return 0;
-	}
 	return -1;
+}
+bool System_GetPropertyBool(SystemProperty prop) {
+	return false;
 }
 
 #ifndef M_PI_2

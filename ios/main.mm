@@ -66,16 +66,23 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
 		return DEVICE_TYPE_MOBILE;
-	case SYSPROP_HAS_BACK_BUTTON:
-		return 0;
-	case SYSPROP_APP_GOLD:
-#ifdef GOLD
-		return 1;
-#else
-		return 0;
-#endif
 	default:
 		return -1;
+	}
+}
+
+bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_HAS_BACK_BUTTON:
+		return false;
+	case SYSPROP_APP_GOLD:
+#ifdef GOLD
+		return true;
+#else
+		return false;
+#endif
+	default:
+		return false;
 	}
 }
 

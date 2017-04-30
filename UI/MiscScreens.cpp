@@ -495,7 +495,7 @@ void LogoScreen::render() {
 	char temp[256];
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
-	if (System_GetPropertyInt(SYSPROP_APP_GOLD)) {
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
 	} else {
 		dc.Draw()->DrawImage(I_ICON, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
@@ -538,7 +538,7 @@ void CreditsScreen::CreateViews() {
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
 #endif
-	if (System_GetPropertyInt(SYSPROP_APP_GOLD)) {
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		root_->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 	} else {
 		root_->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
@@ -701,7 +701,7 @@ void CreditsScreen::render() {
 
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
-	if (System_GetPropertyInt(SYSPROP_APP_GOLD)) {
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		snprintf(temp, sizeof(temp), "PPSSPP Gold %s", PPSSPP_GIT_VERSION);
 	} else {
 		snprintf(temp, sizeof(temp), "PPSSPP %s", PPSSPP_GIT_VERSION);
