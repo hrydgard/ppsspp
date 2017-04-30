@@ -339,16 +339,23 @@ int System_GetPropertyInt(SystemProperty prop) {
 #else
 		return DEVICE_TYPE_DESKTOP;
 #endif
-	case SYSPROP_HAS_BACK_BUTTON:
-		return 1;
-	case SYSPROP_APP_GOLD:
-#ifdef GOLD
-		return 1;
-#else
-		return 0;
-#endif
 	default:
 		return -1;
+	}
+}
+
+bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_HAS_BACK_BUTTON:
+		return true;
+	case SYSPROP_APP_GOLD:
+#ifdef GOLD
+		return true;
+#else
+		return false;
+#endif
+	default:
+		return false;
 	}
 }
 

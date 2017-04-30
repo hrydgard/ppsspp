@@ -837,7 +837,7 @@ void MainScreen::CreateViews() {
 	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
 	rightColumnItems->SetSpacing(0.0f);
 	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
-	if (System_GetPropertyInt(SYSPROP_APP_GOLD)) {
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		logos->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
 	} else {
 		logos->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
@@ -853,7 +853,7 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
 	rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-	if (!System_GetPropertyInt(SYSPROP_APP_GOLD)) {
+	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		Choice *gold = rightColumnItems->Add(new Choice(mm->T("Support PPSSPP")));
 		gold->OnClick.Handle(this, &MainScreen::OnSupport);
 		gold->SetIcon(I_ICONGOLD);
@@ -912,7 +912,7 @@ UI::EventReturn MainScreen::OnAllowStorage(UI::EventParams &e) {
 UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(ANDROID)
 	// Go to app store
-	if (System_GetPropertyInt(SYSPROP_APP_GOLD)) {
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
 	} else {
 		LaunchBrowser("market://details?id=org.ppsspp.ppsspp");
@@ -979,7 +979,7 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	}
 #endif
 
-	if (System_GetPropertyInt(SYSPROP_HAS_FILE_BROWSER)) {
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		System_SendMessage("browse_file", "");
 	}
 	return UI::EVENT_DONE;

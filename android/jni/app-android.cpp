@@ -444,18 +444,27 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return optimalFramesPerBuffer;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return (int)(display_hz * 1000.0);
+	default:
+		return -1;
+	}
+}
+
+bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
 	case SYSPROP_SUPPORTS_PERMISSIONS:
 		return androidVersion >= 23;	// 6.0 Marshmallow introduced run time permissions.
 	case SYSPROP_HAS_BACK_BUTTON:
-		return 1;
+		return true;
+	case SYSPROP_HAS_IMAGE_BROWSER:
+		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
-		return 1;
+		return true;
 #else
-		return 0;
+		return false;
 #endif
 	default:
-		return -1;
+		return false;
 	}
 }
 

@@ -464,7 +464,7 @@ void SystemInfoScreen::CreateViews() {
 #ifdef MOBILE_DEVICE
 	buildConfig->Add(new InfoItem("MOBILE_DEVICE", ""));
 #endif
-	if (System_GetPropertyInt(SYSPROP_APP_GOLD)) {
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		buildConfig->Add(new InfoItem("GOLD", ""));
 	}
 

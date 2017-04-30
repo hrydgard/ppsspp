@@ -186,4 +186,4 @@ enum SystemProperty {
 
 std::string System_GetProperty(SystemProperty prop);
 int System_GetPropertyInt(SystemProperty prop);
-
+bool System_GetPropertyBool(SystemProperty prop);
