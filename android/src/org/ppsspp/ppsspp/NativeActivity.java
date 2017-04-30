@@ -21,6 +21,7 @@ import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
+import android.database.Cursor;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.media.AudioManager;
@@ -29,6 +30,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Vibrator;
+import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -89,6 +91,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	private boolean isXperiaPlay;
 	private boolean shuttingDown;
+	private static int RESULT_LOAD_IMAGE = 1;
 
     // Allow for multiple connected gamepads but just consider them the same for now.
     // Actually this is not entirely true, see the code.
@@ -911,6 +914,21 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			return NativeApp.keyUp(0, keyCode);
 		}
 	}
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+		if (requestCode == RESULT_LOAD_IMAGE && resultCode == RESULT_OK && null != data) {
+			Uri selectedImage = data.getData();
+			String[] filePathColumn = { MediaStore.Images.Media.DATA };
+			Cursor cursor = getContentResolver().query(selectedImage,
+					filePathColumn, null, null, null);
+			cursor.moveToFirst();
+			int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+			String picturePath = cursor.getString(columnIndex);
+			cursor.close();
+			NativeApp.sendMessage("bgImage_updated" , picturePath);
+		}
+	}
 
 	@TargetApi(11)
 	@SuppressWarnings("deprecation")
@@ -976,6 +994,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     	dlg.show();
     }
 
+
     public boolean processCommand(String command, String params) {
     	SurfaceView surfView = javaGL ? mGLSurfaceView : mSurfaceView;
 		if (command.equals("launchBrowser")) {
@@ -998,6 +1017,16 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				Uri uri = Uri.parse(uriText);
 				send.setData(uri);
 				startActivity(Intent.createChooser(send, "E-mail the app author!"));
+				return true;
+			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
+				Log.e(TAG, e.toString());
+				return false;
+			}
+		} else if (command.equals("bgImage_browse")) {
+			try {
+				Intent i = new Intent(Intent.ACTION_PICK,
+						android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+				startActivityForResult(i, RESULT_LOAD_IMAGE);
 				return true;
 			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
 				Log.e(TAG, e.toString());
