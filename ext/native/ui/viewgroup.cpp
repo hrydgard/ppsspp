@@ -890,7 +890,7 @@ float ScrollView::ClampedScrollPos(float pos) {
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 
-	if (scrollTouchId_ != -1 && gesture_.IsGestureActive(gesture, scrollTouchId_)) {
+	if (scrollTouchId_ >= 0 && gesture_.IsGestureActive(gesture, scrollTouchId_) && bounds_.h > 0) {
 		float maxPull = bounds_.h * 0.1f;
 		if (pos < 0.0f) {
 			float dist = std::min(-pos * (1.0f / bounds_.h), 1.0f);

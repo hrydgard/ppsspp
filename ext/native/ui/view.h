@@ -438,8 +438,6 @@ protected:
 	// Outputs of layout. X/Y are absolute screen coordinates, hierarchy is "gone" here.
 	Bounds bounds_;
 
-	std::unique_ptr<Matrix4x4> transform_;
-
 private:
 	bool *enabledPtr_;
 	bool enabled_;

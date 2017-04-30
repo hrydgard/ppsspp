@@ -197,7 +197,7 @@ static int ScreenDPI() {
 	HDC screenDC = GetDC(nullptr);
 	int dotsPerInch = GetDeviceCaps(screenDC, LOGPIXELSY);
 	ReleaseDC(nullptr, screenDC);
-	return dotsPerInch;
+	return dotsPerInch ? dotsPerInch : 96;
 }
 #endif
 #endif
