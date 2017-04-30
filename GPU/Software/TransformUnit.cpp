@@ -239,7 +239,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 	VertexReader vreader(buf, vtxfmt, vertex_type);
 
 	const int max_vtcs_per_prim = 3;
-	static VertexData data[max_vtcs_per_prim]{};
+	static VertexData data[max_vtcs_per_prim];
 	// This is the index of the next vert in data (or higher, may need modulus.)
 	static int data_index = 0;
 
