@@ -344,6 +344,17 @@ static GraphicsContext *graphicsContext;
 	}
 }
 
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    for(UITouch* touch in touches)
+    {
+        CGPoint point = [touch locationInView:self.view];
+        NSDictionary* dict = [self touchDictBy:touch];
+        [self touchX:point.x y:point.y code:2 pointerId:[[dict objectForKey:@"index"] intValue]];
+        [self.touches removeObject:dict];
+    }
+}
+
 - (void)bindDefaultFBO
 {
 	[(GLKView*)self.view bindDrawable];
