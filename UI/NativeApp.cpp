@@ -945,6 +945,10 @@ bool NativeIsAtTopLevel() {
 
 bool NativeTouch(const TouchInput &touch) {
 	if (screenManager) {
+		// Brute force prevent NaNs from getting into the UI system
+		if (my_isnan(touch.x) || my_isnan(touch.y)) {
+			return false;
+		}
 		screenManager->touch(touch);
 		return true;
 	} else {
