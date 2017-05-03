@@ -270,10 +270,12 @@ namespace WindowsRawInput {
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
 		if (!rawInputBuffer) {
 			rawInputBuffer = malloc(dwSize);
+			memset(rawInputBuffer, 0, dwSize);
 			rawInputBufferSize = dwSize;
 		}
 		if (dwSize > rawInputBufferSize) {
 			rawInputBuffer = realloc(rawInputBuffer, dwSize);
+			memset(rawInputBuffer, 0, dwSize);
 		}
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer, &dwSize, sizeof(RAWINPUTHEADER));
 		RAWINPUT *raw = (RAWINPUT *)rawInputBuffer;
