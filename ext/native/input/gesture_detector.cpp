@@ -10,6 +10,7 @@
 const float estimatedInertiaDamping = 0.75f;
 
 GestureDetector::GestureDetector() {
+	memset(pointers, 0, sizeof(pointers));
 }
 
 TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds) {
