@@ -9,6 +9,9 @@
 
 const float estimatedInertiaDamping = 0.75f;
 
+GestureDetector::GestureDetector() {
+}
+
 TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds) {
 	if (touch.id < 0 || touch.id >= MAX_PTRS) {
 		return touch;
