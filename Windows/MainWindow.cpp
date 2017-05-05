@@ -124,6 +124,7 @@ namespace MainWindow
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
+	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -228,7 +229,7 @@ namespace MainWindow
 	}
 
 	void CorrectCursor() {
-		bool autoHide = ((g_Config.bFullScreen && !mouseButtonDown) || g_Config.bMouseControl) && GetUIState() == UISTATE_INGAME;
+		bool autoHide = ((g_Config.bFullScreen && !mouseButtonDown) || (g_Config.bMouseControl && trapMouse)) && GetUIState() == UISTATE_INGAME;
 		if (autoHide && (hideCursor || g_Config.bMouseControl)) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
@@ -245,8 +246,8 @@ namespace MainWindow
 			if (cursorCounter < 0) {
 				cursorCounter = ShowCursor(TRUE);
 				SetCursor(LoadCursor(NULL, IDC_ARROW));
+				ClipCursor(NULL);
 			}
-			ClipCursor(NULL);
 		}
 	}
 
@@ -689,11 +690,13 @@ namespace MainWindow
 
 				if (wParam == WA_ACTIVE) {
 					NativeMessageReceived("got_focus", "");
+					trapMouse = true;
 				}
 				if (wParam == WA_INACTIVE) {
 					NativeMessageReceived("lost_focus", "");
 					WindowsRawInput::LoseFocus();
 					InputDevice::LoseFocus();
+					trapMouse = false;
 				}
 			}
 			break;
@@ -901,6 +904,12 @@ namespace MainWindow
 			// Called when a menu is opened. Also when an item is selected, but meh.
 			UpdateMenus(true);
 			WindowsRawInput::NotifyMenu();
+			trapMouse = false;
+			break;
+
+		case WM_EXITMENULOOP:
+			// Called when menu is closed.
+			trapMouse = true;
 			break;
 
 		// Turn off the screensaver.
