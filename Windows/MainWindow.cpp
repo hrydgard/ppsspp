@@ -26,7 +26,8 @@
 #include "Common/OSVersion.h"
 
 #include <Windowsx.h>
-
+#include <shellapi.h>
+#include <commctrl.h>
 #include <map>
 #include <string>
 
@@ -34,8 +35,6 @@
 #include "base/NativeApp.h"
 #include "Globals.h"
 
-#include "shellapi.h"
-#include "commctrl.h"
 #include "base/timeutil.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
@@ -43,25 +42,23 @@
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
+#include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Windows/InputBox.h"
+#include "Windows/InputDevice.h"
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/GEDebugger/GEDebugger.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 
-#include "main.h"
-
-#include "Core/Core.h"
+#include "Windows/main.h"
 #include "Windows/EmuThread.h"
-
-#include "resource.h"
+#include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"
-#include "Windows/WindowsHost.h"
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
 #include "Windows/W32Util/DialogManager.h"
@@ -69,9 +66,9 @@
 #include "Windows/W32Util/Misc.h"
 #include "Windows/RawInput.h"
 #include "Windows/TouchInputHandler.h"
+#include "Windows/MainWindowMenu.h"
 #include "GPU/GPUInterface.h"
 #include "UI/OnScreenDisplay.h"
-#include "Windows/MainWindowMenu.h"
 #include "UI/GameSettingsScreen.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx

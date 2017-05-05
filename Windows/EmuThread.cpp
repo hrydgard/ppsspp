@@ -8,11 +8,12 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "../Globals.h"
+#include "Globals.h"
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"
 #include "Windows/resource.h"
+#include "Windows/WindowsHost.h"
 #include "Core/Reporting.h"
 #include "Core/MemMap.h"
 #include "Core/Core.h"
@@ -90,6 +91,9 @@ unsigned int WINAPI TheThread(void *)
 	_InterlockedExchange(&emuThreadReady, THREAD_INIT);
 
 	setCurrentThreadName("Emu");  // And graphics...
+
+	host = new WindowsHost(MainWindow::GetHInstance(), MainWindow::GetHWND(), MainWindow::GetDisplayHWND());
+	host->SetWindowTitle(nullptr);
 
 	// Convert the command-line arguments to Unicode, then to proper UTF-8 
 	// (the benefit being that we don't have to pollute the UI project with win32 ifdefs and lots of Convert<whatever>To<whatever>).
