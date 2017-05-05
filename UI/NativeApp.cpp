@@ -330,7 +330,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(savegame_dir));
 
-#if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(WINDOWS)
+#if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
 	if (host == nullptr) {
 		host = new NativeHost();
 	}
@@ -1087,7 +1087,7 @@ void NativeShutdown() {
 		gl_lost_manager_shutdown();
 	}
 
-#if !PPSSPP_PLATFORM(WINDOWS)
+#if !PPSSPP_PLATFORM(UWP)
 	delete host;
 	host = nullptr;
 #endif
