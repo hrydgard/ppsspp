@@ -35,7 +35,7 @@ static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
 static const int MAX_MIP_LEVELS = 64;
 
-TextureReplacer::TextureReplacer() : enabled_(false), allowVideo_(false), hash_(ReplacedTextureHash::QUICK) {
+TextureReplacer::TextureReplacer() : enabled_(false), allowVideo_(false), ignoreAddress_(false), hash_(ReplacedTextureHash::QUICK) {
 	none_.alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 }
 
@@ -88,6 +88,7 @@ bool TextureReplacer::LoadIni() {
 		}
 
 		options->Get("video", &allowVideo_, false);
+		options->Get("ignoreAddress", &ignoreAddress_, false);
 
 		int version = 0;
 		if (options->Get("version", &version, 0) && version > VERSION) {
@@ -229,6 +230,10 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 	int newH = h;
 	LookupHashRange(cachekey >> 32, newW, newH);
 
+	if (ignoreAddress_) {
+		cachekey = cachekey & 0xFFFFFFFFULL;
+	}
+
 	for (int i = 0; i < MAX_MIP_LEVELS; ++i) {
 		const std::string hashfile = LookupHashFile(cachekey, hash, i);
 		const std::string filename = basePath_ + hashfile;
@@ -301,8 +306,12 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	if (replacedInfo.isVideo && !allowVideo_) {
 		return;
 	}
+	u64 cachekey = replacedInfo.cachekey;
+	if (ignoreAddress_) {
+		cachekey = cachekey & 0xFFFFFFFFULL;
+	}
 
-	std::string hashfile = LookupHashFile(replacedInfo.cachekey, replacedInfo.hash, level);
+	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, level);
 	const std::string filename = basePath_ + hashfile;
 	const std::string saveFilename = basePath_ + NEW_TEXTURE_DIR + hashfile;
 
@@ -312,7 +321,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		return;
 	}
 
-	ReplacementCacheKey replacementKey(replacedInfo.cachekey, replacedInfo.hash);
+	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
 	if (it != savedCache_.end() && File::Exists(saveFilename)) {
 		// We've already saved this texture.  Let's only save if it's bigger (e.g. scaled now.)
@@ -416,7 +425,7 @@ std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
 		key.hash = 0;
 		alias = aliases_.find(key);
 
-		if (alias == aliases_.end()) {
+		if (!ignoreAddress_ && alias == aliases_.end()) {
 			// No data hash.
 			key.cachekey = cachekey;
 			key.hash = 0;
@@ -430,7 +439,7 @@ std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
 			alias = aliases_.find(key);
 		}
 
-		if (alias == aliases_.end()) {
+		if (!ignoreAddress_ && alias == aliases_.end()) {
 			// Address, but not clut hash (in case of garbage clut data.)
 			key.cachekey = cachekey & ~0xFFFFFFFFULL;
 			key.hash = hash;
