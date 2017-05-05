@@ -25,11 +25,9 @@
 #include "Qt/mainwindow.h"
 #endif
 
-// TODO: Get rid of this junk
 class NativeHost : public Host {
 public:
-	NativeHost() {
-	}
+	NativeHost() {}
 
 	void UpdateUI() override {}
 

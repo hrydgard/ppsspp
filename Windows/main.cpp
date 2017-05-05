@@ -505,7 +505,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
 	host = new WindowsHost(_hInstance, hwndMain, hwndDisplay);
-	host->SetWindowTitle(0);
+	host->SetWindowTitle(nullptr);
 
 	MainWindow::CreateDebugWindows();
 

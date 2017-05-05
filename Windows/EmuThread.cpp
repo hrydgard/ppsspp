@@ -113,7 +113,7 @@ unsigned int WINAPI TheThread(void *)
 
 	host->UpdateUI();
 
-	GraphicsContext *graphicsContext;
+	GraphicsContext *graphicsContext = nullptr;
 
 	std::string error_string;
 	if (!host->InitGraphics(&error_string, &graphicsContext)) {
