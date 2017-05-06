@@ -50,6 +50,8 @@ enum class ReplacedTextureAlpha {
 enum class ReplacedTextureHash {
 	// TODO: Maybe only support crc32c for now?
 	QUICK,
+	XXH32,
+	XXH64,
 };
 
 struct ReplacedTextureLevel {

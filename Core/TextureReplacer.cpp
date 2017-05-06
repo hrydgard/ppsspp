@@ -82,6 +82,10 @@ bool TextureReplacer::LoadIni() {
 		// TODO: crc32c.
 		if (strcasecmp(hash.c_str(), "quick") == 0) {
 			hash_ = ReplacedTextureHash::QUICK;
+		} else if (strcasecmp(hash.c_str(), "xxh32") == 0) {
+			hash_ = ReplacedTextureHash::XXH32;
+		} else if (strcasecmp(hash.c_str(), "xxh64") == 0) {
+			hash_ = ReplacedTextureHash::XXH64;
 		} else {
 			ERROR_LOG(G3D, "Unsupported hash type: %s", hash.c_str());
 			return false;
@@ -180,6 +184,10 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 		switch (hash_) {
 		case ReplacedTextureHash::QUICK:
 			return StableQuickTexHash(checkp, sizeInRAM);
+		case ReplacedTextureHash::XXH32:
+			return DoReliableHash32(checkp, sizeInRAM, 0xBACD7814);
+		case ReplacedTextureHash::XXH64:
+			return DoReliableHash64(checkp, sizeInRAM, 0xBACD7814);
 		default:
 			return 0;
 		}
@@ -193,6 +201,22 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 		case ReplacedTextureHash::QUICK:
 			for (int y = 0; y < h; ++y) {
 				u32 rowHash = StableQuickTexHash(checkp, bytesPerLine);
+				result = (result * 11) ^ rowHash;
+				checkp += stride;
+			}
+			break;
+
+		case ReplacedTextureHash::XXH32:
+			for (int y = 0; y < h; ++y) {
+				u32 rowHash = DoReliableHash32(checkp, bytesPerLine, 0xBACD7814);
+				result = (result * 11) ^ rowHash;
+				checkp += stride;
+			}
+			break;
+
+		case ReplacedTextureHash::XXH64:
+			for (int y = 0; y < h; ++y) {
+				u32 rowHash = DoReliableHash64(checkp, bytesPerLine, 0xBACD7814);
 				result = (result * 11) ^ rowHash;
 				checkp += stride;
 			}
