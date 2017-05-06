@@ -94,6 +94,11 @@ bool TextureReplacer::LoadIni() {
 		options->Get("video", &allowVideo_, false);
 		options->Get("ignoreAddress", &ignoreAddress_, false);
 
+		if (ignoreAddress_ && hash_ == ReplacedTextureHash::QUICK) {
+			ignoreAddress_ = false;
+			ERROR_LOG(G3D, "Texture Replacement: ignoreAddress option requires safer hash, use xxh32 or xxh64 instead.");
+		}
+
 		int version = 0;
 		if (options->Get("version", &version, 0) && version > VERSION) {
 			ERROR_LOG(G3D, "Unsupported texture replacement version %d, trying anyway", version);
