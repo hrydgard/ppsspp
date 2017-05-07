@@ -1240,7 +1240,35 @@ inline Vec4<int> TriangleEdge::StepX(const Vec4<int> &w) {
 }
 
 inline Vec4<int> TriangleEdge::StepY(const Vec4<int> &w) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return _mm_add_epi32(w.ivec, stepY.ivec);
+#else
 	return w + stepY;
+#endif
+}
+
+inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	__m128i biased0 = _mm_add_epi32(w0.ivec, bias0.ivec);
+	__m128i biased1 = _mm_add_epi32(w1.ivec, bias1.ivec);
+	__m128i biased2 = _mm_add_epi32(w2.ivec, bias2.ivec);
+
+	return _mm_or_si128(biased0, _mm_or_si128(biased1, biased2));
+#else
+	return (w0 + bias0) | (w1 + bias1) | (w2 + bias2);
+#endif
+}
+
+inline bool AnyMask(const Vec4<int> &mask) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	// In other words: !(mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
+	__m128i low2 = _mm_and_si128(mask.ivec, _mm_shuffle_epi32(mask.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
+	__m128i low1 = _mm_and_si128(low2, _mm_shuffle_epi32(low2, _MM_SHUFFLE(1, 1, 1, 1)));
+	// Now we only need to check one sign bit.
+	return _mm_cvtsi128_si32(low1) >= 0;
+#else
+	return mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0;
+#endif
 }
 
 template <bool clearMode>
@@ -1320,8 +1348,8 @@ void DrawTriangleSlice(
 			p.x = (p.x + 2) & 0x3FF) {
 
 			// If p is on or inside all edges, render pixel
-			Vec4<int> mask = (w0 + bias0) | (w1 + bias1) | (w2 + bias2);
-			if (mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0) {
+			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2);
+			if (AnyMask(mask)) {
 				Vec4<float> wsum_recip = (w0 + w1 + w2).Cast<float>().Reciprocal();
 
 				Vec4<int> prim_color[4];
