@@ -201,6 +201,8 @@ shutdown:
 	_InterlockedExchange(&emuThreadReady, THREAD_SHUTDOWN);
 
 	NativeShutdownGraphics();
+
+	// NativeShutdown deletes the graphics context through host->ShutdownGraphics().
 	NativeShutdown();
 	
 	_InterlockedExchange(&emuThreadReady, THREAD_END);

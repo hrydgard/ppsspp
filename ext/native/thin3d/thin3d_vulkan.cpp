@@ -555,7 +555,7 @@ public:
 		assert(VK_SUCCESS == res);
 	}
 	~VKSamplerState() {
-		vkDestroySampler(vulkan_->GetDevice(), sampler_, nullptr);
+		vulkan_->Delete().QueueDeleteSampler(sampler_);
 	}
 
 	VkSampler GetSampler() { return sampler_; }
@@ -716,17 +716,17 @@ VKContext::VKContext(VulkanContext *vulkan)
 }
 
 VKContext::~VKContext() {
-	vkDestroyCommandPool(device_, cmdPool_, nullptr);
+	vulkan_->Delete().QueueDeleteCommandPool(cmdPool_);
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < 2; i++) {
 		frame_[i].descSets_.clear();
-		vkDestroyDescriptorPool(device_, frame_[i].descriptorPool, nullptr);
+		vulkan_->Delete().QueueDeleteDescriptorPool(frame_[i].descriptorPool);
 		frame_[i].pushBuffer->Destroy(vulkan_);
 		delete frame_[i].pushBuffer;
 	}
-	vkDestroyDescriptorSetLayout(device_, descriptorSetLayout_, nullptr);
-	vkDestroyPipelineLayout(device_, pipelineLayout_, nullptr);
-	vkDestroyPipelineCache(device_, pipelineCache_, nullptr);
+	vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
+	vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
+	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
 void VKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
