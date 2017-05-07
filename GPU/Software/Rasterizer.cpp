@@ -168,6 +168,62 @@ static inline u8 ClampFogDepth(float fogdepth) {
 		return (u8)(u32)(fogdepth * 255.0f);
 }
 
+static inline int ClampUV(int v, int height) {
+	if (v >= height - 1)
+		return height - 1;
+	else if (v < 0)
+		return 0;
+	return v;
+}
+
+static inline int WrapUV(int v, int height) {
+	return v & (height - 1);
+}
+
+template <int N>
+static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], const int v[N], int width, int height) {
+	if (gstate.isTexCoordClampedS()) {
+		for (int i = 0; i < N; ++i) {
+			out_u[i] = ClampUV(u[i], width);
+		}
+	} else {
+		for (int i = 0; i < N; ++i) {
+			out_u[i] = WrapUV(u[i], width);
+		}
+	}
+	if (gstate.isTexCoordClampedT()) {
+		for (int i = 0; i < N; ++i) {
+			out_v[i] = ClampUV(v[i], height);
+		}
+	} else {
+		for (int i = 0; i < N; ++i) {
+			out_v[i] = WrapUV(v[i], height);
+		}
+	}
+}
+
+template <int N>
+static inline void ApplyTexelClampQuad(int out_u[N * 4], int out_v[N * 4], const int u[N], const int v[N], int width, int height) {
+	if (gstate.isTexCoordClampedS()) {
+		for (int i = 0; i < N * 4; ++i) {
+			out_u[i] = ClampUV(u[i >> 2] + (i & 1), width);
+		}
+	} else {
+		for (int i = 0; i < N * 4; ++i) {
+			out_u[i] = WrapUV(u[i >> 2] + (i & 1), width);
+		}
+	}
+	if (gstate.isTexCoordClampedT()) {
+		for (int i = 0; i < N * 4; ++i) {
+			out_v[i] = ClampUV(v[i >> 2] + ((i >> 1) & 1), height);
+		}
+	} else {
+		for (int i = 0; i < N * 4; ++i) {
+			out_v[i] = WrapUV(v[i >> 2] + ((i >> 1) & 1), height);
+		}
+	}
+}
+
 static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, int& out_v)
 {
 	int width = gstate.getTextureWidth(level);
@@ -176,25 +232,7 @@ static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, 
 	int u = (int)(s * width + 0.375f);
 	int v = (int)(t * height + 0.375f);
 
-	if (gstate.isTexCoordClampedS()) {
-		if (u >= width - 1)
-			u = width - 1;
-		else if (u < 0)
-			u = 0;
-	} else {
-		u &= width - 1;
-	}
-	if (gstate.isTexCoordClampedT()) {
-		if (v >= height - 1)
-			v = height - 1;
-		else if (v < 0)
-			v = 0;
-	} else {
-		v &= height - 1;
-	}
-
-	out_u = u;
-	out_v = v;
+	ApplyTexelClamp<1>(&out_u, &out_v, &u, &v, width, height);
 }
 
 static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, int u[4], int v[4], int &frac_u, int &frac_v)
@@ -213,59 +251,23 @@ static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, in
 	base_v >>= 8;
 
 	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
-
-	if (gstate.isTexCoordClampedS()) {
-		for (int i = 0; i < 4; i++) {
-			int temp_u = base_u + (i & 1);
-			if (temp_u > width - 1)
-				temp_u = width - 1;
-			else if (temp_u < 0)
-				temp_u = 0;
-			u[i] = temp_u;
-		}
-	} else {
-		for (int i = 0; i < 4; i++) {
-			u[i] = (base_u + (i & 1)) & (width - 1);
-		}
-	}
-	if (gstate.isTexCoordClampedT()) {
-		for (int i = 0; i < 4; i++) {
-			int temp_v = base_v + ((i & 2) >> 1);
-			if (temp_v > height - 1)
-				temp_v = height - 1;
-			else if (temp_v < 0)
-				temp_v = 0;
-			v[i] = temp_v;
-		}
-	} else {
-		for (int i = 0; i < 4; i++) {
-			v[i] = (base_v + ((i & 2) >> 1)) & (height - 1);
-		}
-	}
+	ApplyTexelClampQuad<1>(u, v, &base_u, &base_v, width, height);
 }
 
 static inline void GetTexelCoordinatesThrough(int level, int s, int t, int& u, int& v)
 {
-	// TODO: Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
 	int width = gstate.getTextureWidth(level);
 	int height = gstate.getTextureHeight(level);
 
-	// Wrap!
-	u = ((unsigned int)(s) & (width - 1));
-	v = ((unsigned int)(t) & (height - 1));
+	ApplyTexelClamp<1>(&u, &v, &s, &t, width, height);
 }
 
 static inline void GetTexelCoordinatesThroughQuad(int level, int s, int t, int *u, int *v)
 {
-	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
 	int width = gstate.getTextureWidth(level);
 	int height = gstate.getTextureHeight(level);
 
-	// Wrap!
-	for (int i = 0; i < 4; i++) {
-		u[i] = (s + (i & 1)) & (width - 1);
-		v[i] = (t + ((i & 2) >> 1)) & (height - 1);
-	}
+	ApplyTexelClampQuad<1>(u, v, &s, &t, width, height);
 }
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t)
