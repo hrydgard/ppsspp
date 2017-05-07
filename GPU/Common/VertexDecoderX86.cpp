@@ -890,71 +890,23 @@ static const u32 MEMORY_ALIGNED16(nibbles[4]) = { 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f
 static const u32 MEMORY_ALIGNED16(color4444mask[4]) = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
 
 void VertexDecoderJitCache::Jit_Color4444() {
-	// Needs benchmarking. A bit wasteful by only using 1 SSE lane.
-#if 0
+	// This over-reads slightly, but we assume pos or another component follows anyway.
 	MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->coloff));
+	// Spread to RGBA -> R00GB00A.
 	PUNPCKLBW(fpScratchReg, R(fpScratchReg));
 	PAND(fpScratchReg, M(color4444mask));
 	MOVSS(fpScratchReg2, R(fpScratchReg));
 	MOVSS(fpScratchReg3, R(fpScratchReg));
+	// Create 0R000B00 and 00G000A0.
 	PSRLW(fpScratchReg2, 4);
 	PSLLW(fpScratchReg3, 4);
+	// Combine for the complete set: RRGGBBAA.
 	POR(fpScratchReg, R(fpScratchReg2));
 	POR(fpScratchReg, R(fpScratchReg3));
-	MOVD_xmm(MDisp(dstReg, dec_->decFmt.c0off), fpScratchReg);
-	return;
-#elif 0
-	// Alternate approach
-	MOVD_xmm(XMM3, MDisp(srcReg, dec_->coloff));
-	MOVAPS(XMM2, R(XMM3));
-	MOVAPS(XMM1, M(nibbles));
-	PSLLD(XMM2, 4);
-	PAND(XMM3, R(XMM1));
-	PAND(XMM2, R(XMM1));
-	PSRLD(XMM2, 4);
-	PXOR(XMM1, R(XMM1));
-	PUNPCKLBW(XMM2, R(XMM1));
-	PUNPCKLBW(XMM3, R(XMM1));
-	PSLLD(XMM2, 4);
-	POR(XMM3, R(XMM2));
-	MOVAPS(XMM2, R(XMM3));
-	PSLLD(XMM2, 4);
-	POR(XMM3, R(XMM2));
-	MOVD_xmm(MDisp(dstReg, dec_->decFmt.c0off), XMM3);
-	return;
-#endif
+	MOVD_xmm(R(tempReg1), fpScratchReg);
+	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
 
-	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->coloff));
-
-	// Pick out A and B, and space them out by a nibble.
-	MOV(32, R(tempReg2), R(tempReg1));
-	MOV(32, R(tempReg3), R(tempReg1));
-	AND(32, R(tempReg2), Imm32(0x0000F000));
-	AND(32, R(tempReg3), Imm32(0x00000F00));
-	SHL(32, R(tempReg2), Imm8(4));
-	OR(32, R(tempReg2), R(tempReg3));
-
-	// Now grab R and G.
-	MOV(32, R(tempReg3), R(tempReg1));
-	AND(32, R(tempReg1), Imm32(0x0000000F));
-	AND(32, R(tempReg3), Imm32(0x000000F0));
-
-	// Currently: 000A0B00, so let's shift once so G is spaced out.
-	SHL(32, R(tempReg2), Imm8(4));
-	OR(32, R(tempReg2), R(tempReg3));
-
-	// Now: 00A0B0G0, so shift it once more to add R at the bottom.
-	SHL(32, R(tempReg2), Imm8(4));
-	OR(32, R(tempReg2), R(tempReg1));
-
-	// Now we just need to duplicate the nibbles.
-	MOV(32, R(tempReg3), R(tempReg2));
-	SHL(32, R(tempReg3), Imm8(4));
-	OR(32, R(tempReg2), R(tempReg3));
-
-	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
-
-	CMP(32, R(tempReg2), Imm32(0xFF000000));
+	CMP(32, R(tempReg1), Imm32(0xFF000000));
 	FixupBranch skip = J_CC(CC_AE, false);
 	MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
 	SetJumpTarget(skip);
@@ -1364,7 +1316,6 @@ void VertexDecoderJitCache::Jit_PosS16Skin() {
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
-// Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloatSkin() {
 	MOVUPS(XMM3, MDisp(srcReg, dec_->posoff));
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
@@ -1493,7 +1444,6 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 		}
 	}
 
-	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
 	MOVUPS(MDisp(dstReg, dstoff), fpScratchReg);
 }
 
@@ -1532,7 +1482,6 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 		}
 	}
 
-	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
 	MOVUPS(MDisp(dstReg, dstoff), fpScratchReg);
 }
 
@@ -1554,7 +1503,6 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 		}
 	}
 
-	// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
 	MOVUPS(MDisp(dstReg, dstoff), fpScratchReg);
 }
 
