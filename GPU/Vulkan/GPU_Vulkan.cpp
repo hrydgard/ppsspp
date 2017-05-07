@@ -159,6 +159,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 GPU_Vulkan::~GPU_Vulkan() {
 	framebufferManagerVulkan_->DestroyAllFBOs();
 	depalShaderCache_.Clear();
+	delete textureCacheVulkan_;
 	delete pipelineManager_;
 	delete shaderManagerVulkan_;
 }

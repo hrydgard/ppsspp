@@ -138,6 +138,8 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 		return false;
 	if (msgCode == 11)
 		return false;
+	if (msgCode == 63 && startsWith(pMsg, "vkCmdClearAttachments() issued on command buffer "))
+		return false;
 
 #ifdef _WIN32
 	std::string msg = message.str();

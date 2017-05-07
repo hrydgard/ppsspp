@@ -262,11 +262,12 @@ public:
 
 class VKPipeline : public Pipeline {
 public:
-	VKPipeline(size_t size) {
+	VKPipeline(VulkanContext *vulkan, size_t size) : vulkan_(vulkan) {
 		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
 	}
 	~VKPipeline() {
+		vulkan_->Delete().QueueDeletePipeline(vkpipeline);
 		delete[] ubo_;
 	}
 
@@ -292,6 +293,7 @@ public:
 	int dynamicUniformSize = 0;
 
 private:
+	VulkanContext *vulkan_;
 	uint8_t *ubo_;
 	int uboSize_;
 };
@@ -831,7 +833,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 }
 
 Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
-	VKPipeline *pipeline = new VKPipeline(desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float));
+	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float));
 	VKInputLayout *input = (VKInputLayout *)desc.inputLayout;
 	VKBlendState *blend = (VKBlendState *)desc.blend;
 	VKDepthStencilState *depth = (VKDepthStencilState *)desc.depthStencil;
