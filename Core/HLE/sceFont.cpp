@@ -83,29 +83,33 @@ struct FontRegistryEntry {
 	int expireDate;
 	int shadow_option;
 	bool ignoreIfMissing;
+	int fileSize;  // We should allocate this amount of memory when we load the font, but we don't, yet?
+	int maxGlyphBaseYAdjust;
+	int maxGlyphBitmapWidth;
+	int maxGlyphBitmapHeight;
 };
 
 static const FontRegistryEntry fontRegistry[] = {
 	// This was added for Chinese translations and is not normally loaded on a PSP.
 	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_CHINESE, 0, 1, "zh_gb.pgf", "FTT-NewRodin Pro DB", 0, 0, true },
-	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_JAPANESE, 0, 1, "jpn0.pgf", "FTT-NewRodin Pro DB", 0, 0 },
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn0.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn1.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn2.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn3.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn4.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn5.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn6.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn7.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn8.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn9.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn10.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn11.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn12.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn13.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn14.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn15.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_KOREAN, 0, 3, "kr0.pgf", "AsiaNHH(512Johab)", 0, 0},
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_JAPANESE, 0, 1, "jpn0.pgf", "FTT-NewRodin Pro DB", 0, 0, false, 1581700, 0x4B4, 19, 20 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn0.pgf", "FTT-NewRodin Pro Latin", 0, 0, false, 69108, 0x4B2, 23, 20 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn1.pgf", "FTT-Matisse Pro Latin", 0, 0, false, 65124, 0x482, 23, 20 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn2.pgf", "FTT-NewRodin Pro Latin", 0, 0, false, 72948, 0x4B2, 25, 20 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn3.pgf", "FTT-Matisse Pro Latin", 0, 0, false, 67700, 0x482, 25, 20 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn4.pgf", "FTT-NewRodin Pro Latin", 0, 0, false, 72828, 0x4F7, 24, 21 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn5.pgf", "FTT-Matisse Pro Latin", 0, 0, false, 68220, 0x49C, 24, 20 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn6.pgf", "FTT-NewRodin Pro Latin", 0, 0, false, 77032, 0x4F7, 27, 21 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn7.pgf", "FTT-Matisse Pro Latin", 0, 0, false, 71144, 0x49C, 27, 20 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn8.pgf", "FTT-NewRodin Pro Latin", 0, 0, false, 41000, 0x321, 16, 14 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn9.pgf", "FTT-Matisse Pro Latin", 0, 0, false, 40164, 0x302, 16, 14 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn10.pgf", "FTT-NewRodin Pro Latin", 0, 0, false, 42692, 0x321, 17, 14 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn11.pgf", "FTT-Matisse Pro Latin", 0, 0, false, 41488, 0x302, 17, 14 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn12.pgf", "FTT-NewRodin Pro Latin", 0, 0, false, 43136, 0x34F, 17, 15 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn13.pgf", "FTT-Matisse Pro Latin", 0, 0, false, 41772, 0x312, 17, 14 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn14.pgf", "FTT-NewRodin Pro Latin", 0, 0, false, 45184, 0x34F, 18, 15 },
+	{ 0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn15.pgf", "FTT-Matisse Pro Latin", 0, 0, false, 43044, 0x312, 18, 14 },
+	{ 0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_KOREAN, 0, 3, "kr0.pgf", "AsiaNHH(512Johab)", 0, 0, false, 394192, 0x3CB, 21, 20 },
 };
 
 static const float pointDPI = 72.f;
@@ -219,6 +223,7 @@ public:
 			p.Do(valid_);
 		}
 	}
+	void GetFontInfo(PGFFontInfo *fi) const;
 
 private:
 	void Init(const u8 *data, size_t dataSize) {
@@ -228,6 +233,9 @@ private:
 		style_.fontV = (float)pgf_.header.vSize / 64.0f;
 		style_.fontHRes = (float)pgf_.header.hResolution / 64.0f;
 		style_.fontVRes = (float)pgf_.header.vResolution / 64.0f;
+		maxGlyphBitmapWidth_ = pgf_.header.maxGlyphWidth;
+		maxGlyphBitmapHeight_ = pgf_.header.maxGlyphHeight;
+		maxGlyphBaseYAdjust_ = pgf_.header.maxBaseYAdjust;
 	}
 
 	void Init(const u8 *data, size_t dataSize, const FontRegistryEntry &entry) {
@@ -247,10 +255,16 @@ private:
 		strncpy(style_.fontFileName, entry.fileName, sizeof(style_.fontFileName));
 		style_.fontAttributes = entry.extraAttributes;
 		style_.fontExpire = entry.expireDate;
+		maxGlyphBitmapWidth_ = entry.maxGlyphBitmapWidth;
+		maxGlyphBitmapHeight_ = entry.maxGlyphBitmapHeight;
+		maxGlyphBaseYAdjust_ = entry.maxGlyphBaseYAdjust;
 	}
 
 	PGF pgf_;
 	PGFFontStyle style_;
+	int maxGlyphBitmapWidth_;
+	int maxGlyphBitmapHeight_;
+	int maxGlyphBaseYAdjust_;
 	bool valid_;
 	DISALLOW_COPY_AND_ASSIGN(Font);
 };
@@ -337,6 +351,39 @@ private:
 	bool open_;
 	DISALLOW_COPY_AND_ASSIGN(LoadedFont);
 };
+
+void Font::GetFontInfo(PGFFontInfo *fi) const {
+	const PGFHeader &header = GetPGF()->header;
+
+	fi->maxGlyphWidthI = header.maxSize[0];
+	fi->maxGlyphHeightI = header.maxSize[1];
+	fi->maxGlyphAscenderI = header.maxAscender;
+	fi->maxGlyphDescenderI = header.maxDescender;
+	fi->maxGlyphLeftXI = header.maxLeftXAdjust;
+	fi->maxGlyphBaseYI = maxGlyphBaseYAdjust_ ? maxGlyphBaseYAdjust_ : header.maxBaseYAdjust;
+	fi->minGlyphCenterXI = header.minCenterXAdjust;
+	fi->maxGlyphTopYI = header.maxTopYAdjust;
+	fi->maxGlyphAdvanceXI = header.maxAdvance[0];
+	fi->maxGlyphAdvanceYI = header.maxAdvance[1];
+
+	fi->maxGlyphWidthF = (float)fi->maxGlyphWidthI / 64.0f;
+	fi->maxGlyphHeightF = (float)fi->maxGlyphHeightI / 64.0f;
+	fi->maxGlyphAscenderF = (float)fi->maxGlyphAscenderI / 64.0f;
+	fi->maxGlyphDescenderF = (float)fi->maxGlyphDescenderI / 64.0f;
+	fi->maxGlyphLeftXF = (float)fi->maxGlyphLeftXI / 64.0f;
+	fi->maxGlyphBaseYF = (float)fi->maxGlyphBaseYI / 64.0f;
+	fi->minGlyphCenterXF = (float)fi->minGlyphCenterXI / 64.0f;
+	fi->maxGlyphTopYF = (float)fi->maxGlyphTopYI / 64.0f;
+	fi->maxGlyphAdvanceXF = (float)fi->maxGlyphAdvanceXI / 64.0f;
+	fi->maxGlyphAdvanceYF = (float)fi->maxGlyphAdvanceYI / 64.0f;
+
+	fi->maxGlyphWidth = maxGlyphBitmapWidth_ ? maxGlyphBitmapWidth_ : header.maxGlyphWidth;
+	fi->maxGlyphHeight = maxGlyphBitmapHeight_ ? maxGlyphBitmapHeight_ : header.maxGlyphHeight;
+	fi->numGlyphs = header.charPointerLength;
+	fi->shadowMapLength = 0;  // header.shadowMapLength; TODO
+
+	fi->BPP = header.bpp;
+}
 
 class PostAllocCallback : public Action {
 public:
@@ -1051,7 +1098,7 @@ static int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
 
 	DEBUG_LOG(SCEFONT, "sceFontGetFontInfo(%x, %x)", fontHandle, fontInfoPtr);
 	auto fi = PSPPointer<PGFFontInfo>::Create(fontInfoPtr);
-	font->GetPGF()->GetFontInfo(fi);
+	font->GetFont()->GetFontInfo(fi);
 	fi->fontStyle = font->GetFont()->GetFontStyle();
 
 	return 0;

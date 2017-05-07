@@ -359,36 +359,6 @@ bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo, int altCharCode, int 
 	return true;
 }
 
-void PGF::GetFontInfo(PGFFontInfo *fi) const {
-	fi->maxGlyphWidthI = header.maxSize[0];
-	fi->maxGlyphHeightI = header.maxSize[1];
-	fi->maxGlyphAscenderI = header.maxAscender;
-	fi->maxGlyphDescenderI = header.maxDescender;
-	fi->maxGlyphLeftXI = header.maxLeftXAdjust;
-	fi->maxGlyphBaseYI = header.maxBaseYAdjust;
-	fi->minGlyphCenterXI = header.minCenterXAdjust;
-	fi->maxGlyphTopYI = header.maxTopYAdjust;
-	fi->maxGlyphAdvanceXI = header.maxAdvance[0];
-	fi->maxGlyphAdvanceYI = header.maxAdvance[1];
-	fi->maxGlyphWidthF = (float)header.maxSize[0] / 64.0f;
-	fi->maxGlyphHeightF = (float)header.maxSize[1] / 64.0f;
-	fi->maxGlyphAscenderF = (float)header.maxAscender / 64.0f;
-	fi->maxGlyphDescenderF = (float)header.maxDescender / 64.0f;
-	fi->maxGlyphLeftXF = (float)header.maxLeftXAdjust / 64.0f;
-	fi->maxGlyphBaseYF = (float)header.maxBaseYAdjust / 64.0f;
-	fi->minGlyphCenterXF = (float)header.minCenterXAdjust / 64.0f;
-	fi->maxGlyphTopYF = (float)header.maxTopYAdjust / 64.0f;
-	fi->maxGlyphAdvanceXF = (float)header.maxAdvance[0] / 64.0f;
-	fi->maxGlyphAdvanceYF = (float)header.maxAdvance[1] / 64.0f;
-
-	fi->maxGlyphWidth = header.maxGlyphWidth;
-	fi->maxGlyphHeight = header.maxGlyphHeight;
-	fi->numGlyphs = header.charPointerLength;
-	fi->shadowMapLength = 0;  // header.shadowMapLength; TODO
-
-	fi->BPP = header.bpp;
-}
-
 bool PGF::ReadShadowGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 	// Most of the glyph info is from the char data.
 	if (!ReadCharGlyph(fontdata, charPtr, glyph))
