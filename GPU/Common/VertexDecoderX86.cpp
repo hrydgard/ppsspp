@@ -1221,12 +1221,19 @@ void VertexDecoderJitCache::Jit_NormalS16() {
 }
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
-	MOV(32, R(tempReg1), MDisp(srcReg, dec_->nrmoff));
-	MOV(32, R(tempReg2), MDisp(srcReg, dec_->nrmoff + 4));
-	MOV(32, R(tempReg3), MDisp(srcReg, dec_->nrmoff + 8));
-	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff), R(tempReg1));
-	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff + 4), R(tempReg2));
-	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff + 8), R(tempReg3));
+	if (cpu_info.Mode64bit) {
+		MOV(64, R(tempReg1), MDisp(srcReg, dec_->nrmoff));
+		MOV(32, R(tempReg3), MDisp(srcReg, dec_->nrmoff + 8));
+		MOV(64, MDisp(dstReg, dec_->decFmt.posoff), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 8), R(tempReg3));
+	} else {
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->nrmoff));
+		MOV(32, R(tempReg2), MDisp(srcReg, dec_->nrmoff + 4));
+		MOV(32, R(tempReg3), MDisp(srcReg, dec_->nrmoff + 8));
+		MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff + 4), R(tempReg2));
+		MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff + 8), R(tempReg3));
+	}
 }
 
 // This could be a bit shorter with AVX 3-operand instructions and FMA.
@@ -1265,7 +1272,7 @@ void VertexDecoderJitCache::Jit_NormalFloatSkin() {
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS8Through() {
 	DEBUG_LOG_REPORT_ONCE(vertexS8Through, G3D, "Using S8 positions in throughmode");
-	// TODO: SIMD
+	// SIMD doesn't really matter since this isn't useful on hardware.
 	for (int i = 0; i < 3; i++) {
 		MOVSX(32, 8, tempReg1, MDisp(srcReg, dec_->posoff + i));
 		CVTSI2SS(fpScratchReg, R(tempReg1));
@@ -1298,12 +1305,19 @@ void VertexDecoderJitCache::Jit_PosS16() {
 
 // Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloat() {
-	MOV(32, R(tempReg1), MDisp(srcReg, dec_->posoff));
-	MOV(32, R(tempReg2), MDisp(srcReg, dec_->posoff + 4));
-	MOV(32, R(tempReg3), MDisp(srcReg, dec_->posoff + 8));
-	MOV(32, MDisp(dstReg, dec_->decFmt.posoff), R(tempReg1));
-	MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 4), R(tempReg2));
-	MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 8), R(tempReg3));
+	if (cpu_info.Mode64bit) {
+		MOV(64, R(tempReg1), MDisp(srcReg, dec_->posoff));
+		MOV(32, R(tempReg3), MDisp(srcReg, dec_->posoff + 8));
+		MOV(64, MDisp(dstReg, dec_->decFmt.posoff), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 8), R(tempReg3));
+	} else {
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->posoff));
+		MOV(32, R(tempReg2), MDisp(srcReg, dec_->posoff + 4));
+		MOV(32, R(tempReg3), MDisp(srcReg, dec_->posoff + 8));
+		MOV(32, MDisp(dstReg, dec_->decFmt.posoff), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 4), R(tempReg2));
+		MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 8), R(tempReg3));
+	}
 }
 
 void VertexDecoderJitCache::Jit_PosS8Skin() {
