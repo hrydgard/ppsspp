@@ -134,7 +134,7 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	std::string msg = message.str();
 	OutputDebugStringA(msg.c_str());
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-		if (options->breakOnError) {
+		if (options->breakOnError && IsDebuggerPresent()) {
 			DebugBreak();
 		}
 		if (options->msgBoxOnError) {
