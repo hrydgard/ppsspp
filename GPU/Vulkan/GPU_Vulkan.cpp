@@ -162,6 +162,7 @@ GPU_Vulkan::~GPU_Vulkan() {
 	delete textureCacheVulkan_;
 	delete pipelineManager_;
 	delete shaderManagerVulkan_;
+	delete framebufferManagerVulkan_;
 }
 
 void GPU_Vulkan::CheckGPUFeatures() {
