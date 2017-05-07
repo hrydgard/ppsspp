@@ -229,8 +229,8 @@ static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, 
 	int width = gstate.getTextureWidth(level);
 	int height = gstate.getTextureHeight(level);
 
-	int u = (int)(s * width + 0.375f);
-	int v = (int)(t * height + 0.375f);
+	int u = (int)floorf(s * width + 0.375f / 256.0f);
+	int v = (int)floorf(t * height + 0.375f / 256.0f);
 
 	ApplyTexelClamp<1>(&out_u, &out_v, &u, &v, width, height);
 }
@@ -241,8 +241,8 @@ static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, in
 	int width = gstate.getTextureWidth(level);
 	int height = gstate.getTextureHeight(level);
 
-	int base_u = in_s * width * 256;
-	int base_v = in_t * height * 256;
+	int base_u = (int)(in_s * width * 256.0f + 0.375f) - 128;
+	int base_v = (int)(in_t * height * 256.0f + 0.375f) - 128;
 
 	frac_u = (int)(base_u) & 0xff;
 	frac_v = (int)(base_v) & 0xff;
@@ -1131,10 +1131,14 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 	// bilinear = false;
 
 	if (gstate.isModeThrough()) {
-		int u_texel = s * 256;
-		int v_texel = t * 256;
-		frac_u = u_texel & 0xff;
-		frac_v = v_texel & 0xff;
+		int u_texel = (int)(s * 256.0f + 0.375f);
+		int v_texel = (int)(t * 256.0f + 0.375f);
+		if (bilinear) {
+			u_texel -= 128;
+			v_texel -= 128;
+			frac_u = u_texel & 0xff;
+			frac_v = v_texel & 0xff;
+		}
 		u_texel >>= 8;
 		v_texel >>= 8;
 
