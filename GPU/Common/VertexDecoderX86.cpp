@@ -1282,15 +1282,25 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 
 // Through expands into floats, always. Might want to look at changing this.
 void VertexDecoderJitCache::Jit_PosS16Through() {
-	MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->posoff));
-	MOVSX(32, 16, tempReg2, MDisp(srcReg, dec_->posoff + 2));
-	MOVZX(32, 16, tempReg3, MDisp(srcReg, dec_->posoff + 4));  // NOTE: MOVZX
-	CVTSI2SS(fpScratchReg, R(tempReg1));
-	MOVSS(MDisp(dstReg, dec_->decFmt.posoff), fpScratchReg);
-	CVTSI2SS(fpScratchReg, R(tempReg2));
-	MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 4), fpScratchReg);
-	CVTSI2SS(fpScratchReg, R(tempReg3));
-	MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 8), fpScratchReg);
+	if (cpu_info.bSSE4_1) {
+		MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->posoff));
+		MOVZX(32, 16, tempReg3, MDisp(srcReg, dec_->posoff + 4));
+		MOVD_xmm(fpScratchReg2, R(tempReg3));
+		PMOVSXWD(fpScratchReg, R(fpScratchReg));
+		PUNPCKLQDQ(fpScratchReg, R(fpScratchReg2));
+		CVTDQ2PS(fpScratchReg, R(fpScratchReg));
+		MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), fpScratchReg);
+	} else {
+		MOVSX(32, 16, tempReg1, MDisp(srcReg, dec_->posoff));
+		MOVSX(32, 16, tempReg2, MDisp(srcReg, dec_->posoff + 2));
+		MOVZX(32, 16, tempReg3, MDisp(srcReg, dec_->posoff + 4));  // NOTE: MOVZX
+		CVTSI2SS(fpScratchReg, R(tempReg1));
+		MOVSS(MDisp(dstReg, dec_->decFmt.posoff), fpScratchReg);
+		CVTSI2SS(fpScratchReg, R(tempReg2));
+		MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 4), fpScratchReg);
+		CVTSI2SS(fpScratchReg, R(tempReg3));
+		MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 8), fpScratchReg);
+	}
 }
 
 void VertexDecoderJitCache::Jit_PosS8() {
