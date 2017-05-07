@@ -93,6 +93,11 @@ bool TextureReplacer::LoadIni() {
 
 		options->Get("video", &allowVideo_, false);
 		options->Get("ignoreAddress", &ignoreAddress_, false);
+		options->Get("reduceHash", &reduceHash_, false); // Multiplies sizeInRAM/bytesPerLine in XXHASH by 0.5
+		if (reduceHash_ && hash_ == ReplacedTextureHash::QUICK) {
+			reduceHash_ = false;
+			ERROR_LOG(G3D, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
+		}
 
 		if (ignoreAddress_ && hash_ == ReplacedTextureHash::QUICK) {
 			ignoreAddress_ = false;
@@ -181,10 +186,13 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 	}
 
 	const u8 *checkp = Memory::GetPointer(addr);
+	float reduceHashSize = 1.0;
+	if (reduceHash_)
+		reduceHashSize = 0.5;
 	if (bufw <= w) {
 		// We can assume the data is contiguous.  These are the total used pixels.
 		const u32 totalPixels = bufw * h + (w - bufw);
-		const u32 sizeInRAM = (textureBitsPerPixel[fmt] * totalPixels) / 8;
+		const u32 sizeInRAM = (textureBitsPerPixel[fmt] * totalPixels) / 8 * reduceHashSize;
 
 		switch (hash_) {
 		case ReplacedTextureHash::QUICK:
@@ -198,7 +206,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 		}
 	} else {
 		// We have gaps.  Let's hash each row and sum.
-		const u32 bytesPerLine = (textureBitsPerPixel[fmt] * w) / 8;
+		const u32 bytesPerLine = (textureBitsPerPixel[fmt] * w) / 8 * reduceHashSize;
 		const u32 stride = (textureBitsPerPixel[fmt] * bufw) / 8;
 
 		u32 result = 0;

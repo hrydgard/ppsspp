@@ -199,6 +199,7 @@ protected:
 	bool enabled_;
 	bool allowVideo_;
 	bool ignoreAddress_;
+	bool reduceHash_;
 	std::string gameID_;
 	std::string basePath_;
 	ReplacedTextureHash hash_;
