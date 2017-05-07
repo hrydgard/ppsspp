@@ -124,21 +124,10 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	}
 	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
-	// layout barrier. TODO: This one I should fix.
-	if (msgCode == 7 && startsWith(pMsg, "Cannot submit cmd buffer"))
-		return false;
-	if (msgCode == 7 && startsWith(pMsg, "Cannot copy from an image"))
-		return false;
-	if (msgCode == 7 && startsWith(pMsg, "You cannot transition the layout"))
-		return false;
 	// This seems like a bogus result when submitting two command buffers in one go, one creating the image, the other one using it.
 	if (msgCode == 6 && startsWith(pMsg, "Cannot submit cmd buffer using image"))
 		return false;
-	if (msgCode == 44 && startsWith(pMsg, "At Draw time the active render"))
-		return false;
 	if (msgCode == 11)
-		return false;
-	if (msgCode == 63 && startsWith(pMsg, "vkCmdClearAttachments() issued on command buffer "))
 		return false;
 
 #ifdef _WIN32
