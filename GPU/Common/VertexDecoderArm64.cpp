@@ -95,16 +95,13 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
-	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
-	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
-	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
-	// {&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
+	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
@@ -582,7 +579,7 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	CSEL(fullAlphaReg, fullAlphaReg, WZR, CC_EQ);
 }
 
-void VertexDecoderJitCache::Jit_TcU16Through() {
+void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
 	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
 
@@ -596,29 +593,15 @@ void VertexDecoderJitCache::Jit_TcU16Through() {
 	updateSide(tempReg2, CC_LT, boundsMinVReg);
 	updateSide(tempReg2, CC_GT, boundsMaxVReg);
 
-	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 16));
-	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
+	fp.LDUR(32, neonScratchRegD, srcReg, dec_->tcoff);
+	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
+	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
 	LDP(INDEX_SIGNED, tempReg1, tempReg2, srcReg, dec_->tcoff);
 	STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.uvoff);
-}
-
-void VertexDecoderJitCache::Jit_TcU16Double() {
-	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
-	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
-	LSL(tempReg1, tempReg1, 1);
-	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 17));
-	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
-}
-
-void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
-	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
-	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
-	LSL(tempReg1, tempReg1, 1);
-	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 17));
-	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcFloat() {

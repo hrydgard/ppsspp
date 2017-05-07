@@ -91,8 +91,8 @@ static void DestroyJitHarness() {
 	// Clear our custom module out to be safe.
 	HLEShutdown();
 	CoreTiming::Shutdown();
-	Memory::Shutdown();
 	mipsr4k.Shutdown();
+	Memory::Shutdown();
 	coreState = CORE_POWERDOWN;
 	currentMIPS = nullptr;
 }
