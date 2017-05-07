@@ -376,7 +376,7 @@ public:
 		curIBufferOffset_ = offset;
 	}
 
-	void UpdateDynamicUniformBuffer(const void *ub, size_t size);
+	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
 	// TODO: Add more sophisticated draws.
 	void Draw(int vertexCount, int offset) override;
