@@ -263,12 +263,14 @@ public:
 		return frame_[curFrame_ & 1].cmdBuf;
 	}
 
+	VkCommandBuffer BeginFrame();
 	// The surface render pass is special because it has to acquire the backbuffer, and may thus "block".
 	// Use the returned command buffer to enqueue commands that render to the backbuffer.
 	// To render to other buffers first, you can submit additional commandbuffers using QueueBeforeSurfaceRender(cmd).
 	VkCommandBuffer BeginSurfaceRenderPass(VkClearValue clear_values[2]);
 	// May eventually need the ability to break and resume the backbuffer render pass in a few rare cases.
 	void EndSurfaceRenderPass();
+	void EndFrame();
 
 	void QueueBeforeSurfaceRender(VkCommandBuffer cmd);
 

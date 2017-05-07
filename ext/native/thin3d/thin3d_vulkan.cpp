@@ -732,6 +732,8 @@ VKContext::~VKContext() {
 }
 
 void VKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
+	cmd_ = vulkan_->BeginFrame();
+
 	VkClearValue clearVal[2] = {};
 	Uint8x4ToFloat4(colorval, clearVal[0].color.float32);
 
@@ -742,7 +744,7 @@ void VKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencil
 	clearVal[1].depthStencil.depth = depthVal;
 	clearVal[1].depthStencil.stencil = stencilVal;
 
-	cmd_ = vulkan_->BeginSurfaceRenderPass(clearVal);
+	vulkan_->BeginSurfaceRenderPass(clearVal);
 
 	FrameData *frame = &frame_[frameNum_ & 1];
 	push_ = frame->pushBuffer;
@@ -765,6 +767,7 @@ void VKContext::End() {
 	// Stop collecting data in the frame's data pushbuffer.
 	push_->End();
 	vulkan_->EndSurfaceRenderPass();
+	vulkan_->EndFrame();
 
 	frameNum_++;
 	cmd_ = nullptr;  // will be set on the next begin

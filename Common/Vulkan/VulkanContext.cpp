@@ -215,7 +215,7 @@ void VulkanContext::QueueBeforeSurfaceRender(VkCommandBuffer cmd) {
 	cmdQueue_.push_back(cmd);
 }
 
-VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[2]) {
+VkCommandBuffer VulkanContext::BeginFrame() {
 	FrameData *frame = &frame_[curFrame_];
 
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
@@ -238,7 +238,11 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 	res = vkBeginCommandBuffer(frame->cmdBuf, &begin);
 
 	TransitionFromPresent(frame->cmdBuf, swapChainBuffers[current_buffer].image);
+	return frame->cmdBuf;
+}
 
+VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[2]) {
+	FrameData *frame = &frame_[curFrame_];
 	VkRenderPassBeginInfo rp_begin = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
 	rp_begin.renderPass = surface_render_pass_;
 	rp_begin.framebuffer = framebuffers_[current_buffer];
@@ -259,7 +263,10 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 void VulkanContext::EndSurfaceRenderPass() {
 	FrameData *frame = &frame_[curFrame_];
 	vkCmdEndRenderPass(frame->cmdBuf);
+}
 
+void VulkanContext::EndFrame() {
+	FrameData *frame = &frame_[curFrame_];
 	TransitionToPresent(frame->cmdBuf, swapChainBuffers[current_buffer].image);
 
 	VkResult res = vkEndCommandBuffer(frame->cmdBuf);
