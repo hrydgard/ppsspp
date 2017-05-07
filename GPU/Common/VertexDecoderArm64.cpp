@@ -101,7 +101,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
-	// {&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
+	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
@@ -577,6 +577,26 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	// Clear fullAlphaReg when the inverse was not 0.
 	// fullAlphaReg = tempReg3 == 0 ? fullAlphaReg : 0 + 1;
 	CSEL(fullAlphaReg, fullAlphaReg, WZR, CC_EQ);
+}
+
+void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
+	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
+	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
+
+	auto updateSide = [&](ARM64Reg src, CCFlags cc, ARM64Reg dst) {
+		CMP(src, dst);
+		CSEL(dst, src, dst, cc);
+	};
+
+	updateSide(tempReg1, CC_LT, boundsMinUReg);
+	updateSide(tempReg1, CC_GT, boundsMaxUReg);
+	updateSide(tempReg2, CC_LT, boundsMinVReg);
+	updateSide(tempReg2, CC_GT, boundsMaxVReg);
+
+	fp.LDUR(32, neonScratchRegD, srcReg, dec_->tcoff);
+	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
+	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {

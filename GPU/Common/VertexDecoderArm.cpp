@@ -127,7 +127,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
-	// {&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
+	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
@@ -566,6 +566,43 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 	LDR(tempReg2, srcReg, dec_->tcoff + 4);
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 	STR(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
+	LDRH(tempReg1, srcReg, dec_->tcoff);
+	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
+
+	MOVP2R(scratchReg, &gstate_c.vertBounds.minU);
+
+	auto updateSide = [&](ARMReg r, CCFlags cc, u32 off) {
+		LDRH(tempReg3, scratchReg, off);
+		CMP(r, tempReg3);
+		SetCC(cc);
+		STRH(r, scratchReg, off);
+		SetCC(CC_AL);
+	};
+
+	// TODO: Can this actually be fast?  Hmm, floats aren't better.
+	updateSide(tempReg1, CC_LT, offsetof(KnownVertexBounds, minU));
+	updateSide(tempReg1, CC_GT, offsetof(KnownVertexBounds, maxU));
+	updateSide(tempReg2, CC_LT, offsetof(KnownVertexBounds, minV));
+	updateSide(tempReg2, CC_GT, offsetof(KnownVertexBounds, maxV));
+
+	if (cpu_info.bNEON) {
+		ADD(scratchReg, srcReg, dec_->tcoff);
+		VLD1_lane(I_32, neonScratchReg, scratchReg, 0, false);
+		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
+		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+		ADD(scratchReg2, dstReg, dec_->decFmt.uvoff);
+		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);
+	} else {
+		VMOV(fpScratchReg, tempReg1);
+		VMOV(fpScratchReg2, tempReg2);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+		VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+		VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+		VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+	}
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
