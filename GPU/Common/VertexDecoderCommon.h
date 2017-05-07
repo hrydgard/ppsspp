@@ -514,17 +514,11 @@ public:
 	void Step_TcU16DoublePrescale() const;
 	void Step_TcFloatPrescale() const;
 
-	void Step_TcU16Double() const;
-	void Step_TcU16Through() const;
-	void Step_TcU16ThroughDouble() const;
 	void Step_TcU16DoubleToFloat() const;
 	void Step_TcU16ThroughToFloat() const;
 	void Step_TcU16ThroughDoubleToFloat() const;
 	void Step_TcFloatThrough() const;
 
-	void Step_TcU8Morph() const;
-	void Step_TcU16Morph() const;
-	void Step_TcU16DoubleMorph() const;
 	void Step_TcU8MorphToFloat() const;
 	void Step_TcU16MorphToFloat() const;
 	void Step_TcU16DoubleMorphToFloat() const;
@@ -675,10 +669,6 @@ public:
 	void Jit_TcU16PrescaleMorph();
 	void Jit_TcFloatPrescaleMorph();
 
-	void Jit_TcU16Double();
-	void Jit_TcU16ThroughDouble();
-
-	void Jit_TcU16Through();
 	void Jit_TcU16ThroughToFloat();
 	void Jit_TcFloatThrough();
 
