@@ -386,7 +386,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbytes, u[i], v[i]);
 			u32 val = src[0] + (src[1] << 8) + (src[2] << 16) + (src[3] << 24);
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
 		return res;
 
@@ -394,7 +394,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbytes, u[i], v[i]);
 			u16 val = src[0] + (src[1] << 8);
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
 		return res;
 
@@ -402,7 +402,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufwidthbytes, u[i], v[i]);
 			u8 val = *src;
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
 		return res;
 
@@ -410,6 +410,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufwidthbytes, u[i], v[i]);
 			u8 val = (u[i] & 1) ? (src[0] >> 4) : (src[0] & 0xF);
+			// Only CLUT4 uses separate mipmap palettes.
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
 		return res;
