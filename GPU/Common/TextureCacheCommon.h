@@ -69,8 +69,10 @@ struct SamplerCacheKey {
 			bool magFilt : 1;
 			bool sClamp : 1;
 			bool tClamp : 1;
-			int lodBias : 4;
-			int maxLevel : 4;
+			bool lodAuto : 1;
+			bool : 1;
+			int8_t lodBias : 8;
+			int8_t maxLevel : 4;
 		};
 	};
 

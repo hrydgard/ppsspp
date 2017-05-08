@@ -13,9 +13,7 @@
 static const bool ClickDebug = false;
 
 UIScreen::UIScreen()
-	: Screen(), root_(nullptr), recreateViews_(true), hatDown_(0) {
-	translation_ = Vec3(0.0f);
-	scale_ = Vec3(1.0f);
+	: Screen(), root_(nullptr), translation_(0.0f), scale_(1.0f), recreateViews_(true), hatDown_(0) {
 }
 
 UIScreen::~UIScreen() {

@@ -292,7 +292,7 @@ const char *DefaultLangRegion() {
 	return defaultLangRegion.c_str();
 }
 
-const char *CreateRandMAC() {
+std::string CreateRandMAC() {
 	std::stringstream randStream;
 	srand(time(nullptr));
 	for (int i = 0; i < 6; i++) {
@@ -305,8 +305,7 @@ const char *CreateRandMAC() {
 			randStream << ':'; //we need a : between every octet
 		}
 	}
-	// It's ok to strdup, this runs once and will be freed by exiting the process anyway
-	return strdup(randStream.str().c_str());
+	return randStream.str();
 }
 
 static int DefaultNumWorkers() {
@@ -496,9 +495,6 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit, 0, true, true),
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, &DefaultFrameskipUnthrottle, true, false),
-#if defined(USING_WIN_UI)
-	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
-#endif
 	ReportedConfigSetting("ForceMaxEmulatedFPS", &g_Config.iForceMaxEmulatedFPS, 60, true, true),
 
 	// TODO: Hm, on fast mobile GPUs we should definitely default to at least 4 (setting = 2)...
@@ -698,6 +694,12 @@ static ConfigSetting controlSettings[] = {
 #endif
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
 
+	ConfigSetting("UseMouse", &g_Config.bMouseControl, false, true, true),
+	ConfigSetting("MapMouse", &g_Config.bMapMouse, false, true, true),
+	ConfigSetting("ConfineMap", &g_Config.bMouseConfine, false, true, true),
+	ConfigSetting("MouseSensitivity", &g_Config.fMouseSensitivity, 0.1, true, true),
+	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9, true, true),
+
 	ConfigSetting(false),
 };
 
@@ -734,7 +736,7 @@ static ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, true, true),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", true, true),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "coldbird.net", true, true),
-	ConfigSetting("MacAddress", &g_Config.sMACAddress, &CreateRandMAC, true, true),
+	ConfigSetting("MacAddress", &g_Config.sMACAddress, "", true, true),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, true, true),
 	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR, true, true),
@@ -1030,7 +1032,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	CleanRecent();
 
-	// Fix Wrong MAC address by old version by "Change MAC address"
+	// Set a default MAC, and correct if it's an old format.
 	if (sMACAddress.length() != 17)
 		sMACAddress = CreateRandMAC();
 
@@ -1094,7 +1096,8 @@ void Config::Save() {
 		control->Delete("DPadRadius");
 
 		IniFile::Section *log = iniFile.GetOrCreateSection(logSectionName);
-		LogManager::GetInstance()->SaveConfig(log);
+		if (LogManager::GetInstance())
+			LogManager::GetInstance()->SaveConfig(log);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());

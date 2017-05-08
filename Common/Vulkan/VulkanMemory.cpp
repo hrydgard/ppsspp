@@ -27,6 +27,10 @@ VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size) : device_
 	assert(res);
 }
 
+VulkanPushBuffer::~VulkanPushBuffer() {
+	assert(buffers_.empty());
+}
+
 bool VulkanPushBuffer::AddBuffer() {
 	BufInfo info;
 
@@ -61,6 +65,15 @@ bool VulkanPushBuffer::AddBuffer() {
 	buffers_.resize(buf_ + 1);
 	buffers_[buf_] = info;
 	return true;
+}
+
+void VulkanPushBuffer::Destroy(VulkanContext *vulkan) {
+	for (BufInfo &info : buffers_) {
+		vulkan->Delete().QueueDeleteBuffer(info.buffer);
+		vulkan->Delete().QueueDeleteDeviceMemory(info.deviceMemory);
+	}
+
+	buffers_.clear();
 }
 
 void VulkanPushBuffer::NextBuffer(size_t minSize) {
@@ -254,6 +267,7 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 
 	// Okay, now enqueue.  It's valid.
 	FreeInfo *info = new FreeInfo(this, deviceMemory, offset);
+	// Dispatches a call to ExecuteFree on the next delete round.
 	vulkan_->Delete().QueueCallback(&DispatchFree, info);
 }
 

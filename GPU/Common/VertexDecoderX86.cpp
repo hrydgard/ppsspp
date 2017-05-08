@@ -100,16 +100,13 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
-	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
-	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
-	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
 	{&VertexDecoder::Step_TcU8MorphToFloat, &VertexDecoderJitCache::Jit_TcU8MorphToFloat},
 	{&VertexDecoder::Step_TcU16MorphToFloat, &VertexDecoderJitCache::Jit_TcU16MorphToFloat},
@@ -696,15 +693,6 @@ void VertexDecoderJitCache::Jit_TcU16ToFloat() {
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), XMM3);
 }
 
-void VertexDecoderJitCache::Jit_TcU16Double() {
-	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
-	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
-	SHL(16, R(tempReg1), Imm8(1));  // 16 to get a wall to shift into
-	SHL(32, R(tempReg2), Imm8(17));
-	OR(32, R(tempReg1), R(tempReg2));
-	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
-}
-
 void VertexDecoderJitCache::Jit_TcFloat() {
 #ifdef _M_X64
 	MOV(64, R(tempReg1), MDisp(srcReg, dec_->tcoff));
@@ -851,27 +839,6 @@ void VertexDecoderJitCache::Jit_TcFloatPrescaleMorph() {
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
-void VertexDecoderJitCache::Jit_TcU16Through() {
-	MOV(32, R(tempReg1), MDisp(srcReg, dec_->tcoff));
-	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
-
-	MOV(32, R(tempReg2), R(tempReg1));
-	SHR(32, R(tempReg2), Imm8(16));
-
-	auto updateSide = [&](X64Reg r, CCFlags skipCC, u16 *value) {
-		CMP(16, R(r), M(value));
-		FixupBranch skip = J_CC(skipCC);
-		MOV(16, M(value), R(r));
-		SetJumpTarget(skip);
-	};
-
-	// TODO: Can this actually be fast?  Hmm, floats aren't better.
-	updateSide(tempReg1, CC_GE, &gstate_c.vertBounds.minU);
-	updateSide(tempReg1, CC_LE, &gstate_c.vertBounds.maxU);
-	updateSide(tempReg2, CC_GE, &gstate_c.vertBounds.minV);
-	updateSide(tempReg2, CC_LE, &gstate_c.vertBounds.maxV);
-}
-
 void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	PXOR(fpScratchReg2, R(fpScratchReg2));
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->tcoff));
@@ -895,15 +862,6 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	updateSide(tempReg1, CC_LE, &gstate_c.vertBounds.maxU);
 	updateSide(tempReg2, CC_GE, &gstate_c.vertBounds.minV);
 	updateSide(tempReg2, CC_LE, &gstate_c.vertBounds.maxV);
-}
-
-void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
-	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
-	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
-	SHL(16, R(tempReg1), Imm8(1));  // 16 to get a wall to shift into
-	SHL(32, R(tempReg2), Imm8(17));
-	OR(32, R(tempReg1), R(tempReg2));
-	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {

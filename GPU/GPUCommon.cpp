@@ -459,7 +459,6 @@ bool GPUCommon::BusyDrawing() {
 
 void GPUCommon::Resized() {
 	resized_ = true;
-	framebufferManager_->Resized();
 }
 
 u32 GPUCommon::DrawSync(int mode) {

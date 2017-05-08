@@ -153,8 +153,6 @@ private:
 	// Used by post-processing shader
 	std::vector<Draw::Framebuffer *> extraFBOs_;
 
-	bool resized_;
-
 #if 0
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;

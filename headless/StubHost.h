@@ -29,7 +29,7 @@ public:
 	void UpdateMemView() override {}
 	void UpdateDisassembly() override {}
 
-	void SetDebugMode(bool mode) { }
+	void SetDebugMode(bool mode) override { }
 
 	void SetGraphicsCore(GPUCore core) { gpuCore_ = core; }
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override {return false;}

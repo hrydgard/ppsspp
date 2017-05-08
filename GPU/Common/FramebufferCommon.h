@@ -75,6 +75,7 @@ struct VirtualFramebuffer {
 	int last_frame_render;
 	int last_frame_displayed;
 	int last_frame_clut;
+	int last_frame_failed;
 	u32 clutUpdatedBytes;
 	bool memoryUpdated;
 	bool depthUpdated;
@@ -264,7 +265,7 @@ public:
 	void SetRenderSize(VirtualFramebuffer *vfb);
 	void SetSafeSize(u16 w, u16 h);
 
-	virtual void Resized() = 0;
+	virtual void Resized();
 
 	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
 

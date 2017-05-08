@@ -63,6 +63,12 @@ void NativeDeviceRestore();
 // and only write dp_xres and dp_yres.
 void NativeResized();
 
+// Set a flag to indicate a restart.  Reset after NativeInit().
+void NativeSetRestarting();
+
+// Retrieve current restarting flag.
+bool NativeIsRestarting();
+
 // Called ~sixty times a second, delivers the current input state.
 // Main thread.
 void NativeUpdate();
@@ -180,4 +186,4 @@ enum SystemProperty {
 
 std::string System_GetProperty(SystemProperty prop);
 int System_GetPropertyInt(SystemProperty prop);
-
+bool System_GetPropertyBool(SystemProperty prop);

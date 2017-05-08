@@ -113,8 +113,6 @@ public:
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
-
-	bool bRestartRequired;
 #endif
 
 	bool bPauseWhenMinimized;
@@ -395,6 +393,12 @@ public:
 
 	float fAnalogLimiterDeadzone;
 
+	bool bMouseControl;
+	bool bMapMouse; // Workaround for mapping screen:|
+	bool bMouseConfine; // Trap inside the window.
+	float fMouseSensitivity;
+	float fMouseSmoothing;
+
 	// Use the hardware scaler to scale up the image to save fillrate. Similar to Windows' window size, really.
 	int iAndroidHwScale;  // 0 = device resolution. 1 = 480x272 (extended to correct aspect), 2 = 960x544 etc.
 
@@ -511,7 +515,7 @@ private:
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
-const char *CreateRandMAC();
+std::string CreateRandMAC();
 
 // TODO: Find a better place for this.
 extern http::Downloader g_DownloadManager;

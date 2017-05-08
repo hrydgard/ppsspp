@@ -262,11 +262,12 @@ public:
 
 class VKPipeline : public Pipeline {
 public:
-	VKPipeline(size_t size) {
+	VKPipeline(VulkanContext *vulkan, size_t size) : vulkan_(vulkan) {
 		uboSize_ = (int)size;
 		ubo_ = new uint8_t[uboSize_];
 	}
 	~VKPipeline() {
+		vulkan_->Delete().QueueDeletePipeline(vkpipeline);
 		delete[] ubo_;
 	}
 
@@ -292,6 +293,7 @@ public:
 	int dynamicUniformSize = 0;
 
 private:
+	VulkanContext *vulkan_;
 	uint8_t *ubo_;
 	int uboSize_;
 };
@@ -376,7 +378,7 @@ public:
 		curIBufferOffset_ = offset;
 	}
 
-	void UpdateDynamicUniformBuffer(const void *ub, size_t size);
+	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
 	// TODO: Add more sophisticated draws.
 	void Draw(int vertexCount, int offset) override;
@@ -555,7 +557,7 @@ public:
 		assert(VK_SUCCESS == res);
 	}
 	~VKSamplerState() {
-		vkDestroySampler(vulkan_->GetDevice(), sampler_, nullptr);
+		vulkan_->Delete().QueueDeleteSampler(sampler_);
 	}
 
 	VkSampler GetSampler() { return sampler_; }
@@ -716,17 +718,17 @@ VKContext::VKContext(VulkanContext *vulkan)
 }
 
 VKContext::~VKContext() {
-	vkDestroyCommandPool(device_, cmdPool_, nullptr);
+	vulkan_->Delete().QueueDeleteCommandPool(cmdPool_);
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < 2; i++) {
 		frame_[i].descSets_.clear();
-		vkDestroyDescriptorPool(device_, frame_[i].descriptorPool, nullptr);
+		vulkan_->Delete().QueueDeleteDescriptorPool(frame_[i].descriptorPool);
 		frame_[i].pushBuffer->Destroy(vulkan_);
 		delete frame_[i].pushBuffer;
 	}
-	vkDestroyDescriptorSetLayout(device_, descriptorSetLayout_, nullptr);
-	vkDestroyPipelineLayout(device_, pipelineLayout_, nullptr);
-	vkDestroyPipelineCache(device_, pipelineCache_, nullptr);
+	vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
+	vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
+	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
 void VKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
@@ -831,7 +833,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 }
 
 Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
-	VKPipeline *pipeline = new VKPipeline(desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float));
+	VKPipeline *pipeline = new VKPipeline(vulkan_, desc.uniformDesc ? desc.uniformDesc->uniformBufferSize : 16 * sizeof(float));
 	VKInputLayout *input = (VKInputLayout *)desc.inputLayout;
 	VKBlendState *blend = (VKBlendState *)desc.blend;
 	VKDepthStencilState *depth = (VKDepthStencilState *)desc.depthStencil;

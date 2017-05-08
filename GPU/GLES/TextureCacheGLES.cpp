@@ -136,21 +136,33 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 				GETexLevelMode mode = gstate.getTexLevelMode();
 				switch (mode) {
 				case GE_TEXLEVEL_MODE_AUTO:
-					// TODO
+#ifndef USING_GLES2
+					// Sigh, LOD_BIAS is not even in ES 3.0.. but we could do it in the shader via texture()...
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
+#endif
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry.maxLevel);
 					break;
 				case GE_TEXLEVEL_MODE_CONST:
-					// Sigh, LOD_BIAS is not even in ES 3.0..
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, lodBias);
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, lodBias);
+					break;
+				case GE_TEXLEVEL_MODE_SLOPE:
+					WARN_LOG_REPORT_ONCE(texSlope, G3D, "Unsupported texture lod slope: %f + %f", gstate.getTextureLodSlope(), lodBias);
+					// TODO: This behavior isn't correct.
 #ifndef USING_GLES2
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
 #endif
-					break;
-				case GE_TEXLEVEL_MODE_SLOPE:
-					// TODO
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry.maxLevel);
 					break;
 				}
 			}
 			entry.lodBias = lodBias;
 		}
+	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0.0f);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0.0f);
 	}
 
 	if (force || entry.minFilt != minFilt) {
@@ -699,7 +711,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 					LoadTextureLevel(*entry, replaced, i, replaceImages, scaleFactor, dstFmt);
 				}
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 			}
 		} else {
 			// Avoid PowerVR driver bug

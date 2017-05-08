@@ -70,6 +70,29 @@ private:
 	bool mapped_;  // Prevent double registrations
 };
 
+class KeyMappingNewMouseKeyDialog : public PopupScreen {
+public:
+	explicit KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback)
+		: PopupScreen("Map Mouse", "", ""), callback_(callback), mapped_(false) {
+		pspBtn_ = btn;
+	}
+
+	virtual bool key(const KeyInput &key) override;
+	virtual bool axis(const AxisInput &axis) override;
+
+protected:
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+
+	virtual bool FillVertical() const override { return false; }
+	virtual bool ShowButtons() const override { return true; }
+	virtual void OnCompleted(DialogResult result) override {}
+
+private:
+	int pspBtn_;
+	std::function<void(KeyDef)> callback_;
+	bool mapped_;  // Prevent double registrations
+};
+
 class AnalogTestScreen : public UIDialogScreenWithBackground {
 public:
 	AnalogTestScreen() {}

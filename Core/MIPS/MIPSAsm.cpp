@@ -89,8 +89,10 @@ bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 	args.silent = true;
 	args.memoryFile = &file;
 	args.errorsResult = &errors;
-	
-	g_symbolMap->GetLabels(args.labels);
+
+	if (g_symbolMap) {
+		g_symbolMap->GetLabels(args.labels);
+	}
 
 	errorText = L"";
 	if (!runArmips(args))

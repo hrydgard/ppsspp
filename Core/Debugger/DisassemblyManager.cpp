@@ -339,6 +339,10 @@ u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 	return address+n*4;
 }
 
+DisassemblyManager::~DisassemblyManager() {
+	clear();
+}
+
 void DisassemblyManager::clear()
 {
 	for (auto it = entries.begin(); it != entries.end(); it++)
@@ -356,6 +360,10 @@ DisassemblyFunction::DisassemblyFunction(u32 _address, u32 _size): address(_addr
 
 	hash = computeHash(address,size);
 	load();
+}
+
+DisassemblyFunction::~DisassemblyFunction() {
+	clear();
 }
 
 void DisassemblyFunction::recheck()

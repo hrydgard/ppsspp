@@ -47,6 +47,7 @@ private:
 	void Refresh();
 
 	UI::EventReturn OnAdd(UI::EventParams &params);
+	UI::EventReturn OnAddMouse(UI::EventParams &params);
 	UI::EventReturn OnDelete(UI::EventParams &params);
 	UI::EventReturn OnReplace(UI::EventParams &params);
 	UI::EventReturn OnReplaceAll(UI::EventParams &params);
@@ -119,6 +120,10 @@ void ControlMapper::Refresh() {
 
 	Choice *p = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
 	p->OnClick.Handle(this, &ControlMapper::OnAdd);
+	if (g_Config.bMouseControl) {
+		Choice *p = root->Add(new Choice("M", new LayoutParams(WRAP_CONTENT, itemH)));
+		p->OnClick.Handle(this, &ControlMapper::OnAddMouse);
+	}
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	rightColumn->SetSpacing(2.0f);
@@ -168,6 +173,7 @@ void ControlMapper::MappedCallback(KeyDef kdf) {
 	default:
 		;
 	}
+	g_Config.bMapMouse = false;
 	refresh_ = true;
 	ctrlScreen_->KeyMapped(pspKey_);
 	// After this, we do not exist any more. So the refresh_ = true is probably irrelevant.
@@ -189,6 +195,12 @@ UI::EventReturn ControlMapper::OnReplaceAll(UI::EventParams &params) {
 UI::EventReturn ControlMapper::OnAdd(UI::EventParams &params) {
 	action_ = ADD;
 	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
+	return UI::EVENT_DONE;
+}
+UI::EventReturn ControlMapper::OnAddMouse(UI::EventParams &params) {
+	action_ = ADD;
+	g_Config.bMapMouse = true;
+	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
 	return UI::EVENT_DONE;
 }
 
@@ -319,6 +331,34 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	return true;
 }
 
+void KeyMappingNewMouseKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+
+	parent->Add(new TextView(std::string(km->T("You can press ESC to cancel.")), new LinearLayoutParams(Margins(10, 0))));
+}
+
+bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
+	if (mapped_)
+		return false;
+	if (key.flags & KEY_DOWN) {
+		if (key.keyCode == NKCODE_ESCAPE) {
+			TriggerFinish(DR_OK);
+			g_Config.bMapMouse = false;
+			return false;
+		}
+
+		mapped_ = true;
+		KeyDef kdf(key.deviceId, key.keyCode);
+		TriggerFinish(DR_OK);
+		g_Config.bMapMouse = false;
+		if (callback_)
+			callback_(kdf);
+	}
+	return true;
+}
+
 static bool IgnoreAxisForMapping(int axis) {
 	switch (axis) {
 		// Ignore the accelerometer for mapping for now.
@@ -341,6 +381,30 @@ static bool IgnoreAxisForMapping(int axis) {
 
 
 bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
+	if (mapped_)
+		return false;
+	if (IgnoreAxisForMapping(axis.axisId))
+		return false;
+
+	if (axis.value > AXIS_BIND_THRESHOLD) {
+		mapped_ = true;
+		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
+		TriggerFinish(DR_OK);
+		if (callback_)
+			callback_(kdf);
+	}
+
+	if (axis.value < -AXIS_BIND_THRESHOLD) {
+		mapped_ = true;
+		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
+		TriggerFinish(DR_OK);
+		if (callback_)
+			callback_(kdf);
+	}
+	return true;
+}
+
+bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	if (mapped_)
 		return false;
 	if (IgnoreAxisForMapping(axis.axisId))

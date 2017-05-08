@@ -70,6 +70,7 @@ class DisassemblyFunction: public DisassemblyEntry
 {
 public:
 	DisassemblyFunction(u32 _address, u32 _size);
+	~DisassemblyFunction();
 	void recheck() override;
 	int getNumLines() override;
 	int getLineNum(u32 address, bool findStart) override;
@@ -195,6 +196,8 @@ class DebugInterface;
 class DisassemblyManager
 {
 public:
+	~DisassemblyManager();
+
 	void clear();
 
 	void setCpu(DebugInterface* _cpu) { cpu = _cpu; };

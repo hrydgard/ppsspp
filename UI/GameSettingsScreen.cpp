@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2013- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -519,12 +519,12 @@ void GameSettingsScreen::CreateViews() {
 
 		// Combo key setup
 		Choice *comboKey = controlsSettings->Add(new Choice(co->T("Combo Key Setup")));
-		comboKey->OnClick.Handle(this, &GameSettingsScreen::OnCombo_key);
+		comboKey->OnClick.Handle(this, &GameSettingsScreen::OnComboKey);
 		comboKey->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		// On non iOS systems, offer to let the user see this button.
 		// Some Windows touch devices don't have a back button or other button to call up the menu.
-		if (System_GetPropertyInt(SYSPROP_HAS_BACK_BUTTON)) {
+		if (System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON)) {
 			CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, co->T("Show Touch Pause Menu Button")));
 
 			// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
@@ -575,6 +575,18 @@ void GameSettingsScreen::CreateViews() {
 		settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
+#if defined(USING_WIN_UI)
+	controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
+	CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
+	mouseControl->OnClick.Add([=](EventParams &e) {
+		if(g_Config.bMouseControl)
+			settingInfo_->Show(co->T("MouseControl Tip", "You can now map mouse in control mapping screen by pressing the 'M' icon."), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+	controlsSettings->Add(new CheckBox(&g_Config.bMouseConfine, co->T("Confine Mouse", "Trap mouse within window/display area")));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"));
+#endif
 
 	ViewGroup *networkingSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	networkingSettingsScroll->SetTag("GameSettingsNetworking");
@@ -672,7 +684,7 @@ void GameSettingsScreen::CreateViews() {
 	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
-	} else if (System_GetPropertyInt(SYSPROP_HAS_IMAGE_BROWSER)) {
+	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
 	} else {
 		backgroundChoice_ = nullptr;
@@ -935,7 +947,7 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 
 		NativeMessageReceived("bgImage_updated", "");
 	} else {
-		if (System_GetPropertyInt(SYSPROP_HAS_IMAGE_BROWSER)) {
+		if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
 			System_SendMessage("bgImage_browse", "");
 		}
 	}
@@ -1039,9 +1051,8 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	KeyMap::UpdateNativeMenuKeys();
 
 	// Wipe some caches after potentially changing settings.
-	if (gpu)
-		gpu->Resized();
-	Reporting::UpdateConfig();
+	NativeMessageReceived("gpu_resized", "");
+	NativeMessageReceived("gpu_clearCache", "");
 }
 
 /*
@@ -1057,8 +1068,7 @@ void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 	// If the user ends up deciding not to restart, set the config back to the current backend
 	// so it doesn't get switched by accident.
 	if (yes) {
-		g_Config.bRestartRequired = true;
-		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		System_SendMessage("graphics_restart", "");
 	} else {
 		g_Config.iGPUBackend = (int)GetGPUBackend();
 	}
@@ -1118,12 +1128,12 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
-	g_Config.sMACAddress = std::string(CreateRandMAC());
+	g_Config.sMACAddress = CreateRandMAC();
 
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnCombo_key(UI::EventParams &e) {
+UI::EventReturn GameSettingsScreen::OnComboKey(UI::EventParams &e) {
 	screenManager()->push(new Combo_keyScreen(&g_Config.iComboMode));
 	return UI::EVENT_DONE;
 }
@@ -1158,10 +1168,7 @@ UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
-	if (gpu) {
-		gpu->Resized();
-	}
-	Reporting::UpdateConfig();
+	NativeMessageReceived("gpu_resized", "");
 	return UI::EVENT_DONE;
 }
 

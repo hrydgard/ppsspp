@@ -66,6 +66,7 @@ class VulkanDeleteList {
 	};
 
 public:
+	void QueueDeleteCommandPool(VkCommandPool &pool) { cmdPools_.push_back(pool); pool = VK_NULL_HANDLE; }
 	void QueueDeleteDescriptorPool(VkDescriptorPool &pool) { descPools_.push_back(pool); pool = VK_NULL_HANDLE; }
 	void QueueDeleteShaderModule(VkShaderModule &module) { modules_.push_back(module); module = VK_NULL_HANDLE; }
 	void QueueDeleteBuffer(VkBuffer &buffer) { buffers_.push_back(buffer); buffer = VK_NULL_HANDLE; }
@@ -78,9 +79,12 @@ public:
 	void QueueDeletePipelineCache(VkPipelineCache &pipelineCache) { pipelineCaches_.push_back(pipelineCache); pipelineCache = VK_NULL_HANDLE; }
 	void QueueDeleteRenderPass(VkRenderPass &renderPass) { renderPasses_.push_back(renderPass); renderPass = VK_NULL_HANDLE; }
 	void QueueDeleteFramebuffer(VkFramebuffer &framebuffer) { framebuffers_.push_back(framebuffer); framebuffer = VK_NULL_HANDLE; }
+	void QueueDeletePipelineLayout(VkPipelineLayout &pipelineLayout) { pipelineLayouts_.push_back(pipelineLayout); pipelineLayout = VK_NULL_HANDLE; }
+	void QueueDeleteDescriptorSetLayout(VkDescriptorSetLayout &descSetLayout) { descSetLayouts_.push_back(descSetLayout); descSetLayout = VK_NULL_HANDLE; }
 	void QueueCallback(void(*func)(void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
 
 	void Take(VulkanDeleteList &del) {
+		assert(cmdPools_.size() == 0);
 		assert(descPools_.size() == 0);
 		assert(modules_.size() == 0);
 		assert(buffers_.size() == 0);
@@ -94,6 +98,7 @@ public:
 		assert(renderPasses_.size() == 0);
 		assert(framebuffers_.size() == 0);
 		assert(callbacks_.size() == 0);
+		cmdPools_ = std::move(del.cmdPools_);
 		descPools_ = std::move(del.descPools_);
 		modules_ = std::move(del.modules_);
 		buffers_ = std::move(del.buffers_);
@@ -106,10 +111,16 @@ public:
 		pipelineCaches_ = std::move(del.pipelineCaches_);
 		renderPasses_ = std::move(del.renderPasses_);
 		framebuffers_ = std::move(del.framebuffers_);
+		pipelineLayouts_ = std::move(del.pipelineLayouts_);
+		descSetLayouts_ = std::move(del.descSetLayouts_);
 		callbacks_ = std::move(del.callbacks_);
 	}
 
 	void PerformDeletes(VkDevice device) {
+		for (auto &cmdPool : cmdPools_) {
+			vkDestroyCommandPool(device, cmdPool, nullptr);
+		}
+		cmdPools_.clear();
 		for (auto &descPool : descPools_) {
 			vkDestroyDescriptorPool(device, descPool, nullptr);
 		}
@@ -158,6 +169,14 @@ public:
 			vkDestroyFramebuffer(device, framebuffer, nullptr);
 		}
 		framebuffers_.clear();
+		for (auto &pipeLayout : pipelineLayouts_) {
+			vkDestroyPipelineLayout(device, pipeLayout, nullptr);
+		}
+		pipelineLayouts_.clear();
+		for (auto &descSetLayout : descSetLayouts_) {
+			vkDestroyDescriptorSetLayout(device, descSetLayout, nullptr);
+		}
+		descSetLayouts_.clear();
 		for (auto &callback : callbacks_) {
 			callback.func(callback.userdata);
 		}
@@ -165,6 +184,7 @@ public:
 	}
 
 private:
+	std::vector<VkCommandPool> cmdPools_;
 	std::vector<VkDescriptorPool> descPools_;
 	std::vector<VkShaderModule> modules_;
 	std::vector<VkBuffer> buffers_;
@@ -177,6 +197,8 @@ private:
 	std::vector<VkPipelineCache> pipelineCaches_;
 	std::vector<VkRenderPass> renderPasses_;
 	std::vector<VkFramebuffer> framebuffers_;
+	std::vector<VkPipelineLayout> pipelineLayouts_;
+	std::vector<VkDescriptorSetLayout> descSetLayouts_;
 	std::vector<Callback> callbacks_;
 };
 
@@ -206,8 +228,8 @@ public:
 	void ReinitSurfaceAndroid(int width, int height);
 #endif
 	void InitQueue();
-	void InitObjects(bool depthPresent);
-	void InitSwapchain(VkCommandBuffer cmd);
+	bool InitObjects(bool depthPresent);
+	bool InitSwapchain(VkCommandBuffer cmd);
 	void InitSurfaceRenderPass(bool include_depth, bool clear);
 	void InitFramebuffers(bool include_depth);
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);
@@ -365,14 +387,14 @@ private:
 
 	struct {
 		VkFormat format;
-		VkImage image;
-		VkDeviceMemory mem;
-		VkImageView view;
+		VkImage image = VK_NULL_HANDLE;
+		VkDeviceMemory mem = VK_NULL_HANDLE;
+		VkImageView view = VK_NULL_HANDLE;
 	} depth;
 
-	VkRenderPass surface_render_pass_;
-	uint32_t current_buffer;
-	uint32_t queue_count;
+	VkRenderPass surface_render_pass_ = VK_NULL_HANDLE;
+	uint32_t current_buffer = 0;
+	uint32_t queue_count = 0;
 
 	VkPhysicalDeviceFeatures featuresAvailable_;
 	VkPhysicalDeviceFeatures featuresEnabled_;

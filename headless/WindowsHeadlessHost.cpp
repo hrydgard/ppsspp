@@ -29,6 +29,7 @@
 #include "GPU/GPUState.h"
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GPU/D3D9Context.h"
+#include "Windows/GPU/D3D11Context.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
 
 #include "base/logging.h"
@@ -164,7 +165,8 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 		break;
 
 	case GPUCORE_DIRECTX11:
-		return false;
+		graphicsContext = new D3D11Context();
+		break;
 
 	case GPUCORE_VULKAN:
 		graphicsContext = new WindowsVulkanContext();

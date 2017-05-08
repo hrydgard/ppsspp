@@ -134,6 +134,7 @@ bool targetIsJailbroken;
 bool g_TakeScreenshot;
 static bool isOuya;
 static bool resized = false;
+static bool restarting = false;
 
 struct PendingMessage {
 	std::string msg;
@@ -330,7 +331,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new DirectoryAssetReader(savegame_dir));
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
-	host = new NativeHost();
+	if (host == nullptr) {
+		host = new NativeHost();
+	}
 #endif
 
 #if defined(__ANDROID__)
@@ -361,8 +364,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		g_Config.appCacheDirectory = cache_dir;
 	}
 
+	if (!LogManager::GetInstance())
+		LogManager::Init();
+
 #ifndef _WIN32
-	LogManager::Init();
 	logger = new AndroidLogger();
 
 	g_Config.AddSearchPath(user_data_path);
@@ -523,7 +528,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
 	MainWindow* mainWindow = new MainWindow(0,fs);
 	mainWindow->show();
-	host = new QtHost(mainWindow);
+	if (host == nullptr) {
+		host = new QtHost(mainWindow);
+	}
 #endif
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
@@ -532,6 +539,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost_manager_init();
 	}
+
+	// Must be done restarting by now.
+	restarting = false;
 }
 
 static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
@@ -830,7 +840,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		if (GetGPUBackend() == GPUBackend::OPENGL) {
 			PSP_CoreParameter().pixelWidth = pixel_xres;
 			PSP_CoreParameter().pixelHeight = pixel_yres;
-			NativeMessageReceived("gpu resized", "");
+			NativeMessageReceived("gpu_resized", "");
 		}
 #endif
 	}
@@ -853,6 +863,10 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		inputboxValue.clear();
 	}
 	if (msg == "bgImage_updated") {
+		if (!value.empty()) {
+			std::string dest = GetSysDirectory(DIRECTORY_SYSTEM) + (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
+			File::Copy(value, dest);
+		}
 		UIBackgroundShutdown();
 		UIBackgroundInit(*uiContext);
 	}
@@ -862,7 +876,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		// Show for the same duration as the preview.
 		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
 	}
-	if (msg == "gpu resized" || msg == "gpu clear cache") {
+	if (msg == "gpu_resized" || msg == "gpu_clearCache") {
 		if (gpu) {
 			gpu->ClearCacheNextFrame();
 			gpu->Resized();
@@ -931,6 +945,10 @@ bool NativeIsAtTopLevel() {
 
 bool NativeTouch(const TouchInput &touch) {
 	if (screenManager) {
+		// Brute force prevent NaNs from getting into the UI system
+		if (my_isnan(touch.x) || my_isnan(touch.y)) {
+			return false;
+		}
 		screenManager->touch(touch);
 		return true;
 	} else {
@@ -1051,21 +1069,33 @@ void NativeResized() {
 	resized = true;
 }
 
+void NativeSetRestarting() {
+	restarting = true;
+}
+
+bool NativeIsRestarting() {
+	return restarting;
+}
+
 void NativeShutdown() {
+	screenManager->shutdown();
+	delete screenManager;
+	screenManager = nullptr;
+
+	host->ShutdownGraphics();
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost_manager_shutdown();
 	}
 
-	screenManager->shutdown();
-	delete screenManager;
-	screenManager = 0;
-
 #if !PPSSPP_PLATFORM(UWP)
 	delete host;
+	host = nullptr;
 #endif
-	host = 0;
 	g_Config.Save();
-	LogManager::Shutdown();
+
+	// Avoid shutting this down when restaring core.
+	if (!restarting)
+		LogManager::Shutdown();
 
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();

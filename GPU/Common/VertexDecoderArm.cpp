@@ -121,16 +121,13 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
-	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
-	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
-	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
-	// {&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
+	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
@@ -571,11 +568,10 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 	STR(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
 }
 
-void VertexDecoderJitCache::Jit_TcU16Through() {
+void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	LDRH(tempReg1, srcReg, dec_->tcoff);
 	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
 
-	// TODO: Cleanup.
 	MOVP2R(scratchReg, &gstate_c.vertBounds.minU);
 
 	auto updateSide = [&](ARMReg r, CCFlags cc, u32 off) {
@@ -592,8 +588,21 @@ void VertexDecoderJitCache::Jit_TcU16Through() {
 	updateSide(tempReg2, CC_LT, offsetof(KnownVertexBounds, minV));
 	updateSide(tempReg2, CC_GT, offsetof(KnownVertexBounds, maxV));
 
-	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 16));
-	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
+	if (cpu_info.bNEON) {
+		ADD(scratchReg, srcReg, dec_->tcoff);
+		VLD1_lane(I_32, neonScratchReg, scratchReg, 0, false);
+		VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);  // Widen to 32-bit
+		VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
+		ADD(scratchReg2, dstReg, dec_->decFmt.uvoff);
+		VST1(F_32, neonScratchReg, scratchReg2, 1, ALIGN_NONE);
+	} else {
+		VMOV(fpScratchReg, tempReg1);
+		VMOV(fpScratchReg2, tempReg2);
+		VCVT(fpScratchReg, fpScratchReg, TO_FLOAT);
+		VCVT(fpScratchReg2, fpScratchReg2, TO_FLOAT);
+		VSTR(fpScratchReg, dstReg, dec_->decFmt.uvoff);
+		VSTR(fpScratchReg2, dstReg, dec_->decFmt.uvoff + 4);
+	}
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
@@ -601,22 +610,6 @@ void VertexDecoderJitCache::Jit_TcFloatThrough() {
 	LDR(tempReg2, srcReg, dec_->tcoff + 4);
 	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 	STR(tempReg2, dstReg, dec_->decFmt.uvoff + 4);
-}
-
-void VertexDecoderJitCache::Jit_TcU16Double() {
-	LDRH(tempReg1, srcReg, dec_->tcoff);
-	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
-	LSL(tempReg1, tempReg1, 1);
-	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 17));
-	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
-}
-
-void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
-	LDRH(tempReg1, srcReg, dec_->tcoff);
-	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
-	LSL(tempReg1, tempReg1, 1);
-	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 17));
-	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU8Prescale() {

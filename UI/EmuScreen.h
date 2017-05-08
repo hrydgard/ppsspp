@@ -67,6 +67,8 @@ private:
 	void autoLoad();
 	void checkPowerDown();
 
+	UI::Event OnDevMenu;
+
 	bool bootPending_;
 	std::string gamePath_;
 

@@ -133,6 +133,7 @@ bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, in
 void AndroidEGLGraphicsContext::Shutdown() {
 	delete draw_;
 	draw_ = nullptr;
+	NativeShutdownGraphics();
 	gl->ClearCurrent();
 	gl->Shutdown();
 	delete gl;
@@ -293,12 +294,14 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 }
 
 void AndroidVulkanContext::Shutdown() {
+	delete draw_;
+	draw_ = nullptr;
+	NativeShutdownGraphics();
+
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDebugMsgCallback();
 	g_Vulkan->DestroyDevice();
-	delete draw_;
-	draw_ = nullptr;
 
 	delete g_Vulkan;
 	g_Vulkan = nullptr;
@@ -441,18 +444,27 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return optimalFramesPerBuffer;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return (int)(display_hz * 1000.0);
+	default:
+		return -1;
+	}
+}
+
+bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
 	case SYSPROP_SUPPORTS_PERMISSIONS:
 		return androidVersion >= 23;	// 6.0 Marshmallow introduced run time permissions.
 	case SYSPROP_HAS_BACK_BUTTON:
-		return 1;
+		return true;
+	case SYSPROP_HAS_IMAGE_BROWSER:
+		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
-		return 1;
+		return true;
 #else
-		return 0;
+		return false;
 #endif
 	default:
-		return -1;
+		return false;
 	}
 }
 
@@ -611,7 +623,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- begin");
 	if (renderer_inited) {
-		NativeShutdownGraphics();
 		graphicsContext->Shutdown();
 		delete graphicsContext;
 		graphicsContext = nullptr;
@@ -1042,7 +1053,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	g_gameInfoCache->WorkQueue()->Flush();
 
 	NativeDeviceLost();
-	NativeShutdownGraphics();
 	renderer_inited = false;
 
 	graphicsContext->Shutdown();

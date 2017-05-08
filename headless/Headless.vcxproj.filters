@@ -19,6 +19,9 @@
     <ClCompile Include="..\Windows\W32Util\Misc.cpp">
       <Filter>Windows</Filter>
     </ClCompile>
+    <ClCompile Include="..\Windows\GPU\D3D11Context.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="headless.txt" />

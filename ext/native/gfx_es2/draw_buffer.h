@@ -140,8 +140,6 @@ public:
 	void DrawText(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawTextShadow(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 
-	void RotateSprite(ImageID atlas_image, float x, float y, float angle, float scale, Color color);
-
 	void SetFontScale(float xs, float ys) {
 		fontscalex = xs;
 		fontscaley = ys;

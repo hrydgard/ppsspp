@@ -128,10 +128,10 @@ static inline int CalcClipMask(const ClipCoords& v)
 }
 
 static void RotateUVThrough(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
-	const fixed16 x1 = tl.screenpos.x;
-	const fixed16 x2 = br.screenpos.x;
-	const fixed16 y1 = tl.screenpos.y;
-	const fixed16 y2 = br.screenpos.y;
+	const int x1 = tl.screenpos.x;
+	const int x2 = br.screenpos.x;
+	const int y1 = tl.screenpos.y;
+	const int y2 = br.screenpos.y;
 
 	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2)) {
 		std::swap(bl.texturecoords, tr.texturecoords);

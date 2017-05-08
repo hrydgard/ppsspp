@@ -858,55 +858,10 @@ void FramebufferManagerD3D11::PackDepthbuffer(VirtualFramebuffer *vfb, int x, in
 }
 
 void FramebufferManagerD3D11::EndFrame() {
-	if (resized_) {
-		// Check if postprocessing shader is doing upscaling as it requires native resolution
-		const ShaderInfo *shaderInfo = 0;
-		if (g_Config.sPostShaderName != "Off") {
-			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-		}
-
-		postShaderIsUpscalingFilter_ = shaderInfo ? shaderInfo->isUpscalingFilter : false;
-
-		// Actually, auto mode should be more granular...
-		// Round up to a zoom factor for the render size.
-		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) {
-			// auto mode, use the longest dimension
-			if (!g_Config.IsPortrait()) {
-				zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
-			} else {
-				zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
-			}
-		}
-		if (zoom <= 1 || postShaderIsUpscalingFilter_)
-			zoom = 1;
-
-		if (g_Config.IsPortrait()) {
-			PSP_CoreParameter().renderWidth = 272 * zoom;
-			PSP_CoreParameter().renderHeight = 480 * zoom;
-		} else {
-			PSP_CoreParameter().renderWidth = 480 * zoom;
-			PSP_CoreParameter().renderHeight = 272 * zoom;
-		}
-
-		if (UpdateSize() || g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-			DestroyAllFBOs();
-		}
-
-		// Seems related - if you're ok with numbers all the time, show some more :)
-		if (g_Config.iShowFPSCounter != 0) {
-			ShowScreenResolution();
-		}
-		resized_ = false;
-
-		// Might have a new post shader - let's compile it.
-		CompilePostShader();
-	}
 }
 
 void FramebufferManagerD3D11::DeviceLost() {
 	DestroyAllFBOs();
-	resized_ = false;
 }
 
 std::vector<FramebufferInfo> FramebufferManagerD3D11::GetFramebufferList() {
@@ -968,7 +923,14 @@ void FramebufferManagerD3D11::FlushBeforeCopy() {
 }
 
 void FramebufferManagerD3D11::Resized() {
-	resized_ = true;
+	FramebufferManagerCommon::Resized();
+
+	if (UpdateSize()) {
+		DestroyAllFBOs();
+	}
+
+	// Might have a new post shader - let's compile it.
+	CompilePostShader();
 }
 
 // Lots of this code could be shared (like the downsampling).

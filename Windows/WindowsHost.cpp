@@ -146,7 +146,6 @@ void WindowsHost::ShutdownGraphics() {
 	gfx_->Shutdown();
 	delete gfx_;
 	gfx_ = nullptr;
-	PostMessage(mainWindow_, WM_CLOSE, 0, 0);
 }
 
 void WindowsHost::SetWindowTitle(const char *message) {
@@ -212,11 +211,7 @@ void WindowsHost::PollControllers() {
 			doPad = false;
 	}
 
-	g_mouseDeltaX *= 0.9f;
-	g_mouseDeltaY *= 0.9f;
-
-	// TODO: Tweak!
-	float scaleFactor = g_dpi_scale * 0.01f;
+	float scaleFactor = g_dpi_scale * 0.1 * g_Config.fMouseSensitivity;
 
 	float mx = std::max(-1.0f, std::min(1.0f, g_mouseDeltaX * scaleFactor));
 	float my = std::max(-1.0f, std::min(1.0f, g_mouseDeltaY * scaleFactor));
@@ -228,9 +223,16 @@ void WindowsHost::PollControllers() {
 	axisY.deviceId = DEVICE_ID_MOUSE;
 	axisY.value = my;
 
-	// Disabled for now as it makes the mapping dialog unusable!
-	//if (fabsf(mx) > 0.1f) NativeAxis(axisX);
-	//if (fabsf(my) > 0.1f) NativeAxis(axisY);
+	// Disabled by default, needs a workaround to map to psp keys.
+	if (g_Config.bMouseControl){
+		if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
+			if (fabsf(mx) > 0.01f) NativeAxis(axisX);
+			if (fabsf(my) > 0.01f) NativeAxis(axisY);
+		}
+	}
+
+	g_mouseDeltaX *= g_Config.fMouseSmoothing;
+	g_mouseDeltaY *= g_Config.fMouseSmoothing;
 }
 
 void WindowsHost::BootDone() {

@@ -439,10 +439,10 @@ void CWCheatEngine::Run() {
 					int count = arg2 & 0xFFFF;
 					int type = (arg2 >> 16) & 0xF;
 					for (int i = 1; i < count; i ++ ) {
-						if (i+1 < count) {
+						if (i < count) {
 							code = GetNextCode();
 							if (code.size() < 2) {
-								// Code broken. Should warn but would be very spammy...
+								// User provided incomplete cheat. Should warn but would be very spammy...
 								break;
 							}
 							int arg3 = code[0];
@@ -452,8 +452,8 @@ void CWCheatEngine::Run() {
 							case 0x1: // type copy byte
 								{
 									int srcAddr = Memory::Read_U32(addr) + offset;
-									int dstAddr = Memory::Read_U16(addr + baseOffset) + (arg3 & 0x0FFFFFFF);
-									if (Memory::IsValidAddress(dstAddr) && Memory::IsValidAddress(srcAddr)) {
+									int dstAddr = Memory::Read_U32(addr + baseOffset) + (arg3 & 0x0FFFFFFF);
+									if (Memory::IsValidAddress(dstAddr) && Memory::IsValidAddress(srcAddr) && Memory::IsValidAddress(srcAddr + arg) && Memory::IsValidAddress(dstAddr + arg)) {
 										Memory::MemcpyUnchecked(dstAddr, srcAddr, arg);
 									}
 									type = -1; //Done

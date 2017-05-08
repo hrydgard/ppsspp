@@ -174,7 +174,7 @@ namespace MainWindow {
 		}
 		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
 
-		if (menuShaderInfo.size() != info.size() || !std::equal(info.begin(), info.end(), menuShaderInfo.begin())) {
+		if (menuShaderInfo.size() == info.size() && std::equal(info.begin(), info.end(), menuShaderInfo.begin())) {
 			return false;
 		}
 
@@ -484,7 +484,7 @@ namespace MainWindow {
 	// not static
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
-		NativeMessageReceived("gpu clear cache", "");
+		NativeMessageReceived("gpu_clearCache", "");
 	}
 
 	static void setTexFiltering(int type) {
@@ -497,7 +497,7 @@ namespace MainWindow {
 
 	static void setTexScalingType(int type) {
 		g_Config.iTexScalingType = type;
-		NativeMessageReceived("gpu clear cache", "");
+		NativeMessageReceived("gpu_clearCache", "");
 	}
 
 	static void setRenderingMode(int mode) {
@@ -529,7 +529,7 @@ namespace MainWindow {
 			break;
 		}
 
-		NativeMessageReceived("gpu resized", "");
+		NativeMessageReceived("gpu_resized", "");
 	}
 
 	static void setFpsLimit(int fps) {
@@ -563,7 +563,7 @@ namespace MainWindow {
 
 	static void setDisplayOptions(int options) {
 		g_Config.iSmallDisplayZoomType = options;
-		NativeMessageReceived("gpu resized", "");
+		NativeMessageReceived("gpu_resized", "");
 	}
 
 	void MainWindowMenu_Process(HWND hWnd, WPARAM wParam) {
@@ -765,31 +765,27 @@ namespace MainWindow {
 
 		case ID_TEXTURESCALING_DEPOSTERIZE:
 			g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-			NativeMessageReceived("gpu clear cache", "");
+			NativeMessageReceived("gpu_clearCache", "");
 			break;
 
 		case ID_OPTIONS_DIRECT3D9:
 			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 			break;
 
 		case ID_OPTIONS_DIRECT3D11:
 			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D11;
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 			break;
 
 		case ID_OPTIONS_OPENGL:
 			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 			break;
 
 		case ID_OPTIONS_VULKAN:
 			g_Config.iGPUBackend = GPU_BACKEND_VULKAN;
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 			break;
 
 		case ID_OPTIONS_NONBUFFEREDRENDERING:   setRenderingMode(FB_NON_BUFFERED_MODE); break;
@@ -1033,7 +1029,7 @@ namespace MainWindow {
 			if (index < availableShaders.size()) {
 				g_Config.sPostShaderName = availableShaders[index];
 
-				NativeMessageReceived("gpu resized", "");
+				NativeMessageReceived("gpu_resized", "");
 				break;
 			}
 
@@ -1331,7 +1327,7 @@ namespace MainWindow {
 		{
 			W32Util::CenterWindow(hDlg);
 			HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
-			std::string windowText = System_GetPropertyInt(SYSPROP_APP_GOLD) ? "PPSSPP Gold " : "PPSSPP ";
+			std::string windowText = System_GetPropertyBool(SYSPROP_APP_GOLD) ? "PPSSPP Gold " : "PPSSPP ";
 			windowText.append(PPSSPP_GIT_VERSION);
 			SetWindowText(versionBox, ConvertUTF8ToWString(windowText).c_str());
 		}

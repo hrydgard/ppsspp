@@ -16,6 +16,7 @@ enum Gesture {
 // with the gesture you are interested in.
 class GestureDetector {
 public:
+	GestureDetector();
 	TouchInput Update(const TouchInput &touch, const Bounds &bounds);
 	void UpdateFrame();
 	bool IsGestureActive(Gesture gesture, int touchId) const;

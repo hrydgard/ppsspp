@@ -9,7 +9,14 @@
 
 const float estimatedInertiaDamping = 0.75f;
 
+GestureDetector::GestureDetector() {
+	memset(pointers, 0, sizeof(pointers));
+}
+
 TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds) {
+	if (touch.id < 0 || touch.id >= MAX_PTRS) {
+		return touch;
+	}
 	// Mouse / 1-finger-touch control.
 	Pointer &p = pointers[touch.id];
 	if ((touch.flags & TOUCH_DOWN) && bounds.Contains(touch.x, touch.y)) {
@@ -79,13 +86,13 @@ void GestureDetector::UpdateFrame() {
 }
 
 bool GestureDetector::IsGestureActive(Gesture gesture, int touchId) const {
-	if (touchId < 0)
+	if (touchId < 0 || touchId >= MAX_PTRS)
 		return false;
 	return (pointers[touchId].active & gesture) != 0;
 }
 
 bool GestureDetector::GetGestureInfo(Gesture gesture, int touchId, float info[4]) const {
-	if (touchId < 0)
+	if (touchId < 0 || touchId >= MAX_PTRS)
 		return false;
 	memset(info, 0, sizeof(float) * 4);
 	if (!(pointers[touchId].active & gesture)) {

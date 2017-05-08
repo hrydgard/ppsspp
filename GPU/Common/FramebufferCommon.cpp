@@ -33,6 +33,7 @@
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
@@ -142,7 +143,7 @@ void FramebufferManagerCommon::Init() {
 
 bool FramebufferManagerCommon::UpdateSize() {
 	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight;
-	const bool newSettings = bloomHack_ != g_Config.iBloomHack || trueColor_ != g_Config.bTrueColor;
+	const bool newSettings = bloomHack_ != g_Config.iBloomHack || trueColor_ != g_Config.bTrueColor || useBufferedRendering_ != (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
 	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
@@ -150,6 +151,7 @@ bool FramebufferManagerCommon::UpdateSize() {
 	pixelHeight_ = PSP_CoreParameter().pixelHeight;
 	bloomHack_ = g_Config.iBloomHack;
 	trueColor_ = g_Config.bTrueColor;
+	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	return newRender || newSettings;
 }
@@ -157,7 +159,6 @@ bool FramebufferManagerCommon::UpdateSize() {
 void FramebufferManagerCommon::BeginFrame() {
 	DecimateFBOs();
 	currentRenderVfb_ = 0;
-	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 }
 
@@ -579,16 +580,15 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	textureCache_->ForgetLastTexture();
 
 	if (useBufferedRendering_) {
-
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 		} else {
-			// wtf? This should only happen very briefly when toggling bBufferedRendering
-			draw_->BindBackbufferAsRenderTarget();
+			// This should only happen very briefly when toggling useBufferedRendering_.
+			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
 		}
 	} else {
 		if (vfb->fbo) {
-			// wtf? This should only happen very briefly when toggling bBufferedRendering
+			// This should only happen very briefly when toggling useBufferedRendering_.
 			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
 			delete vfb->fbo;
 			vfb->fbo = nullptr;
@@ -770,7 +770,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
 	// (it always runs at output resolution so FXAA may look odd).
 	float x, y, w, h;
-	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+	int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 	if (applyPostShader && useBufferedRendering_) {
 		// Might've changed if the shader was just changed to Off.
@@ -931,7 +931,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 
 		draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
 
-		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+		int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 
 		// Output coordinates
 		float x, y, w, h;
@@ -1045,7 +1045,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
-	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+	if (useBufferedRendering_) {
 		draw_->BindBackbufferAsRenderTarget();
 	}
 	currentRenderVfb_ = 0;
@@ -1147,6 +1147,10 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 		}
 		return;
 	}
+	if (!old.fbo && vfb->last_frame_failed != 0 && vfb->last_frame_failed - gpuStats.numFlips < 63) {
+		// Don't constantly retry FBOs which failed to create.
+		return;
+	}
 
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
 	if (old.fbo) {
@@ -1166,6 +1170,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 
 	if (!vfb->fbo) {
 		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
+		vfb->last_frame_failed = gpuStats.numFlips;
 	}
 }
 
@@ -1698,6 +1703,47 @@ void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
 		vfb->safeWidth = std::max(vfb->safeWidth, w);
 		vfb->safeHeight = std::max(vfb->safeHeight, h);
 	}
+}
+
+void FramebufferManagerCommon::Resized() {
+	// Check if postprocessing shader is doing upscaling as it requires native resolution
+	const ShaderInfo *shaderInfo = nullptr;
+	if (g_Config.sPostShaderName != "Off") {
+		shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	}
+
+	postShaderIsUpscalingFilter_ = shaderInfo ? shaderInfo->isUpscalingFilter : false;
+
+	// Actually, auto mode should be more granular...
+	// Round up to a zoom factor for the render size.
+	int zoom = g_Config.iInternalResolution;
+	if (zoom == 0) {
+		// auto mode, use the longest dimension
+		if (!g_Config.IsPortrait()) {
+			zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
+		} else {
+			zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
+		}
+	}
+	if (zoom <= 1 || postShaderIsUpscalingFilter_)
+		zoom = 1;
+
+	if (g_Config.IsPortrait()) {
+		PSP_CoreParameter().renderWidth = 272 * zoom;
+		PSP_CoreParameter().renderHeight = 480 * zoom;
+	} else {
+		PSP_CoreParameter().renderWidth = 480 * zoom;
+		PSP_CoreParameter().renderHeight = 272 * zoom;
+	}
+
+	gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
+
+#ifdef _WIN32
+	// Seems related - if you're ok with numbers all the time, show some more :)
+	if (g_Config.iShowFPSCounter != 0) {
+		ShowScreenResolution();
+	}
+#endif
 }
 
 void FramebufferManagerCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms) {

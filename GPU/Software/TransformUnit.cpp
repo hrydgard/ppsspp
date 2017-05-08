@@ -191,8 +191,8 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 
 		Lighting::Process(vertex, vreader.hasColor0());
 	} else {
-		vertex.screenpos.x = (u32)pos[0] * 16 + gstate.getOffsetX16();
-		vertex.screenpos.y = (u32)pos[1] * 16 + gstate.getOffsetY16();
+		vertex.screenpos.x = (int)(pos[0] * 16) + gstate.getOffsetX16();
+		vertex.screenpos.y = (int)(pos[1] * 16) + gstate.getOffsetY16();
 		vertex.screenpos.z = pos[2];
 		vertex.clippos.w = 1.f;
 		vertex.fogdepth = 1.f;
@@ -212,99 +212,7 @@ struct SplinePatch {
 	int pad[3];
 };
 
-SplinePatch *TransformUnit::patchBuffer_ = 0;
-int TransformUnit::patchBufferSize_ = 0;
-
-void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type) {
-	VertexDecoder vdecoder;
-	VertexDecoderOptions options{};
-	vdecoder.SetVertexType(vertex_type, options);
-	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
-
-	static u8 buf[65536 * 48]; // yolo
-	u16 index_lower_bound = 0;
-	u16 index_upper_bound = count_u * count_v - 1;
-	bool indices_16bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	bool indices_32bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
-	u8 *indices8 = (u8 *)indices;
-	u16 *indices16 = (u16 *)indices;
-	u32 *indices32 = (u32 *)indices;
-	if (indices)
-		GetIndexBounds(indices, count_u*count_v, vertex_type, &index_lower_bound, &index_upper_bound);
-	vdecoder.DecodeVerts(buf, control_points, index_lower_bound, index_upper_bound);
-
-	VertexReader vreader(buf, vtxfmt, vertex_type);
-
-	int num_patches_u = count_u - 3;
-	int num_patches_v = count_v - 3;
-
-	if (patchBufferSize_ < num_patches_u * num_patches_v) {
-		if (patchBuffer_) {
-			FreeAlignedMemory(patchBuffer_);
-		}
-		patchBuffer_ = (SplinePatch *)AllocateAlignedMemory(num_patches_u * num_patches_v, 16);
-		patchBufferSize_ = num_patches_u * num_patches_v;
-	}
-	SplinePatch *patches = patchBuffer_;
-
-	for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
-		for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
-			SplinePatch& patch = patches[patch_u + patch_v * num_patches_u];
-
-			for (int point = 0; point < 16; ++point) {
-				int idx = (patch_u + point%4) + (patch_v + point/4) * count_u;
-				if (indices) {
-					if (indices_32bit) {
-						vreader.Goto(indices32[idx]);
-					} else if (indices_16bit) {
-						vreader.Goto(indices16[idx]);
-					} else {
-						vreader.Goto(indices8[idx]);
-					}
-				} else {
-					vreader.Goto(idx);
-				}
-
-				patch.points[point] = ReadVertex(vreader);
-			}
-			patch.type = (type_u | (type_v<<2));
-			if (patch_u != 0) patch.type &= ~START_OPEN_U;
-			if (patch_v != 0) patch.type &= ~START_OPEN_V;
-			if (patch_u != num_patches_u-1) patch.type &= ~END_OPEN_U;
-			if (patch_v != num_patches_v-1) patch.type &= ~END_OPEN_V;
-		}
-	}
-
-	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
-		SplinePatch& patch = patches[patch_idx];
-
-		// TODO: Should do actual patch subdivision instead of just drawing the control points!
-		const int tile_min_u = (patch.type & START_OPEN_U) ? 0 : 1;
-		const int tile_min_v = (patch.type & START_OPEN_V) ? 0 : 1;
-		const int tile_max_u = (patch.type & END_OPEN_U) ? 3 : 2;
-		const int tile_max_v = (patch.type & END_OPEN_V) ? 3 : 2;
-		for (int tile_u = tile_min_u; tile_u < tile_max_u; ++tile_u) {
-			for (int tile_v = tile_min_v; tile_v < tile_max_v; ++tile_v) {
-				int point_index = tile_u + tile_v*4;
-
-				VertexData v0 = patch.points[point_index];
-				VertexData v1 = patch.points[point_index+1];
-				VertexData v2 = patch.points[point_index+4];
-				VertexData v3 = patch.points[point_index+5];
-
-				// TODO: Backface culling etc
-				Clipper::ProcessTriangle(v0, v1, v2);
-				Clipper::ProcessTriangle(v2, v1, v0);
-				Clipper::ProcessTriangle(v2, v1, v3);
-				Clipper::ProcessTriangle(v3, v1, v2);
-			}
-		}
-	}
-
-	host->GPUNotifyDraw();
-}
-
-void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type, int *bytesRead)
+void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead)
 {
 	// TODO: Cache VertexDecoder objects
 	VertexDecoder vdecoder;
@@ -322,11 +230,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = vertex_count - 1;
-	bool indices_16bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	bool indices_32bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
-	u8 *indices8 = (u8 *)indices;
-	u16 *indices16 = (u16 *)indices;
-	u32 *indices32 = (u32 *)indices;
+	IndexConverter idxConv(vertex_type, indices);
+
 	if (indices)
 		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
 	vdecoder.DecodeVerts(buf, vertices, index_lower_bound, index_upper_bound);
@@ -334,16 +239,26 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 	VertexReader vreader(buf, vtxfmt, vertex_type);
 
 	const int max_vtcs_per_prim = 3;
-	int vtcs_per_prim = 0;
+	static VertexData data[max_vtcs_per_prim];
+	// This is the index of the next vert in data (or higher, may need modulus.)
+	static int data_index = 0;
 
+	static GEPrimitiveType prev_prim = GE_PRIM_POINTS;
+	if (prim_type != GE_PRIM_KEEP_PREVIOUS) {
+		data_index = 0;
+		prev_prim = prim_type;
+	} else {
+		prim_type = prev_prim;
+	}
+
+	int vtcs_per_prim;
 	switch (prim_type) {
 	case GE_PRIM_POINTS: vtcs_per_prim = 1; break;
 	case GE_PRIM_LINES: vtcs_per_prim = 2; break;
 	case GE_PRIM_TRIANGLES: vtcs_per_prim = 3; break;
 	case GE_PRIM_RECTANGLES: vtcs_per_prim = 2; break;
+	default: vtcs_per_prim = 0; break;
 	}
-
-	VertexData data[max_vtcs_per_prim];
 
 	// TODO: Do this in two passes - first process the vertices (before indexing/stripping),
 	// then resolve the indices. This lets us avoid transforming shared vertices twice.
@@ -354,25 +269,23 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 	case GE_PRIM_TRIANGLES:
 	case GE_PRIM_RECTANGLES:
 		{
-			for (int vtx = 0; vtx < vertex_count; vtx += vtcs_per_prim) {
-				for (int i = 0; i < vtcs_per_prim; ++i) {
-					if (indices) {
-						if (indices_32bit) {
-							vreader.Goto(indices32[vtx + i]);
-						} else if (indices_16bit) {
-							vreader.Goto(indices16[vtx + i]);
-						} else {
-							vreader.Goto(indices8[vtx + i]);
-						}
-					} else {
-						vreader.Goto(vtx+i);
-					}
-
-					data[i] = ReadVertex(vreader);
-					if (outside_range_flag)
-						break;
+			for (int vtx = 0; vtx < vertex_count; ++vtx) {
+				if (indices) {
+					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
+				} else {
+					vreader.Goto(vtx);
 				}
+
+				data[data_index++] = ReadVertex(vreader);
+				if (data_index < vtcs_per_prim) {
+					// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
+					continue;
+				}
+
+				// Okay, we've got enough verts.  Reset the index for next time.
+				data_index = 0;
 				if (outside_range_flag) {
+					// Cull the prim if it was outside, and move to the next prim.
 					outside_range_flag = false;
 					continue;
 				}
@@ -383,10 +296,11 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 					if (!gstate.isCullEnabled() || gstate.isModeClear()) {
 						Clipper::ProcessTriangle(data[0], data[1], data[2]);
 						Clipper::ProcessTriangle(data[2], data[1], data[0]);
-					} else if (!gstate.getCullMode())
+					} else if (!gstate.getCullMode()) {
 						Clipper::ProcessTriangle(data[2], data[1], data[0]);
-					else
+					} else {
 						Clipper::ProcessTriangle(data[0], data[1], data[2]);
+					}
 					break;
 				}
 
@@ -408,14 +322,17 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 	case GE_PRIM_LINE_STRIP:
 		{
-			int skip_count = 1; // Don't draw a line when loading the first vertex
+			// Don't draw a line when loading the first vertex.
+			// If data_index is 1 or 2, etc., it means we're continuing a line strip.
+			int skip_count = data_index == 0 ? 1 : 0;
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				if (indices)
-					vreader.Goto(indices_16bit ? indices16[vtx] : indices8[vtx]);
-				else
+				if (indices) {
+					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
+				} else {
 					vreader.Goto(vtx);
+				}
 
-				data[vtx & 1] = ReadVertex(vreader);
+				data[(data_index++) & 1] = ReadVertex(vreader);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -426,7 +343,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 				if (skip_count) {
 					--skip_count;
 				} else {
-					Clipper::ProcessLine(data[(vtx & 1) ^ 1], data[vtx & 1]);
+					// We already incremented data_index, so data_index & 1 is previous one.
+					Clipper::ProcessLine(data[data_index & 1], data[(data_index & 1) ^ 1]);
 				}
 			}
 			break;
@@ -434,15 +352,17 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 	case GE_PRIM_TRIANGLE_STRIP:
 		{
-			int skip_count = 2; // Don't draw a triangle when loading the first two vertices
+			// Don't draw a triangle when loading the first two vertices.
+			int skip_count = data_index >= 2 ? 0 : 2 - data_index;
 
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				if (indices)
-					vreader.Goto(indices_16bit ? indices16[vtx] : indices8[vtx]);
-				else
+				if (indices) {
+					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
+				} else {
 					vreader.Goto(vtx);
+				}
 
-				data[vtx % 3] = ReadVertex(vreader);
+				data[(data_index++) % 3] = ReadVertex(vreader);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -458,7 +378,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
 					Clipper::ProcessTriangle(data[0], data[1], data[2]);
 					Clipper::ProcessTriangle(data[2], data[1], data[0]);
-				} else if ((!gstate.getCullMode()) ^ (vtx % 2)) {
+				} else if ((!gstate.getCullMode()) ^ ((data_index - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
 					Clipper::ProcessTriangle(data[2], data[1], data[0]);
@@ -471,21 +391,31 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 	case GE_PRIM_TRIANGLE_FAN:
 		{
-			unsigned int skip_count = 1; // Don't draw a triangle when loading the first two vertices
+			// Don't draw a triangle when loading the first two vertices.
+			// (this doesn't count the central one.)
+			int skip_count = data_index <= 1 ? 1 : 0;
+			int start_vtx = 0;
 
-			if (indices)
-				vreader.Goto(indices_16bit ? indices16[0] : indices8[0]);
-			else
-				vreader.Goto(0);
-			data[0] = ReadVertex(vreader);
+			// Only read the central vertex if we're not continuing.
+			if (data_index == 0) {
+				if (indices) {
+					vreader.Goto(idxConv.convert(0) - index_lower_bound);
+				} else {
+					vreader.Goto(0);
+				}
+				data[0] = ReadVertex(vreader);
+				data_index++;
+				start_vtx = 1;
+			}
 
-			for (int vtx = 1; vtx < vertex_count; ++vtx) {
-				if (indices)
-					vreader.Goto(indices_16bit ? indices16[vtx] : indices8[vtx]);
-				else
+			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
+				if (indices) {
+					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
+				} else {
 					vreader.Goto(vtx);
+				}
 
-				data[2 - (vtx % 2)] = ReadVertex(vreader);
+				data[2 - ((data_index++) % 2)] = ReadVertex(vreader);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -501,7 +431,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
 					Clipper::ProcessTriangle(data[0], data[1], data[2]);
 					Clipper::ProcessTriangle(data[2], data[1], data[0]);
-				} else if ((!gstate.getCullMode()) ^ (vtx % 2)) {
+				} else if ((!gstate.getCullMode()) ^ ((data_index - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
 					Clipper::ProcessTriangle(data[2], data[1], data[0]);

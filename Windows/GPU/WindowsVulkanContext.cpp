@@ -124,17 +124,8 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	}
 	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
-	// layout barrier. TODO: This one I should fix.
-	if (msgCode == 7 && startsWith(pMsg, "Cannot submit cmd buffer"))
-		return false;
-	if (msgCode == 7 && startsWith(pMsg, "Cannot copy from an image"))
-		return false;
-	if (msgCode == 7 && startsWith(pMsg, "You cannot transition the layout"))
-		return false;
 	// This seems like a bogus result when submitting two command buffers in one go, one creating the image, the other one using it.
 	if (msgCode == 6 && startsWith(pMsg, "Cannot submit cmd buffer using image"))
-		return false;
-	if (msgCode == 44 && startsWith(pMsg, "At Draw time the active render"))
 		return false;
 	if (msgCode == 11)
 		return false;
@@ -143,7 +134,7 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	std::string msg = message.str();
 	OutputDebugStringA(msg.c_str());
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-		if (options->breakOnError) {
+		if (options->breakOnError && IsDebuggerPresent()) {
 			DebugBreak();
 		}
 		if (options->msgBoxOnError) {
@@ -191,7 +182,10 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
 	}
 	g_Vulkan->InitSurfaceWin32(hInst, hWnd);
-	g_Vulkan->InitObjects(true);
+	if (!g_Vulkan->InitObjects(true)) {
+		Shutdown();
+		return false;
+	}
 
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
 

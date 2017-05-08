@@ -20,7 +20,7 @@
 #include "Core/Host.h"
 #include "Core/Debugger/SymbolMap.h"
 
-Host *host;
+Host *host = nullptr;
 
 bool Host::AttemptLoadSymbolMap() {
 	g_symbolMap->Clear();

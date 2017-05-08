@@ -197,7 +197,7 @@ static int ScreenDPI() {
 	HDC screenDC = GetDC(nullptr);
 	int dotsPerInch = GetDeviceCaps(screenDC, LOGPIXELSY);
 	ReleaseDC(nullptr, screenDC);
-	return dotsPerInch;
+	return dotsPerInch ? dotsPerInch : 96;
 }
 #endif
 #endif
@@ -212,26 +212,37 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return DEVICE_TYPE_DESKTOP;
 	case SYSPROP_DISPLAY_DPI:
 		return ScreenDPI();
-	case SYSPROP_HAS_FILE_BROWSER:
-		return 1;
-	case SYSPROP_HAS_IMAGE_BROWSER:
-		return 1;
-	case SYSPROP_HAS_BACK_BUTTON:
-		return 1;
-	case SYSPROP_APP_GOLD:
-#ifdef GOLD
-		return 1;
-#else
-		return 0;
-#endif
 	default:
 		return -1;
 	}
 }
 
+bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_HAS_FILE_BROWSER:
+		return true;
+	case SYSPROP_HAS_IMAGE_BROWSER:
+		return true;
+	case SYSPROP_HAS_BACK_BUTTON:
+		return true;
+	case SYSPROP_APP_GOLD:
+#ifdef GOLD
+		return true;
+#else
+		return false;
+#endif
+	default:
+		return false;
+	}
+}
+
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
-		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		if (!NativeIsRestarting()) {
+			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		}
+	} else if (!strcmp(command, "graphics_restart")) {
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
 	} else if (!strcmp(command, "setclipboardtext")) {
 		if (OpenClipboard(MainWindow::GetDisplayHWND())) {
 			std::wstring data = ConvertUTF8ToWString(parameter);
@@ -493,9 +504,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
-	host = new WindowsHost(_hInstance, hwndMain, hwndDisplay);
-	host->SetWindowTitle(0);
-
 	MainWindow::CreateDebugWindows();
 
 	const bool minimized = iCmdShow == SW_MINIMIZE || iCmdShow == SW_SHOWMINIMIZED || iCmdShow == SW_SHOWMINNOACTIVE;
@@ -564,13 +572,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::DestroyDebugWindows();
 	DialogManager::DestroyAll();
 	timeEndPeriod(1);
-	delete host;
 
 	LogManager::Shutdown();
-
-	if (g_Config.bRestartRequired) {
-		W32Util::ExitAndRestart();
-	}
 
 	net::Shutdown();
 	CoUninitialize();

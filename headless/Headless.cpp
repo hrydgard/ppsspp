@@ -9,6 +9,7 @@
 #include "file/zip_read.h"
 #include "profiler/profiler.h"
 #include "Common/FileUtil.h"
+#include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -67,11 +68,10 @@ void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) {
-	switch (prop) {
-	case SYSPROP_APP_GOLD:
-		return 0;
-	}
 	return -1;
+}
+bool System_GetPropertyBool(SystemProperty prop) {
+	return false;
 }
 void System_SendMessage(const char *command, const char *parameter) {}
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
@@ -93,7 +93,7 @@ int printUsage(const char *progname, const char *reason)
 #if defined(HEADLESSHOST_CLASS)
 	{
 		fprintf(stderr, "  --graphics=BACKEND    use the full gpu backend (slower)\n");
-		fprintf(stderr, "                        options: gles, software, directx9\n");
+		fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
 		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	}
 #endif
@@ -156,6 +156,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	static double deadline;
 	deadline = time_now() + timeout;
 
+	PSP_BeginHostFrame();
+
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
 	{
@@ -179,6 +181,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 		}
 	}
 
+	PSP_EndHostFrame();
+
 	PSP_Shutdown();
 
 	headlessHost->FlushDebugOutput();
@@ -194,6 +198,10 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 int main(int argc, const char* argv[])
 {
 	PROFILE_INIT();
+
+#ifdef _DEBUG
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
 
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
@@ -249,6 +257,8 @@ int main(int argc, const char* argv[])
 				gpuCore = GPUCORE_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
 				gpuCore = GPUCORE_DIRECTX9;
+			else if (!strcasecmp(gpuName, "directx11"))
+				gpuCore = GPUCORE_DIRECTX11;
 			else if (!strcasecmp(gpuName, "vulkan"))
 				gpuCore = GPUCORE_VULKAN;
 			else if (!strcasecmp(gpuName, "null"))
@@ -292,7 +302,7 @@ int main(int argc, const char* argv[])
 	host = headlessHost;
 
 	std::string error_string;
-	GraphicsContext *graphicsContext;
+	GraphicsContext *graphicsContext = nullptr;
 	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
 	LogManager::Init();
@@ -311,6 +321,7 @@ int main(int argc, const char* argv[])
 	coreParameter.cpuCore = cpuCore;
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
 	coreParameter.graphicsContext = graphicsContext;
+	coreParameter.thin3d = graphicsContext ? graphicsContext->GetDrawContext() : nullptr;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.mountRoot = mountRoot ? mountRoot : "";
@@ -354,6 +365,7 @@ int main(int argc, const char* argv[])
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bBlockTransferGPU = true;
 	g_Config.iSplineBezierQuality = 2;
+	g_Config.bMipMap = true;
 
 #ifdef _WIN32
 	InitSysDirectories();
@@ -424,8 +436,12 @@ int main(int argc, const char* argv[])
 
 	host->ShutdownGraphics();
 	delete host;
-	host = NULL;
-	headlessHost = NULL;
+	host = nullptr;
+	headlessHost = nullptr;
+
+	VFSShutdown();
+	LogManager::Shutdown();
+	delete printfLogger;
 
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();

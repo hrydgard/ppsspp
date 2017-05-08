@@ -890,7 +890,7 @@ float ScrollView::ClampedScrollPos(float pos) {
 
 	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 
-	if (scrollTouchId_ != -1 && gesture_.IsGestureActive(gesture, scrollTouchId_)) {
+	if (scrollTouchId_ >= 0 && gesture_.IsGestureActive(gesture, scrollTouchId_) && bounds_.h > 0) {
 		float maxPull = bounds_.h * 0.1f;
 		if (pos < 0.0f) {
 			float dist = std::min(-pos * (1.0f / bounds_.h), 1.0f);
@@ -1293,7 +1293,7 @@ void ListView::CreateAllItems() {
 	// Let's not be clever yet, we'll just create them all up front and add them all in.
 	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
 		if (hidden_.find(i) == hidden_.end()) {
-			View * v = linLayout_->Add(adaptor_->CreateItemView(i));
+			View *v = linLayout_->Add(adaptor_->CreateItemView(i));
 			adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, std::placeholders::_1));
 		}
 	}
@@ -1315,7 +1315,7 @@ EventReturn ListView::OnItemCallback(int num, EventParams &e) {
 	OnChoice.Trigger(ev);
 	CreateAllItems();
 	if (focused)
-		SetFocusedView(linLayout_->GetViewByIndex(num));
+		SetFocusedView(e.v);
 	return EVENT_DONE;
 }
 

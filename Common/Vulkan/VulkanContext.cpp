@@ -341,7 +341,7 @@ void VulkanBeginCommandBuffer(VkCommandBuffer cmd) {
 	assert(res == VK_SUCCESS);
 }
 
-void VulkanContext::InitObjects(bool depthPresent) {
+bool  VulkanContext::InitObjects(bool depthPresent) {
 	InitQueue();
 	InitCommandPool();
 
@@ -364,13 +364,17 @@ void VulkanContext::InitObjects(bool depthPresent) {
 	frame_[1].fence = CreateFence(true);
 
 	VkCommandBuffer cmd = GetInitCommandBuffer();
-	InitSwapchain(cmd);
+	if (!InitSwapchain(cmd)) {
+		return false;
+	}
 	InitDepthStencilBuffer(cmd);
 
 	InitSurfaceRenderPass(depthPresent, true);
 	InitFramebuffers(depthPresent);
 
 	// The init command buffer will be executed as part of the first frame.
+
+	return true;
 }
 
 void VulkanContext::DestroyObjects() {
@@ -948,7 +952,7 @@ void VulkanContext::InitQueue() {
 	assert(res == VK_SUCCESS);
 }
 
-void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
+bool VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	VkResult U_ASSERT_ONLY res;
 	VkSurfaceCapabilitiesKHR surfCapabilities;
 
@@ -1051,6 +1055,9 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 
 	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swap_chain_);
 	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS) {
+		return false;
+	}
 
 	res = vkGetSwapchainImagesKHR(device_, swap_chain_,
 		&swapchainImageCount, NULL);
@@ -1097,6 +1104,8 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	free(swapchainImages);
 
 	current_buffer = 0;
+
+	return true;
 }
 
 void VulkanContext::InitSurfaceRenderPass(bool include_depth, bool clear) {
@@ -1206,14 +1215,18 @@ void VulkanContext::WaitAndResetFence(VkFence fence) {
 }
 
 void VulkanContext::DestroyCommandPool() {
-	vkDestroyCommandPool(device_, cmd_pool_, NULL);
+	if (cmd_pool_ != VK_NULL_HANDLE)
+		vkDestroyCommandPool(device_, cmd_pool_, NULL);
 	cmd_pool_ = VK_NULL_HANDLE;
 }
 
 void VulkanContext::DestroyDepthStencilBuffer() {
-	vkDestroyImageView(device_, depth.view, NULL);
-	vkDestroyImage(device_, depth.image, NULL);
-	vkFreeMemory(device_, depth.mem, NULL);
+	if (depth.view != VK_NULL_HANDLE)
+		vkDestroyImageView(device_, depth.view, NULL);
+	if (depth.image != VK_NULL_HANDLE)
+		vkDestroyImage(device_, depth.image, NULL);
+	if (depth.mem != VK_NULL_HANDLE)
+		vkFreeMemory(device_, depth.mem, NULL);
 
 	depth.view = VK_NULL_HANDLE;
 	depth.image = VK_NULL_HANDLE;
@@ -1224,7 +1237,8 @@ void VulkanContext::DestroySwapChain() {
 	for (uint32_t i = 0; i < swapchainImageCount; i++) {
 		vkDestroyImageView(device_, swapChainBuffers[i].view, NULL);
 	}
-	vkDestroySwapchainKHR(device_, swap_chain_, NULL);
+	if (swap_chain_ != VK_NULL_HANDLE)
+		vkDestroySwapchainKHR(device_, swap_chain_, NULL);
 	swap_chain_ = VK_NULL_HANDLE;
 	swapChainBuffers.clear();
 	vkDestroySemaphore(device_, acquireSemaphore, NULL);
@@ -1238,7 +1252,8 @@ void VulkanContext::DestroyFramebuffers() {
 }
 
 void VulkanContext::DestroySurfaceRenderPass() {
-	vkDestroyRenderPass(device_, surface_render_pass_, NULL);
+	if (surface_render_pass_ != VK_NULL_HANDLE)
+		vkDestroyRenderPass(device_, surface_render_pass_, NULL);
 	surface_render_pass_ = VK_NULL_HANDLE;
 }
 

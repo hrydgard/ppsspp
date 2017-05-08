@@ -58,11 +58,67 @@ static inline int orient2dIncY(int dX01)
 	return -dX01;
 }
 
+// Only OK on x64 where our stack is aligned
+#if defined(_M_SSE) && !defined(_M_IX86)
+static inline __m128 Interpolate(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
+	__m128 v = _mm_mul_ps(c0, _mm_cvtepi32_ps(_mm_set1_epi32(w0)));
+	v = _mm_add_ps(v, _mm_mul_ps(c1, _mm_cvtepi32_ps(_mm_set1_epi32(w1))));
+	v = _mm_add_ps(v, _mm_mul_ps(c2, _mm_cvtepi32_ps(_mm_set1_epi32(w2))));
+	return _mm_mul_ps(v, _mm_set_ps1(wsum));
+}
+
+static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
+	return _mm_cvtps_epi32(Interpolate(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
+}
+#endif
+
+// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
+// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
+
+static inline Vec4<int> Interpolate(const Vec4<int> &c0, const Vec4<int> &c1, const Vec4<int> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return Vec4<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#else
+	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
+#endif
+}
+
+static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, const Vec3<int> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return Vec3<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+#else
+	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
+#endif
+}
+
+static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &c1, const Vec2<float> &c2, int w0, int w1, int w2, float wsum) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return Vec2<float>(Interpolate(c0.vec, c1.vec, c2.vec, w0, w1, w2, wsum));
+#else
+	return (c0 * w0 + c1 * w1 + c2 * w2) * wsum;
+#endif
+}
+
+static inline Vec4<float> Interpolate(const float &c0, const float &c1, const float &c2, const Vec4<float> &w0, const Vec4<float> &w1, const Vec4<float> &w2, const Vec4<float> &wsum_recip) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	__m128 v = _mm_mul_ps(w0.vec, _mm_set1_ps(c0));
+	v = _mm_add_ps(v, _mm_mul_ps(w1.vec, _mm_set1_ps(c1)));
+	v = _mm_add_ps(v, _mm_mul_ps(w2.vec, _mm_set1_ps(c2)));
+	return _mm_mul_ps(v, wsum_recip.vec);
+#else
+	return (w0 * c0 + w1 * c1 + w2 * c2) * wsum_recip;
+#endif
+}
+
+static inline Vec4<float> Interpolate(const float &c0, const float &c1, const float &c2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip) {
+	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
+}
+
 template <unsigned int texel_size_bits>
-static inline int GetPixelDataOffset(unsigned int row_pitch_bits, unsigned int u, unsigned int v)
+static inline int GetPixelDataOffset(unsigned int row_pitch_bytes, unsigned int u, unsigned int v)
 {
 	if (!gstate.isTextureSwizzled())
-		return (v * (row_pitch_bits * texel_size_bits >> 6)) + (u * texel_size_bits >> 3);
+		return (v * (row_pitch_bytes * texel_size_bits >> 3)) + (u * texel_size_bits >> 3);
 
 	const int tile_size_bits = 32;
 	const int tiles_in_block_horizontal = 4;
@@ -72,7 +128,7 @@ static inline int GetPixelDataOffset(unsigned int row_pitch_bits, unsigned int u
 	int tile_u = u / texels_per_tile;
 	int tile_idx = (v % tiles_in_block_vertical) * (tiles_in_block_horizontal) +
 	// TODO: not sure if the *texel_size_bits/8 factor is correct
-					(v / tiles_in_block_vertical) * ((row_pitch_bits*texel_size_bits/(8*tile_size_bits))*tiles_in_block_vertical) +
+					(v / tiles_in_block_vertical) * ((row_pitch_bytes*texel_size_bits/(tile_size_bits))*tiles_in_block_vertical) +
 					(tile_u % tiles_in_block_horizontal) +
 					(tile_u / tiles_in_block_horizontal) * (tiles_in_block_horizontal*tiles_in_block_vertical);
 
@@ -212,7 +268,7 @@ static inline void GetTexelCoordinatesThroughQuad(int level, int s, int t, int *
 	}
 }
 
-static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
+static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t)
 {
 	switch (gstate.getUVGenMode()) {
 	case GE_TEXMAP_TEXTURE_COORDS:
@@ -224,30 +280,34 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			float q0 = 1.f / v0.clippos.w;
 			float q1 = 1.f / v1.clippos.w;
 			float q2 = 1.f / v2.clippos.w;
-			float q_recip = 1.0f / (q0 * w0 + q1 * w1 + q2 * w2);
-			s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) * q_recip;
-			t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) * q_recip;
+			Vec4<float> wq0 = w0.Cast<float>() * q0;
+			Vec4<float> wq1 = w1.Cast<float>() * q1;
+			Vec4<float> wq2 = w2.Cast<float>() * q2;
+
+			Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
+			s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
+			t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
 		}
 		break;
 	case GE_TEXMAP_TEXTURE_MATRIX:
-		{
+		for (int i = 0; i < 4; ++i) {
 			// projection mapping, TODO: Move this code to TransformUnit!
 			Vec3<float> source;
 			switch (gstate.getUVProjMode()) {
 			case GE_PROJMAP_POSITION:
-				source = (v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0 + w1 + w2);
+				source = (v0.modelpos * w0[i] + v1.modelpos * w1[i] + v2.modelpos * w2[i]) * wsum_recip[i];
 				break;
 
 			case GE_PROJMAP_UV:
-				source = Vec3f((v0.texturecoords * w0 + v1.texturecoords * w1 + v2.texturecoords * w2) / (w0 + w1 + w2), 0.0f);
+				source = Vec3f((v0.texturecoords * w0[i] + v1.texturecoords * w1[i] + v2.texturecoords * w2[i]) * wsum_recip[i], 0.0f);
 				break;
 
 			case GE_PROJMAP_NORMALIZED_NORMAL:
-				source = (v0.normal.Normalized() * w0 + v1.normal.Normalized() * w1 + v2.normal.Normalized() * w2) / (w0 + w1 + w2);
+				source = (v0.normal.Normalized() * w0[i] + v1.normal.Normalized() * w1[i] + v2.normal.Normalized() * w2[i]) * wsum_recip[i];
 				break;
 
 			case GE_PROJMAP_NORMAL:
-				source = (v0.normal * w0 + v1.normal * w1 + v2.normal * w2) / (w0 + w1 + w2);
+				source = (v0.normal * w0[i] + v1.normal * w1[i] + v2.normal * w2[i]) * wsum_recip[i];
 				break;
 
 			default:
@@ -258,12 +318,14 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			Mat3x3<float> tgen(gstate.tgenMatrix);
 			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
 			float z_recip = 1.0f / stq.z;
-			s = stq.x * z_recip;
-			t = stq.y * z_recip;
+			s[i] = stq.x * z_recip;
+			t[i] = stq.y * z_recip;
 		}
 		break;
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture mapping mode %x!", gstate.getUVGenMode());
+		s = Vec4<float>::AssignToAll(0.0f);
+		t = Vec4<float>::AssignToAll(0.0f);
 		break;
 	}	
 }
@@ -277,7 +339,7 @@ struct Nearest4 {
 };
 
 template <int N>
-inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *srcptr, int texbufwidthbits)
+inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *srcptr, int texbufwidthbytes)
 {
 	Nearest4 res;
 	if (!srcptr) {
@@ -292,35 +354,35 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 	switch (texfmt) {
 	case GE_TFMT_4444:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbytes, u[i], v[i]);
 			res.v[i] = RGBA4444ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 	
 	case GE_TFMT_5551:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbytes, u[i], v[i]);
 			res.v[i] = RGBA5551ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 
 	case GE_TFMT_5650:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbytes, u[i], v[i]);
 			res.v[i] = RGB565ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 
 	case GE_TFMT_8888:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbits, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbytes, u[i], v[i]);
 			res.v[i] = *(const u32 *)src;
 		}
 		return res;
 
 	case GE_TFMT_CLUT32:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbits, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbytes, u[i], v[i]);
 			u32 val = src[0] + (src[1] << 8) + (src[2] << 16) + (src[3] << 24);
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
@@ -328,7 +390,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_CLUT16:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbytes, u[i], v[i]);
 			u16 val = src[0] + (src[1] << 8);
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
@@ -336,7 +398,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_CLUT8:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufwidthbits, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufwidthbytes, u[i], v[i]);
 			u8 val = *src;
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
@@ -344,7 +406,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_CLUT4:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufwidthbits, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufwidthbytes, u[i], v[i]);
 			u8 val = (u[i] & 1) ? (src[0] >> 4) : (src[0] & 0xF);
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
@@ -352,7 +414,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_DXT1:
 		for (int i = 0; i < N; ++i) {
-			const DXT1Block *block = (const DXT1Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
+			const DXT1Block *block = (const DXT1Block *)srcptr + (v[i] / 4) * (texbufwidthbytes / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT1Block(data, block, 4, 4, false);
 			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
@@ -361,7 +423,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_DXT3:
 		for (int i = 0; i < N; ++i) {
-			const DXT3Block *block = (const DXT3Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
+			const DXT3Block *block = (const DXT3Block *)srcptr + (v[i] / 4) * (texbufwidthbytes / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT3Block(data, block, 4, 4);
 			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
@@ -370,7 +432,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_DXT5:
 		for (int i = 0; i < N; ++i) {
-			const DXT5Block *block = (const DXT5Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
+			const DXT5Block *block = (const DXT5Block *)srcptr + (v[i] / 4) * (texbufwidthbytes / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT5Block(data, block, 4, 4);
 			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
@@ -509,14 +571,14 @@ static inline bool DepthTestPassed(int x, int y, u16 z)
 	}
 }
 
-static inline bool IsRightSideOrFlatBottomLine(const Vec2<fixed16>& vertex, const Vec2<fixed16>& line1, const Vec2<fixed16>& line2)
+static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Vec2<int>& line1, const Vec2<int>& line2)
 {
 	if (line1.y == line2.y) {
 		// just check if vertex is above us => bottom line parallel to x-axis
 		return vertex.y < line1.y;
 	} else {
 		// check if vertex is on our left => right side
-		return vertex.x < line1.x + ((int)line2.x - (int)line1.x) * ((int)vertex.y - (int)line1.y) / ((int)line2.y - (int)line1.y);
+		return vertex.x < line1.x + (line2.x - line1.x) * (vertex.y - line1.y) / (line2.y - line1.y);
 	}
 }
 
@@ -1057,7 +1119,7 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 	SetPixelColor(p.x, p.y, new_color);
 }
 
-inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLevel, int magFilt, u8 *texptr[], int texbufwidthbits[]) {
+inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLevel, int magFilt, u8 *texptr[], int texbufwidthbytes[]) {
 	int u[4] = {0}, v[4] = {0};   // 1.23.8 fixed point
 	int frac_u, frac_v;
 
@@ -1100,14 +1162,14 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 	}
 
 	Vec4<int> texcolor;
-	int bufwbits = texbufwidthbits[texlevel];
+	int bufwbytes = texbufwidthbytes[texlevel];
 	const u8 *tptr = texptr[texlevel];
 	if (!bilinear) {
 		// Nearest filtering only. Round texcoords or just chop bits?
-		texcolor = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel, u, v, tptr, bufwbits));
+		texcolor = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel, u, v, tptr, bufwbytes));
 	} else {
 #if defined(_M_SSE)
-		Nearest4 c = SampleNearest<4>(texlevel, u, v, tptr, bufwbits);
+		Nearest4 c = SampleNearest<4>(texlevel, u, v, tptr, bufwbytes);
 
 		const __m128i z = _mm_setzero_si128();
 
@@ -1125,7 +1187,7 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 		__m128i res = _mm_add_epi16(tmp, _mm_shuffle_epi32(tmp, _MM_SHUFFLE(3, 2, 3, 2)));
 		texcolor = Vec4<int>(_mm_unpacklo_epi16(res, z));
 #else
-		Nearest4 nearest = SampleNearest<4>(texlevel, u, v, tptr, bufwbits);
+		Nearest4 nearest = SampleNearest<4>(texlevel, u, v, tptr, bufwbytes);
 		Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(nearest.v[0]);
 		Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(nearest.v[1]);
 		Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(nearest.v[2]);
@@ -1139,62 +1201,53 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 	prim_color = GetTextureFunctionOutput(prim_color, texcolor);
 }
 
-// Only OK on x64 where our stack is aligned
-#if defined(_M_SSE) && !defined(_M_IX86)
-static inline __m128 Interpolate(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {
-	__m128 v = _mm_mul_ps(c0, _mm_cvtepi32_ps(_mm_set1_epi32(w0)));
-	v = _mm_add_ps(v, _mm_mul_ps(c1, _mm_cvtepi32_ps(_mm_set1_epi32(w1))));
-	v = _mm_add_ps(v, _mm_mul_ps(c2, _mm_cvtepi32_ps(_mm_set1_epi32(w2))));
-	return _mm_mul_ps(v, _mm_set_ps1(wsum));
+struct TriangleEdge {
+	Vec4<int> Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin);
+	inline Vec4<int> StepX(const Vec4<int> &w);
+	inline Vec4<int> StepY(const Vec4<int> &w);
+
+	Vec4<int> stepX;
+	Vec4<int> stepY;
+};
+
+Vec4<int> TriangleEdge::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
+	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(0, 16, 0, 16);
+	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y) + Vec4<int>(0, 0, 16, 16);
+
+	// orient2d refactored.
+	int xf = v0.y - v1.y;
+	int yf = v1.x - v0.x;
+	int c = v1.y * v0.x - v1.x * v0.y;
+
+	stepX = Vec4<int>::AssignToAll(xf * 16 * 2);
+	stepY = Vec4<int>::AssignToAll(yf * 16 * 2);
+
+	return Vec4<int>::AssignToAll(xf) * initX + Vec4<int>::AssignToAll(yf) * initY + Vec4<int>::AssignToAll(c);
 }
 
-static inline __m128i Interpolate(const __m128i &c0, const __m128i &c1, const __m128i &c2, int w0, int w1, int w2, float wsum) {
-	return _mm_cvtps_epi32(Interpolate(_mm_cvtepi32_ps(c0), _mm_cvtepi32_ps(c1), _mm_cvtepi32_ps(c2), w0, w1, w2, wsum));
-}
-#endif
-
-// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
-// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
-
-static inline Vec4<int> Interpolate(const Vec4<int> &c0, const Vec4<int> &c1, const Vec4<int> &c2, int w0, int w1, int w2, float wsum) {
+inline Vec4<int> TriangleEdge::StepX(const Vec4<int> &w) {
 #if defined(_M_SSE) && !defined(_M_IX86)
-	return Vec4<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
+	return _mm_add_epi32(w.ivec, stepX.ivec);
 #else
-	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
+	return w + stepX;
 #endif
 }
 
-static inline Vec3<int> Interpolate(const Vec3<int> &c0, const Vec3<int> &c1, const Vec3<int> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !defined(_M_IX86)
-	return Vec3<int>(Interpolate(c0.ivec, c1.ivec, c2.ivec, w0, w1, w2, wsum));
-#else
-	return ((c0.Cast<float>() * w0 + c1.Cast<float>() * w1 + c2.Cast<float>() * w2) * wsum).Cast<int>();
-#endif
-}
-
-static inline Vec2<float> Interpolate(const Vec2<float> &c0, const Vec2<float> &c1, const Vec2<float> &c2, int w0, int w1, int w2, float wsum) {
-#if defined(_M_SSE) && !defined(_M_IX86)
-	return Vec2<float>(Interpolate(c0.vec, c1.vec, c2.vec, w0, w1, w2, wsum));
-#else
-	return (c0 * w0 + c1 * w1 + c2 * w2) * wsum;
-#endif
+inline Vec4<int> TriangleEdge::StepY(const Vec4<int> &w) {
+	return w + stepY;
 }
 
 template <bool clearMode>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int minX, int minY, int maxX, int maxY,
-	int y1, int y2)
+	int hy1, int hy2)
 {
-	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
-	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
-	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
+	Vec4<int> bias0 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0);
+	Vec4<int> bias1 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0);
+	Vec4<int> bias2 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0);
 
-	int bias0 = IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0;
-	int bias1 = IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0;
-	int bias2 = IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0;
-
-	int texbufwidthbits[8] = {0};
+	int texbufwidthbytes[8] = {0};
 
 	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
@@ -1217,7 +1270,7 @@ void DrawTriangleSlice(
 		GETextureFormat texfmt = gstate.getTextureFormat();
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
-			texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
+			texbufwidthbytes[i] = GetTextureBufw(i, texaddr, texfmt);
 			if (Memory::IsValidAddress(texaddr))
 				texptr[i] = Memory::GetPointerUnchecked(texaddr);
 			else
@@ -1225,89 +1278,116 @@ void DrawTriangleSlice(
 		}
 	}
 
+	TriangleEdge e0;
+	TriangleEdge e1;
+	TriangleEdge e2;
+
 	ScreenCoords pprime(minX, minY, 0);
-	int w0_base = orient2d(v1.screenpos, v2.screenpos, pprime);
-	int w1_base = orient2d(v2.screenpos, v0.screenpos, pprime);
-	int w2_base = orient2d(v0.screenpos, v1.screenpos, pprime);
+	Vec4<int> w0_base = e0.Start(v1.screenpos, v2.screenpos, pprime);
+	Vec4<int> w1_base = e1.Start(v2.screenpos, v0.screenpos, pprime);
+	Vec4<int> w2_base = e2.Start(v0.screenpos, v1.screenpos, pprime);
 
 	// Step forward to y1 (slice..)
-	w0_base += orient2dIncY(d12.x) * 16 * y1;
-	w1_base += orient2dIncY(-d02.x) * 16 * y1;
-	w2_base += orient2dIncY(d01.x) * 16 * y1;
+	w0_base += e0.stepY * hy1;
+	w1_base += e1.stepY * hy1;
+	w2_base += e2.stepY * hy1;
 
 	// All the z values are the same, no interpolation required.
 	// This is common, and when we interpolate, we lose accuracy.
 	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
 
-	for (pprime.y = minY + y1 * 16; pprime.y < minY + y2 * 16; pprime.y += 16,
-										w0_base += orient2dIncY(d12.x)*16,
-										w1_base += orient2dIncY(-d02.x)*16,
-										w2_base += orient2dIncY(d01.x)*16) {
-		int w0 = w0_base;
-		int w1 = w1_base;
-		int w2 = w2_base;
+	for (pprime.y = minY + hy1 * 32; pprime.y < minY + hy2 * 32; pprime.y += 32,
+										w0_base = e0.StepY(w0_base),
+										w1_base = e1.StepY(w1_base),
+										w2_base = e2.StepY(w2_base)) {
+		Vec4<int> w0 = w0_base;
+		Vec4<int> w1 = w1_base;
+		Vec4<int> w2 = w2_base;
 
 		pprime.x = minX;
 		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
-		for (; pprime.x <= maxX; pprime.x +=16,
-			w0 += orient2dIncX(d12.y)*16,
-			w1 += orient2dIncX(-d02.y)*16,
-			w2 += orient2dIncX(d01.y)*16,
-			p.x = (p.x + 1) & 0x3FF) {
+		for (; pprime.x <= maxX; pprime.x += 32,
+			w0 = e0.StepX(w0),
+			w1 = e1.StepX(w1),
+			w2 = e2.StepX(w2),
+			p.x = (p.x + 2) & 0x3FF) {
 
 			// If p is on or inside all edges, render pixel
-			if (w0 + bias0 >= 0 && w1 + bias1 >= 0 && w2 + bias2 >= 0) {
-				int wsum = w0 + w1 + w2;
-				if (wsum == 0.0f)
-					continue;
-				float wsum_recip = 1.0f / (float)wsum;
+			Vec4<int> mask = (w0 + bias0) | (w1 + bias1) | (w2 + bias2);
+			if (mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0) {
+				Vec4<float> wsum_recip = (w0 + w1 + w2).Cast<float>().Reciprocal();
 
-				Vec4<int> prim_color;
-				Vec3<int> sec_color;
+				Vec4<int> prim_color[4];
+				Vec3<int> sec_color[4];
 				if (gstate.getShadeMode() == GE_SHADE_GOURAUD && !clearMode) {
 					// Does the PSP do perspective-correct color interpolation? The GC doesn't.
-					prim_color = Interpolate(v0.color0, v1.color0, v2.color0, w0, w1, w2, wsum_recip);
-					sec_color = Interpolate(v0.color1, v1.color1, v2.color1, w0, w1, w2, wsum_recip);
+					for (int i = 0; i < 4; ++i) {
+						prim_color[i] = Interpolate(v0.color0, v1.color0, v2.color0, w0[i], w1[i], w2[i], wsum_recip[i]);
+						sec_color[i] = Interpolate(v0.color1, v1.color1, v2.color1, w0[i], w1[i], w2[i], wsum_recip[i]);
+					}
 				} else {
-					prim_color = v2.color0;
-					sec_color = v2.color1;
+					for (int i = 0; i < 4; ++i) {
+						prim_color[i] = v2.color0;
+						sec_color[i] = v2.color1;
+					}
 				}
 
 				if (gstate.isTextureMapEnabled() && !clearMode) {
+					Vec4<float> s, t;
 					if (gstate.isModeThrough()) {
-						Vec2<float> texcoords = Interpolate(v0.texturecoords, v1.texturecoords, v2.texturecoords, w0, w1, w2, wsum_recip);
-						ApplyTexturing(prim_color, texcoords.s(), texcoords.t(), maxTexLevel, magFilt, texptr, texbufwidthbits);
+						s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1, w2, wsum_recip);
+						t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1, w2, wsum_recip);
 					} else {
 						// Texture coordinate interpolation must definitely be perspective-correct.
-						float s = 0, t = 0;
-						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
-						ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
+					}
+
+					for (int i = 0; i < 4; ++i) {
+						ApplyTexturing(prim_color[i], s[i], t[i], maxTexLevel, magFilt, texptr, texbufwidthbytes);
 					}
 				}
 
 				if (!clearMode) {
-					// TODO: Tried making Vec4 do this, but things got slower.
+					for (int i = 0; i < 4; ++i) {
 #if defined(_M_SSE)
-					const __m128i sec = _mm_and_si128(sec_color.ivec, _mm_set_epi32(0, -1, -1, -1));
-					prim_color.ivec = _mm_add_epi32(prim_color.ivec, sec);
+						// TODO: Tried making Vec4 do this, but things got slower.
+						const __m128i sec = _mm_and_si128(sec_color[i].ivec, _mm_set_epi32(0, -1, -1, -1));
+						prim_color[i].ivec = _mm_add_epi32(prim_color[i].ivec, sec);
 #else
-					prim_color += Vec4<int>(sec_color, 0);
+						prim_color[i] += Vec4<int>(sec_color[i], 0);
 #endif
+					}
 				}
 
-				int fog = 255;
+				Vec4<int> fog = Vec4<int>::AssignToAll(255);
 				if (gstate.isFogEnabled() && !clearMode) {
-					fog = ClampFogDepth(((float)v0.fogdepth * w0 + (float)v1.fogdepth * w1 + (float)v2.fogdepth * w2) * wsum_recip);
+					Vec4<float> fogdepths = w0.Cast<float>() * v0.fogdepth + w1.Cast<float>() * v1.fogdepth + w2.Cast<float>() * v2.fogdepth;
+					fogdepths = fogdepths * wsum_recip;
+					for (int i = 0; i < 4; ++i) {
+						fog[i] = ClampFogDepth(fogdepths[i]);
+					}
 				}
 
-				u16 z = v2.screenpos.z;
-				// TODO: Is that the correct way to interpolate?
-				// Without the (u32), this causes an ICE in some versions of gcc.
-				if (!flatZ)
-					z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum_recip);
+				Vec4<int> z;
+				if (flatZ) {
+					z = Vec4<int>::AssignToAll(v2.screenpos.z);
+				} else {
+					// TODO: Is that the correct way to interpolate?
+					Vec4<float> zfloats = w0.Cast<float>() * v0.screenpos.z + w1.Cast<float>() * v1.screenpos.z + w2.Cast<float>() * v2.screenpos.z;
+					z = (zfloats * wsum_recip).Cast<int>();
+				}
 
-				DrawSinglePixel<clearMode>(p, z, fog, prim_color);
+				DrawingCoords subp = p;
+				for (int i = 0; i < 4; ++i) {
+					if (mask[i] < 0) {
+						continue;
+					}
+					subp.x = p.x + (i & 1);
+					subp.y = p.y + (i / 2);
+
+					DrawSinglePixel<clearMode>(subp, (u16)z[i], fog[i], prim_color[i]);
+				}
 			}
 		}
 	}
@@ -1338,9 +1418,10 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
 	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
 
-	int range = (maxY - minY) / 16 + 1;
+	// 32 because we do two pixels at once, and we don't want overlap.
+	int range = (maxY - minY) / 32 + 1;
 	if (gstate.isModeClear()) {
-		if (range >= 24 && (maxX - minX) >= 24 * 16) {
+		if (range >= 12 && (maxX - minX) >= 24 * 16) {
 			auto bound = [&](int a, int b) -> void {
 				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
 			};
@@ -1349,7 +1430,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
 		}
 	} else {
-		if (range >= 24 && (maxX - minX) >= 24 * 16) {
+		if (range >= 12 && (maxX - minX) >= 24 * 16) {
 			auto bound = [&](int a, int b) -> void {
 				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
 			};
@@ -1378,7 +1459,7 @@ void DrawPoint(const VertexData &v0)
 	bool clearMode = gstate.isModeClear();
 
 	if (gstate.isTextureMapEnabled() && !clearMode) {
-		int texbufwidthbits[8] = {0};
+		int texbufwidthbytes[8] = {0};
 
 		int maxTexLevel = gstate.getTextureMaxLevel();
 		u8 *texptr[8] = {NULL};
@@ -1402,12 +1483,12 @@ void DrawPoint(const VertexData &v0)
 			GETextureFormat texfmt = gstate.getTextureFormat();
 			for (int i = 0; i <= maxTexLevel; i++) {
 				u32 texaddr = gstate.getTextureAddress(i);
-				texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
+				texbufwidthbytes[i] = GetTextureBufw(i, texaddr, texfmt);
 				texptr[i] = Memory::GetPointer(texaddr);
 			}
 		}
 
-		ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+		ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbytes);
 	}
 
 	if (!clearMode)
@@ -1454,7 +1535,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
 	bool clearMode = gstate.isModeClear();
 
-	int texbufwidthbits[8] = {0};
+	int texbufwidthbytes[8] = {0};
 
 	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
@@ -1477,7 +1558,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		GETextureFormat texfmt = gstate.getTextureFormat();
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
-			texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
+			texbufwidthbytes[i] = GetTextureBufw(i, texaddr, texfmt);
 			texptr[i] = Memory::GetPointer(texaddr);
 		}
 	}
@@ -1506,7 +1587,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		float t = tc.t();
 
 		if (gstate.isTextureMapEnabled() && !clearMode) {
-			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
+			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbytes);
 		}
 
 		if (!clearMode)
@@ -1555,13 +1636,13 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
 	u32 texaddr = gstate.getTextureAddress(level);
-	int texbufwidthbits = GetTextureBufw(level, texaddr, texfmt) * 8;
+	int texbufwidthbytes = GetTextureBufw(level, texaddr, texfmt);
 	u8 *texptr = Memory::GetPointer(texaddr);
 
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = SampleNearest<1>(level, &x, &y, texptr, texbufwidthbits);
+			row[x] = SampleNearest<1>(level, &x, &y, texptr, texbufwidthbytes);
 		}
 		row += w;
 	}

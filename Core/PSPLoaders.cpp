@@ -255,7 +255,7 @@ static std::string NormalizePath(const std::string &path) {
 #ifdef _WIN32
 	wchar_t buf[512] = {0};
 	std::wstring wpath = ConvertUTF8ToWString(path);
-	if (GetFullPathName(wpath.c_str(), sizeof(buf) - 1, buf, NULL) == 0)
+	if (GetFullPathName(wpath.c_str(), (int)ARRAY_SIZE(buf) - 1, buf, NULL) == 0)
 		return "";
 	return ConvertWStringToUTF8(buf);
 #else

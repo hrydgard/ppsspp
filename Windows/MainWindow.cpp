@@ -26,7 +26,8 @@
 #include "Common/OSVersion.h"
 
 #include <Windowsx.h>
-
+#include <shellapi.h>
+#include <commctrl.h>
 #include <map>
 #include <string>
 
@@ -34,8 +35,6 @@
 #include "base/NativeApp.h"
 #include "Globals.h"
 
-#include "shellapi.h"
-#include "commctrl.h"
 #include "base/timeutil.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
@@ -43,25 +42,23 @@
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
+#include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Windows/InputBox.h"
+#include "Windows/InputDevice.h"
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/GEDebugger/GEDebugger.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 
-#include "main.h"
-
-#include "Core/Core.h"
+#include "Windows/main.h"
 #include "Windows/EmuThread.h"
-
-#include "resource.h"
+#include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"
-#include "Windows/WindowsHost.h"
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
 #include "Windows/W32Util/DialogManager.h"
@@ -69,9 +66,9 @@
 #include "Windows/W32Util/Misc.h"
 #include "Windows/RawInput.h"
 #include "Windows/TouchInputHandler.h"
+#include "Windows/MainWindowMenu.h"
 #include "GPU/GPUInterface.h"
 #include "UI/OnScreenDisplay.h"
-#include "Windows/MainWindowMenu.h"
 #include "UI/GameSettingsScreen.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
@@ -124,6 +121,7 @@ namespace MainWindow
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
+	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -224,21 +222,28 @@ namespace MainWindow
 		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO)
 			setTexScalingMultiplier(0);
 
-		if (gpu)
-			gpu->Resized();
+		NativeMessageReceived("gpu_resized", "");
 	}
 
 	void CorrectCursor() {
-		bool autoHide = g_Config.bFullScreen && !mouseButtonDown && GetUIState() == UISTATE_INGAME;
-		if (autoHide && hideCursor) {
+		bool autoHide = ((g_Config.bFullScreen && !mouseButtonDown) || (g_Config.bMouseControl && trapMouse)) && GetUIState() == UISTATE_INGAME;
+		if (autoHide && (hideCursor || g_Config.bMouseControl)) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
+			}
+			if (g_Config.bMouseConfine) {
+				RECT rc;
+				GetClientRect(hwndDisplay, &rc);
+				ClientToScreen(hwndDisplay, reinterpret_cast<POINT*>(&rc.left));
+				ClientToScreen(hwndDisplay, reinterpret_cast<POINT*>(&rc.right));
+				ClipCursor(&rc);
 			}
 		} else {
 			hideCursor = !autoHide;
 			if (cursorCounter < 0) {
 				cursorCounter = ShowCursor(TRUE);
 				SetCursor(LoadCursor(NULL, IDC_ARROW));
+				ClipCursor(NULL);
 			}
 		}
 	}
@@ -272,7 +277,7 @@ namespace MainWindow
 		INFO_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 		if (UpdateScreenScale(width, height)) {
-			NativeMessageReceived("gpu resized", "");
+			NativeMessageReceived("gpu_resized", "");
 		}
 
 		if (screenManager) {
@@ -567,7 +572,7 @@ namespace MainWindow
 				static double lastMouseDown;
 				double now = real_time_now();
 				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
-					if (!g_Config.bShowTouchControls && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
+					if (!g_Config.bShowTouchControls && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
 						SendToggleFullscreen(!g_Config.bFullScreen);
 					}
 					lastMouseDown = 0.0;
@@ -682,11 +687,13 @@ namespace MainWindow
 
 				if (wParam == WA_ACTIVE) {
 					NativeMessageReceived("got_focus", "");
+					trapMouse = true;
 				}
 				if (wParam == WA_INACTIVE) {
 					NativeMessageReceived("lost_focus", "");
 					WindowsRawInput::LoseFocus();
 					InputDevice::LoseFocus();
+					trapMouse = false;
 				}
 			}
 			break;
@@ -882,10 +889,24 @@ namespace MainWindow
 			BrowseBackgroundDone();
 			break;
 
+		case WM_USER_RESTART_EMUTHREAD:
+			NativeSetRestarting();
+			EmuThread_Stop();
+			coreState = CORE_POWERUP;
+			ResetUIState();
+			EmuThread_Start();
+			break;
+
 		case WM_MENUSELECT:
 			// Called when a menu is opened. Also when an item is selected, but meh.
 			UpdateMenus(true);
 			WindowsRawInput::NotifyMenu();
+			trapMouse = false;
+			break;
+
+		case WM_EXITMENULOOP:
+			// Called when menu is closed.
+			trapMouse = true;
 			break;
 
 		// Turn off the screensaver.

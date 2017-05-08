@@ -281,35 +281,6 @@ void VertexDecoder::Step_TcU16ToFloat() const
 	uv[1] = uvdata[1] * (1.0f / 32768.0f);
 }
 
-void VertexDecoder::Step_TcU16Double() const
-{
-	u16 *uv = (u16*)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * 2;
-	uv[1] = uvdata[1] * 2;
-}
-
-void VertexDecoder::Step_TcU16Through() const
-{
-	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
-	uv[0] = uvdata[0];
-	uv[1] = uvdata[1];
-
-	gstate_c.vertBounds.minU = std::min(gstate_c.vertBounds.minU, uvdata[0]);
-	gstate_c.vertBounds.maxU = std::max(gstate_c.vertBounds.maxU, uvdata[0]);
-	gstate_c.vertBounds.minV = std::min(gstate_c.vertBounds.minV, uvdata[1]);
-	gstate_c.vertBounds.maxV = std::max(gstate_c.vertBounds.maxV, uvdata[1]);
-}
-
-void VertexDecoder::Step_TcU16ThroughDouble() const
-{
-	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * 2;
-	uv[1] = uvdata[1] * 2;
-}
-
 void VertexDecoder::Step_TcU16DoubleToFloat() const
 {
 	float *uv = (float*)(decoded_ + decFmt.uvoff);
@@ -386,51 +357,6 @@ void VertexDecoder::Step_TcFloatPrescale() const {
 	const float *uvdata = (const float*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
 	uv[1] = uvdata[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
-}
-
-void VertexDecoder::Step_TcU8Morph() const {
-	float uv[2] = { 0, 0 };
-	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
-		const u8 *uvdata = (const u8 *)(ptr_ + onesize_*n + tcoff);
-
-		uv[0] += (float)uvdata[0] * w;
-		uv[1] += (float)uvdata[1] * w;
-	}
-
-	u8 *out = decoded_ + decFmt.uvoff;
-	out[0] = (int)uv[0];
-	out[1] = (int)uv[1];
-}
-
-void VertexDecoder::Step_TcU16Morph() const {
-	float uv[2] = { 0, 0 };
-	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
-		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
-
-		uv[0] += (float)uvdata[0] * w;
-		uv[1] += (float)uvdata[1] * w;
-	}
-
-	u16_le *out = (u16_le *)(decoded_ + decFmt.uvoff);
-	out[0] = (int)uv[0];
-	out[1] = (int)uv[1];
-}
-
-void VertexDecoder::Step_TcU16DoubleMorph() const {
-	float uv[2] = { 0, 0 };
-	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
-		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
-
-		uv[0] += (float)uvdata[0] * w;
-		uv[1] += (float)uvdata[1] * w;
-	}
-
-	u16_le *out = (u16_le *)(decoded_ + decFmt.uvoff);
-	out[0] = (int)(uv[0] * 2.0f);
-	out[1] = (int)(uv[1] * 2.0f);
 }
 
 void VertexDecoder::Step_TcU8MorphToFloat() const {
@@ -920,20 +846,6 @@ static const StepFunction tcstep_prescale_morph_remaster[4] = {
 	&VertexDecoder::Step_TcU8PrescaleMorph,
 	&VertexDecoder::Step_TcU16DoublePrescaleMorph,
 	&VertexDecoder::Step_TcFloatPrescaleMorph,
-};
-
-static const StepFunction tcstep_morph[4] = {
-	0,
-	&VertexDecoder::Step_TcU8Morph,
-	&VertexDecoder::Step_TcU16Morph,
-	&VertexDecoder::Step_TcFloatMorph,
-};
-
-static const StepFunction tcstep_morph_remaster[4] = {
-	0,
-	&VertexDecoder::Step_TcU8Morph,
-	&VertexDecoder::Step_TcU16DoubleMorph,
-	&VertexDecoder::Step_TcFloatMorph,
 };
 
 static const StepFunction tcstep_morphToFloat[4] = {

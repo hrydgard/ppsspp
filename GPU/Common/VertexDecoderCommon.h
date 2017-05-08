@@ -106,6 +106,35 @@ inline int RoundUp4(int x) {
 	return (x + 3) & ~3;
 }
 
+class IndexConverter {
+private:
+	union {
+		const void *indices;
+		const u8 *indices8;
+		const u16 *indices16;
+		const u32 *indices32;
+	};
+	u32 indexType;
+
+public:
+	IndexConverter(u32 vertType, const void *indices)
+		: indices(indices), indexType(vertType & GE_VTYPE_IDX_MASK) {
+	}
+
+	inline u32 convert(u32 index) const {
+		switch (indexType) {
+		case GE_VTYPE_IDX_8BIT:
+			return indices8[index];
+		case GE_VTYPE_IDX_16BIT:
+			return indices16[index];
+		case GE_VTYPE_IDX_32BIT:
+			return indices32[index];
+		default:
+			return index;
+		}
+	}
+};
+
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
 class VertexReader {
 public:
@@ -485,17 +514,11 @@ public:
 	void Step_TcU16DoublePrescale() const;
 	void Step_TcFloatPrescale() const;
 
-	void Step_TcU16Double() const;
-	void Step_TcU16Through() const;
-	void Step_TcU16ThroughDouble() const;
 	void Step_TcU16DoubleToFloat() const;
 	void Step_TcU16ThroughToFloat() const;
 	void Step_TcU16ThroughDoubleToFloat() const;
 	void Step_TcFloatThrough() const;
 
-	void Step_TcU8Morph() const;
-	void Step_TcU16Morph() const;
-	void Step_TcU16DoubleMorph() const;
 	void Step_TcU8MorphToFloat() const;
 	void Step_TcU16MorphToFloat() const;
 	void Step_TcU16DoubleMorphToFloat() const;
@@ -646,10 +669,6 @@ public:
 	void Jit_TcU16PrescaleMorph();
 	void Jit_TcFloatPrescaleMorph();
 
-	void Jit_TcU16Double();
-	void Jit_TcU16ThroughDouble();
-
-	void Jit_TcU16Through();
 	void Jit_TcU16ThroughToFloat();
 	void Jit_TcFloatThrough();
 

@@ -23,19 +23,9 @@ class VulkanPushBuffer {
 
 public:
 	VulkanPushBuffer(VulkanContext *vulkan, size_t size);
+	~VulkanPushBuffer();
 
-	~VulkanPushBuffer() {
-		assert(buffers_.empty());
-	}
-
-	void Destroy(VulkanContext *vulkan) {
-		for (BufInfo &info : buffers_) {
-			vulkan->Delete().QueueDeleteBuffer(info.buffer);
-			vulkan->Delete().QueueDeleteDeviceMemory(info.deviceMemory);
-		}
-
-		buffers_.clear();
-	}
+	void Destroy(VulkanContext *vulkan);
 
 	void Reset() { offset_ = 0; }
 

@@ -301,6 +301,7 @@ void GPU_D3D11::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
 	if (resized_) {
+		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		textureCacheD3D11_->NotifyConfigChanged();
 		shaderManagerD3D11_->DirtyLastShader();
