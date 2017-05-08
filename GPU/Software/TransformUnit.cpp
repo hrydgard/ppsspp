@@ -84,7 +84,8 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *
 		*outside_range_flag = true;
 
 	// 16 = 0xFFFF / 4095.9375
-	return ScreenCoords(x * 16, y * 16, z);
+	// Round up at 0.625 to the nearest subpixel.
+	return ScreenCoords(x * 16.0f + 0.375f, y * 16.0f + 0.375f, z);
 }
 
 ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
