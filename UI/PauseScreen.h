@@ -41,6 +41,7 @@ private:
 	UI::EventReturn OnMainSettings(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);
+	UI::EventReturn OnRestartEmulation(UI::EventParams &e);
 	UI::EventReturn OnReportFeedback(UI::EventParams &e);
 
 	UI::EventReturn OnRewind(UI::EventParams &e);

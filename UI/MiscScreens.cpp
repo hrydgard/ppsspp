@@ -645,6 +645,7 @@ void CreditsScreen::render() {
 		"Kyhel",
 		"xebra",
 		"LunaMoo",
+		"zminhquanz",
 		"",
 		cr->T("specialthanks", "Special thanks to:"),
 		"Maxim for his amazing Atrac3+ decoder work",
