@@ -1188,6 +1188,21 @@ static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int t
 	prim_color = GetTextureFunctionOutput(prim_color, texcolor0);
 }
 
+// Produces a signed 1.23.8 value.
+static int TexLog2(float delta) {
+	union FloatBits {
+		float f;
+		u32 u;
+	};
+	FloatBits f;
+	f.f = delta;
+	// Use the exponent as the tex level, and the top mantissa bits for a frac.
+	// We can't support more than 8 bits of frac, so truncate.
+	int useful = (f.u >> 15) & 0xFFFF;
+	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
+	return useful - 127 * 256;
+}
+
 static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufwidthbytes[]) {
 	int width = gstate.getTextureWidth(0);
 	int height = gstate.getTextureHeight(0);
@@ -1199,23 +1214,25 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 		dt *= height;
 	}
 
-	float detail;
+	// With 8 bits of fraction (because texslope can be fairly precise.)
+	int detail;
 	switch (gstate.getTexLevelMode()) {
 	case GE_TEXLEVEL_MODE_AUTO:
-		detail = std::log2f(std::abs(std::max(ds, dt)));
+		detail = TexLog2(std::max(ds, dt));
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
-		detail = 1.0f + std::log2f(std::abs(gstate.getTextureLodSlope()));
+		// This is always offset by an extra texlevel.
+		detail = 1 * 256 + TexLog2(gstate.getTextureLodSlope());
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
 		// TODO: Verify what 3 does.
-		detail = 0.0f;
+		detail = 0;
 		break;
 	}
 
-	// Add in the bias (used in all modes.)
-	detail += (float)(int)(s8)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
+	// Add in the bias (used in all modes), expanding to 8 bits of fraction.
+	detail += (int)(s8)((gstate.texlevel >> 16) & 0xFF) << 4;
 
 	int minFilt = (gstate.texfilter >> 0) & 1;
 	int mipFilt = (gstate.texfilter >> 1) & 1;
@@ -1223,8 +1240,8 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 
 	int level = 0;
 	int levelFrac = 0;
-	if (detail > 0.0f && maxTexLevel > 0) {
-		int level8 = std::min((int)(detail * 256.0f), maxTexLevel * 256);
+	if (detail > 0 && maxTexLevel > 0) {
+		int level8 = std::min(detail, maxTexLevel * 256);
 		if (!mipFilt) {
 			// Round up at 1.5.
 			level8 += 128;
@@ -1232,7 +1249,7 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 		level = level8 >> 8;
 		levelFrac = mipFilt ? level8 & 0xFF : 0;
 	}
-	int filt = detail > 0.0f ? minFilt : magFilt;
+	int filt = detail > 0 ? minFilt : magFilt;
 	if (g_Config.iTexFiltering == 3) {
 		filt = 1;
 	} else if (g_Config.iTexFiltering == 2) {
