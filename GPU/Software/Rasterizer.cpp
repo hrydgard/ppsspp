@@ -168,33 +168,74 @@ static inline u8 ClampFogDepth(float fogdepth) {
 		return (u8)(u32)(fogdepth * 255.0f);
 }
 
+static inline int ClampUV(int v, int height) {
+	if (v >= height - 1)
+		return height - 1;
+	else if (v < 0)
+		return 0;
+	return v;
+}
+
+static inline int WrapUV(int v, int height) {
+	return v & (height - 1);
+}
+
+template <int N>
+static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], const int v[N], int width, int height) {
+	if (gstate.isTexCoordClampedS()) {
+		for (int i = 0; i < N; ++i) {
+			out_u[i] = ClampUV(u[i], width);
+		}
+	} else {
+		for (int i = 0; i < N; ++i) {
+			out_u[i] = WrapUV(u[i], width);
+		}
+	}
+	if (gstate.isTexCoordClampedT()) {
+		for (int i = 0; i < N; ++i) {
+			out_v[i] = ClampUV(v[i], height);
+		}
+	} else {
+		for (int i = 0; i < N; ++i) {
+			out_v[i] = WrapUV(v[i], height);
+		}
+	}
+}
+
+template <int N>
+static inline void ApplyTexelClampQuad(int out_u[N * 4], int out_v[N * 4], const int u[N], const int v[N], int width, int height) {
+	if (gstate.isTexCoordClampedS()) {
+		for (int i = 0; i < N * 4; ++i) {
+			out_u[i] = ClampUV(u[i >> 2] + (i & 1), width);
+		}
+	} else {
+		for (int i = 0; i < N * 4; ++i) {
+			out_u[i] = WrapUV(u[i >> 2] + (i & 1), width);
+		}
+	}
+	if (gstate.isTexCoordClampedT()) {
+		for (int i = 0; i < N * 4; ++i) {
+			out_v[i] = ClampUV(v[i >> 2] + ((i >> 1) & 1), height);
+		}
+	} else {
+		for (int i = 0; i < N * 4; ++i) {
+			out_v[i] = WrapUV(v[i >> 2] + ((i >> 1) & 1), height);
+		}
+	}
+}
+
 static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, int& out_v)
 {
 	int width = gstate.getTextureWidth(level);
 	int height = gstate.getTextureHeight(level);
 
-	int u = (int)(s * width + 0.375f);
-	int v = (int)(t * height + 0.375f);
+	int base_u = (int)(s * width * 256.0f + 0.375f);
+	int base_v = (int)(t * height * 256.0f + 0.375f);
 
-	if (gstate.isTexCoordClampedS()) {
-		if (u >= width - 1)
-			u = width - 1;
-		else if (u < 0)
-			u = 0;
-	} else {
-		u &= width - 1;
-	}
-	if (gstate.isTexCoordClampedT()) {
-		if (v >= height - 1)
-			v = height - 1;
-		else if (v < 0)
-			v = 0;
-	} else {
-		v &= height - 1;
-	}
+	base_u >>= 8;
+	base_v >>= 8;
 
-	out_u = u;
-	out_v = v;
+	ApplyTexelClamp<1>(&out_u, &out_v, &base_u, &base_v, width, height);
 }
 
 static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, int u[4], int v[4], int &frac_u, int &frac_v)
@@ -203,8 +244,8 @@ static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, in
 	int width = gstate.getTextureWidth(level);
 	int height = gstate.getTextureHeight(level);
 
-	int base_u = in_s * width * 256;
-	int base_v = in_t * height * 256;
+	int base_u = (int)(in_s * width * 256.0f + 0.375f) - 128;
+	int base_v = (int)(in_t * height * 256.0f + 0.375f) - 128;
 
 	frac_u = (int)(base_u) & 0xff;
 	frac_v = (int)(base_v) & 0xff;
@@ -213,59 +254,7 @@ static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, in
 	base_v >>= 8;
 
 	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
-
-	if (gstate.isTexCoordClampedS()) {
-		for (int i = 0; i < 4; i++) {
-			int temp_u = base_u + (i & 1);
-			if (temp_u > width - 1)
-				temp_u = width - 1;
-			else if (temp_u < 0)
-				temp_u = 0;
-			u[i] = temp_u;
-		}
-	} else {
-		for (int i = 0; i < 4; i++) {
-			u[i] = (base_u + (i & 1)) & (width - 1);
-		}
-	}
-	if (gstate.isTexCoordClampedT()) {
-		for (int i = 0; i < 4; i++) {
-			int temp_v = base_v + ((i & 2) >> 1);
-			if (temp_v > height - 1)
-				temp_v = height - 1;
-			else if (temp_v < 0)
-				temp_v = 0;
-			v[i] = temp_v;
-		}
-	} else {
-		for (int i = 0; i < 4; i++) {
-			v[i] = (base_v + ((i & 2) >> 1)) & (height - 1);
-		}
-	}
-}
-
-static inline void GetTexelCoordinatesThrough(int level, int s, int t, int& u, int& v)
-{
-	// TODO: Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
-	int width = gstate.getTextureWidth(level);
-	int height = gstate.getTextureHeight(level);
-
-	// Wrap!
-	u = ((unsigned int)(s) & (width - 1));
-	v = ((unsigned int)(t) & (height - 1));
-}
-
-static inline void GetTexelCoordinatesThroughQuad(int level, int s, int t, int *u, int *v)
-{
-	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
-	int width = gstate.getTextureWidth(level);
-	int height = gstate.getTextureHeight(level);
-
-	// Wrap!
-	for (int i = 0; i < 4; i++) {
-		u[i] = (s + (i & 1)) & (width - 1);
-		v[i] = (t + ((i & 2) >> 1)) & (height - 1);
-	}
+	ApplyTexelClampQuad<1>(u, v, &base_u, &base_v, width, height);
 }
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t)
@@ -384,7 +373,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbytes, u[i], v[i]);
 			u32 val = src[0] + (src[1] << 8) + (src[2] << 16) + (src[3] << 24);
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
 		return res;
 
@@ -392,7 +381,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbytes, u[i], v[i]);
 			u16 val = src[0] + (src[1] << 8);
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
 		return res;
 
@@ -400,7 +389,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufwidthbytes, u[i], v[i]);
 			u8 val = *src;
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
+			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
 		return res;
 
@@ -408,6 +397,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufwidthbytes, u[i], v[i]);
 			u8 val = (u[i] & 1) ? (src[0] >> 4) : (src[0] & 0xF);
+			// Only CLUT4 uses separate mipmap palettes.
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
 		}
 		return res;
@@ -1119,86 +1109,156 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 	SetPixelColor(p.x, p.y, new_color);
 }
 
-inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLevel, int magFilt, u8 *texptr[], int texbufwidthbytes[]) {
-	int u[4] = {0}, v[4] = {0};   // 1.23.8 fixed point
-	int frac_u, frac_v;
+static inline Vec4<int> SampleLinear(int texlevel, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufwbytes) {
+#if defined(_M_SSE)
+	Nearest4 c = SampleNearest<4>(texlevel, u, v, tptr, bufwbytes);
 
-	int texlevel = 0;
+	const __m128i z = _mm_setzero_si128();
 
-	bool bilinear = magFilt != 0;
-	// bilinear = false;
+	__m128i cvec = _mm_load_si128((const __m128i *)c.v);
+	__m128i tvec = _mm_unpacklo_epi8(cvec, z);
+	tvec = _mm_mullo_epi16(tvec, _mm_set1_epi16(0x100 - frac_v));
+	__m128i bvec = _mm_unpackhi_epi8(cvec, z);
+	bvec = _mm_mullo_epi16(bvec, _mm_set1_epi16(frac_v));
+
+	// This multiplies the left and right sides.  We shift right after, although this may round down...
+	__m128i rowmult = _mm_set_epi16(frac_u, frac_u, frac_u, frac_u, 0x100 - frac_u, 0x100 - frac_u, 0x100 - frac_u, 0x100 - frac_u);
+	__m128i tmp = _mm_mulhi_epu16(_mm_add_epi16(tvec, bvec), rowmult);
+
+	// Now we need to add the left and right sides together.
+	__m128i res = _mm_add_epi16(tmp, _mm_shuffle_epi32(tmp, _MM_SHUFFLE(3, 2, 3, 2)));
+	return Vec4<int>(_mm_unpacklo_epi16(res, z));
+#else
+	Nearest4 nearest = SampleNearest<4>(texlevel, u, v, tptr, bufwbytes);
+	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(nearest.v[0]);
+	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(nearest.v[1]);
+	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(nearest.v[2]);
+	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(nearest.v[3]);
+	// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
+	Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
+	Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
+	return (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
+#endif
+}
+
+static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int texlevel, int frac_texlevel, int filt, u8 *texptr[], int texbufwidthbytes[]) {
+	int u[8] = {0}, v[8] = {0};   // 1.23.8 fixed point
+	int frac_u[2], frac_v[2];
 
 	if (gstate.isModeThrough()) {
-		int u_texel = s * 256;
-		int v_texel = t * 256;
-		frac_u = u_texel & 0xff;
-		frac_v = v_texel & 0xff;
-		u_texel >>= 8;
-		v_texel >>= 8;
-
-		// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
-		// texlevel = x
-
-		if (texlevel > maxTexLevel)
-			texlevel = maxTexLevel;
-
-		if (bilinear) {
-			GetTexelCoordinatesThroughQuad(texlevel, u_texel, v_texel, u, v);
-		} else {
-			GetTexelCoordinatesThrough(texlevel, u_texel, v_texel, u[0], v[0]);
-		}
-	} else {
-		// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
-		// texlevel = x
-
-		if (texlevel > maxTexLevel)
-			texlevel = maxTexLevel;
-
-		if (bilinear) {
-			GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u, frac_v);
-		} else {
-			GetTexelCoordinates(texlevel, s, t, u[0], v[0]);
-		}
+		// For levels > 0, these are always based on level 0.  Simpler to round initially.
+		s /= (float)gstate.getTextureWidth(0);
+		t /= (float)gstate.getTextureHeight(0);
 	}
 
-	Vec4<int> texcolor;
-	int bufwbytes = texbufwidthbytes[texlevel];
-	const u8 *tptr = texptr[texlevel];
+	Vec4<int> texcolor0;
+	Vec4<int> texcolor1;
+	const u8 *tptr0 = texptr[texlevel];
+	int bufwbytes0 = texbufwidthbytes[texlevel];
+	const u8 *tptr1 = texptr[texlevel + 1];
+	int bufwbytes1 = texbufwidthbytes[texlevel + 1];
+
+	bool bilinear = filt != 0;
 	if (!bilinear) {
-		// Nearest filtering only. Round texcoords or just chop bits?
-		texcolor = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel, u, v, tptr, bufwbytes));
+		// Nearest filtering only.  Round texcoords.
+		GetTexelCoordinates(texlevel, s, t, u[0], v[0]);
+		if (frac_texlevel) {
+			GetTexelCoordinates(texlevel + 1, s, t, u[1], v[1]);
+		}
+
+		texcolor0 = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel, u, v, tptr0, bufwbytes0));
+		if (frac_texlevel) {
+			texcolor1 = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel + 1, u + 1, v + 1, tptr1, bufwbytes1));
+		}
 	} else {
-#if defined(_M_SSE)
-		Nearest4 c = SampleNearest<4>(texlevel, u, v, tptr, bufwbytes);
+		GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u[0], frac_v[0]);
+		if (frac_texlevel) {
+			GetTexelCoordinatesQuad(texlevel + 1, s, t, u + 4, v + 4, frac_u[1], frac_v[1]);
+		}
 
-		const __m128i z = _mm_setzero_si128();
-
-		__m128i cvec = _mm_load_si128((const __m128i *)c.v);
-		__m128i tvec = _mm_unpacklo_epi8(cvec, z);
-		tvec = _mm_mullo_epi16(tvec, _mm_set1_epi16(0x100 - frac_v));
-		__m128i bvec = _mm_unpackhi_epi8(cvec, z);
-		bvec = _mm_mullo_epi16(bvec, _mm_set1_epi16(frac_v));
-
-		// This multiplies the left and right sides.  We shift right after, although this may round down...
-		__m128i rowmult = _mm_set_epi16(frac_u, frac_u, frac_u, frac_u, 0x100 - frac_u, 0x100 - frac_u, 0x100 - frac_u, 0x100 - frac_u);
-		__m128i tmp = _mm_mulhi_epu16(_mm_add_epi16(tvec, bvec), rowmult);
-
-		// Now we need to add the left and right sides together.
-		__m128i res = _mm_add_epi16(tmp, _mm_shuffle_epi32(tmp, _MM_SHUFFLE(3, 2, 3, 2)));
-		texcolor = Vec4<int>(_mm_unpacklo_epi16(res, z));
-#else
-		Nearest4 nearest = SampleNearest<4>(texlevel, u, v, tptr, bufwbytes);
-		Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(nearest.v[0]);
-		Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(nearest.v[1]);
-		Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(nearest.v[2]);
-		Vec4<int> texcolor_br = Vec4<int>::FromRGBA(nearest.v[3]);
-		// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
-		Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
-		Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
-		texcolor = (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
-#endif
+		texcolor0 = SampleLinear(texlevel, u, v, frac_u[0], frac_v[0], tptr0, bufwbytes0);
+		if (frac_texlevel) {
+			texcolor1 = SampleLinear(texlevel + 1, u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufwbytes1);
+		}
 	}
-	prim_color = GetTextureFunctionOutput(prim_color, texcolor);
+
+	if (frac_texlevel) {
+		texcolor0 = (texcolor1 * frac_texlevel + texcolor0 * (256 - frac_texlevel)) / 256;
+	}
+	prim_color = GetTextureFunctionOutput(prim_color, texcolor0);
+}
+
+// Produces a signed 1.23.8 value.
+static int TexLog2(float delta) {
+	union FloatBits {
+		float f;
+		u32 u;
+	};
+	FloatBits f;
+	f.f = delta;
+	// Use the exponent as the tex level, and the top mantissa bits for a frac.
+	// We can't support more than 8 bits of frac, so truncate.
+	int useful = (f.u >> 15) & 0xFFFF;
+	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
+	return useful - 127 * 256;
+}
+
+static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufwidthbytes[]) {
+	int width = gstate.getTextureWidth(0);
+	int height = gstate.getTextureHeight(0);
+
+	float ds = s[1] - s[0];
+	float dt = t[2] - t[0];
+	if (!gstate.isModeThrough()) {
+		ds *= width;
+		dt *= height;
+	}
+
+	// With 8 bits of fraction (because texslope can be fairly precise.)
+	int detail;
+	switch (gstate.getTexLevelMode()) {
+	case GE_TEXLEVEL_MODE_AUTO:
+		detail = TexLog2(std::max(ds, dt));
+		break;
+	case GE_TEXLEVEL_MODE_SLOPE:
+		// This is always offset by an extra texlevel.
+		detail = 1 * 256 + TexLog2(gstate.getTextureLodSlope());
+		break;
+	case GE_TEXLEVEL_MODE_CONST:
+	default:
+		// TODO: Verify what 3 does.
+		detail = 0;
+		break;
+	}
+
+	// Add in the bias (used in all modes), expanding to 8 bits of fraction.
+	detail += (int)(s8)((gstate.texlevel >> 16) & 0xFF) << 4;
+
+	int minFilt = (gstate.texfilter >> 0) & 1;
+	int mipFilt = (gstate.texfilter >> 1) & 1;
+	int magFilt = (gstate.texfilter >> 8) & 1;
+
+	int level = 0;
+	int levelFrac = 0;
+	if (detail > 0 && maxTexLevel > 0) {
+		int level8 = std::min(detail, maxTexLevel * 256);
+		if (!mipFilt) {
+			// Round up at 1.5.
+			level8 += 128;
+		}
+		level = level8 >> 8;
+		levelFrac = mipFilt ? level8 & 0xFF : 0;
+	}
+	int filt = detail > 0 ? minFilt : magFilt;
+	if (g_Config.iTexFiltering == 3) {
+		filt = 1;
+	} else if (g_Config.iTexFiltering == 2) {
+		filt = 0;
+	}
+
+	for (int i = 0; i < 4; ++i) {
+		ApplyTexturing(prim_color[i], s[i], t[i], level, levelFrac, filt, texptr, texbufwidthbytes);
+	}
 }
 
 struct TriangleEdge {
@@ -1234,7 +1294,35 @@ inline Vec4<int> TriangleEdge::StepX(const Vec4<int> &w) {
 }
 
 inline Vec4<int> TriangleEdge::StepY(const Vec4<int> &w) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	return _mm_add_epi32(w.ivec, stepY.ivec);
+#else
 	return w + stepY;
+#endif
+}
+
+inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	__m128i biased0 = _mm_add_epi32(w0.ivec, bias0.ivec);
+	__m128i biased1 = _mm_add_epi32(w1.ivec, bias1.ivec);
+	__m128i biased2 = _mm_add_epi32(w2.ivec, bias2.ivec);
+
+	return _mm_or_si128(biased0, _mm_or_si128(biased1, biased2));
+#else
+	return (w0 + bias0) | (w1 + bias1) | (w2 + bias2);
+#endif
+}
+
+inline bool AnyMask(const Vec4<int> &mask) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	// In other words: !(mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
+	__m128i low2 = _mm_and_si128(mask.ivec, _mm_shuffle_epi32(mask.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
+	__m128i low1 = _mm_and_si128(low2, _mm_shuffle_epi32(low2, _MM_SHUFFLE(1, 1, 1, 1)));
+	// Now we only need to check one sign bit.
+	return _mm_cvtsi128_si32(low1) >= 0;
+#else
+	return mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0;
+#endif
 }
 
 template <bool clearMode>
@@ -1252,15 +1340,7 @@ void DrawTriangleSlice(
 	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
-	int magFilt = (gstate.texfilter>>8) & 1;
-	if (g_Config.iTexFiltering > 1) {
-		if (g_Config.iTexFiltering == 2) {
-			magFilt = 0;
-		} else if (g_Config.iTexFiltering == 3) {
-			magFilt = 1;
-		}
-	}
-	if ((gstate.texfilter & 4) == 0) {
+	if ((gstate.texfilter & 4) == 0 || !g_Config.bMipMap) {
 		// No mipmapping enabled
 		maxTexLevel = 0;
 	}
@@ -1314,8 +1394,8 @@ void DrawTriangleSlice(
 			p.x = (p.x + 2) & 0x3FF) {
 
 			// If p is on or inside all edges, render pixel
-			Vec4<int> mask = (w0 + bias0) | (w1 + bias1) | (w2 + bias2);
-			if (mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0) {
+			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2);
+			if (AnyMask(mask)) {
 				Vec4<float> wsum_recip = (w0 + w1 + w2).Cast<float>().Reciprocal();
 
 				Vec4<int> prim_color[4];
@@ -1343,9 +1423,7 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					for (int i = 0; i < 4; ++i) {
-						ApplyTexturing(prim_color[i], s[i], t[i], maxTexLevel, magFilt, texptr, texbufwidthbytes);
-					}
+					ApplyTexturing(prim_color, s, t, maxTexLevel, texptr, texbufwidthbytes);
 				}
 
 				if (!clearMode) {
@@ -1472,7 +1550,7 @@ void DrawPoint(const VertexData &v0)
 				magFilt = 1;
 			}
 		}
-		if ((gstate.texfilter & 4) == 0) {
+		if ((gstate.texfilter & 4) == 0 || !g_Config.bMipMap) {
 			// No mipmapping enabled
 			maxTexLevel = 0;
 		}
@@ -1488,7 +1566,7 @@ void DrawPoint(const VertexData &v0)
 			}
 		}
 
-		ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbytes);
+		ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
 	}
 
 	if (!clearMode)
@@ -1548,7 +1626,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 			magFilt = 1;
 		}
 	}
-	if ((gstate.texfilter & 4) == 0) {
+	if ((gstate.texfilter & 4) == 0 || !g_Config.bMipMap) {
 		// No mipmapping enabled
 		maxTexLevel = 0;
 	}
@@ -1587,7 +1665,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		float t = tc.t();
 
 		if (gstate.isTextureMapEnabled() && !clearMode) {
-			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbytes);
+			ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
 		}
 
 		if (!clearMode)

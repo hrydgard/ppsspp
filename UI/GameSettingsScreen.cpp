@@ -274,8 +274,7 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
 #endif
-	CheckBox *mipmapping = graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gr->T("Mipmapping")));
-	mipmapping->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gr->T("Mipmapping")));
 
 	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 	hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
@@ -324,12 +323,12 @@ void GameSettingsScreen::CreateViews() {
 		}
 		return UI::EVENT_CONTINUE;
 	});
-	bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
+	bezierChoiceDisable_ = g_Config.bHardwareTessellation;
 	beziersChoice->SetDisabledPtr(&bezierChoiceDisable_);
 
 	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation", "Hardware tessellation (experimental)")));
 	tessellationHW->OnClick.Add([=](EventParams &e) {
-		bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
+		bezierChoiceDisable_ = g_Config.bHardwareTessellation;
 		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves, always uses a fixed quality"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
@@ -380,8 +379,7 @@ void GameSettingsScreen::CreateViews() {
 	anisoFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
-	PopupMultiChoice *texFilter = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gr->GetName(), screenManager()));
-	texFilter->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gr->GetName(), screenManager()));
 
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
@@ -794,7 +792,7 @@ UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
 	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	bezierChoiceDisable_ = g_Config.bSoftwareRendering || g_Config.bHardwareTessellation;
+	bezierChoiceDisable_ = g_Config.bHardwareTessellation;
 	tessHWEnable_ = IsBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
