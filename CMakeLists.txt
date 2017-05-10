@@ -1284,6 +1284,8 @@ set(GPU_SOURCES
 	GPU/Software/Lighting.h
 	GPU/Software/Rasterizer.cpp
 	GPU/Software/Rasterizer.h
+	GPU/Software/Sampler.cpp
+	GPU/Software/Sampler.h
 	GPU/Software/SoftGpu.cpp
 	GPU/Software/SoftGpu.h
 	GPU/Software/TransformUnit.cpp

@@ -31,6 +31,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"
+#include "GPU/Software/Sampler.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -108,51 +109,6 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 
 static inline Vec4<float> Interpolate(const float &c0, const float &c1, const float &c2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip) {
 	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
-}
-
-template <unsigned int texel_size_bits>
-static inline int GetPixelDataOffset(unsigned int row_pitch_bytes, unsigned int u, unsigned int v)
-{
-	if (!gstate.isTextureSwizzled())
-		return (v * (row_pitch_bytes * texel_size_bits >> 3)) + (u * texel_size_bits >> 3);
-
-	const int tile_size_bits = 32;
-	const int tiles_in_block_horizontal = 4;
-	const int tiles_in_block_vertical = 8;
-
-	int texels_per_tile = tile_size_bits / texel_size_bits;
-	int tile_u = u / texels_per_tile;
-	int tile_idx = (v % tiles_in_block_vertical) * (tiles_in_block_horizontal) +
-	// TODO: not sure if the *texel_size_bits/8 factor is correct
-					(v / tiles_in_block_vertical) * ((row_pitch_bytes*texel_size_bits/(tile_size_bits))*tiles_in_block_vertical) +
-					(tile_u % tiles_in_block_horizontal) +
-					(tile_u / tiles_in_block_horizontal) * (tiles_in_block_horizontal*tiles_in_block_vertical);
-
-	return tile_idx * (tile_size_bits / 8) + ((u % texels_per_tile) * texel_size_bits) / 8;
-}
-
-static inline u32 LookupColor(unsigned int index, unsigned int level)
-{
-	const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
-	const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
-
-	switch (gstate.getClutPaletteFormat()) {
-	case GE_CMODE_16BIT_BGR5650:
-		return RGB565ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
-
-	case GE_CMODE_16BIT_ABGR5551:
-		return RGBA5551ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
-
-	case GE_CMODE_16BIT_ABGR4444:
-		return RGBA4444ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
-
-	case GE_CMODE_32BIT_ABGR8888:
-		return clut[index + clutSharingOffset];
-
-	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unsupported palette format: %x", gstate.getClutPaletteFormat());
-		return 0;
-	}
 }
 
 static inline u8 ClampFogDepth(float fogdepth) {
@@ -371,123 +327,6 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 		s = Vec4<float>::AssignToAll(0.0f);
 		t = Vec4<float>::AssignToAll(0.0f);
 		break;
-	}
-}
-
-struct Nearest4 {
-	MEMORY_ALIGNED16(u32 v[4]);
-
-	operator u32() const {
-		return v[0];
-	}
-};
-
-template <int N>
-inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *srcptr, int texbufw)
-{
-	Nearest4 res;
-	if (!srcptr) {
-		memset(res.v, 0, sizeof(res.v));
-		return res;
-	}
-
-	GETextureFormat texfmt = gstate.getTextureFormat();
-
-	// TODO: Should probably check if textures are aligned properly...
-
-	switch (texfmt) {
-	case GE_TFMT_4444:
-		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
-			res.v[i] = RGBA4444ToRGBA8888(*(const u16 *)src);
-		}
-		return res;
-	
-	case GE_TFMT_5551:
-		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
-			res.v[i] = RGBA5551ToRGBA8888(*(const u16 *)src);
-		}
-		return res;
-
-	case GE_TFMT_5650:
-		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
-			res.v[i] = RGB565ToRGBA8888(*(const u16 *)src);
-		}
-		return res;
-
-	case GE_TFMT_8888:
-		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufw, u[i], v[i]);
-			res.v[i] = *(const u32 *)src;
-		}
-		return res;
-
-	case GE_TFMT_CLUT32:
-		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufw, u[i], v[i]);
-			u32 val = src[0] + (src[1] << 8) + (src[2] << 16) + (src[3] << 24);
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
-		}
-		return res;
-
-	case GE_TFMT_CLUT16:
-		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
-			u16 val = src[0] + (src[1] << 8);
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
-		}
-		return res;
-
-	case GE_TFMT_CLUT8:
-		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufw, u[i], v[i]);
-			u8 val = *src;
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
-		}
-		return res;
-
-	case GE_TFMT_CLUT4:
-		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufw, u[i], v[i]);
-			u8 val = (u[i] & 1) ? (src[0] >> 4) : (src[0] & 0xF);
-			// Only CLUT4 uses separate mipmap palettes.
-			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
-		}
-		return res;
-
-	case GE_TFMT_DXT1:
-		for (int i = 0; i < N; ++i) {
-			const DXT1Block *block = (const DXT1Block *)srcptr + (v[i] / 4) * (texbufw / 4) + (u[i] / 4);
-			u32 data[4 * 4];
-			DecodeDXT1Block(data, block, 4, 4, false);
-			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
-		}
-		return res;
-
-	case GE_TFMT_DXT3:
-		for (int i = 0; i < N; ++i) {
-			const DXT3Block *block = (const DXT3Block *)srcptr + (v[i] / 4) * (texbufw / 4) + (u[i] / 4);
-			u32 data[4 * 4];
-			DecodeDXT3Block(data, block, 4, 4);
-			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
-		}
-		return res;
-
-	case GE_TFMT_DXT5:
-		for (int i = 0; i < N; ++i) {
-			const DXT5Block *block = (const DXT5Block *)srcptr + (v[i] / 4) * (texbufw / 4) + (u[i] / 4);
-			u32 data[4 * 4];
-			DecodeDXT5Block(data, block, 4, 4);
-			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
-		}
-		return res;
-
-	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture format: %x", texfmt);
-		memset(res.v, 0, sizeof(res.v));
-		return res;
 	}
 }
 
@@ -1164,38 +1003,6 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 	SetPixelColor(p.x, p.y, new_color);
 }
 
-static inline Vec4<int> SampleLinear(int texlevel, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw) {
-#if defined(_M_SSE)
-	Nearest4 c = SampleNearest<4>(texlevel, u, v, tptr, bufw);
-
-	const __m128i z = _mm_setzero_si128();
-
-	__m128i cvec = _mm_load_si128((const __m128i *)c.v);
-	__m128i tvec = _mm_unpacklo_epi8(cvec, z);
-	tvec = _mm_mullo_epi16(tvec, _mm_set1_epi16(0x100 - frac_v));
-	__m128i bvec = _mm_unpackhi_epi8(cvec, z);
-	bvec = _mm_mullo_epi16(bvec, _mm_set1_epi16(frac_v));
-
-	// This multiplies the left and right sides.  We shift right after, although this may round down...
-	__m128i rowmult = _mm_set_epi16(frac_u, frac_u, frac_u, frac_u, 0x100 - frac_u, 0x100 - frac_u, 0x100 - frac_u, 0x100 - frac_u);
-	__m128i tmp = _mm_mulhi_epu16(_mm_add_epi16(tvec, bvec), rowmult);
-
-	// Now we need to add the left and right sides together.
-	__m128i res = _mm_add_epi16(tmp, _mm_shuffle_epi32(tmp, _MM_SHUFFLE(3, 2, 3, 2)));
-	return Vec4<int>(_mm_unpacklo_epi16(res, z));
-#else
-	Nearest4 nearest = SampleNearest<4>(texlevel, u, v, tptr, bufw);
-	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(nearest.v[0]);
-	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(nearest.v[1]);
-	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(nearest.v[2]);
-	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(nearest.v[3]);
-	// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
-	Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
-	Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
-	return (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
-#endif
-}
-
 static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[]) {
 	int u[8] = {0}, v[8] = {0};   // 1.23.8 fixed point
 	int frac_u[2], frac_v[2];
@@ -1214,9 +1021,9 @@ static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int t
 			GetTexelCoordinates(texlevel + 1, s, t, u[1], v[1]);
 		}
 
-		texcolor0 = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel, u, v, tptr0, bufw0));
+		texcolor0 = Sampler::SampleNearest(texlevel, u[0], v[0], tptr0, bufw0);
 		if (frac_texlevel) {
-			texcolor1 = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel + 1, u + 1, v + 1, tptr1, bufw1));
+			texcolor1 = Sampler::SampleNearest(texlevel + 1, u[1], v[1], tptr1, bufw1);
 		}
 	} else {
 		GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u[0], frac_v[0]);
@@ -1224,9 +1031,9 @@ static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int t
 			GetTexelCoordinatesQuad(texlevel + 1, s, t, u + 4, v + 4, frac_u[1], frac_v[1]);
 		}
 
-		texcolor0 = SampleLinear(texlevel, u, v, frac_u[0], frac_v[0], tptr0, bufw0);
+		texcolor0 = Sampler::SampleLinear(texlevel, u, v, frac_u[0], frac_v[0], tptr0, bufw0);
 		if (frac_texlevel) {
-			texcolor1 = SampleLinear(texlevel + 1, u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufw1);
+			texcolor1 = Sampler::SampleLinear(texlevel + 1, u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufw1);
 		}
 	}
 
@@ -1828,7 +1635,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = SampleNearest<1>(level, &x, &y, texptr, texbufw);
+			row[x] = Sampler::SampleNearest(level, x, y, texptr, texbufw).ToRGBA();
 		}
 		row += w;
 	}
