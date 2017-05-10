@@ -579,7 +579,7 @@ static GraphicsContext *graphicsContext;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_X;
-		axisInput.value = value;
+		axisInput.value = value * g_Config.fXInputAnalogSensitivity;
 		NativeAxis(axisInput);
 	};
 	
@@ -588,7 +588,7 @@ static GraphicsContext *graphicsContext;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Y;
-		axisInput.value = -value;
+		axisInput.value = -value * g_Config.fXInputAnalogSensitivity;
 		NativeAxis(axisInput);
 	};
 	
@@ -598,7 +598,7 @@ static GraphicsContext *graphicsContext;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Z;
-		axisInput.value = value;
+		axisInput.value = value * g_Config.fXInputAnalogSensitivity;
 		NativeAxis(axisInput);
 	};
 	
@@ -607,7 +607,7 @@ static GraphicsContext *graphicsContext;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_RZ;
-		axisInput.value = -value;
+		axisInput.value = -value * g_Config.fXInputAnalogSensitivity;
 		NativeAxis(axisInput);
 	};
 }
