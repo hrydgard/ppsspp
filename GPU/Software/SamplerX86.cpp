@@ -150,7 +150,59 @@ bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 }
 
 bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
-	return false;
+	if (id.swizzle) {
+		return false;
+	}
+
+	// srcReg might be EDX, so let's copy that before we multiply.
+	switch (bitsPerTexel) {
+	case 32:
+	case 16:
+	case 8:
+		LEA(64, tempReg1, MComplex(srcReg, uReg, bitsPerTexel / 8, 0));
+		break;
+
+	case 4: {
+		XOR(32, R(tempReg2), R(tempReg2));
+		SHR(32, R(uReg), Imm8(1));
+		FixupBranch skip = J_CC(CC_NC);
+		// Track whether we shifted a 1 off or not.
+		MOV(32, R(tempReg2), Imm32(4));
+		SetJumpTarget(skip);
+		LEA(64, tempReg1, MRegSum(srcReg, uReg));
+		break;
+	}
+
+	default:
+		return false;
+	}
+
+	MOV(32, R(EAX), R(vReg));
+	MUL(32, R(bufwReg));
+
+	switch (bitsPerTexel) {
+	case 32:
+	case 16:
+	case 8:
+		MOV(bitsPerTexel, R(resultReg), MComplex(tempReg1, RAX, bitsPerTexel / 8, 0));
+		break;
+
+	case 4: {
+		SHR(32, R(RAX), Imm8(1));
+		MOV(8, R(resultReg), MRegSum(tempReg1, RAX));
+		// RCX is now free.
+		MOV(8, R(RCX), R(tempReg2));
+		SHR(8, R(resultReg), R(RCX));
+		// Zero out any bits not shifted off.
+		AND(32, R(resultReg), Imm32(0x0000000F));
+		break;
+	}
+
+	default:
+		return false;
+	}
+
+	return true;
 }
 
 bool SamplerJitCache::Jit_Decode5650() {
