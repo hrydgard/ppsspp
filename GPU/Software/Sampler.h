@@ -100,6 +100,13 @@ public:
 private:
 	NearestFunc Compile(const SamplerID &id);
 
+	bool Jit_GetTexData(const SamplerID &id, int bitsPerTexel);
+	bool Jit_Decode5650();
+	bool Jit_Decode5551();
+	bool Jit_Decode4444();
+	bool Jit_TransformClutIndex(const SamplerID &id);
+	bool Jit_ReadClutColor(const SamplerID &id);
+
 #if PPSSPP_ARCH(ARM64)
 	Arm64Gen::ARM64FloatEmitter fp;
 #endif

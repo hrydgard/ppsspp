@@ -67,6 +67,60 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 	GETextureFormat fmt = (GETextureFormat)id.texfmt;
 	bool success = true;
 	switch (fmt) {
+	case GE_TFMT_5650:
+		success = Jit_GetTexData(id, 16);
+		if (success)
+			success = Jit_Decode5650();
+		break;
+
+	case GE_TFMT_5551:
+		success = Jit_GetTexData(id, 16);
+		if (success)
+			success = Jit_Decode5551();
+		break;
+
+	case GE_TFMT_4444:
+		success = Jit_GetTexData(id, 16);
+		if (success)
+			success = Jit_Decode4444();
+		break;
+
+	case GE_TFMT_8888:
+		success = Jit_GetTexData(id, 32);
+		break;
+
+	case GE_TFMT_CLUT32:
+		success = Jit_GetTexData(id, 32);
+		if (success)
+			success = Jit_TransformClutIndex(id);
+		if (success)
+			success = Jit_ReadClutColor(id);
+		break;
+
+	case GE_TFMT_CLUT16:
+		success = Jit_GetTexData(id, 16);
+		if (success)
+			success = Jit_TransformClutIndex(id);
+		if (success)
+			success = Jit_ReadClutColor(id);
+		break;
+
+	case GE_TFMT_CLUT8:
+		success = Jit_GetTexData(id, 16);
+		if (success)
+			success = Jit_TransformClutIndex(id);
+		if (success)
+			success = Jit_ReadClutColor(id);
+		break;
+
+	case GE_TFMT_CLUT4:
+		success = Jit_GetTexData(id, 16);
+		if (success)
+			success = Jit_TransformClutIndex(id);
+		if (success)
+			success = Jit_ReadClutColor(id);
+		break;
+
 	default:
 		success = false;
 	}
@@ -89,6 +143,30 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 
 	EndWrite();
 	return (NearestFunc)start;
+}
+
+bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
+	return false;
+}
+
+bool SamplerJitCache::Jit_Decode5650() {
+	return false;
+}
+
+bool SamplerJitCache::Jit_Decode5551() {
+	return false;
+}
+
+bool SamplerJitCache::Jit_Decode4444() {
+	return false;
+}
+
+bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id) {
+	return false;
+}
+
+bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
+	return false;
 }
 
 };
