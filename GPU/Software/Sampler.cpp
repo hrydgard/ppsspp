@@ -123,10 +123,10 @@ NearestFunc SamplerJitCache::GetSampler(const SamplerID &id) {
 }
 
 template <unsigned int texel_size_bits>
-static inline int GetPixelDataOffset(unsigned int row_pitch_bytes, unsigned int u, unsigned int v)
+static inline int GetPixelDataOffset(unsigned int row_pitch_pixels, unsigned int u, unsigned int v)
 {
 	if (!gstate.isTextureSwizzled())
-		return (v * (row_pitch_bytes * texel_size_bits >> 3)) + (u * texel_size_bits >> 3);
+		return (v * (row_pitch_pixels * texel_size_bits >> 3)) + (u * texel_size_bits >> 3);
 
 	const int tile_size_bits = 32;
 	const int tiles_in_block_horizontal = 4;
@@ -136,7 +136,7 @@ static inline int GetPixelDataOffset(unsigned int row_pitch_bytes, unsigned int 
 	int tile_u = u / texels_per_tile;
 	int tile_idx = (v % tiles_in_block_vertical) * (tiles_in_block_horizontal) +
 	// TODO: not sure if the *texel_size_bits/8 factor is correct
-					(v / tiles_in_block_vertical) * ((row_pitch_bytes*texel_size_bits/(tile_size_bits))*tiles_in_block_vertical) +
+					(v / tiles_in_block_vertical) * ((row_pitch_pixels*texel_size_bits/(tile_size_bits))*tiles_in_block_vertical) +
 					(tile_u % tiles_in_block_horizontal) +
 					(tile_u / tiles_in_block_horizontal) * (tiles_in_block_horizontal*tiles_in_block_vertical);
 
