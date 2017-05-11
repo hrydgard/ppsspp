@@ -995,3 +995,12 @@ bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &v
 {
 	return drawEngine_->transformUnit.GetCurrentSimpleVertices(count, vertices, indices);
 }
+
+bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
+	std::string subname;
+	if (Sampler::DescribeCodePtr(ptr, subname)) {
+		name = "SamplerJit:" + subname;
+		return true;
+	}
+	return false;
+}

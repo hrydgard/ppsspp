@@ -47,6 +47,15 @@ void Shutdown() {
 	jitCache = nullptr;
 }
 
+bool DescribeCodePtr(const u8 *ptr, std::string &name) {
+	if (!jitCache->IsInSpace(ptr)) {
+		return false;
+	}
+
+	name = jitCache->DescribeCodePtr(ptr);
+	return true;
+}
+
 NearestFunc GetNearestFunc() {
 	SamplerID id;
 	jitCache->ComputeSamplerID(&id);
@@ -97,6 +106,73 @@ void SamplerJitCache::ComputeSamplerID(SamplerID *id_out) {
 	id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
 
 	*id_out = id;
+}
+
+std::string SamplerJitCache::DescribeSamplerID(const SamplerID &id) {
+	std::string name;
+	switch ((GETextureFormat)id.texfmt) {
+	case GE_TFMT_5650: name = "5650"; break;
+	case GE_TFMT_5551: name = "5551"; break;
+	case GE_TFMT_4444: name = "4444"; break;
+	case GE_TFMT_8888: name = "8888"; break;
+	case GE_TFMT_CLUT4: name = "CLUT4"; break;
+	case GE_TFMT_CLUT8: name = "CLUT8"; break;
+	case GE_TFMT_CLUT16: name = "CLUT16"; break;
+	case GE_TFMT_CLUT32: name = "CLUT32"; break;
+	case GE_TFMT_DXT1: name = "DXT1"; break;
+	case GE_TFMT_DXT3: name = "DXT3"; break;
+	case GE_TFMT_DXT5: name = "DXT5"; break;
+	}
+	switch ((GEPaletteFormat)id.clutfmt) {
+	case GE_CMODE_16BIT_BGR5650:
+		switch ((GETextureFormat)id.texfmt) {
+		case GE_TFMT_CLUT4:
+		case GE_TFMT_CLUT8:
+		case GE_TFMT_CLUT16:
+		case GE_TFMT_CLUT32:
+			name += ":C5650";
+			break;
+		default:
+			// Ignore 0 clutfmt when no clut.
+			break;
+		}
+		break;
+	case GE_CMODE_16BIT_ABGR5551: name += ":C5551"; break;
+	case GE_CMODE_16BIT_ABGR4444: name += ":C4444"; break;
+	case GE_CMODE_32BIT_ABGR8888: name += ":C8888"; break;
+	}
+	if (id.swizzle) {
+		name += ":SWZ";
+	}
+	if (!id.useSharedClut) {
+		name += ":MIP";
+	}
+	if (id.hasInvalidPtr) {
+		name += ":INV";
+	}
+	if (id.hasClutMask) {
+		name += ":CMASK";
+	}
+	if (id.hasClutShift) {
+		name += ":CSHF";
+	}
+	if (id.hasClutOffset) {
+		name += ":COFF";
+	}
+	return name;
+}
+
+std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
+	int dist = 0x7FFFFFFF;
+	SamplerID found{};
+	for (const auto &it : cache_) {
+		ptrdiff_t it_dist = ptr - (const u8 *)it.second;
+		if (it_dist >= 0 && it_dist < dist) {
+			found = it.first;
+		}
+	}
+
+	return DescribeSamplerID(found);
 }
 
 NearestFunc SamplerJitCache::GetSampler(const SamplerID &id) {

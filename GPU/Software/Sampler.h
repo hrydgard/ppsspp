@@ -75,6 +75,8 @@ NearestFunc GetNearestFunc();
 void Init();
 void Shutdown();
 
+bool DescribeCodePtr(const u8 *ptr, std::string &name);
+
 Math3D::Vec4<int> SampleLinear(NearestFunc sampler, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
 
 #if PPSSPP_ARCH(ARM)
@@ -96,6 +98,9 @@ public:
 	// Returns a pointer to the code to run.
 	NearestFunc GetSampler(const SamplerID &id);
 	void Clear();
+
+	std::string DescribeCodePtr(const u8 *ptr);
+	std::string DescribeSamplerID(const SamplerID &id);
 
 private:
 	NearestFunc Compile(const SamplerID &id);
