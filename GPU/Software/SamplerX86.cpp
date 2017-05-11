@@ -53,24 +53,20 @@ static const X64Reg levelReg = R8;
 static const X64Reg fpScratchReg1 = XMM1;
 static const X64Reg fpScratchReg2 = XMM2;
 static const X64Reg fpScratchReg3 = XMM3;
-static const X64Reg fpScratchReg4 = XMM4;
 
 NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 	BeginWrite();
 	const u8 *start = this->AlignCode16();
 
-	SUB(PTRBITS, R(ESP), Imm8(64));
-	MOVUPS(MDisp(ESP, 0), XMM4);
-	MOVUPS(MDisp(ESP, 16), XMM5);
-	MOVUPS(MDisp(ESP, 32), XMM6);
-	MOVUPS(MDisp(ESP, 48), XMM7);
-
 	// Early exit on !srcPtr.
-	CMP(PTRBITS, R(srcReg), Imm32(0));
-	FixupBranch nonZeroSrc = J_CC(CC_NZ);
-	XOR(32, R(RAX), R(RAX));
-	FixupBranch zeroSrc = J(true);
-	SetJumpTarget(nonZeroSrc);
+	FixupBranch zeroSrc;
+	if (id.hasInvalidPtr) {
+		CMP(PTRBITS, R(srcReg), Imm32(0));
+		FixupBranch nonZeroSrc = J_CC(CC_NZ);
+		XOR(32, R(RAX), R(RAX));
+		zeroSrc = J(true);
+		SetJumpTarget(nonZeroSrc);
+	}
 
 	if (!Jit_ReadTextureFormat(id)) {
 		EndWrite();
@@ -78,13 +74,9 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 		return nullptr;
 	}
 
-	SetJumpTarget(zeroSrc);
-
-	MOVUPS(XMM4, MDisp(ESP, 0));
-	MOVUPS(XMM5, MDisp(ESP, 16));
-	MOVUPS(XMM6, MDisp(ESP, 32));
-	MOVUPS(XMM7, MDisp(ESP, 48));
-	ADD(PTRBITS, R(ESP), Imm8(64));
+	if (id.hasInvalidPtr) {
+		SetJumpTarget(zeroSrc);
+	}
 
 	RET();
 

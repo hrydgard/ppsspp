@@ -48,6 +48,7 @@ struct SamplerID {
 			bool hasClutMask : 1;
 			bool hasClutShift : 1;
 			bool hasClutOffset : 1;
+			bool hasInvalidPtr : 1;
 		};
 	};
 

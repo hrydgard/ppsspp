@@ -94,7 +94,7 @@ void SamplerJitCache::Clear() {
 }
 
 void SamplerJitCache::ComputeSamplerID(SamplerID *id_out) {
-	SamplerID id;
+	SamplerID id{};
 
 	id.texfmt = gstate.getTextureFormat();
 	id.clutfmt = gstate.getClutPaletteFormat();
@@ -104,6 +104,11 @@ void SamplerJitCache::ComputeSamplerID(SamplerID *id_out) {
 	id.hasClutMask = gstate.getClutIndexMask() != 0xFF;
 	id.hasClutShift = gstate.getClutIndexShift() != 0;
 	id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
+	for (int i = 0; i <= gstate.getTextureMaxLevel(); ++i) {
+		if (gstate.getTextureAddress(i) == 0) {
+			id.hasInvalidPtr = true;
+		}
+	}
 
 	*id_out = id;
 }
