@@ -20,10 +20,13 @@
 
 #include <emmintrin.h>
 #include "Common/x64Emitter.h"
+#include "GPU/GPUState.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/ge_constants.h"
 
 using namespace Gen;
+
+extern u32 clut[4096];
 
 namespace Sampler {
 
@@ -113,7 +116,7 @@ bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 	case GE_TFMT_CLUT32:
 		success = Jit_GetTexData(id, 32);
 		if (success)
-			success = Jit_TransformClutIndex(id);
+			success = Jit_TransformClutIndex(id, 32);
 		if (success)
 			success = Jit_ReadClutColor(id);
 		break;
@@ -121,23 +124,23 @@ bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 	case GE_TFMT_CLUT16:
 		success = Jit_GetTexData(id, 16);
 		if (success)
-			success = Jit_TransformClutIndex(id);
+			success = Jit_TransformClutIndex(id, 16);
 		if (success)
 			success = Jit_ReadClutColor(id);
 		break;
 
 	case GE_TFMT_CLUT8:
-		success = Jit_GetTexData(id, 16);
+		success = Jit_GetTexData(id, 8);
 		if (success)
-			success = Jit_TransformClutIndex(id);
+			success = Jit_TransformClutIndex(id, 8);
 		if (success)
 			success = Jit_ReadClutColor(id);
 		break;
 
 	case GE_TFMT_CLUT4:
-		success = Jit_GetTexData(id, 16);
+		success = Jit_GetTexData(id, 4);
 		if (success)
-			success = Jit_TransformClutIndex(id);
+			success = Jit_TransformClutIndex(id, 4);
 		if (success)
 			success = Jit_ReadClutColor(id);
 		break;
@@ -184,7 +187,7 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 	case 32:
 	case 16:
 	case 8:
-		MOV(bitsPerTexel, R(resultReg), MComplex(tempReg1, RAX, bitsPerTexel / 8, 0));
+		MOVZX(32, bitsPerTexel, resultReg, MComplex(tempReg1, RAX, bitsPerTexel / 8, 0));
 		break;
 
 	case 4: {
@@ -256,12 +259,12 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 		// Multiply by two by just adding twice.
 		ADD(32, R(EAX), R(uReg));
 		ADD(32, R(EAX), R(uReg));
-		MOV(bitsPerTexel, R(resultReg), MRegSum(tempReg1, EAX));
+		MOVZX(32, bitsPerTexel, resultReg, MRegSum(tempReg1, EAX));
 		break;
 	case 8:
 		AND(32, R(uReg), Imm32(3));
 		ADD(32, R(EAX), R(uReg));
-		MOV(bitsPerTexel, R(resultReg), MRegSum(tempReg1, EAX));
+		MOVZX(32, bitsPerTexel, resultReg, MRegSum(tempReg1, EAX));
 		break;
 	case 4: {
 		AND(32, R(uReg), Imm32(7));
@@ -270,7 +273,7 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 		LEA(64, tempReg1, MRegSum(tempReg1, uReg));
 		MOV(8, R(resultReg), MRegSum(tempReg1, EAX));
 		FixupBranch skipNonZero = J_CC(CC_NC);
-		SHR(32, R(resultReg), Imm32(4));
+		SHR(8, R(resultReg), Imm8(4));
 		SetJumpTarget(skipNonZero);
 		// Zero out the rest.
 		AND(32, R(resultReg), Imm32(0x0000000F));
@@ -295,12 +298,81 @@ bool SamplerJitCache::Jit_Decode4444() {
 	return false;
 }
 
-bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id) {
-	return false;
+bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerIndex) {
+	GEPaletteFormat fmt = (GEPaletteFormat)id.clutfmt;
+	if (!id.hasClutShift && !id.hasClutMask && !id.hasClutOffset) {
+		// This is simple - just mask if necessary.
+		if (bitsPerIndex > 8) {
+			AND(32, R(resultReg), Imm32(0x000000FF));
+		}
+		return true;
+	}
+
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate.clutformat));
+	MOV(32, R(tempReg1), MatR(tempReg1));
+
+	// Shift = (clutformat >> 2) & 0x1F
+	if (id.hasClutShift) {
+		MOV(32, R(RCX), R(tempReg1));
+		SHR(32, R(RCX), Imm8(2));
+		AND(32, R(RCX), Imm32(0x0000001F));
+		SHR(32, R(resultReg), R(RCX));
+	}
+
+	// Mask = (clutformat >> 8) & 0xFF
+	if (id.hasClutMask) {
+		MOV(32, R(tempReg2), R(tempReg1));
+		SHR(32, R(tempReg2), Imm8(8));
+		AND(32, R(resultReg), R(tempReg2));
+	}
+
+	// We need to wrap any entries beyond the first 1024 bytes.
+	u32 offsetMask = fmt == GE_CMODE_32BIT_ABGR8888 ? 0x00FF : 0x01FF;
+
+	// We must mask to 0xFF before ORing 0x100 in 16 bit CMODEs.
+	// But skip if we'll mask 0xFF after offset anyway.
+	if (bitsPerIndex > 8 && (!id.hasClutOffset || offsetMask != 0x00FF)) {
+		AND(32, R(resultReg), Imm32(0x000000FF));
+	}
+
+	// Offset = (clutformat >> 12) & 0x01F0
+	if (id.hasClutOffset) {
+		SHR(32, R(tempReg1), Imm8(16));
+		SHL(32, R(tempReg1), Imm8(4));
+		OR(32, R(resultReg), R(tempReg1));
+		AND(32, R(resultReg), Imm32(offsetMask));
+	}
+	return true;
 }
 
 bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
-	return false;
+	if (!id.useSharedClut) {
+		// TODO: Load level, SHL 4, and add to resultReg.
+		return false;
+	}
+
+	MOV(PTRBITS, R(tempReg1), ImmPtr(clut));
+
+	switch (gstate.getClutPaletteFormat()) {
+	case GE_CMODE_16BIT_BGR5650:
+		MOVZX(32, 16, resultReg, MComplex(tempReg1, resultReg, SCALE_2, 0));
+		return Jit_Decode5650();
+
+	case GE_CMODE_16BIT_ABGR5551:
+		MOVZX(32, 16, resultReg, MComplex(tempReg1, resultReg, SCALE_2, 0));
+		return Jit_Decode5551();
+
+	case GE_CMODE_16BIT_ABGR4444:
+		MOVZX(32, 16, resultReg, MComplex(tempReg1, resultReg, SCALE_2, 0));
+		return Jit_Decode4444();
+
+	case GE_CMODE_32BIT_ABGR8888:
+		MOV(32, R(resultReg), MComplex(tempReg1, resultReg, SCALE_4, 0));
+		return true;
+
+	default:
+		return false;
+	}
 }
 
 };

@@ -106,7 +106,7 @@ private:
 	bool Jit_Decode5650();
 	bool Jit_Decode5551();
 	bool Jit_Decode4444();
-	bool Jit_TransformClutIndex(const SamplerID &id);
+	bool Jit_TransformClutIndex(const SamplerID &id, int bitsPerIndex);
 	bool Jit_ReadClutColor(const SamplerID &id);
 
 #if PPSSPP_ARCH(ARM64)
