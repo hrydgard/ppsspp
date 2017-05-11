@@ -64,6 +64,27 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 	FixupBranch zeroSrc = J(true);
 	SetJumpTarget(nonZeroSrc);
 
+	if (!Jit_ReadTextureFormat(id)) {
+		EndWrite();
+		SetCodePtr(const_cast<u8 *>(start));
+		return nullptr;
+	}
+
+	SetJumpTarget(zeroSrc);
+
+	MOVUPS(XMM4, MDisp(ESP, 0));
+	MOVUPS(XMM5, MDisp(ESP, 16));
+	MOVUPS(XMM6, MDisp(ESP, 32));
+	MOVUPS(XMM7, MDisp(ESP, 48));
+	ADD(PTRBITS, R(ESP), Imm8(64));
+
+	RET();
+
+	EndWrite();
+	return (NearestFunc)start;
+}
+
+bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 	GETextureFormat fmt = (GETextureFormat)id.texfmt;
 	bool success = true;
 	switch (fmt) {
@@ -125,24 +146,7 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 		success = false;
 	}
 
-	if (!success) {
-		EndWrite();
-		SetCodePtr(const_cast<u8 *>(start));
-		return nullptr;
-	}
-
-	SetJumpTarget(zeroSrc);
-
-	MOVUPS(XMM4, MDisp(ESP, 0));
-	MOVUPS(XMM5, MDisp(ESP, 16));
-	MOVUPS(XMM6, MDisp(ESP, 32));
-	MOVUPS(XMM7, MDisp(ESP, 48));
-	ADD(PTRBITS, R(ESP), Imm8(64));
-
-	RET();
-
-	EndWrite();
-	return (NearestFunc)start;
+	return success;
 }
 
 bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
