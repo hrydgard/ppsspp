@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <unordered_map>
+#include <mutex>
 #include "Common/ColorConv.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -30,6 +32,95 @@ using namespace Math3D;
 extern u32 clut[4096];
 
 namespace Sampler {
+
+static u32 SampleNearest(int u, int v, const u8 *tptr, int bufw, int level);
+
+std::mutex jitCacheLock;
+SamplerJitCache *jitCache = nullptr;
+
+void Init() {
+	jitCache = new SamplerJitCache();
+}
+
+void Shutdown() {
+	delete jitCache;
+	jitCache = nullptr;
+}
+
+NearestFunc GetNearestFunc() {
+	SamplerID id;
+	jitCache->ComputeSamplerID(&id);
+	NearestFunc jitted = jitCache->GetSampler(id);
+	if (jitted) {
+		return jitted;
+	}
+
+	return &SampleNearest;
+}
+
+SamplerJitCache::SamplerJitCache()
+#if PPSSPP_ARCH(ARM64)
+ : fp(this)
+#endif
+{
+	// 256k should be enough.
+	AllocCodeSpace(1024 * 64 * 4);
+
+	// Add some random code to "help" MSVC's buggy disassembler :(
+#if defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))
+	using namespace Gen;
+	for (int i = 0; i < 100; i++) {
+		MOV(32, R(EAX), R(EBX));
+		RET();
+	}
+#elif defined(ARM)
+	BKPT(0);
+	BKPT(0);
+#endif
+}
+
+void SamplerJitCache::Clear() {
+	ClearCodeSpace(0);
+	cache_.clear();
+}
+
+void SamplerJitCache::ComputeSamplerID(SamplerID *id_out) {
+	SamplerID id;
+
+	id.texfmt = gstate.getTextureFormat();
+	id.clutfmt = gstate.getClutPaletteFormat();
+	id.swizzle = gstate.isTextureSwizzled();
+	// Only CLUT4 can use separate CLUTs per mimap.
+	id.useSharedClut = gstate.isClutSharedForMipmaps() || gstate.getTextureFormat() != GE_TFMT_CLUT4;
+	id.hasClutMask = gstate.getClutIndexMask() != 0xFF;
+	id.hasClutShift = gstate.getClutIndexShift() != 0;
+	id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
+
+	*id_out = id;
+}
+
+NearestFunc SamplerJitCache::GetSampler(const SamplerID &id) {
+	std::lock_guard<std::mutex> guard(jitCacheLock);
+
+	auto it = cache_.find(id);
+	if (it != cache_.end()) {
+		return it->second;
+	}
+
+	// TODO: What should be the min size?  Can we even hit this?
+	if (GetSpaceLeft() < 16384) {
+		Clear();
+	}
+
+	// TODO
+#ifdef _M_X64
+	NearestFunc func = Compile(id);
+	cache_[id] = func;
+	return func;
+#else
+	return nullptr;
+#endif
+}
 
 template <unsigned int texel_size_bits>
 static inline int GetPixelDataOffset(unsigned int row_pitch_bytes, unsigned int u, unsigned int v)
@@ -85,7 +176,7 @@ struct Nearest4 {
 };
 
 template <int N>
-inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *srcptr, int texbufw)
+inline static Nearest4 SampleNearest(int u[N], int v[N], const u8 *srcptr, int texbufw, int level)
 {
 	Nearest4 res;
 	if (!srcptr) {
@@ -193,14 +284,18 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 	}
 }
 
-Vec4<int> SampleNearest(int level, int u, int v, const u8 *tptr, int bufw) {
-	return Vec4<int>::FromRGBA(SampleNearest<1>(level, &u, &v, tptr, bufw));
+static u32 SampleNearest(int u, int v, const u8 *tptr, int bufw, int level) {
+	return SampleNearest<1>(&u, &v, tptr, bufw, level);
 }
 
-Vec4<int> SampleLinear(int texlevel, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw) {
-#if defined(_M_SSE)
-	Nearest4 c = SampleNearest<4>(texlevel, u, v, tptr, bufw);
+Vec4<int> SampleLinear(NearestFunc sampler, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int texlevel) {
+	Nearest4 c;
+	c.v[0] = sampler(u[0], v[0], tptr, bufw, texlevel);
+	c.v[1] = sampler(u[1], v[1], tptr, bufw, texlevel);
+	c.v[2] = sampler(u[2], v[2], tptr, bufw, texlevel);
+	c.v[3] = sampler(u[3], v[3], tptr, bufw, texlevel);
 
+#if defined(_M_SSE)
 	const __m128i z = _mm_setzero_si128();
 
 	__m128i cvec = _mm_load_si128((const __m128i *)c.v);
@@ -217,11 +312,10 @@ Vec4<int> SampleLinear(int texlevel, int u[4], int v[4], int frac_u, int frac_v,
 	__m128i res = _mm_add_epi16(tmp, _mm_shuffle_epi32(tmp, _MM_SHUFFLE(3, 2, 3, 2)));
 	return Vec4<int>(_mm_unpacklo_epi16(res, z));
 #else
-	Nearest4 nearest = SampleNearest<4>(texlevel, u, v, tptr, bufw);
-	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(nearest.v[0]);
-	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(nearest.v[1]);
-	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(nearest.v[2]);
-	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(nearest.v[3]);
+	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(c.v[0]);
+	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(c.v[1]);
+	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(c.v[2]);
+	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(c.v[3]);
 	// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
 	Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
 	Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;

@@ -516,5 +516,8 @@
     <ClCompile Include="Software\Sampler.cpp">
       <Filter>Software</Filter>
     </ClCompile>
+    <ClCompile Include="Software\SamplerX86.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

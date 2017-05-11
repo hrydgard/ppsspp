@@ -352,6 +352,7 @@
     <ClCompile Include="Software\Lighting.cpp" />
     <ClCompile Include="Software\Rasterizer.cpp" />
     <ClCompile Include="Software\Sampler.cpp" />
+    <ClCompile Include="Software\SamplerX86.cpp" />
     <ClCompile Include="Software\SoftGpu.cpp" />
     <ClCompile Include="Software\TransformUnit.cpp" />
     <ClCompile Include="Common\TextureDecoder.cpp" />

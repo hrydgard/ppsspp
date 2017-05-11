@@ -17,11 +17,94 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
+#include <unordered_map>
+#if PPSSPP_ARCH(ARM)
+#include "Common/ArmEmitter.h"
+#elif PPSSPP_ARCH(ARM64)
+#include "Common/Arm64Emitter.h"
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#include "Common/x64Emitter.h"
+#elif PPSSPP_ARCH(MIPS)
+#include "Common/MipsEmitter.h"
+#else
+#include "Common/FakeEmitter.h"
+#endif
 #include "GPU/Math3D.h"
+
+struct SamplerID {
+	SamplerID() : fullKey(0) {
+	}
+
+	union {
+		u32 fullKey;
+		struct {
+			int8_t texfmt : 4;
+			int8_t clutfmt : 2;
+			int8_t : 2;
+			bool swizzle : 1;
+			bool useSharedClut : 1;
+			bool hasClutMask : 1;
+			bool hasClutShift : 1;
+			bool hasClutOffset : 1;
+		};
+	};
+
+	bool operator == (const SamplerID &other) const {
+		return fullKey == other.fullKey;
+	}
+};
+
+namespace std {
+
+template <>
+struct hash<SamplerID> {
+	std::size_t operator()(const SamplerID &k) const {
+		return hash<u32>()(k.fullKey);
+	}
+};
+
+};
 
 namespace Sampler {
 
-Math3D::Vec4<int> SampleNearest(int level, int u, int v, const u8 *tptr, int bufwbytes);
-Math3D::Vec4<int> SampleLinear(int level, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufwbytes);
+typedef u32 (*NearestFunc)(int u, int v, const u8 *tptr, int bufw, int level);
+NearestFunc GetNearestFunc();
+
+void Init();
+void Shutdown();
+
+Math3D::Vec4<int> SampleLinear(NearestFunc sampler, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
+
+#if PPSSPP_ARCH(ARM)
+class SamplerJitCache : public ArmGen::ARMXCodeBlock {
+#elif PPSSPP_ARCH(ARM64)
+class SamplerJitCache : public Arm64Gen::ARM64CodeBlock {
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+class SamplerJitCache : public Gen::XCodeBlock {
+#elif PPSSPP_ARCH(MIPS)
+class SamplerJitCache : public MIPSGen::MIPSCodeBlock {
+#else
+class SamplerJitCache : public FakeGen::FakeXCodeBlock {
+#endif
+public:
+	SamplerJitCache();
+
+	void ComputeSamplerID(SamplerID *id_out);
+
+	// Returns a pointer to the code to run.
+	NearestFunc GetSampler(const SamplerID &id);
+	void Clear();
+
+private:
+	NearestFunc Compile(const SamplerID &id);
+
+#if PPSSPP_ARCH(ARM64)
+	Arm64Gen::ARM64FloatEmitter fp;
+#endif
+
+	std::unordered_map<SamplerID, NearestFunc> cache_;
+};
 
 };

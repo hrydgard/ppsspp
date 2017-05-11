@@ -1003,7 +1003,7 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 	SetPixelColor(p.x, p.y, new_color);
 }
 
-static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[]) {
+static inline void ApplyTexturing(Sampler::NearestFunc sampler, Vec4<int> &prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[]) {
 	int u[8] = {0}, v[8] = {0};   // 1.23.8 fixed point
 	int frac_u[2], frac_v[2];
 
@@ -1021,9 +1021,9 @@ static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int t
 			GetTexelCoordinates(texlevel + 1, s, t, u[1], v[1]);
 		}
 
-		texcolor0 = Sampler::SampleNearest(texlevel, u[0], v[0], tptr0, bufw0);
+		texcolor0 = Vec4<int>::FromRGBA(sampler(u[0], v[0], tptr0, bufw0, texlevel));
 		if (frac_texlevel) {
-			texcolor1 = Sampler::SampleNearest(texlevel + 1, u[1], v[1], tptr1, bufw1);
+			texcolor1 = Vec4<int>::FromRGBA(sampler(u[1], v[1], tptr1, bufw1, texlevel + 1));
 		}
 	} else {
 		GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u[0], frac_v[0]);
@@ -1031,9 +1031,9 @@ static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int t
 			GetTexelCoordinatesQuad(texlevel + 1, s, t, u + 4, v + 4, frac_u[1], frac_v[1]);
 		}
 
-		texcolor0 = Sampler::SampleLinear(texlevel, u, v, frac_u[0], frac_v[0], tptr0, bufw0);
+		texcolor0 = Sampler::SampleLinear(sampler, u, v, frac_u[0], frac_v[0], tptr0, bufw0, texlevel);
 		if (frac_texlevel) {
-			texcolor1 = Sampler::SampleLinear(texlevel + 1, u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufw1);
+			texcolor1 = Sampler::SampleLinear(sampler, u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufw1, texlevel + 1);
 		}
 	}
 
@@ -1106,7 +1106,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	}
 }
 
-static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[]) {
+static inline void ApplyTexturing(Sampler::NearestFunc sampler, Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[]) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
@@ -1116,7 +1116,7 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 	CalculateSamplingParams(ds, dt, maxTexLevel, level, levelFrac, bilinear);
 
 	for (int i = 0; i < 4; ++i) {
-		ApplyTexturing(prim_color[i], s[i], t[i], level, levelFrac, bilinear, texptr, texbufw);
+		ApplyTexturing(sampler, prim_color[i], s[i], t[i], level, levelFrac, bilinear, texptr, texbufw);
 	}
 }
 
@@ -1245,6 +1245,8 @@ void DrawTriangleSlice(
 	// This is common, and when we interpolate, we lose accuracy.
 	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
 
+	Sampler::NearestFunc sampler = Sampler::GetNearestFunc();
+
 	for (pprime.y = minY + hy1 * 32; pprime.y < minY + hy2 * 32; pprime.y += 32,
 										w0_base = e0.StepY(w0_base),
 										w1_base = e1.StepY(w1_base),
@@ -1302,7 +1304,7 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					ApplyTexturing(prim_color, s, t, maxTexLevel, texptr, texbufw);
+					ApplyTexturing(sampler, prim_color, s, t, maxTexLevel, texptr, texbufw);
 				}
 
 				if (!clearMode) {
@@ -1412,6 +1414,8 @@ void DrawPoint(const VertexData &v0)
 
 	bool clearMode = gstate.isModeClear();
 
+	Sampler::NearestFunc sampler = Sampler::GetNearestFunc();
+
 	if (gstate.isTextureMapEnabled() && !clearMode) {
 		int texbufw[8] = {0};
 
@@ -1449,7 +1453,7 @@ void DrawPoint(const VertexData &v0)
 		int texLevelFrac;
 		bool bilinear;
 		CalculateSamplingParams(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
-		ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, bilinear, texptr, texbufw);
+		ApplyTexturing(sampler, prim_color, s, t, texLevel, texLevelFrac, bilinear, texptr, texbufw);
 	}
 
 	if (!clearMode)
@@ -1515,6 +1519,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		}
 	}
 
+	Sampler::NearestFunc sampler = Sampler::GetNearestFunc();
+
 	float x = a.x > b.x ? a.x - 1 : a.x;
 	float y = a.y > b.y ? a.y - 1 : a.y;
 	float z = a.z;
@@ -1579,7 +1585,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 					texBilinear = true;
 				}
 
-				ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, texBilinear, texptr, texbufw);
+				ApplyTexturing(sampler, prim_color, s, t, texLevel, texLevelFrac, texBilinear, texptr, texbufw);
 			}
 
 			if (!clearMode)
@@ -1632,10 +1638,12 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	int texbufw = GetTextureBufw(level, texaddr, texfmt);
 	u8 *texptr = Memory::GetPointer(texaddr);
 
+	Sampler::NearestFunc sampler = Sampler::GetNearestFunc();
+
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = Sampler::SampleNearest(level, x, y, texptr, texbufw).ToRGBA();
+			row[x] = sampler(x, y, texptr, texbufw, level);
 		}
 		row += w;
 	}
