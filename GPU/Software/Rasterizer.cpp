@@ -383,7 +383,7 @@ struct Nearest4 {
 };
 
 template <int N>
-inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *srcptr, int texbufwidthbytes)
+inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *srcptr, int texbufw)
 {
 	Nearest4 res;
 	if (!srcptr) {
@@ -398,35 +398,35 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 	switch (texfmt) {
 	case GE_TFMT_4444:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbytes, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
 			res.v[i] = RGBA4444ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 	
 	case GE_TFMT_5551:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbytes, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
 			res.v[i] = RGBA5551ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 
 	case GE_TFMT_5650:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbytes, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
 			res.v[i] = RGB565ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 
 	case GE_TFMT_8888:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbytes, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufw, u[i], v[i]);
 			res.v[i] = *(const u32 *)src;
 		}
 		return res;
 
 	case GE_TFMT_CLUT32:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbytes, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufw, u[i], v[i]);
 			u32 val = src[0] + (src[1] << 8) + (src[2] << 16) + (src[3] << 24);
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
@@ -434,7 +434,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_CLUT16:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbytes, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
 			u16 val = src[0] + (src[1] << 8);
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
@@ -442,7 +442,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_CLUT8:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufwidthbytes, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufw, u[i], v[i]);
 			u8 val = *src;
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
@@ -450,7 +450,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_CLUT4:
 		for (int i = 0; i < N; ++i) {
-			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufwidthbytes, u[i], v[i]);
+			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufw, u[i], v[i]);
 			u8 val = (u[i] & 1) ? (src[0] >> 4) : (src[0] & 0xF);
 			// Only CLUT4 uses separate mipmap palettes.
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), level);
@@ -459,7 +459,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_DXT1:
 		for (int i = 0; i < N; ++i) {
-			const DXT1Block *block = (const DXT1Block *)srcptr + (v[i] / 4) * (texbufwidthbytes / 4) + (u[i] / 4);
+			const DXT1Block *block = (const DXT1Block *)srcptr + (v[i] / 4) * (texbufw / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT1Block(data, block, 4, 4, false);
 			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
@@ -468,7 +468,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_DXT3:
 		for (int i = 0; i < N; ++i) {
-			const DXT3Block *block = (const DXT3Block *)srcptr + (v[i] / 4) * (texbufwidthbytes / 4) + (u[i] / 4);
+			const DXT3Block *block = (const DXT3Block *)srcptr + (v[i] / 4) * (texbufw / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT3Block(data, block, 4, 4);
 			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
@@ -477,7 +477,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 
 	case GE_TFMT_DXT5:
 		for (int i = 0; i < N; ++i) {
-			const DXT5Block *block = (const DXT5Block *)srcptr + (v[i] / 4) * (texbufwidthbytes / 4) + (u[i] / 4);
+			const DXT5Block *block = (const DXT5Block *)srcptr + (v[i] / 4) * (texbufw / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT5Block(data, block, 4, 4);
 			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
@@ -1164,9 +1164,9 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 	SetPixelColor(p.x, p.y, new_color);
 }
 
-static inline Vec4<int> SampleLinear(int texlevel, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufwbytes) {
+static inline Vec4<int> SampleLinear(int texlevel, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw) {
 #if defined(_M_SSE)
-	Nearest4 c = SampleNearest<4>(texlevel, u, v, tptr, bufwbytes);
+	Nearest4 c = SampleNearest<4>(texlevel, u, v, tptr, bufw);
 
 	const __m128i z = _mm_setzero_si128();
 
@@ -1184,7 +1184,7 @@ static inline Vec4<int> SampleLinear(int texlevel, int u[4], int v[4], int frac_
 	__m128i res = _mm_add_epi16(tmp, _mm_shuffle_epi32(tmp, _MM_SHUFFLE(3, 2, 3, 2)));
 	return Vec4<int>(_mm_unpacklo_epi16(res, z));
 #else
-	Nearest4 nearest = SampleNearest<4>(texlevel, u, v, tptr, bufwbytes);
+	Nearest4 nearest = SampleNearest<4>(texlevel, u, v, tptr, bufw);
 	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(nearest.v[0]);
 	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(nearest.v[1]);
 	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(nearest.v[2]);
@@ -1196,16 +1196,16 @@ static inline Vec4<int> SampleLinear(int texlevel, int u[4], int v[4], int frac_
 #endif
 }
 
-static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int texlevel, int frac_texlevel, int filt, u8 *texptr[], int texbufwidthbytes[]) {
+static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int texlevel, int frac_texlevel, int filt, u8 *texptr[], int texbufw[]) {
 	int u[8] = {0}, v[8] = {0};   // 1.23.8 fixed point
 	int frac_u[2], frac_v[2];
 
 	Vec4<int> texcolor0;
 	Vec4<int> texcolor1;
 	const u8 *tptr0 = texptr[texlevel];
-	int bufwbytes0 = texbufwidthbytes[texlevel];
+	int bufw0 = texbufw[texlevel];
 	const u8 *tptr1 = texptr[texlevel + 1];
-	int bufwbytes1 = texbufwidthbytes[texlevel + 1];
+	int bufw1 = texbufw[texlevel + 1];
 
 	bool bilinear = filt != 0;
 	if (!bilinear) {
@@ -1215,9 +1215,9 @@ static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int t
 			GetTexelCoordinates(texlevel + 1, s, t, u[1], v[1]);
 		}
 
-		texcolor0 = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel, u, v, tptr0, bufwbytes0));
+		texcolor0 = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel, u, v, tptr0, bufw0));
 		if (frac_texlevel) {
-			texcolor1 = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel + 1, u + 1, v + 1, tptr1, bufwbytes1));
+			texcolor1 = Vec4<int>::FromRGBA(SampleNearest<1>(texlevel + 1, u + 1, v + 1, tptr1, bufw1));
 		}
 	} else {
 		GetTexelCoordinatesQuad(texlevel, s, t, u, v, frac_u[0], frac_v[0]);
@@ -1225,9 +1225,9 @@ static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int t
 			GetTexelCoordinatesQuad(texlevel + 1, s, t, u + 4, v + 4, frac_u[1], frac_v[1]);
 		}
 
-		texcolor0 = SampleLinear(texlevel, u, v, frac_u[0], frac_v[0], tptr0, bufwbytes0);
+		texcolor0 = SampleLinear(texlevel, u, v, frac_u[0], frac_v[0], tptr0, bufw0);
 		if (frac_texlevel) {
-			texcolor1 = SampleLinear(texlevel + 1, u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufwbytes1);
+			texcolor1 = SampleLinear(texlevel + 1, u + 4, v + 4, frac_u[1], frac_v[1], tptr1, bufw1);
 		}
 	}
 
@@ -1302,7 +1302,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	}
 }
 
-static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufwidthbytes[]) {
+static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufw[]) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
@@ -1312,7 +1312,7 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 	CalculateSamplingParams(ds, dt, maxTexLevel, level, levelFrac, filt);
 
 	for (int i = 0; i < 4; ++i) {
-		ApplyTexturing(prim_color[i], s[i], t[i], level, levelFrac, filt, texptr, texbufwidthbytes);
+		ApplyTexturing(prim_color[i], s[i], t[i], level, levelFrac, filt, texptr, texbufw);
 	}
 }
 
@@ -1401,7 +1401,7 @@ void DrawTriangleSlice(
 	Vec4<int> bias1 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0);
 	Vec4<int> bias2 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0);
 
-	int texbufwidthbytes[8] = {0};
+	int texbufw[8] = {0};
 
 	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
@@ -1415,7 +1415,7 @@ void DrawTriangleSlice(
 		GETextureFormat texfmt = gstate.getTextureFormat();
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
-			texbufwidthbytes[i] = GetTextureBufw(i, texaddr, texfmt);
+			texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
 			if (Memory::IsValidAddress(texaddr))
 				texptr[i] = Memory::GetPointerUnchecked(texaddr);
 			else
@@ -1498,7 +1498,7 @@ void DrawTriangleSlice(
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 					}
 
-					ApplyTexturing(prim_color, s, t, maxTexLevel, texptr, texbufwidthbytes);
+					ApplyTexturing(prim_color, s, t, maxTexLevel, texptr, texbufw);
 				}
 
 				if (!clearMode) {
@@ -1609,7 +1609,7 @@ void DrawPoint(const VertexData &v0)
 	bool clearMode = gstate.isModeClear();
 
 	if (gstate.isTextureMapEnabled() && !clearMode) {
-		int texbufwidthbytes[8] = {0};
+		int texbufw[8] = {0};
 
 		int maxTexLevel = gstate.getTextureMaxLevel();
 		u8 *texptr[8] = {NULL};
@@ -1623,7 +1623,7 @@ void DrawPoint(const VertexData &v0)
 			GETextureFormat texfmt = gstate.getTextureFormat();
 			for (int i = 0; i <= maxTexLevel; i++) {
 				u32 texaddr = gstate.getTextureAddress(i);
-				texbufwidthbytes[i] = GetTextureBufw(i, texaddr, texfmt);
+				texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
 				if (Memory::IsValidAddress(texaddr))
 					texptr[i] = Memory::GetPointerUnchecked(texaddr);
 				else
@@ -1645,7 +1645,7 @@ void DrawPoint(const VertexData &v0)
 		int texLevelFrac;
 		int filt;
 		CalculateSamplingParams(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, filt);
-		ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, filt, texptr, texbufwidthbytes);
+		ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, filt, texptr, texbufw);
 	}
 
 	if (!clearMode)
@@ -1692,7 +1692,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
 	bool clearMode = gstate.isModeClear();
 
-	int texbufwidthbytes[8] = {0};
+	int texbufw[8] = {0};
 
 	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
@@ -1706,7 +1706,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		GETextureFormat texfmt = gstate.getTextureFormat();
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
-			texbufwidthbytes[i] = GetTextureBufw(i, texaddr, texfmt);
+			texbufw[i] = GetTextureBufw(i, texaddr, texfmt);
 			texptr[i] = Memory::GetPointer(texaddr);
 		}
 	}
@@ -1775,7 +1775,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 					texFilt = 1;
 				}
 
-				ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, texFilt, texptr, texbufwidthbytes);
+				ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, texFilt, texptr, texbufw);
 			}
 
 			if (!clearMode)
@@ -1825,13 +1825,13 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
 	u32 texaddr = gstate.getTextureAddress(level);
-	int texbufwidthbytes = GetTextureBufw(level, texaddr, texfmt);
+	int texbufw = GetTextureBufw(level, texaddr, texfmt);
 	u8 *texptr = Memory::GetPointer(texaddr);
 
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = SampleNearest<1>(level, &x, &y, texptr, texbufwidthbytes);
+			row[x] = SampleNearest<1>(level, &x, &y, texptr, texbufw);
 		}
 		row += w;
 	}
