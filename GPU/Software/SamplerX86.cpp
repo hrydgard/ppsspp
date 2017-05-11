@@ -50,6 +50,11 @@ static const X64Reg bufwReg = RCX;
 static const X64Reg levelReg = R8;
 #endif
 
+static const X64Reg fpScratchReg1 = XMM1;
+static const X64Reg fpScratchReg2 = XMM2;
+static const X64Reg fpScratchReg3 = XMM3;
+static const X64Reg fpScratchReg4 = XMM4;
+
 NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 	BeginWrite();
 	const u8 *start = this->AlignCode16();
@@ -145,6 +150,7 @@ bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 			success = Jit_ReadClutColor(id);
 		break;
 
+	// TODO: DXT?
 	default:
 		success = false;
 	}
@@ -287,15 +293,86 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 }
 
 bool SamplerJitCache::Jit_Decode5650() {
-	return false;
+	MOV(32, R(tempReg2), R(resultReg));
+	AND(32, R(tempReg2), Imm32(0x0000001F));
+
+	// B (we do R and B at the same time, they're both 5.)
+	MOV(32, R(tempReg1), R(resultReg));
+	AND(32, R(tempReg1), Imm32(0x0000F800));
+	SHL(32, R(tempReg1), Imm8(5));
+	OR(32, R(tempReg2), R(tempReg1));
+
+	// Expand 5 -> 8.  At this point we have 00BB00RR.
+	MOV(32, R(tempReg1), R(tempReg2));
+	SHL(32, R(tempReg2), Imm8(3));
+	SHR(32, R(tempReg1), Imm8(2));
+	OR(32, R(tempReg2), R(tempReg1));
+	AND(32, R(tempReg2), Imm32(0x00FF00FF));
+
+	// Now's as good a time to put in A as any.
+	OR(32, R(tempReg2), Imm32(0xFF000000));
+
+	// Last, we need to align, extract, and expand G.
+	// 3 to align to G, and then 2 to expand to 8.
+	SHL(32, R(resultReg), Imm8(3 + 2));
+	AND(32, R(resultReg), Imm32(0x0000FC00));
+	MOV(32, R(tempReg1), R(resultReg));
+	// 2 to account for resultReg being preshifted, 4 for expansion.
+	SHR(32, R(tempReg1), Imm8(2 + 4));
+	OR(32, R(resultReg), R(tempReg1));
+	AND(32, R(resultReg), Imm32(0x0000FF00));
+	OR(32, R(resultReg), R(tempReg2));;
+
+	return true;
 }
 
 bool SamplerJitCache::Jit_Decode5551() {
-	return false;
+	MOV(32, R(tempReg2), R(resultReg));
+	MOV(32, R(tempReg1), R(resultReg));
+	AND(32, R(tempReg2), Imm32(0x0000001F));
+	AND(32, R(tempReg1), Imm32(0x000003E0));
+	SHL(32, R(tempReg1), Imm8(3));
+	OR(32, R(tempReg2), R(tempReg1));
+
+	MOV(32, R(tempReg1), R(resultReg));
+	AND(32, R(tempReg1), Imm32(0x00007C00));
+	SHL(32, R(tempReg1), Imm8(6));
+	OR(32, R(tempReg2), R(tempReg1));
+
+	// Expand 5 -> 8.  After this is just A.
+	MOV(32, R(tempReg1), R(tempReg2));
+	SHL(32, R(tempReg2), Imm8(3));
+	SHR(32, R(tempReg1), Imm8(2));
+	// Chop off the bits that were shifted out.
+	AND(32, R(tempReg1), Imm32(0x00070707));
+	OR(32, R(tempReg2), R(tempReg1));
+
+	// For A, we shift it to a single bit, and then subtract and XOR.
+	// That's probably the simplest way to expand it...
+	SHR(32, R(resultReg), Imm8(15));
+	// If it was 0, it's now -1, otherwise it's 0.  Easy.
+	SUB(32, R(resultReg), Imm8(1));
+	XOR(32, R(resultReg), Imm32(0xFF000000));
+	AND(32, R(resultReg), Imm32(0xFF000000));
+	OR(32, R(resultReg), R(tempReg2));
+
+	return true;
 }
 
+static const u32 MEMORY_ALIGNED16(color4444mask[4]) = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
+
 bool SamplerJitCache::Jit_Decode4444() {
-	return false;
+	MOVD_xmm(fpScratchReg1, R(resultReg));
+	PUNPCKLBW(fpScratchReg1, R(fpScratchReg1));
+	PAND(fpScratchReg1, M(color4444mask));
+	MOVSS(fpScratchReg2, R(fpScratchReg1));
+	MOVSS(fpScratchReg3, R(fpScratchReg1));
+	PSRLW(fpScratchReg2, 4);
+	PSLLW(fpScratchReg3, 4);
+	POR(fpScratchReg1, R(fpScratchReg2));
+	POR(fpScratchReg1, R(fpScratchReg3));
+	MOVD_xmm(R(resultReg), fpScratchReg1);
+	return true;
 }
 
 bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerIndex) {

@@ -1075,7 +1075,6 @@ static const float MEMORY_ALIGNED16(byColor565[4]) = { 255.0f / 31.0f, 255.0f / 
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	MOV(32, R(tempReg2), Imm32(1));
 	MOVDQA(XMM5, M(color565Mask));
 	MOVAPS(XMM6, M(byColor565));
 
