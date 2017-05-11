@@ -102,6 +102,7 @@ private:
 
 	bool Jit_ReadTextureFormat(const SamplerID &id);
 	bool Jit_GetTexData(const SamplerID &id, int bitsPerTexel);
+	bool Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTexel);
 	bool Jit_Decode5650();
 	bool Jit_Decode5551();
 	bool Jit_Decode4444();

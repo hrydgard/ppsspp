@@ -151,7 +151,7 @@ bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
 
 bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 	if (id.swizzle) {
-		return false;
+		return Jit_GetTexDataSwizzled(id, bitsPerTexel);
 	}
 
 	// srcReg might be EDX, so let's copy that before we multiply.
@@ -198,6 +198,84 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 		break;
 	}
 
+	default:
+		return false;
+	}
+
+	return true;
+}
+
+bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTexel) {
+	LEA(32, tempReg1, MScaled(vReg, SCALE_4, 0));
+	AND(32, R(tempReg1), Imm32(31));
+	if (bitsPerTexel != 4) {
+		AND(32, R(vReg), Imm32(~7));
+	}
+
+	MOV(32, R(tempReg2), R(uReg));
+	MOV(32, R(resultReg), R(uReg));
+	switch (bitsPerTexel) {
+	case 32:
+		SHR(32, R(resultReg), Imm8(2));
+		break;
+	case 16:
+		SHR(32, R(vReg), Imm8(1));
+		SHR(32, R(tempReg2), Imm8(1));
+		SHR(32, R(resultReg), Imm8(3));
+		break;
+	case 8:
+		SHR(32, R(vReg), Imm8(2));
+		SHR(32, R(tempReg2), Imm8(2));
+		SHR(32, R(resultReg), Imm8(4));
+		break;
+	case 4:
+		SHR(32, R(vReg), Imm8(3));
+		SHR(32, R(tempReg2), Imm8(3));
+		SHR(32, R(resultReg), Imm8(5));
+		break;
+	default:
+		return false;
+	}
+	AND(32, R(tempReg2), Imm32(3));
+	SHL(32, R(resultReg), Imm8(5));
+	ADD(32, R(tempReg1), R(tempReg2));
+	ADD(32, R(tempReg1), R(resultReg));
+
+	// We may clobber srcReg in the MUL, so let's grab it now.
+	LEA(64, tempReg1, MComplex(srcReg, tempReg1, SCALE_4, 0));
+
+	LEA(32, EAX, MScaled(bufwReg, SCALE_4, 0));
+	MUL(32, R(vReg));
+
+	switch (bitsPerTexel) {
+	case 32:
+		MOV(bitsPerTexel, R(resultReg), MRegSum(tempReg1, EAX));
+		break;
+	case 16:
+		AND(32, R(uReg), Imm32(1));
+		// Multiply by two by just adding twice.
+		ADD(32, R(EAX), R(uReg));
+		ADD(32, R(EAX), R(uReg));
+		MOV(bitsPerTexel, R(resultReg), MRegSum(tempReg1, EAX));
+		break;
+	case 8:
+		AND(32, R(uReg), Imm32(3));
+		ADD(32, R(EAX), R(uReg));
+		MOV(bitsPerTexel, R(resultReg), MRegSum(tempReg1, EAX));
+		break;
+	case 4: {
+		AND(32, R(uReg), Imm32(7));
+		SHR(32, R(uReg), Imm8(1));
+		// Note: LEA/MOV do not affect flags (unlike ADD.)  uReg may be RCX.
+		LEA(64, tempReg1, MRegSum(tempReg1, uReg));
+		MOV(8, R(resultReg), MRegSum(tempReg1, EAX));
+		FixupBranch skipNonZero = J_CC(CC_NC);
+		SHR(32, R(resultReg), Imm32(4));
+		SetJumpTarget(skipNonZero);
+		// Zero out the rest.
+		AND(32, R(resultReg), Imm32(0x0000000F));
+		break;
+	}
 	default:
 		return false;
 	}
