@@ -434,8 +434,15 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 
 bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 	if (!id.useSharedClut) {
-		// TODO: Load level, SHL 4, and add to resultReg.
-		return false;
+#ifdef _WIN32
+		// The argument was saved on the stack.
+		MOV(32, R(tempReg2), MDisp(RSP, 40));
+		LEA(32, tempReg2, MScaled(tempReg2, SCALE_4, 0));
+#else
+		// We need to multiply by 16 and add, LEA allows us to copy too.
+		LEA(32, tempReg2, MScaled(levelReg, SCALE_4, 0));
+#endif
+		LEA(64, resultReg, MComplex(resultReg, tempReg2, SCALE_4, 0));
 	}
 
 	MOV(PTRBITS, R(tempReg1), ImmPtr(clut));
