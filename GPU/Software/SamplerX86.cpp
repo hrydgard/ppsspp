@@ -61,7 +61,7 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 	// Early exit on !srcPtr.
 	FixupBranch zeroSrc;
 	if (id.hasInvalidPtr) {
-		CMP(PTRBITS, R(srcReg), Imm32(0));
+		CMP(PTRBITS, R(srcReg), Imm8(0));
 		FixupBranch nonZeroSrc = J_CC(CC_NZ);
 		XOR(32, R(RAX), R(RAX));
 		zeroSrc = J(true);
@@ -195,7 +195,7 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 		MOV(8, R(RCX), R(tempReg2));
 		SHR(8, R(resultReg), R(RCX));
 		// Zero out any bits not shifted off.
-		AND(32, R(resultReg), Imm32(0x0000000F));
+		AND(32, R(resultReg), Imm8(0x0F));
 		break;
 	}
 
@@ -206,12 +206,48 @@ bool SamplerJitCache::Jit_GetTexData(const SamplerID &id, int bitsPerTexel) {
 	return true;
 }
 
+bool SamplerJitCache::Jit_GetTexDataSwizzled4() {
+	// Get the horizontal tile pos into tempReg1.
+	LEA(32, tempReg1, MScaled(uReg, SCALE_4, 0));
+	// Note: imm8 sign extends negative.
+	AND(32, R(tempReg1), Imm8(~127));
+
+	// Add vertical offset inside tile to tempReg1.
+	LEA(32, tempReg2, MScaled(vReg, SCALE_4, 0));
+	AND(32, R(tempReg2), Imm8(31));
+	LEA(32, tempReg1, MComplex(tempReg1, tempReg2, SCALE_4, 0));
+	// Add srcReg, since we'll need it at some point.
+	ADD(64, R(tempReg1), R(srcReg));
+
+	// Now find the vertical tile pos, and add to tempReg1.
+	SHR(32, R(vReg), Imm8(3));
+	LEA(32, EAX, MScaled(bufwReg, SCALE_4, 0));
+	MUL(32, R(vReg));
+	ADD(64, R(tempReg1), R(EAX));
+
+	// Last and possible also least, the horizontal offset inside the tile.
+	AND(32, R(uReg), Imm8(31));
+	SHR(32, R(uReg), Imm8(1));
+	MOV(8, R(resultReg), MRegSum(tempReg1, uReg));
+	FixupBranch skipNonZero = J_CC(CC_NC);
+	// If the horizontal offset was odd, take the upper 4.
+	SHR(8, R(resultReg), Imm8(4));
+	SetJumpTarget(skipNonZero);
+	// Zero out the rest of the bits.
+	AND(32, R(resultReg), Imm8(0x0F));
+
+	return true;
+}
+
 bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTexel) {
-	LEA(32, tempReg1, MScaled(vReg, SCALE_4, 0));
-	AND(32, R(tempReg1), Imm32(31));
-	if (bitsPerTexel != 4) {
-		AND(32, R(vReg), Imm32(~7));
+	if (bitsPerTexel == 4) {
+		// Specialized implementation.
+		return Jit_GetTexDataSwizzled4();
 	}
+
+	LEA(32, tempReg1, MScaled(vReg, SCALE_4, 0));
+	AND(32, R(tempReg1), Imm8(31));
+	AND(32, R(vReg), Imm8(~7));
 
 	MOV(32, R(tempReg2), R(uReg));
 	MOV(32, R(resultReg), R(uReg));
@@ -229,15 +265,10 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 		SHR(32, R(tempReg2), Imm8(2));
 		SHR(32, R(resultReg), Imm8(4));
 		break;
-	case 4:
-		SHR(32, R(vReg), Imm8(3));
-		SHR(32, R(tempReg2), Imm8(3));
-		SHR(32, R(resultReg), Imm8(5));
-		break;
 	default:
 		return false;
 	}
-	AND(32, R(tempReg2), Imm32(3));
+	AND(32, R(tempReg2), Imm8(3));
 	SHL(32, R(resultReg), Imm8(5));
 	ADD(32, R(tempReg1), R(tempReg2));
 	ADD(32, R(tempReg1), R(resultReg));
@@ -253,30 +284,17 @@ bool SamplerJitCache::Jit_GetTexDataSwizzled(const SamplerID &id, int bitsPerTex
 		MOV(bitsPerTexel, R(resultReg), MRegSum(tempReg1, EAX));
 		break;
 	case 16:
-		AND(32, R(uReg), Imm32(1));
+		AND(32, R(uReg), Imm8(1));
 		// Multiply by two by just adding twice.
 		ADD(32, R(EAX), R(uReg));
 		ADD(32, R(EAX), R(uReg));
 		MOVZX(32, bitsPerTexel, resultReg, MRegSum(tempReg1, EAX));
 		break;
 	case 8:
-		AND(32, R(uReg), Imm32(3));
+		AND(32, R(uReg), Imm8(3));
 		ADD(32, R(EAX), R(uReg));
 		MOVZX(32, bitsPerTexel, resultReg, MRegSum(tempReg1, EAX));
 		break;
-	case 4: {
-		AND(32, R(uReg), Imm32(7));
-		SHR(32, R(uReg), Imm8(1));
-		// Note: LEA/MOV do not affect flags (unlike ADD.)  uReg may be RCX.
-		LEA(64, tempReg1, MRegSum(tempReg1, uReg));
-		MOV(8, R(resultReg), MRegSum(tempReg1, EAX));
-		FixupBranch skipNonZero = J_CC(CC_NC);
-		SHR(8, R(resultReg), Imm8(4));
-		SetJumpTarget(skipNonZero);
-		// Zero out the rest.
-		AND(32, R(resultReg), Imm32(0x0000000F));
-		break;
-	}
 	default:
 		return false;
 	}
@@ -384,7 +402,7 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 	if (id.hasClutShift) {
 		MOV(32, R(RCX), R(tempReg1));
 		SHR(32, R(RCX), Imm8(2));
-		AND(32, R(RCX), Imm32(0x0000001F));
+		AND(32, R(RCX), Imm8(0x1F));
 		SHR(32, R(resultReg), R(RCX));
 	}
 
