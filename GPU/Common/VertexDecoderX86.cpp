@@ -1224,8 +1224,8 @@ void VertexDecoderJitCache::Jit_NormalFloat() {
 	if (cpu_info.Mode64bit) {
 		MOV(64, R(tempReg1), MDisp(srcReg, dec_->nrmoff));
 		MOV(32, R(tempReg3), MDisp(srcReg, dec_->nrmoff + 8));
-		MOV(64, MDisp(dstReg, dec_->decFmt.posoff), R(tempReg1));
-		MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 8), R(tempReg3));
+		MOV(64, MDisp(dstReg, dec_->decFmt.nrmoff), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff + 8), R(tempReg3));
 	} else {
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->nrmoff));
 		MOV(32, R(tempReg2), MDisp(srcReg, dec_->nrmoff + 4));
