@@ -71,8 +71,9 @@ struct SamplerCacheKey {
 			bool tClamp : 1;
 			bool lodAuto : 1;
 			bool : 1;
-			int8_t lodBias : 8;
 			int8_t maxLevel : 4;
+			int8_t : 4;
+			int16_t lodBias : 16;
 		};
 	};
 
@@ -242,7 +243,7 @@ protected:
 	}
 
 	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
-	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr);
+	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr, bool &autoMip);
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
 	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);

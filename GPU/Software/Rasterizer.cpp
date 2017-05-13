@@ -1226,7 +1226,7 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
-		// TODO: Verify what 3 does.
+		// Unused value 3 operates the same as CONST.
 		detail = 0;
 		break;
 	}

@@ -124,23 +124,43 @@ int TextureCacheCommon::AttachedDrawingHeight() {
 	return 0;
 }
 
-void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr) {
+// Produces a signed 1.23.8 value.
+static int TexLog2(float delta) {
+	union FloatBits {
+		float f;
+		u32 u;
+	};
+	FloatBits f;
+	f.f = delta;
+	// Use the exponent as the tex level, and the top mantissa bits for a frac.
+	// We can't support more than 8 bits of frac, so truncate.
+	int useful = (f.u >> 15) & 0xFFFF;
+	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
+	return useful - 127 * 256;
+}
+
+void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr, bool &autoMip) {
 	minFilt = gstate.texfilter & 0x7;
 	magFilt = (gstate.texfilter >> 8) & 1;
 	sClamp = gstate.isTexCoordClampedS();
 	tClamp = gstate.isTexCoordClampedT();
 
-	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001;  // Fix texlevel at 0
-	if (IsFakeMipmapChange())
-		noMip = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST;
+	GETexLevelMode mipMode = gstate.getTexLevelMode();
+	autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
+	lodBias = (float)(int)(s8)((gstate.texlevel >> 16) & 0xFF) * (1.0f / 16.0f);
+	if (mipMode == GE_TEXLEVEL_MODE_SLOPE) {
+		lodBias += 1.0f + TexLog2(gstate.getTextureLodSlope()) * (1.0f / 256.0f);
+	}
 
-	if (maxLevel == 0) {
+	// If mip level is forced to zero, disable mipmapping.
+	bool noMip = !g_Config.bMipMap || maxLevel == 0 || (!autoMip && lodBias <= 0.0f);
+	if (IsFakeMipmapChange())
+		noMip = noMip || !autoMip;
+
+	if (noMip) {
 		// Enforce no mip filtering, for safety.
 		minFilt &= 1; // no mipmaps yet
 		lodBias = 0.0f;
-	} else {
-		// Texture lod bias should be signed.
-		lodBias = (float)(int)(s8)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
 	}
 
 	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR_VIDEO) {
@@ -168,10 +188,6 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	if (forceNearest) {
 		magFilt &= ~1;
 		minFilt &= ~1;
-	}
-
-	if (!g_Config.bMipMap || noMip) {
-		minFilt &= 1;
 	}
 }
 
