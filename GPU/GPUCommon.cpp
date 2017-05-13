@@ -124,6 +124,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_IMAGE },
 	{ GE_CMD_TEXLEVEL, FLAG_EXECUTEONCHANGE, DIRTY_TEXTURE_PARAMS, &GPUCommon::Execute_TexLevel },
+	{ GE_CMD_TEXLODSLOPE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_IMAGE | DIRTY_UVSCALEOFFSET },
 	{ GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
@@ -265,7 +266,6 @@ const CommonCommandTableEntry commonCommandTable[] = {
 
 	// Ignored commands
 	{ GE_CMD_TEXFLUSH, 0 },
-	{ GE_CMD_TEXLODSLOPE, 0 },
 	{ GE_CMD_TEXSYNC, 0 },
 
 	// These are just nop or part of other later commands.
@@ -1416,7 +1416,7 @@ void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 	if (diff == 0xFFFFFFFF) return;
 
 	gstate.texlevel ^= diff;
-	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST && (0x00FF0000 & gstate.texlevel) != 0) {
+	if (gstate.getTexLevelMode() != GE_TEXLEVEL_MODE_AUTO && (0x00FF0000 & gstate.texlevel) != 0) {
 		Flush();
 	}
 	gstate.texlevel ^= diff;
