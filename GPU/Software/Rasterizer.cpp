@@ -1204,9 +1204,6 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
-	Vec4<float> os = s + Vec4<float>::AssignToAll(ds * 0.5f);
-	Vec4<float> ot = t + Vec4<float>::AssignToAll(dt * 0.5f);
-
 	// With 8 bits of fraction (because texslope can be fairly precise.)
 	int detail;
 	switch (gstate.getTexLevelMode()) {
@@ -1250,7 +1247,7 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 	}
 
 	for (int i = 0; i < 4; ++i) {
-		ApplyTexturing(prim_color[i], os[i], ot[i], level, levelFrac, filt, texptr, texbufwidthbytes);
+		ApplyTexturing(prim_color[i], s[i], t[i], level, levelFrac, filt, texptr, texbufwidthbytes);
 	}
 }
 
@@ -1264,8 +1261,9 @@ struct TriangleEdge {
 };
 
 Vec4<int> TriangleEdge::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
-	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(0, 16, 0, 16);
-	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y) + Vec4<int>(0, 0, 16, 16);
+	// Start at pixel centers.
+	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(7, 23, 7, 23);
+	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y) + Vec4<int>(7, 7, 23, 23);
 
 	// orient2d refactored.
 	int xf = v0.y - v1.y;
