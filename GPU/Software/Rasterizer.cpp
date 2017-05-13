@@ -1291,7 +1291,7 @@ inline Vec4<int> TriangleEdge::StepY(const Vec4<int> &w) {
 #endif
 }
 
-inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2) {
+static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2) {
 #if defined(_M_SSE) && !defined(_M_IX86)
 	__m128i biased0 = _mm_add_epi32(w0.ivec, bias0.ivec);
 	__m128i biased1 = _mm_add_epi32(w1.ivec, bias1.ivec);
@@ -1303,7 +1303,7 @@ inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<i
 #endif
 }
 
-inline bool AnyMask(const Vec4<int> &mask) {
+static inline bool AnyMask(const Vec4<int> &mask) {
 #if defined(_M_SSE) && !defined(_M_IX86)
 	// In other words: !(mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
 	__m128i low2 = _mm_and_si128(mask.ivec, _mm_shuffle_epi32(mask.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
@@ -1312,6 +1312,15 @@ inline bool AnyMask(const Vec4<int> &mask) {
 	return _mm_cvtsi128_si32(low1) >= 0;
 #else
 	return mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0;
+#endif
+}
+
+static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	__m128i wsum = _mm_add_epi32(w0.ivec, _mm_add_epi32(w1.ivec, w2.ivec));
+	return _mm_rcp_ps(_mm_cvtepi32_ps(wsum));
+#else
+	return (w0 + w1 + w2).Cast<float>().Reciprocal();
 #endif
 }
 
@@ -1386,7 +1395,7 @@ void DrawTriangleSlice(
 			// If p is on or inside all edges, render pixel
 			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2);
 			if (AnyMask(mask)) {
-				Vec4<float> wsum_recip = (w0 + w1 + w2).Cast<float>().Reciprocal();
+				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
 
 				Vec4<int> prim_color[4];
 				Vec3<int> sec_color[4];
