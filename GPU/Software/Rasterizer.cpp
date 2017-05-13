@@ -1201,14 +1201,17 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 	int width = gstate.getTextureWidth(0);
 	int height = gstate.getTextureHeight(0);
 
-	float ds = (s[1] - s[0]) * width;
-	float dt = (t[2] - t[0]) * height;
+	float ds = s[1] - s[0];
+	float dt = t[2] - t[0];
+
+	Vec4<float> os = s + Vec4<float>::AssignToAll(ds * 0.5f);
+	Vec4<float> ot = t + Vec4<float>::AssignToAll(dt * 0.5f);
 
 	// With 8 bits of fraction (because texslope can be fairly precise.)
 	int detail;
 	switch (gstate.getTexLevelMode()) {
 	case GE_TEXLEVEL_MODE_AUTO:
-		detail = TexLog2(std::max(ds, dt));
+		detail = TexLog2(std::max(ds * width, dt * height));
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
 		// This is always offset by an extra texlevel.
@@ -1247,7 +1250,7 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 	}
 
 	for (int i = 0; i < 4; ++i) {
-		ApplyTexturing(prim_color[i], s[i], t[i], level, levelFrac, filt, texptr, texbufwidthbytes);
+		ApplyTexturing(prim_color[i], os[i], ot[i], level, levelFrac, filt, texptr, texbufwidthbytes);
 	}
 }
 
@@ -1677,6 +1680,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 				s *= 1.0f / (float)gstate.getTextureWidth(0);
 				t *= 1.0f / (float)gstate.getTextureHeight(0);
 			}
+			// TODO: ds/dt.
 			ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
 		}
 
