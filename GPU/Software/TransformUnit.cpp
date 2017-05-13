@@ -188,6 +188,8 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 			vertex.worldnormal = TransformUnit::ModelToWorldNormal(vertex.normal);
 			// TODO: Isn't there a flag that controls whether to normalize the normal?
 			vertex.worldnormal /= vertex.worldnormal.Length();
+		} else {
+			vertex.worldnormal = Vec3<float>(0.0f, 0.0f, 1.0f);
 		}
 
 		Lighting::Process(vertex, vreader.hasColor0());
