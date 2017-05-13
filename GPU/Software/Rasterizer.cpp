@@ -1145,12 +1145,6 @@ static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int t
 	int u[8] = {0}, v[8] = {0};   // 1.23.8 fixed point
 	int frac_u[2], frac_v[2];
 
-	if (gstate.isModeThrough()) {
-		// For levels > 0, these are always based on level 0.  Simpler to round initially.
-		s /= (float)gstate.getTextureWidth(0);
-		t /= (float)gstate.getTextureHeight(0);
-	}
-
 	Vec4<int> texcolor0;
 	Vec4<int> texcolor1;
 	const u8 *tptr0 = texptr[texlevel];
@@ -1209,16 +1203,12 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
-	if (!gstate.isModeThrough()) {
-		ds *= width;
-		dt *= height;
-	}
 
 	// With 8 bits of fraction (because texslope can be fairly precise.)
 	int detail;
 	switch (gstate.getTexLevelMode()) {
 	case GE_TEXLEVEL_MODE_AUTO:
-		detail = TexLog2(std::max(ds, dt));
+		detail = TexLog2(std::max(ds * width, dt * height));
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
 		// This is always offset by an extra texlevel.
@@ -1271,8 +1261,9 @@ struct TriangleEdge {
 };
 
 Vec4<int> TriangleEdge::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
-	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(0, 16, 0, 16);
-	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y) + Vec4<int>(0, 0, 16, 16);
+	// Start at pixel centers.
+	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(7, 23, 7, 23);
+	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y) + Vec4<int>(7, 7, 23, 23);
 
 	// orient2d refactored.
 	int xf = v0.y - v1.y;
@@ -1301,7 +1292,7 @@ inline Vec4<int> TriangleEdge::StepY(const Vec4<int> &w) {
 #endif
 }
 
-inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2) {
+static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2) {
 #if defined(_M_SSE) && !defined(_M_IX86)
 	__m128i biased0 = _mm_add_epi32(w0.ivec, bias0.ivec);
 	__m128i biased1 = _mm_add_epi32(w1.ivec, bias1.ivec);
@@ -1313,7 +1304,7 @@ inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<i
 #endif
 }
 
-inline bool AnyMask(const Vec4<int> &mask) {
+static inline bool AnyMask(const Vec4<int> &mask) {
 #if defined(_M_SSE) && !defined(_M_IX86)
 	// In other words: !(mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
 	__m128i low2 = _mm_and_si128(mask.ivec, _mm_shuffle_epi32(mask.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
@@ -1322,6 +1313,15 @@ inline bool AnyMask(const Vec4<int> &mask) {
 	return _mm_cvtsi128_si32(low1) >= 0;
 #else
 	return mask.x >= 0 || mask.y >= 0 || mask.z >= 0 || mask.w >= 0;
+#endif
+}
+
+static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2) {
+#if defined(_M_SSE) && !defined(_M_IX86)
+	__m128i wsum = _mm_add_epi32(w0.ivec, _mm_add_epi32(w1.ivec, w2.ivec));
+	return _mm_rcp_ps(_mm_cvtepi32_ps(wsum));
+#else
+	return (w0 + w1 + w2).Cast<float>().Reciprocal();
 #endif
 }
 
@@ -1396,7 +1396,7 @@ void DrawTriangleSlice(
 			// If p is on or inside all edges, render pixel
 			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2);
 			if (AnyMask(mask)) {
-				Vec4<float> wsum_recip = (w0 + w1 + w2).Cast<float>().Reciprocal();
+				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
 
 				Vec4<int> prim_color[4];
 				Vec3<int> sec_color[4];
@@ -1418,6 +1418,10 @@ void DrawTriangleSlice(
 					if (gstate.isModeThrough()) {
 						s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1, w2, wsum_recip);
 						t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1, w2, wsum_recip);
+
+						// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
+						s *= 1.0f / (float)gstate.getTextureWidth(0);
+						t *= 1.0f / (float)gstate.getTextureHeight(0);
 					} else {
 						// Texture coordinate interpolation must definitely be perspective-correct.
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
@@ -1566,6 +1570,11 @@ void DrawPoint(const VertexData &v0)
 			}
 		}
 
+		if (gstate.isModeThrough()) {
+			s *= 1.0f / (float)gstate.getTextureWidth(0);
+			t *= 1.0f / (float)gstate.getTextureHeight(0);
+		}
+
 		ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
 	}
 
@@ -1665,6 +1674,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		float t = tc.t();
 
 		if (gstate.isTextureMapEnabled() && !clearMode) {
+			if (gstate.isModeThrough()) {
+				s *= 1.0f / (float)gstate.getTextureWidth(0);
+				t *= 1.0f / (float)gstate.getTextureHeight(0);
+			}
+			// TODO: ds/dt.
 			ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
 		}
 
