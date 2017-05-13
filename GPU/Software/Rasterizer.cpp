@@ -1145,12 +1145,6 @@ static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int t
 	int u[8] = {0}, v[8] = {0};   // 1.23.8 fixed point
 	int frac_u[2], frac_v[2];
 
-	if (gstate.isModeThrough()) {
-		// For levels > 0, these are always based on level 0.  Simpler to round initially.
-		s /= (float)gstate.getTextureWidth(0);
-		t /= (float)gstate.getTextureHeight(0);
-	}
-
 	Vec4<int> texcolor0;
 	Vec4<int> texcolor1;
 	const u8 *tptr0 = texptr[texlevel];
@@ -1207,12 +1201,8 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 	int width = gstate.getTextureWidth(0);
 	int height = gstate.getTextureHeight(0);
 
-	float ds = s[1] - s[0];
-	float dt = t[2] - t[0];
-	if (!gstate.isModeThrough()) {
-		ds *= width;
-		dt *= height;
-	}
+	float ds = (s[1] - s[0]) * width;
+	float dt = (t[2] - t[0]) * height;
 
 	// With 8 bits of fraction (because texslope can be fairly precise.)
 	int detail;
@@ -1418,6 +1408,10 @@ void DrawTriangleSlice(
 					if (gstate.isModeThrough()) {
 						s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1, w2, wsum_recip);
 						t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1, w2, wsum_recip);
+
+						// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
+						s *= 1.0f / (float)gstate.getTextureWidth(0);
+						t *= 1.0f / (float)gstate.getTextureHeight(0);
 					} else {
 						// Texture coordinate interpolation must definitely be perspective-correct.
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
@@ -1566,6 +1560,11 @@ void DrawPoint(const VertexData &v0)
 			}
 		}
 
+		if (gstate.isModeThrough()) {
+			s *= 1.0f / (float)gstate.getTextureWidth(0);
+			t *= 1.0f / (float)gstate.getTextureHeight(0);
+		}
+
 		ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
 	}
 
@@ -1665,6 +1664,10 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		float t = tc.t();
 
 		if (gstate.isTextureMapEnabled() && !clearMode) {
+			if (gstate.isModeThrough()) {
+				s *= 1.0f / (float)gstate.getTextureWidth(0);
+				t *= 1.0f / (float)gstate.getTextureHeight(0);
+			}
 			ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
 		}
 
