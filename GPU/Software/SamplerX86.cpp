@@ -447,7 +447,7 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 
 	MOV(PTRBITS, R(tempReg1), ImmPtr(clut));
 
-	switch (gstate.getClutPaletteFormat()) {
+	switch ((GEPaletteFormat)id.clutfmt) {
 	case GE_CMODE_16BIT_BGR5650:
 		MOVZX(32, 16, resultReg, MComplex(tempReg1, resultReg, SCALE_2, 0));
 		return Jit_Decode5650();

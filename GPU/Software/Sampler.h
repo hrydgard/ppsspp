@@ -40,9 +40,9 @@ struct SamplerID {
 	union {
 		u32 fullKey;
 		struct {
-			int8_t texfmt : 4;
-			int8_t clutfmt : 2;
-			int8_t : 2;
+			uint8_t texfmt : 4;
+			uint8_t clutfmt : 2;
+			uint8_t : 2;
 			bool swizzle : 1;
 			bool useSharedClut : 1;
 			bool hasClutMask : 1;
