@@ -1657,9 +1657,16 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	for (int i = 0; i <= steps; i++) {
 		if (x >= scissorTL.x && y >= scissorTL.y && x <= scissorBR.x && y <= scissorBR.y) {
 			// Interpolate between the two points.
-			// TODO: gstate.getShadeMode() == GE_SHADE_GOURAUD
-			Vec4<int> prim_color = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
-			Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
+			Vec4<int> prim_color;
+			Vec3<int> sec_color;
+			if (gstate.getShadeMode() == GE_SHADE_GOURAUD) {
+				prim_color = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
+				sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
+			} else {
+				prim_color = v1.color0;
+				sec_color = v1.color1;
+			}
+
 			// TODO: UVGenMode?
 			Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
 
