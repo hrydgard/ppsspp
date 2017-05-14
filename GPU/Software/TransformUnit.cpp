@@ -97,8 +97,8 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 {
 	DrawingCoords ret;
 	// TODO: What to do when offset > coord?
-	ret.x = (((u32)coords.x - gstate.getOffsetX16()) / 16) & 0x3ff;
-	ret.y = (((u32)coords.y - gstate.getOffsetY16()) / 16) & 0x3ff;
+	ret.x = ((s32)coords.x - gstate.getOffsetX16()) / 16;
+	ret.y = ((s32)coords.y - gstate.getOffsetY16()) / 16;
 	ret.z = coords.z;
 	return ret;
 }
