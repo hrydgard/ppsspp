@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <cmath>
+
 #include "base/basictypes.h"
 #include "profiler/profiler.h"
 
@@ -28,8 +31,6 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"
-
-#include <algorithm>
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -1650,11 +1651,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		}
 	}
 
-	float x = a.x;
-	float y = a.y;
+	float x = a.x > b.x ? a.x - 1 : a.x;
+	float y = a.y > b.y ? a.y - 1 : a.y;
 	float z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
-	for (int i = 0; i <= steps; i++) {
+	for (int i = 0; i < steps; i++) {
 		if (x >= scissorTL.x && y >= scissorTL.y && x <= scissorBR.x && y <= scissorBR.y) {
 			// Interpolate between the two points.
 			Vec4<int> prim_color;
@@ -1691,7 +1692,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 			if (!clearMode)
 				prim_color += Vec4<int>(sec_color, 0);
 
-			ScreenCoords pprime = ScreenCoords(x, y, z);
+			ScreenCoords pprime = ScreenCoords((int)x, (int)y, (int)z);
 
 			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 			if (clearMode) {
