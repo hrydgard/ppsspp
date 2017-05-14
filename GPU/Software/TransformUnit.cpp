@@ -97,8 +97,8 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 {
 	DrawingCoords ret;
 	// TODO: What to do when offset > coord?
-	ret.x = (((u32)coords.x - gstate.getOffsetX16()) / 16) & 0x3ff;
-	ret.y = (((u32)coords.y - gstate.getOffsetY16()) / 16) & 0x3ff;
+	ret.x = ((s32)coords.x - gstate.getOffsetX16()) / 16;
+	ret.y = ((s32)coords.y - gstate.getOffsetY16()) / 16;
 	ret.z = coords.z;
 	return ret;
 }
@@ -178,6 +178,7 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 		ModelCoords viewpos = TransformUnit::WorldToView(vertex.worldpos);
 		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
 		if (gstate.isFogEnabled()) {
+			// TODO: Validate inf/nan.
 			vertex.fogdepth = (viewpos.z + getFloat24(gstate.fog1)) * getFloat24(gstate.fog2);
 		} else {
 			vertex.fogdepth = 1.0f;
@@ -188,6 +189,8 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 			vertex.worldnormal = TransformUnit::ModelToWorldNormal(vertex.normal);
 			// TODO: Isn't there a flag that controls whether to normalize the normal?
 			vertex.worldnormal /= vertex.worldnormal.Length();
+		} else {
+			vertex.worldnormal = Vec3<float>(0.0f, 0.0f, 1.0f);
 		}
 
 		Lighting::Process(vertex, vreader.hasColor0());

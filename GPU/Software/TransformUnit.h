@@ -62,17 +62,17 @@ struct ScreenCoords
 struct DrawingCoords
 {
 	DrawingCoords() {}
-	DrawingCoords(u10 x, u10 y, u16 z) : x(x), y(y), z(z) {}
+	DrawingCoords(s16 x, s16 y, u16 z) : x(x), y(y), z(z) {}
 
-	u10 x;
-	u10 y;
+	s16 x;
+	s16 y;
 	u16 z;
 
-	Vec2<u10> xy() const { return Vec2<u10>(x, y); }
+	Vec2<s16> xy() const { return Vec2<s16>(x, y); }
 
 	DrawingCoords operator * (const float t) const
 	{
-		return DrawingCoords((u10)(x * t), (u10)(y * t), (u16)(z * t));
+		return DrawingCoords((s16)(x * t), (s16)(y * t), (u16)(z * t));
 	}
 
 	DrawingCoords operator + (const DrawingCoords& oth) const
