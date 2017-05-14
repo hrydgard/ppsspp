@@ -240,7 +240,33 @@ void ProcessLine(VertexData& v0, VertexData& v1)
 		return;
 	}
 
-	// TODO: 3D lines
+	VertexData *Vertices[2] = {&v0, &v1};
+
+	int mask0 = CalcClipMask(v0.clippos);
+	int mask1 = CalcClipMask(v1.clippos);
+	int mask = mask0 | mask1;
+
+	if (mask && (gstate.clipEnable & 0x1)) {
+		// discard if any vertex is outside the near clipping plane
+		if (mask & CLIP_NEG_Z_BIT)
+			return;
+
+		CLIP_LINE(CLIP_POS_X_BIT, -1,  0,  0, 1);
+		CLIP_LINE(CLIP_NEG_X_BIT,  1,  0,  0, 1);
+		CLIP_LINE(CLIP_POS_Y_BIT,  0, -1,  0, 1);
+		CLIP_LINE(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
+		CLIP_LINE(CLIP_POS_Z_BIT,  0,  0,  0, 1);
+		CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
+	} else if (mask0 & mask1) {
+		// If clipping is disabled, only discard the current primitive
+		// if both vertices lie outside one of the clipping planes
+		return;
+	}
+
+	VertexData data[2] = { *Vertices[0], *Vertices[1] };
+	data[0].screenpos = TransformUnit::ClipToScreen(data[0].clippos);
+	data[1].screenpos = TransformUnit::ClipToScreen(data[1].clippos);
+	Rasterizer::DrawLine(data[0], data[1]);
 }
 
 void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)

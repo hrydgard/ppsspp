@@ -1535,7 +1535,7 @@ void DrawPoint(const VertexData &v0)
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
 
-	if (pos.x < scissorTL.x || pos.y < scissorTL.y || pos.x >= scissorBR.x || pos.y >= scissorBR.y)
+	if (pos.x < scissorTL.x || pos.y < scissorTL.y || pos.x > scissorBR.x || pos.y > scissorBR.y)
 		return;
 
 	bool clearMode = gstate.isModeClear();
@@ -1655,48 +1655,48 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	float z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
 	for (int i = 0; i <= steps; i++) {
-		if (x < scissorTL.x || y < scissorTL.y || x >= scissorBR.x || y >= scissorBR.y)
-			continue;
+		if (x >= scissorTL.x && y >= scissorTL.y && x <= scissorBR.x && y <= scissorBR.y) {
+			// Interpolate between the two points.
+			// TODO: gstate.getShadeMode() == GE_SHADE_GOURAUD
+			Vec4<int> prim_color = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
+			Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
+			// TODO: UVGenMode?
+			Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
 
-		// Interpolate between the two points.
-		Vec4<int> c0 = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
-		Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
-		// TODO: UVGenMode?
-		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
-		Vec4<int> prim_color = c0;
-
-		u8 fog = 255;
-		if (gstate.isFogEnabled() && !clearMode) {
-			fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
-		}
-
-		float s = tc.s();
-		float t = tc.t();
-
-		if (gstate.isTextureMapEnabled() && !clearMode) {
-			if (gstate.isModeThrough()) {
-				s *= 1.0f / (float)gstate.getTextureWidth(0);
-				t *= 1.0f / (float)gstate.getTextureHeight(0);
+			u8 fog = 255;
+			if (gstate.isFogEnabled() && !clearMode) {
+				fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
 			}
-			// TODO: ds/dt.
-			ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
+
+			float s = tc.s();
+			float t = tc.t();
+
+			if (gstate.isTextureMapEnabled() && !clearMode) {
+				if (gstate.isModeThrough()) {
+					s *= 1.0f / (float)gstate.getTextureWidth(0);
+					t *= 1.0f / (float)gstate.getTextureHeight(0);
+				}
+
+				// TODO: ds/dt.
+				ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
+			}
+
+			if (!clearMode)
+				prim_color += Vec4<int>(sec_color, 0);
+
+			ScreenCoords pprime = ScreenCoords(x, y, z);
+
+			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+			if (clearMode) {
+				DrawSinglePixel<true>(p, z, fog, prim_color);
+			} else {
+				DrawSinglePixel<false>(p, z, fog, prim_color);
+			}
 		}
 
-		if (!clearMode)
-			prim_color += Vec4<int>(sec_color, 0);
-
-		ScreenCoords pprime = ScreenCoords(x, y, z);
-
-		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-		if (clearMode) {
-			DrawSinglePixel<true>(p, z, fog, prim_color);
-		} else {
-			DrawSinglePixel<false>(p, z, fog, prim_color);
-		}
-
-		x = x + xinc;
-		y = y + yinc;
-		z = z + zinc;
+		x += xinc;
+		y += yinc;
+		z += zinc;
 	}
 }
 
