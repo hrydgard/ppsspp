@@ -1319,7 +1319,8 @@ static inline bool AnyMask(const Vec4<int> &mask) {
 static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2) {
 #if defined(_M_SSE) && !defined(_M_IX86)
 	__m128i wsum = _mm_add_epi32(w0.ivec, _mm_add_epi32(w1.ivec, w2.ivec));
-	return _mm_rcp_ps(_mm_cvtepi32_ps(wsum));
+	// _mm_rcp_ps loses too much precision.
+	return _mm_div_ps(_mm_set1_ps(1.0f), _mm_cvtepi32_ps(wsum));
 #else
 	return (w0 + w1 + w2).Cast<float>().Reciprocal();
 #endif
