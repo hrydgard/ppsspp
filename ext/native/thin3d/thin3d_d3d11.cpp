@@ -714,7 +714,7 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 		int w = desc.width;
 		int h = desc.height;
 		for (int i = 0; i < (int)desc.initData.size(); i++) {
-			initData[i].pSysMem = desc.initData[0];
+			initData[i].pSysMem = desc.initData[i];
 			initData[i].SysMemPitch = (UINT)(w * DataFormatSizeInBytes(desc.format));
 			initData[i].SysMemSlicePitch = (UINT)(w * h * DataFormatSizeInBytes(desc.format));
 			w /= 2;
