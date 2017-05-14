@@ -539,15 +539,15 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 			DrawingCoords drawPos = ScreenToDrawing(screenPos);
 
 			if (gstate.vertType & GE_VTYPE_TC_MASK) {
-				vertices[i].u = vert.uv[0];
-				vertices[i].v = vert.uv[1];
+				vertices[i].u = vert.uv[0] * (float)gstate.getTextureWidth(0);
+				vertices[i].v = vert.uv[1] * (float)gstate.getTextureHeight(0);
 			} else {
 				vertices[i].u = 0.0f;
 				vertices[i].v = 0.0f;
 			}
 			vertices[i].x = drawPos.x;
 			vertices[i].y = drawPos.y;
-			vertices[i].z = 1.0;
+			vertices[i].z = drawPos.z;
 			if (gstate.vertType & GE_VTYPE_COL_MASK) {
 				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
 			} else {
@@ -555,6 +555,10 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 			}
 		}
 	}
+
+	// The GE debugger expects these to be set.
+	gstate_c.curTextureWidth = gstate.getTextureWidth(0);
+	gstate_c.curTextureHeight = gstate.getTextureHeight(0);
 
 	return true;
 }
