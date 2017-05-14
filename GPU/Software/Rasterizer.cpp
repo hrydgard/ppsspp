@@ -1677,12 +1677,19 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 				fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
 			}
 
+			if (gstate.isAntiAliasEnabled()) {
+				// TODO: Clearmode?
+				// TODO: Calculate.
+				prim_color.a() = 0x7F;
+			}
+
 			if (gstate.isTextureMapEnabled() && !clearMode) {
 				// TODO: UVGenMode?
 				Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
 				Vec2<float> tc1 = (v0.texturecoords * (float)(steps - i - 1) + v1.texturecoords * (float)(i + 1)) / steps1;
-				float s = tc.s(), s1 = tc1.s();
-				float t = tc.t(), t1 = tc1.t();
+
+				float &s = tc.s(), &s1 = tc1.s();
+				float &t = tc.t(), &t1 = tc1.t();
 
 				if (gstate.isModeThrough()) {
 					s *= 1.0f / (float)gstate.getTextureWidth(0);
@@ -1699,6 +1706,16 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 				int texLevelFrac;
 				int texFilt;
 				CalculateSamplingParams(ds, dt, maxTexLevel, texLevel, texLevelFrac, texFilt);
+
+				if (gstate.isAntiAliasEnabled()) {
+					// TODO: This is a niave and wrong implementation.
+					DrawingCoords p0 = TransformUnit::ScreenToDrawing(ScreenCoords((int)x, (int)y, (int)z));
+					DrawingCoords p1 = TransformUnit::ScreenToDrawing(ScreenCoords((int)(x + xinc), (int)(y + yinc), (int)(z + zinc)));
+					s = ((float)p0.x + xinc / 32.0f) / 512.0f;
+					t = ((float)p0.y + yinc / 32.0f) / 512.0f;
+
+					texFilt = 1;
+				}
 
 				ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, texFilt, texptr, texbufwidthbytes);
 			}
