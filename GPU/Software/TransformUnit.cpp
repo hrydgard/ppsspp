@@ -178,6 +178,7 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 		ModelCoords viewpos = TransformUnit::WorldToView(vertex.worldpos);
 		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
 		if (gstate.isFogEnabled()) {
+			// TODO: Validate inf/nan.
 			vertex.fogdepth = (viewpos.z + getFloat24(gstate.fog1)) * getFloat24(gstate.fog2);
 		} else {
 			vertex.fogdepth = 1.0f;

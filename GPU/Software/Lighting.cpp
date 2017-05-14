@@ -111,10 +111,7 @@ void Process(VertexData& vertex, bool hasColor)
 		}
 
 		if (gstate.isUsingSpecularLight(light)) {
-			Vec3<float> E(0.f, 0.f, 1.f);
-			//Mat3x3<float> view_matrix(gstate.viewMatrix);
-			//Vec3<float> worldE = view_matrix.Inverse() * (E - Vec3<float>(gstate.viewMatrix[9], gstate.viewMatrix[10], gstate.viewMatrix[11]));
-			Vec3<float> H = L + E;//worldE.Normalized();
+			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
 
 			Vec3<float> lsc = Vec3<float>::FromRGB(gstate.getSpecularColor(light));
 			Vec3<float> msc = (materialupdate & 4) ? vcol0 : Vec3<float>::FromRGB(gstate.getMaterialSpecular());
