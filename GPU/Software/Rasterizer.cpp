@@ -1292,15 +1292,15 @@ inline Vec4<int> TriangleEdge::StepY(const Vec4<int> &w) {
 #endif
 }
 
-static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2) {
+static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2, const Vec4<int> &scissor) {
 #if defined(_M_SSE) && !defined(_M_IX86)
 	__m128i biased0 = _mm_add_epi32(w0.ivec, bias0.ivec);
 	__m128i biased1 = _mm_add_epi32(w1.ivec, bias1.ivec);
 	__m128i biased2 = _mm_add_epi32(w2.ivec, bias2.ivec);
 
-	return _mm_or_si128(biased0, _mm_or_si128(biased1, biased2));
+	return _mm_or_si128(_mm_or_si128(biased0, _mm_or_si128(biased1, biased2)), scissor.ivec);
 #else
-	return (w0 + bias0) | (w1 + bias1) | (w2 + bias2);
+	return (w0 + bias0) | (w1 + bias1) | (w2 + bias2) | scissor;
 #endif
 }
 
@@ -1319,7 +1319,8 @@ static inline bool AnyMask(const Vec4<int> &mask) {
 static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2) {
 #if defined(_M_SSE) && !defined(_M_IX86)
 	__m128i wsum = _mm_add_epi32(w0.ivec, _mm_add_epi32(w1.ivec, w2.ivec));
-	return _mm_rcp_ps(_mm_cvtepi32_ps(wsum));
+	// _mm_rcp_ps loses too much precision.
+	return _mm_div_ps(_mm_set1_ps(1.0f), _mm_cvtepi32_ps(wsum));
 #else
 	return (w0 + w1 + w2).Cast<float>().Reciprocal();
 #endif
@@ -1384,6 +1385,11 @@ void DrawTriangleSlice(
 		Vec4<int> w1 = w1_base;
 		Vec4<int> w2 = w2_base;
 
+		// TODO: Maybe we can clip the edges instead?
+		int scissorYPlus1 = pprime.y + 16 > maxY ? -1 : 0;
+		Vec4<int> scissor_mask = Vec4<int>(0, maxX - minX - 1, scissorYPlus1, (maxX - minX - 1) | scissorYPlus1);
+		Vec4<int> scissor_step = Vec4<int>(0, -32, 0, -32);
+
 		pprime.x = minX;
 		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
@@ -1391,10 +1397,11 @@ void DrawTriangleSlice(
 			w0 = e0.StepX(w0),
 			w1 = e1.StepX(w1),
 			w2 = e2.StepX(w2),
+			scissor_mask = scissor_mask + scissor_step,
 			p.x = (p.x + 2) & 0x3FF) {
 
 			// If p is on or inside all edges, render pixel
-			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2);
+			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2, scissor_mask);
 			if (AnyMask(mask)) {
 				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
 
