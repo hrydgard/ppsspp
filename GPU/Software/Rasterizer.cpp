@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <cmath>
+
 #include "base/basictypes.h"
 #include "profiler/profiler.h"
 
@@ -28,8 +31,6 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"
-
-#include <algorithm>
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -1197,12 +1198,9 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufwidthbytes[]) {
-	int width = gstate.getTextureWidth(0);
-	int height = gstate.getTextureHeight(0);
-
-	float ds = s[1] - s[0];
-	float dt = t[2] - t[0];
+static inline void CalculateSamplingParams(const float ds, const float dt, const int maxTexLevel, int &level, int &levelFrac, int &filt) {
+	const int width = gstate.getTextureWidth(0);
+	const int height = gstate.getTextureHeight(0);
 
 	// With 8 bits of fraction (because texslope can be fairly precise.)
 	int detail;
@@ -1228,8 +1226,6 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 	int mipFilt = (gstate.texfilter >> 1) & 1;
 	int magFilt = (gstate.texfilter >> 8) & 1;
 
-	int level = 0;
-	int levelFrac = 0;
 	if (detail > 0 && maxTexLevel > 0) {
 		int level8 = std::min(detail, maxTexLevel * 256);
 		if (!mipFilt) {
@@ -1238,13 +1234,31 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 		}
 		level = level8 >> 8;
 		levelFrac = mipFilt ? level8 & 0xFF : 0;
+	} else {
+		level = 0;
+		levelFrac = 0;
 	}
-	int filt = detail > 0 ? minFilt : magFilt;
+
 	if (g_Config.iTexFiltering == 3) {
 		filt = 1;
 	} else if (g_Config.iTexFiltering == 2) {
 		filt = 0;
+	} else {
+		filt = detail > 0 ? minFilt : magFilt;
 	}
+}
+
+static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufwidthbytes[]) {
+	int width = gstate.getTextureWidth(0);
+	int height = gstate.getTextureHeight(0);
+
+	float ds = s[1] - s[0];
+	float dt = t[2] - t[0];
+
+	int level;
+	int levelFrac;
+	int filt;
+	CalculateSamplingParams(ds, dt, maxTexLevel, level, levelFrac, filt);
 
 	for (int i = 0; i < 4; ++i) {
 		ApplyTexturing(prim_color[i], s[i], t[i], level, levelFrac, filt, texptr, texbufwidthbytes);
@@ -1542,7 +1556,7 @@ void DrawPoint(const VertexData &v0)
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
 
-	if (pos.x < scissorTL.x || pos.y < scissorTL.y || pos.x >= scissorBR.x || pos.y >= scissorBR.y)
+	if (pos.x < scissorTL.x || pos.y < scissorTL.y || pos.x > scissorBR.x || pos.y > scissorBR.y)
 		return;
 
 	bool clearMode = gstate.isModeClear();
@@ -1634,21 +1648,12 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
-	int magFilt = (gstate.texfilter>>8) & 1;
-	if (g_Config.iTexFiltering > 1) {
-		if (g_Config.iTexFiltering == 2) {
-			magFilt = 0;
-		} else if (g_Config.iTexFiltering == 3) {
-			magFilt = 1;
-		}
-	}
 	if ((gstate.texfilter & 4) == 0 || !g_Config.bMipMap) {
 		// No mipmapping enabled
 		maxTexLevel = 0;
 	}
 
 	if (gstate.isTextureMapEnabled() && !clearMode) {
-		// TODO: Always using level 0.
 		GETextureFormat texfmt = gstate.getTextureFormat();
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
@@ -1657,53 +1662,87 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		}
 	}
 
-	float x = a.x;
-	float y = a.y;
+	float x = a.x > b.x ? a.x - 1 : a.x;
+	float y = a.y > b.y ? a.y - 1 : a.y;
 	float z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
-	for (int i = 0; i <= steps; i++) {
-		if (x < scissorTL.x || y < scissorTL.y || x >= scissorBR.x || y >= scissorBR.y)
-			continue;
-
-		// Interpolate between the two points.
-		Vec4<int> c0 = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
-		Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
-		// TODO: UVGenMode?
-		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
-		Vec4<int> prim_color = c0;
-
-		u8 fog = 255;
-		if (gstate.isFogEnabled() && !clearMode) {
-			fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
-		}
-
-		float s = tc.s();
-		float t = tc.t();
-
-		if (gstate.isTextureMapEnabled() && !clearMode) {
-			if (gstate.isModeThrough()) {
-				s *= 1.0f / (float)gstate.getTextureWidth(0);
-				t *= 1.0f / (float)gstate.getTextureHeight(0);
+	for (int i = 0; i < steps; i++) {
+		if (x >= scissorTL.x && y >= scissorTL.y && x <= scissorBR.x && y <= scissorBR.y) {
+			// Interpolate between the two points.
+			Vec4<int> prim_color;
+			Vec3<int> sec_color;
+			if (gstate.getShadeMode() == GE_SHADE_GOURAUD) {
+				prim_color = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
+				sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
+			} else {
+				prim_color = v1.color0;
+				sec_color = v1.color1;
 			}
-			// TODO: ds/dt.
-			ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
+
+			u8 fog = 255;
+			if (gstate.isFogEnabled() && !clearMode) {
+				fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
+			}
+
+			if (gstate.isAntiAliasEnabled()) {
+				// TODO: Clearmode?
+				// TODO: Calculate.
+				prim_color.a() = 0x7F;
+			}
+
+			if (gstate.isTextureMapEnabled() && !clearMode) {
+				// TODO: UVGenMode?
+				Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
+				Vec2<float> tc1 = (v0.texturecoords * (float)(steps - i - 1) + v1.texturecoords * (float)(i + 1)) / steps1;
+
+				float &s = tc.s(), &s1 = tc1.s();
+				float &t = tc.t(), &t1 = tc1.t();
+
+				if (gstate.isModeThrough()) {
+					s *= 1.0f / (float)gstate.getTextureWidth(0);
+					s1 *= 1.0f / (float)gstate.getTextureWidth(0);
+					t *= 1.0f / (float)gstate.getTextureHeight(0);
+					t1 *= 1.0f / (float)gstate.getTextureHeight(0);
+				}
+
+				// If inc is 0, force the delta to zero.
+				float ds = xinc == 0.0f ? 0.0f : (s1 - s) * 16.0f * (1.0f / xinc);
+				float dt = yinc == 0.0f ? 0.0f : (t1 - t) * 16.0f * (1.0f / yinc);
+
+				int texLevel;
+				int texLevelFrac;
+				int texFilt;
+				CalculateSamplingParams(ds, dt, maxTexLevel, texLevel, texLevelFrac, texFilt);
+
+				if (gstate.isAntiAliasEnabled()) {
+					// TODO: This is a niave and wrong implementation.
+					DrawingCoords p0 = TransformUnit::ScreenToDrawing(ScreenCoords((int)x, (int)y, (int)z));
+					DrawingCoords p1 = TransformUnit::ScreenToDrawing(ScreenCoords((int)(x + xinc), (int)(y + yinc), (int)(z + zinc)));
+					s = ((float)p0.x + xinc / 32.0f) / 512.0f;
+					t = ((float)p0.y + yinc / 32.0f) / 512.0f;
+
+					texFilt = 1;
+				}
+
+				ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, texFilt, texptr, texbufwidthbytes);
+			}
+
+			if (!clearMode)
+				prim_color += Vec4<int>(sec_color, 0);
+
+			ScreenCoords pprime = ScreenCoords((int)x, (int)y, (int)z);
+
+			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
+			if (clearMode) {
+				DrawSinglePixel<true>(p, z, fog, prim_color);
+			} else {
+				DrawSinglePixel<false>(p, z, fog, prim_color);
+			}
 		}
 
-		if (!clearMode)
-			prim_color += Vec4<int>(sec_color, 0);
-
-		ScreenCoords pprime = ScreenCoords(x, y, z);
-
-		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-		if (clearMode) {
-			DrawSinglePixel<true>(p, z, fog, prim_color);
-		} else {
-			DrawSinglePixel<false>(p, z, fog, prim_color);
-		}
-
-		x = x + xinc;
-		y = y + yinc;
-		z = z + zinc;
+		x += xinc;
+		y += yinc;
+		z += zinc;
 	}
 }
 
