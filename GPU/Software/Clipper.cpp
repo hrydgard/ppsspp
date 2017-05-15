@@ -246,6 +246,11 @@ void ProcessLine(VertexData& v0, VertexData& v1)
 	int mask1 = CalcClipMask(v1.clippos);
 	int mask = mask0 | mask1;
 
+	if (mask0 & mask1) {
+		// Even if clipping is disabled, we can discard if the line is entirely outside.
+		return;
+	}
+
 	if (mask && (gstate.clipEnable & 0x1)) {
 		// discard if any vertex is outside the near clipping plane
 		if (mask & CLIP_NEG_Z_BIT)
@@ -257,10 +262,6 @@ void ProcessLine(VertexData& v0, VertexData& v1)
 		CLIP_LINE(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
 		CLIP_LINE(CLIP_POS_Z_BIT,  0,  0,  0, 1);
 		CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
-	} else if (mask0 & mask1) {
-		// If clipping is disabled, only discard the current primitive
-		// if both vertices lie outside one of the clipping planes
-		return;
 	}
 
 	VertexData data[2] = { *Vertices[0], *Vertices[1] };
