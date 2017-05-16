@@ -588,6 +588,8 @@ static void UIThemeInit() {
 	ui_theme.popupStyle = MakeStyle(g_Config.uPopupStyleFg, g_Config.uPopupStyleBg);
 }
 
+void RenderOverlays(UIContext *dc, void *userdata);
+
 void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ILOG("NativeInitGraphics");
 
@@ -652,6 +654,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	screenManager->setUIContext(uiContext);
 	screenManager->setDrawContext(g_draw);
+	screenManager->setPostRenderCallback(&RenderOverlays, nullptr);
 
 	UIBackgroundInit(*uiContext);
 
@@ -737,7 +740,7 @@ void TakeScreenshot() {
 #endif
 }
 
-void DrawDownloadsOverlay(UIContext &dc) {
+void RenderOverlays(UIContext *dc, void *userdata) {
 	// Thin bar at the top of the screen like Chrome.
 	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
 	if (progress.empty()) {
@@ -751,27 +754,34 @@ void DrawDownloadsOverlay(UIContext &dc) {
 		0xFF777777,
 	};
 
-	dc.Begin();
+	dc->Begin();
 	int h = 5;
 	for (size_t i = 0; i < progress.size(); i++) {
-		float barWidth = 10 + (dc.GetBounds().w - 10) * progress[i];
+		float barWidth = 10 + (dc->GetBounds().w - 10) * progress[i];
 		Bounds bounds(0, h * i, barWidth, h);
 		UI::Drawable solid(colors[i & 3]);
-		dc.FillRect(solid, bounds);
+		dc->FillRect(solid, bounds);
 	}
-	dc.End();
-	dc.Flush();
+	dc->End();
+	dc->Flush();
+
+	if (g_TakeScreenshot) {
+		TakeScreenshot();
+	}
 }
 
 void NativeRender(GraphicsContext *graphicsContext) {
 	g_GameManager.Update();
+
 	// If uitexture gets reloaded, make sure we use the latest one.
+	// Not sure this happens anymore now that we tear down all graphics on app switches...
 	uiContext->FrameSetup(uiTexture->GetTexture());
 
 	float xres = dp_xres;
 	float yres = dp_yres;
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
+	// TODO: This should be moved into the draw context...
 	Matrix4x4 ortho;
 	switch (GetGPUBackend()) {
 	case GPUBackend::VULKAN:
@@ -798,17 +808,10 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	ui_draw2d.PushDrawMatrix(ortho);
 	ui_draw2d_front.PushDrawMatrix(ortho);
 
+	// All actual rendering happen in here.
 	screenManager->render();
 	if (screenManager->getUIContext()->Text()) {
 		screenManager->getUIContext()->Text()->OncePerFrame();
-	}
-
-	// At this point, the vulkan context has been "ended" already, no more drawing can be done in this frame.
-	// TODO: Integrate the download overlay with the screen system
-	DrawDownloadsOverlay(*screenManager->getUIContext());
-
-	if (g_TakeScreenshot) {
-		TakeScreenshot();
 	}
 
 	if (resized) {

@@ -92,6 +92,8 @@ enum {
 	LAYER_TRANSPARENT = 2,
 };
 
+typedef void(*PostRenderCallback)(UIContext *ui, void *userdata);
+
 class ScreenManager {
 public:
 	ScreenManager();
@@ -105,6 +107,11 @@ public:
 
 	void setDrawContext(Draw::DrawContext *context) { thin3DContext_ = context; }
 	Draw::DrawContext *getDrawContext() { return thin3DContext_; }
+
+	void setPostRenderCallback(PostRenderCallback cb, void *userdata) {
+		postRenderCb_ = cb;
+		postRenderUserdata_ = userdata;
+	}
 
 	void render();
 	void resized();
@@ -141,6 +148,9 @@ private:
 	Screen *nextScreen_;
 	UIContext *uiContext_;
 	Draw::DrawContext *thin3DContext_;
+
+	PostRenderCallback postRenderCb_ = nullptr;
+	void *postRenderUserdata_ = nullptr;
 
 	const Screen *dialogFinished_;
 	DialogResult dialogResult_;

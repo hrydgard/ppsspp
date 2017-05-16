@@ -125,12 +125,16 @@ void ScreenManager::render() {
 				backback.screen->preRender();
 				backback.screen->render();
 				stack_.back().screen->render();
+				if (postRenderCb_)
+					postRenderCb_(getUIContext(), postRenderUserdata_);
 				backback.screen->postRender();
 				break;
 			}
 		default:
 			stack_.back().screen->preRender();
 			stack_.back().screen->render();
+			if (postRenderCb_)
+				postRenderCb_(getUIContext(), postRenderUserdata_);
 			stack_.back().screen->postRender();
 			break;
 		}
