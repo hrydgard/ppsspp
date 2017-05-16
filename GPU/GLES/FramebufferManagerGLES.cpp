@@ -452,7 +452,7 @@ void FramebufferManagerGLES::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
 	} else {
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 	}
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE)
 		glstate.viewport.restore();
@@ -680,7 +680,7 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 		return;
 	}
 
@@ -1165,7 +1165,7 @@ void FramebufferManagerGLES::EndFrame() {
 			GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
 			glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 		}
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
@@ -1196,7 +1196,7 @@ std::vector<FramebufferInfo> FramebufferManagerGLES::GetFramebufferList() {
 
 void FramebufferManagerGLES::DestroyAllFBOs() {
 	CHECK_GL_ERROR_IF_DEBUG();
-	draw_->BindBackbufferAsRenderTarget();
+	draw_->BindFramebufferAsRenderTarget(nullptr);
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
 	prevDisplayFramebuf_ = 0;
@@ -1220,7 +1220,7 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 	}
 	tempFBOs_.clear();
 
-	draw_->BindBackbufferAsRenderTarget();
+	draw_->BindFramebufferAsRenderTarget(nullptr);
 	DisableState();
 	CHECK_GL_ERROR_IF_DEBUG();
 }

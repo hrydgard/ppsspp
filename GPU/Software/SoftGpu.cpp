@@ -236,7 +236,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		std::swap(v0, v1);
 	}
-	draw_->BindBackbufferAsRenderTarget();
+	draw_->BindFramebufferAsRenderTarget(nullptr);
 	draw_->Clear(Draw::FB_COLOR_BIT, 0, 0, 0);
 
 	Draw::SamplerState *sampler;

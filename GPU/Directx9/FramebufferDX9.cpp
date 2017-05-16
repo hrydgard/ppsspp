@@ -326,7 +326,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 			draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
 		} else {
-			draw_->BindBackbufferAsRenderTarget();
+			draw_->BindFramebufferAsRenderTarget(nullptr);
 		}
 	}
 
@@ -564,7 +564,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 		if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 			// This can happen if we recently switched from non-buffered.
-			draw_->BindBackbufferAsRenderTarget();
+			draw_->BindFramebufferAsRenderTarget(nullptr);
 			return;
 		}
 
@@ -664,7 +664,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 		if (!vfb->fbo) {
 			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferDirectx9_: vfb->fbo == 0");
-			draw_->BindBackbufferAsRenderTarget();
+			draw_->BindFramebufferAsRenderTarget(nullptr);
 			return;
 		}
 
@@ -792,7 +792,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	void FramebufferManagerDX9::DestroyAllFBOs() {
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 		currentRenderVfb_ = 0;
 		displayFramebuf_ = 0;
 		prevDisplayFramebuf_ = 0;
@@ -882,7 +882,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	bool FramebufferManagerDX9::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 
 		LPDIRECT3DSURFACE9 renderTarget = nullptr;
 		HRESULT hr = device_->GetRenderTarget(0, &renderTarget);

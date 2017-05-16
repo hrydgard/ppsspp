@@ -482,7 +482,7 @@ void FramebufferManagerVulkan::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
 	} else {
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 	}
 }
 

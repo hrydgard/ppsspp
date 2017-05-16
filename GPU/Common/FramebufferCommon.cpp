@@ -211,7 +211,7 @@ void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
 	}
 
 	currentRenderVfb_ = 0;
-	draw_->BindBackbufferAsRenderTarget();
+	draw_->BindFramebufferAsRenderTarget(nullptr);
 }
 
 // Heuristics to figure out the size of FBO to create.
@@ -533,7 +533,7 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
 	if (!useBufferedRendering_) {
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 		// Let's ignore rendering to targets that have not (yet) been displayed.
 		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 	}
@@ -593,7 +593,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 			delete vfb->fbo;
 			vfb->fbo = nullptr;
 		}
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 
 		// Let's ignore rendering to targets that have not (yet) been displayed.
 		if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
@@ -833,7 +833,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	if (displayFramebufPtr_ == 0) {
 		DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
 		// No framebuffer to display! Clear to black.
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 		ClearBuffer();
 		return;
 	}
@@ -884,7 +884,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 		}
 	}
 
-	draw_->BindBackbufferAsRenderTarget();
+	draw_->BindFramebufferAsRenderTarget(nullptr);
 	if (useBufferedRendering_) {
 		draw_->Clear(Draw::FB_COLOR_BIT | Draw::FB_STENCIL_BIT | Draw::FB_DEPTH_BIT, 0, 0, 0);
 	}
@@ -978,7 +978,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 
-			draw_->BindBackbufferAsRenderTarget();
+			draw_->BindFramebufferAsRenderTarget(nullptr);
 
 			// Use the extra FBO, with applied post-processing shader, as a texture.
 			// fbo_bind_as_texture(extraFBOs_[0], FB_COLOR_BIT, 0);
@@ -1047,7 +1047,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 
 void FramebufferManagerCommon::DecimateFBOs() {
 	if (useBufferedRendering_) {
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 	}
 	currentRenderVfb_ = 0;
 
@@ -1139,7 +1139,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	}
 
 	textureCache_->ForgetLastTexture();
-	draw_->BindBackbufferAsRenderTarget();
+	draw_->BindFramebufferAsRenderTarget(nullptr);
 
 	if (!useBufferedRendering_) {
 		if (vfb->fbo) {

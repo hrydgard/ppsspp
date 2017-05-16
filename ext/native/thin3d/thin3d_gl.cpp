@@ -470,7 +470,6 @@ public:
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	void BindFramebufferForRead(Framebuffer *fbo) override;
 
-	void BindBackbufferAsRenderTarget() override;
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
@@ -1535,19 +1534,17 @@ void OpenGLContext::fbo_unbind() {
 }
 
 void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
-	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
-	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
-	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
-	fbo_bind_fb_target(false, fb->handle);
-	// Always restore viewport after render target binding
-	// TODO: Should we set viewports this way too?
-	glstate.viewport.restore();
 	CHECK_GL_ERROR_IF_DEBUG();
-}
-
-void OpenGLContext::BindBackbufferAsRenderTarget() {
-	CHECK_GL_ERROR_IF_DEBUG();
-	fbo_unbind();
+	if (fbo) {
+		OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
+		// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
+		// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
+		fbo_bind_fb_target(false, fb->handle);
+		// Always restore viewport after render target binding. Works around driver bugs.
+		glstate.viewport.restore();
+	} else {
+		fbo_unbind();
+	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 

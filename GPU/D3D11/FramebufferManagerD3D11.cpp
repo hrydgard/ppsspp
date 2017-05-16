@@ -474,7 +474,7 @@ void FramebufferManagerD3D11::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
 	} else {
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 	}
 }
 
@@ -717,7 +717,7 @@ void FramebufferManagerD3D11::SimpleBlit(
 void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 		return;
 	}
 
@@ -812,7 +812,7 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 wid
 void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (!vfb->fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferD3D11_: vfb->fbo == 0");
-		draw_->BindBackbufferAsRenderTarget();
+		draw_->BindFramebufferAsRenderTarget(nullptr);
 		return;
 	}
 
@@ -884,7 +884,7 @@ std::vector<FramebufferInfo> FramebufferManagerD3D11::GetFramebufferList() {
 }
 
 void FramebufferManagerD3D11::DestroyAllFBOs() {
-	draw_->BindBackbufferAsRenderTarget();
+	draw_->BindFramebufferAsRenderTarget(nullptr);
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
 	prevDisplayFramebuf_ = 0;

@@ -600,12 +600,13 @@ public:
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
 
 	// These functions should be self explanatory.
+	// Binding a zero render target means binding the backbuffer.
 	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo) = 0;
+
 	// color must be 0, for now.
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
 	virtual void BindFramebufferForRead(Framebuffer *fbo) = 0;
 
-	virtual void BindBackbufferAsRenderTarget() = 0;
 	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) = 0;
 
 	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
@@ -640,8 +641,10 @@ public:
 	virtual void BeginFrame() {}
 	virtual void EndFrame() {}
 
+	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
+	// on Vulkan.
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
-	
+
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.
 	void SetTargetSize(int w, int h) {
 		targetWidth_ = w;

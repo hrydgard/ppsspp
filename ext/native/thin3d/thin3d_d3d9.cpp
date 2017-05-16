@@ -492,7 +492,6 @@ public:
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	void BindFramebufferForRead(Framebuffer *fbo) override {}
 	
-	void BindBackbufferAsRenderTarget() override;
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
@@ -1044,21 +1043,17 @@ D3D9Framebuffer::~D3D9Framebuffer() {
 	}
 }
 
-void D3D9Context::BindBackbufferAsRenderTarget() {
-	using namespace DX9;
-
-	device_->SetRenderTarget(0, deviceRTsurf);
-	device_->SetDepthStencilSurface(deviceDSsurf);
-	dxstate.scissorRect.restore();
-	dxstate.viewport.restore();
-}
-
 void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
 	using namespace DX9;
 
-	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
-	device_->SetRenderTarget(0, fb->surf);
-	device_->SetDepthStencilSurface(fb->depthstencil);
+	if (fbo) {
+		D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
+		device_->SetRenderTarget(0, fb->surf);
+		device_->SetDepthStencilSurface(fb->depthstencil);
+	} else {
+		device_->SetRenderTarget(0, deviceRTsurf);
+		device_->SetDepthStencilSurface(deviceDSsurf);
+	}
 	dxstate.scissorRect.restore();
 	dxstate.viewport.restore();
 }

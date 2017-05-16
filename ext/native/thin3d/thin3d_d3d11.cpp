@@ -63,7 +63,6 @@ public:
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	void BindFramebufferForRead(Framebuffer *fbo) override;
 
-	void BindBackbufferAsRenderTarget() override;
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
@@ -1287,18 +1286,27 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 	return false;
 }
 
-// These functions should be self explanatory.
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
 	// TODO: deviceContext1 can actually discard. Useful on Windows Mobile.
-	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
-	if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {
-		return;
+	if (fbo) {
+		D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
+		if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {
+			return;
+		}
+		context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
+		curRenderTargetView_ = fb->colorRTView;
+		curDepthStencilView_ = fb->depthStencilRTView;
+		curRTWidth_ = fb->width;
+		curRTHeight_ = fb->height;
+	} else {
+		if (curRenderTargetView_ == bbRenderTargetView_ && curDepthStencilView_ == bbDepthStencilView_)
+			return;
+		context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
+		curRenderTargetView_ = bbRenderTargetView_;
+		curDepthStencilView_ = bbDepthStencilView_;
+		curRTWidth_ = bbWidth_;
+		curRTHeight_ = bbHeight_;
 	}
-	context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
-	curRenderTargetView_ = fb->colorRTView;
-	curDepthStencilView_ = fb->depthStencilRTView;
-	curRTWidth_ = fb->width;
-	curRTHeight_ = fb->height;
 }
 
 // color must be 0, for now.
@@ -1309,16 +1317,6 @@ void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, F
 
 void D3D11DrawContext::BindFramebufferForRead(Framebuffer *fbo) {
 	// This is meaningless in D3D11
-}
-
-void D3D11DrawContext::BindBackbufferAsRenderTarget() {
-	if (curRenderTargetView_ == bbRenderTargetView_ && curDepthStencilView_ == bbDepthStencilView_)
-		return;
-	context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
-	curRenderTargetView_ = bbRenderTargetView_;
-	curDepthStencilView_ = bbDepthStencilView_;
-	curRTWidth_ = bbWidth_;
-	curRTHeight_ = bbHeight_;
 }
 
 uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {

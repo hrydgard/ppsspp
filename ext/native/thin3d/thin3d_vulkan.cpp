@@ -351,7 +351,6 @@ public:
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	void BindFramebufferForRead(Framebuffer *fbo) override;
 
-	void BindBackbufferAsRenderTarget() override;
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
@@ -1303,20 +1302,22 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
 	return true;
 }
+
 // These functions should be self explanatory.
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
-	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	if (fbo) {
+		VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	} else {
+
+	}
 }
+
 // color must be 0, for now.
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 
 }
 void VKContext::BindFramebufferForRead(Framebuffer *fbo) { /* noop */ }
-
-void VKContext::BindBackbufferAsRenderTarget() {
-
-}
 
 uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
 	return 0;
