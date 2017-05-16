@@ -408,9 +408,6 @@
     <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
-    <ClCompile Include="Vulkan\FramebufferVulkan.cpp">
-      <Filter>Vulkan</Filter>
-    </ClCompile>
     <ClCompile Include="Vulkan\GPU_Vulkan.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
@@ -509,6 +506,9 @@
     </ClCompile>
     <ClCompile Include="Common\ShaderCommon.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\FramebufferVulkan.cpp">
+      <Filter>Vulkan</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

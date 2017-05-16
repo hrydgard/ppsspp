@@ -52,8 +52,6 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-const VkFormat framebufFormat = VK_FORMAT_B8G8R8A8_UNORM;
-
 static const char tex_fs[] = R"(#version 400
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
@@ -92,7 +90,8 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	pixelBufObj_(nullptr),
 	currentPBO_(0),
 	curFrame_(0),
-	pipelineBasicTex_(VK_NULL_HANDLE),
+	pipelineBasicTexBackBuffer_(VK_NULL_HANDLE),
+	pipelineBasicTexFrameBuffer_(VK_NULL_HANDLE),
 	pipelinePostShader_(VK_NULL_HANDLE),
 	vulkan2D_(vulkan) {
 
@@ -117,67 +116,6 @@ void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
 }
 
 void FramebufferManagerVulkan::InitDeviceObjects() {
-	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
-	// with and without pre-clearing of both depth/stencil and color, so 4 combos.
-	VkAttachmentDescription attachments[2] = {};
-	attachments[0].format = framebufFormat;
-	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachments[0].flags = 0;
-
-	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
-	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	attachments[1].flags = 0;
-
-	VkAttachmentReference color_reference = {};
-	color_reference.attachment = 0;
-	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkAttachmentReference depth_reference = {};
-	depth_reference.attachment = 1;
-	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.flags = 0;
-	subpass.inputAttachmentCount = 0;
-	subpass.pInputAttachments = NULL;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &color_reference;
-	subpass.pResolveAttachments = NULL;
-	subpass.pDepthStencilAttachment = &depth_reference;
-	subpass.preserveAttachmentCount = 0;
-	subpass.pPreserveAttachments = NULL;
-
-	VkRenderPassCreateInfo rp = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-	rp.attachmentCount = 2;
-	rp.pAttachments = attachments;
-	rp.subpassCount = 1;
-	rp.pSubpasses = &subpass;
-	rp.dependencyCount = 0;
-	rp.pDependencies = NULL;
-
-	// TODO: Maybe LOAD_OP_DONT_CARE makes sense in some situations. Additionally,
-	// there is often no need to store the depth buffer afterwards, although hard to know up front.
-	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpLoadColorLoadDepth_);
-	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpClearColorLoadDepth_);
-	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpClearColorClearDepth_);
-	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpLoadColorClearDepth_);
-
 	// Initialize framedata
 	for (int i = 0; i < 2; i++) {
 		VkCommandPoolCreateInfo cp = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
@@ -196,7 +134,9 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 	assert(fsBasicTex_ != VK_NULL_HANDLE);
 	assert(vsBasicTex_ != VK_NULL_HANDLE);
 
-	pipelineBasicTex_ = vulkan2D_.GetPipeline(pipelineCache2D_, rpClearColorClearDepth_, vsBasicTex_, fsBasicTex_);
+	// Get a representative render pass and use when creating the pipeline.
+	pipelineBasicTexBackBuffer_ = vulkan2D_.GetPipeline(pipelineCache2D_, vulkan_->GetSurfaceRenderPass(), vsBasicTex_, fsBasicTex_);
+	pipelineBasicTexFrameBuffer_ = vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS), vsBasicTex_, fsBasicTex_);
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -213,15 +153,6 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::DestroyDeviceObjects() {
-	if (rpLoadColorLoadDepth_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorLoadDepth_);
-	if (rpClearColorLoadDepth_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteRenderPass(rpClearColorLoadDepth_);
-	if (rpClearColorClearDepth_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteRenderPass(rpClearColorClearDepth_);
-	if (rpLoadColorClearDepth_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorClearDepth_);
-
 	for (int i = 0; i < 2; i++) {
 		if (frameData_[i].numCommandBuffers_ > 0) {
 			vkFreeCommandBuffers(vulkan_->GetDevice(), frameData_[i].cmdPool_, frameData_[i].numCommandBuffers_, frameData_[i].commandBuffers_);

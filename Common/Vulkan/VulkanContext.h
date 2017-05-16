@@ -258,6 +258,9 @@ public:
 
 	VkCommandBuffer GetInitCommandBuffer();
 
+	VkFramebuffer GetSurfaceFramebuffer() {
+		return framebuffers_[current_buffer];
+	}
 	// This must only be accessed between BeginSurfaceRenderPass and EndSurfaceRenderPass.
 	VkCommandBuffer GetSurfaceCommandBuffer() {
 		return frame_[curFrame_ & 1].cmdBuf;

@@ -883,6 +883,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
 
 			// We let the framebuffer manager handle the clear. It can use renderpasses to optimize on tilers.
+			// If non-buffered though, it'll just do a plain clear.
 			framebufferManager_->NotifyClear(gstate.isClearModeColorMask(), gstate.isClearModeAlphaMask(), gstate.isClearModeDepthMask(), result.color, result.depth);
 
 			int scissorX1 = gstate.getScissorX1();

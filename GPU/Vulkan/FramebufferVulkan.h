@@ -188,18 +188,14 @@ private:
 	// This gets copied to the current frame's push buffer as needed.
 	PostShaderUniforms postUniforms_;
 
-	// Renderpasses, all combination of preserving or clearing fb contents
-	VkRenderPass rpLoadColorLoadDepth_;
-	VkRenderPass rpClearColorLoadDepth_;
-	VkRenderPass rpLoadColorClearDepth_;
-	VkRenderPass rpClearColorClearDepth_;
-
 	VkPipelineCache pipelineCache2D_;
 
 	// Basic shaders
 	VkShaderModule fsBasicTex_;
 	VkShaderModule vsBasicTex_;
-	VkPipeline pipelineBasicTex_;
+	// Might need different pipelines for rendering to backbuffer vs framebuffers due to color format incompatibility
+	VkPipeline pipelineBasicTexBackBuffer_;
+	VkPipeline pipelineBasicTexFrameBuffer_;
 
 	// Postprocessing
 	VkPipeline pipelinePostShader_;
