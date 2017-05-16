@@ -1606,8 +1606,10 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 		bits |= GL_DEPTH_BUFFER_BIT;
 	if (channels & FB_STENCIL_BIT)
 		bits |= GL_STENCIL_BUFFER_BIT;
-	BindFramebufferAsRenderTarget(dst);
-	BindFramebufferForRead(src);
+	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
+	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
+	fbo_bind_fb_target(false, dst->handle);
+	fbo_bind_fb_target(true, src->handle);
 	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
 		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
 		CHECK_GL_ERROR_IF_DEBUG();
