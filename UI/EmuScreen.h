@@ -37,6 +37,8 @@ public:
 
 	void update() override;
 	void render() override;
+	void preRender() override;
+	void postRender() override;
 	void deviceLost() override;
 	void deviceRestore() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;

@@ -958,6 +958,43 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
+void EmuScreen::preRender() {
+	using namespace Draw;
+	DrawContext *draw = screenManager()->getDrawContext();
+	draw->BeginFrame();
+	// Here we do NOT bind the backbuffer or clear the screen, unless non-buffered.
+	// The emuscreen is different than the others - we really want to allow the game to render to framebuffers
+	// before we ever bind the backbuffer for rendering. On mobile GPUs, switching back and forth between render
+	// targets is a mortal sin so it's very important that we don't bind the backbuffer unnecessarily here.
+	// We only bind it in FramebufferManager::CopyDisplayToOutput (unless non-buffered)...
+	// We do, however, start the frame in other ways.
+
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	if (!useBufferedRendering) {
+		// We need to clear here already so that drawing during the frame is done on a clean slate.
+		DrawContext *draw = screenManager()->getDrawContext();
+		draw->BindFramebufferAsRenderTarget(nullptr);
+		draw->Clear(FBChannel::FB_COLOR_BIT | FBChannel::FB_DEPTH_BIT | FBChannel::FB_STENCIL_BIT, 0xFF000000, 0.0f, 0);
+
+		Viewport viewport;
+		viewport.TopLeftX = 0;
+		viewport.TopLeftY = 0;
+		viewport.Width = pixel_xres;
+		viewport.Height = pixel_yres;
+		viewport.MaxDepth = 1.0;
+		viewport.MinDepth = 0.0;
+		draw->SetViewports(1, &viewport);
+		draw->SetTargetSize(pixel_xres, pixel_yres);
+	}
+}
+
+void EmuScreen::postRender() {
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+	if (!draw)
+		return;
+	draw->EndFrame();
+}
+
 void EmuScreen::render() {
 	using namespace Draw;
 
@@ -977,23 +1014,6 @@ void EmuScreen::render() {
 			ERROR_LOG(SAVESTATE, "Failed to load freeze state. Unfreezing.");
 			PSP_CoreParameter().frozen = false;
 		}
-	}
-
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-
-	if (!useBufferedRendering) {
-		DrawContext *draw = screenManager()->getDrawContext();
-		draw->Clear(FBChannel::FB_COLOR_BIT | FBChannel::FB_DEPTH_BIT | FBChannel::FB_STENCIL_BIT, 0xFF000000, 0.0f, 0);
-
-		Viewport viewport;
-		viewport.TopLeftX = 0;
-		viewport.TopLeftY = 0;
-		viewport.Width = pixel_xres;
-		viewport.Height = pixel_yres;
-		viewport.MaxDepth = 1.0;
-		viewport.MinDepth = 0.0;
-		draw->SetViewports(1, &viewport);
-		draw->SetTargetSize(pixel_xres, pixel_yres);
 	}
 
 	PSP_BeginHostFrame();
@@ -1018,6 +1038,8 @@ void EmuScreen::render() {
 
 	if (invalid_)
 		return;
+	
+	// Here the backbuffer will always be bound.
 
 	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {
 		DrawContext *thin3d = screenManager()->getDrawContext();

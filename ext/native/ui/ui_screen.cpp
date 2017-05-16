@@ -66,6 +66,8 @@ void UIScreen::preRender() {
 		return;
 	}
 	draw->BeginFrame();
+	// Bind the back buffer
+	draw->BindFramebufferAsRenderTarget(nullptr);
 	draw->Clear(0xF, 0xFF000000, 0.0f, 0);
 
 	Draw::Viewport viewport;
