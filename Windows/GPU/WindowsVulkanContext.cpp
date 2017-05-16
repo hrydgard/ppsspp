@@ -124,6 +124,9 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	}
 	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
+	if (msgCode == 2)  // Useless perf warning
+		return false;
+
 	// This seems like a bogus result when submitting two command buffers in one go, one creating the image, the other one using it.
 	if (msgCode == 6 && startsWith(pMsg, "Cannot submit cmd buffer using image"))
 		return false;
