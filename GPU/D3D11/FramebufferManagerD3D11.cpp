@@ -218,8 +218,6 @@ void FramebufferManagerD3D11::DisableState() {
 }
 
 void FramebufferManagerD3D11::CompilePostShader() {
-	SetNumExtraFBOs(0);
-
 	std::string vsSource;
 	std::string psSource;
 
@@ -472,9 +470,10 @@ void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms)
 
 void FramebufferManagerD3D11::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
+		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	} else {
-		draw_->BindFramebufferAsRenderTarget(nullptr);
+		// Should this even happen?
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
 }
 
@@ -482,8 +481,6 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 	if (!useBufferedRendering_ || !vfb->fbo) {
 		return;
 	}
-
-	draw_->BindFramebufferAsRenderTarget(vfb->fbo);
 
 	// Technically, we should at this point re-interpret the bytes of the old format to the new.
 	// That might get tricky, and could cause unnecessary slowness in some games.
@@ -494,7 +491,10 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 	// and blit with a shader to that, then replace the FBO on vfb.  Stencil would still be complex
 	// to exactly reproduce in 4444 and 8888 formats.
 
+	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP });
+
 	if (old == GE_FORMAT_565) {
+		// TODO: There's no way this does anything useful :(
 		context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
 		context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0], nullptr, 0xFFFFFFFF);
 		context_->RSSetState(stockD3D11.rasterStateNoCull);
@@ -571,7 +571,6 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
-
 			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
 			RebindFramebuffer();
 			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
@@ -653,8 +652,7 @@ bool FramebufferManagerD3D11::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb)
 		return false;
 	}
 
-	draw_->BindFramebufferAsRenderTarget(nvfb->fbo);
-	ClearBuffer();
+	draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 	return true;
 }
 
@@ -697,7 +695,7 @@ void FramebufferManagerD3D11::SimpleBlit(
 
 	// Unbind the texture first to avoid the D3D11 hazard check (can't set render target to things bound as textures and vice versa, not even temporarily).
 	draw_->BindTexture(0, nullptr);
-	draw_->BindFramebufferAsRenderTarget(dest);
+	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	draw_->BindFramebufferAsTexture(src, 0, Draw::FB_COLOR_BIT, 0);
 
 	Bind2DShader();
@@ -717,7 +715,9 @@ void FramebufferManagerD3D11::SimpleBlit(
 void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
-		draw_->BindFramebufferAsRenderTarget(nullptr);
+		if (useBufferedRendering_) {
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+		}
 		return;
 	}
 
@@ -812,7 +812,6 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 wid
 void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (!vfb->fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferD3D11_: vfb->fbo == 0");
-		draw_->BindFramebufferAsRenderTarget(nullptr);
 		return;
 	}
 
@@ -884,7 +883,6 @@ std::vector<FramebufferInfo> FramebufferManagerD3D11::GetFramebufferList() {
 }
 
 void FramebufferManagerD3D11::DestroyAllFBOs() {
-	draw_->BindFramebufferAsRenderTarget(nullptr);
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
 	prevDisplayFramebuf_ = 0;

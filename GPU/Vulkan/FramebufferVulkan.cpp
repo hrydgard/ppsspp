@@ -480,9 +480,10 @@ void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms
 
 void FramebufferManagerVulkan::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
+		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	} else {
-		draw_->BindFramebufferAsRenderTarget(nullptr);
+		// Should this even happen?
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
 }
 

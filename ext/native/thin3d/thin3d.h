@@ -562,6 +562,20 @@ struct TextureDesc {
 	std::vector<uint8_t *> initData;
 };
 
+enum class RPAction {
+	DONT_CARE,
+	CLEAR,
+	KEEP,
+};
+
+struct RenderPassInfo {
+	RPAction color;
+	RPAction depth;
+	uint32_t clearColor;
+	float clearDepth;
+	uint8_t clearStencil;
+};
+
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -601,7 +615,7 @@ public:
 
 	// These functions should be self explanatory.
 	// Binding a zero render target means binding the backbuffer.
-	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo) = 0;
+	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) = 0;
 
 	// color must be 0, for now.
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
@@ -610,6 +624,9 @@ public:
 	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) = 0;
 
 	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
+
+	// Useful in OpenGL ES to give hints about framebuffers on tiler GPUs.
+	virtual void InvalidateFramebuffer(Framebuffer *fbo) {}
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;

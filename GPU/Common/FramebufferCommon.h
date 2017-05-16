@@ -267,7 +267,7 @@ public:
 
 	virtual void Resized();
 
-	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth = Draw::FBO_8888);
+	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth colorDepth = Draw::FBO_8888);
 
 	// Debug features
 	virtual bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) = 0;

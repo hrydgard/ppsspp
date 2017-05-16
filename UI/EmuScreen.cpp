@@ -973,8 +973,7 @@ void EmuScreen::preRender() {
 	if (!useBufferedRendering) {
 		// We need to clear here already so that drawing during the frame is done on a clean slate.
 		DrawContext *draw = screenManager()->getDrawContext();
-		draw->BindFramebufferAsRenderTarget(nullptr);
-		draw->Clear(FBChannel::FB_COLOR_BIT | FBChannel::FB_DEPTH_BIT | FBChannel::FB_STENCIL_BIT, 0xFF000000, 0.0f, 0);
+		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
 
 		Viewport viewport;
 		viewport.TopLeftX = 0;

@@ -183,9 +183,9 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	Draw::Framebuffer *blitFBO = nullptr;
 	if (useBlit) {
 		blitFBO = GetTempFBO(w, h, Draw::FBO_8888);
-		draw_->BindFramebufferAsRenderTarget(blitFBO);
+		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE });
 	} else if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo);
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::DONT_CARE });
 	}
 	glViewport(0, 0, w, h);
 

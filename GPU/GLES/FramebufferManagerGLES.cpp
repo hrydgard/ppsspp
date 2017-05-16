@@ -93,6 +93,11 @@ void FramebufferManagerGLES::ClearBuffer(bool keepState) {
 #endif
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	if (keepState) {
+		glstate.scissorTest.force(false);
+		glstate.depthWrite.force(GL_TRUE);
+		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glstate.stencilFunc.force(GL_ALWAYS, 0, 0);
+		glstate.stencilMask.force(0xFF);
 		glstate.scissorTest.restore();
 		glstate.depthWrite.restore();
 		glstate.colorMask.restore();
@@ -450,9 +455,10 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 
 void FramebufferManagerGLES::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
+		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	} else {
-		draw_->BindFramebufferAsRenderTarget(nullptr);
+		// Should this even happen?
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE)
 		glstate.viewport.restore();
@@ -475,8 +481,6 @@ void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GE
 		return;
 	}
 
-	draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-
 	// Technically, we should at this point re-interpret the bytes of the old format to the new.
 	// That might get tricky, and could cause unnecessary slowness in some games.
 	// For now, we just clear alpha/stencil from 565, which fixes shadow issues in Kingdom Hearts.
@@ -487,14 +491,9 @@ void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GE
 	// to exactly reproduce in 4444 and 8888 formats.
 
 	if (old == GE_FORMAT_565) {
-		glstate.scissorTest.disable();
-		glstate.depthWrite.set(GL_FALSE);
-		glstate.colorMask.set(false, false, false, true);
-		glstate.stencilFunc.set(GL_ALWAYS, 0, 0);
-		glstate.stencilMask.set(0xFF);
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		glClearStencil(0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+	} else {
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
 
 	RebindFramebuffer();
@@ -655,10 +654,6 @@ bool FramebufferManagerGLES::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 		ERROR_LOG(FRAMEBUF, "Error creating GL FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
 	}
-
-	draw_->BindFramebufferAsRenderTarget(nvfb->fbo);
-	ClearBuffer();
-	glDisable(GL_DITHER);  // Weird place to do this
 	return true;
 }
 
@@ -667,11 +662,11 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 
 	// Discard the previous contents of this buffer where possible.
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-		draw_->BindFramebufferAsRenderTarget(nvfb->fbo);
+		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
 		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 	} else if (gl_extensions.IsGLES) {
-		draw_->BindFramebufferAsRenderTarget(nvfb->fbo);
+		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 		ClearBuffer();
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
@@ -680,7 +675,8 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
-		draw_->BindFramebufferAsRenderTarget(nullptr);
+		if (useBufferedRendering_)
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		return;
 	}
 
@@ -735,7 +731,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	if (useBlit) {
 		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
 	} else {
-		draw_->BindFramebufferAsRenderTarget(dst->fbo);
+		draw_->BindFramebufferAsRenderTarget(dst->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		draw_->BindFramebufferAsTexture(src->fbo, 0, Draw::FB_COLOR_BIT, 0);
 
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
@@ -1161,11 +1157,11 @@ void FramebufferManagerGLES::EndFrame() {
 				continue;
 			}
 
-			draw_->BindFramebufferAsRenderTarget(temp.second.fbo);
+			draw_->BindFramebufferAsRenderTarget(temp.second.fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 			GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
 			glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 		}
-		draw_->BindFramebufferAsRenderTarget(nullptr);
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP , Draw::RPAction::KEEP });
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
@@ -1196,7 +1192,6 @@ std::vector<FramebufferInfo> FramebufferManagerGLES::GetFramebufferList() {
 
 void FramebufferManagerGLES::DestroyAllFBOs() {
 	CHECK_GL_ERROR_IF_DEBUG();
-	draw_->BindFramebufferAsRenderTarget(nullptr);
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
 	prevDisplayFramebuf_ = 0;
@@ -1220,7 +1215,6 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 	}
 	tempFBOs_.clear();
 
-	draw_->BindFramebufferAsRenderTarget(nullptr);
 	DisableState();
 	CHECK_GL_ERROR_IF_DEBUG();
 }

@@ -61,14 +61,14 @@ void UIScreen::update() {
 }
 
 void UIScreen::preRender() {
+	using namespace Draw;
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	if (!draw) {
 		return;
 	}
 	draw->BeginFrame();
-	// Bind the back buffer
-	draw->BindFramebufferAsRenderTarget(nullptr);
-	draw->Clear(0xF, 0xFF000000, 0.0f, 0);
+	// Bind and clear the back buffer
+	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
 
 	Draw::Viewport viewport;
 	viewport.TopLeftX = 0;

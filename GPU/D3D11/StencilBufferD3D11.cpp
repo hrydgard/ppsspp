@@ -194,15 +194,12 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	float v1 = 1.0f;
 	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
 	if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo);
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
 	} else {
 		// something is wrong...
 	}
 	D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f };
 	context_->RSSetViewports(1, &vp);
-
-	// Zero stencil
-	draw_->Clear(Draw::FBChannel::FB_STENCIL_BIT, 0, 0, 0);
 
 	float fw = dstBuffer->width;
 	float fh = dstBuffer->height;

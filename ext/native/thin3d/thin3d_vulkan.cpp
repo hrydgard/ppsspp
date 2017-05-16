@@ -346,7 +346,7 @@ public:
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
 	// These functions should be self explanatory.
-	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	void BindFramebufferForRead(Framebuffer *fbo) override;
@@ -1304,7 +1304,7 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 }
 
 // These functions should be self explanatory.
-void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
+void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	if (fbo) {
 		VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	} else {
