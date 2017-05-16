@@ -205,7 +205,7 @@ void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
 		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
 		extraFBOs_.push_back(fbo);
 
-		// The new FBO is still bound after creation, but let's bind it anyway.
+		// The new FBO is still bound after creation, but let's bind and clear it anyway.
 		draw_->BindFramebufferAsRenderTarget(fbo);
 		ClearBuffer();
 	}
@@ -828,18 +828,14 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 
 	SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-	draw_->BindBackbufferAsRenderTarget();
 	currentRenderVfb_ = 0;
 
 	if (displayFramebufPtr_ == 0) {
 		DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
 		// No framebuffer to display! Clear to black.
+		draw_->BindBackbufferAsRenderTarget();
 		ClearBuffer();
 		return;
-	}
-
-	if (useBufferedRendering_) {
-		draw_->Clear(Draw::FB_COLOR_BIT | Draw::FB_STENCIL_BIT | Draw::FB_DEPTH_BIT, 0, 0, 0);
 	}
 
 	u32 offsetX = 0;
@@ -886,6 +882,11 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 		} else {
 			vfb = 0;
 		}
+	}
+
+	draw_->BindBackbufferAsRenderTarget();
+	if (useBufferedRendering_) {
+		draw_->Clear(Draw::FB_COLOR_BIT | Draw::FB_STENCIL_BIT | Draw::FB_DEPTH_BIT, 0, 0, 0);
 	}
 
 	if (!vfb) {

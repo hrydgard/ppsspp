@@ -636,11 +636,10 @@ public:
 	virtual void DrawIndexed(int vertexCount, int offset) = 0;
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
-	// Render pass management. Default implementations here.
-	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
-		Clear(0xF, colorval, depthVal, stencilVal);
-	}
-	virtual void End() {}
+	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
+	virtual void BeginFrame() {}
+	virtual void EndFrame() {}
+
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
 	
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.

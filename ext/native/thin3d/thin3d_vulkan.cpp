@@ -387,8 +387,8 @@ public:
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) override;
-	void End() override;
+	void BeginFrame() override;
+	void EndFrame() override;
 
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
@@ -731,20 +731,8 @@ VKContext::~VKContext() {
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
-void VKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
+void VKContext::BeginFrame() {
 	cmd_ = vulkan_->BeginFrame();
-
-	VkClearValue clearVal[2] = {};
-	Uint8x4ToFloat4(colorval, clearVal[0].color.float32);
-
-	// // Debug flicker - used to see if we swap at all. no longer necessary
-	// if (frameNum_ & 1)
-	//	clearVal[0].color.float32[2] = 1.0f;
-
-	clearVal[1].depthStencil.depth = depthVal;
-	clearVal[1].depthStencil.stencil = stencilVal;
-
-	vulkan_->BeginSurfaceRenderPass(clearVal);
 
 	FrameData *frame = &frame_[frameNum_ & 1];
 	push_ = frame->pushBuffer;
@@ -761,12 +749,29 @@ void VKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencil
 	scissor_.extent.height = pixel_yres;
 	scissorDirty_ = true;
 	viewportDirty_ = true;
+
+	int colorval = 0xFF000000;
+	float depthVal = 0.0;
+	int stencilVal = 0;
+
+	VkClearValue clearVal[2] = {};
+	Uint8x4ToFloat4(colorval, clearVal[0].color.float32);
+
+	// // Debug flicker - used to see if we swap at all. no longer necessary
+	// if (frameNum_ & 1)
+	//	clearVal[0].color.float32[2] = 1.0f;
+
+	clearVal[1].depthStencil.depth = depthVal;
+	clearVal[1].depthStencil.stencil = stencilVal;
+
+	vulkan_->BeginSurfaceRenderPass(clearVal);
 }
 
-void VKContext::End() {
+void VKContext::EndFrame() {
+	vulkan_->EndSurfaceRenderPass();
+
 	// Stop collecting data in the frame's data pushbuffer.
 	push_->End();
-	vulkan_->EndSurfaceRenderPass();
 	vulkan_->EndFrame();
 
 	frameNum_++;

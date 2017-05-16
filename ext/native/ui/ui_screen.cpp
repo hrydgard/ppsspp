@@ -65,7 +65,8 @@ void UIScreen::preRender() {
 	if (!draw) {
 		return;
 	}
-	draw->Begin(true, 0xFF000000, 0.0f, 0);
+	draw->BeginFrame();
+	draw->Clear(0xF, 0xFF000000, 0.0f, 0);
 
 	Draw::Viewport viewport;
 	viewport.TopLeftX = 0;
@@ -83,7 +84,7 @@ void UIScreen::postRender() {
 	if (!draw) {
 		return;
 	}
-	draw->End();
+	draw->EndFrame();
 }
 
 void UIScreen::render() {
