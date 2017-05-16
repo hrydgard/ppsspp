@@ -204,12 +204,7 @@ void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
 		// No depth/stencil for post processing
 		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
 		extraFBOs_.push_back(fbo);
-
-		// The new FBO is still bound after creation, but let's bind and clear it anyway.
-		draw_->BindFramebufferAsRenderTarget(fbo);
-		ClearBuffer();
 	}
-
 	currentRenderVfb_ = 0;
 	draw_->BindFramebufferAsRenderTarget(nullptr);
 }
@@ -533,7 +528,6 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
 	if (!useBufferedRendering_) {
-		draw_->BindFramebufferAsRenderTarget(nullptr);
 		// Let's ignore rendering to targets that have not (yet) been displayed.
 		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 	}
