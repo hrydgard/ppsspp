@@ -377,9 +377,11 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("LastRemoteISOPort", &g_Config.iLastRemoteISOPort, 0),
 	ConfigSetting("RemoteISOManualConfig", &g_Config.bRemoteISOManual, false),
 	ConfigSetting("RemoteISOSubdir", &g_Config.sRemoteISOSubdir, "/"),
+	
 
 #ifdef __ANDROID__
 	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, 1),
+	ConfigSetting("ArcPath", &g_Config.arcpath, ""),
 #endif
 	ConfigSetting("InternalScreenRotation", &g_Config.iInternalScreenRotation, 1),
 
