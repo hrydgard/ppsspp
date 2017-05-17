@@ -7,7 +7,7 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
-
+import org.ppsspp.ppsspp.NativeApp;
 public class PpssppActivity extends NativeActivity {
 	private static final String TAG = "PpssppActivity";
 	// Key used by shortcut.
@@ -15,7 +15,7 @@ public class PpssppActivity extends NativeActivity {
 
 	private static boolean m_hasUnsupportedABI = false;
 	private static boolean m_hasNoNativeBinary = false;
-
+	public static String path;
 	public static boolean libraryLoaded = false;
 
 	@SuppressWarnings("deprecation")
@@ -76,7 +76,7 @@ public class PpssppActivity extends NativeActivity {
 		Intent intent = getIntent();
 		String action = intent.getAction();
 		if (Intent.ACTION_VIEW.equals(action)) {
-			String path = intent.getData().getPath();
+			path = intent.getData().getPath();
 			super.setShortcutParam(path);
 			Toast.makeText(getApplicationContext(), path, Toast.LENGTH_SHORT).show();
 		} else {
@@ -84,6 +84,7 @@ public class PpssppActivity extends NativeActivity {
 		}
 
 		super.onCreate(savedInstanceState);
+		NativeApp.bootArc(path);
 	}
 
 	// called by the C++ code through JNI. Dispatch anything we can't directly handle
