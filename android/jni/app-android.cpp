@@ -622,7 +622,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 
 ///Boot From ARC path
 
-extern "C" void Java_org_ppsspp_ppsspp_NativeApp_bootArc(JNIEnv env*, jclass, jstring path) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_bootArc(JNIEnv env*, jclass, jstring jpath) {
 	ILOG("NativeApp.bootArc() - Booting from Arc");
 	g_Config.arcpath = GetJavaString(env , path);
 }
