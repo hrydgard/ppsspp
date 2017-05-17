@@ -169,16 +169,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 		break;
 	case GPUBackend::VULKAN:
 		coreParam.gpuCore = GPUCORE_VULKAN;
-		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !g_Config.bSoftwareRendering) {
-#ifdef _WIN32
-			if (IDYES == MessageBox(MainWindow::GetHWND(), L"The Vulkan backend is not yet compatible with buffered rendering. Switch to non-buffered (WARNING: This will cause glitches with the other backends unless you switch back)", L"Vulkan Experimental Support", MB_ICONINFORMATION | MB_YESNO)) {
-				g_Config.iRenderingMode = FB_NON_BUFFERED_MODE;
-			} else {
-				errorMessage_ = "Non-buffered rendering required for Vulkan";
-				return;
-			}
-#endif
-		}
 		break;
 #endif
 	}

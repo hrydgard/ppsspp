@@ -660,8 +660,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, level, scaleFactor, dstFmt);
 					entry->vkTex->texture_->UploadMip(0, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 					break;
-				} else
+				} else {
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
+				}
 				if (replacer_.Enabled()) {
 					replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, mipWidth, mipHeight);
 				}

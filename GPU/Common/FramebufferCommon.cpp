@@ -939,6 +939,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 		float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
 
 		if (!usePostShader_) {
+			draw_->TransitionForSampling(vfb->fbo);  // Temporary vulkan hack
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;

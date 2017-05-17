@@ -350,6 +350,7 @@ public:
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	void BindFramebufferForRead(Framebuffer *fbo) override;
+	void TransitionForSampling(Framebuffer *fbo) override;
 
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
 
@@ -425,6 +426,8 @@ private:
 	void ApplyDynamicState();
 	void DirtyDynamicState();
 
+	void EndCurrentRenderpass();
+
 	VulkanContext *vulkan_ = nullptr;
 
 	VKPipeline *curPipeline_ = nullptr;
@@ -444,7 +447,6 @@ private:
 	// Renderpasses, all combination of preserving or clearing or dont-care-ing fb contents.
 	VkRenderPass renderPasses_[9];
 
-	VkCommandPool cmdPool_;
 	VkDevice device_;
 	VkQueue queue_;
 	int queueFamilyIndex_;
@@ -463,6 +465,7 @@ private:
 
 	struct FrameData {
 		VulkanPushBuffer *pushBuffer;
+		VkCommandPool cmdPool_;
 
 		// Per-frame descriptor set cache. As it's per frame and reset every frame, we don't need to
 		// worry about invalidating descriptors pointing to deleted textures.
@@ -675,12 +678,6 @@ VKContext::VKContext(VulkanContext *vulkan)
 	memset(boundTextures_, 0, sizeof(boundTextures_));
 	CreatePresets();
 
-	VkCommandPoolCreateInfo p = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-	p.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
-	VkResult res = vkCreateCommandPool(device_, &p, nullptr, &cmdPool_);
-	assert(VK_SUCCESS == res);
-
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 200;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -692,13 +689,18 @@ VKContext::VKContext(VulkanContext *vulkan)
 	dp.maxSets = 200;  // 200 textures per frame should be enough for the UI...
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-	res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[0].descriptorPool);
-	assert(VK_SUCCESS == res);
-	res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[1].descriptorPool);
-	assert(VK_SUCCESS == res);
 
-	frame_[0].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
-	frame_[1].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
+	VkCommandPoolCreateInfo p = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+	p.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
+
+	for (int i = 0; i < 2; i++) {
+		VkResult res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[i].descriptorPool);
+		assert(VK_SUCCESS == res);
+		res = vkCreateCommandPool(device_, &p, nullptr, &frame_[i].cmdPool_);
+		assert(VK_SUCCESS == res);
+		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
+	}
 
 	// binding 0 - uniform data
 	// binding 1 - combined sampler/image
@@ -717,7 +719,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = 2;
 	dsl.pBindings = bindings;
-	res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
+	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
 
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
@@ -802,13 +804,13 @@ VKContext::~VKContext() {
 	for (int i = 0; i < 9; i++) {
 		vulkan_->Delete().QueueDeleteRenderPass(renderPasses_[i]);
 	}
-	vulkan_->Delete().QueueDeleteCommandPool(cmdPool_);
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < 2; i++) {
 		frame_[i].descSets_.clear();
 		vulkan_->Delete().QueueDeleteDescriptorPool(frame_[i].descriptorPool);
 		frame_[i].pushBuffer->Destroy(vulkan_);
 		delete frame_[i].pushBuffer;
+		vulkan_->Delete().QueueDeleteCommandPool(frame_[i].cmdPool_);
 	}
 	vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 	vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
@@ -1259,6 +1261,10 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 }
 
 void VKContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
+	ELOG("Clear: Try to avoid calling this...");
+	if (curRenderPass_) {
+	}
+
 	if (mask & FBChannel::FB_COLOR_BIT) {
 		VkClearColorValue col;
 		Uint8x4ToFloat4(colorval, col.float32);
@@ -1482,16 +1488,26 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 	return true;
 }
 
+void VKContext::EndCurrentRenderpass() {
+	if (curRenderPass_ != VK_NULL_HANDLE) {
+		vkCmdEndRenderPass(vulkan_->GetSurfaceCommandBuffer());
+		curRenderPass_ = VK_NULL_HANDLE;
+		curFramebuffer_ = VK_NULL_HANDLE;
+	}
+}
+
 // These functions should be self explanatory.
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	VkFramebuffer framebuf;
 	int w;
 	int h;
+	VkImageLayout prevLayout;
 	if (fbo) {
 		VKFramebuffer *fb = (VKFramebuffer *)fbo;
 		framebuf = fb->framebuf;
 		w = fb->width;
 		h = fb->height;
+		prevLayout = fb->color.layout;
 	} else {
 		framebuf = vulkan_->GetSurfaceFramebuffer();
 		w = vulkan_->GetWidth();
@@ -1524,8 +1540,29 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	}
 
 	// OK, we're switching framebuffers.
-	if (curRenderPass_ != VK_NULL_HANDLE) {
-		vkCmdEndRenderPass(cmd);
+	EndCurrentRenderpass();
+
+	if (fbo) {
+		VKFramebuffer *fb = (VKFramebuffer *)fbo;
+		// Now, if the image needs transitioning, let's transition.
+		// The backbuffer does not, that's handled by VulkanContext.
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = fb->color.layout;
+		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.image = fb->color.image;
+		barrier.srcAccessMask = 0;
+		switch (fb->color.layout) {
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			break;
+		}
+		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, 0, 0, 0, 1, &barrier);
+		fb->color.layout = barrier.newLayout;
 	}
 
 	VkClearValue clearVal[2] = {};
@@ -1547,6 +1584,36 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	curRenderPass_ = rp_begin.renderPass;
 }
 
+// This will implicitly end the current render pass. Only call right before switching to a new one, like the
+// backbuffer.
+void VKContext::TransitionForSampling(Framebuffer *fbo) {
+	EndCurrentRenderpass();
+
+	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	if (fb->color.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		return;
+
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = fb->color.layout;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.image = fb->color.image;
+	barrier.srcAccessMask = 0;
+	switch (barrier.oldLayout) {
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		break;
+	}
+	barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	// we're between passes so it's OK.
+	vkCmdPipelineBarrier(vulkan_->GetSurfaceCommandBuffer(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, 0, 0, 0, 1, &barrier);
+}
+
 // color must be 0, for now.
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
@@ -1556,7 +1623,9 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 void VKContext::BindFramebufferForRead(Framebuffer *fbo) { /* noop */ }
 
 uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
-	return 0;
+	// TODO: Insert transition at the end of the previous command buffer, or the one that rendered to it last.
+	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	return (uintptr_t)fb->color.image;
 }
 
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
