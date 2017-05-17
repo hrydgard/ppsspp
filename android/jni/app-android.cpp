@@ -617,7 +617,14 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 	ILOG("NativeApp.pause() - pausing audio");
-	AndroidAudio_Pause();
+	AndroidAudio_Resume();
+}
+
+///Boot From ARC path
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_bootArc(JNIEnv env*, jclass, jstring path) {
+	ILOG("NativeApp.resume() - Booting from Arc");
+	g_Config.arcpath = GetJavaString(env , path);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
