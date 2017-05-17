@@ -917,6 +917,13 @@ UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
 	} else {
 		LaunchBrowser("market://details?id=org.ppsspp.ppsspp");
 	}
+	
+	// Boot From Arc then clean path
+	if (g_Config.arcpath != ""){
+	screenManager()->switchScreen(new EmuScreen((g_Config.arcpath).c_str()));
+	g_Config.arcpath = "";
+	
+	}
 #else
 	// Go directly to ppsspp.org and let the user sort it out
 	LaunchBrowser("http://www.ppsspp.org/downloads.html");
