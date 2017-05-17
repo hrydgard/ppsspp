@@ -146,19 +146,27 @@ void CheckGLExtensions() {
 		if (versionStr) {
 			strncpy(buffer, versionStr, 63);
 		}
-		const char *lastNumStart = buffer;
-		int numVer = 0;
+		// Start by assuming we're at 2.0.
+		gl_extensions.ver[0] = 2;
 		int len = (int)strlen(buffer);
-		for (int i = 0; i < len && numVer < 3; i++) {
-			if (buffer[i] == '.') {
-				buffer[i] = 0;
-				gl_extensions.ver[numVer++] = strtol(lastNumStart, NULL, 10);
-				i++;
-				lastNumStart = buffer + i;
+		bool beforeDot = true;
+		int lastDigit = 0;
+		for (int i = 0; i < len; i++) {
+			if (buffer[i] >= '0' && buffer[i] <= '9') {
+				lastDigit = buffer[i] - '0';
+				if (!beforeDot) {
+					gl_extensions.ver[1] = lastDigit;
+					break;
+				}
+			}
+ 			if (beforeDot && buffer[i] == '.' && lastDigit) {
+				gl_extensions.ver[0] = lastDigit;
+				beforeDot = false;
 			}
 		}
-		if (numVer < 3)
-			gl_extensions.ver[numVer++] = strtol(lastNumStart, NULL, 10);
+		if (beforeDot && lastDigit) {
+			gl_extensions.ver[0] = lastDigit;
+		}
 
 		// If the GL version >= 4.3, we know it's a true superset of OpenGL ES 3.0 and can thus enable
 		// all the same modern paths.
