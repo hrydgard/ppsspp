@@ -217,6 +217,16 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
+	softwareGPU->OnClick.Add([=](EventParams &e) {
+		if (g_Config.bSoftwareRendering)
+			settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
+		bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
+		return UI::EVENT_CONTINUE;
+	});
+	softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
+	if (PSP_IsInited())
+		softwareGPU->SetEnabled(false);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
@@ -427,19 +437,6 @@ void GameSettingsScreen::CreateViews() {
 	dump->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
 	if (!PSP_IsInited())
 		dump->SetEnabled(false);
-
-	// We normally use software rendering to debug so put it in debugging.
-	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (experimental)")));
-	softwareGPU->OnClick.Add([=](EventParams &e) {
-		if (g_Config.bSoftwareRendering)
-			settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
-		bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
-		return UI::EVENT_CONTINUE;
-	});
-	softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
-
-	if (PSP_IsInited())
-		softwareGPU->SetEnabled(false);
 
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
