@@ -21,7 +21,7 @@ UIScreen::~UIScreen() {
 }
 
 void UIScreen::DoRecreateViews() {
-	std::lock_guard<std::mutex> guard(screenManager()->inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(screenManager()->inputLock_);
 
 	if (recreateViews_) {
 		UI::PersistMap persisted;

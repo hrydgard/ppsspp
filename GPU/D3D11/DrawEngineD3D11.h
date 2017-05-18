@@ -126,7 +126,6 @@ public:
 	}
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
-	void GLLost() {};
 
 	void BeginFrame();
 

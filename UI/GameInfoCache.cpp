@@ -49,9 +49,11 @@ GameInfo::GameInfo() : fileType(IdentifiedFileType::UNKNOWN) {
 }
 
 GameInfo::~GameInfo() {
-	delete icon.texture;
-	delete pic0.texture;
-	delete pic1.texture;
+	std::lock_guard<std::mutex> guard(lock);
+	sndDataLoaded = false;
+	icon.Clear();
+	pic0.Clear();
+	pic1.Clear();
 	delete fileLoader;
 }
 
@@ -356,7 +358,7 @@ static bool ReadVFSToString(const char *filename, std::string *contents, std::mu
 
 class GameInfoWorkItem : public PrioritizedWorkQueueItem {
 public:
-	GameInfoWorkItem(const std::string &gamePath, GameInfo *info)
+	GameInfoWorkItem(const std::string &gamePath, std::shared_ptr<GameInfo> &info)
 		: gamePath_(gamePath), info_(info) {
 	}
 
@@ -615,7 +617,7 @@ handleELF:
 
 private:
 	std::string gamePath_;
-	GameInfo *info_;
+	std::shared_ptr<GameInfo> info_;
 	DISALLOW_COPY_AND_ASSIGN(GameInfoWorkItem);
 };
 
@@ -646,20 +648,6 @@ void GameInfoCache::Clear() {
 		gameInfoWQ_->Flush();
 		gameInfoWQ_->WaitUntilDone();
 	}
-	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
-		{
-			std::lock_guard<std::mutex> lock(iter->second->lock);
-			iter->second->pic0.Clear();
-			iter->second->pic1.Clear();
-			iter->second->icon.Clear();
-
-			if (!iter->second->sndFileData.empty()) {
-				iter->second->sndFileData.clear();
-				iter->second->sndDataLoaded = false;
-			}
-		}
-		delete iter->second;
-	}
 	info_.clear();
 }
 
@@ -668,7 +656,6 @@ void GameInfoCache::FlushBGs() {
 		std::lock_guard<std::mutex> lock(iter->second->lock);
 		iter->second->pic0.Clear();
 		iter->second->pic1.Clear();
-
 		if (!iter->second->sndFileData.empty()) {
 			iter->second->sndFileData.clear();
 			iter->second->sndDataLoaded = false;
@@ -689,7 +676,7 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 	}
 }
 
-void GameInfoCache::WaitUntilDone(GameInfo *info) {
+void GameInfoCache::WaitUntilDone(std::shared_ptr<GameInfo> &info) {
 	while (info->IsPending()) {
 		if (gameInfoWQ_->WaitUntilDone(false)) {
 			// A true return means everything finished, so bail out.
@@ -703,8 +690,8 @@ void GameInfoCache::WaitUntilDone(GameInfo *info) {
 
 
 // Runs on the main thread.
-GameInfo *GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags) {
-	GameInfo *info = nullptr;
+std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags) {
+	std::shared_ptr<GameInfo> info;
 
 	auto iter = info_.find(gamePath);
 	if (iter != info_.end()) {
@@ -727,7 +714,7 @@ GameInfo *GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gam
 	}
 
 	if (!info) {
-		info = new GameInfo();
+		info = std::make_shared<GameInfo>();
 	}
 
 	if (info->IsWorking()) {
@@ -745,22 +732,24 @@ GameInfo *GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gam
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
 	gameInfoWQ_->Add(item);
 
-	info_[gamePath] = info;
+	// Don't re-insert if we already have it.
+	if (info_.find(gamePath) == info_.end())
+		info_[gamePath] = std::shared_ptr<GameInfo>(info);
 	return info;
 }
 
-void GameInfoCache::SetupTexture(GameInfo *info, Draw::DrawContext *thin3d, GameInfoTex &icon) {
+void GameInfoCache::SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawContext *thin3d, GameInfoTex &tex) {
 	using namespace Draw;
-	if (icon.data.size()) {
-		if (!icon.texture) {
-			icon.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)icon.data.data(), (int)icon.data.size(), ImageFileType::DETECT);
-			if (icon.texture) {
-				icon.timeLoaded = time_now_d();
+	if (tex.data.size()) {
+		if (!tex.texture) {
+			tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT);
+			if (tex.texture) {
+				tex.timeLoaded = time_now_d();
 			}
 		}
 		if ((info->wantFlags & GAMEINFO_WANTBGDATA) == 0) {
-			icon.data.clear();
-			icon.dataLoaded = false;
+			tex.data.clear();
+			tex.dataLoaded = false;
 		}
 	}
 }

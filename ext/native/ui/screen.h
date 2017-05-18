@@ -131,7 +131,7 @@ public:
 
 	Screen *topScreen() const;
 
-	std::mutex inputLock_;
+	std::recursive_mutex inputLock_;
 
 private:
 	void pop();

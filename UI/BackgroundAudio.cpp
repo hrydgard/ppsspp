@@ -228,7 +228,7 @@ int PlayBackgroundAudio() {
 		if (!g_gameInfoCache)
 			return 0;  // race condition?
 
-		GameInfo *gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
+		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
 		if (!gameInfo)
 			return 0;
 

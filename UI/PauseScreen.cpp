@@ -44,11 +44,9 @@
 #include "UI/GameInfoCache.h"
 
 AsyncImageFileView::AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams)
-	: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(nullptr), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
+	: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
 
-AsyncImageFileView::~AsyncImageFileView() {
-	delete texture_;
-}
+AsyncImageFileView::~AsyncImageFileView() {}
 
 void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	if (texture_) {
@@ -75,18 +73,15 @@ void AsyncImageFileView::SetFilename(std::string filename) {
 	if (filename_ != filename) {
 		textureFailed_ = false;
 		filename_ = filename;
-		if (texture_) {
-			delete texture_;
-			texture_ = nullptr;
-		}
+		texture_.reset(nullptr);
 	}
 }
 
 void AsyncImageFileView::Draw(UIContext &dc) {
 	using namespace Draw;
 	if (!texture_ && !textureFailed_ && !filename_.empty()) {
-		texture_ = CreateTextureFromFile(dc.GetDrawContext(), filename_.c_str(), DETECT, true);
-		if (!texture_)
+		texture_ = std::move(CreateTextureFromFile(dc.GetDrawContext(), filename_.c_str(), DETECT, true));
+		if (!texture_.get())
 			textureFailed_ = true;
 	}
 
@@ -416,7 +411,7 @@ UI::EventReturn GamePauseScreen::OnSwitchUMD(UI::EventParams &e) {
 void GamePauseScreen::CallbackDeleteConfig(bool yes)
 {
 	if (yes) {
-		GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 		g_Config.unloadGameConfig();
 		g_Config.deleteGameConfig(info->id);
 		info->hasConfig = false;
@@ -430,7 +425,7 @@ UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 	g_Config.createGameConfig(gameId);
 	g_Config.changeGameSpecific(gameId);
 	g_Config.saveGameConfig(gameId);
-	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (info) {
 		info->hasConfig = true;
 	}

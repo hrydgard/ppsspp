@@ -34,6 +34,7 @@
 #include "Core/System.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
+#include "Core/Util/GameManager.h"
 
 #include "UI/BackgroundAudio.h"
 #include "UI/EmuScreen.h"
@@ -175,7 +176,7 @@ private:
 };
 
 void GameButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, 0);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, 0);
 	Draw::Texture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
@@ -1008,7 +1009,7 @@ void MainScreen::DrawBackground(UIContext &dc) {
 bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, float progress) {
 	dc.Flush();
 
-	GameInfo *ginfo = 0;
+	std::shared_ptr<GameInfo> ginfo;
 	if (!gamePath.empty()) {
 		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
 		// Loading texture data may bind a texture.
@@ -1042,11 +1043,13 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 #else
 	std::string path = e.s;
 #endif
-	GameInfo *ginfo = 0;
-	ginfo = g_gameInfoCache->GetInfo(nullptr, path, GAMEINFO_WANTBG);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, path, GAMEINFO_WANTBG);
 	if (ginfo && ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 		return UI::EVENT_DONE;
 	}
+
+	if (g_GameManager.GetState() == GameManagerState::INSTALLING)
+		return UI::EVENT_DONE;
 
 	// Restore focus if it was highlighted (e.g. by gamepad.)
 	restoreFocusGamePath_ = highlightedGamePath_;

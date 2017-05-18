@@ -209,11 +209,11 @@ void Timer::GetTimeFormatted(char formattedTime[13])
 #ifdef _WIN32
 	struct timeb tp;
 	(void)::ftime(&tp);
-	sprintf(formattedTime, "%s:%03i", tmp, tp.millitm);
+	snprintf(formattedTime, 13, "%s:%03i", tmp, tp.millitm);
 #else
 	struct timeval t;
 	(void)gettimeofday(&t, NULL);
-	sprintf(formattedTime, "%s:%03d", tmp, (int)(t.tv_usec / 1000));
+	snprintf(formattedTime, 13, "%s:%03d", tmp, (int)(t.tv_usec / 1000));
 #endif
 }
 

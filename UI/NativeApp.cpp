@@ -120,7 +120,7 @@ static UI::Theme ui_theme;
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-ManagedTexture *uiTexture;
+std::unique_ptr<ManagedTexture> uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
@@ -681,8 +681,7 @@ void NativeShutdownGraphics() {
 
 	UIBackgroundShutdown();
 
-	delete uiTexture;
-	uiTexture = nullptr;
+	uiTexture.reset(nullptr);
 
 	delete uiContext;
 	uiContext = nullptr;

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
@@ -91,7 +92,7 @@ private:
 	uint32_t color_;
 	UI::ImageSizeMode sizeMode_;
 
-	ManagedTexture *texture_;
+	std::unique_ptr<ManagedTexture> texture_;
 	bool textureFailed_;
 	float fixedSizeW_;
 	float fixedSizeH_;
