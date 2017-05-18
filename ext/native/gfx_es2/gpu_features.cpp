@@ -139,15 +139,15 @@ void CheckGLExtensions() {
 		strncpy(gl_extensions.model, renderer, sizeof(gl_extensions.model));
 		gl_extensions.model[sizeof(gl_extensions.model) - 1] = 0;
 	}
-
-	if (!gl_extensions.IsGLES) {
-		// For desktop GL, grab the version and attempt to parse.
+	
+	// Start by assuming we're at 2.0.
+	int parsed[2] = {2, 0};
+	{ // Grab the version and attempt to parse.		
 		char buffer[64] = { 0 };
 		if (versionStr) {
 			strncpy(buffer, versionStr, 63);
 		}
-		// Start by assuming we're at 2.0.
-		gl_extensions.ver[0] = 2;
+	
 		int len = (int)strlen(buffer);
 		bool beforeDot = true;
 		int lastDigit = 0;
@@ -155,18 +155,23 @@ void CheckGLExtensions() {
 			if (buffer[i] >= '0' && buffer[i] <= '9') {
 				lastDigit = buffer[i] - '0';
 				if (!beforeDot) {
-					gl_extensions.ver[1] = lastDigit;
+					parsed[1] = lastDigit;
 					break;
 				}
 			}
- 			if (beforeDot && buffer[i] == '.' && lastDigit) {
-				gl_extensions.ver[0] = lastDigit;
+				if (beforeDot && buffer[i] == '.' && lastDigit) {
+				parsed[0] = lastDigit;
 				beforeDot = false;
 			}
 		}
 		if (beforeDot && lastDigit) {
-			gl_extensions.ver[0] = lastDigit;
+			parsed[0] = lastDigit;
 		}
+	}
+
+	if (!gl_extensions.IsGLES) { // For desktop GL
+		gl_extensions.ver[0] = parsed[0];
+		gl_extensions.ver[1] = parsed[1];
 
 		// If the GL version >= 4.3, we know it's a true superset of OpenGL ES 3.0 and can thus enable
 		// all the same modern paths.
@@ -187,6 +192,13 @@ void CheckGLExtensions() {
 		// We check error here to detect if these properties were supported.
 		if (glGetError() != GL_NO_ERROR) {
 			// They weren't, reset to GLES 2.0.
+			gl_extensions.ver[0] = 2;
+			gl_extensions.ver[1] = 0;
+		} else if (parsed[0] && (gl_extensions.ver[0] != parsed[0] || gl_extensions.ver[1] != parsed[1])) {
+			// Something going wrong. Possible bug in GL ES drivers. See #9688
+			ILOG("GL ES version mismatch. Version string '%s' parsed as %d.%d but API return %d.%d. Fallback to GL ES 2.0.", 
+				versionStr ? versionStr : "N/A", parsed[0], parsed[1], gl_extensions.ver[0], gl_extensions.ver[1]);
+			
 			gl_extensions.ver[0] = 2;
 			gl_extensions.ver[1] = 0;
 		}
