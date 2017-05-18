@@ -91,7 +91,7 @@ private:
 	uint32_t color_;
 	UI::ImageSizeMode sizeMode_;
 
-	ManagedTexture *texture_;
+	ManagedTexture *texture_ = nullptr;
 	bool textureFailed_;
 	float fixedSizeW_;
 	float fixedSizeH_;

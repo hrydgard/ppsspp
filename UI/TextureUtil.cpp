@@ -156,6 +156,7 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 ManagedTexture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
 	if (!draw)
 		return nullptr;
+	// TODO: Load the texture on a background thread.
 	ManagedTexture *mtex = new ManagedTexture(draw);
 	if (!mtex->LoadFromFile(filename, type, generateMips)) {
 		delete mtex;

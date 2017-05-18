@@ -36,10 +36,14 @@ void unregister_gl_resource_holder(GfxResourceHolder *holder) {
 		return;
 	}
 	if (holders) {
+		bool erased = false;
 		for (size_t i = 0; i < holders->size(); i++) {
 			if ((*holders)[i].holder == holder) {
+				if (erased) {
+					ELOG("GL object double-registered!");
+				}
 				holders->erase(holders->begin() + i);
-				return;
+				erased = true;
 			}
 		}
 		WLOG("unregister_gl_resource_holder: Resource not registered");

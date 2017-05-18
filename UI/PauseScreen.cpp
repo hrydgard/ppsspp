@@ -44,7 +44,7 @@
 #include "UI/GameInfoCache.h"
 
 AsyncImageFileView::AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams)
-	: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(nullptr), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
+	: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
 
 AsyncImageFileView::~AsyncImageFileView() {
 	delete texture_;
@@ -75,10 +75,8 @@ void AsyncImageFileView::SetFilename(std::string filename) {
 	if (filename_ != filename) {
 		textureFailed_ = false;
 		filename_ = filename;
-		if (texture_) {
-			delete texture_;
-			texture_ = nullptr;
-		}
+		delete texture_;
+		texture_ = nullptr;
 	}
 }
 

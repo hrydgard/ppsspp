@@ -60,6 +60,12 @@ class FileLoader;
 enum class IdentifiedFileType;
 
 struct GameInfoTex {
+	GameInfoTex() {}
+	~GameInfoTex() {
+		if (texture) {
+			ELOG("LEAKED GameInfoTex");
+		}
+	}
 	std::string data;
 	ManagedTexture *texture = nullptr;
 	// The time at which the Icon and the BG were loaded.
@@ -77,6 +83,8 @@ struct GameInfoTex {
 			texture = nullptr;
 		}
 	}
+private:
+	DISALLOW_COPY_AND_ASSIGN(GameInfoTex);
 };
 
 class GameInfo {
@@ -145,6 +153,9 @@ protected:
 
 	FileLoader *fileLoader = nullptr;
 	std::string filePath_;
+
+private:
+	DISALLOW_COPY_AND_ASSIGN(GameInfo);
 };
 
 class GameInfoCache {
@@ -170,10 +181,10 @@ public:
 private:
 	void Init();
 	void Shutdown();
-	void SetupTexture(GameInfo *info, Draw::DrawContext *draw, GameInfoTex &icon);
+	void SetupTexture(GameInfo *info, Draw::DrawContext *draw, GameInfoTex &tex);
 
 	// Maps ISO path to info.
-	std::map<std::string, GameInfo *> info_;
+	std::map<std::string, std::unique_ptr<GameInfo> > info_;
 
 	// Work queue and management
 	PrioritizedWorkQueue *gameInfoWQ_;

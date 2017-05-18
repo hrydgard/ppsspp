@@ -49,9 +49,11 @@ GameInfo::GameInfo() : fileType(IdentifiedFileType::UNKNOWN) {
 }
 
 GameInfo::~GameInfo() {
-	delete icon.texture;
-	delete pic0.texture;
-	delete pic1.texture;
+	std::lock_guard<std::mutex> guard(lock);
+	sndDataLoaded = false;
+	icon.Clear();
+	pic0.Clear();
+	pic1.Clear();
 	delete fileLoader;
 }
 
@@ -646,20 +648,6 @@ void GameInfoCache::Clear() {
 		gameInfoWQ_->Flush();
 		gameInfoWQ_->WaitUntilDone();
 	}
-	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
-		{
-			std::lock_guard<std::mutex> lock(iter->second->lock);
-			iter->second->pic0.Clear();
-			iter->second->pic1.Clear();
-			iter->second->icon.Clear();
-
-			if (!iter->second->sndFileData.empty()) {
-				iter->second->sndFileData.clear();
-				iter->second->sndDataLoaded = false;
-			}
-		}
-		delete iter->second;
-	}
 	info_.clear();
 }
 
@@ -668,7 +656,6 @@ void GameInfoCache::FlushBGs() {
 		std::lock_guard<std::mutex> lock(iter->second->lock);
 		iter->second->pic0.Clear();
 		iter->second->pic1.Clear();
-
 		if (!iter->second->sndFileData.empty()) {
 			iter->second->sndFileData.clear();
 			iter->second->sndDataLoaded = false;
@@ -708,7 +695,7 @@ GameInfo *GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gam
 
 	auto iter = info_.find(gamePath);
 	if (iter != info_.end()) {
-		info = iter->second;
+		info = iter->second.get();
 	}
 
 	// If wantFlags don't match, we need to start over.  We'll just queue the work item again.
@@ -745,22 +732,22 @@ GameInfo *GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gam
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
 	gameInfoWQ_->Add(item);
 
-	info_[gamePath] = info;
+	info_[gamePath] = std::unique_ptr<GameInfo>(info);
 	return info;
 }
 
-void GameInfoCache::SetupTexture(GameInfo *info, Draw::DrawContext *thin3d, GameInfoTex &icon) {
+void GameInfoCache::SetupTexture(GameInfo *info, Draw::DrawContext *thin3d, GameInfoTex &tex) {
 	using namespace Draw;
-	if (icon.data.size()) {
-		if (!icon.texture) {
-			icon.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)icon.data.data(), (int)icon.data.size(), ImageFileType::DETECT);
-			if (icon.texture) {
-				icon.timeLoaded = time_now_d();
+	if (tex.data.size()) {
+		if (!tex.texture) {
+			tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT);
+			if (tex.texture) {
+				tex.timeLoaded = time_now_d();
 			}
 		}
 		if ((info->wantFlags & GAMEINFO_WANTBGDATA) == 0) {
-			icon.data.clear();
-			icon.dataLoaded = false;
+			tex.data.clear();
+			tex.dataLoaded = false;
 		}
 	}
 }
