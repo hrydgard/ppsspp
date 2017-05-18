@@ -10,6 +10,8 @@ androidGitVersion {
 }
 
 android {
+	flavorDimensions "variant"
+
 	signingConfigs {
 		debug {
 			storeFile file("debug.keystore")
@@ -100,6 +102,7 @@ android {
 	productFlavors {
 		normal {
 			applicationId 'org.ppsspp.ppsspp'
+			dimension "variant"
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
@@ -114,6 +117,7 @@ android {
 		}
 		gold {
 			applicationId 'org.ppsspp.ppssppgold'
+			dimension "variant"
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
