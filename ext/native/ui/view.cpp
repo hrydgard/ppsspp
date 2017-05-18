@@ -20,7 +20,7 @@ namespace UI {
 static View *focusedView;
 static bool focusMovementEnabled;
 bool focusForced;
-static std::recursive_mutex eventMutex_;  // needs recursivity!
+static std::mutex eventMutex_;  // needs recursivity!
 
 const float ITEM_HEIGHT = 64.f;
 const float MIN_TEXT_SCALE = 0.8f;
@@ -34,20 +34,24 @@ struct DispatchQueueItem {
 std::deque<DispatchQueueItem> g_dispatchQueue;
 
 void EventTriggered(Event *e, EventParams params) {
-	std::unique_lock<std::recursive_mutex> guard(eventMutex_);
-
 	DispatchQueueItem item;
 	item.e = e;
 	item.params = params;
+
+	std::unique_lock<std::mutex> guard(eventMutex_);
 	g_dispatchQueue.push_front(item);
 }
 
 void DispatchEvents() {
-	std::unique_lock<std::recursive_mutex> guard(eventMutex_);
-
-	while (!g_dispatchQueue.empty()) {
-		DispatchQueueItem item = g_dispatchQueue.back();
-		g_dispatchQueue.pop_back();
+	while (true) {
+		DispatchQueueItem item;
+		{
+			std::unique_lock<std::mutex> guard(eventMutex_);
+			if (g_dispatchQueue.empty())
+				break;
+			item = g_dispatchQueue.back();
+			g_dispatchQueue.pop_back();
+		}
 		if (item.e) {
 			item.e->Dispatch(item.params);
 		}
