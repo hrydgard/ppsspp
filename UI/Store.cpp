@@ -218,6 +218,7 @@ private:
 
 	StoreEntry entry_;
 	UI::Button *installButton_ = nullptr;
+	UI::Button *launchButton_ = nullptr;
 	UI::Button *cancelButton_ = nullptr;
 	bool wasInstalled_ = false;
 };
@@ -242,7 +243,9 @@ void ProductView::CreateViews() {
 		installButton_ = nullptr;
 		Add(new TextView(st->T("Already Installed")));
 		Add(new Button(st->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
-		Add(new Button(st->T("Launch Game")))->OnClick.Handle(this, &ProductView::OnLaunchClick);
+		launchButton_ = new Button(st->T("Launch Game"));
+		launchButton_->OnClick.Handle(this, &ProductView::OnLaunchClick);
+		Add(launchButton_);
 	}
 
 	cancelButton_ = Add(new Button(di->T("Cancel")));
@@ -268,6 +271,8 @@ void ProductView::Update() {
 	}
 	if (cancelButton_ && g_GameManager.GetState() != GameManagerState::DOWNLOADING)
 		cancelButton_->SetVisibility(UI::V_GONE);
+	if (launchButton_)
+		launchButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
 	View::Update();
 }
 
@@ -303,12 +308,16 @@ UI::EventReturn ProductView::OnUninstall(UI::EventParams &e) {
 }
 
 UI::EventReturn ProductView::OnLaunchClick(UI::EventParams &e) {
+	if (g_GameManager.GetState() != GameManagerState::IDLE) {
+		// Button should have been disabled. Just a safety check.
+		return UI::EVENT_DONE;
+	}
+
 	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
 	std::string path = pspGame + entry_.file;
 #ifdef _WIN32
 	path = ReplaceAll(path, "\\", "/");
 #endif
-
 	UI::EventParams e2{};
 	e2.v = e.v;
 	e2.s = path;

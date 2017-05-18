@@ -34,6 +34,7 @@
 #include "Core/System.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
+#include "Core/Util/GameManager.h"
 
 #include "UI/BackgroundAudio.h"
 #include "UI/EmuScreen.h"
@@ -1046,6 +1047,9 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 	if (ginfo && ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 		return UI::EVENT_DONE;
 	}
+
+	if (g_GameManager.GetState() == GameManagerState::INSTALLING)
+		return UI::EVENT_DONE;
 
 	// Restore focus if it was highlighted (e.g. by gamepad.)
 	restoreFocusGamePath_ = highlightedGamePath_;

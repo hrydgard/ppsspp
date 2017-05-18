@@ -115,13 +115,10 @@ void GameManager::Update() {
 				curDownload_.reset();
 				return;
 			}
-			// Install the game!
-			InstallGame(zipName);
-			// Doesn't matter if the install succeeds or not, we delete the temp file to not squander space.
-			// TODO: Handle disk full?
-			File::Delete(zipName.c_str());
+			// Game downloaded to temporary file - install it!
+			InstallGameOnThread(zipName, true);
 		} else {
-			ERROR_LOG(HLE, "Expected HTTP status code 200, got status code %i. Install cancelled.", curDownload_->ResultCode());
+			ERROR_LOG(HLE, "Expected HTTP status code 200, got status code %i. Install cancelled, deleting partia lfile.", curDownload_->ResultCode());
 			File::Delete(zipName.c_str());
 		}
 		curDownload_.reset();
@@ -134,17 +131,16 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 		return false;
 	}
 
-	I18NCategory *sy = GetI18NCategory("System");
-	installInProgress_ = true;
-
-	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
-	INFO_LOG(HLE, "Installing %s into %s", zipfile.c_str(), pspGame.c_str());
-
 	if (!File::Exists(zipfile)) {
 		ERROR_LOG(HLE, "ZIP file %s doesn't exist", zipfile.c_str());
 		return false;
 	}
 
+	I18NCategory *sy = GetI18NCategory("System");
+	installInProgress_ = true;
+
+	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
+	INFO_LOG(HLE, "Installing %s into %s", zipfile.c_str(), pspGame.c_str());
 	int error;
 #ifdef _WIN32
 	struct zip *z = zip_open(ConvertUTF8ToWString(zipfile).c_str(), 0, &error);
@@ -192,6 +188,8 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 		installInProgress_ = false;
 		installError_ = sy->T("Not a PSP game");
 		InstallDone();
+		if (deleteAfter)
+			File::Delete(zipfile);
 		return false;
 	}
 
@@ -312,7 +310,6 @@ bool GameManager::InstallGameOnThread(std::string zipFile, bool deleteAfter) {
 	if (installInProgress_) {
 		return false;
 	}
-
 	installThread_.reset(new std::thread(std::bind(&GameManager::InstallGame, this, zipFile, deleteAfter)));
 	installThread_->detach();
 	return true;
