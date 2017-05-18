@@ -39,6 +39,7 @@ void ScreenManager::switchScreen(Screen *screen) {
 }
 
 void ScreenManager::update() {
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (nextScreen_) {
 		switchToNext();
 	}
