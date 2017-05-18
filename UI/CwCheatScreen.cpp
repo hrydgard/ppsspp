@@ -49,7 +49,7 @@ CwCheatScreen::CwCheatScreen(std::string gamePath)
 }
 
 void CwCheatScreen::CreateCodeList() {
-	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (info && info->paramSFOLoaded) {
 		gameTitle = info->paramSFO.GetValueString("DISC_ID");
 	}

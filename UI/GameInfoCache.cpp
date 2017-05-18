@@ -358,7 +358,7 @@ static bool ReadVFSToString(const char *filename, std::string *contents, std::mu
 
 class GameInfoWorkItem : public PrioritizedWorkQueueItem {
 public:
-	GameInfoWorkItem(const std::string &gamePath, GameInfo *info)
+	GameInfoWorkItem(const std::string &gamePath, std::shared_ptr<GameInfo> &info)
 		: gamePath_(gamePath), info_(info) {
 	}
 
@@ -617,7 +617,7 @@ handleELF:
 
 private:
 	std::string gamePath_;
-	GameInfo *info_;
+	std::shared_ptr<GameInfo> info_;
 	DISALLOW_COPY_AND_ASSIGN(GameInfoWorkItem);
 };
 
@@ -676,7 +676,7 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 	}
 }
 
-void GameInfoCache::WaitUntilDone(GameInfo *info) {
+void GameInfoCache::WaitUntilDone(std::shared_ptr<GameInfo> &info) {
 	while (info->IsPending()) {
 		if (gameInfoWQ_->WaitUntilDone(false)) {
 			// A true return means everything finished, so bail out.
@@ -690,12 +690,12 @@ void GameInfoCache::WaitUntilDone(GameInfo *info) {
 
 
 // Runs on the main thread.
-GameInfo *GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags) {
-	GameInfo *info = nullptr;
+std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags) {
+	std::shared_ptr<GameInfo> info;
 
 	auto iter = info_.find(gamePath);
 	if (iter != info_.end()) {
-		info = iter->second.get();
+		info = iter->second;
 	}
 
 	// If wantFlags don't match, we need to start over.  We'll just queue the work item again.
@@ -714,7 +714,7 @@ GameInfo *GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gam
 	}
 
 	if (!info) {
-		info = new GameInfo();
+		info = std::make_shared<GameInfo>();
 	}
 
 	if (info->IsWorking()) {
@@ -732,11 +732,13 @@ GameInfo *GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gam
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
 	gameInfoWQ_->Add(item);
 
-	info_[gamePath] = std::unique_ptr<GameInfo>(info);
+	// Don't re-insert if we already have it.
+	if (info_.find(gamePath) == info_.end())
+		info_[gamePath] = std::shared_ptr<GameInfo>(info);
 	return info;
 }
 
-void GameInfoCache::SetupTexture(GameInfo *info, Draw::DrawContext *thin3d, GameInfoTex &tex) {
+void GameInfoCache::SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawContext *thin3d, GameInfoTex &tex) {
 	using namespace Draw;
 	if (tex.data.size()) {
 		if (!tex.texture) {

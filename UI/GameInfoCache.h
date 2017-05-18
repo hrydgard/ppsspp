@@ -67,7 +67,7 @@ struct GameInfoTex {
 		}
 	}
 	std::string data;
-	ManagedTexture *texture = nullptr;
+	std::unique_ptr<ManagedTexture> texture;
 	// The time at which the Icon and the BG were loaded.
 	// Can be useful to fade them in smoothly once they appear.
 	double timeLoaded = 0.0;
@@ -78,10 +78,7 @@ struct GameInfoTex {
 			data.clear();
 			dataLoaded = false;
 		}
-		if (texture) {
-			delete texture;
-			texture = nullptr;
-		}
+		texture.reset(nullptr);
 	}
 private:
 	DISALLOW_COPY_AND_ASSIGN(GameInfoTex);
@@ -171,20 +168,21 @@ public:
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
-	GameInfo *GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags);
+	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags);
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
 	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
 
-	void WaitUntilDone(GameInfo *info);
+	void WaitUntilDone(std::shared_ptr<GameInfo> &info);
 
 private:
 	void Init();
 	void Shutdown();
-	void SetupTexture(GameInfo *info, Draw::DrawContext *draw, GameInfoTex &tex);
+	void SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawContext *draw, GameInfoTex &tex);
 
-	// Maps ISO path to info.
-	std::map<std::string, std::unique_ptr<GameInfo> > info_;
+	// Maps ISO path to info. Need to use shared_ptr as we can return these pointers - 
+	// and if they get destructed while being in use, that's bad.
+	std::map<std::string, std::shared_ptr<GameInfo> > info_;
 
 	// Work queue and management
 	PrioritizedWorkQueue *gameInfoWQ_;

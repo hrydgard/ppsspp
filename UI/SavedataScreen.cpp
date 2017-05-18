@@ -70,7 +70,7 @@ public:
 		UIContext &dc = *screenManager()->getUIContext();
 		const Style &textStyle = dc.theme->popupStyle;
 
-		GameInfo *ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
 		parent->Add(content);
 		if (!ginfo)
@@ -143,7 +143,7 @@ private:
 };
 
 UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
-	GameInfo *ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
 	ginfo->Delete();
 	TriggerFinish(DR_NO);
 	return UI::EVENT_DONE;
@@ -157,7 +157,7 @@ static std::string CleanSaveString(std::string str) {
 }
 
 void SavedataButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), savePath_, GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), savePath_, GAMEINFO_WANTSIZE);
 	Draw::Texture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
@@ -381,7 +381,7 @@ void SavedataScreen::CreateViews() {
 }
 
 UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
-	GameInfo *ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), e.s, 0);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), e.s, 0);
 	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(e.s, ginfo->GetTitle());
 	if (e.v) {
 		popupScreen->SetPopupOrigin(e.v);

@@ -69,7 +69,7 @@ static const uint32_t colors[4] = {
 	0xC0FFFFFF,
 };
 
-static ManagedTexture *bgTexture = nullptr;
+static std::unique_ptr<ManagedTexture> bgTexture;
 
 void UIBackgroundInit(UIContext &dc) {
 	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
@@ -81,8 +81,7 @@ void UIBackgroundInit(UIContext &dc) {
 }
 
 void UIBackgroundShutdown() {
-	delete bgTexture;
-	bgTexture = nullptr;
+	bgTexture.reset(nullptr);
 }
 
 void DrawBackground(UIContext &dc, float alpha) {
@@ -128,7 +127,7 @@ void DrawBackground(UIContext &dc, float alpha) {
 }
 
 void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
-	GameInfo *ginfo = nullptr;
+	std::shared_ptr<GameInfo> ginfo;
 	if (gamePath.size())
 		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();

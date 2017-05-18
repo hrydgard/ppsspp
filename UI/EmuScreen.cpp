@@ -146,7 +146,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	SetBackgroundAudioGame("");
 
 	//pre-emptive loading of game specific config if possible, to get all the settings
-	GameInfo *info = g_gameInfoCache->GetInfo(NULL, filename, 0);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, 0);
 	if (info && !info->id.empty()) {
 		g_Config.loadGameConfig(info->id);
 	}
@@ -209,7 +209,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 	}
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
-
 
 	std::string error_string;
 	if (!PSP_InitStart(coreParam, &error_string)) {

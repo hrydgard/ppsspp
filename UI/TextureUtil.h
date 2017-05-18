@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "thin3d/thin3d.h"
 #include "Core/Config.h"
 #include "gfx/gl_lost_manager.h"
@@ -55,5 +57,5 @@ private:
 	std::string filename_;  // Textures that are loaded from files can reload themselves automatically.
 };
 
-ManagedTexture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType fileType, bool generateMips = false);
-ManagedTexture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType fileType, bool generateMips = false);
+std::unique_ptr<ManagedTexture> CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType fileType, bool generateMips = false);
+std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType fileType, bool generateMips = false);

@@ -54,12 +54,11 @@ std::string ResolveUrl(std::string baseUrl, std::string url) {
 class HttpImageFileView : public UI::View {
 public:
 	HttpImageFileView(http::Downloader *downloader, const std::string &path, UI::ImageSizeMode sizeMode = UI::IS_DEFAULT, UI::LayoutParams *layoutParams = 0)
-		: UI::View(layoutParams), path_(path), color_(0xFFFFFFFF), sizeMode_(sizeMode), downloader_(downloader), texture_(nullptr), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
+		: UI::View(layoutParams), path_(path), sizeMode_(sizeMode), downloader_(downloader) {}
 
 	~HttpImageFileView() {
 		if (download_)
 			download_->Cancel();
-		delete texture_;
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
@@ -77,18 +76,18 @@ public:
 private:
 	void DownloadCompletedCallback(http::Download &download);
 
-	bool canFocus_;
+	bool canFocus_ = false;
 	std::string path_;
-	uint32_t color_;
+	uint32_t color_ = 0xFFFFFFFF;
 	UI::ImageSizeMode sizeMode_;
 	http::Downloader *downloader_;
 	std::shared_ptr<http::Download> download_;
 
 	std::string textureData_;
-	ManagedTexture *texture_;
-	bool textureFailed_;
-	float fixedSizeW_;
-	float fixedSizeH_;
+	std::unique_ptr<ManagedTexture> texture_;
+	bool textureFailed_ = false;
+	float fixedSizeW_ = 0.0f;
+	float fixedSizeH_ = 0.0f;
 };
 
 void HttpImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -116,10 +115,7 @@ void HttpImageFileView::SetFilename(std::string filename) {
 	if (path_ != filename) {
 		textureFailed_ = false;
 		path_ = filename;
-		if (texture_) {
-			delete texture_;
-			texture_ = nullptr;
-		}
+		texture_.reset(nullptr);
 	}
 }
 
