@@ -1,4 +1,5 @@
 #include <vector>
+#include <mutex>
 
 #include "base/basictypes.h"
 #include "base/logging.h"
@@ -10,6 +11,7 @@ struct Holder {
 	int priority;
 };
 
+static std::mutex mutex;
 std::vector<Holder> *holders;
 
 static bool inLost;
@@ -17,6 +19,7 @@ static bool inRestore;
 static int g_max_priority = 0;
 
 void register_gl_resource_holder(GfxResourceHolder *holder, const char *desc, int priority) {
+	std::lock_guard<std::mutex> lock(mutex);
 	if (inLost || inRestore) {
 		FLOG("BAD: Should not call register_gl_resource_holder from lost/restore path");
 		return;
@@ -31,6 +34,7 @@ void register_gl_resource_holder(GfxResourceHolder *holder, const char *desc, in
 }
 
 void unregister_gl_resource_holder(GfxResourceHolder *holder) {
+	std::lock_guard<std::mutex> lock(mutex);
 	if (inLost || inRestore) {
 		FLOG("BAD: Should not call unregister_gl_resource_holder from lost/restore path");
 		return;
@@ -53,6 +57,7 @@ void unregister_gl_resource_holder(GfxResourceHolder *holder) {
 }
 
 void gl_restore() {
+	std::lock_guard<std::mutex> lock(mutex);
 	inRestore = true;
 	if (!holders) {
 		WLOG("GL resource holder not initialized, cannot process restore request");
@@ -75,6 +80,7 @@ void gl_restore() {
 }
 
 void gl_lost() {
+	std::lock_guard<std::mutex> lock(mutex);
 	inLost = true;
 	if (!holders) {
 		WLOG("GL resource holder not initialized, cannot process restore request");
@@ -97,6 +103,7 @@ void gl_lost() {
 }
 
 void gl_lost_manager_init() {
+	std::lock_guard<std::mutex> lock(mutex);
 	if (holders) {
 		FLOG("Double GL lost manager init");
 		// Dead here (FLOG), no need to delete holders
@@ -106,6 +113,7 @@ void gl_lost_manager_init() {
 }
 
 void gl_lost_manager_shutdown() {
+	std::lock_guard<std::mutex> lock(mutex);
 	if (!holders) {
 		FLOG("Lost manager already shutdown");
 	} else if (holders->size() > 0) {

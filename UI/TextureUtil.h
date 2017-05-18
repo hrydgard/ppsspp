@@ -21,10 +21,10 @@ public:
 			register_gl_resource_holder(this, "managed_texture", 0);
 	}
 	~ManagedTexture() {
-		if (texture_)
-			texture_->Release();
 		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
 			unregister_gl_resource_holder(this);
+		if (texture_)
+			texture_->Release();
 	}
 	void GLLost() override {
 		if (texture_)
