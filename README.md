@@ -18,6 +18,17 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+What's new in 1.4.1
+-------------------
+* Fixes for some common hangs and crashes (#9698, ...)
+* Vertex decoder optimizations (#9674)
+* Corrections to mipmap bias and selection function (#9633)
+* Major improvements and fixes to software renderer, including mipmap support (#9635, ...)
+* UI background image support
+* Basic mouse input support on Windows
+* Windows desktop touch fixes (#9560)
+* D3D11 "depal" color fixes, fixing Sonic Rivals
+
 What's new in 1.4-2
 -------------------
 * Bugfix release - build system didn't copy the flash0 directory to the APK on Android.
