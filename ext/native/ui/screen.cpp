@@ -49,7 +49,7 @@ void ScreenManager::update() {
 }
 
 void ScreenManager::switchToNext() {
-	std::lock_guard<std::mutex> guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!nextScreen_) {
 		ELOG("switchToNext: No nextScreen_!");
 	}
@@ -69,7 +69,7 @@ void ScreenManager::switchToNext() {
 }
 
 bool ScreenManager::touch(const TouchInput &touch) {
-	std::lock_guard<std::mutex> guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!stack_.empty()) {
 		Screen *screen = stack_.back().screen;
 		return screen->touch(screen->transformTouch(touch));
@@ -79,7 +79,7 @@ bool ScreenManager::touch(const TouchInput &touch) {
 }
 
 bool ScreenManager::key(const KeyInput &key) {
-	std::lock_guard<std::mutex> guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!stack_.empty()) {
 		return stack_.back().screen->key(key);
 	} else {
@@ -88,7 +88,7 @@ bool ScreenManager::key(const KeyInput &key) {
 }
 
 bool ScreenManager::axis(const AxisInput &axis) {
-	std::lock_guard<std::mutex> guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!stack_.empty()) {
 		return stack_.back().screen->axis(axis);
 	} else {
@@ -97,7 +97,7 @@ bool ScreenManager::axis(const AxisInput &axis) {
 }
 
 void ScreenManager::resized() {
-	std::lock_guard<std::mutex> guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	// Have to notify the whole stack, otherwise there will be problems when going back
 	// to non-top screens.
 	for (auto iter = stack_.begin(); iter != stack_.end(); ++iter) {
@@ -171,7 +171,7 @@ Screen *ScreenManager::topScreen() const {
 }
 
 void ScreenManager::shutdown() {
-	std::lock_guard<std::mutex> guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	for (auto x = stack_.begin(); x != stack_.end(); x++)
 		delete x->screen;
 	stack_.clear();
@@ -180,7 +180,7 @@ void ScreenManager::shutdown() {
 }
 
 void ScreenManager::push(Screen *screen, int layerFlags) {
-	std::lock_guard<std::mutex> guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (nextScreen_ && stack_.empty()) {
 		// we're during init, this is OK
 		switchToNext();
@@ -195,7 +195,7 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 }
 
 void ScreenManager::pop() {
-	std::lock_guard<std::mutex> guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (stack_.size()) {
 		delete stack_.back().screen;
 		stack_.pop_back();
@@ -226,7 +226,7 @@ void ScreenManager::finishDialog(Screen *dialog, DialogResult result) {
 
 void ScreenManager::processFinishDialog() {
 	if (dialogFinished_) {
-		std::lock_guard<std::mutex> guard(inputLock_);
+		std::lock_guard<std::recursive_mutex> guard(inputLock_);
 		// Another dialog may have been pushed before the render, so search for it.
 		Screen *caller = 0;
 		for (size_t i = 0; i < stack_.size(); ++i) {
