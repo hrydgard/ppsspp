@@ -1764,7 +1764,7 @@ static u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr, u32 widthA
 	info->numPCMStreams = 0;
 	info->playerVersion = psmfplayer->playerVersion;
 
-	if (psmfPlayerLibVersion >= 0x03090510) {
+	if (psmfPlayerLibVersion == 0x03090510) {
 		// LocoRoco 2 depends on these for sizing its video output. Without this, its height is zero
 		// and nothing is drawn.
 		// Can't ask mediaengine for width/height here, it's too early, so we grabbed it from the
