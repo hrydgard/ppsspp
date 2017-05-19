@@ -118,7 +118,7 @@ void GameManager::Update() {
 			// Game downloaded to temporary file - install it!
 			InstallGameOnThread(zipName, true);
 		} else {
-			ERROR_LOG(HLE, "Expected HTTP status code 200, got status code %i. Install cancelled, deleting partia lfile.", curDownload_->ResultCode());
+			ERROR_LOG(HLE, "Expected HTTP status code 200, got status code %i. Install cancelled, deleting partial file.", curDownload_->ResultCode());
 			File::Delete(zipName.c_str());
 		}
 		curDownload_.reset();
