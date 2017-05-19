@@ -118,11 +118,6 @@ void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
 void FramebufferManagerVulkan::InitDeviceObjects() {
 	// Initialize framedata
 	for (int i = 0; i < 2; i++) {
-		VkCommandPoolCreateInfo cp = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-		cp.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-		cp.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
-		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cp, nullptr, &frameData_[i].cmdPool_);
-		assert(res == VK_SUCCESS);
 		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
 	}
 
@@ -136,7 +131,7 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 
 	// Get a representative render pass and use when creating the pipeline.
 	pipelineBasicTexBackBuffer_ = vulkan2D_.GetPipeline(pipelineCache2D_, vulkan_->GetSurfaceRenderPass(), vsBasicTex_, fsBasicTex_);
-	pipelineBasicTexFrameBuffer_ = vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS), vsBasicTex_, fsBasicTex_);
+	pipelineBasicTexFrameBuffer_ = vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS), vsBasicTex_, fsBasicTex_);
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -154,15 +149,6 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 
 void FramebufferManagerVulkan::DestroyDeviceObjects() {
 	for (int i = 0; i < 2; i++) {
-		if (frameData_[i].numCommandBuffers_ > 0) {
-			vkFreeCommandBuffers(vulkan_->GetDevice(), frameData_[i].cmdPool_, frameData_[i].numCommandBuffers_, frameData_[i].commandBuffers_);
-			frameData_[i].numCommandBuffers_ = 0;
-			frameData_[i].totalCommandBuffers_ = 0;
-		}
-		if (frameData_[i].cmdPool_ != VK_NULL_HANDLE) {
-			vkDestroyCommandPool(vulkan_->GetDevice(), frameData_[i].cmdPool_, nullptr);
-			frameData_[i].cmdPool_ = VK_NULL_HANDLE;
-		}
 		if (frameData_[i].push_) {
 			frameData_[i].push_->Destroy(vulkan_);
 			delete frameData_[i].push_;
@@ -191,37 +177,15 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
-		VkClearValue colorValue, depthValue;
-		Uint8x4ToFloat4(colorValue.color.float32, color);
-		depthValue.depthStencil.depth = depth;
-		depthValue.depthStencil.stencil = (color >> 24) & 0xFF;
+		int mask = 0;
+		if (clearColor || clearAlpha)
+			mask |= Draw::FBChannel::FB_COLOR_BIT;
+		if (clearDepth)
+			mask |= Draw::FBChannel::FB_DEPTH_BIT;
+		if (clearAlpha)
+			mask |= Draw::FBChannel::FB_STENCIL_BIT;
 
-		VkClearRect rect;
-		rect.baseArrayLayer = 0;
-		rect.layerCount = 1;
-		rect.rect.offset.x = x;
-		rect.rect.offset.y = y;
-		rect.rect.extent.width = w;
-		rect.rect.extent.height = h;
-
-		int count = 0;
-		VkClearAttachment attach[2];
-		// The Clear detection takes care of doing a regular draw instead if separate masking
-		// of color and alpha is needed, so we can just treat them as the same.
-		if (clearColor || clearAlpha) {
-			attach[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			attach[count].clearValue = colorValue;
-			attach[count].colorAttachment = 0;
-			count++;
-		}
-		if (clearDepth) {
-			attach[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-			attach[count].clearValue = depthValue;
-			attach[count].colorAttachment = 0;
-			count++;
-		}
-		vkCmdClearAttachments(curCmd_, count, attach, 1, &rect);
-
+		draw_->Clear(mask, color, depth, 0);
 		if (clearColor || clearAlpha) {
 			SetColorUpdated(gstate_c.skipDrawReason);
 		}
@@ -344,7 +308,9 @@ void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
 	vp.y = (float)y;
 	vp.width = (float)w;
 	vp.height = (float)h;
-	vkCmdSetViewport(curCmd_, 0, 1, &vp);
+
+	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
+	vkCmdSetViewport(cmd, 0, 1, &vp);
 }
 
 void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
@@ -390,7 +356,7 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 
 	VulkanPushBuffer *push = frameData_[curFrame_].push_;
 
-	VkCommandBuffer cmd = curCmd_;
+	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
 
 	// TODO: Choose linear or nearest appropriately, see GL impl.
 	vulkan2D_.BindDescriptorSet(cmd, texture->GetImageView(), linearSampler_);
@@ -932,39 +898,26 @@ void FramebufferManagerVulkan::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 
 }
 
-VkCommandBuffer FramebufferManagerVulkan::AllocFrameCommandBuffer() {
-	FrameData &frame = frameData_[curFrame_];
-	int num = frame.numCommandBuffers_;
-	if (!frame.commandBuffers_[num]) {
-		VkCommandBufferAllocateInfo cmd = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-		cmd.commandBufferCount = 1;
-		cmd.commandPool = frame.cmdPool_;
-		cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd, &frame.commandBuffers_[num]);
-		frame.totalCommandBuffers_ = num + 1;
-	}
-	return frame.commandBuffers_[num];
-}
-
 void FramebufferManagerVulkan::BeginFrameVulkan() {
 	BeginFrame();
 
 	vulkan2D_.BeginFrame();
 
 	FrameData &frame = frameData_[curFrame_];
-	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
-	frame.numCommandBuffers_ = 0;
 
 	frame.push_->Reset();
 	frame.push_->Begin(vulkan_);
 	
 	if (!useBufferedRendering_) {
+		// TODO: This hackery should not be necessary. Is it? Need to check.
 		// We only use a single command buffer in this case.
-		curCmd_ = vulkan_->GetSurfaceCommandBuffer();
+		VkCommandBuffer cmd = vulkan_->GetSurfaceCommandBuffer();
 		VkRect2D scissor;
 		scissor.offset = { 0, 0 };
 		scissor.extent = { (uint32_t)pixelWidth_, (uint32_t)pixelHeight_ };
-		vkCmdSetScissor(curCmd_, 0, 1, &scissor);
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+	} else {
+		// Each render pass will set up scissor again.
 	}
 }
 
@@ -1043,7 +996,7 @@ void FramebufferManagerVulkan::FlushBeforeCopy() {
 	// all the irrelevant state checking it'll use to decide what to do. Should
 	// do something more focused here.
 	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	drawEngine_->Flush(curCmd_);
+	drawEngine_->Flush();
 }
 
 void FramebufferManagerVulkan::Resized() {
@@ -1143,22 +1096,6 @@ bool FramebufferManagerVulkan::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	return false;
 }
 
-
 void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
-	// keepState is irrelevant.
-	if (!currentRenderVfb_) {
-		return;
-	}
-	VkClearAttachment clear[2];
-	memset(clear, 0, sizeof(clear));
-	clear[0].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	clear[1].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	VkClearRect rc;
-	rc.baseArrayLayer = 0;
-	rc.layerCount = 1;
-	rc.rect.offset.x = 0;
-	rc.rect.offset.y = 0;
-	rc.rect.extent.width = currentRenderVfb_->bufferWidth;
-	rc.rect.extent.height = currentRenderVfb_->bufferHeight;
-	vkCmdClearAttachments(curCmd_, 2, clear, 1, &rc);
+	// TODO: Ideally, this should never be called.
 }

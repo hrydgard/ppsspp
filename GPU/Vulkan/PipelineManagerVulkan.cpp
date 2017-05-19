@@ -292,9 +292,10 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	return vulkanPipeline;
 }
 
-VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
+VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
 	VulkanPipelineKey key;
 	key.raster = rasterKey;
+	key.renderPass = renderPass;
 	key.useHWTransform = useHwTransform;
 	key.vShader = vs->GetModule();
 	key.fShader = fs->GetModule();
@@ -305,7 +306,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	}
 	
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
-		vulkan_->GetDevice(), pipelineCache_, layout, vulkan_->GetSurfaceRenderPass(), 
+		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
 		rasterKey, vtxDec, vs, fs, useHwTransform);
 	pipelines_[key] = pipeline;
 	return pipeline;

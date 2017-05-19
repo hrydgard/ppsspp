@@ -819,7 +819,6 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 void FramebufferManagerCommon::CopyDisplayToOutput() {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 
-	SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 	currentRenderVfb_ = 0;
 
 	if (displayFramebufPtr_ == 0) {
@@ -894,6 +893,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 					draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 				}
 				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
+				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 				DrawFramebufferToOutput(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 				return;
 			}
@@ -939,9 +939,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 		float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
 
 		if (!usePostShader_) {
-			draw_->TransitionForSampling(vfb->fbo);  // Temporary vulkan hack
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
+			SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.
@@ -975,6 +975,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+			SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 
 			// Use the extra FBO, with applied post-processing shader, as a texture.
 			// fbo_bind_as_texture(extraFBOs_[0], FB_COLOR_BIT, 0);

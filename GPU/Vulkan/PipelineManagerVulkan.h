@@ -39,13 +39,16 @@ enum class PspAttributeLocation {
 
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
+	VkRenderPass renderPass;
 	bool useHWTransform;
 	const VertexDecoder *vtxDec;
 	VkShaderModule vShader;
 	VkShaderModule fShader;
 
+	// TODO: Probably better to use a hash function instead.
 	bool operator < (const VulkanPipelineKey &other) const {
 		if (raster < other.raster) return true; else if (other.raster < raster) return false;
+		if (renderPass < other.renderPass) return true; else if (other.renderPass < renderPass) return false;
 		if (useHWTransform < other.useHWTransform) return true; else if (other.useHWTransform < useHWTransform) return false;
 		if (vtxDec < other.vtxDec) return true; else if (other.vtxDec < vtxDec) return false;
 		if (vShader < other.vShader) return true; else if (other.vShader < vShader) return false;
@@ -82,7 +85,7 @@ public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
-	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
+	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();

@@ -78,7 +78,7 @@ static const VulkanCommandTableEntry commandTable[] = {
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
 		vulkan_((VulkanContext *)gfxCtx->GetAPIContext()),
-		drawEngine_(vulkan_) {
+		drawEngine_(vulkan_, draw) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
@@ -197,10 +197,6 @@ void GPU_Vulkan::CheckGPUFeatures() {
 }
 
 void GPU_Vulkan::BeginHostFrame() {
-	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		// Draw everything directly to the backbuffer.
-		drawEngine_.SetCmdBuffer(vulkan_->GetSurfaceCommandBuffer());
-	}
 	drawEngine_.BeginFrame();
 
 	if (resized_) {
@@ -396,7 +392,7 @@ bool GPU_Vulkan::FramebufferReallyDirty() {
 
 void GPU_Vulkan::CopyDisplayToOutputInternal() {
 	// Flush anything left over.
-	drawEngine_.Flush(curCmd_);
+	drawEngine_.Flush();
 
 	shaderManagerVulkan_->DirtyLastShader();
 
@@ -419,7 +415,7 @@ void GPU_Vulkan::FastRunLoop(DisplayList &list) {
 		const u32 diff = op ^ gstate.cmdmem[cmd];
 		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
 		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
-			drawEngine_.Flush(curCmd_);
+			drawEngine_.Flush();
 		}
 		gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
 		if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
@@ -445,7 +441,7 @@ inline void GPU_Vulkan::CheckFlushOp(int cmd, u32 diff) {
 		if (dumpThisFrame_) {
 			NOTICE_LOG(G3D, "================ FLUSH ================");
 		}
-		drawEngine_.Flush(curCmd_);
+		drawEngine_.Flush();
 	}
 }
 

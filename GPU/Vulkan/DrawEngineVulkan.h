@@ -70,7 +70,7 @@ struct DrawEngineVulkanStats {
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
-	DrawEngineVulkan(VulkanContext *vulkan);
+	DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw);
 	virtual ~DrawEngineVulkan();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
@@ -95,21 +95,17 @@ public:
 	void SetupVertexDecoderInternal(u32 vertType);
 
 	// So that this can be inlined
-	void Flush(VkCommandBuffer cmd) {
+	void Flush() {
 		if (!numDrawCalls)
 			return;
-		DoFlush(cmd);
+		DoFlush();
 	}
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
-	void DispatchFlush() override { Flush(cmd_); }
+	void DispatchFlush() override { Flush(); }
 	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
 		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
-	}
-
-	void SetCmdBuffer(VkCommandBuffer cmd) {
-		cmd_ = cmd;
 	}
 
 	VkPipelineLayout GetPipelineLayout() const {
@@ -140,12 +136,13 @@ private:
 	void DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
 
-	void DoFlush(VkCommandBuffer cmd);
+	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
 
 	VkDescriptorSet GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone);
 
 	VulkanContext *vulkan_;
+	Draw::DrawContext *draw_;
 
 	// We use a single descriptor set layout for all PSP draws.
 	VkDescriptorSetLayout descriptorSetLayout_;
@@ -196,20 +193,14 @@ private:
 		u16 indexUpperBound;
 	};
 
-	// This is always set to the current main command buffer of the VulkanContext.
-	// In the future, we may support flushing mid-frame and more fine grained command buffer usage,
-	// but for now, let's just submit a whole frame at a time. This is not compatible with some games
-	// that do mid frame read-backs.
-	VkCommandBuffer cmd_;
-
 	// Vertex collector state
 	IndexGenerator indexGen;
 	GEPrimitiveType prevPrim_;
 
 	u32 lastVTypeID_;
 
-	TransformedVertex *transformed;
-	TransformedVertex *transformedExpanded;
+	TransformedVertex *transformed = nullptr;
+	TransformedVertex *transformedExpanded = nullptr;
 
 	// Other
 	ShaderManagerVulkan *shaderManager_ = nullptr;

@@ -341,10 +341,17 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		}
 
 		VkRect2D &scissor = dynState.scissor;
-		scissor.offset.x = vpAndScissor.scissorX;
-		scissor.offset.y = vpAndScissor.scissorY;
-		scissor.extent.width = vpAndScissor.scissorW;
-		scissor.extent.height = vpAndScissor.scissorH;
+		if (vpAndScissor.scissorEnable) {
+			scissor.offset.x = vpAndScissor.scissorX;
+			scissor.offset.y = vpAndScissor.scissorY;
+			scissor.extent.width = vpAndScissor.scissorW;
+			scissor.extent.height = vpAndScissor.scissorH;
+		} else {
+			scissor.offset.x = 0;
+			scissor.offset.y = 0;
+			scissor.extent.width = framebufferManager_->GetRenderWidth();
+			scissor.extent.height = framebufferManager_->GetRenderHeight();
+		}
 
 		float depthMin = vpAndScissor.depthRangeMin;
 		float depthMax = vpAndScissor.depthRangeMax;
