@@ -152,7 +152,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		AxisInput axis;
 		axis.axisId = event.caxis.axis;
 		// 1.2 to try to approximate the PSP's clamped rectangular range.
-		axis.value = 1.2 * event.caxis.value / 32767.0f;
+		axis.value = 1.2 * event.caxis.value * g_Config.fXInputAnalogSensitivity / 32767.0f;
 		if (axis.value > 1.0f) axis.value = 1.0f;
 		if (axis.value < -1.0f) axis.value = -1.0f;
 		axis.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.caxis.which);
