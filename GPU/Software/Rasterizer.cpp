@@ -1196,7 +1196,7 @@ static inline Vec4<int> SampleLinear(int texlevel, int u[4], int v[4], int frac_
 #endif
 }
 
-static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int texlevel, int frac_texlevel, int filt, u8 *texptr[], int texbufw[]) {
+static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int texlevel, int frac_texlevel, bool bilinear, u8 *texptr[], int texbufw[]) {
 	int u[8] = {0}, v[8] = {0};   // 1.23.8 fixed point
 	int frac_u[2], frac_v[2];
 
@@ -1207,7 +1207,6 @@ static inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int t
 	const u8 *tptr1 = texptr[texlevel + 1];
 	int bufw1 = texbufw[texlevel + 1];
 
-	bool bilinear = filt != 0;
 	if (!bilinear) {
 		// Nearest filtering only.  Round texcoords.
 		GetTexelCoordinates(texlevel, s, t, u[0], v[0]);
@@ -1252,7 +1251,7 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-static inline void CalculateSamplingParams(const float ds, const float dt, const int maxTexLevel, int &level, int &levelFrac, int &filt) {
+static inline void CalculateSamplingParams(const float ds, const float dt, const int maxTexLevel, int &level, int &levelFrac, bool &filt) {
 	const int width = gstate.getTextureWidth(0);
 	const int height = gstate.getTextureHeight(0);
 
@@ -1274,13 +1273,11 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	}
 
 	// Add in the bias (used in all modes), expanding to 8 bits of fraction.
-	detail += (int)(s8)((gstate.texlevel >> 16) & 0xFF) << 4;
-
-	int minFilt = (gstate.texfilter >> 0) & 1;
-	int mipFilt = (gstate.texfilter >> 1) & 1;
-	int magFilt = (gstate.texfilter >> 8) & 1;
+	detail += gstate.getTexLevelOffset16() << 4;
 
 	if (detail > 0 && maxTexLevel > 0) {
+		bool mipFilt = gstate.isMipmapFilteringEnabled();
+
 		int level8 = std::min(detail, maxTexLevel * 256);
 		if (!mipFilt) {
 			// Round up at 1.5.
@@ -1294,11 +1291,11 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 	}
 
 	if (g_Config.iTexFiltering == 3) {
-		filt = 1;
+		filt = true;
 	} else if (g_Config.iTexFiltering == 2) {
-		filt = 0;
+		filt = false;
 	} else {
-		filt = detail > 0 ? minFilt : magFilt;
+		filt = detail > 0 ? gstate.isMinifyFilteringEnabled() : gstate.isMagnifyFilteringEnabled();
 	}
 }
 
@@ -1308,11 +1305,11 @@ static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, c
 
 	int level;
 	int levelFrac;
-	int filt;
-	CalculateSamplingParams(ds, dt, maxTexLevel, level, levelFrac, filt);
+	bool bilinear;
+	CalculateSamplingParams(ds, dt, maxTexLevel, level, levelFrac, bilinear);
 
 	for (int i = 0; i < 4; ++i) {
-		ApplyTexturing(prim_color[i], s[i], t[i], level, levelFrac, filt, texptr, texbufw);
+		ApplyTexturing(prim_color[i], s[i], t[i], level, levelFrac, bilinear, texptr, texbufw);
 	}
 }
 
@@ -1406,7 +1403,7 @@ void DrawTriangleSlice(
 	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
-	if ((gstate.texfilter & 4) == 0) {
+	if (!gstate.isMipmapEnabled()) {
 		// No mipmapping enabled
 		maxTexLevel = 0;
 	}
@@ -1614,7 +1611,7 @@ void DrawPoint(const VertexData &v0)
 		int maxTexLevel = gstate.getTextureMaxLevel();
 		u8 *texptr[8] = {NULL};
 
-		if ((gstate.texfilter & 4) == 0) {
+		if (!gstate.isMipmapEnabled()) {
 			// No mipmapping enabled
 			maxTexLevel = 0;
 		}
@@ -1643,9 +1640,9 @@ void DrawPoint(const VertexData &v0)
 
 		int texLevel;
 		int texLevelFrac;
-		int filt;
-		CalculateSamplingParams(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, filt);
-		ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, filt, texptr, texbufw);
+		bool bilinear;
+		CalculateSamplingParams(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, bilinear);
+		ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, bilinear, texptr, texbufw);
 	}
 
 	if (!clearMode)
@@ -1697,7 +1694,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
-	if ((gstate.texfilter & 4) == 0) {
+	if (!gstate.isMipmapEnabled()) {
 		// No mipmapping enabled
 		maxTexLevel = 0;
 	}
@@ -1762,8 +1759,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 				int texLevel;
 				int texLevelFrac;
-				int texFilt;
-				CalculateSamplingParams(ds, dt, maxTexLevel, texLevel, texLevelFrac, texFilt);
+				bool texBilinear;
+				CalculateSamplingParams(ds, dt, maxTexLevel, texLevel, texLevelFrac, texBilinear);
 
 				if (gstate.isAntiAliasEnabled()) {
 					// TODO: This is a niave and wrong implementation.
@@ -1772,10 +1769,10 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 					s = ((float)p0.x + xinc / 32.0f) / 512.0f;
 					t = ((float)p0.y + yinc / 32.0f) / 512.0f;
 
-					texFilt = 1;
+					texBilinear = true;
 				}
 
-				ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, texFilt, texptr, texbufw);
+				ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, texBilinear, texptr, texbufw);
 			}
 
 			if (!clearMode)
