@@ -28,6 +28,7 @@ What's new in 1.4.1
 * Basic mouse input support on Windows
 * Windows desktop touch fixes (#9560)
 * D3D11 "depal" color fixes, fixing Sonic Rivals
+* Fix crash in framebuffer blits affecting Persona 3 (#9566)
 
 What's new in 1.4-2
 -------------------
