@@ -891,10 +891,12 @@ namespace MainWindow
 
 		case WM_USER_RESTART_EMUTHREAD:
 			NativeSetRestarting();
+			InputDevice::StopPolling();
 			EmuThread_Stop();
 			coreState = CORE_POWERUP;
 			ResetUIState();
 			EmuThread_Start();
+			InputDevice::BeginPolling();
 			break;
 
 		case WM_MENUSELECT:
