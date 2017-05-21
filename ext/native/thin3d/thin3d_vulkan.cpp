@@ -922,13 +922,15 @@ void VKContext::SetScissorRect(int left, int top, int width, int height) {
 }
 
 void VKContext::SetViewports(int count, Viewport *viewports) {
-	viewport_.x = viewports[0].TopLeftX;
-	viewport_.y = viewports[0].TopLeftY;
-	viewport_.width = viewports[0].Width;
-	viewport_.height = viewports[0].Height;
-	viewport_.minDepth = viewports[0].MinDepth;
-	viewport_.maxDepth = viewports[0].MaxDepth;
-	viewportDirty_ = true;
+	if (count > 0) {
+		viewport_.x = viewports[0].TopLeftX;
+		viewport_.y = viewports[0].TopLeftY;
+		viewport_.width = viewports[0].Width;
+		viewport_.height = viewports[0].Height;
+		viewport_.minDepth = viewports[0].MinDepth;
+		viewport_.maxDepth = viewports[0].MaxDepth;
+		viewportDirty_ = true;
+	}
 }
 
 void VKContext::SetBlendFactor(float color[4]) {

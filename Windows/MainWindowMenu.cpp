@@ -566,6 +566,15 @@ namespace MainWindow {
 		NativeMessageReceived("gpu_resized", "");
 	}
 
+	static void RestartApp() {
+		if (IsDebuggerPresent()) {
+			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
+		} else {
+			g_Config.bRestartRequired = true;
+			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		}
+	}
+
 	void MainWindowMenu_Process(HWND hWnd, WPARAM wParam) {
 		std::string fn;
 
@@ -752,11 +761,11 @@ namespace MainWindow {
 			break;
 
 		case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;
-		case ID_TEXTURESCALING_OFF: setTexScalingMultiplier(TEXSCALING_OFF); break;
-		case ID_TEXTURESCALING_2X:  setTexScalingMultiplier(TEXSCALING_2X); break;
-		case ID_TEXTURESCALING_3X:  setTexScalingMultiplier(TEXSCALING_3X); break;
-		case ID_TEXTURESCALING_4X:  setTexScalingMultiplier(TEXSCALING_4X); break;
-		case ID_TEXTURESCALING_5X:  setTexScalingMultiplier(TEXSCALING_MAX); break;
+		case ID_TEXTURESCALING_OFF:  setTexScalingMultiplier(TEXSCALING_OFF); break;
+		case ID_TEXTURESCALING_2X:   setTexScalingMultiplier(TEXSCALING_2X); break;
+		case ID_TEXTURESCALING_3X:   setTexScalingMultiplier(TEXSCALING_3X); break;
+		case ID_TEXTURESCALING_4X:   setTexScalingMultiplier(TEXSCALING_4X); break;
+		case ID_TEXTURESCALING_5X:   setTexScalingMultiplier(TEXSCALING_MAX); break;
 
 		case ID_TEXTURESCALING_XBRZ:            setTexScalingType(TextureScalerCommon::XBRZ); break;
 		case ID_TEXTURESCALING_HYBRID:          setTexScalingType(TextureScalerCommon::HYBRID); break;
@@ -770,22 +779,22 @@ namespace MainWindow {
 
 		case ID_OPTIONS_DIRECT3D9:
 			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
-			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
+			RestartApp();
 			break;
 
 		case ID_OPTIONS_DIRECT3D11:
 			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D11;
-			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
+			RestartApp();
 			break;
 
 		case ID_OPTIONS_OPENGL:
 			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
-			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
+			RestartApp();
 			break;
 
 		case ID_OPTIONS_VULKAN:
 			g_Config.iGPUBackend = GPU_BACKEND_VULKAN;
-			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
+			RestartApp();
 			break;
 
 		case ID_OPTIONS_NONBUFFEREDRENDERING:   setRenderingMode(FB_NON_BUFFERED_MODE); break;

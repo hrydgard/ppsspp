@@ -242,7 +242,12 @@ void System_SendMessage(const char *command, const char *parameter) {
 			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 		}
 	} else if (!strcmp(command, "graphics_restart")) {
-		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
+		if (IsDebuggerPresent()) {
+			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
+		} else {
+			g_Config.bRestartRequired = true;
+			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		}
 	} else if (!strcmp(command, "setclipboardtext")) {
 		if (OpenClipboard(MainWindow::GetDisplayHWND())) {
 			std::wstring data = ConvertUTF8ToWString(parameter);
@@ -574,6 +579,10 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	timeEndPeriod(1);
 
 	LogManager::Shutdown();
+
+	if (g_Config.bRestartRequired) {
+		W32Util::ExitAndRestart();
+	}
 
 	net::Shutdown();
 	CoUninitialize();
