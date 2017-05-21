@@ -925,23 +925,19 @@ void D3D9Context::Clear(int mask, uint32_t colorval, float depthVal, int stencil
 }
 
 void D3D9Context::SetScissorRect(int left, int top, int width, int height) {
-	RECT rc;
-	rc.left = left;
-	rc.top = top;
-	rc.right = left + width;
-	rc.bottom = top + height;
-	device_->SetScissorRect(&rc);
+	using namespace DX9;
+
+	dxstate.scissorRect.set(left, top, left + width, top + height);
 }
 
 void D3D9Context::SetViewports(int count, Viewport *viewports) {
-	D3DVIEWPORT9 vp;
-	vp.X = (DWORD)viewports[0].TopLeftX;
-	vp.Y = (DWORD)viewports[0].TopLeftY;
-	vp.Width = (DWORD)viewports[0].Width;
-	vp.Height = (DWORD)viewports[0].Height;
-	vp.MinZ = viewports[0].MinDepth;
-	vp.MaxZ = viewports[0].MaxDepth;
-	device_->SetViewport(&vp);
+	using namespace DX9;
+
+	int x = (int)viewports[0].TopLeftX;
+	int y = (int)viewports[0].TopLeftY;
+	int w = (int)viewports[0].Width;
+	int h = (int)viewports[0].Height;
+	dxstate.viewport.set(x, y, w, h, viewports[0].MinDepth, viewports[0].MaxDepth);
 }
 
 void D3D9Context::SetBlendFactor(float color[4]) {
