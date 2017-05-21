@@ -45,7 +45,7 @@ struct FormatBuffer {
 	}
 };
 
-class ShaderManagerGLES;
+class SoftwareDrawEngine;
 
 class SoftGPU : public GPUCommon {
 public:
@@ -102,6 +102,8 @@ private:
 	u32 displayFramebuf_;
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
+
+	SoftwareDrawEngine *drawEngine_ = nullptr;
 
 	Draw::Texture *fbTex;
 	Draw::Pipeline *texColor;
