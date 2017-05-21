@@ -1307,6 +1307,9 @@ void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlag
 	if (old_image_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
 		image_memory_barrier.srcAccessMask |= VK_ACCESS_MEMORY_READ_BIT;
 	}
+	if (old_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+		image_memory_barrier.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+	}
 
 	if (old_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
 		image_memory_barrier.srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;

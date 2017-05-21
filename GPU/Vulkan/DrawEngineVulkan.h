@@ -197,8 +197,6 @@ private:
 	IndexGenerator indexGen;
 	GEPrimitiveType prevPrim_;
 
-	u32 lastVTypeID_;
-
 	TransformedVertex *transformed = nullptr;
 	TransformedVertex *transformedExpanded = nullptr;
 

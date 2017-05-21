@@ -704,6 +704,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
+		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
 		// We are drawing to the back buffer so need to flip.
 		if (needBackBufferYSwap_)
@@ -711,6 +712,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 		SetViewport2D(x, y, w, h);
+		draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 	}
 	DisableState();
 
@@ -894,6 +896,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 				}
 				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
 				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+				draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 				DrawFramebufferToOutput(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 				return;
 			}
@@ -942,6 +945,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
 			SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.
@@ -967,6 +971,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			int fbo_w, fbo_h;
 			draw_->GetFramebufferDimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			SetViewport2D(0, 0, fbo_w, fbo_h);
+			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
@@ -1013,6 +1018,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			}*/
 		} else {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.
 			if (needBackBufferYSwap_)

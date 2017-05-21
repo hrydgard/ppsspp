@@ -68,7 +68,6 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 	:	vulkan_(vulkan),
 		draw_(draw),
 		prevPrim_(GE_PRIM_INVALID),
-		lastVTypeID_(-1),
 		numDrawCalls(0),
 		vertexCountInDrawCalls(0),
 		curFrame_(0),
@@ -329,10 +328,12 @@ inline void DrawEngineVulkan::SetupVertexDecoderInternal(u32 vertType) {
 	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
 
 	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVTypeID_) {
+	if (vertTypeID != lastVType_) {
 		dec_ = GetVertexDecoder(vertTypeID);
-		lastVTypeID_ = vertTypeID;
+		lastVType_ = vertTypeID;
 	}
+	if (!dec_)
+		Crash();
 }
 
 void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
@@ -710,7 +711,7 @@ void DrawEngineVulkan::DoFlush() {
 		}
 		prim = indexGen.Prim();
 
-		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
 		} else {
@@ -743,7 +744,7 @@ void DrawEngineVulkan::DoFlush() {
 
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
-		shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
+		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, true);
 		if (!pipeline) {
 			// Already logged, let's bail out.
@@ -778,7 +779,7 @@ void DrawEngineVulkan::DoFlush() {
 	} else {
 		// Decode to "decoded"
 		DecodeVerts(nullptr, nullptr, nullptr);
-		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
 		} else {
@@ -849,7 +850,7 @@ void DrawEngineVulkan::DoFlush() {
 
 			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
-			shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey, dec_, vshader, fshader, false);
 			if (!pipeline) {
 				// Already logged, let's bail out.

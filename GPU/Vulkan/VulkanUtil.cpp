@@ -217,6 +217,7 @@ VkPipeline Vulkan2D::GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShade
 	PipelineKey key;
 	key.vs = vs;
 	key.fs = fs;
+	key.rp = rp;
 
 	auto iter = pipelines_.find(key);
 	if (iter != pipelines_.end()) {

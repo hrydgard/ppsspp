@@ -422,6 +422,11 @@ public:
 	void BeginFrame() override;
 	void EndFrame() override;
 
+	void FlushState() override {
+		ApplyDynamicState();
+	}
+	void WaitRenderCompletion(Framebuffer *fbo) override;
+
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
 		switch (info) {
@@ -447,15 +452,14 @@ public:
 		switch (obj) {
 		case NativeObject::COMPATIBLE_RENDERPASS:
 			// Return a representative renderpass.
-			return (uintptr_t)(curRenderPass_ == vulkan_->GetSurfaceRenderPass() ? curRenderPass_ : renderPasses_[0]);
+			if (curRenderPass_ == vulkan_->GetSurfaceRenderPass())
+				return (uintptr_t)curRenderPass_;
+			else
+				return (uintptr_t)renderPasses_[0];
 		case NativeObject::RENDERPASS_COMMANDBUFFER:
 			return (uintptr_t)cmd_;
 		case NativeObject::BOUND_TEXTURE_IMAGEVIEW:
-			if (boundTextures_[0]) {
-				return (uintptr_t)boundTextures_[0]->GetImageView();
-			} else {
-				return 0;
-			}
+			return (uintptr_t)boundImageView_[0];
 		default:
 			return 0;
 		}
@@ -508,11 +512,13 @@ private:
 	};
 	VKTexture *boundTextures_[MAX_BOUND_TEXTURES];
 	VKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES];
+	VkImageView boundImageView_[MAX_BOUND_TEXTURES];
 
 	struct FrameData {
 		VulkanPushBuffer *pushBuffer;
 		VkCommandPool cmdPool_;
 		VkCommandBuffer cmdBufs[MAX_FRAME_COMMAND_BUFFERS];
+		int startCmdBufs_;
 		int numCmdBufs_;
 
 		// Per-frame descriptor set cache. As it's per frame and reset every frame, we don't need to
@@ -863,23 +869,28 @@ VkCommandBuffer VKContext::AllocCmdBuf() {
 void VKContext::BeginFrame() {
 	vulkan_->BeginFrame();
 
-	FrameData *frame = &frame_[frameNum_ & 1];
-	frame->numCmdBufs_ = 0;
-	vkResetCommandPool(vulkan_->GetDevice(), frame->cmdPool_, 0);
-	push_ = frame->pushBuffer;
+	FrameData &frame = frame_[frameNum_ & 1];
+	frame.startCmdBufs_ = 0;
+	frame.numCmdBufs_ = 0;
+	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
+	push_ = frame.pushBuffer;
 
 	// OK, we now know that nothing is reading from this frame's data pushbuffer,
 	push_->Reset();
 	push_->Begin(vulkan_);
 
-	frame->descSets_.clear();
-	VkResult result = vkResetDescriptorPool(device_, frame->descriptorPool, 0);
+	frame.descSets_.clear();
+	VkResult result = vkResetDescriptorPool(device_, frame.descriptorPool, 0);
 	assert(result == VK_SUCCESS);
 
 	scissor_.extent.width = pixel_xres;
 	scissor_.extent.height = pixel_yres;
 	scissorDirty_ = true;
 	viewportDirty_ = true;
+}
+
+void VKContext::WaitRenderCompletion(Framebuffer *fbo) {
+	// TODO
 }
 
 void VKContext::EndFrame() {
@@ -891,7 +902,7 @@ void VKContext::EndFrame() {
 
 	// Cap off and submit all the command buffers we recorded during the frame.
 	FrameData &frame = frame_[frameNum_ & 1];
-	for (int i = 0; i < frame.numCmdBufs_; i++) {
+	for (int i = frame.startCmdBufs_; i < frame.numCmdBufs_; i++) {
 		vkEndCommandBuffer(frame.cmdBufs[i]);
 		vulkan_->QueueBeforeSurfaceRender(frame.cmdBufs[i]);
 	}
@@ -1204,6 +1215,7 @@ void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset,
 void VKContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i]);
+		boundImageView_[i] = boundTextures_[i]->GetImageView();
 	}
 }
 
@@ -1719,6 +1731,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 	// we're between passes so it's OK.
 	vkCmdPipelineBarrier(transitionCmdBuf, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, 0, 0, 0, 1, &barrier);
 	fb->color.layout = barrier.newLayout;
+	boundImageView_[0] = fb->color.view;
 }
 
 void VKContext::BindFramebufferForRead(Framebuffer *fbo) { /* noop */ }
