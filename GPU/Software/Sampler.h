@@ -49,6 +49,7 @@ struct SamplerID {
 			bool hasClutShift : 1;
 			bool hasClutOffset : 1;
 			bool hasInvalidPtr : 1;
+			bool linear : 1;
 		};
 	};
 
@@ -73,12 +74,24 @@ namespace Sampler {
 typedef u32 (*NearestFunc)(int u, int v, const u8 *tptr, int bufw, int level);
 NearestFunc GetNearestFunc();
 
+typedef u32 (*LinearFunc)(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
+LinearFunc GetLinearFunc();
+
+struct Funcs {
+	NearestFunc nearest;
+	LinearFunc linear;
+};
+static inline Funcs GetFuncs() {
+	Funcs f;
+	f.nearest = GetNearestFunc();
+	f.linear = GetLinearFunc();
+	return f;
+}
+
 void Init();
 void Shutdown();
 
 bool DescribeCodePtr(const u8 *ptr, std::string &name);
-
-Math3D::Vec4<int> SampleLinear(NearestFunc sampler, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
 
 #if PPSSPP_ARCH(ARM)
 class SamplerJitCache : public ArmGen::ARMXCodeBlock {
@@ -94,10 +107,11 @@ class SamplerJitCache : public FakeGen::FakeXCodeBlock {
 public:
 	SamplerJitCache();
 
-	void ComputeSamplerID(SamplerID *id_out);
+	void ComputeSamplerID(SamplerID *id_out, bool linear);
 
 	// Returns a pointer to the code to run.
-	NearestFunc GetSampler(const SamplerID &id);
+	NearestFunc GetNearest(const SamplerID &id);
+	LinearFunc GetLinear(const SamplerID &id);
 	void Clear();
 
 	std::string DescribeCodePtr(const u8 *ptr);
@@ -105,6 +119,7 @@ public:
 
 private:
 	NearestFunc Compile(const SamplerID &id);
+	LinearFunc CompileLinear(const SamplerID &id);
 
 	bool Jit_ReadTextureFormat(const SamplerID &id);
 	bool Jit_GetTexData(const SamplerID &id, int bitsPerTexel);
@@ -121,6 +136,7 @@ private:
 #endif
 
 	std::unordered_map<SamplerID, NearestFunc> cache_;
+	std::unordered_map<SamplerID, const u8 *> addresses_;
 };
 
 };

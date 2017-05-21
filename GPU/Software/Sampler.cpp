@@ -34,6 +34,7 @@ extern u32 clut[4096];
 namespace Sampler {
 
 static u32 SampleNearest(int u, int v, const u8 *tptr, int bufw, int level);
+static u32 SampleLinear(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int level);
 
 std::mutex jitCacheLock;
 SamplerJitCache *jitCache = nullptr;
@@ -58,13 +59,24 @@ bool DescribeCodePtr(const u8 *ptr, std::string &name) {
 
 NearestFunc GetNearestFunc() {
 	SamplerID id;
-	jitCache->ComputeSamplerID(&id);
-	NearestFunc jitted = jitCache->GetSampler(id);
+	jitCache->ComputeSamplerID(&id, false);
+	NearestFunc jitted = jitCache->GetNearest(id);
 	if (jitted) {
 		return jitted;
 	}
 
 	return &SampleNearest;
+}
+
+LinearFunc GetLinearFunc() {
+	SamplerID id;
+	jitCache->ComputeSamplerID(&id, true);
+	LinearFunc jitted = jitCache->GetLinear(id);
+	if (jitted) {
+		return jitted;
+	}
+
+	return &SampleLinear;
 }
 
 SamplerJitCache::SamplerJitCache()
@@ -91,9 +103,10 @@ SamplerJitCache::SamplerJitCache()
 void SamplerJitCache::Clear() {
 	ClearCodeSpace(0);
 	cache_.clear();
+	addresses_.clear();
 }
 
-void SamplerJitCache::ComputeSamplerID(SamplerID *id_out) {
+void SamplerJitCache::ComputeSamplerID(SamplerID *id_out, bool linear) {
 	SamplerID id{};
 
 	id.texfmt = gstate.getTextureFormat();
@@ -106,6 +119,7 @@ void SamplerJitCache::ComputeSamplerID(SamplerID *id_out) {
 		id.hasClutShift = gstate.getClutIndexShift() != 0;
 		id.hasClutOffset = gstate.getClutIndexStartPos() != 0;
 	}
+	id.linear = linear;
 	int maxLevel = gstate.isMipmapEnabled() ? gstate.getTextureMaxLevel() : 0;
 	for (int i = 0; i <= maxLevel; ++i) {
 		if (gstate.getTextureAddress(i) == 0) {
@@ -167,23 +181,27 @@ std::string SamplerJitCache::DescribeSamplerID(const SamplerID &id) {
 	if (id.hasClutOffset) {
 		name += ":COFF";
 	}
+	if (id.linear) {
+		name += ":LERP";
+	}
 	return name;
 }
 
 std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
-	int dist = 0x7FFFFFFF;
+	ptrdiff_t dist = 0x7FFFFFFF;
 	SamplerID found{};
-	for (const auto &it : cache_) {
-		ptrdiff_t it_dist = ptr - (const u8 *)it.second;
+	for (const auto &it : addresses_) {
+		ptrdiff_t it_dist = ptr - it.second;
 		if (it_dist >= 0 && it_dist < dist) {
 			found = it.first;
+			dist = it_dist;
 		}
 	}
 
 	return DescribeSamplerID(found);
 }
 
-NearestFunc SamplerJitCache::GetSampler(const SamplerID &id) {
+NearestFunc SamplerJitCache::GetNearest(const SamplerID &id) {
 	std::lock_guard<std::mutex> guard(jitCacheLock);
 
 	auto it = cache_.find(id);
@@ -198,8 +216,33 @@ NearestFunc SamplerJitCache::GetSampler(const SamplerID &id) {
 
 	// TODO
 #ifdef _M_X64
+	addresses_[id] = GetCodePointer();
 	NearestFunc func = Compile(id);
 	cache_[id] = func;
+	return func;
+#else
+	return nullptr;
+#endif
+}
+
+LinearFunc SamplerJitCache::GetLinear(const SamplerID &id) {
+	std::lock_guard<std::mutex> guard(jitCacheLock);
+
+	auto it = cache_.find(id);
+	if (it != cache_.end()) {
+		return (LinearFunc)it->second;
+	}
+
+	// TODO: What should be the min size?  Can we even hit this?
+	if (GetSpaceLeft() < 16384) {
+		Clear();
+	}
+
+	// TODO
+#ifdef _M_X64
+	addresses_[id] = GetCodePointer();
+	LinearFunc func = CompileLinear(id);
+	cache_[id] = (NearestFunc)func;
 	return func;
 #else
 	return nullptr;
@@ -372,12 +415,8 @@ static u32 SampleNearest(int u, int v, const u8 *tptr, int bufw, int level) {
 	return SampleNearest<1>(&u, &v, tptr, bufw, level);
 }
 
-Vec4<int> SampleLinear(NearestFunc sampler, int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int texlevel) {
-	Nearest4 c;
-	c.v[0] = sampler(u[0], v[0], tptr, bufw, texlevel);
-	c.v[1] = sampler(u[1], v[1], tptr, bufw, texlevel);
-	c.v[2] = sampler(u[2], v[2], tptr, bufw, texlevel);
-	c.v[3] = sampler(u[3], v[3], tptr, bufw, texlevel);
+static u32 SampleLinear(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int texlevel) {
+	Nearest4 c = SampleNearest<4>(u, v, tptr, bufw, texlevel);
 
 #if defined(_M_SSE)
 	const __m128i z = _mm_setzero_si128();
@@ -394,7 +433,7 @@ Vec4<int> SampleLinear(NearestFunc sampler, int u[4], int v[4], int frac_u, int 
 
 	// Now we need to add the left and right sides together.
 	__m128i res = _mm_add_epi16(tmp, _mm_shuffle_epi32(tmp, _MM_SHUFFLE(3, 2, 3, 2)));
-	return Vec4<int>(_mm_unpacklo_epi16(res, z));
+	return Vec4<int>(_mm_unpacklo_epi16(res, z)).ToRGBA();
 #else
 	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(c.v[0]);
 	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(c.v[1]);
@@ -403,7 +442,7 @@ Vec4<int> SampleLinear(NearestFunc sampler, int u[4], int v[4], int frac_u, int 
 	// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
 	Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
 	Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
-	return (t * (0x100 - frac_v) + b * frac_v) / (256 * 256);
+	return ((t * (0x100 - frac_v) + b * frac_v) / (256 * 256)).ToRGBA();
 #endif
 }
 

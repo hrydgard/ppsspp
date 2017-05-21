@@ -20,6 +20,7 @@
 
 #include <emmintrin.h>
 #include "Common/x64Emitter.h"
+#include "Common/CPUDetect.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/ge_constants.h"
@@ -31,32 +32,40 @@ extern u32 clut[4096];
 namespace Sampler {
 
 #ifdef _WIN32
+static const X64Reg arg1Reg = RCX;
+static const X64Reg arg2Reg = RDX;
+static const X64Reg arg3Reg = R8;
+static const X64Reg arg4Reg = R9;
+// 5 and 6 are on the stack.
+#else
+static const X64Reg arg1Reg = RDI;
+static const X64Reg arg2Reg = RSI;
+static const X64Reg arg3Reg = RDX;
+static const X64Reg arg4Reg = RCX;
+static const X64Reg arg5Reg = R8;
+static const X64Reg arg6Reg = R9;
+
+static const X64Reg levelReg = arg5Reg;
+#endif
+
 static const X64Reg resultReg = RAX;
 static const X64Reg tempReg1 = R10;
 static const X64Reg tempReg2 = R11;
-static const X64Reg uReg = RCX;
-static const X64Reg vReg = RDX;
-static const X64Reg srcReg = R8;
-static const X64Reg bufwReg = R9;
-// TODO: levelReg on stack
-#else
-static const X64Reg resultReg = RAX;
-static const X64Reg tempReg1 = R9;
-static const X64Reg tempReg2 = R10;
-static const X64Reg uReg = RDI;
-static const X64Reg vReg = RSI
-static const X64Reg srcReg = RDX;
-static const X64Reg bufwReg = RCX;
-static const X64Reg levelReg = R8;
-#endif
+
+static const X64Reg uReg = arg1Reg;
+static const X64Reg vReg = arg2Reg;
+static const X64Reg srcReg = arg3Reg;
+static const X64Reg bufwReg = arg4Reg;
 
 static const X64Reg fpScratchReg1 = XMM1;
 static const X64Reg fpScratchReg2 = XMM2;
 static const X64Reg fpScratchReg3 = XMM3;
+static const X64Reg fpScratchReg4 = XMM4;
+static const X64Reg fpScratchReg5 = XMM5;
 
 NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 	BeginWrite();
-	const u8 *start = this->AlignCode16();
+	const u8 *start = AlignCode16();
 
 	// Early exit on !srcPtr.
 	FixupBranch zeroSrc;
@@ -82,6 +91,174 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 
 	EndWrite();
 	return (NearestFunc)start;
+}
+
+static const float MEMORY_ALIGNED16(by256[4]) = { 1.0f / 256.0f, 1.0f / 256.0f, 1.0f / 256.0f, 1.0f / 256.0f, };
+static const float MEMORY_ALIGNED16(ones[4]) = { 1.0f, 1.0f, 1.0f, 1.0f, };
+
+LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
+	_assert_msg_(G3D, id.linear, "Linear should be set on sampler id");
+	BeginWrite();
+
+	// We'll first write the nearest sampler, which we will CALL.
+	// This may differ slightly based on the "linear" flag.
+	const u8 *nearest = AlignCode16();
+
+	if (!Jit_ReadTextureFormat(id)) {
+		EndWrite();
+		SetCodePtr(const_cast<u8 *>(nearest));
+		return nullptr;
+	}
+
+	RET();
+
+	// Now the actual linear func, which is exposed externally.
+	const u8 *start = AlignCode16();
+
+	// NOTE: This doesn't use the general register mapping.
+	// POSIX: arg1=uptr, arg2=vptr, arg3=frac_u, arg4=frac_v, arg5=src, arg6=bufw, stack+8=level
+	// Win64: arg1=uptr, arg2=vptr, arg3=frac_u, arg4=frac_v, stack+40=src, stack+48=bufw, stack+56=level
+	//
+	// We map these to nearest CALLs, with order: u, v, src, bufw, level
+
+	// Let's start by saving a bunch of registers.
+	PUSH(R15);
+	PUSH(R14);
+	PUSH(R13);
+	PUSH(R12);
+	// Won't need frac_u/frac_v for a while.
+	PUSH(arg4Reg);
+	PUSH(arg3Reg);
+	// Extra space to restore alignment and save resultReg for lerp.
+	// TODO: Maybe use XMMs instead?
+	SUB(64, R(RSP), Imm8(24));
+
+	MOV(64, R(R12), R(arg1Reg));
+	MOV(64, R(R13), R(arg2Reg));
+#ifdef _WIN32
+	// First arg now starts at 24 (extra space) + 48 (pushed stack) + 8 (ret address) + 32 (shadow space)
+	const int argOffset = 24 + 48 + 8 + 32;
+	MOV(64, R(R14), MDisp(RSP, argOffset));
+	MOV(32, R(R15), MDisp(RSP, argOffset + 8));
+	// level is at argOffset + 12.
+#else
+	MOV(64, R(R14), R(arg5Reg));
+	MOV(32, R(R15), R(arg6Reg));
+	// level is at 24 + 48 + 8.
+#endif
+
+	// Early exit on !srcPtr.
+	FixupBranch zeroSrc;
+	if (id.hasInvalidPtr) {
+		CMP(PTRBITS, R(R14), Imm8(0));
+		FixupBranch nonZeroSrc = J_CC(CC_NZ);
+		XOR(32, R(RAX), R(RAX));
+		zeroSrc = J(true);
+		SetJumpTarget(nonZeroSrc);
+	}
+
+	// At this point:
+	// R12=uptr, R13=vptr, stack+24=frac_u, stack+32=frac_v, R14=src, R15=bufw, stack+X=level
+
+	auto doNearestCall = [&](int off) {
+		MOV(32, R(uReg), MDisp(R12, off));
+		MOV(32, R(vReg), MDisp(R13, off));
+		MOV(64, R(srcReg), R(R14));
+		MOV(32, R(bufwReg), R(R15));
+		// Leave level, we just always load from RAM.  Separate CLUTs is uncommon.
+
+		CALL(nearest);
+		MOV(32, MDisp(RSP, off), R(resultReg));
+	};
+
+	doNearestCall(0);
+	doNearestCall(4);
+	doNearestCall(8);
+	doNearestCall(12);
+
+	// Convert TL, TR, BL, BR to floats for easier blending.
+	if (!cpu_info.bSSE4_1) {
+		PXOR(XMM0, R(XMM0));
+	}
+
+	MOVD_xmm(fpScratchReg1, MDisp(RSP, 0));
+	MOVD_xmm(fpScratchReg2, MDisp(RSP, 4));
+	MOVD_xmm(fpScratchReg3, MDisp(RSP, 8));
+	MOVD_xmm(fpScratchReg4, MDisp(RSP, 12));
+
+	if (cpu_info.bSSE4_1) {
+		PMOVZXBD(fpScratchReg1, R(fpScratchReg1));
+		PMOVZXBD(fpScratchReg2, R(fpScratchReg2));
+		PMOVZXBD(fpScratchReg3, R(fpScratchReg3));
+		PMOVZXBD(fpScratchReg4, R(fpScratchReg4));
+	} else {
+		PUNPCKLBW(fpScratchReg1, R(XMM0));
+		PUNPCKLBW(fpScratchReg2, R(XMM0));
+		PUNPCKLBW(fpScratchReg3, R(XMM0));
+		PUNPCKLBW(fpScratchReg4, R(XMM0));
+		PUNPCKLWD(fpScratchReg1, R(XMM0));
+		PUNPCKLWD(fpScratchReg2, R(XMM0));
+		PUNPCKLWD(fpScratchReg3, R(XMM0));
+		PUNPCKLWD(fpScratchReg4, R(XMM0));
+	}
+	CVTDQ2PS(fpScratchReg1, R(fpScratchReg1));
+	CVTDQ2PS(fpScratchReg2, R(fpScratchReg2));
+	CVTDQ2PS(fpScratchReg3, R(fpScratchReg3));
+	CVTDQ2PS(fpScratchReg4, R(fpScratchReg4));
+
+	// Okay, now multiply the R sides by frac_u, and L by (256 - frac_u)...
+	MOVD_xmm(fpScratchReg5, MDisp(RSP, 24));
+	CVTDQ2PS(fpScratchReg5, R(fpScratchReg5));
+	SHUFPS(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
+	MULPS(fpScratchReg5, M(by256));
+	MOVAPS(XMM0, M(ones));
+	SUBPS(XMM0, R(fpScratchReg5));
+
+	MULPS(fpScratchReg1, R(XMM0));
+	MULPS(fpScratchReg2, R(fpScratchReg5));
+	MULPS(fpScratchReg3, R(XMM0));
+	MULPS(fpScratchReg4, R(fpScratchReg5));
+
+	// Now set top=fpScratchReg1, bottom=fpScratchReg3.
+	ADDPS(fpScratchReg1, R(fpScratchReg2));
+	ADDPS(fpScratchReg3, R(fpScratchReg4));
+
+	// Next, time for frac_v.
+	MOVD_xmm(fpScratchReg5, MDisp(RSP, 32));
+	CVTDQ2PS(fpScratchReg5, R(fpScratchReg5));
+	SHUFPS(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
+	MULPS(fpScratchReg5, M(by256));
+	MOVAPS(XMM0, M(ones));
+	SUBPS(XMM0, R(fpScratchReg5));
+
+	MULPS(fpScratchReg1, R(XMM0));
+	MULPS(fpScratchReg3, R(fpScratchReg5));
+
+	// Still at the 255 scale, now we're interpolated.
+	ADDPS(fpScratchReg1, R(fpScratchReg3));
+
+	// Time to convert back to a single 32 bit value.
+	CVTPS2DQ(fpScratchReg1, R(fpScratchReg1));
+	PACKSSDW(fpScratchReg1, R(fpScratchReg1));
+	PACKUSWB(fpScratchReg1, R(fpScratchReg1));
+	MOVD_xmm(R(resultReg), fpScratchReg1);
+
+	if (id.hasInvalidPtr) {
+		SetJumpTarget(zeroSrc);
+	}
+
+	ADD(64, R(RSP), Imm8(24));
+	POP(arg3Reg);
+	POP(arg4Reg);
+	POP(R12);
+	POP(R13);
+	POP(R14);
+	POP(R15);
+
+	RET();
+
+	EndWrite();
+	return (LinearFunc)start;
 }
 
 bool SamplerJitCache::Jit_ReadTextureFormat(const SamplerID &id) {
@@ -434,15 +611,20 @@ bool SamplerJitCache::Jit_TransformClutIndex(const SamplerID &id, int bitsPerInd
 
 bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 	if (!id.useSharedClut) {
+		// TODO: Need to load from RAM, always.
+		if (id.linear) {
+			return false;
+		} else {
 #ifdef _WIN32
-		// The argument was saved on the stack.
-		MOV(32, R(tempReg2), MDisp(RSP, 40));
-		LEA(32, tempReg2, MScaled(tempReg2, SCALE_4, 0));
+			// The argument was saved on the stack.
+			MOV(32, R(tempReg2), MDisp(RSP, 40));
+			LEA(32, tempReg2, MScaled(tempReg2, SCALE_4, 0));
 #else
-		// We need to multiply by 16 and add, LEA allows us to copy too.
-		LEA(32, tempReg2, MScaled(levelReg, SCALE_4, 0));
+			// We need to multiply by 16 and add, LEA allows us to copy too.
+			LEA(32, tempReg2, MScaled(levelReg, SCALE_4, 0));
 #endif
-		LEA(64, resultReg, MComplex(resultReg, tempReg2, SCALE_4, 0));
+			LEA(64, resultReg, MComplex(resultReg, tempReg2, SCALE_4, 0));
+		}
 	}
 
 	MOV(PTRBITS, R(tempReg1), ImmPtr(clut));

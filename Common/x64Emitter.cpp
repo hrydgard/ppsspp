@@ -1673,6 +1673,11 @@ void XEmitter::PUNPCKLWD(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x61, 
 void XEmitter::PUNPCKLDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x62, dest, arg);}
 void XEmitter::PUNPCKLQDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x6C, dest, arg);}
 
+void XEmitter::PUNPCKHBW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x68, dest, arg);}
+void XEmitter::PUNPCKHWD(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x69, dest, arg);}
+void XEmitter::PUNPCKHDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x6A, dest, arg);}
+void XEmitter::PUNPCKHQDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x6D, dest, arg);}
+
 void XEmitter::PSRLW(X64Reg reg, int shift)
 {
 	WriteSSEOp(0x66, 0x71, (X64Reg)2, R(reg));
@@ -1735,6 +1740,11 @@ void XEmitter::PSRAD(X64Reg reg, int shift)
 	WriteSSEOp(0x66, 0x72, (X64Reg)4, R(reg));
 	Write8(shift);
 }
+
+void XEmitter::PMULLW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xD5, dest, arg);}
+void XEmitter::PMULHW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xE5, dest, arg);}
+void XEmitter::PMULHUW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xE4, dest, arg);}
+void XEmitter::PMULUDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xF4, dest, arg);}
 
 void XEmitter::WriteSSSE3Op(u8 opPrefix, u16 op, X64Reg regOp, OpArg arg, int extrabytes)
 {
