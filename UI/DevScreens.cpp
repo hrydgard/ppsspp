@@ -360,6 +360,12 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Name", System_GetProperty(SYSPROP_NAME)));
 	deviceSpecs->Add(new InfoItem("Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
 	deviceSpecs->Add(new InfoItem("ABI", GetCompilerABI()));
+#ifdef _WIN32
+	if (IsDebuggerPresent()) {
+		deviceSpecs->Add(new InfoItem("Debugger Present", "Yes"));
+	}
+#endif
+
 	deviceSpecs->Add(new ItemHeader("CPU Information"));
 	deviceSpecs->Add(new InfoItem("Name", cpu_info.brand_string));
 #if defined(ARM) || defined(ARM64) || defined(MIPS)
