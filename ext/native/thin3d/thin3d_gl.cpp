@@ -1537,6 +1537,7 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
 	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
 	fbo_bind_fb_target(false, fb->handle);
 	// Always restore viewport after render target binding
+	// TODO: Should we set viewports this way too?
 	glstate.viewport.restore();
 	CHECK_GL_ERROR_IF_DEBUG();
 }
