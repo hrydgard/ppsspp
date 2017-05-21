@@ -55,23 +55,6 @@ static Draw::SamplerState *samplerLinear = nullptr;
 static Draw::Buffer *vdata = nullptr;
 static Draw::Buffer *idata = nullptr;
 
-class SoftwareDrawEngine : public DrawEngineCommon {
-public:
-	SoftwareDrawEngine() {
-		// All this is a LOT of memory, need to see if we can cut down somehow.  Used for splines.
-		decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-		decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-		splineBuffer = (u8 *)AllocateMemoryPages(SPLINE_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	}
-
-	virtual void DispatchFlush() {
-	}
-
-	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-		TransformUnit::SubmitPrimitive(verts, inds, prim, vertexCount, vertType, bytesRead);
-	}
-};
-
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
 {
@@ -121,7 +104,8 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	displayStride_ = 512;
 	displayFormat_ = GE_FORMAT_8888;
 
-	drawEngineCommon_ = new SoftwareDrawEngine();
+	drawEngine_ = new SoftwareDrawEngine();
+	drawEngineCommon_ = drawEngine_;
 }
 
 void SoftGPU::DeviceLost() {
@@ -384,7 +368,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 			cyclesExecuted += EstimatePerVertexCost() * count;
 			int bytesRead;
-			TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType, &bytesRead);
+			TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType, &bytesRead, drawEngine_);
 			framebufferDirty_ = true;
 
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).

@@ -30,6 +30,31 @@
 static u8 buf[65536 * 48];  // yolo
 bool TransformUnit::outside_range_flag = false;
 
+SoftwareDrawEngine::SoftwareDrawEngine() {
+	// All this is a LOT of memory, need to see if we can cut down somehow.  Used for splines.
+	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	splineBuffer = (u8 *)AllocateMemoryPages(SPLINE_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+}
+
+SoftwareDrawEngine::~SoftwareDrawEngine() {
+	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
+	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
+}
+
+void SoftwareDrawEngine::DispatchFlush() {
+}
+
+void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
+	TransformUnit::SubmitPrimitive(verts, inds, prim, vertexCount, vertType, bytesRead, this);
+}
+
+VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
+	const u32 vertTypeID = (vtype & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
+}
+
 WorldCoords TransformUnit::ModelToWorld(const ModelCoords& coords)
 {
 	Mat3x3<float> world_matrix(gstate.worldMatrix);
@@ -216,13 +241,10 @@ struct SplinePatch {
 	int pad[3];
 };
 
-void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead)
+void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine)
 {
-	// TODO: Cache VertexDecoder objects
-	VertexDecoder vdecoder;
-	VertexDecoderOptions options{};
-	vdecoder.SetVertexType(vertex_type, options);
-	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
+	VertexDecoder &vdecoder = *drawEngine->FindVertexDecoder(vertex_type);
+	const DecVtxFormat &vtxfmt = vdecoder.GetDecVtxFmt();
 
 	if (bytesRead)
 		*bytesRead = vertex_count * vdecoder.VertexSize();

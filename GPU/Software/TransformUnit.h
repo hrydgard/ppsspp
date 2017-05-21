@@ -18,6 +18,7 @@
 #pragma once
 
 #include "CommonTypes.h"
+#include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Math3D.h"
 
@@ -29,6 +30,17 @@ typedef Vec3<float> ModelCoords;
 typedef Vec3<float> WorldCoords;
 typedef Vec3<float> ViewCoords;
 typedef Vec4<float> ClipCoords; // Range: -w <= x/y/z <= w
+
+class SoftwareDrawEngine : public DrawEngineCommon {
+public:
+	SoftwareDrawEngine();
+	~SoftwareDrawEngine();
+
+	void DispatchFlush() override;
+	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override;
+
+	VertexDecoder *FindVertexDecoder(u32 vtype);
+};
 
 struct SplinePatch;
 
@@ -126,7 +138,7 @@ public:
 	static DrawingCoords ScreenToDrawing(const ScreenCoords& coords);
 	static ScreenCoords DrawingToScreen(const DrawingCoords& coords);
 
-	static void SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead);
+	static void SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
 
 	static bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 	static VertexData ReadVertex(VertexReader& vreader);
