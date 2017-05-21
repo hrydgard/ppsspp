@@ -613,7 +613,15 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 	if (!id.useSharedClut) {
 		// TODO: Need to load from RAM, always.
 		if (id.linear) {
-			return false;
+#ifdef _WIN32
+			const int argOffset = 24 + 48 + 8 + 32;
+			// Extra 8 to account for CALL.
+			MOV(32, R(tempReg2), MDisp(RSP, argOffset + 12 + 8));
+#else
+			// Extra 8 to account for CALL.
+			MOV(32, R(tempReg2), MDisp(RSP, 24 + 48 + 8 + 8));
+#endif
+			LEA(32, tempReg2, MScaled(tempReg2, SCALE_4, 0));
 		} else {
 #ifdef _WIN32
 			// The argument was saved on the stack.
@@ -623,8 +631,10 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 			// We need to multiply by 16 and add, LEA allows us to copy too.
 			LEA(32, tempReg2, MScaled(levelReg, SCALE_4, 0));
 #endif
-			LEA(64, resultReg, MComplex(resultReg, tempReg2, SCALE_4, 0));
 		}
+
+		// Second step of the multiply by 16 (since we only multiplied by 4 before.)
+		LEA(64, resultReg, MComplex(resultReg, tempReg2, SCALE_4, 0));
 	}
 
 	MOV(PTRBITS, R(tempReg1), ImmPtr(clut));
