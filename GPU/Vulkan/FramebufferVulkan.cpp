@@ -173,7 +173,7 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
-	if (!useBufferedRendering_) {
+	// if (!useBufferedRendering_) {
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
@@ -192,9 +192,9 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 		if (clearDepth) {
 			SetDepthUpdated();
 		}
-	} else {
+	//} else {
 		// TODO: Clever render pass magic.
-	}
+	//}
 }
 
 void FramebufferManagerVulkan::DoNotifyDraw() {
