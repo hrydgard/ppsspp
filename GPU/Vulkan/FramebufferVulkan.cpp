@@ -90,8 +90,6 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	pixelBufObj_(nullptr),
 	currentPBO_(0),
 	curFrame_(0),
-	pipelineBasicTexBackBuffer_(VK_NULL_HANDLE),
-	pipelineBasicTexFrameBuffer_(VK_NULL_HANDLE),
 	pipelinePostShader_(VK_NULL_HANDLE),
 	vulkan2D_(vulkan) {
 
@@ -300,6 +298,8 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 	size_t offset = frameData_[curFrame_].push_->Push(data, width * height * 4, &buffer);
 	drawPixelsTex_->UploadMip(0, width, height, buffer, (uint32_t)offset, width);
 	drawPixelsTex_->EndCreate();
+
+	overrideImageView_ = drawPixelsTex_->GetImageView();
 }
 
 void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
@@ -359,8 +359,8 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
 
-	// TODO: Choose linear or nearest appropriately, see GL impl.
-	VkImageView view = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+	VkImageView view = overrideImageView_ ? overrideImageView_ : (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+	overrideImageView_ = VK_NULL_HANDLE;
 	vulkan2D_.BindDescriptorSet(cmd, view, linearFilter ? linearSampler_ : nearestSampler_);
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cur2DPipeline_);
 	VkBuffer vbuffer;
@@ -462,8 +462,9 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 	// Currently rendering to this framebuffer. Need to make a copy.
 	if (!skipCopy && framebuffer == currentRenderVfb_) {
 		// ignore this case for now, doesn't work
-		ILOG("Texturing from current render Vfb!");
+		// ILOG("Texturing from current render Vfb!");
 		return VK_NULL_HANDLE;
+
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {

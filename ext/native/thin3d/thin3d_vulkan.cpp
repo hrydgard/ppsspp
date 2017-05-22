@@ -510,7 +510,7 @@ private:
 
 	enum {
 		MAX_BOUND_TEXTURES = 1,
-		MAX_FRAME_COMMAND_BUFFERS = 128,
+		MAX_FRAME_COMMAND_BUFFERS = 256,
 	};
 	VKTexture *boundTextures_[MAX_BOUND_TEXTURES];
 	VKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES];
@@ -818,9 +818,9 @@ VKContext::VKContext(VulkanContext *vulkan)
 		}
 		for (int color = 0; color < 3; color++) {
 			switch ((RPAction)color) {
-			case RPAction::CLEAR: attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; break;
-			case RPAction::KEEP: attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; break;
-			case RPAction::DONT_CARE: attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; break;
+			case RPAction::CLEAR: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; break;
+			case RPAction::KEEP: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; break;
+			case RPAction::DONT_CARE: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; break;
 			}
 			vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &renderPasses_[RPIndex((RPAction)color, (RPAction)depth)]);
 		}
@@ -899,7 +899,7 @@ void VKContext::WaitRenderCompletion(Framebuffer *fbo) {
 
 void VKContext::EndFrame() {
 	if (curRenderPass_) {
-		ELOG("EndFrame: Ending render pass");
+		// ELOG("EndFrame: Ending render pass");
 		vulkan_->EndSurfaceRenderPass();
 		curRenderPass_ = VK_NULL_HANDLE;
 		curFramebuffer_ = VK_NULL_HANDLE;
@@ -1651,7 +1651,8 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	EndCurrentRenderpass();
 	VkRenderPass renderPass;
 	int numClearVals = 0;
-	VkClearValue clearVal[2] = {};
+	VkClearValue clearVal[2];
+	memset(clearVal, 0, sizeof(clearVal));
 	if (fbo) {
 		VKFramebuffer *fb = (VKFramebuffer *)fbo;
 		fb->cmdBuf = AllocCmdBuf();
@@ -1696,7 +1697,6 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	} else {
 		cmd_ = vulkan_->GetSurfaceCommandBuffer();
 		renderPass = vulkan_->GetSurfaceRenderPass();
-		// ILOG("Switching framebuffer to backbuffer (cmd=%x)", (int)(uintptr_t)cmd_);
 		numClearVals = 2;
 	}
 

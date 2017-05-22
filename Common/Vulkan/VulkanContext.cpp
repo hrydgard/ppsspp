@@ -257,7 +257,7 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 
 void VulkanContext::EndSurfaceRenderPass() {
 	FrameData *frame = &frame_[curFrame_];
-	ILOG("VulkanContext::EndSurfaceRenderPass");
+	// ILOG("VulkanContext::EndSurfaceRenderPass");
 	vkCmdEndRenderPass(frame->cmdBuf);
 }
 

@@ -183,17 +183,17 @@ private:
 	// Basic shaders
 	VkShaderModule fsBasicTex_;
 	VkShaderModule vsBasicTex_;
-	// Might need different pipelines for rendering to backbuffer vs framebuffers due to color format incompatibility
-	VkPipeline pipelineBasicTexBackBuffer_;
-	VkPipeline pipelineBasicTexFrameBuffer_;
 
-	VkPipeline cur2DPipeline_;
+	VkPipeline cur2DPipeline_ = VK_NULL_HANDLE;
 
 	// Postprocessing
 	VkPipeline pipelinePostShader_;
 
 	VkSampler linearSampler_;
 	VkSampler nearestSampler_;
+
+	// hack!
+	VkImageView overrideImageView_ = VK_NULL_HANDLE;
 
 	// Simple 2D drawing engine.
 	Vulkan2D vulkan2D_;
