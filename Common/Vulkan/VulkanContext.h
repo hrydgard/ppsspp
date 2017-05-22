@@ -317,6 +317,7 @@ public:
 
 private:
 	VkSemaphore acquireSemaphore;
+	VkSemaphore renderingCompleteSemaphore;
 
 #ifdef _WIN32
 	HINSTANCE connection;        // hInstance - Windows Instance

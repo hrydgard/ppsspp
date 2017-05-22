@@ -666,6 +666,10 @@ void DrawEngineVulkan::DirtyAllUBOs() {
 // The inline wrapper in the header checks for numDrawCalls == 0d
 void DrawEngineVulkan::DoFlush() {
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
+	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS);
+	if (!rp)
+		Crash();
+
 	gpuStats.numFlushes++;
 
 	FrameData *frame = &frame_[curFrame_ & 1];
@@ -847,7 +851,6 @@ void DrawEngineVulkan::DoFlush() {
 				Uint8x4ToFloat4(bc, dynState.blendColor);
 				vkCmdSetBlendConstants(cmd, bc);
 			}
-
 			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);

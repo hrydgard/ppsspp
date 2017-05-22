@@ -660,7 +660,7 @@ void GPU_GLES::Execute_Prim(u32 op, u32 diff) {
 			return;
 	}
 
-	// This also makes skipping drawing very effective.
+	// This also makes skipping drawing very effective. This function can change the framebffer.
 	framebufferManagerGL_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
 		drawEngine_.SetupVertexDecoder(gstate.vertType);

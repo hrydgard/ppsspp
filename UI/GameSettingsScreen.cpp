@@ -187,7 +187,7 @@ void GameSettingsScreen::CreateViews() {
 		renderingBackendChoice->HideChoice(2);  // D3D11
 	}
 #endif
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !PPSSPP_PLATFORM(ANDROID)
 	// TODO: Add dynamic runtime check for Vulkan support on Android
 	renderingBackendChoice->HideChoice(3);
 #endif

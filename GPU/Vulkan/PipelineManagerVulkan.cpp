@@ -294,6 +294,9 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 
 VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
 	VulkanPipelineKey key;
+	if (!renderPass)
+		Crash();
+
 	key.raster = rasterKey;
 	key.renderPass = renderPass;
 	key.useHWTransform = useHwTransform;

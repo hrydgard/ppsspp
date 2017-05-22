@@ -960,7 +960,7 @@ void EmuScreen::preRender() {
 	// We do, however, start the frame in other ways.
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	if (!useBufferedRendering) {
+	if (!useBufferedRendering && !g_Config.bSoftwareRendering) {
 		// We need to clear here already so that drawing during the frame is done on a clean slate.
 		DrawContext *draw = screenManager()->getDrawContext();
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });

@@ -521,7 +521,7 @@ private:
 		VkCommandPool cmdPool_;
 		VkCommandBuffer cmdBufs[MAX_FRAME_COMMAND_BUFFERS];
 		int startCmdBufs_;
-		int numCmdBufs_;
+		int numCmdBufs;
 
 		// Per-frame descriptor set cache. As it's per frame and reset every frame, we don't need to
 		// worry about invalidating descriptors pointing to deleted textures.
@@ -847,25 +847,27 @@ VKContext::~VKContext() {
 // Effectively wiped every frame, just allocate new ones!
 VkCommandBuffer VKContext::AllocCmdBuf() {
 	FrameData *frame = &frame_[frameNum_ & 1];
-	if (frame->cmdBufs[frame->numCmdBufs_]) {
-		VkCommandBuffer cmdBuf = frame->cmdBufs[frame->numCmdBufs_++];
+
+	if (frame->numCmdBufs >= this->MAX_FRAME_COMMAND_BUFFERS)
+		Crash();
+
+	if (frame->cmdBufs[frame->numCmdBufs]) {
+		VkCommandBuffer cmdBuf = frame->cmdBufs[frame->numCmdBufs++];
 		if (!cmdBuf)
 			Crash();
 		return cmdBuf;
 	}
 
-	if (frame->numCmdBufs_ >= this->MAX_FRAME_COMMAND_BUFFERS)
-		Crash();
-
 	VkCommandBufferAllocateInfo alloc{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
 	alloc.commandBufferCount = 1;
 	alloc.commandPool = frame->cmdPool_;
 	alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	VkResult result = vkAllocateCommandBuffers(vulkan_->GetDevice(), &alloc, &frame->cmdBufs[frame->numCmdBufs_]);
+	VkResult result = vkAllocateCommandBuffers(vulkan_->GetDevice(), &alloc, &frame->cmdBufs[frame->numCmdBufs]);
 	assert(result == VK_SUCCESS);
-	if (!frame->cmdBufs[frame->numCmdBufs_])
+	VkCommandBuffer cmdBuf = frame->cmdBufs[frame->numCmdBufs++];
+	if (!cmdBuf)
 		Crash();
-	return frame->cmdBufs[frame->numCmdBufs_++];
+	return cmdBuf;
 }
 
 void VKContext::BeginFrame() {
@@ -873,7 +875,7 @@ void VKContext::BeginFrame() {
 
 	FrameData &frame = frame_[frameNum_ & 1];
 	frame.startCmdBufs_ = 0;
-	frame.numCmdBufs_ = 0;
+	frame.numCmdBufs = 0;
 	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
 	push_ = frame.pushBuffer;
 
@@ -897,24 +899,29 @@ void VKContext::WaitRenderCompletion(Framebuffer *fbo) {
 
 void VKContext::EndFrame() {
 	if (curRenderPass_) {
+		ELOG("EndFrame: Ending render pass");
 		vulkan_->EndSurfaceRenderPass();
 		curRenderPass_ = VK_NULL_HANDLE;
 		curFramebuffer_ = VK_NULL_HANDLE;
+		cmd_ = nullptr;
 	}
+
+	if (cmd_)
+		Crash();
 
 	// Cap off and submit all the command buffers we recorded during the frame.
 	FrameData &frame = frame_[frameNum_ & 1];
-	for (int i = frame.startCmdBufs_; i < frame.numCmdBufs_; i++) {
+	for (int i = frame.startCmdBufs_; i < frame.numCmdBufs; i++) {
 		vkEndCommandBuffer(frame.cmdBufs[i]);
 		vulkan_->QueueBeforeSurfaceRender(frame.cmdBufs[i]);
 	}
+	frame.startCmdBufs_ = frame.numCmdBufs;
 
 	// Stop collecting data in the frame's data pushbuffer.
 	push_->End();
 	vulkan_->EndFrame();
 
 	frameNum_++;
-	cmd_ = nullptr;  // will be set on the next begin
 	push_ = nullptr;
 
 	DirtyDynamicState();
@@ -1583,9 +1590,11 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 
 void VKContext::EndCurrentRenderpass() {
 	if (curRenderPass_ != VK_NULL_HANDLE) {
+		// ELOG("EndCurrentRenderPass: Ending render pass %d for cmd buffer %x", (int)(uintptr_t)curRenderPass_, (int)(uintptr_t)cmd_);
 		vkCmdEndRenderPass(cmd_);
 		curRenderPass_ = VK_NULL_HANDLE;
 		curFramebuffer_ = VK_NULL_HANDLE;
+		cmd_ = VK_NULL_HANDLE;
 	}
 }
 
@@ -1611,6 +1620,10 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	}
 
 	if (framebuf == curFramebuffer_) {
+		if (framebuf == 0)
+			Crash();
+		if (!curRenderPass_)
+			Crash();
 		// If we're asking to clear, but already bound, we'll just keep it bound but send a clear command.
 		// We will try to avoid this as much as possible. Also, TODO, do a single vkCmdClearAttachments to clear both.
 		if (rp.color == RPAction::CLEAR) {
@@ -1627,7 +1640,7 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 			clear.clearValue.depthStencil.depth = rp.clearDepth;
 			clear.clearValue.depthStencil.stencil = rp.clearStencil;
 			clear.colorAttachment = 0;
-			VkClearRect rc{ { 0,0,w,h }, 0, 1 };
+			VkClearRect rc{ { 0,0,(uint32_t)w,(uint32_t)h }, 0, 1 };
 			vkCmdClearAttachments(cmdBuf, 1, &clear, 1, &rc);
 		}
 		// We're done.
@@ -1636,7 +1649,9 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 
 	// OK, we're switching framebuffers.
 	EndCurrentRenderpass();
-
+	VkRenderPass renderPass;
+	int numClearVals = 0;
+	VkClearValue clearVal[2] = {};
 	if (fbo) {
 		VKFramebuffer *fb = (VKFramebuffer *)fbo;
 		fb->cmdBuf = AllocCmdBuf();
@@ -1646,7 +1661,8 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 		cmd_ = fb->cmdBuf;
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-		vkBeginCommandBuffer(cmd_, &begin);
+		VkResult res = vkBeginCommandBuffer(cmd_, &begin);
+		assert(res == VK_SUCCESS);
 		// Now, if the image needs transitioning, let's transition.
 		// The backbuffer does not, that's handled by VulkanContext.
 		VkImageMemoryBarrier barrier{};
@@ -1666,28 +1682,26 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		vkCmdPipelineBarrier(cmd_, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, 0, 0, 0, 1, &barrier);
 		fb->color.layout = barrier.newLayout;
+		renderPass = renderPasses_[RPIndex(rp.color, rp.depth)];
+		// ILOG("Switching framebuffer to FBO (fc=%d, cmd=%x, rp=%x)", frameNum_, (int)(uintptr_t)cmd_, (int)(uintptr_t)renderPass);
+		if (rp.color == RPAction::CLEAR) {
+			Uint8x4ToFloat4(rp.clearColor, clearVal[0].color.float32);
+			numClearVals = 1;
+		}
+		if (rp.depth == RPAction::CLEAR) {
+			clearVal[1].depthStencil.depth = rp.clearDepth;
+			clearVal[1].depthStencil.stencil = rp.clearStencil;
+			numClearVals = 2;
+		}
 	} else {
 		cmd_ = vulkan_->GetSurfaceCommandBuffer();
-	}
-
-	int numClearVals = 0;
-	VkClearValue clearVal[2] = {};
-	if (rp.color == RPAction::CLEAR) {
-		Uint8x4ToFloat4(rp.clearColor, clearVal[numClearVals].color.float32);
-		numClearVals++;
-	}
-	if (rp.depth == RPAction::CLEAR) {
-		clearVal[numClearVals].depthStencil.depth = rp.clearDepth;
-		clearVal[numClearVals].depthStencil.stencil = rp.clearStencil;
-		numClearVals++;
+		renderPass = vulkan_->GetSurfaceRenderPass();
+		// ILOG("Switching framebuffer to backbuffer (cmd=%x)", (int)(uintptr_t)cmd_);
+		numClearVals = 2;
 	}
 
 	VkRenderPassBeginInfo rp_begin = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-	if (fbo) {
-		rp_begin.renderPass = renderPasses_[RPIndex(rp.color, rp.depth)];
-	} else {
-		rp_begin.renderPass = vulkan_->GetSurfaceRenderPass();
-	}
+	rp_begin.renderPass = renderPass;
 	rp_begin.framebuffer = framebuf;
 	rp_begin.renderArea.offset.x = 0;
 	rp_begin.renderArea.offset.y = 0;
@@ -1697,7 +1711,7 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	rp_begin.pClearValues = numClearVals ? clearVal : nullptr;
 	vkCmdBeginRenderPass(cmd_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
 	curFramebuffer_ = framebuf;
-	curRenderPass_ = rp_begin.renderPass;
+	curRenderPass_ = renderPass;
 	curWidth_ = w;
 	curHeight_ = h;
 }

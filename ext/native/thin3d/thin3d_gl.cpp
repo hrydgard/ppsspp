@@ -1557,7 +1557,7 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	}
 	if (rp.depth == RPAction::CLEAR) {
-		glClearDepth(rp.clearDepth);
+		glClearDepthf(rp.clearDepth);
 		glClearStencil(rp.clearStencil);
 		clearFlags |= GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
 		glstate.depthWrite.force(GL_TRUE);

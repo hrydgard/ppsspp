@@ -86,6 +86,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	instance_extension_names.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #endif
 	device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	// device_extension_names.push_back(VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME);
 
 	if (flags & VULKAN_FLAG_VALIDATE) {
 		for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
@@ -217,11 +218,9 @@ void VulkanContext::QueueBeforeSurfaceRender(VkCommandBuffer cmd) {
 
 VkCommandBuffer VulkanContext::BeginFrame() {
 	FrameData *frame = &frame_[curFrame_];
-
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
 	VkResult res = vkAcquireNextImageKHR(device_, swap_chain_, UINT64_MAX, acquireSemaphore, VK_NULL_HANDLE, &current_buffer);
-
 	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 	// return codes
 	assert(res == VK_SUCCESS);
@@ -252,16 +251,13 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 	rp_begin.renderArea.extent.height = height_;
 	rp_begin.clearValueCount = 2;
 	rp_begin.pClearValues = clear_values;
-
-	// We don't really need to record this at this point in time, but hey, at some point we'll start this
-	// pass anyway so might as well do it now (although you can imagine getting away with just a stretchblt and not
-	// even starting a final render pass if there's nothing to overlay... hm. Uncommon though on mobile).
 	vkCmdBeginRenderPass(frame->cmdBuf, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
 	return frame->cmdBuf;
 }
 
 void VulkanContext::EndSurfaceRenderPass() {
 	FrameData *frame = &frame_[curFrame_];
+	ILOG("VulkanContext::EndSurfaceRenderPass");
 	vkCmdEndRenderPass(frame->cmdBuf);
 }
 
@@ -292,12 +288,12 @@ void VulkanContext::EndFrame() {
 	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	submit_info.waitSemaphoreCount = 1;
 	submit_info.pWaitSemaphores = &acquireSemaphore;
-	VkPipelineStageFlags waitStage[1] = { VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT };
+	VkPipelineStageFlags waitStage[1] = { VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
 	submit_info.pWaitDstStageMask = waitStage;
 	submit_info.commandBufferCount = (uint32_t)cmdBufs.size();
 	submit_info.pCommandBuffers = cmdBufs.data();
-	submit_info.signalSemaphoreCount = 0;
-	submit_info.pSignalSemaphores = NULL;
+	submit_info.signalSemaphoreCount = 1;
+	submit_info.pSignalSemaphores = &renderingCompleteSemaphore;
 	res = vkQueueSubmit(gfx_queue_, 1, &submit_info, frame->fence);
 	assert(res == VK_SUCCESS);
 
@@ -305,8 +301,8 @@ void VulkanContext::EndFrame() {
 	present.swapchainCount = 1;
 	present.pSwapchains = &swap_chain_;
 	present.pImageIndices = &current_buffer;
-	present.pWaitSemaphores = NULL;
-	present.waitSemaphoreCount = 0;
+	present.pWaitSemaphores = &renderingCompleteSemaphore;
+	present.waitSemaphoreCount = 1;
 	present.pResults = NULL;
 
 	res = vkQueuePresentKHR(gfx_queue_, &present);
@@ -949,13 +945,11 @@ void VulkanContext::InitQueue() {
 	vkGetDeviceQueue(device_, graphics_queue_family_index_, 0, &gfx_queue_);
 	ILOG("gfx_queue_: %p", gfx_queue_);
 
-	VkSemaphoreCreateInfo acquireSemaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-	acquireSemaphoreCreateInfo.flags = 0;
-
-	res = vkCreateSemaphore(device_,
-		&acquireSemaphoreCreateInfo,
-		NULL,
-		&acquireSemaphore);
+	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+	semaphoreCreateInfo.flags = 0;
+	res = vkCreateSemaphore(device_, &semaphoreCreateInfo, NULL, &acquireSemaphore);
+	assert(res == VK_SUCCESS);
+	res = vkCreateSemaphore(device_, &semaphoreCreateInfo, NULL, &renderingCompleteSemaphore);
 	assert(res == VK_SUCCESS);
 }
 
@@ -1070,7 +1064,9 @@ bool VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 		&swapchainImageCount, NULL);
 	assert(res == VK_SUCCESS);
 
-	VkImage* swapchainImages = (VkImage*)malloc(swapchainImageCount * sizeof(VkImage));
+	ILOG("Vulkan swapchain image count: %d", swapchainImageCount);
+
+	VkImage* swapchainImages = new VkImage[swapchainImageCount];
 	assert(swapchainImages);
 	res = vkGetSwapchainImagesKHR(device_, swap_chain_, &swapchainImageCount, swapchainImages);
 	assert(res == VK_SUCCESS);
@@ -1108,8 +1104,7 @@ bool VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 		swapChainBuffers.push_back(sc_buffer);
 		assert(res == VK_SUCCESS);
 	}
-	free(swapchainImages);
-
+	delete[] swapchainImages;
 	current_buffer = 0;
 
 	return true;
@@ -1249,6 +1244,7 @@ void VulkanContext::DestroySwapChain() {
 	swap_chain_ = VK_NULL_HANDLE;
 	swapChainBuffers.clear();
 	vkDestroySemaphore(device_, acquireSemaphore, NULL);
+	vkDestroySemaphore(device_, renderingCompleteSemaphore, NULL);
 }
 
 void VulkanContext::DestroyFramebuffers() {

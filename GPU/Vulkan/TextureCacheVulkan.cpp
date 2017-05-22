@@ -612,6 +612,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 			entry->vkTex = nullptr;
 		}
 	} else {
+		entry->vkTex->texture_->TransitionForUpload();
 		// TODO: If reusing an existing texture object, we must transition it into the correct layout.
 	}
 	lastBoundTexture = entry->vkTex;

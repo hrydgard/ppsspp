@@ -461,6 +461,9 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 	}
 	// Currently rendering to this framebuffer. Need to make a copy.
 	if (!skipCopy && framebuffer == currentRenderVfb_) {
+		// ignore this case for now, doesn't work
+		ILOG("Texturing from current render Vfb!");
+		return VK_NULL_HANDLE;
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {
@@ -1036,6 +1039,8 @@ void FramebufferManagerVulkan::FlushBeforeCopy() {
 	// all the irrelevant state checking it'll use to decide what to do. Should
 	// do something more focused here.
 	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	if (!draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS))
+		Crash();
 	drawEngine_->Flush();
 }
 

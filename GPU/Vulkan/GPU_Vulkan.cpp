@@ -489,6 +489,8 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 
 	// This also makes skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	if (!draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS))
+		Crash();
 
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		drawEngine_.SetupVertexDecoder(gstate.vertType);
