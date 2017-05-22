@@ -28,4 +28,6 @@ private:
 	bool registeredAsEventHandler;
 	std::vector<SDL_GameController *> controllers;
 	std::map<int, int> controllerDeviceMap;
+	std::vector<keycode_t> keysPressedCombo;
+	bool checkGuideCombo();
 };

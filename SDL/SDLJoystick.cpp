@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <string>
+#include <algorithm>
 
 using namespace std;
 
@@ -132,6 +133,10 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 				key.flags = KEY_DOWN;
 				key.keyCode = code;
 				key.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.cbutton.which);
+				keysPressedCombo.push_back(code);
+				if ( checkGuideCombo() ) {
+					key.keyCode = NKCODE_BACK;
+				}
 				NativeKey(key);
 			}
 		}
@@ -144,6 +149,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 				key.flags = KEY_UP;
 				key.keyCode = code;
 				key.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.cbutton.which);
+				keysPressedCombo.erase(std::remove(keysPressedCombo.begin(), keysPressedCombo.end(), code), keysPressedCombo.end());
 				NativeKey(key);
 			}
 		}
@@ -187,4 +193,15 @@ int SDLJoystick::getDeviceIndex(int instanceId) {
 			return -1;
 	}
 	return it->second;
+}
+
+bool SDLJoystick::checkGuideCombo() {
+	if (  std::find(keysPressedCombo.begin(), keysPressedCombo.end(), NKCODE_BUTTON_5) != keysPressedCombo.end() &&
+	      std::find(keysPressedCombo.begin(), keysPressedCombo.end(), NKCODE_BUTTON_6) != keysPressedCombo.end() &&
+	      std::find(keysPressedCombo.begin(), keysPressedCombo.end(), NKCODE_BUTTON_9) != keysPressedCombo.end() &&
+	      std::find(keysPressedCombo.begin(), keysPressedCombo.end(), NKCODE_BUTTON_10) != keysPressedCombo.end() ) {
+		// Found the magic combo L + R + Start + Select
+		return true;
+	}
+	return false;
 }
