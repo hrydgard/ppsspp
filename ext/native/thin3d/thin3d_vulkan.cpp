@@ -456,6 +456,8 @@ public:
 				return (uintptr_t)curRenderPass_;
 			else
 				return (uintptr_t)renderPasses_[0];
+		case NativeObject::CURRENT_RENDERPASS:
+			return (uintptr_t)curRenderPass_;
 		case NativeObject::RENDERPASS_COMMANDBUFFER:
 			return (uintptr_t)cmd_;
 		case NativeObject::BOUND_TEXTURE_IMAGEVIEW:
@@ -1466,6 +1468,8 @@ void CreateImage(VulkanContext *vulkan, VKImage &img, int width, int height, VkF
 		ici.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	}
 	vkCreateImage(vulkan->GetDevice(), &ici, nullptr, &img.image);
+
+	// TODO: If available, use nVidia's VK_NV_dedicated_allocation for framebuffers
 
 	VkMemoryRequirements memreq;
 	vkGetImageMemoryRequirements(vulkan->GetDevice(), img.image, &memreq);
