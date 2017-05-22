@@ -168,7 +168,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 			if (res == VK_SUCCESS) {
 				break;
 			}
-
 			// Let's try to reduce the counts.
 			assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY);
 			dpTypes[0].descriptorCount /= 2;

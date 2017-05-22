@@ -152,6 +152,9 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
 
 		} else {
+			key.logicOpEnable = false;
+			key.logicOp = VK_LOGIC_OP_CLEAR;
+
 			// Set blend - unless we need to do it in the shader.
 			GenericBlendState blendState;
 			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
