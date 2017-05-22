@@ -446,6 +446,43 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	}
 }
 
+
+VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
+	if (!framebuffer->fbo || !useBufferedRendering_) {
+		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+		return VK_NULL_HANDLE;
+	}
+
+	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
+	// Let's just not bother with the copy in that case.
+	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
+	if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
+		skipCopy = true;
+	}
+	// Currently rendering to this framebuffer. Need to make a copy.
+	if (!skipCopy && framebuffer == currentRenderVfb_) {
+		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
+		Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
+		if (renderCopy) {
+			VirtualFramebuffer copyInfo = *framebuffer;
+			copyInfo.fbo = renderCopy;
+			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
+			RebindFramebuffer();
+			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
+		} else {
+			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+		}
+		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+	} else if (framebuffer != currentRenderVfb_) {
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+	} else {
+		ERROR_LOG_REPORT_ONCE(d3d11SelfTexture, G3D, "Attempting to texture to target");
+		// Badness on D3D11 to bind the currently rendered-to framebuffer as a texture.
+		return VK_NULL_HANDLE;
+	}
+}
+
 VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
 	if (framebuffer == NULL) {
 		framebuffer = currentRenderVfb_;
