@@ -149,7 +149,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 2048;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 2048;
+	dpTypes[1].descriptorCount = 4096;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
