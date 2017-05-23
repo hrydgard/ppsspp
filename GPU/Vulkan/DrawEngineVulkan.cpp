@@ -644,32 +644,14 @@ void DrawEngineVulkan::DirtyAllUBOs() {
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
-//void DrawEngineVulkan::ApplyDrawStateLate() {
-	/*
-	// At this point, we know if the vertices are full alpha or not.
-	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
-	if (!gstate.isModeClear()) {
-		// TODO: Test texture?
-
-		if (fboTexNeedBind_) {
-			// Note that this is positions, not UVs, that we need the copy from.
-			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
-			// If we are rendering at a higher resolution, linear is probably best for the dest color.
-			fboTexBound_ = true;
-			fboTexNeedBind_ = false;
-		}
-	}
-	*/
-//}
-
 // The inline wrapper in the header checks for numDrawCalls == 0d
 void DrawEngineVulkan::DoFlush() {
+	gpuStats.numFlushes++;
+
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS);
 	if (!rp)
 		Crash();
-
-	gpuStats.numFlushes++;
 
 	FrameData *frame = &frame_[curFrame_ & 1];
 

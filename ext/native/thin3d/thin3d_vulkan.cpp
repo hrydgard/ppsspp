@@ -1606,6 +1606,8 @@ void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y
 	// If from a previous frame, just do it in frame init.
 	VkCommandBuffer cmd = src->cmdBuf;
 	if (src->frameCount != frameNum_) {
+		// TODO: What about the case where dst->frameCount == frameNum_ here? 
+		// That will cause bad ordering. We'll have to allocate a new command buffer and assign it to dest.
 		cmd = vulkan_->GetInitCommandBuffer();
 	}
 
@@ -1654,6 +1656,82 @@ void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y
 	}
 }
 
+bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
+	VKFramebuffer *src = (VKFramebuffer *)srcfb;
+	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
+
+	// We're gonna tack blits onto the src's command buffer, if it's from this frame.
+	// If from a previous frame, just do it in frame init.
+	VkCommandBuffer cmd = src->cmdBuf;
+	if (src->frameCount != frameNum_) {
+		// TODO: What about the case where dst->frameCount == frameNum_ here? 
+		// That will cause bad ordering. We'll have to allocate a new command buffer and assign it to dest.
+		cmd = vulkan_->GetInitCommandBuffer();
+	}
+	VkImageMemoryBarrier srcBarriers[2]{};
+	VkImageMemoryBarrier dstBarriers[2]{};
+	int srcCount = 0;
+	int dstCount = 0;
+
+	VkImageBlit blit{};
+	blit.srcOffsets[0].x = srcX1;
+	blit.srcOffsets[0].y = srcY1;
+	blit.srcOffsets[0].z = 0;
+	blit.srcOffsets[1].x = srcX2;
+	blit.srcOffsets[1].y = srcY2;
+	blit.srcOffsets[1].z = 1;
+	blit.srcSubresource.mipLevel = 0;
+	blit.srcSubresource.layerCount = 1;
+	blit.dstOffsets[0].x = dstX1;
+	blit.dstOffsets[0].y = dstY1;
+	blit.dstOffsets[0].z = 0;
+	blit.dstOffsets[1].x = dstX2;
+	blit.dstOffsets[1].y = dstY2;
+	blit.dstOffsets[1].z = 1;
+	blit.dstSubresource.mipLevel = 0;
+	blit.dstSubresource.layerCount = 1;
+
+	// First source barriers.
+	if (channelBits & FB_COLOR_BIT) {
+		if (src->color.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+			SetupTransitionToTransferSrc(src->color, srcBarriers[srcCount++], VK_IMAGE_ASPECT_COLOR_BIT);
+		}
+		if (dst->color.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+			SetupTransitionToTransferDst(dst->color, dstBarriers[dstCount++], VK_IMAGE_ASPECT_COLOR_BIT);
+		}
+	}
+
+	// We can't copy only depth or only stencil unfortunately.
+	if (channelBits & (FB_DEPTH_BIT | FB_STENCIL_BIT)) {
+		if (src->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+			SetupTransitionToTransferSrc(src->depth, srcBarriers[srcCount++], VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+		}
+		if (dst->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+			SetupTransitionToTransferDst(dst->depth, dstBarriers[dstCount++], VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+		}
+	}
+
+	// TODO: Fix the pipe bits to be bit less conservative.
+	if (srcCount) {
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, srcCount, srcBarriers);
+	}
+	if (dstCount) {
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, dstCount, dstBarriers);
+	}
+
+	if (channelBits & FB_COLOR_BIT) {
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		vkCmdBlitImage(cmd, src->color.image, src->color.layout, dst->color.image, dst->color.layout, 1, &blit, filter == FB_BLIT_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
+	}
+	if (channelBits & (FB_DEPTH_BIT | FB_STENCIL_BIT)) {
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		vkCmdBlitImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &blit, filter == FB_BLIT_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
+	}
+	return true;
+}
+
 void VKContext::SetupTransitionToTransferSrc(VKImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect) {
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.oldLayout = img.layout;
@@ -1670,6 +1748,9 @@ void VKContext::SetupTransitionToTransferSrc(VKImage &img, VkImageMemoryBarrier 
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		break;
 	default:
 		Crash();
@@ -1697,6 +1778,9 @@ void VKContext::SetupTransitionToTransferDst(VKImage &img, VkImageMemoryBarrier 
 	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
 		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		break;
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		break;
 	default:
 		Crash();
 	}
@@ -1704,15 +1788,6 @@ void VKContext::SetupTransitionToTransferDst(VKImage &img, VkImageMemoryBarrier 
 	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	barrier.subresourceRange.aspectMask = aspect;
 	img.layout = barrier.newLayout;
-}
-
-bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
-	VKFramebuffer *src = (VKFramebuffer *)srcfb;
-	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
-
-	// TODO
-
-	return true;
 }
 
 void VKContext::EndCurrentRenderpass() {
@@ -1804,6 +1879,9 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 			switch (fb->color.layout) {
 			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 				barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				break;
+			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 				break;
 			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
 				barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;

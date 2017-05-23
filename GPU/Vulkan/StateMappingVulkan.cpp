@@ -368,3 +368,21 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 
 	key.topology = primToVulkan[prim];
 }
+
+
+void DrawEngineVulkan::ApplyDrawStateLate() {
+	// At this point, we know if the vertices are full alpha or not.
+	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
+	if (!gstate.isModeClear()) {
+		// TODO: Test texture?
+		/*
+		if (fboTexNeedBind_) {
+			// Note that this is positions, not UVs, that we need the copy from.
+			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+			// If we are rendering at a higher resolution, linear is probably best for the dest color.
+			fboTexBound_ = true;
+			fboTexNeedBind_ = false;
+		}
+		*/
+	}
+}

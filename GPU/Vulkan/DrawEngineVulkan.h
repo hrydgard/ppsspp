@@ -127,7 +127,7 @@ public:
 
 private:
 	struct FrameData;
-
+	void ApplyDrawStateLate();
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
 
 	void InitDeviceObjects();

@@ -453,7 +453,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 		gstate_c.SetTextureSimpleAlpha(gstate_c.textureFullAlpha);
-		framebufferManagerD3D11_->RebindFramebuffer();
+		framebufferManagerD3D11_->RebindFramebuffer();  // Probably not necessary.
 	}
 	SamplerCacheKey samplerKey;
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
