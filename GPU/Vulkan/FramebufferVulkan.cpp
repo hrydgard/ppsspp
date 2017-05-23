@@ -403,13 +403,11 @@ int FramebufferManagerVulkan::GetLineWidth() {
 	}
 }
 
+// This also binds vfb as the current render target.
 void FramebufferManagerVulkan::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
 	if (!useBufferedRendering_ || !vfb->fbo) {
 		return;
 	}
-
-	/*
-	BindFramebufferAsRenderTargetvfb->fbo);
 
 	// Technically, we should at this point re-interpret the bytes of the old format to the new.
 	// That might get tricky, and could cause unnecessary slowness in some games.
@@ -421,33 +419,32 @@ void FramebufferManagerVulkan::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 	// to exactly reproduce in 4444 and 8888 formats.
 
 	if (old == GE_FORMAT_565) {
-		// TODO: Clear to black, set stencil to 0, don't touch depth (or maybe zap depth).
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+	} else {
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
-
-	RebindFramebuffer();
-	*/
 }
 
+// Except for a missing rebind and silly scissor enables, identical copy of the same function in GPU_GLES - tricky parts are in thin3d.
 void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	if (src->z_address == dst->z_address &&
-		src->z_stride != 0 && dst->z_stride != 0 &&
-		src->renderWidth == dst->renderWidth &&
-		src->renderHeight == dst->renderHeight) {
+	if (g_Config.bDisableSlowFramebufEffects) {
+		return;
+	}
 
-		// TODO: Let's only do this if not clearing depth.
+	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
+	bool matchingSize = src->width == dst->width && src->height == dst->height;
+	bool matchingRenderSize = src->renderWidth == dst->renderWidth && src->renderHeight == dst->renderHeight;
 
-		VkImageCopy region = {};
-		region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		region.extent = { dst->renderWidth, dst->renderHeight, 1 };
-		region.extent.depth = 1;
-		// vkCmdCopyImage(curCmd_, src->fbo->GetDepthStencil()->GetImage(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		// 	dst->fbo->GetDepthStencil()->GetImage(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, &region);
-
-		// If we set dst->depthUpdated here, our optimization above would be pointless.
+	if (gstate_c.Supports(GPU_SUPPORTS_ANY_COPY_IMAGE) && matchingDepthBuffer && matchingRenderSize && matchingSize) {
+		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT);
+	} else if (matchingDepthBuffer && matchingSize) {
+		int w = std::min(src->renderWidth, dst->renderWidth);
+		int h = std::min(src->renderHeight, dst->renderHeight);
+		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
+			draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST);
+		}
 	}
 }
-
 
 VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {

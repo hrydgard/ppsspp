@@ -348,6 +348,14 @@ private:
 	DataFormat format_;
 };
 
+// Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
+// to let them have individual non-pooled allocations. Until it's not fine. We'll see.
+struct VKImage {
+	VkImage image;
+	VkImageView view;
+	VkDeviceMemory memory;
+	VkImageLayout layout;
+};
 class VKContext : public DrawContext {
 public:
 	VKContext(VulkanContext *vulkan);
@@ -475,6 +483,9 @@ private:
 
 	void EndCurrentRenderpass();
 	VkCommandBuffer AllocCmdBuf();
+
+	static void SetupTransitionToTransferSrc(VKImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect);
+	static void SetupTransitionToTransferDst(VKImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect);
 
 	VulkanContext *vulkan_ = nullptr;
 
@@ -1447,15 +1458,6 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	}
 }
 
-// Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
-// to let them have individual non-pooled allocations. Until it's not fine. We'll see.
-struct VKImage {
-	VkImage image;
-	VkImageView view;
-	VkDeviceMemory memory;
-	VkImageLayout layout;
-};
-
 void CreateImage(VulkanContext *vulkan, VKImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color) {
 	VkImageCreateInfo ici{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 	ici.arrayLayers = 1;
@@ -1488,7 +1490,6 @@ void CreateImage(VulkanContext *vulkan, VKImage &img, int width, int height, VkF
 	assert(res == VK_SUCCESS);
 	res = vkBindImageMemory(vulkan->GetDevice(), img.image, img.memory, 0);
 	assert(res == VK_SUCCESS);
-	img.layout = initialLayout;
 
 	VkImageViewCreateInfo ivci{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	ivci.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
@@ -1521,7 +1522,8 @@ void CreateImage(VulkanContext *vulkan, VKImage &img, int width, int height, VkF
 	}
 	barrier.newLayout = initialLayout;
 	barrier.subresourceRange.aspectMask = ivci.subresourceRange.aspectMask;
-	vkCmdPipelineBarrier(vulkan->GetInitCommandBuffer(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, 0, 0, 0, 1, &barrier);
+	vkCmdPipelineBarrier(vulkan->GetInitCommandBuffer(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	img.layout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
 // A VKFramebuffer is a VkFramebuffer (note caps difference) plus all the textures it owns.
@@ -1579,9 +1581,129 @@ Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 }
 
 void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
+	// Can't copy during render passes.
+	EndCurrentRenderpass();
+
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
-	// TODO
+
+	VkImageCopy copy{};
+	copy.srcOffset.x = x;
+	copy.srcOffset.y = y;
+	copy.srcOffset.z = z;
+	copy.srcSubresource.mipLevel = level;
+	copy.srcSubresource.layerCount = 1;
+	copy.dstOffset.x = dstX;
+	copy.dstOffset.y = dstY;
+	copy.dstOffset.z = dstZ;
+	copy.dstSubresource.mipLevel = dstLevel;
+	copy.dstSubresource.layerCount = 1;
+	copy.extent.width = width;
+	copy.extent.height = height;
+	copy.extent.depth = depth;
+
+	// We're gonna tack copies onto the src's command buffer, if it's from this frame.
+	// If from a previous frame, just do it in frame init.
+	VkCommandBuffer cmd = src->cmdBuf;
+	if (src->frameCount != frameNum_) {
+		cmd = vulkan_->GetInitCommandBuffer();
+	}
+
+	VkImageMemoryBarrier srcBarriers[2]{};
+	VkImageMemoryBarrier dstBarriers[2]{};
+	int srcCount = 0;
+	int dstCount = 0;
+
+	// First source barriers.
+	if (channelBits & FB_COLOR_BIT) {
+		if (src->color.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+			SetupTransitionToTransferSrc(src->color, srcBarriers[srcCount++], VK_IMAGE_ASPECT_COLOR_BIT);
+		}
+		if (dst->color.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+			SetupTransitionToTransferDst(dst->color, dstBarriers[dstCount++], VK_IMAGE_ASPECT_COLOR_BIT);
+		}
+	}
+
+	// We can't copy only depth or only stencil unfortunately.
+	if (channelBits & (FB_DEPTH_BIT | FB_STENCIL_BIT)) {
+		if (src->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+			SetupTransitionToTransferSrc(src->depth, srcBarriers[srcCount++], VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+		}
+		if (dst->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+			SetupTransitionToTransferDst(dst->depth, dstBarriers[dstCount++], VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+		}
+	}
+
+	// TODO: Fix the pipe bits to be bit less conservative.
+	if (srcCount) {
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, srcCount, srcBarriers);
+	}
+	if (dstCount) {
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, dstCount, dstBarriers);
+	}
+
+	if (channelBits & FB_COLOR_BIT) {
+		copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		vkCmdCopyImage(cmd, src->color.image, src->color.layout, dst->color.image, dst->color.layout, 1, &copy);
+	}
+	if (channelBits & (FB_DEPTH_BIT | FB_STENCIL_BIT)) {
+		copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		vkCmdCopyImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &copy);
+	}
+}
+
+void VKContext::SetupTransitionToTransferSrc(VKImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect) {
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = img.layout;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.image = img.image;
+	barrier.srcAccessMask = 0;
+	switch (img.layout) {
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		break;
+	default:
+		Crash();
+	}
+	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	barrier.subresourceRange.aspectMask = aspect;
+	img.layout = barrier.newLayout;
+}
+
+void VKContext::SetupTransitionToTransferDst(VKImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect) {
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = img.layout;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.image = img.image;
+	barrier.srcAccessMask = 0;
+	switch (img.layout) {
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		break;
+	default:
+		Crash();
+	}
+	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier.subresourceRange.aspectMask = aspect;
+	img.layout = barrier.newLayout;
 }
 
 bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
@@ -1687,13 +1809,40 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 				barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 				break;
 			}
-			barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 			barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			// TODO: Double-check these flags. Should be fine.
-			vkCmdPipelineBarrier(cmd_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, 0, 0, 0, 1, &barrier);
+			vkCmdPipelineBarrier(cmd_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 			fb->color.layout = barrier.newLayout;
 		}
+		if (fb->depth.layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.oldLayout = fb->depth.layout;
+			barrier.subresourceRange.layerCount = 1;
+			barrier.subresourceRange.levelCount = 1;
+			barrier.image = fb->depth.image;
+			barrier.srcAccessMask = 0;
+			switch (fb->depth.layout) {
+			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				break;
+			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+				break;
+			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				break;
+			}
+			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT| VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			// TODO: Double-check these flags. Should be fine.
+			vkCmdPipelineBarrier(cmd_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+			fb->depth.layout = barrier.newLayout;
+		}
+
 		renderPass = renderPasses_[RPIndex(rp.color, rp.depth)];
 		// ILOG("Switching framebuffer to FBO (fc=%d, cmd=%x, rp=%x)", frameNum_, (int)(uintptr_t)cmd_, (int)(uintptr_t)renderPass);
 		if (rp.color == RPAction::CLEAR) {
@@ -1765,7 +1914,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 
 	// we're between passes so it's OK.
 	// ARM Best Practices guide recommends these stage bits.
-	vkCmdPipelineBarrier(transitionCmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, 0, 0, 0, 1, &barrier);
+	vkCmdPipelineBarrier(transitionCmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 	fb->color.layout = barrier.newLayout;
 }
 
