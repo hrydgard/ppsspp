@@ -176,6 +176,8 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
 		int mask = 0;
+		// The Clear detection takes care of doing a regular draw instead if separate masking
+		// of color and alpha is needed, so we can just treat them as the same.
 		if (clearColor || clearAlpha)
 			mask |= Draw::FBChannel::FB_COLOR_BIT;
 		if (clearDepth)
@@ -481,8 +483,8 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
 	} else {
-		ERROR_LOG_REPORT_ONCE(d3d11SelfTexture, G3D, "Attempting to texture to target");
-		// Badness on D3D11 to bind the currently rendered-to framebuffer as a texture.
+		ERROR_LOG_REPORT_ONCE(vulkanSelfTexture, G3D, "Attempting to texture from target");
+		// To do this safely in Vulkan, we need to use input attachments.
 		return VK_NULL_HANDLE;
 	}
 }
@@ -1144,4 +1146,5 @@ bool FramebufferManagerVulkan::GetStencilbuffer(u32 fb_address, int fb_stride, G
 
 void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
 	// TODO: Ideally, this should never be called.
+	// assert(false);
 }

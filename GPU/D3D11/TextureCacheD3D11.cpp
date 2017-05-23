@@ -434,7 +434,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		context_->PSSetShaderResources(1, 1, &clutTexture);
 		framebufferManagerD3D11_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
-		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE });
+		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 		shaderApply.Shade();
 
 		framebufferManagerD3D11_->RebindFramebuffer();

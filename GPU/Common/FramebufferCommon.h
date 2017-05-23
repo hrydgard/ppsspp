@@ -375,6 +375,7 @@ protected:
 	// Used by post-processing shaders
 	std::vector<Draw::Framebuffer *> extraFBOs_;
 
+	bool needGLESRebinds_ = false;
 
 	struct TempFBO {
 		Draw::Framebuffer *fbo;

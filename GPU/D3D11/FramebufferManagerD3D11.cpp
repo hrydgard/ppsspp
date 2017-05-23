@@ -490,10 +490,9 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 	// The best way to do this may ultimately be to create a new FBO (combine with any resize?)
 	// and blit with a shader to that, then replace the FBO on vfb.  Stencil would still be complex
 	// to exactly reproduce in 4444 and 8888 formats.
-
-	draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP });
-
 	if (old == GE_FORMAT_565) {
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP });
+
 		// TODO: There's no way this does anything useful :(
 		context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
 		context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0], nullptr, 0xFFFFFFFF);

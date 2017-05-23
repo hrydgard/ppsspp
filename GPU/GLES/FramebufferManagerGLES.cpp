@@ -93,11 +93,6 @@ void FramebufferManagerGLES::ClearBuffer(bool keepState) {
 #endif
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	if (keepState) {
-		glstate.scissorTest.force(false);
-		glstate.depthWrite.force(GL_TRUE);
-		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glstate.stencilFunc.force(GL_ALWAYS, 0, 0);
-		glstate.stencilMask.force(0xFF);
 		glstate.scissorTest.restore();
 		glstate.depthWrite.restore();
 		glstate.colorMask.restore();
@@ -239,6 +234,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	currentPBO_(0)
 {
 	needBackBufferYSwap_ = true;
+	needGLESRebinds_ = true;
 }
 
 void FramebufferManagerGLES::Init() {
