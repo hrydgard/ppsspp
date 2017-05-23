@@ -537,7 +537,7 @@ private:
 
 	DeviceCaps caps_{};
 
-	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;;
+	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
 	VkRenderPass curRenderPass_ = VK_NULL_HANDLE;
 	VkCommandBuffer cmd_ = VK_NULL_HANDLE;
 };
@@ -760,7 +760,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	pipelineCache_ = vulkan_->CreatePipelineCache();
 
 	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
-	// with and without pre-clearing of both depth/stencil and color, so 4 combos.
+	// with clearing, without clearing, and dont-care for both depth/stencil and color, so 3*3=9 combos.
 	VkAttachmentDescription attachments[2] = {};
 	attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
@@ -848,7 +848,7 @@ VKContext::~VKContext() {
 VkCommandBuffer VKContext::AllocCmdBuf() {
 	FrameData *frame = &frame_[frameNum_ & 1];
 
-	if (frame->numCmdBufs >= this->MAX_FRAME_COMMAND_BUFFERS)
+	if (frame->numCmdBufs >= MAX_FRAME_COMMAND_BUFFERS)
 		Crash();
 
 	if (frame->cmdBufs[frame->numCmdBufs]) {
@@ -1448,7 +1448,7 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 }
 
 // Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
-// to let them have individual non-pooled allocations.
+// to let them have individual non-pooled allocations. Until it's not fine. We'll see.
 struct VKImage {
 	VkImage image;
 	VkImageView view;
@@ -1524,7 +1524,7 @@ void CreateImage(VulkanContext *vulkan, VKImage &img, int width, int height, VkF
 	vkCmdPipelineBarrier(vulkan->GetInitCommandBuffer(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, 0, 0, 0, 1, &barrier);
 }
 
-// A VKFramebuffer is a VkFramebuffer plus all the textures it owns.
+// A VKFramebuffer is a VkFramebuffer (note caps difference) plus all the textures it owns.
 // It also has a reference to the command buffer that it was last rendered to with.
 // If it needs to be transitioned, and the frame number matches, use it, otherwise
 // use this frame's init command buffer.
@@ -1540,15 +1540,16 @@ public:
 		vulkan_->Delete().QueueDeleteDeviceMemory(depth.memory);
 		vulkan_->Delete().QueueDeleteFramebuffer(framebuf);
 	}
-	VkFramebuffer framebuf;
-	VKImage color;
-	VKImage depth;
-	int width;
-	int height;
+	VkFramebuffer framebuf = VK_NULL_HANDLE;
+	VKImage color{};
+	VKImage depth{};
+	int width = 0;
+	int height = 0;
 
 	// These belong together, see above.
-	VkCommandBuffer cmdBuf;
-	int frameCount;
+	VkCommandBuffer cmdBuf = VK_NULL_HANDLE;
+	int frameCount = 0;
+
 private:
 	VulkanContext *vulkan_;
 };
@@ -1580,17 +1581,20 @@ Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
+	// TODO
 }
 
 bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
+
+	// TODO
+
 	return true;
 }
 
 void VKContext::EndCurrentRenderpass() {
 	if (curRenderPass_ != VK_NULL_HANDLE) {
-		// ELOG("EndCurrentRenderPass: Ending render pass %d for cmd buffer %x", (int)(uintptr_t)curRenderPass_, (int)(uintptr_t)cmd_);
 		vkCmdEndRenderPass(cmd_);
 		curRenderPass_ = VK_NULL_HANDLE;
 		curFramebuffer_ = VK_NULL_HANDLE;
@@ -1598,7 +1602,6 @@ void VKContext::EndCurrentRenderpass() {
 	}
 }
 
-// These functions should be self explanatory.
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	VkFramebuffer framebuf;
 	VkCommandBuffer cmdBuf;
@@ -1625,23 +1628,25 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 		if (!curRenderPass_)
 			Crash();
 		// If we're asking to clear, but already bound, we'll just keep it bound but send a clear command.
-		// We will try to avoid this as much as possible. Also, TODO, do a single vkCmdClearAttachments to clear both.
+		// We will try to avoid this as much as possible.
+		VkClearAttachment clear[2]{};
+		int count = 0;
 		if (rp.color == RPAction::CLEAR) {
-			VkClearAttachment clear{};
-			clear.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			Uint8x4ToFloat4(rp.clearColor, clear.clearValue.color.float32);
-			clear.colorAttachment = 0;
-			VkClearRect rc{ {0,0,(uint32_t)w,(uint32_t)h}, 0, 1 };
-			vkCmdClearAttachments(cmdBuf, 1, &clear, 1, &rc);
+			clear[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			Uint8x4ToFloat4(rp.clearColor, clear[count].clearValue.color.float32);
+			clear[count].colorAttachment = 0;
+			count++;
 		}
 		if (rp.depth == RPAction::CLEAR) {
-			VkClearAttachment clear{};
-			clear.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-			clear.clearValue.depthStencil.depth = rp.clearDepth;
-			clear.clearValue.depthStencil.stencil = rp.clearStencil;
-			clear.colorAttachment = 0;
+			clear[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			clear[count].clearValue.depthStencil.depth = rp.clearDepth;
+			clear[count].clearValue.depthStencil.stencil = rp.clearStencil;
+			clear[count].colorAttachment = 0;
+			count++;
+		}
+		if (count > 0) {
 			VkClearRect rc{ { 0,0,(uint32_t)w,(uint32_t)h }, 0, 1 };
-			vkCmdClearAttachments(cmdBuf, 1, &clear, 1, &rc);
+			vkCmdClearAttachments(cmdBuf, count, clear, 1, &rc);
 		}
 		// We're done.
 		return;
@@ -1685,7 +1690,7 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 			barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 			barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			// TODO: Optimize these flags. 
+			// TODO: Double-check these flags. Should be fine.
 			vkCmdPipelineBarrier(cmd_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, 0, 0, 0, 1, &barrier);
 			fb->color.layout = barrier.newLayout;
 		}

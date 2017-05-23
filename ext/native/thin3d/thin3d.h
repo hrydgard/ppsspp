@@ -624,7 +624,6 @@ public:
 	// color must be 0, for now.
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
 	virtual void BindFramebufferForRead(Framebuffer *fbo) = 0;
-	virtual void TransitionForSampling(Framebuffer *fbo) {}  // Temporary vulkan hack
 
 	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) = 0;
 

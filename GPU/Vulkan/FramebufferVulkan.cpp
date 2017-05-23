@@ -340,10 +340,10 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	}
 
 	Vulkan2D::Vertex vtx[4] = {
-		{x,y, 0,texCoords[0],texCoords[1]},
-		{x + w,y, 0,texCoords[2],texCoords[3]},
-		{x,y + h, 0,texCoords[6],texCoords[7] },
-		{x + w,y + h, 0,texCoords[4],texCoords[5] },
+		{x,     y,     0, texCoords[0], texCoords[1]},
+		{x + w, y,     0, texCoords[2], texCoords[3]},
+		{x,     y + h, 0, texCoords[6], texCoords[7]},
+		{x + w, y + h, 0, texCoords[4], texCoords[5]},
 	};
 
 	float invDestW = 1.0f / (destW * 0.5f);
