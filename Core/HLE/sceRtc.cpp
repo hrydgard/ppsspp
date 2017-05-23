@@ -129,7 +129,7 @@ void __RtcInit()
 	timeval tv;
 	gettimeofday(&tv, NULL);
 	rtcBaseTime.tv_sec = tv.tv_sec;
-	rtcBaseTime.tv_usec = tv.tv_usec;
+	rtcBaseTime.tv_usec = 0;
 	// Precalculate the current time in microseconds (rtcMagicOffset is offset to 1970.)
 	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcBaseTime.tv_usec + rtcMagicOffset;
 }
