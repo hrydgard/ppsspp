@@ -2450,7 +2450,9 @@ bool GPUCommon::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 }
 
 bool GPUCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	return framebufferManager_->GetOutputFramebuffer(buffer);
+	// framebufferManager_ can be null here when taking screens in software rendering mode.
+	// TODO: Actually grab the framebuffer anyway.
+	return framebufferManager_ ? framebufferManager_->GetOutputFramebuffer(buffer) : false;
 }
 
 bool GPUCommon::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
