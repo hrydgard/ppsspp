@@ -49,17 +49,17 @@ typedef int SectionID;
 class ElfReader
 {
 public:
-	ElfReader(void *ptr) :
+	ElfReader(const void *ptr) :
 		sectionOffsets(0),
 		sectionAddrs(0),
 		bRelocate(false),
 		entryPoint(0),
 		vaddr(0) {
-		base = (char*)ptr;
-		base32 = (u32 *)ptr;
-		header = (Elf32_Ehdr*)ptr;
-		segments = (Elf32_Phdr *)(base + header->e_phoff);
-		sections = (Elf32_Shdr *)(base + header->e_shoff);
+		base = (const char*)ptr;
+		base32 = (const u32 *)ptr;
+		header = (const Elf32_Ehdr*)ptr;
+		segments = (const Elf32_Phdr *)(base + header->e_phoff);
+		sections = (const Elf32_Shdr *)(base + header->e_shoff);
 	}
 
 	~ElfReader() {
@@ -80,10 +80,10 @@ public:
 	int GetNumSegments() const { return (int)(header->e_phnum); }
 	int GetNumSections() const { return (int)(header->e_shnum); }
 	const char *GetSectionName(int section) const;
-	u8 *GetPtr(u32 offset) const {
-		return (u8*)base + offset;
+	const u8 *GetPtr(u32 offset) const {
+		return (const u8*)base + offset;
 	}
-	u8 *GetSectionDataPtr(int section) const {
+	const u8 *GetSectionDataPtr(int section) const {
 		if (section < 0 || section >= header->e_shnum)
 			return nullptr;
 		if (sections[section].sh_type != SHT_NOBITS)
@@ -91,7 +91,7 @@ public:
 		else
 			return nullptr;
 	}
-	u8 *GetSegmentPtr(int segment) const {
+	const u8 *GetSegmentPtr(int segment) const {
 		return GetPtr(segments[segment].p_offset);
 	}
 	u32 GetSectionAddr(SectionID section) const {
@@ -134,19 +134,17 @@ public:
 	u32 GetTotalDataSize() const;
 	u32 GetTotalSectionSizeByPrefix(const std::string &prefix) const;
 
-	// More indepth stuff:)
 	int LoadInto(u32 vaddr, bool fromTop);
 	bool LoadSymbols();
-	bool LoadRelocations(Elf32_Rel *rels, int numRelocs);
+	bool LoadRelocations(const Elf32_Rel *rels, int numRelocs);
 	void LoadRelocations2(int rel_seg);
 
-
 private:
-	char *base;
-	u32 *base32;
-	Elf32_Ehdr *header;
-	Elf32_Phdr *segments;
-	Elf32_Shdr *sections;
+	const char *base;
+	const u32 *base32;
+	const Elf32_Ehdr *header;
+	const Elf32_Phdr *segments;
+	const Elf32_Shdr *sections;
 	u32 *sectionOffsets;
 	u32 *sectionAddrs;
 	bool bRelocate;
