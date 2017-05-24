@@ -219,7 +219,7 @@ void GameSettingsScreen::CreateViews() {
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	bool showSoftGPU = true;
-#if PPSSPP_PLATFORM(ANDROID)
+#ifdef MOBILE_DEVICE
 	// On Android, only show the software rendering setting if it's already enabled.
 	// Can still be turned on through INI file editing.
 	showSoftGPU = g_Config.bSoftwareRendering;

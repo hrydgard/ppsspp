@@ -294,7 +294,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 
 			rel_offset = rel_base+segmentVAddr[off_seg];
-			if (!Memory::IsValidAddress(relocate_to)) {
+			if (!Memory::IsValidAddress(rel_offset)) {
 				ERROR_LOG(LOADER, "ELF: Bad rel_offset: %08x", rel_offset);
 				continue;
 			}
