@@ -1129,6 +1129,7 @@ void OpenGLContext::Draw(int vertexCount, int offset) {
 	glDrawArrays(curPipeline_->prim, offset, vertexCount);
 
 	curPipeline_->inputLayout->Unapply();
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
@@ -1141,6 +1142,8 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	glDrawElements(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	
 	curPipeline_->inputLayout->Unapply();
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {

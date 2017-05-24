@@ -79,11 +79,11 @@ void UIScreen::preRender() {
 }
 
 void UIScreen::postRender() {
-	auto thin3d = screenManager()->getDrawContext();
-	if (!thin3d) {
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+	if (!draw) {
 		return;
 	}
-	thin3d->End();
+	draw->End();
 }
 
 void UIScreen::render() {

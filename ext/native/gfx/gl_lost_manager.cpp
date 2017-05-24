@@ -50,7 +50,9 @@ void unregister_gl_resource_holder(GfxResourceHolder *holder) {
 				erased = true;
 			}
 		}
-		WLOG("unregister_gl_resource_holder: Resource not registered");
+		if (!erased) {
+			WLOG("unregister_gl_resource_holder: Resource not registered");
+		}
 	} else {
 		WLOG("GL resource holder not initialized or already shutdown, cannot unregister resource");
 	}
