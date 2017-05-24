@@ -27,8 +27,15 @@
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/Lighting.h"
 
-static u8 buf[65536 * 48];  // yolo
-bool TransformUnit::outside_range_flag = false;
+#define TRANSFORM_BUF_SIZE (65536 * 48)
+
+TransformUnit::TransformUnit() {
+	buf = (u8 *)AllocateMemoryPages(TRANSFORM_BUF_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+}
+
+TransformUnit::~TransformUnit() {
+	FreeMemoryPages(buf, DECODED_VERTEX_BUFFER_SIZE);
+}
 
 SoftwareDrawEngine::SoftwareDrawEngine() {
 	// All this is a LOT of memory, need to see if we can cut down somehow.  Used for splines.
@@ -47,7 +54,7 @@ void SoftwareDrawEngine::DispatchFlush() {
 }
 
 void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	TransformUnit::SubmitPrimitive(verts, inds, prim, vertexCount, vertType, bytesRead, this);
+	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertType, bytesRead, this);
 }
 
 VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
@@ -473,6 +480,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 }
 
 // TODO: This probably is not the best interface.
+// Also, we should try to merge this into the similar function in DrawEngineCommon.
 bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	// This is always for the current vertices.
 	u16 indexLowerBound = 0;

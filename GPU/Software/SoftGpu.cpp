@@ -46,14 +46,9 @@ struct Vertex {
 	uint32_t rgba;
 };
 
+u32 clut[4096];
 FormatBuffer fb;
 FormatBuffer depthbuf;
-u32 clut[4096];
-
-static Draw::SamplerState *samplerNearest = nullptr;
-static Draw::SamplerState *samplerLinear = nullptr;
-static Draw::Buffer *vdata = nullptr;
-static Draw::Buffer *idata = nullptr;
 
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
@@ -349,7 +344,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 		{
 			u32 count = data & 0xFFFF;
 			// Upper bits are ignored.
-			GEPrimitiveType type = static_cast<GEPrimitiveType>((data >> 16) & 7);
+			GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
 
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 				ERROR_LOG_REPORT(G3D, "Software: Bad vertex address %08x!", gstate_c.vertexAddr);
@@ -368,7 +363,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 
 			cyclesExecuted += EstimatePerVertexCost() * count;
 			int bytesRead;
-			TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType, &bytesRead, drawEngine_);
+			drawEngine_->transformUnit.SubmitPrimitive(verts, indices, prim, count, gstate.vertType, &bytesRead, drawEngine_);
 			framebufferDirty_ = true;
 
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
@@ -995,5 +990,5 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer)
 
 bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices)
 {
-	return TransformUnit::GetCurrentSimpleVertices(count, vertices, indices);
+	return drawEngine_->transformUnit.GetCurrentSimpleVertices(count, vertices, indices);
 }

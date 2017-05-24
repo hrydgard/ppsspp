@@ -36,11 +36,6 @@
 #include <emmintrin.h>
 #endif
 
-extern FormatBuffer fb;
-extern FormatBuffer depthbuf;
-
-extern u32 clut[4096];
-
 namespace Rasterizer {
 
 //static inline int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const DrawingCoords& v2)

@@ -22,6 +22,7 @@
 #include "thin3d/thin3d.h"
 
 struct FormatBuffer {
+	FormatBuffer() { data = nullptr; }
 	union {
 		u8 *data;
 		u16 *as16;
@@ -108,4 +109,14 @@ private:
 	Draw::Texture *fbTex;
 	Draw::Pipeline *texColor;
 	std::vector<u32> fbTexBuffer;
+
+	Draw::SamplerState *samplerNearest = nullptr;
+	Draw::SamplerState *samplerLinear = nullptr;
+	Draw::Buffer *vdata = nullptr;
+	Draw::Buffer *idata = nullptr;
 };
+
+// TODO: These shouldn't be global.
+extern u32 clut[4096];
+extern FormatBuffer fb;
+extern FormatBuffer depthbuf;

@@ -31,17 +31,6 @@ typedef Vec3<float> WorldCoords;
 typedef Vec3<float> ViewCoords;
 typedef Vec4<float> ClipCoords; // Range: -w <= x/y/z <= w
 
-class SoftwareDrawEngine : public DrawEngineCommon {
-public:
-	SoftwareDrawEngine();
-	~SoftwareDrawEngine();
-
-	void DispatchFlush() override;
-	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override;
-
-	VertexDecoder *FindVertexDecoder(u32 vtype);
-};
-
 struct SplinePatch;
 
 struct ScreenCoords
@@ -125,10 +114,12 @@ struct VertexData
 
 class VertexReader;
 
-class TransformUnit
-{
+class SoftwareDrawEngine;
+
+class TransformUnit {
 public:
-	TransformUnit() {}
+	TransformUnit();
+	~TransformUnit();
 
 	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
 	static WorldCoords ModelToWorld(const ModelCoords& coords);
@@ -138,10 +129,24 @@ public:
 	static DrawingCoords ScreenToDrawing(const ScreenCoords& coords);
 	static ScreenCoords DrawingToScreen(const DrawingCoords& coords);
 
-	static void SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
+	void SubmitPrimitive(void* vertices, void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
 
-	static bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
-	static VertexData ReadVertex(VertexReader& vreader);
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+	VertexData ReadVertex(VertexReader& vreader);
 
-	static bool outside_range_flag;
+	bool outside_range_flag = false;
+	u8 *buf;
+};
+
+class SoftwareDrawEngine : public DrawEngineCommon {
+public:
+	SoftwareDrawEngine();
+	~SoftwareDrawEngine();
+
+	void DispatchFlush() override;
+	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override;
+
+	VertexDecoder *FindVertexDecoder(u32 vtype);
+
+	TransformUnit transformUnit;
 };
