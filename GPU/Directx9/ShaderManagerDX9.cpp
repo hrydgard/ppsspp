@@ -249,9 +249,9 @@ void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
 static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY) {
 	// Half pixel offset hack
-	float xoff = 0.5f / gstate_c.curRTRenderWidth;
+	float xoff = 1.0f / gstate_c.curRTRenderWidth;
 	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
-	float yoff = -0.5f / gstate_c.curRTRenderHeight;
+	float yoff = -1.0f / gstate_c.curRTRenderHeight;
 	yoff = gstate_c.vpYOffset + (invertedY ? yoff : -yoff);
 
 	if (invertedX)
@@ -265,8 +265,8 @@ static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY
 }
 
 static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
-	float xoff = -0.5f / gstate_c.curRTRenderWidth;
-	float yoff = 0.5f / gstate_c.curRTRenderHeight;
+	float xoff = -1.0f / gstate_c.curRTRenderWidth;
+	float yoff = 1.0f / gstate_c.curRTRenderHeight;
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
