@@ -283,7 +283,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(GL_ALWAYS);
 			glstate.depthWrite.set(gstate.isClearModeDepthMask() ? GL_TRUE : GL_FALSE);
-			if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
+			if (gstate.isClearModeDepthMask()) {
 				framebufferManager_->SetDepthUpdated();
 			}
 
