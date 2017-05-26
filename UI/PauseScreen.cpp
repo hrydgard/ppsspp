@@ -321,6 +321,9 @@ void GamePauseScreen::CreateViews() {
 	continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+	if (gameId.empty()) {
+		gameId = g_paramSFO.GenerateFakeID();
+	}
 	if (g_Config.hasGameConfig(gameId)) {
 		rightColumnItems->Add(new Choice(pa->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		rightColumnItems->Add(new Choice(pa->T("Delete Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
@@ -422,6 +425,9 @@ void GamePauseScreen::CallbackDeleteConfig(bool yes)
 UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 {
 	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+	if (gameId.empty()) {
+		gameId = g_paramSFO.GenerateFakeID();
+	}
 	g_Config.createGameConfig(gameId);
 	g_Config.changeGameSpecific(gameId);
 	g_Config.saveGameConfig(gameId);

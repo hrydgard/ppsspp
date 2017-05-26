@@ -262,7 +262,7 @@ bool GameInfo::DeleteAllSaveData() {
 void GameInfo::ParseParamSFO() {
 	title = paramSFO.GetValueString("TITLE");
 	id = paramSFO.GetValueString("DISC_ID");
-	id_version = paramSFO.GetValueString("DISC_ID") + "_" + paramSFO.GetValueString("DISC_VERSION");
+	id_version = id + "_" + paramSFO.GetValueString("DISC_VERSION");
 	disc_total = paramSFO.GetValueInt("DISC_TOTAL");
 	disc_number = paramSFO.GetValueInt("DISC_NUMBER");
 	// region = paramSFO.GetValueInt("REGION");  // Always seems to be 32768?
@@ -405,6 +405,15 @@ public:
 					std::lock_guard<std::mutex> lock(info_->lock);
 					info_->paramSFO.ReadSFO(sfoData);
 					info_->ParseParamSFO();
+
+					// Assuming PSP_PBP_DIRECTORY without ID or with disc_total < 1 in GAME dir must be homebrew
+					if ((info_->id.empty() || info_->disc_total < 1)
+						&& gamePath_.find("/PSP/GAME/") != std::string::npos 
+						&& info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
+						info_->id = g_paramSFO.GenerateFakeID(gamePath_);
+						info_->id_version = info_->id + "_1.00";
+						info_->region = GAMEREGION_MAX + 1; // Homebrew
+					}
 				}
 
 				// Then, ICON0.PNG.
@@ -444,8 +453,10 @@ handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
 			{
 				std::lock_guard<std::mutex> lock(info_->lock);
-				info_->id = "ELF000000";
-				info_->id_version = "ELF000000_1.00";
+				info_->id = g_paramSFO.GenerateFakeID(gamePath_);
+				info_->id_version = info_->id + "_1.00";
+				info_->region = GAMEREGION_MAX + 1; // Homebrew
+
 				info_->paramSFOLoaded = true;
 			}
 

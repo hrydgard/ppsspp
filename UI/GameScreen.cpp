@@ -236,6 +236,8 @@ void GameScreen::update() {
 			"Asia"
 		};
 		tvRegion_->SetText(ga->T(regionNames[info->region]));
+	} else if (info->region > GAMEREGION_MAX){
+		tvRegion_->SetText(ga->T("Homebrew"));
 	}
 
 	if (!info->id.empty()) {

@@ -243,9 +243,10 @@ void CPU_Init() {
 	// Homebrew usually has an empty discID, and even if they do have a disc id, it's not
 	// likely to collide with any commercial ones.
 	std::string discID = g_paramSFO.GetValueString("DISC_ID");
-	if (!discID.empty()) {
-		coreParameter.compat.Load(discID);
+	if (discID.empty()) {
+		discID = g_paramSFO.GenerateFakeID();
 	}
+	coreParameter.compat.Load(discID);
 
 	Memory::Init();
 	mipsr4k.Reset();

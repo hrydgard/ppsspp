@@ -322,5 +322,16 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = ms_path + file + extension;
+
+	std::string homebrewName = PSP_CoreParameter().fileToStart;
+	std::size_t lslash = homebrewName.find_last_of("/");
+	homebrewName = homebrewName.substr(lslash +1);
+	std::string madeUpID = g_paramSFO.GenerateFakeID();
+
+	char title[1024];
+	sprintf(title, "%s : %s", madeUpID.c_str(), homebrewName.c_str());
+	INFO_LOG(LOADER, "%s", title);
+	host->SetWindowTitle(title);
+
 	return __KernelLoadExec(finalName.c_str(), 0, error_string);
 }
