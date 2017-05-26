@@ -10,6 +10,7 @@
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/Config.h"
+#include "Common/StringUtils.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/DebuggerShared.h"
@@ -970,7 +971,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				{
 					char name[256];
 					std::string newname;
-					strncpy_s(name, g_symbolMap->GetLabelString(funcBegin).c_str(),_TRUNCATE);
+					truncate_cpy(name, g_symbolMap->GetLabelString(funcBegin).c_str());
 					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname)) {
 						g_symbolMap->SetLabelName(newname.c_str(),funcBegin);
 						u32 funcSize = g_symbolMap->GetFunctionSize(curAddress);

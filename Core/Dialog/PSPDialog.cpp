@@ -18,6 +18,7 @@
 #include "i18n/i18n.h"
 
 #include "Common/ChunkFile.h"
+#include "Common/StringUtils.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Util/PPGeDraw.h"
@@ -198,7 +199,7 @@ void PSPDialog::DisplayButtons(int flags, const char *caption)
 	char safeCaption[65] = {0};
 	if (caption != NULL && *caption != '\0') {
 		useCaption = true;
-		strncpy(safeCaption, caption, 64);
+		truncate_cpy(safeCaption, caption);
 	}
 
 	I18NCategory *di = GetI18NCategory("Dialog");

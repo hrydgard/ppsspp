@@ -34,6 +34,7 @@
 #include "zlib.h"
 #include "Common/CommonTypes.h"
 #include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
 
@@ -427,8 +428,7 @@ void SymbolMap::AddModule(const char *name, u32 address, u32 size) {
 	}
 
 	ModuleEntry mod;
-	strncpy(mod.name, name, ARRAY_SIZE(mod.name));
-	mod.name[ARRAY_SIZE(mod.name) - 1] = '\0';
+	truncate_cpy(mod.name, name);
 	mod.start = address;
 	mod.size = size;
 	mod.index = (int)modules.size() + 1;
@@ -772,8 +772,7 @@ void SymbolMap::AddLabel(const char* name, u32 address, int moduleIndex) {
 		LabelEntry label;
 		label.addr = relAddress;
 		label.module = moduleIndex;
-		strncpy(label.name, name, 128);
-		label.name[127] = 0;
+		truncate_cpy(label.name, name);
 
 		labels[symbolKey] = label;
 		if (IsModuleActive(moduleIndex)) {
@@ -791,7 +790,7 @@ void SymbolMap::SetLabelName(const char* name, u32 address) {
 		auto symbolKey = std::make_pair(labelInfo->second.module, labelInfo->second.addr);
 		auto label = labels.find(symbolKey);
 		if (label != labels.end()) {
-			strncpy(label->second.name, name, 128);
+			truncate_cpy(label->second.name, name);
 			label->second.name[127] = 0;
 
 			// Refresh the active item if it exists.

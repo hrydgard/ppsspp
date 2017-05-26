@@ -18,6 +18,7 @@
 #include "i18n/i18n.h"
 #include "base/logging.h"
 #include "Common/ChunkFile.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
@@ -55,8 +56,7 @@ namespace
 	void SetStringFromSFO(ParamSFOData &sfoFile, const char *name, char *str, int strLength)
 	{
 		std::string value = sfoFile.GetValueString(name);
-		strncpy(str, value.c_str(), strLength - 1);
-		str[strLength - 1] = 0;
+		truncate_cpy(str, strLength, value.c_str());
 	}
 
 	bool ReadPSPFile(std::string filename, u8 **data, s64 dataSize, s64 *readSize)
