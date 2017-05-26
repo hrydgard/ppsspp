@@ -22,6 +22,7 @@
 #include "base/stringutil.h"
 #include "Common/ChunkFile.h"
 #include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -312,7 +313,7 @@ public:
 			}
 
 			char moduleName[29] = {0};
-			strncpy(moduleName, nm.name, ARRAY_SIZE(nm.name));
+			truncate_cpy(moduleName, nm.name);
 			if (memoryBlockAddr != 0) {
 				g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
 			}
