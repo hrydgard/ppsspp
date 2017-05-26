@@ -22,7 +22,6 @@
 #include "thread/threadutil.h"
 #include "profiler/profiler.h"
 
-#include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -2185,7 +2184,8 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		PSPFileInfo &info = dir->listing[dir->index];
 		__IoGetStat(&entry->d_stat, info);
 
-		truncate_cpy(entry->d_name, info.name.c_str());
+		strncpy(entry->d_name, info.name.c_str(), 256);
+		entry->d_name[255] = '\0';
 		
 		bool isFAT = false;
 		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(dir->name);
