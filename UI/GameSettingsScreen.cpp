@@ -293,7 +293,6 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
 #endif
-	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gr->T("Mipmapping")));
 
 	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 	hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);

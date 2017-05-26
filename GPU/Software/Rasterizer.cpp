@@ -1350,7 +1350,7 @@ void DrawTriangleSlice(
 	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
-	if ((gstate.texfilter & 4) == 0 || !g_Config.bMipMap) {
+	if ((gstate.texfilter & 4) == 0) {
 		// No mipmapping enabled
 		maxTexLevel = 0;
 	}
@@ -1570,7 +1570,7 @@ void DrawPoint(const VertexData &v0)
 				magFilt = 1;
 			}
 		}
-		if ((gstate.texfilter & 4) == 0 || !g_Config.bMipMap) {
+		if ((gstate.texfilter & 4) == 0) {
 			// No mipmapping enabled
 			maxTexLevel = 0;
 		}
@@ -1643,7 +1643,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
-	if ((gstate.texfilter & 4) == 0 || !g_Config.bMipMap) {
+	if ((gstate.texfilter & 4) == 0) {
 		// No mipmapping enabled
 		maxTexLevel = 0;
 	}

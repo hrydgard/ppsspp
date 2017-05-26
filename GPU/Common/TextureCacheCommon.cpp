@@ -153,7 +153,7 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	}
 
 	// If mip level is forced to zero, disable mipmapping.
-	bool noMip = !g_Config.bMipMap || maxLevel == 0 || (!autoMip && lodBias <= 0.0f);
+	bool noMip = maxLevel == 0 || (!autoMip && lodBias <= 0.0f);
 	if (IsFakeMipmapChange())
 		noMip = noMip || !autoMip;
 
