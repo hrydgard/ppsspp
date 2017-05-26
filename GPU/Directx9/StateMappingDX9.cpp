@@ -195,7 +195,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		}
 	}
 
-	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
 
 	{
@@ -222,7 +221,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.depthTest.enable();
 			dxstate.depthFunc.set(D3DCMP_ALWAYS);
 			dxstate.depthWrite.set(gstate.isClearModeDepthMask());
-			if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
+			if (gstate.isClearModeDepthMask()) {
 				framebufferManager_->SetDepthUpdated();
 			}
 
