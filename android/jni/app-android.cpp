@@ -330,6 +330,7 @@ static std::queue<FrameCommand> frameCommands;
 std::string systemName;
 std::string langRegion;
 std::string mogaVersion;
+std::string boardName;
 
 static float left_joystick_x_async;
 static float left_joystick_y_async;
@@ -419,6 +420,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return langRegion;
 	case SYSPROP_MOGA_VERSION:
 		return mogaVersion;
+	case SYSPROP_BOARDNAME:
+		return boardName;
 	default:
 		return "";
 	}
@@ -548,7 +551,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	std::string shortcut_param = GetJavaString(env, jshortcutParam);
 	std::string cacheDir = GetJavaString(env, jcacheDir);
 	std::string buildBoard = GetJavaString(env, jboard);
-
+	boardName = buildBoard;
 	ILOG("NativeApp.init(): External storage path: %s", externalDir.c_str());
 	ILOG("NativeApp.init(): Launch shortcut parameter: %s", shortcut_param.c_str());
 
