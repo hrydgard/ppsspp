@@ -21,6 +21,7 @@
 
 #include "MemoryUtil.h"
 #include "MemArena.h"
+#include "StringUtils.h"
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -49,7 +50,7 @@ static int ashmem_create_region(const char *name, size_t size) {
 	int ret;
 	if (name) {
 		char buf[ASHMEM_NAME_LEN];
-		strncpy(buf, name, sizeof(buf));
+		truncate_cpy(buf, name);
 		ret = ioctl(fd, ASHMEM_SET_NAME, buf);
 		if (ret < 0)
 			goto error;

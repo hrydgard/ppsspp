@@ -143,9 +143,9 @@ void CheckGLExtensions() {
 	// Start by assuming we're at 2.0.
 	int parsed[2] = {2, 0};
 	{ // Grab the version and attempt to parse.		
-		char buffer[64] = { 0 };
+		char buffer[128] = { 0 };
 		if (versionStr) {
-			strncpy(buffer, versionStr, 63);
+			strncpy(buffer, versionStr, sizeof(buffer) - 1);
 		}
 	
 		int len = (int)strlen(buffer);
@@ -159,7 +159,7 @@ void CheckGLExtensions() {
 					break;
 				}
 			}
-				if (beforeDot && buffer[i] == '.' && lastDigit) {
+			if (beforeDot && buffer[i] == '.' && lastDigit) {
 				parsed[0] = lastDigit;
 				beforeDot = false;
 			}

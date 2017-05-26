@@ -21,6 +21,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
+#include "Common/StringUtils.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 
@@ -130,7 +131,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	if (flag & DS_ERRORMSG) {
 		snprintf(msgText, 512, "Error code: %08x", messageDialog.errorNum);
 	} else {
-		strncpy(msgText, messageDialog.string, 512);
+		truncate_cpy(msgText, messageDialog.string);
 	}
 
 	ChangeStatusInit(MSG_INIT_DELAY_US);

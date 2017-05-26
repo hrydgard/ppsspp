@@ -219,7 +219,7 @@ void CPUInfo::Detect()
 	strcpy(brand_string, "Unknown");
 	num_cores = 1;
 #endif
-	strncpy(cpu_string, brand_string, sizeof(cpu_string));
+	truncate_cpy(cpu_string, brand_string);
 	// Hardcode this for now
 	bSwp = true;
 	bHalf = true;
@@ -237,8 +237,8 @@ void CPUInfo::Detect()
 	bFP = false;
 	bASIMD = false;
 #else // PPSSPP_PLATFORM(LINUX)
-	strncpy(cpu_string, GetCPUString().c_str(), sizeof(cpu_string));
-	strncpy(brand_string, GetCPUBrandString().c_str(), sizeof(brand_string));
+	truncate_cpy(cpu_string, GetCPUString().c_str());
+	truncate_cpy(brand_string, GetCPUBrandString().c_str());
 
 	bSwp = CheckCPUFeature("swp");
 	bHalf = CheckCPUFeature("half");
