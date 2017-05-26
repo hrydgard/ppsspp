@@ -318,10 +318,11 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		}
 	}
 
-	// Don't forget to zap the instruction cache! This must stay at the end of this function.
-	FlushIcache();
 	// Let's spare the pre-generated code from unprotect-reprotect.
 	AlignCodePage();
+	jitStartOffset = (int)(GetCodePtr() - start);
+	// Don't forget to zap the instruction cache! This must stay at the end of this function.
+	FlushIcache();
 	EndWrite();
 }
 

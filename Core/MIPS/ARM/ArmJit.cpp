@@ -152,7 +152,7 @@ void ArmJit::FlushPrefixV()
 void ArmJit::ClearCache()
 {
 	blocks.Clear();
-	ClearCodeSpace();
+	ClearCodeSpace(0);
 	GenerateFixedCode();
 }
 

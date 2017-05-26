@@ -302,7 +302,7 @@ const u8* ARM64XEmitter::AlignCode16()
 {
 	int c = int((u64)m_code & 15);
 	if (c)
-		ReserveCodeSpace(16-c);
+		ReserveCodeSpace(16 - c);
 	return m_code;
 }
 
@@ -509,7 +509,7 @@ void ARM64XEmitter::EncodeTestBranchInst(u32 op, ARM64Reg Rt, u8 bits, const voi
 
 	distance >>= 2;
 
-	_assert_msg_(DYNA_REC, distance >= -0x3FFF && distance < 0x3FFF, "%s: Received too large distance: %llx", __FUNCTION__, distance);
+	_assert_msg_(DYNA_REC, distance >= -0x1FFF && distance < 0x1FFF, "%s: Received too large distance: %llx", __FUNCTION__, distance);
 
 	Rt = DecodeReg(Rt);
 	Write32((b64Bit << 31) | (0x36 << 24) | (op << 24) | \
@@ -3894,6 +3894,17 @@ void ARM64XEmitter::SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch)
 		MOVI2R(scratch, imm);
 		SUBS(Rd, Rn, scratch);
 	}
+}
+
+void ARM64CodeBlock::PoisonMemory(int offset) {
+	u32* ptr = (u32*)(region + offset);
+	u32* maxptr = (u32*)(region + region_size - offset);
+	// If our memory isn't a multiple of u32 then this won't write the last remaining bytes with anything
+	// Less than optimal, but there would be nothing we could do but throw a runtime warning anyway.
+	// AArch64: 0xD4200000 = BRK 0
+	while (ptr < maxptr)
+		*ptr++ = 0xD4200000;
+	FlushIcacheSection((u8 *)ptr, (u8 *)maxptr);
 }
 
 }  // namespace

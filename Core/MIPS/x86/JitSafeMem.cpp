@@ -448,7 +448,7 @@ void JitSafeMemFuncs::Init(ThunkManager *thunks) {
 }
 
 void JitSafeMemFuncs::Shutdown() {
-	ResetCodePtr();
+	ResetCodePtr(0);
 	FreeCodeSpace();
 }
 
