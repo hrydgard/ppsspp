@@ -56,7 +56,7 @@ namespace
 	void SetStringFromSFO(ParamSFOData &sfoFile, const char *name, char *str, int strLength)
 	{
 		std::string value = sfoFile.GetValueString(name);
-		truncate_cpy(str, value.c_str());
+		truncate_cpy(str, strLength, value.c_str());
 	}
 
 	bool ReadPSPFile(std::string filename, u8 **data, s64 dataSize, s64 *readSize)
