@@ -193,7 +193,6 @@ public:
 	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso
 	int bHighQualityDepth;
 	bool bTrueColor;
-	bool bMipMap;
 	bool bReplaceTextures;
 	bool bSaveNewTextures;
 	int iTexScalingLevel; // 1 = off, 2 = 2x, ..., 5 = 5x
