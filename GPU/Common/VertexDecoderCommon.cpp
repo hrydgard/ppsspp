@@ -1281,5 +1281,5 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 }
 
 void VertexDecoderJitCache::Clear() {
-	ClearCodeSpace();
+	ClearCodeSpace(0);
 }

@@ -1061,7 +1061,7 @@ public:
 
 class XCodeBlock : public CodeBlock<XEmitter> {
 public:
-	void PoisonMemory() override;
+	void PoisonMemory(int offset) override;
 };
 
 }  // namespace

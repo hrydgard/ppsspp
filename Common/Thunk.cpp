@@ -101,7 +101,7 @@ void ThunkManager::Init()
 void ThunkManager::Reset()
 {
 	thunks.clear();
-	ResetCodePtr();
+	ResetCodePtr(0);
 }
 
 void ThunkManager::Shutdown()

@@ -219,7 +219,7 @@ void Jit::UpdateRoundingMode() {
 void Jit::ClearCache()
 {
 	blocks.Clear();
-	ClearCodeSpace();
+	ClearCodeSpace(0);
 	GenerateFixedCode(jo);
 }
 

@@ -280,6 +280,8 @@ public:
 	const u8 *applyRoundingMode;
 	const u8 *updateRoundingMode;
 
+	int jitStartOffset;
+
 	// Indexed by FPCR FZ:RN bits for convenience.  Uses SCRATCH2.
 	const u8 *convertS0ToSCRATCH1[8];
 };

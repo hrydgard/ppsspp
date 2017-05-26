@@ -895,7 +895,7 @@ public:
 
 class ARMXCodeBlock : public CodeBlock<ARMXEmitter> {
 public:
-	void PoisonMemory() override;
+	void PoisonMemory(int offset) override;
 };
 
 // VFP Specific

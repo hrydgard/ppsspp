@@ -3211,10 +3211,10 @@ void ARMXEmitter::VCVTF16F32(ARMReg Dest, ARMReg Src) {
 
 // Always clear code space with breakpoints, so that if someone accidentally executes
 // uninitialized, it just breaks into the debugger.
-void ARMXCodeBlock::PoisonMemory() {
+void ARMXCodeBlock::PoisonMemory(int offset) {
 	// TODO: this isn't right for ARM!
-	memset(region, 0xCC, region_size);
-	ResetCodePtr();
+	memset(region + offset, 0xCC, region_size - offset);
+	ResetCodePtr(offset);
 }
 
 }

@@ -17,6 +17,8 @@
 
 #include "ppsspp_config.h"
 
+#include "base/logging.h"
+
 #include "Common.h"
 #include "MemoryUtil.h"
 #include "StringUtils.h"

@@ -359,6 +359,9 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new ItemHeader("System Information"));
 	deviceSpecs->Add(new InfoItem("Name", System_GetProperty(SYSPROP_NAME)));
 	deviceSpecs->Add(new InfoItem("Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
+	std::string board = System_GetProperty(SYSPROP_BOARDNAME);
+	if (!board.empty())
+		deviceSpecs->Add(new InfoItem("Board", board));
 	deviceSpecs->Add(new InfoItem("ABI", GetCompilerABI()));
 #ifdef _WIN32
 	if (IsDebuggerPresent()) {
