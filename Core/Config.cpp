@@ -532,7 +532,6 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false, true, true),
 	ConfigSetting("VSyncInterval", &g_Config.bVSync, false, true, true),
 	ReportedConfigSetting("DisableStencilTest", &g_Config.bDisableStencilTest, false, true, true),
-	ReportedConfigSetting("AlwaysDepthWrite", &g_Config.bAlwaysDepthWrite, false, true, true),
 	ReportedConfigSetting("BloomHack", &g_Config.iBloomHack, 0, true, true),
 
 	// Not really a graphics setting...
