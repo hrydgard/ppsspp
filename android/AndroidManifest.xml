@@ -2,8 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:installLocation="auto"
-    android:versionCode="14100000"
-    android:versionName="1.4.1.0">
+    android:versionCode="14200000"
+    android:versionName="1.4.2.0">
+    <!-- For the next release: Note that versionCode should be in the format xyzzrrrr -->
 
     <uses-sdk
         android:minSdkVersion="9"
