@@ -18,6 +18,13 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+What's new in 1.4.2
+-------------------
+* Fixed longstanding bug causing games to crash on ARM64
+* Software rendering crashfix, plus hide it for Android users
+* D3D9 pixel offset bug fix (blurriness)
+* Fixes for homebrew: Timing, MEMSIZE
+
 What's new in 1.4.1
 -------------------
 * Fixes for some common hangs and crashes (#9698, ...)
