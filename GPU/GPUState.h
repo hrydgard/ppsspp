@@ -279,6 +279,7 @@ struct GPUgstate {
 	int getTextureHeight(int level) const { return 1 << ((texsize[level] >> 8) & 0xf);}
 	u16 getTextureDimension(int level) const { return  texsize[level] & 0xf0f;}
 	GETexLevelMode getTexLevelMode() const { return static_cast<GETexLevelMode>(texlevel & 0x3); }
+	int getTexLevelOffset16() const { return (int)(s8)((texlevel >> 16) & 0xFF); }
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
@@ -303,6 +304,10 @@ struct GPUgstate {
 	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; } // Meaning, no special mask, shift, or start pos.
 	bool isTextureSwizzled() const { return texmode & 1; }
 	bool isClutSharedForMipmaps() const { return (texmode & 0x100) == 0; }
+	bool isMipmapEnabled() const { return (texfilter & 4) != 0; }
+	bool isMipmapFilteringEnabled() const { return (texfilter & 2) != 0; }
+	bool isMinifyFilteringEnabled() const { return (texfilter & 1) != 0; }
+	bool isMagnifyFilteringEnabled() const { return (texfilter >> 8) & 1; }
 	int getTextureMaxLevel() const { return (texmode >> 16) & 0x7; }
 	float getTextureLodSlope() const { return getFloat24(texlodslope); }
 
