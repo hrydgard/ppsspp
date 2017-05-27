@@ -253,6 +253,65 @@ static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, in
 	ApplyTexelClampQuad<1>(u, v, &base_u, &base_v, width, height);
 }
 
+static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const float p, float &s, float &t) {
+	switch (gstate.getUVGenMode()) {
+	case GE_TEXMAP_TEXTURE_COORDS:
+	case GE_TEXMAP_UNKNOWN:
+	case GE_TEXMAP_ENVIRONMENT_MAP:
+		{
+			// TODO: What happens if vertex has no texture coordinates?
+			// Note that for environment mapping, texture coordinates have been calculated during lighting
+			float q0 = 1.f / v0.clippos.w;
+			float q1 = 1.f / v1.clippos.w;
+			float wq0 = p * q0;
+			float wq1 = (1.0f - p) * q1;
+
+			float q_recip = 1.0f / (wq0 + wq1);
+			s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
+			t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
+		}
+		break;
+	case GE_TEXMAP_TEXTURE_MATRIX:
+		{
+			// projection mapping, TODO: Move this code to TransformUnit!
+			Vec3<float> source;
+			switch (gstate.getUVProjMode()) {
+			case GE_PROJMAP_POSITION:
+				source = (v0.modelpos * p + v1.modelpos * (1.0f - p));
+				break;
+
+			case GE_PROJMAP_UV:
+				source = Vec3f((v0.texturecoords * p + v1.texturecoords * (1.0f - p)), 0.0f);
+				break;
+
+			case GE_PROJMAP_NORMALIZED_NORMAL:
+				source = (v0.normal.Normalized() * p + v1.normal.Normalized() * (1.0f - p));
+				break;
+
+			case GE_PROJMAP_NORMAL:
+				source = (v0.normal * p + v1.normal * (1.0f - p));
+				break;
+
+			default:
+				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
+				break;
+			}
+
+			Mat3x3<float> tgen(gstate.tgenMatrix);
+			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
+			float z_recip = 1.0f / stq.z;
+			s = stq.x * z_recip;
+			t = stq.y * z_recip;
+		}
+		break;
+	default:
+		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture mapping mode %x!", gstate.getUVGenMode());
+		s = 0.0f;
+		t = 0.0f;
+		break;
+	}
+}
+
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<float> &wsum_recip, Vec4<float> &s, Vec4<float> &t)
 {
 	switch (gstate.getUVGenMode()) {
@@ -312,7 +371,7 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 		s = Vec4<float>::AssignToAll(0.0f);
 		t = Vec4<float>::AssignToAll(0.0f);
 		break;
-	}	
+	}
 }
 
 struct Nearest4 {
@@ -1540,9 +1599,6 @@ void DrawPoint(const VertexData &v0)
 	ScreenCoords pos = v0.screenpos;
 	Vec4<int> prim_color = v0.color0;
 	Vec3<int> sec_color = v0.color1;
-	// TODO: UVGenMode?
-	float s = v0.texturecoords.s();
-	float t = v0.texturecoords.t();
 
 	ScreenCoords scissorTL(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX1(), gstate.getScissorY1(), 0)));
 	ScreenCoords scissorBR(TransformUnit::DrawingToScreen(DrawingCoords(gstate.getScissorX2(), gstate.getScissorY2(), 0)));
@@ -1575,9 +1631,14 @@ void DrawPoint(const VertexData &v0)
 			}
 		}
 
+		float s = v0.texturecoords.s();
+		float t = v0.texturecoords.t();
 		if (gstate.isModeThrough()) {
 			s *= 1.0f / (float)gstate.getTextureWidth(0);
 			t *= 1.0f / (float)gstate.getTextureHeight(0);
+		} else {
+			// Texture coordinate interpolation must definitely be perspective-correct.
+			GetTextureCoordinates(v0, v0, 0.0f, s, t);
 		}
 
 		int texLevel;
@@ -1679,18 +1740,20 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 			}
 
 			if (gstate.isTextureMapEnabled() && !clearMode) {
-				// TODO: UVGenMode?
-				Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
-				Vec2<float> tc1 = (v0.texturecoords * (float)(steps - i - 1) + v1.texturecoords * (float)(i + 1)) / steps1;
-
-				float &s = tc.s(), &s1 = tc1.s();
-				float &t = tc.t(), &t1 = tc1.t();
-
+				float s, s1;
+				float t, t1;
 				if (gstate.isModeThrough()) {
-					s *= 1.0f / (float)gstate.getTextureWidth(0);
-					s1 *= 1.0f / (float)gstate.getTextureWidth(0);
-					t *= 1.0f / (float)gstate.getTextureHeight(0);
-					t1 *= 1.0f / (float)gstate.getTextureHeight(0);
+					Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
+					Vec2<float> tc1 = (v0.texturecoords * (float)(steps - i - 1) + v1.texturecoords * (float)(i + 1)) / steps1;
+
+					s = tc.s() * (1.0f / (float)gstate.getTextureWidth(0));
+					s1 = tc1.s() * (1.0f / (float)gstate.getTextureWidth(0));
+					t = tc.t() * (1.0f / (float)gstate.getTextureHeight(0));
+					t1 = tc1.t() * (1.0f / (float)gstate.getTextureHeight(0));
+				} else {
+					// Texture coordinate interpolation must definitely be perspective-correct.
+					GetTextureCoordinates(v0, v1, (float)(steps - i) / steps1, s, t);
+					GetTextureCoordinates(v0, v1, (float)(steps - i - 1) / steps1, s1, t1);
 				}
 
 				// If inc is 0, force the delta to zero.
