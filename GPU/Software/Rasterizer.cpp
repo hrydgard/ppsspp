@@ -1244,9 +1244,6 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 }
 
 static inline void ApplyTexturing(Vec4<int> *prim_color, const Vec4<float> &s, const Vec4<float> &t, int maxTexLevel, u8 *texptr[], int texbufwidthbytes[]) {
-	int width = gstate.getTextureWidth(0);
-	int height = gstate.getTextureHeight(0);
-
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
@@ -1356,7 +1353,6 @@ void DrawTriangleSlice(
 	}
 
 	if (gstate.isTextureMapEnabled() && !clearMode) {
-		// TODO: Always using level 0.
 		GETextureFormat texfmt = gstate.getTextureFormat();
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
@@ -1562,27 +1558,20 @@ void DrawPoint(const VertexData &v0)
 		int maxTexLevel = gstate.getTextureMaxLevel();
 		u8 *texptr[8] = {NULL};
 
-		int magFilt = (gstate.texfilter>>8) & 1;
-		if (g_Config.iTexFiltering > 1) {
-			if (g_Config.iTexFiltering == 2) {
-				magFilt = 0;
-			} else if (g_Config.iTexFiltering == 3) {
-				magFilt = 1;
-			}
-		}
 		if ((gstate.texfilter & 4) == 0) {
 			// No mipmapping enabled
 			maxTexLevel = 0;
 		}
 
 		if (gstate.isTextureMapEnabled() && !clearMode) {
-			// TODO: Always using level 0.
-			maxTexLevel = 0;
 			GETextureFormat texfmt = gstate.getTextureFormat();
 			for (int i = 0; i <= maxTexLevel; i++) {
 				u32 texaddr = gstate.getTextureAddress(i);
 				texbufwidthbytes[i] = GetTextureBufw(i, texaddr, texfmt);
-				texptr[i] = Memory::GetPointer(texaddr);
+				if (Memory::IsValidAddress(texaddr))
+					texptr[i] = Memory::GetPointerUnchecked(texaddr);
+				else
+					texptr[i] = 0;
 			}
 		}
 
@@ -1591,7 +1580,11 @@ void DrawPoint(const VertexData &v0)
 			t *= 1.0f / (float)gstate.getTextureHeight(0);
 		}
 
-		ApplyTexturing(prim_color, s, t, 0, 0, magFilt, texptr, texbufwidthbytes);
+		int texLevel;
+		int texLevelFrac;
+		int filt;
+		CalculateSamplingParams(0.0f, 0.0f, maxTexLevel, texLevel, texLevelFrac, filt);
+		ApplyTexturing(prim_color, s, t, texLevel, texLevelFrac, filt, texptr, texbufwidthbytes);
 	}
 
 	if (!clearMode)
