@@ -418,32 +418,13 @@ static u32 SampleNearest(int u, int v, const u8 *tptr, int bufw, int level) {
 static u32 SampleLinear(int u[4], int v[4], int frac_u, int frac_v, const u8 *tptr, int bufw, int texlevel) {
 	Nearest4 c = SampleNearest<4>(u, v, tptr, bufw, texlevel);
 
-#if defined(_M_SSE)
-	const __m128i z = _mm_setzero_si128();
-
-	__m128i cvec = _mm_load_si128((const __m128i *)c.v);
-	__m128i tvec = _mm_unpacklo_epi8(cvec, z);
-	tvec = _mm_mullo_epi16(tvec, _mm_set1_epi16(0x100 - frac_v));
-	__m128i bvec = _mm_unpackhi_epi8(cvec, z);
-	bvec = _mm_mullo_epi16(bvec, _mm_set1_epi16(frac_v));
-
-	// This multiplies the left and right sides.  We shift right after, although this may round down...
-	__m128i rowmult = _mm_set_epi16(frac_u, frac_u, frac_u, frac_u, 0x100 - frac_u, 0x100 - frac_u, 0x100 - frac_u, 0x100 - frac_u);
-	__m128i tmp = _mm_mulhi_epu16(_mm_add_epi16(tvec, bvec), rowmult);
-
-	// Now we need to add the left and right sides together.
-	__m128i res = _mm_add_epi16(tmp, _mm_shuffle_epi32(tmp, _MM_SHUFFLE(3, 2, 3, 2)));
-	return Vec4<int>(_mm_unpacklo_epi16(res, z)).ToRGBA();
-#else
 	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(c.v[0]);
 	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(c.v[1]);
 	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(c.v[2]);
 	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(c.v[3]);
-	// 0x100 causes a slight bias to tl, but without it we'd have to divide by 255 * 255.
 	Vec4<int> t = texcolor_tl * (0x100 - frac_u) + texcolor_tr * frac_u;
 	Vec4<int> b = texcolor_bl * (0x100 - frac_u) + texcolor_br * frac_u;
 	return ((t * (0x100 - frac_v) + b * frac_v) / (256 * 256)).ToRGBA();
-#endif
 }
 
 };
