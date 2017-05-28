@@ -54,7 +54,7 @@ bool MsgAlert(bool yes_no, int Style, const char* format, ...)
 	CharArrayFromFormatV(buffer, sizeof(buffer)-1, format, args);
 	va_end(args);
 	// Safe android logging
-#ifdef PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID)
 	ELOG("%s: %s", caption, buffer);
 #endif
 	// Normal logging
