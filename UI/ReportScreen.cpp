@@ -182,6 +182,17 @@ EventReturn ReportScreen::HandleChoice(EventParams &e) {
 		gameplay_ = -1;
 		ratingEnabled_ = true;
 	}
+
+	// Whether enabled before or not, move to Great when Perfect is selected.
+	if (overall_ == ReportingOverallScore::PERFECT) {
+		if (graphics_ == -1)
+			graphics_ = 2;
+		if (speed_ == -1)
+			speed_ = 2;
+		if (gameplay_ == -1)
+			gameplay_ = 2;
+	}
+
 	UpdateSubmit();
 	UpdateOverallDescription();
 	return EVENT_DONE;
