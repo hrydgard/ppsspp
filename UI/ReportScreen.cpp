@@ -154,8 +154,7 @@ void CompatRatingChoice::SetupChoices() {
 }
 
 ReportScreen::ReportScreen(const std::string &gamePath)
-	: UIDialogScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1),
-	includeScreenshot_(true) {
+	: UIDialogScreenWithGameBackground(gamePath) {
 	enableReporting_ = Reporting::IsEnabled();
 	ratingEnabled_ = enableReporting_;
 }
@@ -172,7 +171,7 @@ void ReportScreen::update() {
 }
 
 EventReturn ReportScreen::HandleChoice(EventParams &e) {
-	if (overall_ == 4) {
+	if (overall_ == ReportingOverallScore::NONE) {
 		graphics_ = 0;
 		speed_ = 0;
 		gameplay_ = 0;
@@ -183,12 +182,24 @@ EventReturn ReportScreen::HandleChoice(EventParams &e) {
 		gameplay_ = -1;
 		ratingEnabled_ = true;
 	}
+
+	// Whether enabled before or not, move to Great when Perfect is selected.
+	if (overall_ == ReportingOverallScore::PERFECT) {
+		if (graphics_ == -1)
+			graphics_ = 2;
+		if (speed_ == -1)
+			speed_ = 2;
+		if (gameplay_ == -1)
+			gameplay_ = 2;
+	}
+
 	UpdateSubmit();
+	UpdateOverallDescription();
 	return EVENT_DONE;
 }
 
 EventReturn ReportScreen::HandleReportingChange(EventParams &e) {
-	if (overall_ == 4) {
+	if (overall_ == ReportingOverallScore::NONE) {
 		ratingEnabled_ = false;
 	} else {
 		ratingEnabled_ = enableReporting_;
@@ -245,7 +256,8 @@ void ReportScreen::CreateViews() {
 		screenshot_ = nullptr;
 	}
 
-	leftColumnItems->Add(new CompatRatingChoice("Overall", &overall_))->SetEnabledPtr(&enableReporting_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+	leftColumnItems->Add(new CompatRatingChoice("Overall", (int *)&overall_))->SetEnabledPtr(&enableReporting_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+	overallDescription_ = leftColumnItems->Add(new TextView("", new LinearLayoutParams(Margins(10, 0))));
 	leftColumnItems->Add(new RatingChoice("Graphics", &graphics_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Speed", &speed_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Gameplay", &gameplay_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
@@ -255,6 +267,7 @@ void ReportScreen::CreateViews() {
 	submit_ = new Choice(rp->T("Submit Feedback"));
 	rightColumnItems->Add(submit_)->OnClick.Handle(this, &ReportScreen::HandleSubmit);
 	UpdateSubmit();
+	UpdateOverallDescription();
 
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -268,17 +281,32 @@ void ReportScreen::CreateViews() {
 }
 
 void ReportScreen::UpdateSubmit() {
-	submit_->SetEnabled(enableReporting_ && overall_ >= 0 && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
+	submit_->SetEnabled(enableReporting_ && overall_ != ReportingOverallScore::INVALID && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
+}
+
+void ReportScreen::UpdateOverallDescription() {
+	I18NCategory *rp = GetI18NCategory("Reporting");
+	const char *desc;
+	switch (overall_) {
+	case ReportingOverallScore::PERFECT: desc = rp->T("Perfect Description", "Flawless emulation for the entire game - great!"); break;
+	case ReportingOverallScore::PLAYABLE: desc = rp->T("Plays Description", "Fully playable but might be with glitches"); break;
+	case ReportingOverallScore::INGAME: desc = rp->T("In-game Description", "Gets into gameplay, but too buggy too complete"); break;
+	case ReportingOverallScore::MENU: desc = rp->T("Menu/Intro Description", "Can't get into the game itself"); break;
+	case ReportingOverallScore::NONE: desc = rp->T("Nothing Description", "Completely broken"); break;
+	default: desc = rp->T("Unselected Overall Description", "How well does this game emulate?"); break;
+	}
+
+	overallDescription_->SetText(desc);
 }
 
 EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 	const char *compat;
 	switch (overall_) {
-	case 0: compat = "perfect"; break;
-	case 1: compat = "playable"; break;
-	case 2: compat = "ingame"; break;
-	case 3: compat = "menu"; break;
-	case 4: compat = "none"; break;
+	case ReportingOverallScore::PERFECT: compat = "perfect"; break;
+	case ReportingOverallScore::PLAYABLE: compat = "playable"; break;
+	case ReportingOverallScore::INGAME: compat = "ingame"; break;
+	case ReportingOverallScore::MENU: compat = "menu"; break;
+	case ReportingOverallScore::NONE: compat = "none"; break;
 	default: compat = "unknown"; break;
 	}
 
