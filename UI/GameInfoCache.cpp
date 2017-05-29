@@ -407,7 +407,7 @@ public:
 					info_->ParseParamSFO();
 
 					// Assuming PSP_PBP_DIRECTORY without ID or with disc_total < 1 in GAME dir must be homebrew
-					if ((info_->id.empty() || info_->disc_total < 1)
+					if ((info_->id.empty() || !info_->disc_total)
 						&& gamePath_.find("/PSP/GAME/") != std::string::npos 
 						&& info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 						info_->id = g_paramSFO.GenerateFakeID(gamePath_);
