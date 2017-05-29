@@ -18,6 +18,7 @@
 #include "file/file_util.h"
 #include "util/text/utf8.h"
 
+#include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -332,6 +333,31 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	sprintf(title, "%s : %s", madeUpID.c_str(), homebrewName.c_str());
 	INFO_LOG(LOADER, "%s", title);
 	host->SetWindowTitle(title);
+
+	// Temporary code
+	// TODO: Remove this after ~ 1.6
+	// It checks for old filenames for homebrew savestates(folder name) and rename them to new fakeID format
+	std::string savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
+	savestateDir = ReplaceAll(savestateDir, "\\", "/");
+#ifdef _WIN32
+	// Turn the slashes back to the Windows way.
+	savestateDir = ReplaceAll(savestateDir, "/", "\\");
+#endif
+	for (int i = 0; i < 5; i += 1) {
+		std::string oldName = StringFromFormat("%s%s_%i.ppst", savestateDir.c_str(), homebrewName.c_str(), i);
+		if (File::Exists(oldName)) {
+			std::string newName = StringFromFormat("%s%s_1.00_%i.ppst", savestateDir.c_str(), madeUpID.c_str(), i);
+			File::Rename(oldName, newName);
+		}
+	}
+	for (int i = 0; i < 5; i += 1) {
+		std::string oldName = StringFromFormat("%s%s_%i.jpg", savestateDir.c_str(), homebrewName.c_str(), i);
+		if (File::Exists(oldName)) {
+			std::string newName = StringFromFormat("%s%s_1.00_%i.jpg", savestateDir.c_str(), madeUpID.c_str(), i);
+			File::Rename(oldName, newName);
+		}
+	}
+	// End of temporary code
 
 	return __KernelLoadExec(finalName.c_str(), 0, error_string);
 }
