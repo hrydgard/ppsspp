@@ -64,10 +64,10 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
+DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
 	:	vulkan_(vulkan),
+		draw_(draw),
 		prevPrim_(GE_PRIM_INVALID),
-		lastVTypeID_(-1),
 		numDrawCalls(0),
 		vertexCountInDrawCalls(0),
 		curFrame_(0),
@@ -149,7 +149,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 2048;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 2048;
+	dpTypes[1].descriptorCount = 4096;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
@@ -168,7 +168,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 			if (res == VK_SUCCESS) {
 				break;
 			}
-
 			// Let's try to reduce the counts.
 			assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY);
 			dpTypes[0].descriptorCount /= 2;
@@ -328,15 +327,17 @@ inline void DrawEngineVulkan::SetupVertexDecoderInternal(u32 vertType) {
 	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
 
 	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVTypeID_) {
+	if (vertTypeID != lastVType_) {
 		dec_ = GetVertexDecoder(vertTypeID);
-		lastVTypeID_ = vertTypeID;
+		lastVType_ = vertTypeID;
 	}
+	if (!dec_)
+		Crash();
 }
 
 void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
-		Flush(cmd_);
+		Flush();
 
 	// TODO: Is this the right thing to do?
 	if (prim == GE_PRIM_KEEP_PREVIOUS) {
@@ -375,7 +376,7 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 		// Rendertarget == texture?
 		if (!g_Config.bDisableSlowFramebufEffects) {
 			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-			Flush(cmd_);
+			Flush();
 		}
 	}
 }
@@ -643,27 +644,14 @@ void DrawEngineVulkan::DirtyAllUBOs() {
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
-//void DrawEngineVulkan::ApplyDrawStateLate() {
-	/*
-	// At this point, we know if the vertices are full alpha or not.
-	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
-	if (!gstate.isModeClear()) {
-		// TODO: Test texture?
-
-		if (fboTexNeedBind_) {
-			// Note that this is positions, not UVs, that we need the copy from.
-			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
-			// If we are rendering at a higher resolution, linear is probably best for the dest color.
-			fboTexBound_ = true;
-			fboTexNeedBind_ = false;
-		}
-	}
-	*/
-//}
-
 // The inline wrapper in the header checks for numDrawCalls == 0d
-void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
+void DrawEngineVulkan::DoFlush() {
 	gpuStats.numFlushes++;
+
+	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
+	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS);
+	if (!rp)
+		Crash();
 
 	FrameData *frame = &frame_[curFrame_ & 1];
 
@@ -689,6 +677,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	uint32_t ibOffset = 0;
 	uint32_t vbOffset = 0;
 	
+	VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
+
 	if (useHWTransform) {
 		// We don't detect clears in this path, so here we can switch framebuffers if necessary.
 
@@ -706,7 +696,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		}
 		prim = indexGen.Prim();
 
-		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
 		} else {
@@ -724,28 +714,28 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 		// TODO: Dirty-flag these.
-		vkCmdSetScissor(cmd_, 0, 1, &dynState_.scissor);
-		vkCmdSetViewport(cmd_, 0, 1, &dynState_.viewport);
+		vkCmdSetScissor(cmd, 0, 1, &dynState_.scissor);
+		vkCmdSetViewport(cmd, 0, 1, &dynState_.viewport);
 		if (dynState_.useStencil) {
-			vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilWriteMask);
-			vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilCompareMask);
-			vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilRef);
+			vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilWriteMask);
+			vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilCompareMask);
+			vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilRef);
 		}
 		if (dynState_.useBlendColor) {
 			float bc[4];
 			Uint8x4ToFloat4(bc, dynState_.blendColor);
-			vkCmdSetBlendConstants(cmd_, bc);
+			vkCmdSetBlendConstants(cmd, bc);
 		}
 
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
-		shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
-		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey_, dec_, vshader, fshader, true);
+		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
+		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, true);
 		if (!pipeline) {
 			// Already logged, let's bail out.
 			return;
 		}
-		vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
 		UpdateUBOs(frame);
 
@@ -754,7 +744,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		const uint32_t dynamicUBOOffsets[3] = {
 			baseUBOOffset, lightUBOOffset, boneUBOOffset,
 		};
-		vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
 		int stride = dec_->GetDecVtxFmt().stride;
 
@@ -763,18 +753,18 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			VkBuffer ibuf;
 			ibOffset = (uint32_t)frame->pushIndex->Push(decIndex, 2 * indexGen.VertexCount(), &ibuf);
 			// TODO: Avoid rebinding vertex/index buffers if the vertex size stays the same by using the offset arguments
-			vkCmdBindVertexBuffers(cmd_, 0, 1, &vbuf, offsets);
-			vkCmdBindIndexBuffer(cmd_, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
+			vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, offsets);
+			vkCmdBindIndexBuffer(cmd, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
 			int numInstances = (gstate_c.bezier || gstate_c.spline) ? numPatches : 1;
-			vkCmdDrawIndexed(cmd_, vertexCount, numInstances, 0, 0, 0);
+			vkCmdDrawIndexed(cmd, vertexCount, numInstances, 0, 0, 0);
 		} else {
-			vkCmdBindVertexBuffers(cmd_, 0, 1, &vbuf, offsets);
-			vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
+			vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, offsets);
+			vkCmdDraw(cmd, vertexCount, 1, 0, 0);
 		}
 	} else {
 		// Decode to "decoded"
 		DecodeVerts(nullptr, nullptr, nullptr);
-		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
 		} else {
@@ -826,32 +816,31 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			VulkanDynamicState dynState;
 			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);
 			// TODO: Dirty-flag these.
-			vkCmdSetScissor(cmd_, 0, 1, &dynState.scissor);
-			vkCmdSetViewport(cmd_, 0, 1, &dynState.viewport);
+			vkCmdSetScissor(cmd, 0, 1, &dynState.scissor);
+			vkCmdSetViewport(cmd, 0, 1, &dynState.viewport);
 			if (dynState.useStencil) {
-				vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
-				vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
+				vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
+				vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
 			}
 			if (result.setStencil) {
-				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, result.stencilValue);
+				vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, result.stencilValue);
 			} else if (dynState.useStencil) {
-				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
+				vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
 			}
 			if (dynState.useBlendColor) {
 				float bc[4];
 				Uint8x4ToFloat4(bc, dynState.blendColor);
-				vkCmdSetBlendConstants(cmd_, bc);
+				vkCmdSetBlendConstants(cmd, bc);
 			}
-
 			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
-			shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, false);
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey, dec_, vshader, fshader, false);
 			if (!pipeline) {
 				// Already logged, let's bail out.
 				return;
 			}
-			vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
 			UpdateUBOs(frame);
@@ -860,7 +849,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			const uint32_t dynamicUBOOffsets[3] = {
 				baseUBOOffset, lightUBOOffset, boneUBOOffset,
 			};
-			vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
+			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
 			if (drawIndexed) {
 				VkBuffer vbuf, ibuf;
@@ -868,21 +857,22 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				ibOffset = (uint32_t)frame->pushIndex->Push(inds, sizeof(short) * numTrans, &ibuf);
 				VkDeviceSize offsets[1] = { vbOffset };
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
-				vkCmdBindVertexBuffers(cmd_, 0, 1, &vbuf, offsets);
-				vkCmdBindIndexBuffer(cmd_, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
-				vkCmdDrawIndexed(cmd_, numTrans, 1, 0, 0, 0);
+				vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, offsets);
+				vkCmdBindIndexBuffer(cmd, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
+				vkCmdDrawIndexed(cmd, numTrans, 1, 0, 0, 0);
 			} else {
 				VkBuffer vbuf;
 				vbOffset = (uint32_t)frame->pushVertex->Push(drawBuffer, numTrans * sizeof(TransformedVertex), &vbuf);
 				VkDeviceSize offsets[1] = { vbOffset };
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
-				vkCmdBindVertexBuffers(cmd_, 0, 1, &vbuf, offsets);
-				vkCmdDraw(cmd_, numTrans, 1, 0, 0);
+				vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, offsets);
+				vkCmdDraw(cmd, numTrans, 1, 0, 0);
 			}
 		} else if (result.action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
 
 			// We let the framebuffer manager handle the clear. It can use renderpasses to optimize on tilers.
+			// If non-buffered though, it'll just do a plain clear.
 			framebufferManager_->NotifyClear(gstate.isClearModeColorMask(), gstate.isClearModeAlphaMask(), gstate.isClearModeDepthMask(), result.color, result.depth);
 
 			int scissorX1 = gstate.getScissorX1();

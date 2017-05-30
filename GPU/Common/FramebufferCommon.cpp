@@ -134,10 +134,6 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 
 void FramebufferManagerCommon::Init() {
 	const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
-	// And an initial clear. We don't clear per frame as the games are supposed to handle that
-	// by themselves.
-	ClearBuffer();
-
 	BeginFrame();
 }
 
@@ -204,14 +200,9 @@ void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
 		// No depth/stencil for post processing
 		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
 		extraFBOs_.push_back(fbo);
-
-		// The new FBO is still bound after creation, but let's bind it anyway.
-		draw_->BindFramebufferAsRenderTarget(fbo);
-		ClearBuffer();
 	}
-
 	currentRenderVfb_ = 0;
-	draw_->BindBackbufferAsRenderTarget();
+	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 }
 
 // Heuristics to figure out the size of FBO to create.
@@ -533,13 +524,13 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
 	if (!useBufferedRendering_) {
-		draw_->BindBackbufferAsRenderTarget();
 		// Let's ignore rendering to targets that have not (yet) been displayed.
 		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 	}
 
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
+	// TODO: Is this necessary?
 	ClearBuffer();
 
 	// ugly...
@@ -579,41 +570,6 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	}
 	textureCache_->ForgetLastTexture();
 
-	if (useBufferedRendering_) {
-		if (vfb->fbo) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-		} else {
-			// This should only happen very briefly when toggling useBufferedRendering_.
-			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
-		}
-	} else {
-		if (vfb->fbo) {
-			// This should only happen very briefly when toggling useBufferedRendering_.
-			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
-			delete vfb->fbo;
-			vfb->fbo = nullptr;
-		}
-		draw_->BindBackbufferAsRenderTarget();
-
-		// Let's ignore rendering to targets that have not (yet) been displayed.
-		if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
-			gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
-		} else {
-			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
-		}
-	}
-	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
-
-	if (gl_extensions.IsGLES) {
-		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-		// to it. This broke stuff before, so now it only clears on the first use of an
-		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (vfb->last_frame_render != gpuStats.numFlips) {
-			ClearBuffer();
-		}
-	}
-
 	// Copy depth pixel value from the read framebuffer to the draw framebuffer
 	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
 		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
@@ -627,6 +583,42 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 		// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
 		ReformatFramebufferFrom(vfb, vfb->drawnFormat);
 	}
+
+	if (useBufferedRendering_) {
+		if (vfb->fbo) {
+			if (gl_extensions.IsGLES) {
+				// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+				// to it. This broke stuff before, so now it only clears on the first use of an
+				// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+				// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+				if (vfb->last_frame_render != gpuStats.numFlips) {
+					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+				} else {
+					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+				}
+			} else {
+				draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+			}
+		} else {
+			// This should only happen very briefly when toggling useBufferedRendering_.
+			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+		}
+	} else {
+		if (vfb->fbo) {
+			// This should only happen very briefly when toggling useBufferedRendering_.
+			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
+			delete vfb->fbo;
+			vfb->fbo = nullptr;
+		}
+
+		// Let's ignore rendering to targets that have not (yet) been displayed.
+		if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) {
+			gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
+		} else {
+			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
+		}
+	}
+	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
 	// ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
@@ -710,8 +702,9 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height, u1, v1);
 
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo);
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
+		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
 		// We are drawing to the back buffer so need to flip.
 		if (needBackBufferYSwap_)
@@ -719,6 +712,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 		SetViewport2D(x, y, w, h);
+		draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 	}
 	DisableState();
 
@@ -827,19 +821,15 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 void FramebufferManagerCommon::CopyDisplayToOutput() {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 
-	SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-	draw_->BindBackbufferAsRenderTarget();
 	currentRenderVfb_ = 0;
 
 	if (displayFramebufPtr_ == 0) {
 		DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
 		// No framebuffer to display! Clear to black.
-		ClearBuffer();
+		if (useBufferedRendering_) {
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+		}
 		return;
-	}
-
-	if (useBufferedRendering_) {
-		draw_->Clear(Draw::FB_COLOR_BIT | Draw::FB_STENCIL_BIT | Draw::FB_DEPTH_BIT, 0, 0, 0);
 	}
 
 	u32 offsetX = 0;
@@ -900,14 +890,23 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			}
 
 			if (!vfb) {
+				if (useBufferedRendering_) {
+					// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
+					draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+				}
 				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
+				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+				draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 				DrawFramebufferToOutput(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 				return;
 			}
 		} else {
 			DEBUG_LOG(FRAMEBUF, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
 			// No framebuffer to display! Clear to black.
-			ClearBuffer();
+			if (useBufferedRendering_) {
+				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
+				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+			}
 			return;
 		}
 	}
@@ -929,8 +928,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 		DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
 
-		draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
-
 		int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 
 		// Output coordinates
@@ -945,6 +942,10 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 		float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
 
 		if (!usePostShader_) {
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
+			SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.
@@ -966,10 +967,11 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			}
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
-			draw_->BindFramebufferAsRenderTarget(extraFBOs_[0]);
+			draw_->BindFramebufferAsRenderTarget(extraFBOs_[0], { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 			int fbo_w, fbo_h;
 			draw_->GetFramebufferDimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			SetViewport2D(0, 0, fbo_w, fbo_h);
+			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
@@ -977,7 +979,8 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
 			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, linearFilter);
 
-			draw_->BindBackbufferAsRenderTarget();
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+			SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 
 			// Use the extra FBO, with applied post-processing shader, as a texture.
 			// fbo_bind_as_texture(extraFBOs_[0], FB_COLOR_BIT, 0);
@@ -1009,11 +1012,13 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 
 			/*
 			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-				draw_->BindFramebufferAsRenderTarget(extraFBOs_[0]);
+				draw_->BindFramebufferAsRenderTarget(extraFBOs_[0], { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 				GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
 				glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 			}*/
 		} else {
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.
 			if (needBackBufferYSwap_)
@@ -1045,9 +1050,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {
-	if (useBufferedRendering_) {
-		draw_->BindBackbufferAsRenderTarget();
-	}
 	currentRenderVfb_ = 0;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -1138,7 +1140,6 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	}
 
 	textureCache_->ForgetLastTexture();
-	draw_->BindBackbufferAsRenderTarget();
 
 	if (!useBufferedRendering_) {
 		if (vfb->fbo) {
@@ -1156,16 +1157,17 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	if (old.fbo) {
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
-			ClearBuffer();
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 			if (!skipCopy && !g_Config.bDisableSlowFramebufEffects) {
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
 			}
 		}
 		delete old.fbo;
-		if (vfb->fbo) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo);
+		if (needGLESRebinds_) {
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		}
+	} else {
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 	}
 
 	if (!vfb->fbo) {
@@ -1801,8 +1803,9 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(u16 w, u16 h, Draw::FBCo
 	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, depth });
 	if (!fbo)
 		return fbo;
-	draw_->BindFramebufferAsRenderTarget(fbo);
-	ClearBuffer(true);
+
+	// TODO: Move binding out of here!
+	draw_->BindFramebufferAsRenderTarget(fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 	const TempFBO info = { fbo, gpuStats.numFlips };
 	tempFBOs_[key] = info;
 	return fbo;

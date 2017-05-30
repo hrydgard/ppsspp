@@ -52,8 +52,6 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-const VkFormat framebufFormat = VK_FORMAT_B8G8R8A8_UNORM;
-
 static const char tex_fs[] = R"(#version 400
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
@@ -92,7 +90,6 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	pixelBufObj_(nullptr),
 	currentPBO_(0),
 	curFrame_(0),
-	pipelineBasicTex_(VK_NULL_HANDLE),
 	pipelinePostShader_(VK_NULL_HANDLE),
 	vulkan2D_(vulkan) {
 
@@ -117,74 +114,8 @@ void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
 }
 
 void FramebufferManagerVulkan::InitDeviceObjects() {
-	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
-	// with and without pre-clearing of both depth/stencil and color, so 4 combos.
-	VkAttachmentDescription attachments[2] = {};
-	attachments[0].format = framebufFormat;
-	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachments[0].flags = 0;
-
-	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
-	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	attachments[1].flags = 0;
-
-	VkAttachmentReference color_reference = {};
-	color_reference.attachment = 0;
-	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkAttachmentReference depth_reference = {};
-	depth_reference.attachment = 1;
-	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.flags = 0;
-	subpass.inputAttachmentCount = 0;
-	subpass.pInputAttachments = NULL;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &color_reference;
-	subpass.pResolveAttachments = NULL;
-	subpass.pDepthStencilAttachment = &depth_reference;
-	subpass.preserveAttachmentCount = 0;
-	subpass.pPreserveAttachments = NULL;
-
-	VkRenderPassCreateInfo rp = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-	rp.attachmentCount = 2;
-	rp.pAttachments = attachments;
-	rp.subpassCount = 1;
-	rp.pSubpasses = &subpass;
-	rp.dependencyCount = 0;
-	rp.pDependencies = NULL;
-
-	// TODO: Maybe LOAD_OP_DONT_CARE makes sense in some situations. Additionally,
-	// there is often no need to store the depth buffer afterwards, although hard to know up front.
-	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpLoadColorLoadDepth_);
-	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpClearColorLoadDepth_);
-	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpClearColorClearDepth_);
-	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpLoadColorClearDepth_);
-
 	// Initialize framedata
 	for (int i = 0; i < 2; i++) {
-		VkCommandPoolCreateInfo cp = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-		cp.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-		cp.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
-		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cp, nullptr, &frameData_[i].cmdPool_);
-		assert(res == VK_SUCCESS);
 		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
 	}
 
@@ -196,7 +127,9 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 	assert(fsBasicTex_ != VK_NULL_HANDLE);
 	assert(vsBasicTex_ != VK_NULL_HANDLE);
 
-	pipelineBasicTex_ = vulkan2D_.GetPipeline(pipelineCache2D_, rpClearColorClearDepth_, vsBasicTex_, fsBasicTex_);
+	// Prime the 2D pipeline cache.
+	vulkan2D_.GetPipeline(pipelineCache2D_, vulkan_->GetSurfaceRenderPass(), vsBasicTex_, fsBasicTex_);
+	vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS), vsBasicTex_, fsBasicTex_);
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -213,25 +146,7 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::DestroyDeviceObjects() {
-	if (rpLoadColorLoadDepth_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorLoadDepth_);
-	if (rpClearColorLoadDepth_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteRenderPass(rpClearColorLoadDepth_);
-	if (rpClearColorClearDepth_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteRenderPass(rpClearColorClearDepth_);
-	if (rpLoadColorClearDepth_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorClearDepth_);
-
 	for (int i = 0; i < 2; i++) {
-		if (frameData_[i].numCommandBuffers_ > 0) {
-			vkFreeCommandBuffers(vulkan_->GetDevice(), frameData_[i].cmdPool_, frameData_[i].numCommandBuffers_, frameData_[i].commandBuffers_);
-			frameData_[i].numCommandBuffers_ = 0;
-			frameData_[i].totalCommandBuffers_ = 0;
-		}
-		if (frameData_[i].cmdPool_ != VK_NULL_HANDLE) {
-			vkDestroyCommandPool(vulkan_->GetDevice(), frameData_[i].cmdPool_, nullptr);
-			frameData_[i].cmdPool_ = VK_NULL_HANDLE;
-		}
 		if (frameData_[i].push_) {
 			frameData_[i].push_->Destroy(vulkan_);
 			delete frameData_[i].push_;
@@ -256,50 +171,30 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
-	if (!useBufferedRendering_) {
+	// if (!useBufferedRendering_) {
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
-		VkClearValue colorValue, depthValue;
-		Uint8x4ToFloat4(colorValue.color.float32, color);
-		depthValue.depthStencil.depth = depth;
-		depthValue.depthStencil.stencil = (color >> 24) & 0xFF;
-
-		VkClearRect rect;
-		rect.baseArrayLayer = 0;
-		rect.layerCount = 1;
-		rect.rect.offset.x = x;
-		rect.rect.offset.y = y;
-		rect.rect.extent.width = w;
-		rect.rect.extent.height = h;
-
-		int count = 0;
-		VkClearAttachment attach[2];
+		int mask = 0;
 		// The Clear detection takes care of doing a regular draw instead if separate masking
 		// of color and alpha is needed, so we can just treat them as the same.
-		if (clearColor || clearAlpha) {
-			attach[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			attach[count].clearValue = colorValue;
-			attach[count].colorAttachment = 0;
-			count++;
-		}
-		if (clearDepth) {
-			attach[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-			attach[count].clearValue = depthValue;
-			attach[count].colorAttachment = 0;
-			count++;
-		}
-		vkCmdClearAttachments(curCmd_, count, attach, 1, &rect);
+		if (clearColor || clearAlpha)
+			mask |= Draw::FBChannel::FB_COLOR_BIT;
+		if (clearDepth)
+			mask |= Draw::FBChannel::FB_DEPTH_BIT;
+		if (clearAlpha)
+			mask |= Draw::FBChannel::FB_STENCIL_BIT;
 
+		draw_->Clear(mask, color, depth, 0);
 		if (clearColor || clearAlpha) {
 			SetColorUpdated(gstate_c.skipDrawReason);
 		}
 		if (clearDepth) {
 			SetDepthUpdated();
 		}
-	} else {
+	//} else {
 		// TODO: Clever render pass magic.
-	}
+	//}
 }
 
 void FramebufferManagerVulkan::DoNotifyDraw() {
@@ -345,6 +240,8 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 		drawPixelsTex_->CreateDirect(width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		// Initialize backbuffer texture for DrawPixels
 		drawPixelsTexFormat_ = srcPixelFormat;
+	} else {
+		drawPixelsTex_->TransitionForUpload();
 	}
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
@@ -403,6 +300,8 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 	size_t offset = frameData_[curFrame_].push_->Push(data, width * height * 4, &buffer);
 	drawPixelsTex_->UploadMip(0, width, height, buffer, (uint32_t)offset, width);
 	drawPixelsTex_->EndCreate();
+
+	overrideImageView_ = drawPixelsTex_->GetImageView();
 }
 
 void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
@@ -413,15 +312,12 @@ void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
 	vp.y = (float)y;
 	vp.width = (float)w;
 	vp.height = (float)h;
-	vkCmdSetViewport(curCmd_, 0, 1, &vp);
+
+	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
+	vkCmdSetViewport(cmd, 0, 1, &vp);
 }
 
 void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
-	// TODO
-}
-
-// x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
-void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation) {
 	float texCoords[8] = {
 		u0,v0,
 		u1,v0,
@@ -444,10 +340,10 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 	}
 
 	Vulkan2D::Vertex vtx[4] = {
-		{x,y,0,texCoords[0],texCoords[1]},
-		{x + w,y,0,texCoords[2],texCoords[3]},
-		{x,y + h,0,texCoords[6],texCoords[7] },
-		{x + w,y + h,0,texCoords[4],texCoords[5] },
+		{x,     y,     0, texCoords[0], texCoords[1]},
+		{x + w, y,     0, texCoords[2], texCoords[3]},
+		{x,     y + h, 0, texCoords[6], texCoords[7]},
+		{x + w, y + h, 0, texCoords[4], texCoords[5]},
 	};
 
 	float invDestW = 1.0f / (destW * 0.5f);
@@ -457,13 +353,18 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 		vtx[i].y = vtx[i].y * invDestH - 1.0f;
 	}
 
+	draw_->FlushState();
+
+	// TODO: Should probably use draw_ directly and not go low level
+
 	VulkanPushBuffer *push = frameData_[curFrame_].push_;
 
-	VkCommandBuffer cmd = curCmd_;
+	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
 
-	// TODO: Choose linear or nearest appropriately, see GL impl.
-	vulkan2D_.BindDescriptorSet(cmd, texture->GetImageView(), linearSampler_);
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	VkImageView view = overrideImageView_ ? overrideImageView_ : (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+	overrideImageView_ = VK_NULL_HANDLE;
+	vulkan2D_.BindDescriptorSet(cmd, view, linearFilter ? linearSampler_ : nearestSampler_);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cur2DPipeline_);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);
 	vkCmdBindVertexBuffers(cmd, 0, 1, &vbuffer, &offset);
@@ -471,7 +372,8 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 }
 
 void FramebufferManagerVulkan::Bind2DShader() {
-
+	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
+	cur2DPipeline_ = vulkan2D_.GetPipeline(pipelineCache2D_, rp, vsBasicTex_, fsBasicTex_);
 }
 
 void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms) {
@@ -480,9 +382,10 @@ void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms
 
 void FramebufferManagerVulkan::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo);
+		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	} else {
-		draw_->BindBackbufferAsRenderTarget();
+		// Should this even happen?
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
 }
 
@@ -500,13 +403,11 @@ int FramebufferManagerVulkan::GetLineWidth() {
 	}
 }
 
+// This also binds vfb as the current render target.
 void FramebufferManagerVulkan::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
 	if (!useBufferedRendering_ || !vfb->fbo) {
 		return;
 	}
-
-	/*
-	BindFramebufferAsRenderTargetvfb->fbo);
 
 	// Technically, we should at this point re-interpret the bytes of the old format to the new.
 	// That might get tricky, and could cause unnecessary slowness in some games.
@@ -518,30 +419,70 @@ void FramebufferManagerVulkan::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 	// to exactly reproduce in 4444 and 8888 formats.
 
 	if (old == GE_FORMAT_565) {
-		// TODO: Clear to black, set stencil to 0, don't touch depth (or maybe zap depth).
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+	} else {
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
-
-	RebindFramebuffer();
-	*/
 }
 
+// Except for a missing rebind and silly scissor enables, identical copy of the same function in GPU_GLES - tricky parts are in thin3d.
 void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	if (src->z_address == dst->z_address &&
-		src->z_stride != 0 && dst->z_stride != 0 &&
-		src->renderWidth == dst->renderWidth &&
-		src->renderHeight == dst->renderHeight) {
+	if (g_Config.bDisableSlowFramebufEffects) {
+		return;
+	}
 
-		// TODO: Let's only do this if not clearing depth.
+	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
+	bool matchingSize = src->width == dst->width && src->height == dst->height;
+	bool matchingRenderSize = src->renderWidth == dst->renderWidth && src->renderHeight == dst->renderHeight;
 
-		VkImageCopy region = {};
-		region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		region.extent = { dst->renderWidth, dst->renderHeight, 1 };
-		region.extent.depth = 1;
-		// vkCmdCopyImage(curCmd_, src->fbo->GetDepthStencil()->GetImage(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		// 	dst->fbo->GetDepthStencil()->GetImage(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, &region);
+	if (gstate_c.Supports(GPU_SUPPORTS_ANY_COPY_IMAGE) && matchingDepthBuffer && matchingRenderSize && matchingSize) {
+		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT);
+	} else if (matchingDepthBuffer && matchingSize) {
+		int w = std::min(src->renderWidth, dst->renderWidth);
+		int h = std::min(src->renderHeight, dst->renderHeight);
+		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
+			draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST);
+		}
+	}
+}
 
-		// If we set dst->depthUpdated here, our optimization above would be pointless.
+VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
+	if (!framebuffer->fbo || !useBufferedRendering_) {
+		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+		return VK_NULL_HANDLE;
+	}
+
+	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
+	// Let's just not bother with the copy in that case.
+	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
+	if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
+		skipCopy = true;
+	}
+	// Currently rendering to this framebuffer. Need to make a copy.
+	if (!skipCopy && framebuffer == currentRenderVfb_) {
+		// ignore this case for now, doesn't work
+		// ILOG("Texturing from current render Vfb!");
+		return VK_NULL_HANDLE;
+
+		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
+		Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
+		if (renderCopy) {
+			VirtualFramebuffer copyInfo = *framebuffer;
+			copyInfo.fbo = renderCopy;
+			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
+			RebindFramebuffer();
+			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
+		} else {
+			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+		}
+		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+	} else if (framebuffer != currentRenderVfb_) {
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
+		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+	} else {
+		ERROR_LOG_REPORT_ONCE(vulkanSelfTexture, G3D, "Attempting to texture from target");
+		// To do this safely in Vulkan, we need to use input attachments.
+		return VK_NULL_HANDLE;
 	}
 }
 
@@ -721,15 +662,13 @@ void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb
 void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
+		if (useBufferedRendering_)
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		return;
 	}
 
-	// NOTE: There may be cases (like within a renderpass) where we want to
-	// not use a blit.
-	bool useBlit = true;
-
-	float srcXFactor = useBlit ? (float)src->renderWidth / (float)src->bufferWidth : 1.0f;
-	float srcYFactor = useBlit ? (float)src->renderHeight / (float)src->bufferHeight : 1.0f;
+	float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
+	float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
 	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 	if (srcBpp != bpp && bpp != 0) {
 		srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -739,8 +678,8 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	int srcY1 = srcY * srcYFactor;
 	int srcY2 = (srcY + h) * srcYFactor;
 
-	float dstXFactor = useBlit ? (float)dst->renderWidth / (float)dst->bufferWidth : 1.0f;
-	float dstYFactor = useBlit ? (float)dst->renderHeight / (float)dst->bufferHeight : 1.0f;
+	float dstXFactor = (float)dst->renderWidth / (float)dst->bufferWidth;
+	float dstYFactor = (float)dst->renderHeight / (float)dst->bufferHeight;
 	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 	if (dstBpp != bpp && bpp != 0) {
 		dstXFactor = (dstXFactor * bpp) / dstBpp;
@@ -756,6 +695,7 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		return;
 	}
 
+	// BlitFramebuffer can clip, but CopyFramebufferImage is more restricted.
 	// In case the src goes outside, we just skip the optimization in that case.
 	const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
 	const bool sameDepth = dst->colorDepth == src->colorDepth;
@@ -764,30 +704,9 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
 	const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
 	if (sameSize && sameDepth && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
-		VkImageCopy region = {};
-		region.extent = { (uint32_t)(dstX2 - dstX1), (uint32_t)(dstY2 - dstY1), 1 };
-		/*
-		glCopyImageSubDataOES(
-			fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
-			fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,
-			dstX2 - dstX1, dstY2 - dstY1, 1);
-			*/
-		return;
-	}
-
-	// BindFramebufferAsRenderTargetdst->fbo);
-
-	if (useBlit) {
-		// fbo_bind_for_read(src->fbo);
-		//glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT);
 	} else {
-		// fbo_bind_color_as_texture(src->fbo, 0);
-
-		// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
-		// Should maybe revamp that interface.
-		float srcW = src->bufferWidth;
-		float srcH = src->bufferHeight;
-		// DrawActiveTexture(0, dstX1, dstY1, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY1 / srcH, srcX2 / srcW, srcY2 / srcH, draw2dprogram_, ROTATION_LOCKED_HORIZONTAL);
+		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
 	}
 }
 
@@ -1000,39 +919,26 @@ void FramebufferManagerVulkan::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 
 }
 
-VkCommandBuffer FramebufferManagerVulkan::AllocFrameCommandBuffer() {
-	FrameData &frame = frameData_[curFrame_];
-	int num = frame.numCommandBuffers_;
-	if (!frame.commandBuffers_[num]) {
-		VkCommandBufferAllocateInfo cmd = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-		cmd.commandBufferCount = 1;
-		cmd.commandPool = frame.cmdPool_;
-		cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd, &frame.commandBuffers_[num]);
-		frame.totalCommandBuffers_ = num + 1;
-	}
-	return frame.commandBuffers_[num];
-}
-
 void FramebufferManagerVulkan::BeginFrameVulkan() {
 	BeginFrame();
 
 	vulkan2D_.BeginFrame();
 
 	FrameData &frame = frameData_[curFrame_];
-	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
-	frame.numCommandBuffers_ = 0;
 
 	frame.push_->Reset();
 	frame.push_->Begin(vulkan_);
 	
 	if (!useBufferedRendering_) {
+		// TODO: This hackery should not be necessary. Is it? Need to check.
 		// We only use a single command buffer in this case.
-		curCmd_ = vulkan_->GetSurfaceCommandBuffer();
+		VkCommandBuffer cmd = vulkan_->GetSurfaceCommandBuffer();
 		VkRect2D scissor;
 		scissor.offset = { 0, 0 };
 		scissor.extent = { (uint32_t)pixelWidth_, (uint32_t)pixelHeight_ };
-		vkCmdSetScissor(curCmd_, 0, 1, &scissor);
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+	} else {
+		// Each render pass will set up scissor again.
 	}
 }
 
@@ -1111,7 +1017,9 @@ void FramebufferManagerVulkan::FlushBeforeCopy() {
 	// all the irrelevant state checking it'll use to decide what to do. Should
 	// do something more focused here.
 	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	drawEngine_->Flush(curCmd_);
+	if (!draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS))
+		Crash();
+	drawEngine_->Flush();
 }
 
 void FramebufferManagerVulkan::Resized() {
@@ -1211,22 +1119,7 @@ bool FramebufferManagerVulkan::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	return false;
 }
 
-
 void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
-	// keepState is irrelevant.
-	if (!currentRenderVfb_) {
-		return;
-	}
-	VkClearAttachment clear[2];
-	memset(clear, 0, sizeof(clear));
-	clear[0].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	clear[1].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	VkClearRect rc;
-	rc.baseArrayLayer = 0;
-	rc.layerCount = 1;
-	rc.rect.offset.x = 0;
-	rc.rect.offset.y = 0;
-	rc.rect.extent.width = currentRenderVfb_->bufferWidth;
-	rc.rect.extent.height = currentRenderVfb_->bufferHeight;
-	vkCmdClearAttachments(curCmd_, 2, clear, 1, &rc);
+	// TODO: Ideally, this should never be called.
+	// assert(false);
 }

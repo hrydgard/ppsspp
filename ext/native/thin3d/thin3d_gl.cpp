@@ -465,12 +465,11 @@ public:
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
 	// These functions should be self explanatory.
-	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	void BindFramebufferForRead(Framebuffer *fbo) override;
 
-	void BindBackbufferAsRenderTarget() override;
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
@@ -1469,6 +1468,7 @@ Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		FLOG("Other framebuffer error: %i", status);
 		break;
 	}
+
 	// Unbind state we don't need
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -1534,20 +1534,49 @@ void OpenGLContext::fbo_unbind() {
 	currentReadHandle_ = 0;
 }
 
-void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
-	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
-	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
-	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
-	fbo_bind_fb_target(false, fb->handle);
-	// Always restore viewport after render target binding
-	// TODO: Should we set viewports this way too?
-	glstate.viewport.restore();
+void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	CHECK_GL_ERROR_IF_DEBUG();
-}
-
-void OpenGLContext::BindBackbufferAsRenderTarget() {
-	CHECK_GL_ERROR_IF_DEBUG();
-	fbo_unbind();
+	if (fbo) {
+		OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
+		// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
+		// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
+		fbo_bind_fb_target(false, fb->handle);
+		// Always restore viewport after render target binding. Works around driver bugs.
+		glstate.viewport.restore();
+	} else {
+		fbo_unbind();
+	}
+	int clearFlags = 0;
+	if (rp.color == RPAction::CLEAR) {
+		float fc[4]{};
+		if (rp.clearColor) {
+			Uint8x4ToFloat4(fc, rp.clearColor);
+		}
+		glClearColor(fc[0], fc[1], fc[2], fc[3]);
+		clearFlags |= GL_COLOR_BUFFER_BIT;
+		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	}
+	if (rp.depth == RPAction::CLEAR) {
+		glClearDepthf(rp.clearDepth);
+		glClearStencil(rp.clearStencil);
+		clearFlags |= GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+		glstate.depthWrite.force(GL_TRUE);
+		glstate.stencilFunc.force(GL_ALWAYS, 0, 0);
+		glstate.stencilMask.force(0xFF);
+	}
+	if (clearFlags) {
+		glstate.scissorTest.force(false);
+		glClear(clearFlags);
+		glstate.scissorTest.restore();
+	}
+	if (rp.color == RPAction::CLEAR) {
+		glstate.colorMask.restore();
+	}
+	if (rp.depth == RPAction::CLEAR) {
+		glstate.depthWrite.restore();
+		glstate.stencilFunc.restore();
+		glstate.stencilMask.restore();
+	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
@@ -1609,8 +1638,10 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 		bits |= GL_DEPTH_BUFFER_BIT;
 	if (channels & FB_STENCIL_BIT)
 		bits |= GL_STENCIL_BUFFER_BIT;
-	BindFramebufferAsRenderTarget(dst);
-	BindFramebufferForRead(src);
+	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
+	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
+	fbo_bind_fb_target(false, dst->handle);
+	fbo_bind_fb_target(true, src->handle);
 	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
 		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
 		CHECK_GL_ERROR_IF_DEBUG();

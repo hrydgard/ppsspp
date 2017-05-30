@@ -720,6 +720,7 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 	if (info->IsWorking()) {
 		// Uh oh, it's currently in process.  It could mark pending = false with the wrong wantFlags.
 		// Let's wait it out, then queue.
+		// NOTE: This is bad because we're likely on the UI thread....
 		WaitUntilDone(info);
 	}
 

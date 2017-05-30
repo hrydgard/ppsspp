@@ -96,7 +96,7 @@ protected:
 
 private:
 	void Flush() {
-		drawEngine_.Flush(nullptr);
+		drawEngine_.Flush();
 	}
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();

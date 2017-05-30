@@ -152,6 +152,9 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
 
 		} else {
+			key.logicOpEnable = false;
+			key.logicOp = VK_LOGIC_OP_CLEAR;
+
 			// Set blend - unless we need to do it in the shader.
 			GenericBlendState blendState;
 			ConvertBlendState(blendState, gstate_c.allowShaderBlend);
@@ -341,10 +344,17 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		}
 
 		VkRect2D &scissor = dynState.scissor;
-		scissor.offset.x = vpAndScissor.scissorX;
-		scissor.offset.y = vpAndScissor.scissorY;
-		scissor.extent.width = vpAndScissor.scissorW;
-		scissor.extent.height = vpAndScissor.scissorH;
+		if (vpAndScissor.scissorEnable) {
+			scissor.offset.x = vpAndScissor.scissorX;
+			scissor.offset.y = vpAndScissor.scissorY;
+			scissor.extent.width = vpAndScissor.scissorW;
+			scissor.extent.height = vpAndScissor.scissorH;
+		} else {
+			scissor.offset.x = 0;
+			scissor.offset.y = 0;
+			scissor.extent.width = framebufferManager_->GetRenderWidth();
+			scissor.extent.height = framebufferManager_->GetRenderHeight();
+		}
 
 		float depthMin = vpAndScissor.depthRangeMin;
 		float depthMax = vpAndScissor.depthRangeMax;
@@ -357,4 +367,22 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 
 	key.topology = primToVulkan[prim];
+}
+
+
+void DrawEngineVulkan::ApplyDrawStateLate() {
+	// At this point, we know if the vertices are full alpha or not.
+	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
+	if (!gstate.isModeClear()) {
+		// TODO: Test texture?
+		/*
+		if (fboTexNeedBind_) {
+			// Note that this is positions, not UVs, that we need the copy from.
+			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+			// If we are rendering at a higher resolution, linear is probably best for the dest color.
+			fboTexBound_ = true;
+			fboTexNeedBind_ = false;
+		}
+		*/
+	}
 }

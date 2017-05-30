@@ -205,7 +205,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		u1 = 1.0f;
 	}
 	if (!hasImage) {
-		draw_->Clear(Draw::FB_COLOR_BIT, 0, 0, 0);
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE });
 		return;
 	}
 
@@ -236,8 +236,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		std::swap(v0, v1);
 	}
-	draw_->BindBackbufferAsRenderTarget();
-	draw_->Clear(Draw::FB_COLOR_BIT, 0, 0, 0);
+	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE });
 
 	Draw::SamplerState *sampler;
 	if (g_Config.iBufFilter == SCALE_NEAREST) {

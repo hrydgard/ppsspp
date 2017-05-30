@@ -258,17 +258,22 @@ public:
 
 	VkCommandBuffer GetInitCommandBuffer();
 
+	VkFramebuffer GetSurfaceFramebuffer() {
+		return framebuffers_[current_buffer];
+	}
 	// This must only be accessed between BeginSurfaceRenderPass and EndSurfaceRenderPass.
 	VkCommandBuffer GetSurfaceCommandBuffer() {
 		return frame_[curFrame_ & 1].cmdBuf;
 	}
 
+	VkCommandBuffer BeginFrame();
 	// The surface render pass is special because it has to acquire the backbuffer, and may thus "block".
 	// Use the returned command buffer to enqueue commands that render to the backbuffer.
 	// To render to other buffers first, you can submit additional commandbuffers using QueueBeforeSurfaceRender(cmd).
 	VkCommandBuffer BeginSurfaceRenderPass(VkClearValue clear_values[2]);
 	// May eventually need the ability to break and resume the backbuffer render pass in a few rare cases.
 	void EndSurfaceRenderPass();
+	void EndFrame();
 
 	void QueueBeforeSurfaceRender(VkCommandBuffer cmd);
 
@@ -312,6 +317,7 @@ public:
 
 private:
 	VkSemaphore acquireSemaphore;
+	VkSemaphore renderingCompleteSemaphore;
 
 #ifdef _WIN32
 	HINSTANCE connection;        // hInstance - Windows Instance

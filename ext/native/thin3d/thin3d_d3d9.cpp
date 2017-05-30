@@ -487,12 +487,11 @@ public:
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
 	// These functions should be self explanatory.
-	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	void BindFramebufferForRead(Framebuffer *fbo) override {}
 	
-	void BindBackbufferAsRenderTarget() override;
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
@@ -1044,21 +1043,30 @@ D3D9Framebuffer::~D3D9Framebuffer() {
 	}
 }
 
-void D3D9Context::BindBackbufferAsRenderTarget() {
+void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	using namespace DX9;
+	if (fbo) {
+		D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
+		device_->SetRenderTarget(0, fb->surf);
+		device_->SetDepthStencilSurface(fb->depthstencil);
+	} else {
+		device_->SetRenderTarget(0, deviceRTsurf);
+		device_->SetDepthStencilSurface(deviceDSsurf);
+	}
 
-	device_->SetRenderTarget(0, deviceRTsurf);
-	device_->SetDepthStencilSurface(deviceDSsurf);
-	dxstate.scissorRect.restore();
-	dxstate.viewport.restore();
-}
+	int clearFlags = 0;
+	if (rp.color == RPAction::CLEAR) {
+		clearFlags |= D3DCLEAR_TARGET;
+	}
+	if (rp.depth == RPAction::CLEAR) {
+		clearFlags |= D3DCLEAR_ZBUFFER | D3DCLEAR_STENCIL;
+	}
+	if (clearFlags) {
+		dxstate.scissorTest.force(false);
+		device_->Clear(0, nullptr, clearFlags, (D3DCOLOR)SwapRB(rp.clearColor), rp.clearDepth, rp.clearStencil);
+		dxstate.scissorRect.restore();
+	}
 
-void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
-	using namespace DX9;
-
-	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
-	device_->SetRenderTarget(0, fb->surf);
-	device_->SetDepthStencilSurface(fb->depthstencil);
 	dxstate.scissorRect.restore();
 	dxstate.viewport.restore();
 }

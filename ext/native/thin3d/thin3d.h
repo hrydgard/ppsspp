@@ -321,6 +321,10 @@ enum class NativeObject {
 	BACKBUFFER_COLOR_TEX,
 	BACKBUFFER_DEPTH_TEX,
 	FEATURE_LEVEL,
+	COMPATIBLE_RENDERPASS,
+	CURRENT_RENDERPASS,
+	RENDERPASS_COMMANDBUFFER,
+	BOUND_TEXTURE_IMAGEVIEW,
 };
 
 enum FBColorDepth {
@@ -562,6 +566,20 @@ struct TextureDesc {
 	std::vector<uint8_t *> initData;
 };
 
+enum class RPAction {
+	DONT_CARE,
+	CLEAR,
+	KEEP,
+};
+
+struct RenderPassInfo {
+	RPAction color;
+	RPAction depth;
+	uint32_t clearColor;
+	float clearDepth;
+	uint8_t clearStencil;
+};
+
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -600,15 +618,19 @@ public:
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
 
 	// These functions should be self explanatory.
-	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo) = 0;
+	// Binding a zero render target means binding the backbuffer.
+	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) = 0;
+
 	// color must be 0, for now.
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
 	virtual void BindFramebufferForRead(Framebuffer *fbo) = 0;
 
-	virtual void BindBackbufferAsRenderTarget() = 0;
 	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) = 0;
 
 	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
+
+	// Useful in OpenGL ES to give hints about framebuffers on tiler GPUs.
+	virtual void InvalidateFramebuffer(Framebuffer *fbo) {}
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
@@ -636,13 +658,14 @@ public:
 	virtual void DrawIndexed(int vertexCount, int offset) = 0;
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
-	// Render pass management. Default implementations here.
-	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
-		Clear(0xF, colorval, depthVal, stencilVal);
-	}
-	virtual void End() {}
+	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
+	virtual void BeginFrame() {}
+	virtual void EndFrame() {}
+
+	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
+	// on Vulkan.
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
-	
+
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.
 	void SetTargetSize(int w, int h) {
 		targetWidth_ = w;
@@ -653,6 +676,16 @@ public:
 	virtual uintptr_t GetNativeObject(NativeObject obj) const = 0;
 
 	virtual void HandleEvent(Event ev, int width, int height, void *param1 = nullptr, void *param2 = nullptr) = 0;
+
+	// This flushes command buffers and waits for execution at the point of the end of the last
+	// renderpass that wrote to the requested framebuffer. This is needed before trying to read it back
+	// on modern APIs like Vulkan. Ifr the framebuffer is currently being rendered to, we'll just end the render pass.
+	// The next draw call will automatically start up a new one.
+	// APIs like OpenGL won't need to implement this one.
+	virtual void WaitRenderCompletion(Framebuffer *fbo) {}
+
+	// Flush state like scissors etc so the caller can do its own custom drawing.
+	virtual void FlushState() {}
 
 protected:
 	void CreatePresets();

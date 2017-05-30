@@ -315,6 +315,47 @@ struct DescriptorSetKey {
 	}
 };
 
+class VKTexture : public Texture {
+public:
+	VKTexture(VulkanContext *vulkan, const TextureDesc &desc)
+		: vulkan_(vulkan), format_(desc.format), mipLevels_(desc.mipLevels) {
+		Create(desc);
+	}
+
+	~VKTexture() {
+		Destroy();
+	}
+
+	VkImageView GetImageView() { return vkTex_->GetImageView(); }
+
+private:
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
+
+	bool Create(const TextureDesc &desc);
+
+	void Destroy() {
+		if (vkTex_) {
+			vkTex_->Destroy();
+			delete vkTex_;
+		}
+	}
+
+	VulkanContext *vulkan_;
+	VulkanTexture *vkTex_;
+
+	int mipLevels_;
+
+	DataFormat format_;
+};
+
+// Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
+// to let them have individual non-pooled allocations. Until it's not fine. We'll see.
+struct VKImage {
+	VkImage image;
+	VkImageView view;
+	VkDeviceMemory memory;
+	VkImageLayout layout;
+};
 class VKContext : public DrawContext {
 public:
 	VKContext(VulkanContext *vulkan);
@@ -346,12 +387,11 @@ public:
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 
 	// These functions should be self explanatory.
-	void BindFramebufferAsRenderTarget(Framebuffer *fbo) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	void BindFramebufferForRead(Framebuffer *fbo) override;
 
-	void BindBackbufferAsRenderTarget() override;
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
@@ -387,8 +427,13 @@ public:
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) override;
-	void End() override;
+	void BeginFrame() override;
+	void EndFrame() override;
+
+	void FlushState() override {
+		ApplyDynamicState();
+	}
+	void WaitRenderCompletion(Framebuffer *fbo) override;
 
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
@@ -412,7 +457,22 @@ public:
 	std::vector<std::string> GetFeatureList() const override;
 
 	uintptr_t GetNativeObject(NativeObject obj) const override {
-		return 0;
+		switch (obj) {
+		case NativeObject::COMPATIBLE_RENDERPASS:
+			// Return a representative renderpass.
+			if (curRenderPass_ == vulkan_->GetSurfaceRenderPass())
+				return (uintptr_t)curRenderPass_;
+			else
+				return (uintptr_t)renderPasses_[0];
+		case NativeObject::CURRENT_RENDERPASS:
+			return (uintptr_t)curRenderPass_;
+		case NativeObject::RENDERPASS_COMMANDBUFFER:
+			return (uintptr_t)cmd_;
+		case NativeObject::BOUND_TEXTURE_IMAGEVIEW:
+			return (uintptr_t)boundImageView_[0];
+		default:
+			return 0;
+		}
 	}
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
@@ -420,6 +480,12 @@ public:
 private:
 	void ApplyDynamicState();
 	void DirtyDynamicState();
+
+	void EndCurrentRenderpass();
+	VkCommandBuffer AllocCmdBuf();
+
+	static void SetupTransitionToTransferSrc(VKImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect);
+	static void SetupTransitionToTransferDst(VKImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect);
 
 	VulkanContext *vulkan_ = nullptr;
 
@@ -433,7 +499,13 @@ private:
 	VkPipelineLayout pipelineLayout_;
 	VkPipelineCache pipelineCache_;
 
-	VkCommandPool cmdPool_;
+	inline int RPIndex(RPAction color, RPAction depth) {
+		return (int)depth * 3 + (int)color;
+	}
+
+	// Renderpasses, all combination of preserving or clearing or dont-care-ing fb contents.
+	VkRenderPass renderPasses_[9];
+
 	VkDevice device_;
 	VkQueue queue_;
 	int queueFamilyIndex_;
@@ -444,17 +516,27 @@ private:
 	bool scissorDirty_;
 	VkRect2D scissor_;
 
-	enum {MAX_BOUND_TEXTURES = 1};
+	int curWidth_ = -1;
+	int curHeight_ = -1;
+
+	enum {
+		MAX_BOUND_TEXTURES = 1,
+		MAX_FRAME_COMMAND_BUFFERS = 256,
+	};
 	VKTexture *boundTextures_[MAX_BOUND_TEXTURES];
 	VKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES];
-
-	VkCommandBuffer cmd_; // The current one
+	VkImageView boundImageView_[MAX_BOUND_TEXTURES];
 
 	struct FrameData {
 		VulkanPushBuffer *pushBuffer;
+		VkCommandPool cmdPool_;
+		VkCommandBuffer cmdBufs[MAX_FRAME_COMMAND_BUFFERS];
+		int startCmdBufs_;
+		int numCmdBufs;
 
 		// Per-frame descriptor set cache. As it's per frame and reset every frame, we don't need to
 		// worry about invalidating descriptors pointing to deleted textures.
+		// However! ARM is not a fan of doing it this way.
 		std::map<DescriptorSetKey, VkDescriptorSet> descSets_;
 		VkDescriptorPool descriptorPool;
 	};
@@ -465,6 +547,10 @@ private:
 	VulkanPushBuffer *push_ = nullptr;
 
 	DeviceCaps caps_{};
+
+	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
+	VkRenderPass curRenderPass_ = VK_NULL_HANDLE;
+	VkCommandBuffer cmd_ = VK_NULL_HANDLE;
 };
 
 static int GetBpp(VkFormat format) {
@@ -588,51 +674,20 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-class VKTexture : public Texture {
-public:
-	VKTexture(VulkanContext *vulkan, const TextureDesc &desc)
-		: vulkan_(vulkan), format_(desc.format), mipLevels_(desc.mipLevels) {
-		Create(desc);
-	}
-
-	~VKTexture() {
-		Destroy();
-	}
-
-	VkImageView GetImageView() { return vkTex_->GetImageView(); }
-
-private:
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
-
-	bool Create(const TextureDesc &desc) {
-		format_ = desc.format;
-		mipLevels_ = desc.mipLevels;
-		width_ = desc.width;
-		height_ = desc.height;
-		depth_ = desc.depth;
-		vkTex_ = new VulkanTexture(vulkan_);
-		if (desc.initData.size()) {
-			for (int i = 0; i < (int)desc.initData.size(); i++) {
-				this->SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
-			}
-		}
-		return true;
-	}
-
-	void Destroy() {
-		if (vkTex_) {
-			vkTex_->Destroy();
-			delete vkTex_;
+bool VKTexture::Create(const TextureDesc &desc) {
+	format_ = desc.format;
+	mipLevels_ = desc.mipLevels;
+	width_ = desc.width;
+	height_ = desc.height;
+	depth_ = desc.depth;
+	vkTex_ = new VulkanTexture(vulkan_);
+	if (desc.initData.size()) {
+		for (int i = 0; i < (int)desc.initData.size(); i++) {
+			this->SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
 		}
 	}
-
-	VulkanContext *vulkan_;
-	VulkanTexture *vkTex_;
-
-	int mipLevels_;
-
-	DataFormat format_;
-};
+	return true;
+}
 
 VKContext::VKContext(VulkanContext *vulkan)
 	: viewportDirty_(false), scissorDirty_(false), vulkan_(vulkan), frameNum_(0), caps_{} {
@@ -661,12 +716,6 @@ VKContext::VKContext(VulkanContext *vulkan)
 	memset(boundTextures_, 0, sizeof(boundTextures_));
 	CreatePresets();
 
-	VkCommandPoolCreateInfo p = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-	p.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
-	VkResult res = vkCreateCommandPool(device_, &p, nullptr, &cmdPool_);
-	assert(VK_SUCCESS == res);
-
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 200;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -678,13 +727,18 @@ VKContext::VKContext(VulkanContext *vulkan)
 	dp.maxSets = 200;  // 200 textures per frame should be enough for the UI...
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-	res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[0].descriptorPool);
-	assert(VK_SUCCESS == res);
-	res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[1].descriptorPool);
-	assert(VK_SUCCESS == res);
 
-	frame_[0].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
-	frame_[1].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
+	VkCommandPoolCreateInfo p = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+	p.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
+
+	for (int i = 0; i < 2; i++) {
+		VkResult res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[i].descriptorPool);
+		assert(VK_SUCCESS == res);
+		res = vkCreateCommandPool(device_, &p, nullptr, &frame_[i].cmdPool_);
+		assert(VK_SUCCESS == res);
+		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
+	}
 
 	// binding 0 - uniform data
 	// binding 1 - combined sampler/image
@@ -703,7 +757,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = 2;
 	dsl.pBindings = bindings;
-	res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
+	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
 
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
@@ -715,44 +769,133 @@ VKContext::VKContext(VulkanContext *vulkan)
 	assert(VK_SUCCESS == res);
 
 	pipelineCache_ = vulkan_->CreatePipelineCache();
+
+	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
+	// with clearing, without clearing, and dont-care for both depth/stencil and color, so 3*3=9 combos.
+	VkAttachmentDescription attachments[2] = {};
+	attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
+	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].flags = 0;
+
+	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
+	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	attachments[1].flags = 0;
+
+	VkAttachmentReference color_reference = {};
+	color_reference.attachment = 0;
+	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depth_reference = {};
+	depth_reference.attachment = 1;
+	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.flags = 0;
+	subpass.inputAttachmentCount = 0;
+	subpass.pInputAttachments = NULL;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &color_reference;
+	subpass.pResolveAttachments = NULL;
+	subpass.pDepthStencilAttachment = &depth_reference;
+	subpass.preserveAttachmentCount = 0;
+	subpass.pPreserveAttachments = NULL;
+
+	VkRenderPassCreateInfo rp = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
+	rp.attachmentCount = 2;
+	rp.pAttachments = attachments;
+	rp.subpassCount = 1;
+	rp.pSubpasses = &subpass;
+	rp.dependencyCount = 0;
+	rp.pDependencies = NULL;
+
+	for (int depth = 0; depth < 3; depth++) {
+		switch ((RPAction)depth) {
+		case RPAction::CLEAR: attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; break;
+		case RPAction::KEEP: attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; break;
+		case RPAction::DONT_CARE: attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; break;
+		}
+		for (int color = 0; color < 3; color++) {
+			switch ((RPAction)color) {
+			case RPAction::CLEAR: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; break;
+			case RPAction::KEEP: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; break;
+			case RPAction::DONT_CARE: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; break;
+			}
+			vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &renderPasses_[RPIndex((RPAction)color, (RPAction)depth)]);
+		}
+	}
 }
 
 VKContext::~VKContext() {
-	vulkan_->Delete().QueueDeleteCommandPool(cmdPool_);
+	for (int i = 0; i < 9; i++) {
+		vulkan_->Delete().QueueDeleteRenderPass(renderPasses_[i]);
+	}
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < 2; i++) {
 		frame_[i].descSets_.clear();
 		vulkan_->Delete().QueueDeleteDescriptorPool(frame_[i].descriptorPool);
 		frame_[i].pushBuffer->Destroy(vulkan_);
 		delete frame_[i].pushBuffer;
+		vulkan_->Delete().QueueDeleteCommandPool(frame_[i].cmdPool_);
 	}
 	vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 	vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
-void VKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
-	VkClearValue clearVal[2] = {};
-	Uint8x4ToFloat4(colorval, clearVal[0].color.float32);
-
-	// // Debug flicker - used to see if we swap at all. no longer necessary
-	// if (frameNum_ & 1)
-	//	clearVal[0].color.float32[2] = 1.0f;
-
-	clearVal[1].depthStencil.depth = depthVal;
-	clearVal[1].depthStencil.stencil = stencilVal;
-
-	cmd_ = vulkan_->BeginSurfaceRenderPass(clearVal);
-
+// Effectively wiped every frame, just allocate new ones!
+VkCommandBuffer VKContext::AllocCmdBuf() {
 	FrameData *frame = &frame_[frameNum_ & 1];
-	push_ = frame->pushBuffer;
+
+	if (frame->numCmdBufs >= MAX_FRAME_COMMAND_BUFFERS)
+		Crash();
+
+	if (frame->cmdBufs[frame->numCmdBufs]) {
+		VkCommandBuffer cmdBuf = frame->cmdBufs[frame->numCmdBufs++];
+		if (!cmdBuf)
+			Crash();
+		return cmdBuf;
+	}
+
+	VkCommandBufferAllocateInfo alloc{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+	alloc.commandBufferCount = 1;
+	alloc.commandPool = frame->cmdPool_;
+	alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	VkResult result = vkAllocateCommandBuffers(vulkan_->GetDevice(), &alloc, &frame->cmdBufs[frame->numCmdBufs]);
+	assert(result == VK_SUCCESS);
+	VkCommandBuffer cmdBuf = frame->cmdBufs[frame->numCmdBufs++];
+	if (!cmdBuf)
+		Crash();
+	return cmdBuf;
+}
+
+void VKContext::BeginFrame() {
+	vulkan_->BeginFrame();
+
+	FrameData &frame = frame_[frameNum_ & 1];
+	frame.startCmdBufs_ = 0;
+	frame.numCmdBufs = 0;
+	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
+	push_ = frame.pushBuffer;
 
 	// OK, we now know that nothing is reading from this frame's data pushbuffer,
 	push_->Reset();
 	push_->Begin(vulkan_);
 
-	frame->descSets_.clear();
-	VkResult result = vkResetDescriptorPool(device_, frame->descriptorPool, 0);
+	frame.descSets_.clear();
+	VkResult result = vkResetDescriptorPool(device_, frame.descriptorPool, 0);
 	assert(result == VK_SUCCESS);
 
 	scissor_.extent.width = pixel_xres;
@@ -761,13 +904,35 @@ void VKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencil
 	viewportDirty_ = true;
 }
 
-void VKContext::End() {
+void VKContext::WaitRenderCompletion(Framebuffer *fbo) {
+	// TODO
+}
+
+void VKContext::EndFrame() {
+	if (curRenderPass_) {
+		// ELOG("EndFrame: Ending render pass");
+		vulkan_->EndSurfaceRenderPass();
+		curRenderPass_ = VK_NULL_HANDLE;
+		curFramebuffer_ = VK_NULL_HANDLE;
+		cmd_ = nullptr;
+	}
+
+	if (cmd_)
+		Crash();
+
+	// Cap off and submit all the command buffers we recorded during the frame.
+	FrameData &frame = frame_[frameNum_ & 1];
+	for (int i = frame.startCmdBufs_; i < frame.numCmdBufs; i++) {
+		vkEndCommandBuffer(frame.cmdBufs[i]);
+		vulkan_->QueueBeforeSurfaceRender(frame.cmdBufs[i]);
+	}
+	frame.startCmdBufs_ = frame.numCmdBufs;
+
 	// Stop collecting data in the frame's data pushbuffer.
 	push_->End();
-	vulkan_->EndSurfaceRenderPass();
+	vulkan_->EndFrame();
 
 	frameNum_++;
-	cmd_ = nullptr;  // will be set on the next begin
 	push_ = nullptr;
 
 	DirtyDynamicState();
@@ -1070,6 +1235,7 @@ void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset,
 void VKContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i]);
+		boundImageView_[i] = boundTextures_[i]->GetImageView();
 	}
 }
 
@@ -1178,18 +1344,40 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
 }
 
+// TODO: We should avoid this function as much as possible, instead use renderpass on-load clearing.
 void VKContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
+	if (!curRenderPass_) {
+		ELOG("Clear: Need an active render pass");
+		return;
+	}
+
+	int numAttachments = 0;
+	VkClearRect rc{};
+	rc.baseArrayLayer = 0;
+	rc.layerCount = 1;
+	rc.rect.extent.width = curWidth_;
+	rc.rect.extent.height = curHeight_;
+	VkClearAttachment attachments[2];
 	if (mask & FBChannel::FB_COLOR_BIT) {
-		VkClearColorValue col;
-		Uint8x4ToFloat4(colorval, col.float32);
-		/*
-		VkRect3D rect;
-		rect.extent.width =
-		vkCmdClearColorAttachment(cmdBuf_, 0, imageLayout_, &col, 1, nullptr);
-		*/
+		VkClearAttachment &attachment = attachments[numAttachments++];
+		attachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		attachment.colorAttachment = 0;
+		Uint8x4ToFloat4(colorval, attachment.clearValue.color.float32);
 	}
 	if (mask & (FBChannel::FB_DEPTH_BIT | FBChannel::FB_STENCIL_BIT)) {
-
+		VkClearAttachment &attachment = attachments[numAttachments++];
+		attachment.aspectMask = 0;
+		if (mask & FBChannel::FB_DEPTH_BIT) {
+			attachment.clearValue.depthStencil.depth = depthVal;
+			attachment.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+		}
+		if (mask & FBChannel::FB_STENCIL_BIT) {
+			attachment.clearValue.depthStencil.stencil = stencilVal;
+			attachment.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+	}
+	if (numAttachments) {
+		vkCmdClearAttachments(cmd_, numAttachments, attachments, 1, &rc);
 	}
 }
 
@@ -1270,48 +1458,550 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	}
 }
 
-// A VKFramebuffer is a VkFramebuffer plus all the textures it owns.
+void CreateImage(VulkanContext *vulkan, VKImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color) {
+	VkImageCreateInfo ici{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+	ici.arrayLayers = 1;
+	ici.mipLevels = 1;
+	ici.extent.width = width;
+	ici.extent.height = height;
+	ici.extent.depth = 1;
+	ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	ici.imageType = VK_IMAGE_TYPE_2D;
+	ici.samples = VK_SAMPLE_COUNT_1_BIT;
+	ici.tiling = VK_IMAGE_TILING_OPTIMAL;
+	ici.format = format;
+	ici.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	if (color) {
+		ici.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	} else {
+		ici.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	}
+	vkCreateImage(vulkan->GetDevice(), &ici, nullptr, &img.image);
+
+	// TODO: If available, use nVidia's VK_NV_dedicated_allocation for framebuffers
+
+	VkMemoryRequirements memreq;
+	vkGetImageMemoryRequirements(vulkan->GetDevice(), img.image, &memreq);
+	
+	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	alloc.allocationSize = memreq.size;
+	vulkan->MemoryTypeFromProperties(memreq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &alloc.memoryTypeIndex);
+	VkResult res = vkAllocateMemory(vulkan->GetDevice(), &alloc, nullptr, &img.memory);
+	assert(res == VK_SUCCESS);
+	res = vkBindImageMemory(vulkan->GetDevice(), img.image, img.memory, 0);
+	assert(res == VK_SUCCESS);
+
+	VkImageViewCreateInfo ivci{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+	ivci.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	ivci.format = ici.format;
+	ivci.image = img.image;
+	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	ivci.subresourceRange.aspectMask = color ? VK_IMAGE_ASPECT_COLOR_BIT : (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+	ivci.subresourceRange.layerCount = 1;
+	ivci.subresourceRange.levelCount = 1;
+	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.view);
+	assert(res == VK_SUCCESS);
+
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.image = img.image;
+	barrier.srcAccessMask = 0;
+	switch (initialLayout) {
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		break;
+	}
+	barrier.newLayout = initialLayout;
+	barrier.subresourceRange.aspectMask = ivci.subresourceRange.aspectMask;
+	vkCmdPipelineBarrier(vulkan->GetInitCommandBuffer(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	img.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+}
+
+// A VKFramebuffer is a VkFramebuffer (note caps difference) plus all the textures it owns.
+// It also has a reference to the command buffer that it was last rendered to with.
+// If it needs to be transitioned, and the frame number matches, use it, otherwise
+// use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
-	int width;
-	int height;
+	VKFramebuffer(VulkanContext *vk) : vulkan_(vk) {}
+	~VKFramebuffer() {
+		vulkan_->Delete().QueueDeleteImage(color.image);
+		vulkan_->Delete().QueueDeleteImage(depth.image);
+		vulkan_->Delete().QueueDeleteImageView(color.view);
+		vulkan_->Delete().QueueDeleteImageView(depth.view);
+		vulkan_->Delete().QueueDeleteDeviceMemory(color.memory);
+		vulkan_->Delete().QueueDeleteDeviceMemory(depth.memory);
+		vulkan_->Delete().QueueDeleteFramebuffer(framebuf);
+	}
+	VkFramebuffer framebuf = VK_NULL_HANDLE;
+	VKImage color{};
+	VKImage depth{};
+	int width = 0;
+	int height = 0;
+
+	// These belong together, see above.
+	VkCommandBuffer cmdBuf = VK_NULL_HANDLE;
+	int frameCount = 0;
+
+private:
+	VulkanContext *vulkan_;
 };
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
-	VKFramebuffer *fb = new VKFramebuffer();
+	VKFramebuffer *fb = new VKFramebuffer(vulkan_);
 	fb->width = desc.width;
 	fb->height = desc.height;
 
+	CreateImage(vulkan_, fb->color, fb->width, fb->height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
+	CreateImage(vulkan_, fb->depth, fb->width, fb->height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false);
+
+	VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+	VkImageView views[2]{};
+
+	fbci.renderPass = renderPasses_[0];
+	fbci.attachmentCount = 2;
+	fbci.pAttachments = views;
+	views[0] = fb->color.view;
+	views[1] = fb->depth.view;
+	fbci.width = fb->width;
+	fbci.height = fb->height;
+	fbci.layers = 1;
+	
+	vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &fb->framebuf);
 	return fb;
 }
 
 void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
+	// Can't copy during render passes.
+	EndCurrentRenderpass();
+
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
+
+	VkImageCopy copy{};
+	copy.srcOffset.x = x;
+	copy.srcOffset.y = y;
+	copy.srcOffset.z = z;
+	copy.srcSubresource.mipLevel = level;
+	copy.srcSubresource.layerCount = 1;
+	copy.dstOffset.x = dstX;
+	copy.dstOffset.y = dstY;
+	copy.dstOffset.z = dstZ;
+	copy.dstSubresource.mipLevel = dstLevel;
+	copy.dstSubresource.layerCount = 1;
+	copy.extent.width = width;
+	copy.extent.height = height;
+	copy.extent.depth = depth;
+
+	// We're gonna tack copies onto the src's command buffer, if it's from this frame.
+	// If from a previous frame, just do it in frame init.
+	VkCommandBuffer cmd = src->cmdBuf;
+	if (src->frameCount != frameNum_) {
+		// TODO: What about the case where dst->frameCount == frameNum_ here? 
+		// That will cause bad ordering. We'll have to allocate a new command buffer and assign it to dest.
+		cmd = vulkan_->GetInitCommandBuffer();
+	}
+
+	VkImageMemoryBarrier srcBarriers[2]{};
+	VkImageMemoryBarrier dstBarriers[2]{};
+	int srcCount = 0;
+	int dstCount = 0;
+
+	// First source barriers.
+	if (channelBits & FB_COLOR_BIT) {
+		if (src->color.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+			SetupTransitionToTransferSrc(src->color, srcBarriers[srcCount++], VK_IMAGE_ASPECT_COLOR_BIT);
+		}
+		if (dst->color.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+			SetupTransitionToTransferDst(dst->color, dstBarriers[dstCount++], VK_IMAGE_ASPECT_COLOR_BIT);
+		}
+	}
+
+	// We can't copy only depth or only stencil unfortunately.
+	if (channelBits & (FB_DEPTH_BIT | FB_STENCIL_BIT)) {
+		if (src->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+			SetupTransitionToTransferSrc(src->depth, srcBarriers[srcCount++], VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+		}
+		if (dst->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+			SetupTransitionToTransferDst(dst->depth, dstBarriers[dstCount++], VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+		}
+	}
+
+	// TODO: Fix the pipe bits to be bit less conservative.
+	if (srcCount) {
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, srcCount, srcBarriers);
+	}
+	if (dstCount) {
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, dstCount, dstBarriers);
+	}
+
+	if (channelBits & FB_COLOR_BIT) {
+		copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		vkCmdCopyImage(cmd, src->color.image, src->color.layout, dst->color.image, dst->color.layout, 1, &copy);
+	}
+	if (channelBits & (FB_DEPTH_BIT | FB_STENCIL_BIT)) {
+		copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		vkCmdCopyImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &copy);
+	}
 }
 
 bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
+
+	// We're gonna tack blits onto the src's command buffer, if it's from this frame.
+	// If from a previous frame, just do it in frame init.
+	VkCommandBuffer cmd = src->cmdBuf;
+	if (src->frameCount != frameNum_) {
+		// TODO: What about the case where dst->frameCount == frameNum_ here? 
+		// That will cause bad ordering. We'll have to allocate a new command buffer and assign it to dest.
+		cmd = vulkan_->GetInitCommandBuffer();
+	}
+	VkImageMemoryBarrier srcBarriers[2]{};
+	VkImageMemoryBarrier dstBarriers[2]{};
+	int srcCount = 0;
+	int dstCount = 0;
+
+	VkImageBlit blit{};
+	blit.srcOffsets[0].x = srcX1;
+	blit.srcOffsets[0].y = srcY1;
+	blit.srcOffsets[0].z = 0;
+	blit.srcOffsets[1].x = srcX2;
+	blit.srcOffsets[1].y = srcY2;
+	blit.srcOffsets[1].z = 1;
+	blit.srcSubresource.mipLevel = 0;
+	blit.srcSubresource.layerCount = 1;
+	blit.dstOffsets[0].x = dstX1;
+	blit.dstOffsets[0].y = dstY1;
+	blit.dstOffsets[0].z = 0;
+	blit.dstOffsets[1].x = dstX2;
+	blit.dstOffsets[1].y = dstY2;
+	blit.dstOffsets[1].z = 1;
+	blit.dstSubresource.mipLevel = 0;
+	blit.dstSubresource.layerCount = 1;
+
+	// First source barriers.
+	if (channelBits & FB_COLOR_BIT) {
+		if (src->color.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+			SetupTransitionToTransferSrc(src->color, srcBarriers[srcCount++], VK_IMAGE_ASPECT_COLOR_BIT);
+		}
+		if (dst->color.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+			SetupTransitionToTransferDst(dst->color, dstBarriers[dstCount++], VK_IMAGE_ASPECT_COLOR_BIT);
+		}
+	}
+
+	// We can't copy only depth or only stencil unfortunately.
+	if (channelBits & (FB_DEPTH_BIT | FB_STENCIL_BIT)) {
+		if (src->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+			SetupTransitionToTransferSrc(src->depth, srcBarriers[srcCount++], VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+		}
+		if (dst->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+			SetupTransitionToTransferDst(dst->depth, dstBarriers[dstCount++], VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+		}
+	}
+
+	// TODO: Fix the pipe bits to be bit less conservative.
+	if (srcCount) {
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, srcCount, srcBarriers);
+	}
+	if (dstCount) {
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, dstCount, dstBarriers);
+	}
+
+	if (channelBits & FB_COLOR_BIT) {
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		vkCmdBlitImage(cmd, src->color.image, src->color.layout, dst->color.image, dst->color.layout, 1, &blit, filter == FB_BLIT_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
+	}
+	if (channelBits & (FB_DEPTH_BIT | FB_STENCIL_BIT)) {
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		vkCmdBlitImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &blit, filter == FB_BLIT_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
+	}
 	return true;
 }
-// These functions should be self explanatory.
-void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo) {
-	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+
+void VKContext::SetupTransitionToTransferSrc(VKImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect) {
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = img.layout;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.image = img.image;
+	barrier.srcAccessMask = 0;
+	switch (img.layout) {
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		break;
+	default:
+		Crash();
+	}
+	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	barrier.subresourceRange.aspectMask = aspect;
+	img.layout = barrier.newLayout;
 }
+
+void VKContext::SetupTransitionToTransferDst(VKImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect) {
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = img.layout;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.image = img.image;
+	barrier.srcAccessMask = 0;
+	switch (img.layout) {
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		break;
+	default:
+		Crash();
+	}
+	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier.subresourceRange.aspectMask = aspect;
+	img.layout = barrier.newLayout;
+}
+
+void VKContext::EndCurrentRenderpass() {
+	if (curRenderPass_ != VK_NULL_HANDLE) {
+		vkCmdEndRenderPass(cmd_);
+		curRenderPass_ = VK_NULL_HANDLE;
+		curFramebuffer_ = VK_NULL_HANDLE;
+		cmd_ = VK_NULL_HANDLE;
+	}
+}
+
+void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
+	VkFramebuffer framebuf;
+	VkCommandBuffer cmdBuf;
+	int w;
+	int h;
+	VkImageLayout prevLayout;
+	if (fbo) {
+		VKFramebuffer *fb = (VKFramebuffer *)fbo;
+		framebuf = fb->framebuf;
+		w = fb->width;
+		h = fb->height;
+		prevLayout = fb->color.layout;
+		cmdBuf = fb->cmdBuf;
+	} else {
+		framebuf = vulkan_->GetSurfaceFramebuffer();
+		w = vulkan_->GetWidth();
+		h = vulkan_->GetHeight();
+		cmdBuf = vulkan_->GetSurfaceCommandBuffer();
+	}
+
+	if (framebuf == curFramebuffer_) {
+		if (framebuf == 0)
+			Crash();
+		if (!curRenderPass_)
+			Crash();
+		// If we're asking to clear, but already bound, we'll just keep it bound but send a clear command.
+		// We will try to avoid this as much as possible.
+		VkClearAttachment clear[2]{};
+		int count = 0;
+		if (rp.color == RPAction::CLEAR) {
+			clear[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			Uint8x4ToFloat4(rp.clearColor, clear[count].clearValue.color.float32);
+			clear[count].colorAttachment = 0;
+			count++;
+		}
+		if (rp.depth == RPAction::CLEAR) {
+			clear[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			clear[count].clearValue.depthStencil.depth = rp.clearDepth;
+			clear[count].clearValue.depthStencil.stencil = rp.clearStencil;
+			clear[count].colorAttachment = 0;
+			count++;
+		}
+		if (count > 0) {
+			VkClearRect rc{ { 0,0,(uint32_t)w,(uint32_t)h }, 0, 1 };
+			vkCmdClearAttachments(cmdBuf, count, clear, 1, &rc);
+		}
+		// We're done.
+		return;
+	}
+
+	// OK, we're switching framebuffers.
+	EndCurrentRenderpass();
+	VkRenderPass renderPass;
+	int numClearVals = 0;
+	VkClearValue clearVal[2];
+	memset(clearVal, 0, sizeof(clearVal));
+	if (fbo) {
+		VKFramebuffer *fb = (VKFramebuffer *)fbo;
+		fb->cmdBuf = AllocCmdBuf();
+		if (!fb->cmdBuf)
+			Crash();
+		fb->frameCount = frameNum_;
+		cmd_ = fb->cmdBuf;
+		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		VkResult res = vkBeginCommandBuffer(cmd_, &begin);
+		assert(res == VK_SUCCESS);
+		// Now, if the image needs transitioning, let's transition.
+		// The backbuffer does not, that's handled by VulkanContext.
+		if (fb->color.layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.oldLayout = fb->color.layout;
+			barrier.subresourceRange.layerCount = 1;
+			barrier.subresourceRange.levelCount = 1;
+			barrier.image = fb->color.image;
+			barrier.srcAccessMask = 0;
+			switch (fb->color.layout) {
+			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				break;
+			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				break;
+			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+				break;
+			}
+			barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+			barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			// TODO: Double-check these flags. Should be fine.
+			vkCmdPipelineBarrier(cmd_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+			fb->color.layout = barrier.newLayout;
+		}
+		if (fb->depth.layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.oldLayout = fb->depth.layout;
+			barrier.subresourceRange.layerCount = 1;
+			barrier.subresourceRange.levelCount = 1;
+			barrier.image = fb->depth.image;
+			barrier.srcAccessMask = 0;
+			switch (fb->depth.layout) {
+			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				break;
+			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+				break;
+			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				break;
+			}
+			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT| VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			// TODO: Double-check these flags. Should be fine.
+			vkCmdPipelineBarrier(cmd_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+			fb->depth.layout = barrier.newLayout;
+		}
+
+		renderPass = renderPasses_[RPIndex(rp.color, rp.depth)];
+		// ILOG("Switching framebuffer to FBO (fc=%d, cmd=%x, rp=%x)", frameNum_, (int)(uintptr_t)cmd_, (int)(uintptr_t)renderPass);
+		if (rp.color == RPAction::CLEAR) {
+			Uint8x4ToFloat4(rp.clearColor, clearVal[0].color.float32);
+			numClearVals = 1;
+		}
+		if (rp.depth == RPAction::CLEAR) {
+			clearVal[1].depthStencil.depth = rp.clearDepth;
+			clearVal[1].depthStencil.stencil = rp.clearStencil;
+			numClearVals = 2;
+		}
+	} else {
+		cmd_ = vulkan_->GetSurfaceCommandBuffer();
+		renderPass = vulkan_->GetSurfaceRenderPass();
+		numClearVals = 2;
+	}
+
+	VkRenderPassBeginInfo rp_begin = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+	rp_begin.renderPass = renderPass;
+	rp_begin.framebuffer = framebuf;
+	rp_begin.renderArea.offset.x = 0;
+	rp_begin.renderArea.offset.y = 0;
+	rp_begin.renderArea.extent.width = w;
+	rp_begin.renderArea.extent.height = h;
+	rp_begin.clearValueCount = numClearVals;
+	rp_begin.pClearValues = numClearVals ? clearVal : nullptr;
+	vkCmdBeginRenderPass(cmd_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+	curFramebuffer_ = framebuf;
+	curRenderPass_ = renderPass;
+	curWidth_ = w;
+	curHeight_ = h;
+}
+
 // color must be 0, for now.
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	boundImageView_[0] = fb->color.view;
+	// If we already have the right layout, nothing else to do.
+	if (fb->color.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		return;
 
+	VkCommandBuffer transitionCmdBuf;
+	if (fb->cmdBuf && fb->frameCount == frameNum_) {
+		// If the framebuffer has a "live" command buffer, we can directly use it to transition it for sampling.
+		transitionCmdBuf = fb->cmdBuf;
+	} else {
+		// If not, we can just do it at the "start" of the frame.
+		transitionCmdBuf = vulkan_->GetInitCommandBuffer();
+	}
+
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = fb->color.layout;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.image = fb->color.image;
+	barrier.srcAccessMask = 0;
+	switch (barrier.oldLayout) {
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT|VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		break;
+	}
+	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	// we're between passes so it's OK.
+	// ARM Best Practices guide recommends these stage bits.
+	vkCmdPipelineBarrier(transitionCmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	fb->color.layout = barrier.newLayout;
 }
+
 void VKContext::BindFramebufferForRead(Framebuffer *fbo) { /* noop */ }
 
-void VKContext::BindBackbufferAsRenderTarget() {
-
-}
-
 uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
-	return 0;
+	// TODO: Insert transition at the end of the previous command buffer, or the one that rendered to it last.
+	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	return (uintptr_t)fb->color.image;
 }
 
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {

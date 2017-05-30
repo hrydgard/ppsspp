@@ -69,9 +69,7 @@ public:
 		drawEngine_ = td;
 	}
 
-	// If texture != 0, will bind it.
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
-	void DrawTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) override;
 
 	void DestroyAllFBOs();
@@ -106,6 +104,7 @@ public:
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
 	virtual void RebindFramebuffer() override;
+	VkImageView BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	// VulkanFBO *GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth = VK_FBO_8888);
 
@@ -138,7 +137,6 @@ private:
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void DoNotifyDraw();
 
-	VkCommandBuffer AllocFrameCommandBuffer();
 	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
@@ -149,11 +147,7 @@ private:
 
 	VulkanContext *vulkan_;
 
-	// The command buffer of the current framebuffer pass being rendered to.
-	// One framebuffer can be used as a texturing source at multiple times in a frame,
-	// but then the contents have to be copied out into a new texture every time.
-	VkCommandBuffer curCmd_ = VK_NULL_HANDLE;
-	VkCommandBuffer cmdInit_ = VK_NULL_HANDLE;
+	// Used to keep track of command buffers here but have moved all that into Thin3D.
 
 	// Used by DrawPixels
 	VulkanTexture *drawPixelsTex_;
@@ -173,13 +167,9 @@ private:
 		MAX_COMMAND_BUFFERS = 32,
 	};
 
+	// Commandbuffers are handled internally in thin3d, one for each framebuffer pass.
 	struct FrameData {
-		VkCommandPool cmdPool_;
-		// Keep track of command buffers we allocated so we can reset or free them at an appropriate point.
-		VkCommandBuffer commandBuffers_[MAX_COMMAND_BUFFERS];
 		VulkanPushBuffer *push_;
-		int numCommandBuffers_;
-		int totalCommandBuffers_;
 	};
 
 	FrameData frameData_[2];
@@ -188,24 +178,22 @@ private:
 	// This gets copied to the current frame's push buffer as needed.
 	PostShaderUniforms postUniforms_;
 
-	// Renderpasses, all combination of preserving or clearing fb contents
-	VkRenderPass rpLoadColorLoadDepth_;
-	VkRenderPass rpClearColorLoadDepth_;
-	VkRenderPass rpLoadColorClearDepth_;
-	VkRenderPass rpClearColorClearDepth_;
-
 	VkPipelineCache pipelineCache2D_;
 
 	// Basic shaders
 	VkShaderModule fsBasicTex_;
 	VkShaderModule vsBasicTex_;
-	VkPipeline pipelineBasicTex_;
+
+	VkPipeline cur2DPipeline_ = VK_NULL_HANDLE;
 
 	// Postprocessing
 	VkPipeline pipelinePostShader_;
 
 	VkSampler linearSampler_;
 	VkSampler nearestSampler_;
+
+	// hack!
+	VkImageView overrideImageView_ = VK_NULL_HANDLE;
 
 	// Simple 2D drawing engine.
 	Vulkan2D vulkan2D_;

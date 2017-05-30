@@ -51,6 +51,7 @@ public:
 	void Unmap() {
 		assert(writePtr_);
 		/*
+		// Should not need this since we use coherent memory.
 		VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
 		range.offset = 0;
 		range.size = offset_;

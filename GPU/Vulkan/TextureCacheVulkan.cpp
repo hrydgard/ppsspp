@@ -426,30 +426,21 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 		gstate_c.SetTextureSimpleAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE);
+
+		// imageView_ = depalFbo->getImageView().
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
+
+		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 		gstate_c.SetTextureSimpleAlpha(gstate_c.textureFullAlpha);
 	}
 
-	/*
-	imageView = depalFBO->GetColorImageView();
-
 	SamplerCacheKey samplerKey;
-	framebufferManager_->RebindFramebuffer();
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
-	sampler = GetOrCreateSampler(samplerKey);
-	*/
-
-	if (entry->vkTex) {
-		SamplerCacheKey key;
-		UpdateSamplingParams(*entry, key);
-		key.mipEnable = false;
-		sampler_ = samplerCache_.GetOrCreateSampler(key);
-
-		InvalidateLastTexture();
-	}
+	sampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
+	InvalidateLastTexture(entry);
 }
 
 ReplacedTextureFormat FromVulkanFormat(VkFormat fmt) {
@@ -622,7 +613,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 			entry->vkTex = nullptr;
 		}
 	} else {
-		// TODO: If reusing an existing texture object, we must transition it into the correct layout.
+		entry->vkTex->texture_->TransitionForUpload();
 	}
 	lastBoundTexture = entry->vkTex;
 
@@ -660,8 +651,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, level, scaleFactor, dstFmt);
 					entry->vkTex->texture_->UploadMip(0, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 					break;
-				} else
+				} else {
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
+				}
 				if (replacer_.Enabled()) {
 					replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, mipWidth, mipHeight);
 				}
