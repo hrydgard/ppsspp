@@ -572,6 +572,7 @@ namespace SaveState
 			bool callbackResult;
 			std::string callbackMessage;
 			std::string reason;
+			std::string title;
 
 			I18NCategory *sc = GetI18NCategory("Screen");
 			const char *i18nLoadFailure = sc->T("Load savestate failed", "");
@@ -603,7 +604,14 @@ namespace SaveState
 
 			case SAVESTATE_SAVE:
 				INFO_LOG(SAVESTATE, "Saving state to %s", op.filename.c_str());
-				result = CChunkFileReader::Save(op.filename, g_paramSFO.GetValueString("TITLE"), PPSSPP_GIT_VERSION, state);
+				title = g_paramSFO.GetValueString("TITLE");
+				if (title.empty()) {
+					// Homebrew title
+					title = PSP_CoreParameter().fileToStart;
+					std::size_t lslash = title.find_last_of("/");
+					title = title.substr(lslash + 1);
+				}
+				result = CChunkFileReader::Save(op.filename, title, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Saved State");
 					callbackResult = true;
