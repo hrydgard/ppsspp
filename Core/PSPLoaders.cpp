@@ -188,10 +188,9 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		std::vector<u8> paramsfo;
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
 		if (g_paramSFO.ReadSFO(paramsfo)) {
-			char title[1024];
-			sprintf(title, "%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
-			INFO_LOG(LOADER, "%s", title);
-			host->SetWindowTitle(title);
+			std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
+			INFO_LOG(LOADER, "%s", title.c_str());
+			host->SetWindowTitle(title.c_str());
 		}
 	}
 
@@ -326,13 +325,12 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 
 	std::string homebrewName = PSP_CoreParameter().fileToStart;
 	std::size_t lslash = homebrewName.find_last_of("/");
-	homebrewName = homebrewName.substr(lslash +1);
+	homebrewName = homebrewName.substr(lslash + 1);
 	std::string madeUpID = g_paramSFO.GenerateFakeID();
 
-	char title[1024];
-	sprintf(title, "%s : %s", madeUpID.c_str(), homebrewName.c_str());
-	INFO_LOG(LOADER, "%s", title);
-	host->SetWindowTitle(title);
+	std::string title = StringFromFormat("%s : %s", madeUpID.c_str(), homebrewName.c_str());
+	INFO_LOG(LOADER, "%s", title.c_str());
+	host->SetWindowTitle(title.c_str());
 
 	// Temporary code
 	// TODO: Remove this after ~ 1.6
@@ -344,16 +342,16 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	savestateDir = ReplaceAll(savestateDir, "/", "\\");
 #endif
 	for (int i = 0; i < 5; i += 1) {
-		std::string oldName = StringFromFormat("%s%s_%i.ppst", savestateDir.c_str(), homebrewName.c_str(), i);
+		std::string oldName = StringFromFormat("%s%s_%d.ppst", savestateDir.c_str(), homebrewName.c_str(), i);
 		if (File::Exists(oldName)) {
-			std::string newName = StringFromFormat("%s%s_1.00_%i.ppst", savestateDir.c_str(), madeUpID.c_str(), i);
+			std::string newName = StringFromFormat("%s%s_1.00_%d.ppst", savestateDir.c_str(), madeUpID.c_str(), i);
 			File::Rename(oldName, newName);
 		}
 	}
 	for (int i = 0; i < 5; i += 1) {
-		std::string oldName = StringFromFormat("%s%s_%i.jpg", savestateDir.c_str(), homebrewName.c_str(), i);
+		std::string oldName = StringFromFormat("%s%s_%d.jpg", savestateDir.c_str(), homebrewName.c_str(), i);
 		if (File::Exists(oldName)) {
-			std::string newName = StringFromFormat("%s%s_1.00_%i.jpg", savestateDir.c_str(), madeUpID.c_str(), i);
+			std::string newName = StringFromFormat("%s%s_1.00_%d.jpg", savestateDir.c_str(), madeUpID.c_str(), i);
 			File::Rename(oldName, newName);
 		}
 	}

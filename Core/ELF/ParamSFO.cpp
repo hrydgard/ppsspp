@@ -288,6 +288,6 @@ std::string ParamSFOData::GenerateFakeID(std::string filename) {
 	}
 	file = file.substr(0, 4);
 
-	std::string fakeID = file + StringFromFormat("%05i", sumOfAllLetters);
+	std::string fakeID = file + StringFromFormat("%05d", sumOfAllLetters);
 	return fakeID;
 }

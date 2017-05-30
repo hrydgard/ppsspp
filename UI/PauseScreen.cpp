@@ -188,7 +188,7 @@ SaveSlotView::SaveSlotView(const std::string &gameFilename, int slot, UI::Layout
 	Add(new Spacer(5));
 
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, wq, new UI::LayoutParams(82 * 2, 47 * 2)));
-	fv->SetOverlayText(StringFromFormat("%i", slot_ + 1));
+	fv->SetOverlayText(StringFromFormat("%d", slot_ + 1));
 
 	I18NCategory *pa = GetI18NCategory("Pause");
 
