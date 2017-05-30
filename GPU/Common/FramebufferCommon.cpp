@@ -971,6 +971,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
 			draw_->BindFramebufferAsRenderTarget(extraFBOs_[0], { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
 			int fbo_w, fbo_h;
 			draw_->GetFramebufferDimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			SetViewport2D(0, 0, fbo_w, fbo_h);
