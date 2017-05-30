@@ -48,6 +48,7 @@
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
 #include "Common/OSVersion.h"
+#include "Common/Vulkan/VulkanLoader.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -187,10 +188,10 @@ void GameSettingsScreen::CreateViews() {
 		renderingBackendChoice->HideChoice(2);  // D3D11
 	}
 #endif
-#if !defined(_WIN32) && !PPSSPP_PLATFORM(ANDROID)
-	// TODO: Add dynamic runtime check for Vulkan support on Android
-	renderingBackendChoice->HideChoice(3);
-#endif
+	if (!VulkanMayBeAvailable()) {
+		renderingBackendChoice->HideChoice(3);
+	}
+
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
 	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
