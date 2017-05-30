@@ -18,6 +18,7 @@
 #include "file/file_util.h"
 #include "util/text/utf8.h"
 
+#include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -187,10 +188,9 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		std::vector<u8> paramsfo;
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
 		if (g_paramSFO.ReadSFO(paramsfo)) {
-			char title[1024];
-			sprintf(title, "%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
-			INFO_LOG(LOADER, "%s", title);
-			host->SetWindowTitle(title);
+			std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
+			INFO_LOG(LOADER, "%s", title.c_str());
+			host->SetWindowTitle(title.c_str());
 		}
 	}
 
@@ -322,5 +322,40 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = ms_path + file + extension;
+
+	std::string homebrewName = PSP_CoreParameter().fileToStart;
+	std::size_t lslash = homebrewName.find_last_of("/");
+	homebrewName = homebrewName.substr(lslash + 1);
+	std::string madeUpID = g_paramSFO.GenerateFakeID();
+
+	std::string title = StringFromFormat("%s : %s", madeUpID.c_str(), homebrewName.c_str());
+	INFO_LOG(LOADER, "%s", title.c_str());
+	host->SetWindowTitle(title.c_str());
+
+	// Temporary code
+	// TODO: Remove this after ~ 1.6
+	// It checks for old filenames for homebrew savestates(folder name) and rename them to new fakeID format
+	std::string savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
+	savestateDir = ReplaceAll(savestateDir, "\\", "/");
+#ifdef _WIN32
+	// Turn the slashes back to the Windows way.
+	savestateDir = ReplaceAll(savestateDir, "/", "\\");
+#endif
+	for (int i = 0; i < 5; i += 1) {
+		std::string oldName = StringFromFormat("%s%s_%d.ppst", savestateDir.c_str(), homebrewName.c_str(), i);
+		if (File::Exists(oldName)) {
+			std::string newName = StringFromFormat("%s%s_1.00_%d.ppst", savestateDir.c_str(), madeUpID.c_str(), i);
+			File::Rename(oldName, newName);
+		}
+	}
+	for (int i = 0; i < 5; i += 1) {
+		std::string oldName = StringFromFormat("%s%s_%d.jpg", savestateDir.c_str(), homebrewName.c_str(), i);
+		if (File::Exists(oldName)) {
+			std::string newName = StringFromFormat("%s%s_1.00_%d.jpg", savestateDir.c_str(), madeUpID.c_str(), i);
+			File::Rename(oldName, newName);
+		}
+	}
+	// End of temporary code
+
 	return __KernelLoadExec(finalName.c_str(), 0, error_string);
 }

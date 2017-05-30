@@ -262,7 +262,7 @@ bool GameInfo::DeleteAllSaveData() {
 void GameInfo::ParseParamSFO() {
 	title = paramSFO.GetValueString("TITLE");
 	id = paramSFO.GetValueString("DISC_ID");
-	id_version = paramSFO.GetValueString("DISC_ID") + "_" + paramSFO.GetValueString("DISC_VERSION");
+	id_version = id + "_" + paramSFO.GetValueString("DISC_VERSION");
 	disc_total = paramSFO.GetValueInt("DISC_TOTAL");
 	disc_number = paramSFO.GetValueInt("DISC_NUMBER");
 	// region = paramSFO.GetValueInt("REGION");  // Always seems to be 32768?
@@ -405,6 +405,15 @@ public:
 					std::lock_guard<std::mutex> lock(info_->lock);
 					info_->paramSFO.ReadSFO(sfoData);
 					info_->ParseParamSFO();
+
+					// Assuming PSP_PBP_DIRECTORY without ID or with disc_total < 1 in GAME dir must be homebrew
+					if ((info_->id.empty() || !info_->disc_total)
+						&& gamePath_.find("/PSP/GAME/") != std::string::npos 
+						&& info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
+						info_->id = g_paramSFO.GenerateFakeID(gamePath_);
+						info_->id_version = info_->id + "_1.00";
+						info_->region = GAMEREGION_MAX + 1; // Homebrew
+					}
 				}
 
 				// Then, ICON0.PNG.
@@ -412,8 +421,16 @@ public:
 					std::lock_guard<std::mutex> lock(info_->lock);
 					pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->icon.data);
 				} else {
-					// Read standard icon
-					ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+					std::string screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.jpg";
+					std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
+					// Try using png/jpg screenshots first
+					if (File::Exists(screenshot_png))
+						readFileToString(false, screenshot_png.c_str(), info_->icon.data);
+					else if (File::Exists(screenshot_jpg))
+						readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+					else
+						// Read standard icon
+						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
 				}
 				info_->icon.dataLoaded = true;
 
@@ -444,15 +461,27 @@ handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
 			{
 				std::lock_guard<std::mutex> lock(info_->lock);
-				info_->id = "ELF000000";
-				info_->id_version = "ELF000000_1.00";
+				info_->id = g_paramSFO.GenerateFakeID(gamePath_);
+				info_->id_version = info_->id + "_1.00";
+				info_->region = GAMEREGION_MAX + 1; // Homebrew
+
 				info_->paramSFOLoaded = true;
 			}
-
-			// Read standard icon
-			DEBUG_LOG(LOADER, "Loading unknown.png because there was an ELF");
-			ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
-			info_->icon.dataLoaded = true;
+			{
+				std::string screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.jpg";
+				std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
+				// Try using png/jpg screenshots first
+				if (File::Exists(screenshot_png))
+					readFileToString(false, screenshot_png.c_str(), info_->icon.data);
+				else if (File::Exists(screenshot_jpg))
+					readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+				else {
+					// Read standard icon
+					DEBUG_LOG(LOADER, "Loading unknown.png because there was an ELF");
+					ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+				}
+				info_->icon.dataLoaded = true;
+			}
 			break;
 
 		case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
@@ -559,8 +588,17 @@ handleELF:
 
 				// Fall back to unknown icon if ISO is broken/is a homebrew ISO, override is allowed though
 				if (!ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock)) {
-					DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
-					ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+					std::string screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.jpg";
+					std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
+					// Try using png/jpg screenshots first
+					if (File::Exists(screenshot_png))
+						readFileToString(false, screenshot_png.c_str(), info_->icon.data);
+					else if (File::Exists(screenshot_jpg))
+						readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
+					else {
+						DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
+						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+					}
 				}
 				info_->icon.dataLoaded = true;
 				break;

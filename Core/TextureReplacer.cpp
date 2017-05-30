@@ -48,8 +48,11 @@ void TextureReplacer::Init() {
 
 void TextureReplacer::NotifyConfigChanged() {
 	gameID_ = g_paramSFO.GetValueString("DISC_ID");
+	if (gameID_.empty()) {
+		gameID_ = g_paramSFO.GenerateFakeID();
+	}
 
-	enabled_ = !gameID_.empty() && (g_Config.bReplaceTextures || g_Config.bSaveNewTextures);
+	enabled_ = g_Config.bReplaceTextures || g_Config.bSaveNewTextures;
 	if (enabled_) {
 		basePath_ = GetSysDirectory(DIRECTORY_TEXTURES) + gameID_ + "/";
 

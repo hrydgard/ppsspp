@@ -35,6 +35,7 @@ public:
 	u8* GetValueData(std::string key, unsigned int *size);
 
 	std::vector<std::string> GetKeys();
+	std::string GenerateFakeID(std::string filename = "");
 
 	bool ReadSFO(const u8 *paramsfo, size_t size);
 	bool WriteSFO(u8 **paramsfo, size_t *size);

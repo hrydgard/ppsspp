@@ -363,33 +363,15 @@ namespace SaveState
 	std::string GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension)
 	{
 		std::string discId = g_paramSFO.GetValueString("DISC_ID");
+		std::string discVer = g_paramSFO.GetValueString("DISC_VERSION");
 		std::string fullDiscId;
-		if (discId.size()) {
-			fullDiscId = StringFromFormat("%s_%s",
-				g_paramSFO.GetValueString("DISC_ID").c_str(),
-				g_paramSFO.GetValueString("DISC_VERSION").c_str());
-		} else {
-			// Okay, no discId. Probably homebrew, let's use the last part of the path name.
-			if (File::IsDirectory(gameFilename)) {
-				// EBOOT.PBP directory, most likely.
-				std::string path = gameFilename;
-				size_t slash = path.rfind('/');  // Always '/', not '\\', as we're in a virtual directory
-				if (slash != std::string::npos && slash < path.size() - 1)
-					path = path.substr(slash + 1);
-				fullDiscId = path;
-			} else {
-				// Probably a loose elf.
-				std::string fn = File::GetFilename(gameFilename);
-				size_t dot = fn.rfind('.');
-				if (dot != std::string::npos) {
-					fullDiscId = fn.substr(0, dot);
-				} else {
-					fullDiscId = "elf";  // Fallback
-				}
-			}
+		if (discId.empty()) {
+			discId = g_paramSFO.GenerateFakeID();
+			discVer = "1.00";
 		}
+		fullDiscId = StringFromFormat("%s_%s", discId.c_str(), discVer.c_str());
 
-		std::string temp = StringFromFormat("ms0:/PSP/PPSSPP_STATE/%s_%i.%s", fullDiscId.c_str(), slot, extension);
+		std::string temp = StringFromFormat("ms0:/PSP/PPSSPP_STATE/%s_%d.%s", fullDiscId.c_str(), slot, extension);
 		std::string hostPath;
 		if (pspFileSystem.GetHostPath(temp, hostPath)) {
 			return hostPath;
@@ -590,6 +572,7 @@ namespace SaveState
 			bool callbackResult;
 			std::string callbackMessage;
 			std::string reason;
+			std::string title;
 
 			I18NCategory *sc = GetI18NCategory("Screen");
 			const char *i18nLoadFailure = sc->T("Load savestate failed", "");
@@ -621,7 +604,14 @@ namespace SaveState
 
 			case SAVESTATE_SAVE:
 				INFO_LOG(SAVESTATE, "Saving state to %s", op.filename.c_str());
-				result = CChunkFileReader::Save(op.filename, g_paramSFO.GetValueString("TITLE"), PPSSPP_GIT_VERSION, state);
+				title = g_paramSFO.GetValueString("TITLE");
+				if (title.empty()) {
+					// Homebrew title
+					title = PSP_CoreParameter().fileToStart;
+					std::size_t lslash = title.find_last_of("/");
+					title = title.substr(lslash + 1);
+				}
+				result = CChunkFileReader::Save(op.filename, title, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Saved State");
 					callbackResult = true;

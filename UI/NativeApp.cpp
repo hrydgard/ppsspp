@@ -715,7 +715,7 @@ void TakeScreenshot() {
 
 	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
 	if (gameId.empty()) {
-		gameId = "MENU";
+		gameId = g_paramSFO.GenerateFakeID();
 	}
 
 	char filename[2048];
