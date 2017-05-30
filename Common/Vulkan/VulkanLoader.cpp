@@ -195,16 +195,38 @@ static void *vulkanLibrary;
 #define LOAD_DEVICE_FUNC(instance, x) x = (PFN_ ## x)vkGetDeviceProcAddr(instance, #x); if (!x) {ILOG("Missing (device): %s", #x);}
 #define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {ILOG("Missing (global): %s", #x);}
 
-
-bool VulkanLoad() {
+bool VulkanMayBeAvailable() {
+	if (vulkanLibrary)
+		return true;
+	bool available = false;
 #ifndef _WIN32
-	vulkanLibrary = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+	void *lib = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+	available = lib != nullptr;
+	if (lib) {
+		dlclose(lib);
+	}
 #else
 	// LoadLibrary etc
-	vulkanLibrary = LoadLibrary(L"vulkan-1.dll");
+	HINSTANCE lib = LoadLibrary(L"vulkan-1.dll");
+	available = lib != 0;
+	if (lib) {
+		FreeLibrary(lib);
+	}
 #endif
+	return available;
+}
+
+bool VulkanLoad() {
 	if (!vulkanLibrary) {
-		return false;
+#ifndef _WIN32
+		vulkanLibrary = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+#else
+		// LoadLibrary etc
+		vulkanLibrary = LoadLibrary(L"vulkan-1.dll");
+#endif
+		if (!vulkanLibrary) {
+			return false;
+		}
 	}
 
 	LOAD_GLOBAL_FUNC(vkCreateInstance);
@@ -391,13 +413,12 @@ void VulkanLoadDeviceFunctions(VkDevice device) {
 }
 
 void VulkanFree() {
+	if (vulkanLibrary) {
 #ifdef _WIN32
-	if (vulkanLibrary) {
 		FreeLibrary(vulkanLibrary);
-	}
 #else
-	if (vulkanLibrary) {
 		dlclose(vulkanLibrary);
-	}
 #endif
+		vulkanLibrary = nullptr;
+	}
 }

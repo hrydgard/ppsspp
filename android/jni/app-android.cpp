@@ -39,6 +39,7 @@
 #include "thin3d/thin3d.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
+#include "Core/System.h"
 #include "Common/CPUDetect.h"
 #include "Common/GraphicsContext.h"
 #include "Common/GL/GLInterfaceBase.h"
@@ -1011,9 +1012,12 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		ELOG("Error: Surface is null.");
 		return false;
 	}
-	
+
+retry:
+
 	bool vulkan = g_Config.iGPUBackend == GPU_BACKEND_VULKAN;
 
+	int tries = 0;
 	AndroidGraphicsContext *graphicsContext;
 	if (vulkan) {
 		graphicsContext = new AndroidVulkanContext();
@@ -1023,6 +1027,15 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	if (!graphicsContext->Init(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 		ELOG("Failed to initialize graphics context.");
+
+		if (vulkan && tries < 2) {
+			ILOG("Trying again, this time with OpenGL.");
+			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);  // Wait, why do we need a separate enum here?
+			tries++;
+			goto retry;
+		}
+
 		delete graphicsContext;
 		return false;
 	}

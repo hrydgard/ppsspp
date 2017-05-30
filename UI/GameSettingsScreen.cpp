@@ -48,6 +48,7 @@
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
 #include "Common/OSVersion.h"
+#include "Common/Vulkan/VulkanLoader.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -178,7 +179,7 @@ void GameSettingsScreen::CreateViews() {
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan (experimental)" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
-#if !defined(_WIN32)
+#if !PPSSPP_PLATFORM(WINDOWS)
 	renderingBackendChoice->HideChoice(1);  // D3D9
 	renderingBackendChoice->HideChoice(2);  // D3D11
 #else
@@ -187,10 +188,14 @@ void GameSettingsScreen::CreateViews() {
 		renderingBackendChoice->HideChoice(2);  // D3D11
 	}
 #endif
-#if !defined(_WIN32) && !PPSSPP_PLATFORM(ANDROID)
-	// TODO: Add dynamic runtime check for Vulkan support on Android
-	renderingBackendChoice->HideChoice(3);
+	bool vulkanAvailable = false;
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
+	vulkanAvailable = VulkanMayBeAvailable();
 #endif
+	if (!vulkanAvailable) {
+		renderingBackendChoice->HideChoice(3);
+	}
+
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
 	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
