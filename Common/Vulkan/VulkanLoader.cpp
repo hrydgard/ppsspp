@@ -202,12 +202,16 @@ bool VulkanMayBeAvailable() {
 #ifndef _WIN32
 	void *lib = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
 	available = lib != nullptr;
-	dlclose(lib);
+	if (lib) {
+		dlclose(lib);
+	}
 #else
 	// LoadLibrary etc
 	HINSTANCE lib = LoadLibrary(L"vulkan-1.dll");
 	available = lib != 0;
-	FreeLibrary(lib);
+	if (lib) {
+		FreeLibrary(lib);
+	}
 #endif
 	return available;
 }
