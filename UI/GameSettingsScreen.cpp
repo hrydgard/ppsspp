@@ -179,7 +179,7 @@ void GameSettingsScreen::CreateViews() {
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan (experimental)" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
-#if !defined(_WIN32)
+#if !PPSSPP_PLATFORM(WINDOWS)
 	renderingBackendChoice->HideChoice(1);  // D3D9
 	renderingBackendChoice->HideChoice(2);  // D3D11
 #else
@@ -188,7 +188,11 @@ void GameSettingsScreen::CreateViews() {
 		renderingBackendChoice->HideChoice(2);  // D3D11
 	}
 #endif
-	if (!VulkanMayBeAvailable()) {
+	bool vulkanAvailable = false;
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
+	vulkanAvailable = VulkanMayBeAvailable();
+#endif
+	if (!vulkanAvailable) {
 		renderingBackendChoice->HideChoice(3);
 	}
 
