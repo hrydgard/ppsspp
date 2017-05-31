@@ -83,7 +83,6 @@ public:
 
 protected:
 	void DisableState() override;
-	void ClearBuffer(bool keepState = false) override;
 	void FlushBeforeCopy() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies

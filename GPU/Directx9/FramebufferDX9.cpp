@@ -81,30 +81,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	D3DDECL_END()
 };
 
-	void FramebufferManagerDX9::ClearBuffer(bool keepState) {
-		if (keepState) {
-			dxstate.scissorTest.force(false);
-			dxstate.depthWrite.force(TRUE);
-			dxstate.colorMask.force(true, true, true, true);
-			dxstate.stencilFunc.force(D3DCMP_ALWAYS, 0, 0);
-			dxstate.stencilMask.force(0xFF);
-		} else {
-			dxstate.scissorTest.disable();
-			dxstate.depthWrite.set(TRUE);
-			dxstate.colorMask.set(true, true, true, true);
-			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0);
-			dxstate.stencilMask.set(0xFF);
-		}
-		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), ToScaledDepth(0), 0);
-		if (keepState) {
-			dxstate.scissorTest.restore();
-			dxstate.depthWrite.restore();
-			dxstate.colorMask.restore();
-			dxstate.stencilFunc.restore();
-			dxstate.stencilMask.restore();
-		}
-	}
-
 	void FramebufferManagerDX9::DisableState() {
 		dxstate.blend.disable();
 		dxstate.cullMode.set(false, false);

@@ -169,7 +169,7 @@ public:
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	void DestroyFramebuf(VirtualFramebuffer *v);
 
-	VirtualFramebuffer *DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason);
+	VirtualFramebuffer *DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason);	
 	VirtualFramebuffer *SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason) {
 		// Inlining this part since it's so frequent.
 		if (!framebufChanged && currentRenderVfb_) {
@@ -290,7 +290,6 @@ protected:
 	void SetNumExtraFBOs(int num);
 
 	virtual void DisableState() = 0;
-	virtual void ClearBuffer(bool keepState = false) = 0;
 	virtual void FlushBeforeCopy() = 0;
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
