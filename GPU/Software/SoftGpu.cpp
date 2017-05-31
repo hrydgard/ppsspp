@@ -31,9 +31,10 @@
 #include "profiler/profiler.h"
 #include "thin3d/thin3d.h"
 
+#include "GPU/Software/Rasterizer.h"
+#include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
-#include "GPU/Software/Rasterizer.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 
@@ -99,6 +100,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	displayStride_ = 512;
 	displayFormat_ = GE_FORMAT_8888;
 
+	Sampler::Init();
 	drawEngine_ = new SoftwareDrawEngine();
 	drawEngineCommon_ = drawEngine_;
 }
@@ -127,6 +129,8 @@ SoftGPU::~SoftGPU() {
 	samplerNearest = nullptr;
 	samplerLinear->Release();
 	samplerLinear = nullptr;
+
+	Sampler::Shutdown();
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -990,4 +994,13 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer)
 bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices)
 {
 	return drawEngine_->transformUnit.GetCurrentSimpleVertices(count, vertices, indices);
+}
+
+bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
+	std::string subname;
+	if (Sampler::DescribeCodePtr(ptr, subname)) {
+		name = "SamplerJit:" + subname;
+		return true;
+	}
+	return false;
 }

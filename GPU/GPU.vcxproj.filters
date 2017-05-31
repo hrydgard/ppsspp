@@ -259,6 +259,9 @@
     <ClInclude Include="Common\ShaderTranslation.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Software\Sampler.h">
+      <Filter>Software</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -509,6 +512,12 @@
     </ClCompile>
     <ClCompile Include="Vulkan\FramebufferVulkan.cpp">
       <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\Sampler.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\SamplerX86.cpp">
+      <Filter>Software</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

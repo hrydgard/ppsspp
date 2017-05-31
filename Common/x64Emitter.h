@@ -756,6 +756,11 @@ public:
 	void PUNPCKLDQ(X64Reg dest, const OpArg &arg);
 	void PUNPCKLQDQ(X64Reg dest, const OpArg &arg);
 
+	void PUNPCKHBW(X64Reg dest, const OpArg &arg);
+	void PUNPCKHWD(X64Reg dest, const OpArg &arg);
+	void PUNPCKHDQ(X64Reg dest, const OpArg &arg);
+	void PUNPCKHQDQ(X64Reg dest, const OpArg &arg);
+
 	void PTEST(X64Reg dest, OpArg arg);
 	void PAND(X64Reg dest, OpArg arg);
 	void PANDN(X64Reg dest, OpArg arg);
@@ -833,6 +838,11 @@ public:
 
 	void PSRAW(X64Reg reg, int shift);
 	void PSRAD(X64Reg reg, int shift);
+
+	void PMULLW(X64Reg dest, const OpArg &arg);
+	void PMULHW(X64Reg dest, const OpArg &arg);
+	void PMULHUW(X64Reg dest, const OpArg &arg);
+	void PMULUDQ(X64Reg dest, const OpArg &arg);
 
 	// SSE4: data type conversions
 	void PMOVSXBW(X64Reg dest, OpArg arg);

@@ -1089,6 +1089,7 @@ list(APPEND CoreExtra
 	Core/MIPS/x86/RegCacheFPU.cpp
 	Core/MIPS/x86/RegCacheFPU.h
 	GPU/Common/VertexDecoderX86.cpp
+	GPU/Software/SamplerX86.cpp
 )
 
 list(APPEND CoreExtra
@@ -1284,6 +1285,8 @@ set(GPU_SOURCES
 	GPU/Software/Lighting.h
 	GPU/Software/Rasterizer.cpp
 	GPU/Software/Rasterizer.h
+	GPU/Software/Sampler.cpp
+	GPU/Software/Sampler.h
 	GPU/Software/SoftGpu.cpp
 	GPU/Software/SoftGpu.h
 	GPU/Software/TransformUnit.cpp
