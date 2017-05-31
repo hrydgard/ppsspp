@@ -106,17 +106,9 @@ public:
 	virtual void RebindFramebuffer() override;
 	VkImageView BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	// VulkanFBO *GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth = VK_FBO_8888);
-
-	// Pass management
-	// void BeginPassClear()
-
 	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
 	// do that.
 	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
-	void NotifyDraw() {
-		DoNotifyDraw();
-	}
 
 protected:
 	void Bind2DShader() override;

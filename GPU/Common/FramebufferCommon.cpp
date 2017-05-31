@@ -1022,6 +1022,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			}*/
 		} else {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
 			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.

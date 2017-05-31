@@ -197,10 +197,6 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 	//}
 }
 
-void FramebufferManagerVulkan::DoNotifyDraw() {
-
-}
-
 void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
 	float u_delta = 1.0f / renderWidth;
 	float v_delta = 1.0f / renderHeight;
