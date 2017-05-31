@@ -1071,7 +1071,6 @@ void GlobalSettingsScreen::CreateViews() {
 }*/
 
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	// If the user ends up deciding not to restart, set the config back to the current backend
 	// so it doesn't get switched by accident.
 	if (yes) {
@@ -1079,11 +1078,9 @@ void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 	} else {
 		g_Config.iGPUBackend = (int)GetGPUBackend();
 	}
-#endif
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
-#if defined(_WIN32)
 	I18NCategory *di = GetI18NCategory("Dialog");
 
 	// It only makes sense to show the restart prompt if the backend was actually changed.
@@ -1091,12 +1088,11 @@ UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 		screenManager()->push(new PromptScreen(di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
 			std::bind(&GameSettingsScreen::CallbackRenderingBackend, this, std::placeholders::_1)));
 	}
-#endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
 	const size_t name_len = 256;
 
 	char name[name_len];
@@ -1112,7 +1108,7 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
 	if (!g_Config.bFullScreen) {
 		const size_t name_len = 256;
 

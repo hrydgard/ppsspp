@@ -120,6 +120,10 @@ void gl_lost_manager_shutdown() {
 		FLOG("Lost manager already shutdown");
 	} else if (holders->size() > 0) {
 		ELOG("Lost manager shutdown with %i objects still registered", (int)holders->size());
+		for (size_t i = 0; i < holders->size(); i++) {
+			ELOG("  (%d / %d, %s, prio %d)", (int)(i + 1), (int)holders->size(),
+				(*holders)[i].desc, (*holders)[i].priority);
+		}
 	}
 
 	delete holders;

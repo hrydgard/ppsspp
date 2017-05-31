@@ -601,6 +601,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		}
 		if (shuttingDown || isFinishing()) {
 			NativeApp.shutdown();
+			initialized = false;
 		}
 	}
 
@@ -1159,6 +1160,10 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				updateSystemUiVisibility();
 			}
 		} else if (command.equals("recreate")) {
+			recreate();
+		} else if (command.equals("graphics_restart")) {
+			Log.i(TAG, "graphics_restart");
+			shuttingDown = true;
 			recreate();
 		} else if (command.equals("ask_permission") && params.equals("storage")) {
 			askForStoragePermission();

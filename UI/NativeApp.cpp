@@ -916,6 +916,7 @@ void NativeUpdate() {
 }
 
 void NativeDeviceLost() {
+	ILOG("NativeDeviceLost");
 	// We start by calling gl_lost - this lets objects zero their native GL objects
 	// so they then don't try to delete them as well.
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
@@ -927,6 +928,7 @@ void NativeDeviceLost() {
 }
 
 void NativeDeviceRestore() {
+	ILOG("NativeDeviceRestore");
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_restore();
 	}
@@ -1109,12 +1111,8 @@ void NativeShutdown() {
 
 	net::Shutdown();
 
-	// This means that the activity has been completely destroyed. PPSSPP does not
-	// boot up correctly with "dirty" global variables currently, so we hack around that
-	// by simply exiting.
-#if PPSSPP_PLATFORM(ANDROID)
-	exit(0);
-#endif
+	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
+	// I think we handle most globals correctly or correct-enough now.
 }
 
 void NativePermissionStatus(SystemPermission permission, PermissionStatus status) {

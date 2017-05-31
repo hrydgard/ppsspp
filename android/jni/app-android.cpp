@@ -139,6 +139,7 @@ void AndroidEGLGraphicsContext::Shutdown() {
 	gl->Shutdown();
 	delete gl;
 	ANativeWindow_release(wnd_);
+	finalize_glslang();
 }
 
 void AndroidEGLGraphicsContext::SwapBuffers() {
@@ -155,7 +156,13 @@ public:
 	~AndroidJavaEGLGraphicsContext() {
 		delete draw_;
 	}
-	void Shutdown() override {}
+	void Shutdown() override {
+		ILOG("AndroidJavaEGLGraphicsContext::Shutdown");
+		delete draw_;
+		draw_ = nullptr;
+		NativeShutdownGraphics();
+		finalize_glslang();
+	}
 	void SwapBuffers() override {}
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
@@ -295,6 +302,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 }
 
 void AndroidVulkanContext::Shutdown() {
+	ILOG("AndroidVulkanContext::Shutdown");
 	delete draw_;
 	draw_ = nullptr;
 	NativeShutdownGraphics();
@@ -627,14 +635,19 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- begin");
 	if (renderer_inited) {
+		ILOG("Shutting down renderer");
 		graphicsContext->Shutdown();
 		delete graphicsContext;
 		graphicsContext = nullptr;
 		renderer_inited = false;
+	} else {
+		ILOG("Not shutting down renderer - not initialized");
 	}
 
 	NativeShutdown();
 	VFSShutdown();
+	while (frameCommands.size())
+		frameCommands.pop();
 	ILOG("NativeApp.shutdown() -- end");
 }
 
