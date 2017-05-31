@@ -65,8 +65,14 @@ Draw::InputLayout *DrawBuffer::CreateInputLayout(Draw::DrawContext *t3d) {
 void DrawBuffer::Shutdown() {
 	if (vbuf_) {
 		vbuf_->Release();
+		vbuf_ = nullptr;
 	}
 	inited_ = false;
+	alphaStack_.clear();
+	drawMatrixStack_.clear();
+	pipeline_ = nullptr;
+	draw_ = nullptr;
+	count_ = 0;
 }
 
 void DrawBuffer::Begin(Draw::Pipeline *program) {
