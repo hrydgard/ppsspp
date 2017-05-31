@@ -632,9 +632,7 @@ bool FramebufferManagerVulkan::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb
 		return false;
 	}
 
-	BindFramebufferAsRenderTargetnvfb->fbo);
-	ClearBuffer();
-	glDisable(GL_DITHER);
+	BindFramebufferAsRenderTarget(nvfb->fbo);
 	*/
 	return true;
 }
@@ -650,7 +648,6 @@ void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb
 		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 	} else if (gl_extensions.IsGLES) {
 		BindFramebufferAsRenderTargetnvfb->fbo);
-		ClearBuffer();
 	}
 	*/
 }
@@ -1113,9 +1110,4 @@ bool FramebufferManagerVulkan::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	return true;
 	*/
 	return false;
-}
-
-void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
-	// TODO: Ideally, this should never be called.
-	// assert(false);
 }

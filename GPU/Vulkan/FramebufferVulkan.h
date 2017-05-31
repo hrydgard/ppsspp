@@ -115,7 +115,6 @@ protected:
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override {}
-	void ClearBuffer(bool keepState = false) override;
 	void FlushBeforeCopy() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies

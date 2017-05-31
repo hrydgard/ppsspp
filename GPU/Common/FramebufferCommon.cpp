@@ -533,9 +533,6 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
-	// TODO: Is this necessary?
-	ClearBuffer();
-
 	// ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
 		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);

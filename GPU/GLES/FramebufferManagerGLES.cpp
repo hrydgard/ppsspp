@@ -69,38 +69,6 @@ static const char basic_vs[] =
 
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
-void FramebufferManagerGLES::ClearBuffer(bool keepState) {
-	if (keepState) {
-		glstate.scissorTest.force(false);
-		glstate.depthWrite.force(GL_TRUE);
-		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glstate.stencilFunc.force(GL_ALWAYS, 0, 0);
-		glstate.stencilMask.force(0xFF);
-	} else {
-		glstate.scissorTest.disable();
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glstate.stencilFunc.set(GL_ALWAYS, 0, 0);
-		glstate.stencilMask.set(0xFF);
-	}
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClearStencil(0);
-	float clearDepth = ToScaledDepth(0);
-#ifdef USING_GLES2
-	glClearDepthf(clearDepth);
-#else
-	glClearDepth(clearDepth);
-#endif
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	if (keepState) {
-		glstate.scissorTest.restore();
-		glstate.depthWrite.restore();
-		glstate.colorMask.restore();
-		glstate.stencilFunc.restore();
-		glstate.stencilMask.restore();
-	}
-}
-
 void FramebufferManagerGLES::DisableState() {
 	glstate.blend.disable();
 	glstate.cullFace.disable();
@@ -662,8 +630,7 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
 		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 	} else if (gl_extensions.IsGLES) {
-		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
-		ClearBuffer();
+		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }

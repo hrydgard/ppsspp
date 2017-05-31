@@ -207,10 +207,6 @@ void FramebufferManagerD3D11::SetShaderManager(ShaderManagerD3D11 *sm) {
 	shaderManager_ = sm;
 }
 
-void FramebufferManagerD3D11::ClearBuffer(bool keepState) {
-	draw_->Clear(Draw::FBChannel::FB_COLOR_BIT | Draw::FBChannel::FB_DEPTH_BIT | Draw::FBChannel::FB_STENCIL_BIT, 0, ToScaledDepth(0), 0);
-}
-
 void FramebufferManagerD3D11::DisableState() {
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
