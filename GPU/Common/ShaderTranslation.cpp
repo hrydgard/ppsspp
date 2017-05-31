@@ -78,51 +78,6 @@ struct Builtin {
 	const char *replacement;
 };
 
-// Workaround for deficiency in SPIRV-Cross
-static const Builtin builtins[] = {
-	{"lessThan",
-	R"(
-	bool2 lessThan(float2 a, float2 b) { return bool2(a.x < b.x, a.y < b.y); }
-	bool3 lessThan(float3 a, float3 b) { return bool3(a.x < b.x, a.y < b.y, a.z < b.z); }
-	bool4 lessThan(float4 a, float4 b) { return bool4(a.x < b.x, a.y < b.y, a.z < b.z, a.w < b.w); }
-	)"},
-	{ "lessThanEqual",
-	R"(
-	bool2 lessThanEqual(float2 a, float2 b) { return bool2(a.x <= b.x, a.y <= b.y); }
-	bool3 lessThanEqual(float3 a, float3 b) { return bool3(a.x <= b.x, a.y <= b.y, a.z <= b.z); }
-	bool4 lessThanEqual(float4 a, float4 b) { return bool4(a.x <= b.x, a.y <= b.y, a.z <= b.z, a.w <= b.w); }
-	)" },
-	{ "greaterThan",
-	R"(
-	bool2 greaterThan(float2 a, float2 b) { return bool2(a.x > b.x, a.y > b.y); }
-	bool3 greaterThan(float3 a, float3 b) { return bool3(a.x > b.x, a.y > b.y, a.z > b.z); }
-	bool4 greaterThan(float4 a, float4 b) { return bool4(a.x > b.x, a.y > b.y, a.z > b.z, a.w > b.w); }
-	)" },
-	{ "greaterThanEqual",
-	R"(
-	bool2 greaterThanEqual(float2 a, float2 b) { return bool2(a.x >= b.x, a.y >= b.y); }
-	bool3 greaterThanEqual(float3 a, float3 b) { return bool3(a.x >= b.x, a.y >= b.y, a.z >= b.z); }
-	bool4 greaterThanEqual(float4 a, float4 b) { return bool4(a.x >= b.x, a.y >= b.y, a.z >= b.z, a.w >= b.w); }
-	)" },
-	{ "equal",
-	R"(
-	bool2 equal(float2 a, float2 b) { return bool2(a.x == b.x, a.y == b.y); }
-	bool3 equal(float3 a, float3 b) { return bool3(a.x == b.x, a.y == b.y, a.z == b.z); }
-	bool4 equal(float4 a, float4 b) { return bool4(a.x == b.x, a.y == b.y, a.z == b.z, a.w == b.w); }
-	)" },
-	{ "notEqual",
-	R"(
-	bool2 notEqual(float2 a, float2 b) { return bool2(a.x != b.x, a.y != b.y); }
-	bool3 notEqual(float3 a, float3 b) { return bool3(a.x != b.x, a.y != b.y, a.z != b.z); }
-	bool4 notEqual(float4 a, float4 b) { return bool4(a.x != b.x, a.y != b.y, a.z != b.z, a.w != b.w); }
-	)" },
-};
-
-static const Builtin replacements[] = {
-	{ "mix(", "lerp(" },
-	{ "fract(", "frac(" },
-};
-
 static const char *cbufferDecl = R"(
 cbuffer data : register(b0) {
 	float2 u_texelDelta;
@@ -143,20 +98,6 @@ std::string Postprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage
 
 	// Output the uniform buffer.
 	out << cbufferDecl;
-
-	// Add the builtins if required.
-	for (int i = 0; i < ARRAY_SIZE(builtins); i++) {
-		if (!builtins[i].needle)
-			continue;
-		if (code.find(builtins[i].needle) != std::string::npos) {
-			out << builtins[i].replacement;
-		}
-	}
-
-	// Perform some replacements
-	for (int i = 0; i < ARRAY_SIZE(replacements); i++) {
-		code = ReplaceAll(code, replacements[i].needle, replacements[i].replacement);
-	}
 
 	// Alright, now let's go through it line by line and zap the single uniforms.
 	std::string line;
