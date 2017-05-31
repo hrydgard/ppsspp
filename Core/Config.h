@@ -231,7 +231,13 @@ public:
 	// UI
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
-
+	
+	// Boot Arc Path
+	std::string arcpath;
+	
+	
+	
+	
 	// TODO: Maybe move to a separate theme system.
 	uint32_t uItemStyleFg;
 	uint32_t uItemStyleBg;

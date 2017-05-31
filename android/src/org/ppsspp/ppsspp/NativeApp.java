@@ -31,7 +31,9 @@ public class NativeApp {
 	// These have Android semantics: Resume is always called on bootup, after init
 	public static native void pause();
 	public static native void resume();
-
+	/////Boot Arc Browser
+	
+	public static native void bootArc(String path);
 	// There's not really any reason to ever call shutdown as we can recover from a killed activity.
 	public static native void shutdown();
 
