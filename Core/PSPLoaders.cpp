@@ -336,11 +336,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	// TODO: Remove this after ~ 1.6
 	// It checks for old filenames for homebrew savestates(folder name) and rename them to new fakeID format
 	std::string savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
-	savestateDir = ReplaceAll(savestateDir, "\\", "/");
-#ifdef _WIN32
-	// Turn the slashes back to the Windows way.
-	savestateDir = ReplaceAll(savestateDir, "/", "\\");
-#endif
+
 	for (int i = 0; i < 5; i += 1) {
 		std::string oldName = StringFromFormat("%s%s_%d.ppst", savestateDir.c_str(), homebrewName.c_str(), i);
 		if (File::Exists(oldName)) {
