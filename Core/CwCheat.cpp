@@ -172,8 +172,12 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 		if (initialCodesList[i].substr(0,2) == "//") {
 			continue; //Line indicates comment, also not needed for cheats.
 		}
-		if (initialCodesList[i].substr(0,3) == "_C1") {
-			cheatEnabled = true;
+		if (initialCodesList[i].substr(0,2) == "_C") {
+			if (initialCodesList[i].substr(2, 1) == "0") {
+				cheatEnabled = false;
+			} else {
+				cheatEnabled = true;
+			}
 			codename = initialCodesList[i];
 			codename.erase (codename.begin(), codename.begin()+4);
 			codeNameList.push_back(codename); //Import names for GUI, will be implemented later.
@@ -190,13 +194,6 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 				currentcode.erase(currentcode.begin(), currentcode.begin() + 3);
 				codelist.push_back(currentcode);
 			}
-			continue;
-		}
-		if (initialCodesList[i].substr(0,3) == "_C0") {
-			cheatEnabled = false;
-			codename = initialCodesList[i];
-			codename.erase (codename.begin(), codename.begin()+4);
-			codeNameList.push_back(codename); //Import names for GUI, will be implemented later.
 			continue;
 		}
 	}

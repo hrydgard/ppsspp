@@ -65,13 +65,13 @@ void CwCheatScreen::CreateCodeList() {
 	bEnableCheat.clear();
 	formattedList_.clear();
 	for (size_t i = 0; i < cheatList.size(); i++) {
-		if (cheatList[i].substr(0, 3) == "_C1") {
+		if (cheatList[i].substr(0, 2) == "_C") {
 			formattedList_.push_back(cheatList[i].substr(4));
-			bEnableCheat.push_back(true);
-		}
-		if (cheatList[i].substr(0, 3) == "_C0") {
-			formattedList_.push_back(cheatList[i].substr(4));
-			bEnableCheat.push_back(false);
+			if (cheatList[i].substr(2, 1) == "0") {
+				bEnableCheat.push_back(false);
+			} else {
+				bEnableCheat.push_back(true);
+			}
 		}
 	}
 	delete cheatEngine2;
@@ -136,11 +136,12 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
 	enableAll = !enableAll;
 	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
 	for (int j = 0; j < (int)cheatList.size(); j++) {
-		if (enableAll == 1 && cheatList[j].substr(0, 3) == "_C0"){
-			cheatList[j].replace(0, 3, "_C1");
-		}
-		else if (enableAll == 0 && cheatList[j].substr(0, 3) == "_C1") {
-			cheatList[j].replace(0, 3, "_C0");
+		if (cheatList[j].substr(0, 2) == "_C") {
+			if (cheatList[j].substr(2, 1) == "0" && enableAll) {
+				cheatList[j].replace(2, 1, "1");
+			} else if (cheatList[j].substr(2, 1) != "0" && !enableAll) {
+				cheatList[j].replace(2, 1, "0");
+			}
 		}
 	}
 	for (size_t y = 0; y < bEnableCheat.size(); y++) {
@@ -206,7 +207,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 				if (finished == false){
 					getline(fs, line);
 				}
-				if (line.substr(0, 3) == "_C0" || line.substr(0, 3) == "_C1") {
+				if (line.substr(0, 2) == "_C") {
 					//Test if cheat already exists in cheatList
 					for (size_t j = 0; j < formattedList_.size(); j++) {
 						if (line.substr(4) == formattedList_[j]) {
