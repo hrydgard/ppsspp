@@ -1557,7 +1557,7 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	}
 	if (rp.depth == RPAction::CLEAR) {
-#if defined(USING_GLES2)
+#ifdef USING_GLES2
 		glClearDepthf(rp.clearDepth);
 #else
 		glClearDepth(rp.clearDepth);
