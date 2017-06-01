@@ -139,12 +139,19 @@ static int __DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr) {
 	if (actual_components == 3) {
 			u24_be *imageBuffer = (u24_be*)jpegBuf;
 			u32 *abgr = (u32*)Memory::GetPointer(imageAddr);
+			int pspWidth;
+			for (int w = 2; w < 2048; w *= 2) {
+				if (w >= width) {
+					pspWidth = w;
+					break;
+				}
+			}
 			for (int y = 0; y < height; ++y) {
 				for (int x = 0; x < width; x++)	{
 					abgr[x] = convertARGBtoABGR(imageBuffer[x]);
 				}
 				imageBuffer += width;
-				abgr += width;
+				abgr += pspWidth; // Smallest value power of 2 fitting width.
 			}
 	}
 
@@ -230,7 +237,7 @@ static int __JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 #ifdef JPEG_DEBUG
 		char jpeg_fname[256];
 		u8 *jpegDumpBuf = Memory::GetPointer(jpegAddr);
-		u32 jpeg_xxhash = XXH32((const char *)jpegBuf, jpegSize, 0xC0108888);
+		u32 jpeg_xxhash = XXH32((const char *)jpegDumpBuf, jpegSize, 0xC0108888);
 		sprintf(jpeg_fname, "Jpeg\\%X.jpg", jpeg_xxhash);
 		FILE *wfp = fopen(jpeg_fname, "wb");
 		if (!wfp) {
