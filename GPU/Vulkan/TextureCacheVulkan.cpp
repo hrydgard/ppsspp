@@ -630,7 +630,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 	}
 
 	if (entry->vkTex) {
-		u8 level = (gstate.texlevel >> 20) & 0xF;
+		// NOTE: Since the level is not part of the cache key, we assume it never changes.
+		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
 		bool fakeMipmap = IsFakeMipmapChange() && level > 0;
 		// Upload the texture data.
 		for (int i = 0; i <= maxLevel; i++) {

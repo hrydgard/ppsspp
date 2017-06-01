@@ -574,7 +574,8 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 	}
 
 	if (IsFakeMipmapChange()) {
-		u8 level = (gstate.texlevel >> 20) & 0xF;
+		// NOTE: Since the level is not part of the cache key, we assume it never changes.
+		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
 		LoadTextureLevel(*entry, replaced, level, maxLevel, replaceImages, scaleFactor, dstFmt);
 	} else {
 		LoadTextureLevel(*entry, replaced, 0, maxLevel, replaceImages, scaleFactor, dstFmt);

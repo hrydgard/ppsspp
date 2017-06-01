@@ -688,7 +688,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 
 	// Always load base level texture here 
 	if (IsFakeMipmapChange()) {
-		u8 level = (gstate.texlevel >> 20) & 0xF;
+		// NOTE: Since the level is not part of the cache key, we assume it never changes.
+		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
 		LoadTextureLevel(*entry, replaced, level, replaceImages, scaleFactor, dstFmt);
 	} else
 		LoadTextureLevel(*entry, replaced, 0, replaceImages, scaleFactor, dstFmt);
