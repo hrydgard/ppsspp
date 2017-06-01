@@ -129,10 +129,11 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool tClamp;
 	float lodBias;
 	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel, entry.addr, autoMip);
+	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
 
 	if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-		if (entry.maxLevel != 0) {
+		if (maxLevel != 0) {
 			// TODO: What about a swap of autoMip mode?
 			if (force || entry.lodBias != lodBias) {
 				if (autoMip) {
@@ -141,10 +142,10 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
 #endif
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry.maxLevel);
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 				} else {
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, std::max(0.0f, std::min((float)entry.maxLevel, lodBias)));
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, std::max(0.0f, std::min((float)entry.maxLevel, lodBias)));
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
 				}
 				entry.lodBias = lodBias;
 			}
@@ -570,6 +571,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
+	bool canAutoGen = false;
 	int maxLevel = entry->maxLevel;
 	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
@@ -587,11 +589,19 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 			break;
 		}
 
-		if (i > 0 && gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-			if (tw != 1 && tw != (gstate.getTextureWidth(i - 1) >> 1))
-				badMipSizes = true;
-			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
-				badMipSizes = true;
+		if (i > 0) {
+			int lastW = gstate.getTextureWidth(i - 1);
+			int lastH = gstate.getTextureHeight(i - 1);
+
+			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+				if (tw != 1 && tw != (lastW >> 1))
+					badMipSizes = true;
+				else if (th != 1 && th != (lastH >> 1))
+					badMipSizes = true;
+			}
+
+			if (lastW > tw || lastH > th)
+				canAutoGen = true;
 		}
 	}
 
@@ -688,7 +698,12 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 			if (badMipSizes) {
 				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
-				glGenerateMipmap(GL_TEXTURE_2D);
+				if (canAutoGen) {
+					glGenerateMipmap(GL_TEXTURE_2D);
+				} else {
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+					maxLevel = 0;
+				}
 			} else {
 				for (int i = 1; i <= maxLevel; i++) {
 					LoadTextureLevel(*entry, replaced, i, replaceImages, scaleFactor, dstFmt);
@@ -697,17 +712,22 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 			}
 		} else {
 			// Avoid PowerVR driver bug
-			if (w > 1 && h > 1 && !(h > w && (gl_extensions.bugs & BUG_PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
+			if (canAutoGen && w > 1 && h > 1 && !(h > w && (gl_extensions.bugs & BUG_PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
 				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
 				glGenerateMipmap(GL_TEXTURE_2D);
 			} else {
-				entry->maxLevel = 0;
+				maxLevel = 0;
 			}
 		}
 	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 	}
 
+	if (maxLevel == 0) {
+		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	} else {
+		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+	}
 	if (replaced.Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 	}

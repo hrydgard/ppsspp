@@ -177,7 +177,8 @@ void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheK
 	bool tClamp;
 	float lodBias;
 	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel, entry.addr, autoMip);
+	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
@@ -186,7 +187,7 @@ void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheK
 	key.tClamp = tClamp;
 	// Don't clamp to maxLevel - this may bias magnify levels.
 	key.lodBias = (int)(lodBias * 256.0f);
-	key.maxLevel = entry.maxLevel;
+	key.maxLevel = maxLevel;
 	key.lodAuto = autoMip;
 
 	if (entry.framebuffer) {
@@ -587,6 +588,11 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 		}
 	}
 
+	if (maxLevel == 0) {
+		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	} else {
+		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+	}
 	if (replaced.Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 	}
