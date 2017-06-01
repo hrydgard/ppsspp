@@ -716,9 +716,9 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	}
 	DisableState();
 
-	bool linearFilter = vfb || g_Config.iBufFilter == SCALE_LINEAR;
+	DrawTextureFlags flags = (vfb || g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 	Bind2DShader();
-	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 }
 
 void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags) {
@@ -783,18 +783,18 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	if (needBackBufferYSwap_)
 		std::swap(v0, v1);
 
-	bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
+	DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 	if (cardboardSettings.enabled) {
 		// Left Eye Image
 		SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags | DRAWTEX_KEEP_TEX);
 		// Right Eye Image
 		SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 	} else {
 		// Fullscreen Image
 		SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, linearFilter);
+		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
 	}
 }
 
@@ -944,9 +944,8 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 		if (!usePostShader_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
-			SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
-			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
+			DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.
 			Bind2DShader();
@@ -955,15 +954,15 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			if (cardboardSettings.enabled) {
 				// Left Eye Image
 				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags | DRAWTEX_KEEP_TEX);
 
 				// Right Eye Image
 				SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 			} else {
 				// Fullscreen Image
 				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
 			}
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
@@ -977,8 +976,8 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
 			BindPostShader(uniforms);
-			bool linearFilter = g_Config.iBufFilter == SCALE_LINEAR;
-			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+			DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
+			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, flags);
 
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 			SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
@@ -996,19 +995,19 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			if (needBackBufferYSwap_)
 				std::swap(v0, v1);
 			Bind2DShader();
-			linearFilter = !postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR;
+			flags = (!postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags | DRAWTEX_KEEP_TEX);
 
 				// Right Eye Image
 				SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 			} else {
 				// Fullscreen Image
 				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
 			}
 
 			/*
@@ -1025,7 +1024,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			// flip V.
 			if (needBackBufferYSwap_)
 				std::swap(v0, v1);
-			bool linearFilter = !postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR;
+			DrawTextureFlags flags = (!postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 
 			shaderManager_->DirtyLastShader();  // dirty lastShader_ BEFORE drawing
 			PostShaderUniforms uniforms{};
@@ -1034,15 +1033,15 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags | DRAWTEX_KEEP_TEX);
 
 				// Right Eye Image
 				SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 			} else {
 				// Fullscreen Image
 				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, linearFilter);
+				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
 			}
 		}
 	}

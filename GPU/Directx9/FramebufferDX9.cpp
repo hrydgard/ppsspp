@@ -242,7 +242,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		device_->SetViewport(&vp);
 	}
 
-	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
+	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
 		// TODO: StretchRect instead?
 		float coord[20] = {
 			x,y,0, u0,v0,
@@ -282,7 +282,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f - halfPixelY);
 		}
 
-		if (linearFilter) {
+		if (flags & DRAWTEX_LINEAR) {
 			dxstate.texMagFilter.set(D3DTEXF_LINEAR);
 			dxstate.texMinFilter.set(D3DTEXF_LINEAR);
 		} else {

@@ -344,7 +344,7 @@ void FramebufferManagerGLES::SetViewport2D(int x, int y, int w, int h) {
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
 // TODO: This could totally use fbo_blit in many cases.
-void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
+void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
 	float texCoords[8] = {
 		u0,v0,
 		u1,v0,
@@ -384,7 +384,7 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 	}
 
 	// Upscaling postshaders doesn't look well with linear
-	if (linearFilter) {
+	if (flags & DRAWTEX_LINEAR) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	} else {
@@ -716,7 +716,7 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		float srcW = src->bufferWidth;
 		float srcH = src->bufferHeight;
 		glsl_bind(draw2dprogram_);
-		DrawActiveTexture(dstX1, dstY1, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY1 / srcH, srcX2 / srcW, srcY2 / srcH, ROTATION_LOCKED_HORIZONTAL, false);
+		DrawActiveTexture(dstX1, dstY1, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY1 / srcH, srcX2 / srcW, srcY2 / srcH, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		textureCacheGL_->ForgetLastTexture();
 		glstate.viewport.restore();
