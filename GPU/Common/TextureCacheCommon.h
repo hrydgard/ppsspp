@@ -111,6 +111,8 @@ struct TexCacheEntry {
 		// is commonly the only part accessed.  If access is made above 272, we hash the entire
 		// texture, and set this flag to allow scaling the texture just once for the new hash.
 		STATUS_FREE_CHANGE = 0x200,    // Allow one change before marking "frequent".
+
+		STATUS_BAD_MIPS = 0x400,       // Has bad or unusable mipmap levels.
 	};
 
 	// Status, but int so we can zero initialize.

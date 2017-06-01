@@ -212,7 +212,8 @@ void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	bool tClamp;
 	float lodBias;
 	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel, entry.addr, autoMip);
+	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
@@ -629,7 +630,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 	}
 
 	if (entry->vkTex) {
-		u8 level = (gstate.texlevel >> 20) & 0xF;
+		// NOTE: Since the level is not part of the cache key, we assume it never changes.
+		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
 		bool fakeMipmap = IsFakeMipmapChange() && level > 0;
 		// Upload the texture data.
 		for (int i = 0; i <= maxLevel; i++) {
@@ -661,6 +663,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 			entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 		}
 
+		if (maxLevel == 0) {
+			entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+		} else {
+			entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+		}
 		if (replaced.Valid()) {
 			entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 		}

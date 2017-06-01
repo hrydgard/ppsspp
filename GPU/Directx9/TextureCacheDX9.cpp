@@ -155,16 +155,17 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool tClamp;
 	float lodBias;
 	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel, entry.addr, autoMip);
+	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
 
-	if (entry.maxLevel != 0) {
+	if (maxLevel != 0) {
 		if (autoMip) {
 			dxstate.texMaxMipLevel.set(0);
 			dxstate.texMipLodBias.set(lodBias);
 		} else {
 			// TODO: This is just an approximation - texMaxMipLevel sets the lowest numbered mip to use.
 			// Unfortunately, this doesn't support a const 1.5 or etc.
-			dxstate.texMaxMipLevel.set(std::max(0, std::min((int)entry.maxLevel, (int)lodBias)));
+			dxstate.texMaxMipLevel.set(std::max(0, std::min((int)maxLevel, (int)lodBias)));
 			dxstate.texMipLodBias.set(-1000.0f);
 		}
 		entry.lodBias = lodBias;
@@ -573,7 +574,8 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 	}
 
 	if (IsFakeMipmapChange()) {
-		u8 level = (gstate.texlevel >> 20) & 0xF;
+		// NOTE: Since the level is not part of the cache key, we assume it never changes.
+		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
 		LoadTextureLevel(*entry, replaced, level, maxLevel, replaceImages, scaleFactor, dstFmt);
 	} else {
 		LoadTextureLevel(*entry, replaced, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
@@ -590,6 +592,11 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 		}
 	}
 
+	if (maxLevel == 0) {
+		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	} else {
+		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+	}
 	if (replaced.Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 	}

@@ -177,7 +177,8 @@ void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheK
 	bool tClamp;
 	float lodBias;
 	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel, entry.addr, autoMip);
+	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
@@ -186,7 +187,7 @@ void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheK
 	key.tClamp = tClamp;
 	// Don't clamp to maxLevel - this may bias magnify levels.
 	key.lodBias = (int)(lodBias * 256.0f);
-	key.maxLevel = entry.maxLevel;
+	key.maxLevel = maxLevel;
 	key.lodAuto = autoMip;
 
 	if (entry.framebuffer) {
@@ -570,7 +571,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 	}
 
 	if (IsFakeMipmapChange()) {
-		u8 level = (gstate.texlevel >> 20) & 0xF;
+		// NOTE: Since the level is not part of the cache key, we assume it never changes.
+		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
 		LoadTextureLevel(*entry, replaced, level, maxLevel, replaceImages, scaleFactor, dstFmt);
 	} else {
 		LoadTextureLevel(*entry, replaced, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
@@ -587,6 +589,11 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 		}
 	}
 
+	if (maxLevel == 0) {
+		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
+	} else {
+		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
+	}
 	if (replaced.Valid()) {
 		entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 	}
@@ -701,7 +708,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		desc.Width = tw;
 		desc.Height = th;
 		desc.Format = tfmt;
-		desc.MipLevels = IsFakeMipmapChange() ? 1 :levels;
+		desc.MipLevels = IsFakeMipmapChange() ? 1 : levels;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &texture));

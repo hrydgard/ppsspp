@@ -230,7 +230,7 @@ void TextureCacheCommon::SetTexture(bool force) {
 
 	u8 level = 0;
 	if (IsFakeMipmapChange())
-		level = (gstate.texlevel >> 20) & 0xF;
+		level = std::max(0, gstate.getTexLevelOffset16() / 16);
 	u32 texaddr = gstate.getTextureAddress(level);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
