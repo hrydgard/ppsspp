@@ -139,8 +139,8 @@ static int __DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr) {
 	if (actual_components == 3) {
 			u24_be *imageBuffer = (u24_be*)jpegBuf;
 			u32 *abgr = (u32*)Memory::GetPointer(imageAddr);
-			int pspWidth;
-			for (int w = 2; w < 2048; w *= 2) {
+			int pspWidth = 0;
+			for (int w = 2; w <= 4096; w *= 2) {
 				if (w >= width && w >= height) {
 					pspWidth = w;
 					break;
