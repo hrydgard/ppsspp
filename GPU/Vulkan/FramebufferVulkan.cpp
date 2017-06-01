@@ -309,11 +309,13 @@ void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
 	vp.width = (float)w;
 	vp.height = (float)h;
 
+	// Since we're about to override it.
+	draw_->FlushState();
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
 	vkCmdSetViewport(cmd, 0, 1, &vp);
 }
 
-void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
+void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
 	float texCoords[8] = {
 		u0,v0,
 		u1,v0,
@@ -358,8 +360,9 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
 
 	VkImageView view = overrideImageView_ ? overrideImageView_ : (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
-	overrideImageView_ = VK_NULL_HANDLE;
-	vulkan2D_.BindDescriptorSet(cmd, view, linearFilter ? linearSampler_ : nearestSampler_);
+	if ((flags & DRAWTEX_KEEP_TEX) == 0)
+		overrideImageView_ = VK_NULL_HANDLE;
+	vulkan2D_.BindDescriptorSet(cmd, view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_);
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cur2DPipeline_);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);

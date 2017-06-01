@@ -101,7 +101,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	app_info.applicationVersion = app_ver;
 	app_info.pEngineName = app_name;
 	// Let's increment this when we make major engine/context changes.
-	app_info.engineVersion = 1;
+	app_info.engineVersion = 2;
 	app_info.apiVersion = VK_API_VERSION_1_0;
 
 	VkInstanceCreateInfo inst_info = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };

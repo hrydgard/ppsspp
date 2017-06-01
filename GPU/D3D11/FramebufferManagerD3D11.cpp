@@ -367,7 +367,7 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 	// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 }
 
-void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, bool linearFilter) {
+void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
 	struct Coord {
 		Vec3 pos; float u, v;
 	};
@@ -427,7 +427,7 @@ void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
 	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0);
 	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	context_->PSSetSamplers(0, 1, linearFilter ? &stockD3D11.samplerLinear2DClamp : &stockD3D11.samplerPoint2DClamp);
+	context_->PSSetSamplers(0, 1, (flags & DRAWTEX_LINEAR) ? &stockD3D11.samplerLinear2DClamp : &stockD3D11.samplerPoint2DClamp);
 	UINT stride = 20;
 	UINT offset = 0;
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &stride, &offset);
