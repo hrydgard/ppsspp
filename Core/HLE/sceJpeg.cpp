@@ -141,7 +141,7 @@ static int __DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr) {
 			u32 *abgr = (u32*)Memory::GetPointer(imageAddr);
 			int pspWidth;
 			for (int w = 2; w < 2048; w *= 2) {
-				if (w >= width) {
+				if (w >= width && w >= height) {
 					pspWidth = w;
 					break;
 				}
@@ -151,7 +151,7 @@ static int __DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr) {
 					abgr[x] = convertARGBtoABGR(imageBuffer[x]);
 				}
 				imageBuffer += width;
-				abgr += pspWidth; // Smallest value power of 2 fitting width.
+				abgr += pspWidth; // Smallest value power of 2 fitting width and height(needs to be square!)
 			}
 	}
 
