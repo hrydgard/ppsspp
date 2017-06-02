@@ -134,7 +134,6 @@ private:
 	void DestroyDeviceObjects();
 
 	void DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
-	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
 
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);

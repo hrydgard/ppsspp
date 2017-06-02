@@ -154,7 +154,6 @@ public:
 
 private:
 	void DecodeVerts();
-	void DecodeVertsStep();
 	void DoFlush();
 
 	void ApplyDrawState(int prim);
