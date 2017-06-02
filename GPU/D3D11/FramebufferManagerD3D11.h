@@ -149,9 +149,6 @@ private:
 	ID3D11Buffer *postConstants_ = nullptr;
 	static const D3D11_INPUT_ELEMENT_DESC g_PostVertexElements[2];
 
-	// Used by post-processing shader
-	std::vector<Draw::Framebuffer *> extraFBOs_;
-
 #if 0
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;

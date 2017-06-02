@@ -446,10 +446,13 @@ void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms)
 			CompilePostShader();
 		}
 		if (!usePostShader_) {
+			SetNumExtraFBOs(0);
 			context_->IASetInputLayout(quadInputLayout_);
 			context_->PSSetShader(quadPixelShader_, 0, 0);
 			context_->VSSetShader(quadVertexShader_, 0, 0);
 			return;
+		} else {
+			SetNumExtraFBOs(1);
 		}
 	}
 	context_->IASetInputLayout(postInputLayout_);

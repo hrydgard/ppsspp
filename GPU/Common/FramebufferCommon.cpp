@@ -109,23 +109,9 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 }
 
 
-FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw) :
-	draw_(draw),
-	needBackBufferYSwap_(false),
-	displayFramebufPtr_(0),
-	displayStride_(0),
-	displayFormat_(GE_FORMAT_565),
-	displayFramebuf_(nullptr),
-	prevDisplayFramebuf_(nullptr),
-	prevPrevDisplayFramebuf_(nullptr),
-	frameLastFramebufUsed_(0),
-	currentRenderVfb_(nullptr),
-	framebufRangeEnd_(0),
-	updateVRAM_(false),
-	usePostShader_(false),
-	postShaderAtOutputResolution_(false),
-	postShaderIsUpscalingFilter_(false),
-	gameUsesSequentialCopies_(false) {
+FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
+	: draw_(draw),
+		displayFormat_(GE_FORMAT_565) {
 	UpdateSize();
 }
 

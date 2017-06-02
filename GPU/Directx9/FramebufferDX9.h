@@ -124,9 +124,6 @@ private:
 	ShaderManagerDX9 *shaderManagerDX9_;
 	DrawEngineDX9 *drawEngine_;
 	
-	// Used by post-processing shader
-	std::vector<Draw::Framebuffer *> extraFBOs_;
-
 	struct TempFBO {
 		Draw::Framebuffer *fbo;
 		int last_frame_used;

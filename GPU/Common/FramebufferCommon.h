@@ -339,36 +339,36 @@ protected:
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}
 
-	Draw::DrawContext *draw_;
-	TextureCacheCommon *textureCache_;
-	ShaderManagerCommon *shaderManager_;
-	bool needBackBufferYSwap_;
+	Draw::DrawContext *draw_ = nullptr;
+	TextureCacheCommon *textureCache_ = nullptr;
+	ShaderManagerCommon *shaderManager_ = nullptr;
+	bool needBackBufferYSwap_ = false;
 
-	u32 displayFramebufPtr_;
-	u32 displayStride_;
+	u32 displayFramebufPtr_ = 0;
+	u32 displayStride_ = 0;
 	GEBufferFormat displayFormat_;
 
-	VirtualFramebuffer *displayFramebuf_;
-	VirtualFramebuffer *prevDisplayFramebuf_;
-	VirtualFramebuffer *prevPrevDisplayFramebuf_;
-	int frameLastFramebufUsed_;
+	VirtualFramebuffer *displayFramebuf_ = nullptr;
+	VirtualFramebuffer *prevDisplayFramebuf_ = nullptr;
+	VirtualFramebuffer *prevPrevDisplayFramebuf_ = nullptr;
+	int frameLastFramebufUsed_ = 0;
 
-	VirtualFramebuffer *currentRenderVfb_;
+	VirtualFramebuffer *currentRenderVfb_ = nullptr;
 
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
-	u32 framebufRangeEnd_;
+	u32 framebufRangeEnd_ = 0;
 
-	bool useBufferedRendering_;
-	bool updateVRAM_;
-	bool usePostShader_;
-	bool postShaderAtOutputResolution_;
-	bool postShaderIsUpscalingFilter_;
+	bool useBufferedRendering_ = false;
+	bool updateVRAM_ = false;
+	bool usePostShader_ = false;
+	bool postShaderAtOutputResolution_ = false;
+	bool postShaderIsUpscalingFilter_ = false;
 
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
-	bool gameUsesSequentialCopies_;
+	bool gameUsesSequentialCopies_ = false;
 
 	// Sampled in BeginFrame for safety.
 	float renderWidth_;
