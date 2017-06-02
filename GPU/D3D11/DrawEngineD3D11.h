@@ -229,7 +229,7 @@ private:
 
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
-	int vertexCountInDrawCalls;
+	int vertexCountInDrawCalls_;
 
 	int decimationCounter_;
 	int decodeCounter_;

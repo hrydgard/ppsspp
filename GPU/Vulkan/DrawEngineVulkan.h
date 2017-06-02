@@ -195,6 +195,7 @@ private:
 
 	// Vertex collector state
 	IndexGenerator indexGen;
+	int decodedVerts_ = 0;
 	GEPrimitiveType prevPrim_;
 
 	TransformedVertex *transformed = nullptr;
@@ -220,13 +221,17 @@ private:
 	VkSampler sampler;
 
 	// Null texture
-	VulkanTexture *nullTexture_;
-	VkSampler nullSampler_;
+	VulkanTexture *nullTexture_ = nullptr;
+	VkSampler nullSampler_ = VK_NULL_HANDLE;
 
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls;
-	int vertexCountInDrawCalls;
+	int numDrawCalls = 0;
+	int vertexCountInDrawCalls_ = 0;
 	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
+
+	int decimationCounter_ = 0;
+	int decodeCounter_ = 0;
+	u32 dcid_;
 
 	DrawEngineVulkanStats stats_;
 

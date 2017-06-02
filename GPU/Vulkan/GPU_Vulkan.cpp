@@ -198,12 +198,12 @@ void GPU_Vulkan::CheckGPUFeatures() {
 
 void GPU_Vulkan::BeginHostFrame() {
 	drawEngine_.BeginFrame();
+	UpdateCmdInfo();
 
 	if (resized_) {
 		CheckGPUFeatures();
 		// In case the GPU changed.
 		BuildReportingInfo();
-		UpdateCmdInfo();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		textureCacheVulkan_->NotifyConfigChanged();
@@ -342,14 +342,13 @@ void GPU_Vulkan::UpdateVsyncInterval(bool force) {
 }
 
 void GPU_Vulkan::UpdateCmdInfo() {
-	/*
 	if (g_Config.bSoftwareSkinning) {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPU_Vulkan::Execute_VertexTypeSkinning;
-	} else {*/
+	} else {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPU_Vulkan::Execute_VertexType;
-	// }
+	}
 }
 
 void GPU_Vulkan::BeginFrameInternal() {
@@ -536,6 +535,24 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 void GPU_Vulkan::Execute_VertexType(u32 op, u32 diff) {
 	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+	}
+}
+
+void GPU_Vulkan::Execute_VertexTypeSkinning(u32 op, u32 diff) {
+	// Don't flush when weight count changes, unless morph is enabled.
+	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		// Restore and flush
+		gstate.vertType ^= diff;
+		Flush();
+		gstate.vertType ^= diff;
+		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		// In this case, we may be doing weights and morphs.
+		// Update any bone matrix uniforms so it uses them correctly.
+		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
+			gstate_c.deferredVertTypeDirty = 0;
+		}
 	}
 }
 

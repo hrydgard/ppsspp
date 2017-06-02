@@ -69,16 +69,12 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 		draw_(draw),
 		prevPrim_(GE_PRIM_INVALID),
 		numDrawCalls(0),
-		vertexCountInDrawCalls(0),
 		curFrame_(0),
-		nullTexture_(nullptr),
 		stats_{} {
-
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 
-	// Allocate nicely aligned memory. Maybe graphics drivers will
-	// appreciate it.
+	// Allocate nicely aligned memory. Maybe graphics drivers will appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
 	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
@@ -336,7 +332,7 @@ inline void DrawEngineVulkan::SetupVertexDecoderInternal(u32 vertType) {
 }
 
 void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
 
 	// TODO: Is this the right thing to do?
@@ -360,6 +356,20 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
 
+	if (g_Config.bVertexCache) {
+		u32 dhash = dcid_;
+		dhash ^= (u32)(uintptr_t)verts;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)(uintptr_t)inds;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)vertType;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)vertexCount;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)prim;
+		dcid_ = dhash;
+	}
+
 	if (inds) {
 		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
 	} else {
@@ -370,7 +380,12 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	uvScale[numDrawCalls] = gstate_c.uv;
 
 	numDrawCalls++;
-	vertexCountInDrawCalls += vertexCount;
+	vertexCountInDrawCalls_ += vertexCount;
+
+	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
+		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
+		decodeCounter_++;
+	}
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
 		// Rendertarget == texture?
@@ -452,8 +467,6 @@ void DrawEngineVulkan::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 }
 
 void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
-	int decodedVerts = 0;
-
 	u8 *dest = decoded;
 
 	// Figure out how much pushbuffer space we need to allocate.
@@ -488,9 +501,9 @@ void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset,
 	}
 
 	const UVScale origUV = gstate_c.uv;
-	for (int i = 0; i < numDrawCalls; i++) {
-		gstate_c.uv = uvScale[i];
-		DecodeVertsStep(dest, i, decodedVerts);  // Note that this can modify i
+	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+		gstate_c.uv = uvScale[decodeCounter_];
+		DecodeVertsStep(dest, decodeCounter_, decodedVerts_);  // NOTE! DecodeVertsStep can modify i!
 	}
 	gstate_c.uv = origUV;
 
@@ -685,9 +698,26 @@ void DrawEngineVulkan::DoFlush() {
 		int vertexCount = 0;
 		bool useElements = true;
 
-		// Decode directly into the pushbuffer
+		// Cannot cache vertex data with morph enabled.
+		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
+		// Also avoid caching when software skinning.
 		VkBuffer vbuf;
-		DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
+		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+			// If software skinning, we've already predecoded into "decoded". So push that content.
+			VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+			u8 *dest = (u8 *)frame->pushVertex->Push(size, &vbOffset, &vbuf);
+			memcpy(dest, decoded, size);
+		} else {
+			// Decode directly into the pushbuffer
+			DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
+		}
+
+		useCache = false;
+		if (useCache) {
+			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
+			// TODO: Actually support vertex caching
+		}
+
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		useElements = !indexGen.SeenOnlyPurePrims();
 		vertexCount = indexGen.VertexCount();
@@ -752,7 +782,8 @@ void DrawEngineVulkan::DoFlush() {
 		if (useElements) {
 			VkBuffer ibuf;
 			ibOffset = (uint32_t)frame->pushIndex->Push(decIndex, 2 * indexGen.VertexCount(), &ibuf);
-			// TODO: Avoid rebinding vertex/index buffers if the vertex size stays the same by using the offset arguments
+			// TODO (maybe): Avoid rebinding vertex/index buffers if the vertex size stays the same by using the offset arguments.
+			// Not sure if actually worth it, binding buffers should be fast.
 			vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, offsets);
 			vkCmdBindIndexBuffer(cmd, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
 			int numInstances = (gstate_c.bezier || gstate_c.spline) ? numPatches : 1;
@@ -888,11 +919,14 @@ void DrawEngineVulkan::DoFlush() {
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;
-	gpuStats.numVertsSubmitted += vertexCountInDrawCalls;
+	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
+	decodedVerts_ = 0;
 	numDrawCalls = 0;
-	vertexCountInDrawCalls = 0;
+	vertexCountInDrawCalls_ = 0;
+	decodeCounter_ = 0;
+	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
