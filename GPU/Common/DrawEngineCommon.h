@@ -68,6 +68,8 @@ public:
 
 	virtual void Resized();
 
+	void SetupVertexDecoder(u32 vertType);
+
 protected:
 	virtual void ClearTrackedVertexArrays() {}
 
@@ -104,8 +106,8 @@ protected:
 	u32 lastVType_ = -1;
 	std::unordered_map<u32, VertexDecoder *> decoderMap_;
 	VertexDecoder *dec_ = nullptr;
-	VertexDecoderJitCache *decJitCache_;
-	VertexDecoderOptions decOptions_;
+	VertexDecoderJitCache *decJitCache_ = nullptr;
+	VertexDecoderOptions decOptions_{};
 
 	TransformedVertex *transformed = nullptr;
 	TransformedVertex *transformedExpanded = nullptr;

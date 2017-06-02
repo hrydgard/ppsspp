@@ -252,22 +252,6 @@ static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-void DrawEngineGLES::SetupVertexDecoder(u32 vertType) {
-	SetupVertexDecoderInternal(vertType);
-}
-
-inline void DrawEngineGLES::SetupVertexDecoderInternal(u32 vertType) {
-	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
-	// into the top of the verttype where there are unused bits.
-	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
-
-	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVType_) {
-		dec_ = GetVertexDecoder(vertTypeID);
-		lastVType_ = vertTypeID;
-	}
-}
-
 void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
@@ -279,7 +263,7 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 		prevPrim_ = prim;
 	}
 
-	SetupVertexDecoderInternal(vertType);
+	SetupVertexDecoder(vertType);
 
 	*bytesRead = vertexCount * dec_->VertexSize();
 

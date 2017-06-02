@@ -33,11 +33,7 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-DrawEngineCommon::DrawEngineCommon()
-	: dec_(nullptr),
-		decOptions_{},
-		fboTexNeedBind_(false),
-		fboTexBound_(false) {
+DrawEngineCommon::DrawEngineCommon() {
 	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 	decJitCache_ = new VertexDecoderJitCache();
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
@@ -51,6 +47,18 @@ DrawEngineCommon::~DrawEngineCommon() {
 	delete decJitCache_;
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
+	}
+}
+
+void DrawEngineCommon::SetupVertexDecoder(u32 vertType) {
+	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
+	// into the top of the verttype where there are unused bits.
+	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+
+	// If vtype has changed, setup the vertex decoder.
+	if (vertTypeID != lastVType_) {
+		dec_ = GetVertexDecoder(vertTypeID);
+		lastVType_ = vertTypeID;
 	}
 }
 
