@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Core/HLE/HLE.h"
 
 int MIPS_SingleStep();
 
