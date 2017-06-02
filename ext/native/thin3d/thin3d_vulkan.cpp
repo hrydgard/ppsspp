@@ -1650,8 +1650,16 @@ void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y
 		vkCmdCopyImage(cmd, src->color.image, src->color.layout, dst->color.image, dst->color.layout, 1, &copy);
 	}
 	if (channelBits & (FB_DEPTH_BIT | FB_STENCIL_BIT)) {
-		copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-		copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		copy.srcSubresource.aspectMask = 0;
+		copy.dstSubresource.aspectMask = 0;
+		if (channelBits & FB_DEPTH_BIT) {
+			copy.srcSubresource.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+			copy.dstSubresource.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+		}
+		if (channelBits & FB_STENCIL_BIT) {
+			copy.srcSubresource.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+			copy.dstSubresource.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
 		vkCmdCopyImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &copy);
 	}
 }
@@ -1725,8 +1733,16 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 		vkCmdBlitImage(cmd, src->color.image, src->color.layout, dst->color.image, dst->color.layout, 1, &blit, filter == FB_BLIT_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
 	}
 	if (channelBits & (FB_DEPTH_BIT | FB_STENCIL_BIT)) {
-		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		blit.srcSubresource.aspectMask = 0;
+		blit.dstSubresource.aspectMask = 0;
+		if (channelBits & FB_DEPTH_BIT) {
+			blit.srcSubresource.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+			blit.dstSubresource.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+		}
+		if (channelBits & FB_STENCIL_BIT) {
+			blit.srcSubresource.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+			blit.dstSubresource.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
 		vkCmdBlitImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &blit, filter == FB_BLIT_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
 	}
 	return true;

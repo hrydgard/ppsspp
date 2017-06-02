@@ -470,12 +470,9 @@ void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, Virtu
 
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 	bool matchingSize = src->width == dst->width && src->height == dst->height;
-	bool matchingRenderSize = src->renderWidth == dst->renderWidth && src->renderHeight == dst->renderHeight;
 
-	if (gstate_c.Supports(GPU_SUPPORTS_ANY_COPY_IMAGE) && matchingDepthBuffer && matchingRenderSize && matchingSize) {
-		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT);
-		RebindFramebuffer();
-	} else if (matchingDepthBuffer && matchingSize) {
+	// Note: we don't use CopyFramebufferImage here, because it would copy depth AND stencil.  See #9740.
+	if (matchingDepthBuffer && matchingSize) {
 		int w = std::min(src->renderWidth, dst->renderWidth);
 		int h = std::min(src->renderHeight, dst->renderHeight);
 
