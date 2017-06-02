@@ -140,7 +140,7 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	const int argOffset = 24 + 48 + 8 + 32;
 	MOV(64, R(R14), MDisp(RSP, argOffset));
 	MOV(32, R(R15), MDisp(RSP, argOffset + 8));
-	// level is at argOffset + 12.
+	// level is at argOffset + 16.
 #else
 	MOV(64, R(R14), R(arg5Reg));
 	MOV(32, R(R15), R(arg6Reg));
@@ -616,7 +616,7 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 #ifdef _WIN32
 			const int argOffset = 24 + 48 + 8 + 32;
 			// Extra 8 to account for CALL.
-			MOV(32, R(tempReg2), MDisp(RSP, argOffset + 12 + 8));
+			MOV(32, R(tempReg2), MDisp(RSP, argOffset + 16 + 8));
 #else
 			// Extra 8 to account for CALL.
 			MOV(32, R(tempReg2), MDisp(RSP, 24 + 48 + 8 + 8));
