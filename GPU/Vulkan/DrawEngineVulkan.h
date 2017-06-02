@@ -180,9 +180,6 @@ private:
 	int curFrame_;
 	FrameData frame_[2];
 
-	TransformedVertex *transformed = nullptr;
-	TransformedVertex *transformedExpanded = nullptr;
-
 	// Other
 	ShaderManagerVulkan *shaderManager_ = nullptr;
 	PipelineManagerVulkan *pipelineManager_ = nullptr;

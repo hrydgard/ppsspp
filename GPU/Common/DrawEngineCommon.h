@@ -36,6 +36,13 @@ enum {
 	SPLINE_BUFFER_SIZE = VERTEX_BUFFER_MAX * 26, // At least, this buffer needs greater than 1679616 bytes for Mist Dragon morphing in FF4CC.
 };
 
+// Avoiding the full include of TextureDecoder.h.
+#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
+typedef u64 ReliableHashType;
+#else
+typedef u32 ReliableHashType;
+#endif
+
 class DrawEngineCommon {
 public:
 	DrawEngineCommon();
@@ -69,6 +76,7 @@ protected:
 
 	// Utility for vertex caching
 	u32 ComputeMiniHash();
+	ReliableHashType ComputeHash();
 
 	// Vertex decoding
 	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
@@ -98,6 +106,9 @@ protected:
 	VertexDecoder *dec_ = nullptr;
 	VertexDecoderJitCache *decJitCache_;
 	VertexDecoderOptions decOptions_;
+
+	TransformedVertex *transformed = nullptr;
+	TransformedVertex *transformedExpanded = nullptr;
 
 	// Defer all vertex decoding to a "Flush" (except when software skinning)
 	struct DeferredDrawCall {

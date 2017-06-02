@@ -55,13 +55,6 @@ enum {
 	VAI11_FLAG_VERTEXFULLALPHA = 1,
 };
 
-// Avoiding the full include of TextureDecoder.h.
-#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
-typedef u64 ReliableHashType;
-#else
-typedef u32 ReliableHashType;
-#endif
-
 // Try to keep this POD.
 class VertexArrayInfoD3D11 {
 public:
@@ -168,7 +161,6 @@ private:
 
 	ID3D11InputLayout *SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
-	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfoD3D11 *vai);
 
 	Draw::DrawContext *draw_;  // Used for framebuffer related things exclusively.
@@ -176,9 +168,6 @@ private:
 	ID3D11Device1 *device1_;
 	ID3D11DeviceContext *context_;
 	ID3D11DeviceContext1 *context1_;
-
-	TransformedVertex *transformed;
-	TransformedVertex *transformedExpanded;
 
 	std::unordered_map<u32, VertexArrayInfoD3D11 *> vai_;
 

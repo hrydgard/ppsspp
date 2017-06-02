@@ -29,6 +29,10 @@
 
 #define QUAD_INDICES_MAX 65536
 
+enum {
+	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
+};
+
 DrawEngineCommon::DrawEngineCommon()
 	: dec_(nullptr),
 		decOptions_{},
@@ -36,9 +40,13 @@ DrawEngineCommon::DrawEngineCommon()
 		fboTexBound_(false) {
 	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 	decJitCache_ = new VertexDecoderJitCache();
+	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 }
 
 DrawEngineCommon::~DrawEngineCommon() {
+	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 	delete[] quadIndices_;
 	delete decJitCache_;
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
