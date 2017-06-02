@@ -88,7 +88,7 @@ protected:
 	// Cached vertex decoders
 	u32 lastVType_ = -1;
 	std::unordered_map<u32, VertexDecoder *> decoderMap_;
-	VertexDecoder *dec_;
+	VertexDecoder *dec_ = nullptr;
 	VertexDecoderJitCache *decJitCache_;
 	VertexDecoderOptions decOptions_;
 

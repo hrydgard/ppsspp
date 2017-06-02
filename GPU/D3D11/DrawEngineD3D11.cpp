@@ -83,7 +83,7 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 		textureCache_(0),
 		framebufferManager_(0),
 		numDrawCalls(0),
-		vertexCountInDrawCalls(0),
+		vertexCountInDrawCalls_(0),
 		decodeCounter_(0),
 		dcid_(0) {
 	device1_ = (ID3D11Device1 *)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
@@ -284,7 +284,7 @@ inline void DrawEngineD3D11::SetupVertexDecoderInternal(u32 vertType) {
 }
 
 void DrawEngineD3D11::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
 
 	// TODO: Is this the right thing to do?
@@ -309,17 +309,19 @@ void DrawEngineD3D11::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, 
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
 
-	u32 dhash = dcid_;
-	dhash ^= (u32)(uintptr_t)verts;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)(uintptr_t)inds;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)vertType;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)vertexCount;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)prim;
-	dcid_ = dhash;
+	if (g_Config.bVertexCache) {
+		u32 dhash = dcid_;
+		dhash ^= (u32)(uintptr_t)verts;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)(uintptr_t)inds;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)vertType;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)vertexCount;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)prim;
+		dcid_ = dhash;
+	}
 
 	if (inds) {
 		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
@@ -331,7 +333,7 @@ void DrawEngineD3D11::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, 
 	uvScale[numDrawCalls] = gstate_c.uv;
 
 	numDrawCalls++;
-	vertexCountInDrawCalls += vertexCount;
+	vertexCountInDrawCalls_ += vertexCount;
 
 	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
 		DecodeVertsStep();
@@ -941,12 +943,12 @@ rotateVBO:
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;
-	gpuStats.numVertsSubmitted += vertexCountInDrawCalls;
+	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;
 	numDrawCalls = 0;
-	vertexCountInDrawCalls = 0;
+	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
@@ -959,7 +961,10 @@ rotateVBO:
 	gstate_c.vertBounds.maxU = 0;
 	gstate_c.vertBounds.maxV = 0;
 
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	// We only support GPU debugging on Windows, and that's the only use case for this.
 	host->GPUNotifyDraw();
+#endif
 }
 
 bool DrawEngineD3D11::IsCodePtrVertexDecoder(const u8 *ptr) const {
