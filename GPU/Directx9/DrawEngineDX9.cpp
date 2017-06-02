@@ -85,16 +85,7 @@ static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
 	D3DDECL_END()
 };
 
-DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw)
-	: decodedVerts_(0),
-		prevPrim_(GE_PRIM_INVALID),
-		shaderManager_(0),
-		textureCache_(0),
-		framebufferManager_(0),
-		numDrawCalls(0),
-		vertexCountInDrawCalls(0),
-		decodeCounter_(0),
-		dcid_(0) {
+DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
@@ -267,7 +258,7 @@ inline void DrawEngineDX9::SetupVertexDecoderInternal(u32 vertType) {
 }
 
 void DrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
 
 	// TODO: Is this the right thing to do?
@@ -314,7 +305,7 @@ void DrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, in
 	uvScale[numDrawCalls] = gstate_c.uv;
 
 	numDrawCalls++;
-	vertexCountInDrawCalls += vertexCount;
+	vertexCountInDrawCalls_ += vertexCount;
 
 	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
 		DecodeVertsStep();
@@ -880,12 +871,12 @@ rotateVBO:
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;
-	gpuStats.numVertsSubmitted += vertexCountInDrawCalls;
+	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;
 	numDrawCalls = 0;
-	vertexCountInDrawCalls = 0;
+	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;

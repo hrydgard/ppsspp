@@ -76,16 +76,8 @@ static const D3D11_INPUT_ELEMENT_DESC TransformedVertexElements[] = {
 DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context)
 	: draw_(draw),
 		device_(device),
-		context_(context),
-		decodedVerts_(0),
-		prevPrim_(GE_PRIM_INVALID),
-		shaderManager_(0),
-		textureCache_(0),
-		framebufferManager_(0),
-		numDrawCalls(0),
-		vertexCountInDrawCalls_(0),
-		decodeCounter_(0),
-		dcid_(0) {
+		context_(context)
+{
 	device1_ = (ID3D11Device1 *)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 	context1_ = (ID3D11DeviceContext1 *)draw->GetNativeObject(Draw::NativeObject::CONTEXT_EX);
 	decOptions_.expandAllWeightsToFloat = true;

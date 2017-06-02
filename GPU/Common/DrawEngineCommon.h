@@ -24,6 +24,7 @@
 
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 class VertexDecoder;
@@ -81,9 +82,9 @@ protected:
 	}
 
 	// Vertex collector buffers
-	u8 *decoded;
-	u16 *decIndex;
-	u8 *splineBuffer;
+	u8 *decoded = nullptr;
+	u16 *decIndex = nullptr;
+	u8 *splineBuffer = nullptr;
 
 	// Cached vertex decoders
 	u32 lastVType_ = -1;
@@ -92,12 +93,39 @@ protected:
 	VertexDecoderJitCache *decJitCache_;
 	VertexDecoderOptions decOptions_;
 
+	// Defer all vertex decoding to a "Flush" (except when software skinning)
+	struct DeferredDrawCall {
+		void *verts;
+		void *inds;
+		u32 vertType;
+		u8 indexType;
+		s8 prim;
+		u32 vertexCount;
+		u16 indexLowerBound;
+		u16 indexUpperBound;
+	};
+
+	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
+	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
+	int numDrawCalls = 0;
+	int vertexCountInDrawCalls_ = 0;
+	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
+
+	int decimationCounter_ = 0;
+	int decodeCounter_ = 0;
+	u32 dcid_ = 0;
+
+	// Vertex collector state
+	IndexGenerator indexGen;
+	int decodedVerts_ = 0;
+	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
+
 	// Fixed index buffer for easy quad generation from spline/bezier
-	u16 *quadIndices_;
+	u16 *quadIndices_ = nullptr;
 
 	// Shader blending state
-	bool fboTexNeedBind_;
-	bool fboTexBound_;
+	bool fboTexNeedBind_ = false;
+	bool fboTexBound_ = false;
 
 	// Hardware tessellation
 	int numPatches;

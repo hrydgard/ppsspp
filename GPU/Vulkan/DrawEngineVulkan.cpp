@@ -67,8 +67,6 @@ enum {
 DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
 	:	vulkan_(vulkan),
 		draw_(draw),
-		prevPrim_(GE_PRIM_INVALID),
-		numDrawCalls(0),
 		curFrame_(0),
 		stats_{} {
 	decOptions_.expandAllWeightsToFloat = false;

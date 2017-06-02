@@ -115,16 +115,7 @@ enum {
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
-DrawEngineGLES::DrawEngineGLES()
-	: decodedVerts_(0),
-		prevPrim_(GE_PRIM_INVALID),
-		shaderManager_(nullptr),
-		textureCache_(nullptr),
-		framebufferManager_(nullptr),
-		numDrawCalls(0),
-		vertexCountInDrawCalls(0),
-		decodeCounter_(0),
-		dcid_(0) {
+DrawEngineGLES::DrawEngineGLES() {
 
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
@@ -282,7 +273,7 @@ inline void DrawEngineGLES::SetupVertexDecoderInternal(u32 vertType) {
 }
 
 void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
 
 	// TODO: Is this the right thing to do?
@@ -329,7 +320,7 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 	uvScale[numDrawCalls] = gstate_c.uv;
 
 	numDrawCalls++;
-	vertexCountInDrawCalls += vertexCount;
+	vertexCountInDrawCalls_ += vertexCount;
 
 	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
 		DecodeVertsStep();
@@ -984,12 +975,12 @@ rotateVBO:
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;
-	gpuStats.numVertsSubmitted += vertexCountInDrawCalls;
+	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;
 	numDrawCalls = 0;
-	vertexCountInDrawCalls = 0;
+	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;

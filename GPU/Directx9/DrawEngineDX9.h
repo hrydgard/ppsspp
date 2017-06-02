@@ -167,51 +167,21 @@ private:
 	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfoDX9 *vai);
 
-	LPDIRECT3DDEVICE9 device_;
-
-	// Defer all vertex decoding to a Flush, so that we can hash and cache the
-	// generated buffers without having to redecode them every time.
-	struct DeferredDrawCall {
-		void *verts;
-		void *inds;
-		u32 vertType;
-		u8 indexType;
-		s8 prim;
-		u32 vertexCount;
-		u16 indexLowerBound;
-		u16 indexUpperBound;
-	};
-
-	// Vertex collector state
-	IndexGenerator indexGen;
-	int decodedVerts_;
-	GEPrimitiveType prevPrim_;
+	LPDIRECT3DDEVICE9 device_ = nullptr;
 	
-	TransformedVertex *transformed;
-	TransformedVertex *transformedExpanded;
+	TransformedVertex *transformed = nullptr;
+	TransformedVertex *transformedExpanded = nullptr;
 
 	std::unordered_map<u32, VertexArrayInfoDX9 *> vai_;
 	std::unordered_map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
 
 	// SimpleVertex
-	IDirect3DVertexDeclaration9* transformedVertexDecl_;
+	IDirect3DVertexDeclaration9* transformedVertexDecl_ = nullptr;
 
 	// Other
-	ShaderManagerDX9 *shaderManager_;
-	TextureCacheDX9 *textureCache_;
-	FramebufferManagerDX9 *framebufferManager_;
-
-	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-
-	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls;
-	int vertexCountInDrawCalls;
-
-	int decimationCounter_;
-	int decodeCounter_;
-	u32 dcid_;
-
-	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
+	ShaderManagerDX9 *shaderManager_ = nullptr;
+	TextureCacheDX9 *textureCache_ = nullptr;
+	FramebufferManagerDX9 *framebufferManager_ = nullptr;
 
 	// Hardware tessellation
 	class TessellationDataTransferDX9 : public TessellationDataTransfer {

@@ -131,7 +131,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	return DrawEngineCommon::NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
 }
 
-// This code is HIGHLY unoptimized!
+// This code has plenty of potential for optimization.
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
@@ -195,7 +195,6 @@ bool DrawEngineCommon::TestBoundingBox(void* control_points, int vertexCount, u3
 		// Any out. For testing that the planes are in the right locations.
 		// if (out != 0) return false;
 	}
-
 	return true;
 }
 
@@ -310,7 +309,6 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 
 	return true;
 }
-
 
 // This normalizes a set of vertices in any format to SimpleVertex format, by processing away morphing AND skinning.
 // The rest of the transform pipeline like lighting will go as normal, either hardware or software.
@@ -441,4 +439,157 @@ bool DrawEngineCommon::ApplyShaderBlending() {
 
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
 	return true;
+}
+
+void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
+	PROFILE_THIS_SCOPE("vertdec");
+
+	const DeferredDrawCall &dc = drawCalls[i];
+
+	indexGen.SetIndex(decodedVerts);
+	int indexLowerBound = dc.indexLowerBound;
+	int indexUpperBound = dc.indexUpperBound;
+
+	void *inds = dc.inds;
+	if (dc.indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+		// Decode the verts and apply morphing. Simple.
+		dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
+		decodedVerts += indexUpperBound - indexLowerBound + 1;
+		indexGen.AddPrim(dc.prim, dc.vertexCount);
+	} else {
+		// It's fairly common that games issue long sequences of PRIM calls, with differing
+		// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
+		// these as much as possible, so we make sure here to combine as many as possible
+		// into one nice big drawcall, sharing data.
+
+		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
+		//    Expand the lower and upper bounds as we go.
+		int lastMatch = i;
+		const int total = numDrawCalls;
+		for (int j = i + 1; j < total; ++j) {
+			if (drawCalls[j].verts != dc.verts)
+				break;
+
+			indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+			indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+			lastMatch = j;
+		}
+
+		// 2. Loop through the drawcalls, translating indices as we go.
+		switch (dc.indexType) {
+		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16_le *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		case GE_VTYPE_IDX_32BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u32_le *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		}
+
+		const int vertexCount = indexUpperBound - indexLowerBound + 1;
+
+		// This check is a workaround for Pangya Fantasy Golf, which sends bogus index data when switching items in "My Room" sometimes.
+		if (decodedVerts + vertexCount > VERTEX_BUFFER_MAX) {
+			return;
+		}
+
+		// 3. Decode that range of vertex data.
+		dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
+		decodedVerts += vertexCount;
+
+		// 4. Advance indexgen vertex counter.
+		indexGen.Advance(vertexCount);
+		i = lastMatch;
+	}
+}
+
+inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
+	// Switch to u32 units.
+	const u32 *p = (const u32 *)ptr;
+	sz >>= 2;
+
+	if (sz > 100) {
+		size_t step = sz / 4;
+		u32 hash = 0;
+		for (size_t i = 0; i < sz; i += step) {
+			hash += DoReliableHash32(p + i, 100, 0x3A44B9C4);
+		}
+		return hash;
+	} else {
+		return p[0] + p[sz - 1];
+	}
+}
+
+u32 DrawEngineCommon::ComputeMiniHash() {
+	u32 fullhash = 0;
+	const int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int indexSize = IndexSize(dec_->VertexType());
+
+	int step;
+	if (numDrawCalls < 3) {
+		step = 1;
+	} else if (numDrawCalls < 8) {
+		step = 4;
+	} else {
+		step = numDrawCalls / 8;
+	}
+	for (int i = 0; i < numDrawCalls; i += step) {
+		const DeferredDrawCall &dc = drawCalls[i];
+		if (!dc.inds) {
+			fullhash += ComputeMiniHashRange(dc.verts, vertexSize * dc.vertexCount);
+		} else {
+			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+			fullhash += ComputeMiniHashRange((const u8 *)dc.verts + vertexSize * indexLowerBound, vertexSize * (indexUpperBound - indexLowerBound));
+			fullhash += ComputeMiniHashRange(dc.inds, indexSize * dc.vertexCount);
+		}
+	}
+
+	return fullhash;
+}
+
+ReliableHashType DrawEngineCommon::ComputeHash() {
+	ReliableHashType fullhash = 0;
+	const int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int indexSize = IndexSize(dec_->VertexType());
+
+	// TODO: Add some caps both for numDrawCalls and num verts to check?
+	// It is really very expensive to check all the vertex data so often.
+	for (int i = 0; i < numDrawCalls; i++) {
+		const DeferredDrawCall &dc = drawCalls[i];
+		if (!dc.inds) {
+			fullhash += DoReliableHash((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
+		} else {
+			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+			int j = i + 1;
+			int lastMatch = i;
+			while (j < numDrawCalls) {
+				if (drawCalls[j].verts != dc.verts)
+					break;
+				indexLowerBound = std::min(indexLowerBound, (int)dc.indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)dc.indexUpperBound);
+				lastMatch = j;
+				j++;
+			}
+			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
+			// we do when drawing.
+			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
+				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
+			// Hm, we will miss some indices when combining above, but meh, it should be fine.
+			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
+			i = lastMatch;
+		}
+	}
+
+	fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
+	return fullhash;
 }
