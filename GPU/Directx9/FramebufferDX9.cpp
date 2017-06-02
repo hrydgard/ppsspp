@@ -401,7 +401,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 		bool matchingSize = src->width == dst->width && src->height == dst->height;
 		if (matchingDepthBuffer && matchingSize) {
-			// Should use StretchRect here.
+			// Should use StretchRect here?  Note: should only copy depth and NOT copy stencil.  See #9740.
 		}
 	}
 
