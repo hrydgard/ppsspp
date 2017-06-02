@@ -174,7 +174,6 @@ private:
 	void FreeBuffer(GLuint buf);
 	void FreeVertexArray(VertexArrayInfo *vai);
 
-	u32 ComputeMiniHash();
 	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfo *vai);
 

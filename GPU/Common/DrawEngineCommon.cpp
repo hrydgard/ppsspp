@@ -23,6 +23,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/TextureDecoder.h"  // for ReliableHash
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
