@@ -19,6 +19,7 @@
 
 #include <set>
 #include <vector>
+#include <map>
 
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"

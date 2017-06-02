@@ -85,6 +85,7 @@ public:
 	}
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes = -1) override;
+	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;

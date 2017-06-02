@@ -954,6 +954,10 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferT
 	return true;
 }
 
+bool SoftGPU::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
+	return GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY, 1);
+}
+
 bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer)
 {
 	const int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
