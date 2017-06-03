@@ -34,7 +34,7 @@ public:
 	void Update() override;
 
 protected:
-	float GetButtonOpacity();
+	virtual float GetButtonOpacity();
 
 	float lastFrameTime_;
 	float secondsWithoutTouch_;
