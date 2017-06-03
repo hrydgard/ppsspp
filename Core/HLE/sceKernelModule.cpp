@@ -1671,10 +1671,13 @@ bool __KernelLoadGEDump(std::string *error_string) {
 }
 
 void __KernelGPUReplay() {
+	u64 destTicks = CoreTiming::GetTicks() + msToCycles(1001.0f / 60.0f);
 	if (!GPURecord::RunMountedReplay()) {
 		Core_Stop();
 	}
-	hleEatCycles(msToCycles(1001.0f / 60.0f));
+	if (destTicks < CoreTiming::GetTicks()) {
+		hleEatCycles(destTicks - CoreTiming::GetTicks());
+	}
 }
 
 int sceKernelLoadExec(const char *filename, u32 paramPtr)

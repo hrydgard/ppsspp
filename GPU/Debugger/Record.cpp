@@ -23,10 +23,15 @@
 #include "Common/FileUtil.h"
 #include "Common/Log.h"
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/System.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -71,6 +76,15 @@ static std::vector<u8> pushbuf;
 static std::vector<Command> commands;
 static std::vector<u32> lastRegisters;
 static std::vector<u32> lastTextures;
+
+// TODO: Maybe move execute to another file?
+static u32 execIndPtr;
+static u32 execVertPtr;
+static u32 execClutPtr;
+static u32 execTransferPtr;
+static u32 execMemcpyDest;
+static u32 execTexturePtrs[8];
+static std::vector<u32> execListQueue;
 
 static void FlushRegisters() {
 	if (!lastRegisters.empty()) {
@@ -419,6 +433,208 @@ void NotifyFrame() {
 	}
 }
 
+static bool ExecuteSubmitCmds(void *p, u32 sz) {
+	// TODO: Smarter memory allocation.
+	// Over allocate for the finish/end, and include execListQueue.
+	u32 pendingSize = (int)execListQueue.size() * sizeof(u32);
+	u32 allocSize = pendingSize + sz + 8;
+	u32 ptr = userMemory.Alloc(allocSize);
+	if (!ptr) {
+		ERROR_LOG(SYSTEM, "Unable to allocate for registers");
+		return false;
+	}
+
+	Memory::MemcpyUnchecked(ptr, execListQueue.data(), pendingSize);
+	Memory::MemcpyUnchecked(ptr + pendingSize, p, sz);
+	Memory::Write_U32(GE_CMD_FINISH << 24, ptr + pendingSize + sz + 0);
+	Memory::Write_U32(GE_CMD_END << 24, ptr + pendingSize + sz + 4);
+	auto optParam = PSPPointer<PspGeListArgs>::Create(0);
+	gpu->EnableInterrupts(false);
+	u32 listID = gpu->EnqueueList(ptr, 0, -1, optParam, false);
+	currentMIPS->downcount -= gpu->GetListTicks(listID) - CoreTiming::GetTicks();
+	gpu->ListSync(listID, 0);
+	gpu->EnableInterrupts(true);
+	userMemory.Free(ptr);
+
+	execListQueue.clear();
+
+	return true;
+}
+
+static void FreePSPPointer(u32 &p) {
+	if (p) {
+		userMemory.Free(p);
+		p = 0;
+	}
+}
+
+static void ExecuteRegisters(u32 ptr, u32 sz) {
+	ExecuteSubmitCmds(pushbuf.data() + ptr, sz);
+}
+
+static void ExecuteVertices(u32 ptr, u32 sz) {
+	FreePSPPointer(execVertPtr);
+
+	u32 allocSize = sz;
+	execVertPtr = userMemory.Alloc(allocSize);
+	if (!execVertPtr) {
+		ERROR_LOG(SYSTEM, "Unable to allocate for vertices");
+		return;
+	}
+
+	Memory::MemcpyUnchecked(execVertPtr, pushbuf.data() + ptr, sz);
+
+	execListQueue.push_back((GE_CMD_BASE << 24) | ((execVertPtr >> 8) & 0x00FF0000));
+	execListQueue.push_back((GE_CMD_VADDR << 24) | (execVertPtr & 0x00FFFFFF));
+}
+
+static void ExecuteIndices(u32 ptr, u32 sz) {
+	FreePSPPointer(execIndPtr);
+
+	u32 allocSize = sz;
+	execIndPtr = userMemory.Alloc(allocSize);
+	if (!execIndPtr) {
+		ERROR_LOG(SYSTEM, "Unable to allocate for indices");
+		return;
+	}
+
+	Memory::MemcpyUnchecked(execIndPtr, pushbuf.data() + ptr, sz);
+
+	execListQueue.push_back((GE_CMD_BASE << 24) | ((execIndPtr >> 8) & 0x00FF0000));
+	execListQueue.push_back((GE_CMD_IADDR << 24) | (execIndPtr & 0x00FFFFFF));
+}
+
+static void ExecuteClut(u32 ptr, u32 sz) {
+	FreePSPPointer(execClutPtr);
+
+	u32 allocSize = sz;
+	execClutPtr = userMemory.Alloc(allocSize);
+	if (!execClutPtr) {
+		ERROR_LOG(SYSTEM, "Unable to allocate for clut");
+		return;
+	}
+
+	Memory::MemcpyUnchecked(execClutPtr, pushbuf.data() + ptr, sz);
+
+	execListQueue.push_back((GE_CMD_CLUTADDRUPPER << 24) | ((execClutPtr >> 8) & 0x00FF0000));
+	execListQueue.push_back((GE_CMD_CLUTADDR << 24) | (execClutPtr & 0x00FFFFFF));
+}
+
+static void ExecuteTransferSrc(u32 ptr, u32 sz) {
+	FreePSPPointer(execTransferPtr);
+
+	u32 allocSize = sz;
+	execTransferPtr = userMemory.Alloc(allocSize);
+	if (!execClutPtr) {
+		ERROR_LOG(SYSTEM, "Unable to allocate for transfer");
+		return;
+	}
+
+	Memory::MemcpyUnchecked(execTransferPtr, pushbuf.data() + ptr, sz);
+
+	execListQueue.push_back((gstate.transfersrcw & 0xFF00FFFF) | ((execTransferPtr >> 8) & 0x00FF0000));
+	execListQueue.push_back(((GE_CMD_TRANSFERSRC) << 24) | (execTransferPtr & 0x00FFFFFF));
+}
+
+static void ExecuteMemset(u32 ptr, u32 sz) {
+	// TODO
+}
+
+static void ExecuteMemcpyDest(u32 ptr, u32 sz) {
+	// TODO
+}
+
+static void ExecuteMemcpy(u32 ptr, u32 sz) {
+	// TODO
+}
+
+static void ExecuteTexture(int level, u32 ptr, u32 sz) {
+	FreePSPPointer(execTexturePtrs[level]);
+
+	u32 allocSize = sz;
+	u32 pspPointer = userMemory.Alloc(allocSize);
+	if (!pspPointer) {
+		ERROR_LOG(SYSTEM, "Unable to allocate for texture");
+		return;
+	}
+
+	Memory::MemcpyUnchecked(pspPointer, pushbuf.data() + ptr, sz);
+	execTexturePtrs[level] = pspPointer;
+
+	execListQueue.push_back((gstate.texbufwidth[level] & 0xFF00FFFF) | ((pspPointer >> 8) & 0x00FF0000));
+	execListQueue.push_back(((GE_CMD_TEXADDR0 + level) << 24) | (pspPointer & 0x00FFFFFF));
+}
+
+static void ExecuteFree() {
+	FreePSPPointer(execIndPtr);
+	FreePSPPointer(execVertPtr);
+	FreePSPPointer(execClutPtr);
+	FreePSPPointer(execTransferPtr);
+	execMemcpyDest = 0;
+	for (int level = 0; level < 8; ++level) {
+		FreePSPPointer(execTexturePtrs[level]);
+	}
+}
+
+static bool ExecuteCommands() {
+	//for (const Command &cmd : commands) {
+	for (size_t i = 0; i < commands.size(); ++i) {
+		const Command &cmd = commands[i];
+		switch (cmd.type) {
+		case CommandType::REGISTERS:
+			ExecuteRegisters(cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::VERTICES:
+			ExecuteVertices(cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::INDICES:
+			ExecuteIndices(cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::CLUT:
+			ExecuteClut(cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::TRANSFERSRC:
+			ExecuteTransferSrc(cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::MEMSET:
+			ExecuteMemset(cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::MEMCPYDEST:
+			ExecuteMemcpyDest(cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::MEMCPYDATA:
+			ExecuteMemcpy(cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::TEXTURE0:
+		case CommandType::TEXTURE1:
+		case CommandType::TEXTURE2:
+		case CommandType::TEXTURE3:
+		case CommandType::TEXTURE4:
+		case CommandType::TEXTURE5:
+		case CommandType::TEXTURE6:
+		case CommandType::TEXTURE7:
+			ExecuteTexture((int)cmd.type - (int)CommandType::TEXTURE0, cmd.ptr, cmd.sz);
+			break;
+
+		default:
+			ERROR_LOG(SYSTEM, "Unsupported GE dump command: %d", cmd.type);
+			return false;
+		}
+	}
+
+	ExecuteFree();
+
+	return true;
+}
+
 bool RunMountedReplay() {
 	_assert_msg_(SYSTEM, !active && !nextFrame, "Cannot run replay while recording.");
 
@@ -458,8 +674,7 @@ bool RunMountedReplay() {
 
 	pspFileSystem.CloseFile(fp);
 
-	// TODO: Execute commands.
-	return true;
+	return ExecuteCommands();
 }
 
 };
