@@ -55,13 +55,6 @@ enum {
 	VAI_FLAG_VERTEXFULLALPHA = 1,
 };
 
-// Avoiding the full include of TextureDecoder.h.
-#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
-typedef u64 ReliableHashType;
-#else
-typedef u32 ReliableHashType;
-#endif
-
 // Try to keep this POD.
 class VertexArrayInfo {
 public:
@@ -135,9 +128,6 @@ public:
 	void ClearTrackedVertexArrays() override;
 	void DecimateTrackedVertexArrays();
 
-	void SetupVertexDecoder(u32 vertType);
-	inline void SetupVertexDecoderInternal(u32 vertType);
-
 	// So that this can be inlined
 	void Flush() {
 		if (!numDrawCalls)
@@ -165,7 +155,6 @@ public:
 
 private:
 	void DecodeVerts();
-	void DecodeVertsStep();
 	void DoFlush();
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
@@ -175,30 +164,7 @@ private:
 	void FreeBuffer(GLuint buf);
 	void FreeVertexArray(VertexArrayInfo *vai);
 
-	u32 ComputeMiniHash();
-	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfo *vai);
-
-	// Defer all vertex decoding to a Flush, so that we can hash and cache the
-	// generated buffers without having to redecode them every time.
-	struct DeferredDrawCall {
-		void *verts;
-		void *inds;
-		u32 vertType;
-		u8 indexType;
-		s8 prim;
-		u32 vertexCount;
-		u16 indexLowerBound;
-		u16 indexUpperBound;
-	};
-
-	// Vertex collector state
-	IndexGenerator indexGen;
-	int decodedVerts_;
-	GEPrimitiveType prevPrim_;
-
-	TransformedVertex *transformed;
-	TransformedVertex *transformedExpanded;
 
 	std::unordered_map<u32, VertexArrayInfo *> vai_;
 
@@ -215,26 +181,16 @@ private:
 	std::multimap<size_t, GLuint> freeSizedBuffers_;
 	std::unordered_map<GLuint, BufferNameInfo> bufferNameInfo_;
 	std::vector<GLuint> buffersThisFrame_;
-	size_t bufferNameCacheSize_;
-	GLuint sharedVao_;
+	size_t bufferNameCacheSize_ = 0;
+	GLuint sharedVao_ = 0;
 
 	// Other
-	ShaderManagerGLES *shaderManager_;
-	TextureCacheGLES *textureCache_;
-	FramebufferManagerGLES *framebufferManager_;
-	FragmentTestCacheGLES *fragmentTestCache_;
+	ShaderManagerGLES *shaderManager_ = nullptr;
+	TextureCacheGLES *textureCache_ = nullptr;
+	FramebufferManagerGLES *framebufferManager_ = nullptr;
+	FragmentTestCacheGLES *fragmentTestCache_ = nullptr;
 
-	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls;
-	int vertexCountInDrawCalls;
-
-	int decimationCounter_;
-	int bufferDecimationCounter_;
-	int decodeCounter_;
-	u32 dcid_;
-
-	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
+	int bufferDecimationCounter_ = 0;
 
 	// Hardware tessellation
 	class TessellationDataTransferGLES : public TessellationDataTransfer {

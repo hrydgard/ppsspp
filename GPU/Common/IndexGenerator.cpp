@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstring>
 #include "IndexGenerator.h"
 
 #include "Common/Common.h"
@@ -211,16 +212,24 @@ void IndexGenerator::TranslateLineStrip(int numInds, const ITypeLE *inds, int in
 template <class ITypeLE, int flag>
 void IndexGenerator::TranslateList(int numInds, const ITypeLE *inds, int indexOffset) {
 	indexOffset = index_ - indexOffset;
-	u16 *outInds = inds_;
-	int numTris = numInds / 3;  // Round to whole triangles
-	numInds = numTris * 3;
-	for (int i = 0; i < numInds; i += 3) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i + 1];
-		*outInds++ = indexOffset + inds[i + 2];
+	// We only bother doing this minor optimization in triangle list, since it's by far the most
+	// common operation that can benefit.
+	if (sizeof(ITypeLE) == sizeof(inds_[0]) && indexOffset == 0) {
+		memcpy(inds_, inds, numInds * sizeof(ITypeLE));
+		inds_ += numInds;
+		count_ += numInds;
+	} else {
+		u16 *outInds = inds_;
+		int numTris = numInds / 3;  // Round to whole triangles
+		numInds = numTris * 3;
+		for (int i = 0; i < numInds; i += 3) {
+			*outInds++ = indexOffset + inds[i];
+			*outInds++ = indexOffset + inds[i + 1];
+			*outInds++ = indexOffset + inds[i + 2];
+		}
+		inds_ = outInds;
+		count_ += numInds;
 	}
-	inds_ = outInds;
-	count_ += numInds;
 	prim_ = GE_PRIM_TRIANGLES;
 	seenPrims_ |= (1 << GE_PRIM_TRIANGLES) | flag;
 }

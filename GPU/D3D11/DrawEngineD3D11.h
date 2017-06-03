@@ -55,13 +55,6 @@ enum {
 	VAI11_FLAG_VERTEXFULLALPHA = 1,
 };
 
-// Avoiding the full include of TextureDecoder.h.
-#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
-typedef u64 ReliableHashType;
-#else
-typedef u32 ReliableHashType;
-#endif
-
 // Try to keep this POD.
 class VertexArrayInfoD3D11 {
 public:
@@ -158,7 +151,6 @@ public:
 
 private:
 	void DecodeVerts();
-	void DecodeVertsStep();
 	void DoFlush();
 
 	void ApplyDrawState(int prim);
@@ -169,8 +161,6 @@ private:
 
 	ID3D11InputLayout *SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
-	u32 ComputeMiniHash();
-	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfoD3D11 *vai);
 
 	Draw::DrawContext *draw_;  // Used for framebuffer related things exclusively.
@@ -178,27 +168,6 @@ private:
 	ID3D11Device1 *device1_;
 	ID3D11DeviceContext *context_;
 	ID3D11DeviceContext1 *context1_;
-
-	// Defer all vertex decoding to a Flush, so that we can hash and cache the
-	// generated buffers without having to redecode them every time.
-	struct DeferredDrawCall {
-		void *verts;
-		void *inds;
-		u32 vertType;
-		u8 indexType;
-		s8 prim;
-		u32 vertexCount;
-		u16 indexLowerBound;
-		u16 indexUpperBound;
-	};
-
-	// Vertex collector state
-	IndexGenerator indexGen;
-	int decodedVerts_;
-	GEPrimitiveType prevPrim_;
-	
-	TransformedVertex *transformed;
-	TransformedVertex *transformedExpanded;
 
 	std::unordered_map<u32, VertexArrayInfoD3D11 *> vai_;
 
@@ -217,25 +186,13 @@ private:
 	std::map<InputLayoutKey, ID3D11InputLayout *> inputLayoutMap_;
 
 	// Other
-	ShaderManagerD3D11 *shaderManager_;
-	TextureCacheD3D11 *textureCache_;
-	FramebufferManagerD3D11 *framebufferManager_;
+	ShaderManagerD3D11 *shaderManager_ = nullptr;
+	TextureCacheD3D11 *textureCache_ = nullptr;
+	FramebufferManagerD3D11 *framebufferManager_ = nullptr;
 
 	// Pushbuffers
 	PushBufferD3D11 *pushVerts_;
 	PushBufferD3D11 *pushInds_;
-
-	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-
-	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls;
-	int vertexCountInDrawCalls_;
-
-	int decimationCounter_;
-	int decodeCounter_;
-	u32 dcid_;
-
-	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
 
 	// D3D11 state object caches
 	std::map<uint64_t, ID3D11BlendState *> blendCache_;

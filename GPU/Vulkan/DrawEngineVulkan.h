@@ -134,7 +134,6 @@ private:
 	void DestroyDeviceObjects();
 
 	void DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
-	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
 
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
@@ -181,26 +180,6 @@ private:
 	int curFrame_;
 	FrameData frame_[2];
 
-	// Defer all vertex decoding to a "Flush" (except when software skinning)
-	struct DeferredDrawCall {
-		void *verts;
-		void *inds;
-		u32 vertType;
-		u8 indexType;
-		s8 prim;
-		u32 vertexCount;
-		u16 indexLowerBound;
-		u16 indexUpperBound;
-	};
-
-	// Vertex collector state
-	IndexGenerator indexGen;
-	int decodedVerts_ = 0;
-	GEPrimitiveType prevPrim_;
-
-	TransformedVertex *transformed = nullptr;
-	TransformedVertex *transformedExpanded = nullptr;
-
 	// Other
 	ShaderManagerVulkan *shaderManager_ = nullptr;
 	PipelineManagerVulkan *pipelineManager_ = nullptr;
@@ -208,8 +187,6 @@ private:
 	FramebufferManagerVulkan *framebufferManager_ = nullptr;
 
 	VkSampler depalSampler_;
-
-	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 
 	// State cache
 	uint64_t dirtyUniforms_;
@@ -223,15 +200,6 @@ private:
 	// Null texture
 	VulkanTexture *nullTexture_ = nullptr;
 	VkSampler nullSampler_ = VK_NULL_HANDLE;
-
-	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls = 0;
-	int vertexCountInDrawCalls_ = 0;
-	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
-
-	int decimationCounter_ = 0;
-	int decodeCounter_ = 0;
-	u32 dcid_;
 
 	DrawEngineVulkanStats stats_;
 
