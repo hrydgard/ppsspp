@@ -291,6 +291,8 @@ static void EmitTransfer(u32 op) {
 	srcBytes = Memory::ValidSize(srcBasePtr, srcBytes);
 
 	EmitCommandWithRAM(CommandType::TRANSFERSRC, Memory::GetPointerUnchecked(srcBasePtr), srcBytes);
+
+	lastRegisters.push_back(op);
 }
 
 static void EmitClut(u32 op) {
@@ -299,6 +301,8 @@ static void EmitClut(u32 op) {
 	bytes = Memory::ValidSize(addr, bytes);
 
 	EmitCommandWithRAM(CommandType::CLUT, Memory::GetPointerUnchecked(addr), bytes);
+
+	lastRegisters.push_back(op);
 }
 
 static void EmitPrim(u32 op) {
