@@ -22,6 +22,7 @@
 namespace GPURecord {
 
 bool IsActive();
+void Activate();
 
 void NotifyCommand(u32 pc);
 void NotifyMemcpy(u32 dest, u32 src, u32 sz);

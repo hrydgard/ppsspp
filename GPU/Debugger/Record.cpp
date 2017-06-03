@@ -366,6 +366,10 @@ bool IsActive() {
 	return active;
 }
 
+void Activate() {
+	nextFrame = true;
+}
+
 void NotifyCommand(u32 pc) {
 	if (!active) {
 		return;
@@ -634,6 +638,9 @@ static void ExecuteFree() {
 	for (int level = 0; level < 8; ++level) {
 		FreePSPPointer(execTexturePtrs[level]);
 	}
+
+	commands.clear();
+	pushbuf.clear();
 }
 
 static bool ExecuteCommands() {
@@ -698,8 +705,6 @@ static bool ExecuteCommands() {
 		}
 	}
 
-	ExecuteFree();
-
 	return true;
 }
 
@@ -730,6 +735,7 @@ bool RunMountedReplay() {
 		read += pspFileSystem.ReadFile(fp, (u8 *)&commands[i].ptr, sizeof(commands[i].ptr));
 		if (read != sizeof(commands[i].type) + sizeof(commands[i].sz) + sizeof(commands[i].ptr)) {
 			ERROR_LOG(SYSTEM, "Truncated GE dump");
+			ExecuteFree();
 			return false;
 		}
 	}
@@ -737,12 +743,15 @@ bool RunMountedReplay() {
 	pushbuf.resize(bufsz);
 	if (pspFileSystem.ReadFile(fp, pushbuf.data(), bufsz) != bufsz) {
 		ERROR_LOG(SYSTEM, "Truncated GE dump");
+		ExecuteFree();
 		return false;
 	}
 
 	pspFileSystem.CloseFile(fp);
 
-	return ExecuteCommands();
+	bool success = ExecuteCommands();
+	ExecuteFree();
+	return success;
 }
 
 };
