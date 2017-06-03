@@ -28,6 +28,7 @@
 #include "thread/threadutil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
+#include "input/keycodes.h"
 #include "profiler/profiler.h"
 #include "math/math_util.h"
 #include "net/resolve.h"
@@ -49,7 +50,7 @@
 
 #include "app-android.h"
 
-static JNIEnv *jniEnvUI;
+JNIEnv *jniEnvUI;
 
 enum {
 	ANDROID_VERSION_GINGERBREAD = 9,

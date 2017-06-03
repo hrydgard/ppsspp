@@ -8,6 +8,7 @@
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_text_win.h"
 #include "gfx_es2/draw_text_qt.h"
+#include "gfx_es2/draw_text_android.h"
 
 TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.
@@ -45,6 +46,8 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	return new TextDrawerWin32(draw);
 #elif defined(USING_QT_UI)
 	return new TextDrawerQt(draw);
+#elif PPSSPP_PLATFORM(ANDROID)
+	return new TextDrawerAndroid(draw);
 #else
 	return nullptr;
 #endif

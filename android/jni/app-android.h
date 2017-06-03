@@ -1,8 +1,11 @@
 #pragma once
 
-#include "input/keycodes.h"
+#include "ppsspp_config.h"
 
-// Compatability we alias the keycodes
-// since native's keycodes are based on
-// android keycodes.
-typedef enum _keycode_t AndroidKeyCodes;
+#if PPSSPP_PLATFORM(ANDROID)
+
+#include <jni.h>
+
+extern JNIEnv *jniEnvUI;
+
+#endif
