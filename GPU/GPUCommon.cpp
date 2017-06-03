@@ -461,6 +461,10 @@ void GPUCommon::Resized() {
 	resized_ = true;
 }
 
+void GPUCommon::DumpNextFrame() {
+	dumpNextFrame_ = true;
+}
+
 u32 GPUCommon::DrawSync(int mode) {
 	if (ThreadEnabled()) {
 		// Sync first, because the CPU is usually faster than the emulated GPU.
@@ -943,6 +947,16 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		gpuStats.msProcessingDisplayLists += total;
 	}
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
+}
+
+void GPUCommon::BeginFrameInternal() {
+	if (dumpNextFrame_) {
+		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
+		dumpThisFrame_ = true;
+		dumpNextFrame_ = false;
+	} else if (dumpThisFrame_) {
+		dumpThisFrame_ = false;
+	}
 }
 
 void GPUCommon::SlowRunLoop(DisplayList &list)

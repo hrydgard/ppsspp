@@ -61,6 +61,7 @@ public:
 	}
 
 	void Resized() override;
+	void DumpNextFrame() override;
 
 	void ExecuteOp(u32 op, u32 diff) override;
 	void PreExecuteOp(u32 op, u32 diff) override;
@@ -227,7 +228,7 @@ protected:
 	}
 
 	virtual void InitClearInternal() {}
-	virtual void BeginFrameInternal() {}
+	virtual void BeginFrameInternal();
 	virtual void CopyDisplayToOutputInternal() {}
 	virtual void ReinitializeInternal() {}
 

@@ -422,10 +422,6 @@ void GPU_GLES::InitClearInternal() {
 	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
-void GPU_GLES::DumpNextFrame() {
-	dumpNextFrame_ = true;
-}
-
 void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
@@ -495,13 +491,7 @@ void GPU_GLES::BeginFrameInternal() {
 	depalShaderCache_.Decimate();
 	fragmentTestCache_.Decimate();
 
-	if (dumpNextFrame_) {
-		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
-		dumpThisFrame_ = true;
-		dumpNextFrame_ = false;
-	} else if (dumpThisFrame_) {
-		dumpThisFrame_ = false;
-	}
+	GPUCommon::BeginFrameInternal();
 
 	// Save the cache from time to time. TODO: How often?
 	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 1023) == 0) {

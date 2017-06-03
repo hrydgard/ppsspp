@@ -70,7 +70,6 @@ public:
 
 	void DeviceLost() override;
 	void DeviceRestore() override;
-	void DumpNextFrame() override {}
 
 	void Resized() override {}
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {

@@ -52,7 +52,6 @@ public:
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore() override;
 
-	void DumpNextFrame() override;
 	void DoState(PointerWrap &p) override;
 
 	void ClearShaderCache() override;
@@ -102,7 +101,6 @@ private:
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 	void InitClearInternal() override;
-	void BeginFrameInternal() override;
 	void CopyDisplayToOutputInternal() override;
 	void ReinitializeInternal() override;
 	inline void UpdateVsyncInterval(bool force);
