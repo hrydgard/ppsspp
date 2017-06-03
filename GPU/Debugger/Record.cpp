@@ -47,6 +47,7 @@ static bool active = false;
 static bool nextFrame = false;
 
 enum class CommandType : u8 {
+	INIT = 0,
 	REGISTERS = 1,
 	VERTICES = 2,
 	INDICES = 3,
@@ -55,6 +56,7 @@ enum class CommandType : u8 {
 	MEMSET = 6,
 	MEMCPYDEST = 7,
 	MEMCPYDATA = 8,
+	DISPLAY = 9,
 
 	TEXTURE0 = 0x10,
 	TEXTURE1 = 0x11,
@@ -115,8 +117,35 @@ static std::string GenRecordingFilename() {
 	return StringFromFormat("%s_%04d.ppdmp", prefix.c_str(), 9999);
 }
 
+static void EmitDisplayBuf() {
+	struct DisplayBufData {
+		PSPPointer<u8> topaddr;
+		u32 linesize, pixelFormat;
+	};
+
+	DisplayBufData disp{};
+	__DisplayGetFramebuf(&disp.topaddr, &disp.linesize, &disp.pixelFormat, 0);
+
+	u32 ptr = (u32)pushbuf.size();
+	u32 sz = (u32)sizeof(disp);
+	pushbuf.resize(pushbuf.size() + sz);
+	memcpy(pushbuf.data() + ptr, &disp, sz);
+
+	commands.push_back({CommandType::DISPLAY, sz, ptr});
+}
+
+static void BeginRecording() {
+	u32 ptr = (u32)pushbuf.size();
+	u32 sz = 512 * 4;
+	pushbuf.resize(pushbuf.size() + sz);
+	gstate.Save((u32_le *)(pushbuf.data() + ptr));
+
+	commands.push_back({CommandType::INIT, sz, ptr});
+}
+
 static void WriteRecording() {
 	FlushRegisters();
+	EmitDisplayBuf();
 
 	const std::string filename = GenRecordingFilename();
 	FILE *fp = File::OpenCFile(filename, "wb");
@@ -443,6 +472,7 @@ void NotifyFrame() {
 		active = true;
 		nextFrame = false;
 		lastTextures.clear();
+		BeginRecording();
 	}
 }
 
@@ -479,6 +509,11 @@ static void FreePSPPointer(u32 &p) {
 		userMemory.Free(p);
 		p = 0;
 	}
+}
+
+static void ExecuteInit(u32 ptr, u32 sz) {
+	gstate.Restore((u32_le *)(pushbuf.data() + ptr));
+	gpu->ReapplyGfxState();
 }
 
 static void ExecuteRegisters(u32 ptr, u32 sz) {
@@ -578,6 +613,18 @@ static void ExecuteTexture(int level, u32 ptr, u32 sz) {
 	execListQueue.push_back(((GE_CMD_TEXADDR0 + level) << 24) | (pspPointer & 0x00FFFFFF));
 }
 
+static void ExecuteDisplay(u32 ptr, u32 sz) {
+	struct DisplayBufData {
+		PSPPointer<u8> topaddr;
+		u32 linesize, pixelFormat;
+	};
+
+	DisplayBufData *disp = (DisplayBufData *)(pushbuf.data() + ptr);
+
+	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 1);
+	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);
+}
+
 static void ExecuteFree() {
 	FreePSPPointer(execIndPtr);
 	FreePSPPointer(execVertPtr);
@@ -594,6 +641,10 @@ static bool ExecuteCommands() {
 	for (size_t i = 0; i < commands.size(); ++i) {
 		const Command &cmd = commands[i];
 		switch (cmd.type) {
+		case CommandType::INIT:
+			ExecuteInit(cmd.ptr, cmd.sz);
+			break;
+
 		case CommandType::REGISTERS:
 			ExecuteRegisters(cmd.ptr, cmd.sz);
 			break;
@@ -635,6 +686,10 @@ static bool ExecuteCommands() {
 		case CommandType::TEXTURE6:
 		case CommandType::TEXTURE7:
 			ExecuteTexture((int)cmd.type - (int)CommandType::TEXTURE0, cmd.ptr, cmd.sz);
+			break;
+
+		case CommandType::DISPLAY:
+			ExecuteDisplay(cmd.ptr, cmd.sz);
 			break;
 
 		default:

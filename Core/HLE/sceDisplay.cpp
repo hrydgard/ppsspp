@@ -825,13 +825,29 @@ static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeigh
 	return DisplayWaitForVblanks("display mode", 1);
 }
 
-// Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
-static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
+void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) {
 	FrameBufferState fbstate = {0};
 	fbstate.topaddr = topaddr;
-	fbstate.fmt = (GEBufferFormat)pixelformat;
+	fbstate.fmt = (GEBufferFormat)pixelFormat;
 	fbstate.stride = linesize;
 
+	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
+		// Write immediately to the current framebuffer parameters
+		framebuf = fbstate;
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
+	} else {
+		// Delay the write until vblank
+		latchedFramebuf = fbstate;
+		framebufIsLatched = true;
+
+		// If we update the format or stride, this affects the current framebuf immediately.
+		framebuf.fmt = latchedFramebuf.fmt;
+		framebuf.stride = latchedFramebuf.stride;
+	}
+}
+
+// Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
+u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
 	if (sync != PSP_DISPLAY_SETBUF_IMMEDIATE && sync != PSP_DISPLAY_SETBUF_NEXTFRAME) {
 		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid sync mode");
 	}
@@ -849,7 +865,7 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 	}
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
-		if (fbstate.fmt != latchedFramebuf.fmt || fbstate.stride != latchedFramebuf.stride) {
+		if ((GEBufferFormat)pixelformat != latchedFramebuf.fmt || linesize != latchedFramebuf.stride) {
 			return hleReportError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
 		}
 	}
@@ -882,19 +898,7 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 		lastFlipCycles = CoreTiming::GetTicks();
 	}
 
-	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
-		// Write immediately to the current framebuffer parameters
-		framebuf = fbstate;
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
-	} else {
-		// Delay the write until vblank
-		latchedFramebuf = fbstate;
-		framebufIsLatched = true;
-
-		// If we update the format or stride, this affects the current framebuf immediately.
-		framebuf.fmt = latchedFramebuf.fmt;
-		framebuf.stride = latchedFramebuf.stride;
-	}
+	__DisplaySetFramebuf(topaddr, linesize, pixelformat, sync);
 
 	if (delayCycles > 0) {
 		// Okay, the game is going at too high a frame rate.  God of War and Fat Princess both do this.
@@ -910,10 +914,10 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 	}
 }
 
-bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
+bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
 	const FrameBufferState &fbState = latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME ? latchedFramebuf : framebuf;
 	if (topaddr != nullptr)
-		*topaddr = Memory::GetPointer(fbState.topaddr);
+		(*topaddr).ptr = fbState.topaddr;
 	if (linesize != nullptr)
 		*linesize = fbState.stride;
 	if (pixelFormat != nullptr)
