@@ -203,7 +203,7 @@ public:
 	const std::list<int>& GetDisplayLists() override {
 		return dlQueue;
 	}
-	virtual bool DecodeTexture(u8* dest, const GPUgstate &state) override {
+	bool DecodeTexture(u8* dest, const GPUgstate &state) override {
 		return false;
 	}
 	std::vector<FramebufferInfo> GetFramebufferList() override {
@@ -211,6 +211,13 @@ public:
 	}
 	void ClearShaderCache() override {}
 	void CleanupBeforeUI() override {}
+
+	s64 GetListTicks(int listid) override {
+		if (listid >= 0 && listid < DisplayListMaxCount) {
+			return dls[listid].waitTicks;
+		}
+		return -1;
+	}
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override { return std::vector<std::string>(); };
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {

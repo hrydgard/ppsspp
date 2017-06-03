@@ -299,6 +299,7 @@ public:
 	virtual const std::list<int>& GetDisplayLists() = 0;
 	virtual bool DecodeTexture(u8* dest, const GPUgstate &state) = 0;
 	virtual std::vector<FramebufferInfo> GetFramebufferList() = 0;
+	virtual s64 GetListTicks(int listid) = 0;
 
 	// For debugging. The IDs returned are opaque, do not poke in them or display them in any way.
 	virtual std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) = 0;
