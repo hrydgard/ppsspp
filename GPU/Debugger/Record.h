@@ -29,4 +29,6 @@ void NotifyMemset(u32 dest, int v, u32 sz);
 void NotifyUpload(u32 dest, u32 sz);
 void NotifyFrame();
 
+bool RunMountedReplay();
+
 };

@@ -27,11 +27,12 @@
 #include "Core/ELF/ElfReader.h"
 #include "Core/ELF/ParamSFO.h"
 
-#include "FileSystems/BlockDevices.h"
-#include "FileSystems/DirectoryFileSystem.h"
-#include "FileSystems/ISOFileSystem.h"
-#include "FileSystems/MetaFileSystem.h"
-#include "FileSystems/VirtualDiscFileSystem.h"
+#include "Core/FileSystems/BlockDevices.h"
+#include "Core/FileSystems/BlobFileSystem.h"
+#include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/FileSystems/VirtualDiscFileSystem.h"
 
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
@@ -354,4 +355,12 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	// End of temporary code
 
 	return __KernelLoadExec(finalName.c_str(), 0, error_string);
+}
+
+bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
+	BlobFileSystem *umd = new BlobFileSystem(&pspFileSystem, fileLoader, "data.ppdmp");
+	pspFileSystem.Mount("disc0:", umd);
+
+	__KernelLoadGEDump(error_string);
+	return true;
 }

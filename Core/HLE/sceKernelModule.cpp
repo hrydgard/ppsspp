@@ -24,6 +24,7 @@
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLETables.h"
@@ -57,6 +58,7 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/ELF/ParamSFO.h"
 
+#include "GPU/Debugger/Record.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
@@ -1513,8 +1515,36 @@ u32 __KernelGetModuleGP(SceUID uid)
 	}
 }
 
-bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string)
-{
+void __KernelLoadReset() {
+	// Wipe kernel here, loadexec should reset the entire system
+	if (__KernelIsRunning()) {
+		u32 error;
+		while (!loadedModules.empty()) {
+			SceUID moduleID = *loadedModules.begin();
+			Module *module = kernelObjects.Get<Module>(moduleID, error);
+			if (module) {
+				module->Cleanup();
+			} else {
+				// An invalid module.  We need to remove it or we'll loop forever.
+				WARN_LOG(LOADER, "Invalid module still marked as loaded on loadexec");
+				loadedModules.erase(moduleID);
+			}
+		}
+
+		Replacement_Shutdown();
+		__KernelShutdown();
+		// HLE needs to be reset here
+		HLEShutdown();
+		Replacement_Init();
+		HLEInit();
+		gpu->Reinitialize();
+	}
+
+	__KernelModuleInit();
+	__KernelInit();
+}
+
+bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string) {
 	SceKernelLoadExecParam param;
 
 	if (paramPtr)
@@ -1536,33 +1566,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		Memory::Memcpy(param_key, keyAddr, (u32)keylen);
 	}
 
-	// Wipe kernel here, loadexec should reset the entire system
-	if (__KernelIsRunning())
-	{
-		u32 error;
-		while (!loadedModules.empty()) {
-			SceUID moduleID = *loadedModules.begin();
-			Module *module = kernelObjects.Get<Module>(moduleID, error);
-			if (module) {
-				module->Cleanup();
-			} else {
-				// An invalid module.  We need to remove it or we'll loop forever.
-				WARN_LOG(LOADER, "Invalid module still marked as loaded on loadexec");
-				loadedModules.erase(moduleID);
-			}
-		}
-
-		Replacement_Shutdown();
-		__KernelShutdown();
-		//HLE needs to be reset here
-		HLEShutdown();
-		Replacement_Init();
-		HLEInit();
-		gpu->Reinitialize();
-	}
-
-	__KernelModuleInit();
-	__KernelInit();
+	__KernelLoadReset();
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	if (!info.exists) {
@@ -1633,6 +1637,33 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	hleSkipDeadbeef();
 	return true;
+}
+
+bool __KernelLoadGEDump(std::string *error_string) {
+	__KernelLoadReset();
+
+	mipsr4k.pc = PSP_GetUserMemoryBase();
+
+	const static u32_le runDumpCode[] = {
+		MIPS_MAKE_LUI(MIPS_REG_RA, mipsr4k.pc >> 16),
+		MIPS_MAKE_JR_RA(),
+		MIPS_MAKE_SYSCALL("FakeSysCalls", "__KernelGPUReplay"),
+		MIPS_MAKE_BREAK(0),
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(runDumpCode); ++i) {
+		Memory::WriteUnchecked_U32(runDumpCode[i], mipsr4k.pc + (int)i * sizeof(u32_le));
+	}
+
+	__KernelStartIdleThreads(0);
+	return true;
+}
+
+void __KernelGPUReplay() {
+	if (!GPURecord::RunMountedReplay()) {
+		Core_Stop();
+	}
+	hleEatCycles(msToCycles(1001.0f / 60.0f));
 }
 
 int sceKernelLoadExec(const char *filename, u32 paramPtr)

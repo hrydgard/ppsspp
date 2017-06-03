@@ -166,6 +166,9 @@
     <ClCompile Include="..\..\Core\MIPS\x86\RegCacheFPU.cpp">
       <Filter>MIPS\x86</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\FileSystems\BlobFileSystem.cpp">
+      <Filter>FileSystems</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\FileSystems\BlockDevices.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
@@ -673,6 +676,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\x86\RegCacheFPU.h">
       <Filter>MIPS\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\FileSystems\BlobFileSystem.h">
+      <Filter>FileSystems</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\FileSystems\BlockDevices.h">
       <Filter>FileSystems</Filter>

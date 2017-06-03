@@ -21,7 +21,10 @@
 #include "base/stringutil.h"
 #include "Common/Common.h"
 #include "Common/FileUtil.h"
+#include "Common/Log.h"
+#include "Core/Core.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
@@ -410,6 +413,49 @@ void NotifyFrame() {
 		nextFrame = false;
 		lastTextures.clear();
 	}
+}
+
+bool RunMountedReplay() {
+	_assert_msg_(SYSTEM, !active && !nextFrame, "Cannot run replay while recording.");
+
+	u32 fp = pspFileSystem.OpenFile("disc0:/data.ppdmp", FILEACCESS_READ);
+	u8 header[8]{};
+	int version = 0;
+	pspFileSystem.ReadFile(fp, header, sizeof(header));
+	pspFileSystem.ReadFile(fp, (u8 *)&version, sizeof(version));
+
+	if (memcmp(header, HEADER, sizeof(HEADER)) != 0 || version != VERSION) {
+		ERROR_LOG(SYSTEM, "Invalid GE dump or unsupported version");
+		return false;
+	}
+
+	int sz = 0;
+	pspFileSystem.ReadFile(fp, (u8 *)&sz, sizeof(sz));
+	int bufsz = 0;
+	pspFileSystem.ReadFile(fp, (u8 *)&bufsz, sizeof(bufsz));
+
+	commands.resize(sz);
+	for (int i = 0; i < sz; ++i) {
+		size_t read = 0;
+		read += pspFileSystem.ReadFile(fp, (u8 *)&commands[i].type, sizeof(commands[i].type));
+		read += pspFileSystem.ReadFile(fp, (u8 *)&commands[i].sz, sizeof(commands[i].sz));
+		read += pspFileSystem.ReadFile(fp, (u8 *)&commands[i].ptr, sizeof(commands[i].ptr));
+		if (read != sizeof(commands[i].type) + sizeof(commands[i].sz) + sizeof(commands[i].ptr)) {
+			ERROR_LOG(SYSTEM, "Truncated GE dump");
+			return false;
+		}
+	}
+
+	pushbuf.resize(bufsz);
+	if (pspFileSystem.ReadFile(fp, pushbuf.data(), bufsz) != bufsz) {
+		ERROR_LOG(SYSTEM, "Truncated GE dump");
+		return false;
+	}
+
+	pspFileSystem.CloseFile(fp);
+
+	// TODO: Execute commands.
+	return true;
 }
 
 };

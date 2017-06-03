@@ -364,6 +364,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceGameUpdate.cpp \
   $(SRC)/Core/HLE/sceNp.cpp \
   $(SRC)/Core/HLE/scePauth.cpp \
+  $(SRC)/Core/FileSystems/BlobFileSystem.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/FileSystem.cpp \
