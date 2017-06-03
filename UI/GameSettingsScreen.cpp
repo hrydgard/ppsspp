@@ -218,7 +218,8 @@ void GameSettingsScreen::CreateViews() {
 	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer")));
 	blockTransfer->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require this to be On for correct graphics"), e.v);
+		if (!g_Config.bBlockTransferGPU)
+			settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require this to be On for correct graphics"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
@@ -305,7 +306,7 @@ void GameSettingsScreen::CreateViews() {
 
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
 	swSkin->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("SoftwareSkinning Tip", "Reduce drawcalls and faster in games that use the advanced skinning technique, but some games slower"), e.v);
+		settingInfo_->Show(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
