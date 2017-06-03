@@ -44,6 +44,9 @@ enum class CommandType : u8 {
 	INDICES = 3,
 	CLUT = 4,
 	TRANSFERSRC = 5,
+	MEMSET = 6,
+	MEMCPYDEST = 7,
+	MEMCPYDATA = 8,
 
 	TEXTURE0 = 0x10,
 	TEXTURE1 = 0x11,
@@ -360,6 +363,40 @@ void NotifyCommand(u32 pc) {
 		lastRegisters.push_back(op);
 		break;
 	}
+}
+
+void NotifyMemcpy(u32 dest, u32 src, u32 sz) {
+	if (Memory::IsVRAMAddress(dest)) {
+		FlushRegisters();
+		Command cmd{CommandType::MEMCPYDEST, sizeof(dest), (u32)pushbuf.size()};
+		pushbuf.resize(pushbuf.size() + sizeof(dest));
+		memcpy(pushbuf.data() + cmd.ptr, &dest, sizeof(dest));
+
+		sz = Memory::ValidSize(dest, sz);
+		EmitCommandWithRAM(CommandType::MEMCPYDATA, Memory::GetPointer(dest), sz);
+	}
+}
+
+void NotifyMemset(u32 dest, int v, u32 sz) {
+	struct MemsetCommand {
+		u32 dest;
+		int value;
+		u32 sz;
+	};
+
+	if (Memory::IsVRAMAddress(dest)) {
+		sz = Memory::ValidSize(dest, sz);
+		MemsetCommand data{dest, v, sz};
+
+		FlushRegisters();
+		Command cmd{CommandType::MEMSET, sizeof(data), (u32)pushbuf.size()};
+		pushbuf.resize(pushbuf.size() + sizeof(data));
+		memcpy(pushbuf.data() + cmd.ptr, &data, sizeof(data));
+	}
+}
+
+void NotifyUpload(u32 dest, u32 sz) {
+	NotifyMemcpy(dest, dest, sz);
 }
 
 void NotifyFrame() {

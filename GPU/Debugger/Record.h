@@ -24,6 +24,9 @@ namespace GPURecord {
 bool IsActive();
 
 void NotifyCommand(u32 pc);
+void NotifyMemcpy(u32 dest, u32 src, u32 sz);
+void NotifyMemset(u32 dest, int v, u32 sz);
+void NotifyUpload(u32 dest, u32 sz);
 void NotifyFrame();
 
 };

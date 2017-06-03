@@ -37,6 +37,7 @@
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Debugger/Record.h"
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
@@ -876,6 +877,7 @@ bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	GPURecord::NotifyMemcpy(dest, src, size);
 	// Let's just be safe.
 	framebufferDirty_ = true;
 	return false;
@@ -885,6 +887,7 @@ bool SoftGPU::PerformMemorySet(u32 dest, u8 v, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	GPURecord::NotifyMemset(dest, v, size);
 	// Let's just be safe.
 	framebufferDirty_ = true;
 	return false;
@@ -901,6 +904,7 @@ bool SoftGPU::PerformMemoryUpload(u32 dest, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	GPURecord::NotifyUpload(dest, size);
 	return false;
 }
 

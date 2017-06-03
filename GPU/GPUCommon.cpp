@@ -2347,6 +2347,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	}
 
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	GPURecord::NotifyMemcpy(dest, src, size);
 	return false;
 }
 
@@ -2371,6 +2372,7 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 
 	// Or perhaps a texture, let's invalidate.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	GPURecord::NotifyMemset(dest, v, size);
 	return false;
 }
 
@@ -2387,6 +2389,7 @@ bool GPUCommon::PerformMemoryUpload(u32 dest, int size) {
 	// Cheat a bit to force an upload of the framebuffer.
 	// VRAM + 0x00400000 is simply a VRAM mirror.
 	if (Memory::IsVRAMAddress(dest)) {
+		GPURecord::NotifyUpload(dest, size);
 		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
 	}
 	return false;
