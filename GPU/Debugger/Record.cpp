@@ -338,6 +338,10 @@ bool IsActive() {
 }
 
 void NotifyCommand(u32 pc) {
+	if (!active) {
+		return;
+	}
+
 	const u32 op = Memory::Read_U32(pc);
 	const GECommand cmd = GECommand(op >> 24);
 
@@ -387,6 +391,9 @@ void NotifyCommand(u32 pc) {
 }
 
 void NotifyMemcpy(u32 dest, u32 src, u32 sz) {
+	if (!active) {
+		return;
+	}
 	if (Memory::IsVRAMAddress(dest)) {
 		FlushRegisters();
 		Command cmd{CommandType::MEMCPYDEST, sizeof(dest), (u32)pushbuf.size()};
@@ -399,6 +406,9 @@ void NotifyMemcpy(u32 dest, u32 src, u32 sz) {
 }
 
 void NotifyMemset(u32 dest, int v, u32 sz) {
+	if (!active) {
+		return;
+	}
 	struct MemsetCommand {
 		u32 dest;
 		int value;
@@ -417,6 +427,9 @@ void NotifyMemset(u32 dest, int v, u32 sz) {
 }
 
 void NotifyUpload(u32 dest, u32 sz) {
+	if (!active) {
+		return;
+	}
 	NotifyMemcpy(dest, dest, sz);
 }
 
