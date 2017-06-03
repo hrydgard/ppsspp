@@ -45,6 +45,7 @@ static const int VERSION = 1;
 
 static bool active = false;
 static bool nextFrame = false;
+static bool writePending = false;
 
 enum class CommandType : u8 {
 	INIT = 0,
@@ -374,6 +375,17 @@ void NotifyCommand(u32 pc) {
 	if (!active) {
 		return;
 	}
+	if (writePending) {
+		WriteRecording();
+		commands.clear();
+		pushbuf.clear();
+
+		writePending = false;
+		// We're done - this was just to write the result out.
+		NOTICE_LOG(SYSTEM, "Recording finished");
+		active = false;
+		return;
+	}
 
 	const u32 op = Memory::Read_U32(pc);
 	const GECommand cmd = GECommand(op >> 24);
@@ -467,12 +479,13 @@ void NotifyUpload(u32 dest, u32 sz) {
 }
 
 void NotifyFrame() {
-	if (active) {
-		active = false;
-		WriteRecording();
-		commands.clear();
+	if (active && !writePending) {
+		// Delay write until the first command of the next frame, so we get the right display buf.
+		NOTICE_LOG(SYSTEM, "Recording complete - waiting to get display buffer");
+		writePending = true;
 	}
 	if (nextFrame) {
+		NOTICE_LOG(SYSTEM, "Recording starting...");
 		active = true;
 		nextFrame = false;
 		lastTextures.clear();
