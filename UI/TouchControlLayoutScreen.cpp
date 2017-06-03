@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <vector>
 
 #include "base/colorutil.h"
@@ -64,6 +65,12 @@ public:
 
 	virtual float GetSpacing() const { return 1.0f; }
 	virtual void SetSpacing(float s) { }
+
+protected:
+	float GetButtonOpacity() override {
+		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+		return std::max(0.5f, opacity);
+	}
 
 private:
 	// convert from screen coordinates (leftColumnWidth to dp_xres) to actual fullscreen coordinates (0 to 1.0)

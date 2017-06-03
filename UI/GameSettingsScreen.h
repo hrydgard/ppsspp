@@ -122,22 +122,20 @@ private:
 	bool tessHWEnable_;
 };
 
-class SettingInfoMessage : public UI::TextView {
+class SettingInfoMessage : public UI::LinearLayout {
 public:
-	SettingInfoMessage(int align, UI::AnchorLayoutParams *lp)
-		: UI::TextView("", align, false, lp), timeShown_(0.0) {
-	}
+	SettingInfoMessage(int align, UI::AnchorLayoutParams *lp);
 
 	void SetBottomCutoff(float y) {
 		cutOffY_ = y;
 	}
 	void Show(const std::string &text, UI::View *refView = nullptr);
 
-	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const;
 	void Draw(UIContext &dc);
 
 private:
-	double timeShown_;
+	UI::TextView *text_ = nullptr;
+	double timeShown_ = 0.0;
 	float cutOffY_;
 };
 

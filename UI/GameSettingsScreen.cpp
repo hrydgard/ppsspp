@@ -218,7 +218,8 @@ void GameSettingsScreen::CreateViews() {
 	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer")));
 	blockTransfer->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require this to be On for correct graphics"), e.v);
+		if (!g_Config.bBlockTransferGPU)
+			settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require this to be On for correct graphics"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
@@ -305,7 +306,7 @@ void GameSettingsScreen::CreateViews() {
 
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
 	swSkin->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("SoftwareSkinning Tip", "Reduce drawcalls and faster in games that use the advanced skinning technique, but some games slower"), e.v);
+		settingInfo_->Show(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
@@ -590,9 +591,9 @@ void GameSettingsScreen::CreateViews() {
 			settingInfo_->Show(co->T("MouseControl Tip", "You can now map mouse in control mapping screen by pressing the 'M' icon."), e.v);
 		return UI::EVENT_CONTINUE;
 	});
-	controlsSettings->Add(new CheckBox(&g_Config.bMouseConfine, co->T("Confine Mouse", "Trap mouse within window/display area")));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"));
+	controlsSettings->Add(new CheckBox(&g_Config.bMouseConfine, co->T("Confine Mouse", "Trap mouse within window/display area")))->SetEnabledPtr(&g_Config.bMouseControl);
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
 #endif
 
 	ViewGroup *networkingSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -1275,7 +1276,11 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
 	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
 #if !defined(MOBILE_DEVICE)
-	list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")))->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
+	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
+	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
+	if (!PSP_IsInited()) {
+		createTextureIni->SetEnabled(false);
+	}
 #endif
 }
 
@@ -1507,6 +1512,16 @@ UI::EventReturn ProAdhocServerScreen::OnCancelClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+SettingInfoMessage::SettingInfoMessage(int align, UI::AnchorLayoutParams *lp)
+	: UI::LinearLayout(UI::ORIENT_HORIZONTAL, lp) {
+	using namespace UI;
+	SetSpacing(0.0f);
+	Add(new UI::Spacer(10.0f));
+	text_ = Add(new UI::TextView("", align, false, new LinearLayoutParams(1.0, Margins(0, 10))));
+	text_->SetTag("TEST?");
+	Add(new UI::Spacer(10.0f));
+}
+
 void SettingInfoMessage::Show(const std::string &text, UI::View *refView) {
 	if (refView) {
 		Bounds b = refView->GetBounds();
@@ -1517,14 +1532,8 @@ void SettingInfoMessage::Show(const std::string &text, UI::View *refView) {
 			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
 		}
 	}
-	SetText(text);
+	text_->SetText(text);
 	timeShown_ = time_now_d();
-}
-
-void SettingInfoMessage::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
-	TextView::GetContentDimensionsBySpec(dc, horiz, vert, w, h);
-	w += 20.0f;
-	h += 20.0f;
 }
 
 void SettingInfoMessage::Draw(UIContext &dc) {
@@ -1533,7 +1542,7 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 
 	// Let's show longer messages for more time (guesstimate at reading speed.)
 	// Note: this will give multibyte characters more time, but they often have shorter words anyway.
-	double timeToShow = std::max(1.5, GetText().size() * 0.05);
+	double timeToShow = std::max(1.5, text_->GetText().size() * 0.05);
 
 	double sinceShow = time_now_d() - timeShown_;
 	float alpha = MAX_ALPHA;
@@ -1549,9 +1558,6 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 		dc.FillRect(style.background, bounds_);
 	}
 
-	SetTextColor(whiteAlpha(alpha));
-	// Fake padding by adjusting bounds.
-	SetBounds(bounds_.Expand(-10.0f));
-	TextView::Draw(dc);
-	SetBounds(bounds_.Expand(10.0f));
+	text_->SetTextColor(whiteAlpha(alpha));
+	ViewGroup::Draw(dc);
 }

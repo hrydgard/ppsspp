@@ -88,6 +88,8 @@ static bool startDumping;
 
 static void __EmuScreenVblank()
 {
+	I18NCategory *sy = GetI18NCategory("System");
+
 	if (frameStep_ && lastNumFlips != gpuStats.numFlips)
 	{
 		frameStep_ = false;
@@ -98,7 +100,7 @@ static void __EmuScreenVblank()
 	if (g_Config.bDumpFrames && !startDumping)
 	{
 		avi.Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
-		osm.Show("AVI Dump started.", 3.0f);
+		osm.Show(sy->T("AVI Dump started."), 3.0f);
 		startDumping = true;
 	}
 	if (g_Config.bDumpFrames && startDumping)
@@ -108,7 +110,7 @@ static void __EmuScreenVblank()
 	else if (!g_Config.bDumpFrames && startDumping)
 	{
 		avi.Stop();
-		osm.Show("AVI Dump stopped.", 3.0f);
+		osm.Show(sy->T("AVI Dump stopped."), 3.0f);
 		startDumping = false;
 	}
 #endif
