@@ -262,6 +262,9 @@
     <ClInclude Include="Software\Sampler.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="Debugger\Record.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -518,6 +521,9 @@
     </ClCompile>
     <ClCompile Include="Software\SamplerX86.cpp">
       <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\Record.cpp">
+      <Filter>Debugger</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

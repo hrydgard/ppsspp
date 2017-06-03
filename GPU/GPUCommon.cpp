@@ -25,6 +25,7 @@
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Debugger/Record.h"
 
 const CommonCommandTableEntry commonCommandTable[] = {
 	// From Common. No flushing but definitely need execute.
@@ -902,7 +903,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 	guard.unlock();
 
-	const bool useDebugger = host->GPUDebuggingActive();
+	const bool useDebugger = host->GPUDebuggingActive() || GPURecord::IsActive();
 	const bool useFastRunLoop = !dumpThisFrame_ && !useDebugger;
 	while (gpuState == GPUSTATE_RUNNING) {
 		{
@@ -957,6 +958,7 @@ void GPUCommon::BeginFrameInternal() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
+	GPURecord::NotifyFrame();
 }
 
 void GPUCommon::SlowRunLoop(DisplayList &list)
@@ -965,6 +967,7 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 	while (downcount > 0)
 	{
 		host->GPUNotifyCommand(list.pc);
+		GPURecord::NotifyCommand(list.pc);
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
 		u32 cmd = op >> 24;
 
