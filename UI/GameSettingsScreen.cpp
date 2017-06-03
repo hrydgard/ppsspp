@@ -1511,6 +1511,16 @@ UI::EventReturn ProAdhocServerScreen::OnCancelClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+SettingInfoMessage::SettingInfoMessage(int align, UI::AnchorLayoutParams *lp)
+	: UI::LinearLayout(UI::ORIENT_HORIZONTAL, lp) {
+	using namespace UI;
+	SetSpacing(0.0f);
+	Add(new UI::Spacer(10.0f));
+	text_ = Add(new UI::TextView("", align, false, new LinearLayoutParams(1.0, Margins(0, 10))));
+	text_->SetTag("TEST?");
+	Add(new UI::Spacer(10.0f));
+}
+
 void SettingInfoMessage::Show(const std::string &text, UI::View *refView) {
 	if (refView) {
 		Bounds b = refView->GetBounds();
@@ -1521,14 +1531,8 @@ void SettingInfoMessage::Show(const std::string &text, UI::View *refView) {
 			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
 		}
 	}
-	SetText(text);
+	text_->SetText(text);
 	timeShown_ = time_now_d();
-}
-
-void SettingInfoMessage::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
-	TextView::GetContentDimensionsBySpec(dc, horiz, vert, w, h);
-	w += 20.0f;
-	h += 20.0f;
 }
 
 void SettingInfoMessage::Draw(UIContext &dc) {
@@ -1537,7 +1541,7 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 
 	// Let's show longer messages for more time (guesstimate at reading speed.)
 	// Note: this will give multibyte characters more time, but they often have shorter words anyway.
-	double timeToShow = std::max(1.5, GetText().size() * 0.05);
+	double timeToShow = std::max(1.5, text_->GetText().size() * 0.05);
 
 	double sinceShow = time_now_d() - timeShown_;
 	float alpha = MAX_ALPHA;
@@ -1553,9 +1557,6 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 		dc.FillRect(style.background, bounds_);
 	}
 
-	SetTextColor(whiteAlpha(alpha));
-	// Fake padding by adjusting bounds.
-	SetBounds(bounds_.Expand(-10.0f));
-	TextView::Draw(dc);
-	SetBounds(bounds_.Expand(10.0f));
+	text_->SetTextColor(whiteAlpha(alpha));
+	ViewGroup::Draw(dc);
 }
