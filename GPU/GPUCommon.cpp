@@ -903,7 +903,8 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 	guard.unlock();
 
-	const bool useDebugger = host->GPUDebuggingActive() || GPURecord::IsActive();
+	debugRecording_ = GPURecord::IsActive();
+	const bool useDebugger = host->GPUDebuggingActive() || debugRecording_;
 	const bool useFastRunLoop = !dumpThisFrame_ && !useDebugger;
 	while (gpuState == GPUSTATE_RUNNING) {
 		{
@@ -1582,7 +1583,7 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 		}
 	}
 
-	const int count = i;
+	const int count = debugRecording_ ? 0 : i;
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
@@ -1623,7 +1624,7 @@ void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
 		}
 	}
 
-	const int count = i;
+	const int count = debugRecording_ ? 0 : i;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
@@ -1664,7 +1665,7 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 		}
 	}
 
-	const int count = i;
+	const int count = debugRecording_ ? 0 : i;
 	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0x1F);
 
 	// Skip over the loaded data, it's done now.
@@ -1706,7 +1707,7 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 		}
 	}
 
-	const int count = i;
+	const int count = debugRecording_ ? 0 : i;
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
@@ -1766,7 +1767,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 		}
 	}
 
-	const int count = i;
+	const int count = debugRecording_ ? 0 : i;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
 
 	// Skip over the loaded data, it's done now.

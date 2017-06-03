@@ -337,6 +337,7 @@ protected:
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
+	bool debugRecording_;
 	bool interruptsEnabled_;
 	bool resized_;
 	DrawType lastDraw_;

@@ -644,9 +644,7 @@ static void ExecuteFree() {
 }
 
 static bool ExecuteCommands() {
-	//for (const Command &cmd : commands) {
-	for (size_t i = 0; i < commands.size(); ++i) {
-		const Command &cmd = commands[i];
+	for (const Command &cmd : commands) {
 		switch (cmd.type) {
 		case CommandType::INIT:
 			ExecuteInit(cmd.ptr, cmd.sz);
