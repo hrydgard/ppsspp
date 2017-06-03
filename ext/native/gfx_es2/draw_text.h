@@ -50,45 +50,33 @@ enum {
 struct TextDrawerContext;
 class TextDrawerFontContext;
 
+
 class TextDrawer {
 public:
-	TextDrawer(Draw::DrawContext *thin3d);
-	~TextDrawer();
+	TextDrawer(Draw::DrawContext *draw);
+	virtual ~TextDrawer();
 
-	uint32_t SetFont(const char *fontName, int size, int flags);
-	void SetFont(uint32_t fontHandle);  // Shortcut once you've set the font once.
-
-	void SetFontScale(float xscale, float yscale);
-	void MeasureString(const char *str, float *w, float *h);
-	void MeasureString(const char *str, size_t len, float *w, float *h);
-	void MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT);
-	void DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT);
-	void DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align);
+	virtual uint32_t SetFont(const char *fontName, int size, int flags) = 0;
+	virtual void SetFont(uint32_t fontHandle) = 0;  // Shortcut once you've set the font once.
+	virtual void SetFontScale(float xscale, float yscale) = 0;
+	virtual void MeasureString(const char *str, size_t len, float *w, float *h) = 0;
+	virtual void MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT) = 0;
+	virtual void DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT) = 0;
+	virtual void DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) = 0;
 	// Use for housekeeping like throwing out old strings.
-	void OncePerFrame();
-	float CalculateDPIScale();
+	virtual void OncePerFrame() = 0;
+	virtual float CalculateDPIScale() = 0;
 
-private:
+protected:
 	Draw::DrawContext *draw_;
-
-	void ClearCache();
-	void RecreateFonts();  // On DPI change
-	void WrapString(std::string &out, const char *str, float maxWidth);
+	virtual void ClearCache() = 0;
+	virtual void RecreateFonts() = 0;  // On DPI change
+	virtual void WrapString(std::string &out, const char *str, float maxWidth) = 0;
 
 	int frameCount_;
 	float fontScaleX_;
 	float fontScaleY_;
 	float dpiScale_;
-
-	TextDrawerContext *ctx_;
-#if defined(USING_QT_UI)
-	std::map<uint32_t, QFont *> fontMap_;
-#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
-#endif
-
-	uint32_t fontHash_;
-	// The key is the CityHash of the string xor the fontHash_.
-	std::map<uint32_t, std::unique_ptr<TextStringEntry>> cache_;
-	std::map<uint32_t, std::unique_ptr<TextMeasureEntry>> sizeCache_;
 };
+
+TextDrawer *CreateTextDrawer(Draw::DrawContext *draw);

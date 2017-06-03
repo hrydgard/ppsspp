@@ -28,11 +28,7 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 	ui_pipeline_notex_ = uipipenotex;
 	uidrawbuffer_ = uidrawbuffer;
 	uidrawbufferTop_ = uidrawbufferTop;
-#if (defined(_WIN32) && !PPSSPP_PLATFORM(UWP)) || defined(USING_QT_UI)
-	textDrawer_ = new TextDrawer(thin3d);
-#else
-	textDrawer_ = nullptr;
-#endif
+	textDrawer_ = CreateTextDrawer(thin3d);  // May return nullptr
 }
 
 void UIContext::FrameSetup(Draw::Texture *uiTexture) {

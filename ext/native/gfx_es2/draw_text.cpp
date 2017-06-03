@@ -14,6 +14,50 @@
 #include <QtOpenGL/QGLWidget>
 #endif
 
+TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
+}
+TextDrawer::~TextDrawer() {
+}
+
+class TextDrawerWin32 : public TextDrawer {
+public:
+	TextDrawerWin32(Draw::DrawContext *draw);
+	~TextDrawerWin32();
+
+	uint32_t SetFont(const char *fontName, int size, int flags) override;
+	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.
+	void SetFontScale(float xscale, float yscale) override;
+	void MeasureString(const char *str, size_t len, float *w, float *h) override;
+	void MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT) override;
+	void DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT) override;
+	void DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) override;
+	// Use for housekeeping like throwing out old strings.
+	void OncePerFrame() override;
+	float CalculateDPIScale() override;
+
+protected:
+	void ClearCache() override;
+	void RecreateFonts() override;  // On DPI change
+	void WrapString(std::string &out, const char *str, float maxWidth) override;
+
+	int frameCount_;
+	float fontScaleX_;
+	float fontScaleY_;
+	float dpiScale_;
+
+	TextDrawerContext *ctx_;
+#if defined(USING_QT_UI)
+	std::map<uint32_t, QFont *> fontMap_;
+#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
+#endif
+
+	uint32_t fontHash_;
+	// The key is the CityHash of the string xor the fontHash_.
+	std::map<uint32_t, std::unique_ptr<TextStringEntry>> cache_;
+	std::map<uint32_t, std::unique_ptr<TextMeasureEntry>> sizeCache_;
+};
+
 class TextDrawerWordWrapper : public WordWrapper {
 public:
 	TextDrawerWordWrapper(TextDrawer *drawer, const char *str, float maxW) : WordWrapper(str, maxW), drawer_(drawer) {
@@ -76,7 +120,7 @@ struct TextDrawerContext {
 	int *pBitmapBits;
 };
 
-TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : draw_(thin3d), ctx_(nullptr) {
+TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(nullptr) {
 	// These probably shouldn't be state.
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
@@ -100,7 +144,7 @@ TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : draw_(thin3d), ctx_(nullptr)
 	SelectObject(ctx_->hDC, ctx_->hbmBitmap);
 }
 
-TextDrawer::~TextDrawer() {
+TextDrawerWin32::~TextDrawerWin32() {
 	ClearCache();
 
 	fontMap_.clear();
@@ -110,7 +154,7 @@ TextDrawer::~TextDrawer() {
 	delete ctx_;
 }
 
-uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
+uint32_t TextDrawerWin32::SetFont(const char *fontName, int size, int flags) {
 	uint32_t fontHash = fontName ? hash::Fletcher((const uint8_t *)fontName, strlen(fontName)) : 0;
 	fontHash ^= size;
 	fontHash ^= flags << 10;
@@ -139,18 +183,14 @@ uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 	return fontHash;
 }
 
-void TextDrawer::SetFont(uint32_t fontHandle) {
+void TextDrawerWin32::SetFont(uint32_t fontHandle) {
 	auto iter = fontMap_.find(fontHandle);
 	if (iter != fontMap_.end()) {
 		fontHash_ = fontHandle;
 	}
 }
 
-void TextDrawer::MeasureString(const char *str, float *w, float *h) {
-	MeasureString(str, strlen(str), w, h);
-}
-
-void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) {
+void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float *h) {
 	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, len);
 	uint32_t entryHash = stringHash ^ fontHash_;
 
@@ -179,7 +219,7 @@ void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) 
 	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
-void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
+void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
 	auto iter = fontMap_.find(fontHash_);
 	if (iter != fontMap_.end()) {
 		SelectObject(ctx_->hDC, iter->second->hFont);
@@ -224,7 +264,7 @@ void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bo
 	*h = total_h * dpiScale_;
 }
 
-void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
 	if (!strlen(str))
 		return;
@@ -349,7 +389,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	target.Flush(true);
 }
 
-void TextDrawer::RecreateFonts() {
+void TextDrawerWin32::RecreateFonts() {
 	for (auto &iter : fontMap_) {
 		iter.second->dpiScale = dpiScale_;
 		iter.second->Create();
@@ -358,16 +398,16 @@ void TextDrawer::RecreateFonts() {
 
 #else
 
-TextDrawer::TextDrawer(Draw::DrawContext *thin3d) : draw_(thin3d), ctx_(NULL) {
+TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *thin3d) : draw_(thin3d), ctx_(NULL) {
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
 }
 
-TextDrawer::~TextDrawer() {
+TextDrawerWin32::~TextDrawerWin32() {
 	ClearCache();
 }
 
-uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
+uint32_t TextDrawerWin32::SetFont(const char *fontName, int size, int flags) {
 #ifdef USING_QT_UI
 	// We will only use the default font
 	uint32_t fontHash = 0; //hash::Fletcher((const uint8_t *)fontName, strlen(fontName));
@@ -391,19 +431,19 @@ uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 #endif
 }
 
-void TextDrawer::SetFont(uint32_t fontHandle) {
+void TextDrawerWin32::SetFont(uint32_t fontHandle) {
 
 }
 
-void TextDrawer::RecreateFonts() {
+void TextDrawerWin32::RecreateFonts() {
 
 }
 
-void TextDrawer::MeasureString(const char *str, float *w, float *h) {
+void TextDrawerWin32::MeasureString(const char *str, float *w, float *h) {
 	MeasureString(str, strlen(str), w, h);
 }
 
-void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) {
+void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float *h) {
 #ifdef USING_QT_UI
 	QFont* font = fontMap_.find(fontHash_)->second;
 	QFontMetrics fm(*font);
@@ -416,7 +456,7 @@ void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) 
 #endif
 }
 
-void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
+void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
 	std::string toMeasure = std::string(str, len);
 	if (align & FLAG_WRAP_TEXT) {
 		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
@@ -435,7 +475,7 @@ void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bo
 #endif
 }
 
-void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
 	if (!strlen(str))
 		return;
@@ -505,7 +545,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 #endif
 
-void TextDrawer::ClearCache() {
+void TextDrawerWin32::ClearCache() {
 	for (auto &iter : cache_) {
 		if (iter.second->texture)
 			iter.second->texture->Release();
@@ -514,17 +554,17 @@ void TextDrawer::ClearCache() {
 	sizeCache_.clear();
 }
 
-void TextDrawer::WrapString(std::string &out, const char *str, float maxW) {
+void TextDrawerWin32::WrapString(std::string &out, const char *str, float maxW) {
 	TextDrawerWordWrapper wrapper(this, str, maxW);
 	out = wrapper.Wrapped();
 }
 
-void TextDrawer::SetFontScale(float xscale, float yscale) {
+void TextDrawerWin32::SetFontScale(float xscale, float yscale) {
 	fontScaleX_ = xscale;
 	fontScaleY_ = yscale;
 }
 
-void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) {
+void TextDrawerWin32::DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) {
 	float x = bounds.x;
 	float y = bounds.y;
 	if (align & ALIGN_HCENTER) {
@@ -547,7 +587,7 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bound
 	DrawString(target, toDraw.c_str(), x, y, color, align);
 }
 
-void TextDrawer::OncePerFrame() {
+void TextDrawerWin32::OncePerFrame() {
 	frameCount_++;
 	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
 	float newDpiScale = CalculateDPIScale();
@@ -579,10 +619,21 @@ void TextDrawer::OncePerFrame() {
 	}
 }
 
-float TextDrawer::CalculateDPIScale() {
+float TextDrawerWin32::CalculateDPIScale() {
 	float scale = g_dpi_scale;
 	if (scale >= 1.0f) {
 		scale = 1.0f;
 	}
 	return scale;
+}
+
+
+TextDrawer *CreateTextDrawer(Draw::DrawContext *draw) {
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	return new TextDrawerWin32(draw);
+#elif defined(USING_QT_UI)
+	return new TextDrawerWin32(draw);
+#else
+	return nullptr;
+#endif
 }
