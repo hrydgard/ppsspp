@@ -2,6 +2,7 @@ package org.ppsspp.ppsspp;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
@@ -76,9 +77,14 @@ public class PpssppActivity extends NativeActivity {
 		Intent intent = getIntent();
 		String action = intent.getAction();
 		if (Intent.ACTION_VIEW.equals(action)) {
-			String path = intent.getData().getPath();
-			super.setShortcutParam(path);
-			Toast.makeText(getApplicationContext(), path, Toast.LENGTH_SHORT).show();
+			Uri data = intent.getData();
+			if (data != null) {
+				String path = intent.getData().getPath();
+				super.setShortcutParam(path);
+				Toast.makeText(getApplicationContext(), path, Toast.LENGTH_SHORT).show();
+			} else {
+				Log.e(TAG, "Got ACTION_VIEW without a valid uri");
+			}
 		} else {
 			super.setShortcutParam(getIntent().getStringExtra(SHORTCUT_EXTRA_KEY));
 		}
