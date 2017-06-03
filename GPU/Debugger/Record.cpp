@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <cstring>
 #include <vector>
 #include "base/stringutil.h"
 #include "Common/Common.h"
@@ -22,8 +24,11 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "GPU/Debugger/Record.h"
+#include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Debugger/Record.h"
 
 namespace GPURecord {
 
@@ -35,21 +40,39 @@ static bool nextFrame = false;
 
 enum class CommandType : u8 {
 	REGISTERS = 1,
+	VERTICES = 2,
+	INDICES = 3,
+	CLUT = 4,
+	TRANSFERSRC = 5,
+
+	TEXTURE0 = 0x10,
+	TEXTURE1 = 0x11,
+	TEXTURE2 = 0x12,
+	TEXTURE3 = 0x13,
+	TEXTURE4 = 0x14,
+	TEXTURE5 = 0x15,
+	TEXTURE6 = 0x16,
+	TEXTURE7 = 0x17,
 };
 
 struct Command {
 	CommandType type;
-	std::vector<u8> buf;
+	u32 sz;
+	u32 ptr;
 };
 
+static std::vector<u8> pushbuf;
 static std::vector<Command> commands;
 static std::vector<u32> lastRegisters;
+static std::vector<u32> lastTextures;
 
 static void FlushRegisters() {
 	if (!lastRegisters.empty()) {
 		Command last{CommandType::REGISTERS};
-		last.buf.resize(lastRegisters.size() * sizeof(u32));
-		memcpy(last.buf.data(), lastRegisters.data(), last.buf.size());
+		last.ptr = (u32)pushbuf.size();
+		last.sz = (u32)(lastRegisters.size() * sizeof(u32));
+		pushbuf.resize(pushbuf.size() + last.sz);
+		memcpy(pushbuf.data() + last.ptr, lastRegisters.data(), last.sz);
 		lastRegisters.clear();
 
 		commands.push_back(last);
@@ -82,57 +105,208 @@ static void WriteRecording() {
 
 	int sz = (int)commands.size();
 	fwrite(&sz, sizeof(sz), 1, fp);
+	int bufsz = (int)pushbuf.size();
+	fwrite(&bufsz, sizeof(bufsz), 1, fp);
+
 	for (int i = 0; i < sz; ++i) {
 		const Command &cmd = commands[i];
 		fwrite(&cmd.type, sizeof(cmd.type), 1, fp);
-		int bufsz = (int)cmd.buf.size();
-		fwrite(&bufsz, sizeof(bufsz), 1, fp);
-		fwrite(cmd.buf.data(), bufsz, 1, fp);
+		fwrite(&cmd.sz, sizeof(cmd.sz), 1, fp);
+		fwrite(&cmd.ptr, sizeof(cmd.ptr), 1, fp);
 	}
+
+	fwrite(pushbuf.data(), bufsz, 1, fp);
 
 	fclose(fp);
 }
 
-static void FlushPrimState() {
+static void GetVertDataSizes(int vcount, const void *indices, u32 &vbytes, u32 &ibytes) {
+	VertexDecoder vdec;
+	VertexDecoderOptions opts{};
+	vdec.SetVertexType(gstate.vertType, opts);
+
+	if (indices) {
+		u16 lower = 0;
+		u16 upper = 0;
+		GetIndexBounds(indices, vcount, gstate.vertType, &lower, &upper);
+
+		vbytes = (upper + 1) * vdec.VertexSize();
+		u32 idx = gstate.vertType & GE_VTYPE_IDX_MASK;
+		if (idx == GE_VTYPE_IDX_8BIT) {
+			ibytes = vcount * sizeof(u8);
+		} else if (idx == GE_VTYPE_IDX_16BIT) {
+			ibytes = vcount * sizeof(u16);
+		} else if (idx == GE_VTYPE_IDX_32BIT) {
+			ibytes = vcount * sizeof(u32);
+		}
+	} else {
+		vbytes = vcount * vdec.VertexSize();
+	}
+}
+
+static const u8 *mymemmem(const u8 *haystack, size_t hlen, const u8 *needle, size_t nlen) {
+    if (!nlen) {
+        return nullptr;
+	}
+
+	const u8 *last_possible = haystack + hlen - nlen;
+    int first = *needle;
+    const u8 *p = haystack;
+    while (p <= last_possible) {
+		p = (const u8 *)memchr(p, first, last_possible - p + 1);
+		if (!p) {
+			return nullptr;
+		}
+        if (nlen == 1 || !memcmp(p + 1, needle + 1, nlen - 1)) {
+            return p;
+		}
+
+        p++;
+    }
+
+    return nullptr;
+}
+
+static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz) {
+	FlushRegisters();
+
+	Command cmd{t, sz, 0};
+
+	if (sz) {
+		// If at all possible, try to find it already in the buffer.
+		const u8 *prev = nullptr;
+		const size_t NEAR_WINDOW = std::max((int)sz * 2, 1024 * 10);
+		// Let's try nearby first... it will often be nearby.
+		if (pushbuf.size() > NEAR_WINDOW) {
+			prev = mymemmem(pushbuf.data() + pushbuf.size() - NEAR_WINDOW, NEAR_WINDOW, (const u8 *)p, sz);
+		}
+		if (!prev) {
+			prev = mymemmem(pushbuf.data(), pushbuf.size(), (const u8 *)p, sz);
+		}
+
+		if (prev) {
+			cmd.ptr = (u32)(prev - pushbuf.data());
+		} else {
+			cmd.ptr = (u32)pushbuf.size();
+			pushbuf.resize(pushbuf.size() + sz);
+			memcpy(pushbuf.data() + cmd.ptr, p, sz);
+		}
+	}
+
+	commands.push_back(cmd);
+
+	return cmd;
+}
+
+static void EmitTextureData(int level, u32 texaddr) {
+	GETextureFormat format = gstate.getTextureFormat();
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
+	int bufw = GetTextureBufw(level, texaddr, format);
+	int extraw = w > bufw ? w - bufw : 0;
+	u32 sizeInRAM = (textureBitsPerPixel[format] * (bufw * h + extraw)) / 8;
+
+	u32 bytes = Memory::ValidSize(texaddr, sizeInRAM);
+	if (Memory::IsValidAddress(texaddr)) {
+		FlushRegisters();
+
+		CommandType type = CommandType((int)CommandType::TEXTURE0 + level);
+		const u8 *p = Memory::GetPointerUnchecked(texaddr);
+
+		// Dumps are huge - let's try to find this already emitted.
+		for (u32 prevptr : lastTextures) {
+			if (pushbuf.size() < prevptr + bytes) {
+				continue;
+			}
+
+			if (memcmp(pushbuf.data() + prevptr, p, bytes) == 0) {
+				commands.push_back({type, bytes, prevptr});
+				// Okay, that was easy.  Bail out.
+				return;
+			}
+		}
+
+		// Not there, gotta emit anew.
+		Command cmd = EmitCommandWithRAM(type, p, bytes);
+		lastTextures.push_back(cmd.ptr);
+	}
+}
+
+static void FlushPrimState(int vcount) {
 	// TODO: Eventually, how do we handle texturing from framebuf/zbuf?
 	// TODO: Do we need to preload color/depth/stencil (in case from last frame)?
 
-	// TODO: Flush textures, always (in case overwritten... hmm expensive.)
-	// TODO: Flush vertex data?  Or part of prim?
-	// TODO: Flush index data.
+	// We re-flush textures always in case the game changed them... kinda expensive.
+	// TODO: Dirty textures on transfer/stall/etc. somehow?
+	// TODO: Or maybe de-dup by validating if it has changed?
+	for (int level = 0; level < 8; ++level) {
+		u32 texaddr = gstate.getTextureAddress(level);
+		if (texaddr) {
+			EmitTextureData(level, texaddr);
+		}
+	}
+
+	const void *verts = Memory::GetPointer(gstate_c.vertexAddr);
+	const void *indices = nullptr;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		indices = Memory::GetPointer(gstate_c.indexAddr);
+	}
+
+	u32 ibytes = 0;
+	u32 vbytes = 0;
+	GetVertDataSizes(vcount, indices, vbytes, ibytes);
+
+	if (indices) {
+		EmitCommandWithRAM(CommandType::INDICES, indices, ibytes);
+	}
+	if (verts) {
+		EmitCommandWithRAM(CommandType::VERTICES, verts, vbytes);
+	}
 }
 
 static void EmitTransfer(u32 op) {
 	FlushRegisters();
 
-	// TODO
+	// This may not make a lot of sense right now, unless it's to a framebuf...
+	if (!Memory::IsVRAMAddress(gstate.getTransferDstAddress())) {
+		// Skip, not VRAM, so can't affect drawing (we flush textures each prim.)
+		return;
+	}
+
+	u32 srcBasePtr = gstate.getTransferSrcAddress();
+	u32 srcStride = gstate.getTransferSrcStride();
+	int srcX = gstate.getTransferSrcX();
+	int srcY = gstate.getTransferSrcY();
+	int width = gstate.getTransferWidth();
+	int height = gstate.getTransferHeight();
+	int bpp = gstate.getTransferBpp();
+
+	u32 srcBytes = ((srcY + height - 1) * srcStride + (srcX + width)) * bpp;
+	srcBytes = Memory::ValidSize(srcBasePtr, srcBytes);
+
+	EmitCommandWithRAM(CommandType::TRANSFERSRC, Memory::GetPointerUnchecked(srcBasePtr), srcBytes);
 }
 
 static void EmitClut(u32 op) {
-	FlushRegisters();
+	u32 addr = gstate.getClutAddress();
+	u32 bytes = gstate.getClutLoadBytes();
+	bytes = Memory::ValidSize(addr, bytes);
 
-	// TODO
+	EmitCommandWithRAM(CommandType::CLUT, Memory::GetPointerUnchecked(addr), bytes);
 }
 
 static void EmitPrim(u32 op) {
-	FlushPrimState();
-	FlushRegisters();
+	FlushPrimState(op & 0x0000FFFF);
 
-	// TODO
+	lastRegisters.push_back(op);
 }
 
-static void EmitBezier(u32 op) {
-	FlushPrimState();
-	FlushRegisters();
+static void EmitBezierSpline(u32 op) {
+	int ucount = op & 0xFF;
+	int vcount = (op >> 8) & 0xFF;
+	FlushPrimState(ucount * vcount);
 
-	// TODO
-}
-
-static void EmitSpline(u32 op) {
-	FlushPrimState();
-	FlushRegisters();
-
-	// TODO
+	lastRegisters.push_back(op);
 }
 
 bool IsActive() {
@@ -155,12 +329,6 @@ void NotifyCommand(u32 pc) {
 	case GE_CMD_BASE:
 	case GE_CMD_OFFSETADDR:
 	case GE_CMD_ORIGIN:
-	case GE_CMD_CLUTADDR:
-	case GE_CMD_CLUTADDRUPPER:
-	case GE_CMD_TRANSFERSRC:
-	case GE_CMD_TRANSFERSRCW:
-	case GE_CMD_TRANSFERDST:
-	case GE_CMD_TRANSFERDSTW:
 		// These just prepare future commands, and are flushed with those commands.
 		// TODO: Maybe add a command just to log that these were hit?
 		break;
@@ -176,11 +344,8 @@ void NotifyCommand(u32 pc) {
 		break;
 
 	case GE_CMD_BEZIER:
-		EmitBezier(op);
-		break;
-
 	case GE_CMD_SPLINE:
-		EmitSpline(op);
+		EmitBezierSpline(op);
 		break;
 
 	case GE_CMD_LOADCLUT:
@@ -206,6 +371,7 @@ void NotifyFrame() {
 	if (nextFrame) {
 		active = true;
 		nextFrame = false;
+		lastTextures.clear();
 	}
 }
 

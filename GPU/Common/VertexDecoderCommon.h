@@ -480,7 +480,7 @@ class VertexDecoder {
 public:
 	VertexDecoder();
 
-	// A jit cache is not mandatory, we don't use it in the sw renderer
+	// A jit cache is not mandatory.
 	void SetVertexType(u32 vtype, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache = 0);
 
 	u32 VertexType() const { return fmt_; }
