@@ -47,10 +47,7 @@ void TextureReplacer::Init() {
 }
 
 void TextureReplacer::NotifyConfigChanged() {
-	gameID_ = g_paramSFO.GetValueString("DISC_ID");
-	if (gameID_.empty()) {
-		gameID_ = g_paramSFO.GenerateFakeID();
-	}
+	gameID_ = g_paramSFO.GetDiscID();
 
 	enabled_ = g_Config.bReplaceTextures || g_Config.bSaveNewTextures;
 	if (enabled_) {

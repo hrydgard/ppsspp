@@ -168,10 +168,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCacheGL_->NotifyConfigChanged();
 
 	// Load shader cache.
-	std::string discID = g_paramSFO.GetValueString("DISC_ID");
-	if (discID.empty()) {
-		discID = g_paramSFO.GenerateFakeID();
-	}
+	std::string discID = g_paramSFO.GetDiscID();
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + discID + ".glshadercache";

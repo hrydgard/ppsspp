@@ -1336,10 +1336,7 @@ UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
-	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
-	if (gameID.empty()) {
-		gameID = g_paramSFO.GenerateFakeID();
-	}
+	std::string gameID = g_paramSFO.GetDiscID();
 	std::string texturesDirectory = GetSysDirectory(DIRECTORY_TEXTURES) + gameID + "/";
 	bool enabled_ = !gameID.empty();
 	if (enabled_) {
