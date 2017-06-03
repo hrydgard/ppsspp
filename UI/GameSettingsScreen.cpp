@@ -1275,7 +1275,11 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
 	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
 #if !defined(MOBILE_DEVICE)
-	list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")))->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
+	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
+	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
+	if (!PSP_IsInited()) {
+		createTextureIni->SetEnabled(false);
+	}
 #endif
 }
 
