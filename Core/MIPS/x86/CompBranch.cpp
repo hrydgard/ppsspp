@@ -787,6 +787,10 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	RestoreRoundingMode();
 	js.downcountAmount = -offset;
 
+	if (!js.inDelaySlot) {
+		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC() + 4));
+	}
+
 #ifdef USE_PROFILER
 	// When profiling, we can't skip CallSyscall, since it times syscalls.
 	ABI_CallFunctionC(&CallSyscall, op.encoding);
