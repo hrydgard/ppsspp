@@ -69,11 +69,15 @@ enum class CommandType : u8 {
 	TEXTURE7 = 0x17,
 };
 
+#pragma pack(push,1)
+
 struct Command {
 	CommandType type;
 	u32 sz;
 	u32 ptr;
 };
+
+#pragma pack(pop)
 
 static std::vector<u8> pushbuf;
 static std::vector<Command> commands;
@@ -739,26 +743,23 @@ bool RunMountedReplay() {
 	pspFileSystem.ReadFile(fp, (u8 *)&bufsz, sizeof(bufsz));
 
 	commands.resize(sz);
-	for (int i = 0; i < sz; ++i) {
-		size_t read = 0;
-		read += pspFileSystem.ReadFile(fp, (u8 *)&commands[i].type, sizeof(commands[i].type));
-		read += pspFileSystem.ReadFile(fp, (u8 *)&commands[i].sz, sizeof(commands[i].sz));
-		read += pspFileSystem.ReadFile(fp, (u8 *)&commands[i].ptr, sizeof(commands[i].ptr));
-		if (read != sizeof(commands[i].type) + sizeof(commands[i].sz) + sizeof(commands[i].ptr)) {
-			ERROR_LOG(SYSTEM, "Truncated GE dump");
-			ExecuteFree();
-			return false;
-		}
+	pushbuf.resize(bufsz);
+
+	bool truncated = false;
+	if (pspFileSystem.ReadFile(fp, (u8 *)commands.data(), sizeof(Command) * sz) != sizeof(Command) * sz) {
+		truncated = true;
+	}
+	if (pspFileSystem.ReadFile(fp, pushbuf.data(), bufsz) != bufsz) {
+		truncated = true;
 	}
 
-	pushbuf.resize(bufsz);
-	if (pspFileSystem.ReadFile(fp, pushbuf.data(), bufsz) != bufsz) {
+	pspFileSystem.CloseFile(fp);
+
+	if (truncated) {
 		ERROR_LOG(SYSTEM, "Truncated GE dump");
 		ExecuteFree();
 		return false;
 	}
-
-	pspFileSystem.CloseFile(fp);
 
 	bool success = ExecuteCommands();
 	ExecuteFree();
