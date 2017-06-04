@@ -675,6 +675,9 @@ static bool ExecuteSubmitCmds(void *p, u32 sz) {
 
 	execListQueue.clear();
 
+	// Make sure downcount doesn't overflow.
+	CoreTiming::ForceCheck();
+
 	return true;
 }
 

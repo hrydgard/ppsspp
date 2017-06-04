@@ -1646,8 +1646,11 @@ bool __KernelLoadGEDump(std::string *error_string) {
 
 	const static u32_le runDumpCode[] = {
 		MIPS_MAKE_LUI(MIPS_REG_RA, mipsr4k.pc >> 16),
-		MIPS_MAKE_JR_RA(),
 		MIPS_MAKE_SYSCALL("FakeSysCalls", "__KernelGPUReplay"),
+		MIPS_MAKE_LUI(MIPS_REG_A0, 0),
+		MIPS_MAKE_SYSCALL("sceGe_user", "sceGeDrawSync"),
+		MIPS_MAKE_JR_RA(),
+		MIPS_MAKE_SYSCALL("sceDisplay", "sceDisplayWaitVblankStart"),
 		MIPS_MAKE_BREAK(0),
 	};
 
@@ -1671,12 +1674,8 @@ bool __KernelLoadGEDump(std::string *error_string) {
 }
 
 void __KernelGPUReplay() {
-	u64 destTicks = CoreTiming::GetTicks() + msToCycles(1001.0f / 60.0f);
 	if (!GPURecord::RunMountedReplay()) {
 		Core_Stop();
-	}
-	if (destTicks < CoreTiming::GetTicks()) {
-		hleEatCycles(destTicks - CoreTiming::GetTicks());
 	}
 }
 
