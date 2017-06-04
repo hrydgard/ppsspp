@@ -305,11 +305,6 @@ void GPU_D3D11::BeginHostFrame() {
 	}
 }
 
-void GPU_D3D11::BeginFrame() {
-	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
-	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
-}
-
 void GPU_D3D11::ReapplyGfxStateInternal() {
 	GPUCommon::ReapplyGfxStateInternal();
 
@@ -331,6 +326,7 @@ void GPU_D3D11::BeginFrameInternal() {
 	shaderManagerD3D11_->DirtyLastShader();
 
 	framebufferManagerD3D11_->BeginFrame();
+	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 }
 
 void GPU_D3D11::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {

@@ -329,10 +329,6 @@ void GPU_Vulkan::InitClearInternal() {
 	}
 }
 
-void GPU_Vulkan::BeginFrame() {
-	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
-}
-
 void GPU_Vulkan::UpdateVsyncInterval(bool force) {
 	// TODO
 }

@@ -951,6 +951,10 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
+void GPUCommon::BeginFrame() {
+	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
+}
+
 void GPUCommon::BeginFrameInternal() {
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");

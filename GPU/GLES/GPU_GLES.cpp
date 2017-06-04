@@ -431,10 +431,6 @@ void GPU_GLES::BeginHostFrame() {
 	}
 }
 
-void GPU_GLES::BeginFrame() {
-	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
-}
-
 inline void GPU_GLES::UpdateVsyncInterval(bool force) {
 #ifdef _WIN32
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;

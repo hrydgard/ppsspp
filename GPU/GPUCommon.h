@@ -235,6 +235,7 @@ protected:
 	}
 
 	virtual void InitClearInternal() {}
+	void BeginFrame() override;
 	virtual void BeginFrameInternal();
 	virtual void CopyDisplayToOutputInternal() {}
 	virtual void ReinitializeInternal() {}

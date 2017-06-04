@@ -272,10 +272,6 @@ void GPU_DX9::BeginHostFrame() {
 	}
 }
 
-void GPU_DX9::BeginFrame() {
-	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
-}
-
 void GPU_DX9::ReapplyGfxStateInternal() {
 	dxstate.Restore();
 	GPUCommon::ReapplyGfxStateInternal();
