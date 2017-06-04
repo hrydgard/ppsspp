@@ -85,13 +85,157 @@ static std::vector<u32> lastRegisters;
 static std::vector<u32> lastTextures;
 
 // TODO: Maybe move execute to another file?
-static u32 execIndPtr;
-static u32 execVertPtr;
-static u32 execClutPtr;
-static u32 execTransferPtr;
 static u32 execMemcpyDest;
-static u32 execTexturePtrs[8];
 static std::vector<u32> execListQueue;
+
+class BufMapping {
+public:
+	u32 Map(u32 bufpos, u32 sz);
+
+	void Reset() {
+		slabGeneration_ = 0;
+		extraOffset_ = 0;
+		for (int i = 0; i < SLAB_COUNT; ++i) {
+			slabs_[i].Free();
+		}
+		for (int i = 0; i < EXTRA_COUNT; ++i) {
+			if (extra_[i]) {
+				userMemory.Free(extra_[i]);
+				extra_[i] = 0;
+			}
+		}
+	}
+
+protected:
+	u32 MapSlab(u32 bufpos);
+	u32 MapExtra(u32 bufpos, u32 sz);
+
+	enum {
+		SLAB_SIZE = 2 * 1024 * 1024,
+		SLAB_COUNT = 20,
+		EXTRA_COUNT = 20,
+	};
+
+	static int slabGeneration_;
+
+	struct SlabInfo {
+		u32 psp_pointer_;
+		u32 buf_pointer_;
+		int last_used_;
+
+		u32 Matches(u32 bufpos) {
+			return buf_pointer_ == bufpos && psp_pointer_ != 0;
+		}
+
+		u32 Ptr(u32 bufpos) {
+			last_used_ = slabGeneration_;
+			return psp_pointer_ + (bufpos - buf_pointer_);
+		}
+
+		int Age() const {
+			if (psp_pointer_ == 0)
+				return std::numeric_limits<int>::max();
+			return slabGeneration_ - last_used_;
+		}
+
+		bool Alloc();
+		void Free();
+		bool Setup(u32 bufpos);
+	};
+
+	SlabInfo slabs_[SLAB_COUNT];
+	u32 extraOffset_ = 0;
+	u32 extra_[EXTRA_COUNT];
+};
+
+BufMapping execMapping;
+
+u32 BufMapping::Map(u32 bufpos, u32 sz) {
+	int slab1 = bufpos / SLAB_SIZE;
+	int slab2 = (bufpos + sz - 1) / SLAB_SIZE;
+
+	if (slab1 == slab2) {
+		// Doesn't straddle, so we can just map to a slab.
+		return MapSlab(bufpos);
+	} else {
+		// We need contiguous, so we'll just allocate separately.
+		return MapExtra(bufpos, sz);
+	}
+}
+
+u32 BufMapping::MapSlab(u32 bufpos) {
+	u32 slab_pos = (bufpos / SLAB_SIZE) * SLAB_SIZE;
+
+	int best = 0;
+	for (int i = 0; i < SLAB_COUNT; ++i) {
+		if (slabs_[i].Matches(slab_pos)) {
+			return slabs_[i].Ptr(bufpos);
+		}
+
+		if (slabs_[i].Age() > slabs_[best].Age()) {
+			best = i;
+		}
+	}
+
+	// Okay, we need to allocate.
+	if (!slabs_[best].Setup(slab_pos)) {
+		return 0;
+	}
+	return slabs_[best].Ptr(bufpos);
+}
+
+u32 BufMapping::MapExtra(u32 bufpos, u32 sz) {
+	int i = extraOffset_;
+	extraOffset_ = (extraOffset_ + 1) % EXTRA_COUNT;
+
+	if (extra_[i]) {
+		userMemory.Free(extra_[i]);
+	}
+	u32 allocSize = sz;
+	extra_[i] = userMemory.Alloc(allocSize);
+	if (extra_[i] == -1 || extra_[i] == 0) {
+		return 0;
+	}
+	Memory::MemcpyUnchecked(extra_[i], pushbuf.data() + bufpos, sz);
+	return extra_[i];
+}
+
+bool BufMapping::SlabInfo::Alloc() {
+	u32 sz = SLAB_SIZE;
+	psp_pointer_ = userMemory.Alloc(sz);
+	if (psp_pointer_ == -1) {
+		psp_pointer_ = 0;
+	}
+	return psp_pointer_ != 0;
+}
+
+void BufMapping::SlabInfo::Free() {
+	if (psp_pointer_) {
+		userMemory.Free(psp_pointer_);
+		psp_pointer_ = 0;
+		buf_pointer_ = 0;
+		last_used_ = 0;
+	}
+}
+
+bool BufMapping::SlabInfo::Setup(u32 bufpos) {
+	// If it already has RAM, we're simply taking it over.
+	if (psp_pointer_ == 0) {
+		if (!Alloc()) {
+			return false;
+		}
+	}
+
+	buf_pointer_ = bufpos;
+	u32 sz = std::min((u32)SLAB_SIZE, (u32)pushbuf.size() - bufpos);
+	Memory::MemcpyUnchecked(psp_pointer_, pushbuf.data() + bufpos, sz);
+
+	slabGeneration_++;
+	last_used_ = slabGeneration_;
+	return true;
+}
+
+int BufMapping::slabGeneration_ = 0;
 
 static void FlushRegisters() {
 	if (!lastRegisters.empty()) {
@@ -518,6 +662,7 @@ static bool ExecuteSubmitCmds(void *p, u32 sz) {
 
 	Memory::MemcpyUnchecked(ptr, execListQueue.data(), pendingSize);
 	Memory::MemcpyUnchecked(ptr + pendingSize, p, sz);
+	// TODO: Instead, use stall with a larger list buffer?
 	Memory::Write_U32(GE_CMD_FINISH << 24, ptr + pendingSize + sz + 0);
 	Memory::Write_U32(GE_CMD_END << 24, ptr + pendingSize + sz + 4);
 	auto optParam = PSPPointer<PspGeListArgs>::Create(0);
@@ -533,26 +678,6 @@ static bool ExecuteSubmitCmds(void *p, u32 sz) {
 	return true;
 }
 
-static void FreePSPPointer(u32 &p) {
-	if (p) {
-		userMemory.Free(p);
-		p = 0;
-	}
-}
-
-static bool AllocatePSPBuf(u32 &pspPointer, u32 bufptr, u32 sz) {
-	FreePSPPointer(pspPointer);
-
-	u32 allocSize = sz;
-	pspPointer = userMemory.Alloc(allocSize);
-	if (pspPointer == -1 || pspPointer == 0) {
-		return false;
-	}
-
-	Memory::MemcpyUnchecked(pspPointer, pushbuf.data() + bufptr, sz);
-	return true;
-}
-
 static void ExecuteInit(u32 ptr, u32 sz) {
 	gstate.Restore((u32_le *)(pushbuf.data() + ptr));
 	gpu->ReapplyGfxState();
@@ -563,43 +688,47 @@ static void ExecuteRegisters(u32 ptr, u32 sz) {
 }
 
 static void ExecuteVertices(u32 ptr, u32 sz) {
-	if (!AllocatePSPBuf(execVertPtr, ptr, sz)) {
+	u32 psp = execMapping.Map(ptr, sz);
+	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for vertices");
 		return;
 	}
 
-	execListQueue.push_back((GE_CMD_BASE << 24) | ((execVertPtr >> 8) & 0x00FF0000));
-	execListQueue.push_back((GE_CMD_VADDR << 24) | (execVertPtr & 0x00FFFFFF));
+	execListQueue.push_back((GE_CMD_BASE << 24) | ((psp >> 8) & 0x00FF0000));
+	execListQueue.push_back((GE_CMD_VADDR << 24) | (psp & 0x00FFFFFF));
 }
 
 static void ExecuteIndices(u32 ptr, u32 sz) {
-	if (!AllocatePSPBuf(execIndPtr, ptr, sz)) {
+	u32 psp = execMapping.Map(ptr, sz);
+	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for indices");
 		return;
 	}
 
-	execListQueue.push_back((GE_CMD_BASE << 24) | ((execIndPtr >> 8) & 0x00FF0000));
-	execListQueue.push_back((GE_CMD_IADDR << 24) | (execIndPtr & 0x00FFFFFF));
+	execListQueue.push_back((GE_CMD_BASE << 24) | ((psp >> 8) & 0x00FF0000));
+	execListQueue.push_back((GE_CMD_IADDR << 24) | (psp & 0x00FFFFFF));
 }
 
 static void ExecuteClut(u32 ptr, u32 sz) {
-	if (!AllocatePSPBuf(execClutPtr, ptr, sz)) {
+	u32 psp = execMapping.Map(ptr, sz);
+	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for clut");
 		return;
 	}
 
-	execListQueue.push_back((GE_CMD_CLUTADDRUPPER << 24) | ((execClutPtr >> 8) & 0x00FF0000));
-	execListQueue.push_back((GE_CMD_CLUTADDR << 24) | (execClutPtr & 0x00FFFFFF));
+	execListQueue.push_back((GE_CMD_CLUTADDRUPPER << 24) | ((psp >> 8) & 0x00FF0000));
+	execListQueue.push_back((GE_CMD_CLUTADDR << 24) | (psp & 0x00FFFFFF));
 }
 
 static void ExecuteTransferSrc(u32 ptr, u32 sz) {
-	if (!AllocatePSPBuf(execTransferPtr, ptr, sz)) {
+	u32 psp = execMapping.Map(ptr, sz);
+	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for transfer");
 		return;
 	}
 
-	execListQueue.push_back((gstate.transfersrcw & 0xFF00FFFF) | ((execTransferPtr >> 8) & 0x00FF0000));
-	execListQueue.push_back(((GE_CMD_TRANSFERSRC) << 24) | (execTransferPtr & 0x00FFFFFF));
+	execListQueue.push_back((gstate.transfersrcw & 0xFF00FFFF) | ((psp >> 8) & 0x00FF0000));
+	execListQueue.push_back(((GE_CMD_TRANSFERSRC) << 24) | (psp & 0x00FFFFFF));
 }
 
 static void ExecuteMemset(u32 ptr, u32 sz) {
@@ -628,14 +757,14 @@ static void ExecuteMemcpy(u32 ptr, u32 sz) {
 }
 
 static void ExecuteTexture(int level, u32 ptr, u32 sz) {
-	if (!AllocatePSPBuf(execTexturePtrs[level], ptr, sz)) {
+	u32 psp = execMapping.Map(ptr, sz);
+	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for texture");
 		return;
 	}
 
-	u32 pspPointer = execTexturePtrs[level];
-	execListQueue.push_back((gstate.texbufwidth[level] & 0xFF00FFFF) | ((pspPointer >> 8) & 0x00FF0000));
-	execListQueue.push_back(((GE_CMD_TEXADDR0 + level) << 24) | (pspPointer & 0x00FFFFFF));
+	execListQueue.push_back((gstate.texbufwidth[level] & 0xFF00FFFF) | ((psp >> 8) & 0x00FF0000));
+	execListQueue.push_back(((GE_CMD_TEXADDR0 + level) << 24) | (psp & 0x00FFFFFF));
 }
 
 static void ExecuteDisplay(u32 ptr, u32 sz) {
@@ -651,14 +780,8 @@ static void ExecuteDisplay(u32 ptr, u32 sz) {
 }
 
 static void ExecuteFree() {
-	FreePSPPointer(execIndPtr);
-	FreePSPPointer(execVertPtr);
-	FreePSPPointer(execClutPtr);
-	FreePSPPointer(execTransferPtr);
 	execMemcpyDest = 0;
-	for (int level = 0; level < 8; ++level) {
-		FreePSPPointer(execTexturePtrs[level]);
-	}
+	execMapping.Reset();
 
 	commands.clear();
 	pushbuf.clear();
