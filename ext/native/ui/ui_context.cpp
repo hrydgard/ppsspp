@@ -6,10 +6,7 @@
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/draw_text.h"
 
-UIContext::UIContext()
-	: ui_pipeline_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {
-	fontScaleX_ = 1.0f;
-	fontScaleY_ = 1.0f;
+UIContext::UIContext() {
 	fontStyle_ = new UI::FontStyle();
 	bounds_ = Bounds(0, 0, dp_xres, dp_yres);
 }
@@ -28,7 +25,7 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 	ui_pipeline_notex_ = uipipenotex;
 	uidrawbuffer_ = uidrawbuffer;
 	uidrawbufferTop_ = uidrawbufferTop;
-	textDrawer_ = CreateTextDrawer(thin3d);  // May return nullptr
+	textDrawer_ = TextDrawer::Create(thin3d);  // May return nullptr if no implementation is available for this platform.
 }
 
 void UIContext::FrameSetup(Draw::Texture *uiTexture) {

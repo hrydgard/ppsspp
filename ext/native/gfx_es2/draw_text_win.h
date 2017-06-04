@@ -10,7 +10,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
-class TextDrawerContext;
+struct TextDrawerContext;
 // Internal struct but all details in .cpp file (pimpl to avoid pulling in excessive headers here)
 class TextDrawerFontContext;
 

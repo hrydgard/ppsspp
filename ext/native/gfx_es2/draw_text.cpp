@@ -7,6 +7,7 @@
 #include "util/text/utf8.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_text_win.h"
+#include "gfx_es2/draw_text_qt.h"
 
 TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.
@@ -39,11 +40,11 @@ float TextDrawer::CalculateDPIScale() {
 	return scale;
 }
 
-TextDrawer *CreateTextDrawer(Draw::DrawContext *draw) {
+TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	return new TextDrawerWin32(draw);
 #elif defined(USING_QT_UI)
-	return new TextDrawerWin32(draw);
+	return new TextDrawerQt(draw);
 #else
 	return nullptr;
 #endif

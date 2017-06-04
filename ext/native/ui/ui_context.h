@@ -94,18 +94,18 @@ private:
 	Draw::DrawContext *draw_;
 	Bounds bounds_;
 
-	float fontScaleX_;
-	float fontScaleY_;
-	UI::FontStyle *fontStyle_;
-	TextDrawer *textDrawer_;
+	float fontScaleX_ = 1.0f;
+	float fontScaleY_ = 1.0f;
+	UI::FontStyle *fontStyle_ = nullptr;
+	TextDrawer *textDrawer_ = nullptr;
 
 	Draw::SamplerState *sampler_;
-	Draw::Pipeline *ui_pipeline_;
-	Draw::Pipeline *ui_pipeline_notex_;
-	Draw::Texture *uitexture_;
+	Draw::Pipeline *ui_pipeline_ = nullptr;
+	Draw::Pipeline *ui_pipeline_notex_ = nullptr;
+	Draw::Texture *uitexture_ = nullptr;
 
-	DrawBuffer *uidrawbuffer_;
-	DrawBuffer *uidrawbufferTop_;
+	DrawBuffer *uidrawbuffer_ = nullptr;
+	DrawBuffer *uidrawbufferTop_ = nullptr;
 
 	std::vector<Bounds> scissorStack_;
 	std::vector<UITransform> transformStack_;

@@ -49,7 +49,6 @@ enum {
 
 class TextDrawer {
 public:
-	TextDrawer(Draw::DrawContext *draw);
 	virtual ~TextDrawer();
 
 	virtual uint32_t SetFont(const char *fontName, int size, int flags) = 0;
@@ -64,7 +63,12 @@ public:
 
 	float CalculateDPIScale();
 
+	// Factory function that selects implementation.
+	static TextDrawer *Create(Draw::DrawContext *draw);
+
 protected:
+	TextDrawer(Draw::DrawContext *draw);
+
 	Draw::DrawContext *draw_;
 	virtual void ClearCache() = 0;
 	virtual void RecreateFonts() = 0;  // On DPI change
@@ -87,6 +91,3 @@ protected:
 
 	TextDrawer *drawer_;
 };
-
-
-TextDrawer *CreateTextDrawer(Draw::DrawContext *draw);
