@@ -50,6 +50,8 @@ enum class ReplacedTextureAlpha {
 enum class ReplacedTextureHash {
 	// TODO: Maybe only support crc32c for now?
 	QUICK,
+	XXH32,
+	XXH64,
 };
 
 struct ReplacedTextureLevel {
@@ -196,6 +198,8 @@ protected:
 	SimpleBuf<u32> saveBuf;
 	bool enabled_;
 	bool allowVideo_;
+	bool ignoreAddress_;
+	bool reduceHash_;
 	std::string gameID_;
 	std::string basePath_;
 	ReplacedTextureHash hash_;
