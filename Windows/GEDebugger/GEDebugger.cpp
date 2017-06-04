@@ -36,6 +36,7 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Breakpoints.h"
+#include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
 #include "Core/Config.h"
 #include <windowsx.h>
@@ -704,6 +705,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 			ResumeFromStepping();
 			breakNext = BREAK_NONE;
+			break;
+
+		case IDC_GEDBG_RECORD:
+			GPURecord::Activate();
 			break;
 
 		case IDC_GEDBG_FORCEOPAQUE:
