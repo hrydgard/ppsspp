@@ -93,10 +93,18 @@ static u32 execListID;
 static const int LIST_BUF_SIZE = 256 * 1024;
 static std::vector<u32> execListQueue;
 
+// This class maps pushbuffer (dump data) sections to PSP memory.
+// Dumps can be larger than available PSP memory, because they include generated data too.
+//
+// If possible, it maps to dynamically allocated "slabs" so nearby access is fast.
+// Otherwise it uses "extra" allocations to manage sections that straddle two slabs.
+// Slabs are managed with LRU, extra buffers are round-robin.
 class BufMapping {
 public:
+	// Returns a pointer to contiguous memory for this access, or else 0 (failure).
 	u32 Map(u32 bufpos, u32 sz);
 
+	// Clear and reset allocations made.
 	void Reset() {
 		slabGeneration_ = 0;
 		extraOffset_ = 0;
@@ -113,28 +121,37 @@ protected:
 	u32 MapExtra(u32 bufpos, u32 sz);
 
 	enum {
+		// These numbers kept low because we only have 24 MB of user memory to map into.
 		SLAB_SIZE = 1 * 1024 * 1024,
+		// 10 is the number of texture units + verts + inds.
+		// In the worst case, we could concurrently need 10 slabs/extras at the same time.
 		SLAB_COUNT = 10,
 		EXTRA_COUNT = 10,
 	};
 
+	// The current "generation".  Static simply as a convenience for access.
+	// This increments on every allocation, for a simple LRU.
 	static int slabGeneration_;
 
+	// An aligned large mapping of the pushbuffer in PSP RAM.
 	struct SlabInfo {
 		u32 psp_pointer_;
 		u32 buf_pointer_;
 		int last_used_;
 
 		bool Matches(u32 bufpos) {
+			// We check psp_pointer_ because bufpos = 0 is valid, and the initial value.
 			return buf_pointer_ == bufpos && psp_pointer_ != 0;
 		}
 
+		// Automatically marks used for LRU purposes.
 		u32 Ptr(u32 bufpos) {
 			last_used_ = slabGeneration_;
 			return psp_pointer_ + (bufpos - buf_pointer_);
 		}
 
 		int Age() const {
+			// If not allocated, it's as expired as it's gonna get.
 			if (psp_pointer_ == 0)
 				return std::numeric_limits<int>::max();
 			return slabGeneration_ - last_used_;
@@ -145,12 +162,15 @@ protected:
 		bool Setup(u32 bufpos);
 	};
 
+	// An adhoc mapping of the pushbuffer (either larger than a slab or straddling slabs.)
+	// Remember: texture data, verts, etc. must be contiguous.
 	struct ExtraInfo {
 		u32 psp_pointer_;
 		u32 buf_pointer_;
 		u32 size_;
 
 		bool Matches(u32 bufpos, u32 sz) {
+			// We check psp_pointer_ because bufpos = 0 is valid, and the initial value.
 			return buf_pointer_ == bufpos && psp_pointer_ != 0 && size_ >= sz;
 		}
 
@@ -167,7 +187,7 @@ protected:
 	ExtraInfo extra_[EXTRA_COUNT];
 };
 
-BufMapping execMapping;
+static BufMapping execMapping;
 
 u32 BufMapping::Map(u32 bufpos, u32 sz) {
 	int slab1 = bufpos / SLAB_SIZE;
@@ -245,6 +265,7 @@ void BufMapping::SlabInfo::Free() {
 }
 
 bool BufMapping::ExtraInfo::Alloc(u32 bufpos, u32 sz) {
+	// Make sure we've freed any previous allocation first.
 	Free();
 
 	u32 allocSize = sz;
@@ -271,7 +292,7 @@ void BufMapping::ExtraInfo::Free() {
 }
 
 bool BufMapping::SlabInfo::Setup(u32 bufpos) {
-	// If it already has RAM, we're simply taking it over.
+	// If it already has RAM, we're simply taking it over.  Slabs come only in one size.
 	if (psp_pointer_ == 0) {
 		if (!Alloc()) {
 			return false;
@@ -401,26 +422,26 @@ static void GetVertDataSizes(int vcount, const void *indices, u32 &vbytes, u32 &
 }
 
 static const u8 *mymemmem(const u8 *haystack, size_t hlen, const u8 *needle, size_t nlen) {
-    if (!nlen) {
-        return nullptr;
+	if (!nlen) {
+		return nullptr;
 	}
 
 	const u8 *last_possible = haystack + hlen - nlen;
-    int first = *needle;
-    const u8 *p = haystack;
-    while (p <= last_possible) {
+	int first = *needle;
+	const u8 *p = haystack;
+	while (p <= last_possible) {
 		p = (const u8 *)memchr(p, first, last_possible - p + 1);
 		if (!p) {
 			return nullptr;
 		}
-        if (!memcmp(p, needle, nlen)) {
-            return p;
+		if (!memcmp(p, needle, nlen)) {
+			return p;
 		}
 
-        p++;
-    }
+		p++;
+	}
 
-    return nullptr;
+	return nullptr;
 }
 
 static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz) {

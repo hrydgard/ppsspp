@@ -481,7 +481,7 @@ public:
 	VertexDecoder();
 
 	// A jit cache is not mandatory.
-	void SetVertexType(u32 vtype, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache = 0);
+	void SetVertexType(u32 vtype, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache = nullptr);
 
 	u32 VertexType() const { return fmt_; }
 
