@@ -211,7 +211,7 @@ static const u8 *mymemmem(const u8 *haystack, size_t hlen, const u8 *needle, siz
 		if (!p) {
 			return nullptr;
 		}
-        if (nlen == 1 || !memcmp(p + 1, needle + 1, nlen - 1)) {
+        if (!memcmp(p, needle, nlen)) {
             return p;
 		}
 
@@ -503,7 +503,7 @@ static bool ExecuteSubmitCmds(void *p, u32 sz) {
 	u32 pendingSize = (int)execListQueue.size() * sizeof(u32);
 	u32 allocSize = pendingSize + sz + 8;
 	u32 ptr = userMemory.Alloc(allocSize);
-	if (!ptr) {
+	if (ptr == -1 || ptr == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for registers");
 		return false;
 	}
@@ -532,6 +532,20 @@ static void FreePSPPointer(u32 &p) {
 	}
 }
 
+static bool AllocatePSPBuf(u32 &pspPointer, u32 bufptr, u32 sz) {
+	// TODO: Smarter... but slabs don't work, because of alignment issues.  Arg.
+	FreePSPPointer(pspPointer);
+
+	u32 allocSize = sz;
+	pspPointer = userMemory.Alloc(allocSize);
+	if (pspPointer == -1 || pspPointer == 0) {
+		return false;
+	}
+
+	Memory::MemcpyUnchecked(pspPointer, pushbuf.data() + bufptr, sz);
+	return true;
+}
+
 static void ExecuteInit(u32 ptr, u32 sz) {
 	gstate.Restore((u32_le *)(pushbuf.data() + ptr));
 	gpu->ReapplyGfxState();
@@ -542,64 +556,40 @@ static void ExecuteRegisters(u32 ptr, u32 sz) {
 }
 
 static void ExecuteVertices(u32 ptr, u32 sz) {
-	FreePSPPointer(execVertPtr);
-
-	u32 allocSize = sz;
-	execVertPtr = userMemory.Alloc(allocSize);
-	if (!execVertPtr) {
+	if (!AllocatePSPBuf(execVertPtr, ptr, sz)) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for vertices");
 		return;
 	}
-
-	Memory::MemcpyUnchecked(execVertPtr, pushbuf.data() + ptr, sz);
 
 	execListQueue.push_back((GE_CMD_BASE << 24) | ((execVertPtr >> 8) & 0x00FF0000));
 	execListQueue.push_back((GE_CMD_VADDR << 24) | (execVertPtr & 0x00FFFFFF));
 }
 
 static void ExecuteIndices(u32 ptr, u32 sz) {
-	FreePSPPointer(execIndPtr);
-
-	u32 allocSize = sz;
-	execIndPtr = userMemory.Alloc(allocSize);
-	if (!execIndPtr) {
+	if (!AllocatePSPBuf(execIndPtr, ptr, sz)) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for indices");
 		return;
 	}
-
-	Memory::MemcpyUnchecked(execIndPtr, pushbuf.data() + ptr, sz);
 
 	execListQueue.push_back((GE_CMD_BASE << 24) | ((execIndPtr >> 8) & 0x00FF0000));
 	execListQueue.push_back((GE_CMD_IADDR << 24) | (execIndPtr & 0x00FFFFFF));
 }
 
 static void ExecuteClut(u32 ptr, u32 sz) {
-	FreePSPPointer(execClutPtr);
-
-	u32 allocSize = sz;
-	execClutPtr = userMemory.Alloc(allocSize);
-	if (!execClutPtr) {
+	if (!AllocatePSPBuf(execClutPtr, ptr, sz)) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for clut");
 		return;
 	}
-
-	Memory::MemcpyUnchecked(execClutPtr, pushbuf.data() + ptr, sz);
 
 	execListQueue.push_back((GE_CMD_CLUTADDRUPPER << 24) | ((execClutPtr >> 8) & 0x00FF0000));
 	execListQueue.push_back((GE_CMD_CLUTADDR << 24) | (execClutPtr & 0x00FFFFFF));
 }
 
 static void ExecuteTransferSrc(u32 ptr, u32 sz) {
-	FreePSPPointer(execTransferPtr);
-
-	u32 allocSize = sz;
-	execTransferPtr = userMemory.Alloc(allocSize);
-	if (!execClutPtr) {
+	if (!AllocatePSPBuf(execTransferPtr, ptr, sz)) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for transfer");
 		return;
 	}
-
-	Memory::MemcpyUnchecked(execTransferPtr, pushbuf.data() + ptr, sz);
 
 	execListQueue.push_back((gstate.transfersrcw & 0xFF00FFFF) | ((execTransferPtr >> 8) & 0x00FF0000));
 	execListQueue.push_back(((GE_CMD_TRANSFERSRC) << 24) | (execTransferPtr & 0x00FFFFFF));
@@ -618,18 +608,12 @@ static void ExecuteMemcpy(u32 ptr, u32 sz) {
 }
 
 static void ExecuteTexture(int level, u32 ptr, u32 sz) {
-	FreePSPPointer(execTexturePtrs[level]);
-
-	u32 allocSize = sz;
-	u32 pspPointer = userMemory.Alloc(allocSize);
-	if (!pspPointer) {
+	if (!AllocatePSPBuf(execTexturePtrs[level], ptr, sz)) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for texture");
 		return;
 	}
 
-	Memory::MemcpyUnchecked(pspPointer, pushbuf.data() + ptr, sz);
-	execTexturePtrs[level] = pspPointer;
-
+	u32 pspPointer = execTexturePtrs[level];
 	execListQueue.push_back((gstate.texbufwidth[level] & 0xFF00FFFF) | ((pspPointer >> 8) & 0x00FF0000));
 	execListQueue.push_back(((GE_CMD_TEXADDR0 + level) << 24) | (pspPointer & 0x00FFFFFF));
 }
