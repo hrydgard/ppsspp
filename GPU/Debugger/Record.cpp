@@ -86,6 +86,10 @@ static std::vector<u32> lastTextures;
 
 // TODO: Maybe move execute to another file?
 static u32 execMemcpyDest;
+static u32 execListBuf;
+static u32 execListPos;
+static u32 execListID;
+static const int LIST_BUF_SIZE = 256 * 1024;
 static std::vector<u32> execListQueue;
 
 class BufMapping {
@@ -650,35 +654,69 @@ void NotifyFrame() {
 }
 
 static bool ExecuteSubmitCmds(void *p, u32 sz) {
-	// TODO: Smarter memory allocation.
-	// Over allocate for the finish/end, and include execListQueue.
-	u32 pendingSize = (int)execListQueue.size() * sizeof(u32);
-	u32 allocSize = pendingSize + sz + 8;
-	u32 ptr = userMemory.Alloc(allocSize);
-	if (ptr == -1 || ptr == 0) {
-		ERROR_LOG(SYSTEM, "Unable to allocate for registers");
-		return false;
+	if (execListBuf == 0) {
+		u32 allocSize = LIST_BUF_SIZE;
+		execListBuf = userMemory.Alloc(allocSize);
+		if (execListBuf == -1) {
+			execListBuf = 0;
+		}
+		if (execListBuf == 0) {
+			ERROR_LOG(SYSTEM, "Unable to allocate for display list");
+			return false;
+		}
+
+		execListPos = execListBuf;
+		Memory::Write_U32(GE_CMD_NOP << 24, execListPos);
+		execListPos += 4;
+
+		gpu->EnableInterrupts(false);
+		auto optParam = PSPPointer<PspGeListArgs>::Create(0);
+		execListID = gpu->EnqueueList(execListBuf, execListPos, -1, optParam, false);
+		gpu->EnableInterrupts(true);
 	}
 
-	Memory::MemcpyUnchecked(ptr, execListQueue.data(), pendingSize);
-	Memory::MemcpyUnchecked(ptr + pendingSize, p, sz);
-	// TODO: Instead, use stall with a larger list buffer?
-	Memory::Write_U32(GE_CMD_FINISH << 24, ptr + pendingSize + sz + 0);
-	Memory::Write_U32(GE_CMD_END << 24, ptr + pendingSize + sz + 4);
-	auto optParam = PSPPointer<PspGeListArgs>::Create(0);
-	gpu->EnableInterrupts(false);
-	u32 listID = gpu->EnqueueList(ptr, 0, -1, optParam, false);
-	currentMIPS->downcount -= gpu->GetListTicks(listID) - CoreTiming::GetTicks();
-	gpu->ListSync(listID, 0);
-	gpu->EnableInterrupts(true);
-	userMemory.Free(ptr);
+	u32 pendingSize = (int)execListQueue.size() * sizeof(u32);
+	// Validate space for jump.
+	u32 allocSize = pendingSize + sz + 8;
+	if (execListPos + allocSize >= execListBuf + LIST_BUF_SIZE) {
+		Memory::Write_U32((GE_CMD_BASE << 24) | ((execListBuf >> 8) & 0x00FF0000), execListPos);
+		Memory::Write_U32((GE_CMD_JUMP << 24) | (execListBuf & 0x00FFFFFF), execListPos + 4);
+
+		execListPos = execListBuf;
+	}
+
+	Memory::MemcpyUnchecked(execListPos, execListQueue.data(), pendingSize);
+	execListPos += pendingSize;
+	Memory::MemcpyUnchecked(execListPos, p, sz);
+	execListPos += sz;
 
 	execListQueue.clear();
+	gpu->UpdateStall(execListID, execListPos);
+	currentMIPS->downcount -= gpu->GetListTicks(execListID) - CoreTiming::GetTicks();
 
 	// Make sure downcount doesn't overflow.
 	CoreTiming::ForceCheck();
 
 	return true;
+}
+
+static void ExecuteSubmitListEnd() {
+	if (execListPos == 0) {
+		return;
+	}
+
+	// There's always space for the end, same size as a jump.
+	Memory::Write_U32(GE_CMD_FINISH << 24, execListPos);
+	Memory::Write_U32(GE_CMD_END << 24, execListPos + 4);
+	execListPos += 8;
+
+	gpu->UpdateStall(execListID, execListPos);
+	currentMIPS->downcount -= gpu->GetListTicks(execListID) - CoreTiming::GetTicks();
+
+	gpu->ListSync(execListID, 0);
+
+	// Make sure downcount doesn't overflow.
+	CoreTiming::ForceCheck();
 }
 
 static void ExecuteInit(u32 ptr, u32 sz) {
@@ -784,6 +822,11 @@ static void ExecuteDisplay(u32 ptr, u32 sz) {
 
 static void ExecuteFree() {
 	execMemcpyDest = 0;
+	if (execListBuf) {
+		userMemory.Free(execListBuf);
+		execListBuf = 0;
+	}
+	execListPos = 0;
 	execMapping.Reset();
 
 	commands.clear();
@@ -850,6 +893,7 @@ static bool ExecuteCommands() {
 		}
 	}
 
+	ExecuteSubmitListEnd();
 	return true;
 }
 
