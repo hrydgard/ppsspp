@@ -991,10 +991,10 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz) {
 	return real_size == sz;
 }
 
-bool RunMountedReplay() {
+bool RunMountedReplay(const std::string &filename) {
 	_assert_msg_(SYSTEM, !active && !nextFrame, "Cannot run replay while recording.");
 
-	u32 fp = pspFileSystem.OpenFile("disc0:/data.ppdmp", FILEACCESS_READ);
+	u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 	u8 header[8]{};
 	int version = 0;
 	pspFileSystem.ReadFile(fp, header, sizeof(header));

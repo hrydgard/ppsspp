@@ -361,6 +361,6 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 	BlobFileSystem *umd = new BlobFileSystem(&pspFileSystem, fileLoader, "data.ppdmp");
 	pspFileSystem.Mount("disc0:", umd);
 
-	__KernelLoadGEDump(error_string);
+	__KernelLoadGEDump("disc0:/data.ppdmp", error_string);
 	return true;
 }

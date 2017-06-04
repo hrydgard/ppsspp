@@ -18,6 +18,8 @@
 #pragma once
 
 // This is used for opening a debug file as a blob, and mounting it.
+// Importantly, uses a fileLoader for all access, so http:// URLs are supported.
+// As of writing, only used by GE dump replay.
 
 #include <map>
 #include <string>

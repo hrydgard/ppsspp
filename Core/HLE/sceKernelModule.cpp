@@ -1639,18 +1639,27 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	return true;
 }
 
-bool __KernelLoadGEDump(std::string *error_string) {
+bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_string) {
 	__KernelLoadReset();
 
 	mipsr4k.pc = PSP_GetUserMemoryBase();
 
 	const static u32_le runDumpCode[] = {
-		MIPS_MAKE_LUI(MIPS_REG_RA, mipsr4k.pc >> 16),
+		// Save the filename.
+		MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
+		MIPS_MAKE_ORI(MIPS_REG_S1, MIPS_REG_A1, 0),
+		// Call the actual render.
 		MIPS_MAKE_SYSCALL("FakeSysCalls", "__KernelGPUReplay"),
+		// Make sure we don't get out of sync.
 		MIPS_MAKE_LUI(MIPS_REG_A0, 0),
 		MIPS_MAKE_SYSCALL("sceGe_user", "sceGeDrawSync"),
+		// Set the return address after the entry which saved the filename.
+		MIPS_MAKE_LUI(MIPS_REG_RA, mipsr4k.pc >> 16),
+		MIPS_MAKE_ADDIU(MIPS_REG_RA, MIPS_REG_RA, 8),
+		// Wait for the next vblank to render again.
 		MIPS_MAKE_JR_RA(),
 		MIPS_MAKE_SYSCALL("sceDisplay", "sceDisplayWaitVblankStart"),
+		// This never gets reached, just here to be safe.
 		MIPS_MAKE_BREAK(0),
 	};
 
@@ -1666,7 +1675,7 @@ bool __KernelLoadGEDump(std::string *error_string) {
 	module->nm.entry_addr = mipsr4k.pc;
 	module->nm.gp_value = -1;
 
-	SceUID threadID = __KernelSetupRootThread(module->GetUID(), 0, nullptr, 0x20, 0x1000, 0);
+	SceUID threadID = __KernelSetupRootThread(module->GetUID(), (int)base_filename.size(), base_filename.data(), 0x20, 0x1000, 0);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
 
 	__KernelStartIdleThreads(module->GetUID());
@@ -1674,7 +1683,16 @@ bool __KernelLoadGEDump(std::string *error_string) {
 }
 
 void __KernelGPUReplay() {
-	if (!GPURecord::RunMountedReplay()) {
+	// Special ABI: s0 and s1 are the "args".  Not null terminated.
+	const char *filenamep = Memory::GetCharPointer(currentMIPS->r[MIPS_REG_S1]);
+	if (!filenamep) {
+		ERROR_LOG(SYSTEM, "Failed to load dump filename");
+		Core_Stop();
+		return;
+	}
+
+	std::string filename(filenamep, currentMIPS->r[MIPS_REG_S0]);
+	if (!GPURecord::RunMountedReplay(filename)) {
 		Core_Stop();
 	}
 }
