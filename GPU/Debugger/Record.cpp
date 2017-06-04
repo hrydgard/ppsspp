@@ -345,7 +345,7 @@ static void EmitTransfer(u32 op) {
 
 static void EmitClut(u32 op) {
 	u32 addr = gstate.getClutAddress();
-	u32 bytes = gstate.getClutLoadBytes();
+	u32 bytes = (op & 0x3F) * 32;
 	bytes = Memory::ValidSize(addr, bytes);
 
 	EmitCommandWithRAM(CommandType::CLUT, Memory::GetPointerUnchecked(addr), bytes);
