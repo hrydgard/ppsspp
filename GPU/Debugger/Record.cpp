@@ -104,10 +104,7 @@ public:
 			slabs_[i].Free();
 		}
 		for (int i = 0; i < EXTRA_COUNT; ++i) {
-			if (extra_[i]) {
-				userMemory.Free(extra_[i]);
-				extra_[i] = 0;
-			}
+			extra_[i].Free();
 		}
 	}
 
@@ -116,9 +113,9 @@ protected:
 	u32 MapExtra(u32 bufpos, u32 sz);
 
 	enum {
-		SLAB_SIZE = 2 * 1024 * 1024,
-		SLAB_COUNT = 20,
-		EXTRA_COUNT = 20,
+		SLAB_SIZE = 1 * 1024 * 1024,
+		SLAB_COUNT = 10,
+		EXTRA_COUNT = 10,
 	};
 
 	static int slabGeneration_;
@@ -128,7 +125,7 @@ protected:
 		u32 buf_pointer_;
 		int last_used_;
 
-		u32 Matches(u32 bufpos) {
+		bool Matches(u32 bufpos) {
 			return buf_pointer_ == bufpos && psp_pointer_ != 0;
 		}
 
@@ -148,9 +145,26 @@ protected:
 		bool Setup(u32 bufpos);
 	};
 
+	struct ExtraInfo {
+		u32 psp_pointer_;
+		u32 buf_pointer_;
+		u32 size_;
+
+		bool Matches(u32 bufpos, u32 sz) {
+			return buf_pointer_ == bufpos && psp_pointer_ != 0 && size_ >= sz;
+		}
+
+		u32 Ptr() {
+			return psp_pointer_;
+		}
+
+		bool Alloc(u32 bufpos, u32 sz);
+		void Free();
+	};
+
 	SlabInfo slabs_[SLAB_COUNT];
 	u32 extraOffset_ = 0;
-	u32 extra_[EXTRA_COUNT];
+	ExtraInfo extra_[EXTRA_COUNT];
 };
 
 BufMapping execMapping;
@@ -190,24 +204,31 @@ u32 BufMapping::MapSlab(u32 bufpos) {
 }
 
 u32 BufMapping::MapExtra(u32 bufpos, u32 sz) {
+	for (int i = 0; i < EXTRA_COUNT; ++i) {
+		// Might be likely to reuse larger buffers straddling slabs.
+		if (extra_[i].Matches(bufpos, sz)) {
+			return extra_[i].Ptr();
+		}
+	}
+
 	int i = extraOffset_;
 	extraOffset_ = (extraOffset_ + 1) % EXTRA_COUNT;
 
-	if (extra_[i]) {
-		userMemory.Free(extra_[i]);
+	if (!extra_[i].Alloc(bufpos, sz)) {
+		// Let's try to power on - hopefully none of these are still in use.
+		for (int i = 0; i < EXTRA_COUNT; ++i) {
+			extra_[i].Free();
+		}
+		if (!extra_[i].Alloc(bufpos, sz)) {
+			return 0;
+		}
 	}
-	u32 allocSize = sz;
-	extra_[i] = userMemory.Alloc(allocSize);
-	if (extra_[i] == -1 || extra_[i] == 0) {
-		return 0;
-	}
-	Memory::MemcpyUnchecked(extra_[i], pushbuf.data() + bufpos, sz);
-	return extra_[i];
+	return extra_[i].Ptr();
 }
 
 bool BufMapping::SlabInfo::Alloc() {
 	u32 sz = SLAB_SIZE;
-	psp_pointer_ = userMemory.Alloc(sz);
+	psp_pointer_ = userMemory.Alloc(sz, false, "Slab");
 	if (psp_pointer_ == -1) {
 		psp_pointer_ = 0;
 	}
@@ -220,6 +241,32 @@ void BufMapping::SlabInfo::Free() {
 		psp_pointer_ = 0;
 		buf_pointer_ = 0;
 		last_used_ = 0;
+	}
+}
+
+bool BufMapping::ExtraInfo::Alloc(u32 bufpos, u32 sz) {
+	Free();
+
+	u32 allocSize = sz;
+	psp_pointer_ = userMemory.Alloc(allocSize, false, "Straddle extra");
+	if (psp_pointer_ == -1) {
+		psp_pointer_ = 0;
+	}
+	if (psp_pointer_ == 0) {
+		return false;
+	}
+
+	buf_pointer_ = bufpos;
+	size_ = sz;
+	Memory::MemcpyUnchecked(psp_pointer_, pushbuf.data() + bufpos, sz);
+	return true;
+}
+
+void BufMapping::ExtraInfo::Free() {
+	if (psp_pointer_) {
+		userMemory.Free(psp_pointer_);
+		psp_pointer_ = 0;
+		buf_pointer_ = 0;
 	}
 }
 
@@ -663,7 +710,7 @@ void NotifyFrame() {
 static bool ExecuteSubmitCmds(void *p, u32 sz) {
 	if (execListBuf == 0) {
 		u32 allocSize = LIST_BUF_SIZE;
-		execListBuf = userMemory.Alloc(allocSize);
+		execListBuf = userMemory.Alloc(allocSize, "List buf");
 		if (execListBuf == -1) {
 			execListBuf = 0;
 		}
