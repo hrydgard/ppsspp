@@ -242,7 +242,15 @@ static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz) {
 			cmd.ptr = (u32)(prev - pushbuf.data());
 		} else {
 			cmd.ptr = (u32)pushbuf.size();
-			pushbuf.resize(pushbuf.size() + sz);
+			int pad = 0;
+			if (cmd.ptr & 0xF) {
+				pad = 0x10 - (cmd.ptr & 0xF);
+				cmd.ptr += pad;
+			}
+			pushbuf.resize(pushbuf.size() + sz + pad);
+			if (pad) {
+				memset(pushbuf.data() + cmd.ptr - pad, 0, pad);
+			}
 			memcpy(pushbuf.data() + cmd.ptr, p, sz);
 		}
 	}
@@ -533,7 +541,6 @@ static void FreePSPPointer(u32 &p) {
 }
 
 static bool AllocatePSPBuf(u32 &pspPointer, u32 bufptr, u32 sz) {
-	// TODO: Smarter... but slabs don't work, because of alignment issues.  Arg.
 	FreePSPPointer(pspPointer);
 
 	u32 allocSize = sz;
