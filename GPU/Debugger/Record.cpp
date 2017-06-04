@@ -596,15 +596,28 @@ static void ExecuteTransferSrc(u32 ptr, u32 sz) {
 }
 
 static void ExecuteMemset(u32 ptr, u32 sz) {
-	// TODO
+	struct MemsetCommand {
+		u32 dest;
+		int value;
+		u32 sz;
+	};
+
+	const MemsetCommand *data = (const MemsetCommand *)(pushbuf.data() + ptr);
+
+	if (Memory::IsVRAMAddress(data->dest)) {
+		gpu->PerformMemorySet(data->dest, (u8)data->value, data->sz);
+	}
 }
 
 static void ExecuteMemcpyDest(u32 ptr, u32 sz) {
-	// TODO
+	execMemcpyDest = *(const u32 *)(pushbuf.data() + ptr);
 }
 
 static void ExecuteMemcpy(u32 ptr, u32 sz) {
-	// TODO
+	if (Memory::IsVRAMAddress(execMemcpyDest)) {
+		Memory::MemcpyUnchecked(execMemcpyDest, pushbuf.data() + ptr, sz);
+		gpu->PerformMemoryUpload(execMemcpyDest, sz);
+	}
 }
 
 static void ExecuteTexture(int level, u32 ptr, u32 sz) {
