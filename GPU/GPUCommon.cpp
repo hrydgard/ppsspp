@@ -1219,13 +1219,16 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 #endif
 
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
-	if ((Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
+	// We don't optimize during recording - so the matrix data gets recorded.
+	if (!debugRecording_ && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
 		// Check for the end
 		if ((Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
 				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET) {
-			// Yep, pretty sure this is a bone matrix call.
-			FastLoadBoneMatrix(target);
-			return;
+			// Yep, pretty sure this is a bone matrix call.  Double check stall first.
+			if (target > currentList->stall || target + 12 * 4 < currentList->stall) {
+				FastLoadBoneMatrix(target);
+				return;
+			}
 		}
 	}
 
@@ -1575,19 +1578,27 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 	const int end = 12 - (op & 0xF);
 	int i = 0;
 
-	while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			gstate_c.Dirty(DIRTY_WORLDMATRIX);
-		}
-		if (++i >= end) {
-			break;
+	// We must record the individual data commands while debugRecording_.
+	bool fastLoad = !debugRecording_;
+	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+		fastLoad = false;
+	}
+
+	if (fastLoad) {
+		while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
+			const u32 newVal = src[i] << 8;
+			if (dst[i] != newVal) {
+				Flush();
+				dst[i] = newVal;
+				gstate_c.Dirty(DIRTY_WORLDMATRIX);
+			}
+			if (++i >= end) {
+				break;
+			}
 		}
 	}
 
-	const int count = debugRecording_ ? 0 : i;
+	const int count = i;
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
@@ -1616,19 +1627,26 @@ void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
 	const int end = 12 - (op & 0xF);
 	int i = 0;
 
-	while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			gstate_c.Dirty(DIRTY_VIEWMATRIX);
-		}
-		if (++i >= end) {
-			break;
+	bool fastLoad = !debugRecording_;
+	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+		fastLoad = false;
+	}
+
+	if (fastLoad) {
+		while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
+			const u32 newVal = src[i] << 8;
+			if (dst[i] != newVal) {
+				Flush();
+				dst[i] = newVal;
+				gstate_c.Dirty(DIRTY_VIEWMATRIX);
+			}
+			if (++i >= end) {
+				break;
+			}
 		}
 	}
 
-	const int count = debugRecording_ ? 0 : i;
+	const int count = i;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
@@ -1657,19 +1675,26 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 	const int end = 16 - (op & 0xF);
 	int i = 0;
 
-	while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			gstate_c.Dirty(DIRTY_PROJMATRIX);
-		}
-		if (++i >= end) {
-			break;
+	bool fastLoad = !debugRecording_;
+	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+		fastLoad = false;
+	}
+
+	if (fastLoad) {
+		while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
+			const u32 newVal = src[i] << 8;
+			if (dst[i] != newVal) {
+				Flush();
+				dst[i] = newVal;
+				gstate_c.Dirty(DIRTY_PROJMATRIX);
+			}
+			if (++i >= end) {
+				break;
+			}
 		}
 	}
 
-	const int count = debugRecording_ ? 0 : i;
+	const int count = i;
 	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0x1F);
 
 	// Skip over the loaded data, it's done now.
@@ -1699,19 +1724,26 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 	const int end = 12 - (op & 0xF);
 	int i = 0;
 
-	while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
-		const u32 newVal = src[i] << 8;
-		if (dst[i] != newVal) {
-			Flush();
-			dst[i] = newVal;
-			gstate_c.Dirty(DIRTY_TEXMATRIX);
-		}
-		if (++i >= end) {
-			break;
+	bool fastLoad = !debugRecording_;
+	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+		fastLoad = false;
+	}
+
+	if (fastLoad) {
+		while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
+			const u32 newVal = src[i] << 8;
+			if (dst[i] != newVal) {
+				Flush();
+				dst[i] = newVal;
+				gstate_c.Dirty(DIRTY_TEXMATRIX);
+			}
+			if (++i >= end) {
+				break;
+			}
 		}
 	}
 
-	const int count = debugRecording_ ? 0 : i;
+	const int count = i;
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
@@ -1740,38 +1772,45 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 	const int end = 12 * 8 - (op & 0x7F);
 	int i = 0;
 
-	// If we can't use software skinning, we have to flush and dirty.
-	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-			const u32 newVal = src[i] << 8;
-			if (dst[i] != newVal) {
-				Flush();
-				dst[i] = newVal;
-			}
-			if (++i >= end) {
-				break;
-			}
-		}
+	bool fastLoad = !debugRecording_;
+	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+		fastLoad = false;
+	}
 
-		const int numPlusCount = (op & 0x7F) + i;
-		for (int num = op & 0x7F; num < numPlusCount; num += 12) {
-			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
-		}
-	} else {
-		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-			dst[i] = src[i] << 8;
-			if (++i >= end) {
-				break;
+	if (fastLoad) {
+		// If we can't use software skinning, we have to flush and dirty.
+		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+				const u32 newVal = src[i] << 8;
+				if (dst[i] != newVal) {
+					Flush();
+					dst[i] = newVal;
+				}
+				if (++i >= end) {
+					break;
+				}
 			}
-		}
 
-		const int numPlusCount = (op & 0x7F) + i;
-		for (int num = op & 0x7F; num < numPlusCount; num += 12) {
-			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
+			const int numPlusCount = (op & 0x7F) + i;
+			for (int num = op & 0x7F; num < numPlusCount; num += 12) {
+				gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
+			}
+		} else {
+			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+				dst[i] = src[i] << 8;
+				if (++i >= end) {
+					break;
+				}
+			}
+
+			const int numPlusCount = (op & 0x7F) + i;
+			for (int num = op & 0x7F; num < numPlusCount; num += 12) {
+				gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
+			}
 		}
 	}
 
-	const int count = debugRecording_ ? 0 : i;
+	const int count = i;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
 
 	// Skip over the loaded data, it's done now.
