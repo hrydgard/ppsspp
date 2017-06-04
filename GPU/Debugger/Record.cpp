@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstring>
 #include <vector>
+#include <snappy-c.h>
 #include "base/stringutil.h"
 #include "Common/Common.h"
 #include "Common/FileUtil.h"
@@ -41,7 +42,7 @@
 namespace GPURecord {
 
 static const char *HEADER = "PPSSPPGE";
-static const int VERSION = 1;
+static const int VERSION = 2;
 
 static bool active = false;
 static bool nextFrame = false;
@@ -69,7 +70,7 @@ enum class CommandType : u8 {
 	TEXTURE7 = 0x17,
 };
 
-#pragma pack(push,1)
+#pragma pack(push, 1)
 
 struct Command {
 	CommandType type;
@@ -296,6 +297,18 @@ static void BeginRecording() {
 	commands.push_back({CommandType::INIT, sz, ptr});
 }
 
+static void WriteCompressed(FILE *fp, const void *p, size_t sz) {
+	size_t compressed_size = snappy_max_compressed_length(sz);
+	u8 *compressed = new u8[compressed_size];
+	snappy_compress((const char *)p, sz, (char *)compressed, &compressed_size);
+
+	u32 write_size = (u32)compressed_size;
+	fwrite(&write_size, sizeof(write_size), 1, fp);
+	fwrite(compressed, compressed_size, 1, fp);
+
+	delete [] compressed;
+}
+
 static void WriteRecording() {
 	FlushRegisters();
 	EmitDisplayBuf();
@@ -305,19 +318,13 @@ static void WriteRecording() {
 	fwrite(HEADER, sizeof(HEADER), 1, fp);
 	fwrite(&VERSION, sizeof(VERSION), 1, fp);
 
-	int sz = (int)commands.size();
+	u32 sz = (u32)commands.size();
 	fwrite(&sz, sizeof(sz), 1, fp);
-	int bufsz = (int)pushbuf.size();
+	u32 bufsz = (u32)pushbuf.size();
 	fwrite(&bufsz, sizeof(bufsz), 1, fp);
 
-	for (int i = 0; i < sz; ++i) {
-		const Command &cmd = commands[i];
-		fwrite(&cmd.type, sizeof(cmd.type), 1, fp);
-		fwrite(&cmd.sz, sizeof(cmd.sz), 1, fp);
-		fwrite(&cmd.ptr, sizeof(cmd.ptr), 1, fp);
-	}
-
-	fwrite(pushbuf.data(), bufsz, 1, fp);
+	WriteCompressed(fp, commands.data(), commands.size() * sizeof(Command));
+	WriteCompressed(fp, pushbuf.data(), bufsz);
 
 	fclose(fp);
 }
@@ -897,6 +904,25 @@ static bool ExecuteCommands() {
 	return true;
 }
 
+static bool ReadCompressed(u32 fp, void *dest, size_t sz) {
+	u32 compressed_size = 0;
+	if (pspFileSystem.ReadFile(fp, (u8 *)&compressed_size, sizeof(compressed_size)) != sizeof(compressed_size)) {
+		return false;
+	}
+
+	u8 *compressed = new u8[compressed_size];
+	if (pspFileSystem.ReadFile(fp, compressed, compressed_size) != compressed_size) {
+		delete [] compressed;
+		return false;
+	}
+
+	size_t real_size = sz;
+	snappy_uncompress((const char *)compressed, compressed_size, (char *)dest, &real_size);
+	delete [] compressed;
+
+	return real_size == sz;
+}
+
 bool RunMountedReplay() {
 	_assert_msg_(SYSTEM, !active && !nextFrame, "Cannot run replay while recording.");
 
@@ -908,24 +934,21 @@ bool RunMountedReplay() {
 
 	if (memcmp(header, HEADER, sizeof(HEADER)) != 0 || version != VERSION) {
 		ERROR_LOG(SYSTEM, "Invalid GE dump or unsupported version");
+		pspFileSystem.CloseFile(fp);
 		return false;
 	}
 
-	int sz = 0;
+	u32 sz = 0;
 	pspFileSystem.ReadFile(fp, (u8 *)&sz, sizeof(sz));
-	int bufsz = 0;
+	u32 bufsz = 0;
 	pspFileSystem.ReadFile(fp, (u8 *)&bufsz, sizeof(bufsz));
 
 	commands.resize(sz);
 	pushbuf.resize(bufsz);
 
 	bool truncated = false;
-	if (pspFileSystem.ReadFile(fp, (u8 *)commands.data(), sizeof(Command) * sz) != sizeof(Command) * sz) {
-		truncated = true;
-	}
-	if (pspFileSystem.ReadFile(fp, pushbuf.data(), bufsz) != bufsz) {
-		truncated = true;
-	}
+	truncated = truncated || !ReadCompressed(fp, commands.data(), sizeof(Command) * sz);
+	truncated = truncated || !ReadCompressed(fp, pushbuf.data(), bufsz);
 
 	pspFileSystem.CloseFile(fp);
 
