@@ -966,7 +966,7 @@ static bool ExecuteCommands() {
 			break;
 
 		default:
-			ERROR_LOG(SYSTEM, "Unsupported GE dump command: %d", cmd.type);
+			ERROR_LOG(SYSTEM, "Unsupported GE dump command: %d", (int)cmd.type);
 			return false;
 		}
 	}
