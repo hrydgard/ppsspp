@@ -18,10 +18,11 @@ public class TextRenderer {
 		Rect bound = new Rect();
 		p.setTextSize(textSize);
 		p.getTextBounds(string, 0, string.length(), bound);
+		float baseline = -p.ascent();
 		Bitmap bmp = Bitmap.createBitmap(bound.width(), bound.height(), Bitmap.Config.ARGB_4444);
 		Canvas canvas = new Canvas(bmp);
 		p.setColor(Color.WHITE);
-		canvas.drawText(string, 0, 0, p);
+		canvas.drawText(string, 0, baseline, p);
 
 		int bufSize = bmp.getRowBytes() * bmp.getHeight() * 2;  // 2 = sizeof(ARGB_4444)
 		ByteBuffer buf = ByteBuffer.allocate(bufSize);
@@ -37,7 +38,6 @@ public class TextRenderer {
 			int dstOffset = y * bound.width();
 			for (int x = 0; x < bound.width(); x++) {
 				int val = bytes[srcOffset + x * 2];
-				val = (val << 12) | 0xFFF;
 				output[dstOffset + x] = (short)val;
 			}
 		}

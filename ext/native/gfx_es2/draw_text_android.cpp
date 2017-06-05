@@ -135,7 +135,10 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		jshort* jimage = env_->GetShortArrayElements(imageData, nullptr);
 		for (int x = 0; x < entry->bmWidth; x++) {
 			for (int y = 0; y < entry->bmHeight; y++) {
-				bitmapData[entry->bmWidth * y + x] = jimage[imageWidth * y + x];
+				int v = jimage[imageWidth * y + x];
+				v = (v << 4) | v;
+				v = (v << 8) | v;
+				bitmapData[entry->bmWidth * y + x] = v;
 			}
 		}
 		env_->ReleaseShortArrayElements(imageData, jimage, 0);
