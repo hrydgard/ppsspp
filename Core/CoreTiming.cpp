@@ -573,6 +573,10 @@ void ForceCheck()
 	currentMIPS->downcount = -1;
 	// But let's not eat a bunch more time in Advance() because of this.
 	slicelength = -1;
+
+#ifdef _DEBUG
+	_dbg_assert_msg_(CPU, cyclesExecuted >= 0, "Shouldn't have a negative cyclesExecuted");
+#endif
 }
 
 void Advance()
@@ -613,7 +617,7 @@ void LogPendingEvents()
 	Event *ptr = first;
 	while (ptr)
 	{
-		//INFO_LOG(TIMER, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
+		//INFO_LOG(CPU, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
 		ptr = ptr->next;
 	}
 }

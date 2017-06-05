@@ -767,7 +767,10 @@ static bool ExecuteSubmitCmds(void *p, u32 sz) {
 
 	execListQueue.clear();
 	gpu->UpdateStall(execListID, execListPos);
-	currentMIPS->downcount -= gpu->GetListTicks(execListID) - CoreTiming::GetTicks();
+	s64 listTicks = gpu->GetListTicks(execListID);
+	if (listTicks != -1) {
+		currentMIPS->downcount -= listTicks - CoreTiming::GetTicks();
+	}
 
 	// Make sure downcount doesn't overflow.
 	CoreTiming::ForceCheck();
