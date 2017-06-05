@@ -345,16 +345,16 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 			continue;
 		}
 
-#ifndef _WIN32
-		// ar_AE only works on Windows.
+#if !(defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
 		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {
 			continue;
 		}
-		// Farsi also only works on Windows.
+
 		if (tempLangs[i].name.find("fa_IR") != std::string::npos) {
 			continue;
 		}
 #endif
+
 		FileInfo lang = tempLangs[i];
 		langs_.push_back(lang);
 

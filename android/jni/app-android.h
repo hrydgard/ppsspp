@@ -8,5 +8,6 @@
 
 extern JNIEnv *jniEnvMain;
 extern JNIEnv *jniEnvGraphics;
+extern JavaVM *javaVM;
 
 #endif

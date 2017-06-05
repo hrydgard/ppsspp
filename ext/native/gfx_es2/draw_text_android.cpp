@@ -9,6 +9,7 @@
 #include "gfx_es2/draw_text_android.h"
 
 #include "android/jni/app-android.h"
+#include <assert.h>
 
 #if PPSSPP_PLATFORM(ANDROID)
 
@@ -17,20 +18,25 @@
 TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw) {
 	env_ = jniEnvGraphics;
 	const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
-	cls_textRenderer = env_->FindClass(textRendererClassName);
+	jclass localClass = env_->FindClass(textRendererClassName);
+	cls_textRenderer = reinterpret_cast<jclass>(env_->NewGlobalRef(localClass));
 	ILOG("cls_textRender: %p", cls_textRenderer);
 	if (cls_textRenderer) {
-		method_measureText = env_->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;F)I");
+		method_measureText = env_->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;D)I");
 		ILOG("method_measureText: %p", method_measureText);
-		method_renderText = env_->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;F)[S");
+		method_renderText = env_->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;D)[I");
 		ILOG("method_renderText: %p", method_renderText);
 	} else {
-		ELOG("Failed to find class: %s", textRendererClassName);
+		ELOG("Failed to find class: '%s'", textRendererClassName);
 	}
 	curSize_ = 12;
+	dpiScale_ = 1.0f;
 }
 
 TextDrawerAndroid::~TextDrawerAndroid() {
+	// Not sure why we can't do this but it crashes.
+	// At worst we leak one ref...
+	// env_->DeleteGlobalRef(cls_textRenderer);
 	ClearCache();
 }
 
@@ -50,9 +56,10 @@ uint32_t TextDrawerAndroid::SetFont(const char *fontName, int size, int flags) {
 		return fontHash;
 	}
 
-	curSize_ = size;
+	curSize_ = (float)((6 + size) / dpiScale_) * 96.0f / 72.f;
 	AndroidFontEntry entry;
 	entry.size = curSize_;
+
 	fontMap_[fontHash] = entry;
 	fontHash_ = fontHash;
 	return fontHash;
@@ -62,7 +69,7 @@ void TextDrawerAndroid::SetFont(uint32_t fontHandle) {
 	uint32_t fontHash = fontHandle;
 	auto iter = fontMap_.find(fontHash);
 	if (iter != fontMap_.end()) {
-		curSize_ = iter->second.size;
+		curSize_ = iter->second.size / dpiScale_;
 	}
 }
 
@@ -74,9 +81,9 @@ void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, flo
 	std::string stdstring(str, len);
 	jstring jstr = env_->NewStringUTF(stdstring.c_str());
 	uint32_t size = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, curSize_);
-	*w = (size >> 16) * fontScaleX_;
-	*h = (size & 0xFFFF) * fontScaleY_;
 	env_->DeleteLocalRef(jstr);
+	*w = (size >> 16) * fontScaleX_ * dpiScale_;
+	*h = (size & 0xFFFF) * fontScaleY_ * dpiScale_;
 }
 
 void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
@@ -88,15 +95,18 @@ void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bou
 
 	jstring jstr = env_->NewStringUTF(toMeasure.c_str());
 	uint32_t size = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, curSize_);
-	*w = (size >> 16) * fontScaleX_;
-	*h = (size & 0xFFFF) * fontScaleY_;
 	env_->DeleteLocalRef(jstr);
+	*w = (size >> 16) * fontScaleX_ * dpiScale_;
+	*h = (size & 0xFFFF) * fontScaleY_ * dpiScale_;
 }
 
 void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
 	if (!strlen(str))
 		return;
+	JNIEnv *env;
+	int result = javaVM->GetEnv((void **)&env, JNI_VERSION_1_6);
+	assert(env == env_);
 
 	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, strlen(str));
 	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
@@ -112,10 +122,12 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		draw_->BindTexture(0, entry->texture);
 	} else {
 		jstring jstr = env_->NewStringUTF(str);
+		int len = (int)env_->GetStringUTFLength(jstr);
+		ILOG("UTF len: %d", len);
 		uint32_t size = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, curSize_);
-		int imageWidth = (size >> 16) * fontScaleX_;
-		int imageHeight = (size & 0xFFFF) * fontScaleY_;
-		jshortArray imageData = (jshortArray)env_->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, curSize_);
+		int imageWidth = (size >> 16);
+		int imageHeight = (size & 0xFFFF);
+		jintArray imageData = (jintArray)env_->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, curSize_);
 		env_->DeleteLocalRef(jstr);
 
 		entry = new TextStringEntry();
@@ -132,23 +144,25 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		desc.mipLevels = 1;
 
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
-		jshort* jimage = env_->GetShortArrayElements(imageData, nullptr);
+		jint* jimage = env_->GetIntArrayElements(imageData, nullptr);
+		int arraySize = env_->GetArrayLength(imageData);
+		assert(arraySize == imageWidth * imageHeight);
 		for (int x = 0; x < entry->bmWidth; x++) {
 			for (int y = 0; y < entry->bmHeight; y++) {
-				int v = jimage[imageWidth * y + x];
-				v = (v << 4) | v;
-				v = (v << 8) | v;
-				bitmapData[entry->bmWidth * y + x] = v;
+				uint32_t v = jimage[imageWidth * y + x];
+				v = 0xFFF0 | ((v >> 12) & 0xF);  // Just grab some bits from the green channel.
+				bitmapData[entry->bmWidth * y + x] = (uint16_t)v;
 			}
 		}
-		env_->ReleaseShortArrayElements(imageData, jimage, 0);
+		env_->ReleaseIntArrayElements(imageData, jimage, 0);
 		desc.initData.push_back((uint8_t *)bitmapData);
 		entry->texture = draw_->CreateTexture(desc);
 		delete[] bitmapData;
 		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);
+		draw_->BindTexture(0, entry->texture);
 	}
-	float w = entry->bmWidth * fontScaleX_;
-	float h = entry->bmHeight * fontScaleY_;
+	float w = entry->bmWidth * fontScaleX_ * dpiScale_;
+	float h = entry->bmHeight * fontScaleY_ * dpiScale_;
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
 	target.Flush(true);
@@ -160,7 +174,7 @@ void TextDrawerAndroid::ClearCache() {
 			iter.second->texture->Release();
 	}
 	cache_.clear();
-	sizeCache_.clear();
+	fontMap_.clear();
 }
 
 void TextDrawerAndroid::DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) {
@@ -191,6 +205,7 @@ void TextDrawerAndroid::OncePerFrame() {
 	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
 	float newDpiScale = CalculateDPIScale();
 	if (newDpiScale != dpiScale_) {
+		ILOG("Scale changed - recreating fonts");
 		dpiScale_ = newDpiScale;
 		ClearCache();
 		RecreateFonts();
@@ -203,14 +218,6 @@ void TextDrawerAndroid::OncePerFrame() {
 				if (iter->second->texture)
 					iter->second->texture->Release();
 				cache_.erase(iter++);
-			} else {
-				iter++;
-			}
-		}
-
-		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
-				sizeCache_.erase(iter++);
 			} else {
 				iter++;
 			}

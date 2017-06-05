@@ -37,7 +37,7 @@ protected:
 	jclass cls_textRenderer;
 	jmethodID method_measureText;
 	jmethodID method_renderText;
-	float curSize_;
+	double curSize_;
 
 	uint32_t fontHash_;
 
@@ -45,7 +45,6 @@ protected:
 
 	// The key is the CityHash of the string xor the fontHash_.
 	std::map<uint32_t, std::unique_ptr<TextStringEntry>> cache_;
-	std::map<uint32_t, std::unique_ptr<TextMeasureEntry>> sizeCache_;
 };
 
 #endif

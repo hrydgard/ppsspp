@@ -675,6 +675,7 @@ OpenGLTexture::OpenGLTexture(const TextureDesc &desc) {
 	type_ = desc.type;
 	target_ = TypeToTarget(desc.type);
 	canWrap_ = isPowerOf2(width_) && isPowerOf2(height_);
+	mipLevels_ = desc.mipLevels;
 	if (!desc.initData.size())
 		return;
 

@@ -659,7 +659,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 // JavaEGL
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
 	// Need to get the local JNI env for the graphics thread. Used later in draw_text_android.
-	int res = javaVM->GetEnv((void **)&jniEnvGraphics, JNI_VERSION_1_4);
+	int res = javaVM->GetEnv((void **)&jniEnvGraphics, JNI_VERSION_1_6);
 	if (res != JNI_OK) {
 		ELOG("GetEnv failed: %d", res);
 	}
@@ -1031,7 +1031,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
 
 	// Need to get the local JNI env for the graphics thread. Used later in draw_text_android.
-	int res = javaVM->GetEnv((void **)&jniEnvGraphics, JNI_VERSION_1_4);
+	int res = javaVM->GetEnv((void **)&jniEnvGraphics, JNI_VERSION_1_6);
 	if (res != JNI_OK) {
 		ELOG("GetEnv failed: %d", res);
 	}

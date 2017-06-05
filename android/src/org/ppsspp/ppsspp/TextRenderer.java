@@ -4,43 +4,46 @@ import android.graphics.*;
 import java.nio.ByteBuffer;
 
 public class TextRenderer {
-	public static int measureText(String string, float textSize) {
-		Paint p;
-		p = new Paint(Paint.ANTI_ALIAS_FLAG);
-		Rect bound = new Rect();
-		p.setTextSize(textSize);
-		p.getTextBounds(string, 0, string.length(), bound);
-		return (bound.width() << 16) | bound.height();
-	}
-	public static short[] renderText(String string, float textSize) {
-		Paint p;
-		p = new Paint(Paint.ANTI_ALIAS_FLAG);
-		Rect bound = new Rect();
-		p.setTextSize(textSize);
-		p.getTextBounds(string, 0, string.length(), bound);
-		float baseline = -p.ascent();
-		Bitmap bmp = Bitmap.createBitmap(bound.width(), bound.height(), Bitmap.Config.ARGB_4444);
-		Canvas canvas = new Canvas(bmp);
+	private static Paint p;
+	private static Paint bg;
+	static {
+		p = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
 		p.setColor(Color.WHITE);
-		canvas.drawText(string, 0, baseline, p);
+		bg = new Paint();
+		bg.setColor(Color.BLACK);
+	}
+	public static int measureText(String string, double textSize) {
+		Rect bound = new Rect();
+		p.setTextSize((float)textSize);
+		p.getTextBounds(string, 0, string.length(), bound);
+		int w = bound.width();
+		int h = bound.height();
+		// Round width up to even already here to avoid annoyances from odd-width 16-bit textures which
+		// OpenGL does not like - each line must be 4-byte aligned
+		w = (w + 3) & ~1;
+		h += 2;
+		return (w << 16) | h;
+	}
+	public static int[] renderText(String string, double textSize) {
+		Rect bound = new Rect();
+		p.setTextSize((float)textSize);
+		p.getTextBounds(string, 0, string.length(), bound);
+		int w = bound.width();
+		int h = bound.height();
+		// Round width up to even already here to avoid annoyances from odd-width 16-bit textures which
+		// OpenGL does not like - each line must be 4-byte aligned
+		w = (w + 3) & ~1;
+		h += 2;
 
-		int bufSize = bmp.getRowBytes() * bmp.getHeight() * 2;  // 2 = sizeof(ARGB_4444)
-		ByteBuffer buf = ByteBuffer.allocate(bufSize);
-		bmp.copyPixelsFromBuffer(buf);
-		byte[] bytes = buf.array();
+		float baseline = -p.ascent();
+		Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+		Canvas canvas = new Canvas(bmp);
+		canvas.drawRect(0.0f, 0.0f, w, h, bg);
+		p.setColor(Color.WHITE);
+		canvas.drawText(string, 1, -bound.top + 1, p);
 
-		// Output array size must match return value of measureText
-		short[] output = new short[bound.width() * bound.height()];
-
-		// 16-bit pixels but stored as bytes.
-		for (int y = 0; y < bound.height(); y++) {
-			int srcOffset = y * bmp.getRowBytes();
-			int dstOffset = y * bound.width();
-			for (int x = 0; x < bound.width(); x++) {
-				int val = bytes[srcOffset + x * 2];
-				output[dstOffset + x] = (short)val;
-			}
-		}
-		return output;
+		int [] pixels = new int[w * h];
+		bmp.getPixels(pixels, 0, w, 0, 0, w, h);
+		return pixels;
 	}
 }
