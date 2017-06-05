@@ -73,13 +73,17 @@ void TextDrawerAndroid::SetFont(uint32_t fontHandle) {
 	}
 }
 
+std::string TextDrawerAndroid::NormalizeString(std::string str) {
+	return ReplaceAll(str, "&&", "&");
+}
+
 void TextDrawerAndroid::RecreateFonts() {
 
 }
 
 void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, float *h) {
-	std::string stdstring(str, len);
-	jstring jstr = env_->NewStringUTF(stdstring.c_str());
+	std::string text(NormalizeString(std::string(str, len)));
+	jstring jstr = env_->NewStringUTF(text.c_str());
 	uint32_t size = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, curSize_);
 	env_->DeleteLocalRef(jstr);
 	*w = (size >> 16) * fontScaleX_ * dpiScale_;
@@ -87,7 +91,7 @@ void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, flo
 }
 
 void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
-	std::string toMeasure = std::string(str, len);
+	std::string toMeasure(NormalizeString(std::string(str, len)));
 	if (align & FLAG_WRAP_TEXT) {
 		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
 		WrapString(toMeasure, toMeasure.c_str(), rotated ? bounds.h : bounds.w);
@@ -102,13 +106,14 @@ void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bou
 
 void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
-	if (!strlen(str))
+	std::string text(NormalizeString(std::string(str)));
+	if (text.empty())
 		return;
 	JNIEnv *env;
 	int result = javaVM->GetEnv((void **)&env, JNI_VERSION_1_6);
 	assert(env == env_);
 
-	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, strlen(str));
+	uint32_t stringHash = hash::Fletcher((const uint8_t *)text.data(), text.size());
 	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
 
 	target.Flush(true);
@@ -121,7 +126,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		entry->lastUsedFrame = frameCount_;
 		draw_->BindTexture(0, entry->texture);
 	} else {
-		jstring jstr = env_->NewStringUTF(str);
+		jstring jstr = env_->NewStringUTF(text.c_str());
 		int len = (int)env_->GetStringUTFLength(jstr);
 		ILOG("UTF len: %d", len);
 		uint32_t size = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, curSize_);

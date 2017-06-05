@@ -32,6 +32,9 @@ protected:
 	void ClearCache() override;
 	void RecreateFonts() override;  // On DPI change
 
+private:
+	std::string NormalizeString(std::string str);
+
 	// JNI functions
 	JNIEnv *env_;
 	jclass cls_textRenderer;

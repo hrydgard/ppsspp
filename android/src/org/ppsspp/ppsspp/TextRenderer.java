@@ -17,11 +17,10 @@ public class TextRenderer {
 		p.setTextSize((float)textSize);
 		p.getTextBounds(string, 0, string.length(), bound);
 		int w = bound.width();
-		int h = bound.height();
+		int h = (int)(p.descent() - p.ascent() + 2.0f);
 		// Round width up to even already here to avoid annoyances from odd-width 16-bit textures which
 		// OpenGL does not like - each line must be 4-byte aligned
 		w = (w + 3) & ~1;
-		h += 2;
 		return (w << 16) | h;
 	}
 	public static int[] renderText(String string, double textSize) {
@@ -29,18 +28,17 @@ public class TextRenderer {
 		p.setTextSize((float)textSize);
 		p.getTextBounds(string, 0, string.length(), bound);
 		int w = bound.width();
-		int h = bound.height();
+		int h = (int)(p.descent() - p.ascent() + 2.0f);
 		// Round width up to even already here to avoid annoyances from odd-width 16-bit textures which
 		// OpenGL does not like - each line must be 4-byte aligned
 		w = (w + 3) & ~1;
-		h += 2;
 
 		float baseline = -p.ascent();
 		Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
 		Canvas canvas = new Canvas(bmp);
 		canvas.drawRect(0.0f, 0.0f, w, h, bg);
 		p.setColor(Color.WHITE);
-		canvas.drawText(string, 1, -bound.top + 1, p);
+		canvas.drawText(string, 1, -p.ascent() + 1, p);
 
 		int [] pixels = new int[w * h];
 		bmp.getPixels(pixels, 0, w, 0, 0, w, h);
