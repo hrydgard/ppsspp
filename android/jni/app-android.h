@@ -6,6 +6,7 @@
 
 #include <jni.h>
 
-extern JNIEnv *jniEnvUI;
+extern JNIEnv *jniEnvMain;
+extern JNIEnv *jniEnvGraphics;
 
 #endif

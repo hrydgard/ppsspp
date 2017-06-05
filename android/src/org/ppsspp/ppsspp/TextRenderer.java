@@ -1,20 +1,18 @@
 package org.ppsspp.ppsspp;
 import android.graphics.*;
-import android.graphics.drawable.*;
 
 import java.nio.ByteBuffer;
 
 public class TextRenderer {
-	static int measureText(String string, float textSize) {
+	public static int measureText(String string, float textSize) {
 		Paint p;
 		p = new Paint(Paint.ANTI_ALIAS_FLAG);
 		Rect bound = new Rect();
 		p.setTextSize(textSize);
 		p.getTextBounds(string, 0, string.length(), bound);
-		int packedBounds = (bound.width() << 16) | bound.height();
-		return packedBounds;
+		return (bound.width() << 16) | bound.height();
 	}
-	static short[] renderText(String string, float textSize) {
+	public static short[] renderText(String string, float textSize) {
 		Paint p;
 		p = new Paint(Paint.ANTI_ALIAS_FLAG);
 		Rect bound = new Rect();

@@ -51,6 +51,7 @@ class TextDrawer {
 public:
 	virtual ~TextDrawer();
 
+	virtual bool IsReady() const { return true; }
 	virtual uint32_t SetFont(const char *fontName, int size, int flags) = 0;
 	virtual void SetFont(uint32_t fontHandle) = 0;  // Shortcut once you've set the font once.
 	void SetFontScale(float xscale, float yscale);

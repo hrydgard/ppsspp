@@ -18,6 +18,7 @@ public:
 	TextDrawerAndroid(Draw::DrawContext *draw);
 	~TextDrawerAndroid();
 
+	bool IsReady() const override;
 	uint32_t SetFont(const char *fontName, int size, int flags) override;
 	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.
 	void MeasureString(const char *str, size_t len, float *w, float *h) override;

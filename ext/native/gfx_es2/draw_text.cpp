@@ -42,13 +42,17 @@ float TextDrawer::CalculateDPIScale() {
 }
 
 TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
+	TextDrawer *drawer = nullptr;
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	return new TextDrawerWin32(draw);
+	drawer = new TextDrawerWin32(draw);
 #elif defined(USING_QT_UI)
-	return new TextDrawerQt(draw);
+	drawer = new TextDrawerQt(draw);
 #elif PPSSPP_PLATFORM(ANDROID)
-	return new TextDrawerAndroid(draw);
-#else
-	return nullptr;
+	drawer = new TextDrawerAndroid(draw);
 #endif
+	if (drawer && !drawer->IsReady()) {
+		delete drawer;
+		drawer = nullptr;
+	}
+	return drawer;
 }

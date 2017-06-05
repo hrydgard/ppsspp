@@ -15,17 +15,27 @@
 #include <jni.h>
 
 TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw) {
-	env_ = jniEnvUI;
-	cls_textRenderer = env_->FindClass("org/ppsspp/ppsspp/TextRenderer");
-	method_measureText = env_->GetStaticMethodID(cls_textRenderer, "measureText", "(ILjava/lang/String;F");
-	method_renderText = env_->GetStaticMethodID(cls_textRenderer, "renderText", "([SLjava/lang/String;F");
-	ILOG("method_measureText: %p", method_measureText);
-	ILOG("method_renderText: %p", method_renderText);
+	env_ = jniEnvGraphics;
+	const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
+	cls_textRenderer = env_->FindClass(textRendererClassName);
+	ILOG("cls_textRender: %p", cls_textRenderer);
+	if (cls_textRenderer) {
+		method_measureText = env_->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;F)I");
+		ILOG("method_measureText: %p", method_measureText);
+		method_renderText = env_->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;F)[S");
+		ILOG("method_renderText: %p", method_renderText);
+	} else {
+		ELOG("Failed to find class: %s", textRendererClassName);
+	}
 	curSize_ = 12;
 }
 
 TextDrawerAndroid::~TextDrawerAndroid() {
 	ClearCache();
+}
+
+bool TextDrawerAndroid::IsReady() const {
+	return cls_textRenderer != nullptr && method_measureText != nullptr && method_renderText != nullptr;
 }
 
 uint32_t TextDrawerAndroid::SetFont(const char *fontName, int size, int flags) {
@@ -105,7 +115,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		uint32_t size = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, curSize_);
 		int imageWidth = (size >> 16) * fontScaleX_;
 		int imageHeight = (size & 0xFFFF) * fontScaleY_;
-		jshortArray imageData = (jshortArray)env_->CallObjectMethod(cls_textRenderer, method_renderText, jstr, curSize_);
+		jshortArray imageData = (jshortArray)env_->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, curSize_);
 		env_->DeleteLocalRef(jstr);
 
 		entry = new TextStringEntry();
