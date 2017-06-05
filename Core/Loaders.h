@@ -49,6 +49,8 @@ enum class IdentifiedFileType {
 	PSP_SAVEDATA_DIRECTORY,
 	PPSSPP_SAVESTATE,
 
+	PPSSPP_GE_DUMP,
+
 	UNKNOWN,
 };
 

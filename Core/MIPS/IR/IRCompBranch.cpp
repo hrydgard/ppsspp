@@ -380,6 +380,11 @@ void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
 	js.downcountAmount = 0;
 
+	// If not in a delay slot, we need to update PC.
+	if (!js.inDelaySlot) {
+		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC() + 4));
+	}
+
 	FlushAll();
 
 	RestoreRoundingMode();

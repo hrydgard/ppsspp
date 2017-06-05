@@ -260,10 +260,6 @@ void GPU_DX9::InitClearInternal() {
 	}
 }
 
-void GPU_DX9::DumpNextFrame() {
-	dumpNextFrame_ = true;
-}
-
 void GPU_DX9::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
@@ -274,10 +270,6 @@ void GPU_DX9::BeginHostFrame() {
 		textureCacheDX9_->NotifyConfigChanged();
 		resized_ = false;
 	}
-}
-
-void GPU_DX9::BeginFrame() {
-	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
 }
 
 void GPU_DX9::ReapplyGfxStateInternal() {
@@ -300,13 +292,7 @@ void GPU_DX9::BeginFrameInternal() {
 	depalShaderCache_.Decimate();
 	// fragmentTestCache_.Decimate();
 
-	if (dumpNextFrame_) {
-		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
-		dumpThisFrame_ = true;
-		dumpNextFrame_ = false;
-	} else if (dumpThisFrame_) {
-		dumpThisFrame_ = false;
-	}
+	GPUCommon::BeginFrameInternal();
 	shaderManagerDX9_->DirtyShader();
 
 	framebufferManagerDX9_->BeginFrame();

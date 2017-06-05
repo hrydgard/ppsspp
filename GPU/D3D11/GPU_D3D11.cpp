@@ -293,10 +293,6 @@ void GPU_D3D11::InitClearInternal() {
 	}
 }
 
-void GPU_D3D11::DumpNextFrame() {
-	dumpNextFrame_ = true;
-}
-
 void GPU_D3D11::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
@@ -307,11 +303,6 @@ void GPU_D3D11::BeginHostFrame() {
 		shaderManagerD3D11_->DirtyLastShader();
 		resized_ = false;
 	}
-}
-
-void GPU_D3D11::BeginFrame() {
-	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
-	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 }
 
 void GPU_D3D11::ReapplyGfxStateInternal() {
@@ -331,16 +322,11 @@ void GPU_D3D11::BeginFrameInternal() {
 	depalShaderCache_->Decimate();
 	// fragmentTestCache_.Decimate();
 
-	if (dumpNextFrame_) {
-		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
-		dumpThisFrame_ = true;
-		dumpNextFrame_ = false;
-	} else if (dumpThisFrame_) {
-		dumpThisFrame_ = false;
-	}
+	GPUCommon::BeginFrameInternal();
 	shaderManagerD3D11_->DirtyLastShader();
 
 	framebufferManagerD3D11_->BeginFrame();
+	gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
 }
 
 void GPU_D3D11::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {

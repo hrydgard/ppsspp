@@ -680,6 +680,9 @@
     <ClCompile Include="HLE\KUBridge.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="FileSystems\BlobFileSystem.cpp">
+      <Filter>FileSystems</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1249,6 +1252,9 @@
     <ClInclude Include="WaveFile.h" />
     <ClInclude Include="HLE\KUBridge.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="FileSystems\BlobFileSystem.h">
+      <Filter>FileSystems</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

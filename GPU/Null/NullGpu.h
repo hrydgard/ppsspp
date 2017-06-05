@@ -29,7 +29,6 @@ public:
 	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
 
-	void BeginFrame() override {}
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override {}
 	void CopyDisplayToOutput() override {}
 	void GetStats(char *buffer, size_t bufsize) override;

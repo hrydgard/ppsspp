@@ -329,14 +329,6 @@ void GPU_Vulkan::InitClearInternal() {
 	}
 }
 
-void GPU_Vulkan::DumpNextFrame() {
-	dumpNextFrame_ = true;
-}
-
-void GPU_Vulkan::BeginFrame() {
-	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
-}
-
 void GPU_Vulkan::UpdateVsyncInterval(bool force) {
 	// TODO
 }
@@ -349,9 +341,6 @@ void GPU_Vulkan::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPU_Vulkan::Execute_VertexType;
 	}
-}
-
-void GPU_Vulkan::BeginFrameInternal() {
 }
 
 void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {

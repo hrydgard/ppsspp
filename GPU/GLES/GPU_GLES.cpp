@@ -168,10 +168,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCacheGL_->NotifyConfigChanged();
 
 	// Load shader cache.
-	std::string discID = g_paramSFO.GetValueString("DISC_ID");
-	if (discID.empty()) {
-		discID = g_paramSFO.GenerateFakeID();
-	}
+	std::string discID = g_paramSFO.GetDiscID();
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + discID + ".glshadercache";
@@ -422,10 +419,6 @@ void GPU_GLES::InitClearInternal() {
 	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
-void GPU_GLES::DumpNextFrame() {
-	dumpNextFrame_ = true;
-}
-
 void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
@@ -436,10 +429,6 @@ void GPU_GLES::BeginHostFrame() {
 		shaderManagerGL_->DirtyShader();
 		textureCacheGL_->NotifyConfigChanged();
 	}
-}
-
-void GPU_GLES::BeginFrame() {
-	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
 }
 
 inline void GPU_GLES::UpdateVsyncInterval(bool force) {
@@ -495,13 +484,7 @@ void GPU_GLES::BeginFrameInternal() {
 	depalShaderCache_.Decimate();
 	fragmentTestCache_.Decimate();
 
-	if (dumpNextFrame_) {
-		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
-		dumpThisFrame_ = true;
-		dumpNextFrame_ = false;
-	} else if (dumpThisFrame_) {
-		dumpThisFrame_ = false;
-	}
+	GPUCommon::BeginFrameInternal();
 
 	// Save the cache from time to time. TODO: How often?
 	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 1023) == 0) {

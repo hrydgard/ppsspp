@@ -23,5 +23,6 @@ class FileLoader;
 
 bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string);
 bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string);
+bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string);
 void InitMemoryForGameISO(FileLoader *fileLoader);
 void InitMemoryForGamePBP(FileLoader *fileLoader);

@@ -229,6 +229,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
+  $(SRC)/GPU/Debugger/Record.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
   $(SRC)/GPU/GLES/DepalettizeShaderGLES.cpp \
@@ -363,6 +364,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceGameUpdate.cpp \
   $(SRC)/Core/HLE/sceNp.cpp \
   $(SRC)/Core/HLE/scePauth.cpp \
+  $(SRC)/Core/FileSystems/BlobFileSystem.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/FileSystem.cpp \

@@ -1268,6 +1268,8 @@ set(GPU_SOURCES
 	GPU/Common/SplineCommon.h
 	GPU/Debugger/Breakpoints.cpp
 	GPU/Debugger/Breakpoints.h
+	GPU/Debugger/Record.cpp
+	GPU/Debugger/Record.h
 	GPU/Debugger/Stepping.cpp
 	GPU/Debugger/Stepping.h
 	GPU/GPUInterface.h
@@ -1350,6 +1352,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/ELF/ParamSFO.cpp
 	Core/ELF/ParamSFO.h
 	Core/FileSystems/tlzrc.cpp
+	Core/FileSystems/BlobFileSystem.cpp
+	Core/FileSystems/BlobFileSystem.h
 	Core/FileSystems/BlockDevices.cpp
 	Core/FileSystems/BlockDevices.h
 	Core/FileSystems/DirectoryFileSystem.cpp

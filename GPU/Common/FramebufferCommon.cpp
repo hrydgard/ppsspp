@@ -119,10 +119,6 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 }
 
 void FramebufferManagerCommon::Init() {
-	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
-	if (gameId.empty()) {
-		gameId = g_paramSFO.GenerateFakeID();
-	}
 	BeginFrame();
 }
 

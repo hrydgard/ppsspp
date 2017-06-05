@@ -713,10 +713,7 @@ void TakeScreenshot() {
 	// First, find a free filename.
 	int i = 0;
 
-	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
-	if (gameId.empty()) {
-		gameId = g_paramSFO.GenerateFakeID();
-	}
+	std::string gameId = g_paramSFO.GetDiscID();
 
 	char filename[2048];
 	while (i < 10000){

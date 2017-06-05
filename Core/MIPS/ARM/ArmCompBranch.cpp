@@ -612,6 +612,11 @@ void ArmJit::Comp_Syscall(MIPSOpcode op)
 	RestoreRoundingMode();
 	js.downcountAmount = -offset;
 
+	if (!js.inDelaySlot) {
+		gpr.SetRegImm(SCRATCHREG1, GetCompilerPC() + 4);
+		MovToPC(SCRATCHREG1);
+	}
+
 	FlushAll();
 
 	SaveDowncount();

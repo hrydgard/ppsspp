@@ -69,31 +69,30 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 	}
 
 	std::string extension = fileLoader->Extension();
-	if (!strcasecmp(extension.c_str(), ".iso"))
-	{
+	if (!strcasecmp(extension.c_str(), ".iso")) {
 		// may be a psx iso, they have 2352 byte sectors. You never know what some people try to open
-		if ((fileLoader->FileSize() % 2352) == 0)
-		{
+		if ((fileLoader->FileSize() % 2352) == 0) {
 			unsigned char sync[12];
 			fileLoader->ReadAt(0, 12, sync);
 
 			// each sector in a mode2 image starts with these 12 bytes
-			if (memcmp(sync,"\x00\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x00",12) == 0)
-			{
+			if (memcmp(sync,"\x00\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x00", 12) == 0) {
 				return IdentifiedFileType::ISO_MODE2;
 			}
 
 			// maybe it also just happened to have that size, 
 		}
 		return IdentifiedFileType::PSP_ISO;
-	}
-	else if (!strcasecmp(extension.c_str(),".cso"))
-	{
+	} else if (!strcasecmp(extension.c_str(), ".cso")) {
 		return IdentifiedFileType::PSP_ISO;
-	}
-	else if (!strcasecmp(extension.c_str(),".ppst"))
-	{
+	} else if (!strcasecmp(extension.c_str(), ".ppst")) {
 		return IdentifiedFileType::PPSSPP_SAVESTATE;
+	} else if (!strcasecmp(extension.c_str(), ".ppdmp")) {
+		char data[8]{};
+		fileLoader->ReadAt(0, 8, data);
+		if (memcmp(data, "PPSSPPGE", 8) == 0) {
+			return IdentifiedFileType::PPSSPP_GE_DUMP;
+		}
 	}
 
 	// First, check if it's a directory with an EBOOT.PBP in it.
@@ -336,6 +335,9 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		*error_string = "This is save data, not a game."; // Actually, we could make it load it...
 		break;
+
+	case IdentifiedFileType::PPSSPP_GE_DUMP:
+		return Load_PSP_GE_Dump(fileLoader, error_string);
 
 	case IdentifiedFileType::UNKNOWN_BIN:
 	case IdentifiedFileType::UNKNOWN_ELF:

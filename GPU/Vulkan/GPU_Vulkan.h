@@ -46,13 +46,11 @@ public:
 	void ExecuteOp(u32 op, u32 diff) override;
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
-	void BeginFrame() override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore() override;
 
-	void DumpNextFrame() override;
 	void DoState(PointerWrap &p) override;
 
 	void ClearShaderCache() override;
@@ -102,7 +100,6 @@ private:
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 	void InitClearInternal() override;
-	void BeginFrameInternal() override;
 	void CopyDisplayToOutputInternal() override;
 	void ReinitializeInternal() override;
 	inline void UpdateVsyncInterval(bool force);

@@ -61,6 +61,7 @@ public:
 	}
 
 	void Resized() override;
+	void DumpNextFrame() override;
 
 	void ExecuteOp(u32 op, u32 diff) override;
 	void PreExecuteOp(u32 op, u32 diff) override;
@@ -202,7 +203,7 @@ public:
 	const std::list<int>& GetDisplayLists() override {
 		return dlQueue;
 	}
-	virtual bool DecodeTexture(u8* dest, const GPUgstate &state) override {
+	bool DecodeTexture(u8* dest, const GPUgstate &state) override {
 		return false;
 	}
 	std::vector<FramebufferInfo> GetFramebufferList() override {
@@ -210,6 +211,13 @@ public:
 	}
 	void ClearShaderCache() override {}
 	void CleanupBeforeUI() override {}
+
+	s64 GetListTicks(int listid) override {
+		if (listid >= 0 && listid < DisplayListMaxCount) {
+			return dls[listid].waitTicks;
+		}
+		return -1;
+	}
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override { return std::vector<std::string>(); };
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {
@@ -227,7 +235,8 @@ protected:
 	}
 
 	virtual void InitClearInternal() {}
-	virtual void BeginFrameInternal() {}
+	void BeginFrame() override;
+	virtual void BeginFrameInternal();
 	virtual void CopyDisplayToOutputInternal() {}
 	virtual void ReinitializeInternal() {}
 
@@ -329,6 +338,7 @@ protected:
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
+	bool debugRecording_;
 	bool interruptsEnabled_;
 	bool resized_;
 	DrawType lastDraw_;

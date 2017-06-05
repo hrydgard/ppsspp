@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+﻿// Copyright (c) 2017- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,12 +17,20 @@
 
 #pragma once
 
-#define NID_THREADRETURN 0xc0debabe
-#define NID_CALLBACKRETURN 0xbadc0fee
-#define NID_INTERRUPTRETURN 0xbadd00d5
-#define NID_EXTENDRETURN 0xbad0b0c9
-#define NID_MODULERETURN 0xbad0d318
-#define NID_IDLE 0x1d7e1d7e
-#define NID_GPUREPLAY 0x9e45bd95
+#include <string>
+#include "Common/CommonTypes.h"
 
-void RegisterAllModules();
+namespace GPURecord {
+
+bool IsActive();
+void Activate();
+
+void NotifyCommand(u32 pc);
+void NotifyMemcpy(u32 dest, u32 src, u32 sz);
+void NotifyMemset(u32 dest, int v, u32 sz);
+void NotifyUpload(u32 dest, u32 sz);
+void NotifyFrame();
+
+bool RunMountedReplay(const std::string &filename);
+
+};

@@ -1825,13 +1825,15 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			return 0;
 
 		case 0x20: // EMULATOR_DEVCTL__EMIT_SCREENSHOT
-			u8 *topaddr;
+		{
+			PSPPointer<u8> topaddr;
 			u32 linesize, pixelFormat;
 
 			__DisplayGetFramebuf(&topaddr, &linesize, &pixelFormat, 0);
 			// TODO: Convert based on pixel format / mode / something?
 			host->SendDebugScreenshot(topaddr, linesize, 272);
 			return 0;
+		}
 		}
 
 		ERROR_LOG(SCEIO, "sceIoDevCtl: UNKNOWN PARAMETERS");
