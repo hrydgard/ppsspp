@@ -37,8 +37,7 @@ enum {
 	R_MIPS_GPREL32
 };
 
-enum KnownElfTypes
-{
+enum KnownElfTypes {
 	KNOWNELF_PSP = 0,
 	KNOWNELF_DS = 1,
 	KNOWNELF_GBA = 2,
@@ -46,29 +45,24 @@ enum KnownElfTypes
 
 typedef int SectionID;
 
-class ElfReader
-{
+class ElfReader {
 public:
-	ElfReader(const void *ptr) :
-		sectionOffsets(0),
-		sectionAddrs(0),
-		bRelocate(false),
-		entryPoint(0),
-		vaddr(0) {
+	ElfReader(const void *ptr, size_t size) {
 		base = (const char*)ptr;
 		base32 = (const u32 *)ptr;
 		header = (const Elf32_Ehdr*)ptr;
 		segments = (const Elf32_Phdr *)(base + header->e_phoff);
 		sections = (const Elf32_Shdr *)(base + header->e_shoff);
+		size_ = size;
 	}
 
 	~ElfReader() {
-		delete [] sectionOffsets;
-		delete [] sectionAddrs;
+		delete[] sectionOffsets;
+		delete[] sectionAddrs;
 	}
 
-	u32 Read32(int off) {
-		return base32[off>>2];
+	u32 Read32(int off) const {
+		return base32[off >> 2];
 	}
 
 	// Quick accessors
@@ -100,13 +94,15 @@ public:
 	int GetSectionSize(SectionID section) const {
 		return sections[section].sh_size;
 	}
-	SectionID GetSectionByName(const char *name, int firstSection=0) const; //-1 for not found
+
+	//-1 for not found
+	SectionID GetSectionByName(const char *name, int firstSection = 0) const;
 
 	u32 GetSegmentPaddr(int segment) const {
-	    return segments[segment].p_paddr;
+		return segments[segment].p_paddr;
 	}
 	u32 GetSegmentOffset(int segment) const {
-	    return segments[segment].p_offset;
+		return segments[segment].p_offset;
 	}
 	u32 GetSegmentVaddr(int segment) const {
 		return segmentVAddr[segment];
@@ -140,16 +136,17 @@ public:
 	void LoadRelocations2(int rel_seg);
 
 private:
-	const char *base;
-	const u32 *base32;
-	const Elf32_Ehdr *header;
-	const Elf32_Phdr *segments;
-	const Elf32_Shdr *sections;
-	u32 *sectionOffsets;
-	u32 *sectionAddrs;
-	bool bRelocate;
-	u32 entryPoint;
-	u32 totalSize;
-	u32 vaddr;
+	const char *base = nullptr;
+	const u32 *base32 = nullptr;
+	const Elf32_Ehdr *header = nullptr;
+	const Elf32_Phdr *segments = nullptr;
+	const Elf32_Shdr *sections = nullptr;
+	u32 *sectionOffsets = nullptr;
+	u32 *sectionAddrs = nullptr;
+	bool bRelocate = false;
+	u32 entryPoint = 0;
+	u32 totalSize = 0;
+	u32 vaddr = 0;
 	u32 segmentVAddr[32];
+	size_t size_ = 0;
 };
