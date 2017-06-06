@@ -1,4 +1,4 @@
-// Copyright (c) 2015- PPSSPP Project.
+﻿// Copyright (c) 2015- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -31,13 +31,18 @@ public:
 	SavedataBrowser(std::string path, UI::LayoutParams *layoutParams = 0);
 
 	UI::Event OnChoice;
+	UI::Event OnHighlight;
+
+	void FocusSave(std::string savePath);
 
 private:
 	void Refresh();
 	UI::EventReturn SavedataButtonClick(UI::EventParams &e);
+	UI::EventReturn SavedataButtonHighlight(UI::EventParams &e);
 
 	UI::ViewGroup *gameList_;
 	std::string path_;
+	std::string focusSavePath_;
 };
 
 class SavedataScreen : public UIDialogScreenWithGameBackground {

@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+﻿// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -136,7 +136,22 @@ public:
 
 	std::string GetGamePath() const { return savePath_; }
 
+	void FocusChanged(int focusFlags) override {
+		UI::Clickable::FocusChanged(focusFlags);
+		TriggerOnHighlight(focusFlags);
+	}
+
+	UI::Event OnHighlight;
+
+
 private:
+	void TriggerOnHighlight(int focusFlags) {
+		UI::EventParams e{};
+		e.v = this;
+		e.s = savePath_;
+		e.a = focusFlags;
+		OnHighlight.Trigger(e);
+	}
 	std::string savePath_;
 	std::string title_;
 	std::string subtitle_;
@@ -283,6 +298,12 @@ SavedataBrowser::SavedataBrowser(std::string path, UI::LayoutParams *layoutParam
 	Refresh();
 }
 
+void SavedataBrowser::FocusSave(std::string savePath) {
+	focusSavePath_ = savePath;
+	Refresh();
+	focusSavePath_.clear();
+}
+
 void SavedataBrowser::Refresh() {
 	using namespace UI;
 
@@ -322,6 +343,11 @@ void SavedataBrowser::Refresh() {
 	for (size_t i = 0; i < savedataButtons.size(); i++) {
 		SavedataButton *b = gameList_->Add(savedataButtons[i]);
 		b->OnClick.Handle(this, &SavedataBrowser::SavedataButtonClick);
+		b->OnHighlight.Handle(this, &SavedataBrowser::SavedataButtonHighlight);
+
+		if (!focusSavePath_.empty() && b->GamePath() == focusSavePath_) {
+			b->SetFocus();
+		}
 	}
 
 	if (savedataButtons.empty()) {
@@ -338,6 +364,12 @@ UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 	e2.s = button->GamePath();
 	// Insta-update - here we know we are already on the right thread.
 	OnChoice.Trigger(e2);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn SavedataBrowser::SavedataButtonHighlight(UI::EventParams &e) {
+	// Insta-update - here we know we are already on the right thread.
+	OnHighlight.Trigger(e);
 	return UI::EVENT_DONE;
 }
 
