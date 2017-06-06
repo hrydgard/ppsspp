@@ -802,6 +802,10 @@ void PPGeSetDefaultTexture()
 	WriteCmd(GE_CMD_TEXFILTER, (1 << 8) | 1);   // mag = LINEAR min = LINEAR
 	WriteCmd(GE_CMD_TEXWRAP, (1 << 8) | 1);  // clamp texture wrapping
 	WriteCmd(GE_CMD_TEXFUNC, (0 << 16) | (1 << 8) | 0);  // RGBA texture reads, modulate, no color doubling
+	WriteCmd(GE_CMD_TEXSCALEU, 0);
+	WriteCmd(GE_CMD_TEXSCALEV, 0);
+	WriteCmd(GE_CMD_TEXOFFSETU, 0);
+	WriteCmd(GE_CMD_TEXOFFSETV, 0);
 	WriteCmd(GE_CMD_TEXADDR0, atlasPtr & 0xFFFFF0);
 	WriteCmd(GE_CMD_TEXBUFWIDTH0, atlasWidth | ((atlasPtr & 0xFF000000) >> 8));
 	WriteCmd(GE_CMD_TEXFLUSH, 0);
@@ -819,6 +823,10 @@ void PPGeSetTexture(u32 dataAddr, int width, int height)
 	WriteCmd(GE_CMD_TEXFILTER, (1 << 8) | 1);   // mag = LINEAR min = LINEAR
 	WriteCmd(GE_CMD_TEXWRAP, (1 << 8) | 1);  // clamp texture wrapping
 	WriteCmd(GE_CMD_TEXFUNC, (0 << 16) | (1 << 8) | 0);  // RGBA texture reads, modulate, no color doubling
+	WriteCmd(GE_CMD_TEXSCALEU, 0);
+	WriteCmd(GE_CMD_TEXSCALEV, 0);
+	WriteCmd(GE_CMD_TEXOFFSETU, 0);
+	WriteCmd(GE_CMD_TEXOFFSETV, 0);
 	WriteCmd(GE_CMD_TEXADDR0, dataAddr & 0xFFFFF0);
 	WriteCmd(GE_CMD_TEXBUFWIDTH0, width | ((dataAddr & 0xFF000000) >> 8));
 	WriteCmd(GE_CMD_TEXFLUSH, 0);
