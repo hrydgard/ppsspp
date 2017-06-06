@@ -172,7 +172,6 @@ void TextDrawerQt::OncePerFrame() {
 	if (newDpiScale != dpiScale_) {
 		dpiScale_ = newDpiScale;
 		ClearCache();
-		RecreateFonts();
 	}
 
 	// Drop old strings. Use a prime number to reduce clashing with other rhythms
