@@ -1080,12 +1080,9 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 		}
 
 		const u8 *in = ptr;
-		u32 size = head->elf_size;
-		if (head->psp_size > size)
-		{
-			size = head->psp_size;
-		}
-		newptr = new u8[head->elf_size + head->psp_size];
+		// Kind of odd.
+		u32 size = std::max(head->elf_size, head->psp_size);
+		newptr = new u8[size];
 		ptr = newptr;
 		magicPtr = (u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
