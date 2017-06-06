@@ -1153,7 +1153,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		module->Cleanup();
 		kernelObjects.Destroy<Module>(module->GetUID());
 		error = SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE;
-		return 0;
+		return nullptr;
 	}
 
 	// Open ELF reader
@@ -1167,7 +1167,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		module->Cleanup();
 		kernelObjects.Destroy<Module>(module->GetUID());
 		error = result;
-		return 0;
+		return nullptr;
 	}
 	module->memoryBlockAddr = reader.GetVaddr();
 	module->memoryBlockSize = reader.GetTotalSize();
