@@ -406,6 +406,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	@Override
     public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		TextRenderer.init(this);
 		shuttingDown = false;
 		registerCallbacks();
 

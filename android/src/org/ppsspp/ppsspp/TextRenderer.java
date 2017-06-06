@@ -1,16 +1,29 @@
 package org.ppsspp.ppsspp;
+import android.content.Context;
 import android.graphics.*;
+import android.util.Log;
 
 import java.nio.ByteBuffer;
 
 public class TextRenderer {
 	private static Paint p;
 	private static Paint bg;
+	private static Typeface robotoCondensed;
+	private static final String TAG = "TextRenderer";
 	static {
 		p = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
 		p.setColor(Color.WHITE);
 		bg = new Paint();
 		bg.setColor(Color.BLACK);
+	}
+	public static void init(Context ctx) {
+		robotoCondensed = Typeface.createFromAsset(ctx.getAssets(), "Roboto-Condensed.ttf");
+		if (robotoCondensed != null) {
+			Log.i(TAG, "Successfully loaded Roboto Condensed");
+			p.setTypeface(robotoCondensed);
+		} else {
+			Log.e(TAG, "Failed to load Roboto Condensed");
+		}
 	}
 	private static Point measure(String string, double textSize) {
 		Rect bound = new Rect();
