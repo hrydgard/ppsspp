@@ -867,6 +867,8 @@ add_library(native STATIC
 	ext/native/gfx_es2/draw_text_win.h
 	ext/native/gfx_es2/draw_text_qt.cpp
 	ext/native/gfx_es2/draw_text_qt.h
+	ext/native/gfx_es2/draw_text_android.cpp
+	ext/native/gfx_es2/draw_text_android.h
 	ext/native/gfx_es2/gpu_features.cpp
 	ext/native/gfx_es2/gpu_features.h
 	ext/native/gfx_es2/glsl_program.cpp

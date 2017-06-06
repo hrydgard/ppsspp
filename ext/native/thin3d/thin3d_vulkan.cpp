@@ -675,6 +675,9 @@ enum class TextureState {
 };
 
 bool VKTexture::Create(const TextureDesc &desc) {
+	// Zero-sized textures not allowed.
+	if (desc.width * desc.height * desc.depth == 0)
+		return false;
 	format_ = desc.format;
 	mipLevels_ = desc.mipLevels;
 	width_ = desc.width;

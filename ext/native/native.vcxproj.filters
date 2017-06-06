@@ -320,6 +320,9 @@
     <ClInclude Include="gfx_es2\draw_text_qt.h">
       <Filter>gfx</Filter>
     </ClInclude>
+    <ClInclude Include="gfx_es2\draw_text_android.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -776,6 +779,9 @@
       <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_text_qt.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\draw_text_android.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
   </ItemGroup>

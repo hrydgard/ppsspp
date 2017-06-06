@@ -8,6 +8,7 @@
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_text_win.h"
 #include "gfx_es2/draw_text_qt.h"
+#include "gfx_es2/draw_text_android.h"
 
 TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.
@@ -41,11 +42,17 @@ float TextDrawer::CalculateDPIScale() {
 }
 
 TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
+	TextDrawer *drawer = nullptr;
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	return new TextDrawerWin32(draw);
+	drawer = new TextDrawerWin32(draw);
 #elif defined(USING_QT_UI)
-	return new TextDrawerQt(draw);
-#else
-	return nullptr;
+	drawer = new TextDrawerQt(draw);
+#elif PPSSPP_PLATFORM(ANDROID)
+	drawer = new TextDrawerAndroid(draw);
 #endif
+	if (drawer && !drawer->IsReady()) {
+		delete drawer;
+		drawer = nullptr;
+	}
+	return drawer;
 }

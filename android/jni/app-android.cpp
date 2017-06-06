@@ -28,6 +28,7 @@
 #include "thread/threadutil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
+#include "input/keycodes.h"
 #include "profiler/profiler.h"
 #include "math/math_util.h"
 #include "net/resolve.h"
@@ -49,7 +50,9 @@
 
 #include "app-android.h"
 
-static JNIEnv *jniEnvUI;
+JNIEnv *jniEnvMain;
+JNIEnv *jniEnvGraphics;
+JavaVM *javaVM;
 
 enum {
 	ANDROID_VERSION_GINGERBREAD = 9,
@@ -530,7 +533,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
 		jint jAndroidVersion, jstring jboard) {
-	jniEnvUI = env;
+	jniEnvMain = env;
+	env->GetJavaVM(&javaVM);
+
 	setCurrentThreadName("androidInit");
 
 	ILOG("NativeApp.init() -- begin");
@@ -653,6 +658,12 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 // JavaEGL
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
+	// Need to get the local JNI env for the graphics thread. Used later in draw_text_android.
+	int res = javaVM->GetEnv((void **)&jniEnvGraphics, JNI_VERSION_1_6);
+	if (res != JNI_OK) {
+		ELOG("GetEnv failed: %d", res);
+	}
+
 	if (javaGL && !graphicsContext) {
 		graphicsContext = new AndroidJavaEGLGraphicsContext();
 	}
@@ -1019,6 +1030,12 @@ static void ProcessFrameCommands(JNIEnv *env) {
 extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
 	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
 
+	// Need to get the local JNI env for the graphics thread. Used later in draw_text_android.
+	int res = javaVM->GetEnv((void **)&jniEnvGraphics, JNI_VERSION_1_6);
+	if (res != JNI_OK) {
+		ELOG("GetEnv failed: %d", res);
+	}
+
 	WLOG("runEGLRenderLoop. display_xres=%d display_yres=%d", display_xres, display_yres);
 
 	if (wnd == nullptr) {
@@ -1093,6 +1110,7 @@ retry:
 	graphicsContext = nullptr;
 	renderLoopRunning = false;
 	WLOG("Render loop function exited.");
+	jniEnvGraphics = nullptr;
 	return true;
 }
 
