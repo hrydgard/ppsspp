@@ -23,7 +23,6 @@ public:
 
 protected:
 	void ClearCache() override;
-	void RecreateFonts() override;  // On DPI change
 
 	uint32_t fontHash_;
 	std::map<uint32_t, QFont *> fontMap_;

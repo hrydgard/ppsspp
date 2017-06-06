@@ -1110,6 +1110,7 @@ retry:
 	graphicsContext = nullptr;
 	renderLoopRunning = false;
 	WLOG("Render loop function exited.");
+	jniEnvGraphics = nullptr;
 	return true;
 }
 

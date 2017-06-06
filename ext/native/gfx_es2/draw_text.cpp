@@ -35,11 +35,9 @@ void TextDrawer::SetFontScale(float xscale, float yscale) {
 
 float TextDrawer::CalculateDPIScale() {
 	float scale = g_dpi_scale;
-#if !PPSSPP_PLATFORM(ANDROID)
 	if (scale >= 1.0f) {
 		scale = 1.0f;
 	}
-#endif
 	return scale;
 }
 

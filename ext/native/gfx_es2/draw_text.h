@@ -72,7 +72,6 @@ protected:
 
 	Draw::DrawContext *draw_;
 	virtual void ClearCache() = 0;
-	virtual void RecreateFonts() = 0;  // On DPI change
 	void WrapString(std::string &out, const char *str, float maxWidth);
 
 	int frameCount_;

@@ -30,7 +30,7 @@ public:
 
 protected:
 	void ClearCache() override;
-	void RecreateFonts() override;  // On DPI change
+	void RecreateFonts();  // On DPI change
 
 	TextDrawerContext *ctx_;
 	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;

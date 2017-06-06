@@ -12,7 +12,7 @@ public class TextRenderer {
 		bg = new Paint();
 		bg.setColor(Color.BLACK);
 	}
-	public static int measureText(String string, double textSize) {
+	private static Point measure(String string, double textSize) {
 		Rect bound = new Rect();
 		p.setTextSize((float)textSize);
 		p.getTextBounds(string, 0, string.length(), bound);
@@ -20,20 +20,22 @@ public class TextRenderer {
 		int h = (int)(p.descent() - p.ascent() + 2.0f);
 		// Round width up to even already here to avoid annoyances from odd-width 16-bit textures which
 		// OpenGL does not like - each line must be 4-byte aligned
-		w = (w + 3) & ~1;
-		return (w << 16) | h;
+		w = (w + 5) & ~1;
+		Point p = new Point();
+		p.x = w;
+		p.y = h;
+		return p;
+	}
+	public static int measureText(String string, double textSize) {
+		Point s = measure(string, textSize);
+		return (s.x << 16) | s.y;
 	}
 	public static int[] renderText(String string, double textSize) {
-		Rect bound = new Rect();
-		p.setTextSize((float)textSize);
-		p.getTextBounds(string, 0, string.length(), bound);
-		int w = bound.width();
-		int h = (int)(p.descent() - p.ascent() + 2.0f);
-		// Round width up to even already here to avoid annoyances from odd-width 16-bit textures which
-		// OpenGL does not like - each line must be 4-byte aligned
-		w = (w + 3) & ~1;
+		Point s = measure(string, textSize);
 
-		float baseline = -p.ascent();
+		int w = s.x;
+		int h = s.y;
+
 		Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
 		Canvas canvas = new Canvas(bmp);
 		canvas.drawRect(0.0f, 0.0f, w, h, bg);

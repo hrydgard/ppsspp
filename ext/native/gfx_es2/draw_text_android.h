@@ -10,7 +10,7 @@
 #include <jni.h>
 
 struct AndroidFontEntry {
-	float size;
+	double size;
 };
 
 class TextDrawerAndroid : public TextDrawer {
@@ -30,7 +30,6 @@ public:
 
 protected:
 	void ClearCache() override;
-	void RecreateFonts() override;  // On DPI change
 
 private:
 	std::string NormalizeString(std::string str);
@@ -40,14 +39,14 @@ private:
 	jclass cls_textRenderer;
 	jmethodID method_measureText;
 	jmethodID method_renderText;
-	double curSize_;
 
-	uint32_t fontHash_;
+	uint32_t fontHash_;  // Just the size.
 
 	std::map<uint32_t, AndroidFontEntry> fontMap_;
 
-	// The key is the CityHash of the string xor the fontHash_.
+	// The key is the CityHash of the string xor the fontHash_ (though the fontHash_ is just the size).
 	std::map<uint32_t, std::unique_ptr<TextStringEntry>> cache_;
+	std::map<uint32_t, std::unique_ptr<TextMeasureEntry>> sizeCache_;
 };
 
 #endif

@@ -15,7 +15,6 @@
 #include <QtGui/QFontMetrics>
 #include <QtOpenGL/QGLWidget>
 
-
 TextDrawerQt::TextDrawerQt(Draw::DrawContext *draw) : TextDrawer(draw) {
 }
 
@@ -43,10 +42,6 @@ uint32_t TextDrawerQt::SetFont(const char *fontName, int size, int flags) {
 }
 
 void TextDrawerQt::SetFont(uint32_t fontHandle) {
-
-}
-
-void TextDrawerQt::RecreateFonts() {
 
 }
 
