@@ -40,11 +40,11 @@ private:
 	jmethodID method_measureText;
 	jmethodID method_renderText;
 
-	uint32_t fontHash_;  // Just the size.
+	uint32_t fontHash_;
 
 	std::map<uint32_t, AndroidFontEntry> fontMap_;
 
-	// The key is the CityHash of the string xor the fontHash_ (though the fontHash_ is just the size).
+	// The key is the CityHash of the string xor the fontHash_.
 	std::map<uint32_t, std::unique_ptr<TextStringEntry>> cache_;
 	std::map<uint32_t, std::unique_ptr<TextMeasureEntry>> sizeCache_;
 };
