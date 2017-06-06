@@ -690,7 +690,7 @@ static u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
 	return 0;
 }
 
-static u32 sceUtilityGetSystemParamInt_(u32 id, u32 value)
+static u32 sceUtilitySetSystemParamInt(u32 id, u32 value)
 {
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
@@ -894,7 +894,7 @@ const HLEFunction sceUtility[] =
 	{0XF3F76017, &WrapI_V<sceUtilityOskGetStatus>,                 "sceUtilityOskGetStatus",                 'i', ""   },
 
 	{0X41E30674, &WrapU_UU<sceUtilitySetSystemParamString>,        "sceUtilitySetSystemParamString",         'x', "xx" },
-	{0X45C18506, &WrapU_UU<sceUtilityGetSystemParamInt_>,          "sceUtilitySetSystemParamInt",            'x', "xx"   },
+	{0X45C18506, &WrapU_UU<sceUtilitySetSystemParamInt>,           "sceUtilitySetSystemParamInt",            'x', "xx"   },
 	{0X34B78343, &WrapU_UUI<sceUtilityGetSystemParamString>,       "sceUtilityGetSystemParamString",         'x', "xxi"},
 	{0XA5DA2406, &WrapU_UU<sceUtilityGetSystemParamInt>,           "sceUtilityGetSystemParamInt",            'x', "xx" },
 
