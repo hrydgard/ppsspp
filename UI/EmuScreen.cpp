@@ -462,6 +462,14 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		break;
 
+	case VIRTKEY_OPENCHAT:
+		if (g_Config.bEnableNetworkChat) {
+			releaseButtons();
+			chatButtons->SetVisibility(UI::V_GONE);
+			screenManager()->push(new ChatMenu());
+		}
+		break;
+
 	case VIRTKEY_AXIS_SWAP:
 		KeyMap::SwapAxis();
 		break;
