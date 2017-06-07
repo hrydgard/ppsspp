@@ -383,7 +383,7 @@ static void WriteRecording() {
 
 	const std::string filename = GenRecordingFilename();
 	FILE *fp = File::OpenCFile(filename, "wb");
-	fwrite(HEADER, sizeof(HEADER), 1, fp);
+	fwrite(HEADER, 8, 1, fp);
 	fwrite(&VERSION, sizeof(VERSION), 1, fp);
 
 	u32 sz = (u32)commands.size();
@@ -1003,7 +1003,7 @@ bool RunMountedReplay(const std::string &filename) {
 	pspFileSystem.ReadFile(fp, header, sizeof(header));
 	pspFileSystem.ReadFile(fp, (u8 *)&version, sizeof(version));
 
-	if (memcmp(header, HEADER, sizeof(HEADER)) != 0 || version != VERSION) {
+	if (memcmp(header, HEADER, sizeof(header)) != 0 || version != VERSION) {
 		ERROR_LOG(SYSTEM, "Invalid GE dump or unsupported version");
 		pspFileSystem.CloseFile(fp);
 		return false;
