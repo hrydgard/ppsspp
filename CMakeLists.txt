@@ -1748,11 +1748,15 @@ set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/lang
 	assets/shaders
-	assets/ppge_atlas.zim
+	assets/Roboto-Condensed.ttf
+	assets/7z.png
 	assets/compat.ini
-	assets/langregion.ini
 	assets/gamecontrollerdb.txt
-	assets/unknown.png)
+	assets/langregion.ini
+	assets/ppge_atlas.zim
+	assets/rargray.png
+	assets/unknown.png
+	assets/zip.png)
 
 
 if(HEADLESS)
