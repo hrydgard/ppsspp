@@ -39,22 +39,6 @@
 
 namespace Rasterizer {
 
-//static inline int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const DrawingCoords& v2)
-static inline int orient2d(const ScreenCoords& v0, const ScreenCoords& v1, const ScreenCoords& v2)
-{
-	return ((int)v1.x-(int)v0.x)*((int)v2.y-(int)v0.y) - ((int)v1.y-(int)v0.y)*((int)v2.x-(int)v0.x);
-}
-
-static inline int orient2dIncX(int dY01)
-{
-	return dY01;
-}
-
-static inline int orient2dIncY(int dX01)
-{
-	return -dX01;
-}
-
 // Only OK on x64 where our stack is aligned
 #if defined(_M_SSE) && !defined(_M_IX86)
 static inline __m128 Interpolate(const __m128 &c0, const __m128 &c1, const __m128 &c2, int w0, int w1, int w2, float wsum) {

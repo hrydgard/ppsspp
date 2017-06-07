@@ -348,6 +348,9 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				case GE_PRIM_POINTS:
 					Clipper::ProcessPoint(data[0]);
 					break;
+
+				default:
+					_dbg_assert_msg_(G3D, false, "Unexpected prim type: %d", prim_type);
 				}
 			}
 			break;
@@ -474,6 +477,10 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 			}
 			break;
 		}
+
+	default:
+		ERROR_LOG(G3D, "Unexpected prim type: %d", prim_type);
+		break;
 	}
 
 	host->GPUNotifyDraw();
