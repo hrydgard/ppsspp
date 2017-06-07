@@ -380,12 +380,16 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		if (g_Config.bBypassOSKWithKeyboard) {
 			osm.Show("Disable windows native keyboard options to use ctrl + c hotkey", 2.0f);
 		} else {
+			if (g_Config.bEnableNetworkChat) {
+				chatButtons->SetVisibility(UI::V_GONE);
+				screenManager()->push(new ChatMenu());
+			}
+		}
+#else
+		if (g_Config.bEnableNetworkChat) {
 			chatButtons->SetVisibility(UI::V_GONE);
 			screenManager()->push(new ChatMenu());
 		}
-#else
-		chatButtons->SetVisibility(UI::V_GONE);
-		screenManager()->push(new ChatMenu());
 #endif
 	}
 }
@@ -807,6 +811,7 @@ void EmuScreen::CreateViews() {
 			break;
 		case 3:
 			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, 50, NONE, NONE, true));
+			break;
 		case 4:
 			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true));
 			break;

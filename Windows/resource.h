@@ -334,7 +334,7 @@
 #define ID_FILE_DUMPAUDIO                40167
 #define ID_HELP_GITHUB                   40168
 #define IDC_GEDBG_RECORD                 40169
-#define ID_EMULATION_CHAT                40168
+#define ID_EMULATION_CHAT                40170
 
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.

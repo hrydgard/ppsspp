@@ -58,6 +58,7 @@ void ChatMenu::CreateViews() {
 	float yres = screenManager()->getUIContext()->GetBounds().h;
 
 	switch (g_Config.iChatScreenPosition) {
+	// the chat screen size is still static 280,250 need a dynamic size based on device resolution 
 	case 0:
 		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, 280, NONE, NONE, 250, true));
 		break;
@@ -87,16 +88,16 @@ void ChatMenu::CreateViews() {
 
 	CreatePopupContents(box_);
 #if defined(_WIN32) || defined(USING_QT_UI)
-	//not work yet for tywald requests cant set the focus to chat edit after chat opened
 	root_->SetDefaultFocusView(box_);
 	box_->SubviewFocused(chatEdit_);
 	root_->SetFocus();
 #else
 	root_->SetDefaultFocusView(box_);
 #endif
-	UpdateChat();
 	chatScreenVisible = true;
 	newChat = 0;
+	UI::EnableFocusMovement(true);
+	UpdateChat();
 }
 
 void ChatMenu::dialogFinished(const Screen *dialog, DialogResult result) {
@@ -115,13 +116,18 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+/*
+	maximum chat length in one message from server is only 64 character
+	need to split the chat to fit the static chat screen size
+	if the chat screen size become dynamic from device resolution
+	we need to change split function logic also.
+*/
 std::vector<std::string> Split(const std::string& str)
 {
 	std::vector<std::string> ret;
 	int counter = 0;
 	int firstSentenceEnd = 0;
 	int secondSentenceEnd = 0;
-	//NOTICE_LOG(HLE, "Splitted %s %i", str.c_str(),str.size());
 	for (auto i = 0; i<str.length(); i++) {
 		if (isspace(str[i])) {
 			if (i < 35) {
@@ -153,8 +159,8 @@ void ChatMenu::UpdateChat() {
 		chatVert_->Clear(); //read Access violation is proadhoc.cpp use NULL_->Clear() pointer?
 		std::vector<std::string> chatLog = getChatLog();
 		for (auto i : chatLog) {
+			//split long text
 			if (i.length() > 30) {
-				//split long text
 				std::vector<std::string> splitted = Split(i);
 				for (auto j : splitted) {
 					TextView *v = chatVert_->Add(new TextView(j, FLAG_DYNAMIC_ASCII, false));
@@ -185,17 +191,16 @@ bool ChatMenu::touch(const TouchInput &touch) {
 	return UIDialogScreen::touch(touch);
 }
 
-void ChatMenu::update(InputState &input) {
-	PopupScreen::update(input);
+void ChatMenu::update() {
+	PopupScreen::update();
 	if (updateChatScreen) {
 		UpdateChat();
 	}
-}
-
-void ChatMenu::postRender() {
-	if (scroll_ && toBottom_) {
-		scroll_->ScrollToBottom();
-		toBottom_ = false;
+	else {
+		if (scroll_ && toBottom_) {
+			toBottom_ = false;
+			scroll_->ScrollToBottom();
+		}
 	}
 }
 

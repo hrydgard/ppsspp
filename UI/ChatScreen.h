@@ -4,14 +4,13 @@
 
 class ChatMenu : public PopupScreen {
 public:
-	ChatMenu() : PopupScreen("Chat") {}
+	ChatMenu() : PopupScreen("Chat") , toBottom_(false) {}
 	~ChatMenu();
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	void CreateViews() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	bool touch(const TouchInput &touch) override;
-	void update(InputState &input) override;
-	void postRender() override;
+	void update() override;
 	void UpdateChat();
 private:
 	UI::EventReturn OnSubmit(UI::EventParams &e);
