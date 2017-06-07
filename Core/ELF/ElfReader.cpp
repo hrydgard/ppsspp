@@ -29,8 +29,8 @@ const char *ElfReader::GetSectionName(int section) const {
 		return nullptr;
 
 	int nameOffset = sections[section].sh_name;
-	if (nameOffset < 0) {  // TODO: Where can we get a solid upper limit?
-		ERROR_LOG(LOADER, "ELF: Bad name offset %d in section %d", nameOffset, section);
+	if (nameOffset < 0 || nameOffset >= size_) {
+		ERROR_LOG(LOADER, "ELF: Bad name offset %d in section %d (max = %d)", nameOffset, section, (int)size_);
 		return nullptr;
 	}
 	const char *ptr = (const char *)GetSectionDataPtr(header->e_shstrndx);
