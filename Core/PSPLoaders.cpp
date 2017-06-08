@@ -289,8 +289,9 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	if (pos != std::string::npos) {
 		ms_path = "ms0:" + path.substr(pos);
 	} else {
-		// Hmm..
-		ms_path = "umd0:";
+		// This is wrong, but it's better than not having a working directory at all.
+		// Note that umd0:/ is actually the writable containing directory, in this case.
+		ms_path = "umd0:/";
 	}
 
 #ifdef _WIN32
@@ -314,9 +315,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		path = rootNorm + "/";
 		pspFileSystem.SetStartingDirectory(filepath);
 	} else {
-		if (pos != std::string::npos) {
-			pspFileSystem.SetStartingDirectory(ms_path);
-		}
+		pspFileSystem.SetStartingDirectory(ms_path);
 	}
 
 	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
