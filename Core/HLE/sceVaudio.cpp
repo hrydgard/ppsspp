@@ -74,10 +74,10 @@ static u32 sceVaudioChRelease() {
 
 static u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
 	DEBUG_LOG(SCEAUDIO, "sceVaudioOutputBlocking(%i, %08x)", vol, buffer);
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].leftVolume = vol;
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].rightVolume = vol;
+	chans[PSP_AUDIO_CHANNEL_VAUDIO].leftVolume = vol;
+	chans[PSP_AUDIO_CHANNEL_VAUDIO].rightVolume = vol;
 	// TODO: This may be wrong, not sure if's in a different format?
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleAddress = buffer;
+	chans[PSP_AUDIO_CHANNEL_VAUDIO].sampleAddress = buffer;
 	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_VAUDIO], PSP_AUDIO_CHANNEL_VAUDIO, true);
 }
 
