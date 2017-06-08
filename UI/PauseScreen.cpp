@@ -28,6 +28,7 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/Core.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
@@ -328,6 +329,7 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		rightColumnItems->Add(new Choice(pa->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
 	}
+	rightColumnItems->Add(new Choice(pa->T("Restart Emulation")))->OnClick.Handle(this, &GamePauseScreen::OnRestartEmulation);
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}
@@ -348,6 +350,13 @@ UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
 }
 
 UI::EventReturn GamePauseScreen::OnState(UI::EventParams &e) {
+	TriggerFinish(DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnRestartEmulation(UI::EventParams &e) {
+	NativeMessageReceived("reset", "");
+	Core_EnableStepping(false);
 	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
