@@ -212,8 +212,6 @@ bool PPSSPP_UWPMain::Render() {
 
 	context->RSSetViewports(1, &viewport);
 
-	ctx_->GetDrawContext()->BindBackbufferAsRenderTarget();
-
 	NativeRender(ctx_.get());
 	return true;
 }
@@ -366,18 +364,31 @@ int System_GetPropertyInt(SystemProperty prop) {
 #else
 		return DEVICE_TYPE_DESKTOP;
 #endif
-	case SYSPROP_HAS_BACK_BUTTON:
-		return 1;
-	case SYSPROP_HAS_FILE_BROWSER:
-		return 1;
-	case SYSPROP_APP_GOLD:
-#ifdef GOLD
-		return 1;
-#else
-		return 0;
-#endif
 	default:
 		return -1;
+	}
+}
+
+bool VulkanMayBeAvailable() {
+	return false;
+}
+
+bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_HAS_FILE_BROWSER:
+		return true;
+	case SYSPROP_HAS_IMAGE_BROWSER:
+		return false;
+	case SYSPROP_HAS_BACK_BUTTON:
+		return true;
+	case SYSPROP_APP_GOLD:
+#ifdef GOLD
+		return true;
+#else
+		return false;
+#endif
+	default:
+		return false;
 	}
 }
 

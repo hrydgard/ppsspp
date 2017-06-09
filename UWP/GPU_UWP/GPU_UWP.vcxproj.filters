@@ -156,6 +156,10 @@
     <ClCompile Include="..\..\GPU\Common\ShaderCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\GPU\Software\Sampler.cpp" />
+    <ClCompile Include="..\..\GPU\Debugger\Record.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -285,6 +289,10 @@
       <Filter>Debugger</Filter>
     </ClInclude>
     <ClInclude Include="..\..\GPU\Debugger\Stepping.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Software\Sampler.h" />
+    <ClInclude Include="..\..\GPU\Debugger\Record.h">
       <Filter>Debugger</Filter>
     </ClInclude>
   </ItemGroup>
