@@ -516,12 +516,12 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("FullScreenMulti", &g_Config.bFullScreenMulti, false),
 #endif
 
-	// TODO: Replace these settings with a list of options
 	ConfigSetting("SmallDisplayZoomType", &g_Config.iSmallDisplayZoomType, &DefaultZoomType, true, true),
 	ConfigSetting("SmallDisplayOffsetX", &g_Config.fSmallDisplayOffsetX, 0.5f, true, true),
 	ConfigSetting("SmallDisplayOffsetY", &g_Config.fSmallDisplayOffsetY, 0.5f, true, true),
 	ConfigSetting("SmallDisplayZoomLevel", &g_Config.fSmallDisplayZoomLevel, 1.0f, true, true),
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false, true, true),
+	ConfigSetting("SustainedPerformanceMode", &g_Config.bSustainedPerformanceMode, false, true, true),
 
 	ReportedConfigSetting("TrueColor", &g_Config.bTrueColor, true, true, true),
 	ReportedConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, true, true),

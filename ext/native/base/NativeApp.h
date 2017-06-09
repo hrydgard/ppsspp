@@ -184,6 +184,7 @@ enum SystemProperty {
 	SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER,
 
 	SYSPROP_SUPPORTS_PERMISSIONS,
+	SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE,
 };
 
 std::string System_GetProperty(SystemProperty prop);

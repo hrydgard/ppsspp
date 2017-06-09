@@ -399,6 +399,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new ItemHeader("OS Information"));
 	deviceSpecs->Add(new InfoItem("Memory Page Size", StringFromFormat("%d bytes", GetMemoryProtectPageSize())));
 	deviceSpecs->Add(new InfoItem("RW/RX exclusive: ", PlatformIsWXExclusive() ? "Yes" : "No"));
+	deviceSpecs->Add(new InfoItem("Sustained perf mode: ", System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? "Yes" : "No"));
 
 	const char *build = "Release";
 #ifdef _DEBUG

@@ -99,6 +99,7 @@ private:
 
 	UI::EventReturn OnScreenRotation(UI::EventParams &e);
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
+	UI::EventReturn OnSustainedPerformanceModeChange(UI::EventParams &e);
 
 	UI::EventReturn OnAdhocGuides(UI::EventParams &e);
 
