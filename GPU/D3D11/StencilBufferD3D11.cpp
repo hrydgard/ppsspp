@@ -201,22 +201,12 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f };
 	context_->RSSetViewports(1, &vp);
 
-	float fw = dstBuffer->width;
-	float fh = dstBuffer->height;
-
 	float coord[20] = {
-		0.0f,0.0f,0.0f, 0.0f,0.0f,
-		fw,0.0f,0.0f, u1,0.0f,
-		0.0f,fh,0.0f, 0.0f,v1,
-		fw,fh,0.0f, u1,v1,
+		-1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+		 1.0f, 1.0f, 0.0f, u1,   0.0f,
+		-1.0f, -1.0f, 0.0f, 0.0f, v1,
+		 1.0f, -1.0f, 0.0f, u1,   v1,
 	};
-	// I think all these calculations pretty much cancel out?
-	float invDestW = 1.0f / (fw * 0.5f);
-	float invDestH = 1.0f / (fh * 0.5f);
-	for (int i = 0; i < 4; i++) {
-		coord[i * 5] = coord[i * 5] * invDestW - 1.0f;
-		coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f);
-	}
 
 	D3D11_MAPPED_SUBRESOURCE map;
 	context_->Map(quadBuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);

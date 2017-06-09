@@ -1291,21 +1291,24 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 	if (fbo) {
 		D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 		if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {
-			return;
+			// No need to switch, but let's fallthrough to clear!
+		} else {
+			context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
+			curRenderTargetView_ = fb->colorRTView;
+			curDepthStencilView_ = fb->depthStencilRTView;
+			curRTWidth_ = fb->width;
+			curRTHeight_ = fb->height;
 		}
-		context_->OMSetRenderTargets(1, &fb->colorRTView, fb->depthStencilRTView);
-		curRenderTargetView_ = fb->colorRTView;
-		curDepthStencilView_ = fb->depthStencilRTView;
-		curRTWidth_ = fb->width;
-		curRTHeight_ = fb->height;
 	} else {
-		if (curRenderTargetView_ == bbRenderTargetView_ && curDepthStencilView_ == bbDepthStencilView_)
-			return;
-		context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
-		curRenderTargetView_ = bbRenderTargetView_;
-		curDepthStencilView_ = bbDepthStencilView_;
-		curRTWidth_ = bbWidth_;
-		curRTHeight_ = bbHeight_;
+		if (curRenderTargetView_ == bbRenderTargetView_ && curDepthStencilView_ == bbDepthStencilView_) {
+			// No need to switch, but let's fallthrough to clear!
+		} else {
+			context_->OMSetRenderTargets(1, &bbRenderTargetView_, bbDepthStencilView_);
+			curRenderTargetView_ = bbRenderTargetView_;
+			curDepthStencilView_ = bbDepthStencilView_;
+			curRTWidth_ = bbWidth_;
+			curRTHeight_ = bbHeight_;
+		}
 	}
 	if (rp.color == RPAction::CLEAR && curRenderTargetView_) {
 		float cv[4]{};
