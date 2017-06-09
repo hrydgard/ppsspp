@@ -234,20 +234,12 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 
 	dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0xFF, 0xFF);
 
-	float fw = dstBuffer->width;
-	float fh = dstBuffer->height;
 	float coord[20] = {
-		0.0f,0.0f,0.0f, 0.0f,0.0f,
-		fw,0.0f,0.0f, u1,0.0f,
-		fw,fh,0.0f, u1,v1,
-		0.0f,fh,0.0f, 0.0f,v1,
+		-1.0f,  1.0f, 0.0f, 0.0f, 0.0f,
+		 1.0f,  1.0f, 0.0f, u1,   0.0f,
+		-1.0f, -1.0f, 0.0f, 0.0f, v1,
+		 1.0f, -1.0f, 0.0f, u1,   v1,
 	};
-	float invDestW = 1.0f / (fw * 0.5f);
-	float invDestH = 1.0f / (fh * 0.5f);
-	for (int i = 0; i < 4; i++) {
-		coord[i * 5] = coord[i * 5] * invDestW - 1.0f;
-		coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f);
-	}
 
 	device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
@@ -278,7 +270,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 			const float f[4] = {i * (1.0f / 255.0f)};
 			device_->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
 		}
-		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
+		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "Failed to draw stencil bit %x: %08x", i, hr);
 		}

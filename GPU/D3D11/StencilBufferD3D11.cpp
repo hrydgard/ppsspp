@@ -202,8 +202,8 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	context_->RSSetViewports(1, &vp);
 
 	float coord[20] = {
-		-1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		 1.0f, 1.0f, 0.0f, u1,   0.0f,
+		-1.0f,  1.0f, 0.0f, 0.0f, 0.0f,
+		 1.0f,  1.0f, 0.0f, u1,   0.0f,
 		-1.0f, -1.0f, 0.0f, 0.0f, v1,
 		 1.0f, -1.0f, 0.0f, u1,   v1,
 	};
