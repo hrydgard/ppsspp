@@ -2190,7 +2190,9 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		if (undesiredChars == std::string::npos) {
 			std::size_t ldot = info.name.find_last_of(".");
 			std::string filename = info.name.substr(0, ldot);
-			std::string extension = info.name.substr(ldot + 1);
+			std::string extension = "";
+			if (ldot)
+				std::string extension = info.name.substr(ldot + 1);
 			if (filename.size() <= 8 && extension.size() <= 3) {
 				// PSP wears an uppercase glasses for 8.3 all-lowercase filenames
 				for (char &c : info.name) {
