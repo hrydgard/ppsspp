@@ -2186,6 +2186,20 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		PSPFileInfo &info = dir->listing[dir->index];
 		__IoGetStat(&entry->d_stat, info);
 
+		std::size_t undesiredChars = info.name.find_first_not_of("abcdefghijklmnopqrstuvwxyz01234567890.");
+		if (undesiredChars == std::string::npos) {
+			std::size_t ldot = info.name.find_last_of(".");
+			std::string filename = info.name.substr(0, ldot);
+			std::string extension = "";
+			if (ldot)
+				std::string extension = info.name.substr(ldot + 1);
+			if (filename.size() <= 8 && extension.size() <= 3) {
+				// PSP wears an uppercase glasses for 8.3 all-lowercase filenames
+				for (char &c : info.name) {
+					c = toupper(c);
+				}
+			}
+		}
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_name[255] = '\0';
 		
