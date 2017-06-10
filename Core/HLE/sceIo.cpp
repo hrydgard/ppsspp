@@ -2186,6 +2186,10 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		PSPFileInfo &info = dir->listing[dir->index];
 		__IoGetStat(&entry->d_stat, info);
 
+		// PSP wears an uppercase glasses for filenames
+		for (char &c : info.name) {
+			c = toupper(c);
+		}
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_name[255] = '\0';
 		
