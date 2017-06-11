@@ -29,6 +29,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/Common/ShaderId.h"
@@ -338,6 +339,9 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
 		WRITE(p, "  z = floor(z);\n");
 		WRITE(p, "  z = (z - u_depthRange.z) * u_depthRange.w;\n");
+		if (PSP_CoreParameter().compat.flags().DecreaseVertexDepthAccuracy) {
+			WRITE(p, "  z /= 1.000031;\n"); // Hokuto no Ken: Raoh Gaiden - Ten no Haoh
+		}
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}

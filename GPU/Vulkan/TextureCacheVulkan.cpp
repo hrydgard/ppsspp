@@ -207,9 +207,8 @@ void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
 	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
@@ -221,10 +220,17 @@ void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	if (entry.maxLevel != 0) {
 		if (force || entry.lodBias != lodBias) {
 			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-				if (autoMip) {
+				GETexLevelMode mode = gstate.getTexLevelMode();
+				switch (mode) {
+				case GE_TEXLEVEL_MODE_AUTO:
 					// TODO
-				} else {
+					break;
+				case GE_TEXLEVEL_MODE_CONST:
+					// Sigh, LOD_BIAS is not even in ES 3.0..
+					break;
+				case GE_TEXLEVEL_MODE_SLOPE:
 					// TODO
+					break;
 				}
 			}
 			entry.lodBias = lodBias;
@@ -243,8 +249,7 @@ void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, autoMip);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0);
 
 	key.minFilt = minFilt & 1;
 	key.mipFilt = 0;

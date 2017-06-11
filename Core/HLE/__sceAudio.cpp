@@ -196,6 +196,10 @@ void __AudioShutdown() {
 }
 
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
+	while (chan.leftVolume > 0x8000) {
+		chan.leftVolume >>= 1;
+		chan.rightVolume >>= 1;
+	}
 	u32 ret = chan.sampleCount;
 
 	if (chan.sampleAddress == 0) {

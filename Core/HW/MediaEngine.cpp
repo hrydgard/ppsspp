@@ -21,6 +21,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 #include "GPU/GPUState.h"  // Used by TextureDecoder.h when templates get instanced
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUInterface.h"
@@ -303,7 +304,7 @@ bool MediaEngine::openContext(bool keepReadPos) {
 	}
 	av_dict_free(&open_opt);
 
-	if (!SetupStreams()) {
+	if (!SetupStreams() || PSP_CoreParameter().compat.flags().HackFixVideo) {
 		// Fallback to old behavior.
 		if (avformat_find_stream_info(m_pFormatCtx, NULL) < 0) {
 			closeContext();
@@ -334,6 +335,10 @@ bool MediaEngine::openContext(bool keepReadPos) {
 	setVideoDim();
 	m_audioContext = new SimpleAudio(m_audioType, 44100, 2);
 	m_isVideoEnd = false;
+	if (PSP_CoreParameter().compat.flags().HackFixVideo) {
+		m_mpegheaderReadPos++;
+		av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
+	}
 #endif // USE_FFMPEG
 	return true;
 }
@@ -399,7 +404,12 @@ int MediaEngine::addStreamData(const u8 *buffer, int addSize) {
 			int streamOffset = (int)(*(s32_be *)(m_mpegheader + 8));
 			if (streamOffset <= m_mpegheaderSize) {
 				m_mpegheaderSize = streamOffset;
-				m_pdata->pop_front(0, m_mpegheaderSize);
+				if (PSP_CoreParameter().compat.flags().HackFixVideo) {
+					int mpegoffset = (int)(*(s32_be*)(m_mpegheader + 8));
+					m_pdata->pop_front(0, mpegoffset);
+				} else {
+					m_pdata->pop_front(0, m_mpegheaderSize);
+				}
 				openContext();
 			}
 		}

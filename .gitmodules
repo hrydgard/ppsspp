@@ -19,3 +19,6 @@
 [submodule "ext/SPIRV-Cross"]
 	path = ext/SPIRV-Cross
 	url = https://github.com/KhronosGroup/SPIRV-Cross.git
+[submodule "assets/patches"]
+	path = assets/patches
+	url = https://github.com/LunaMoo/PPSSPP_workarounds.git

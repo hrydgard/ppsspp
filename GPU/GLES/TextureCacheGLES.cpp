@@ -128,31 +128,42 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
 	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr);
 
-	if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-		if (maxLevel != 0) {
-			// TODO: What about a swap of autoMip mode?
-			if (force || entry.lodBias != lodBias) {
-				if (autoMip) {
+	if (entry.maxLevel != 0) {
+		if (force || entry.lodBias != lodBias) {
+			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+				GETexLevelMode mode = gstate.getTexLevelMode();
+				switch (mode) {
+				case GE_TEXLEVEL_MODE_AUTO:
 #ifndef USING_GLES2
 					// Sigh, LOD_BIAS is not even in ES 3.0.. but we could do it in the shader via texture()...
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
 #endif
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
-				} else {
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
+					break;
+				case GE_TEXLEVEL_MODE_CONST:
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, lodBias);
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, lodBias);
+					break;
+				case GE_TEXLEVEL_MODE_SLOPE:
+					WARN_LOG_REPORT_ONCE(texSlope, G3D, "Unsupported texture lod slope: %f + %f", gstate.getTextureLodSlope(), lodBias);
+					// TODO: This behavior isn't correct.
+#ifndef USING_GLES2
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
+#endif
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry.maxLevel);
+					break;
 				}
-				entry.lodBias = lodBias;
 			}
-		} else {
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0.0f);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0.0f);
+			entry.lodBias = lodBias;
 		}
+	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0.0f);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0.0f);
 	}
 
 	if (force || entry.minFilt != minFilt) {
@@ -185,8 +196,7 @@ void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferH
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, autoMip);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0);
 
 	minFilt &= 1;  // framebuffers can't mipmap.
 

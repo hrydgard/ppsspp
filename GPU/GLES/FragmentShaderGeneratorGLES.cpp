@@ -23,6 +23,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
@@ -688,6 +689,9 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			}
 		} else {
 			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
+		}
+		if (PSP_CoreParameter().compat.flags().DecreaseFragmentDepthAccuracy) {
+			WRITE(p, "  z /= 2000.0;\n"); // Nasty hack to completely remove flicker in Heroes Phantasia
 		}
 		WRITE(p, "  gl_FragDepth = z;\n");
 	}

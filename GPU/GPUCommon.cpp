@@ -130,7 +130,6 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_IMAGE },
 	{ GE_CMD_TEXLEVEL, FLAG_EXECUTEONCHANGE, DIRTY_TEXTURE_PARAMS, &GPUCommon::Execute_TexLevel },
-	{ GE_CMD_TEXLODSLOPE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_IMAGE | DIRTY_UVSCALEOFFSET },
 	{ GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
@@ -270,6 +269,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 
 	// Ignored commands
 	{ GE_CMD_TEXFLUSH, 0 },
+	{ GE_CMD_TEXLODSLOPE, 0 },
 	{ GE_CMD_TEXSYNC, 0 },
 
 	// These are just nop or part of other later commands.
@@ -744,6 +744,9 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
 		return SCE_KERNEL_ERROR_ALREADY;
 
 	dl.stall = newstall & 0x0FFFFFFF;
+
+	if (dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE && PSP_CoreParameter().compat.flags().HackFixHangs)
+		dl.signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
 	
 	guard.unlock();
 	ProcessDLQueue();
@@ -918,6 +921,9 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 			easy_guard innerGuard(listLock);
 			if (list.pc == list.stall) {
 				gpuState = GPUSTATE_STALL;
+				if (PSP_CoreParameter().compat.flags().FlushAtStall) {
+					Flush();
+				}
 				downcount = 0;
 			}
 		}
@@ -1435,7 +1441,7 @@ void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 	if (diff == 0xFFFFFFFF) return;
 
 	gstate.texlevel ^= diff;
-	if (gstate.getTexLevelMode() != GE_TEXLEVEL_MODE_AUTO && (0x00FF0000 & gstate.texlevel) != 0) {
+	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST && (0x00FF0000 & gstate.texlevel) != 0) {
 		Flush();
 	}
 	gstate.texlevel ^= diff;

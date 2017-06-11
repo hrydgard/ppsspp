@@ -99,11 +99,11 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 		// Auto selected mip + bias.
 		samp.MaxLOD = key.maxLevel;
 		samp.MinLOD = 0.0f;
-		samp.MipLODBias = (float)key.lodBias / 256.0f;
+		samp.MipLODBias = (float)key.lodBias / 16.0f;
 	} else {
 		// Constant mip at bias.
-		samp.MaxLOD = std::max(0.0f, std::min((float)key.maxLevel, (float)key.lodBias / 256.0f));
-		samp.MinLOD = std::max(0.0f, std::min((float)key.maxLevel, (float)key.lodBias / 256.0f));
+		samp.MaxLOD = (float)key.lodBias / 16.0f;
+		samp.MinLOD = (float)key.lodBias / 16.0f;
 		samp.MipLODBias = 0.0f;
 	}
 #endif
@@ -176,19 +176,21 @@ void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheK
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
 	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
 	key.magFilt = magFilt & 1;
 	key.sClamp = sClamp;
 	key.tClamp = tClamp;
-	// Don't clamp to maxLevel - this may bias magnify levels.
-	key.lodBias = (int)(lodBias * 256.0f);
+	key.lodBias = (s8)((gstate.texlevel >> 16) & 0xFF);
+	if (key.lodBias > entry.maxLevel * 16) {
+		key.lodBias = entry.maxLevel * 16;
+	}
 	key.maxLevel = maxLevel;
-	key.lodAuto = autoMip;
+	key.lodAuto = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_AUTO;
+	// TODO: GE_TEXLEVEL_MODE_SLOPE
 
 	if (entry.framebuffer) {
 		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
@@ -202,7 +204,7 @@ void TextureCacheD3D11::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffer
 	bool tClamp;
 	float lodBias;
 	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, autoMip);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0);
 
 	key.minFilt = minFilt & 1;
 	key.mipFilt = 0;

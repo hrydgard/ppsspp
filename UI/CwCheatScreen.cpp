@@ -178,18 +178,8 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
-	if (gameTitle.length() != 9) {
-		WARN_LOG(COMMON, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameTitle.c_str());
-		return UI::EVENT_DONE;
-	}
-	std::string line;
-	std::vector<std::string> title;
+void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> title, std::vector<std::string> newList, std::string cheatFile) {
 	bool finished = false, skip = false;
-	std::vector<std::string> newList;
-
-	std::string cheatFile = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
-
 	std::fstream fs;
 	File::OpenCPPFile(fs, cheatFile, std::ios::in);
 
@@ -204,7 +194,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 			getline(fs, line);
 			title.push_back(line);
 			do {
-				if (finished == false){
+				if (finished == false) {
 					getline(fs, line);
 				}
 				if (line.substr(0, 2) == "_C") {
@@ -223,7 +213,8 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 						getline(fs, line);
 					} while (line.substr(0, 2) == "_L");
 					finished = true;
-				} else {
+				}
+				else {
 					continue;
 				}
 			loop:;
@@ -234,6 +225,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 			break;
 	}
 	fs.close();
+
 	std::string title2;
 	File::OpenCPPFile(fs, activeCheatFile, std::ios::in);
 	getline(fs, title2);
@@ -257,6 +249,23 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 		}
 	}
 	fs.close();
+}
+
+UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
+	if (gameTitle.length() != 9) {
+		WARN_LOG(COMMON, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameTitle.c_str());
+		return UI::EVENT_DONE;
+	}
+	std::string line;
+	std::vector<std::string> title;
+	std::vector<std::string> newList;
+
+	std::string cheatFile = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
+	ParseCheatDB(line, title, newList, cheatFile);
+	const std::string path = File::GetExeDirectory();
+	std::string patchesFile = path + "assets/patches/cheat.db";
+	ParseCheatDB(line, title, newList, patchesFile);
+
 	g_Config.bReloadCheats = true;
 	//Need a better way to refresh the screen, rather than exiting and having to re-enter.
 	TriggerFinish(DR_OK);

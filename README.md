@@ -1,4 +1,11 @@
-﻿PPSSPP - a fast and portable PSP emulator
+﻿The aim of this hackish branch is to:
+ - hackfix stuff that might never get fixed because it's a regression to an unpopular game caused by a fix to popular one etc,
+ - add my workaround cheat.db as a submodule to distinguish cheats and patches on importing,
+ - more compat.ini hacks to easier test rare games against known problems and regressions.
+
+
+
+PPSSPP - a fast and portable PSP emulator
 =========================================
 
 Created by Henrik Rydgård

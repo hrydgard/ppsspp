@@ -174,7 +174,10 @@ u32 FramebufferManagerCommon::FramebufferByteSize(const VirtualFramebuffer *vfb)
 }
 
 bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const {
-	return updateVRAM_ || (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000);
+	return updateVRAM_ ||
+		(PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) ||
+		(PSP_CoreParameter().compat.flags().ForceRangeDownload && vfb->fb_address >= 0x001F3A80 && vfb->fb_address <= 0x001FE7C0) ||
+		(PSP_CoreParameter().compat.flags().Force04Download && vfb->fb_address >= 0x00000000 && vfb->fb_address <= 0x00400000); // Should be vfb->fb_address >= 0x00154000 && vfb->fb_address <= 0x00158000, but nah, let's make it less safe, but more universal
 }
 
 void FramebufferManagerCommon::SetNumExtraFBOs(int num) {

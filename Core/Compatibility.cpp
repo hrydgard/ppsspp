@@ -52,6 +52,14 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "Force04154000Download", &flags_.Force04154000Download);
 	CheckSetting(iniFile, gameID, "DrawSyncEatCycles", &flags_.DrawSyncEatCycles);
 	CheckSetting(iniFile, gameID, "FakeMipmapChange", &flags_.FakeMipmapChange);
+	CheckSetting(iniFile, gameID, "HackFixVideo", &flags_.HackFixVideo);
+	CheckSetting(iniFile, gameID, "HackFixHangs", &flags_.HackFixHangs);
+	CheckSetting(iniFile, gameID, "HackLatchedFramebuffer", &flags_.HackLatchedFramebuffer);
+	CheckSetting(iniFile, gameID, "DecreaseVertexDepthAccuracy", &flags_.DecreaseVertexDepthAccuracy);
+	CheckSetting(iniFile, gameID, "DecreaseFragmentDepthAccuracy", &flags_.DecreaseFragmentDepthAccuracy);
+	CheckSetting(iniFile, gameID, "ForceRangeDownload", &flags_.ForceRangeDownload);
+	CheckSetting(iniFile, gameID, "FlushAtStall", &flags_.FlushAtStall);
+	CheckSetting(iniFile, gameID, "Force04Download", &flags_.Force04Download);
 	CheckSetting(iniFile, gameID, "RequireBufferedRendering", &flags_.RequireBufferedRendering);
 	CheckSetting(iniFile, gameID, "RequireBlockTransfer", &flags_.RequireBlockTransfer);
 }

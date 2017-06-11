@@ -32,6 +32,7 @@ public:
 	void CreateCodeList();
 	void processFileOn(std::string activatedCheat);
 	void processFileOff(std::string deactivatedCheat);
+	void ParseCheatDB(std::string line, std::vector<std::string> title, std::vector<std::string> newList, std::string cheatFile);
 	const char * name;
 	std::string activatedCheat, deactivatedCheat;
 	UI::EventReturn OnAddCheat(UI::EventParams &params);

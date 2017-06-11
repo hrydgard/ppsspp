@@ -127,43 +127,23 @@ int TextureCacheCommon::AttachedDrawingHeight() {
 	return 0;
 }
 
-// Produces a signed 1.23.8 value.
-static int TexLog2(float delta) {
-	union FloatBits {
-		float f;
-		u32 u;
-	};
-	FloatBits f;
-	f.f = delta;
-	// Use the exponent as the tex level, and the top mantissa bits for a frac.
-	// We can't support more than 8 bits of frac, so truncate.
-	int useful = (f.u >> 15) & 0xFFFF;
-	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
-	return useful - 127 * 256;
-}
-
-void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr, bool &autoMip) {
+void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr) {
 	minFilt = gstate.texfilter & 0x7;
 	magFilt = gstate.isMagnifyFilteringEnabled();
 	sClamp = gstate.isTexCoordClampedS();
 	tClamp = gstate.isTexCoordClampedT();
 
-	GETexLevelMode mipMode = gstate.getTexLevelMode();
-	autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
-	lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
-	if (mipMode == GE_TEXLEVEL_MODE_SLOPE) {
-		lodBias += 1.0f + TexLog2(gstate.getTextureLodSlope()) * (1.0f / 256.0f);
-	}
-
-	// If mip level is forced to zero, disable mipmapping.
-	bool noMip = maxLevel == 0 || (!autoMip && lodBias <= 0.0f);
+	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001;  // Fix texlevel at 0
 	if (IsFakeMipmapChange())
-		noMip = noMip || !autoMip;
+		noMip = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST;
 
-	if (noMip) {
+	if (maxLevel == 0) {
 		// Enforce no mip filtering, for safety.
 		minFilt &= 1; // no mipmaps yet
 		lodBias = 0.0f;
+	} else {
+		// Texture lod bias should be signed.
+		lodBias = (float)(int)(s8)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
 	}
 
 	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR_VIDEO) {
@@ -191,6 +171,9 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	if (forceNearest) {
 		magFilt &= ~1;
 		minFilt &= ~1;
+	}
+	if (noMip) {
+		minFilt &= 1;
 	}
 }
 

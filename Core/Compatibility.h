@@ -54,6 +54,14 @@ struct CompatFlags {
 	bool FakeMipmapChange;
 	bool RequireBufferedRendering;
 	bool RequireBlockTransfer;
+	bool HackFixVideo;
+	bool HackFixHangs;
+	bool HackLatchedFramebuffer;
+	bool DecreaseVertexDepthAccuracy;
+	bool DecreaseFragmentDepthAccuracy;
+	bool ForceRangeDownload;
+	bool FlushAtStall;
+	bool Force04Download;
 };
 
 class IniFile;
