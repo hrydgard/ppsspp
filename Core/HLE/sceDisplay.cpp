@@ -413,7 +413,7 @@ static bool IsRunningSlow() {
 			best = std::max(fpsHistory[index], best);
 		}
 
-		return best < 57.94;
+		return best < 58.94;
 	}
 
 	return false;
