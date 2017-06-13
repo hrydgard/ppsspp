@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
 #include <limits>
 #include "file/free.h"
 #include "file/zip_read.h"
@@ -749,6 +750,59 @@ static void tmFromFiletime(tm &dest, FILETIME &src) {
 }
 #endif
 
+// This simulates a bug in the PSP VFAT driver.
+//
+// Windows NT VFAT optimizes valid DOS filenames that are in lowercase.
+// The PSP VFAT driver doesn't support this optimization, and behaves like Windows 98.
+// Some homebrew depends on this bug in the PSP firmware.
+//
+// This essentially tries to simulate the "Windows 98 world view" on modern operating systems.
+// Essentially all lowercase files are seen as UPPERCASE.
+//
+// Note: PSP-created files would stay lowercase, but this uppercases them too.
+// Hopefully no PSP games read directories after they create files in them...
+static std::string SimulateVFATBug(std::string filename) {
+	// These are the characters allowed in DOS filenames.
+	static const char *FAT_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&'(){}-_`~";
+	static const char *FAT_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&'(){}-_`~";
+
+	bool apply_hack = false;
+	size_t dot_pos = filename.find('.');
+	if (dot_pos == filename.npos) {
+		size_t badchar = filename.find_first_not_of(FAT_LOWER_CHARS);
+		if (badchar == filename.npos) {
+			// It's all lowercase.  Convert to upper.
+			apply_hack = true;
+		}
+	} else {
+		// There's a separate flag for each, so we compare separately.
+		// But they both have to either be all upper or lowercase.
+		std::string base = filename.substr(0, dot_pos);
+		std::string ext = filename.substr(dot_pos + 1);
+
+		// The filename must be short enough to fit.
+		if (base.length() <= 8 && ext.length() <= 3) {
+			size_t base_non_lower = base.find_first_not_of(FAT_LOWER_CHARS);
+			size_t base_non_upper = base.find_first_not_of(FAT_UPPER_CHARS);
+			size_t ext_non_lower = ext.find_first_not_of(FAT_LOWER_CHARS);
+			size_t ext_non_upper = ext.find_first_not_of(FAT_UPPER_CHARS);
+
+			// As long as neither is mixed, we apply the hack.
+			bool base_apply_hack = base_non_lower == base.npos || base_non_upper == base.npos;
+			bool ext_apply_hack = ext_non_lower == ext.npos || ext_non_upper == ext.npos;
+			apply_hack = base_apply_hack && ext_apply_hack;
+		}
+	}
+
+	if (apply_hack) {
+		// In this situation, NT would write UPPERCASE, and just set a flag to say "actually lowercase".
+		// That VFAT flag isn't read by the PSP firmware, so let's pretend to "not read it."
+		std::transform(filename.begin(), filename.end(), filename.begin(), toupper);
+	}
+
+	return filename;
+}
+
 std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	std::vector<PSPFileInfo> myVector;
 #ifdef _WIN32
@@ -778,7 +832,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 			entry.size = 4096;
 		else
 			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
-		entry.name = ConvertWStringToUTF8(findData.cFileName);
+		entry.name = SimulateVFATBug(ConvertWStringToUTF8(findData.cFileName));
 		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
 		tmFromFiletime(entry.ctime, findData.ftCreationTime);
 		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
@@ -817,7 +871,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		else
 			entry.type = FILETYPE_NORMAL;
 		entry.access = s.st_mode & 0x1FF;
-		entry.name = dirp->d_name;
+		entry.name = SimulateVFATBug(dirp->d_name);
 		entry.size = s.st_size;
 		localtime_r((time_t*)&s.st_atime,&entry.atime);
 		localtime_r((time_t*)&s.st_ctime,&entry.ctime);
