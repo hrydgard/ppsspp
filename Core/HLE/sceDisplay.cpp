@@ -405,6 +405,7 @@ static bool IsRunningSlow() {
 	if (fpsHistoryValid >= 8) {
 		// Look at only the last 15 samples (starting at the 14th sample behind current.)
 		int rangeStart = fpsHistoryPos - std::min(fpsHistoryValid, 14);
+		System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1.001f;
 
 		double best = 0.0f;
 		for (int i = rangeStart; i <= fpsHistoryPos; ++i) {
@@ -413,7 +414,6 @@ static bool IsRunningSlow() {
 			best = std::max(fpsHistory[index], best);
 		}
 
-		System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1.001f;
 		return best < 58.94;
 	}
 
