@@ -24,8 +24,10 @@
 
 #include "Compare.h"
 #include "StubHost.h"
-#ifdef _WIN32
+#if defined(_WIN32)
 #include "WindowsHeadlessHost.h"
+#elif defined(SDL)
+#include "SDLHeadlessHost.h"
 #endif
 
 // https://github.com/richq/android-ndk-profiler
@@ -199,7 +201,7 @@ int main(int argc, const char* argv[])
 {
 	PROFILE_INIT();
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && defined(_MSC_VER)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 

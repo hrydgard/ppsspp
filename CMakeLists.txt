@@ -1771,7 +1771,9 @@ if(HEADLESS)
 		headless/Headless.cpp
 		headless/StubHost.h
 		headless/Compare.cpp
-		headless/Compare.h)
+		headless/Compare.h
+		headless/SDLHeadlessHost.cpp
+		headless/SDLHeadlessHost.h)
 	target_link_libraries(PPSSPPHeadless
 		${COCOA_LIBRARY} ${LinkCommon})
 	setup_target_project(PPSSPPHeadless headless)
