@@ -80,12 +80,6 @@ public:
 			return filename.substr(pos);
 		}
 	}
-
-	virtual void Seek(s64 absolutePos) = 0;
-	virtual size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
-	virtual size_t Read(size_t bytes, void *data, Flags flags = Flags::NONE) {
-		return Read(1, bytes, data, flags);
-	}
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) {
 		return ReadAt(absolutePos, 1, bytes, data, flags);

@@ -25,7 +25,7 @@
 
 // Takes ownership of backend.
 CachingFileLoader::CachingFileLoader(FileLoader *backend)
-	: filesize_(0), filepos_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false), prepared_(false) {
+	: filesize_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false), prepared_(false) {
 }
 
 void CachingFileLoader::Prepare() {
@@ -82,10 +82,6 @@ std::string CachingFileLoader::Path() const {
 	return backend_->Path();
 }
 
-void CachingFileLoader::Seek(s64 absolutePos) {
-	filepos_ = absolutePos;
-}
-
 size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
 	Prepare();
 	if (absolutePos >= filesize_) {
@@ -114,7 +110,6 @@ size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flag
 		StartReadAhead(absolutePos + readSize);
 	}
 
-	filepos_ = absolutePos + readSize;
 	return readSize;
 }
 

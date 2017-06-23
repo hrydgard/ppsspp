@@ -37,13 +37,6 @@ public:
 	s64 FileSize() override;
 	std::string Path() const override;
 
-	void Seek(s64 absolutePos) override;
-	size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
-		return ReadAt(filepos_, bytes, count, data, flags);
-	}
-	size_t Read(size_t bytes, void *data, Flags flags = Flags::NONE) override {
-		return ReadAt(filepos_, bytes, data, flags);
-	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
 		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
 	}
@@ -58,7 +51,6 @@ private:
 
 	bool prepared_;
 	s64 filesize_;
-	s64 filepos_;
 	FileLoader *backend_;
 	DiskCachingFileLoaderCache *cache_;
 

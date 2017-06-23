@@ -41,7 +41,7 @@ std::mutex DiskCachingFileLoader::cachesMutex_;
 
 // Takes ownership of backend.
 DiskCachingFileLoader::DiskCachingFileLoader(FileLoader *backend)
-	: prepared_(false), filesize_(0), filepos_(0), backend_(backend), cache_(nullptr) {
+	: prepared_(false), filesize_(0), backend_(backend), cache_(nullptr) {
 }
 
 void DiskCachingFileLoader::Prepare() {
@@ -88,10 +88,6 @@ std::string DiskCachingFileLoader::Path() const {
 	return backend_->Path();
 }
 
-void DiskCachingFileLoader::Seek(s64 absolutePos) {
-	filepos_ = absolutePos;
-}
-
 size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
 	Prepare();
 	size_t readSize;
@@ -119,7 +115,6 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, 
 		readSize = backend_->ReadAt(absolutePos, bytes, data, flags);
 	}
 
-	filepos_ = absolutePos + readSize;
 	return readSize;
 }
 

@@ -115,10 +115,6 @@ std::string HTTPFileLoader::Path() const {
 	return filename_;
 }
 
-void HTTPFileLoader::Seek(s64 absolutePos) {
-	filepos_ = absolutePos;
-}
-
 size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
 	Prepare();
 	s64 absoluteEnd = std::min(absolutePos + (s64)bytes, filesize_);

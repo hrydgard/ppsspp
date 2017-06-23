@@ -15,14 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cstdio>
 #include "file/file_util.h"
 #include "Common/FileUtil.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 
 LocalFileLoader::LocalFileLoader(const std::string &filename)
 	: fd_(0), f_(nullptr), filesize_(0), filename_(filename) {
+    // FIXME: perhaps at this point we should just use plain open?
 	f_ = File::OpenCFile(filename, "rb");
+	fd_ = fileno(f_);
 	if (!f_) {
 		return;
 	}
@@ -30,8 +31,6 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 #ifdef __ANDROID__
 	// Android NDK does not support 64-bit file I/O using C streams
 	// so we fall back onto syscalls
-	fd_ = fileno(f_);
-
 	off64_t off = lseek64(fd_, 0, SEEK_END);
 	filesize_ = off;
 	lseek64(fd_, 0, SEEK_SET);
@@ -73,23 +72,6 @@ std::string LocalFileLoader::Path() const {
 	return filename_;
 }
 
-void LocalFileLoader::Seek(s64 absolutePos) {
-#ifdef __ANDROID__
-	lseek64(fd_, absolutePos, SEEK_SET);
-#else
-	fseeko(f_, absolutePos, SEEK_SET);
-#endif
-}
-
-size_t LocalFileLoader::Read(size_t bytes, size_t count, void *data, Flags flags) {
-#ifdef __ANDROID__
-	return read(fd_, data, bytes * count) / bytes;
-#else
-	return fread(data, bytes, count, f_);
-#endif
-}
-
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
-	Seek(absolutePos);
-	return Read(bytes, count, data);
+    return pread(fd_, data, bytes * count, absolutePos) / bytes;
 }

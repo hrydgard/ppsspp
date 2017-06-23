@@ -29,9 +29,6 @@ public:
 	virtual bool IsDirectory() override;
 	virtual s64 FileSize() override;
 	virtual std::string Path() const override;
-
-	virtual void Seek(s64 absolutePos) override;
-	virtual size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 
 private:

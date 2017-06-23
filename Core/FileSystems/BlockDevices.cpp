@@ -38,7 +38,6 @@ BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 		return nullptr;
 	char buffer[4]{};
 	size_t size = fileLoader->ReadAt(0, 1, 4, buffer);
-	fileLoader->Seek(0);
 	if (size == 4 && !memcmp(buffer, "CISO", 4))
 		return new CISOFileBlockDevice(fileLoader);
 	else if (size == 4 && !memcmp(buffer, "\x00PBP", 4))
