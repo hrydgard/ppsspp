@@ -18,6 +18,9 @@
 #include "file/file_util.h"
 #include "Common/FileUtil.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
+#ifdef _WIN32
+#include "Common/CommonWindows.h"
+#endif
 
 LocalFileLoader::LocalFileLoader(const std::string &filename)
 	: fd_(0), f_(nullptr), filesize_(0), filename_(filename) {
@@ -73,5 +76,18 @@ std::string LocalFileLoader::Path() const {
 }
 
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
-    return pread(fd_, data, bytes * count, absolutePos) / bytes;
+#ifndef _WIN32
+	return pread(fd_, data, bytes * count, absolutePos) / bytes;
+#else
+	DWORD read = -1;
+	intptr_t handle = fileno_to_handle(fd_);
+	if (handle == 0) {
+		return -1;
+	}
+	OVERLAPPED offset = { 0 };
+	offset.Offset = (DWORD)(absolutePos & 0xffffffff);
+	offset.OffsetHigh = (DWORD)((absolutePos & 0xffffffff00000000) >> 32);
+	auto result = ReadFile((HANDLE)handle, data, bytes * count, &read, &offset);
+	return result == TRUE ? (size_t)read / bytes : -1;
+#endif
 }
