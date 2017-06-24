@@ -77,7 +77,6 @@ private:
 
 	std::map<s64, BlockInfo> blocks_;
 	std::recursive_mutex blocksMutex_;
-	mutable std::mutex backendMutex_;
 	bool aheadThread_;
-	bool prepared_;
+	std::once_flag preparedFlag_;
 };

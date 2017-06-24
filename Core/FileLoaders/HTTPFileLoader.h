@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <mutex>
+
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"
@@ -61,5 +63,7 @@ private:
 	http::Client client_;
 	std::string filename_;
 	bool connected_;
-	bool prepared_;
+
+	std::once_flag preparedFlag_;
+	std::mutex readAtMutex_;
 };
