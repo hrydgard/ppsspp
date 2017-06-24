@@ -20,7 +20,7 @@
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
 #ifdef _WIN32
-#include "Common/CommonWindows.h"
+typedef void *HANDLE;
 #endif
 
 class LocalFileLoader : public FileLoader {

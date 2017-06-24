@@ -15,12 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include "util/text/utf8.h"
 #include "file/file_util.h"
 #include "Common/FileUtil.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include "Common/CommonWindows.h"
+#else
 #include <fcntl.h>
 #endif
 
@@ -107,7 +110,7 @@ size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void
 	OVERLAPPED offset = { 0 };
 	offset.Offset = (DWORD)(absolutePos & 0xffffffff);
 	offset.OffsetHigh = (DWORD)((absolutePos & 0xffffffff00000000) >> 32);
-	auto result = ReadFile(handle_, data, bytes * count, &read, &offset);
+	auto result = ReadFile(handle_, data, (DWORD)(bytes * count), &read, &offset);
 	return result == TRUE ? (size_t)read / bytes : -1;
 #endif
 }
