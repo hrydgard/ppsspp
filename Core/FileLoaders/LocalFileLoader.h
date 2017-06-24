@@ -19,6 +19,9 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
+#ifdef _WIN32
+#include "Common/CommonWindows.h"
+#endif
 
 class LocalFileLoader : public FileLoader {
 public:

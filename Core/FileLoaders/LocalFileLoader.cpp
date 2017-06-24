@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "util/text/utf8.h"
 #include "file/file_util.h"
 #include "Common/FileUtil.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
-#ifdef _WIN32
-#include "Common/CommonWindows.h"
-#else
+
+#ifndef _WIN32
 #include <fcntl.h>
 #endif
 
@@ -39,8 +39,7 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 
 #else // !_WIN32
 
-	const DWORD access = GENERIC_READ, share = FILE_SHARE_READ, mode = OPEN_EXISTING,
-	const DWORD flags = FILE_ATTRIBUTE_NORMAL;
+	const DWORD access = GENERIC_READ, share = FILE_SHARE_READ, mode = OPEN_EXISTING, flags = FILE_ATTRIBUTE_NORMAL;
 #if PPSSPP_PLATFORM(UWP)
 	handle_ = CreateFile2(ConvertUTF8ToWString(filename).c_str(), access, share, mode, nullptr);
 #else
@@ -66,7 +65,7 @@ LocalFileLoader::~LocalFileLoader() {
 	}
 #else
 	if (handle_ != INVALID_HANDLE_VALUE) {
-		CloseHandle(_handle);
+		CloseHandle(handle_);
 	}
 #endif
 }
