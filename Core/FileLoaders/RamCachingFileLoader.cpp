@@ -28,7 +28,7 @@
 
 // Takes ownership of backend.
 RamCachingFileLoader::RamCachingFileLoader(FileLoader *backend)
-	: filesize_(0), filepos_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false) {
+	: filesize_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false) {
 	filesize_ = backend->FileSize();
 	if (filesize_ > 0) {
 		InitCache();
@@ -45,7 +45,6 @@ RamCachingFileLoader::~RamCachingFileLoader() {
 
 bool RamCachingFileLoader::Exists() {
 	if (exists_ == -1) {
-		std::lock_guard<std::mutex> guard(backendMutex_);
 		exists_ = backend_->Exists() ? 1 : 0;
 	}
 	return exists_ == 1;
@@ -53,7 +52,6 @@ bool RamCachingFileLoader::Exists() {
 
 bool RamCachingFileLoader::ExistsFast() {
 	if (exists_ == -1) {
-		std::lock_guard<std::mutex> guard(backendMutex_);
 		return backend_->ExistsFast();
 	}
 	return exists_ == 1;
@@ -61,7 +59,6 @@ bool RamCachingFileLoader::ExistsFast() {
 
 bool RamCachingFileLoader::IsDirectory() {
 	if (isDirectory_ == -1) {
-		std::lock_guard<std::mutex> guard(backendMutex_);
 		isDirectory_ = backend_->IsDirectory() ? 1 : 0;
 	}
 	return isDirectory_ == 1;
@@ -72,18 +69,12 @@ s64 RamCachingFileLoader::FileSize() {
 }
 
 std::string RamCachingFileLoader::Path() const {
-	std::lock_guard<std::mutex> guard(backendMutex_);
 	return backend_->Path();
-}
-
-void RamCachingFileLoader::Seek(s64 absolutePos) {
-	filepos_ = absolutePos;
 }
 
 size_t RamCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
 	size_t readSize = 0;
 	if (cache_ == nullptr || (flags & Flags::HINT_UNCACHED) != 0) {
-		std::lock_guard<std::mutex> guard(backendMutex_);
 		readSize = backend_->ReadAt(absolutePos, bytes, data, flags);
 	} else {
 		readSize = ReadFromCache(absolutePos, bytes, data);
@@ -100,8 +91,6 @@ size_t RamCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, F
 
 		StartReadAhead(absolutePos + readSize);
 	}
-
-	filepos_ = absolutePos + readSize;
 	return readSize;
 }
 
@@ -195,10 +184,8 @@ void RamCachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags) {
 		}
 	}
 
-	backendMutex_.lock();
 	s64 cacheFilePos = cacheStartPos << BLOCK_SHIFT;
 	size_t bytesRead = backend_->ReadAt(cacheFilePos, blocksToRead << BLOCK_SHIFT, &cache_[cacheFilePos], flags);
-	backendMutex_.unlock();
 
 	// In case there was an error, let's not mark blocks that failed to read as read.
 	u32 blocksActuallyRead = (u32)((bytesRead + BLOCK_SIZE - 1) >> BLOCK_SHIFT);

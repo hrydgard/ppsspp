@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <mutex>
+
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"
@@ -34,13 +36,6 @@ public:
 	virtual s64 FileSize() override;
 	virtual std::string Path() const override;
 
-	virtual void Seek(s64 absolutePos) override;
-	virtual size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
-		return ReadAt(filepos_, bytes, count, data, flags);
-	}
-	virtual size_t Read(size_t bytes, void *data, Flags flags = Flags::NONE) override {
-		return ReadAt(filepos_, bytes, data, flags);
-	}
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
 		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
 	}
@@ -68,5 +63,7 @@ private:
 	http::Client client_;
 	std::string filename_;
 	bool connected_;
-	bool prepared_;
+
+	std::once_flag preparedFlag_;
+	std::mutex readAtMutex_;
 };

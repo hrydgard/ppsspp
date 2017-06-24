@@ -59,6 +59,10 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	return (x >> n) | (x << (64 - n));
 }
 
+#ifndef linux
+#define pread64 pread
+#endif
+
 #else // WIN32
 
 // Function Cross-Compatibility
@@ -74,7 +78,6 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define fseeko _fseeki64
 	#define ftello _ftelli64
 	#define atoll _atoi64
-	#define fileno _fileno
 	#if _M_IX86
 		#define Crash() {__asm int 3}
 	#else

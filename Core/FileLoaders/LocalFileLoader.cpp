@@ -15,42 +15,71 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cstdio>
+#include "ppsspp_config.h"
+#include "util/text/utf8.h"
 #include "file/file_util.h"
 #include "Common/FileUtil.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 
+#ifdef _WIN32
+#include "Common/CommonWindows.h"
+#else
+#include <fcntl.h>
+#endif
+
 LocalFileLoader::LocalFileLoader(const std::string &filename)
-	: fd_(0), f_(nullptr), filesize_(0), filename_(filename) {
-	f_ = File::OpenCFile(filename, "rb");
-	if (!f_) {
+	: filesize_(0), filename_(filename) {
+
+#ifndef _WIN32
+
+	fd_ = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
+	if (fd_ == -1) {
 		return;
 	}
-
-#ifdef __ANDROID__
-	// Android NDK does not support 64-bit file I/O using C streams
-	// so we fall back onto syscalls
-	fd_ = fileno(f_);
-
 	off64_t off = lseek64(fd_, 0, SEEK_END);
 	filesize_ = off;
 	lseek64(fd_, 0, SEEK_SET);
+
+#else // !_WIN32
+
+	const DWORD access = GENERIC_READ, share = FILE_SHARE_READ, mode = OPEN_EXISTING, flags = FILE_ATTRIBUTE_NORMAL;
+#if PPSSPP_PLATFORM(UWP)
+	handle_ = CreateFile2(ConvertUTF8ToWString(filename).c_str(), access, share, mode, nullptr);
 #else
-	fseek(f_, 0, SEEK_END);
-	filesize_ = ftello(f_);
-	fseek(f_, 0, SEEK_SET);
+	handle_ = CreateFile(ConvertUTF8ToWString(filename).c_str(), access, share, nullptr, mode, flags, nullptr);
 #endif
+	if (handle_ == INVALID_HANDLE_VALUE) {
+		return;
+	}
+	FILE_STANDARD_INFO info;
+	if (GetFileInformationByHandleEx(handle_, FileStandardInfo, &info, sizeof(info)) == 0) {
+		return;
+	}
+	filesize_ = info.EndOfFile.QuadPart;
+
+#endif // !_WIN32
+
 }
 
 LocalFileLoader::~LocalFileLoader() {
-	if (f_) {
-		fclose(f_);
+#ifndef _WIN32
+	if (fd_ != -1) {
+		close(fd_);
 	}
+#else
+	if (handle_ != INVALID_HANDLE_VALUE) {
+		CloseHandle(handle_);
+	}
+#endif
 }
 
 bool LocalFileLoader::Exists() {
 	// If we couldn't open it for reading, we say it does not exist.
-	if (f_ || IsDirectory()) {
+#ifndef _WIN32
+	if (fd_ != -1 || IsDirectory()) {
+#else
+	if (handle_ != INVALID_HANDLE_VALUE || IsDirectory()) {
+#endif
 		FileInfo info;
 		return getFileInfo(filename_.c_str(), &info);
 	}
@@ -73,23 +102,15 @@ std::string LocalFileLoader::Path() const {
 	return filename_;
 }
 
-void LocalFileLoader::Seek(s64 absolutePos) {
-#ifdef __ANDROID__
-	lseek64(fd_, absolutePos, SEEK_SET);
-#else
-	fseeko(f_, absolutePos, SEEK_SET);
-#endif
-}
-
-size_t LocalFileLoader::Read(size_t bytes, size_t count, void *data, Flags flags) {
-#ifdef __ANDROID__
-	return read(fd_, data, bytes * count) / bytes;
-#else
-	return fread(data, bytes, count, f_);
-#endif
-}
-
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
-	Seek(absolutePos);
-	return Read(bytes, count, data);
+#ifndef _WIN32
+	return pread64(fd_, data, bytes * count, absolutePos) / bytes;
+#else
+	DWORD read = -1;
+	OVERLAPPED offset = { 0 };
+	offset.Offset = (DWORD)(absolutePos & 0xffffffff);
+	offset.OffsetHigh = (DWORD)((absolutePos & 0xffffffff00000000) >> 32);
+	auto result = ReadFile(handle_, data, (DWORD)(bytes * count), &read, &offset);
+	return result == TRUE ? (size_t)read / bytes : -1;
+#endif
 }

@@ -54,7 +54,9 @@ enum class IdentifiedFileType {
 	UNKNOWN,
 };
 
+
 class FileLoader {
+// NB: It is a REQUIREMENT that implementations of this class are entirely thread safe!
 public:
 	enum class Flags {
 		NONE,
@@ -79,12 +81,6 @@ public:
 		} else {
 			return filename.substr(pos);
 		}
-	}
-
-	virtual void Seek(s64 absolutePos) = 0;
-	virtual size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
-	virtual size_t Read(size_t bytes, void *data, Flags flags = Flags::NONE) {
-		return Read(1, bytes, data, flags);
 	}
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) {
