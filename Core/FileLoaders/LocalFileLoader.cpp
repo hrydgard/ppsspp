@@ -20,39 +20,64 @@
 #include "Core/FileLoaders/LocalFileLoader.h"
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#else
+#include <fcntl.h>
 #endif
 
 LocalFileLoader::LocalFileLoader(const std::string &filename)
-	: fd_(0), f_(nullptr), filesize_(0), filename_(filename) {
-    // FIXME: perhaps at this point we should just use plain open?
-	f_ = File::OpenCFile(filename, "rb");
-	fd_ = fileno(f_);
-	if (!f_) {
+	: filesize_(0), filename_(filename) {
+
+#ifndef _WIN32
+
+	fd_ = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
+	if (fd_ == -1) {
 		return;
 	}
-
-#ifdef __ANDROID__
-	// Android NDK does not support 64-bit file I/O using C streams
-	// so we fall back onto syscalls
 	off64_t off = lseek64(fd_, 0, SEEK_END);
 	filesize_ = off;
 	lseek64(fd_, 0, SEEK_SET);
+
+#else // !_WIN32
+
+	const DWORD access = GENERIC_READ, share = FILE_SHARE_READ, mode = OPEN_EXISTING,
+	const DWORD flags = FILE_ATTRIBUTE_NORMAL;
+#if PPSSPP_PLATFORM(UWP)
+	handle_ = CreateFile2(ConvertUTF8ToWString(filename).c_str(), access, share, mode, nullptr);
 #else
-	fseek(f_, 0, SEEK_END);
-	filesize_ = ftello(f_);
-	fseek(f_, 0, SEEK_SET);
+	handle_ = CreateFile(ConvertUTF8ToWString(filename).c_str(), access, share, nullptr, mode, flags, nullptr);
 #endif
+	if (handle_ == INVALID_HANDLE_VALUE) {
+		return;
+	}
+	FILE_STANDARD_INFO info;
+	if (GetFileInformationByHandleEx(handle_, FileStandardInfo, &info, sizeof(info)) == 0) {
+		return;
+	}
+	filesize_ = info.EndOfFile.QuadPart;
+
+#endif // !_WIN32
+
 }
 
 LocalFileLoader::~LocalFileLoader() {
-	if (f_) {
-		fclose(f_);
+#ifndef _WIN32
+	if (fd_ != -1) {
+		close(fd_);
 	}
+#else
+	if (handle_ != INVALID_HANDLE_VALUE) {
+		CloseHandle(_handle);
+	}
+#endif
 }
 
 bool LocalFileLoader::Exists() {
 	// If we couldn't open it for reading, we say it does not exist.
-	if (f_ || IsDirectory()) {
+#ifndef _WIN32
+	if (fd_ != -1 || IsDirectory()) {
+#else
+	if (handle_ != INVALID_HANDLE_VALUE || IsDirectory()) {
+#endif
 		FileInfo info;
 		return getFileInfo(filename_.c_str(), &info);
 	}
@@ -77,17 +102,13 @@ std::string LocalFileLoader::Path() const {
 
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
 #ifndef _WIN32
-	return pread(fd_, data, bytes * count, absolutePos) / bytes;
+	return pread64(fd_, data, bytes * count, absolutePos) / bytes;
 #else
 	DWORD read = -1;
-	intptr_t handle = fileno_to_handle(fd_);
-	if (handle == 0) {
-		return -1;
-	}
 	OVERLAPPED offset = { 0 };
 	offset.Offset = (DWORD)(absolutePos & 0xffffffff);
 	offset.OffsetHigh = (DWORD)((absolutePos & 0xffffffff00000000) >> 32);
-	auto result = ReadFile((HANDLE)handle, data, bytes * count, &read, &offset);
+	auto result = ReadFile(handle_, data, bytes * count, &read, &offset);
 	return result == TRUE ? (size_t)read / bytes : -1;
 #endif
 }

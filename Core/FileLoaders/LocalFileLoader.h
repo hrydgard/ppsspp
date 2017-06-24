@@ -32,9 +32,11 @@ public:
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 
 private:
-	// First only used by Android, but we can keep it here for everyone.
+#ifndef _WIN32
 	int fd_;
-	FILE *f_;
+#else
+	HANDLE handle_;
+#endif
 	u64 filesize_;
 	std::string filename_;
 };

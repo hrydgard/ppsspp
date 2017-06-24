@@ -59,8 +59,11 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	return (x >> n) | (x << (64 - n));
 }
 
+#ifndef linux
+#define pread64 pread
+#endif
+
 #else // WIN32
-	#include <io.h>
 
 // Function Cross-Compatibility
 	#define strcasecmp _stricmp
@@ -75,8 +78,6 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define fseeko _fseeki64
 	#define ftello _ftelli64
 	#define atoll _atoi64
-	#define fileno _fileno
-	#define fileno_to_handle _get_osfhandle
 	#if _M_IX86
 		#define Crash() {__asm int 3}
 	#else
