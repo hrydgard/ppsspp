@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdio>
 #include "ppsspp_config.h"
 #include "util/text/utf8.h"
 #include "file/file_util.h"
@@ -36,9 +37,15 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 	if (fd_ == -1) {
 		return;
 	}
+#if defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
 	off64_t off = lseek64(fd_, 0, SEEK_END);
 	filesize_ = off;
 	lseek64(fd_, 0, SEEK_SET);
+#else
+	off_t off = lseek(fd_, 0, SEEK_END);
+	filesize_ = off;
+	lseek(fd_, 0, SEEK_SET);
+#endif
 
 #else // !_WIN32
 
@@ -104,7 +111,11 @@ std::string LocalFileLoader::Path() const {
 
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
 #ifndef _WIN32
+#if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64
 	return pread64(fd_, data, bytes * count, absolutePos) / bytes;
+#else
+	return pread(fd_, data, bytes * count, absolutePos) / bytes;
+#endif
 #else
 	DWORD read = -1;
 	OVERLAPPED offset = { 0 };

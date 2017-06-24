@@ -59,10 +59,6 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	return (x >> n) | (x << (64 - n));
 }
 
-#ifndef linux
-#define pread64 pread
-#endif
-
 #else // WIN32
 
 // Function Cross-Compatibility
