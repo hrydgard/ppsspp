@@ -413,7 +413,7 @@ static bool IsRunningSlow() {
 			best = std::max(fpsHistory[index], best);
 		}
 
-		return best < 59.94;
+		return best < System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1.001f;
 	}
 
 	return false;
