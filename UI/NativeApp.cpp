@@ -35,7 +35,7 @@
 #include <thread>
 
 #if defined(_WIN32)
-#include "Windows/DSoundStream.h"
+#include "Windows/WindowsAudio.h"
 #include "Windows/MainWindow.h"
 #endif
 
