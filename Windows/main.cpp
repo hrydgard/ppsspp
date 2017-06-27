@@ -37,7 +37,7 @@
 #include "Core/Config.h"
 #include "Core/SaveState.h"
 #include "Windows/EmuThread.h"
-#include "Windows/DSoundStream.h"
+#include "Windows/WindowsAudio.h"
 #include "ext/disarm.h"
 
 #include "Common/LogManager.h"

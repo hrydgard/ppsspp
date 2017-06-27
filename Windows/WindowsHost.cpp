@@ -46,7 +46,7 @@
 #include "Core/System.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Windows/EmuThread.h"
-#include "Windows/DSoundStream.h"
+#include "Windows/WindowsAudio.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 

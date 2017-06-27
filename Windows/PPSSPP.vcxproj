@@ -23,7 +23,8 @@
     <RootNamespace>DaSh</RootNamespace>
     <Keyword>Win32Proj</Keyword>
     <ProjectName>PPSSPPWindows</ProjectName>
-    <WindowsTargetPlatformVersion></WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>
+    </WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -411,6 +412,8 @@
     <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="DSoundStream.cpp" />
     <ClCompile Include="GPU\WindowsGLContext.cpp" />
+    <ClCompile Include="WASAPIStream.cpp" />
+    <ClCompile Include="WindowsAudio.cpp" />
     <ClCompile Include="WindowsHost.cpp" />
     <ClCompile Include="Globals.cpp" />
     <ClCompile Include="main.cpp" />
@@ -474,6 +477,8 @@
     <ClInclude Include="MainWindow.h" />
     <ClInclude Include="DSoundStream.h" />
     <ClInclude Include="GPU\WindowsGLContext.h" />
+    <ClInclude Include="WASAPIStream.h" />
+    <ClInclude Include="WindowsAudio.h" />
     <ClInclude Include="WindowsHost.h" />
     <ClInclude Include="..\Globals.h" />
     <ClInclude Include="main.h" />

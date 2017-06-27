@@ -1,20 +1,51 @@
 #pragma once
 
-#include "Common/CommonWindows.h"
-#include "Core/Config.h"
+// This should only be included from WindowsAudio.cpp and DSoundStream.cpp.
 
-typedef int (*StreamCallback)(short *buffer, int numSamples, int bits, int rate, int channels);
+#include "WindowsAudio.h"
+#include <mmreg.h>
+#include <dsound.h>
 
-// Note that the backend may override the passed in sample rate. The actual sample rate
-// should be returned by GetSampleRate though.
-class WindowsAudioBackend {
+class DSoundAudioBackend : public WindowsAudioBackend {
 public:
-	WindowsAudioBackend() {}
-	virtual ~WindowsAudioBackend() {}
-	virtual bool Init(HWND window, StreamCallback _callback, int sampleRate) = 0;
-	virtual void Update() {}  // Doesn't have to do anything
-	virtual int GetSampleRate() = 0;
-};
+	DSoundAudioBackend();
+	~DSoundAudioBackend() override;
 
-// Factory
-WindowsAudioBackend *CreateAudioBackend(AudioBackendType type);
+	bool Init(HWND window, StreamCallback callback, int sampleRate) override;  // If fails, can safely delete the object
+	void Update() override;
+	int GetSampleRate() override { return sampleRate_; }
+
+private:
+	inline int ModBufferSize(int x) { return (x + bufferSize_) % bufferSize_; }
+	int RunThread();
+	static unsigned int WINAPI soundThread(void *param);
+	bool CreateBuffer();
+	bool WriteDataToBuffer(DWORD offset, // Our own write cursor.
+		char* soundData, // Start of our data.
+		DWORD soundBytes); // Size of block to copy.
+
+	CRITICAL_SECTION soundCriticalSection;
+	HWND window_;
+	HANDLE soundSyncEvent_ = nullptr;
+	HANDLE hThread_ = nullptr;
+
+	StreamCallback callback_;
+
+	IDirectSound8 *ds_ = nullptr;
+	IDirectSoundBuffer *dsBuffer_ = nullptr;
+
+	int bufferSize_; // bytes
+	int totalRenderedBytes_;
+	int sampleRate_;
+
+	volatile int threadData_;
+
+	enum {
+		BUFSIZE = 0x4000,
+		MAXWAIT = 20,   //ms
+	};
+
+	int currentPos_;
+	int lastPos_;
+	short realtimeBuffer_[BUFSIZE * 2];
+};
