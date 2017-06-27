@@ -105,7 +105,7 @@ int DSoundAudioBackend::RunThread() {
 	InitializeCriticalSection(&soundCriticalSection);
 
 	DWORD num1;
-	short *p1;
+	int16_t *p1;
 
 	dsBuffer_->Lock(0, bufferSize_, (void **)&p1, &num1, 0, 0, 0);
 
@@ -117,7 +117,7 @@ int DSoundAudioBackend::RunThread() {
 	currentPos_ = 0;
 	lastPos_ = 0;
 
-	dsBuffer_->Play(0,0,DSBPLAY_LOOPING);
+	dsBuffer_->Play(0, 0, DSBPLAY_LOOPING);
 
 	while (!threadData_) {
 		EnterCriticalSection(&soundCriticalSection);

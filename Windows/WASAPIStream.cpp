@@ -11,6 +11,9 @@
 #include <MMDeviceAPI.h>
 #include <AudioClient.h>
 #include <AudioPolicy.h>
+#include "Functiondiscoverykeys_devpkey.h"
+
+// Includes some code from https://msdn.microsoft.com/en-us/library/dd370810%28VS.85%29.aspx?f=255&MSPPError=-2147217396
 
 #pragma comment(lib, "ole32.lib")
 
@@ -19,12 +22,181 @@ const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 
+// Adapted from a MSDN sample.
+
+#define SAFE_RELEASE(punk)  \
+              if ((punk) != NULL)  \
+                { (punk)->Release(); (punk) = NULL; }
+
+class CMMNotificationClient : public IMMNotificationClient {
+public:
+	CMMNotificationClient() :
+		_cRef(1),
+		_pEnumerator(NULL) {
+	}
+
+	~CMMNotificationClient() {
+		SAFE_RELEASE(_pEnumerator)
+	}
+
+	// IUnknown methods -- AddRef, Release, and QueryInterface
+	ULONG STDMETHODCALLTYPE AddRef() override {
+		return InterlockedIncrement(&_cRef);
+	}
+
+	ULONG STDMETHODCALLTYPE Release() override {
+		ULONG ulRef = InterlockedDecrement(&_cRef);
+		if (0 == ulRef) {
+			delete this;
+		}
+		return ulRef;
+	}
+
+	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, VOID **ppvInterface) override {
+		if (IID_IUnknown == riid) {
+			AddRef();
+			*ppvInterface = (IUnknown*)this;
+		} else if (__uuidof(IMMNotificationClient) == riid) {
+			AddRef();
+			*ppvInterface = (IMMNotificationClient*)this;
+		} else {
+			*ppvInterface = NULL;
+			return E_NOINTERFACE;
+		}
+		return S_OK;
+	}
+
+	// Callback methods for device-event notifications.
+
+	HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR pwstrDeviceId) {
+		PrintDeviceName(pwstrDeviceId);
+		const char *pszFlow = "?????";
+		const char *pszRole = "?????";
+		switch (flow) {
+		case eRender:
+			pszFlow = "eRender";
+			break;
+		case eCapture:
+			pszFlow = "eCapture";
+			break;
+		}
+		switch (role) {
+		case eConsole:
+			pszRole = "eConsole";
+			break;
+		case eMultimedia:
+			pszRole = "eMultimedia";
+			break;
+		case eCommunications:
+			pszRole = "eCommunications";
+			break;
+		}
+		INFO_LOG(SCEAUDIO, "  -->New default device: flow = %s, role = %s\n", pszFlow, pszRole);
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR pwstrDeviceId) {
+		PrintDeviceName(pwstrDeviceId);
+		INFO_LOG(SCEAUDIO, "  -->Added device\n");
+		return S_OK;
+	};
+
+	HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR pwstrDeviceId) {
+		PrintDeviceName(pwstrDeviceId);
+		INFO_LOG(SCEAUDIO, "  -->Removed device\n");
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR pwstrDeviceId, DWORD dwNewState) {
+		const char *pszState = "?????";
+		PrintDeviceName(pwstrDeviceId);
+		switch (dwNewState) {
+		case DEVICE_STATE_ACTIVE:
+			pszState = "ACTIVE";
+			break;
+		case DEVICE_STATE_DISABLED:
+			pszState = "DISABLED";
+			break;
+		case DEVICE_STATE_NOTPRESENT:
+			pszState = "NOTPRESENT";
+			break;
+		case DEVICE_STATE_UNPLUGGED:
+			pszState = "UNPLUGGED";
+			break;
+		}
+		INFO_LOG(SCEAUDIO, "  -->New device state is DEVICE_STATE_%s (0x%8.8x)\n", pszState, dwNewState);
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY key) {
+		PrintDeviceName(pwstrDeviceId);
+		INFO_LOG(SCEAUDIO, "  -->Changed device property "
+			"{%8.8x-%4.4x-%4.4x-%2.2x%2.2x-%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x}#%d\n",
+			key.fmtid.Data1, key.fmtid.Data2, key.fmtid.Data3,
+			key.fmtid.Data4[0], key.fmtid.Data4[1],
+			key.fmtid.Data4[2], key.fmtid.Data4[3],
+			key.fmtid.Data4[4], key.fmtid.Data4[5],
+			key.fmtid.Data4[6], key.fmtid.Data4[7],
+			key.pid);
+		return S_OK;
+	}
+
+private:
+	LONG _cRef;
+	IMMDeviceEnumerator *_pEnumerator;
+
+	// Private function to print device-friendly name
+	HRESULT PrintDeviceName(LPCWSTR  pwstrId);
+};
+
+// Given an endpoint ID string, print the friendly device name.
+HRESULT CMMNotificationClient::PrintDeviceName(LPCWSTR pwstrId) {
+	HRESULT hr = S_OK;
+	IMMDevice *pDevice = NULL;
+	IPropertyStore *pProps = NULL;
+	PROPVARIANT varString;
+
+	CoInitialize(NULL);
+	PropVariantInit(&varString);
+
+	if (_pEnumerator == NULL) {
+		// Get enumerator for audio endpoint devices.
+		hr = CoCreateInstance(__uuidof(MMDeviceEnumerator),
+			NULL, CLSCTX_INPROC_SERVER,
+			__uuidof(IMMDeviceEnumerator),
+			(void**)&_pEnumerator);
+	}
+	if (hr == S_OK) {
+		hr = _pEnumerator->GetDevice(pwstrId, &pDevice);
+	}
+	if (hr == S_OK) {
+		hr = pDevice->OpenPropertyStore(STGM_READ, &pProps);
+	}
+	if (hr == S_OK) {
+		// Get the endpoint device's friendly-name property.
+		hr = pProps->GetValue(PKEY_Device_FriendlyName, &varString);
+	}
+	printf("----------------------\nDevice name: \"%S\"\n"
+		"  Endpoint ID string: \"%S\"\n",
+		(hr == S_OK) ? varString.pwszVal : L"null device",
+		(pwstrId != NULL) ? pwstrId : L"null ID");
+
+	PropVariantClear(&varString);
+
+	SAFE_RELEASE(pProps)
+		SAFE_RELEASE(pDevice)
+		CoUninitialize();
+	return hr;
+}
+
+
+
 // TODO: Make these adjustable. This is from the example in MSDN.
 // 200 times/sec = 5ms, pretty good :) Wonder if all computers can handle it though.
 #define REFTIMES_PER_SEC  (10000000/200)
 #define REFTIMES_PER_MILLISEC  (REFTIMES_PER_SEC / 1000)
 
-WASAPIAudioBackend::WASAPIAudioBackend() : hThread_(nullptr), sampleRate_(0), callback_(nullptr), threadData_(0) {
+WASAPIAudioBackend::WASAPIAudioBackend() {
 }
 
 WASAPIAudioBackend::~WASAPIAudioBackend() {
@@ -90,6 +262,16 @@ int WASAPIAudioBackend::RunThread() {
 	if (FAILED(hresult)) {
 		pDevice->Release();
 		pDeviceEnumerator->Release();
+		goto bail;
+	}
+
+	notificationClient_ = new CMMNotificationClient();
+	hresult = pDeviceEnumerator->RegisterEndpointNotificationCallback(notificationClient_);
+	if (FAILED(hresult)) {
+		pDevice->Release();
+		pDeviceEnumerator->Release();
+		delete notificationClient_;
+		notificationClient_ = nullptr;
 		goto bail;
 	}
 
@@ -207,6 +389,8 @@ int WASAPIAudioBackend::RunThread() {
 	hresult = pAudioInterface->Stop();
 
 	CoTaskMemFree(pDeviceFormat);
+	pDeviceEnumerator->UnregisterEndpointNotificationCallback(notificationClient_);
+	delete notificationClient_;
 	pDeviceEnumerator->Release();
 	pDevice->Release();
 	pAudioInterface->Release();
