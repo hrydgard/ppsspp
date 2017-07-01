@@ -363,6 +363,7 @@ void CheckGLExtensions() {
 
 	// GLES 3 subsumes many ES2 extensions.
 	if (gl_extensions.GLES3) {
+		gl_extensions.EXT_blend_minmax = true;
 		gl_extensions.EXT_unpack_subimage = true;
 	}
 

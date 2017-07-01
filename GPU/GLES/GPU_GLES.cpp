@@ -281,10 +281,10 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (gl_extensions.OES_texture_npot)
 		features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 
-	if (gl_extensions.EXT_unpack_subimage || !gl_extensions.IsGLES)
+	if (gl_extensions.EXT_unpack_subimage)
 		features |= GPU_SUPPORTS_UNPACK_SUBIMAGE;
 
-	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3)
+	if (gl_extensions.EXT_blend_minmax)
 		features |= GPU_SUPPORTS_BLEND_MINMAX;
 
 	if (gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image)
