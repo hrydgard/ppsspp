@@ -25,7 +25,7 @@
 #include "GPU/D3D11/GPU_D3D11.h"
 
 int TextureScalerD3D11::BytesPerPixel(u32 format) {
-	return format == GE_FORMAT_8888 ? 4 : 2;
+	return format == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
 }
 
 u32 TextureScalerD3D11::Get8888Format() {
