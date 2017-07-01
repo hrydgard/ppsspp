@@ -112,6 +112,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 		peer->nickname = packet->name;
 		peer->mac_addr = packet->mac;
 		peer->ip_addr = packet->ip;
+		peer->port = packet->port;
 		// Update TimeStamp
 		peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 	}
