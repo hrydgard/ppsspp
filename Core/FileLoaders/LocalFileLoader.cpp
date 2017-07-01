@@ -58,11 +58,13 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 	if (handle_ == INVALID_HANDLE_VALUE) {
 		return;
 	}
-	FILE_STANDARD_INFO info;
-	if (GetFileInformationByHandleEx(handle_, FileStandardInfo, &info, sizeof(info)) == 0) {
+	LARGE_INTEGER end_offset;
+	const LARGE_INTEGER zero = { 0 };
+	if(SetFilePointerEx(handle_, zero, &end_offset, FILE_END) == 0) {
 		return;
 	}
-	filesize_ = info.EndOfFile.QuadPart;
+	filesize_ = end_offset.QuadPart;
+	SetFilePointerEx(handle_, zero, nullptr, FILE_BEGIN);
 
 #endif // !_WIN32
 
