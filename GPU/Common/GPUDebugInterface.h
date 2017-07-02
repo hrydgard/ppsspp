@@ -179,6 +179,9 @@ struct GPUDebugVertex {
 	float y;
 	float z;
 	u8 c[4];
+	float nx;
+	float ny;
+	float nz;
 };
 
 class GPUDebugInterface {

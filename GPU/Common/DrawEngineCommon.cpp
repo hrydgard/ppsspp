@@ -299,6 +299,9 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 			} else {
 				memset(vertices[i].c, 0, sizeof(vertices[i].c));
 			}
+			vertices[i].nx = 0;  // No meaningful normals in through mode
+			vertices[i].ny = 0;
+			vertices[i].nz = 1.0f;
 		} else {
 			float clipPos[4];
 			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
@@ -312,6 +315,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 				vertices[i].u = 0.0f;
 				vertices[i].v = 0.0f;
 			}
+			// Should really have separate coordinates for before and after transform.
 			vertices[i].x = drawPos.x;
 			vertices[i].y = drawPos.y;
 			vertices[i].z = drawPos.z;
@@ -320,6 +324,9 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 			} else {
 				memset(vertices[i].c, 0, sizeof(vertices[i].c));
 			}
+			vertices[i].nx = vert.nrm.x;
+			vertices[i].ny = vert.nrm.y;
+			vertices[i].nz = vert.nrm.z;
 		}
 	}
 
