@@ -406,14 +406,15 @@ static bool IsRunningSlow() {
 		// Look at only the last 15 samples (starting at the 14th sample behind current.)
 		int rangeStart = fpsHistoryPos - std::min(fpsHistoryValid, 14);
 
-		double best = 0.0f;
+		double best = 0.0;
 		for (int i = rangeStart; i <= fpsHistoryPos; ++i) {
 			// rangeStart may have been negative if near a wrap around.
 			int index = (fpsHistorySize + i) % fpsHistorySize;
 			best = std::max(fpsHistory[index], best);
 		}
 
-		return best < System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1.001f;
+		// Note that SYSPROP_DISPLAY_REFRESH_RATE is multiplied by 1000.
+		return best < System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) * (1.0 / 1001.0);
 	}
 
 	return false;
