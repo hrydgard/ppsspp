@@ -3,6 +3,8 @@ package org.ppsspp.ppsspp;
 
 // Note that the display* methods are in NativeRenderer.java
 
+import android.content.res.AssetManager;
+
 public class NativeApp {
 	public final static int DEVICE_ID_DEFAULT = 0;
 	public final static int DEVICE_ID_KEYBOARD = 1;
@@ -13,7 +15,7 @@ public class NativeApp {
 	public final static int DEVICE_TYPE_TV = 1;
 	public final static int DEVICE_TYPE_DESKTOP = 2;
 
-	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalDir, String libraryDir, String cacheDir, String shortcutParam, int androidVersion, String board);
+	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalDir, String libraryDir, String cacheDir, String shortcutParam, int androidVersion, String board, AssetManager assetManager);
 	public static native void audioInit();
 	public static native void audioShutdown();
 	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);

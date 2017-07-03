@@ -532,7 +532,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
-		jint jAndroidVersion, jstring jboard) {
+		jint jAndroidVersion, jstring jboard, jobject jassetManager) {
 	jniEnvMain = env;
 	env->GetJavaVM(&javaVM);
 
@@ -554,7 +554,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	hat_joystick_y_async = 0;
 
 	std::string apkPath = GetJavaString(env, japkpath);
-	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
+	// VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
+	VFSRegister("", new AAssetReader(env, jassetManager));
 
 	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);
