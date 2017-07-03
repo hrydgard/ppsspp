@@ -3,6 +3,9 @@
 
 #ifdef __ANDROID__
 #include <zip.h>
+#include <jni.h>
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
 #endif
 
 #include <string.h>
@@ -43,6 +46,8 @@ public:
 
 #ifdef __ANDROID__
 uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size);
+
+// Deprecated - use AAssetReader instead.
 class ZipAssetReader : public AssetReader {
 public:
 	ZipAssetReader(const char *zip_file, const char *in_zip_path);
@@ -59,6 +64,22 @@ private:
 	zip *zip_file_;
 	char in_zip_path_[256];
 };
+
+class AAssetReader : public AssetReader {
+public:
+	AAssetReader(JNIEnv *jni, jobject assetManager);
+	~AAssetReader();
+	// use delete[]
+	virtual uint8_t *ReadAsset(const char *path, size_t *size);
+	virtual bool GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter);
+	virtual bool GetFileInfo(const char *path, FileInfo *info);
+	virtual std::string toString() const {
+		return "";
+	}
+private:
+	AAssetManager *mgr_;
+};
+
 #endif
 
 class DirectoryAssetReader : public AssetReader {

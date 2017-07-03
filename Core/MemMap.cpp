@@ -248,6 +248,8 @@ bool MemoryMap_Setup(u32 flags) {
 	{
 #if !PPSSPP_PLATFORM(UWP)
 		base = g_arena.Find4GBBase();
+		if (!base)
+			return false;
 #endif
 	}
 
@@ -271,7 +273,7 @@ void MemoryMap_Shutdown(u32 flags) {
 #endif
 }
 
-void Init() {
+bool Init() {
 	// On some 32 bit platforms, you can only map < 32 megs at a time.
 	// TODO: Wait, wtf? What platforms are those? This seems bad.
 	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
@@ -285,10 +287,14 @@ void Init() {
 			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE * 2, 0), MAX_MMAP_SIZE);
 	}
 	int flags = 0;
-	MemoryMap_Setup(flags);
-
-	INFO_LOG(MEMMAP, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
-		base, m_pPhysicalRAM, m_pUncachedRAM);
+	if (MemoryMap_Setup(flags)) {
+		INFO_LOG(MEMMAP, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
+			base, m_pPhysicalRAM, m_pUncachedRAM);
+		return true;
+	} else {
+		ERROR_LOG(MEMMAP, "MemoryMap_Setup failed!");
+		return false;
+	}
 }
 
 void DoState(PointerWrap &p) {

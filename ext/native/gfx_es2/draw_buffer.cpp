@@ -87,7 +87,7 @@ void DrawBuffer::End() {
 void DrawBuffer::Flush(bool set_blend_state) {
 	using namespace Draw;
 	if (!pipeline_) {
-		ELOG("No program set!");
+		ELOG("DrawBuffer: No pipeline bound!");
 		return;
 	}
 

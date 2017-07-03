@@ -10,6 +10,9 @@
 
 #ifdef __ANDROID__
 #include <zip.h>
+#include <jni.h>
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
 #endif
 
 #include "base/basictypes.h"
@@ -183,7 +186,7 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<FileInfo>
 			continue;
 		if (!memcmp(name, path, pathlen)) {
 			// The prefix is right. Let's see if this is a file or path.
-			char *slashPos = strchr(name + pathlen + 1, '/');
+			const char *slashPos = strchr(name + pathlen + 1, '/');
 			if (slashPos != 0) {
 				// A directory.
 				std::string dirName = std::string(name + pathlen + 1, slashPos - (name + pathlen + 1));
@@ -252,6 +255,46 @@ bool ZipAssetReader::GetFileInfo(const char *path, FileInfo *info) {
 	info->isWritable = false;
 	info->isDirectory = false;    // TODO
 	info->size = zstat.size;
+	return true;
+}
+
+AAssetReader::AAssetReader(JNIEnv *jni, jobject assetManager) {
+	mgr_ = AAssetManager_fromJava(jni, assetManager);
+}
+
+AAssetReader::~AAssetReader() {
+
+}
+
+uint8_t *AAssetReader::ReadAsset(const char *path, size_t *size) {
+	AAsset *asset = AAssetManager_open(mgr_, path, AASSET_MODE_STREAMING);
+	if (!asset) {
+		return nullptr;
+	}
+	*size = AAsset_getLength(asset);
+	uint8_t *data = new uint8_t[*size + 1];
+	AAsset_read(asset, data, *size);
+	data[*size] = 0;  // zero-terminate. Useful when reading text files.
+	AAsset_close(asset);
+	return data;
+}
+
+bool AAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter) {
+	return false;
+}
+
+bool AAssetReader::GetFileInfo(const char *path, FileInfo *info) {
+	AAsset *asset = AAssetManager_open(mgr_, path, AASSET_MODE_STREAMING);
+	if (!asset) {
+		return false;
+	}
+	info->exists = true;
+	info->size = AAsset_getLength(asset);
+	info->isDirectory = false;
+	info->isWritable = false;
+	info->name = path;
+	info->fullName = path;
+	AAsset_close(asset);
 	return true;
 }
 

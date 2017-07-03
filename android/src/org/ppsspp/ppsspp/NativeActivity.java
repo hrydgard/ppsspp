@@ -20,6 +20,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.res.AssetManager;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.PixelFormat;
@@ -58,6 +59,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	// Adjust these as necessary
 	private static String TAG = "NativeActivity";
+	private AssetManager assetManager;
 
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
@@ -215,6 +217,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	}
 
 	public void Initialize() {
+		this.assetManager = getAssets();
     	// Initialize audio classes. Do this here since detectOptimalAudioSettings()
 		// needs audioManager
         this.audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
@@ -269,7 +272,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcutParam, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcutParam, Build.VERSION.SDK_INT, Build.BOARD, assetManager);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
