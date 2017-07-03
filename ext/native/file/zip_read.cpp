@@ -183,7 +183,7 @@ bool ZipAssetReader::GetFileListing(const char *orig_path, std::vector<FileInfo>
 			continue;
 		if (!memcmp(name, path, pathlen)) {
 			// The prefix is right. Let's see if this is a file or path.
-			char *slashPos = strchr(name + pathlen + 1, '/');
+			const char *slashPos = strchr(name + pathlen + 1, '/');
 			if (slashPos != 0) {
 				// A directory.
 				std::string dirName = std::string(name + pathlen + 1, slashPos - (name + pathlen + 1));

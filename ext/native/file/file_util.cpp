@@ -153,12 +153,16 @@ bool getFileInfo(const char *path, FileInfo *fileInfo) {
 	fileInfo->isWritable = (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
 	fileInfo->exists = true;
 #else
-	struct stat64 file_info;
 
 	std::string copy(path);
 
-	int result = stat64(copy.c_str(), &file_info);
-
+#ifdef __ANDROID__ && __ANDROID_API__ < 21
+	struct stat file_info;
+	int result = stat(copy.c_str(), &file_info);
+#else
+	struct stat64 file_info;
+	int result = stat(copy.c_str(), &file_info);
+#endif
 	if (result < 0) {
 		WLOG("IsDirectory: stat failed on %s", path);
 		fileInfo->exists = false;

@@ -239,6 +239,7 @@ if(NOT MSVC)
 		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 	elseif(ANDROID)
 		add_definitions(-fsigned-char)
+		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 	endif()
 else()
 	# Disable warnings about MS-specific _s variants of libc functions

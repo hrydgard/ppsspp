@@ -443,8 +443,13 @@ bool GetFileDetails(const std::string &filename, FileDetails *details) {
 	if (!Exists(filename)) {
 		return false;
 	}
+#if __ANDROID__ && __ANDROID_API__ < 21
+	struct stat buf;
+	if (stat(filename.c_str(), &buf) == 0) {
+#else
 	struct stat64 buf;
 	if (stat64(filename.c_str(), &buf) == 0) {
+#endif
 		details->size = buf.st_size;
 		details->isDirectory = S_ISDIR(buf.st_mode);
 		details->atime = buf.st_atime;
@@ -507,8 +512,13 @@ u64 GetFileSize(const std::string &filename) {
 		return 0;
 	return ((u64)attr.nFileSizeHigh << 32) | (u64)attr.nFileSizeLow;
 #else
+#if __ANDROID__ && __ANDROID_API__ < 21
+	struct stat file_info;
+	int result = stat(filename.c_str(), &file_info);
+#else
 	struct stat64 file_info;
 	int result = stat64(filename.c_str(), &file_info);
+#endif
 	if (result != 0) {
 		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.c_str());
 		return 0;
