@@ -192,7 +192,7 @@ void CPU_WaitStatus(std::condition_variable &cond, bool (*pred)()) {
 
 void CPU_Shutdown();
 
-void CPU_Init() {
+bool CPU_Init() {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 
@@ -245,7 +245,10 @@ void CPU_Init() {
 	std::string discID = g_paramSFO.GetDiscID();
 	coreParameter.compat.Load(discID);
 
-	Memory::Init();
+	if (!Memory::Init()) {
+		return false;
+	}
+
 	mipsr4k.Reset();
 
 	host->AttemptLoadSymbolMap();
@@ -266,7 +269,7 @@ void CPU_Init() {
 		CPU_Shutdown();
 		coreParameter.fileToStart = "";
 		CPU_SetState(CPU_THREAD_NOT_RUNNING);
-		return;
+		return false;
 	}
 
 
@@ -275,6 +278,7 @@ void CPU_Init() {
 	}
 
 	coreState = coreParameter.startPaused ? CORE_STEPPING : CORE_RUNNING;
+	return true;
 }
 
 void CPU_Shutdown() {
@@ -315,8 +319,11 @@ void CPU_RunLoop() {
 	setCurrentThreadName("CPU");
 
 	if (CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {
-		CPU_Init();
-		CPU_NextState(CPU_THREAD_STARTING, CPU_THREAD_RUNNING);
+		if (!CPU_Init()) {
+			CPU_SetState(CPU_THREAD_SHUTDOWN);
+		} else {
+			CPU_NextState(CPU_THREAD_STARTING, CPU_THREAD_RUNNING);
+		}
 	} else if (!CPU_NextState(CPU_THREAD_RESUME, CPU_THREAD_RUNNING)) {
 		ERROR_LOG(CPU, "CPU thread in unexpected state: %d", cpuThreadState);
 		return;
@@ -422,7 +429,10 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		cpuThreadID = cpuThread->get_id();
 		cpuThread->detach();
 	} else {
-		CPU_Init();
+		if (!CPU_Init()) {
+			*error_string = "Failed to initialize system";
+			return false;
+		}
 	}
 
 	*error_string = coreParameter.errorString;
