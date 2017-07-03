@@ -138,8 +138,8 @@ bool Exists(const std::string &filename) {
 #endif
 	return true;
 #else
-	struct stat64 file_info;
-	return stat64(fn.c_str(), &file_info) == 0;
+	struct stat file_info;
+	return stat(fn.c_str(), &file_info) == 0;
 #endif
 }
 
@@ -160,8 +160,8 @@ bool IsDirectory(const std::string &filename)
 	return (result & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
 #else
 	std::string copy(fn);
-	struct stat64 file_info;
-	int result = stat64(copy.c_str(), &file_info);
+	struct stat file_info;
+	int result = stat(copy.c_str(), &file_info);
 	if (result < 0) {
 		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", 
 				 fn.c_str(), GetLastErrorMsg());
