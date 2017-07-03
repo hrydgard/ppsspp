@@ -161,7 +161,7 @@ bool getFileInfo(const char *path, FileInfo *fileInfo) {
 	int result = stat(copy.c_str(), &file_info);
 #else
 	struct stat64 file_info;
-	int result = stat(copy.c_str(), &file_info);
+	int result = stat64(copy.c_str(), &file_info);
 #endif
 	if (result < 0) {
 		WLOG("IsDirectory: stat failed on %s", path);
