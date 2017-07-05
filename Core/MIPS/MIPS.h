@@ -237,6 +237,8 @@ public:
 
 	u32 MEMORY_ALIGNED16(vcmpResult[4]);
 
+	float sincostemp[2];
+
 	static const u32 FCR0_VALUE = 0x00003351;
 
 #if defined(PPSSPP_ARCH_X86) || defined(PPSSPP_ARCH_AMD64)

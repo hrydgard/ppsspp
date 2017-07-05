@@ -2120,8 +2120,6 @@ void Jit::Comp_Vbfy(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
-static float sincostemp[2];
-
 union u32float {
 	u32 u;
 	float f;
@@ -2142,29 +2140,29 @@ typedef float SinCosArg;
 typedef u32float SinCosArg;
 #endif
 
-void SinCos(SinCosArg angle) {
-	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
+void SinCos(SinCosArg angle, float *output) {
+	vfpu_sincos(angle, output[0], output[1]);
 }
 
-void SinOnly(SinCosArg angle) {
-	sincostemp[0] = vfpu_sin(angle);
+void SinOnly(SinCosArg angle, float *output) {
+	output[0] = vfpu_sin(angle);
 }
 
-void NegSinOnly(SinCosArg angle) {
-	sincostemp[0] = -vfpu_sin(angle);
+void NegSinOnly(SinCosArg angle, float *output) {
+	output[0] = -vfpu_sin(angle);
 }
 
-void CosOnly(SinCosArg angle) {
-	sincostemp[1] = vfpu_cos(angle);
+void CosOnly(SinCosArg angle, float *output) {
+	output[1] = vfpu_cos(angle);
 }
 
-void ASinScaled(SinCosArg angle) {
-	sincostemp[0] = vfpu_asin(angle);
+void ASinScaled(SinCosArg angle, float *output) {
+	output[0] = vfpu_asin(angle);
 }
 
-void SinCosNegSin(SinCosArg angle) {
-	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
-	sincostemp[0] = -sincostemp[0];
+void SinCosNegSin(SinCosArg angle, float *output) {
+	vfpu_sincos(angle, output[0], output[1]);
+	output[0] = -output[0];
 }
 
 void Jit::Comp_VV2Op(MIPSOpcode op) {
@@ -2173,9 +2171,15 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
-	auto trigCallHelper = [this](void (*sinCosFunc)(SinCosArg), u8 sreg) {
+	auto trigCallHelper = [this](void (*sinCosFunc)(SinCosArg, float *output), u8 sreg) {
 #ifdef _M_X64
 		MOVSS(XMM0, fpr.V(sreg));
+		// TODO: This reg might be different on Linux...
+#ifdef _WIN32
+		LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
+#else
+		LEA(64, RSI, MIPSSTATE_VAR(sincostemp));
+#endif
 		ABI_CallFunction(thunks.ProtectFunction((const void *)sinCosFunc, 0));
 #else
 		// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
@@ -2184,7 +2188,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		} else {
 			MOV(32, R(EAX), fpr.V(sreg));
 		}
-		CallProtectedFunction((const void *)sinCosFunc, R(EAX));
+		CallProtectedFunction((const void *)sinCosFunc, R(EAX), Imm32((uint32_t)(uintptr_t)mips_->sincostemp));
 #endif
 	};
 
@@ -2350,12 +2354,14 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			DIVSS(tempxregs[i], R(XMM0));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
+			LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
 			trigCallHelper(&SinOnly, sregs[i]);
-			MOVSS(tempxregs[i], M(&sincostemp[0]));
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
+			LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
 			trigCallHelper(&CosOnly, sregs[i]);
-			MOVSS(tempxregs[i], M(&sincostemp[1]));
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[1]));
 			break;
 		case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
 			DISABLE;
@@ -2369,8 +2375,9 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ANDPS(tempxregs[i], MatR(TEMPREG));
 			break;
 		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
+			LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
 			trigCallHelper(&ASinScaled, sregs[i]);
-			MOVSS(tempxregs[i], M(&sincostemp[0]));
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
 			// Rare so let's not bother checking for RipAccessible.
@@ -2380,8 +2387,9 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
+			LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
 			trigCallHelper(&NegSinOnly, sregs[i]);
-			MOVSS(tempxregs[i], M(&sincostemp[0]));
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
 			DISABLE;
@@ -3514,15 +3522,20 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	bool negSin1 = (imm & 0x10) ? true : false;
 
 #ifdef _M_X64
+#ifdef _WIN32
+	LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
+#else
+	LEA(64, RSI, MIPSSTATE_VAR(sincostemp));
+#endif
 	MOVSS(XMM0, fpr.V(sreg));
 	ABI_CallFunction(negSin1 ? (const void *)&SinCosNegSin : (const void *)&SinCos);
 #else
 	// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-	ABI_CallFunctionA(negSin1 ? (const void *)&SinCosNegSin : (const void *)&SinCos, fpr.V(sreg));
+	ABI_CallFunctionAC(negSin1 ? (const void *)&SinCosNegSin : (const void *)&SinCos, fpr.V(sreg), (uintptr_t)mips_->sincostemp);
 #endif
 
-	MOVSS(XMM0, M(&sincostemp[0]));
-	MOVSS(XMM1, M(&sincostemp[1]));
+	MOVSS(XMM0, MIPSSTATE_VAR(sincostemp[0]));
+	MOVSS(XMM1, MIPSSTATE_VAR(sincostemp[1]));
 
 	CompVrotShuffle(dregs, imm, n, false);
 	if (vd2 != -1) {
