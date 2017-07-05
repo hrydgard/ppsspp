@@ -2086,6 +2086,7 @@ void Jit::Comp_Vbfy(MIPSOpcode op) {
 
 	fpr.ReleaseSpillLocks();
 }
+
 static float sincostemp[2];
 
 union u32float {
@@ -2473,19 +2474,29 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 		VectorSize vsz = GetVectorSize(sz);
 		u8 vecs[4];
 		GetMatrixColumns(_VD, sz, vecs);
+		switch ((op >> 16) & 0xF) {
+		case 3:
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(&identityMatrix[0]));
+			break;
+		case 7:
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(&oneOneOneOne));
+			MOVAPS(XMM0, MatR(TEMPREG));
+			break;
+		}
+
 		for (int i = 0; i < n; i++) {
 			u8 vec[4];
 			GetVectorRegs(vec, vsz, vecs[i]);
 			fpr.MapRegsVS(vec, vsz, MAP_NOINIT | MAP_DIRTY);
 			switch ((op >> 16) & 0xF) {
 			case 3:
-				MOVAPS(fpr.VSX(vec), M(&identityMatrix[i]));
+				MOVAPS(fpr.VSX(vec), MDisp(TEMPREG, 16 * i));
 				break;
 			case 6:
 				XORPS(fpr.VSX(vec), fpr.VS(vec));
 				break;
 			case 7:
-				MOVAPS(fpr.VSX(vec), M(&oneOneOneOne));
+				MOVAPS(fpr.VSX(vec), R(XMM0));
 				break;
 			}
 		}
@@ -2502,7 +2513,8 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 	switch ((op >> 16) & 0xF) {
 	case 3: // vmidt
 		XORPS(XMM0, R(XMM0));
-		MOVSS(XMM1, M(&one));
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(&one));
+		MOVSS(XMM1, MatR(TEMPREG));
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
 				MOVSS(fpr.V(dregs[a * 4 + b]), a == b ? XMM1 : XMM0);
@@ -2518,7 +2530,8 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 		}
 		break;
 	case 7: // vmone
-		MOVSS(XMM0, M(&one));
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(&one));
+		MOVSS(XMM0, MatR(TEMPREG));
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
 				MOVSS(fpr.V(dregs[a * 4 + b]), XMM0);
