@@ -61,7 +61,6 @@ using namespace X64JitConstants;
 
 static const float one = 1.0f;
 static const float minus_one = -1.0f;
-static const float zero = 0.0f;
 
 const u32 MEMORY_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 const u32 MEMORY_ALIGNED16( signBitAll[4] ) = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
@@ -172,7 +171,8 @@ void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 
 			// Zero out XMM0 if it was <= +0.0f (but skip NAN.)
 			MOVSS(R(XMM0), fpr.VX(vregs[i]));
-			CMPLESS(XMM0, M(&zero));
+			XORPS(XMM1, R(XMM1));
+			CMPLESS(XMM0, R(XMM1));
 			ANDNPS(XMM0, fpr.V(vregs[i]));
 
 			// Retain a NAN in XMM0 (must be second operand.)
@@ -3200,21 +3200,22 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	GetVectorRegsPrefixD(dregs, V_Single, _VD);
 	if (fpr.TryMapDirtyInVS(dregs, V_Single, sregs, sz)) {
 		if (cpu_info.bSSE4_1) {
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(&oneOneOneOne));
 			switch (sz) {
 			case V_Pair:
 				MOVAPS(XMM0, fpr.VS(sregs));
-				DPPS(XMM0, M(&oneOneOneOne), 0x31);
+				DPPS(XMM0, MatR(TEMPREG), 0x31);
 				MOVAPS(fpr.VSX(dregs), R(XMM0));
 				break;
 			case V_Triple:
 				MOVAPS(XMM0, fpr.VS(sregs));
-				DPPS(XMM0, M(&oneOneOneOne), 0x71);
+				DPPS(XMM0, MatR(TEMPREG), 0x71);
 				MOVAPS(fpr.VSX(dregs), R(XMM0));
 				break;
 			case V_Quad:
 				XORPS(XMM1, R(XMM1));
 				MOVAPS(XMM0, fpr.VS(sregs));
-				DPPS(XMM0, M(&oneOneOneOne), 0xF1);
+				DPPS(XMM0, MatR(TEMPREG), 0xF1);
 				// In every other case, +0.0 is selected by the mask and added.
 				// But, here we need to manually add it to the result.
 				ADDPS(XMM0, R(XMM1));
@@ -3260,7 +3261,8 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 			}
 		}
 		if (((op >> 16) & 31) == 7) { // vavg
-			MULSS(fpr.VSX(dregs), M(&vavg_table[n - 1]));
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(&vavg_table[n - 1]));
+			MULSS(fpr.VSX(dregs), MatR(TEMPREG));
 		}
 		ApplyPrefixD(dregs, V_Single);
 		fpr.ReleaseSpillLocks();
@@ -3288,7 +3290,8 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	case 6:  // vfad
 		break;
 	case 7:  // vavg
-		MULSS(reg, M(&vavg_table[n - 1]));
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(&vavg_table[n - 1]));
+		MULSS(reg, MatR(TEMPREG));
 		break;
 	}
 

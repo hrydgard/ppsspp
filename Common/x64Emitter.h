@@ -1073,6 +1073,14 @@ public:
 class XCodeBlock : public CodeBlock<XEmitter> {
 public:
 	void PoisonMemory(int offset) override;
+	bool RipAccessible(void *ptr) const {
+#ifdef _M_IX86
+		return true;
+#else
+		ptrdiff_t diff = GetCodePtr() - (const uint8_t *)ptr;
+		return diff > -0x7FFFFFFF && diff < 0x7FFFFFFF;
+#endif
+	}
 };
 
 }  // namespace

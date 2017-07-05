@@ -329,8 +329,7 @@ MIPSOpcode Jit::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
-{
+const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
 	js.lastContinuedPC = 0;
@@ -394,8 +393,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		js.numInstructions++;
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)
-		{
+		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS) {
 			FlushAll();
 			WriteExit(GetCompilerPC(), js.nextExit++);
 			js.compiling = false;
@@ -405,10 +403,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
 	NOP();
 	AlignCode4();
-	if (js.lastContinuedPC == 0)
+	if (js.lastContinuedPC == 0) {
 		b->originalSize = js.numInstructions;
-	else
-	{
+	} else {
 		// We continued at least once.  Add the last proxy and set the originalSize correctly.
 		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
@@ -416,8 +413,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	return b->normalEntry;
 }
 
-void Jit::AddContinuedBlock(u32 dest)
-{
+void Jit::AddContinuedBlock(u32 dest) {
 	// The first block is the root block.  When we continue, we create proxy blocks after that.
 	if (js.lastContinuedPC == 0)
 		js.initialBlockSize = js.numInstructions;
@@ -703,8 +699,7 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 
 void Jit::WriteExitDestInReg(X64Reg reg) {
 	// If we need to verify coreState and rewind, we may not jump yet.
-	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
-	{
+	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		FixupBranch skipCheck = J_CC(CC_LE);
