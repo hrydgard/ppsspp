@@ -20,6 +20,7 @@
 #include <cstddef>
 
 #include "util/random/rng.h"
+#include "Common/Common.h"
 #include "Common/CommonTypes.h"
 // #include "Core/CoreParameter.h"
 #include "Core/Opcode.h"
@@ -233,6 +234,8 @@ public:
 	u32 jitBranchExit;
 
 	u32 savedPC;
+
+	u32 MEMORY_ALIGNED16(vcmpResult[4]);
 
 	static const u32 FCR0_VALUE = 0x00003351;
 

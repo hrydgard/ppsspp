@@ -375,7 +375,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 			// It doesn't really matter either way if we're not rewinding.
 			// CORE_RUNNING is <= CORE_NEXTFRAME.
 			if (RipAccessible((const void *)coreState)) {
-				CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+				CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
 			} else {
 				MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
 				CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
@@ -668,7 +668,7 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		if (RipAccessible((const void *)coreState)) {
-			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
 			CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
@@ -712,7 +712,7 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		if (RipAccessible((const void *)coreState)) {
-			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
 			CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));

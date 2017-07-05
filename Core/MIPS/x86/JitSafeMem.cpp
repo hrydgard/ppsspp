@@ -369,7 +369,7 @@ void JitSafeMem::MemCheckImm(MemoryOpType type)
 
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		if (jit_->RipAccessible((const void *)coreState)) {
-			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
 		} else {
 			jit_->MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
 			jit_->CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
@@ -424,7 +424,7 @@ void JitSafeMem::MemCheckAsm(MemoryOpType type)
 	{
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		if (jit_->RipAccessible((const void *)coreState)) {
-			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
 		} else {
 			jit_->MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
 			jit_->CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));

@@ -149,7 +149,7 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 
 		SetJumpTarget(skipToCoreStateCheck);
 		if (RipAccessible((const void *)&coreState)) {
-			CMP(32, M(&coreState), Imm32(0));
+			CMP(32, M(&coreState), Imm32(0));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
 			CMP(32, MatR(RAX), Imm32(0));
@@ -211,7 +211,7 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		SetJumpTarget(bailCoreState);
 
 		if (RipAccessible((const void *)&coreState)) {
-			CMP(32, M(&coreState), Imm32(0));
+			CMP(32, M(&coreState), Imm32(0));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
 			CMP(32, MatR(RAX), Imm32(0));
