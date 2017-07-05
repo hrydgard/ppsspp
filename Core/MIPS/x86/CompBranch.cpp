@@ -686,7 +686,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	{
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
 		gpr.MapReg(rs, true, false);
-		MOV(32, M(&mips_->pc), gpr.R(rs));
+		MOV(32, MIPSSTATE_VAR(pc), gpr.R(rs));
 		if (andLink)
 			gpr.SetImm(rd, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
@@ -788,7 +788,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	js.downcountAmount = -offset;
 
 	if (!js.inDelaySlot) {
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC() + 4));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 4));
 	}
 
 #ifdef USE_PROFILER

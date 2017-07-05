@@ -1831,8 +1831,8 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		if (setMXCSR != 0) {
 			OR(32, R(TEMPREG), Imm32(setMXCSR << 13));
 		}
-		MOV(32, M(&mips_->temp), R(TEMPREG));
-		LDMXCSR(M(&mips_->temp));
+		MOV(32, MIPSSTATE_VAR(temp), R(TEMPREG));
+		LDMXCSR(MIPSSTATE_VAR(temp));
 	}
 
 	u8 sregs[4], dregs[4];

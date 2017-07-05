@@ -145,6 +145,14 @@ extern u8 fromvoffset[128];
 
 enum class CPUCore;
 
+#if defined(PPSSPP_ARCH_X86) || defined(PPSSPP_ARCH_AMD64)
+
+// Note that CTXREG is offset to point at the first floating point register, intentionally. This is so that a byte offset
+// can reach both GPR and FPR regs.
+#define MIPSSTATE_VAR(x) MDisp(X64JitConstants::CTXREG, (int)(offsetof(MIPSState, x) - offsetof(MIPSState, f[0])))
+
+#endif
+
 class MIPSState
 {
 public:

@@ -249,8 +249,8 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 			MOV(32, R(TEMPREG), M(&mxcsrTemp));
 			AND(32, R(TEMPREG), Imm32(~(3 << 13)));
 			OR(32, R(TEMPREG), Imm32(setMXCSR << 13));
-			MOV(32, M(&mips_->temp), R(TEMPREG));
-			LDMXCSR(M(&mips_->temp));
+			MOV(32, MIPSSTATE_VAR(temp), R(TEMPREG));
+			LDMXCSR(MIPSSTATE_VAR(temp));
 		}
 
 		(this->*conv)(TEMPREG, fpr.R(fs));
@@ -388,7 +388,7 @@ void Jit::Comp_mxc1(MIPSOpcode op) {
 				gpr.MapReg(MIPS_REG_FPCOND, true, false);
 			}
 			gpr.MapReg(rt, false, true);
-			MOV(32, gpr.R(rt), M(&mips_->fcr31));
+			MOV(32, gpr.R(rt), MIPSSTATE_VAR(fcr31));
 			if (wasImm) {
 				if (gpr.GetImm(MIPS_REG_FPCOND) & 1) {
 					OR(32, gpr.R(rt), Imm32(1 << 23));
@@ -426,7 +426,7 @@ void Jit::Comp_mxc1(MIPSOpcode op) {
 			RestoreRoundingMode();
 			if (gpr.IsImm(rt)) {
 				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
-				MOV(32, M(&mips_->fcr31), Imm32(gpr.GetImm(rt) & 0x0181FFFF));
+				MOV(32, MIPSSTATE_VAR(fcr31), Imm32(gpr.GetImm(rt) & 0x0181FFFF));
 				if ((gpr.GetImm(rt) & 0x1000003) == 0) {
 					// Default nearest / no-flush mode, just leave it cleared.
 				} else {
@@ -440,8 +440,8 @@ void Jit::Comp_mxc1(MIPSOpcode op) {
 				MOV(32, gpr.R(MIPS_REG_FPCOND), gpr.R(rt));
 				SHR(32, gpr.R(MIPS_REG_FPCOND), Imm8(23));
 				AND(32, gpr.R(MIPS_REG_FPCOND), Imm32(1));
-				MOV(32, M(&mips_->fcr31), gpr.R(rt));
-				AND(32, M(&mips_->fcr31), Imm32(0x0181FFFF));
+				MOV(32, MIPSSTATE_VAR(fcr31), gpr.R(rt));
+				AND(32, MIPSSTATE_VAR(fcr31), Imm32(0x0181FFFF));
 				gpr.UnlockAll();
 				UpdateRoundingMode();
 				ApplyRoundingMode();

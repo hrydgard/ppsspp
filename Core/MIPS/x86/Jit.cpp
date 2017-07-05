@@ -193,7 +193,7 @@ void Jit::FlushPrefixV() {
 
 void Jit::WriteDowncount(int offset) {
 	const int downcount = js.downcountAmount + offset;
-	SUB(32, M(&mips_->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
+	SUB(32, MIPSSTATE_VAR(downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
 }
 
 void Jit::RestoreRoundingMode(bool force) {
@@ -226,13 +226,13 @@ void Jit::SaveFlags() {
 #if defined(_M_X64)
 	// On X64, the above misaligns the stack. However there might be a cheaper solution than this.
 	POP(64, R(EAX));
-	MOV(64, MDisp(X64JitConstants::CTXREG, offsetof(MIPSState, saved_flags)), R(EAX));
+	MOV(64, MIPSSTATE_VAR(saved_flags), R(EAX));
 #endif
 }
 
 void Jit::LoadFlags() {
 #if defined(_M_X64)
-	MOV(64, R(EAX), MDisp(X64JitConstants::CTXREG, offsetof(MIPSState, saved_flags)));
+	MOV(64, R(EAX), MIPSSTATE_VAR(saved_flags));
 	PUSH(64, R(EAX));
 #endif
 	POPF();
@@ -347,7 +347,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	b->checkedEntry = (u8 *)GetCodePtr();
 	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
 	FixupBranch skip = J_CC(CC_NS);
-	MOV(32, M(&mips_->pc), Imm32(js.blockStart));
+	MOV(32, MIPSSTATE_VAR(pc), Imm32(js.blockStart));
 	JMP(outerLoop, true);  // downcount hit zero - go advance.
 	SetJumpTarget(skip);
 
