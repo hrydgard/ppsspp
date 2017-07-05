@@ -895,10 +895,10 @@ OpArg FPURegCache::GetDefaultLocation(int reg) const {
 		return MDisp(CTXREG, reg * 4);
 	} else if (reg < 32 + 128) {
 		return M(&mips->v[voffset[reg - 32]]);
-		// This should work, but doesn't seem to. Maybe used from somewhere where CTXREG is not yet set properly.
-		// return MDisp(CTXREG, offsetof(MIPSState, v[0]) - offsetof(MIPSState, f[0]) + voffset[reg - 32] * sizeof(float));
+		// This should work, but doesn't seem to (crashes Crisis Core). Seems a bad instruction is generated somehow...
+		// return MIPSSTATE_VAR(v[voffset[reg - 32]]);
 	} else {
-		return M(&mips->tempValues[reg - 32 - 128]);
+		return MIPSSTATE_VAR(tempValues[reg - 32 - 128]);
 	}
 }
 

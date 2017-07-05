@@ -359,8 +359,6 @@ private:
 	void WriteFloatLoadStore(int bits, FloatOp op, FloatOp op_80b, OpArg arg);
 	void WriteNormalOp(XEmitter *emit, int bits, NormalOp op, const OpArg &a1, const OpArg &a2);
 
-	void ABI_CalculateFrameSize(u32 mask, size_t rsp_alignment, size_t needed_frame_size, size_t* shadowp, size_t* subtractionp, size_t* xmm_offsetp);
-
 protected:
 	inline void Write8(u8 value)   {*code++ = value;}
 	inline void Write16(u16 value) {*(u16*)code = (value); code += 2;}
