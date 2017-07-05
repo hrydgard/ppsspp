@@ -20,6 +20,7 @@
 
 #include "ppsspp_config.h"
 
+#include <cstddef>
 #include "Common.h"
 #include "CodeBlock.h"
 

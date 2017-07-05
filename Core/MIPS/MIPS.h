@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cstddef>
+
 #include "util/random/rng.h"
 #include "Common/CommonTypes.h"
 // #include "Core/CoreParameter.h"
