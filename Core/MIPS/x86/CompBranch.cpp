@@ -77,11 +77,7 @@ namespace MIPSComp
 {
 using namespace Gen;
 
-static u32 intBranchExit;
-static u32 jitBranchExit;
-
-static void JitBranchLog(MIPSOpcode op, u32 pc)
-{
+static void JitBranchLog(MIPSOpcode op, u32 pc) {
 	currentMIPS->pc = pc;
 	currentMIPS->inDelaySlot = false;
 
@@ -91,15 +87,15 @@ static void JitBranchLog(MIPSOpcode op, u32 pc)
 
 	// Branch taken, use nextPC.
 	if (currentMIPS->inDelaySlot)
-		intBranchExit = currentMIPS->nextPC;
+		currentMIPS->intBranchExit = currentMIPS->nextPC;
 	else
 	{
 		// Branch not taken, likely delay slot skipped.
 		if (info & LIKELY)
-			intBranchExit = currentMIPS->pc;
+			currentMIPS->intBranchExit = currentMIPS->pc;
 		// Branch not taken, so increment over delay slot.
 		else
-			intBranchExit = currentMIPS->pc + 4;
+			currentMIPS->intBranchExit = currentMIPS->pc + 4;
 	}
 
 	currentMIPS->pc = pc;
@@ -110,7 +106,7 @@ static void JitBranchLogMismatch(MIPSOpcode op, u32 pc)
 {
 	char temp[256];
 	MIPSDisAsm(op, pc, temp, true);
-	ERROR_LOG(JIT, "Bad jump: %s - int:%08x jit:%08x", temp, intBranchExit, jitBranchExit);
+	ERROR_LOG(JIT, "Bad jump: %s - int:%08x jit:%08x", temp, currentMIPS->intBranchExit, currentMIPS->jitBranchExit);
 	host->SetDebugMode(true);
 }
 
@@ -124,14 +120,14 @@ void Jit::BranchLogExit(MIPSOpcode op, u32 dest, bool useEAX)
 {
 	OpArg destArg = useEAX ? R(EAX) : Imm32(dest);
 
-	CMP(32, M(&intBranchExit), destArg);
+	CMP(32, MIPSSTATE_VAR(intBranchExit), destArg);
 	FixupBranch skip = J_CC(CC_E);
 
-	MOV(32, M(&jitBranchExit), destArg);
+	MOV(32, MIPSSTATE_VAR(jitBranchExit), destArg);
 	ABI_CallFunctionCC(thunks.ProtectFunction(&JitBranchLogMismatch), op.encoding, GetCompilerPC());
 	// Restore EAX, we probably ruined it.
 	if (useEAX)
-		MOV(32, R(EAX), M(&jitBranchExit));
+		MOV(32, R(EAX), MIPSSTATE_VAR(jitBranchExit));
 
 	SetJumpTarget(skip);
 }

@@ -224,6 +224,10 @@ public:
 	// Debug stuff
 	u32 debugCount;	// can be used to count basic blocks before crashes, etc.
 
+	// Temps needed for JitBranch.cpp experiments
+	u32 intBranchExit;
+	u32 jitBranchExit;
+
 	static const u32 FCR0_VALUE = 0x00003351;
 
 	u8 VfpuWriteMask() const {
