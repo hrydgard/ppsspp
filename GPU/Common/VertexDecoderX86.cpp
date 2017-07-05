@@ -478,9 +478,17 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 	CVTDQ2PS(XMM8, R(XMM8));
 	if (dec_->nweights > 4)
 		CVTDQ2PS(XMM9, R(XMM9));
-	MULPS(XMM8, M(&by128));
-	if (dec_->nweights > 4)
-		MULPS(XMM9, M(&by128));
+
+	if (RipAccessible(&by128)) {
+		MULPS(XMM8, M(&by128));  // rip accessible
+		if (dec_->nweights > 4)
+			MULPS(XMM9, M(&by128));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by128));
+		MULPS(XMM8, MatR(tempReg1));
+		if (dec_->nweights > 4)
+			MULPS(XMM9, MatR(tempReg1));
+	}
 
 	auto weightToAllLanes = [this](X64Reg dst, int lane) {
 		X64Reg src = lane < 4 ? XMM8 : XMM9;
@@ -521,7 +529,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 #else
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
 		CVTSI2SS(weight, R(tempReg1));
-		MULSS(weight, M(&by128));
+		MULSS(weight, M(&by128));  // rip accessible (x86)
 		SHUFPS(weight, R(weight), _MM_SHUFFLE(0, 0, 0, 0));
 #endif
 		if (j == 0) {
@@ -584,9 +592,17 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 	CVTDQ2PS(XMM8, R(XMM8));
 	if (dec_->nweights > 4)
 		CVTDQ2PS(XMM9, R(XMM9));
-	MULPS(XMM8, M(&by32768));
-	if (dec_->nweights > 4)
-		MULPS(XMM9, M(&by32768));
+
+	if (RipAccessible(&by32768)) {
+		MULPS(XMM8, M(&by32768));  // rip accessible
+		if (dec_->nweights > 4)
+			MULPS(XMM9, M(&by32768));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by32768));
+		MULPS(XMM8, MatR(tempReg1));
+		if (dec_->nweights > 4)
+			MULPS(XMM9, MatR(tempReg1));
+	}
 
 	auto weightToAllLanes = [this](X64Reg dst, int lane) {
 		X64Reg src = lane < 4 ? XMM8 : XMM9;
@@ -627,7 +643,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 #else
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
 		CVTSI2SS(weight, R(tempReg1));
-		MULSS(weight, M(&by32768));
+		MULSS(weight, M(&by32768));  // rip accessible (x86)
 		SHUFPS(weight, R(weight), _MM_SHUFFLE(0, 0, 0, 0));
 #endif
 		if (j == 0) {
@@ -1364,7 +1380,12 @@ void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
 		PSRAD(XMM1, 24);
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by128));
+	if (RipAccessible(&by128)) {
+		MULPS(XMM3, M(&by128));
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by128));
+		MULPS(XMM3, MatR(tempReg1));
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
@@ -1407,7 +1428,12 @@ void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
 		PUNPCKLWD(XMM1, R(XMM3));
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by128));
+	if (RipAccessible(&by128)) {
+		MULPS(XMM3, M(&by128));
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by128));
+		MULPS(XMM3, MatR(tempReg1));
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
@@ -1442,7 +1468,12 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	if (!cpu_info.bSSE4_1) {
 		PXOR(fpScratchReg4, R(fpScratchReg4));
 	}
-	MOVAPS(XMM5, M(by128));
+	if (RipAccessible(&by128)) {
+		MOVAPS(XMM5, M(&by128));
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by128));
+		MOVAPS(XMM5, MatR(tempReg1));
+	}
 
 	// Sum into fpScratchReg.
 	bool first = true;
@@ -1481,7 +1512,12 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	if (!cpu_info.bSSE4_1) {
 		PXOR(fpScratchReg4, R(fpScratchReg4));
 	}
-	MOVAPS(XMM5, M(by32768));
+	if (RipAccessible(&by32768)) {
+		MOVAPS(XMM5, M(&by32768));
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by32768));
+		MOVAPS(XMM5, MatR(tempReg1));
+	}
 
 	// Sum into fpScratchReg.
 	bool first = true;
