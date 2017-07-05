@@ -2248,12 +2248,22 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		case 1: // d[i] = fabsf(s[i]); break; //vabs
 			if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 				MOVSS(tempxregs[i], fpr.V(sregs[i]));
-			ANDPS(tempxregs[i], M(&noSignMask));
+			if (RipAccessible(&noSignMask)) {
+				ANDPS(tempxregs[i], M(&noSignMask));
+			} else {
+				MOV(PTRBITS, R(TEMPREG), ImmPtr(&noSignMask));
+				ANDPS(tempxregs[i], MatR(TEMPREG));
+			}
 			break;
 		case 2: // d[i] = -s[i]; break; //vneg
 			if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 				MOVSS(tempxregs[i], fpr.V(sregs[i]));
-			XORPS(tempxregs[i], M(&signBitLower));
+			if (RipAccessible(&signBitLower)) {
+				XORPS(tempxregs[i], M(&signBitLower));
+			} else {
+				MOV(PTRBITS, R(TEMPREG), ImmPtr(&signBitLower));
+				XORPS(tempxregs[i], MatR(TEMPREG));
+			}
 			break;
 		case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
@@ -2266,7 +2276,8 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ANDNPS(XMM0, R(tempxregs[i]));
 
 			// Retain a NAN in XMM0 (must be second operand.)
-			MOVSS(tempxregs[i], M(&one));
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(&one));
+			MOVSS(tempxregs[i], MatR(TEMPREG));
 			MINSS(tempxregs[i], R(XMM0));
 			break;
 		case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
@@ -2284,7 +2295,8 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ORPS(XMM0, R(XMM1));
 
 			// Retain a NAN in XMM0 (must be second operand.)
-			MOVSS(tempxregs[i], M(&one));
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(&one));
+			MOVSS(tempxregs[i], MatR(TEMPREG));
 			MINSS(tempxregs[i], R(XMM0));
 			break;
 		case 16: // d[i] = 1.0f / s[i]; break; //vrcp
@@ -2323,7 +2335,8 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			break;
 		case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
 			SQRTSS(tempxregs[i], fpr.V(sregs[i]));
-			ANDPS(tempxregs[i], M(&noSignMask));
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(&noSignMask));
+			ANDPS(tempxregs[i], MatR(TEMPREG));
 			break;
 		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
 			trigCallHelper(&ASinScaled, sregs[i]);

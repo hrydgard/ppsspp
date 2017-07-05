@@ -368,7 +368,12 @@ void JitSafeMem::MemCheckImm(MemoryOpType type)
 		jit_->CallProtectedFunction(&JitMemCheck, iaddr_, size_, type == MEM_WRITE ? 1 : 0);
 
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		if (jit_->RipAccessible((const void *)coreState)) {
+			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		} else {
+			jit_->MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			jit_->CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+		}
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
 		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
 	}
@@ -418,7 +423,12 @@ void JitSafeMem::MemCheckAsm(MemoryOpType type)
 	if (possible)
 	{
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		if (jit_->RipAccessible((const void *)coreState)) {
+			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		} else {
+			jit_->MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			jit_->CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+		}
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
 		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
 	}

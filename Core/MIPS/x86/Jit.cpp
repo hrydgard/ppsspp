@@ -667,7 +667,12 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		if (RipAccessible((const void *)coreState)) {
+			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		} else {
+			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+		}
 		FixupBranch skipCheck = J_CC(CC_LE);
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		WriteSyscallExit();
@@ -706,7 +711,12 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		if (RipAccessible((const void *)coreState)) {
+			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		} else {
+			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+		}
 		FixupBranch skipCheck = J_CC(CC_LE);
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		WriteSyscallExit();
