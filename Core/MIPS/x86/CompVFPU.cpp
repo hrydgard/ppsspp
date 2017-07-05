@@ -2383,7 +2383,7 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 					// In case we have a saved prefix.
 					FlushPrefixV();
 					gpr.MapReg(rt, false, true);
-					MOV(32, gpr.R(rt), M(&mips_->vfpuCtrl[imm - 128]));
+					MOV(32, gpr.R(rt), MIPSSTATE_VAR(vfpuCtrl[imm - 128]));
 				}
 			} else {
 				//ERROR - maybe need to make this value too an "interlock" value?
@@ -2415,7 +2415,7 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 				}
 			} else {
 				gpr.MapReg(rt, true, false);
-				MOV(32, M(&mips_->vfpuCtrl[imm - 128]), gpr.R(rt));
+				MOV(32, MIPSSTATE_VAR(vfpuCtrl[imm - 128]), gpr.R(rt));
 			}
 
 			// TODO: Optimization if rt is Imm?
@@ -2447,7 +2447,7 @@ void Jit::Comp_Vmfvc(MIPSOpcode op) {
 			gpr.MapReg(MIPS_REG_VFPUCC, true, false);
 			MOVD_xmm(fpr.VX(vs), gpr.R(MIPS_REG_VFPUCC));
 		} else {
-			MOVSS(fpr.VX(vs), M(&mips_->vfpuCtrl[imm - 128]));
+			MOVSS(fpr.VX(vs), MIPSSTATE_VAR(vfpuCtrl[imm - 128]));
 		}
 		fpr.ReleaseSpillLocks();
 	}
@@ -2463,7 +2463,7 @@ void Jit::Comp_Vmtvc(MIPSOpcode op) {
 			gpr.MapReg(MIPS_REG_VFPUCC, false, true);
 			MOVD_xmm(gpr.R(MIPS_REG_VFPUCC), fpr.VX(vs));
 		} else {
-			MOVSS(M(&mips_->vfpuCtrl[imm - 128]), fpr.VX(vs));
+			MOVSS(MIPSSTATE_VAR(vfpuCtrl[imm - 128]), fpr.VX(vs));
 		}
 		fpr.ReleaseSpillLocks();
 

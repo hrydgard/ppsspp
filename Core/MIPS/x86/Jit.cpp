@@ -176,17 +176,17 @@ void Jit::FlushAll() {
 
 void Jit::FlushPrefixV() {
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
-		MOV(32, M(&mips_->vfpuCtrl[VFPU_CTRL_SPREFIX]), Imm32(js.prefixS));
+		MOV(32, MIPSSTATE_VAR(vfpuCtrl[VFPU_CTRL_SPREFIX]), Imm32(js.prefixS));
 		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixTFlag & JitState::PREFIX_DIRTY) != 0) {
-		MOV(32, M(&mips_->vfpuCtrl[VFPU_CTRL_TPREFIX]), Imm32(js.prefixT));
+		MOV(32, MIPSSTATE_VAR(vfpuCtrl[VFPU_CTRL_TPREFIX]), Imm32(js.prefixT));
 		js.prefixTFlag = (JitState::PrefixState) (js.prefixTFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0) {
-		MOV(32, M(&mips_->vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
+		MOV(32, MIPSSTATE_VAR(vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
 }
@@ -538,10 +538,10 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		RestoreRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
-		SUB(32, M(&mips_->downcount), R(EAX));
+		SUB(32, MIPSSTATE_VAR(downcount), R(EAX));
 		ApplyRoundingMode();
 	}
 
@@ -597,7 +597,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 			MIPSCompileOp(origInstruction, this);
 		} else {
 			FlushAll();
-			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
+			MOV(32, R(ECX), MIPSSTATE_VAR(r[MIPS_REG_RA]));
 			js.downcountAmount += cycles;
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
@@ -607,7 +607,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		RestoreRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
 
@@ -616,11 +616,11 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 			ApplyRoundingMode();
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
 		} else {
-			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
-			SUB(32, M(&mips_->downcount), R(EAX));
+			MOV(32, R(ECX), MIPSSTATE_VAR(r[MIPS_REG_RA]));
+			SUB(32, MIPSSTATE_VAR(downcount), R(EAX));
 			ApplyRoundingMode();
 			// Need to set flags again, ApplyRoundingMode destroyed them (and EAX.)
-			SUB(32, M(&mips_->downcount), Imm8(0));
+			SUB(32, MIPSSTATE_VAR(downcount), Imm8(0));
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
 		}
@@ -638,7 +638,7 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 	{
 		// TODO: Maybe we'd be better off keeping the rounding mode within interp?
 		RestoreRoundingMode();
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		if (USE_JIT_MISSMAP)
 			ABI_CallFunctionC(&JitLogMiss, op.encoding);
 		else
@@ -668,7 +668,7 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		FixupBranch skipCheck = J_CC(CC_LE);
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
 	}
@@ -688,7 +688,7 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 		b->linkStatus[exit_num] = true;
 	} else {
 		// No blocklinking.
-		MOV(32, M(&mips_->pc), Imm32(destination));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(destination));
 		JMP(dispatcher, true);
 
 		// Normally, exits are 15 bytes (MOV + &pc + dest + JMP + dest) on 64 or 32 bit.
@@ -708,12 +708,12 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 		FixupBranch skipCheck = J_CC(CC_LE);
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
 	}
 
-	MOV(32, M(&mips_->pc), R(reg));
+	MOV(32, MIPSSTATE_VAR(pc), R(reg));
 	WriteDowncount();
 
 	// Validate the jump to avoid a crash?
@@ -724,7 +724,7 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 		FixupBranch tooHigh = J_CC(CC_AE);
 
 		// Need to set neg flag again.
-		SUB(32, M(&mips_->downcount), Imm8(0));
+		SUB(32, MIPSSTATE_VAR(downcount), Imm8(0));
 		if (reg == EAX)
 			J_CC(CC_NS, dispatcherInEAXNoCheck, true);
 		JMP(dispatcher, true);
