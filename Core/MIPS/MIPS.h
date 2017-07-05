@@ -215,7 +215,7 @@ public:
 	bool inDelaySlot;
 	int llBit;  // ll/sc
 	u32 temp;  // can be used to save temporaries during calculations when we need more than R0 and R1
-
+	u32 mxcsrTemp;
 	// Temporary used around delay slots and similar.
 	u64 saved_flags;
 

@@ -228,8 +228,6 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 	}
 }
 
-static u32 mxcsrTemp;
-
 void Jit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	
@@ -245,8 +243,8 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 			setMXCSR = -1;
 		}
 		if (setMXCSR != -1) {
-			STMXCSR(M(&mxcsrTemp));
-			MOV(32, R(TEMPREG), M(&mxcsrTemp));
+			STMXCSR(MIPSSTATE_VAR(mxcsrTemp));
+			MOV(32, R(TEMPREG), MIPSSTATE_VAR(mxcsrTemp));
 			AND(32, R(TEMPREG), Imm32(~(3 << 13)));
 			OR(32, R(TEMPREG), Imm32(setMXCSR << 13));
 			MOV(32, MIPSSTATE_VAR(temp), R(TEMPREG));
@@ -273,7 +271,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		MOVD_xmm(fpr.RX(fd), R(TEMPREG));
 
 		if (setMXCSR != -1) {
-			LDMXCSR(M(&mxcsrTemp));
+			LDMXCSR(MIPSSTATE_VAR(mxcsrTemp));
 		}
 	};
 

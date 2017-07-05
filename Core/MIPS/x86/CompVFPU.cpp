@@ -1072,13 +1072,15 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 				CMPPS(XMM1, fpr.VS(tregs), CMP_NLT);
 
 				ANDPS(XMM1, R(XMM0));
-				ANDPS(XMM1, M(&oneOneOneOne));
+				MOV(PTRBITS, R(TEMPREG), ImmPtr(&oneOneOneOne));
+				ANDPS(XMM1, MatR(TEMPREG));
 				MOVAPS(fpr.VSX(dregs), R(XMM1));
 				break;
 			case 7:  // vslt
 				MOVAPS(XMM1, fpr.VS(sregs));
 				CMPPS(XMM1, fpr.VS(tregs), CMP_LT);
-				ANDPS(XMM1, M(&oneOneOneOne));
+				MOV(PTRBITS, R(TEMPREG), ImmPtr(&oneOneOneOne));
+				ANDPS(XMM1, MatR(TEMPREG));
 				MOVAPS(fpr.VSX(dregs), R(XMM1));
 				break;
 			}
@@ -1209,11 +1211,13 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 				CMPORDSS(XMM1, R(XMM0));
 				CMPNLTSS(tempxregs[i], R(XMM0));
 				ANDPS(tempxregs[i], R(XMM1));
-				ANDPS(tempxregs[i], M(&oneOneOneOne));
+				MOV(PTRBITS, R(TEMPREG), ImmPtr(&oneOneOneOne));
+				ANDPS(tempxregs[i], MatR(TEMPREG));
 				break;
 			case 7:  // vslt
 				CMPLTSS(tempxregs[i], fpr.V(tregs[i]));
-				ANDPS(tempxregs[i], M(&oneOneOneOne));
+				MOV(PTRBITS, R(TEMPREG), ImmPtr(&oneOneOneOne));
+				ANDPS(tempxregs[i], MatR(TEMPREG));
 				break;
 			}
 			break;
@@ -1766,10 +1770,8 @@ extern const double mulTableVf2i[32] = {
 
 static const float half = 0.5f;
 
-static double maxIntAsDouble = (double)0x7fffffff;  // that's not equal to 0x80000000
-static double minIntAsDouble = (double)(int)0x80000000;
-
-static u32 mxcsrTemp;
+static const double maxIntAsDouble = (double)0x7fffffff;  // that's not equal to 0x80000000
+static const double minIntAsDouble = (double)(int)0x80000000;
 
 void Jit::Comp_Vf2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
@@ -1804,8 +1806,8 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 	}
 	// Except for truncate, we need to update MXCSR to our preferred rounding mode.
 	if (setMXCSR != -1) {
-		STMXCSR(M(&mxcsrTemp));
-		MOV(32, R(TEMPREG), M(&mxcsrTemp));
+		STMXCSR(MIPSSTATE_VAR(mxcsrTemp));
+		MOV(32, R(TEMPREG), MIPSSTATE_VAR(mxcsrTemp));
 		AND(32, R(TEMPREG), Imm32(~(3 << 13)));
 		if (setMXCSR != 0) {
 			OR(32, R(TEMPREG), Imm32(setMXCSR << 13));
@@ -1866,7 +1868,7 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 	}
 
 	if (setMXCSR != -1) {
-		LDMXCSR(M(&mxcsrTemp));
+		LDMXCSR(MIPSSTATE_VAR(mxcsrTemp));
 	}
 
 	ApplyPrefixD(dregs, sz);
