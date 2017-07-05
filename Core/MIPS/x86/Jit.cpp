@@ -378,9 +378,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 			FixupBranch skipCheck = J_CC(CC_LE);
 			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
-				MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+				MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 			else
-				MOV(32, M(&mips_->pc), Imm32(GetCompilerPC() + 4));
+				MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 4));
 			WriteSyscallExit();
 			SetJumpTarget(skipCheck);
 
@@ -510,7 +510,7 @@ void Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 	// Not entirely ideal, but .. pretty good.
 	// Spurious entrances from previously linked blocks can only come through checkedEntry
 	XEmitter emit(checkedEntry);
-	emit.MOV(32, M(&mips_->pc), Imm32(originalAddress));
+	emit.MOV(32, MIPSSTATE_VAR(pc), Imm32(originalAddress));
 	emit.JMP(MIPSComp::jit->GetDispatcher(), true);
 	if (PlatformIsWXExclusive()) {
 		ProtectMemoryPages(checkedEntry, 16, MEM_PROT_READ | MEM_PROT_EXEC);
@@ -742,7 +742,7 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 			SetJumpTarget(skip);
 		}
 
-		SUB(32, M(&mips_->downcount), Imm8(0));
+		SUB(32, MIPSSTATE_VAR(downcount), Imm8(0));
 		JMP(dispatcherCheckCoreState, true);
 	} else if (reg == EAX) {
 		J_CC(CC_NS, dispatcherInEAXNoCheck, true);
@@ -766,7 +766,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
 	if (CBreakPoints::IsAddressBreakPoint(addr)) {
 		SaveFlags();
 		FlushAll();
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		RestoreRoundingMode();
 		ABI_CallFunction(&JitBreakpoint);
 

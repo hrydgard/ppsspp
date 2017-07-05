@@ -231,9 +231,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		MOVSS(fpScratchReg, MDisp(tempReg1, 4));
 		UNPCKLPS(fpScaleOffsetReg, R(fpScratchReg));
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			MULPS(fpScaleOffsetReg, M(&by128));
+			MOV(PTRBITS, R(tempReg2), ImmPtr(&by128));
+			MULPS(fpScaleOffsetReg, MatR(tempReg2));
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			MULPS(fpScaleOffsetReg, M(&by32768));
+			MOV(PTRBITS, R(tempReg2), ImmPtr(&by32768));
+			MULPS(fpScaleOffsetReg, MatR(tempReg2));
 		}
 		MOVSS(fpScratchReg, MDisp(tempReg1, 8));
 		MOVSS(fpScratchReg2, MDisp(tempReg1, 12));
