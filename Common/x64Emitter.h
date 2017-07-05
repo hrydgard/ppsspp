@@ -1073,7 +1073,7 @@ public:
 class XCodeBlock : public CodeBlock<XEmitter> {
 public:
 	void PoisonMemory(int offset) override;
-	bool RipAccessible(void *ptr) const {
+	bool RipAccessible(const void *ptr) const {
 #ifdef _M_IX86
 		return true;
 #else

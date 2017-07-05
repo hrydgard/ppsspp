@@ -658,8 +658,6 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	js.compiling = false;
 }
 
-static u32 savedPC;
-
 void Jit::Comp_JumpReg(MIPSOpcode op)
 {
 	CONDITIONAL_LOG;
@@ -725,21 +723,18 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			MOV(32, R(EAX), gpr.R(rs));
 		}
 		FlushAll();
-	}
-	else
-	{
+	} else {
 		// Latch destination now - save it in memory.
 		gpr.MapReg(rs, true, false);
-		MOV(32, M(&savedPC), gpr.R(rs));
+		MOV(32, MIPSSTATE_VAR(savedPC), gpr.R(rs));
 		if (andLink)
 			gpr.SetImm(rd, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
-		MOV(32, R(EAX), M(&savedPC));
+		MOV(32, R(EAX), MIPSSTATE_VAR(savedPC));
 		FlushAll();
 	}
 
-	switch (op & 0x3f)
-	{
+	switch (op & 0x3f) {
 	case 8: //jr
 		break;
 	case 9: //jalr

@@ -374,7 +374,12 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 			// If we're rewinding, CORE_NEXTFRAME should not cause a rewind.
 			// It doesn't really matter either way if we're not rewinding.
 			// CORE_RUNNING is <= CORE_NEXTFRAME.
-			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+			if (RipAccessible((const void *)coreState)) {
+				CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+			} else {
+				MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+				CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+			}
 			FixupBranch skipCheck = J_CC(CC_LE);
 			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
 				MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));

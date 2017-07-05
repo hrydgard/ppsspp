@@ -98,8 +98,6 @@ void Jit::Comp_FPU3op(MIPSOpcode op) {
 	}
 }
 
-static u32 MEMORY_ALIGNED16(ssLoadStoreTemp);
-
 void Jit::Comp_FPULS(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	s32 offset = _IMM16;
@@ -137,8 +135,8 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 				MOVSS(dest, fpr.RX(ft));
 			if (safe.PrepareSlowWrite())
 			{
-				MOVSS(M(&ssLoadStoreTemp), fpr.RX(ft));
-				safe.DoSlowWrite(safeMemFuncs.writeU32, M(&ssLoadStoreTemp));
+				MOVSS(MIPSSTATE_VAR(temp), fpr.RX(ft));
+				safe.DoSlowWrite(safeMemFuncs.writeU32, MIPSSTATE_VAR(temp));
 			}
 			safe.Finish();
 

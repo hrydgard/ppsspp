@@ -232,6 +232,8 @@ public:
 	u32 intBranchExit;
 	u32 jitBranchExit;
 
+	u32 savedPC;
+
 	static const u32 FCR0_VALUE = 0x00003351;
 
 #if defined(PPSSPP_ARCH_X86) || defined(PPSSPP_ARCH_AMD64)

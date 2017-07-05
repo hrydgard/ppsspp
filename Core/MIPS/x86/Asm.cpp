@@ -114,15 +114,10 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		// This is the most common situation.
 		TEST(32, MIPSSTATE_VAR(fcr31), Imm32(0x01000003));
 		FixupBranch skip = J_CC(CC_Z);
-#ifdef _M_X64
 		// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
-		MOV(64, R(RAX), Imm64((uintptr_t)&js.hasSetRounding));
+		MOV(PTRBITS, R(RAX), ImmPtr(&js.hasSetRounding));
 		MOV(8, MatR(RAX), Imm8(1));
-#else
-		MOV(8, M(&js.hasSetRounding), Imm8(1));
-#endif
 		SetJumpTarget(skip);
-
 		RET();
 	}
 
@@ -153,7 +148,12 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		FixupBranch bailCoreState = J_CC(CC_S, true);
 
 		SetJumpTarget(skipToCoreStateCheck);
-		CMP(32, M(&coreState), Imm32(0));
+		if (RipAccessible((const void *)&coreState)) {
+			CMP(32, M(&coreState), Imm32(0));
+		} else {
+			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(RAX), Imm32(0));
+		}
 		FixupBranch badCoreState = J_CC(CC_NZ, true);
 		FixupBranch skipToRealDispatch2 = J(); //skip the sync and compare first time
 
@@ -210,7 +210,12 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);
 
-		CMP(32, M(&coreState), Imm32(0));
+		if (RipAccessible((const void *)&coreState)) {
+			CMP(32, M(&coreState), Imm32(0));
+		} else {
+			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(RAX), Imm32(0));
+		}
 		J_CC(CC_Z, outerLoop, true);
 
 	SetJumpTarget(badCoreState);
