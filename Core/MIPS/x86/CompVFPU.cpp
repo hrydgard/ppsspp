@@ -1788,8 +1788,7 @@ extern const double mulTableVf2i[32] = {
 
 static const float half = 0.5f;
 
-static const double maxIntAsDouble = (double)0x7fffffff;  // that's not equal to 0x80000000
-static const double minIntAsDouble = (double)(int)0x80000000;
+static const double maxMinIntAsDouble[2] = { (double)0x7fffffff, (double)(int)0x80000000 };  // that's not equal to 0x80000000
 
 void Jit::Comp_Vf2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
@@ -1865,8 +1864,9 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		if (*mult != 1.0f) {
 			MULSD(XMM0, R(XMM1));
 		}
-		MINSD(XMM0, M(&maxIntAsDouble));
-		MAXSD(XMM0, M(&minIntAsDouble));
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(maxMinIntAsDouble));
+		MINSD(XMM0, MDisp(TEMPREG, 0));
+		MAXSD(XMM0, MDisp(TEMPREG, sizeof(double)));
 		// We've set the rounding mode above, so this part's easy.
 		switch ((op >> 21) & 0x1f) {
 		case 16: CVTSD2SI(TEMPREG, R(XMM0)); break; //n
@@ -1908,7 +1908,12 @@ void Jit::Comp_Vcst(MIPSOpcode op) {
 	u8 dregs[4];
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
-	MOVSS(XMM0, M(&cst_constants[conNum]));
+	if (RipAccessible(cst_constants)) {
+		MOVSS(XMM0, M(&cst_constants[conNum]));
+	} else {
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(&cst_constants[conNum]));
+		MOVSS(XMM0, MatR(TEMPREG));
+	}
 
 	if (fpr.TryMapRegsVS(dregs, sz, MAP_NOINIT | MAP_DIRTY)) {
 		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(0,0,0,0));
