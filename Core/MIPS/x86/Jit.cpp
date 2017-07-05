@@ -48,8 +48,6 @@ namespace MIPSComp
 {
 using namespace Gen;
 
-static u64 saved_flags;
-
 const bool USE_JIT_MISSMAP = false;
 static std::map<std::string, u32> notJitOps;
 
@@ -228,13 +226,13 @@ void Jit::SaveFlags() {
 #if defined(_M_X64)
 	// On X64, the above misaligns the stack. However there might be a cheaper solution than this.
 	POP(64, R(EAX));
-	MOV(64, M(&saved_flags), R(EAX));
+	MOV(64, MDisp(X64JitConstants::CTXREG, offsetof(MIPSState, saved_flags)), R(EAX));
 #endif
 }
 
 void Jit::LoadFlags() {
 #if defined(_M_X64)
-	MOV(64, R(EAX), M(&saved_flags));
+	MOV(64, R(EAX), MDisp(X64JitConstants::CTXREG, offsetof(MIPSState, saved_flags)));
 	PUSH(64, R(EAX));
 #endif
 	POPF();
@@ -429,10 +427,6 @@ void Jit::AddContinuedBlock(u32 dest)
 }
 
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
-#if defined(_M_X64)
-	if (ptr == (const u8 *)&saved_flags)
-		name = "saved_flags";
-#endif
 	if (ptr == applyRoundingMode)
 		name = "applyRoundingMode";
 	else if (ptr == updateRoundingMode)

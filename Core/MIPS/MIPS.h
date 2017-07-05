@@ -203,6 +203,9 @@ public:
 	int llBit;  // ll/sc
 	u32 temp;  // can be used to save temporaries during calculations when we need more than R0 and R1
 
+	// Temporary used around delay slots and similar.
+	u64 saved_flags;
+
 	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
 
 	// Debug stuff
