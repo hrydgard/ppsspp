@@ -897,6 +897,8 @@ OpArg FPURegCache::GetDefaultLocation(int reg) const {
 		return MDisp(CTXREG, reg * 4);
 	} else if (reg < 32 + 128) {
 		return M(&mips->v[voffset[reg - 32]]);
+		// This should work, but doesn't seem to. Maybe used from somewhere where CTXREG is not yet set properly.
+		// return MDisp(CTXREG, offsetof(MIPSState, v[0]) - offsetof(MIPSState, f[0]) + voffset[reg - 32] * sizeof(float));
 	} else {
 		return M(&tempValues[reg - 32 - 128]);
 	}

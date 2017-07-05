@@ -150,8 +150,7 @@ void Jit::GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg) {
 		return;
 
 	int n = GetNumVectorElements(sz);
-	for (int i = 0; i < n; i++)
-	{
+	for (int i = 0; i < n; i++) {
 		// Hopefully this is rare, we'll just write it into a reg we drop.
 		if (js.VfpuWriteMask(i))
 			regs[i] = fpr.GetTempV();
@@ -163,14 +162,12 @@ void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 	if (!js.prefixD) return;
 
 	int n = GetNumVectorElements(sz);
-	for (int i = 0; i < n; i++)
-	{
+	for (int i = 0; i < n; i++) {
 		if (js.VfpuWriteMask(i))
 			continue;
 
 		int sat = (js.prefixD >> (i * 2)) & 3;
-		if (sat == 1)
-		{
+		if (sat == 1) {
 			fpr.MapRegV(vregs[i], MAP_DIRTY);
 
 			// Zero out XMM0 if it was <= +0.0f (but skip NAN.)
@@ -181,9 +178,7 @@ void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 			// Retain a NAN in XMM0 (must be second operand.)
 			MOVSS(fpr.VX(vregs[i]), M(&one));
 			MINSS(fpr.VX(vregs[i]), R(XMM0));
-		}
-		else if (sat == 3)
-		{
+		} else if (sat == 3) {
 			fpr.MapRegV(vregs[i], MAP_DIRTY);
 
 			// Check for < -1.0f, but careful of NANs.
@@ -205,15 +200,12 @@ void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 
 // Vector regs can overlap in all sorts of swizzled ways.
 // This does allow a single overlap in sregs[i].
-bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)
-{
-	for (int i = 0; i < sn; ++i)
-	{
+bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+	for (int i = 0; i < sn; ++i) {
 		if (sregs[i] == dreg && i != di)
 			return false;
 	}
-	for (int i = 0; i < tn; ++i)
-	{
+	for (int i = 0; i < tn; ++i) {
 		if (tregs[i] == dreg)
 			return false;
 	}
@@ -222,8 +214,7 @@ bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tr
 	return true;
 }
 
-bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)
-{
+bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
 	return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
 }
 
@@ -236,8 +227,7 @@ void Jit::Comp_SV(MIPSOpcode op) {
 	int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 	MIPSGPReg rs = _RS;
 
-	switch (op >> 26)
-	{
+	switch (op >> 26) {
 	case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 		{
 			gpr.Lock(rs);
@@ -291,16 +281,14 @@ void Jit::Comp_SV(MIPSOpcode op) {
 	}
 }
 
-void Jit::Comp_SVQ(MIPSOpcode op)
-{
+void Jit::Comp_SVQ(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int imm = (signed short)(op&0xFFFC);
 	int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 	MIPSGPReg rs = _RS;
 
-	switch (op >> 26)
-	{
+	switch (op >> 26) {
 	case 53: //lvl.q/lvr.q
 		{
 			if (!g_Config.bFastMemory) {
@@ -421,16 +409,13 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
 			OpArg src;
-			if (safe.PrepareRead(src, 16))
-			{
+			if (safe.PrepareRead(src, 16)) {
 				// Just copy 4 words the easiest way while not wasting registers.
 				for (int i = 0; i < 4; i++)
 					MOVSS(fpr.VX(vregs[i]), safe.NextFastAddress(i * 4));
 			}
-			if (safe.PrepareSlowRead(safeMemFuncs.readU32))
-			{
-				for (int i = 0; i < 4; i++)
-				{
+			if (safe.PrepareSlowRead(safeMemFuncs.readU32)) {
+				for (int i = 0; i < 4; i++) {
 					safe.NextSlowRead(safeMemFuncs.readU32, i * 4);
 					MOVD_xmm(fpr.VX(vregs[i]), R(EAX));
 				}
@@ -485,15 +470,12 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
 			OpArg dest;
-			if (safe.PrepareWrite(dest, 16))
-			{
+			if (safe.PrepareWrite(dest, 16)) {
 				for (int i = 0; i < 4; i++)
 					MOVSS(safe.NextFastAddress(i * 4), fpr.VX(vregs[i]));
 			}
-			if (safe.PrepareSlowWrite())
-			{
-				for (int i = 0; i < 4; i++)
-				{
+			if (safe.PrepareSlowWrite()) {
+				for (int i = 0; i < 4; i++) {
 					MOVSS(M(&ssLoadStoreTemp), fpr.VX(vregs[i]));
 					safe.DoSlowWrite(safeMemFuncs.writeU32, M(&ssLoadStoreTemp), i * 4);
 				}
@@ -578,8 +560,7 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 	XORPS(XMM0, R(XMM0));
 	MOVSS(XMM1, M(&one));
 	fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
-	switch (sz)
-	{
+	switch (sz) {
 	case V_Pair:
 		MOVSS(fpr.VX(dregs[0]), R((vd&1)==0 ? XMM1 : XMM0));
 		MOVSS(fpr.VX(dregs[1]), R((vd&1)==1 ? XMM1 : XMM0));
@@ -749,8 +730,7 @@ void Jit::Comp_VHdp(MIPSOpcode op) {
 	fpr.SimpleRegsV(dregs, V_Single, MAP_DIRTY | MAP_NOINIT);
 
 	X64Reg tempxreg = XMM0;
-	if (IsOverlapSafe(dregs[0], 0, n, sregs, n, tregs))
-	{
+	if (IsOverlapSafe(dregs[0], 0, n, sregs, n, tregs)) {
 		fpr.MapRegsV(dregs, V_Single, MAP_DIRTY | MAP_NOINIT);
 		tempxreg = fpr.VX(dregs[0]);
 	}
@@ -758,8 +738,7 @@ void Jit::Comp_VHdp(MIPSOpcode op) {
 	// Need to start with +0.0f so it doesn't result in -0.0f.
 	MOVSS(tempxreg, fpr.V(sregs[0]));
 	MULSS(tempxreg, fpr.V(tregs[0]));
-	for (int i = 1; i < n; i++)
-	{
+	for (int i = 1; i < n; i++) {
 		// sum += (i == n-1) ? t[i] : s[i]*t[i];
 		if (i == n - 1) {
 			ADDSS(tempxreg, fpr.V(tregs[i]));
@@ -2265,7 +2244,8 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 
 			// Zero out XMM0 if it was <= +0.0f (but skip NAN.)
 			MOVSS(R(XMM0), tempxregs[i]);
-			CMPLESS(XMM0, M(&zero));
+			XORPS(XMM1, R(XMM1));
+			CMPLESS(XMM0, R(XMM1));
 			ANDNPS(XMM0, R(tempxregs[i]));
 
 			// Retain a NAN in XMM0 (must be second operand.)
@@ -2519,7 +2499,7 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 
 	switch ((op >> 16) & 0xF) {
 	case 3: // vmidt
-		MOVSS(XMM0, M(&zero));
+		XORPS(XMM0, R(XMM0));
 		MOVSS(XMM1, M(&one));
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
@@ -2528,7 +2508,7 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 		}
 		break;
 	case 6: // vmzero
-		MOVSS(XMM0, M(&zero));
+		XORPS(XMM0, R(XMM0));
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
 				MOVSS(fpr.V(dregs[a * 4 + b]), XMM0);
@@ -2614,10 +2594,8 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 	// Potentially detect overlap or the safe direction to move in, or just DISABLE?
 	// This is very not optimal, blows the regcache everytime.
 	u8 tempregs[16];
-	for (int a = 0; a < n; a++)
-	{
-		for (int b = 0; b < n; b++)
-		{
+	for (int a = 0; a < n; a++) {
+		for (int b = 0; b < n; b++) {
 			u8 temp = (u8) fpr.GetTempV();
 			fpr.MapRegV(temp, MAP_NOINIT | MAP_DIRTY);
 			MOVSS(fpr.VX(temp), fpr.V(sregs[a * 4 + b]));
@@ -2625,10 +2603,8 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 			tempregs[a * 4 + b] = temp;
 		}
 	}
-	for (int a = 0; a < n; a++)
-	{
-		for (int b = 0; b < n; b++)
-		{
+	for (int a = 0; a < n; a++) {
+		for (int b = 0; b < n; b++) {
 			u8 temp = tempregs[a * 4 + b];
 			fpr.MapRegV(temp, 0);
 			MOVSS(fpr.V(dregs[a * 4 + b]), fpr.VX(temp));
@@ -2674,30 +2650,24 @@ void Jit::Comp_VScl(MIPSOpcode op) {
 	MOVSS(XMM0, fpr.V(scale));
 
 	X64Reg tempxregs[4];
-	for (int i = 0; i < n; ++i)
-	{
-		if (dregs[i] != scale || !IsOverlapSafeAllowS(dregs[i], i, n, sregs))
-		{
+	for (int i = 0; i < n; ++i) {
+		if (dregs[i] != scale || !IsOverlapSafeAllowS(dregs[i], i, n, sregs)) {
 			int reg = fpr.GetTempV();
 			fpr.MapRegV(reg, MAP_NOINIT | MAP_DIRTY);
 			fpr.SpillLockV(reg);
 			tempxregs[i] = fpr.VX(reg);
-		}
-		else
-		{
+		} else {
 			fpr.MapRegV(dregs[i], dregs[i] == sregs[i] ? MAP_DIRTY : MAP_NOINIT);
 			fpr.SpillLockV(dregs[i]);
 			tempxregs[i] = fpr.VX(dregs[i]);
 		}
 	}
-	for (int i = 0; i < n; ++i)
-	{
+	for (int i = 0; i < n; ++i) {
 		if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 			MOVSS(tempxregs[i], fpr.V(sregs[i]));
 		MULSS(tempxregs[i], R(XMM0));
 	}
-	for (int i = 0; i < n; ++i)
-	{
+	for (int i = 0; i < n; ++i) {
 		if (!fpr.V(dregs[i]).IsSimpleReg(tempxregs[i]))
 			MOVSS(fpr.V(dregs[i]), tempxregs[i]);
 	}
@@ -2925,10 +2895,8 @@ void Jit::Comp_Vmscl(MIPSOpcode op) {
 
 	// TODO: test overlap, optimize.
 	u8 tempregs[16];
-	for (int a = 0; a < n; a++)
-	{
-		for (int b = 0; b < n; b++)
-		{
+	for (int a = 0; a < n; a++) {
+		for (int b = 0; b < n; b++) {
 			u8 temp = (u8) fpr.GetTempV();
 			fpr.MapRegV(temp, MAP_NOINIT | MAP_DIRTY);
 			MOVSS(fpr.VX(temp), fpr.V(sregs[a * 4 + b]));
@@ -2937,10 +2905,8 @@ void Jit::Comp_Vmscl(MIPSOpcode op) {
 			tempregs[a * 4 + b] = temp;
 		}
 	}
-	for (int a = 0; a < n; a++)
-	{
-		for (int b = 0; b < n; b++)
-		{
+	for (int a = 0; a < n; a++) {
+		for (int b = 0; b < n; b++) {
 			u8 temp = tempregs[a * 4 + b];
 			fpr.MapRegV(temp, 0);
 			MOVSS(fpr.V(dregs[a * 4 + b]), fpr.VX(temp));

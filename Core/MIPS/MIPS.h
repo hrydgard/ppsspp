@@ -153,6 +153,9 @@ enum class CPUCore;
 // can reach both GPR and FPR regs.
 #define MIPSSTATE_VAR(x) MDisp(X64JitConstants::CTXREG, (int)(offsetof(MIPSState, x) - offsetof(MIPSState, f[0])))
 
+// To get RIP/relative addressing (requires tight memory control so generated code isn't too far from the binary, and a reachable variable called mips):
+// #define MIPSSTATE_VAR(x) M(&mips->x)
+
 #endif
 
 class MIPSState
