@@ -202,17 +202,21 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	// Later we might want to do this when the matrices are loaded instead.
 	int boneCount = 0;
 	if (dec.weighttype && g_Config.bSoftwareSkinning && dec.morphcount == 1) {
-		MOVAPS(XMM4, M(&threeMasks));
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&threeMasks));
+		MOVAPS(XMM4, MatR(tempReg1));
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&aOne));
+		MOVUPS(XMM5, MatR(tempReg1));
+		MOV(PTRBITS, R(tempReg2), ImmPtr(gstate.boneMatrix));
 		for (int i = 0; i < dec.nweights; i++) {
-			MOVUPS(XMM0, M((gstate.boneMatrix + 12 * i)));
-			MOVUPS(XMM1, M((gstate.boneMatrix + 12 * i + 3)));
-			MOVUPS(XMM2, M((gstate.boneMatrix + 12 * i + 3 * 2)));
-			MOVUPS(XMM3, M((gstate.boneMatrix + 12 * i + 3 * 3)));
+			MOVUPS(XMM0, MDisp(tempReg2, 12 * i));
+			MOVUPS(XMM1, MDisp(tempReg2, 12 * i + 3));
+			MOVUPS(XMM2, MDisp(tempReg2, 12 * i + 3 * 2));
+			MOVUPS(XMM3, MDisp(tempReg2, 12 * i + 3 * 3));
 			ANDPS(XMM0, R(XMM4));
 			ANDPS(XMM1, R(XMM4));
 			ANDPS(XMM2, R(XMM4));
 			ANDPS(XMM3, R(XMM4));
-			ORPS(XMM3, M(&aOne));
+			ORPS(XMM3, R(XMM5));
 			MOVAPS(M((bones + 16 * i)), XMM0);
 			MOVAPS(M((bones + 16 * i + 4)), XMM1);
 			MOVAPS(M((bones + 16 * i + 8)), XMM2);
