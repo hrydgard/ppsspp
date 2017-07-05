@@ -31,8 +31,6 @@
 using namespace Gen;
 using namespace X64JitConstants;
 
-float FPURegCache::tempValues[NUM_TEMPS];
-
 FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));
@@ -416,7 +414,7 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 				break;
 			}
 		}
-		const float *f = v[0] < 128 ? &mips->v[voffset[v[0]]] : &tempValues[v[0] - 128];
+		const float *f = v[0] < 128 ? &mips->v[voffset[v[0]]] : &mips->tempValues[v[0] - 128];
 		if (((intptr_t)f & 0x7) == 0 && n == 2) {
 			emit->MOVQ_xmm(res, vregs[v[0]].location);
 		} else if (((intptr_t)f & 0xf) == 0) {
@@ -599,7 +597,7 @@ void FPURegCache::ReleaseSpillLock(int mipsreg) {
 void FPURegCache::ReleaseSpillLocks() {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++)
 		regs[i].locked = 0;
-	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i)
+	for (int i = TEMP0; i < TEMP0 + NUM_X86_FPU_TEMPS; ++i)
 		DiscardR(i);
 }
 
@@ -675,7 +673,7 @@ void FPURegCache::StoreFromRegister(int i) {
 				}
 			}
 
-			const float *f = mri[0] - 32 < 128 ? &mips->v[voffset[mri[0] - 32]] : &tempValues[mri[0] - 32 - 128];
+			const float *f = mri[0] - 32 < 128 ? &mips->v[voffset[mri[0] - 32]] : &mips->tempValues[mri[0] - 32 - 128];
 			int align = (intptr_t)f & 0xf;
 
 			// If we can do a multistore...
@@ -811,7 +809,7 @@ bool FPURegCache::IsTempX(X64Reg xr) {
 
 int FPURegCache::GetTempR() {
 	pendingFlush = true;
-	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
+	for (int r = TEMP0; r < TEMP0 + NUM_X86_FPU_TEMPS; ++r) {
 		if (!regs[r].away && !regs[r].tempLocked) {
 			regs[r].tempLocked = true;
 			return r;
@@ -828,7 +826,7 @@ int FPURegCache::GetTempVS(u8 *v, VectorSize vsz) {
 
 	// Let's collect regs as we go, but try for n free in a row.
 	int found = 0;
-	for (int r = TEMP0; r <= TEMP0 + NUM_TEMPS - n; ++r) {
+	for (int r = TEMP0; r <= TEMP0 + NUM_X86_FPU_TEMPS - n; ++r) {
 		if (regs[r].away || regs[r].tempLocked) {
 			continue;
 		}
@@ -900,7 +898,7 @@ OpArg FPURegCache::GetDefaultLocation(int reg) const {
 		// This should work, but doesn't seem to. Maybe used from somewhere where CTXREG is not yet set properly.
 		// return MDisp(CTXREG, offsetof(MIPSState, v[0]) - offsetof(MIPSState, f[0]) + voffset[reg - 32] * sizeof(float));
 	} else {
-		return M(&tempValues[reg - 32 - 128]);
+		return M(&mips->tempValues[reg - 32 - 128]);
 	}
 }
 

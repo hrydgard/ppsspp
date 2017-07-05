@@ -158,6 +158,10 @@ enum class CPUCore;
 
 #endif
 
+enum {
+	NUM_X86_FPU_TEMPS = 16,
+};
+
 class MIPSState
 {
 public:
@@ -229,6 +233,11 @@ public:
 	u32 jitBranchExit;
 
 	static const u32 FCR0_VALUE = 0x00003351;
+
+#if defined(PPSSPP_ARCH_X86) || defined(PPSSPP_ARCH_AMD64)
+	// FPU TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
+	float tempValues[NUM_X86_FPU_TEMPS];
+#endif
 
 	u8 VfpuWriteMask() const {
 		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> 8) & 0xF;
