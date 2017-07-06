@@ -76,6 +76,11 @@ private:
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnRemoteISO(UI::EventParams &e);
+	UI::EventReturn OnChangeQuickChat0(UI::EventParams &e);
+	UI::EventReturn OnChangeQuickChat1(UI::EventParams &e);
+	UI::EventReturn OnChangeQuickChat2(UI::EventParams &e);
+	UI::EventReturn OnChangeQuickChat3(UI::EventParams &e);
+	UI::EventReturn OnChangeQuickChat4(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	UI::EventReturn OnChangeproAdhocServerAddress(UI::EventParams &e);
 	UI::EventReturn OnChangeMacAddress(UI::EventParams &e);

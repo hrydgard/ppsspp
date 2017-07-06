@@ -856,6 +856,16 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		std::string setString = inputboxValue.size() > 1 ? inputboxValue[1] : "";
 		if (inputboxValue[0] == "IP")
 			g_Config.proAdhocServer = setString;
+		if (inputboxValue[0] == "quickchat0")
+			g_Config.sQuickChat0 = setString;
+		if (inputboxValue[0] == "quickchat1")
+			g_Config.sQuickChat1 = setString;
+		if (inputboxValue[0] == "quickchat2")
+			g_Config.sQuickChat2 = setString;
+		if (inputboxValue[0] == "quickchat3")
+			g_Config.sQuickChat3 = setString;
+		if (inputboxValue[0] == "quickchat4")
+			g_Config.sQuickChat4 = setString;
 		if (inputboxValue[0] == "nickname")
 			g_Config.sNickName = setString;
 		if (inputboxValue[0] == "Chat") {

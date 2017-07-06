@@ -19,7 +19,6 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	
 #if defined(_WIN32) || defined(USING_QT_UI)
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
 #if defined(USING_WIN_UI)
@@ -40,6 +39,15 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 #elif defined(__ANDROID__)
 	bottom->Add(new Button(n->T("Chat Here"),new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 #endif
+
+	if (g_Config.bEnableQuickChat) {
+		LinearLayout *quickChat = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		quickChat->Add(new Button(n->T("1"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat1);
+		quickChat->Add(new Button(n->T("2"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat2);
+		quickChat->Add(new Button(n->T("3"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat3);
+		quickChat->Add(new Button(n->T("4"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat4);
+		quickChat->Add(new Button(n->T("5"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat5);
+	}
 	chatVert_ = scroll_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	chatVert_->SetSpacing(0);
 	parent->Add(outer);
@@ -113,6 +121,32 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 #elif defined(__ANDROID__)
 	System_SendMessage("inputbox", "Chat:");
 #endif
+	return UI::EVENT_DONE;
+}
+
+
+UI::EventReturn ChatMenu::OnQuickChat1(UI::EventParams &e) {
+	sendChat(g_Config.sQuickChat0);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ChatMenu::OnQuickChat2(UI::EventParams &e) {
+	sendChat(g_Config.sQuickChat1);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ChatMenu::OnQuickChat3(UI::EventParams &e) {
+	sendChat(g_Config.sQuickChat2);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ChatMenu::OnQuickChat4(UI::EventParams &e) {
+	sendChat(g_Config.sQuickChat3);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ChatMenu::OnQuickChat5(UI::EventParams &e) {
+	sendChat(g_Config.sQuickChat4);
 	return UI::EVENT_DONE;
 }
 

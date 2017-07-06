@@ -14,6 +14,11 @@ public:
 	void UpdateChat();
 private:
 	UI::EventReturn OnSubmit(UI::EventParams &e);
+	UI::EventReturn OnQuickChat1(UI::EventParams &e);
+	UI::EventReturn OnQuickChat2(UI::EventParams &e);
+	UI::EventReturn OnQuickChat3(UI::EventParams &e);
+	UI::EventReturn OnQuickChat4(UI::EventParams &e);
+	UI::EventReturn OnQuickChat5(UI::EventParams &e);
 	UI::TextEdit *chatEdit_;
 	UI::ScrollView *scroll_;
 	UI::LinearLayout *chatVert_;
