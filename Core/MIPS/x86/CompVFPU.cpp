@@ -2352,12 +2352,12 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			DIVSS(tempxregs[i], R(XMM0));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-			LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
+			LEA(PTRBITS, RDX, MIPSSTATE_VAR(sincostemp[0]));
 			trigCallHelper(&SinOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
+			LEA(PTRBITS, RDX, MIPSSTATE_VAR(sincostemp[0]));
 			trigCallHelper(&CosOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[1]));
 			break;
@@ -2373,7 +2373,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ANDPS(tempxregs[i], MatR(TEMPREG));
 			break;
 		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
-			LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
+			LEA(PTRBITS, RDX, MIPSSTATE_VAR(sincostemp[0]));
 			trigCallHelper(&ASinScaled, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
@@ -2385,7 +2385,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-			LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
+			LEA(PTRBITS, RDX, MIPSSTATE_VAR(sincostemp[0]));
 			trigCallHelper(&NegSinOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
