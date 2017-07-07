@@ -897,9 +897,9 @@ OpArg FPURegCache::GetDefaultLocation(int reg) const {
 	} else if (reg < 32 + 128) {
 		// Here, RIP has the advantage so let's use it when possible
 		if (useRip_) {
-			return M(&mips->v[voffset[reg - 32]]);
+			return M(&mips->v[voffset[reg - 32]]);  // rip accessible
 		} else {
-			return MIPSSTATE_VAR(v[voffset[reg - 32]]);
+			return MIPSSTATE_VAR(v[voffset[reg - 32]]);  // rip accessible
 		}
 	} else {
 		if (useRip_) {
