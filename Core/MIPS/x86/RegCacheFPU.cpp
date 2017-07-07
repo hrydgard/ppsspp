@@ -896,11 +896,11 @@ OpArg FPURegCache::GetDefaultLocation(int reg) const {
 		if (useRip_) {
 			return M(&mips->v[voffset[reg - 32]]);  // rip accessible
 		} else {
-			return MIPSSTATE_VAR_ELEM32(v[0], voffset[reg - 32]);  // rip accessible
+			return MIPSSTATE_VAR_ELEM32(v[0], voffset[reg - 32]);
 		}
 	} else {
 		if (useRip_) {
-			return M(&mips->tempValues[reg - 32 - 128]);
+			return M(&mips->tempValues[reg - 32 - 128]);  // rip accessible
 		} else {
 			return MIPSSTATE_VAR_ELEM32(tempValues[0], reg - 32 - 128);
 		}

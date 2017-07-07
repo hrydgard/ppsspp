@@ -1465,7 +1465,8 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 			PCMPEQW(XMM1, R(XMM1));
 			XORPS(XMM0, R(XMM1));
 		}
-		ANDPS(XMM0, M(vcmpMask[n - 1]));
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(&vcmpMask[n - 1]));
+		ANDPS(XMM0, MatR(TEMPREG));
 		MOVAPS(MIPSSTATE_VAR(vcmpResult), XMM0);
 
 		MOV(32, R(TEMPREG), MIPSSTATE_VAR(vcmpResult[0]));
@@ -2981,7 +2982,7 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 void Jit::Comp_Vmscl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
-	// TODO: This probably ignores prefixes?
+	// TODO: This op probably ignores prefixes?
 	if (js.HasUnknownPrefix())
 		DISABLE;
 

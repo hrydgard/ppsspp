@@ -151,7 +151,6 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 	}
 }
 
-static const u64 MEMORY_ALIGNED16(ssOneBits[2])	= {0x0000000100000001ULL, 0x0000000100000001ULL};
 static const u64 MEMORY_ALIGNED16(ssSignBits2[2])	= {0x8000000080000000ULL, 0x8000000080000000ULL};
 static const u64 MEMORY_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
@@ -312,14 +311,13 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		}
 		break;
 
-
 	case 4:	//F(fd)	= sqrtf(F(fs)); break; //sqrt
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
 		SQRTSS(fpr.RX(fd), fpr.R(fs));
 		break;
 
-	case 13: //FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
+	case 13: //FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break; //trunc.w.s
 		execRounding(&XEmitter::CVTTSS2SI, -1);
 		break;
 
