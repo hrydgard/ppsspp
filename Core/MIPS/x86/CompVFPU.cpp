@@ -2174,9 +2174,9 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		MOVSS(XMM0, fpr.V(sreg));
 		// TODO: This reg might be different on Linux...
 #ifdef _WIN32
-		LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
+		LEA(64, RDX, MIPSSTATE_VAR(sincostemp[0]));
 #else
-		LEA(64, RSI, MIPSSTATE_VAR(sincostemp));
+		LEA(64, RSI, MIPSSTATE_VAR(sincostemp[0]));
 #endif
 		ABI_CallFunction(thunks.ProtectFunction((const void *)sinCosFunc, 0));
 #else
@@ -2186,7 +2186,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		} else {
 			MOV(32, R(EAX), fpr.V(sreg));
 		}
-		CallProtectedFunction((const void *)sinCosFunc, R(EAX), Imm32((uint32_t)(uintptr_t)mips_->sincostemp));
+		CallProtectedFunction((const void *)sinCosFunc, R(EAX), Imm32((uint32_t)(uintptr_t)&mips_->sincostemp[0]));
 #endif
 	};
 
@@ -2352,12 +2352,10 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			DIVSS(tempxregs[i], R(XMM0));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-			LEA(PTRBITS, RDX, MIPSSTATE_VAR(sincostemp[0]));
 			trigCallHelper(&SinOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			LEA(PTRBITS, RDX, MIPSSTATE_VAR(sincostemp[0]));
 			trigCallHelper(&CosOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[1]));
 			break;
@@ -2373,7 +2371,6 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ANDPS(tempxregs[i], MatR(TEMPREG));
 			break;
 		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
-			LEA(PTRBITS, RDX, MIPSSTATE_VAR(sincostemp[0]));
 			trigCallHelper(&ASinScaled, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
@@ -2385,7 +2382,6 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-			LEA(PTRBITS, RDX, MIPSSTATE_VAR(sincostemp[0]));
 			trigCallHelper(&NegSinOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
