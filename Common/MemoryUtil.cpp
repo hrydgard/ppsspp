@@ -120,7 +120,7 @@ static void *SearchForFreeMem(size_t size) {
 
 void *AllocateExecutableMemory(size_t size) {
 #if defined(_WIN32)
-	void *ptr;
+	void *ptr = nullptr;
 	DWORD prot = PAGE_EXECUTE_READWRITE;
 	if (PlatformIsWXExclusive())
 		prot = PAGE_READWRITE;
@@ -128,7 +128,6 @@ void *AllocateExecutableMemory(size_t size) {
 		GetSystemInfo(&sys_info);
 #if defined(_M_X64)
 	if ((uintptr_t)&hint_location > 0xFFFFFFFFULL) {
-
 		size_t aligned_size = round_page(size);
 		ptr = SearchForFreeMem(aligned_size);
 		if (!ptr) {
@@ -140,7 +139,9 @@ void *AllocateExecutableMemory(size_t size) {
 		if (ptr) {
 			ptr = VirtualAlloc(ptr, aligned_size, MEM_RESERVE | MEM_COMMIT, prot);
 		} else {
-			ERROR_LOG(COMMON, "Unable to find nearby executable memory for jit");
+			WARN_LOG(COMMON, "Unable to find nearby executable memory for jit. Proceeding with far memory.");
+			// Can still run, thanks to "RipAccessible".
+			ptr = VirtualAlloc(nullptr, aligned_size, MEM_RESERVE | MEM_COMMIT, prot);
 		}
 	}
 	else

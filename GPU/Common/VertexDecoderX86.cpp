@@ -1081,8 +1081,10 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 	if (!cpu_info.bSSE4_1) {
 		PXOR(fpScratchReg4, R(fpScratchReg4));
 	}
-	MOVDQA(XMM5, M(color4444mask));
-	MOVAPS(XMM6, M(byColor4444));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(color4444mask));
+	MOVDQA(XMM5, MatR(tempReg2));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(byColor4444));
+	MOVAPS(XMM6, MatR(tempReg2));
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
@@ -1126,8 +1128,10 @@ static const float MEMORY_ALIGNED16(byColor565[4]) = { 255.0f / 31.0f, 255.0f / 
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	MOVDQA(XMM5, M(color565Mask));
-	MOVAPS(XMM6, M(byColor565));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(color565Mask));
+	MOVDQA(XMM5, MatR(tempReg2));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(byColor565));
+	MOVAPS(XMM6, MatR(tempReg2));
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
@@ -1179,8 +1183,10 @@ static const float MEMORY_ALIGNED16(byColor5551[4]) = { 255.0f / 31.0f, 255.0f /
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	MOVDQA(XMM5, M(color5551Mask));
-	MOVAPS(XMM6, M(byColor5551));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(color5551Mask));
+	MOVDQA(XMM5, MatR(tempReg2));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(byColor5551));
+	MOVAPS(XMM6, MatR(tempReg2));
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {

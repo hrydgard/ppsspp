@@ -1545,8 +1545,14 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 		}
 	}
 
-	if (*mult != 1.0f)
-		MOVSS(XMM1, M(mult));
+	if (*mult != 1.0f) {
+		if (RipAccessible(mult)) {
+			MOVSS(XMM1, M(mult));
+		} else {
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(mult));
+			MOVSS(XMM1, MatR(TEMPREG));
+		}
+	}
 	for (int i = 0; i < n; i++) {
 		fpr.MapRegV(tempregs[i], sregs[i] == dregs[i] ? MAP_DIRTY : MAP_NOINIT);
 		if (fpr.V(sregs[i]).IsSimpleReg()) {
@@ -3261,7 +3267,12 @@ void Jit::Comp_Vi2x(MIPSOpcode op) {
 
 	// At this point, everything is aligned in the high bits of our lanes.
 	if (cpu_info.bSSSE3) {
-		PSHUFB(dst0, bits == 8 ? M(vi2xc_shuffle) : M(vi2xs_shuffle));
+		if (RipAccessible(vi2xc_shuffle)) {
+			PSHUFB(dst0, bits == 8 ? M(vi2xc_shuffle) : M(vi2xs_shuffle));
+		} else {
+			MOV(PTRBITS, R(TEMPREG), bits == 8 ? ImmPtr(vi2xc_shuffle) : ImmPtr(vi2xs_shuffle));
+			PSHUFB(dst0, MatR(TEMPREG));
+		}
 	} else {
 		// Let's *arithmetically* shift in the sign so we can use saturating packs.
 		PSRAD(dst0, 32 - bits);

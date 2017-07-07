@@ -614,9 +614,6 @@ void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 		xregs[xr].dirty = makeDirty;
 		OpArg newloc = ::Gen::R(xr);
 		if (doLoad)	{
-			if (!regs[i].location.IsImm() && (regs[i].location.offset & 0x3)) {
-				PanicAlert("WARNING - misaligned fp register location %i", i);
-			}
 			emit->MOVSS(xr, regs[i].location);
 		}
 		regs[i].location = newloc;
