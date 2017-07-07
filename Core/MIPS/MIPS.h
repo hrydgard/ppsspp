@@ -157,7 +157,7 @@ enum class CPUCore;
 
 // Workaround for compilers that don't like dynamic indexing in offsetof
 #define MIPSSTATE_VAR_ELEM32(x, i) MDisp(X64JitConstants::CTXREG, \
-	(int)(offsetof(MIPSState, x) - offsetof(MIPSState, f[0]) + i * 4)
+	(int)(offsetof(MIPSState, x) - offsetof(MIPSState, f[0]) + i * 4))
 
 // To get RIP/relative addressing (requires tight memory control so generated code isn't too far from the binary, and a reachable variable called mips):
 // #define MIPSSTATE_VAR(x) M(&mips->x)
