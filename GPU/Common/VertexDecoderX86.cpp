@@ -207,6 +207,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&aOne));
 		MOVUPS(XMM5, MatR(tempReg1));
 		MOV(PTRBITS, R(tempReg1), ImmPtr(gstate.boneMatrix));
+		MOV(PTRBITS, R(tempReg2), ImmPtr(bones));
 		for (int i = 0; i < dec.nweights; i++) {
 			MOVUPS(XMM0, MDisp(tempReg1, (12 * i) * 4));
 			MOVUPS(XMM1, MDisp(tempReg1, (12 * i + 3) * 4));
@@ -217,10 +218,10 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			ANDPS(XMM2, R(XMM4));
 			ANDPS(XMM3, R(XMM4));
 			ORPS(XMM3, R(XMM5));
-			MOVAPS(M((bones + 16 * i)), XMM0);
-			MOVAPS(M((bones + 16 * i + 4)), XMM1);
-			MOVAPS(M((bones + 16 * i + 8)), XMM2);
-			MOVAPS(M((bones + 16 * i + 12)), XMM3);
+			MOVAPS(MDisp(tempReg2, (16 * i) * 4), XMM0);
+			MOVAPS(MDisp(tempReg2, (16 * i + 4) * 4), XMM1);
+			MOVAPS(MDisp(tempReg2, (16 * i + 8) * 4), XMM2);
+			MOVAPS(MDisp(tempReg2, (16 * i + 12) * 4), XMM3);
 		}
 	}
 

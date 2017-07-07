@@ -129,6 +129,7 @@ void *AllocateExecutableMemory(size_t size) {
 #if defined(_M_X64)
 	if ((uintptr_t)&hint_location > 0xFFFFFFFFULL) {
 		size_t aligned_size = round_page(size);
+#if 1   // Turn off to hunt for RIP bugs on x86-64.
 		ptr = SearchForFreeMem(aligned_size);
 		if (!ptr) {
 			// Let's try again, from the top.
@@ -136,6 +137,7 @@ void *AllocateExecutableMemory(size_t size) {
 			last_executable_addr = 0;
 			ptr = SearchForFreeMem(aligned_size);
 		}
+#endif
 		if (ptr) {
 			ptr = VirtualAlloc(ptr, aligned_size, MEM_RESERVE | MEM_COMMIT, prot);
 		} else {
