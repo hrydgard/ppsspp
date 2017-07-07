@@ -37,9 +37,9 @@ FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {
 	vregs = regs + 32;
 }
 
-void FPURegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
+void FPURegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats, bool useRip) {
 	this->mips = mips;
-
+	useRip_ = useRip;
 	if (!initialReady) {
 		SetupInitialRegs();
 		initialReady = true;
@@ -892,13 +892,21 @@ void FPURegCache::Flush() {
 
 OpArg FPURegCache::GetDefaultLocation(int reg) const {
 	if (reg < 32) {
+		// Smaller than RIP addressing since we can use a byte offset.
 		return MDisp(CTXREG, reg * 4);
 	} else if (reg < 32 + 128) {
-		return M(&mips->v[voffset[reg - 32]]);
-		// This should work, but doesn't seem to (crashes Crisis Core). Seems a bad instruction is generated somehow...
-		// return MIPSSTATE_VAR(v[voffset[reg - 32]]);
+		// Here, RIP has the advantage so let's use it when possible
+		if (useRip_) {
+			return M(&mips->v[voffset[reg - 32]]);
+		} else {
+			return MIPSSTATE_VAR(v[voffset[reg - 32]]);
+		}
 	} else {
-		return MIPSSTATE_VAR(tempValues[reg - 32 - 128]);
+		if (useRip_) {
+			return M(&mips->tempValues[reg - 32 - 128]);
+		} else {
+			return MIPSSTATE_VAR(tempValues[reg - 32 - 128]);
+		}
 	}
 }
 

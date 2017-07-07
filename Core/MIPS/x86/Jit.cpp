@@ -355,7 +355,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 	MIPSAnalyst::AnalysisResults analysis = MIPSAnalyst::Analyze(em_address);
 
 	gpr.Start(mips_, &js, &jo, analysis);
-	fpr.Start(mips_, &js, &jo, analysis);
+	fpr.Start(mips_, &js, &jo, analysis, RipAccessible(&mips_->v[0]));
 
 	js.numInstructions = 0;
 	while (js.compiling) {

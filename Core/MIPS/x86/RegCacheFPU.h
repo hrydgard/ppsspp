@@ -97,7 +97,7 @@ public:
 	FPURegCache();
 	~FPURegCache() {}
 
-	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
+	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats, bool useRip);
 	void MapReg(int preg, bool doLoad = true, bool makeDirty = true);
 	void StoreFromRegister(int preg);
 	void StoreFromRegisterV(int preg) {
@@ -231,6 +231,7 @@ private:
 	X64CachedFPReg xregs[NUM_X_FPREGS];
 	MIPSCachedFPReg *vregs;
 
+	bool useRip_;
 	bool pendingFlush;
 	bool initialReady;
 	MIPSCachedFPReg regsInitial[NUM_MIPS_FPRS];
