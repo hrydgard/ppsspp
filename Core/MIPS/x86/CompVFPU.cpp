@@ -2176,7 +2176,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 #ifdef _WIN32
 		LEA(64, RDX, MIPSSTATE_VAR(sincostemp[0]));
 #else
-		LEA(64, RSI, MIPSSTATE_VAR(sincostemp[0]));
+		LEA(64, RDI, MIPSSTATE_VAR(sincostemp[0]));
 #endif
 		ABI_CallFunction(thunks.ProtectFunction((const void *)sinCosFunc, 0));
 #else
@@ -3519,7 +3519,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 #ifdef _WIN32
 	LEA(64, RDX, MIPSSTATE_VAR(sincostemp));
 #else
-	LEA(64, RSI, MIPSSTATE_VAR(sincostemp));
+	LEA(64, RDI, MIPSSTATE_VAR(sincostemp));
 #endif
 	MOVSS(XMM0, fpr.V(sreg));
 	ABI_CallFunction(negSin1 ? (const void *)&SinCosNegSin : (const void *)&SinCos);
