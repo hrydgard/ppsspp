@@ -152,7 +152,12 @@ enum class CPUCore;
 
 // Note that CTXREG is offset to point at the first floating point register, intentionally. This is so that a byte offset
 // can reach both GPR and FPR regs.
-#define MIPSSTATE_VAR(x) MDisp(X64JitConstants::CTXREG, (int)(offsetof(MIPSState, x) - offsetof(MIPSState, f[0])))
+#define MIPSSTATE_VAR(x) MDisp(X64JitConstants::CTXREG, \
+	(int)(offsetof(MIPSState, x) - offsetof(MIPSState, f[0])))
+
+// Workaround for compilers that don't like dynamic indexing in offsetof
+#define MIPSSTATE_VAR_ELEM32(x, i) MDisp(X64JitConstants::CTXREG, \
+	(int)(offsetof(MIPSState, x) - offsetof(MIPSState, f[0]) + i * 4)
 
 // To get RIP/relative addressing (requires tight memory control so generated code isn't too far from the binary, and a reachable variable called mips):
 // #define MIPSSTATE_VAR(x) M(&mips->x)
