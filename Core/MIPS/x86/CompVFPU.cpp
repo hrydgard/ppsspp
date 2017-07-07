@@ -973,10 +973,8 @@ void Jit::Comp_Vcmov(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
-static s32 vminmax_sreg;
-
 static s32 DoVminSS(s32 treg) {
-	s32 sreg = vminmax_sreg;
+	s32 sreg = currentMIPS->temp;
 
 	// If both are negative, we flip the comparison (not two's compliment.)
 	if (sreg < 0 && treg < 0) {
@@ -989,7 +987,7 @@ static s32 DoVminSS(s32 treg) {
 }
 
 static s32 DoVmaxSS(s32 treg) {
-	s32 sreg = vminmax_sreg;
+	s32 sreg = currentMIPS->temp;
 
 	// This is the same logic as vmin, just reversed.
 	if (sreg < 0 && treg < 0) {
@@ -1205,7 +1203,7 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 					UCOMISS(tempxregs[i], R(XMM0));
 					FixupBranch skip = J_CC(CC_NP, true);
 
-					MOVSS(M(&vminmax_sreg), tempxregs[i]);
+					MOVSS(MIPSSTATE_VAR(temp), tempxregs[i]);
 					MOVD_xmm(R(EAX), XMM0);
 					CallProtectedFunction(&DoVminSS, R(EAX));
 					MOVD_xmm(tempxregs[i], R(EAX));
@@ -1222,7 +1220,7 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 					UCOMISS(tempxregs[i], R(XMM0));
 					FixupBranch skip = J_CC(CC_NP, true);
 
-					MOVSS(M(&vminmax_sreg), tempxregs[i]);
+					MOVSS(MIPSSTATE_VAR(temp), tempxregs[i]);
 					MOVD_xmm(R(EAX), XMM0);
 					CallProtectedFunction(&DoVmaxSS, R(EAX));
 					MOVD_xmm(tempxregs[i], R(EAX));
