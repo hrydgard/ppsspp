@@ -1237,7 +1237,7 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 		CMP(32, R(tempReg1), Imm32(0xFF000000));
 		FixupBranch skip = J_CC(CC_AE, false);
 		if (RipAccessible(&gstate_c.vertexFullAlpha)) {
-			MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
+			MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(tempReg2), ImmPtr(&gstate_c.vertexFullAlpha));
 			MOV(8, MatR(tempReg2), Imm8(0));

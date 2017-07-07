@@ -973,10 +973,10 @@ void Jit::Comp_Vcmov(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
-static s32 MEMORY_ALIGNED16(vminmax_sreg[4]);
+static s32 vminmax_sreg;
 
 static s32 DoVminSS(s32 treg) {
-	s32 sreg = vminmax_sreg[0];
+	s32 sreg = vminmax_sreg;
 
 	// If both are negative, we flip the comparison (not two's compliment.)
 	if (sreg < 0 && treg < 0) {
@@ -989,7 +989,7 @@ static s32 DoVminSS(s32 treg) {
 }
 
 static s32 DoVmaxSS(s32 treg) {
-	s32 sreg = vminmax_sreg[0];
+	s32 sreg = vminmax_sreg;
 
 	// This is the same logic as vmin, just reversed.
 	if (sreg < 0 && treg < 0) {
