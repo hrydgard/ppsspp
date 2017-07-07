@@ -575,7 +575,12 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 	if (fpr.TryMapRegsVS(dregs, sz, MAP_NOINIT | MAP_DIRTY)) {
 		int row = vd & (n - 1);
-		MOVAPS(fpr.VSX(dregs), M(identityMatrix[row]));
+		if (RipAccessible(identityMatrix)) {
+			MOVAPS(fpr.VSX(dregs), M(identityMatrix[row]));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(&identityMatrix[row]));
+			MOVAPS(fpr.VSX(dregs), MatR(TEMPREG));
+		}
 		ApplyPrefixD(dregs, sz);
 		fpr.ReleaseSpillLocks();
 		return;
@@ -1603,7 +1608,12 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	SSE_CONST4(magic,               (254 - 15) << 23);
 	SSE_CONST4(was_infnan,          0x7bff);
 	SSE_CONST4(exp_infnan,          255 << 23);
-	
+
+	// TODO: Fix properly
+	if (!RipAccessible(mask_nosign)) {
+		DISABLE;
+	}
+
 #undef SSE_CONST4
 	VectorSize sz = GetVecSize(op);
 	VectorSize outsize;
@@ -1639,14 +1649,14 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	// OK, 16 bits in each word.
 	// Let's go. Deep magic here.
 	MOVAPS(XMM1, R(XMM0));
-	ANDPS(XMM0, M(mask_nosign)); // xmm0 = expmant
+	ANDPS(XMM0, M(&mask_nosign[0])); // xmm0 = expmant
 	XORPS(XMM1, R(XMM0));  // xmm1 = justsign = expmant ^ xmm0
 	MOVAPS(tempR, R(XMM0));
-	PCMPGTD(tempR, M(was_infnan));  // xmm2 = b_wasinfnan
+	PCMPGTD(tempR, M(&was_infnan[0]));  // xmm2 = b_wasinfnan
 	PSLLD(XMM0, 13);
 	MULPS(XMM0, M(magic));  /// xmm0 = scaled
 	PSLLD(XMM1, 16);  // xmm1 = sign
-	ANDPS(tempR, M(exp_infnan));
+	ANDPS(tempR, M(&exp_infnan[0]));
 	ORPS(XMM1, R(tempR));
 	ORPS(XMM0, R(XMM1));
 
@@ -1732,7 +1742,7 @@ void Jit::Comp_Vx2i(MIPSOpcode op) {
 			MOVSS(XMM0, fpr.V(sregs[0]));
 			if (cpu_info.bSSSE3) {
 				// Not really different speed.  Generates a bit less code.
-				PSHUFB(XMM0, M(vuc2i_shuffle));
+				PSHUFB(XMM0, M(&vuc2i_shuffle[0]));
 			} else {
 				// First, we change 0xDDCCBBAA to 0xDDDDCCCCBBBBAAAA.
 				PUNPCKLBW(XMM0, R(XMM0));
@@ -1742,7 +1752,7 @@ void Jit::Comp_Vx2i(MIPSOpcode op) {
 		} else {
 			if (cpu_info.bSSSE3) {
 				MOVSS(XMM0, fpr.V(sregs[0]));
-				PSHUFB(XMM0, M(vc2i_shuffle));
+				PSHUFB(XMM0, M(&vc2i_shuffle[0]));
 			} else {
 				PXOR(XMM1, R(XMM1));
 				MOVSS(XMM0, fpr.V(sregs[0]));
@@ -1861,8 +1871,14 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		}
 	}
 
-	if (*mult != 1.0f)
-		MOVSD(XMM1, M(mult));
+	if (*mult != 1.0f) {
+		if (RipAccessible(mult)) {
+			MOVSD(XMM1, M(mult));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(mult));
+			MOVSD(XMM1, MatR(TEMPREG));
+		}
+	}
 
 	fpr.MapRegsV(tempregs, sz, MAP_DIRTY | MAP_NOINIT);
 	for (int i = 0; i < n; i++) {
@@ -3453,7 +3469,12 @@ void Jit::CompVrotShuffle(u8 *dregs, int imm, int n, bool negSin) {
 		case 'S':
 			MOVSS(fpr.V(dregs[i]), XMM0);
 			if (negSin) {
-				XORPS(fpr.VX(dregs[i]), M(&signBitLower));
+				if (RipAccessible(&signBitLower)) {
+					XORPS(fpr.VX(dregs[i]), M(&signBitLower));  // rip accessible
+				} else {
+					MOV(PTRBITS, R(TEMPREG), ImmPtr(&signBitLower));
+					XORPS(fpr.VX(dregs[i]), MatR(TEMPREG));
+				}
 			}
 			break;
 		case '0':

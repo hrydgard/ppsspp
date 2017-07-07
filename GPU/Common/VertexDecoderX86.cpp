@@ -882,18 +882,18 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	MOV(32, R(tempReg2), R(tempReg1));
 	SHR(32, R(tempReg2), Imm8(16));
 
-	auto updateSide = [&](X64Reg r, CCFlags skipCC, u16 *value) {
-		CMP(16, R(r), M(value));
+	MOV(PTRBITS, R(tempReg3), ImmPtr(&gstate_c.vertBounds));
+	auto updateSide = [&](X64Reg r, CCFlags skipCC, int offset) {
+		CMP(16, R(r), MDisp(tempReg3, offset));
 		FixupBranch skip = J_CC(skipCC);
-		MOV(16, M(value), R(r));
+		MOV(16, MDisp(tempReg3, offset), R(r));
 		SetJumpTarget(skip);
 	};
-
 	// TODO: Can this actually be fast?  Hmm, floats aren't better.
-	updateSide(tempReg1, CC_GE, &gstate_c.vertBounds.minU);
-	updateSide(tempReg1, CC_LE, &gstate_c.vertBounds.maxU);
-	updateSide(tempReg2, CC_GE, &gstate_c.vertBounds.minV);
-	updateSide(tempReg2, CC_LE, &gstate_c.vertBounds.maxV);
+	updateSide(tempReg1, CC_GE, offsetof(KnownVertexBounds, minU));
+	updateSide(tempReg1, CC_LE, offsetof(KnownVertexBounds, maxU));
+	updateSide(tempReg2, CC_GE, offsetof(KnownVertexBounds, minV));
+	updateSide(tempReg2, CC_LE, offsetof(KnownVertexBounds, maxV));
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
@@ -923,7 +923,6 @@ void VertexDecoderJitCache::Jit_Color8888() {
 	SetJumpTarget(skip);
 }
 
-static const u32 MEMORY_ALIGNED16(nibbles[4]) = { 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, };
 static const u32 MEMORY_ALIGNED16(color4444mask[4]) = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
 
 void VertexDecoderJitCache::Jit_Color4444() {
@@ -931,7 +930,12 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->coloff));
 	// Spread to RGBA -> R00GB00A.
 	PUNPCKLBW(fpScratchReg, R(fpScratchReg));
-	PAND(fpScratchReg, M(color4444mask));
+	if (RipAccessible(&color4444mask[0])) {
+		PAND(fpScratchReg, M(&color4444mask[0]));
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&color4444mask));
+		PAND(fpScratchReg, MatR(tempReg1));
+	}
 	MOVSS(fpScratchReg2, R(fpScratchReg));
 	MOVSS(fpScratchReg3, R(fpScratchReg));
 	// Create 0R000B00 and 00G000A0.

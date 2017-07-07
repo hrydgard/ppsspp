@@ -277,14 +277,15 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(&ssNoSignMask[0]));
 		if (fd != fs && fpr.IsMapped(fs)) {
-			MOVAPS(fpr.RX(fd), M(ssNoSignMask));
+			MOVAPS(fpr.RX(fd), MatR(TEMPREG));
 			ANDPS(fpr.RX(fd), fpr.R(fs));
 		} else {
 			if (fd != fs) {
 				MOVSS(fpr.RX(fd), fpr.R(fs));
 			}
-			ANDPS(fpr.RX(fd), M(ssNoSignMask));
+			ANDPS(fpr.RX(fd), MatR(TEMPREG));
 		}
 		break;
 
@@ -299,14 +300,15 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	case 7:	//F(fd)	= -F(fs);			 break; //neg
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(&ssSignBits2[0]));
 		if (fd != fs && fpr.IsMapped(fs)) {
-			MOVAPS(fpr.RX(fd), M(ssSignBits2));
+			MOVAPS(fpr.RX(fd), MatR(TEMPREG));
 			XORPS(fpr.RX(fd), fpr.R(fs));
 		} else {
 			if (fd != fs) {
 				MOVSS(fpr.RX(fd), fpr.R(fs));
 			}
-			XORPS(fpr.RX(fd), M(ssSignBits2));
+			XORPS(fpr.RX(fd), MatR(TEMPREG));
 		}
 		break;
 
