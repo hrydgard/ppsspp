@@ -44,9 +44,8 @@
 // and do it the old way.
 
 enum {
-	NUM_TEMPS = 16,
 	TEMP0 = 32 + 128,
-	NUM_MIPS_FPRS = 32 + 128 + NUM_TEMPS,
+	NUM_MIPS_FPRS = 32 + 128 + NUM_X86_FPU_TEMPS,
 };
 
 #ifdef _M_X64
@@ -98,7 +97,7 @@ public:
 	FPURegCache();
 	~FPURegCache() {}
 
-	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
+	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats, bool useRip);
 	void MapReg(int preg, bool doLoad = true, bool makeDirty = true);
 	void StoreFromRegister(int preg);
 	void StoreFromRegisterV(int preg) {
@@ -232,13 +231,11 @@ private:
 	X64CachedFPReg xregs[NUM_X_FPREGS];
 	MIPSCachedFPReg *vregs;
 
+	bool useRip_;
 	bool pendingFlush;
 	bool initialReady;
 	MIPSCachedFPReg regsInitial[NUM_MIPS_FPRS];
 	X64CachedFPReg xregsInitial[NUM_X_FPREGS];
-
-	// TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
-	static float tempValues[NUM_TEMPS];
 
 	Gen::XEmitter *emit;
 	MIPSComp::JitState *js_;

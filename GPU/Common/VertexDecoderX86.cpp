@@ -202,21 +202,26 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	// Later we might want to do this when the matrices are loaded instead.
 	int boneCount = 0;
 	if (dec.weighttype && g_Config.bSoftwareSkinning && dec.morphcount == 1) {
-		MOVAPS(XMM4, M(&threeMasks));
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&threeMasks));
+		MOVAPS(XMM4, MatR(tempReg1));
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&aOne));
+		MOVUPS(XMM5, MatR(tempReg1));
+		MOV(PTRBITS, R(tempReg1), ImmPtr(gstate.boneMatrix));
+		MOV(PTRBITS, R(tempReg2), ImmPtr(bones));
 		for (int i = 0; i < dec.nweights; i++) {
-			MOVUPS(XMM0, M((gstate.boneMatrix + 12 * i)));
-			MOVUPS(XMM1, M((gstate.boneMatrix + 12 * i + 3)));
-			MOVUPS(XMM2, M((gstate.boneMatrix + 12 * i + 3 * 2)));
-			MOVUPS(XMM3, M((gstate.boneMatrix + 12 * i + 3 * 3)));
+			MOVUPS(XMM0, MDisp(tempReg1, (12 * i) * 4));
+			MOVUPS(XMM1, MDisp(tempReg1, (12 * i + 3) * 4));
+			MOVUPS(XMM2, MDisp(tempReg1, (12 * i + 3 * 2) * 4));
+			MOVUPS(XMM3, MDisp(tempReg1, (12 * i + 3 * 3) * 4));
 			ANDPS(XMM0, R(XMM4));
 			ANDPS(XMM1, R(XMM4));
 			ANDPS(XMM2, R(XMM4));
 			ANDPS(XMM3, R(XMM4));
-			ORPS(XMM3, M(&aOne));
-			MOVAPS(M((bones + 16 * i)), XMM0);
-			MOVAPS(M((bones + 16 * i + 4)), XMM1);
-			MOVAPS(M((bones + 16 * i + 8)), XMM2);
-			MOVAPS(M((bones + 16 * i + 12)), XMM3);
+			ORPS(XMM3, R(XMM5));
+			MOVAPS(MDisp(tempReg2, (16 * i) * 4), XMM0);
+			MOVAPS(MDisp(tempReg2, (16 * i + 4) * 4), XMM1);
+			MOVAPS(MDisp(tempReg2, (16 * i + 8) * 4), XMM2);
+			MOVAPS(MDisp(tempReg2, (16 * i + 12) * 4), XMM3);
 		}
 	}
 
@@ -227,9 +232,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		MOVSS(fpScratchReg, MDisp(tempReg1, 4));
 		UNPCKLPS(fpScaleOffsetReg, R(fpScratchReg));
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			MULPS(fpScaleOffsetReg, M(&by128));
+			MOV(PTRBITS, R(tempReg2), ImmPtr(&by128));
+			MULPS(fpScaleOffsetReg, MatR(tempReg2));
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			MULPS(fpScaleOffsetReg, M(&by32768));
+			MOV(PTRBITS, R(tempReg2), ImmPtr(&by32768));
+			MULPS(fpScaleOffsetReg, MatR(tempReg2));
 		}
 		MOVSS(fpScratchReg, MDisp(tempReg1, 8));
 		MOVSS(fpScratchReg2, MDisp(tempReg1, 12));
@@ -472,9 +479,17 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 	CVTDQ2PS(XMM8, R(XMM8));
 	if (dec_->nweights > 4)
 		CVTDQ2PS(XMM9, R(XMM9));
-	MULPS(XMM8, M(&by128));
-	if (dec_->nweights > 4)
-		MULPS(XMM9, M(&by128));
+
+	if (RipAccessible(&by128)) {
+		MULPS(XMM8, M(&by128));  // rip accessible
+		if (dec_->nweights > 4)
+			MULPS(XMM9, M(&by128));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by128));
+		MULPS(XMM8, MatR(tempReg1));
+		if (dec_->nweights > 4)
+			MULPS(XMM9, MatR(tempReg1));
+	}
 
 	auto weightToAllLanes = [this](X64Reg dst, int lane) {
 		X64Reg src = lane < 4 ? XMM8 : XMM9;
@@ -515,7 +530,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 #else
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
 		CVTSI2SS(weight, R(tempReg1));
-		MULSS(weight, M(&by128));
+		MULSS(weight, M(&by128));  // rip accessible (x86)
 		SHUFPS(weight, R(weight), _MM_SHUFFLE(0, 0, 0, 0));
 #endif
 		if (j == 0) {
@@ -578,9 +593,17 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 	CVTDQ2PS(XMM8, R(XMM8));
 	if (dec_->nweights > 4)
 		CVTDQ2PS(XMM9, R(XMM9));
-	MULPS(XMM8, M(&by32768));
-	if (dec_->nweights > 4)
-		MULPS(XMM9, M(&by32768));
+
+	if (RipAccessible(&by32768)) {
+		MULPS(XMM8, M(&by32768));  // rip accessible
+		if (dec_->nweights > 4)
+			MULPS(XMM9, M(&by32768));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by32768));
+		MULPS(XMM8, MatR(tempReg1));
+		if (dec_->nweights > 4)
+			MULPS(XMM9, MatR(tempReg1));
+	}
 
 	auto weightToAllLanes = [this](X64Reg dst, int lane) {
 		X64Reg src = lane < 4 ? XMM8 : XMM9;
@@ -621,7 +644,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 #else
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
 		CVTSI2SS(weight, R(tempReg1));
-		MULSS(weight, M(&by32768));
+		MULSS(weight, M(&by32768));  // rip accessible (x86)
 		SHUFPS(weight, R(weight), _MM_SHUFFLE(0, 0, 0, 0));
 #endif
 		if (j == 0) {
@@ -794,14 +817,24 @@ void VertexDecoderJitCache::Jit_TcAnyMorph(int bits) {
 void VertexDecoderJitCache::Jit_TcU8MorphToFloat() {
 	Jit_TcAnyMorph(8);
 	// They were all added (weighted) pre-normalize, we normalize once here.
-	MULPS(fpScratchReg, M(&by128));
+	if (RipAccessible(&by128)) {
+		MULPS(fpScratchReg, M(&by128));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by128));
+		MULPS(fpScratchReg, MatR(tempReg1));
+	}
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_TcU16MorphToFloat() {
 	Jit_TcAnyMorph(16);
 	// They were all added (weighted) pre-normalize, we normalize once here.
-	MULPS(fpScratchReg, M(&by32768));
+	if (RipAccessible(&by32768)) {
+		MULPS(fpScratchReg, M(&by32768));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by32768));
+		MULPS(fpScratchReg, MatR(tempReg1));
+	}
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
@@ -850,18 +883,18 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	MOV(32, R(tempReg2), R(tempReg1));
 	SHR(32, R(tempReg2), Imm8(16));
 
-	auto updateSide = [&](X64Reg r, CCFlags skipCC, u16 *value) {
-		CMP(16, R(r), M(value));
+	MOV(PTRBITS, R(tempReg3), ImmPtr(&gstate_c.vertBounds));
+	auto updateSide = [&](X64Reg r, CCFlags skipCC, int offset) {
+		CMP(16, R(r), MDisp(tempReg3, offset));
 		FixupBranch skip = J_CC(skipCC);
-		MOV(16, M(value), R(r));
+		MOV(16, MDisp(tempReg3, offset), R(r));
 		SetJumpTarget(skip);
 	};
-
 	// TODO: Can this actually be fast?  Hmm, floats aren't better.
-	updateSide(tempReg1, CC_GE, &gstate_c.vertBounds.minU);
-	updateSide(tempReg1, CC_LE, &gstate_c.vertBounds.maxU);
-	updateSide(tempReg2, CC_GE, &gstate_c.vertBounds.minV);
-	updateSide(tempReg2, CC_LE, &gstate_c.vertBounds.maxV);
+	updateSide(tempReg1, CC_GE, offsetof(KnownVertexBounds, minU));
+	updateSide(tempReg1, CC_LE, offsetof(KnownVertexBounds, maxU));
+	updateSide(tempReg2, CC_GE, offsetof(KnownVertexBounds, minV));
+	updateSide(tempReg2, CC_LE, offsetof(KnownVertexBounds, maxV));
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
@@ -882,11 +915,15 @@ void VertexDecoderJitCache::Jit_Color8888() {
 
 	CMP(32, R(tempReg1), Imm32(0xFF000000));
 	FixupBranch skip = J_CC(CC_AE, false);
-	MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
+	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
+		MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
+		MOV(8, MatR(tempReg1), Imm8(0));
+	}
 	SetJumpTarget(skip);
 }
 
-static const u32 MEMORY_ALIGNED16(nibbles[4]) = { 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, 0x0f0f0f0f, };
 static const u32 MEMORY_ALIGNED16(color4444mask[4]) = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
 
 void VertexDecoderJitCache::Jit_Color4444() {
@@ -894,7 +931,12 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->coloff));
 	// Spread to RGBA -> R00GB00A.
 	PUNPCKLBW(fpScratchReg, R(fpScratchReg));
-	PAND(fpScratchReg, M(color4444mask));
+	if (RipAccessible(&color4444mask[0])) {
+		PAND(fpScratchReg, M(&color4444mask[0]));
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&color4444mask));
+		PAND(fpScratchReg, MatR(tempReg1));
+	}
 	MOVSS(fpScratchReg2, R(fpScratchReg));
 	MOVSS(fpScratchReg3, R(fpScratchReg));
 	// Create 0R000B00 and 00G000A0.
@@ -908,7 +950,12 @@ void VertexDecoderJitCache::Jit_Color4444() {
 
 	CMP(32, R(tempReg1), Imm32(0xFF000000));
 	FixupBranch skip = J_CC(CC_AE, false);
-	MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
+	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
+		MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
+		MOV(8, MatR(tempReg1), Imm8(0));
+	}
 	SetJumpTarget(skip);
 }
 
@@ -985,7 +1032,12 @@ void VertexDecoderJitCache::Jit_Color5551() {
 
 	CMP(32, R(tempReg2), Imm32(0xFF000000));
 	FixupBranch skip = J_CC(CC_AE, false);
-	MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
+	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
+		MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
+		MOV(8, MatR(tempReg1), Imm8(0));
+	}
 	SetJumpTarget(skip);
 }
 
@@ -1030,8 +1082,10 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 	if (!cpu_info.bSSE4_1) {
 		PXOR(fpScratchReg4, R(fpScratchReg4));
 	}
-	MOVDQA(XMM5, M(color4444mask));
-	MOVAPS(XMM6, M(byColor4444));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(color4444mask));
+	MOVDQA(XMM5, MatR(tempReg2));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(byColor4444));
+	MOVAPS(XMM6, MatR(tempReg2));
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
@@ -1075,8 +1129,10 @@ static const float MEMORY_ALIGNED16(byColor565[4]) = { 255.0f / 31.0f, 255.0f / 
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	MOVDQA(XMM5, M(color565Mask));
-	MOVAPS(XMM6, M(byColor565));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(color565Mask));
+	MOVDQA(XMM5, MatR(tempReg2));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(byColor565));
+	MOVAPS(XMM6, MatR(tempReg2));
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
@@ -1128,8 +1184,10 @@ static const float MEMORY_ALIGNED16(byColor5551[4]) = { 255.0f / 31.0f, 255.0f /
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	MOVDQA(XMM5, M(color5551Mask));
-	MOVAPS(XMM6, M(byColor5551));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(color5551Mask));
+	MOVDQA(XMM5, MatR(tempReg2));
+	MOV(PTRBITS, R(tempReg2), ImmPtr(byColor5551));
+	MOVAPS(XMM6, MatR(tempReg2));
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
@@ -1189,7 +1247,12 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	if (checkAlpha) {
 		CMP(32, R(tempReg1), Imm32(0xFF000000));
 		FixupBranch skip = J_CC(CC_AE, false);
-		MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
+		if (RipAccessible(&gstate_c.vertexFullAlpha)) {
+			MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(tempReg2), ImmPtr(&gstate_c.vertexFullAlpha));
+			MOV(8, MatR(tempReg2), Imm8(0));
+		}
 		SetJumpTarget(skip);
 	} else {
 		// Force alpha to full if we're not checking it.
@@ -1358,7 +1421,12 @@ void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
 		PSRAD(XMM1, 24);
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by128));
+	if (RipAccessible(&by128)) {
+		MULPS(XMM3, M(&by128));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by128));
+		MULPS(XMM3, MatR(tempReg1));
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
@@ -1374,7 +1442,12 @@ void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 		PSRAD(XMM1, 16);
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by32768));
+	if (RipAccessible(&by32768)) {
+		MULPS(XMM3, M(&by32768));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by32768));
+		MULPS(XMM3, MatR(tempReg1));
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
@@ -1401,7 +1474,12 @@ void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
 		PUNPCKLWD(XMM1, R(XMM3));
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by128));
+	if (RipAccessible(&by128)) {
+		MULPS(XMM3, M(&by128));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by128));
+		MULPS(XMM3, MatR(tempReg1));
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
@@ -1428,7 +1506,12 @@ void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
 		PUNPCKLWD(XMM1, R(XMM3));
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by32768));
+	if (RipAccessible(&by32768)) {
+		MULPS(XMM3, M(&by32768));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by32768));
+		MULPS(XMM3, MatR(tempReg1));
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
@@ -1436,7 +1519,12 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	if (!cpu_info.bSSE4_1) {
 		PXOR(fpScratchReg4, R(fpScratchReg4));
 	}
-	MOVAPS(XMM5, M(by128));
+	if (RipAccessible(&by128)) {
+		MOVAPS(XMM5, M(&by128));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by128));
+		MOVAPS(XMM5, MatR(tempReg1));
+	}
 
 	// Sum into fpScratchReg.
 	bool first = true;
@@ -1475,7 +1563,12 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	if (!cpu_info.bSSE4_1) {
 		PXOR(fpScratchReg4, R(fpScratchReg4));
 	}
-	MOVAPS(XMM5, M(by32768));
+	if (RipAccessible(&by32768)) {
+		MOVAPS(XMM5, M(&by32768));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&by32768));
+		MOVAPS(XMM5, MatR(tempReg1));
+	}
 
 	// Sum into fpScratchReg.
 	bool first = true;

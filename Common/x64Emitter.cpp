@@ -269,7 +269,7 @@ void OpArg::WriteRest(XEmitter *emit, int extraBytes, X64Reg _operandReg,
 			{
 				mod = 0;
 			}
-			else if (ioff<-128 || ioff>127)
+			else if (ioff < -128 || ioff > 127)
 			{
 				mod = 2; //32-bit displacement
 			}
@@ -1497,8 +1497,8 @@ void XEmitter::MOVQ_xmm(OpArg arg, X64Reg src)
 	else
 	{
 		arg.operandReg = src;
-		arg.WriteRex(this, 0, 0);
 		Write8(0x66);
+		arg.WriteRex(this, 0, 0);
 		Write8(0x0f);
 		Write8(0xD6);
 		arg.WriteRest(this, 0);

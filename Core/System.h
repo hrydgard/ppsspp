@@ -72,8 +72,6 @@ void PSP_BeginHostFrame();
 void PSP_EndHostFrame();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
-void PSP_BeginFrame();
-void PSP_EndFrame();
 
 void Audio_Init();
 
@@ -88,8 +86,7 @@ void InitSysDirectories();
 #endif
 
 // RUNNING must be at 0, NEXTFRAME must be at 1.
-enum CoreState
-{
+enum CoreState {
 	CORE_RUNNING = 0,
 	CORE_NEXTFRAME = 1,
 	CORE_STEPPING,

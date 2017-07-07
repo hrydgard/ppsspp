@@ -70,21 +70,21 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 	BeginWrite();
 
 	restoreRoundingMode = AlignCode16(); {
-		STMXCSR(M(&mips_->temp));
+		STMXCSR(MIPSSTATE_VAR(temp));
 		// Clear the rounding mode and flush-to-zero bits back to 0.
-		AND(32, M(&mips_->temp), Imm32(~(7 << 13)));
-		LDMXCSR(M(&mips_->temp));
+		AND(32, MIPSSTATE_VAR(temp), Imm32(~(7 << 13)));
+		LDMXCSR(MIPSSTATE_VAR(temp));
 		RET();
 	}
 
 	applyRoundingMode = AlignCode16(); {
-		MOV(32, R(EAX), M(&mips_->fcr31));
+		MOV(32, R(EAX), MIPSSTATE_VAR(fcr31));
 		AND(32, R(EAX), Imm32(0x01000003));
 
 		// If it's 0 (nearest + no flush0), we don't actually bother setting - we cleared the rounding
 		// mode out in restoreRoundingMode anyway. This is the most common.
 		FixupBranch skip = J_CC(CC_Z);
-		STMXCSR(M(&mips_->temp));
+		STMXCSR(MIPSSTATE_VAR(temp));
 
 		// The MIPS bits don't correspond exactly, so we have to adjust.
 		// 0 -> 0 (skip2), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
@@ -96,15 +96,15 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		// Adjustment complete, now reconstruct MXCSR
 		SHL(32, R(EAX), Imm8(13));
 		// Before setting new bits, we must clear the old ones.
-		AND(32, M(&mips_->temp), Imm32(~(7 << 13)));   // Clearing bits 13-14 (rounding mode) and 15 (flush to zero)
-		OR(32, M(&mips_->temp), R(EAX));
+		AND(32, MIPSSTATE_VAR(temp), Imm32(~(7 << 13)));   // Clearing bits 13-14 (rounding mode) and 15 (flush to zero)
+		OR(32, MIPSSTATE_VAR(temp), R(EAX));
 
-		TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
+		TEST(32, MIPSSTATE_VAR(fcr31), Imm32(1 << 24));
 		FixupBranch skip3 = J_CC(CC_Z);
-		OR(32, M(&mips_->temp), Imm32(1 << 15));
+		OR(32, MIPSSTATE_VAR(temp), Imm32(1 << 15));
 		SetJumpTarget(skip3);
 
-		LDMXCSR(M(&mips_->temp));
+		LDMXCSR(MIPSSTATE_VAR(temp));
 		SetJumpTarget(skip);
 		RET();
 	}
@@ -112,17 +112,12 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 	updateRoundingMode = AlignCode16(); {
 		// If it's only ever 0, we don't actually bother applying or restoring it.
 		// This is the most common situation.
-		TEST(32, M(&mips_->fcr31), Imm32(0x01000003));
+		TEST(32, MIPSSTATE_VAR(fcr31), Imm32(0x01000003));
 		FixupBranch skip = J_CC(CC_Z);
-#ifdef _M_X64
 		// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
-		MOV(64, R(RAX), Imm64((uintptr_t)&js.hasSetRounding));
+		MOV(PTRBITS, R(RAX), ImmPtr(&js.hasSetRounding));
 		MOV(8, MatR(RAX), Imm8(1));
-#else
-		MOV(8, M(&js.hasSetRounding), Imm8(1));
-#endif
 		SetJumpTarget(skip);
-
 		RET();
 	}
 
@@ -153,7 +148,12 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		FixupBranch bailCoreState = J_CC(CC_S, true);
 
 		SetJumpTarget(skipToCoreStateCheck);
-		CMP(32, M(&coreState), Imm32(0));
+		if (RipAccessible((const void *)&coreState)) {
+			CMP(32, M(&coreState), Imm32(0));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(RAX), Imm32(0));
+		}
 		FixupBranch badCoreState = J_CC(CC_NZ, true);
 		FixupBranch skipToRealDispatch2 = J(); //skip the sync and compare first time
 
@@ -167,7 +167,7 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 
 			dispatcherNoCheck = GetCodePtr();
 
-			MOV(32, R(EAX), M(&mips_->pc));
+			MOV(32, R(EAX), MIPSSTATE_VAR(pc));
 			dispatcherInEAXNoCheck = GetCodePtr();
 
 #ifdef MASKED_PSP_MEMORY
@@ -185,9 +185,8 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 			SHR(32, R(EDX), Imm8(24));
 			CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
 			FixupBranch notfound = J_CC(CC_NE);
-				if (enableDebug)
-				{
-					ADD(32, M(&mips_->debugCount), Imm8(1));
+				if (enableDebug) {
+					ADD(32, MIPSSTATE_VAR(debugCount), Imm8(1));
 				}
 				//grab from list and jump to it
 				AND(32, R(EAX), Imm32(MIPS_EMUHACK_VALUE_MASK));
@@ -211,7 +210,12 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);
 
-		CMP(32, M(&coreState), Imm32(0));
+		if (RipAccessible((const void *)&coreState)) {
+			CMP(32, M(&coreState), Imm32(0));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(RAX), Imm32(0));
+		}
 		J_CC(CC_Z, outerLoop, true);
 
 	SetJumpTarget(badCoreState);

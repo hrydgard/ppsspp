@@ -48,8 +48,6 @@ namespace MIPSComp
 {
 using namespace Gen;
 
-static u64 saved_flags;
-
 const bool USE_JIT_MISSMAP = false;
 static std::map<std::string, u32> notJitOps;
 
@@ -178,24 +176,24 @@ void Jit::FlushAll() {
 
 void Jit::FlushPrefixV() {
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
-		MOV(32, M(&mips_->vfpuCtrl[VFPU_CTRL_SPREFIX]), Imm32(js.prefixS));
+		MOV(32, MIPSSTATE_VAR(vfpuCtrl[VFPU_CTRL_SPREFIX]), Imm32(js.prefixS));
 		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixTFlag & JitState::PREFIX_DIRTY) != 0) {
-		MOV(32, M(&mips_->vfpuCtrl[VFPU_CTRL_TPREFIX]), Imm32(js.prefixT));
+		MOV(32, MIPSSTATE_VAR(vfpuCtrl[VFPU_CTRL_TPREFIX]), Imm32(js.prefixT));
 		js.prefixTFlag = (JitState::PrefixState) (js.prefixTFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0) {
-		MOV(32, M(&mips_->vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
+		MOV(32, MIPSSTATE_VAR(vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
 }
 
 void Jit::WriteDowncount(int offset) {
 	const int downcount = js.downcountAmount + offset;
-	SUB(32, M(&mips_->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
+	SUB(32, MIPSSTATE_VAR(downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
 }
 
 void Jit::RestoreRoundingMode(bool force) {
@@ -228,13 +226,13 @@ void Jit::SaveFlags() {
 #if defined(_M_X64)
 	// On X64, the above misaligns the stack. However there might be a cheaper solution than this.
 	POP(64, R(EAX));
-	MOV(64, M(&saved_flags), R(EAX));
+	MOV(64, MIPSSTATE_VAR(saved_flags), R(EAX));
 #endif
 }
 
 void Jit::LoadFlags() {
 #if defined(_M_X64)
-	MOV(64, R(EAX), M(&saved_flags));
+	MOV(64, R(EAX), MIPSSTATE_VAR(saved_flags));
 	PUSH(64, R(EAX));
 #endif
 	POPF();
@@ -331,8 +329,7 @@ MIPSOpcode Jit::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
-{
+const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
 	js.lastContinuedPC = 0;
@@ -349,7 +346,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	b->checkedEntry = (u8 *)GetCodePtr();
 	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
 	FixupBranch skip = J_CC(CC_NS);
-	MOV(32, M(&mips_->pc), Imm32(js.blockStart));
+	MOV(32, MIPSSTATE_VAR(pc), Imm32(js.blockStart));
 	JMP(outerLoop, true);  // downcount hit zero - go advance.
 	SetJumpTarget(skip);
 
@@ -358,7 +355,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	MIPSAnalyst::AnalysisResults analysis = MIPSAnalyst::Analyze(em_address);
 
 	gpr.Start(mips_, &js, &jo, analysis);
-	fpr.Start(mips_, &js, &jo, analysis);
+	fpr.Start(mips_, &js, &jo, analysis, RipAccessible(&mips_->v[0]));
 
 	js.numInstructions = 0;
 	while (js.compiling) {
@@ -377,12 +374,17 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			// If we're rewinding, CORE_NEXTFRAME should not cause a rewind.
 			// It doesn't really matter either way if we're not rewinding.
 			// CORE_RUNNING is <= CORE_NEXTFRAME.
-			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+			if (RipAccessible((const void *)coreState)) {
+				CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+				CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+			}
 			FixupBranch skipCheck = J_CC(CC_LE);
 			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
-				MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+				MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 			else
-				MOV(32, M(&mips_->pc), Imm32(GetCompilerPC() + 4));
+				MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 4));
 			WriteSyscallExit();
 			SetJumpTarget(skipCheck);
 
@@ -396,8 +398,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		js.numInstructions++;
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)
-		{
+		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS) {
 			FlushAll();
 			WriteExit(GetCompilerPC(), js.nextExit++);
 			js.compiling = false;
@@ -407,10 +408,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
 	NOP();
 	AlignCode4();
-	if (js.lastContinuedPC == 0)
+	if (js.lastContinuedPC == 0) {
 		b->originalSize = js.numInstructions;
-	else
-	{
+	} else {
 		// We continued at least once.  Add the last proxy and set the originalSize correctly.
 		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
@@ -418,8 +418,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	return b->normalEntry;
 }
 
-void Jit::AddContinuedBlock(u32 dest)
-{
+void Jit::AddContinuedBlock(u32 dest) {
 	// The first block is the root block.  When we continue, we create proxy blocks after that.
 	if (js.lastContinuedPC == 0)
 		js.initialBlockSize = js.numInstructions;
@@ -429,10 +428,6 @@ void Jit::AddContinuedBlock(u32 dest)
 }
 
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
-#if defined(_M_X64)
-	if (ptr == (const u8 *)&saved_flags)
-		name = "saved_flags";
-#endif
 	if (ptr == applyRoundingMode)
 		name = "applyRoundingMode";
 	else if (ptr == updateRoundingMode)
@@ -516,7 +511,7 @@ void Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 	// Not entirely ideal, but .. pretty good.
 	// Spurious entrances from previously linked blocks can only come through checkedEntry
 	XEmitter emit(checkedEntry);
-	emit.MOV(32, M(&mips_->pc), Imm32(originalAddress));
+	emit.MOV(32, MIPSSTATE_VAR(pc), Imm32(originalAddress));
 	emit.JMP(MIPSComp::jit->GetDispatcher(), true);
 	if (PlatformIsWXExclusive()) {
 		ProtectMemoryPages(checkedEntry, 16, MEM_PROT_READ | MEM_PROT_EXEC);
@@ -544,10 +539,10 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		RestoreRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
-		SUB(32, M(&mips_->downcount), R(EAX));
+		SUB(32, MIPSSTATE_VAR(downcount), R(EAX));
 		ApplyRoundingMode();
 	}
 
@@ -603,7 +598,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 			MIPSCompileOp(origInstruction, this);
 		} else {
 			FlushAll();
-			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
+			MOV(32, R(ECX), MIPSSTATE_VAR(r[MIPS_REG_RA]));
 			js.downcountAmount += cycles;
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
@@ -613,7 +608,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		RestoreRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
 
@@ -622,11 +617,11 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 			ApplyRoundingMode();
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
 		} else {
-			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
-			SUB(32, M(&mips_->downcount), R(EAX));
+			MOV(32, R(ECX), MIPSSTATE_VAR(r[MIPS_REG_RA]));
+			SUB(32, MIPSSTATE_VAR(downcount), R(EAX));
 			ApplyRoundingMode();
 			// Need to set flags again, ApplyRoundingMode destroyed them (and EAX.)
-			SUB(32, M(&mips_->downcount), Imm8(0));
+			SUB(32, MIPSSTATE_VAR(downcount), Imm8(0));
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
 		}
@@ -644,7 +639,7 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 	{
 		// TODO: Maybe we'd be better off keeping the rounding mode within interp?
 		RestoreRoundingMode();
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		if (USE_JIT_MISSMAP)
 			ABI_CallFunctionC(&JitLogMiss, op.encoding);
 		else
@@ -672,9 +667,14 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		if (RipAccessible((const void *)coreState)) {
+			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+		}
 		FixupBranch skipCheck = J_CC(CC_LE);
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
 	}
@@ -694,7 +694,7 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 		b->linkStatus[exit_num] = true;
 	} else {
 		// No blocklinking.
-		MOV(32, M(&mips_->pc), Imm32(destination));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(destination));
 		JMP(dispatcher, true);
 
 		// Normally, exits are 15 bytes (MOV + &pc + dest + JMP + dest) on 64 or 32 bit.
@@ -709,17 +709,21 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 
 void Jit::WriteExitDestInReg(X64Reg reg) {
 	// If we need to verify coreState and rewind, we may not jump yet.
-	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
-	{
+	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		if (RipAccessible((const void *)coreState)) {
+			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+		}
 		FixupBranch skipCheck = J_CC(CC_LE);
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		WriteSyscallExit();
 		SetJumpTarget(skipCheck);
 	}
 
-	MOV(32, M(&mips_->pc), R(reg));
+	MOV(32, MIPSSTATE_VAR(pc), R(reg));
 	WriteDowncount();
 
 	// Validate the jump to avoid a crash?
@@ -730,7 +734,7 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 		FixupBranch tooHigh = J_CC(CC_AE);
 
 		// Need to set neg flag again.
-		SUB(32, M(&mips_->downcount), Imm8(0));
+		SUB(32, MIPSSTATE_VAR(downcount), Imm8(0));
 		if (reg == EAX)
 			J_CC(CC_NS, dispatcherInEAXNoCheck, true);
 		JMP(dispatcher, true);
@@ -748,7 +752,7 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 			SetJumpTarget(skip);
 		}
 
-		SUB(32, M(&mips_->downcount), Imm8(0));
+		SUB(32, MIPSSTATE_VAR(downcount), Imm8(0));
 		JMP(dispatcherCheckCoreState, true);
 	} else if (reg == EAX) {
 		J_CC(CC_NS, dispatcherInEAXNoCheck, true);
@@ -772,7 +776,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset) {
 	if (CBreakPoints::IsAddressBreakPoint(addr)) {
 		SaveFlags();
 		FlushAll();
-		MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		RestoreRoundingMode();
 		ABI_CallFunction(&JitBreakpoint);
 

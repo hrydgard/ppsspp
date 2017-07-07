@@ -268,7 +268,7 @@ void JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg& src, int suboffs
 		jit_->MOV(32, R(EDX), src);
 	}
 	if (!g_Config.bIgnoreBadMemAccess) {
-		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->GetCompilerPC()));
+		jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
 	}
 	// This is a special jit-ABI'd function.
 	jit_->CALL(safeFunc);
@@ -298,7 +298,7 @@ bool JitSafeMem::PrepareSlowRead(const void *safeFunc)
 		}
 
 		if (!g_Config.bIgnoreBadMemAccess) {
-			jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->GetCompilerPC()));
+			jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
 		}
 		// This is a special jit-ABI'd function.
 		jit_->CALL(safeFunc);
@@ -332,7 +332,7 @@ void JitSafeMem::NextSlowRead(const void *safeFunc, int suboffset)
 	}
 
 	if (!g_Config.bIgnoreBadMemAccess) {
-		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->GetCompilerPC()));
+		jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
 	}
 	// This is a special jit-ABI'd function.
 	jit_->CALL(safeFunc);
@@ -364,11 +364,16 @@ void JitSafeMem::MemCheckImm(MemoryOpType type)
 		if (!(check->cond & MEMCHECK_WRITE) && type == MEM_WRITE)
 			return;
 
-		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->GetCompilerPC()));
+		jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
 		jit_->CallProtectedFunction(&JitMemCheck, iaddr_, size_, type == MEM_WRITE ? 1 : 0);
 
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		if (jit_->RipAccessible((const void *)coreState)) {
+			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
+		} else {
+			jit_->MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			jit_->CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+		}
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
 		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
 	}
@@ -404,7 +409,7 @@ void JitSafeMem::MemCheckAsm(MemoryOpType type)
 		// Keep the stack 16-byte aligned, just PUSH/POP 4 times.
 		for (int i = 0; i < 4; ++i)
 			jit_->PUSH(xaddr_);
-		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->GetCompilerPC()));
+		jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
 		jit_->ADD(32, R(xaddr_), Imm32(offset_));
 		jit_->CallProtectedFunction(&JitMemCheck, R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
 		for (int i = 0; i < 4; ++i)
@@ -418,7 +423,12 @@ void JitSafeMem::MemCheckAsm(MemoryOpType type)
 	if (possible)
 	{
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
+		if (jit_->RipAccessible((const void *)coreState)) {
+			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
+		} else {
+			jit_->MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+			jit_->CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+		}
 		skipChecks_.push_back(jit_->J_CC(CC_G, true));
 		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
 	}
