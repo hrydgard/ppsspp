@@ -374,7 +374,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 			// If we're rewinding, CORE_NEXTFRAME should not cause a rewind.
 			// It doesn't really matter either way if we're not rewinding.
 			// CORE_RUNNING is <= CORE_NEXTFRAME.
-			if (RipAccessible((const void *)coreState)) {
+			if (RipAccessible((const void *)&coreState)) {
 				CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
 			} else {
 				MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
@@ -667,7 +667,7 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		if (RipAccessible((const void *)coreState)) {
+		if (RipAccessible((const void *)&coreState)) {
 			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
