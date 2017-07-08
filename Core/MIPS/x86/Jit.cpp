@@ -714,8 +714,9 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 		if (RipAccessible((const void *)coreState)) {
 			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
 		} else {
-			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
-			CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
+			X64Reg temp = reg == RAX ? RDX : RAX;
+			MOV(PTRBITS, R(temp), ImmPtr((const void *)&coreState));
+			CMP(32, MatR(temp), Imm32(CORE_NEXTFRAME));
 		}
 		FixupBranch skipCheck = J_CC(CC_LE);
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
