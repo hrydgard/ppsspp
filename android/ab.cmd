@@ -5,6 +5,6 @@ copy ..\assets\langregion.ini assets\langregion.ini
 copy ..\assets\compat.ini assets\compat.ini
 copy ..\assets\Roboto-Condensed.ttf assets\Roboto-Condensed.ttf
 copy ..\assets\*.png assets\
-SET NDK=C:\AndroidNDK
+SET NDK=D:\Android\NDK
 SET NDK_MODULE_PATH=..\ext;..\ext\native\ext
 %NDK%/ndk-build -j9 %*

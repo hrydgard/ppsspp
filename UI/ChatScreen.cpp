@@ -88,7 +88,7 @@ void ChatMenu::CreateViews() {
 	}
 
 	root_->Add(box_);
-	box_->SetBG(UI::Drawable(0x66303030));
+	box_->SetBG(UI::Drawable(0x99303030));
 	box_->SetHasDropShadow(false);
 
 	View *title = new PopupHeader(n->T("Chat"));
@@ -96,15 +96,18 @@ void ChatMenu::CreateViews() {
 
 	CreatePopupContents(box_);
 #if defined(_WIN32) || defined(USING_QT_UI)
+	UI::EnableFocusMovement(true);
 	root_->SetDefaultFocusView(box_);
 	box_->SubviewFocused(chatEdit_);
 	root_->SetFocus();
 #else
-	root_->SetDefaultFocusView(box_);
+	//root_->SetDefaultFocusView(box_);
+	//box_->SubviewFocused(scroll_);
+	//root_->SetFocus();
 #endif
 	chatScreenVisible = true;
 	newChat = 0;
-	UI::EnableFocusMovement(true);
+
 	UpdateChat();
 }
 
@@ -162,28 +165,25 @@ std::vector<std::string> Split(const std::string& str)
 	int counter = 0;
 	int firstSentenceEnd = 0;
 	int secondSentenceEnd = 0;
+	int spliton = 45;
+
 	for (auto i = 0; i<str.length(); i++) {
 		if (isspace(str[i])) {
-			if (i < 35) {
+			if (i < spliton) {
 				if(str[i-1]!=':')
 					firstSentenceEnd = i+1;
 			}
-			else if (i > 35) {
-				secondSentenceEnd = i;
+			else if (i > spliton) {
+				firstSentenceEnd = spliton;
 			}
 		}
 	}
 
 	if (firstSentenceEnd == 0) {
-		firstSentenceEnd = 35;
+		firstSentenceEnd = spliton;
 	}
-	
-	if(secondSentenceEnd == 0){
-		secondSentenceEnd = str.length();
-	}
-
 	ret.push_back(str.substr(0, firstSentenceEnd));
-	ret.push_back(str.substr(firstSentenceEnd, secondSentenceEnd));
+	ret.push_back(str.substr(firstSentenceEnd));
 	return ret;
 }
 
@@ -194,22 +194,42 @@ void ChatMenu::UpdateChat() {
 		std::vector<std::string> chatLog = getChatLog();
 		for (auto i : chatLog) {
 			//split long text
-			if (i.length() > 30) {
-				std::vector<std::string> splitted = Split(i);
-				for (auto j : splitted) {
-					TextView *v = chatVert_->Add(new TextView(j, FLAG_DYNAMIC_ASCII, false));
-					uint32_t color = 0xFFFFFF;
-					v->SetTextColor(0xFF000000 | color);
-				}
+			uint32_t namecolor = 0xF6B629;
+			uint32_t textcolor = 0xFFFFFF;
+			uint32_t infocolor = 0x35D8FD;
+
+			std::string name = g_Config.sNickName.c_str();
+			std::string displayname = i.substr(0, i.find(':'));
+			std::string chattext = i.substr(displayname.length());
+			
+			if (name.substr(0, 8) == displayname) {
+				namecolor = 0x3539E5;
+			}
+
+			if (i[displayname.length()] != ':') {
+				TextView *v = chatVert_->Add(new TextView(i, FLAG_DYNAMIC_ASCII, true));
+				v->SetTextColor(0xFF000000 | infocolor);
 			}
 			else {
-				TextView *v = chatVert_->Add(new TextView(i, FLAG_DYNAMIC_ASCII, false));
-				uint32_t color = 0xFFFFFF;
-				v->SetTextColor(0xFF000000 | color);
+				LinearLayout *line = chatVert_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+				TextView *nameView = line->Add(new TextView(displayname, FLAG_DYNAMIC_ASCII, true));
+				nameView->SetTextColor(0xFF000000 | namecolor);
+				if (chattext.length() > 45) {
+					std::vector<std::string> splitted = Split(chattext);
+					std::string one = splitted[0];
+					std::string two = splitted[1];
+					TextView *oneview = line->Add(new TextView(one, FLAG_DYNAMIC_ASCII, true));
+					oneview->SetTextColor(0xFF000000 | textcolor);
+					TextView *twoview = chatVert_->Add(new TextView(two, FLAG_DYNAMIC_ASCII, true));
+					twoview->SetTextColor(0xFF000000 | textcolor);
+				}
+				else {
+					TextView *chatView = line->Add(new TextView(chattext, FLAG_DYNAMIC_ASCII, true));
+					chatView->SetTextColor(0xFF000000 | textcolor);
+				}
 			}
 		}
 		toBottom_ = true;
-		updateChatScreen = false;
 	}
 }
 
@@ -227,14 +247,14 @@ bool ChatMenu::touch(const TouchInput &touch) {
 
 void ChatMenu::update() {
 	PopupScreen::update();
+	if (scroll_ && toBottom_) {
+		toBottom_ = false;
+		scroll_->ScrollToBottom();
+	}
+
 	if (updateChatScreen) {
 		UpdateChat();
-	}
-	else {
-		if (scroll_ && toBottom_) {
-			toBottom_ = false;
-			scroll_->ScrollToBottom();
-		}
+		updateChatScreen = false;
 	}
 }
 

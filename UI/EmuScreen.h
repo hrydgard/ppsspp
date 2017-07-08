@@ -71,7 +71,7 @@ private:
 	void checkPowerDown();
 
 	UI::Event OnDevMenu;
-
+	UI::Event OnChatMenu;
 	bool bootPending_;
 	std::string gamePath_;
 

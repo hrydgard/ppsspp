@@ -655,19 +655,19 @@ void GameSettingsScreen::CreateViews() {
 	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
 	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
 #elif defined(__ANDROID__)
-	ChoiceWithValueDisplay *qc1 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Quick Chat 1"), nullptr));
+	ChoiceWithValueDisplay *qc1 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat0, sy->T("Quick Chat 1"), nullptr));
 	qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
 	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc2 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Quick Chat 2"), nullptr));
+	ChoiceWithValueDisplay *qc2 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat1, sy->T("Quick Chat 2"), nullptr));
 	qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
 	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc3 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Quick Chat 3"), nullptr));
+	ChoiceWithValueDisplay *qc3 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat2, sy->T("Quick Chat 3"), nullptr));
 	qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
 	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc4 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Quick Chat 4"), nullptr));
+	ChoiceWithValueDisplay *qc4 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat3, sy->T("Quick Chat 4"), nullptr));
 	qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
 	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc5 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Quick Chat 5"), nullptr));
+	ChoiceWithValueDisplay *qc5 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat4, sy->T("Quick Chat 5"), nullptr));
 	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
 	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
 #endif
@@ -1154,7 +1154,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 		g_Config.sQuickChat0 = chat;
 	}
 #elif defined(__ANDROID__)
-	System_SendMessage("inputbox", ("quickchat0:" + g_Config.).c_str());
+	System_SendMessage("inputbox", ("quickchat0:" + g_Config.sQuickChat0).c_str());
 #endif
 	return UI::EVENT_DONE;
 }
@@ -1170,7 +1170,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 		g_Config.sQuickChat1 = chat;
 	}
 #elif defined(__ANDROID__)
-	System_SendMessage("inputbox", ("quickchat1:" + g_Config.).c_str());
+	System_SendMessage("inputbox", ("quickchat1:" + g_Config.sQuickChat1).c_str());
 #endif
 	return UI::EVENT_DONE;
 }
@@ -1186,7 +1186,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 		g_Config.sQuickChat2 = chat;
 	}
 #elif defined(__ANDROID__)
-	System_SendMessage("inputbox", ("quickchat2:" + g_Config.).c_str());
+	System_SendMessage("inputbox", ("quickchat2:" + g_Config.sQuickChat2).c_str());
 #endif
 	return UI::EVENT_DONE;
 }
@@ -1202,7 +1202,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 		g_Config.sQuickChat3 = chat;
 	}
 #elif defined(__ANDROID__)
-	System_SendMessage("inputbox", ("quickchat3:" + g_Config.).c_str());
+	System_SendMessage("inputbox", ("quickchat3:" + g_Config.sQuickChat3).c_str());
 #endif
 	return UI::EVENT_DONE;
 }
@@ -1218,7 +1218,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 		g_Config.sQuickChat4 = chat;
 	}
 #elif defined(__ANDROID__)
-	System_SendMessage("inputbox", ("quickchat4:" + g_Config.).c_str());
+	System_SendMessage("inputbox", ("quickchat4:" + g_Config.sQuickChat4).c_str());
 #endif
 	return UI::EVENT_DONE;
 }

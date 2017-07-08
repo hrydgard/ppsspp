@@ -129,6 +129,7 @@ EmuScreen::EmuScreen(const std::string &filename)
 	startDumping = false;
 
 	OnDevMenu.Handle(this, &EmuScreen::OnDevTools);
+	OnChatMenu.Handle(this, &EmuScreen::OnChat);
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
@@ -381,14 +382,16 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			osm.Show("Disable windows native keyboard options to use ctrl + c hotkey", 2.0f);
 		} else {
 			if (g_Config.bEnableNetworkChat) {
-				chatButtons->SetVisibility(UI::V_GONE);
-				screenManager()->push(new ChatMenu());
+				releaseButtons();
+				UI::EventParams e{};
+				OnChatMenu.Trigger(e);
 			}
 		}
 #else
 		if (g_Config.bEnableNetworkChat) {
-			chatButtons->SetVisibility(UI::V_GONE);
-			screenManager()->push(new ChatMenu());
+			releaseButtons();
+			UI::EventParams e{};
+			OnChatMenu.Trigger(e);
 		}
 #endif
 	}
@@ -465,8 +468,8 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_OPENCHAT:
 		if (g_Config.bEnableNetworkChat) {
 			releaseButtons();
-			chatButtons->SetVisibility(UI::V_GONE);
-			screenManager()->push(new ChatMenu());
+			UI::EventParams e{};
+			OnChatMenu.Trigger(e);
 		}
 		break;
 
