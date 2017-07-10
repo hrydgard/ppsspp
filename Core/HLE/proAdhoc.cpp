@@ -1296,7 +1296,7 @@ int getLocalIp(sockaddr_in * SocketAddress){
 	struct hostent     *pHost        = 0;
 	pHost = ::gethostbyname(szHostName);
 	if(pHost) {
-		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
+		memcpy(&SocketAddress->sin_addr, &localip, sizeof(uint32_t));
 		return 0;
 	}
 	return -1;
@@ -1651,4 +1651,3 @@ const char* getMatchingOpcodeStr(int code) {
 	}
 	return buf;
 }
-

@@ -42,6 +42,7 @@
 bool netAdhocInited;
 bool netAdhocctlInited;
 bool networkInited;
+bool tunneled = true;
 
 static bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
@@ -72,6 +73,22 @@ void __NetAdhocShutdown() {
 			adhocServerThread.join();
 		}
 	}
+
+	if (tcpTunnelRunning) {
+		tcpTunnelRunning = false;
+		if (tcpTunnelThread.joinable()) {
+			tcpTunnelThread.join();
+		}
+	}
+
+	if (udpTunnelRunning) {
+		closesocket(utunnelsocket); // close blocking recvfrom
+		udpTunnelRunning = false;
+		if (udpTunnelThread.joinable()) {
+			udpTunnelThread.join();
+		}
+	}
+
 	// Checks to avoid confusing logspam
 	if (netAdhocMatchingInited) {
 		sceNetAdhocMatchingTerm();
@@ -157,6 +174,14 @@ void __NetAdhocInit() {
 		adhocServerRunning = true;
 		adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
 	}
+
+	if (tunneled) {
+		tcpTunnelRunning = true;
+		tcpTunnelThread = std::thread(tcpTunnel, 30000);
+		udpTunnelRunning = true;
+		udpTunnelThread = std::thread(udpTunnel,30000);
+	}
+
 }
 
 u32 sceNetAdhocInit() {
@@ -431,10 +456,37 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 								if (resolveMAC((SceNetEtherAddr *)daddr, (uint32_t *)&target.sin_addr.s_addr)) {
 									// Acquire Network Lock
 									//_acquireNetworkLock();
-
+									
 									// Send Data
 									changeBlockingMode(socket->id, flag);
-									int sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
+
+									int sent = 0;
+									if (tunneled) {
+										size_t packetlen = sizeof(udpTunnelData) + len + 1;
+										udpTunnelData * tdata = (udpTunnelData *)malloc(packetlen);
+										if (tdata != NULL) {
+											tdata->destIP = target.sin_addr.s_addr;
+											tdata->destPort = target.sin_port;
+											tdata->destMac = *daddr;
+											tdata->sourcePort = socket->lport;
+											getLocalMac(&tdata->sourceMac);
+											tdata->datalen = len;
+											memcpy(tdata->data, (const char *)data, len);
+											//send to tunneler
+											getLocalIp(&target);
+											target.sin_port = htons(30000);
+											tdata->sourceIP = target.sin_addr.s_addr;
+											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
+											uint8_t * dip = (uint8_t *)&tdata->destIP;
+											DEBUG_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort);
+											sent = sendto(socket->id, (const char *)&tdata, packetlen, 0, (sockaddr *)&target, sizeof(target));
+											free(tdata);
+										}
+									}
+									else {
+										sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
+									}
+
 									int error = errno;
 									if (sent == SOCKET_ERROR) {
 										DEBUG_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[%i:%u->%u] (size=%i)", error, id, getLocalPort(socket->id), ntohs(target.sin_port), len);
@@ -497,10 +549,37 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 
 									// Send Data
 									changeBlockingMode(socket->id, flag);
-									int sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
+									int sent = 0;
+									if (tunneled) {
+										size_t packetlen = sizeof(udpTunnelData) + ((len + 1) * sizeof(uint8_t));
+										udpTunnelData * tdata = (udpTunnelData *) malloc(packetlen);
+										if (tdata != NULL) {
+											tdata->destIP = peer->ip_addr;
+											tdata->destPort = ntohs(target.sin_port);
+											tdata->destMac = *daddr;
+											tdata->sourcePort = socket->lport;
+											getLocalMac(&tdata->sourceMac);
+											tdata->datalen = len;
+											memcpy(tdata->data, (const char *)data, len);
+											//send to tunneler
+											getLocalIp(&target);
+											target.sin_port = htons(30000);
+											tdata->sourceIP = target.sin_addr.s_addr;
+											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
+											uint8_t * dip = (uint8_t *)&tdata->destIP;
+											DEBUG_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort);
+											sent = sendto(socket->id, (const char *)&tdata, packetlen, 0, (sockaddr *)&target, sizeof(target));
+											free(tdata);
+										}
+									}
+									else {
+										sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
+									}
+
+									//int sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
 									int error = errno;
 									if (sent == SOCKET_ERROR) {
-										DEBUG_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[%i:%u->%u](BC) [size=%i]", error, id, getLocalPort(socket->id), ntohs(target.sin_port), len);
+										WARN_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[%i:%u->%u](BC) [size=%i]", error, id, getLocalPort(socket->id), ntohs(target.sin_port), len);
 									}
 									changeBlockingMode(socket->id, 0);
 									if (sent >= 0) {
@@ -1955,6 +2034,11 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						changeBlockingMode(socket->id, 1);
 					}
 					
+					if (tunneled) {
+						getLocalIp(&sin);
+						sin.sin_port = htons(30000);
+					}
+
 					// Connect Socket to Peer (Nonblocking)
 					int connectresult = connect(socket->id, (sockaddr *)&sin, sizeof(sin));
 					

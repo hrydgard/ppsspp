@@ -382,3 +382,67 @@ int proAdhocServerThread(int port); // (int argc, char * argv[])
 //extern int _status;
 extern bool adhocServerRunning;
 extern std::thread adhocServerThread;
+
+
+// tunnel function
+#define TCP_TUNNEL_BACKLOG 20
+extern bool tunnelRunning;
+extern bool tcpTunnelRunning;
+extern bool udpTunnelRunning;
+extern std::thread tcpTunnelThread;
+extern std::thread udpTunnelThread;
+
+int tcpTunnel(int port);
+void storeTcpGameSocket(int stream, uint32_t ip, uint16_t port);
+int tcpTunnelLoop(int tcptunnel);
+
+
+#define UDP_TUNNEL_BUFFER_SIZE 16384
+extern int utunnelsocket;
+int udpTunnel (int port);
+void storeUdpGameSocket(uint32_t ip,uint16_t port, char * buff,int packetlen);
+int udpTunnelLoop(int udptunnel);
+
+//double linked tcp stream
+typedef struct tcpGamePortWrapper {
+	int stream;
+	uint32_t ip;
+	uint16_t port;
+	uint8_t rx[16384];
+	uint32_t rxpos;
+	struct tcpGamePortWrapper * next;
+	struct tcpGamePortWrapper * prev;
+} tcpGamePortWrapper;
+
+//double linked udp address
+typedef struct udpGamePortWrapper {
+	uint32_t ip;
+	uint32_t port;
+	struct udpGamePortWrapper * next;
+	struct udpGamePortWrapper * prev;
+} udpGamePortWrapper;
+
+
+typedef struct {
+  uint16_t datalen;
+  uint32_t sourceIP;
+  uint16_t sourcePort;
+  SceNetEtherAddr sourceMac;
+  uint32_t destIP;
+  uint16_t destPort;
+  SceNetEtherAddr destMac;
+  uint8_t data[1]; // need dynamic struct hack without triggering violation
+} PACK udpTunnelData;
+
+typedef struct {
+	uint32_t datalen;
+	uint32_t sourceIP;
+	uint16_t sourcePort;
+	SceNetEtherAddr sourceMac;
+	uint32_t destIP;
+	uint16_t destPort;
+	SceNetEtherAddr destMac;
+	uint8_t data[1]; 
+} PACK tcpTunnelData;
+
+
