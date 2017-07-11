@@ -312,7 +312,7 @@ static int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 u
 					if (iResult == 0) {
 						// Allocate Memory for Internal Data
 						SceNetAdhocPdpStat * internal = (SceNetAdhocPdpStat *)malloc(sizeof(SceNetAdhocPdpStat));
-
+			
 						// Allocated Memory
 						if (internal != NULL) {
 							// Clear Memory
@@ -478,8 +478,8 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											tdata->sourceIP = target.sin_addr.s_addr;
 											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
 											uint8_t * dip = (uint8_t *)&tdata->destIP;
-											DEBUG_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort);
-											sent = sendto(socket->id, (const char *)&tdata, packetlen, 0, (sockaddr *)&target, sizeof(target));
+											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort);
+											sent = sendto(socket->id, (const char *)&tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
 											free(tdata);
 										}
 									}
@@ -489,7 +489,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 
 									int error = errno;
 									if (sent == SOCKET_ERROR) {
-										DEBUG_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[%i:%u->%u] (size=%i)", error, id, getLocalPort(socket->id), ntohs(target.sin_port), len);
+										ERROR_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[%i:%u->%u] (size=%i)", error, id, getLocalPort(socket->id), ntohs(target.sin_port), len);
 									}
 									changeBlockingMode(socket->id, 0);
 
@@ -499,7 +499,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									uint8_t * sip = (uint8_t *)&target.sin_addr.s_addr;
 									// Sent Data
 									if (sent == len) {
-										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %u.%u.%u.%u:%u\n", id, getLocalPort(socket->id), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
+										INFO_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %u.%u.%u.%u:%u\n", id, getLocalPort(socket->id), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
 
 										// Success
 										return 0;
@@ -556,7 +556,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 										if (tdata != NULL) {
 											tdata->destIP = peer->ip_addr;
 											tdata->destPort = ntohs(target.sin_port);
-											tdata->destMac = *daddr;
+											tdata->destMac = peer->mac_addr;
 											tdata->sourcePort = socket->lport;
 											getLocalMac(&tdata->sourceMac);
 											tdata->datalen = len;
@@ -567,8 +567,8 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											tdata->sourceIP = target.sin_addr.s_addr;
 											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
 											uint8_t * dip = (uint8_t *)&tdata->destIP;
-											DEBUG_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort);
-											sent = sendto(socket->id, (const char *)&tdata, packetlen, 0, (sockaddr *)&target, sizeof(target));
+											//INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort);
+											sent = sendto(socket->id, (const char *)&tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
 											free(tdata);
 										}
 									}
@@ -689,45 +689,73 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				// Acquire Network Lock
 				//_acquireNetworkLock();
 
-				// Receive Data
-				changeBlockingMode(socket->id, flag);
-				int received = recvfrom(socket->id, (char *)buf, *len,0,(sockaddr *)&sin, &sinlen);
-				int error = errno;
-				if (received == SOCKET_ERROR) {
-					VERBOSE_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpRecv [size=%i]", error, *len);
+				if (tunneled) {
+					size_t packetlen = sizeof(udpTunnelData) + ((*len + 1) * sizeof(uint8_t));
+					udpTunnelData * tdata = (udpTunnelData *)malloc(packetlen);
+					changeBlockingMode(socket->id, flag);
+					char * tempbuf = (char *)malloc(packetlen);
+					int received = recvfrom(socket->id, tempbuf, (int)packetlen, 0, (sockaddr *)&sin, &sinlen);
+					int error = errno;
+					if (received == SOCKET_ERROR) {
+						VERBOSE_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpRecv [size=%i] Wrapped Data", error, packetlen);
+					}
+					changeBlockingMode(socket->id, 0);
+
+					if (received >= 0) {
+						if (tdata != NULL && tempbuf != NULL){
+							memcpy(tdata, tempbuf, packetlen);
+							buf = (char *) tdata->data;
+							*saddr = tdata->sourceMac;
+							*sport = tdata->sourcePort;
+							*len = tdata->datalen;
+							free(tdata);
+							free(tempbuf);
+							return 0;
+						}
+						WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received Tunnel of %i bytes from unknown address",id,getLocalPort(socket->id),received);
+					}
 				}
-				changeBlockingMode(socket->id, 0); 
+				else {
+					// Receive Data
+					changeBlockingMode(socket->id, flag);
+					int received = recvfrom(socket->id, (char *)buf, *len, 0, (sockaddr *)&sin, &sinlen);
+					int error = errno;
+					if (received == SOCKET_ERROR) {
+						VERBOSE_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpRecv [size=%i]", error, *len);
+					}
+					changeBlockingMode(socket->id, 0);
 
-				// Received Data
-				if (received >= 0) {
-					uint8_t * sip = (uint8_t *)&sin.sin_addr.s_addr;
-					DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %u.%u.%u.%u:%u\n", id, getLocalPort(socket->id), received, sip[0], sip[1], sip[2], sip[3], ntohs(sin.sin_port));
+					// Received Data
+					if (received >= 0) {
+						uint8_t * sip = (uint8_t *)&sin.sin_addr.s_addr;
+						DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %u.%u.%u.%u:%u\n", id, getLocalPort(socket->id), received, sip[0], sip[1], sip[2], sip[3], ntohs(sin.sin_port));
 
-					// Peer MAC
-					SceNetEtherAddr mac;
+						// Peer MAC
+						SceNetEtherAddr mac;
 
-					// Find Peer MAC
-					if (resolveIP(sin.sin_addr.s_addr, &mac)) {
-						// Provide Sender Information
-						*saddr = mac;
-						*sport = ntohs(sin.sin_port) - portOffset;
+						// Find Peer MAC
+						if (resolveIP(sin.sin_addr.s_addr, &mac)) {
+							// Provide Sender Information
+							*saddr = mac;
+							*sport = ntohs(sin.sin_port) - portOffset;
 
-						// Save Length
-						*len = received;
+							// Save Length
+							*len = received;
+
+							// Free Network Lock
+							//_freeNetworkLock();
+
+							// Return Success
+							return 0;
+						}
+						WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %u.%u.%u.%u:%u [%02X:%02X:%02X:%02X:%02X:%02X]", id, getLocalPort(socket->id), received, sip[0], sip[1], sip[2], sip[3], ntohs(sin.sin_port), mac.data[0], mac.data[1], mac.data[2], mac.data[3], mac.data[4], mac.data[5]);
 
 						// Free Network Lock
 						//_freeNetworkLock();
 
-						// Return Success
-						return 0;
+						//Receiving data from unknown peer, ignore it ?
+						//return ERROR_NET_ADHOC_WOULD_BLOCK; //ERROR_NET_ADHOC_NO_DATA_AVAILABLE
 					}
-					WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %u.%u.%u.%u:%u [%02X:%02X:%02X:%02X:%02X:%02X]", id, getLocalPort(socket->id), received, sip[0], sip[1], sip[2], sip[3], ntohs(sin.sin_port), mac.data[0], mac.data[1], mac.data[2], mac.data[3], mac.data[4], mac.data[5]);
-
-					// Free Network Lock
-					//_freeNetworkLock();
-
-					//Receiving data from unknown peer, ignore it ?
-					//return ERROR_NET_ADHOC_WOULD_BLOCK; //ERROR_NET_ADHOC_NO_DATA_AVAILABLE
 				}
 
 				// Free Network Lock

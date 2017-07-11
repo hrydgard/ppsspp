@@ -397,11 +397,13 @@ void storeTcpGameSocket(int stream, uint32_t ip, uint16_t port);
 int tcpTunnelLoop(int tcptunnel);
 
 
-#define UDP_TUNNEL_BUFFER_SIZE 16384
+#define UDP_TUNNEL_BUFFER_SIZE 8192
 extern int utunnelsocket;
-int udpTunnel (int port);
-void storeUdpGameSocket(uint32_t ip,uint16_t port, char * buff,int packetlen);
+void sendUdpPacket(int packetlen);
+void storeUdpGameSocket(uint32_t ip,uint16_t port,int packetlen);
 int udpTunnelLoop(int udptunnel);
+int udpTunnel(int port);
+
 
 //double linked tcp stream
 typedef struct tcpGamePortWrapper {
@@ -422,16 +424,15 @@ typedef struct udpGamePortWrapper {
 	struct udpGamePortWrapper * prev;
 } udpGamePortWrapper;
 
-
 typedef struct {
-  uint16_t datalen;
   uint32_t sourceIP;
   uint16_t sourcePort;
   SceNetEtherAddr sourceMac;
   uint32_t destIP;
   uint16_t destPort;
   SceNetEtherAddr destMac;
-  uint8_t data[1]; // need dynamic struct hack without triggering violation
+  uint16_t datalen;
+  char data[1];
 } PACK udpTunnelData;
 
 typedef struct {
@@ -442,7 +443,7 @@ typedef struct {
 	uint32_t destIP;
 	uint16_t destPort;
 	SceNetEtherAddr destMac;
-	uint8_t data[1]; 
+	char data[1]; 
 } PACK tcpTunnelData;
 
 
