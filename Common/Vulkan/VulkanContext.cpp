@@ -149,16 +149,16 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	InitGlobalExtensionProperties();
 
 	if (!CheckLayers(instance_layer_properties, instance_layer_names)) {
-		ELOG("CheckLayers failed");
-		init_error_ = "Failed to validate instance layers";
-		return;
+		WLOG("CheckLayers failed");
+		// init_error_ = "Failed to validate instance layers";
+		// return;
 	}
 
 	InitDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties, device_layer_names)) {
-		ELOG("CheckLayers failed (2)");
-		init_error_ = "Failed to validate device layers";
-		return;
+		WLOG("CheckLayers failed (2)");
+		// init_error_ = "Failed to validate device layers";
+		// return;
 	}
 }
 
