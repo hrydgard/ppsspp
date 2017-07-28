@@ -465,21 +465,23 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 										size_t packetlen = sizeof(udpTunnelData) + len + 1;
 										udpTunnelData * tdata = (udpTunnelData *)malloc(packetlen);
 										if (tdata != NULL) {
+											tdata->opcode = OPCODE_PDP_SEND;
 											tdata->destIP = target.sin_addr.s_addr;
 											tdata->destPort = target.sin_port;
 											tdata->destMac = *daddr;
 											tdata->sourcePort = socket->lport;
 											getLocalMac(&tdata->sourceMac);
 											tdata->datalen = len;
-											memcpy(tdata->data, (const char *)data, len);
+											memcpy(tdata->data, (const char*)data, len);
 											//send to tunneler
 											getLocalIp(&target);
 											target.sin_port = htons(30000);
 											tdata->sourceIP = target.sin_addr.s_addr;
 											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
 											uint8_t * dip = (uint8_t *)&tdata->destIP;
-											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort);
+											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size %u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort,packetlen);
 											sent = sendto(socket->id, (const char *)&tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
+											free(tdata->data);
 											free(tdata);
 										}
 									}
@@ -551,23 +553,24 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									changeBlockingMode(socket->id, flag);
 									int sent = 0;
 									if (tunneled) {
-										size_t packetlen = sizeof(udpTunnelData) + ((len + 1) * sizeof(uint8_t));
+										size_t packetlen = sizeof(udpTunnelData) + len + 1;
 										udpTunnelData * tdata = (udpTunnelData *) malloc(packetlen);
 										if (tdata != NULL) {
+											tdata->opcode = OPCODE_PDP_SEND;
 											tdata->destIP = peer->ip_addr;
 											tdata->destPort = ntohs(target.sin_port);
 											tdata->destMac = peer->mac_addr;
 											tdata->sourcePort = socket->lport;
 											getLocalMac(&tdata->sourceMac);
 											tdata->datalen = len;
-											memcpy(tdata->data, (const char *)data, len);
+											memcpy(tdata->data, (const char*)data, len);
 											//send to tunneler
 											getLocalIp(&target);
 											target.sin_port = htons(30000);
 											tdata->sourceIP = target.sin_addr.s_addr;
 											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
 											uint8_t * dip = (uint8_t *)&tdata->destIP;
-											//INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort);
+											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size:%u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort,packetlen);
 											sent = sendto(socket->id, (const char *)&tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
 											free(tdata);
 										}
@@ -702,7 +705,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					changeBlockingMode(socket->id, 0);
 
 					if (received >= 0) {
-						if (tdata != NULL && tempbuf != NULL){
+						if (tdata != NULL && tempbuf != NULL && tempbuf[0] == OPCODE_PDP_RECV){
 							memcpy(tdata, tempbuf, packetlen);
 							buf = (char *) tdata->data;
 							*saddr = tdata->sourceMac;
@@ -712,7 +715,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 							free(tempbuf);
 							return 0;
 						}
-						WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received Tunnel of %i bytes from unknown address",id,getLocalPort(socket->id),received);
+						WARN_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received Udp Tunnel Data of %i bytes from unknown address",id,getLocalPort(socket->id),received);
 					}
 				}
 				else {

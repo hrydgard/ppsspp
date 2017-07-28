@@ -396,15 +396,6 @@ int tcpTunnel(int port);
 void storeTcpGameSocket(int stream, uint32_t ip, uint16_t port);
 int tcpTunnelLoop(int tcptunnel);
 
-
-#define UDP_TUNNEL_BUFFER_SIZE 8192
-extern int utunnelsocket;
-void sendUdpPacket(int packetlen);
-void storeUdpGameSocket(uint32_t ip,uint16_t port,int packetlen);
-int udpTunnelLoop(int udptunnel);
-int udpTunnel(int port);
-
-
 //double linked tcp stream
 typedef struct tcpGamePortWrapper {
 	int stream;
@@ -424,15 +415,20 @@ typedef struct udpGamePortWrapper {
 	struct udpGamePortWrapper * prev;
 } udpGamePortWrapper;
 
+#ifdef _MSC_VER 
+#pragma pack(push, 1)
+#endif
+
 typedef struct {
-  uint32_t sourceIP;
-  uint16_t sourcePort;
-  SceNetEtherAddr sourceMac;
-  uint32_t destIP;
-  uint16_t destPort;
-  SceNetEtherAddr destMac;
-  uint16_t datalen;
-  char data[1];
+	uint8_t opcode;
+	uint16_t datalen;
+	uint32_t sourceIP;
+	uint16_t sourcePort;
+	SceNetEtherAddr sourceMac;
+	uint32_t destIP;
+	uint16_t destPort;
+	SceNetEtherAddr destMac;
+	char data[];
 } PACK udpTunnelData;
 
 typedef struct {
@@ -443,7 +439,19 @@ typedef struct {
 	uint32_t destIP;
 	uint16_t destPort;
 	SceNetEtherAddr destMac;
-	char data[1]; 
+	char data[1];
 } PACK tcpTunnelData;
+
+
+#define UDP_TUNNEL_BUFFER_SIZE 65536 
+#define OPCODE_PDP_SEND 1
+#define OPCODE_PDP_RECV 2
+extern int utunnelsocket;
+void sendUdpPacket(udpTunnelData * data,int packetSize);
+void storeUdpGameSocket(uint32_t ip,uint16_t port,int packetlen);
+int udpTunnelLoop(int udptunnel);
+int udpTunnel(int port);
+
+
 
 

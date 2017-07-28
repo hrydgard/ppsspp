@@ -2048,7 +2048,7 @@ uint32_t db_tcp_tunnel_count = 0;
 uint32_t db_udp_tunnel_count = 0;
 std::thread tcpTunnelThread;
 std::thread udpTunnelThread;
-char udpTunnelBuffer[UDP_TUNNEL_BUFFER_SIZE];
+
 int tcpTunnel(int port) {
 	int result = 0;
 	INFO_LOG(SCENET, "Tcp Tunnel: Begin of Tcp Tunnel Thread");
@@ -2200,58 +2200,50 @@ int tcpTunnelLoop(int tcptunnel) {
 	return 0;
 }
 
-void sendUdpPacket(int packetlen) {
-	std::size_t datalen = (packetlen - sizeof(udpTunnelData));
-	std::size_t length = sizeof(udpTunnelData) + ((datalen * sizeof(char)));
-	INFO_LOG(SCENET, "packet = %u,data = %u ,malloc = %u", packetlen,datalen,length);
-	udpTunnelData * packet = (udpTunnelData *) malloc(length);
-	if (packet != NULL && packetlen >= 0) {
-		memset(&packet, 0, length);
-		INFO_LOG(SCENET, "Tracing Possible corrupted memory %s size: %u",udpTunnelBuffer,sizeof(udpTunnelBuffer));
-		memcpy(&packet, udpTunnelBuffer, packetlen);
-		//valid data copy 
-		if (packet->datalen < packetlen) {
-			NOTICE_LOG(SCENET, "Packet SRC MAC [%02X:%02X:%02X:%02X:%02X:%02X]", packet->sourceMac.data[0], packet->sourceMac.data[1], packet->sourceMac.data[2], packet->sourceMac.data[3], packet->sourceMac.data[4], packet->sourceMac.data[5]);
-			NOTICE_LOG(SCENET, "Packet DEST MAC [%02X:%02X:%02X:%02X:%02X:%02X]", packet->destMac.data[0], packet->destMac.data[1], packet->destMac.data[2], packet->destMac.data[3], packet->destMac.data[4], packet->destMac.data[5]);
-			
-			uint8_t * sip = (uint8_t *)&packet->sourceIP;
-			uint8_t * dip = (uint8_t *)&packet->destIP;
-			INFO_LOG(SCENET, "Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen);
+//send udp data to other tunneler or relay
+void sendUdpPacket(udpTunnelData * packet,int packetSize) {
+	if (packet != NULL && packet->opcode == OPCODE_PDP_SEND) {
+		NOTICE_LOG(SCENET, "Packet SRC MAC [%02X:%02X:%02X:%02X:%02X:%02X]", packet->sourceMac.data[0], packet->sourceMac.data[1], packet->sourceMac.data[2], packet->sourceMac.data[3], packet->sourceMac.data[4], packet->sourceMac.data[5]);
+		NOTICE_LOG(SCENET, "Packet DEST MAC [%02X:%02X:%02X:%02X:%02X:%02X]", packet->destMac.data[0], packet->destMac.data[1], packet->destMac.data[2], packet->destMac.data[3], packet->destMac.data[4], packet->destMac.data[5]);
 
-			struct sockaddr_in target;
-			memset(&target, 0, sizeof(target));
-			target.sin_family = AF_INET;
-			target.sin_addr.s_addr = packet->destIP;
+		uint8_t * sip = (uint8_t *)&packet->sourceIP;
+		uint8_t * dip = (uint8_t *)&packet->destIP;
+		INFO_LOG(SCENET, "Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen);
 
-			if (isLocalMAC(&packet->destMac)) {
-				INFO_LOG(SCENET, "Forwarding Packet to Local game port %u", packet->destPort);
-				target.sin_port = htons(packet->destPort);
-			}
-			else {
-				target.sin_port = htons(30000);
-			}
+		struct sockaddr_in target;
+		memset(&target, 0, sizeof(target));
+		target.sin_family = AF_INET;
+		target.sin_addr.s_addr = packet->destIP;
 
-			int sent = sendto(utunnelsocket, (const char*)&packet, packetlen, 0, (sockaddr *)&target, sizeof(target));
-
-			int error = errno;
-			if (sent == SOCKET_ERROR) {
-				uint8_t *dip = (uint8_t *)&target.sin_addr.s_addr;
-				ERROR_LOG(SCENET, "Socket Error (%i) on Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i)", error, dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetlen);
-			}
-
-			if (sent == packetlen) {
-				uint8_t *dip = (uint8_t *)&target.sin_addr.s_addr;
-				INFO_LOG(SCENET, "Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i)", dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetlen);
-			}
+		if (isLocalMAC(&packet->destMac)) {
+			packet->opcode = OPCODE_PDP_RECV;
+			INFO_LOG(SCENET, "Forwarding Packet to Local game port %u", packet->destPort);
+			target.sin_port = htons(packet->destPort);
 		}
-		packet = NULL;
+		else {
+			target.sin_port = htons(30000);
+		}
+
+		int sent = sendto(utunnelsocket, (const char*)&packet, (int) packetSize, 0, (sockaddr *)&target, sizeof(target));
+
+		int error = errno;
+		if (sent == SOCKET_ERROR) {
+			uint8_t *dip = (uint8_t *)&target.sin_addr.s_addr;
+			ERROR_LOG(SCENET, "Socket Error (%i) on Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i)\n", error, dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetSize);
+		}
+
+		if (sent == packetSize) {
+			uint8_t *dip = (uint8_t *)&target.sin_addr.s_addr;
+			INFO_LOG(SCENET, "Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i)\n", dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetSize);
+		}
 	}
-	memset(udpTunnelBuffer, 0, UDP_TUNNEL_BUFFER_SIZE);
 }
 
+//this function is to store ip not used yet
 void storeUdpGameSocket(uint32_t ip, uint16_t port, int packetlen) {
+
 	// Check IP Duplication
-	udpGamePortWrapper * g = db_udp_tunnel;
+	/*udpGamePortWrapper * g = db_udp_tunnel;
 	while (g != NULL && g->ip != ip && g->port != port) g = g->next;
 
 	if (g == NULL) {
@@ -2279,27 +2271,56 @@ void storeUdpGameSocket(uint32_t ip, uint16_t port, int packetlen) {
 			// increase ip Counter
 			db_udp_tunnel_count++;
 		}
-	}
+	}*/
 }
 
 
 int udpTunnelLoop(int udptunnel) {
 
 	udpTunnelRunning = true;
+	char * udpTunnelBuffer = (char *)malloc(UDP_TUNNEL_BUFFER_SIZE);
 	while (udpTunnelRunning) {
 		sockaddr_in addr_in;
 		socklen_t addrlen = sizeof(addr_in);
-		int receive = recvfrom(udptunnel, udpTunnelBuffer, UDP_TUNNEL_BUFFER_SIZE, 0, (sockaddr *)&addr_in, &addrlen);
-		if (receive >= 0) {
+		int expsize = sizeof(udpTunnelData);
+		int ofs = 0;
+
+		while (ofs < expsize) {
+			int receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
+			ofs += receive;
+		}
+		
+		udpTunnelData * data = (udpTunnelData*) malloc(expsize);
+		if (data != NULL) {
+			memcpy(&data, udpTunnelBuffer, expsize); // cannot access the data without copying the buffer 
+			if (data->opcode == OPCODE_PDP_SEND && data->datalen > 0) expsize += data->datalen + 1;
+
+			//handle chunck rarely reach this point
+			while (ofs < expsize) {
+				int receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
+				ofs += receive;
+			}
+
+			//sometimes the data comming from uknown ip and the opcode is random
+			if (data->opcode == OPCODE_PDP_SEND && data->datalen > 0) {
+				udpTunnelData * packet = (udpTunnelData*)malloc(expsize);
+				if (packet != NULL) {
+					memcpy(&packet, udpTunnelBuffer, expsize);
+					sendUdpPacket(packet, expsize);
+					free(packet); // heap corrupt occured need to solve the memory allocation packt->data = [0\0]
+				}
+			}
+
 			u32_le sip = addr_in.sin_addr.s_addr;
 			uint16_t sport = ntohs(addr_in.sin_port);
 			uint8_t * ip4 = (uint8_t *)&sip;
-			INFO_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u\n", receive, ip4[0], ip4[1], ip4[2], ip4[3], sport);
-			//storeUdpGameSocket(sip, sport, receive);
-			sendUdpPacket(receive);
+			INFO_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u opcode:%u datalen:%u", ofs, ip4[0], ip4[1], ip4[2], ip4[3], sport, data->opcode, data->datalen);
+			free(data);// heap corrupt occured need to solve the memory allocation the data is data->data = [0\0]
 		}
+
+		//storeUdpGameSocket(sip, sport, receive);
 		// Prevent needless CPU Overload (1ms Sleep)
-		sleep_ms(1);
+		sleep_ms(1); // there is no usleep equivalent on windows :(
 
 		// Don't do anything if it's paused, otherwise the log will be flooded
 		while (udpTunnelRunning && Core_IsStepping()) sleep_ms(1);
