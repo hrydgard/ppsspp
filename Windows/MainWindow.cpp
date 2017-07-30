@@ -91,7 +91,6 @@ struct VerySleepy_AddrInfo {
 	wchar_t name[256];
 };
 
-static RECT g_normalRC = {0};
 static std::wstring windowTitle;
 extern ScreenManager *screenManager;
 
@@ -117,6 +116,7 @@ namespace MainWindow
 	static bool hideCursor = false;
 	static int g_WindowState;
 	static bool g_IgnoreWM_SIZE = false;
+	static bool inFullscreenResize = false;
 	static bool inResizeMove = false;
 
 	// gross hack
@@ -172,7 +172,7 @@ namespace MainWindow
 	}
 
 	void SavePosition() {
-		if (g_Config.bFullScreen)
+		if (g_Config.bFullScreen || inFullscreenResize)
 			return;
 
 		WINDOWPLACEMENT placement;
@@ -297,7 +297,11 @@ namespace MainWindow
 			graphicsContext->Pause();
 		}
 
+		WINDOWPLACEMENT placement = { sizeof(WINDOWPLACEMENT) };
+		GetWindowPlacement(hwndMain, &placement);
+
 		int oldWindowState = g_WindowState;
+		inFullscreenResize = true;
 		g_IgnoreWM_SIZE = true;
 
 		DWORD dwStyle;
@@ -315,11 +319,9 @@ namespace MainWindow
 		} else {
 			// If the window was maximized before going fullscreen, make sure to restore first
 			// in order not to have the taskbar show up on top of PPSSPP.
-			if (oldWindowState == SIZE_MAXIMIZED) {
+			if (oldWindowState == SIZE_MAXIMIZED || placement.showCmd == SW_SHOWMAXIMIZED) {
 				ShowWindow(hwndMain, SW_RESTORE);
 			}
-			// Remember the normal window rectangle.
-			::GetWindowRect(hWnd, &g_normalRC);
 
 			// Remove caption and border styles.
 			dwStyle = ::GetWindowLong(hWnd, GWL_STYLE);
@@ -340,15 +342,31 @@ namespace MainWindow
 		// Resize to the appropriate view.
 		// If we're returning to window mode, re-apply the appropriate size setting.
 		if (goingFullscreen) {
-			ShowWindow(hwndMain, SW_MAXIMIZE);
+			if (g_Config.bFullScreenMulti) {
+				// Maximize isn't enough to display on all monitors.
+				// Remember that negative coordinates may be valid.
+				int totalX = GetSystemMetrics(SM_XVIRTUALSCREEN);
+				int totalY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+				int totalWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+				int totalHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+				MoveWindow(hwndMain, totalX, totalY, totalWidth, totalHeight, TRUE);
+				HandleSizeChange(oldWindowState);
+			} else {
+				ShowWindow(hwndMain, SW_MAXIMIZE);
+			}
 		} else {
 			ShowWindow(hwndMain, oldWindowState == SIZE_MAXIMIZED ? SW_MAXIMIZE : SW_RESTORE);
+			if (g_Config.bFullScreenMulti && oldWindowState != SIZE_MAXIMIZED) {
+				// Return the screen to where it was.
+				MoveWindow(hwndMain, g_Config.iWindowX, g_Config.iWindowY, g_Config.iWindowWidth, g_Config.iWindowHeight, TRUE);
+			}
 			if (oldWindowState == SIZE_MAXIMIZED) {
 				// WM_SIZE wasn't sent, since the size didn't change (it was full screen before and after.)
 				HandleSizeChange(oldWindowState);
 			}
 		}
 
+		inFullscreenResize = false;
 		CorrectCursor();
 
 		ShowOwnedPopups(hwndMain, goingFullscreen ? FALSE : TRUE);
@@ -365,7 +383,6 @@ namespace MainWindow
 		ShowWindow(hwndMain, SW_MINIMIZE);
 	}
 
-	// Note that this also updates the config! Not very clean.
 	RECT DetermineWindowRectangle() {
 		const int virtualScreenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
 		const int virtualScreenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
@@ -407,25 +424,25 @@ namespace MainWindow
 			int scale = (int)ceil(2.0 / dpi_scale);
 
 			GetWindowSizeAtResolution(scale * (portrait ? 272 : 480), scale * (portrait ? 480 : 272), &windowWidth, &windowHeight);
-			g_Config.iWindowWidth = windowWidth;
-			g_Config.iWindowHeight = windowHeight;
 		}
 
 		// Then center if necessary. One dimension at a time.
 		// Max is to make sure that if we end up making the window bigger than the screen (which is not ideal), the top left
 		// corner, and thus the menu etc, will be visible. Also potential workaround for #9563.
+		int x = g_Config.iWindowX;
+		int y = g_Config.iWindowY;
 		if (resetPositionX) {
-			g_Config.iWindowX = std::max(0, (currentScreenWidth - g_Config.iWindowWidth) / 2);
+			x = std::max(0, (currentScreenWidth - windowWidth) / 2);
 		}
 		if (resetPositionY) {
-			g_Config.iWindowY = std::max(0, (currentScreenHeight - g_Config.iWindowHeight) / 2);
+			y = std::max(0, (currentScreenHeight - windowHeight) / 2);
 		}
 
 		RECT rc;
-		rc.left = g_Config.iWindowX;
-		rc.right = rc.left + g_Config.iWindowWidth;
-		rc.top = g_Config.iWindowY;
-		rc.bottom = rc.top + g_Config.iWindowHeight;
+		rc.left = x;
+		rc.right = rc.left + windowWidth;
+		rc.top = y;
+		rc.bottom = rc.top + windowHeight;
 		return rc;
 	}
 
@@ -441,6 +458,7 @@ namespace MainWindow
 	BOOL Show(HINSTANCE hInstance) {
 		hInst = hInstance; // Store instance handle in our global variable.
 		RECT rc = DetermineWindowRectangle();
+		SavePosition();
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 

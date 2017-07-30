@@ -263,6 +263,11 @@ void GameSettingsScreen::CreateViews() {
 
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
+	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
+		CheckBox *fullscreenMulti = new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays"));
+		fullscreenMulti->SetEnabledPtr(&g_Config.bFullScreen);
+		graphicsSettings->Add(fullscreenMulti)->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
+	}
 #endif
 	// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
 	displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display layout editor")));

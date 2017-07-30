@@ -212,6 +212,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return DEVICE_TYPE_DESKTOP;
 	case SYSPROP_DISPLAY_DPI:
 		return ScreenDPI();
+	case SYSPROP_DISPLAY_COUNT:
+		return GetSystemMetrics(SM_CMONITORS);
 	default:
 		return -1;
 	}
