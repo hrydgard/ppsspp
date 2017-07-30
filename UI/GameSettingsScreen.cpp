@@ -972,12 +972,7 @@ UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
-#if defined(USING_WIN_UI) || defined(USING_QT_UI)
-	host->GoFullscreen(g_Config.bFullScreen);
-#else
-	// SDL, basically.
-	System_SendMessage("toggle_fullscreen", "");
-#endif
+	System_SendMessage("toggle_fullscreen", g_Config.bFullScreen ? "1" : "0");
 	return UI::EVENT_DONE;
 }
 
