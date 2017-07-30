@@ -975,8 +975,8 @@ void EmuScreen::preRender() {
 		viewport.MaxDepth = 1.0;
 		viewport.MinDepth = 0.0;
 		draw->SetViewports(1, &viewport);
-		draw->SetTargetSize(pixel_xres, pixel_yres);
 	}
+	draw->SetTargetSize(pixel_xres, pixel_yres);
 }
 
 void EmuScreen::postRender() {
