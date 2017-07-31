@@ -428,7 +428,7 @@ typedef struct {
 	uint32_t destIP;
 	uint16_t destPort;
 	SceNetEtherAddr destMac;
-	char data[];
+	uint8_t data[1];
 } PACK udpTunnelData;
 
 typedef struct {
@@ -442,6 +442,9 @@ typedef struct {
 	char data[1];
 } PACK tcpTunnelData;
 
+#ifdef _MSC_VER 
+#pragma pack(pop)
+#endif
 
 #define UDP_TUNNEL_BUFFER_SIZE 65536 
 #define OPCODE_PDP_SEND 1

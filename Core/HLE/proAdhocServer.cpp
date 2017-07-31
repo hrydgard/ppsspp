@@ -2279,45 +2279,47 @@ int udpTunnelLoop(int udptunnel) {
 
 	udpTunnelRunning = true;
 	char * udpTunnelBuffer = (char *)malloc(UDP_TUNNEL_BUFFER_SIZE);
+	memset(udpTunnelBuffer, 0, UDP_TUNNEL_BUFFER_SIZE);
 	while (udpTunnelRunning) {
 		sockaddr_in addr_in;
 		socklen_t addrlen = sizeof(addr_in);
 		int expsize = sizeof(udpTunnelData);
 		int ofs = 0;
 
-		while (ofs < expsize) {
-			int receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
-			ofs += receive;
-		}
-		
-		udpTunnelData * data = (udpTunnelData*) malloc(expsize);
-		if (data != NULL) {
-			memcpy(&data, udpTunnelBuffer, expsize); // cannot access the data without copying the buffer 
-			if (data->opcode == OPCODE_PDP_SEND && data->datalen > 0) expsize += data->datalen + 1;
-
-			//handle chunck rarely reach this point
+		if (udpTunnelBuffer != NULL) {
 			while (ofs < expsize) {
 				int receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
 				ofs += receive;
 			}
 
-			//sometimes the data comming from uknown ip and the opcode is random
-			if (data->opcode == OPCODE_PDP_SEND && data->datalen > 0) {
-				udpTunnelData * packet = (udpTunnelData*)malloc(expsize);
-				if (packet != NULL) {
-					memcpy(&packet, udpTunnelBuffer, expsize);
-					sendUdpPacket(packet, expsize);
-					free(packet); // heap corrupt occured need to solve the memory allocation packt->data = [0\0]
+			udpTunnelData * data = (udpTunnelData *) malloc(sizeof(udpTunnelData));
+			if (data != NULL) {
+				memcpy(&data, udpTunnelBuffer, sizeof(udpTunnelData) - 1); // cannot access the data without copying the buffer 
+				if (data->opcode == OPCODE_PDP_SEND && data->datalen > 0) expsize += data->datalen;
+
+				//handle chunck rarely reach this point
+				while (ofs < expsize) {
+					int receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
+					ofs += receive;
 				}
+
+				//sometimes the data comming from uknown ip and the opcode is random
+				if (data->opcode == OPCODE_PDP_SEND && data->datalen > 0) {
+					udpTunnelData * packet = (udpTunnelData *) malloc(expsize + 1);
+					if (packet != NULL) {
+						memcpy(&packet, udpTunnelBuffer, expsize);
+						sendUdpPacket(packet, expsize);
+						//free(packet); // heap corrupt occured need to solve the memory allocation packt->data = [0\0]
+					}
+				}
+
+				u32_le sip = addr_in.sin_addr.s_addr;
+				uint16_t sport = ntohs(addr_in.sin_port);
+				uint8_t * ip4 = (uint8_t *)&sip;
+				INFO_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u opcode:%u datalen:%u", ofs, ip4[0], ip4[1], ip4[2], ip4[3], sport, data->opcode, data->datalen);
+				//free(data);// heap corrupt occured need to solve the memory allocation the data is data->data = [0\0]
 			}
-
-			u32_le sip = addr_in.sin_addr.s_addr;
-			uint16_t sport = ntohs(addr_in.sin_port);
-			uint8_t * ip4 = (uint8_t *)&sip;
-			INFO_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u opcode:%u datalen:%u", ofs, ip4[0], ip4[1], ip4[2], ip4[3], sport, data->opcode, data->datalen);
-			free(data);// heap corrupt occured need to solve the memory allocation the data is data->data = [0\0]
 		}
-
 		//storeUdpGameSocket(sip, sport, receive);
 		// Prevent needless CPU Overload (1ms Sleep)
 		sleep_ms(1); // there is no usleep equivalent on windows :(
@@ -2325,6 +2327,7 @@ int udpTunnelLoop(int udptunnel) {
 		// Don't do anything if it's paused, otherwise the log will be flooded
 		while (udpTunnelRunning && Core_IsStepping()) sleep_ms(1);
 	}
+	free(udpTunnelBuffer);
 	closesocket(udptunnel);
 	return 0;
 }

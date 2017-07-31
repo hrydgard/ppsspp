@@ -472,7 +472,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											tdata->sourcePort = socket->lport;
 											getLocalMac(&tdata->sourceMac);
 											tdata->datalen = len;
-											memcpy(tdata->data, (const char*)data, len);
+											memcpy(tdata->data, &data, len);
 											//send to tunneler
 											getLocalIp(&target);
 											target.sin_port = htons(30000);
@@ -481,7 +481,6 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											uint8_t * dip = (uint8_t *)&tdata->destIP;
 											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size %u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort,packetlen);
 											sent = sendto(socket->id, (const char *)&tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
-											free(tdata->data);
 											free(tdata);
 										}
 									}
@@ -563,7 +562,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											tdata->sourcePort = socket->lport;
 											getLocalMac(&tdata->sourceMac);
 											tdata->datalen = len;
-											memcpy(tdata->data, (const char*)data, len);
+											memcpy(tdata->data, &data, len);
 											//send to tunneler
 											getLocalIp(&target);
 											target.sin_port = htons(30000);
@@ -694,9 +693,9 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 
 				if (tunneled) {
 					size_t packetlen = sizeof(udpTunnelData) + ((*len + 1) * sizeof(uint8_t));
-					udpTunnelData * tdata = (udpTunnelData *)malloc(packetlen);
+					udpTunnelData * tdata = (udpTunnelData *) malloc(packetlen);
 					changeBlockingMode(socket->id, flag);
-					char * tempbuf = (char *)malloc(packetlen);
+					char * tempbuf = (char *) malloc(packetlen);
 					int received = recvfrom(socket->id, tempbuf, (int)packetlen, 0, (sockaddr *)&sin, &sinlen);
 					int error = errno;
 					if (received == SOCKET_ERROR) {
