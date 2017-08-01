@@ -2,7 +2,7 @@
 #include "android/jni/native_audio.h"
 #include "android/jni/native-audio-so.h"
 
-struct AudioState {
+struct AndroidAudioState {
 	void *so;
 	AndroidAudioCallback callback;
 	bool playing;
@@ -10,24 +10,16 @@ struct AudioState {
 	int sample_rate;
 };
 
-static AudioState *state = 0;
-
-bool AndroidAudio_Init(AndroidAudioCallback callback, std::string libraryDir, int optimalFramesPerBuffer, int optimalSampleRate) {
-	if (state != 0) {
-		ELOG("Audio state already exists");
-		return false;
-	}
-
-	state = new AudioState();
+AndroidAudioState *AndroidAudio_Init(AndroidAudioCallback callback, std::string libraryDir, int optimalFramesPerBuffer, int optimalSampleRate) {
+	AndroidAudioState *state = new AndroidAudioState();
 	state->callback = callback;
 	state->playing = false;
 	state->frames_per_buffer = optimalFramesPerBuffer ? optimalFramesPerBuffer : 256;
 	state->sample_rate = optimalSampleRate ? optimalSampleRate : 44100;
-
-	return true;
+	return state;
 }
 
-bool AndroidAudio_Resume() {
+bool AndroidAudio_Resume(AndroidAudioState *state) {
 	if (!state) {
 		ELOG("Audio was shutdown, cannot resume!");
 		return false;
@@ -42,7 +34,7 @@ bool AndroidAudio_Resume() {
 	return false;
 }
 
-bool AndroidAudio_Pause() {
+bool AndroidAudio_Pause(AndroidAudioState *state) {
 	if (!state) {
 		ELOG("Audio was shutdown, cannot pause!");
 		return false;
@@ -57,15 +49,16 @@ bool AndroidAudio_Pause() {
 	return false;
 }
 
-void AndroidAudio_Shutdown() {
+bool AndroidAudio_Shutdown(AndroidAudioState *state) {
 	if (!state) {
 		ELOG("Audio already shutdown!");
-		return;
+		return false;
 	}
 	if (state->playing) {
 		ELOG("Should not shut down when playing! Something is wrong!");
+		return false;
 	}
 	delete state;
-	state = 0;
 	ILOG("OpenSLWrap completely unloaded.");
+	return true;
 }
