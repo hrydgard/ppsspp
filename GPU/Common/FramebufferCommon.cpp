@@ -72,12 +72,13 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 				return;
 			}
 		} else if (g_Config.iSmallDisplayZoomType == 2) { // Auto Scaling
+			// Stretch to 1080 for 272*4.  But don't distort if not widescreen (i.e. ultrawide of halfwide.)
 			float pixelCrop = frameH / 270.0f;
 			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
-			if (!rotated && resCommonWidescreen == 0.0f) {
-				*x = 0;
+			if (!rotated && resCommonWidescreen == 0.0f && frameW >= pixelCrop * 480.0f) {
+				*x = floorf((frameW - pixelCrop * 480.0f) * 0.5f);
 				*y = floorf(-pixelCrop);
-				*w = floorf(frameW);
+				*w = floorf(pixelCrop * 480.0f);
 				*h = floorf(pixelCrop * 272.0f);
 				return;
 			}

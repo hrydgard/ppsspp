@@ -513,6 +513,7 @@ static ConfigSetting graphicsSettings[] = {
 
 #ifndef MOBILE_DEVICE
 	ConfigSetting("FullScreen", &g_Config.bFullScreen, false),
+	ConfigSetting("FullScreenMulti", &g_Config.bFullScreenMulti, false),
 #endif
 
 	// TODO: Replace these settings with a list of options

@@ -38,7 +38,6 @@ public:
 
 	virtual void InitSound() = 0;
 	virtual void UpdateSound() {}
-	virtual void GoFullscreen(bool) {}
 	virtual void ShutdownSound() = 0;
 	virtual void PollControllers() {}
 	virtual void ToggleDebugConsoleVisibility() {}

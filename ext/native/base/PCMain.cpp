@@ -66,6 +66,7 @@ GlobalUIState GetUIState();
 
 static SDL_Window* g_Screen = NULL;
 static bool g_ToggleFullScreenNextFrame = false;
+static int g_ToggleFullScreenType;
 static int g_QuitRequested = 0;
 
 static int g_DesktopWidth = 0;
@@ -248,6 +249,14 @@ void Vibrate(int length_ms) {
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "toggle_fullscreen")) {
 		g_ToggleFullScreenNextFrame = true;
+		if (strcmp(parameter, "1") == 0) {
+			g_ToggleFullScreenType = 1;
+		} else if (strcmp(parameter, "0") == 0) {
+			g_ToggleFullScreenType = 0;
+		} else {
+			// Just toggle.
+			g_ToggleFullScreenType = -1;
+		}
 	} else if (!strcmp(command, "finish")) {
 		// Do a clean exit
 		g_QuitRequested = true;
@@ -391,7 +400,14 @@ void ToggleFullScreenIfFlagSet() {
 		g_ToggleFullScreenNextFrame = false;
 
 		Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
-		SDL_SetWindowFullscreen(g_Screen, window_flags ^ SDL_WINDOW_FULLSCREEN_DESKTOP);
+		if (g_ToggleFullScreenType == -1) {
+			window_flags ^= SDL_WINDOW_FULLSCREEN_DESKTOP;
+		} else if (g_ToggleFullScreenType == 1) {
+			window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+		} else {
+			window_flags &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
+		}
+		SDL_SetWindowFullscreen(g_Screen, window_flags);
 	}
 }
 

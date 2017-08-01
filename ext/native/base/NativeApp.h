@@ -169,6 +169,7 @@ enum SystemProperty {
 	SYSPROP_DISPLAY_YRES,
 	SYSPROP_DISPLAY_REFRESH_RATE,  // returns 1000*the refresh rate in Hz as it can be non-integer
 	SYSPROP_DISPLAY_DPI,
+	SYSPROP_DISPLAY_COUNT,
 	SYSPROP_MOGA_VERSION,
 
 	SYSPROP_DEVICE_TYPE,
