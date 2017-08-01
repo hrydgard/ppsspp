@@ -13,34 +13,32 @@
 #include "../base/logging.h"
 #include "native-audio-so.h"
 
-// This is kinda ugly, but for simplicity I've left these as globals just like in the sample,
-// as there's not really any use case for this where we have multiple audio devices yet.
+AudioContext::AudioContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate)
+	  : audioCallback(cb), framesPerBuffer(_FramesPerBuffer), sampleRate(_SampleRate) {
+	if (framesPerBuffer == 0)
+		framesPerBuffer = 256;
+	if (framesPerBuffer < 32)
+		framesPerBuffer = 32;
+	if (framesPerBuffer > 4096)
+		framesPerBuffer = 4096;
 
-// engine interfaces
-static SLObjectItf engineObject;
-static SLEngineItf engineEngine;
-static SLObjectItf outputMixObject;
-
-// buffer queue player interfaces
-static SLObjectItf bqPlayerObject = NULL;
-static SLPlayItf bqPlayerPlay;
-static SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue;
-static SLMuteSoloItf bqPlayerMuteSolo;
-static SLVolumeItf bqPlayerVolume;
-
-// Double buffering.
-static short *buffer[2];
-static int curBuffer = 0;
-static int framesPerBuffer;
-int sampleRate;
-
-static AndroidAudioCallback audioCallback;
+	sampleRate = _SampleRate;
+	if (sampleRate != 44100 && sampleRate != 48000) {
+		ELOG("Invalid sample rate %i - choosing 44100", sampleRate);
+		sampleRate = 44100;
+	}
+}
 
 // This callback handler is called every time a buffer finishes playing.
 // The documentation available is very unclear about how to best manage buffers.
 // I've chosen to this approach: Instantly enqueue a buffer that was rendered to the last time,
 // and then render the next. Hopefully it's okay to spend time in this callback after having enqueued. 
-static void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
+void OpenSLContext::bqPlayerCallbackWrap(SLAndroidSimpleBufferQueueItf bq, void *context) {
+	OpenSLContext *ctx = (OpenSLContext *)context;
+	ctx->BqPlayerCallback(bq);
+}
+
+void OpenSLContext::BqPlayerCallback(SLAndroidSimpleBufferQueueItf bq) {
 	if (bq != bqPlayerBufferQueue) {
 		ELOG("Wrong bq!");
 		return;
@@ -66,22 +64,10 @@ static void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
 }
 
 // create the engine and output mix objects
-bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate) {
-	audioCallback = cb;
-	framesPerBuffer = _FramesPerBuffer;
-	if (framesPerBuffer == 0)
-		framesPerBuffer = 256;
-	if (framesPerBuffer < 32)
-		framesPerBuffer = 32;
-	if (framesPerBuffer > 4096)
-		framesPerBuffer = 4096;
+OpenSLContext::OpenSLContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate)
+	: AudioContext(cb, _FramesPerBuffer, _SampleRate) {}
 
-	sampleRate = _SampleRate;
-	if (sampleRate != 44100 && sampleRate != 48000) {
-		ELOG("Invalid sample rate %i - choosing 44100", sampleRate);
-		sampleRate = 44100;
-	}
-
+bool OpenSLContext::Init() {
 	SLresult result;
 	// create engine
 	result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);
@@ -137,7 +123,7 @@ bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleR
 	result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_BUFFERQUEUE,
 		&bqPlayerBufferQueue);
 	assert(SL_RESULT_SUCCESS == result);
-	result = (*bqPlayerBufferQueue)->RegisterCallback(bqPlayerBufferQueue, bqPlayerCallback, NULL);
+	result = (*bqPlayerBufferQueue)->RegisterCallback(bqPlayerBufferQueue, &bqPlayerCallbackWrap, this);
 	assert(SL_RESULT_SUCCESS == result);
 	result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_VOLUME, &bqPlayerVolume);
 	assert(SL_RESULT_SUCCESS == result);
@@ -160,7 +146,7 @@ bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleR
 }
 
 // shut down the native audio system
-void OpenSLWrap_Shutdown() {
+OpenSLContext::~OpenSLContext() {
 	if (bqPlayerPlay) {
 		ILOG("OpenSLWrap_Shutdown - stopping playback");
 		SLresult result;
