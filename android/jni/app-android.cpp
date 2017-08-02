@@ -54,6 +54,8 @@ JNIEnv *jniEnvMain;
 JNIEnv *jniEnvGraphics;
 JavaVM *javaVM;
 
+static AndroidAudioState *g_audioState;
+
 enum {
 	ANDROID_VERSION_GINGERBREAD = 9,
 	ANDROID_VERSION_ICS = 14,
@@ -620,21 +622,30 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 	}
 
 	ILOG("NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i	 optimal sr: %i	 actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
-	AndroidAudio_Init(&NativeMix, library_path, framesPerBuffer, sampleRate);
+	if (!g_audioState) {
+		g_audioState = AndroidAudio_Init(&NativeMix, library_path, framesPerBuffer, sampleRate);
+	} else {
+		ELOG("Audio state already initialized");
+	}
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioShutdown(JNIEnv *, jclass) {
-	AndroidAudio_Shutdown();
+	if (g_audioState) {
+		AndroidAudio_Shutdown(g_audioState);
+		g_audioState = nullptr;
+	} else {
+		ELOG("Audio state already shutdown!");
+	}
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 	ILOG("NativeApp.resume() - resuming audio");
-	AndroidAudio_Resume();
+	AndroidAudio_Resume(g_audioState);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 	ILOG("NativeApp.pause() - pausing audio");
-	AndroidAudio_Pause();
+	AndroidAudio_Pause(g_audioState);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
