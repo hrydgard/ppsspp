@@ -429,7 +429,7 @@ typedef struct {
 	uint32_t destIP;
 	uint16_t destPort;
 	SceNetEtherAddr destMac;
-	uint8_t data[1];
+	char data[1];
 } PACK udpTunnelData;
 
 typedef struct {

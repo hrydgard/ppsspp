@@ -563,15 +563,15 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											tdata->sourcePort = socket->lport;
 											getLocalMac(&tdata->sourceMac);
 											tdata->datalen = len;
-											memcpy(tdata->data, data, len);
+											memcpy(tdata->data, (const char *)data, len);
 											//send to tunneler
 											getLocalIp(&target);
 											target.sin_port = htons(30000);
 											tdata->sourceIP = target.sin_addr.s_addr;
 											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
 											uint8_t * dip = (uint8_t *)&tdata->destIP;
-											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size:%u datalen:%u ", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort,packetlen,tdata->datalen);
 											sent = sendto(socket->id, (const char *)tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
+											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size:%u sent:%i datalen:%u buf:%s ", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort, packetlen,sent, tdata->datalen, (const char *)data);
 											free(tdata);
 										}
 									}
@@ -710,7 +710,8 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 							memcpy(tdata, tempbuf, packetlen - 1);
 							//need to assign the correct data
 							memcpy(buf, tdata->data, tdata->datalen);
-							NOTICE_LOG(SCENET, "Received tunnel data datalen %u , buf=%s ", tdata->datalen,buf);
+							NOTICE_LOG(SCENET, "Received tunnel data datalen %u , buf=%s , sport:%u", tdata->datalen,buf,tdata->sourcePort);
+							NOTICE_LOG(SCENET, "Recv SRC MAC [%02X:%02X:%02X:%02X:%02X:%02X]", tdata->sourceMac.data[0], tdata->sourceMac.data[1], tdata->sourceMac.data[2], tdata->sourceMac.data[3], tdata->sourceMac.data[4], tdata->sourceMac.data[5]);
 							*saddr = tdata->sourceMac;
 							*sport = tdata->sourcePort;
 							*len = tdata->datalen;

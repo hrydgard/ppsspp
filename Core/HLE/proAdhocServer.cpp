@@ -2203,12 +2203,11 @@ int tcpTunnelLoop(int tcptunnel) {
 //send udp data to other tunneler or relay
 void sendUdpPacket(udpTunnelData * packet,int packetSize) {
 	if (packet != NULL && packet->opcode == OPCODE_PDP_SEND) {
-		NOTICE_LOG(SCENET, "Packet SRC MAC [%02X:%02X:%02X:%02X:%02X:%02X]", packet->sourceMac.data[0], packet->sourceMac.data[1], packet->sourceMac.data[2], packet->sourceMac.data[3], packet->sourceMac.data[4], packet->sourceMac.data[5]);
-		NOTICE_LOG(SCENET, "Packet DEST MAC [%02X:%02X:%02X:%02X:%02X:%02X]", packet->destMac.data[0], packet->destMac.data[1], packet->destMac.data[2], packet->destMac.data[3], packet->destMac.data[4], packet->destMac.data[5]);
+		//NOTICE_LOG(SCENET, "Packet SRC MAC [%02X:%02X:%02X:%02X:%02X:%02X]", packet->sourceMac.data[0], packet->sourceMac.data[1], packet->sourceMac.data[2], packet->sourceMac.data[3], packet->sourceMac.data[4], packet->sourceMac.data[5]);
+		//NOTICE_LOG(SCENET, "Packet DEST MAC [%02X:%02X:%02X:%02X:%02X:%02X]", packet->destMac.data[0], packet->destMac.data[1], packet->destMac.data[2], packet->destMac.data[3], packet->destMac.data[4], packet->destMac.data[5]);
 
 		uint8_t * sip = (uint8_t *)&packet->sourceIP;
 		uint8_t * dip = (uint8_t *)&packet->destIP;
-		INFO_LOG(SCENET, "Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen);
 
 		struct sockaddr_in target;
 		memset(&target, 0, sizeof(target));
@@ -2217,10 +2216,12 @@ void sendUdpPacket(udpTunnelData * packet,int packetSize) {
 
 		if (isLocalMAC(&packet->destMac)) {
 			packet->opcode = OPCODE_PDP_RECV;
+			INFO_LOG(SCENET, "Local Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u data:%s ", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen, packet->data);
 			INFO_LOG(SCENET, "Forwarding Packet to Local game port %u", packet->destPort);
 			target.sin_port = htons(packet->destPort);
 		}
 		else {
+			NOTICE_LOG(SCENET, "Outgoing Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u data:%s ", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen, packet->data);
 			target.sin_port = htons(30000);
 		}
 
@@ -2288,11 +2289,9 @@ int udpTunnelLoop(int udptunnel) {
 		int ofs = 0;
 
 		if (udpTunnelBuffer != NULL) {
-			while (ofs < expsize) { 
+			while (ofs < expsize && udpTunnelRunning) { 
 				receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
 				ofs += receive;
-				if (!udpTunnelRunning)
-					break;
 			}
 			if (receive > 0) {
 				//INFO_LOG(SCENET, "Receive %u ,  Buffer %s", receive, udpTunnelBuffer);
@@ -2305,8 +2304,6 @@ int udpTunnelLoop(int udptunnel) {
 						while (ofs < expsize && udpTunnelRunning) {
 							receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
 							ofs += receive;
-							if (!udpTunnelRunning)
-								break;
 						}
 
 						//sometimes the data comming from uknown ip and the opcode is random
@@ -2323,7 +2320,7 @@ int udpTunnelLoop(int udptunnel) {
 						u32_le sip = addr_in.sin_addr.s_addr;
 						uint16_t sport = ntohs(addr_in.sin_port);
 						uint8_t * ip4 = (uint8_t *)&sip;
-						INFO_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u opcode:%u datalen:%u", ofs, ip4[0], ip4[1], ip4[2], ip4[3], sport, header->opcode, header->datalen);
+						INFO_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u opcode:%u datalen:%u data:%s ", ofs, ip4[0], ip4[1], ip4[2], ip4[3], sport, header->opcode, header->datalen);
 					}
 				}
 			}
@@ -2331,9 +2328,8 @@ int udpTunnelLoop(int udptunnel) {
 		//storeUdpGameSocket(sip, sport, receive);
 		// Prevent needless CPU Overload (1ms Sleep)
 		//sleep_ms(1); // there is no usleep equivalent on windows :(
-
-		// Don't do anything if it's paused, otherwise the log will be flooded
 		while (udpTunnelRunning && Core_IsStepping()) sleep_ms(1);
+		// Don't do anything if it's paused, otherwise the log will be flooded
 	}
 	free(header);
 	free(udpTunnelBuffer);
