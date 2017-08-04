@@ -392,6 +392,10 @@ extern bool udpTunnelRunning;
 extern std::thread tcpTunnelThread;
 extern std::thread udpTunnelThread;
 
+#ifdef _MSC_VER 
+#pragma pack(push, 1)
+#endif
+
 int tcpTunnel(int port);
 void storeTcpGameSocket(int stream, uint32_t ip, uint16_t port);
 int tcpTunnelLoop(int tcptunnel);
@@ -415,9 +419,6 @@ typedef struct udpGamePortWrapper {
 	struct udpGamePortWrapper * prev;
 } udpGamePortWrapper;
 
-#ifdef _MSC_VER 
-#pragma pack(push, 1)
-#endif
 
 typedef struct {
 	uint8_t opcode;
@@ -442,10 +443,6 @@ typedef struct {
 	char data[1];
 } PACK tcpTunnelData;
 
-#ifdef _MSC_VER 
-#pragma pack(pop)
-#endif
-
 #define UDP_TUNNEL_BUFFER_SIZE 65536 
 #define OPCODE_PDP_SEND 1
 #define OPCODE_PDP_RECV 2
@@ -455,6 +452,8 @@ void storeUdpGameSocket(uint32_t ip,uint16_t port,int packetlen);
 int udpTunnelLoop(int udptunnel);
 int udpTunnel(int port);
 
-
+#ifdef _MSC_VER 
+#pragma pack(pop)
+#endif
 
 

@@ -472,7 +472,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											tdata->sourcePort = socket->lport;
 											getLocalMac(&tdata->sourceMac);
 											tdata->datalen = len;
-											memcpy(tdata->data, &data, len);
+											memcpy(tdata->data, data, len);
 											//send to tunneler
 											getLocalIp(&target);
 											target.sin_port = htons(30000);
@@ -480,7 +480,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
 											uint8_t * dip = (uint8_t *)&tdata->destIP;
 											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size %u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort,packetlen);
-											sent = sendto(socket->id, (const char *)&tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
+											sent = sendto(socket->id, (const char *)tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
 											free(tdata);
 										}
 									}
@@ -554,6 +554,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									if (tunneled) {
 										size_t packetlen = sizeof(udpTunnelData) + len + 1;
 										udpTunnelData * tdata = (udpTunnelData *) malloc(packetlen);
+										memset(tdata,0,packetlen);
 										if (tdata != NULL) {
 											tdata->opcode = OPCODE_PDP_SEND;
 											tdata->destIP = peer->ip_addr;
@@ -562,15 +563,15 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											tdata->sourcePort = socket->lport;
 											getLocalMac(&tdata->sourceMac);
 											tdata->datalen = len;
-											memcpy(tdata->data, &data, len);
+											memcpy(tdata->data, data, len);
 											//send to tunneler
 											getLocalIp(&target);
 											target.sin_port = htons(30000);
 											tdata->sourceIP = target.sin_addr.s_addr;
 											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
 											uint8_t * dip = (uint8_t *)&tdata->destIP;
-											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size:%u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort,packetlen);
-											sent = sendto(socket->id, (const char *)&tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
+											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size:%u datalen:%u ", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort,packetlen,tdata->datalen);
+											sent = sendto(socket->id, (const char *)tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
 											free(tdata);
 										}
 									}
@@ -692,7 +693,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 				//_acquireNetworkLock();
 
 				if (tunneled) {
-					size_t packetlen = sizeof(udpTunnelData) + ((*len + 1) * sizeof(uint8_t));
+					size_t packetlen = sizeof(udpTunnelData) + *len + 1;
 					udpTunnelData * tdata = (udpTunnelData *) malloc(packetlen);
 					changeBlockingMode(socket->id, flag);
 					char * tempbuf = (char *) malloc(packetlen);
@@ -704,9 +705,12 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					changeBlockingMode(socket->id, 0);
 
 					if (received >= 0) {
+						INFO_LOG(SCENET, "buflen %u , opcode: %u , received %u ", packetlen, tempbuf[0],received);
 						if (tdata != NULL && tempbuf != NULL && tempbuf[0] == OPCODE_PDP_RECV){
-							memcpy(tdata, tempbuf, packetlen);
-							buf = (char *) tdata->data;
+							memcpy(tdata, tempbuf, packetlen - 1);
+							//need to assign the correct data
+							memcpy(buf, tdata->data, tdata->datalen);
+							NOTICE_LOG(SCENET, "Received tunnel data datalen %u , buf=%s ", tdata->datalen,buf);
 							*saddr = tdata->sourceMac;
 							*sport = tdata->sourcePort;
 							*len = tdata->datalen;

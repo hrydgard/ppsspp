@@ -2224,17 +2224,17 @@ void sendUdpPacket(udpTunnelData * packet,int packetSize) {
 			target.sin_port = htons(30000);
 		}
 
-		int sent = sendto(utunnelsocket, (const char*)&packet, (int) packetSize, 0, (sockaddr *)&target, sizeof(target));
+		int sent = sendto(utunnelsocket, (const char *)packet, (int) packetSize, 0, (sockaddr *)&target, sizeof(target));
 
 		int error = errno;
 		if (sent == SOCKET_ERROR) {
 			uint8_t *dip = (uint8_t *)&target.sin_addr.s_addr;
-			ERROR_LOG(SCENET, "Socket Error (%i) on Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i)\n", error, dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetSize);
+			ERROR_LOG(SCENET, "Socket Error (%i) on Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i, datalen:%u)\n", error, dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetSize,packet->datalen);
 		}
 
 		if (sent == packetSize) {
 			uint8_t *dip = (uint8_t *)&target.sin_addr.s_addr;
-			INFO_LOG(SCENET, "Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i)\n", dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetSize);
+			INFO_LOG(SCENET, "Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i,datalen:%u)\n", dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetSize,packet->datalen);
 		}
 	}
 }
@@ -2279,7 +2279,8 @@ int udpTunnelLoop(int udptunnel) {
 
 	udpTunnelRunning = true;
 	char * udpTunnelBuffer = (char *)malloc(UDP_TUNNEL_BUFFER_SIZE);
-	memset(udpTunnelBuffer, 0, UDP_TUNNEL_BUFFER_SIZE);
+	udpTunnelData * header = (udpTunnelData *)malloc(sizeof(udpTunnelData));
+	int receive = 0;
 	while (udpTunnelRunning) {
 		sockaddr_in addr_in;
 		socklen_t addrlen = sizeof(addr_in);
@@ -2287,46 +2288,54 @@ int udpTunnelLoop(int udptunnel) {
 		int ofs = 0;
 
 		if (udpTunnelBuffer != NULL) {
-			while (ofs < expsize) {
-				int receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
+			while (ofs < expsize) { 
+				receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
 				ofs += receive;
+				if (!udpTunnelRunning)
+					break;
 			}
+			if (receive > 0) {
+				//INFO_LOG(SCENET, "Receive %u ,  Buffer %s", receive, udpTunnelBuffer);
+				if (header != NULL) {
+					if (ofs > sizeof(udpTunnelData)) {
+						memcpy(header, udpTunnelBuffer, sizeof(udpTunnelData) ); // cannot access the data without copying the buffer 
+						if (header->opcode == OPCODE_PDP_SEND && header->datalen > 0) expsize += header->datalen;
 
-			udpTunnelData * data = (udpTunnelData *) malloc(sizeof(udpTunnelData));
-			if (data != NULL) {
-				memcpy(&data, udpTunnelBuffer, sizeof(udpTunnelData) - 1); // cannot access the data without copying the buffer 
-				if (data->opcode == OPCODE_PDP_SEND && data->datalen > 0) expsize += data->datalen;
+						//handle chunck rarely reach this point
+						while (ofs < expsize && udpTunnelRunning) {
+							receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
+							ofs += receive;
+							if (!udpTunnelRunning)
+								break;
+						}
 
-				//handle chunck rarely reach this point
-				while (ofs < expsize) {
-					int receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
-					ofs += receive;
-				}
+						//sometimes the data comming from uknown ip and the opcode is random
+						if (header->opcode == OPCODE_PDP_SEND && ofs == (expsize + 1)) {
+							udpTunnelData * packet = (udpTunnelData *) malloc(expsize + 1);
+							memset(packet, 0, expsize + 1);
+							if (packet != NULL) {
+								memcpy(packet, udpTunnelBuffer, expsize);
+								sendUdpPacket(packet, expsize + 1);
+								free(packet);
+							}
+						}
 
-				//sometimes the data comming from uknown ip and the opcode is random
-				if (data->opcode == OPCODE_PDP_SEND && data->datalen > 0) {
-					udpTunnelData * packet = (udpTunnelData *) malloc(expsize + 1);
-					if (packet != NULL) {
-						memcpy(&packet, udpTunnelBuffer, expsize);
-						sendUdpPacket(packet, expsize);
-						//free(packet); // heap corrupt occured need to solve the memory allocation packt->data = [0\0]
+						u32_le sip = addr_in.sin_addr.s_addr;
+						uint16_t sport = ntohs(addr_in.sin_port);
+						uint8_t * ip4 = (uint8_t *)&sip;
+						INFO_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u opcode:%u datalen:%u", ofs, ip4[0], ip4[1], ip4[2], ip4[3], sport, header->opcode, header->datalen);
 					}
 				}
-
-				u32_le sip = addr_in.sin_addr.s_addr;
-				uint16_t sport = ntohs(addr_in.sin_port);
-				uint8_t * ip4 = (uint8_t *)&sip;
-				INFO_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u opcode:%u datalen:%u", ofs, ip4[0], ip4[1], ip4[2], ip4[3], sport, data->opcode, data->datalen);
-				//free(data);// heap corrupt occured need to solve the memory allocation the data is data->data = [0\0]
 			}
 		}
 		//storeUdpGameSocket(sip, sport, receive);
 		// Prevent needless CPU Overload (1ms Sleep)
-		sleep_ms(1); // there is no usleep equivalent on windows :(
+		//sleep_ms(1); // there is no usleep equivalent on windows :(
 
 		// Don't do anything if it's paused, otherwise the log will be flooded
 		while (udpTunnelRunning && Core_IsStepping()) sleep_ms(1);
 	}
+	free(header);
 	free(udpTunnelBuffer);
 	closesocket(udptunnel);
 	return 0;
