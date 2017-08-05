@@ -334,7 +334,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_UNKNOWN_FD, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
 	{ GE_CMD_UNKNOWN_FE, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
 	// Appears to be debugging related or something?  Hit a lot in GoW.
-	{ GE_CMD_UNKNOWN_FF, 0 },
+	{ GE_CMD_NOP_FF, 0 },
 };
 size_t commonCommandTableSize = ARRAY_SIZE(commonCommandTable);
 

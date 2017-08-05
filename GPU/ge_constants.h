@@ -273,7 +273,7 @@ enum GECommand {
 	GE_CMD_UNKNOWN_FC = 0xFC,
 	GE_CMD_UNKNOWN_FD = 0xFD,
 	GE_CMD_UNKNOWN_FE = 0xFE,
-	GE_CMD_UNKNOWN_FF = 0xFF,
+	GE_CMD_NOP_FF = 0xFF,
 };
 
 enum GEBufferFormat

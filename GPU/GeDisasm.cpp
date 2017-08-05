@@ -102,6 +102,15 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			snprintf(buffer, bufsize, "NOP");
 		break;
 
+		// Pretty sure this is some sort of NOP to eat some pipelining issue,
+		// often seen after CALL instructions.
+	case GE_CMD_NOP_FF:
+		if (data != 0)
+			snprintf(buffer, bufsize, "NOP_FF: data= %06x", data);
+		else
+			snprintf(buffer, bufsize, "NOP_FF");
+		break;
+
 	case GE_CMD_BASE:
 		snprintf(buffer, bufsize, "BASE: %06x", data);
 		break;
