@@ -132,8 +132,8 @@ bool Core_GetPowerSaving() {
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	// Can't take this from config as it will not be set if windows is maximized.
-	int w = (int)(pixelWidth * g_dpi_scale);
-	int h = (int)(pixelHeight * g_dpi_scale);
+	int w = (int)(pixelWidth * g_dpi_scale_x);
+	int h = (int)(pixelHeight * g_dpi_scale_y);
 	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
 }
 
@@ -142,22 +142,27 @@ bool UpdateScreenScale(int width, int height) {
 	bool smallWindow;
 #ifdef _WIN32
 	g_dpi = (float)System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
-	g_dpi_scale = 96.0f / g_dpi;
+	g_dpi_scale_x = 96.0f / g_dpi;
+	g_dpi_scale_y = 96.0f / g_dpi;
 #else
 	g_dpi = 96.0f;
-	g_dpi_scale = 1.0f;
+	g_dpi_scale_x = 1.0f;
+	g_dpi_scale_y = 1.0f;
 #endif
-	g_dpi_scale_real = g_dpi_scale;
+	g_dpi_scale_real_x = g_dpi_scale_x;
+	g_dpi_scale_real_y = g_dpi_scale_y;
 
 	smallWindow = IsWindowSmall(width, height);
 	if (smallWindow) {
 		g_dpi /= 2.0f;
-		g_dpi_scale *= 2.0f;
+		g_dpi_scale_x *= 2.0f;
+		g_dpi_scale_y *= 2.0f;
 	}
-	pixel_in_dps = 1.0f / g_dpi_scale;
+	pixel_in_dps_x = 1.0f / g_dpi_scale_x;
+	pixel_in_dps_y = 1.0f / g_dpi_scale_y;
 
-	int new_dp_xres = width * g_dpi_scale;
-	int new_dp_yres = height * g_dpi_scale;
+	int new_dp_xres = width * g_dpi_scale_x;
+	int new_dp_yres = height * g_dpi_scale_y;
 
 	bool dp_changed = new_dp_xres != dp_xres || new_dp_yres != dp_yres;
 	bool px_changed = pixel_xres != width || pixel_yres != height;

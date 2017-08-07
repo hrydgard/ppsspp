@@ -263,15 +263,15 @@ bool MainUI::event(QEvent *e)
                 break;
             case Qt::TouchPointPressed:
             case Qt::TouchPointReleased:
-                input.x = touchPoint.pos().x() * g_dpi_scale * xscale;
-                input.y = touchPoint.pos().y() * g_dpi_scale * yscale;
+                input.x = touchPoint.pos().x() * g_dpi_scale_x * xscale;
+                input.y = touchPoint.pos().y() * g_dpi_scale_y * yscale;
                 input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
                 input.id = touchPoint.id();
                 NativeTouch(input);
                 break;
             case Qt::TouchPointMoved:
-                input.x = touchPoint.pos().x() * g_dpi_scale * xscale;
-                input.y = touchPoint.pos().y() * g_dpi_scale * yscale;
+                input.x = touchPoint.pos().x() * g_dpi_scale_x * xscale;
+                input.y = touchPoint.pos().y() * g_dpi_scale_y * yscale;
                 input.flags = TOUCH_MOVE;
                 input.id = touchPoint.id();
                 NativeTouch(input);
@@ -287,15 +287,15 @@ bool MainUI::event(QEvent *e)
         break;
     case QEvent::MouseButtonPress:
     case QEvent::MouseButtonRelease:
-        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
-        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
+        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
+        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
         input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
         input.id = 0;
         NativeTouch(input);
         break;
     case QEvent::MouseMove:
-        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
-        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
+        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
+        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
         input.flags = TOUCH_MOVE;
         input.id = 0;
         NativeTouch(input);
@@ -437,8 +437,10 @@ int main(int argc, char *argv[])
 		res.transpose();
 	pixel_xres = res.width();
 	pixel_yres = res.height();
-	g_dpi_scale = CalculateDPIScale();
-	g_dpi_scale_real = g_dpi_scale;
+	g_dpi_scale_x = CalculateDPIScale();
+	g_dpi_scale_y = CalculateDPIScale();
+	g_dpi_scale_real_x = g_dpi_scale_x;
+	g_dpi_scale_real_y = g_dpi_scale_y;
 	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
 	std::string savegame_dir = ".";
 	std::string external_dir = ".";

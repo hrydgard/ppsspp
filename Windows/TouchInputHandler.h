@@ -34,7 +34,7 @@ private:
 	void touchDown(int id, float x, float y);
 	void touchMove(int id, float x, float y);
 
-	int touchIds[10];
+	int touchIds[10]{};
 	getTouchInputProc touchInfo;
 	closeTouchInputProc closeTouch;
 	registerTouchProc registerTouch;

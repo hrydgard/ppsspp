@@ -90,12 +90,13 @@ Bounds UIContext::GetScissorBounds() {
 void UIContext::ActivateTopScissor() {
 	Bounds bounds;
 	if (scissorStack_.size()) {
-		float scale = pixel_in_dps;
+		float scale_x = pixel_in_dps_x;
+		float scale_y = pixel_in_dps_y;
 		bounds = scissorStack_.back();
-		int x = floorf(scale * bounds.x);
-		int y = floorf(scale * bounds.y);
-		int w = ceilf(scale * bounds.w);
-		int h = ceilf(scale * bounds.h);
+		int x = floorf(scale_x * bounds.x);
+		int y = floorf(scale_y * bounds.y);
+		int w = ceilf(scale_x * bounds.w);
+		int h = ceilf(scale_y * bounds.h);
 		draw_->SetScissorRect(x, y, w, h);
 	} else {
 		// Avoid rounding errors
