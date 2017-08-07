@@ -24,6 +24,7 @@ import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -93,14 +94,17 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	private boolean shuttingDown;
 	private static int RESULT_LOAD_IMAGE = 1;
 
-    // Allow for multiple connected gamepads but just consider them the same for now.
-    // Actually this is not entirely true, see the code.
-    InputDeviceState inputPlayerA;
-    InputDeviceState inputPlayerB;
-    InputDeviceState inputPlayerC;
-    String inputPlayerADesc;
+	// Allow for multiple connected gamepads but just consider them the same for now.
+	// Actually this is not entirely true, see the code.
+	InputDeviceState inputPlayerA;
+	InputDeviceState inputPlayerB;
+	InputDeviceState inputPlayerC;
+	String inputPlayerADesc;
 
-    // Functions for the app activity to override to change behaviour.
+	float densityDpi;
+	float refreshRate;
+
+	// Functions for the app activity to override to change behaviour.
 
     public native void registerCallbacks();
     public native void unregisterCallbacks();
@@ -155,7 +159,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
 	void GetScreenSizeHC(Point size, boolean real) {
-        WindowManager w = getWindowManager();
+		WindowManager w = getWindowManager();
 		if (real && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
 			GetScreenSizeJB(size, real);
 		} else {
@@ -163,16 +167,37 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		}
 	}
 
+	private View GetSurfaceView() {
+	 	if (mGLSurfaceView != null)
+	 		return mGLSurfaceView;
+	 	if (mSurfaceView != null)
+	 		return mSurfaceView;
+	 	return null;
+	}
+
 	@SuppressWarnings("deprecation")
 	public void GetScreenSize(Point size) {
-        boolean real = useImmersive();
+		Rect rc = new Rect();
+
+		boolean real = useImmersive();
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
 			GetScreenSizeHC(size, real);
 		} else {
-	        WindowManager w = getWindowManager();
-	        Display d = w.getDefaultDisplay();
+			WindowManager w = getWindowManager();
+			Display d = w.getDefaultDisplay();
 			size.x = d.getWidth();
 			size.y = d.getHeight();
+		}
+
+		Log.i(TAG, "Size old way: " + size.x + "x" + size.y);
+
+		View surface = GetSurfaceView();
+		if (surface != null) {
+			surface.getWindowVisibleDisplayFrame(rc);
+			size.x = rc.width();
+			size.y = rc.height();
+
+			Log.i(TAG, "Size new way: " + size.x + "x" + size.y);
 		}
 	}
 
@@ -384,19 +409,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Tells the render loop thread to exit, so we can restart it.
 	public native void exitEGLRenderLoop();
 
-	void updateDisplayMetrics(Point outSize) {
-		DisplayMetrics metrics = new DisplayMetrics();
-		Display display = getWindowManager().getDefaultDisplay();
-		display.getMetrics(metrics);
-
-		float refreshRate = display.getRefreshRate();
-		if (outSize == null) {
-			outSize = new Point();
-		}
-		GetScreenSize(outSize);
-		NativeApp.setDisplayParameters(outSize.x, outSize.y, metrics.densityDpi, refreshRate);
-	}
-
 	public void getDesiredBackbufferSize(Point sz) {
 		NativeApp.computeDesiredBackbufferDimensions();
 		sz.x = NativeApp.getDesiredBackbufferWidth();
@@ -410,12 +422,16 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		shuttingDown = false;
 		registerCallbacks();
 
-    	updateDisplayMetrics(null);
-
 		if (!initialized) {
 			Initialize();
 			initialized = true;
 		}
+
+		Display display = getWindowManager().getDefaultDisplay();
+		DisplayMetrics metrics = new DisplayMetrics();
+		display.getMetrics(metrics);
+		densityDpi = metrics.densityDpi;
+		refreshRate = display.getRefreshRate();
 
 		// OK, config should be initialized, we can query for screen rotation.
 		updateScreenRotation();
@@ -428,7 +444,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
 
-    	updateDisplayMetrics(null);
+		Point outSize = new Point();
+    	GetScreenSize(outSize);
+		NativeApp.setDisplayParameters(outSize.x, outSize.y, (int)densityDpi, refreshRate);
 	    if (javaGL) {
 	        mGLSurfaceView = new NativeGLView(this);
 			nativeRenderer = new NativeRenderer(this);
@@ -489,6 +507,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
+
+
 		Log.d(TAG, "Surface created.");
 	}
 
@@ -501,10 +521,10 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	    }
 
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
-		// Make sure we have fresh display metrics so the computations go right.
-		// This is needed on some very old devices, I guess event order is different or something...
-		Point sz = new Point();
-		updateDisplayMetrics(sz);
+
+		Point outSize = new Point();
+		GetScreenSize(outSize);
+		NativeApp.setDisplayParameters(outSize.x, outSize.y, (int)densityDpi, refreshRate);
 		NativeApp.backbufferResize(width, height, format);
 
 		mSurface = holder.getSurface();
@@ -676,8 +696,11 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             updateSystemUiVisibility();
         }
-        updateDisplayMetrics(null);
-        if (javaGL) {
+        densityDpi = (float)newConfig.densityDpi;
+		Point outSize = new Point();
+		GetScreenSize(outSize);
+		NativeApp.setDisplayParameters(outSize.x, outSize.y, (int)densityDpi, refreshRate);
+		if (javaGL) {
 			Point sz = new Point();
 			getDesiredBackbufferSize(sz);
 			if (sz.x > 0) {
