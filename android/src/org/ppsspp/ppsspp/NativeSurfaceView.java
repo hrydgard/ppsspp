@@ -30,7 +30,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	private Controller mController = null;
 	private boolean isMogaPro = false;
 
-	public NativeSurfaceView(NativeActivity activity, int fixedW, int fixedH) {
+	public NativeSurfaceView(NativeActivity activity) {
 		super(activity);
 
 		Log.i(TAG, "NativeSurfaceView");
@@ -39,14 +39,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
 		mController = Controller.getInstance(activity);
-
-		// Maybe we need to use this?
-		if (fixedW != 0 && fixedH != 0) {
-			Log.i(TAG, "Setting surface holder to use a fixed size of " + fixedW + "x" + fixedH + " pixels");
-			this.getHolder().setFixedSize(fixedW, fixedH);
-		} else {
-			Log.i(TAG, "Using default backbuffer size.");
-		}
 
 		// this.getHolder().setFormat(PixelFormat.RGBA_8888);
 

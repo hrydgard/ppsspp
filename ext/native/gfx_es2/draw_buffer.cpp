@@ -86,14 +86,13 @@ void DrawBuffer::End() {
 
 void DrawBuffer::Flush(bool set_blend_state) {
 	using namespace Draw;
-	if (!pipeline_) {
-		ELOG("No program set!");
-		return;
-	}
-
 	if (count_ == 0)
 		return;
-
+	if (!pipeline_) {
+		ELOG("DrawBuffer: No program set, skipping flush!");
+		count_ = 0;
+		return;
+	}
 	draw_->BindPipeline(pipeline_);
 
 	VsTexColUB ub{};
