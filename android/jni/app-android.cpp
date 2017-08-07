@@ -362,7 +362,8 @@ static int deviceType;
 
 // Should only be used for display detection during startup (for config defaults etc)
 // This is the ACTUAL display size, not the hardware scaled display size.
-static int display_dpi;
+static int display_dpi_x;
+static int display_dpi_y;
 static int display_xres;
 static int display_yres;
 static int backbuffer_format;	// Android PixelFormat enum
@@ -704,7 +705,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayResize(JNIEnv *, jo
 	pixel_xres = w;
 	pixel_yres = h;
 
-	g_dpi = display_dpi;
+	g_dpi = display_dpi_x;
 	g_dpi_scale_x = 240.0f / g_dpi;
 	g_dpi_scale_y = 240.0f / g_dpi;
 	g_dpi_scale_real_x = g_dpi_scale_x;
@@ -732,7 +733,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	pixel_yres = bufh;
 	backbuffer_format = format;
 
-	g_dpi = display_dpi;
+	g_dpi = display_dpi_x;
 	g_dpi_scale_x = 240.0f / g_dpi;
 	g_dpi_scale_y = 240.0f / g_dpi;
 	g_dpi_scale_real_x = g_dpi_scale_x;
@@ -998,7 +999,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	ILOG("NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
 	display_xres = xres;
 	display_yres = yres;
-	display_dpi = dpi;
+	display_dpi_x = dpi;
+	display_dpi_y = dpi;
 	display_hz = refreshRate;
 }
 
