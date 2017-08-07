@@ -689,8 +689,8 @@ int main(int argc, char *argv[]) {
 	while (true) {
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
-			float mx = event.motion.x * g_dpi_scale;
-			float my = event.motion.y * g_dpi_scale;
+			float mx = event.motion.x * g_dpi_scale_x;
+			float my = event.motion.y * g_dpi_scale_y;
 
 			switch (event.type) {
 			case SDL_QUIT:

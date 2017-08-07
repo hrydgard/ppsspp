@@ -175,15 +175,18 @@ static GraphicsContext *graphicsContext;
 	}
 
 	g_dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
-	g_dpi_scale = 240.0f / g_dpi;
-	g_dpi_scale_real = g_dpi_scale;
+	g_dpi_scale_x = 240.0f / g_dpi;
+	g_dpi_scale_y = 240.0f / g_dpi;
+	g_dpi_scale_real_x = g_dpi_scale_x;
+	g_dpi_scale_real_y = g_dpi_scale_y;
 	pixel_xres = size.width * scale;
 	pixel_yres = size.height * scale;
 
-	dp_xres = pixel_xres * g_dpi_scale;
-	dp_yres = pixel_yres * g_dpi_scale;
+	dp_xres = pixel_xres * g_dpi_scale_x;
+	dp_yres = pixel_yres * g_dpi_scale_y;
 
-	pixel_in_dps = (float)pixel_xres / (float)dp_xres;
+	pixel_in_dps_x = (float)pixel_xres / (float)dp_xres;
+	pixel_in_dps_y = (float)pixel_yres / (float)dp_yres;
 
 	graphicsContext = new IOSDummyGraphicsContext();
 
