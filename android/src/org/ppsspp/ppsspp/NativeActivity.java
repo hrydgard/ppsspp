@@ -681,7 +681,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			Point sz = new Point();
 			getDesiredBackbufferSize(sz);
 			if (sz.x > 0) {
-				mGLSurfaceView.getHolder().setFixedSize(sz.x/2, sz.y/2);
+				mGLSurfaceView.getHolder().setFixedSize(sz.x, sz.y);
 			}
         }
     }
