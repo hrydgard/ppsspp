@@ -441,7 +441,8 @@ int main(int argc, char *argv[])
 	g_dpi_scale_y = CalculateDPIScale();
 	g_dpi_scale_real_x = g_dpi_scale_x;
 	g_dpi_scale_real_y = g_dpi_scale_y;
-	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
+	dp_xres = (int)(pixel_xres * g_dpi_scale_x);
+	dp_yres = (int)(pixel_yres * g_dpi_scale_y);
 	std::string savegame_dir = ".";
 	std::string external_dir = ".";
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
