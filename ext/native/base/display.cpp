@@ -6,7 +6,7 @@ int dp_yres;
 int pixel_xres;
 int pixel_yres;
 
-int g_dpi = 1;  // will be overwritten
+float g_dpi = 1.0f;  // will be overwritten with a value that makes sense.
 float g_dpi_scale = 1.0f;
 float g_dpi_scale_real = 1.0f;
 float pixel_in_dps = 1.0f;

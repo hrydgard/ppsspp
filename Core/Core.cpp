@@ -141,10 +141,10 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 bool UpdateScreenScale(int width, int height) {
 	bool smallWindow;
 #ifdef _WIN32
-	g_dpi = System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
+	g_dpi = (float)System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
 	g_dpi_scale = 96.0f / g_dpi;
 #else
-	g_dpi = 96;
+	g_dpi = 96.0f;
 	g_dpi_scale = 1.0f;
 #endif
 	g_dpi_scale_real = g_dpi_scale;

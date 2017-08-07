@@ -701,26 +701,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h, jint dpi, jfloat refreshRate) {
 	ILOG("NativeApp.displayResize(%i x %i, dpi=%i, refresh=%0.2f)", w, h, dpi, refreshRate);
 
-	/*
-	g_dpi = dpi;
-	g_dpi_scale = 240.0f / (float)g_dpi;
-	g_dpi_scale_real = g_dpi_scale;
-
 	pixel_xres = w;
 	pixel_yres = h;
-	dp_xres = pixel_xres * g_dpi_scale;
-	dp_yres = pixel_yres * g_dpi_scale;
-	dp_xscale = (float)dp_xres / pixel_xres;
-	dp_yscale = (float)dp_yres / pixel_yres;
-	*/
-	// display_hz = refreshRate;
 
-	pixel_xres = w;
-	pixel_yres = h;
-	// backbuffer_format = format;
-
-	g_dpi = (int)display_dpi;
-	g_dpi_scale = 240.0f / (float)g_dpi;
+	g_dpi = display_dpi;
+	g_dpi_scale = 240.0f / g_dpi;
 	g_dpi_scale_real = g_dpi_scale;
 
 	dp_xres = display_xres * g_dpi_scale;
@@ -988,8 +973,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	pixel_yres = bufh;
 	backbuffer_format = format;
 
-	g_dpi = (int)display_dpi;
-	g_dpi_scale = 240.0f / (float)g_dpi;
+	g_dpi = (float)display_dpi;
+	g_dpi_scale = 240.0f / g_dpi;
 	g_dpi_scale_real = g_dpi_scale;
 
 	dp_xres = display_xres * g_dpi_scale;
