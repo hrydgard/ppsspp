@@ -91,6 +91,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	private Vibrator vibrator;
 
 	private boolean isXperiaPlay;
+
+	// This is to avoid losing the game/menu state etc when we are just
+	// switched-away from or rotated etc.
 	private boolean shuttingDown;
 	private static int RESULT_LOAD_IMAGE = 1;
 
@@ -556,9 +559,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			mSurfaceView.onDestroy();
 			mSurfaceView = null;
 		}
+		NativeApp.audioShutdown();
 		if (shuttingDown || isFinishing()) {
 			unregisterCallbacks();
-			NativeApp.audioShutdown();
 			NativeApp.shutdown();
 			initialized = false;
 		}
