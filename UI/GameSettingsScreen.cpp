@@ -1117,7 +1117,7 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 		memset(name, 0, sizeof(name));
 
 		if (System_InputBoxGetString("Enter an IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
-			g_Config.proAdhocServer = name;
+			g_Config.proAdhocServer = StripSpaces(name);
 		}
 	}
 	else
