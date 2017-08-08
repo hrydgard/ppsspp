@@ -35,9 +35,9 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	}
 #endif
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
-	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 #elif defined(__ANDROID__)
 	bottom->Add(new Button(n->T("Chat Here"),new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle(this, &ChatMenu::OnSubmit);
+	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 #endif
 
 	if (g_Config.bEnableQuickChat) {
