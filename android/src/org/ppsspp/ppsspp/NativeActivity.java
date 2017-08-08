@@ -99,15 +99,15 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
-	InputDeviceState inputPlayerA;
-	InputDeviceState inputPlayerB;
-	InputDeviceState inputPlayerC;
-	String inputPlayerADesc;
+	private InputDeviceState inputPlayerA;
+	private InputDeviceState inputPlayerB;
+	private InputDeviceState inputPlayerC;
+	private String inputPlayerADesc;
 
-	float densityDpi;
-	float refreshRate;
-	int pixelWidth;
-	int pixelHeight;
+	private float densityDpi;
+	private float refreshRate;
+	private int pixelWidth;
+	private int pixelHeight;
 
 	// Functions for the app activity to override to change behaviour.
 
