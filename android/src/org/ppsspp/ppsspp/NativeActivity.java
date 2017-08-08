@@ -54,7 +54,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
-public class NativeActivity extends Activity implements SurfaceHolder.Callback {
+public abstract class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
 	// Adjust these as necessary
@@ -1091,9 +1091,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
 				break;
 			default:
-				if (vibrator != null) {
-					vibrator.vibrate(milliseconds);
-				}
+				// Requires the vibrate permission, which we don't have, so disabled.
+				// vibrator.vibrate(milliseconds);
 				break;
 			}
 			return true;
