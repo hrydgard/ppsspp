@@ -725,7 +725,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	ILOG("dp_xscale=%f dp_yscale=%f", dp_xscale, dp_yscale);
 	ILOG("dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
 	ILOG("pixel_xres=%d pixel_yres=%d", pixel_xres, pixel_yres);
-	ILOG("g_dpi=%d g_dpi_scale_x=%f g_dpi_scale_y", g_dpi, g_dpi_scale_x, g_dpi_scale_y);
+	ILOG("g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f", g_dpi, g_dpi_scale_x, g_dpi_scale_y);
 
 	NativeResized();
 }
