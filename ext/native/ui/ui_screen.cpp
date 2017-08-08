@@ -804,7 +804,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 void TextEditPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
-		*value_ = edit_->GetText();
+		*value_ = StripSpaces(edit_->GetText());
 		EventParams e{};
 		e.v = edit_;
 		OnChange.Trigger(e);

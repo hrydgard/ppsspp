@@ -1100,7 +1100,7 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	memset(name, 0, sizeof(name));
 
 	if (System_InputBoxGetString("Enter a new PSP nickname", g_Config.sNickName.c_str(), name, name_len)) {
-		g_Config.sNickName = name;
+		g_Config.sNickName = StripSpaces(name);
 	}
 #elif defined(__ANDROID__)
 	System_SendMessage("inputbox", ("nickname:" + g_Config.sNickName).c_str());
@@ -1117,7 +1117,8 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 		memset(name, 0, sizeof(name));
 
 		if (System_InputBoxGetString("Enter an IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
-			g_Config.proAdhocServer = StripSpaces(name);
+			std::string stripped = StripSpaces(name);
+			g_Config.proAdhocServer = stripped;
 		}
 	}
 	else
@@ -1498,7 +1499,7 @@ UI::EventReturn ProAdhocServerScreen::OnDeleteAllClick(UI::EventParams &e) {
 }
 
 UI::EventReturn ProAdhocServerScreen::OnOKClick(UI::EventParams &e) {
-	g_Config.proAdhocServer = tempProAdhocServer;
+	g_Config.proAdhocServer = StripSpaces(tempProAdhocServer);
 	UIScreen::OnBack(e);
 	return UI::EVENT_DONE;
 }
