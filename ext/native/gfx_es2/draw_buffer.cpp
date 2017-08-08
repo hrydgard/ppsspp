@@ -86,14 +86,13 @@ void DrawBuffer::End() {
 
 void DrawBuffer::Flush(bool set_blend_state) {
 	using namespace Draw;
-	if (!pipeline_) {
-		ELOG("No program set!");
-		return;
-	}
-
 	if (count_ == 0)
 		return;
-
+	if (!pipeline_) {
+		ELOG("DrawBuffer: No program set, skipping flush!");
+		count_ = 0;
+		return;
+	}
 	draw_->BindPipeline(pipeline_);
 
 	VsTexColUB ub{};
@@ -131,15 +130,15 @@ void DrawBuffer::Rect(float x, float y, float w, float h, uint32_t color, int al
 }
 
 void DrawBuffer::hLine(float x1, float y, float x2, uint32_t color) {
-	Rect(x1, y, x2 - x1, pixel_in_dps, color);
+	Rect(x1, y, x2 - x1, pixel_in_dps_y, color);
 }
 
 void DrawBuffer::vLine(float x, float y1, float y2, uint32_t color) {
-	Rect(x, y1, pixel_in_dps, y2 - y1, color);
+	Rect(x, y1, pixel_in_dps_x, y2 - y1, color);
 }
 
 void DrawBuffer::vLineAlpha50(float x, float y1, float y2, uint32_t color) {
-	Rect(x, y1, pixel_in_dps, y2 - y1, (color | 0xFF000000) & 0x7F000000);
+	Rect(x, y1, pixel_in_dps_x, y2 - y1, (color | 0xFF000000) & 0x7F000000);
 }
 
 void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32_t colorTop, uint32_t colorBottom) {
@@ -152,11 +151,11 @@ void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32_t colo
 }
 
 void DrawBuffer::RectOutline(float x, float y, float w, float h, uint32_t color, int align) {
-	hLine(x, y, x + w + pixel_in_dps, color);
-	hLine(x, y + h, x + w + pixel_in_dps, color);
+	hLine(x, y, x + w + pixel_in_dps_x, color);
+	hLine(x, y + h, x + w + pixel_in_dps_x, color);
 
-	vLine(x, y, y + h + pixel_in_dps, color);
-	vLine(x + w, y, y + h + pixel_in_dps, color);
+	vLine(x, y, y + h + pixel_in_dps_y, color);
+	vLine(x + w, y, y + h + pixel_in_dps_y, color);
 }
 
 void DrawBuffer::MultiVGradient(float x, float y, float w, float h, GradientStop *stops, int numStops) {

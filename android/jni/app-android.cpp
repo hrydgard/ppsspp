@@ -362,7 +362,8 @@ static int deviceType;
 
 // Should only be used for display detection during startup (for config defaults etc)
 // This is the ACTUAL display size, not the hardware scaled display size.
-static int display_dpi;
+static int display_dpi_x;
+static int display_dpi_y;
 static int display_xres;
 static int display_yres;
 static int backbuffer_format;	// Android PixelFormat enum
@@ -697,43 +698,38 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	NativeMessageReceived("recreateviews", "");
 }
 
-// JavaEGL
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h, jint dpi, jfloat refreshRate) {
-	ILOG("NativeApp.displayResize(%i x %i, dpi=%i, refresh=%0.2f)", w, h, dpi, refreshRate);
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
+	ILOG("NativeApp.backbufferResize(%d x %d)", bufw, bufh);
 
-	/*
-	g_dpi = dpi;
-	g_dpi_scale = 240.0f / (float)g_dpi;
-	g_dpi_scale_real = g_dpi_scale;
+	// pixel_*res is the backbuffer resolution.
+	pixel_xres = bufw;
+	pixel_yres = bufh;
+	backbuffer_format = format;
 
-	pixel_xres = w;
-	pixel_yres = h;
-	dp_xres = pixel_xres * g_dpi_scale;
-	dp_yres = pixel_yres * g_dpi_scale;
-	dp_xscale = (float)dp_xres / pixel_xres;
-	dp_yscale = (float)dp_yres / pixel_yres;
-	*/
-	// display_hz = refreshRate;
+	g_dpi = display_dpi_x;
+	g_dpi_scale_x = 240.0f / g_dpi;
+	g_dpi_scale_y = 240.0f / g_dpi;
+	g_dpi_scale_real_x = g_dpi_scale_x;
+	g_dpi_scale_real_y = g_dpi_scale_y;
 
-	pixel_xres = w;
-	pixel_yres = h;
-	// backbuffer_format = format;
-
-	g_dpi = (int)display_dpi;
-	g_dpi_scale = 240.0f / (float)g_dpi;
-	g_dpi_scale_real = g_dpi_scale;
-
-	dp_xres = display_xres * g_dpi_scale;
-	dp_yres = display_yres * g_dpi_scale;
+	dp_xres = display_xres * g_dpi_scale_x;
+	dp_yres = display_yres * g_dpi_scale_y;
 
 	// Touch scaling is from display pixels to dp pixels.
 	dp_xscale = (float)dp_xres / (float)display_xres;
 	dp_yscale = (float)dp_yres / (float)display_yres;
 
-	pixel_in_dps = (float)pixel_xres / dp_xres;
+	pixel_in_dps_x = (float)pixel_xres / dp_xres;
+	pixel_in_dps_y = (float)pixel_yres / dp_yres;
+
+	ILOG("dp_xscale=%f dp_yscale=%f", dp_xscale, dp_yscale);
+	ILOG("dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
+	ILOG("pixel_xres=%d pixel_yres=%d", pixel_xres, pixel_yres);
+	ILOG("g_dpi=%d g_dpi_scale_x=%f g_dpi_scale_y", g_dpi, g_dpi_scale_x, g_dpi_scale_y);
 
 	NativeResized();
 }
+
 
 // JavaEGL
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
@@ -976,37 +972,9 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	ILOG("NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
 	display_xres = xres;
 	display_yres = yres;
-	display_dpi = dpi;
+	display_dpi_x = dpi;
+	display_dpi_y = dpi;
 	display_hz = refreshRate;
-}
-
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
-	ILOG("NativeApp.backbufferResize(%d x %d)", bufw, bufh);
-
-	// pixel_*res is the backbuffer resolution.
-	pixel_xres = bufw;
-	pixel_yres = bufh;
-	backbuffer_format = format;
-
-	g_dpi = (int)display_dpi;
-	g_dpi_scale = 240.0f / (float)g_dpi;
-	g_dpi_scale_real = g_dpi_scale;
-
-	dp_xres = display_xres * g_dpi_scale;
-	dp_yres = display_yres * g_dpi_scale;
-
-	// Touch scaling is from display pixels to dp pixels.
-	dp_xscale = (float)dp_xres / (float)display_xres;
-	dp_yscale = (float)dp_yres / (float)display_yres;
-
-	pixel_in_dps = (float)pixel_xres / dp_xres;
-
-	ILOG("dp_xscale=%f dp_yscale=%f", dp_xscale, dp_yscale);
-	ILOG("dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
-	ILOG("pixel_xres=%d pixel_yres=%d", pixel_xres, pixel_yres);
-	ILOG("g_dpi=%d g_dpi_scale=%f", g_dpi, g_dpi_scale);
-
-	NativeResized();
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {

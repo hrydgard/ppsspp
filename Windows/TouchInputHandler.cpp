@@ -10,20 +10,13 @@
 #include "base/NativeApp.h"
 #include "Windows/MainWindow.h"
 
-TouchInputHandler::TouchInputHandler() : 
-		touchInfo(nullptr),
-		closeTouch(nullptr),
-		registerTouch(nullptr)
-{
-
+TouchInputHandler::TouchInputHandler() {
 	touchInfo = (getTouchInputProc) GetProcAddress(
 		GetModuleHandle(TEXT("User32.dll")),
 		"GetTouchInputInfo");
-
 	closeTouch = (closeTouchInputProc) GetProcAddress(
 		GetModuleHandle(TEXT("User32.dll")),
 		"CloseTouchInputHandle");
-
 	registerTouch = (registerTouchProc) GetProcAddress(
 		GetModuleHandle(TEXT("User32.dll")),
 		"RegisterTouchWindow");
@@ -65,8 +58,8 @@ bool TouchInputHandler::GetTouchPoint(HWND hWnd, const TOUCHINPUT &input, float 
 	point.x = (LONG)(TOUCH_COORD_TO_PIXEL(input.x));
 	point.y = (LONG)(TOUCH_COORD_TO_PIXEL(input.y));
 	if (ScreenToClient(hWnd, &point)) {
-		x = point.x * g_dpi_scale;
-		y = point.y * g_dpi_scale;
+		x = point.x * g_dpi_scale_x;
+		y = point.y * g_dpi_scale_y;
 		return true;
 	}
 

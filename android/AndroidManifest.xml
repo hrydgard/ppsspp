@@ -38,10 +38,9 @@
         <meta-data android:name="android.max_aspect" android:value="2.1" />
         <activity
             android:name=".PpssppActivity"
-            android:configChanges="orientation|locale|keyboard|keyboardHidden|navigation|fontScale|uiMode|navigation"
+            android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
             android:label="@string/app_name"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-            android:resizeableActivity="false">
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
 
             <!-- android:screenOrientation="landscape" -->
             <intent-filter>

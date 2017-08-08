@@ -24,6 +24,7 @@ import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -93,14 +94,19 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	private boolean shuttingDown;
 	private static int RESULT_LOAD_IMAGE = 1;
 
-    // Allow for multiple connected gamepads but just consider them the same for now.
-    // Actually this is not entirely true, see the code.
-    InputDeviceState inputPlayerA;
-    InputDeviceState inputPlayerB;
-    InputDeviceState inputPlayerC;
-    String inputPlayerADesc;
+	// Allow for multiple connected gamepads but just consider them the same for now.
+	// Actually this is not entirely true, see the code.
+	InputDeviceState inputPlayerA;
+	InputDeviceState inputPlayerB;
+	InputDeviceState inputPlayerC;
+	String inputPlayerADesc;
 
-    // Functions for the app activity to override to change behaviour.
+	float densityDpi;
+	float refreshRate;
+	int pixelWidth;
+	int pixelHeight;
+
+	// Functions for the app activity to override to change behaviour.
 
     public native void registerCallbacks();
     public native void unregisterCallbacks();
@@ -143,37 +149,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	        libdir = application.dataDir + "/lib";
 	    }
 	    return libdir;
-	}
-
-	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-	void GetScreenSizeJB(Point size, boolean real) {
-        WindowManager w = getWindowManager();
-		if (real) {
-			w.getDefaultDisplay().getRealSize(size);
-		}
-	}
-
-	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
-	void GetScreenSizeHC(Point size, boolean real) {
-        WindowManager w = getWindowManager();
-		if (real && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-			GetScreenSizeJB(size, real);
-		} else {
-			w.getDefaultDisplay().getSize(size);
-		}
-	}
-
-	@SuppressWarnings("deprecation")
-	public void GetScreenSize(Point size) {
-        boolean real = useImmersive();
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
-			GetScreenSizeHC(size, real);
-		} else {
-	        WindowManager w = getWindowManager();
-	        Display d = w.getDefaultDisplay();
-			size.x = d.getWidth();
-			size.y = d.getHeight();
-		}
 	}
 
 	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1337;
@@ -384,19 +359,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Tells the render loop thread to exit, so we can restart it.
 	public native void exitEGLRenderLoop();
 
-	void updateDisplayMetrics(Point outSize) {
-		DisplayMetrics metrics = new DisplayMetrics();
-		Display display = getWindowManager().getDefaultDisplay();
-		display.getMetrics(metrics);
-
-		float refreshRate = display.getRefreshRate();
-		if (outSize == null) {
-			outSize = new Point();
-		}
-		GetScreenSize(outSize);
-		NativeApp.setDisplayParameters(outSize.x, outSize.y, metrics.densityDpi, refreshRate);
-	}
-
 	public void getDesiredBackbufferSize(Point sz) {
 		NativeApp.computeDesiredBackbufferDimensions();
 		sz.x = NativeApp.getDesiredBackbufferWidth();
@@ -410,12 +372,16 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		shuttingDown = false;
 		registerCallbacks();
 
-    	updateDisplayMetrics(null);
-
 		if (!initialized) {
 			Initialize();
 			initialized = true;
 		}
+
+		Display display = getWindowManager().getDefaultDisplay();
+		DisplayMetrics metrics = new DisplayMetrics();
+		display.getMetrics(metrics);
+		densityDpi = metrics.densityDpi;
+		refreshRate = display.getRefreshRate();
 
 		// OK, config should be initialized, we can query for screen rotation.
 		updateScreenRotation();
@@ -428,19 +394,11 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
 
-    	updateDisplayMetrics(null);
 	    if (javaGL) {
 	        mGLSurfaceView = new NativeGLView(this);
 			nativeRenderer = new NativeRenderer(this);
-
-			Point sz = new Point();
-			getDesiredBackbufferSize(sz);
-			if (sz.x > 0) {
-				Log.i(TAG, "Requesting fixed size buffer: " + sz.x + "x" + sz.y);
-				// Auto-calculates new DPI and forwards to the correct call on mGLSurfaceView.getHolder()
-				nativeRenderer.setFixedSize(sz.x, sz.y, mGLSurfaceView);
-			}
-	        mGLSurfaceView.setEGLContextClientVersion(2);
+			mGLSurfaceView.setEGLContextClientVersion(2);
+			mGLSurfaceView.getHolder().addCallback(NativeActivity.this);
 
 	        // Setup the GLSurface and ask android for the correct
 	        // Number of bits for r, g, b, a, depth and stencil components
@@ -462,8 +420,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	        	mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
 	        }
 	        // Tried to mess around with config choosers here but fail completely on Xperia Play.
-
-	        mGLSurfaceView.setRenderer(nativeRenderer);
+			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
         } else {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
@@ -473,46 +430,45 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				}
 			}
 
-			NativeApp.computeDesiredBackbufferDimensions();
-			int bbW = NativeApp.getDesiredBackbufferWidth();
-			int bbH = NativeApp.getDesiredBackbufferHeight();
-
-	        mSurfaceView = new NativeSurfaceView(NativeActivity.this, bbW, bbH);
+			mSurfaceView = new NativeSurfaceView(NativeActivity.this);
 	        mSurfaceView.getHolder().addCallback(NativeActivity.this);
 	        Log.i(TAG, "setcontentview before");
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
-
 			ensureRenderLoop();
         }
     }
 
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
-		Log.d(TAG, "Surface created.");
+		pixelWidth = holder.getSurfaceFrame().width();
+		pixelHeight = holder.getSurfaceFrame().height();
+		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight);
+		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
+		Point sz = new Point();
+		getDesiredBackbufferSize(sz);
+		Log.d(TAG, "Setting fixed size " + sz.x + " x " + sz.y);
+		if (mGLSurfaceView != null) {
+			mGLSurfaceView.getHolder().setFixedSize(sz.x, sz.y);
+		} else {
+			mSurfaceView.getHolder().setFixedSize(sz.x, sz.y);
+		}
 	}
 
 	//
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-	    if (javaGL) {
-	    	Log.e(TAG, "JavaGL - should not get into surfaceChanged.");
-	    	return;
-	    }
-
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
-		// Make sure we have fresh display metrics so the computations go right.
-		// This is needed on some very old devices, I guess event order is different or something...
-		Point sz = new Point();
-		updateDisplayMetrics(sz);
 		NativeApp.backbufferResize(width, height, format);
-
 		mSurface = holder.getSurface();
-		// If we got a surface, this starts the thread. If not, it doesn't.
-		if (mSurface == null) {
-			joinRenderLoopThread();
-		} else {
-			ensureRenderLoop();
+
+	    if (!javaGL) {
+			// If we got a surface, this starts the thread. If not, it doesn't.
+			if (mSurface == null) {
+				joinRenderLoopThread();
+			} else {
+				ensureRenderLoop();
+			}
 		}
 	}
 
@@ -676,14 +632,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             updateSystemUiVisibility();
         }
-        updateDisplayMetrics(null);
-        if (javaGL) {
-			Point sz = new Point();
-			getDesiredBackbufferSize(sz);
-			if (sz.x > 0) {
-				mGLSurfaceView.getHolder().setFixedSize(sz.x/2, sz.y/2);
-			}
-        }
+        densityDpi = (float)newConfig.densityDpi;
     }
 
 	//keep this static so we can call this even if we don't

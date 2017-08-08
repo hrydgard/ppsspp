@@ -18,6 +18,8 @@ import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.View;
+
 import com.bda.controller.*;
 
 public class NativeGLView extends GLSurfaceView implements SensorEventListener, ControllerListener {

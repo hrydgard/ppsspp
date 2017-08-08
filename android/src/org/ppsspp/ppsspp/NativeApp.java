@@ -44,9 +44,6 @@ public class NativeApp {
 
 	public static native boolean mouseWheelEvent(float x, float y);
 
-	// will only be called between init() and shutdown()
-	public static native int audioRender(short[] buffer);
-
 	// Sensor/input data. These are asynchronous, beware!
 	public static native boolean touch(float x, float y, int data, int pointerId);
 

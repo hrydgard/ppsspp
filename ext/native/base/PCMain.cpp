@@ -631,9 +631,12 @@ int main(int argc, char *argv[]) {
 	NativeInit(remain_argc, (const char **)remain_argv, path, "/tmp", nullptr);
 #endif
 
-	pixel_in_dps = (float)pixel_xres / dp_xres;
-	g_dpi_scale = dp_xres / (float)pixel_xres;
-	g_dpi_scale_real = g_dpi_scale;
+	pixel_in_dps_x = (float)pixel_xres / dp_xres;
+	pixel_in_dps_y = (float)pixel_yres / dp_yres;
+	g_dpi_scale_x = dp_xres / (float)pixel_xres;
+	g_dpi_scale_y = dp_yres / (float)pixel_yres;
+	g_dpi_scale_real_x = g_dpi_scale_x;
+	g_dpi_scale_real_y = g_dpi_scale_y;
 
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
@@ -686,8 +689,8 @@ int main(int argc, char *argv[]) {
 	while (true) {
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
-			float mx = event.motion.x * g_dpi_scale;
-			float my = event.motion.y * g_dpi_scale;
+			float mx = event.motion.x * g_dpi_scale_x;
+			float my = event.motion.y * g_dpi_scale_y;
 
 			switch (event.type) {
 			case SDL_QUIT:

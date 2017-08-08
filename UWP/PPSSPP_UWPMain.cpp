@@ -203,12 +203,14 @@ bool PPSSPP_UWPMain::Render() {
 		// Boost DPI a bit to look better.
 		g_dpi *= 96.0f / 136.0f;
 	}
-	g_dpi_scale = 96.0f / g_dpi;
+	g_dpi_scale_x = 96.0f / g_dpi;
+	g_dpi_scale_y = 96.0f / g_dpi;
 
-	pixel_in_dps = 1.0f / g_dpi_scale;
+	pixel_in_dps_x = 1.0f / g_dpi_scale_x;
+	pixel_in_dps_y = 1.0f / g_dpi_scale_y;
 
-	dp_xres = pixel_xres * g_dpi_scale;
-	dp_yres = pixel_yres * g_dpi_scale;
+	dp_xres = pixel_xres * g_dpi_scale_x;
+	dp_yres = pixel_yres * g_dpi_scale_y;
 
 	context->RSSetViewports(1, &viewport);
 
@@ -281,13 +283,15 @@ bool PPSSPP_UWPMain::OnHardwareButton(HardwareButton button) {
 void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y, double timestamp) {
 	// We get the coordinate in Windows' device independent pixels already. So let's undo that,
 	// and then apply our own "dpi".
-	float dpiFactor = m_deviceResources->GetActualDpi() / 96.0f;
-	dpiFactor /= pixel_in_dps;
+	float dpiFactor_x = m_deviceResources->GetActualDpi() / 96.0f;
+	float dpiFactor_y = dpiFactor_x;
+	dpiFactor_x /= pixel_in_dps_x;
+	dpiFactor_y /= pixel_in_dps_y;
 
 	TouchInput input{};
 	input.id = touchId;
-	input.x = x * dpiFactor;
-	input.y = y * dpiFactor;
+	input.x = x * dpiFactor_x;
+	input.y = y * dpiFactor_y;
 	input.flags = touchEvent;
 	input.timestamp = timestamp;
 	NativeTouch(input);

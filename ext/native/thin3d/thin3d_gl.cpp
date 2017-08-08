@@ -273,12 +273,13 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 class OpenGLShaderModule : public ShaderModule, public GfxResourceHolder {
 public:
 	OpenGLShaderModule(ShaderStage stage) : stage_(stage) {
+		ILOG("Shader module created (%p)", this);
 		register_gl_resource_holder(this, "drawcontext_shader_module", 0);
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
 
 	~OpenGLShaderModule() {
-		ILOG("Shader module destroyed");
+		ILOG("Shader module destroyed (%p)", this);
 		if (shader_)
 			glDeleteShader(shader_);
 		unregister_gl_resource_holder(this);

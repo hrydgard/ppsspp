@@ -10,10 +10,13 @@ extern int dp_yres;
 extern int pixel_xres;
 extern int pixel_yres;
 
-extern int g_dpi;
-extern float g_dpi_scale;
-extern float g_dpi_scale_real;
-extern float pixel_in_dps;
+extern float g_dpi;
+extern float g_dpi_scale_x;
+extern float g_dpi_scale_y;
+extern float g_dpi_scale_real_x;
+extern float g_dpi_scale_real_y;
+extern float pixel_in_dps_x;
+extern float pixel_in_dps_y;
 extern float display_hz;
 
 // On some platforms (currently only Windows UWP) we need to manually rotate
