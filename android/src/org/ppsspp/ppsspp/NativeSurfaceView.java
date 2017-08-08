@@ -126,13 +126,13 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 		if (mController != null) {
 			mController.onResume();
-
 			// According to the docs, the Moga's state can be inconsistent here.
-			// We should do a one time poll. TODO
+			// Should we do a one time poll?
 		}
 	}
 
 	public void onDestroy() {
+		Log.i(TAG, "onDestroy");
 		if (mController != null) {
 			mController.exit();
 		}

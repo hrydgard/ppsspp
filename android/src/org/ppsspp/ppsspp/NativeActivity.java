@@ -54,7 +54,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
-public class NativeActivity extends Activity implements SurfaceHolder.Callback {
+public abstract class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
 	// Adjust these as necessary
@@ -91,20 +91,23 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	private Vibrator vibrator;
 
 	private boolean isXperiaPlay;
+
+	// This is to avoid losing the game/menu state etc when we are just
+	// switched-away from or rotated etc.
 	private boolean shuttingDown;
 	private static int RESULT_LOAD_IMAGE = 1;
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
-	InputDeviceState inputPlayerA;
-	InputDeviceState inputPlayerB;
-	InputDeviceState inputPlayerC;
-	String inputPlayerADesc;
+	private InputDeviceState inputPlayerA;
+	private InputDeviceState inputPlayerB;
+	private InputDeviceState inputPlayerC;
+	private String inputPlayerADesc;
 
-	float densityDpi;
-	float refreshRate;
-	int pixelWidth;
-	int pixelHeight;
+	private float densityDpi;
+	private float refreshRate;
+	private int pixelWidth;
+	private int pixelHeight;
 
 	// Functions for the app activity to override to change behaviour.
 
@@ -348,7 +351,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			Log.i(TAG, "Starting the render loop: " + mSurface);
 			// Start emulation using the provided Surface.
 			if (!runEGLRenderLoop(mSurface)) {
-				// TODO: Add an alert dialog or something
+				// Shouldn't happen.
 				Log.e(TAG, "Failed to start up OpenGL");
 			}
 			Log.i(TAG, "Left the render loop: " + mSurface);
@@ -455,13 +458,11 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		}
 	}
 
-	//
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		NativeApp.backbufferResize(width, height, format);
 		mSurface = holder.getSurface();
-
 	    if (!javaGL) {
 			// If we got a surface, this starts the thread. If not, it doesn't.
 			if (mSurface == null) {
@@ -470,6 +471,17 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				ensureRenderLoop();
 			}
 		}
+	}
+
+	@Override
+	public void surfaceDestroyed(SurfaceHolder holder) {
+		mSurface = null;
+		Log.w(TAG, "Surface destroyed.");
+		if (!javaGL) {
+			joinRenderLoopThread();
+		}
+		// Autosize the next created surface.
+		holder.setSizeFromLayout();
 	}
 
 	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running.
@@ -507,22 +519,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				Log.w(TAG, "Joined render loop thread.");
 				mRenderLoopThread = null;
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
-	}
-
-	@Override
-	public void surfaceDestroyed(SurfaceHolder holder) {
-		if (javaGL) {
-	    	Log.e(TAG, "JavaGL - should not get into surfaceDestroyed.");
-	    	return;
-		}
-
-		mSurface = null;
-		Log.w(TAG, "Surface destroyed.");
-		joinRenderLoopThread();
 	}
 
     @TargetApi(19)
@@ -549,14 +548,17 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		if (javaGL) {
 			Log.i(TAG, "onDestroy");
 			mGLSurfaceView.onDestroy();
-			NativeApp.audioShutdown();
 			// Probably vain attempt to help the garbage collector...
 			mGLSurfaceView = null;
 			audioFocusChangeListener = null;
 			audioManager = null;
-			unregisterCallbacks();
+		} else {
+			mSurfaceView.onDestroy();
+			mSurfaceView = null;
 		}
+		NativeApp.audioShutdown();
 		if (shuttingDown || isFinishing()) {
+			unregisterCallbacks();
 			NativeApp.shutdown();
 			initialized = false;
 		}
@@ -595,7 +597,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         return info.reqGlEsVersion >= 0x30000;
     }
 
-
 	@Override
 	protected void onResume() {
 		super.onResume();
@@ -613,6 +614,10 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				mGLSurfaceView.onResume();
 			} else {
 				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
+			}
+		} else {
+			if (mSurfaceView != null) {
+				mSurfaceView.onResume();
 			}
 		}
 
@@ -860,7 +865,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			// Fall through
 		default:
 			// send the rest of the keys through.
-			// TODO: get rid of the three special cases above by adjusting the native side of the code.
 			// Log.d(TAG, "Key down: " + keyCode + ", KeyEvent: " + event);
 			return NativeApp.keyUp(0, keyCode);
 		}
@@ -1084,9 +1088,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
 				break;
 			default:
-				if (vibrator != null) {
-					vibrator.vibrate(milliseconds);
-				}
+				// Requires the vibrate permission, which we don't have, so disabled.
+				// vibrator.vibrate(milliseconds);
 				break;
 			}
 			return true;

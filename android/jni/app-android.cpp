@@ -362,10 +362,10 @@ static int deviceType;
 
 // Should only be used for display detection during startup (for config defaults etc)
 // This is the ACTUAL display size, not the hardware scaled display size.
-static int display_dpi_x;
-static int display_dpi_y;
 static int display_xres;
 static int display_yres;
+static int display_dpi_x;
+static int display_dpi_y;
 static int backbuffer_format;	// Android PixelFormat enum
 
 static int desiredBackbufferSizeX;
@@ -722,10 +722,10 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	pixel_in_dps_x = (float)pixel_xres / dp_xres;
 	pixel_in_dps_y = (float)pixel_yres / dp_yres;
 
+	ILOG("g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f", g_dpi, g_dpi_scale_x, g_dpi_scale_y);
 	ILOG("dp_xscale=%f dp_yscale=%f", dp_xscale, dp_yscale);
 	ILOG("dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
 	ILOG("pixel_xres=%d pixel_yres=%d", pixel_xres, pixel_yres);
-	ILOG("g_dpi=%d g_dpi_scale_x=%f g_dpi_scale_y", g_dpi, g_dpi_scale_x, g_dpi_scale_y);
 
 	NativeResized();
 }

@@ -252,7 +252,7 @@ int NativeMix(short *audio, int num_samples) {
 	num_samples = __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
 
 #ifdef _WIN32
-	winAudioBackend->Update();
+	winAudioBackend->Update*();
 #endif
 
 	return num_samples;
@@ -306,6 +306,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	InitFastMath(cpu_info.bNEON);
 	SetupAudioFormats();
+
+	// Make sure UI state is MENU.
+	ResetUIState();
 
 	bool skipLogo = false;
 	setlocale( LC_ALL, "C" );
