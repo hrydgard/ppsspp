@@ -549,14 +549,17 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		if (javaGL) {
 			Log.i(TAG, "onDestroy");
 			mGLSurfaceView.onDestroy();
-			NativeApp.audioShutdown();
 			// Probably vain attempt to help the garbage collector...
 			mGLSurfaceView = null;
 			audioFocusChangeListener = null;
 			audioManager = null;
-			unregisterCallbacks();
+		} else {
+			mSurfaceView.onDestroy();
+			mSurfaceView = null;
 		}
 		if (shuttingDown || isFinishing()) {
+			unregisterCallbacks();
+			NativeApp.audioShutdown();
 			NativeApp.shutdown();
 			initialized = false;
 		}
@@ -595,7 +598,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         return info.reqGlEsVersion >= 0x30000;
     }
 
-
 	@Override
 	protected void onResume() {
 		super.onResume();
@@ -613,6 +615,10 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				mGLSurfaceView.onResume();
 			} else {
 				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
+			}
+		} else {
+			if (mSurfaceView != null) {
+				mSurfaceView.onResume();
 			}
 		}
 

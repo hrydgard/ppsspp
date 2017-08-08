@@ -133,6 +133,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	}
 
 	public void onDestroy() {
+		Log.i(TAG, "onDestroy");
 		if (mController != null) {
 			mController.exit();
 		}
