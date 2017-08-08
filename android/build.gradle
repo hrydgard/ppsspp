@@ -58,7 +58,8 @@ android {
 			versionName ANDROID_VERSION_NAME
 		}
 		ndk {
-			abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+			abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86'
+			// Disabled 'x86_64' due to reported crash issues I can't debug without a device.
 		}
 		signingConfig signingConfigs.debug
 	}
