@@ -458,13 +458,11 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-	//
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		NativeApp.backbufferResize(width, height, format);
 		mSurface = holder.getSurface();
-
 	    if (!javaGL) {
 			// If we got a surface, this starts the thread. If not, it doesn't.
 			if (mSurface == null) {
@@ -473,6 +471,17 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				ensureRenderLoop();
 			}
 		}
+	}
+
+	@Override
+	public void surfaceDestroyed(SurfaceHolder holder) {
+		mSurface = null;
+		Log.w(TAG, "Surface destroyed.");
+		if (!javaGL) {
+			joinRenderLoopThread();
+		}
+		// Autosize the next created surface.
+		holder.setSizeFromLayout();
 	}
 
 	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running.
@@ -513,18 +522,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				e.printStackTrace();
 			}
 		}
-	}
-
-	@Override
-	public void surfaceDestroyed(SurfaceHolder holder) {
-		if (javaGL) {
-	    	Log.e(TAG, "JavaGL - should not get into surfaceDestroyed.");
-	    	return;
-		}
-
-		mSurface = null;
-		Log.w(TAG, "Surface destroyed.");
-		joinRenderLoopThread();
 	}
 
     @TargetApi(19)
