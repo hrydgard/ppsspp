@@ -34,7 +34,7 @@ void TextDrawer::SetFontScale(float xscale, float yscale) {
 }
 
 float TextDrawer::CalculateDPIScale() {
-	float scale = g_dpi_scale_x;
+	float scale = g_dpi_scale_y;
 	if (scale >= 1.0f) {
 		scale = 1.0f;
 	}

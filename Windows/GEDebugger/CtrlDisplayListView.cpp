@@ -45,12 +45,12 @@ CtrlDisplayListView::CtrlDisplayListView(HWND _wnd)
 	
 	instructionSize = 4;
 
-	// In small window mode, g_dpi_scal may have been adjusted.
+	// In small window mode, g_dpi_scale may have been adjusted.
 	const float fontScale = 1.0f / g_dpi_scale_real_y;
 	int fontHeight = g_Config.iFontHeight * fontScale;
 	int charWidth = g_Config.iFontWidth * fontScale;
 
-	rowHeight = fontHeight +2;
+	rowHeight = fontHeight + 2;
 
 	font = CreateFont(fontHeight,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		L"Lucida Console");

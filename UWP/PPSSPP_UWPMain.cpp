@@ -284,7 +284,7 @@ void PPSSPP_UWPMain::OnTouchEvent(int touchEvent, int touchId, float x, float y,
 	// We get the coordinate in Windows' device independent pixels already. So let's undo that,
 	// and then apply our own "dpi".
 	float dpiFactor_x = m_deviceResources->GetActualDpi() / 96.0f;
-  float dpiFactor_y = dpiFactor_x;
+	float dpiFactor_y = dpiFactor_x;
 	dpiFactor_x /= pixel_in_dps_x;
 	dpiFactor_y /= pixel_in_dps_y;
 
