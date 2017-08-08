@@ -348,7 +348,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			Log.i(TAG, "Starting the render loop: " + mSurface);
 			// Start emulation using the provided Surface.
 			if (!runEGLRenderLoop(mSurface)) {
-				// TODO: Add an alert dialog or something
+				// Shouldn't happen.
 				Log.e(TAG, "Failed to start up OpenGL");
 			}
 			Log.i(TAG, "Left the render loop: " + mSurface);
@@ -507,7 +507,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				Log.w(TAG, "Joined render loop thread.");
 				mRenderLoopThread = null;
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -866,7 +865,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			// Fall through
 		default:
 			// send the rest of the keys through.
-			// TODO: get rid of the three special cases above by adjusting the native side of the code.
 			// Log.d(TAG, "Key down: " + keyCode + ", KeyEvent: " + event);
 			return NativeApp.keyUp(0, keyCode);
 		}

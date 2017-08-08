@@ -37,24 +37,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		super(activity);
 		mActivity = activity;
 
-		/*// TODO: This would be nice.
-		if (Build.VERSION.SDK_INT >= 11) {
-			try {
-				Method method_setPreserveEGLContextOnPause = GLSurfaceView.class.getMethod(
-						"setPreserveEGLContextOnPause", new Class[] { Boolean.class });
-				Log.i(TAG, "Invoking setPreserveEGLContextOnPause");
-				method_setPreserveEGLContextOnPause.invoke(this, true);
-			} catch (NoSuchMethodException e) {
-				e.printStackTrace();
-			} catch (IllegalArgumentException e) {
-				e.printStackTrace();
-			} catch (IllegalAccessException e) {
-				e.printStackTrace();
-			} catch (InvocationTargetException e) {
-				e.printStackTrace();
-			}
-		}*/
-
 		mSensorManager = (SensorManager)activity.getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
