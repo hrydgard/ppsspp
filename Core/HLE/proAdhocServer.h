@@ -400,16 +400,54 @@ int tcpTunnel(int port);
 void storeTcpGameSocket(int stream, uint32_t ip, uint16_t port);
 int tcpTunnelLoop(int tcptunnel);
 
-//double linked tcp stream
+#define OPCODE_PTP_LOGIN 1
+#define OPCODE_PTP_OPEN 2
+#define OPCODE_PTP_SEND 3
+#define OPCODE_PTP_RECV 4
+
+#define RELAY_STATE_LOGIN 1;
+#define RELAY_STATE_CONNECTED 2;
+#define RELAY_STATE_DISCONNECTED 3;
+//double linked tcp stream local and relay stream
 typedef struct tcpGamePortWrapper {
-	int stream;
-	uint32_t ip;
-	uint16_t port;
-	uint8_t rx[16384];
-	uint32_t rxpos;
+	int sourceStream; // incoming stream
+	uint32_t sip;
+	uint16_t sport;
+	uint8_t srx[16384];
+	uint32_t srxpos;
+	SceNetEtherAddr sMac;
+	int outStream; // outgoing to other tunneler or local gameport
+	uint32_t dip;
+	uint16_t dport;
+	uint8_t drx[16384];
+	uint32_t drxpos;
+	SceNetEtherAddr dMac;
 	struct tcpGamePortWrapper * next;
 	struct tcpGamePortWrapper * prev;
 } tcpGamePortWrapper;
+
+typedef struct {
+	uint8_t opcode;
+	uint16_t datalen;
+	uint32_t sip;
+	uint16_t sport;
+	SceNetEtherAddr sMac;
+	uint32_t dip;
+	uint16_t dport;
+	SceNetEtherAddr dMac;
+	char data[1];
+} PACK tcpTunnelData;
+
+typedef struct {
+	int connectStatus;
+	int error;
+	uint32_t daddr;
+} PACK tcpRelayStatus;
+
+#define UDP_TUNNEL_BUFFER_SIZE 65536 
+#define OPCODE_PDP_SEND 1
+#define OPCODE_PDP_RECV 2
+#define OPCODE_PDP_LOGIN 3
 
 //double linked udp address
 typedef struct udpGamePortWrapper {
@@ -432,20 +470,7 @@ typedef struct {
 	char data[1];
 } PACK udpTunnelData;
 
-typedef struct {
-	uint32_t datalen;
-	uint32_t sourceIP;
-	uint16_t sourcePort;
-	SceNetEtherAddr sourceMac;
-	uint32_t destIP;
-	uint16_t destPort;
-	SceNetEtherAddr destMac;
-	char data[1];
-} PACK tcpTunnelData;
 
-#define UDP_TUNNEL_BUFFER_SIZE 65536 
-#define OPCODE_PDP_SEND 1
-#define OPCODE_PDP_RECV 2
 extern int utunnelsocket;
 void sendUdpPacket(udpTunnelData * data,int packetSize);
 void storeUdpGameSocket(uint32_t ip,uint16_t port,int packetlen);

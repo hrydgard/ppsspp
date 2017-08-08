@@ -479,7 +479,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											tdata->sourceIP = target.sin_addr.s_addr;
 											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
 											uint8_t * dip = (uint8_t *)&tdata->destIP;
-											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size %u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort,packetlen);
+											DEBUG_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size %u", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort,packetlen);
 											sent = sendto(socket->id, (const char *)tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
 											free(tdata);
 										}
@@ -571,7 +571,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 											uint8_t * sip = (uint8_t *)&tdata->sourceIP;
 											uint8_t * dip = (uint8_t *)&tdata->destIP;
 											sent = sendto(socket->id, (const char *)tdata, (int)packetlen, 0, (sockaddr *)&target, sizeof(target));
-											INFO_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size:%u sent:%i datalen:%u buf:%s ", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort, packetlen,sent, tdata->datalen, (const char *)data);
+											DEBUG_LOG(SCENET, "Wrap data from %u.%u.%u.%u:%u to %u.%u.%u.%u:%u size:%u sent:%i datalen:%u buf:%s ", sip[0], sip[1], sip[2], sip[3], tdata->sourcePort, dip[0], dip[1], dip[2], dip[3], tdata->destPort, packetlen,sent, tdata->datalen, (const char *)data);
 											free(tdata);
 										}
 									}
@@ -705,13 +705,13 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					changeBlockingMode(socket->id, 0);
 
 					if (received >= 0) {
-						INFO_LOG(SCENET, "buflen %u , opcode: %u , received %u ", packetlen, tempbuf[0],received);
+						//INFO_LOG(SCENET, "buflen %u , opcode: %u , received %u ", packetlen, tempbuf[0],received);
 						if (tdata != NULL && tempbuf != NULL && tempbuf[0] == OPCODE_PDP_RECV){
 							memcpy(tdata, tempbuf, packetlen - 1);
 							//need to assign the correct data
 							memcpy(buf, tdata->data, tdata->datalen);
-							NOTICE_LOG(SCENET, "Received tunnel data datalen %u , buf=%s , sport:%u", tdata->datalen,buf,tdata->sourcePort);
-							NOTICE_LOG(SCENET, "Recv SRC MAC [%02X:%02X:%02X:%02X:%02X:%02X]", tdata->sourceMac.data[0], tdata->sourceMac.data[1], tdata->sourceMac.data[2], tdata->sourceMac.data[3], tdata->sourceMac.data[4], tdata->sourceMac.data[5]);
+							//NOTICE_LOG(SCENET, "Received tunnel data datalen %u , buf=%s , sport:%u", tdata->datalen,buf,tdata->sourcePort);
+							//NOTICE_LOG(SCENET, "Recv SRC MAC [%02X:%02X:%02X:%02X:%02X:%02X]", tdata->sourceMac.data[0], tdata->sourceMac.data[1], tdata->sourceMac.data[2], tdata->sourceMac.data[3], tdata->sourceMac.data[4], tdata->sourceMac.data[5]);
 							*saddr = tdata->sourceMac;
 							*sport = tdata->sourcePort;
 							*len = tdata->datalen;
@@ -2070,70 +2070,157 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					}
 					
 					if (tunneled) {
+
+						tcpTunnelData * tcpLogin = (tcpTunnelData *)malloc(sizeof(tcpTunnelData));
+						tcpLogin->opcode = OPCODE_PTP_LOGIN;
+						tcpLogin->dip = sin.sin_addr.s_addr;
+						tcpLogin->dport = socket->pport + portOffset;
+						tcpLogin->dMac = socket->paddr;
+						tcpLogin->sport = socket->lport;
+						tcpLogin->sMac = socket->laddr;
+
 						getLocalIp(&sin);
 						sin.sin_port = htons(30000);
-					}
 
-					// Connect Socket to Peer (Nonblocking)
-					int connectresult = connect(socket->id, (sockaddr *)&sin, sizeof(sin));
-					
-					// Grab Error Code
-					int errorcode = errno;
-
-					if (connectresult == SOCKET_ERROR) {
-						ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i)", id, errorcode);
-					}
-					
-					// Restore Blocking Behaviour
-					if (nbio == 0) {
-						// Restore Socket Option
-						changeBlockingMode(socket->id,0);
-					}
-					
-					// Instant Connection (Lucky!)
-					if (connectresult == 0 || (connectresult == -1 && (errorcode == EISCONN /*|| errorcode == EALREADY)*/))) {
-						// Set Connected State
-						socket->state = ADHOC_PTP_STATE_ESTABLISHED;
+						tcpLogin->sip = sin.sin_addr.s_addr;
 						
-						INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected", id, socket->lport);
-						// Success
-						return 0;
-					}
-					
-					// Connection in Progress
-					else if (connectresult == -1 && connectInProgress(errorcode)) {
-						// Nonblocking Mode
-						if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
-						
-						// Blocking Mode
-						else {
-							// Grab Connection Start Time
-							uint32_t starttime = (uint32_t)(real_time_now()*1000000.0);
-							
-							// Peer Information (for Connection-Polling)
-							sockaddr_in peer;
-							memset(&peer, 0, sizeof(peer));
-							socklen_t peerlen = sizeof(peer);
-							// Wait for Connection
-							while ((timeout == 0 || ( (uint32_t)(real_time_now()*1000000.0) - starttime) < (uint32_t)timeout) && getpeername(socket->id, (sockaddr *)&peer, &peerlen) != 0) {
-								// Wait 1ms
-								sleep_ms(1);
-							}
-							
-							// Connected in Time
-							if (sin.sin_addr.s_addr == peer.sin_addr.s_addr/* && sin.sin_port == peer.sin_port*/) {
-								// Set Connected State
-								socket->state = ADHOC_PTP_STATE_ESTABLISHED;
+						int tunnelresult = connect(socket->id, (sockaddr *)&sin, sizeof(sin));
+						int errorcode = errno;
 
-								uint8_t * pip = (uint8_t *)&peer.sin_addr.s_addr;
-								INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Established (%u.%u.%u.%u:%u)", id, socket->lport, pip[0], pip[1], pip[2], pip[3], socket->pport);
-								
-								// Success
-								return 0;
+						// Restore Blocking Behaviour
+						if (nbio == 0) {
+							// Restore Socket Option
+							changeBlockingMode(socket->id, 0);
+						}
+
+						if (tunnelresult == SOCKET_ERROR) {
+							ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error Connect to tunneler (%i)", id, errorcode);
+						}
+
+						// Instant Connection (Lucky!)
+						if (tunnelresult == 0 || (tunnelresult == -1 && (errorcode == EISCONN /*|| errorcode == EALREADY)*/))) {
+
+							INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Connected to tunneler", id, socket->lport);
+
+							int loginsent = send(socket->id, (const char *)tcpLogin, sizeof(tcpTunnelData), 0);
+
+							if (loginsent > 0) {
+								tcpRelayStatus * tcprelay = (tcpRelayStatus *)malloc(sizeof(tcpRelayStatus));
+								tcprelay->connectStatus = SOCKET_ERROR;
+								int recvrelay = recv(socket->id, (char *)tcprelay, sizeof(tcpRelayStatus), 0);
+								if (recvrelay > 0) {
+									INFO_LOG(SCENET, "RELAY connect %u, relay error %u", tcprelay->connectStatus, tcprelay->error);
+									if (tcprelay->connectStatus == 0 || (tcprelay->connectStatus == -1 && (tcprelay->error == EISCONN))) {
+										// Set Connected State
+										socket->state = ADHOC_PTP_STATE_ESTABLISHED;
+										INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected", id, socket->lport);
+										// Success
+										return 0;
+									}
+									else if (tcprelay->connectStatus == -1 && connectInProgress(tcprelay->error)) {
+										if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
+										// Grab Connection Start Time
+										uint32_t starttime = (uint32_t)(real_time_now()*1000000.0);
+
+										// retry relay Connection
+										while ((timeout == 0 || ((uint32_t)(real_time_now()*1000000.0) - starttime) < (uint32_t)timeout) && tcprelay->connectStatus == -1) {
+											loginsent = send(socket->id, (const char *)tcpLogin, sizeof(tcpTunnelData), 0);
+											recvrelay = recv(socket->id, (char *)tcprelay, sizeof(tcpRelayStatus), 0);
+											// Wait 1ms
+											sleep_ms(1);
+										}
+
+										// Connected in Time
+										if (tcprelay->daddr == tcpLogin->dip /* && sin.sin_port == peer.sin_port*/) {
+											// Set Connected State
+											socket->state = ADHOC_PTP_STATE_ESTABLISHED;
+
+											uint8_t * pip = (uint8_t *)&tcprelay->daddr;
+											INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Established (%u.%u.%u.%u:%u)", id, socket->lport, pip[0], pip[1], pip[2], pip[3], socket->pport);
+
+											// Success
+											return 0;
+										}
+
+										// Timeout occured
+										return ERROR_NET_ADHOC_TIMEOUT;
+									}
+								}
+								free(tcprelay);
 							}
-							
-							// Timeout occured
-							return ERROR_NET_ADHOC_TIMEOUT;
+						} 
+						// Connection in Progress
+						else if (tunnelresult == -1 && connectInProgress(errorcode)) {
+							INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: inprogress connect to tunneler", id, socket->lport);
+							if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
+							else {
+								INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: need retry connect to tunneler");
+							}
+						}
+					}
+					//non tunnel
+					else {
+						// Connect Socket to Peer (Nonblocking)
+						int connectresult = connect(socket->id, (sockaddr *)&sin, sizeof(sin));
+
+						// Grab Error Code
+						int errorcode = errno;
+
+						if (connectresult == SOCKET_ERROR) {
+							ERROR_LOG(SCENET, "sceNetAdhocPtpConnect[%i]: Socket Error (%i)", id, errorcode);
+						}
+
+						// Restore Blocking Behaviour
+						if (nbio == 0) {
+							// Restore Socket Option
+							changeBlockingMode(socket->id, 0);
+						}
+
+						// Instant Connection (Lucky!)
+						if (connectresult == 0 || (connectresult == -1 && (errorcode == EISCONN /*|| errorcode == EALREADY)*/))) {
+							// Set Connected State
+							socket->state = ADHOC_PTP_STATE_ESTABLISHED;
+
+							INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected", id, socket->lport);
+							// Success
+							return 0;
+						}
+
+						// Connection in Progress
+						else if (connectresult == -1 && connectInProgress(errorcode)) {
+							// Nonblocking Mode
+							if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
+
+							// Blocking Mode
+							else {
+								// Grab Connection Start Time
+								uint32_t starttime = (uint32_t)(real_time_now()*1000000.0);
+
+								// Peer Information (for Connection-Polling)
+								sockaddr_in peer;
+								memset(&peer, 0, sizeof(peer));
+								socklen_t peerlen = sizeof(peer);
+								// Wait for Connection
+								while ((timeout == 0 || ((uint32_t)(real_time_now()*1000000.0) - starttime) < (uint32_t)timeout) && getpeername(socket->id, (sockaddr *)&peer, &peerlen) != 0) {
+									// Wait 1ms
+									sleep_ms(1);
+								}
+
+								// Connected in Time
+								if (sin.sin_addr.s_addr == peer.sin_addr.s_addr/* && sin.sin_port == peer.sin_port*/) {
+									// Set Connected State
+									socket->state = ADHOC_PTP_STATE_ESTABLISHED;
+
+									uint8_t * pip = (uint8_t *)&peer.sin_addr.s_addr;
+									INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Established (%u.%u.%u.%u:%u)", id, socket->lport, pip[0], pip[1], pip[2], pip[3], socket->pport);
+
+									// Success
+									return 0;
+								}
+
+								// Timeout occured
+								return ERROR_NET_ADHOC_TIMEOUT;
+							}
 						}
 					}
 				}

@@ -2103,13 +2103,18 @@ int tcpTunnel(int port) {
 
 }
 
+void createTcpGameRelay(tcpGamePortWrapper * gameport, tcpTunnelData * loginData) {
+	gameport->outStream = INVALID_SOCKET;
+
+}
+
 void storeTcpGameSocket(int stream, uint32_t ip,uint16_t port) {
 	// Check IP Duplication
 	tcpGamePortWrapper * g = db_tcp_tunnel;
-	while (g != NULL && g->ip != ip && g->port != port) g = g->next;
+	while (g != NULL && g->sip != ip && g->sport != port) g = g->next;
 
 	if (g != NULL) { // IP Already existed
-		uint8_t * ip4 = (uint8_t *)&g->ip;
+		uint8_t * ip4 = (uint8_t *)&g->sip;
 		INFO_LOG(SCENET, "Tcp Tunnel : Already Exist IP %u.%u.%u.%u\n", ip4[0], ip4[1], ip4[2], ip4[3]);
 	}
 
@@ -2125,10 +2130,10 @@ void storeTcpGameSocket(int stream, uint32_t ip,uint16_t port) {
 			memset(gameport, 0, sizeof(tcpGamePortWrapper));
 
 			// Save Socket
-			gameport->stream = stream;
+			gameport->sourceStream = stream;
 
 			// Save IP
-			gameport->ip = ip;
+			gameport->sip = ip;
 
 			// Link into tunnel List
 			gameport->next = db_tcp_tunnel;
@@ -2137,10 +2142,10 @@ void storeTcpGameSocket(int stream, uint32_t ip,uint16_t port) {
 
 
 			// LOG successful tunnel
-			uint8_t * ipa = (uint8_t *)&gameport->ip;
+			uint8_t * ipa = (uint8_t *)&gameport->sip;
 			INFO_LOG(SCENET, "Tcp Tunnel : New Connection from %u.%u.%u.%u:%u", ipa[0], ipa[1], ipa[2], ipa[3],port);
 
-			// increate socket Counter
+			// increase socket Counter
 			db_tcp_tunnel_count++;
 
 			// Exit Function
@@ -2186,7 +2191,7 @@ int tcpTunnelLoop(int tcptunnel) {
 		while (gport != NULL) {
 			tcpGamePortWrapper * next = gport->next;
 
-
+			
 			gport = next;
 		}
 
@@ -2216,12 +2221,12 @@ void sendUdpPacket(udpTunnelData * packet,int packetSize) {
 
 		if (isLocalMAC(&packet->destMac)) {
 			packet->opcode = OPCODE_PDP_RECV;
-			INFO_LOG(SCENET, "Local Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u data:%s ", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen, packet->data);
-			INFO_LOG(SCENET, "Forwarding Packet to Local game port %u", packet->destPort);
+			DEBUG_LOG(SCENET, "Local Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u data:%s ", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen, packet->data);
+			DEBUG_LOG(SCENET, "Forwarding Packet to Local game port %u", packet->destPort);
 			target.sin_port = htons(packet->destPort);
 		}
 		else {
-			NOTICE_LOG(SCENET, "Outgoing Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u data:%s ", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen, packet->data);
+			DEBUG_LOG(SCENET, "Outgoing Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u data:%s ", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen, packet->data);
 			target.sin_port = htons(30000);
 		}
 
@@ -2235,7 +2240,7 @@ void sendUdpPacket(udpTunnelData * packet,int packetSize) {
 
 		if (sent == packetSize) {
 			uint8_t *dip = (uint8_t *)&target.sin_addr.s_addr;
-			INFO_LOG(SCENET, "Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i,datalen:%u)\n", dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetSize,packet->datalen);
+			DEBUG_LOG(SCENET, "Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i,datalen:%u)\n", dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetSize,packet->datalen);
 		}
 	}
 }
@@ -2320,7 +2325,7 @@ int udpTunnelLoop(int udptunnel) {
 						u32_le sip = addr_in.sin_addr.s_addr;
 						uint16_t sport = ntohs(addr_in.sin_port);
 						uint8_t * ip4 = (uint8_t *)&sip;
-						INFO_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u opcode:%u datalen:%u data:%s ", ofs, ip4[0], ip4[1], ip4[2], ip4[3], sport, header->opcode, header->datalen);
+						DEBUG_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u opcode:%u datalen:%u data:%s ", ofs, ip4[0], ip4[1], ip4[2], ip4[3], sport, header->opcode, header->datalen);
 					}
 				}
 			}
