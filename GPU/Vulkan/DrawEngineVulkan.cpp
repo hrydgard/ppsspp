@@ -569,6 +569,12 @@ void DrawEngineVulkan::DoFlush() {
 	gpuStats.numFlushes++;
 
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
+	if (cmd != lastCmd_) {
+		lastPipeline_ = nullptr;
+		lastCmd_ = cmd;
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+	}
+
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS);
 	if (!rp)
 		Crash();
@@ -660,7 +666,10 @@ void DrawEngineVulkan::DoFlush() {
 			// Already logged, let's bail out.
 			return;
 		}
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+		if (pipeline != lastPipeline_) {
+			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+			lastPipeline_ = pipeline;
+		}
 
 		UpdateUBOs(frame);
 
