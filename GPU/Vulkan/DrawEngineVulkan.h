@@ -60,6 +60,7 @@ typedef u32 ReliableHashType;
 
 class VulkanContext;
 class VulkanPushBuffer;
+struct VulkanPipeline;
 
 struct DrawEngineVulkanStats {
 	int pushUBOSpaceUsed;
@@ -127,7 +128,7 @@ public:
 
 private:
 	struct FrameData;
-	void ApplyDrawStateLate();
+	void ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencilRef, uint8_t stencilRef);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
 
 	void InitDeviceObjects();
@@ -146,6 +147,8 @@ private:
 	// We use a single descriptor set layout for all PSP draws.
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
+	VkCommandBuffer lastCmd_ = VK_NULL_HANDLE;
+	VulkanPipeline *lastPipeline_;
 
 	struct DescriptorSetKey {
 		VkImageView imageView_;
