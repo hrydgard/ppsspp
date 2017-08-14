@@ -1,6 +1,6 @@
 #pragma once
 
-#include <inttypes.h>
+#include <cstdint>
 #include <cstring>
 
 #ifdef _M_SSE

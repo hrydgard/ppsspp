@@ -457,10 +457,6 @@ void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRe
 		textureCache_->ApplyTexture();
 	}
 
-	// Need to do this AFTER ApplyTexture because the process of depallettization can ruin the blend state.
-	float blendColor[4];
-	Uint8x4ToFloat4(blendColor, dynState_.blendColor);
-
 	// we go through Draw here because it automatically handles screen rotation, as needed in UWP on mobiles.
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
 		draw_->SetViewports(1, &dynState_.viewport);
@@ -470,13 +466,16 @@ void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRe
 		context_->RSSetState(rasterState_);
 	}
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
+		// Need to do this AFTER ApplyTexture because the process of depallettization can ruin the blend state.
+		float blendColor[4];
+		Uint8x4ToFloat4(blendColor, dynState_.blendColor);
 		if (device1_) {
 			context1_->OMSetBlendState(blendState1_, blendColor, 0xFFFFFFFF);
 		} else {
 			context_->OMSetBlendState(blendState_, blendColor, 0xFFFFFFFF);
 		}
 	}
-	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE) || applyStencilRef) {
 		context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : dynState_.stencilRef);
 	}
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);

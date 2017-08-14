@@ -17,6 +17,7 @@
 
 #include "Common/Vulkan/VulkanLoader.h"
 
+#include "math/dataconv.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -235,7 +236,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
-		gstate_c.Clean(DIRTY_RASTER_STATE);
 		if (gstate.isModeClear()) {
 			key.cullMode = VK_CULL_MODE_NONE;
 		} else {
@@ -246,7 +246,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
-		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
 		if (gstate.isModeClear()) {
 			key.depthTestEnable = true;
 			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
@@ -328,7 +327,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
 		ViewportAndScissor vpAndScissor;
 		ConvertViewportAndScissor(useBufferedRendering,
 			fbManager.GetRenderWidth(), fbManager.GetRenderHeight(),
@@ -373,7 +371,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 }
 
 
-void DrawEngineVulkan::ApplyDrawStateLate() {
+void DrawEngineVulkan::ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencilRef, uint8_t stencilRef) {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
@@ -388,4 +386,27 @@ void DrawEngineVulkan::ApplyDrawStateLate() {
 		}
 		*/
 	}
+
+	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+		vkCmdSetScissor(cmd, 0, 1, &dynState_.scissor);
+		vkCmdSetViewport(cmd, 0, 1, &dynState_.viewport);
+	}
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		if (dynState_.useStencil) {
+			vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilWriteMask);
+			vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilCompareMask);
+			if (!applyStencilRef) {
+				vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilRef);
+			}
+		}
+	}
+	if (applyStencilRef) {
+		vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, stencilRef);
+	}
+	if (dynState_.useBlendColor) {
+		float bc[4];
+		Uint8x4ToFloat4(bc, dynState_.blendColor);
+		vkCmdSetBlendConstants(cmd, bc);
+	}
+	gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }

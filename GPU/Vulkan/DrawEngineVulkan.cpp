@@ -650,19 +650,7 @@ void DrawEngineVulkan::DoFlush() {
 		}
 
 		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
-		// TODO: Dirty-flag these.
-		vkCmdSetScissor(cmd, 0, 1, &dynState_.scissor);
-		vkCmdSetViewport(cmd, 0, 1, &dynState_.viewport);
-		if (dynState_.useStencil) {
-			vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilWriteMask);
-			vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilCompareMask);
-			vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilRef);
-		}
-		if (dynState_.useBlendColor) {
-			float bc[4];
-			Uint8x4ToFloat4(bc, dynState_.blendColor);
-			vkCmdSetBlendConstants(cmd, bc);
-		}
+		ApplyDrawStateLate(cmd, false, 0);
 
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
@@ -751,23 +739,8 @@ void DrawEngineVulkan::DoFlush() {
 			}
 
 			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
-			// TODO: Dirty-flag these.
-			vkCmdSetScissor(cmd, 0, 1, &dynState_.scissor);
-			vkCmdSetViewport(cmd, 0, 1, &dynState_.viewport);
-			if (dynState_.useStencil) {
-				vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilWriteMask);
-				vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilCompareMask);
-			}
-			if (result.setStencil) {
-				vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, result.stencilValue);
-			} else if (dynState_.useStencil) {
-				vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilRef);
-			}
-			if (dynState_.useBlendColor) {
-				float bc[4];
-				Uint8x4ToFloat4(bc, dynState_.blendColor);
-				vkCmdSetBlendConstants(cmd, bc);
-			}
+			ApplyDrawStateLate(cmd, result.setStencil, result.stencilValue);
+
 			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);

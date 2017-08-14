@@ -127,7 +127,7 @@ public:
 
 private:
 	struct FrameData;
-	void ApplyDrawStateLate();
+	void ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencilRef, uint8_t stencilRef);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
 
 	void InitDeviceObjects();
