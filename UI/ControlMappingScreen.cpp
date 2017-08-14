@@ -308,10 +308,11 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	I18NCategory *km = GetI18NCategory("KeyMapping");
+	I18NCategory *mc = GetI18NCategory("MappableControls");
 
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
-	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + pspButtonName, new LinearLayoutParams(Margins(10,0))));
+	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + mc->T(pspButtonName), new LinearLayoutParams(Margins(10,0))));
 }
 
 bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
