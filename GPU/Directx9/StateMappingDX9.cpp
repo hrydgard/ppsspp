@@ -115,7 +115,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
-	{
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
+		gstate_c.Clean(DIRTY_BLEND_STATE);
 		// Unfortunately, this isn't implemented yet.
 		gstate_c.SetAllowShaderBlend(false);
 		if (gstate.isModeClear()) {
@@ -197,7 +198,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
 
-	{
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		gstate_c.Clean(DIRTY_RASTER_STATE);
 		// Set Dither
 		if (gstate.isDitherEnabled()) {
 			dxstate.dither.enable();
@@ -214,7 +216,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
 		// Set Stencil/Depth
 		if (gstate.isModeClear()) {
 			// Depth Test
@@ -264,7 +267,8 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
 		ViewportAndScissor vpAndScissor;
 		ConvertViewportAndScissor(useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),

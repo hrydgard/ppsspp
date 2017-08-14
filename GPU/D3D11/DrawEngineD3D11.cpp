@@ -119,7 +119,8 @@ void DrawEngineD3D11::ClearTrackedVertexArrays() {
 
 void DrawEngineD3D11::ClearInputLayoutMap() {
 	for (auto &decl : inputLayoutMap_) {
-		decl.second->Release();
+		if (decl.second)
+			decl.second->Release();
 	}
 	inputLayoutMap_.clear();
 }

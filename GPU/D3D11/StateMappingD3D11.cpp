@@ -134,8 +134,15 @@ class ShaderManagerD3D11;
 void DrawEngineD3D11::ApplyDrawState(int prim) {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
+	dynState_.topology = primToD3D11[prim];
+
+	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHRANGE | DIRTY_RASTER_STATE)) {
+		// nothing to do
+		return;
+	}
+
 	// Blend
-	{
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
 		if (gstate.isModeClear()) {
 			keys_.blend.value = 0;  // full wipe
@@ -274,7 +281,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
 		keys_.raster.value = 0;
 		if (gstate.isModeClear()) {
 			keys_.raster.cullMode = D3D11_CULL_NONE;
@@ -300,8 +307,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		rasterState_ = rs;
 	}
 
-	{
-		// Set ColorMask/Stencil/Depth
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
 		if (gstate.isModeClear()) {
 			keys_.depthStencil.value = 0;
 			keys_.depthStencil.depthTestEnable = true;
@@ -388,7 +394,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		depthStencilState_ = ds;
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
 		ViewportAndScissor vpAndScissor;
 		ConvertViewportAndScissor(useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
@@ -429,8 +435,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		}
 	}
 
-	dynState_.topology = primToD3D11[prim];
-
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
@@ -458,13 +462,22 @@ void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRe
 	Uint8x4ToFloat4(blendColor, dynState_.blendColor);
 
 	// we go through Draw here because it automatically handles screen rotation, as needed in UWP on mobiles.
-	draw_->SetViewports(1, &dynState_.viewport);
-	draw_->SetScissorRect(dynState_.scissor.left, dynState_.scissor.top, dynState_.scissor.right - dynState_.scissor.left, dynState_.scissor.bottom - dynState_.scissor.top);
-	context_->RSSetState(rasterState_);
-	if (device1_) {
-		context1_->OMSetBlendState(blendState1_, blendColor, 0xFFFFFFFF);
-	} else {
-		context_->OMSetBlendState(blendState_, blendColor, 0xFFFFFFFF);
+	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+		draw_->SetViewports(1, &dynState_.viewport);
+		draw_->SetScissorRect(dynState_.scissor.left, dynState_.scissor.top, dynState_.scissor.right - dynState_.scissor.left, dynState_.scissor.bottom - dynState_.scissor.top);
 	}
-	context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : dynState_.stencilRef);
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		context_->RSSetState(rasterState_);
+	}
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
+		if (device1_) {
+			context1_->OMSetBlendState(blendState1_, blendColor, 0xFFFFFFFF);
+		} else {
+			context_->OMSetBlendState(blendState_, blendColor, 0xFFFFFFFF);
+		}
+	}
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : dynState_.stencilRef);
+	}
+	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);
 }

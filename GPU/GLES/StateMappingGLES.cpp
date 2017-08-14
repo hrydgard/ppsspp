@@ -141,6 +141,11 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		}
 	}
 
+	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE)) {
+		// Nothing to do, let's early-out
+		return;
+	}
+
 	// Start profiling here to skip SetTexture which is already accounted for
 	PROFILE_THIS_SCOPE("applydrawstate");
 
@@ -158,7 +163,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
-	{
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
+		gstate_c.Clean(DIRTY_BLEND_STATE);
 		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
 
 		if (gstate.isModeClear()) {
@@ -252,11 +258,13 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
+		gstate_c.Clean(DIRTY_RASTER_STATE);
+
 		// Dither
 		if (gstate.isDitherEnabled()) {
 			glstate.dither.enable();
-			glstate.dither.set(GL_TRUE);
+			glstate.dither.set(true);
 		} else {
 			glstate.dither.disable();
 		}
@@ -276,7 +284,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
+		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
 		bool enableStencilTest = !g_Config.bDisableStencilTest;
 		if (gstate.isModeClear()) {
 			// Depth Test
@@ -328,7 +337,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		}
 	}
 
-	{
+	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
 		ViewportAndScissor vpAndScissor;
 		ConvertViewportAndScissor(useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),

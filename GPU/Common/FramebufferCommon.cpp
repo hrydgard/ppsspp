@@ -302,7 +302,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(params.fb_address, params.fmt, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, 4), drawing_width, drawing_height);
 
-	gstate_c.curRTOffsetX = 0;
+	gstate_c.SetCurRTOffsetX(0);
 	bool vfbFormatChanged = false;
 
 	// Find a matching framebuffer
@@ -335,7 +335,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			if (v->format == params.fmt && v->fb_stride == params.fb_stride && x_offset < params.fb_stride && v->height >= drawing_height) {
 				WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset: %08x +%dx%d", v->fb_address, x_offset, 0);
 				vfb = v;
-				gstate_c.curRTOffsetX = x_offset;
+				gstate_c.SetCurRTOffsetX(x_offset);
 				vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
 				// To prevent the newSize code from being confused.
 				drawing_width += x_offset;
@@ -633,6 +633,8 @@ void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, 
 			DEBUG_LOG(ME, "Changing stride for %08x from %d to %d", addr, vfb->fb_stride, width);
 			const int bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
 			ResizeFramebufFBO(vfb, width, size / (bpp * width));
+			// Resizing may change the viewport/etc.
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			vfb->fb_stride = width;
 			// This might be a bit wider than necessary, but we'll redetect on next render.
 			vfb->width = width;
@@ -674,6 +676,8 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 
 		RebindFramebuffer();
 	}
+	// TODO: Necessary?
+	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -779,6 +783,8 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
 	}
+
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
@@ -1645,6 +1651,8 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 					dstBuffer->newWidth = std::max(dstWidth, (int)dstBuffer->width);
 					dstBuffer->newHeight = std::max(dstHeight, (int)dstBuffer->height);
 					dstBuffer->lastFrameNewSize = gpuStats.numFlips;
+					// Resizing may change the viewport/etc.
+					gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 				}
 				DrawPixels(dstBuffer, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstBuffer->format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstWidth * dstXFactor), dstHeight);
 				SetColorUpdated(dstBuffer, skipDrawReason);

@@ -77,7 +77,7 @@ static const D3D11CommandTableEntry commandTable[] = {
 	// Changes that dirty the current texture.
 	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_D3D11::Execute_TexSize0 },
 
-	{ GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_STENCILREPLACEVALUE | DIRTY_FOGCOEF },  // These are combined in D3D11
+	{ GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_STENCILREPLACEVALUE | DIRTY_FOGCOEF | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE },  // These are combined in D3D11
 
 	// Changing the vertex type requires us to flush.
 	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPU_D3D11::Execute_VertexType },
@@ -445,12 +445,18 @@ void GPU_D3D11::ExecuteOp(u32 op, u32 diff) {
 }
 
 void GPU_D3D11::Execute_VertexType(u32 op, u32 diff) {
+	if (diff)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		if (diff & GE_VTYPE_THROUGH_MASK)
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
 	}
 }
 
 void GPU_D3D11::Execute_VertexTypeSkinning(u32 op, u32 diff) {
+	if (diff)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	// Don't flush when weight count changes, unless morph is enabled.
 	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
 		// Restore and flush
@@ -466,6 +472,8 @@ void GPU_D3D11::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 			gstate_c.deferredVertTypeDirty = 0;
 		}
 	}
+	if (diff & GE_VTYPE_THROUGH_MASK)
+		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void GPU_D3D11::Execute_Prim(u32 op, u32 diff) {
@@ -474,12 +482,11 @@ void GPU_D3D11::Execute_Prim(u32 op, u32 diff) {
 
 	u32 data = op & 0xFFFFFF;
 	u32 count = data & 0xFFFF;
-	// Upper bits are ignored.
-	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
-
 	if (count == 0)
 		return;
 
+	// Upper bits are ignored.
+	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
 	SetDrawType(DRAW_PRIM, prim);
 
 	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
@@ -581,6 +588,7 @@ void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
 	bool patchFacing = gstate.patchfacing & 1;
 
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.bezier = true;
 		if (gstate_c.spline_count_u != bz_ucount) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
@@ -591,6 +599,8 @@ void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
 	int bytesRead = 0;
 	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
 
+	if (gstate_c.bezier)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	gstate_c.bezier = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -642,6 +652,7 @@ void GPU_D3D11::Execute_Spline(u32 op, u32 diff) {
 	u32 vertType = gstate.vertType;
 
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.spline = true;
 		bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
 		bool typesChanged = gstate_c.spline_type_u != sp_utype || gstate_c.spline_type_v != sp_vtype;
@@ -656,6 +667,8 @@ void GPU_D3D11::Execute_Spline(u32 op, u32 diff) {
 	int bytesRead = 0;
 	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
 
+	if (gstate_c.spline)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	gstate_c.spline = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
