@@ -133,7 +133,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		gstate_c.Clean(DIRTY_BLEND_STATE);
 		// Unfortunately, this isn't implemented yet.
 		gstate_c.SetAllowShaderBlend(false);
 		if (gstate.isModeClear()) {
@@ -403,7 +402,7 @@ void DrawEngineVulkan::ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencil
 	if (applyStencilRef) {
 		vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, stencilRef);
 	}
-	if (dynState_.useBlendColor) {
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		float bc[4];
 		Uint8x4ToFloat4(bc, dynState_.blendColor);
 		vkCmdSetBlendConstants(cmd, bc);
