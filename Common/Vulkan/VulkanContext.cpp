@@ -394,6 +394,9 @@ void VulkanContext::DestroyObjects() {
 	DestroyCommandPool();
 
 	// If there happen to be any pending deletes, now is a good time.
+	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
+		frame_[i].deleteList.PerformDeletes(device_);
+	}
 	Delete().PerformDeletes(device_);
 
 	vkDestroySurfaceKHR(instance_, surface_, nullptr);
