@@ -479,7 +479,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	memset(writes, 0, sizeof(writes));
 	// Main texture
 	int n = 0;
-	VkDescriptorImageInfo tex;
+	VkDescriptorImageInfo tex{};
 	if (imageView) {
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
 		tex.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -499,7 +499,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 
 	// Tessellation data textures
 	if (gstate_c.bezier || gstate_c.spline) {
-		VkDescriptorImageInfo tess_tex[3];
+		VkDescriptorImageInfo tess_tex[3]{};
 		VkSampler sampler = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetSampler();
 		for (int i = 0; i < 3; i++) {
 			VulkanTexture *texture = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetTexture(i);
@@ -521,7 +521,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	}
 
 	// Uniform buffer objects
-	VkDescriptorBufferInfo buf[3];
+	VkDescriptorBufferInfo buf[3]{};
 	int count = 0;
 	buf[count].buffer = base;
 	buf[count].offset = 0;

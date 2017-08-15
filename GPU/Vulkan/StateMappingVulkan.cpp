@@ -130,6 +130,12 @@ void ResetShaderBlending() {
 // In Vulkan, we simply collect all the state together into a "pipeline key" - we don't actually set any state here
 // (the caller is responsible for setting the little dynamic state that is supported, dynState).
 void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
+	/*
+	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHRANGE | DIRTY_RASTER_STATE)) {
+		// nothing to do
+		return;
+	}*/
+
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
@@ -151,7 +157,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			bool colorMask = gstate.isClearModeColorMask();
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
-
 		} else {
 			key.logicOpEnable = false;
 			key.logicOp = VK_LOGIC_OP_CLEAR;

@@ -233,7 +233,7 @@ protected:
 			lastDraw_ = type;
 		}
 		// Prim == RECTANGLES can cause CanUseHardwareTransform to flip, so we need to dirty.
-		// Also, culling may be affected.
+		// Also, culling may be affected so dirty the raster state.
 		if ((prim == GE_PRIM_RECTANGLES) != (lastPrim_ == GE_PRIM_RECTANGLES)) {
 			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE);
 			lastPrim_ = prim;
@@ -266,7 +266,14 @@ protected:
 
 	void DoBlockTransfer(u32 skipDrawReason);
 
-	void AdvanceVerts(u32 vertType, int count, int bytesRead);
+	void AdvanceVerts(u32 vertType, int count, int bytesRead) {
+		if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+			int indexShift = ((vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+			gstate_c.indexAddr += count << indexShift;
+		} else {
+			gstate_c.vertexAddr += bytesRead;
+		}
+	}
 
 	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
 	void PerformMemorySetInternal(u32 dest, u8 v, int size);
