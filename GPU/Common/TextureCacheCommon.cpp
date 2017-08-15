@@ -33,6 +33,9 @@
 #if defined(_M_SSE)
 #include <emmintrin.h>
 #endif
+#if PPSSPP_ARCH(ARM_NEON)
+#include <arm_neon.h>
+#endif
 
 // Videos should be updated every few frames, so we forget quickly.
 #define VIDEO_DECIMATE_AGE 4
@@ -924,6 +927,23 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 					__m128i data2 = _mm_loadu_si128(source + 1);
 					_mm_store_si128(dest, data1);
 					_mm_store_si128(dest + 1, data2);
+				}
+			} else {
+				Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+				if (bytes < loadBytes) {
+					memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
+				}
+			}
+#elif PPSSPP_ARCH(ARM_NEON)
+			if (bytes == loadBytes) {
+				const uint32_t *source = (const uint32_t *)Memory::GetPointerUnchecked(clutAddr);
+				uint32_t *dest = (uint32_t *)clutBufRaw_;
+				int numBlocks = bytes / 32;
+				for (int i = 0; i < numBlocks; i++, source += 8, dest += 8) {
+					uint32x4_t data1 = vld1q_u32(source);
+					uint32x4_t data2 = vld1q_u32(source + 4);
+					vst1q_u32(dest, data1);
+					vst1q_u32(dest + 4, data2);
 				}
 			} else {
 				Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
