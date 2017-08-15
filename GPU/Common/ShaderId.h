@@ -119,10 +119,13 @@ struct ShaderID {
 	bool Bit(int bit) const {
 		return (d[bit >> 5] >> (bit & 31)) & 1;
 	}
-	// Does not handle crossing 32-bit boundaries
+	// Does not handle crossing 32-bit boundaries. count must be 30 or smaller.
 	int Bits(int bit, int count) const {
 		const int mask = (1 << count) - 1;
 		return (d[bit >> 5] >> (bit & 31)) & mask;
+	}
+	uint32_t Word(int word) const {
+		return d[word];
 	}
 	void SetBit(int bit, bool value = true) {
 		if (value) {
