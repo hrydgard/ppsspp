@@ -130,11 +130,7 @@ void ResetShaderBlending() {
 // In Vulkan, we simply collect all the state together into a "pipeline key" - we don't actually set any state here
 // (the caller is responsible for setting the little dynamic state that is supported, dynState).
 void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
-	/*
-	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHRANGE | DIRTY_RASTER_STATE)) {
-		// nothing to do
-		return;
-	}*/
+	key.topology = primToVulkan[prim];
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
@@ -371,8 +367,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			scissor.extent.height = framebufferManager_->GetRenderHeight();
 		}
 	}
-
-	key.topology = primToVulkan[prim];
 }
 
 
@@ -413,5 +407,4 @@ void DrawEngineVulkan::ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencil
 		Uint8x4ToFloat4(bc, dynState_.blendColor);
 		vkCmdSetBlendConstants(cmd, bc);
 	}
-	gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }

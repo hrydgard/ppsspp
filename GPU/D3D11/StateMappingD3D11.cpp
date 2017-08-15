@@ -132,15 +132,14 @@ class FramebufferManagerD3D11;
 class ShaderManagerD3D11;
 
 void DrawEngineD3D11::ApplyDrawState(int prim) {
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-
 	dynState_.topology = primToD3D11[prim];
 
-	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHRANGE | DIRTY_RASTER_STATE)) {
+	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 		// nothing to do
 		return;
 	}
 
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	// Blend
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);

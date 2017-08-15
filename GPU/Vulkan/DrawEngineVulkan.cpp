@@ -659,21 +659,26 @@ void DrawEngineVulkan::DoFlush() {
 				sampler = nullSampler_;
 		}
 
-		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
-		ApplyDrawStateLate(cmd, false, 0);
+		if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
+			if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
+				ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
+			}
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, true);
+			if (!pipeline) {
+				// Already logged, let's bail out.
+				return;
+			}
+			if (pipeline != lastPipeline_) {
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+				lastPipeline_ = pipeline;
+			}
+			ApplyDrawStateLate(cmd, false, 0);
+			gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+		}
+		lastPrim_ = prim;
 
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
-
-		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
-		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, true);
-		if (!pipeline) {
-			// Already logged, let's bail out.
-			return;
-		}
-		if (pipeline != lastPipeline_) {
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
-			lastPipeline_ = pipeline;
-		}
 
 		UpdateUBOs(frame);
 
@@ -717,6 +722,7 @@ void DrawEngineVulkan::DoFlush() {
 			prim = GE_PRIM_TRIANGLES;
 		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
+		lastPrim_ = prim;
 		int numTrans = 0;
 		bool drawIndexed = false;
 		u16 *inds = decIndex;
@@ -754,8 +760,6 @@ void DrawEngineVulkan::DoFlush() {
 			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 			ApplyDrawStateLate(cmd, result.setStencil, result.stencilValue);
 
-			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
-
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, false);
 			if (!pipeline) {
@@ -763,6 +767,8 @@ void DrawEngineVulkan::DoFlush() {
 				return;
 			}
 			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+
+			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
 			UpdateUBOs(frame);

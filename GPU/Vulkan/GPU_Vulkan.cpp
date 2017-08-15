@@ -464,7 +464,6 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 	SetDrawType(DRAW_PRIM, prim);
 
 	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
-
 	if (gstate.isAntiAliasEnabled()) {
 		// Discard AA lines in DOA
 		if (prim == GE_PRIM_LINE_STRIP)
@@ -480,7 +479,7 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 		Crash();
 
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
-		drawEngine_.SetupVertexDecoder(gstate.vertType);
+		drawEngine_.SetupVertexDecoder(gstate.vertType);  // Do we still need to do this?
 		// Rough estimate, not sure what's correct.
 		cyclesExecuted += EstimatePerVertexCost() * count;
 		return;
@@ -510,9 +509,9 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 	int bytesRead = 0;
 	drawEngine_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
 
-	int vertexCost = EstimatePerVertexCost();
-	gpuStats.vertexGPUCycles += vertexCost * count;
-	cyclesExecuted += vertexCost * count;
+	int vertexCost = EstimatePerVertexCost() * count;
+	gpuStats.vertexGPUCycles += vertexCost;
+	cyclesExecuted += vertexCost;
 
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.

@@ -180,6 +180,7 @@ private:
 		void Destroy(VulkanContext *vulkan);
 	};
 
+	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 	int curFrame_;
 	FrameData frame_[2];
 
