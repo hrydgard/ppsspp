@@ -45,6 +45,9 @@
 #ifdef _M_SSE
 #include <emmintrin.h>
 #endif
+#if PPSSPP_ARCH(ARM_NEON)
+#include <arm_neon.h>
+#endif
 
 StereoResampler::StereoResampler()
 		: m_bufsize(MAX_SAMPLES_DEFAULT)
@@ -103,8 +106,25 @@ inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, s8 volShift) 
 		in += 8;
 		size -= 8;
 	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	int16x4_t signedVolShift = vdup_n_s16 (-volShift); // Can only dynamic-shift right, but by a signed integer
+	while (size >= 8) {
+		int32x4_t in1 = vld1q_s32(in);
+		int32x4_t in2 = vld1q_s32(in + 4);
+		int16x4_t packed1 = vqmovn_s32(in1);
+		int16x4_t packed2 = vqmovn_s32(in2);
+		if (useShift) {
+			packed1 = vshl_s16(packed1, signedVolShift);
+			packed2 = vshl_s16(packed2, signedVolShift);
+		}
+		vst1_s16(out, packed1);
+		vst1_s16(out + 4, packed2);
+		out += 8;
+		in += 8;
+		size -= 8;
+	}
 #endif
-	// This does the remainder if SSE was used, otherwise it does it all.
+	// This does the remainder if SIMD was used, otherwise it does it all.
 	for (size_t i = 0; i < size; i++) {
 		out[i] = clamp_s16(useShift ? (in[i] >> volShift) : in[i]);
 	}
