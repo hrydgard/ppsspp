@@ -377,6 +377,7 @@ void FramebufferManagerVulkan::Bind2DShader() {
 
 void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms) {
 	Bind2DShader();
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 }
 
 void FramebufferManagerVulkan::RebindFramebuffer() {

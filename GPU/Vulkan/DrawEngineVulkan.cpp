@@ -257,6 +257,9 @@ void DrawEngineVulkan::DeviceRestore(VulkanContext *vulkan) {
 }
 
 void DrawEngineVulkan::BeginFrame() {
+	lastCmd_ = VK_NULL_HANDLE;
+	lastPipeline_ = nullptr;
+
 	FrameData *frame = &frame_[curFrame_ & 1];
 	vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
 	frame->descSets.clear();
@@ -572,7 +575,8 @@ void DrawEngineVulkan::DoFlush() {
 	if (cmd != lastCmd_) {
 		lastPipeline_ = nullptr;
 		lastCmd_ = cmd;
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+		// Since we have a new cmdbuf, dirty our dynamic state so it gets re-set.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE|DIRTY_DEPTHSTENCIL_STATE);
 	}
 
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS);

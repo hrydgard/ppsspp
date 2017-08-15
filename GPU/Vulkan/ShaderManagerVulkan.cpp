@@ -216,6 +216,7 @@ void ShaderManagerVulkan::DirtyShader() {
 void ShaderManagerVulkan::DirtyLastShader() { // disables vertex arrays
 	lastVShader_ = nullptr;
 	lastFShader_ = nullptr;
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 uint64_t ShaderManagerVulkan::UpdateUniforms() {

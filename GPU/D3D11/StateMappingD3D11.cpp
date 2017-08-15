@@ -417,6 +417,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		vp.Height = vpAndScissor.viewportH;
 		vp.MinDepth = depthMin;
 		vp.MaxDepth = depthMax;
+
 		if (vpAndScissor.dirtyProj) {
 			gstate_c.Dirty(DIRTY_PROJMATRIX);
 		}

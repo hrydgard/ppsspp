@@ -332,6 +332,15 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			fbManager.GetTargetBufferWidth(), fbManager.GetTargetBufferHeight(),
 			vpAndScissor);
 
+		float depthMin = vpAndScissor.depthRangeMin;
+		float depthMax = vpAndScissor.depthRangeMax;
+
+		if (depthMin < 0.0f) depthMin = 0.0f;
+		if (depthMax > 1.0f) depthMax = 1.0f;
+		if (vpAndScissor.dirtyDepth) {
+			gstate_c.Dirty(DIRTY_DEPTHRANGE);
+		}
+
 		VkViewport &vp = dynState.viewport;
 		vp.x = vpAndScissor.viewportX;
 		vp.y = vpAndScissor.viewportY;
@@ -339,6 +348,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		vp.height = vpAndScissor.viewportH;
 		vp.minDepth = vpAndScissor.depthRangeMin;
 		vp.maxDepth = vpAndScissor.depthRangeMax;
+
 		if (vpAndScissor.dirtyProj) {
 			gstate_c.Dirty(DIRTY_PROJMATRIX);
 		}
@@ -347,22 +357,13 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 		if (vpAndScissor.scissorEnable) {
 			scissor.offset.x = vpAndScissor.scissorX;
 			scissor.offset.y = vpAndScissor.scissorY;
-			scissor.extent.width = vpAndScissor.scissorW;
-			scissor.extent.height = vpAndScissor.scissorH;
+			scissor.extent.width = std::max(0, vpAndScissor.scissorW);
+			scissor.extent.height = std::max(0, vpAndScissor.scissorH);
 		} else {
 			scissor.offset.x = 0;
 			scissor.offset.y = 0;
 			scissor.extent.width = framebufferManager_->GetRenderWidth();
 			scissor.extent.height = framebufferManager_->GetRenderHeight();
-		}
-
-		float depthMin = vpAndScissor.depthRangeMin;
-		float depthMax = vpAndScissor.depthRangeMax;
-
-		if (depthMin < 0.0f) depthMin = 0.0f;
-		if (depthMax > 1.0f) depthMax = 1.0f;
-		if (vpAndScissor.dirtyDepth) {
-			gstate_c.Dirty(DIRTY_DEPTHRANGE);
 		}
 	}
 
