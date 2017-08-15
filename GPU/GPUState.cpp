@@ -28,6 +28,9 @@
 #ifdef _M_SSE
 #include <emmintrin.h>
 #endif
+#if PPSSPP_ARCH(ARM_NEON)
+#include <arm_neon.h>
+#endif
 
 // This must be aligned so that the matrices within are aligned.
 GPUgstate MEMORY_ALIGNED16(gstate);
@@ -138,6 +141,13 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 		_mm_storeu_si128((__m128i *)(dst + 4), row2);
 		_mm_storeu_si128((__m128i *)(dst + 8), row3);
 	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	const uint32x4_t row1 = vshlq_n_u32(vld1q_u32(src), 8);
+	const uint32x4_t row2 = vshlq_n_u32(vld1q_u32(src + 4), 8);
+	const uint32x4_t row3 = vshlq_n_u32(vld1q_u32(src + 8), 8);
+	vst1q_u32(dst, row1);
+	vst1q_u32(dst + 4, row2);
+	vst1q_u32(dst + 8, row3);
 #else
 	for (int i = 0; i < 12; i++) {
 		dst[i] = src[i] << 8;
