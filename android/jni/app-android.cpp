@@ -381,6 +381,8 @@ static float dp_yscale = 1.0f;
 
 static bool renderer_inited = false;
 static bool renderer_ever_inited = false;
+static bool sustainedPerfSupported = false;
+
 // See NativeQueryConfig("androidJavaGL") to change this value.
 static bool javaGL = true;
 
@@ -471,6 +473,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_SUPPORTS_PERMISSIONS:
 		return androidVersion >= 23;	// 6.0 Marshmallow introduced run time permissions.
+	case SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE:
+		return sustainedPerfSupported;  // 7.0 introduced sustained performance mode as an optional feature.
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
@@ -908,6 +912,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 	} else if (msg == "permission_granted") {
 		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
 		NativePermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_PENDING);
+	} else if (msg == "sustained_perf_supported") {
+		sustainedPerfSupported = true;
 	}
 
 	NativeMessageReceived(msg.c_str(), prm.c_str());

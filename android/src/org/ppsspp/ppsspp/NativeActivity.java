@@ -30,6 +30,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.PowerManager;
 import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.text.InputType;
@@ -84,9 +85,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	private int optimalFramesPerBuffer;
 	private int optimalSampleRate;
 
+	private boolean sustainedPerfSupported;
+
 	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
+	private PowerManager powerManager;
 
 	private Vibrator vibrator;
 
@@ -202,6 +206,13 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
         	// Get the optimal buffer sz
         	detectOptimalAudioSettings();
         }
+		powerManager = (PowerManager)getSystemService(Context.POWER_SERVICE);
+        if (Build.VERSION.SDK_INT >= 24) {
+			if (powerManager.isSustainedPerformanceModeSupported()) {
+				sustainedPerfSupported = true;
+				NativeApp.sendMessage("sustained_perf_supported", "1");
+			}
+        }
 
         // isLandscape is used to trigger GetAppInfo currently, we
         boolean landscape = NativeApp.isLandscape();
@@ -277,6 +288,20 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
         if (Build.VERSION.SDK_INT >= 11) {
         	checkForVibrator();
         }
+	}
+
+	@TargetApi(24)
+	private void updateSustainedPerformanceMode() {
+		// Query the native application on the desired rotation.
+		int enable = 0;
+		String str = NativeApp.queryConfig("sustainedPerformanceMode");
+		try {
+			enable = Integer.parseInt(str);
+		} catch (NumberFormatException e) {
+			Log.e(TAG, "Invalid perf mode: " + str);
+			return;
+		}
+		getWindow().setSustainedPerformanceMode(enable != 0);
 	}
 
 	@TargetApi(9)
@@ -388,6 +413,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 		// OK, config should be initialized, we can query for screen rotation.
 		updateScreenRotation();
+		updateSustainedPerformanceMode();
 
 		// Keep the screen bright - very annoying if it goes dark when tilting away
 		Window window = this.getWindow();
@@ -1098,16 +1124,18 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			shuttingDown = true;
 			finish();
 		} else if (command.equals("rotate")) {
-	      if (javaGL) {
-	        updateScreenRotation();
-	        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-	          Log.i(TAG, "Must recreate activity on rotation");
-	        }
-	      } else {
-	        if (Build.VERSION.SDK_INT >= 9) {
-	          updateScreenRotation();
-	        }
-	      }
+			if (javaGL) {
+				updateScreenRotation();
+				if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+					Log.i(TAG, "Must recreate activity on rotation");
+				}
+			} else {
+				if (Build.VERSION.SDK_INT >= 9) {
+					updateScreenRotation();
+				}
+			}
+		} else if (command.equals("sustainedPerfMode")) {
+			updateSustainedPerformanceMode();
 		} else if (command.equals("immersive")) {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 				updateSystemUiVisibility();

@@ -686,6 +686,10 @@ void GameSettingsScreen::CreateViews() {
 		static const char *screenRotation[] = {"Auto", "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
 		PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, co->T("Screen Rotation"), screenRotation, 0, ARRAY_SIZE(screenRotation), co->GetName(), screenManager()));
 		rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
+
+		if (System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE)) {
+			systemSettings->Add(new CheckBox(&g_Config.bSustainedPerformanceMode, sy->T("Sustained performance mode")))->OnClick.Handle(this, &GameSettingsScreen::OnSustainedPerformanceModeChange);
+		}
 	}
 #endif
 
@@ -845,11 +849,14 @@ UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
 	System_SendMessage("immersive", "");
-	const int SYSTEM_JELLYBEAN = 16;
-	// recreate doesn't seem reliable on earlier versions.
 	if (g_Config.iAndroidHwScale != 0) {
 		RecreateActivity();
 	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnSustainedPerformanceModeChange(UI::EventParams &e) {
+	System_SendMessage("sustainedPerfMode", "");
 	return UI::EVENT_DONE;
 }
 

@@ -238,6 +238,8 @@ std::string NativeQueryConfig(std::string query) {
 		}
 		// Otherwise, some devices prefer the Java init so play it safe.
 		return "true";
+	} else if (query == "sustainedPerformanceMode") {
+		return std::string(g_Config.bSustainedPerformanceMode ? "1" : "0");
 	} else {
 		return "";
 	}
