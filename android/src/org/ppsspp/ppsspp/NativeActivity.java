@@ -210,7 +210,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
         if (Build.VERSION.SDK_INT >= 24) {
 			if (powerManager.isSustainedPerformanceModeSupported()) {
 				sustainedPerfSupported = true;
-				NativeApp.sendMessage("sustained_perf_supported","1");
+				NativeApp.sendMessage("sustained_perf_supported", "1");
 			}
         }
 
