@@ -34,6 +34,7 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanImage.h"
 #include "Common/Vulkan/VulkanMemory.h"
+#include "Common/Vulkan/VulkanRenderManager.h"
 
 // We use a simple descriptor set for all rendering: 1 sampler, 1 texture, 1 UBO binding point.
 // binding 0 - uniform data
@@ -472,6 +473,9 @@ public:
 			return (uintptr_t)cmd_;
 		case NativeObject::BOUND_TEXTURE_IMAGEVIEW:
 			return (uintptr_t)boundImageView_[0];
+
+		case NativeObject::RENDER_MANAGER:
+			return renderManager_;
 		default:
 			return 0;
 		}
@@ -490,6 +494,8 @@ private:
 	static void SetupTransitionToTransferDst(VKImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect);
 
 	VulkanContext *vulkan_ = nullptr;
+
+	VulkanRenderManager renderManager_;
 
 	VKPipeline *curPipeline_ = nullptr;
 	VKBuffer *curVBuffers_[4]{};
