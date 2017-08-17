@@ -314,7 +314,6 @@ public:
 	const VkPhysicalDeviceFeatures &GetFeaturesEnabled() const { return featuresEnabled_; }
 	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
 
-
 private:
 	VkSemaphore acquireSemaphore;
 	VkSemaphore renderingCompleteSemaphore;
@@ -381,7 +380,6 @@ private:
 
 		VulkanDeleteList deleteList;
 	};
-
 	FrameData frame_[2];
 	int curFrame_;
 

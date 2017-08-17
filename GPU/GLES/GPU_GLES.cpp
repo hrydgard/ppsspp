@@ -76,7 +76,6 @@ static const GLESCommandTableEntry commandTable[] = {
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_GLES::Execute_LoadClut },
-	{ GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_BlockTransferStart },
 };
 
 GPU_GLES::CommandInfo GPU_GLES::cmdInfo_[256];
@@ -567,22 +566,29 @@ void GPU_GLES::FastRunLoop(DisplayList &list) {
 		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
 		const u32 op = *(const u32 *)(Memory::base + list.pc);
 		const u32 cmd = op >> 24;
-		const CommandInfo info = cmdInfo[cmd];
-		const u8 cmdFlags = info.flags;      // If we stashed the cmdFlags in the top bits of the cmdmem, we could get away with one table lookup instead of two
+		const CommandInfo &info = cmdInfo[cmd];
 		const u32 diff = op ^ gstate.cmdmem[cmd];
-		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
-		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
-			drawEngine_.Flush();
-		}
-		gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
-		if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-			downcount = dc;
-			(this->*info.func)(op, diff);
-			dc = downcount;
-		} else if (diff) {
-			uint64_t dirty = info.flags >> 8;
-			if (dirty)
-				gstate_c.Dirty(dirty);
+		if (diff == 0) {
+			if (info.flags & FLAG_EXECUTE) {
+				downcount = dc;
+				(this->*info.func)(op, diff);
+				dc = downcount;
+			}
+		} else {
+			uint64_t flags = info.flags;
+			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
+				drawEngine_.Flush();
+			}
+			gstate.cmdmem[cmd] = op;
+			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
+				downcount = dc;
+				(this->*info.func)(op, diff);
+				dc = downcount;
+			} else {
+				uint64_t dirty = flags >> 8;
+				if (dirty)
+					gstate_c.Dirty(dirty);
+			}
 		}
 		list.pc += 4;
 	}
@@ -596,7 +602,7 @@ void GPU_GLES::FinishDeferred() {
 
 inline void GPU_GLES::CheckFlushOp(int cmd, u32 diff) {
 	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
+	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
 		if (dumpThisFrame_) {
 			NOTICE_LOG(G3D, "================ FLUSH ================");
 		}
@@ -676,6 +682,7 @@ void GPU_GLES::Execute_Prim(u32 op, u32 diff) {
 #endif
 
 	int bytesRead = 0;
+	UpdateUVScaleOffset();
 	drawEngine_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
 
 	int vertexCost = EstimatePerVertexCost();
@@ -720,6 +727,8 @@ void GPU_GLES::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 }
 
 void GPU_GLES::Execute_Bezier(u32 op, u32 diff) {
+	Flush();
+
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
@@ -770,6 +779,7 @@ void GPU_GLES::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
+	UpdateUVScaleOffset();
 	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
 
 	if (gstate_c.bezier)
@@ -782,6 +792,8 @@ void GPU_GLES::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
+	Flush();
+
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
@@ -839,6 +851,7 @@ void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
+	UpdateUVScaleOffset();
 	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
 
 	if (gstate_c.spline)

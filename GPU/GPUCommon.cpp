@@ -111,10 +111,12 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_LOGICOPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
 
 	{ GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_TEXSCALEU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleU },
-	{ GE_CMD_TEXSCALEV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleV },
-	{ GE_CMD_TEXOFFSETU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetU },
-	{ GE_CMD_TEXOFFSETV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetV },
+
+	// These are read on every SubmitPrim, no need for dirtying or flushing.
+	{ GE_CMD_TEXSCALEU },
+	{ GE_CMD_TEXSCALEV },
+	{ GE_CMD_TEXOFFSETU },
+	{ GE_CMD_TEXOFFSETV },
 
 	// TEXSIZE0 is handled by each backend.
 	{ GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
@@ -278,6 +280,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_TRANSFERSRCPOS, 0 },
 	{ GE_CMD_TRANSFERDSTPOS, 0 },
 	{ GE_CMD_TRANSFERSIZE, 0 },
+	{ GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_BlockTransferStart },
 
 	// We don't use the dither table.
 	{ GE_CMD_DITH0 },
@@ -1267,6 +1270,8 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_End(u32 op, u32 diff) {
+	Flush();
+
 	easy_guard guard(listLock);
 	const u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 	UpdatePC(currentList->pc, currentList->pc);
@@ -1423,22 +1428,6 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 	}
 }
 
-void GPUCommon::Execute_TexScaleU(u32 op, u32 diff) {
-	gstate_c.uv.uScale = getFloat24(op);
-}
-
-void GPUCommon::Execute_TexScaleV(u32 op, u32 diff) {
-	gstate_c.uv.vScale = getFloat24(op);
-}
-
-void GPUCommon::Execute_TexOffsetU(u32 op, u32 diff) {
-	gstate_c.uv.uOff = getFloat24(op);
-}
-
-void GPUCommon::Execute_TexOffsetV(u32 op, u32 diff) {
-	gstate_c.uv.vOff = getFloat24(op);
-}
-
 void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 	if (diff == 0xFFFFFFFF) return;
 
@@ -1451,6 +1440,7 @@ void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
+	Flush();
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -1494,6 +1484,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Spline(u32 op, u32 diff) {
+	Flush();
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -1568,6 +1559,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
+	Flush();
 	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
 	// Can we skip this on SkipDraw?
 	DoBlockTransfer(gstate_c.skipDrawReason);
