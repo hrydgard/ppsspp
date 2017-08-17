@@ -76,7 +76,6 @@ static const GLESCommandTableEntry commandTable[] = {
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_GLES::Execute_LoadClut },
-	{ GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_BlockTransferStart },
 };
 
 GPU_GLES::CommandInfo GPU_GLES::cmdInfo_[256];
@@ -580,7 +579,7 @@ void GPU_GLES::FastRunLoop(DisplayList &list) {
 			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
 				drawEngine_.Flush();
 			}
-			gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
+			gstate.cmdmem[cmd] = op;
 			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
 				downcount = dc;
 				(this->*info.func)(op, diff);

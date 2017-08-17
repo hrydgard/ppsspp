@@ -56,7 +56,6 @@ struct VulkanCommandTableEntry {
 GPU_Vulkan::CommandInfo GPU_Vulkan::cmdInfo_[256];
 
 // This table gets crunched into a faster form by init.
-// TODO: Share this table between the backends. Will have to make another indirection for the function pointers though..
 static const VulkanCommandTableEntry commandTable[] = {
 	// Changes that dirty the current texture.
 	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_TexSize0 },
@@ -72,7 +71,6 @@ static const VulkanCommandTableEntry commandTable[] = {
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_LoadClut },
-	{ GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_BlockTransferStart },
 };
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
@@ -411,7 +409,7 @@ void GPU_Vulkan::FastRunLoop(DisplayList &list) {
 			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
 				drawEngine_.Flush();
 			}
-			gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
+			gstate.cmdmem[cmd] = op;
 			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
 				downcount = dc;
 				(this->*info.func)(op, diff);

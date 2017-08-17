@@ -280,6 +280,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_TRANSFERSRCPOS, 0 },
 	{ GE_CMD_TRANSFERDSTPOS, 0 },
 	{ GE_CMD_TRANSFERSIZE, 0 },
+	{ GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_BlockTransferStart },
 
 	// We don't use the dither table.
 	{ GE_CMD_DITH0 },
