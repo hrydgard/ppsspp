@@ -9,7 +9,9 @@
 
 #if defined(__ANDROID__)
 #include <atomic>
-#elif defined(_M_SSE)
+#endif
+
+#if defined(_M_SSE)
 #include <emmintrin.h>
 #endif
 
