@@ -162,7 +162,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 	// We are going to use one-shot descriptors in the initial implementation. Might look into caching them
 	// if creating and updating them turns out to be expensive.
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		// If we run out of memory, try with less descriptors.
 		for (int tries = 0; tries < 3; ++tries) {
 			VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame_[i].descPool);
@@ -274,7 +274,7 @@ void DrawEngineVulkan::BeginFrame() {
 	lastCmd_ = VK_NULL_HANDLE;
 	lastPipeline_ = nullptr;
 
-	FrameData *frame = &frame_[curFrame_ & 1];
+	FrameData *frame = &frame_[curFrame_];
 	vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
 	frame->descSets.clear();
 
@@ -347,7 +347,7 @@ void DrawEngineVulkan::BeginFrame() {
 }
 
 void DrawEngineVulkan::EndFrame() {
-	FrameData *frame = &frame_[curFrame_ & 1];
+	FrameData *frame = &frame_[curFrame_];
 	stats_.pushUBOSpaceUsed = (int)frame->pushUBO->GetOffset();
 	stats_.pushVertexSpaceUsed = (int)frame->pushVertex->GetOffset();
 	stats_.pushIndexSpaceUsed = (int)frame->pushIndex->GetOffset();
@@ -355,6 +355,8 @@ void DrawEngineVulkan::EndFrame() {
 	frame->pushVertex->End();
 	frame->pushIndex->End();
 	curFrame_++;
+	if (curFrame_ >= vulkan_->GetInflightFrames())
+		curFrame_ = 0;
 	vertexCache_->End();
 }
 
@@ -508,7 +510,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	assert(light != VK_NULL_HANDLE);
 	assert(bone != VK_NULL_HANDLE);
 
-	FrameData *frame = &frame_[curFrame_ & 1];
+	FrameData *frame = &frame_[curFrame_];
 	if (!(gstate_c.bezier || gstate_c.spline)) { // Has no cache when HW tessellation.
 		auto iter = frame->descSets.find(key);
 		if (iter != frame->descSets.end()) {
@@ -645,7 +647,7 @@ void DrawEngineVulkan::DoFlush() {
 	if (!rp)
 		Crash();
 
-	FrameData *frame = &frame_[curFrame_ & 1];
+	FrameData *frame = &frame_[curFrame_];
 
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {

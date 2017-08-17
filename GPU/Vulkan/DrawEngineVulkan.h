@@ -162,7 +162,7 @@ public:
 	void DirtyAllUBOs();
 
 	VulkanPushBuffer *GetPushBufferForTextureData() {
-		return frame_[curFrame_ & 1].pushUBO;
+		return frame_[curFrame_].pushUBO;
 	}
 
 	const DrawEngineVulkanStats &GetStats() const {
@@ -230,7 +230,7 @@ private:
 
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 	int curFrame_;
-	FrameData frame_[2];
+	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	// Other
 	ShaderManagerVulkan *shaderManager_ = nullptr;

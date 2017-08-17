@@ -71,8 +71,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	swapchainImageCount(0),
 	swap_chain_(VK_NULL_HANDLE),
 	cmd_pool_(VK_NULL_HANDLE),
-	queue_count(0),
-	curFrame_(0) {
+	queue_count(0) {
 	if (!VulkanLoad()) {
 		init_error_ = "Failed to load Vulkan driver library";
 		// No DLL?
@@ -311,7 +310,10 @@ void VulkanContext::EndFrame() {
 	assert(!res);
 
 	frame->deleteList.Take(globalDeleteList_);
-	curFrame_ ^= 1;
+	curFrame_++;
+	if (curFrame_ >= inflightFrames_) {
+		curFrame_ = 0;
+	}
 }
 
 void VulkanContext::WaitUntilQueueIdle() {
@@ -353,18 +355,17 @@ bool  VulkanContext::InitObjects(bool depthPresent) {
 	VkCommandBufferAllocateInfo cmd_alloc = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
 	cmd_alloc.commandPool = cmd_pool_;
 	cmd_alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	cmd_alloc.commandBufferCount = 4;
+	cmd_alloc.commandBufferCount = MAX_INFLIGHT_FRAMES * 2;
 
-	VkCommandBuffer cmdBuf[4];
+	VkCommandBuffer cmdBuf[MAX_INFLIGHT_FRAMES * 2];
 	VkResult res = vkAllocateCommandBuffers(device_, &cmd_alloc, cmdBuf);
 	assert(res == VK_SUCCESS);
 
-	frame_[0].cmdBuf = cmdBuf[0];
-	frame_[0].cmdInit = cmdBuf[1];
-	frame_[0].fence = CreateFence(true);  // So it can be instantly waited on
-	frame_[1].cmdBuf = cmdBuf[2];
-	frame_[1].cmdInit = cmdBuf[3];
-	frame_[1].fence = CreateFence(true);
+	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
+		frame_[i].cmdBuf = cmdBuf[i * 2];
+		frame_[i].cmdInit = cmdBuf[i * 2 + 1];
+		frame_[i].fence = CreateFence(true);  // So it can be instantly waited on
+	}
 
 	VkCommandBuffer cmd = GetInitCommandBuffer();
 	if (!InitSwapchain(cmd)) {
@@ -381,11 +382,16 @@ bool  VulkanContext::InitObjects(bool depthPresent) {
 }
 
 void VulkanContext::DestroyObjects() {
-	VkCommandBuffer cmdBuf[4] = { frame_[0].cmdBuf, frame_[0].cmdInit, frame_[1].cmdBuf, frame_[1].cmdInit };
-
-	vkFreeCommandBuffers(device_, cmd_pool_, sizeof(cmdBuf) / sizeof(cmdBuf[0]), cmdBuf);
-	vkDestroyFence(device_, frame_[0].fence, nullptr);
-	vkDestroyFence(device_, frame_[1].fence, nullptr);
+	VkCommandBuffer *cmdBuf = new VkCommandBuffer[MAX_INFLIGHT_FRAMES * 2];
+	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
+		cmdBuf[i * 2] = frame_[i].cmdBuf;
+		cmdBuf[i * 2 + 1] = frame_[i].cmdInit;
+	}
+	vkFreeCommandBuffers(device_, cmd_pool_, MAX_INFLIGHT_FRAMES * 2, cmdBuf);
+	delete[] cmdBuf;
+	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
+		vkDestroyFence(device_, frame_[i].fence, nullptr);
+	}
 
 	DestroyFramebuffers();
 	DestroySurfaceRenderPass();

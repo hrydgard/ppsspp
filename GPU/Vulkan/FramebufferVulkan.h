@@ -163,7 +163,7 @@ private:
 		VulkanPushBuffer *push_;
 	};
 
-	FrameData frameData_[2];
+	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 	int curFrame_;
 
 	// This gets copied to the current frame's push buffer as needed.

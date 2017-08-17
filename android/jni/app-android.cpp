@@ -1090,6 +1090,7 @@ retry:
 	NativeDeviceLost();
 	renderer_inited = false;
 
+	ILOG("Shutting down graphics context.");
 	graphicsContext->Shutdown();
 	delete graphicsContext;
 	graphicsContext = nullptr;

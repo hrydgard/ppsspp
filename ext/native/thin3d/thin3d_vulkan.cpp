@@ -541,7 +541,7 @@ private:
 		VkDescriptorPool descriptorPool;
 	};
 
-	FrameData frame_[2]{};
+	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
 	int frameNum_ = 0;
 	VulkanPushBuffer *push_ = nullptr;
@@ -735,7 +735,7 @@ VKContext::VKContext(VulkanContext *vulkan)
 	p.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
 
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		VkResult res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[i].descriptorPool);
 		assert(VK_SUCCESS == res);
 		res = vkCreateCommandPool(device_, &p, nullptr, &frame_[i].cmdPool_);
@@ -846,7 +846,7 @@ VKContext::~VKContext() {
 		vulkan_->Delete().QueueDeleteRenderPass(renderPasses_[i]);
 	}
 	// This also destroys all descriptor sets.
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].descSets_.clear();
 		vulkan_->Delete().QueueDeleteDescriptorPool(frame_[i].descriptorPool);
 		frame_[i].pushBuffer->Destroy(vulkan_);
@@ -860,7 +860,7 @@ VKContext::~VKContext() {
 
 // Effectively wiped every frame, just allocate new ones!
 VkCommandBuffer VKContext::AllocCmdBuf() {
-	FrameData *frame = &frame_[frameNum_ & 1];
+	FrameData *frame = &frame_[frameNum_];
 
 	if (frame->numCmdBufs >= MAX_FRAME_COMMAND_BUFFERS)
 		Crash();
@@ -887,7 +887,7 @@ VkCommandBuffer VKContext::AllocCmdBuf() {
 void VKContext::BeginFrame() {
 	vulkan_->BeginFrame();
 
-	FrameData &frame = frame_[frameNum_ & 1];
+	FrameData &frame = frame_[frameNum_];
 	frame.startCmdBufs_ = 0;
 	frame.numCmdBufs = 0;
 	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
@@ -924,7 +924,7 @@ void VKContext::EndFrame() {
 		Crash();
 
 	// Cap off and submit all the command buffers we recorded during the frame.
-	FrameData &frame = frame_[frameNum_ & 1];
+	FrameData &frame = frame_[frameNum_];
 	for (int i = frame.startCmdBufs_; i < frame.numCmdBufs; i++) {
 		vkEndCommandBuffer(frame.cmdBufs[i]);
 		vulkan_->QueueBeforeSurfaceRender(frame.cmdBufs[i]);
@@ -936,6 +936,8 @@ void VKContext::EndFrame() {
 	vulkan_->EndFrame();
 
 	frameNum_++;
+	if (frameNum_ >= vulkan_->GetInflightFrames())
+		frameNum_ = 0;
 	push_ = nullptr;
 
 	DirtyDynamicState();
@@ -944,7 +946,7 @@ void VKContext::EndFrame() {
 VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	DescriptorSetKey key;
 
-	FrameData *frame = &frame_[frameNum_ & 1];
+	FrameData *frame = &frame_[frameNum_];
 
 	key.texture_ = boundTextures_[0];
 	key.sampler_ = boundSamplers_[0];

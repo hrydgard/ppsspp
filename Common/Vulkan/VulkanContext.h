@@ -263,7 +263,7 @@ public:
 	}
 	// This must only be accessed between BeginSurfaceRenderPass and EndSurfaceRenderPass.
 	VkCommandBuffer GetSurfaceCommandBuffer() {
-		return frame_[curFrame_ & 1].cmdBuf;
+		return frame_[curFrame_].cmdBuf;
 	}
 
 	VkCommandBuffer BeginFrame();
@@ -314,7 +314,15 @@ public:
 	const VkPhysicalDeviceFeatures &GetFeaturesEnabled() const { return featuresEnabled_; }
 	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
 
+	int GetInflightFrames() const {
+		return inflightFrames_;
+	}
+
+	enum {
+		MAX_INFLIGHT_FRAMES = 2,
+	};
 private:
+
 	VkSemaphore acquireSemaphore;
 	VkSemaphore renderingCompleteSemaphore;
 
@@ -368,6 +376,8 @@ private:
 	VkSwapchainKHR swap_chain_;
 	std::vector<swap_chain_buffer> swapChainBuffers;
 
+	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
+
 	// Manages flipping command buffers for the backbuffer render pass.
 	// It is recommended to do the same for other rendering passes.
 	struct FrameData {
@@ -380,8 +390,8 @@ private:
 
 		VulkanDeleteList deleteList;
 	};
-	FrameData frame_[2];
-	int curFrame_;
+	FrameData frame_[MAX_INFLIGHT_FRAMES];
+	int curFrame_ = 0;
 
 	// At the end of the frame, this is copied into the frame's delete list, so it can be processed
 	// the next time the frame comes around again.

@@ -60,7 +60,7 @@ void Vulkan2D::Shutdown() {
 }
 
 void Vulkan2D::DestroyDeviceObjects() {
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		if (frameData_[i].descPool != VK_NULL_HANDLE) {
 			vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
 		}
@@ -146,7 +146,9 @@ void Vulkan2D::BeginFrame() {
 }
 
 void Vulkan2D::EndFrame() {
-	curFrame_ = (curFrame_ + 1) & 1;
+	curFrame_++;
+	if (curFrame_ >= vulkan_->GetInflightFrames())
+		curFrame_ = 0;
 }
 
 VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1, VkImageView tex2, VkSampler sampler2) {
@@ -156,7 +158,7 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	key.sampler[0] = sampler1;
 	key.sampler[1] = sampler2;
 
-	FrameData *frame = &frameData_[curFrame_ & 1];
+	FrameData *frame = &frameData_[curFrame_];
 	auto iter = frame->descSets.find(key);
 	if (iter != frame->descSets.end()) {
 		return iter->second;

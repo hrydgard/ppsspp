@@ -115,7 +115,7 @@ void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
 
 void FramebufferManagerVulkan::InitDeviceObjects() {
 	// Initialize framedata
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
 	}
 
@@ -146,7 +146,7 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::DestroyDeviceObjects() {
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		if (frameData_[i].push_) {
 			frameData_[i].push_->Destroy(vulkan_);
 			delete frameData_[i].push_;
@@ -948,7 +948,9 @@ void FramebufferManagerVulkan::EndFrame() {
 	vulkan2D_.EndFrame();
 
 	curFrame_++;
-	curFrame_ &= 1;
+	if (curFrame_ >= vulkan_->GetInflightFrames()) {
+		curFrame_ = 0;
+	}
 }
 
 void FramebufferManagerVulkan::DeviceLost() {

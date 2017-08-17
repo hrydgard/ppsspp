@@ -131,8 +131,8 @@ private:
 		std::map<DescriptorSetKey, VkDescriptorSet> descSets;
 	};
 
-	FrameData frameData_[2];
-	int curFrame_;
+	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
+	int curFrame_ = 0;
 
 	std::map<PipelineKey, VkPipeline> pipelines_;
 };
