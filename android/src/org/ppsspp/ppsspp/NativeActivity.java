@@ -292,16 +292,18 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 	@TargetApi(24)
 	private void updateSustainedPerformanceMode() {
-		// Query the native application on the desired rotation.
-		int enable = 0;
-		String str = NativeApp.queryConfig("sustainedPerformanceMode");
-		try {
-			enable = Integer.parseInt(str);
-		} catch (NumberFormatException e) {
-			Log.e(TAG, "Invalid perf mode: " + str);
-			return;
+		if (sustainedPerfSupported) {
+			// Query the native application on the desired rotation.
+			int enable = 0;
+			String str = NativeApp.queryConfig("sustainedPerformanceMode");
+			try {
+				enable = Integer.parseInt(str);
+			} catch (NumberFormatException e) {
+				Log.e(TAG, "Invalid perf mode: " + str);
+				return;
+			}
+			getWindow().setSustainedPerformanceMode(enable != 0);
 		}
-		getWindow().setSustainedPerformanceMode(enable != 0);
 	}
 
 	@TargetApi(9)
