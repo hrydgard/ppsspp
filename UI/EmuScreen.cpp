@@ -787,7 +787,8 @@ void EmuScreen::CreateViews() {
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 	releaseButtons();
-	DevMenu *devMenu = new DevMenu();
+	I18NCategory *dev = GetI18NCategory("Developer");
+	DevMenu *devMenu = new DevMenu(dev);
 	if (params.v)
 		devMenu->SetPopupOrigin(params.v);
 	screenManager()->push(devMenu);
