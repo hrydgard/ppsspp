@@ -784,6 +784,9 @@
     <ClCompile Include="gfx_es2\draw_text_android.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
+    <ClCompile Include="math\dataconv.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">

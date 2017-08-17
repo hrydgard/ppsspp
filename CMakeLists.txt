@@ -892,6 +892,8 @@ add_library(native STATIC
 	ext/native/math/fast/fast_matrix.c
 	ext/native/math/fast/fast_matrix_neon.S
 	ext/native/math/fast/fast_matrix_sse.c
+	ext/native/math/dataconv.cpp
+	ext/native/math/dataconv.h
 	ext/native/math/curves.cpp
 	ext/native/math/curves.h
 	ext/native/math/expression_parser.cpp
