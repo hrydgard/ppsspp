@@ -758,29 +758,25 @@ void DrawEngineVulkan::DoFlush() {
 				}
 
 				if (!vai->vb) {
-					// same as MaxIndex
-					int numVertsToDecode = ComputeNumVertsToDecode();
 					// Directly push to the vertex cache.
 					DecodeVerts(vertexCache_, &vai->vbOffset, &vai->vb);
 					_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
+					vai->numVerts = indexGen.VertexCount();
+					vai->prim = indexGen.Prim();
+					vai->maxIndex = indexGen.MaxIndex();
+					vai->flags = gstate_c.vertexFullAlpha ? VAIVULKAN_FLAG_VERTEXFULLALPHA : 0;
+					useElements = !indexGen.SeenOnlyPurePrims();
+					if (!useElements && indexGen.PureCount()) {
+						vai->numVerts = indexGen.PureCount();
+					}
 					if (useElements) {
 						u32 size = sizeof(uint16_t) * indexGen.VertexCount();
 						void *dest = vertexCache_->Push(size, &vai->ibOffset, &vai->ib);
 						memcpy(dest, decIndex, size);
 					} else {
-						vai->ib = 0;
+						vai->ib = VK_NULL_HANDLE;
 						vai->ibOffset = 0;
 					}
-					vai->numVerts = indexGen.VertexCount();
-					vai->prim = indexGen.Prim();
-					vai->maxIndex = indexGen.MaxIndex();
-					_dbg_assert_msg_(G3D, vai->maxIndex == numVertsToDecode, "maxindex wrong.");
-					vai->flags = gstate_c.vertexFullAlpha ? VAIVULKAN_FLAG_VERTEXFULLALPHA : 0;
-					/*
-					useElements = !indexGen.SeenOnlyPurePrims();
-					if (!useElements && indexGen.PureCount()) {
-						vai->numVerts = indexGen.PureCount();
-					}*/
 				} else {
 					gpuStats.numCachedDrawCalls++;
 					useElements = vai->ib ? true : false;
@@ -810,9 +806,7 @@ void DrawEngineVulkan::DoFlush() {
 				ibuf = vai->ib;
 				vbOffset = vai->vbOffset;
 				ibOffset = vai->ibOffset;
-
 				vertexCount = vai->numVerts;
-
 				maxIndex = vai->maxIndex;
 				prim = static_cast<GEPrimitiveType>(vai->prim);
 
