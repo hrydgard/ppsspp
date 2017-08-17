@@ -1267,6 +1267,8 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_End(u32 op, u32 diff) {
+	Flush();
+
 	easy_guard guard(listLock);
 	const u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 	UpdatePC(currentList->pc, currentList->pc);
@@ -1451,6 +1453,7 @@ void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
+	Flush();
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -1494,6 +1497,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Spline(u32 op, u32 diff) {
+	Flush();
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -1568,6 +1572,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
+	Flush();
 	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
 	// Can we skip this on SkipDraw?
 	DoBlockTransfer(gstate_c.skipDrawReason);

@@ -397,7 +397,7 @@ void GPU_D3D11::FastRunLoop(DisplayList &list) {
 		const u8 cmdFlags = info.flags;      // If we stashed the cmdFlags in the top bits of the cmdmem, we could get away with one table lookup instead of two
 		const u32 diff = op ^ gstate.cmdmem[cmd];
 		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
-		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
+		if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
 			drawEngine_.Flush();
 		}
 		gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
@@ -546,6 +546,8 @@ void GPU_D3D11::Execute_Prim(u32 op, u32 diff) {
 }
 
 void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
+	Flush();
+
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
@@ -608,6 +610,8 @@ void GPU_D3D11::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPU_D3D11::Execute_Spline(u32 op, u32 diff) {
+	Flush();
+
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
