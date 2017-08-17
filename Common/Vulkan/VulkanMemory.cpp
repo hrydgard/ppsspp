@@ -114,6 +114,14 @@ void VulkanPushBuffer::Defragment(VulkanContext *vulkan) {
 	assert(res);
 }
 
+size_t VulkanPushBuffer::GetTotalSize() const {
+	size_t sum = 0;
+	if (buffers_.size() > 1)
+		sum += size_ * (buffers_.size() - 1);
+	sum += offset_;
+	return sum;
+}
+
 VulkanDeviceAllocator::VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize)
 	: vulkan_(vulkan), lastSlab_(0), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE), destroyed_(false) {
 	assert((minSlabSize_ & (SLAB_GRAIN_SIZE - 1)) == 0);

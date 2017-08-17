@@ -59,7 +59,7 @@ public:
 	}
 
 	void SetIndex(int ind) { index_ = ind; }
-	int MaxIndex() const { return index_; }
+	int MaxIndex() const { return index_; }  // Really NextIndex rather than MaxIndex, it's one more than the highest index generated
 	int VertexCount() const { return count_; }
 	bool Empty() const { return index_ == 0; }
 	int SeenPrims() const { return seenPrims_; }
