@@ -356,27 +356,38 @@ void GPU_DX9::CopyDisplayToOutputInternal() {
 void GPU_DX9::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("gpuloop");
 	const CommandInfo *cmdInfo = cmdInfo_;
-	for (; downcount > 0; --downcount) {
+	int dc = downcount;
+	for (; dc > 0; --dc) {
 		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
 		const u32 op = *(const u32 *)(Memory::base + list.pc);
 		const u32 cmd = op >> 24;
-		const CommandInfo info = cmdInfo[cmd];
-		const u8 cmdFlags = info.flags;      // If we stashed the cmdFlags in the top bits of the cmdmem, we could get away with one table lookup instead of two
+		const CommandInfo &info = cmdInfo[cmd];
 		const u32 diff = op ^ gstate.cmdmem[cmd];
-		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
-		if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
-			drawEngine_.Flush();
-		}
-		gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
-		if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-			(this->*info.func)(op, diff);
-		} else if (diff) {
-			uint64_t dirty = info.flags >> 8;
-			if (dirty)
-				gstate_c.Dirty(dirty);
+		if (diff == 0) {
+			if (info.flags & FLAG_EXECUTE) {
+				downcount = dc;
+				(this->*info.func)(op, diff);
+				dc = downcount;
+			}
+		} else {
+			uint64_t flags = info.flags;
+			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
+				drawEngine_.Flush();
+			}
+			gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
+			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
+				downcount = dc;
+				(this->*info.func)(op, diff);
+				dc = downcount;
+			} else {
+				uint64_t dirty = flags >> 8;
+				if (dirty)
+					gstate_c.Dirty(dirty);
+			}
 		}
 		list.pc += 4;
 	}
+	downcount = 0;
 }
 
 void GPU_DX9::FinishDeferred() {
@@ -499,6 +510,7 @@ void GPU_DX9::Execute_Prim(u32 op, u32 diff) {
 #endif
 
 	int bytesRead = 0;
+	UpdateUVScaleOffset();
 	drawEngine_.SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
 
 	int vertexCost = EstimatePerVertexCost() * count;
@@ -553,6 +565,7 @@ void GPU_DX9::Execute_Bezier(u32 op, u32 diff) {
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
 	int bytesRead = 0;
+	UpdateUVScaleOffset();
 	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
@@ -605,6 +618,7 @@ void GPU_DX9::Execute_Spline(u32 op, u32 diff) {
 	bool patchFacing = gstate.patchfacing & 1;
 	u32 vertType = gstate.vertType;
 	int bytesRead = 0;
+	UpdateUVScaleOffset();
 	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.

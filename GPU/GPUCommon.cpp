@@ -111,10 +111,12 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_LOGICOPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
 
 	{ GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_TEXSCALEU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleU },
-	{ GE_CMD_TEXSCALEV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexScaleV },
-	{ GE_CMD_TEXOFFSETU, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetU },
-	{ GE_CMD_TEXOFFSETV, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_TexOffsetV },
+
+	// These are read on every SubmitPrim, no need for dirtying or flushing.
+	{ GE_CMD_TEXSCALEU },
+	{ GE_CMD_TEXSCALEV },
+	{ GE_CMD_TEXOFFSETU },
+	{ GE_CMD_TEXOFFSETV },
 
 	// TEXSIZE0 is handled by each backend.
 	{ GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
@@ -1423,22 +1425,6 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 		DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
 		break;
 	}
-}
-
-void GPUCommon::Execute_TexScaleU(u32 op, u32 diff) {
-	gstate_c.uv.uScale = getFloat24(op);
-}
-
-void GPUCommon::Execute_TexScaleV(u32 op, u32 diff) {
-	gstate_c.uv.vScale = getFloat24(op);
-}
-
-void GPUCommon::Execute_TexOffsetU(u32 op, u32 diff) {
-	gstate_c.uv.uOff = getFloat24(op);
-}
-
-void GPUCommon::Execute_TexOffsetV(u32 op, u32 diff) {
-	gstate_c.uv.vOff = getFloat24(op);
 }
 
 void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
