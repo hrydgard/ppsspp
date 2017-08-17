@@ -72,7 +72,7 @@ public:
 	}
 	~VertexArrayInfoD3D11();
 
-	enum Status {
+	enum Status : uint8_t {
 		VAI_NEW,
 		VAI_HASHING,
 		VAI_RELIABLE,  // cache, don't hash
@@ -82,8 +82,6 @@ public:
 	ReliableHashType hash;
 	u32 minihash;
 
-	Status status;
-
 	ID3D11Buffer *vbo;
 	ID3D11Buffer *ebo;
 
@@ -91,6 +89,7 @@ public:
 	u16 numVerts;
 	u16 maxIndex;
 	s8 prim;
+	Status status;
 
 	// ID information
 	int numDraws;

@@ -68,6 +68,49 @@ struct DrawEngineVulkanStats {
 	int pushIndexSpaceUsed;
 };
 
+enum {
+	VAIVULKAN_FLAG_VERTEXFULLALPHA = 1,
+};
+
+// Try to keep this POD.
+class VertexArrayInfoVulkan {
+public:
+	VertexArrayInfoVulkan() {
+		lastFrame = gpuStats.numFlips;
+	}
+	// No destructor needed - we always fully wipe.
+
+	enum Status : uint8_t {
+		VAI_NEW,
+		VAI_HASHING,
+		VAI_RELIABLE,  // cache, don't hash
+		VAI_UNRELIABLE,  // never cache
+	};
+
+	ReliableHashType hash;
+	u32 minihash;
+
+	// These will probably always be the same, but whatever.
+	VkBuffer vb = VK_NULL_HANDLE;
+	VkBuffer ib = VK_NULL_HANDLE;
+	// Offsets into the cache buffer.
+	uint32_t vbOffset = 0;
+	uint32_t ibOffset = 0;
+
+	// Precalculated parameter for vkDrawIndexed
+	u16 numVerts = 0;
+	u16 maxIndex = 0;
+	s8 prim = GE_PRIM_INVALID;
+	Status status = VAI_NEW;
+
+	// ID information
+	int numDraws = 0;
+	int numFrames = 0;
+	int lastFrame;  // So that we can forget.
+	u16 drawsUntilNextFullHash = 0;
+	u8 flags = 0;
+};
+
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
@@ -134,6 +177,7 @@ private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
+	int ComputeNumVertsToDecode() const;
 	void DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 
 	void DoFlush();
@@ -149,6 +193,10 @@ private:
 	VkPipelineLayout pipelineLayout_;
 	VkCommandBuffer lastCmd_ = VK_NULL_HANDLE;
 	VulkanPipeline *lastPipeline_;
+
+	std::unordered_map<u32, VertexArrayInfoVulkan *> vai_;
+	VulkanPushBuffer *vertexCache_;
+	int decimationCounter_ = 0;
 
 	struct DescriptorSetKey {
 		VkImageView imageView_;

@@ -38,13 +38,18 @@ public:
 		Map();
 	}
 
+	void BeginNoReset() {
+		Map();
+	}
+
 	void End() {
 		Unmap();
 	}
 
 	void Map() {
 		assert(!writePtr_);
-		VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, offset_, size_, 0, (void **)(&writePtr_));
+		VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
+		assert(writePtr_);
 		assert(VK_SUCCESS == res);
 	}
 
@@ -104,6 +109,8 @@ public:
 		*bindOffset = (uint32_t)off;
 		return writePtr_ + off;
 	}
+
+	size_t GetTotalSize() const;
 
 private:
 	bool AddBuffer();
