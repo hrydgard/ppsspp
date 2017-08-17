@@ -182,25 +182,29 @@ void ControlMapper::MappedCallback(KeyDef kdf) {
 UI::EventReturn ControlMapper::OnReplace(UI::EventParams &params) {
 	actionIndex_ = atoi(params.v->Tag().c_str());
 	action_ = REPLACEONE;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn ControlMapper::OnReplaceAll(UI::EventParams &params) {
 	action_ = REPLACEALL;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn ControlMapper::OnAdd(UI::EventParams &params) {
 	action_ = ADD;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 UI::EventReturn ControlMapper::OnAddMouse(UI::EventParams &params) {
 	action_ = ADD;
 	g_Config.bMapMouse = true;
-	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
