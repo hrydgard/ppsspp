@@ -156,7 +156,7 @@ bool getFileInfo(const char *path, FileInfo *fileInfo) {
 
 	std::string copy(path);
 
-#ifdef __ANDROID__ && __ANDROID_API__ < 21
+#if (defined __ANDROID__) && (__ANDROID_API__ < 21)
 	struct stat file_info;
 	int result = stat(copy.c_str(), &file_info);
 #else
