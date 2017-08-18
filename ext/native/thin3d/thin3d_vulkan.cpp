@@ -914,13 +914,7 @@ void VKContext::WaitRenderCompletion(Framebuffer *fbo) {
 }
 
 void VKContext::EndFrame() {
-	if (curRenderPass_) {
-		// ELOG("EndFrame: Ending render pass");
-		vulkan_->EndSurfaceRenderPass();
-		curRenderPass_ = VK_NULL_HANDLE;
-		curFramebuffer_ = VK_NULL_HANDLE;
-		cmd_ = nullptr;
-	}
+	EndCurrentRenderpass();
 
 	if (cmd_)
 		Crash();
