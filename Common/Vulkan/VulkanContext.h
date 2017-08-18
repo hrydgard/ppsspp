@@ -233,7 +233,6 @@ public:
 	void InitSurfaceRenderPass(bool include_depth, bool clear);
 	void InitFramebuffers(bool include_depth);
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);
-	void InitCommandPool();
 
 	// Also destroys the surface.
 	void DestroyObjects();
@@ -242,7 +241,6 @@ public:
 	void DestroyFramebuffers();
 	void DestroySwapChain();
 	void DestroyDepthStencilBuffer();
-	void DestroyCommandPool();
 	void DestroyDevice();
 
 	void WaitUntilQueueIdle();
@@ -333,9 +331,6 @@ private:
 	ANativeWindow *native_window;
 #endif // _WIN32
 
-	// TODO: Move to frame data
-	VkCommandPool cmd_pool_;
-
 	VkInstance instance_;
 	VkDevice device_;
 	VkQueue gfx_queue_;
@@ -385,6 +380,9 @@ private:
 
 		VkFence fence;
 		bool hasInitCommands;
+
+		// TODO: Move to frame data
+		VkCommandPool cmdPool;
 		VkCommandBuffer cmdInit;
 		VkCommandBuffer cmdBuf;
 

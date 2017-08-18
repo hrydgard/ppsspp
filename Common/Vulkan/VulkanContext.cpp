@@ -70,7 +70,6 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	swapchain_format(VK_FORMAT_UNDEFINED),
 	swapchainImageCount(0),
 	swap_chain_(VK_NULL_HANDLE),
-	cmd_pool_(VK_NULL_HANDLE),
 	queue_count(0) {
 	if (!VulkanLoad()) {
 		init_error_ = "Failed to load Vulkan driver library";
@@ -230,8 +229,14 @@ VkCommandBuffer VulkanContext::BeginFrame() {
 	// Process pending deletes.
 	frame->deleteList.PerformDeletes(device_);
 
+	// Reset both command buffers in one fell swoop.
+	// Note that on the first frame, there might already be commands so don't reset in that case.
+	if (!frame->hasInitCommands) {
+		vkResetCommandPool(device_, frame->cmdPool, 0);
+	}
+
 	VkCommandBufferBeginInfo begin = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-	begin.flags = 0;
+	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	begin.pInheritanceInfo = nullptr;
 	res = vkBeginCommandBuffer(frame->cmdBuf, &begin);
 
@@ -341,29 +346,34 @@ void VulkanBeginCommandBuffer(VkCommandBuffer cmd) {
 	VkResult U_ASSERT_ONLY res;
 	VkCommandBufferBeginInfo cmd_buf_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 	cmd_buf_info.pInheritanceInfo = nullptr;
-	cmd_buf_info.flags = 0;
+	cmd_buf_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	res = vkBeginCommandBuffer(cmd, &cmd_buf_info);
 	assert(res == VK_SUCCESS);
 }
 
 bool  VulkanContext::InitObjects(bool depthPresent) {
 	InitQueue();
-	InitCommandPool();
 
 	// Create frame data
-
-	VkCommandBufferAllocateInfo cmd_alloc = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-	cmd_alloc.commandPool = cmd_pool_;
-	cmd_alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	cmd_alloc.commandBufferCount = MAX_INFLIGHT_FRAMES * 2;
-
-	VkCommandBuffer cmdBuf[MAX_INFLIGHT_FRAMES * 2];
-	VkResult res = vkAllocateCommandBuffers(device_, &cmd_alloc, cmdBuf);
-	assert(res == VK_SUCCESS);
-
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].cmdBuf = cmdBuf[i * 2];
-		frame_[i].cmdInit = cmdBuf[i * 2 + 1];
+		VkResult U_ASSERT_ONLY res;
+		VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+		cmd_pool_info.queueFamilyIndex = graphics_queue_family_index_;
+		cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+
+		res = vkCreateCommandPool(device_, &cmd_pool_info, NULL, &frame_[i].cmdPool);
+		assert(res == VK_SUCCESS);
+
+		VkCommandBufferAllocateInfo cmd_alloc = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+		cmd_alloc.commandPool = frame_[i].cmdPool;
+		cmd_alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		cmd_alloc.commandBufferCount = 2;
+
+		VkCommandBuffer cmdBuf[2];
+		res = vkAllocateCommandBuffers(device_, &cmd_alloc, cmdBuf);
+		assert(res == VK_SUCCESS);
+		frame_[i].cmdBuf = cmdBuf[0];
+		frame_[i].cmdInit = cmdBuf[1];
 		frame_[i].fence = CreateFence(true);  // So it can be instantly waited on
 	}
 
@@ -382,13 +392,13 @@ bool  VulkanContext::InitObjects(bool depthPresent) {
 }
 
 void VulkanContext::DestroyObjects() {
-	VkCommandBuffer *cmdBuf = new VkCommandBuffer[MAX_INFLIGHT_FRAMES * 2];
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-		cmdBuf[i * 2] = frame_[i].cmdBuf;
-		cmdBuf[i * 2 + 1] = frame_[i].cmdInit;
+		VkCommandBuffer cmdBuf[2];
+		cmdBuf[0] = frame_[i].cmdBuf;
+		cmdBuf[1] = frame_[i].cmdInit;
+		vkFreeCommandBuffers(device_, frame_[i].cmdPool, 2, cmdBuf);
+		vkDestroyCommandPool(device_, frame_[i].cmdPool, nullptr);
 	}
-	vkFreeCommandBuffers(device_, cmd_pool_, MAX_INFLIGHT_FRAMES * 2, cmdBuf);
-	delete[] cmdBuf;
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		vkDestroyFence(device_, frame_[i].fence, nullptr);
 	}
@@ -397,7 +407,6 @@ void VulkanContext::DestroyObjects() {
 	DestroySurfaceRenderPass();
 	DestroyDepthStencilBuffer();
 	DestroySwapChain();
-	DestroyCommandPool();
 
 	// If there happen to be any pending deletes, now is a good time.
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
@@ -1201,17 +1210,6 @@ void VulkanContext::InitFramebuffers(bool include_depth) {
 	}
 }
 
-void VulkanContext::InitCommandPool() {
-	VkResult U_ASSERT_ONLY res;
-
-	VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-	cmd_pool_info.queueFamilyIndex = graphics_queue_family_index_;
-	cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-
-	res = vkCreateCommandPool(device_, &cmd_pool_info, NULL, &cmd_pool_);
-	assert(res == VK_SUCCESS);
-}
-
 VkFence VulkanContext::CreateFence(bool presignalled) {
 	VkFence fence;
 	VkFenceCreateInfo fenceInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
@@ -1223,12 +1221,6 @@ VkFence VulkanContext::CreateFence(bool presignalled) {
 void VulkanContext::WaitAndResetFence(VkFence fence) {
 	vkWaitForFences(device_, 1, &fence, true, UINT64_MAX);
 	vkResetFences(device_, 1, &fence);
-}
-
-void VulkanContext::DestroyCommandPool() {
-	if (cmd_pool_ != VK_NULL_HANDLE)
-		vkDestroyCommandPool(device_, cmd_pool_, NULL);
-	cmd_pool_ = VK_NULL_HANDLE;
 }
 
 void VulkanContext::DestroyDepthStencilBuffer() {
