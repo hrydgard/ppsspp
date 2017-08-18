@@ -25,6 +25,7 @@
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
 #include "math/dataconv.h"
+#include "profiler/profiler.h"
 #include "util/text/utf8.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanMemory.h"
@@ -42,6 +43,7 @@
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, const char *code, bool useHWTransform)
 	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(0) {
+	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
 
 	std::string errorMessage;
@@ -99,6 +101,7 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting)
 	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(VK_NULL_HANDLE), usesLighting_(usesLighting) {
+	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
@@ -166,19 +169,6 @@ ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
 ShaderManagerVulkan::~ShaderManagerVulkan() {
 	ClearShaders();
 	delete[] codeBuffer_;
-}
-
-uint32_t ShaderManagerVulkan::PushBaseBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-	return dest->PushAligned(&ub_base, sizeof(ub_base), uboAlignment_, buf);
-}
-
-uint32_t ShaderManagerVulkan::PushLightBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-	return dest->PushAligned(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
-}
-
-// TODO: Only push half the bone buffer if we only have four bones.
-uint32_t ShaderManagerVulkan::PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-	return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
 }
 
 void ShaderManagerVulkan::DeviceRestore(VulkanContext *vulkan) {

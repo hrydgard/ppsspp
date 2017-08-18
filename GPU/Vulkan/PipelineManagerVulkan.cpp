@@ -1,5 +1,7 @@
 #include <cstring>
 
+#include "profiler/profiler.h"
+
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/Vulkan/VulkanContext.h"
@@ -307,7 +309,9 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	if (iter != pipelines_.end()) {
 		return iter->second;
 	}
-	
+
+	PROFILE_THIS_SCOPE("pipelinebuild");
+
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
 		rasterKey, vtxDec, vs, fs, useHwTransform);

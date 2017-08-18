@@ -3,6 +3,8 @@
 #include <mutex>
 
 #include "base/timeutil.h"
+#include "profiler/profiler.h"
+
 #include "Common/ColorConv.h"
 #include "Core/Reporting.h"
 #include "GPU/GeDisasm.h"
@@ -1211,6 +1213,7 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Call(u32 op, u32 diff) {
+	PROFILE_THIS_SCOPE("gpu_call");
 	easy_guard guard(listLock);
 
 	// Saint Seiya needs correct support for relative calls.
@@ -1559,6 +1562,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_BlockTransferStart(u32 op, u32 diff) {
+	PROFILE_THIS_SCOPE("block");
 	Flush();
 	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
 	// Can we skip this on SkipDraw?
@@ -1574,6 +1578,7 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 
 	// We must record the individual data commands while debugRecording_.
 	bool fastLoad = !debugRecording_;
+	// Stalling in the middle of a matrix would be stupid, I doubt this check is necessary.
 	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
 		fastLoad = false;
 	}
@@ -1786,7 +1791,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 			}
 
 			const int numPlusCount = (op & 0x7F) + i;
-			for (int num = op & 0x7F; num < numPlusCount; num += 12) {
+			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
 				gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 			}
 		} else {
@@ -1798,7 +1803,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 			}
 
 			const int numPlusCount = (op & 0x7F) + i;
-			for (int num = op & 0x7F; num < numPlusCount; num += 12) {
+			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
 				gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
 			}
 		}

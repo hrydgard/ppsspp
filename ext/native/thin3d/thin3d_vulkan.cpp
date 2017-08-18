@@ -337,6 +337,7 @@ private:
 		if (vkTex_) {
 			vkTex_->Destroy();
 			delete vkTex_;
+			vkTex_ = nullptr;
 		}
 	}
 
@@ -356,6 +357,7 @@ struct VKImage {
 	VkDeviceMemory memory;
 	VkImageLayout layout;
 };
+
 class VKContext : public DrawContext {
 public:
 	VKContext(VulkanContext *vulkan);

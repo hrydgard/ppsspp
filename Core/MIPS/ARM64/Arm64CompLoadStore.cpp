@@ -129,8 +129,6 @@ namespace MIPSComp {
 			}
 		}
 
-		DISABLE;
-
 		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
 		std::vector<FixupBranch> skips;
 

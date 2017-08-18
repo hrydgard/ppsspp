@@ -20,6 +20,7 @@
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "math/dataconv.h"
+#include "profiler/profiler.h"
 
 #include "Common/MemoryUtil.h"
 #include "Core/MemMap.h"
@@ -51,7 +52,7 @@
 
 
 enum {
-	VERTEX_CACHE_SIZE = 4096 * 1024
+	VERTEX_CACHE_SIZE = 8192 * 1024
 };
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
@@ -275,8 +276,6 @@ void DrawEngineVulkan::BeginFrame() {
 	lastPipeline_ = nullptr;
 
 	FrameData *frame = &frame_[curFrame_];
-	vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
-	frame->descSets.clear();
 
 	// First reset all buffers, then begin. This is so that Reset can free memory and Begin can allocate it,
 	// if growing the buffer is needed. Doing it this way will reduce fragmentation if more than one buffer
@@ -323,6 +322,8 @@ void DrawEngineVulkan::BeginFrame() {
 	vertexCache_->BeginNoReset();
 
 	if (--decimationCounter_ <= 0) {
+		vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
+		frame->descSets.clear();
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 
 		const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
@@ -498,7 +499,7 @@ void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset,
 }
 
 
-VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone) {
+VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone) {
 	DescriptorSetKey key;
 	key.imageView_ = imageView;
 	key.sampler_ = sampler;
@@ -511,7 +512,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	assert(bone != VK_NULL_HANDLE);
 
 	FrameData *frame = &frame_[curFrame_];
-	if (!(gstate_c.bezier || gstate_c.spline)) { // Has no cache when HW tessellation.
+	if (!gstate_c.bezier && !gstate_c.spline) { // Has no cache when HW tessellation.
 		auto iter = frame->descSets.find(key);
 		if (iter != frame->descSets.end()) {
 			return iter->second;
@@ -629,8 +630,9 @@ void MarkUnreliable(VertexArrayInfoVulkan *vai) {
 	// For now we just leave it in the pushbuffer.
 }
 
-// The inline wrapper in the header checks for numDrawCalls == 0d
+// The inline wrapper in the header checks for numDrawCalls == 0
 void DrawEngineVulkan::DoFlush() {
+	PROFILE_THIS_SCOPE("Flush");
 	gpuStats.numFlushes++;
 	// TODO: Should be enough to update this once per frame?
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
@@ -640,7 +642,7 @@ void DrawEngineVulkan::DoFlush() {
 		lastPipeline_ = nullptr;
 		lastCmd_ = cmd;
 		// Since we have a new cmdbuf, dirty our dynamic state so it gets re-set.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE|DIRTY_DEPTHSTENCIL_STATE);
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE|DIRTY_DEPTHSTENCIL_STATE|DIRTY_BLEND_STATE);
 	}
 
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS);
@@ -671,8 +673,6 @@ void DrawEngineVulkan::DoFlush() {
 	uint32_t ibOffset = 0;
 	uint32_t vbOffset = 0;
 	
-	VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
-
 	if (useHWTransform) {
 		// We don't detect clears in this path, so here we can switch framebuffers if necessary.
 
@@ -690,6 +690,7 @@ void DrawEngineVulkan::DoFlush() {
 		}
 
 		if (useCache) {
+			PROFILE_THIS_SCOPE("vcache");
 			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
 			auto iter = vai_.find(id);
 			VertexArrayInfoVulkan *vai;
@@ -722,6 +723,7 @@ void DrawEngineVulkan::DoFlush() {
 			// But if we get this far it's likely to be worth uploading the data.
 			case VertexArrayInfoVulkan::VAI_HASHING:
 			{
+				PROFILE_THIS_SCOPE("vcachehash");
 				vai->numDraws++;
 				if (vai->lastFrame != gpuStats.numFlips) {
 					vai->numFrames++;
@@ -856,6 +858,7 @@ void DrawEngineVulkan::DoFlush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
+		PROFILE_THIS_SCOPE("updatestate");
 		if (textureNeedsApply) {
 			textureCache_->ApplyTexture();
 			textureCache_->GetVulkanHandles(imageView, sampler);
@@ -870,6 +873,7 @@ void DrawEngineVulkan::DoFlush() {
 			if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 				ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 			}
+			VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, true);
 			if (!pipeline) {
 				// Already logged, let's bail out.
@@ -885,10 +889,12 @@ void DrawEngineVulkan::DoFlush() {
 		lastPrim_ = prim;
 
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
-
 		UpdateUBOs(frame);
 
-		VkDescriptorSet ds = GetDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
+		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
+
+		{
+		PROFILE_THIS_SCOPE("vkdraw");
 
 		const uint32_t dynamicUBOOffsets[3] = {
 			baseUBOOffset, lightUBOOffset, boneUBOOffset,
@@ -911,7 +917,9 @@ void DrawEngineVulkan::DoFlush() {
 			vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, offsets);
 			vkCmdDraw(cmd, vertexCount, 1, 0, 0);
 		}
+		}
 	} else {
+		PROFILE_THIS_SCOPE("soft");
 		// Decode to "decoded"
 		DecodeVerts(nullptr, nullptr, nullptr);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -928,7 +936,6 @@ void DrawEngineVulkan::DoFlush() {
 			prim = GE_PRIM_TRIANGLES;
 		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
-		lastPrim_ = prim;
 		int numTrans = 0;
 		bool drawIndexed = false;
 		u16 *inds = decIndex;
@@ -963,26 +970,37 @@ void DrawEngineVulkan::DoFlush() {
 					sampler = nullSampler_;
 			}
 
-			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
-			ApplyDrawStateLate(cmd, result.setStencil, result.stencilValue);
-
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, false);
-			if (!pipeline) {
-				// Already logged, let's bail out.
-				return;
+			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
+				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
+				if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
+					ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
+				}
+				VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
+				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, false);
+				if (!pipeline) {
+					// Already logged, let's bail out.
+					return;
+				}
+				if (pipeline != lastPipeline_) {
+					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+					lastPipeline_ = pipeline;
+				}
+				ApplyDrawStateLate(cmd, false, 0);
+				gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 			}
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+			lastPrim_ = prim;
 
 			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
 			UpdateUBOs(frame);
 
-			VkDescriptorSet ds = GetDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
+			VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
 			const uint32_t dynamicUBOOffsets[3] = {
 				baseUBOOffset, lightUBOOffset, boneUBOOffset,
 			};
+
+			PROFILE_THIS_SCOPE("vkdrawsoft");
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
 			if (drawIndexed) {

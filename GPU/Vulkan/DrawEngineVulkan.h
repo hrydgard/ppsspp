@@ -183,7 +183,7 @@ private:
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
 
-	VkDescriptorSet GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone);
+	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone);
 
 	VulkanContext *vulkan_;
 	Draw::DrawContext *draw_;
@@ -193,6 +193,7 @@ private:
 	VkPipelineLayout pipelineLayout_;
 	VkCommandBuffer lastCmd_ = VK_NULL_HANDLE;
 	VulkanPipeline *lastPipeline_;
+	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
 
 	std::unordered_map<u32, VertexArrayInfoVulkan *> vai_;
 	VulkanPushBuffer *vertexCache_;

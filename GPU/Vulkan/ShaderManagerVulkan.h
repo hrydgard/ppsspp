@@ -21,6 +21,7 @@
 
 #include "base/basictypes.h"
 #include "Globals.h"
+#include "Common/Vulkan/VulkanMemory.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
@@ -113,9 +114,16 @@ public:
 	bool IsLightDirty() { return true; }
 	bool IsBoneDirty() { return true; }
 
-	uint32_t PushBaseBuffer(VulkanPushBuffer *dest, VkBuffer *buf);
-	uint32_t PushLightBuffer(VulkanPushBuffer *dest, VkBuffer *buf);
-	uint32_t PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf);
+	uint32_t PushBaseBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
+		return dest->PushAligned(&ub_base, sizeof(ub_base), uboAlignment_, buf);
+	}
+	uint32_t PushLightBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
+		return dest->PushAligned(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
+	}
+	// TODO: Only push half the bone buffer if we only have four bones.
+	uint32_t PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
+		return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
+	}
 
 private:
 	void Clear();
