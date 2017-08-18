@@ -135,6 +135,7 @@ static const VkStencilOp stencilOpToVK[8] = {
 	VK_STENCIL_OP_DECREMENT_AND_WRAP,
 };
 
+// TODO: Replace with the one from dataconv
 static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
 	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
 	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
@@ -475,7 +476,7 @@ public:
 			return (uintptr_t)boundImageView_[0];
 
 		case NativeObject::RENDER_MANAGER:
-			return renderManager_;
+			return (uintptr_t)&renderManager_;
 		default:
 			return 0;
 		}
@@ -701,7 +702,7 @@ bool VKTexture::Create(const TextureDesc &desc) {
 }
 
 VKContext::VKContext(VulkanContext *vulkan)
-	: viewportDirty_(false), scissorDirty_(false), vulkan_(vulkan), frameNum_(0), caps_{} {
+	: viewportDirty_(false), scissorDirty_(false), vulkan_(vulkan), frameNum_(0), caps_{}, renderManager_(vulkan) {
 	caps_.anisoSupported = vulkan->GetFeaturesAvailable().samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetFeaturesAvailable().geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetFeaturesAvailable().tessellationShader != 0;
@@ -892,7 +893,7 @@ VkCommandBuffer VKContext::AllocCmdBuf() {
 }
 
 void VKContext::BeginFrame() {
-	vulkan_->BeginFrame();
+	renderManager_.BeginFrameWrites();
 
 	FrameData &frame = frame_[frameNum_];
 	frame.startCmdBufs_ = 0;
@@ -920,6 +921,7 @@ void VKContext::WaitRenderCompletion(Framebuffer *fbo) {
 
 void VKContext::EndFrame() {
 	EndCurrentRenderpass();
+	renderManager_.Flush(cmd_);
 
 	if (cmd_)
 		Crash();
@@ -934,7 +936,8 @@ void VKContext::EndFrame() {
 
 	// Stop collecting data in the frame's data pushbuffer.
 	push_->End();
-	vulkan_->EndFrame();
+
+	renderManager_.EndFrame();
 
 	frameNum_++;
 	if (frameNum_ >= vulkan_->GetInflightFrames())
@@ -1109,16 +1112,16 @@ void VKContext::SetViewports(int count, Viewport *viewports) {
 }
 
 void VKContext::SetBlendFactor(float color[4]) {
-	vkCmdSetBlendConstants(cmd_, color);
+	renderManager_.SetBlendFactor(color);
 }
 
 void VKContext::ApplyDynamicState() {
 	if (scissorDirty_) {
-		vkCmdSetScissor(cmd_, 0, 1, &scissor_);
+		renderManager_.SetScissor(scissor_);
 		scissorDirty_ = false;
 	}
 	if (viewportDirty_) {
-		vkCmdSetViewport(cmd_, 0, 1, &viewport_);
+		renderManager_.SetViewport(viewport_);
 		viewportDirty_ = false;
 	}
 }
@@ -1303,13 +1306,9 @@ void VKContext::Draw(int vertexCount, int offset) {
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
 
-	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, curPipeline_->vkpipeline);
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
-	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
-	VkBuffer buffers[1] = { vulkanVbuf };
-	VkDeviceSize offsets[1] = { vbBindOffset };
-	vkCmdBindVertexBuffers(cmd_, 0, 1, buffers, offsets);
-	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
+
+	renderManager_.Draw(curPipeline_->vkpipeline, pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
@@ -1323,17 +1322,9 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
 	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), &vulkanIbuf);
 
-	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, curPipeline_->vkpipeline);
-
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
-	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
 
-	VkBuffer buffers[1] = { vulkanVbuf };
-	VkDeviceSize offsets[1] = { vbBindOffset };
-	vkCmdBindVertexBuffers(cmd_, 0, 1, buffers, offsets);
-
-	vkCmdBindIndexBuffer(cmd_, vulkanIbuf, ibBindOffset, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
+	renderManager_.DrawIndexed(curPipeline_->vkpipeline, pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, vertexCount, VK_INDEX_TYPE_UINT32);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1343,52 +1334,30 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	size_t vbBindOffset = push_->Push(vdata, vertexCount * curPipeline_->stride[0], &vulkanVbuf);
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
-	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, curPipeline_->vkpipeline);
 
 	VkBuffer buffers[1] = { vulkanVbuf };
 	VkDeviceSize offsets[1] = { vbBindOffset };
-	vkCmdBindVertexBuffers(cmd_, 0, 1, buffers, offsets);
-
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
-	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
-	vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
+
+	renderManager_.Draw(curPipeline_->vkpipeline, pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, vbBindOffset, vertexCount);
 }
 
 // TODO: We should avoid this function as much as possible, instead use renderpass on-load clearing.
-void VKContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
+void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int stencilVal) {
 	if (!curRenderPass_) {
 		ELOG("Clear: Need an active render pass");
 		return;
 	}
 
-	int numAttachments = 0;
-	VkClearRect rc{};
-	rc.baseArrayLayer = 0;
-	rc.layerCount = 1;
-	rc.rect.extent.width = curWidth_;
-	rc.rect.extent.height = curHeight_;
-	VkClearAttachment attachments[2];
-	if (mask & FBChannel::FB_COLOR_BIT) {
-		VkClearAttachment &attachment = attachments[numAttachments++];
-		attachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		attachment.colorAttachment = 0;
-		Uint8x4ToFloat4(colorval, attachment.clearValue.color.float32);
-	}
-	if (mask & (FBChannel::FB_DEPTH_BIT | FBChannel::FB_STENCIL_BIT)) {
-		VkClearAttachment &attachment = attachments[numAttachments++];
-		attachment.aspectMask = 0;
-		if (mask & FBChannel::FB_DEPTH_BIT) {
-			attachment.clearValue.depthStencil.depth = depthVal;
-			attachment.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-		}
-		if (mask & FBChannel::FB_STENCIL_BIT) {
-			attachment.clearValue.depthStencil.stencil = stencilVal;
-			attachment.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-		}
-	}
-	if (numAttachments) {
-		vkCmdClearAttachments(cmd_, numAttachments, attachments, 1, &rc);
-	}
+	int mask = 0;
+	if (clearMask & FBChannel::FB_COLOR_BIT)
+		mask |= VK_IMAGE_ASPECT_COLOR_BIT;
+	if (clearMask & FBChannel::FB_DEPTH_BIT)
+		mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+	if (clearMask & FBChannel::FB_STENCIL_BIT)
+		mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+
+	renderManager_.Clear(colorval, depthVal, stencilVal, mask);
 }
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan) {
