@@ -1302,10 +1302,6 @@ namespace MIPSComp {
 	void Arm64Jit::Comp_Vi2x(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
-		if (!cpu_info.bNEON) {
-			DISABLE;
-		}
-
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
 		bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)
 
