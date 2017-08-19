@@ -560,7 +560,7 @@ public:
 		}
 	}
 
-	uintptr_t GetNativeObject(NativeObject obj) const override {
+	uintptr_t GetNativeObject(NativeObject obj) override {
 		return 0;
 	}
 

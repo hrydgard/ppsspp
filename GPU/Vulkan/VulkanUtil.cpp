@@ -27,11 +27,11 @@ VulkanFBO::~VulkanFBO() {
 	delete depthStencil_;
 }
 
-void VulkanFBO::Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int width, int height, VkFormat color_Format) {
+void VulkanFBO::Create(VulkanContext *vulkan, VkCommandBuffer cmd, VkRenderPass rp_compatible, int width, int height, VkFormat color_Format) {
 	color_ = new VulkanTexture(vulkan);
 	VkImageCreateFlags flags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	color_->CreateDirect(width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, nullptr);
-	depthStencil_->CreateDirect(width, height, 1, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, nullptr);
+	color_->CreateDirect(cmd, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, nullptr);
+	depthStencil_->CreateDirect(cmd, width, height, 1, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, nullptr);
 
 	VkImageView views[2] = { color_->GetImageView(), depthStencil_->GetImageView() };
 
@@ -332,11 +332,6 @@ VkPipeline Vulkan2D::GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShade
 	} else {
 		return VK_NULL_HANDLE;
 	}
-}
-
-void Vulkan2D::BindDescriptorSet(VkCommandBuffer cmd, VkImageView tex1, VkSampler sampler1) {
-	VkDescriptorSet descSet = GetDescriptorSet(tex1, sampler1, VK_NULL_HANDLE, VK_NULL_HANDLE);
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 0, nullptr);
 }
 
 VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *error) {

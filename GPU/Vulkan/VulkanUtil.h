@@ -54,7 +54,7 @@ public:
 
 	// Depth-format is chosen automatically depending on hardware support.
 	// Color format will be 32-bit RGBA.
-	void Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int width, int height, VkFormat colorFormat);
+	void Create(VulkanContext *vulkan, VkCommandBuffer cmd, VkRenderPass rp_compatible, int width, int height, VkFormat colorFormat);
 
 	VulkanTexture *GetColor() { return color_; }
 	VulkanTexture *GetDepthStencil() { return depthStencil_; }
@@ -84,14 +84,11 @@ public:
 	void Shutdown();
 
 	VkPipeline GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShaderModule vs, VkShaderModule fs);
-
+	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 	void BeginFrame();
 	void EndFrame();
 
 	VkDescriptorSet GetDescriptorSet(VkImageView tex1, VkSampler sampler1, VkImageView tex2, VkSampler sampler2);
-
-	// Simple way
-	void BindDescriptorSet(VkCommandBuffer cmd, VkImageView tex1, VkSampler sampler1);
 
 	struct Vertex {
 		float x, y, z;

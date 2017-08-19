@@ -28,6 +28,7 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanMemory.h"
 #include "Common/Vulkan/VulkanImage.h"
+#include "Common/Vulkan/VulkanRenderManager.h"
 #include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
@@ -131,7 +132,7 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 	assert(vsBasicTex_ != VK_NULL_HANDLE);
 
 	// Prime the 2D pipeline cache.
-	vulkan2D_.GetPipeline(pipelineCache2D_, vulkan_->GetSurfaceRenderPass(), vsBasicTex_, fsBasicTex_);
+	vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS), vsBasicTex_, fsBasicTex_);
 	vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS), vsBasicTex_, fsBasicTex_);
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
@@ -234,13 +235,15 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 		drawPixelsTex_ = nullptr;
 	}
 
+	VkCommandBuffer initCmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
+
 	if (!drawPixelsTex_) {
 		drawPixelsTex_ = new VulkanTexture(vulkan_);
-		drawPixelsTex_->CreateDirect(width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		drawPixelsTex_->CreateDirect(initCmd, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		// Initialize backbuffer texture for DrawPixels
 		drawPixelsTexFormat_ = srcPixelFormat;
 	} else {
-		drawPixelsTex_->TransitionForUpload();
+		drawPixelsTex_->TransitionForUpload(initCmd);
 	}
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
@@ -297,25 +300,22 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 
 	VkBuffer buffer;
 	size_t offset = frameData_[curFrame_].push_->Push(data, width * height * 4, &buffer);
-	drawPixelsTex_->UploadMip(0, width, height, buffer, (uint32_t)offset, width);
-	drawPixelsTex_->EndCreate();
+	drawPixelsTex_->UploadMip(initCmd, 0, width, height, buffer, (uint32_t)offset, width);
+	drawPixelsTex_->EndCreate(initCmd);
 
 	overrideImageView_ = drawPixelsTex_->GetImageView();
 }
 
 void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
-	VkViewport vp;
-	vp.minDepth = 0.0;
-	vp.maxDepth = 1.0;
-	vp.x = (float)x;
-	vp.y = (float)y;
-	vp.width = (float)w;
-	vp.height = (float)h;
-
+	Draw::Viewport vp;
+	vp.MinDepth = 0.0;
+	vp.MaxDepth = 1.0;
+	vp.TopLeftX = (float)x;
+	vp.TopLeftY = (float)y;
+	vp.Width = (float)w;
+	vp.Height = (float)h;
 	// Since we're about to override it.
-	draw_->FlushState();
-	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
-	vkCmdSetViewport(cmd, 0, 1, &vp);
+	draw_->SetViewports(1, &vp);
 }
 
 void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
@@ -359,18 +359,15 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	// TODO: Should probably use draw_ directly and not go low level
 
 	VulkanPushBuffer *push = frameData_[curFrame_].push_;
-
-	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	VkImageView view = overrideImageView_ ? overrideImageView_ : (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
 	if ((flags & DRAWTEX_KEEP_TEX) == 0)
 		overrideImageView_ = VK_NULL_HANDLE;
-	vulkan2D_.BindDescriptorSet(cmd, view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_);
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cur2DPipeline_);
+	VkDescriptorSet descSet = vulkan2D_.GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);
-	vkCmdBindVertexBuffers(cmd, 0, 1, &vbuffer, &offset);
-	vkCmdDraw(cmd, 4, 1, 0, 0);
+	renderManager->Draw(cur2DPipeline_, vulkan2D_.GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
 }
 
 void FramebufferManagerVulkan::Bind2DShader() {
@@ -645,18 +642,6 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 
 	frame.push_->Reset();
 	frame.push_->Begin(vulkan_);
-	
-	if (!useBufferedRendering_) {
-		// TODO: This hackery should not be necessary. Is it? Need to check.
-		// We only use a single command buffer in this case.
-		VkCommandBuffer cmd = vulkan_->GetSurfaceCommandBuffer();
-		VkRect2D scissor;
-		scissor.offset = { 0, 0 };
-		scissor.extent = { (uint32_t)pixelWidth_, (uint32_t)pixelHeight_ };
-		vkCmdSetScissor(cmd, 0, 1, &scissor);
-	} else {
-		// Each render pass will set up scissor again.
-	}
 }
 
 void FramebufferManagerVulkan::EndFrame() {

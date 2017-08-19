@@ -94,7 +94,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 
 	InitDeviceObjects();
 
-	tessDataTransfer = new TessellationDataTransferVulkan(vulkan);
+	tessDataTransfer = new TessellationDataTransferVulkan(vulkan, draw);
 }
 
 void DrawEngineVulkan::InitDeviceObjects() {
@@ -294,10 +294,11 @@ void DrawEngineVulkan::BeginFrame() {
 
 	// TODO : Find a better place to do this.
 	if (!nullTexture_) {
+		VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 		nullTexture_ = new VulkanTexture(vulkan_);
 		int w = 8;
 		int h = 8;
-		nullTexture_->CreateDirect(w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		nullTexture_->CreateDirect(cmdInit, w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		uint32_t bindOffset;
 		VkBuffer bindBuf;
@@ -308,8 +309,8 @@ void DrawEngineVulkan::BeginFrame() {
 				data[y*w + x] = 0;  // black
 			}
 		}
-		nullTexture_->UploadMip(0, w, h, bindBuf, bindOffset, w);
-		nullTexture_->EndCreate();
+		nullTexture_->UploadMip(cmdInit, 0, w, h, bindBuf, bindOffset, w);
+		nullTexture_->EndCreate(cmdInit);
 	}
 
 	DirtyAllUBOs();
@@ -643,13 +644,15 @@ void DrawEngineVulkan::DoFlush() {
 	// TODO: Should be enough to update this once per frame?
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
+	/*
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
 	if (cmd != lastCmd_) {
 		lastPipeline_ = nullptr;
 		lastCmd_ = cmd;
 		// Since we have a new cmdbuf, dirty our dynamic state so it gets re-set.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE|DIRTY_DEPTHSTENCIL_STATE|DIRTY_BLEND_STATE);
-	}
+	}*/
+	VkCommandBuffer cmd = VK_NULL_HANDLE;
 
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS);
 	if (!rp)
@@ -1087,11 +1090,12 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) {
 	int rowPitch;
 
+	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// Position
 	if (prevSize < size) {
 		prevSize = size;
 
-		data_tex[0]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		data_tex[0]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
 	pos = (float *)data_tex[0]->Lock(0, &rowPitch);
 
@@ -1100,7 +1104,7 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 		if (prevSizeTex < size) {
 			prevSizeTex = size;
 
-			data_tex[1]->CreateDirect(size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+			data_tex[1]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		}
 		tex = (float *)data_tex[1]->Lock(0, &rowPitch);
 	}
@@ -1110,19 +1114,20 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 	if (prevSizeCol < sizeColor) {
 		prevSizeCol = sizeColor;
 
-		data_tex[2]->CreateDirect(sizeColor, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		data_tex[2]->CreateDirect(cmd, sizeColor, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
 	col = (float *)data_tex[2]->Lock(0, &rowPitch);
 }
 
 void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
+	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// Position
-	data_tex[0]->Unlock();
+	data_tex[0]->Unlock(cmd);
 
 	// Texcoords
 	if (hasTexCoords)
-		data_tex[1]->Unlock();
+		data_tex[1]->Unlock(cmd);
 
 	// Color
-	data_tex[2]->Unlock();
+	data_tex[2]->Unlock(cmd);
 }

@@ -255,14 +255,15 @@ private:
 	// Hardware tessellation
 	class TessellationDataTransferVulkan : public TessellationDataTransfer {
 	private:
-		VulkanContext *vulkan;
+		VulkanContext *vulkan_;
+		Draw::DrawContext *draw_;
 		VulkanTexture *data_tex[3];
 		VkSampler sampler;
 	public:
-		TessellationDataTransferVulkan(VulkanContext *vulkan) 
-			: TessellationDataTransfer(), vulkan(vulkan), data_tex(), sampler() {
+		TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw) 
+			: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw), data_tex(), sampler() {
 			for (int i = 0; i < 3; i++)
-				data_tex[i] = new VulkanTexture(vulkan);
+				data_tex[i] = new VulkanTexture(vulkan_);
 
 			CreateSampler();
 		}
@@ -270,7 +271,7 @@ private:
 			for (int i = 0; i < 3; i++)
 				delete data_tex[i];
 
-			vulkan->Delete().QueueDeleteSampler(sampler);
+			vulkan_->Delete().QueueDeleteSampler(sampler);
 		}
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
 		void PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) override;
@@ -301,7 +302,7 @@ private:
 			samp.minLod = 0.0f;
 			samp.mipLodBias = 0.0f;
 
-			VkResult res = vkCreateSampler(vulkan->GetDevice(), &samp, nullptr, &sampler);
+			VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &sampler);
 			assert(res == VK_SUCCESS);
 		}
 	};

@@ -116,7 +116,7 @@ public:
 		}
 	}
 
-	uintptr_t GetNativeObject(NativeObject obj) const override {
+	uintptr_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
 		case NativeObject::DEVICE:
 			return (uintptr_t)device_;

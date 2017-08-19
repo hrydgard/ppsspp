@@ -529,7 +529,7 @@ public:
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
-	uintptr_t GetNativeObject(NativeObject obj) const override {
+	uintptr_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
 		case NativeObject::CONTEXT:
 			return (uintptr_t)d3d_;

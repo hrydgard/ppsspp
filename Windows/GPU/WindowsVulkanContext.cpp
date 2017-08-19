@@ -189,7 +189,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
 	}
 	g_Vulkan->InitSurfaceWin32(hInst, hWnd);
-	if (!g_Vulkan->InitObjects(true)) {
+	if (!g_Vulkan->InitObjects()) {
 		Shutdown();
 		return false;
 	}
@@ -219,10 +219,12 @@ void WindowsVulkanContext::SwapBuffers() {
 
 void WindowsVulkanContext::Resize() {
 	g_Vulkan->WaitUntilQueueIdle();
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroyObjects();
 
 	g_Vulkan->ReinitSurfaceWin32();
-	g_Vulkan->InitObjects(true);
+	g_Vulkan->InitObjects();
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }
 
 void WindowsVulkanContext::SwapInterval(int interval) {
