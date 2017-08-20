@@ -56,6 +56,7 @@ enum {
 };
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
+#define DESCRIPTORSET_DECIMATION_INTERVAL 13
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
@@ -150,14 +151,15 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[2];
-	dpTypes[0].descriptorCount = 2048;
+	dpTypes[0].descriptorCount = 4096;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 4096;
+	dpTypes[1].descriptorCount = 2048;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.pNext = nullptr;
-	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
+	dp.flags = 0;   // Don't want to mess around with individually freeing these.
+	                // We zap the whole pool every few frames.
 	dp.maxSets = 2048;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
@@ -322,9 +324,14 @@ void DrawEngineVulkan::BeginFrame() {
 
 	vertexCache_->BeginNoReset();
 
-	if (--decimationCounter_ <= 0) {
+	// TODO: Need a better way to keep the number of descriptors under control.
+	if (--descDecimationCounter_ <= 0 || frame->descSets.size() > 1024) {
 		vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
 		frame->descSets.Clear();
+		descDecimationCounter_ = DESCRIPTORSET_DECIMATION_INTERVAL;
+	}
+
+	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 
 		const int threshold = gpuStats.numFlips - VAI_KILL_AGE;

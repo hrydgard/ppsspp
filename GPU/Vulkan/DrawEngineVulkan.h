@@ -200,6 +200,7 @@ private:
 	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
 	VulkanPushBuffer *vertexCache_;
 	int decimationCounter_ = 0;
+	int descDecimationCounter_ = 0;
 
 	struct DescriptorSetKey {
 		VkImageView imageView_;
