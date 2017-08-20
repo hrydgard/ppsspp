@@ -19,8 +19,8 @@
 
 #include "base/basictypes.h"
 #include "Globals.h"
-#include <map>
 
+#include "Common/Hashmaps.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
@@ -191,10 +191,10 @@ private:
 	u64 shaderSwitchDirtyUniforms_;
 	char *codeBuffer_;
 
-	typedef std::map<ShaderID, Shader *> FSCache;
+	typedef DenseHashMap<ShaderID, Shader *, nullptr> FSCache;
 	FSCache fsCache_;
 
-	typedef std::map<ShaderID, Shader *> VSCache;
+	typedef DenseHashMap<ShaderID, Shader *, nullptr> VSCache;
 	VSCache vsCache_;
 
 	bool diskCacheDirty_;

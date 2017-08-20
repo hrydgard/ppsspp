@@ -740,7 +740,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 }
 
 ShaderManagerGLES::ShaderManagerGLES()
-		: lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false) {
+		: lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
@@ -755,15 +755,15 @@ void ShaderManagerGLES::Clear() {
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		delete iter->ls;
 	}
-	for (auto iter = fsCache_.begin(); iter != fsCache_.end(); ++iter)	{
-		delete iter->second;
-	}
-	for (auto iter = vsCache_.begin(); iter != vsCache_.end(); ++iter)	{
-		delete iter->second;
-	}
+	fsCache_.Iterate([&](const ShaderID &key, Shader *shader) {
+		delete shader;
+	});
+	vsCache_.Iterate([&](const ShaderID &key, Shader *shader) {
+		delete shader;
+	});
 	linkedShaderCache_.clear();
-	fsCache_.clear();
-	vsCache_.clear();
+	fsCache_.Clear();
+	vsCache_.Clear();
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
@@ -830,9 +830,8 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 	}
 	lastVSID_ = *VSID;
 
-	VSCache::iterator vsIter = vsCache_.find(*VSID);
-	Shader *vs;
-	if (vsIter == vsCache_.end())	{
+	Shader *vs = vsCache_.Get(*VSID);
+	if (!vs)	{
 		// Vertex shader not in cache. Let's compile it.
 		vs = CompileVertexShader(*VSID);
 		if (vs->Failed()) {
@@ -854,10 +853,8 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false);
 		}
 
-		vsCache_[*VSID] = vs;
+		vsCache_.Insert(*VSID, vs);
 		diskCacheDirty_ = true;
-	} else {
-		vs = vsIter->second;
 	}
 	return vs;
 }
@@ -878,15 +875,12 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(ShaderID VSID, Shader *vs, 
 
 	lastFSID_ = FSID;
 
-	FSCache::iterator fsIter = fsCache_.find(FSID);
-	Shader *fs;
-	if (fsIter == fsCache_.end())	{
+	Shader *fs = fsCache_.Get(FSID);
+	if (!fs)	{
 		// Fragment shader not in cache. Let's compile it.
 		fs = CompileFragmentShader(FSID);
-		fsCache_[FSID] = fs;
+		fsCache_.Insert(FSID, fs);
 		diskCacheDirty_ = true;
-	} else {
-		fs = fsIter->second;
 	}
 
 	// Okay, we have both shaders. Let's see if there's a linked one.
@@ -902,7 +896,6 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(ShaderID VSID, Shader *vs, 
 		}
 	}
 	shaderSwitchDirtyUniforms_ = 0;
-
 
 	if (ls == nullptr) {
 		// Check if we can link these.
@@ -936,18 +929,20 @@ std::vector<std::string> ShaderManagerGLES::DebugGetShaderIDs(DebugShaderType ty
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 		{
-			for (auto iter : vsCache_) {
-				iter.first.ToString(&id);
-				ids.push_back(id);
-			}
+			vsCache_.Iterate([&](const ShaderID &id, Shader *shader) {
+				std::string idstr;
+				id.ToString(&idstr);
+				ids.push_back(idstr);
+			});
 		}
 		break;
 	case SHADER_TYPE_FRAGMENT:
 		{
-			for (auto iter : fsCache_) {
-				iter.first.ToString(&id);
-				ids.push_back(id);
-			}
+			fsCache_.Iterate([&](const ShaderID &id, Shader *shader) {
+				std::string idstr;
+				id.ToString(&idstr);
+				ids.push_back(idstr);
+			});
 		}
 		break;
 	default:
@@ -962,20 +957,14 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 	{
-		auto iter = vsCache_.find(shaderId);
-		if (iter == vsCache_.end()) {
-			return "";
-		}
-		return iter->second->GetShaderString(stringType, iter->first);
+		Shader *vs = vsCache_.Get(shaderId);
+		return vs ? vs->GetShaderString(stringType, shaderId) : "";
 	}
 
 	case SHADER_TYPE_FRAGMENT:
 	{
-		auto iter = fsCache_.find(shaderId);
-		if (iter == fsCache_.end()) {
-			return "";
-		}
-		return iter->second->GetShaderString(stringType, iter->first);
+		Shader *fs = fsCache_.Get(shaderId);
+		return fs->GetShaderString(stringType, shaderId);
 	}
 	default:
 		return "N/A";
@@ -1034,7 +1023,7 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 			delete vs;
 			return;
 		}
-		vsCache_[id] = vs;
+		vsCache_.Insert(id, vs);
 	}
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		ShaderID id;
@@ -1042,7 +1031,7 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
-		fsCache_[id] = CompileFragmentShader(id);
+		fsCache_.Insert(id, CompileFragmentShader(id));
 	}
 	for (int i = 0; i < header.numLinkedPrograms; i++) {
 		ShaderID vsid, fsid;
@@ -1054,11 +1043,11 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
-		VSCache::iterator vs = vsCache_.find(vsid);
-		FSCache::iterator fs = fsCache_.find(fsid);
-		if (vs != vsCache_.end() && fs != fsCache_.end()) {
-			LinkedShader *ls = new LinkedShader(vsid, vs->second, fsid, fs->second, vs->second->UseHWTransform());
-			LinkedShaderCacheEntry entry(vs->second, fs->second, ls);
+		Shader *vs = vsCache_.Get(vsid);
+		Shader *fs = fsCache_.Get(fsid);
+		if (vs && fs) {
+			LinkedShader *ls = new LinkedShader(vsid, vs, fsid, fs, vs->UseHWTransform());
+			LinkedShaderCacheEntry entry(vs, fs, ls);
 			linkedShaderCache_.push_back(entry);
 		}
 	}
@@ -1093,24 +1082,22 @@ void ShaderManagerGLES::Save(const std::string &filename) {
 	header.numFragmentShaders = GetNumFragmentShaders();
 	header.numLinkedPrograms = GetNumPrograms();
 	fwrite(&header, 1, sizeof(header), f);
-	for (auto iter : vsCache_) {
-		ShaderID id = iter.first;
+	vsCache_.Iterate([&](const ShaderID &id, Shader *shader) {
 		fwrite(&id, 1, sizeof(id), f);
-	}
-	for (auto iter : fsCache_) {
-		ShaderID id = iter.first;
+	});
+	fsCache_.Iterate([&](const ShaderID &id, Shader *shader) {
 		fwrite(&id, 1, sizeof(id), f);
-	}
+	});
 	for (auto iter : linkedShaderCache_) {
 		ShaderID vsid, fsid;
-		for (auto iter2 : vsCache_) {
-			if (iter.vs == iter2.second)
-				vsid = iter2.first;
-		}
-		for (auto iter2 : fsCache_) {
-			if (iter.fs == iter2.second)
-				fsid = iter2.first;
-		}
+		vsCache_.Iterate([&](const ShaderID &id, Shader *shader) {
+			if (iter.vs == shader)
+				vsid = id;
+		});
+		fsCache_.Iterate([&](const ShaderID &id, Shader *shader) {
+			if (iter.fs == shader)
+				fsid = id;
+		});
 		fwrite(&vsid, 1, sizeof(vsid), f);
 		fwrite(&fsid, 1, sizeof(fsid), f);
 	}
