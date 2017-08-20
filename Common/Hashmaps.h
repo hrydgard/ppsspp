@@ -29,7 +29,7 @@ enum class BucketState {
 // we always use very small values, so it's probably better to have them in the same
 // cache-line as the corresponding key.
 // Enforces that value are pointers to make sure that combined storage makes sense.
-template <class Key, class Value>
+template <class Key, class Value, Value NullValue>
 class DenseHashMap {
 public:
 	DenseHashMap(int initialCapacity) : capacity_(initialCapacity) {
@@ -46,12 +46,12 @@ public:
 			if (map[p].state == BucketState::TAKEN && KeyEquals(key, map[p].key))
 				return map[p].value;
 			else if (map[p].state == BucketState::FREE)
-				return nullptr;
+				return NullValue;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
 			if (p == pos)
 				Crash();
 		}
-		return nullptr;
+		return NullValue;
 	}
 
 	// Returns false if we already had the key! Which is a bit different.
@@ -170,7 +170,7 @@ private:
 
 // Like the above, uses linear probing for cache-friendliness.
 // Does not perform hashing at all so expects well-distributed keys.
-template <class Value>
+template <class Value, Value NullValue>
 class PrehashMap {
 public:
 	PrehashMap(int initialCapacity) : capacity_(initialCapacity) {
@@ -187,12 +187,12 @@ public:
 			if (map[p].state == BucketState::TAKEN && hash == map[p].hash)
 				return map[p].value;
 			else if (map[p].state == BucketState::FREE)
-				return nullptr;
+				return NullValue;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
 			if (p == pos)
 				Crash();
 		}
-		return nullptr;
+		return NullValue;
 	}
 
 	// Returns false if we already had the key! Which is a bit different.

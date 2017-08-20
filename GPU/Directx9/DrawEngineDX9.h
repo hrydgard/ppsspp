@@ -154,8 +154,8 @@ private:
 
 	LPDIRECT3DDEVICE9 device_ = nullptr;
 
-	PrehashMap<VertexArrayInfoDX9 *> vai_;
-	DenseHashMap<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
+	PrehashMap<VertexArrayInfoDX9 *, nullptr> vai_;
+	DenseHashMap<u32, IDirect3DVertexDeclaration9 *, nullptr> vertexDeclMap_;
 
 	// SimpleVertex
 	IDirect3DVertexDeclaration9* transformedVertexDecl_ = nullptr;

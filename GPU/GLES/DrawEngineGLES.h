@@ -166,7 +166,7 @@ private:
 
 	void MarkUnreliable(VertexArrayInfo *vai);
 
-	PrehashMap<VertexArrayInfo *> vai_;
+	PrehashMap<VertexArrayInfo *, nullptr> vai_;
 
 	// Vertex buffer objects
 	// Element buffer objects

@@ -97,7 +97,7 @@ public:
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);
 
 private:
-	DenseHashMap<VulkanPipelineKey, VulkanPipeline *> pipelines_;
+	DenseHashMap<VulkanPipelineKey, VulkanPipeline *, nullptr> pipelines_;
 	VkPipelineCache pipelineCache_;
 	VulkanContext *vulkan_;
 };

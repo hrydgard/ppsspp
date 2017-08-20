@@ -167,7 +167,7 @@ private:
 	ID3D11DeviceContext *context_;
 	ID3D11DeviceContext1 *context1_;
 
-	PrehashMap<VertexArrayInfoD3D11 *> vai_;
+	PrehashMap<VertexArrayInfoD3D11 *, nullptr> vai_;
 
 	struct InputLayoutKey {
 		D3D11VertexShader *vshader;
@@ -181,7 +181,7 @@ private:
 		}
 	};
 
-	DenseHashMap<InputLayoutKey, ID3D11InputLayout *> inputLayoutMap_;
+	DenseHashMap<InputLayoutKey, ID3D11InputLayout *, nullptr> inputLayoutMap_;
 
 	// Other
 	ShaderManagerD3D11 *shaderManager_ = nullptr;

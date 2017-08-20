@@ -197,7 +197,7 @@ private:
 	VulkanPipeline *lastPipeline_;
 	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
 
-	PrehashMap<VertexArrayInfoVulkan *> vai_;
+	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
 	VulkanPushBuffer *vertexCache_;
 	int decimationCounter_ = 0;
 
@@ -228,7 +228,7 @@ private:
 		VulkanPushBuffer *pushVertex;
 		VulkanPushBuffer *pushIndex;
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
-		DenseHashMap<DescriptorSetKey, VkDescriptorSet> descSets;
+		DenseHashMap<DescriptorSetKey, VkDescriptorSet, VK_NULL_HANDLE> descSets;
 
 		void Destroy(VulkanContext *vulkan);
 	};
