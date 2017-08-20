@@ -117,6 +117,7 @@ private:
 	static CommandInfo cmdInfo_[256];
 
 	int lastVsync_;
+	int vertexCost_ = 0;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;

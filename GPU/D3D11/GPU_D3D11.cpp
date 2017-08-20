@@ -543,13 +543,15 @@ void GPU_D3D11::Execute_Prim(u32 op, u32 diff) {
 	}
 #endif
 
+	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
+		vertexCost_ = EstimatePerVertexCost();
+	}
+	gpuStats.vertexGPUCycles += vertexCost_ * count;
+	cyclesExecuted += vertexCost_* count;
+
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
 	drawEngine_.SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
-
-	int vertexCost = EstimatePerVertexCost() * count;
-	gpuStats.vertexGPUCycles += vertexCost;
-	cyclesExecuted += vertexCost;
 
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.

@@ -45,16 +45,6 @@ struct VulkanPipelineKey {
 	VkShaderModule vShader;
 	VkShaderModule fShader;
 
-	// TODO: Probably better to use a hash function instead.
-	bool operator < (const VulkanPipelineKey &other) const {
-		if (raster < other.raster) return true; else if (other.raster < raster) return false;
-		if (renderPass < other.renderPass) return true; else if (other.renderPass < renderPass) return false;
-		if (useHWTransform < other.useHWTransform) return true; else if (other.useHWTransform < useHWTransform) return false;
-		if (vtxDec < other.vtxDec) return true; else if (other.vtxDec < vtxDec) return false;
-		if (vShader < other.vShader) return true; else if (other.vShader < vShader) return false;
-		if (fShader < other.fShader) return true; else if (other.fShader < fShader) return false;
-		return false;
-	}
 	void ToString(std::string *str) const {
 		str->resize(sizeof(*this));
 		memcpy(&(*str)[0], this, sizeof(*this));

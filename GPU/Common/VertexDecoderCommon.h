@@ -20,6 +20,7 @@
 #include <cstring>
 #include "ppsspp_config.h"
 #include "base/basictypes.h"
+#include "Common/Hashmaps.h"
 #include "Common/Log.h"
 #include "Common/CommonTypes.h"
 #include "Core/Reporting.h"

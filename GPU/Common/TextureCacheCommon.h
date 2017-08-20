@@ -178,6 +178,7 @@ struct TexCacheEntry {
 
 class FramebufferManagerCommon;
 // Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
+// Would really like to replace this with DenseHashMap but can't as long as we need lower_bound.
 typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 
 class TextureCacheCommon {

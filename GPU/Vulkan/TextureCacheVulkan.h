@@ -19,6 +19,7 @@
 
 #include <map>
 
+#include "Common/Hashmaps.h"
 #include "Globals.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
@@ -49,7 +50,7 @@ public:
 
 class SamplerCache {
 public:
-	SamplerCache(VulkanContext *vulkan) : vulkan_(vulkan) {}
+	SamplerCache(VulkanContext *vulkan) : vulkan_(vulkan), cache_(16) {}
 	~SamplerCache();
 	VkSampler GetOrCreateSampler(const SamplerCacheKey &key);
 
@@ -58,7 +59,7 @@ public:
 
 private:
 	VulkanContext *vulkan_;
-	std::map<SamplerCacheKey, VkSampler> cache_;
+	DenseHashMap<SamplerCacheKey, VkSampler, VK_NULL_HANDLE> cache_;
 };
 
 

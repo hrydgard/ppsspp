@@ -154,7 +154,7 @@ std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) cons
 }
 
 ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
-	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr) {
+	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), fsCache_(16), vsCache_(16) {
 	codeBuffer_ = new char[16384];
 	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
 	memset(&ub_base, 0, sizeof(ub_base));
@@ -177,14 +177,14 @@ void ShaderManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
 }
 
 void ShaderManagerVulkan::Clear() {
-	for (auto iter = fsCache_.begin(); iter != fsCache_.end(); ++iter)	{
-		delete iter->second;
-	}
-	for (auto iter = vsCache_.begin(); iter != vsCache_.end(); ++iter)	{
-		delete iter->second;
-	}
-	fsCache_.clear();
-	vsCache_.clear();
+	fsCache_.Iterate([&](const ShaderID &key, VulkanFragmentShader *shader) {
+		delete shader;
+	});
+	vsCache_.Iterate([&](const ShaderID &key, VulkanVertexShader *shader) {
+		delete shader;
+	});
+	fsCache_.Clear();
+	vsCache_.Clear();
 	lastFSID_.clear();
 	lastVSID_.clear();
 }
@@ -248,28 +248,22 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		return;
 	}
 
-	VSCache::iterator vsIter = vsCache_.find(VSID);
-	VulkanVertexShader *vs;
-	if (vsIter == vsCache_.end())	{
+	VulkanVertexShader *vs = vsCache_.Get(VSID);
+	if (!vs)	{
 		// Vertex shader not in cache. Let's compile it.
 		bool usesLighting;
 		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_, &usesLighting);
 		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, vertType, useHWTransform, usesLighting);
-		vsCache_[VSID] = vs;
-	} else {
-		vs = vsIter->second;
+		vsCache_.Insert(VSID, vs);
 	}
 	lastVSID_ = VSID;
 
-	FSCache::iterator fsIter = fsCache_.find(FSID);
-	VulkanFragmentShader *fs;
-	if (fsIter == fsCache_.end())	{
+	VulkanFragmentShader *fs = fsCache_.Get(FSID);
+	if (!fs) {
 		// Fragment shader not in cache. Let's compile it.
 		GenerateVulkanGLSLFragmentShader(FSID, codeBuffer_);
 		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_, useHWTransform);
-		fsCache_[FSID] = fs;
-	} else {
-		fs = fsIter->second;
+		fsCache_.Insert(FSID, fs);
 	}
 
 	lastFSID_ = FSID;
@@ -282,23 +276,24 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 }
 
 std::vector<std::string> ShaderManagerVulkan::DebugGetShaderIDs(DebugShaderType type) {
-	std::string id;
 	std::vector<std::string> ids;
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 	{
-		for (auto iter : vsCache_) {
-			iter.first.ToString(&id);
-			ids.push_back(id);
-		}
+		vsCache_.Iterate([&](const ShaderID &id, VulkanVertexShader *shader) {
+			std::string idstr;
+			id.ToString(&idstr);
+			ids.push_back(idstr);
+		});
 		break;
 	}
 	case SHADER_TYPE_FRAGMENT:
 	{
-		for (auto iter : fsCache_) {
-			iter.first.ToString(&id);
-			ids.push_back(id);
-		}
+		fsCache_.Iterate([&](const ShaderID &id, VulkanFragmentShader *shader) {
+			std::string idstr;
+			id.ToString(&idstr);
+			ids.push_back(idstr);
+		});
 		break;
 	}
 	default:
@@ -313,20 +308,14 @@ std::string ShaderManagerVulkan::DebugGetShaderString(std::string id, DebugShade
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 	{
-		auto iter = vsCache_.find(shaderId);
-		if (iter == vsCache_.end()) {
-			return "";
-		}
-		return iter->second->GetShaderString(stringType);
+		VulkanVertexShader *vs = vsCache_.Get(shaderId);
+		return vs ? vs->GetShaderString(stringType) : "";
 	}
 
 	case SHADER_TYPE_FRAGMENT:
 	{
-		auto iter = fsCache_.find(shaderId);
-		if (iter == fsCache_.end()) {
-			return "";
-		}
-		return iter->second->GetShaderString(stringType);
+		VulkanFragmentShader *fs = fsCache_.Get(shaderId);
+		return fs ? fs->GetShaderString(stringType) : "";
 	}
 	default:
 		return "N/A";

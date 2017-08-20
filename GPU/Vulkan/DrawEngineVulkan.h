@@ -207,16 +207,6 @@ private:
 		VkSampler sampler_;
 		VkBuffer base_, light_, bone_;  // All three UBO slots will be set to this. This will usually be identical
 		// for all draws in a frame, except when the buffer has to grow.
-
-		bool operator < (const DescriptorSetKey &other) const {
-			if (imageView_ < other.imageView_) return true; else if (imageView_ > other.imageView_) return false;
-			if (sampler_ < other.sampler_) return true; else if (sampler_ > other.sampler_) return false;
-			if (secondaryImageView_ < other.secondaryImageView_) return true; else if (secondaryImageView_ > other.secondaryImageView_) return false;
-			if (base_ < other.base_) return true; else if (base_ > other.base_) return false;
-			if (light_ < other.light_) return true; else if (light_ > other.light_) return false;
-			if (bone_ < other.bone_) return true; else if (bone_ > other.bone_) return false;
-			return false;
-		}
 	};
 
 	// We alternate between these.

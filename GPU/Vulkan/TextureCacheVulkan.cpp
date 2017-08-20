@@ -72,16 +72,13 @@ CachedTextureVulkan::~CachedTextureVulkan() {
 }
 
 SamplerCache::~SamplerCache() {
-	for (auto iter : cache_) {
-		vulkan_->Delete().QueueDeleteSampler(iter.second);
-	}
+	DeviceLost();
 }
 
 VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
-	auto iter = cache_.find(key);
-	if (iter != cache_.end()) {
-		return iter->second;
-	}
+	VkSampler sampler = cache_.Get(key);
+	if (sampler != VK_NULL_HANDLE)
+		return sampler;
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -107,18 +104,17 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.minLod = 0.0f;
 	samp.mipLodBias = 0.0f;
 
-	VkSampler sampler;
 	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &sampler);
 	assert(res == VK_SUCCESS);
-	cache_[key] = sampler;
+	cache_.Insert(key, sampler);
 	return sampler;
 }
 
 void SamplerCache::DeviceLost() {
-	for (auto iter : cache_) {
-		vulkan_->Delete().QueueDeleteSampler(iter.second);
-	}
-	cache_.clear();
+	cache_.Iterate([&](const SamplerCacheKey &key, VkSampler sampler) {
+		vulkan_->Delete().QueueDeleteSampler(sampler);
+	});
+	cache_.Clear();
 }
 
 void SamplerCache::DeviceRestore(VulkanContext *vulkan) {

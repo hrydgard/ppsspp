@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#include <stdio.h>
+#include <cstdio>
 
 #include "base/basictypes.h"
 #include "base/logging.h"

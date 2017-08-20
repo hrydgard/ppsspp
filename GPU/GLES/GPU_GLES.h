@@ -120,6 +120,7 @@ private:
 	ShaderManagerGLES *shaderManagerGL_;
 
 	int lastVsync_;
+	int vertexCost_ = 0;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;

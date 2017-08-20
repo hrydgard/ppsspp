@@ -20,6 +20,7 @@
 #include <map>
 
 #include "base/basictypes.h"
+#include "Common/Hashmaps.h"
 #include "Globals.h"
 #include "Common/Vulkan/VulkanMemory.h"
 #include "GPU/Common/ShaderCommon.h"
@@ -130,10 +131,10 @@ private:
 
 	VulkanContext *vulkan_;
 
-	typedef std::map<ShaderID, VulkanFragmentShader *> FSCache;
+	typedef DenseHashMap<ShaderID, VulkanFragmentShader *, nullptr> FSCache;
 	FSCache fsCache_;
 
-	typedef std::map<ShaderID, VulkanVertexShader *> VSCache;
+	typedef DenseHashMap<ShaderID, VulkanVertexShader *, nullptr> VSCache;
 	VSCache vsCache_;
 
 	char *codeBuffer_;

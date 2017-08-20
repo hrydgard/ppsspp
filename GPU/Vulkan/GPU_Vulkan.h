@@ -120,6 +120,7 @@ private:
 
 	int lastVsync_;
 	VkCommandBuffer curCmd_;
+	int vertexCost_ = 0;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
