@@ -21,6 +21,7 @@
 #include <unordered_map>
 
 #include "Common/CommonTypes.h"
+#include "Common/Hashmaps.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -104,7 +105,7 @@ protected:
 
 	// Cached vertex decoders
 	u32 lastVType_ = -1;
-	std::unordered_map<u32, VertexDecoder *> decoderMap_;
+	DenseHashMap<u32, VertexDecoder *, nullptr> decoderMap_;
 	VertexDecoder *dec_ = nullptr;
 	VertexDecoderJitCache *decJitCache_ = nullptr;
 	VertexDecoderOptions decOptions_{};

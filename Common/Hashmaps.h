@@ -1,7 +1,5 @@
 #pragma once
 
-#include <functional>
-
 #include "ext/xxhash.h"
 #include "Common/CommonFuncs.h"
 

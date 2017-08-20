@@ -33,7 +33,7 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-DrawEngineCommon::DrawEngineCommon() {
+DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
 	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 	decJitCache_ = new VertexDecoderJitCache();
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
@@ -45,9 +45,9 @@ DrawEngineCommon::~DrawEngineCommon() {
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 	delete[] quadIndices_;
 	delete decJitCache_;
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
-		delete iter->second;
-	}
+	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
+		delete decoder;
+	});
 }
 
 void DrawEngineCommon::SetupVertexDecoder(u32 vertType) {
@@ -63,34 +63,31 @@ void DrawEngineCommon::SetupVertexDecoder(u32 vertType) {
 }
 
 VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
-	auto iter = decoderMap_.find(vtype);
-	if (iter != decoderMap_.end())
-		return iter->second;
-	VertexDecoder *dec = new VertexDecoder();
+	VertexDecoder *dec = decoderMap_.Get(vtype);
+	if (dec)
+		return dec;
+	dec = new VertexDecoder();
 	dec->SetVertexType(vtype, decOptions_, decJitCache_);
-	decoderMap_[vtype] = dec;
+	decoderMap_.Insert(vtype, dec);
 	return dec;
 }
 
 std::vector<std::string> DrawEngineCommon::DebugGetVertexLoaderIDs() {
 	std::vector<std::string> ids;
-	for (auto iter : decoderMap_) {
+	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		std::string id;
-		id.resize(sizeof(iter.first));
-		memcpy(&id[0], &iter.first, sizeof(iter.first));
+		id.resize(sizeof(vtype));
+		memcpy(&id[0], &vtype, sizeof(vtype));
 		ids.push_back(id);
-	}
+	});
 	return ids;
 }
 
 std::string DrawEngineCommon::DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType) {
 	u32 mapId;
 	memcpy(&mapId, &id[0], sizeof(mapId));
-	auto iter = decoderMap_.find(mapId);
-	if (iter == decoderMap_.end())
-		return "N/A";
-	else
-		return iter->second->GetString(stringType);
+	VertexDecoder *dec = decoderMap_.Get(mapId);
+	return dec ? dec->GetString(stringType) : "N/A";
 }
 
 struct Plane {
@@ -136,10 +133,10 @@ void DrawEngineCommon::Resized() {
 	decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = nullptr;
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
-		delete iter->second;
-	}
-	decoderMap_.clear();
+	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
+		delete decoder;
+	});
+	decoderMap_.Clear();
 	ClearTrackedVertexArrays();
 }
 
