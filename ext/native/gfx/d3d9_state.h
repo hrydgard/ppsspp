@@ -493,16 +493,13 @@ public:
 
 extern DirectXState dxstate;
 
-struct GLExtensions {
-	bool OES_depth24;
-	bool OES_packed_depth_stencil;
-	bool OES_depth_texture;
-	bool EXT_discard_framebuffer;
-	bool FBO_ARB;
+struct DXExtensions {
+	bool vertex_texture_fetch;
+	bool texture_float;
 };
 
-extern GLExtensions gl_extensions;
+extern DXExtensions dx_extensions;
 
-void CheckGLExtensions();
+void CheckDXExtensions();
 
 };

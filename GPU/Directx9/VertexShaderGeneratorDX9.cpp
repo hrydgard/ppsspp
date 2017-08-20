@@ -191,8 +191,11 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 	bool texCoordInVec3 = false;
 	if (useHWTransform) {
 		WRITE(p, "struct VS_IN {                              \n");
-		if ((doSpline || doBezier) && lang == HLSL_D3D11) {
-			WRITE(p, "  uint instanceId : SV_InstanceID;\n");
+		if (doSpline || doBezier) {
+			if (lang == HLSL_D3D11)
+				WRITE(p, "  uint instanceId : SV_InstanceID;\n");
+			else if (lang == HLSL_DX9)
+				WRITE(p, "  float instanceId : TEXCOORD1;\n");
 		}
 		if (enableBones) {
 			WRITE(p, "  %s", boneWeightAttrDecl[numBoneWeights]);
@@ -268,6 +271,14 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 			WRITE(p, "Texture1D<float3> u_tess_pos_tex : register(t0);\n");
 			WRITE(p, "Texture1D<float3> u_tess_tex_tex : register(t1);\n");
 			WRITE(p, "Texture1D<float4> u_tess_col_tex : register(t2);\n");
+		} else if (lang == HLSL_DX9) {
+			WRITE(p, "sampler u_tess_pos_tex : register(s0);\n");
+			WRITE(p, "sampler u_tess_tex_tex : register(s1);\n");
+			WRITE(p, "sampler u_tess_col_tex : register(s2);\n");
+
+			WRITE(p, "float3 u_tex_width : register(c%i);\n", CONST_VS_TEXWIDTH);
+			WRITE(p, "int u_spline_count_u : register(c%i);\n", CONST_VS_SPLINECOUNTU);
+			WRITE(p, "int u_spline_count_v : register(c%i);\n", CONST_VS_SPLINECOUNTV);
 		}
 
 		const char *init[3] = { "0.0, 0.0", "0.0, 0.0, 0.0", "0.0, 0.0, 0.0, 0.0" };
@@ -286,6 +297,11 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 			WRITE(p, "}\n");
 		}
 		if (doSpline) {
+			if (lang == HLSL_DX9) {
+				WRITE(p, "int u_spline_type_u : register(c%i);\n", CONST_VS_SPLINETYPEU);
+				WRITE(p, "int u_spline_type_v : register(c%i);\n", CONST_VS_SPLINETYPEV);
+			}
+
 			WRITE(p, "void spline_knot(int2 num_patches, int2 type, out float2 knot[6], int2 patch_pos) {\n");
 			WRITE(p, "  for (int i = 0; i < 6; ++i) {\n");
 			WRITE(p, "    knot[i] = float2(i + patch_pos.x - 2, i + patch_pos.y - 2);\n");
@@ -393,7 +409,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 		if (!enableBones) {
 			// Hardware tessellation
 			if (doSpline || doBezier) {
-				WRITE(p, "  uint num_patches_u = %s;\n", doBezier ? "(u_spline_count_u - 1) / 3u" : "u_spline_count_u - 3");
+				WRITE(p, "  int num_patches_u = %s;\n", doBezier ? "(u_spline_count_u - 1) / 3" : "u_spline_count_u - 3");
 				WRITE(p, "  float2 tess_pos = In.position.xy;\n");
 				WRITE(p, "  int u = In.instanceId %% num_patches_u;\n");
 				WRITE(p, "  int v = In.instanceId / num_patches_u;\n");
@@ -406,12 +422,25 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 				for (int i = 0; i < 4; i++) {
 					for (int j = 0; j < 4; j++) {
 						WRITE(p, "  idx = (%i + v%s) * u_spline_count_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
-						WRITE(p, "  index = int2(idx, 0);\n");
-						WRITE(p, "  _pos[%i] = u_tess_pos_tex.Load(index).xyz;\n", i * 4 + j);
-						if (doTexture && hasTexcoord && hasTexcoordTess)
-							WRITE(p, "  _tex[%i] = u_tess_tex_tex.Load(index).xy;\n", i * 4 + j);
-						if (hasColor && hasColorTess)
-							WRITE(p, "  _col[%i] = u_tess_col_tex.Load(index).rgba;\n", i * 4 + j);
+						if (lang == HLSL_D3D11) {
+							WRITE(p, "  index = int2(idx, 0);\n");
+							WRITE(p, "  _pos[%i] = u_tess_pos_tex.Load(index).xyz;\n", i * 4 + j);
+							if (doTexture && hasTexcoord && hasTexcoordTess)
+								WRITE(p, "  _tex[%i] = u_tess_tex_tex.Load(index).xy;\n", i * 4 + j);
+							if (hasColor && hasColorTess)
+								WRITE(p, "  _col[%i] = u_tess_col_tex.Load(index).rgba;\n", i * 4 + j);
+						} else if (lang == HLSL_DX9) {
+							const char *index = "float4((idx + 0.5) / u_tex_width[0], 0.5, 0.0, 0.0)"; // Texel position
+							WRITE(p, "  _pos[%i] = tex2Dlod(u_tess_pos_tex, %s).xyz;\n", i * 4 + j, index); // Texture fetch
+							if (doTexture && hasTexcoord && hasTexcoordTess) {
+								index = "float4((idx + 0.5) / u_tex_width[1], 0.5, 0.0, 0.0)"; // Texel position
+								WRITE(p, "  _tex[%i] = tex2Dlod(u_tess_tex_tex, %s).xy;\n", i * 4 + j, index); // Texture fetch
+							}
+							if (hasColor && hasColorTess) {
+								index = "float4((idx + 0.5) / u_tex_width[2], 0.5, 0.0, 0.0)"; // Texel position
+								WRITE(p, "  _col[%i] = tex2Dlod(u_tess_col_tex, %s).rgba;\n", i * 4 + j, index); // Texture fetch
+							}
+						}
 					}
 				}
 				WRITE(p, "  float2 weights[4];\n");
@@ -438,8 +467,12 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 				if (hasColor) {
 					if (hasColorTess)
 						WRITE(p, "  float4 col = tess_sample(_col, weights);\n");
-					else
-						WRITE(p, "  float4 col = u_tess_col_tex.Load(int2(0, 0)).rgba;\n");
+					else {
+						if (lang == HLSL_D3D11)
+							WRITE(p, "  float4 col = u_tess_col_tex.Load(int2(0, 0)).rgba;\n");
+						else if (lang == HLSL_DX9)
+							WRITE(p, "  float4 col = tex2Dlod(u_tess_col_tex, float4(0.5 / u_tex_width[2], 0.5, 0.0, 0.0)).rgba;\n");
+					}
 				}
 				if (hasNormal) {
 					// Curved surface is probably always need to compute normal(not sampling from control points)
@@ -458,8 +491,19 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 						WRITE(p, "    bernderiv_v[i] = float2(weights[i].x, bernderiv[i].y);\n");
 						WRITE(p, "  }\n");
 
-						WRITE(p, "  float3 du = tess_sample(_pos, bernderiv_u);\n");
-						WRITE(p, "  float3 dv = tess_sample(_pos, bernderiv_v);\n");
+						if (lang == HLSL_D3D11) {
+							WRITE(p, "  float3 du = tess_sample(_pos, bernderiv_u);\n");
+							WRITE(p, "  float3 dv = tess_sample(_pos, bernderiv_v);\n");
+						} else if (lang == HLSL_DX9) {
+#if 0 // TODO: Fix
+							WRITE(p, "  float3 du = tess_sample(_pos, bernderiv_u);\n");
+							WRITE(p, "  float3 dv = tess_sample(_pos, bernderiv_v);\n");
+#else
+							// Avoid temp register issue
+							WRITE(p, "  const float3 du = float3(1.0, 0.0, 0.0);\n");
+							WRITE(p, "  const float3 dv = float3(0.0, 1.0, 0.0);\n");
+#endif
+						}
 					} else if (doSpline) {
 						WRITE(p, "  float2 tess_next_u = float2(In.normal.x, 0.0);\n");
 						WRITE(p, "  float2 tess_next_v = float2(0.0, In.normal.y);\n");
@@ -480,8 +524,19 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 						WRITE(p, "  spline_weight(tess_pos_u + patch_pos, knots, weights);\n");
 						WRITE(p, "  float3 pos_u = tess_sample(_pos, weights);\n");
 
-						WRITE(p, "  float3 du = pos_r - pos_l;\n");
-						WRITE(p, "  float3 dv = pos_d - pos_u;\n");
+						if (lang == HLSL_D3D11) {
+							WRITE(p, "  float3 du = pos_r - pos_l;\n");
+							WRITE(p, "  float3 dv = pos_d - pos_u;\n");
+						} else if (lang == HLSL_DX9) {
+#if 0 // TODO: Fix
+							WRITE(p, "  float3 du = pos_r - pos_l;\n");
+							WRITE(p, "  float3 dv = pos_d - pos_u;\n");
+#else
+							// Avoid temp register issue
+							WRITE(p, "  const float3 du = float3(1.0, 0.0, 0.0);\n");
+							WRITE(p, "  const float3 dv = float3(0.0, 1.0, 0.0);\n");
+#endif
+						}
 					}
 					WRITE(p, "  float3 nrm = cross(du, dv);\n");
 					WRITE(p, "  nrm = normalize(nrm);\n");

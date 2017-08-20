@@ -24,6 +24,7 @@
 #include "math/curves.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_buffer.h"
+#include "gfx/d3d9_state.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 #include "ui/view.h"
@@ -110,6 +111,8 @@ bool IsBackendSupportHWTess() {
 	case GPU_BACKEND_VULKAN:
 	case GPU_BACKEND_DIRECT3D11:
 		return true;
+	case GPU_BACKEND_DIRECT3D9:
+		return DX9::dx_extensions.vertex_texture_fetch && DX9::dx_extensions.texture_float;
 	}
 	return false;
 }
