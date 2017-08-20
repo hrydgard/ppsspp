@@ -9,7 +9,7 @@
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 
-PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {
+PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(256) {
 	pipelineCache_ = vulkan->CreatePipelineCache();
 }
 
@@ -23,11 +23,13 @@ void PipelineManagerVulkan::Clear() {
 	// This should kill off all the shaders at once.
 	// This could also be an opportunity to store the whole cache to disk. Will need to also
 	// store the keys.
-	for (auto &iter : pipelines_) {
-		vulkan_->Delete().QueueDeletePipeline(iter.second->pipeline);
-		delete iter.second;
-	}
-	pipelines_.clear();
+
+	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
+		vulkan_->Delete().QueueDeletePipeline(value->pipeline);
+		delete value;
+	});
+
+	pipelines_.Clear();
 }
 
 void PipelineManagerVulkan::DeviceLost() {
@@ -305,30 +307,30 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	key.vShader = vs->GetModule();
 	key.fShader = fs->GetModule();
 	key.vtxDec = useHwTransform ? vtxDec : nullptr;
-	auto iter = pipelines_.find(key);
-	if (iter != pipelines_.end()) {
-		return iter->second;
-	}
+
+	auto iter = pipelines_.Get(key);
+	if (iter)
+		return iter;
 
 	PROFILE_THIS_SCOPE("pipelinebuild");
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
 		rasterKey, vtxDec, vs, fs, useHwTransform);
-	pipelines_[key] = pipeline;
+	pipelines_.Insert(key, pipeline);
 	return pipeline;
 }
 
 std::vector<std::string> PipelineManagerVulkan::DebugGetObjectIDs(DebugShaderType type) {
-	std::string id;
 	std::vector<std::string> ids;
 	switch (type) {
 	case SHADER_TYPE_PIPELINE:
 	{
-		for (auto iter : pipelines_) {
-			iter.first.ToString(&id);
+		pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
+			std::string id;
+			key.ToString(&id);
 			ids.push_back(id);
-		}
+		});
 	}
 	break;
 	default:
@@ -344,15 +346,15 @@ std::string PipelineManagerVulkan::DebugGetObjectString(std::string id, DebugSha
 	VulkanPipelineKey shaderId;
 	shaderId.FromString(id);
 
-	auto iter = pipelines_.find(shaderId);
-	if (iter == pipelines_.end()) {
+	VulkanPipeline *iter = pipelines_.Get(shaderId);
+	if (!iter) {
 		return "";
 	}
 
 	switch (stringType) {
 	case SHADER_STRING_SHORT_DESC:
 	{
-		return StringFromFormat("%p", &iter->second);
+		return StringFromFormat("%p", iter);
 	}
 
 	case SHADER_STRING_SOURCE_CODE:

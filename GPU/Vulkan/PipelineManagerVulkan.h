@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <map>
+#include "Common/Hashmaps.h"
 
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderId.h"
@@ -97,7 +97,7 @@ public:
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);
 
 private:
-	std::map<VulkanPipelineKey, VulkanPipeline *> pipelines_;
+	DenseHashMap<VulkanPipelineKey, VulkanPipeline *> pipelines_;
 	VkPipelineCache pipelineCache_;
 	VulkanContext *vulkan_;
 };
