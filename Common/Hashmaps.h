@@ -115,9 +115,8 @@ public:
 		return count_;
 	}
 
-	// TODO: Find a way to avoid std::function. I tried using a templated argument
-	// but couldn't get it to pass the compiler.
-	inline void Iterate(std::function<void(const typename Key &key, typename Value value)> func) {
+	template<class T>
+	inline void Iterate(T func) {
 		for (auto &iter : map) {
 			if (iter.state == BucketState::TAKEN) {
 				func(iter.key, iter.value);
@@ -253,9 +252,8 @@ public:
 		return count_;
 	}
 
-	// TODO: Find a way to avoid std::function. I tried using a templated argument
-	// but couldn't get it to pass the compiler.
-	void Iterate(std::function<void(uint32_t hash, typename Value value)> func) {
+	template<class T>
+	void Iterate(T func) {
 		for (auto &iter : map) {
 			if (iter.state == BucketState::TAKEN) {
 				func(iter.hash, iter.value);
