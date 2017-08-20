@@ -1,10 +1,5 @@
 package org.ppsspp.ppsspp;
 
-import java.io.File;
-import java.lang.reflect.Field;
-import java.util.List;
-import java.util.Locale;
-
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
@@ -24,7 +19,6 @@ import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
-import android.graphics.Rect;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -38,10 +32,10 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.KeyEvent;
-import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -54,6 +48,11 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
+
+import java.io.File;
+import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Locale;
 
 public abstract class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Remember to loadLibrary your JNI .so in a static {} block
@@ -108,10 +107,28 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	private InputDeviceState inputPlayerC;
 	private String inputPlayerADesc;
 
+	private static LocationHelper mLocationHelper;
+	private static CameraHelper mCameraHelper;
+
 	private float densityDpi;
 	private float refreshRate;
 	private int pixelWidth;
 	private int pixelHeight;
+
+	private static final String[] permissionsForStorage = {
+			Manifest.permission.WRITE_EXTERNAL_STORAGE
+	};
+	private static final String[] permissionsForLocation = {
+			Manifest.permission.ACCESS_FINE_LOCATION,
+			Manifest.permission.ACCESS_COARSE_LOCATION
+	};
+	private static final String[] permissionsForCamera = {
+			Manifest.permission.CAMERA
+	};
+
+	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1;
+	public static final int REQUEST_CODE_LOCATION_PERMISSION = 2;
+	public static final int REQUEST_CODE_CAMERA_PERMISSION = 3;
 
 	// Functions for the app activity to override to change behaviour.
 
@@ -158,18 +175,20 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	    return libdir;
 	}
 
-	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1337;
-
 	@TargetApi(23)
-	public void askForStoragePermission() {
+	boolean askForPermissions(String[] permissions, int requestCode) {
+		boolean shouldAsk = false;
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			if (this.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-				NativeApp.sendMessage("permission_pending", "storage");
-				this.requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_STORAGE_PERMISSION);
-			} else {
-				NativeApp.sendMessage("permission_granted", "storage");
+			for (String permission : permissions) {
+				if (this.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+					shouldAsk = true;
+				}
+			}
+			if (shouldAsk) {
+				this.requestPermissions(permissions, requestCode);
 			}
 		}
+		return shouldAsk;
 	}
 
 	@TargetApi(23)
@@ -182,13 +201,36 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
+	boolean permissionsGranted(String[] permissions, int[] grantResults) {
+		for (int i = 0; i < permissions.length; i++) {
+			if (grantResults[i] != PackageManager.PERMISSION_GRANTED)
+				return false;
+		}
+		return true;
+	}
+
 	@Override
 	public void onRequestPermissionsResult(int requestCode,
 	        String permissions[], int[] grantResults) {
-		if (requestCode == REQUEST_CODE_STORAGE_PERMISSION && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-			NativeApp.sendMessage("permission_granted", "storage");
-		} else {
-			NativeApp.sendMessage("permission_denied", "storage");
+		switch (requestCode) {
+			case REQUEST_CODE_STORAGE_PERMISSION:
+				if (permissionsGranted(permissions, grantResults)) {
+					NativeApp.sendMessage("permission_granted", "storage");
+				} else {
+					NativeApp.sendMessage("permission_denied", "storage");
+				}
+				break;
+			case REQUEST_CODE_LOCATION_PERMISSION:
+				if (permissionsGranted(permissions, grantResults)) {
+					mLocationHelper.startLocationUpdates();
+				}
+				break;
+			case REQUEST_CODE_CAMERA_PERMISSION:
+				if (permissionsGranted(permissions, grantResults)) {
+					mCameraHelper.startCamera();
+				}
+				break;
+			default:
 		}
 	}
 
@@ -288,6 +330,9 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
         if (Build.VERSION.SDK_INT >= 11) {
         	checkForVibrator();
         }
+
+		mLocationHelper = new LocationHelper(this);
+		mCameraHelper = new CameraHelper(this);
 	}
 
 	@TargetApi(24)
@@ -1149,7 +1194,33 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			shuttingDown = true;
 			recreate();
 		} else if (command.equals("ask_permission") && params.equals("storage")) {
-			askForStoragePermission();
+			if (askForPermissions(permissionsForStorage, REQUEST_CODE_STORAGE_PERMISSION)) {
+				NativeApp.sendMessage("permission_pending", "storage");
+			} else {
+				NativeApp.sendMessage("permission_granted", "storage");
+			}
+		} else if (command.equals("gps_command")) {
+			switch (params) {
+				case "open":
+					if(!askForPermissions(permissionsForLocation, REQUEST_CODE_LOCATION_PERMISSION)) {
+						mLocationHelper.startLocationUpdates();
+					}
+					break;
+				case "close":
+					mLocationHelper.stopLocationUpdates();
+					break;
+			}
+		} else if (command.equals("camera_command")) {
+			switch (params) {
+				case "startVideo":
+					if(!askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
+						mCameraHelper.startCamera();
+					}
+					break;
+				case "stopVideo":
+					mCameraHelper.stopCamera();
+					break;
+			}
 		}
     	return false;
     }

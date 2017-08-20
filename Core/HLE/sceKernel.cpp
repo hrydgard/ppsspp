@@ -75,6 +75,7 @@
 #include "scePsmf.h"
 #include "sceImpose.h"
 #include "sceUsb.h"
+#include "sceUsbGps.h"
 #include "scePspNpDrm_user.h"
 #include "sceVaudio.h"
 #include "sceHeap.h"
@@ -132,6 +133,7 @@ void __KernelInit()
 	__SslInit();
 	__ImposeInit();
 	__UsbInit();
+	__UsbGpsInit();
 	__FontInit();
 	__NetInit();
 	__NetAdhocInit();
@@ -261,6 +263,7 @@ void __KernelDoState(PointerWrap &p)
 		__UmdDoState(p);
 		__UtilityDoState(p);
 		__UsbDoState(p);
+		__UsbGpsDoState(p);
 		__VaudioDoState(p);
 		__HeapDoState(p);
 

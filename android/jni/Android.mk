@@ -357,6 +357,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \
   $(SRC)/Core/HLE/sceUsb.cpp \
+  $(SRC)/Core/HLE/sceUsbCam.cpp \
   $(SRC)/Core/HLE/sceUsbGps.cpp \
   $(SRC)/Core/HLE/sceUtility.cpp \
   $(SRC)/Core/HLE/sceVaudio.cpp \
