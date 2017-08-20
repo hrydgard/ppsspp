@@ -375,6 +375,7 @@ void DrawEngineGLES::DecimateTrackedVertexArrays() {
 			vai_.Remove(hash);
 		}
 	});
+	vai_.Maintain();
 }
 
 GLuint DrawEngineGLES::AllocateBuffer(size_t sz) {

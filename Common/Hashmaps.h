@@ -1,7 +1,9 @@
 #pragma once
 
-#include "ext/xxhash.h"
 #include <functional>
+
+#include "ext/xxhash.h"
+#include "Common/CommonFuncs.h"
 
 // Whatever random value.
 const uint32_t hashmapSeed = 0x23B58532;
@@ -20,9 +22,8 @@ inline bool KeyEquals(const K &a, const K &b) {
 enum class BucketState {
 	FREE,
 	TAKEN,
-	REMOVED,  // for linear probing to work we need tombstones
+	REMOVED,  // for linear probing to work (and removal during deletion) we need tombstones
 };
-
 
 // Uses linear probing for cache-friendliness. Not segregating values from keys because
 // we always use very small values, so it's probably better to have them in the same
@@ -48,7 +49,7 @@ public:
 				return nullptr;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
 			if (p == pos)
-				DebugBreak();
+				Crash();
 		}
 		return nullptr;
 	}
@@ -57,7 +58,7 @@ public:
 	bool Insert(const Key &key, Value value) {
 		// Check load factor, resize if necessary. We never shrink.
 		if (count_ > capacity_ / 2) {
-			Grow();
+			Grow(2);
 		}
 		uint32_t mask = capacity_ - 1;
 		uint32_t pos = HashKey(key) & mask;
@@ -65,7 +66,7 @@ public:
 		while (true) {
 			if (map[p].state == BucketState::TAKEN) {
 				if (KeyEquals(key, map[p].key)) {
-					DebugBreak();  // Bad! We already got this one. Let's avoid this case.
+					Crash();  // Bad! We already got this one. Let's avoid this case.
 					return false;
 				}
 				// continue looking....
@@ -76,8 +77,11 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen thanks to Grow().
-				DebugBreak();
+				Crash();
 			}
+		}
+		if (map[p].state == BucketState::REMOVED) {
+			removedCount_--;
 		}
 		map[p].state = BucketState::TAKEN;
 		map[p].key = key;
@@ -86,7 +90,7 @@ public:
 		return true;
 	}
 
-	void Remove(const Key &key) {
+	bool Remove(const Key &key) {
 		uint32_t mask = capacity_ - 1;
 		uint32_t pos = HashKey(key) & mask;
 		uint32_t p = pos;
@@ -94,15 +98,17 @@ public:
 			if (map[p].state == BucketState::TAKEN && KeyEquals(key, map[p].key)) {
 				// Got it! Mark it as removed.
 				map[p].state = BucketState::REMOVED;
+				removedCount_++;
 				count_--;
-				return;
+				return true;
 			}
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen.
-				DebugBreak();
+				Crash();
 			}
 		}
+		return false;
 	}
 
 	size_t size() const {
@@ -125,15 +131,27 @@ public:
 		map.resize(capacity_);
 	}
 
+	void Rebuild() {
+		Grow(1);
+	}
+
+	void Maintain() {
+		// Heuristic
+		if (removedCount_ >= capacity_ / 4) {
+			Rebuild();
+		}
+	}
+
 private:
-	void Grow() {
+	void Grow(int factor) {
 		// We simply move out the existing data, then we re-insert the old.
 		// This is extremely non-atomic and will need synchronization.
 		std::vector<Pair> old = std::move(map);
-		capacity_ *= 2;
+		capacity_ *= factor;
 		map.clear();
 		map.resize(capacity_);
 		count_ = 0;  // Insert will update it.
+		removedCount_ = 0;
 		for (auto &iter : old) {
 			if (iter.state == BucketState::TAKEN) {
 				Insert(iter.key, iter.value);
@@ -148,6 +166,7 @@ private:
 	std::vector<Pair> map;
 	int capacity_;
 	int count_ = 0;
+	int removedCount_ = 0;
 };
 
 // Like the above, uses linear probing for cache-friendliness.
@@ -172,7 +191,7 @@ public:
 				return nullptr;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
 			if (p == pos)
-				DebugBreak();
+				Crash();
 		}
 		return nullptr;
 	}
@@ -181,7 +200,7 @@ public:
 	bool Insert(uint32_t hash, Value value) {
 		// Check load factor, resize if necessary. We never shrink.
 		if (count_ > capacity_ / 2) {
-			Grow();
+			Grow(2);
 		}
 		uint32_t mask = capacity_ - 1;
 		uint32_t pos = hash & mask;
@@ -197,8 +216,11 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen thanks to Grow().
-				DebugBreak();
+				Crash();
 			}
+		}
+		if (map[p].state == BucketState::REMOVED) {
+			removedCount_--;
 		}
 		map[p].state = BucketState::TAKEN;
 		map[p].hash = hash;
@@ -207,7 +229,7 @@ public:
 		return true;
 	}
 
-	void Remove(uint32_t hash) {
+	bool Remove(uint32_t hash) {
 		uint32_t mask = capacity_ - 1;
 		uint32_t pos = hash & mask;
 		uint32_t p = pos;
@@ -215,15 +237,16 @@ public:
 			if (map[p].state == BucketState::TAKEN && hash == map[p].hash) {
 				// Got it!
 				map[p].state = BucketState::REMOVED;
+				removedCount_++;
 				count_--;
-				return;
+				return true;
 			}
 			p = (p + 1) & mask;
 			if (p == pos) {
-				// FULL! Error. Should not happen.
-				DebugBreak();
+				Crash();
 			}
 		}
+		return false;
 	}
 
 	size_t size() {
@@ -246,14 +269,28 @@ public:
 		map.resize(capacity_);
 	}
 
+	// Gets rid of REMOVED tombstones, making lookups somewhat more efficient.
+	void Rebuild() {
+		Grow(1);
+	}
+
+	void Maintain() {
+		// Heuristic
+		if (removedCount_ >= capacity_ / 4) {
+			Rebuild();
+		}
+	}
+
 private:
-	void Grow() {
+	void Grow(int factor) {
 		// We simply move out the existing data, then we re-insert the old.
 		// This is extremely non-atomic and will need synchronization.
 		std::vector<Pair> old = std::move(map);
-		capacity_ *= 2;
+		capacity_ *= factor;
 		map.clear();
 		map.resize(capacity_);
+		count_ = 0;  // Insert will update it.
+		removedCount_ = 0;
 		for (auto &iter : old) {
 			if (iter.state == BucketState::TAKEN) {
 				Insert(iter.hash, iter.value);
@@ -268,4 +305,5 @@ private:
 	std::vector<Pair> map;
 	int capacity_;
 	int count_ = 0;
+	int removedCount_ = 0;
 };
