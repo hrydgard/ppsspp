@@ -1543,8 +1543,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	// Just resetting, nothing to check bounds for.
 	const u32 data = op & 0x00FFFFFF;
 	if (data == 0) {
-		// TODO: Should this set the bboxResult?  Let's set it true for now.
-		currentList->bboxResult = true;
+		currentList->bboxResult = false;
 		return;
 	}
 	if (((data & 7) == 0) && data <= 64) {  // Sanity check
