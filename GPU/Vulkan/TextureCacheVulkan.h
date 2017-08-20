@@ -59,7 +59,7 @@ public:
 
 private:
 	VulkanContext *vulkan_;
-	DenseHashMap<SamplerCacheKey, VkSampler, VK_NULL_HANDLE> cache_;
+	DenseHashMap<SamplerCacheKey, VkSampler, (VkSampler)VK_NULL_HANDLE> cache_;
 };
 
 
