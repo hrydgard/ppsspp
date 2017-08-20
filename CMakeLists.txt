@@ -360,6 +360,7 @@ add_library(Common STATIC
 	Common/KeyMap.cpp
 	Common/KeyMap.h
 	Common/LogManager.cpp
+	Common/Hashmaps.h
 	Common/LogManager.h
 	Common/MemArenaAndroid.cpp
 	Common/MemArenaDarwin.cpp
