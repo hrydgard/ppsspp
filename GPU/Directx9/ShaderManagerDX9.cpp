@@ -25,6 +25,7 @@
 #include "i18n/i18n.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
+#include "math/dataconv.h"
 #include "util/text/utf8.h"
 
 #include "Common/Common.h"
@@ -140,23 +141,15 @@ std::string VSShader::GetShaderString(DebugShaderStringType type) const {
 }
 
 void ShaderManagerDX9::PSSetColorUniform3(int creg, u32 color) {
-	const float col[4] = {
-		((color & 0xFF)) * (1.0f / 255.0f),
-		((color & 0xFF00) >> 8) * (1.0f / 255.0f),
-		((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
-		0.0f
-	};
-	device_->SetPixelShaderConstantF(creg, col, 1);
+	float f[4];
+	Uint8x3ToFloat4(f, color);
+	device_->SetPixelShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
-	const float col[4] = {
-		(float)((color & 0xFF)),
-		(float)((color & 0xFF00) >> 8),
-		(float)((color & 0xFF0000) >> 16),
-		(float)alpha,
-	};
-	device_->SetPixelShaderConstantF(creg, col, 1);
+	float f[4];
+	Uint8x3ToFloat4_AlphaUint8(f, color, alpha);
+	device_->SetPixelShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::PSSetFloat(int creg, float value) {
@@ -187,13 +180,9 @@ void ShaderManagerDX9::VSSetFloatArray(int creg, const float *value, int count) 
 
 // Utility
 void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		0.0f
-	};
-	device_->SetVertexShaderConstantF(creg, col, 1);
+	float f[4];
+	Uint8x3ToFloat4(f, color);
+	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
@@ -201,20 +190,15 @@ void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
 }
 
 void ShaderManagerDX9::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
-	const u32 col[4] = {
-		data[0] << 8, data[1] << 8, data[2] << 8, 0
-	};
-	device_->SetVertexShaderConstantF(creg, (const float *)&col[0], 1);
+	float f[4];
+	ExpandFloat24x3ToFloat4(f, data);
+	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		alpha/255.0f
-	};
-	device_->SetVertexShaderConstantF(creg, col, 1);
+	float f[4];
+	Uint8x3ToFloat4_AlphaUint8(f, color, alpha);
+	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra) {

@@ -22,6 +22,7 @@
 #include <map>
 #include <cstdio>
 
+#include "math/dataconv.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "gfx/gl_debug_log.h"
@@ -324,22 +325,15 @@ LinkedShader::~LinkedShader() {
 
 // Utility
 static void SetColorUniform3(int uniform, u32 color) {
-	const float col[3] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f
-	};
-	glUniform3fv(uniform, 1, col);
+	float f[4];
+	Uint8x4ToFloat4(f, color);
+	glUniform3fv(uniform, 1, f);
 }
 
 static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		alpha/255.0f
-	};
-	glUniform4fv(uniform, 1, col);
+	float f[4];
+	Uint8x3ToFloat4_AlphaUint8(f, color, alpha);
+	glUniform4fv(uniform, 1, f);
 }
 
 // This passes colors unscaled (e.g. 0 - 255 not 0 - 1.)
@@ -383,11 +377,10 @@ static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra) {
 	glUniform4fv(uniform, 1, col);
 }
 
-static void SetFloat24Uniform3(int uniform, const u32 data[3]) {
-	const u32 col[3] = {
-		data[0] << 8, data[1] << 8, data[2] << 8
-	};
-	glUniform3fv(uniform, 1, (const GLfloat *)&col[0]);
+static void SetFloat24Uniform3(int uniform, const uint32_t data[3]) {
+	float f[4];
+	ExpandFloat24x3ToFloat4(f, data);
+	glUniform3fv(uniform, 1, f);
 }
 
 static void SetFloatUniform4(int uniform, float data[4]) {

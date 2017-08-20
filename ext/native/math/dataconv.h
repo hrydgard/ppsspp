@@ -134,7 +134,7 @@ inline void CopyMatrix4x4(float dest[16], const float src[16]) {
 	memcpy(dest, src, sizeof(float) * 16);
 }
 
-inline void ExpandFloat24x3ToFloat4(float dest[4], uint32_t src[3]) {
+inline void ExpandFloat24x3ToFloat4(float dest[4], const uint32_t src[3]) {
 #ifdef _M_SSE
 	__m128i values = _mm_slli_epi32(_mm_load_si128((const __m128i *)src), 8);
 	_mm_storeu_si128((__m128i *)dest, values);

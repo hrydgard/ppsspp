@@ -95,16 +95,16 @@ public:
 private:
 	void PSUpdateUniforms(u64 dirtyUniforms);
 	void VSUpdateUniforms(u64 dirtyUniforms);
-	void PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
-	void PSSetColorUniform3(int creg, u32 color);
-	void PSSetFloat(int creg, float value);
-	void PSSetFloatArray(int creg, const float *value, int count);
+	inline void PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
+	inline void PSSetColorUniform3(int creg, u32 color);
+	inline void PSSetFloat(int creg, float value);
+	inline void PSSetFloatArray(int creg, const float *value, int count);
 
 	void VSSetMatrix4x3(int creg, const float *m4x3);
 	void VSSetMatrix4x3_3(int creg, const float *m4x3);
-	void VSSetColorUniform3(int creg, u32 color);
-	void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
-	void VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha);
+	inline void VSSetColorUniform3(int creg, u32 color);
+	inline void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
+	inline void VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha);
 	void VSSetMatrix(int creg, const float* pMatrix);
 	void VSSetFloat(int creg, float value);
 	void VSSetFloatArray(int creg, const float *value, int count);
