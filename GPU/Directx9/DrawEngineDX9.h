@@ -17,10 +17,9 @@
 
 #pragma once
 
-#include <unordered_map>
-
 #include <d3d9.h>
 
+#include "Common/Hashmaps.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
@@ -155,8 +154,8 @@ private:
 
 	LPDIRECT3DDEVICE9 device_ = nullptr;
 
-	std::unordered_map<u32, VertexArrayInfoDX9 *> vai_;
-	std::unordered_map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
+	PrehashMap<VertexArrayInfoDX9 *, nullptr> vai_;
+	DenseHashMap<u32, IDirect3DVertexDeclaration9 *, nullptr> vertexDeclMap_;
 
 	// SimpleVertex
 	IDirect3DVertexDeclaration9* transformedVertexDecl_ = nullptr;

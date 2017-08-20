@@ -17,11 +17,10 @@
 
 #pragma once
 
-#include <unordered_map>
-
 #include <d3d11.h>
 #include <d3d11_1.h>
 
+#include "Common/Hashmaps.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
@@ -168,7 +167,7 @@ private:
 	ID3D11DeviceContext *context_;
 	ID3D11DeviceContext1 *context1_;
 
-	std::unordered_map<u32, VertexArrayInfoD3D11 *> vai_;
+	PrehashMap<VertexArrayInfoD3D11 *, nullptr> vai_;
 
 	struct InputLayoutKey {
 		D3D11VertexShader *vshader;
@@ -182,7 +181,7 @@ private:
 		}
 	};
 
-	std::map<InputLayoutKey, ID3D11InputLayout *> inputLayoutMap_;
+	DenseHashMap<InputLayoutKey, ID3D11InputLayout *, nullptr> inputLayoutMap_;
 
 	// Other
 	ShaderManagerD3D11 *shaderManager_ = nullptr;

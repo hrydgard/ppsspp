@@ -72,8 +72,9 @@ static const D3D11_INPUT_ELEMENT_DESC TransformedVertexElements[] = {
 DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context)
 	: draw_(draw),
 		device_(device),
-		context_(context)
-{
+		context_(context),
+		vai_(256),
+		inputLayoutMap_(32) {
 	device1_ = (ID3D11Device1 *)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 	context1_ = (ID3D11DeviceContext1 *)draw->GetNativeObject(Draw::NativeObject::CONTEXT_EX);
 	decOptions_.expandAllWeightsToFloat = true;
@@ -111,18 +112,18 @@ void DrawEngineD3D11::InitDeviceObjects() {
 }
 
 void DrawEngineD3D11::ClearTrackedVertexArrays() {
-	for (auto &vai : vai_) {
-		delete vai.second;
-	}
-	vai_.clear();
+	vai_.Iterate([&](uint32_t hash, VertexArrayInfoD3D11 *vai){
+		delete vai;
+	});
+	vai_.Clear();
 }
 
 void DrawEngineD3D11::ClearInputLayoutMap() {
-	for (auto &decl : inputLayoutMap_) {
-		if (decl.second)
-			decl.second->Release();
-	}
-	inputLayoutMap_.clear();
+	inputLayoutMap_.Iterate([&](const InputLayoutKey &key, ID3D11InputLayout *il) {
+		if (il)
+			il->Release();
+	});
+	inputLayoutMap_.Clear();
 }
 
 void DrawEngineD3D11::Resized() {
@@ -190,8 +191,10 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 	// TODO: Instead of one for each vshader, we can reduce it to one for each type of shader
 	// that reads TEXCOORD or not, etc. Not sure if worth it.
 	InputLayoutKey key{ vshader, pspFmt };
-	auto vertexDeclCached = inputLayoutMap_.find(key);
-	if (vertexDeclCached == inputLayoutMap_.end()) {
+	ID3D11InputLayout *inputLayout = inputLayoutMap_.Get(key);
+	if (inputLayout) {
+		return inputLayout;
+	} else {
 		D3D11_INPUT_ELEMENT_DESC VertexElements[8];
 		D3D11_INPUT_ELEMENT_DESC *VertexElement = &VertexElements[0];
 
@@ -236,7 +239,6 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 		VertexElement++;
 
 		// Create declaration
-		ID3D11InputLayout *inputLayout = nullptr;
 		HRESULT hr = device_->CreateInputLayout(VertexElements, VertexElement - VertexElements, vshader->bytecode().data(), vshader->bytecode().size(), &inputLayout);
 		if (FAILED(hr)) {
 			ERROR_LOG(G3D, "Failed to create input layout!");
@@ -244,11 +246,8 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 		}
 
 		// Add it to map
-		inputLayoutMap_[key] = inputLayout;
+		inputLayoutMap_.Insert(key, inputLayout);
 		return inputLayout;
-	} else {
-		// Set it from map
-		return vertexDeclCached->second;
 	}
 }
 
@@ -375,21 +374,19 @@ void DrawEngineD3D11::BeginFrame() {
 	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
 	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
 	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
-	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
+	vai_.Iterate([&](uint32_t hash, VertexArrayInfoD3D11 *vai){
 		bool kill;
-		if (iter->second->status == VertexArrayInfoD3D11::VAI_UNRELIABLE) {
+		if (vai->status == VertexArrayInfoD3D11::VAI_UNRELIABLE) {
 			// We limit killing unreliable so we don't rehash too often.
-			kill = iter->second->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
+			kill = vai->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
 		} else {
-			kill = iter->second->lastFrame < threshold;
+			kill = vai->lastFrame < threshold;
 		}
 		if (kill) {
-			delete iter->second;
-			vai_.erase(iter++);
-		} else {
-			++iter;
+			delete vai;
+			vai_.Remove(hash);
 		}
-	}
+	});
 
 	// Enable if you want to see vertex decoders in the log output. Need a better way.
 #if 0
@@ -443,14 +440,11 @@ void DrawEngineD3D11::DoFlush() {
 
 		if (useCache) {
 			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-			auto iter = vai_.find(id);
-			VertexArrayInfoD3D11 *vai;
-			if (iter != vai_.end()) {
-				// We've seen this before. Could have been a cached draw.
-				vai = iter->second;
-			} else {
+
+			VertexArrayInfoD3D11 *vai = vai_.Get(id);
+			if (!vai) {
 				vai = new VertexArrayInfoD3D11();
-				vai_[id] = vai;
+				vai_.Insert(id, vai);
 			}
 
 			switch (vai->status) {
@@ -709,13 +703,10 @@ rotateVBO:
 			// We really do need a vertex layout for each vertex shader (or at least check its ID bits for what inputs it uses)!
 			// Some vertex shaders ignore one of the inputs, and then the layout created from it will lack it, which will be a problem for others.
 			InputLayoutKey key{ vshader, 0xFFFFFFFF };  // Let's use 0xFFFFFFFF to signify TransformedVertex
-			auto iter = inputLayoutMap_.find(key);
-			ID3D11InputLayout *layout;
-			if (iter == inputLayoutMap_.end()) {
+			ID3D11InputLayout *layout = inputLayoutMap_.Get(key);
+			if (!layout) {
 				ASSERT_SUCCESS(device_->CreateInputLayout(TransformedVertexElements, ARRAY_SIZE(TransformedVertexElements), vshader->bytecode().data(), vshader->bytecode().size(), &layout));
-				inputLayoutMap_[key] = layout;
-			} else {
-				layout = iter->second;
+				inputLayoutMap_.Insert(key, layout);
 			}
 			context_->IASetInputLayout(layout);
 			context_->IASetPrimitiveTopology(d3d11prim[prim]);

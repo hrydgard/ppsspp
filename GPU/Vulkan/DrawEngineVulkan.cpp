@@ -78,7 +78,8 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 	:	vulkan_(vulkan),
 		draw_(draw),
 		curFrame_(0),
-		stats_{} {
+		stats_{},
+		vai_(1024) {
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 
@@ -316,34 +317,33 @@ void DrawEngineVulkan::BeginFrame() {
 		vertexCache_->Destroy(vulkan_);
 		delete vertexCache_;  // orphans the buffers, they'll get deleted once no longer used by an in-flight frame.
 		vertexCache_ = new VulkanPushBuffer(vulkan_, VERTEX_CACHE_SIZE);
-		vai_.clear();
+		vai_.Clear();
 	}
 
 	vertexCache_->BeginNoReset();
 
 	if (--decimationCounter_ <= 0) {
 		vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
-		frame->descSets.clear();
+		frame->descSets.Clear();
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 
 		const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
 		const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
 		int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
-		for (auto iter = vai_.begin(); iter != vai_.end(); ) {
+		vai_.Iterate([&](uint32_t hash, VertexArrayInfoVulkan *vai) {
 			bool kill;
-			if (iter->second->status == VertexArrayInfoVulkan::VAI_UNRELIABLE) {
+			if (vai->status == VertexArrayInfoVulkan::VAI_UNRELIABLE) {
 				// We limit killing unreliable so we don't rehash too often.
-				kill = iter->second->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
+				kill = vai->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
 			} else {
-				kill = iter->second->lastFrame < threshold;
+				kill = vai->lastFrame < threshold;
 			}
 			if (kill) {
-				delete iter->second;
-				vai_.erase(iter++);
-			} else {
-				++iter;
+				// This is actually quite safe.
+				vai_.Remove(hash);
+				delete vai;
 			}
-		}
+		});
 	}
 }
 
@@ -513,10 +513,9 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
 	FrameData *frame = &frame_[curFrame_];
 	if (!gstate_c.bezier && !gstate_c.spline) { // Has no cache when HW tessellation.
-		auto iter = frame->descSets.find(key);
-		if (iter != frame->descSets.end()) {
-			return iter->second;
-		}
+		VkDescriptorSet d = frame->descSets.Get(key);
+		if (d != VK_NULL_HANDLE)
+			return d;
 	}
 
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
@@ -607,7 +606,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
 
 	if (!(gstate_c.bezier || gstate_c.spline)) // Avoid caching when HW tessellation.
-		frame->descSets[key] = desc;
+		frame->descSets.Insert(key, desc);
 	return desc;
 }
 
@@ -692,14 +691,10 @@ void DrawEngineVulkan::DoFlush() {
 		if (useCache) {
 			PROFILE_THIS_SCOPE("vcache");
 			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-			auto iter = vai_.find(id);
-			VertexArrayInfoVulkan *vai;
-			if (iter != vai_.end()) {
-				// We've seen this before. Could have been a cached draw.
-				vai = iter->second;
-			} else {
+			VertexArrayInfoVulkan *vai = vai_.Get(id);
+			if (!vai) {
 				vai = new VertexArrayInfoVulkan();
-				vai_[id] = vai;
+				vai_.Insert(id, vai);
 			}
 
 			switch (vai->status) {

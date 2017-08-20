@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <Common/Hashmaps.h>
 #include <unordered_map>
 
 #include "GPU/GPUState.h"
@@ -165,7 +166,7 @@ private:
 
 	void MarkUnreliable(VertexArrayInfo *vai);
 
-	std::unordered_map<u32, VertexArrayInfo *> vai_;
+	PrehashMap<VertexArrayInfo *, nullptr> vai_;
 
 	// Vertex buffer objects
 	// Element buffer objects

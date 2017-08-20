@@ -84,7 +84,7 @@ static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
 	D3DDECL_END()
 };
 
-DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) {
+DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : vai_(256), vertexDeclMap_(64) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
@@ -115,12 +115,12 @@ DrawEngineDX9::~DrawEngineDX9() {
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
-	for (auto decl = vertexDeclMap_.begin(); decl != vertexDeclMap_.end(); ++decl) {
-		if (decl->second) {
-			decl->second->Release();
+	vertexDeclMap_.Iterate([&](const uint32_t &key, IDirect3DVertexDeclaration9 *decl) {
+		if (decl) {
+			decl->Release();
 		}
-	}
-
+	});
+	vertexDeclMap_.Clear();
 	delete tessDataTransfer;
 }
 
@@ -169,9 +169,11 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 }
 
 IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
-	auto vertexDeclCached = vertexDeclMap_.find(pspFmt);
+	IDirect3DVertexDeclaration9 *vertexDeclCached = vertexDeclMap_.Get(pspFmt);
 
-	if (vertexDeclCached == vertexDeclMap_.end()) {
+	if (vertexDeclCached) {
+		return vertexDeclCached;
+	} else {
 		D3DVERTEXELEMENT9 VertexElements[8];
 		D3DVERTEXELEMENT9 *VertexElement = &VertexElements[0];
 
@@ -228,11 +230,8 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader
 		}
 
 		// Add it to map
-		vertexDeclMap_[pspFmt] = pHardwareVertexDecl;
+		vertexDeclMap_.Insert(pspFmt, pHardwareVertexDecl);
 		return pHardwareVertexDecl;
-	} else {
-		// Set it from map
-		return vertexDeclCached->second;
 	}
 }
 
@@ -329,10 +328,10 @@ void DrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
 }
 
 void DrawEngineDX9::ClearTrackedVertexArrays() {
-	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
-		delete vai->second;
-	}
-	vai_.clear();
+	vai_.Iterate([&](uint32_t hash, DX9::VertexArrayInfoDX9 *vai) {
+		delete vai;
+	});
+	vai_.Clear();
 }
 
 void DrawEngineDX9::DecimateTrackedVertexArrays() {
@@ -345,21 +344,19 @@ void DrawEngineDX9::DecimateTrackedVertexArrays() {
 	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
 	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
 	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
-	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
+	vai_.Iterate([&](uint32_t hash, DX9::VertexArrayInfoDX9 *vai) {
 		bool kill;
-		if (iter->second->status == VertexArrayInfoDX9::VAI_UNRELIABLE) {
+		if (vai->status == VertexArrayInfoDX9::VAI_UNRELIABLE) {
 			// We limit killing unreliable so we don't rehash too often.
-			kill = iter->second->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
+			kill = vai->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
 		} else {
-			kill = iter->second->lastFrame < threshold;
+			kill = vai->lastFrame < threshold;
 		}
 		if (kill) {
-			delete iter->second;
-			vai_.erase(iter++);
-		} else {
-			++iter;
+			delete vai;
+			vai_.Remove(hash);
 		}
-	}
+	});
 
 	// Enable if you want to see vertex decoders in the log output. Need a better way.
 #if 0
@@ -415,14 +412,10 @@ void DrawEngineDX9::DoFlush() {
 
 		if (useCache) {
 			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-			auto iter = vai_.find(id);
-			VertexArrayInfoDX9 *vai;
-			if (iter != vai_.end()) {
-				// We've seen this before. Could have been a cached draw.
-				vai = iter->second;
-			} else {
+			VertexArrayInfoDX9 *vai = vai_.Get(id);
+			if (!vai) {
 				vai = new VertexArrayInfoDX9();
-				vai_[id] = vai;
+				vai_.Insert(id, vai);
 			}
 
 			switch (vai->status) {

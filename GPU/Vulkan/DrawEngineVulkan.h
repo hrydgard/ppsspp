@@ -32,6 +32,8 @@
 #include <map>
 #include <unordered_map>
 
+#include "Common/Hashmaps.h"
+
 #include "GPU/Vulkan/VulkanUtil.h"
 
 #include "GPU/GPUState.h"
@@ -195,7 +197,7 @@ private:
 	VulkanPipeline *lastPipeline_;
 	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
 
-	std::unordered_map<u32, VertexArrayInfoVulkan *> vai_;
+	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
 	VulkanPushBuffer *vertexCache_;
 	int decimationCounter_ = 0;
 
@@ -219,12 +221,14 @@ private:
 
 	// We alternate between these.
 	struct FrameData {
+		FrameData() : descSets(1024) {}
+
 		VkDescriptorPool descPool;
 		VulkanPushBuffer *pushUBO;
 		VulkanPushBuffer *pushVertex;
 		VulkanPushBuffer *pushIndex;
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
-		std::map<DescriptorSetKey, VkDescriptorSet> descSets;
+		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;
 
 		void Destroy(VulkanContext *vulkan);
 	};

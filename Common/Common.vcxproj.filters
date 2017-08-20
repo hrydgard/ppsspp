@@ -74,6 +74,7 @@
       <Filter>Vulkan</Filter>
     </ClInclude>
     <ClInclude Include="OSVersion.h" />
+    <ClInclude Include="Hashmaps.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
