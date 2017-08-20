@@ -228,7 +228,7 @@ private:
 		VulkanPushBuffer *pushVertex;
 		VulkanPushBuffer *pushIndex;
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
-		DenseHashMap<DescriptorSetKey, VkDescriptorSet, VK_NULL_HANDLE> descSets;
+		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;
 
 		void Destroy(VulkanContext *vulkan);
 	};
