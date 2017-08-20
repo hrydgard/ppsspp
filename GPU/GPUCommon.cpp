@@ -1328,7 +1328,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					trigger = false;
 					currentList->signal = behaviour;
 					// pc will be increased after we return, counteract that.
-					u32 target = ((signal << 16) | enddata) - 4;
+					u32 target = (((signal << 16) | enddata) & 0xFFFFFFFC) - 4;
 					if (!Memory::IsValidAddress(target)) {
 						ERROR_LOG_REPORT(G3D, "Signal with Jump: bad address. signal/end: %04x %04x", signal, enddata);
 					} else {
@@ -1343,7 +1343,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					trigger = false;
 					currentList->signal = behaviour;
 					// pc will be increased after we return, counteract that.
-					u32 target = ((signal << 16) | enddata) - 4;
+					u32 target = (((signal << 16) | enddata) & 0xFFFFFFFC) - 4;
 					if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
 						ERROR_LOG_REPORT(G3D, "Signal with Call: stack full. signal/end: %04x %04x", signal, enddata);
 					} else if (!Memory::IsValidAddress(target)) {
@@ -1537,8 +1537,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	// Just resetting, nothing to check bounds for.
 	const u32 data = op & 0x00FFFFFF;
 	if (data == 0) {
-		// TODO: Should this set the bboxResult?  Let's set it true for now.
-		currentList->bboxResult = true;
+		currentList->bboxResult = false;
 		return;
 	}
 	if (((data & 7) == 0) && data <= 64) {  // Sanity check
