@@ -51,6 +51,7 @@ LOCAL_SRC_FILES :=\
     input/input_state.cpp \
     math/fast/fast_math.c \
     math/fast/fast_matrix.c \
+    math/dataconv.cpp \
     math/math_util.cpp \
     math/curves.cpp \
     math/expression_parser.cpp \

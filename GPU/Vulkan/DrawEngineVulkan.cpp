@@ -670,8 +670,8 @@ void DrawEngineVulkan::DoFlush() {
 	VulkanVertexShader *vshader = nullptr;
 	VulkanFragmentShader *fshader = nullptr;
 
-	uint32_t ibOffset = 0;
-	uint32_t vbOffset = 0;
+	uint32_t ibOffset;
+	uint32_t vbOffset;
 	
 	if (useHWTransform) {
 		// We don't detect clears in this path, so here we can switch framebuffers if necessary.
@@ -880,7 +880,7 @@ void DrawEngineVulkan::DoFlush() {
 				return;
 			}
 			if (pipeline != lastPipeline_) {
-				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 				lastPipeline_ = pipeline;
 			}
 			ApplyDrawStateLate(cmd, false, 0);

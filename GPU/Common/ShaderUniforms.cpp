@@ -219,7 +219,6 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
 		Uint8x3ToFloat4(ub->materialEmissive, gstate.materialemissive);
 	}
-
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {

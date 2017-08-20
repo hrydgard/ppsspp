@@ -822,8 +822,7 @@ typedef Math3D::Vec3Packed<float> Vec3Packedf;
 typedef Math3D::Vec4<float> Vec4f;
 
 
-inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
-{
+inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12]) {
 	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9];
 	vecOut[1] = v[0] * m[1] + v[1] * m[4] + v[2] * m[7] + m[10];
 	vecOut[2] = v[0] * m[2] + v[1] * m[5] + v[2] * m[8] + m[11];
@@ -895,6 +894,14 @@ inline void ConvertMatrix4x3To4x4Transposed(float *m4x4, const float *m4x3) {
 	m4x4[15] = 1.0f;
 }
 
+// 0369
+// 147A
+// 258B
+// ->>-
+// 0123
+// 4567
+// 89AB
+// Don't see a way to SIMD that. Should be pretty fast anyway.
 inline void ConvertMatrix4x3To3x4Transposed(float *m4x4, const float *m4x3) {
 	m4x4[0] = m4x3[0];
 	m4x4[1] = m4x3[3];

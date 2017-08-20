@@ -696,6 +696,7 @@
     <ClCompile Include="gfx_es2\draw_text_android.cpp" />
     <ClCompile Include="gfx_es2\draw_text_qt.cpp" />
     <ClCompile Include="gfx_es2\draw_text_win.cpp" />
+    <ClCompile Include="math\dataconv.cpp" />
     <ClCompile Include="thin3d\d3d11_loader.cpp" />
     <ClCompile Include="thin3d\thin3d_d3d11.cpp" />
     <ClCompile Include="util\text\wrap_text.cpp" />

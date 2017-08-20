@@ -519,8 +519,7 @@ void CallSyscall(MIPSOpcode op)
 {
 	PROFILE_THIS_SCOPE("syscall");
 	double start = 0.0;  // need to initialize to fix the race condition where coreCollectDebugStats is enabled in the middle of this func.
-	if (coreCollectDebugStats)
-	{
+	if (coreCollectDebugStats) {
 		time_update();
 		start = time_now_d();
 	}
@@ -544,8 +543,7 @@ void CallSyscall(MIPSOpcode op)
 		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
 	}
 
-	if (coreCollectDebugStats)
-	{
+	if (coreCollectDebugStats) {
 		time_update();
 		u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 		int funcnum = callno & 0xFFF;
