@@ -809,7 +809,7 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 }
 
 void FramebufferManagerCommon::CopyDisplayToOutput() {
-	DownloadFramebufferOnSwitch(currentRenderVfb_);
+	// DownloadFramebufferOnSwitch(currentRenderVfb_);
 
 	currentRenderVfb_ = 0;
 

@@ -75,7 +75,12 @@
     </ClInclude>
     <ClInclude Include="OSVersion.h" />
     <ClInclude Include="Hashmaps.h" />
-    <ClInclude Include="Vulkan\VulkanRenderManager.h" />
+    <ClInclude Include="Vulkan\VulkanRenderManager.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\VulkanQueueRunner.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -139,7 +144,12 @@
     <ClCompile Include="MemArenaAndroid.cpp" />
     <ClCompile Include="MemArenaDarwin.cpp" />
     <ClCompile Include="OSVersion.cpp" />
-    <ClCompile Include="Vulkan\VulkanRenderManager.cpp" />
+    <ClCompile Include="Vulkan\VulkanRenderManager.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\VulkanQueueRunner.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">

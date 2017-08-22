@@ -452,16 +452,13 @@ public:
 
 	uintptr_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
-		case NativeObject::COMPATIBLE_RENDERPASS:
+		case NativeObject::FRAMEBUFFER_RENDERPASS:
 			// Return a representative renderpass.
-			if (curRenderPass_ == renderManager_.GetSurfaceRenderPass())
-				return (uintptr_t)curRenderPass_;
-			else
-				return (uintptr_t)renderManager_.GetRenderPass(0);
+			return (uintptr_t)renderManager_.GetRenderPass(0);
 		case NativeObject::BACKBUFFER_RENDERPASS:
-			return (uintptr_t)renderManager_.GetSurfaceRenderPass();
-		case NativeObject::CURRENT_RENDERPASS:
-			return (uintptr_t)curRenderPass_;
+			return (uintptr_t)renderManager_.GetBackbufferRenderpass();
+		case NativeObject::COMPATIBLE_RENDERPASS:
+			return (uintptr_t)renderManager_.GetCompatibleRenderpass();
 		case NativeObject::INIT_COMMANDBUFFER:
 			return (uintptr_t)renderManager_.GetInitCmd();
 		case NativeObject::BOUND_TEXTURE_IMAGEVIEW:
@@ -470,6 +467,7 @@ public:
 		case NativeObject::RENDER_MANAGER:
 			return (uintptr_t)&renderManager_;
 		default:
+			Crash();
 			return 0;
 		}
 	}
@@ -521,9 +519,6 @@ private:
 	VulkanPushBuffer *push_ = nullptr;
 
 	DeviceCaps caps_{};
-
-	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
-	VkRenderPass curRenderPass_ = VK_NULL_HANDLE;
 };
 
 static int GetBpp(VkFormat format) {
@@ -907,7 +902,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	info.pViewportState = &vs;  // Must set viewport and scissor counts even if we set the actual state dynamically.
 	info.layout = pipelineLayout_;
 	info.subpass = 0;
-	info.renderPass = renderManager_.GetSurfaceRenderPass();
+	info.renderPass = renderManager_.GetBackbufferRenderpass();
 
 	// OK, need to create a new pipeline.
 	VkResult result = vkCreateGraphicsPipelines(device_, pipelineCache_, 1, &info, nullptr, &pipeline->vkpipeline);
@@ -1134,7 +1129,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
-	renderManager_.DrawIndexed(curPipeline_->vkpipeline, pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, vertexCount, VK_INDEX_TYPE_UINT32);
+	renderManager_.DrawIndexed(curPipeline_->vkpipeline, pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, vertexCount, 1, VK_INDEX_TYPE_UINT32);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1151,11 +1146,6 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 
 // TODO: We should avoid this function as much as possible, instead use renderpass on-load clearing.
 void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int stencilVal) {
-	if (!curRenderPass_) {
-		ELOG("Clear: Need an active render pass");
-		return;
-	}
-
 	int mask = 0;
 	if (clearMask & FBChannel::FB_COLOR_BIT)
 		mask |= VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1315,7 +1305,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 	if (channelBit & FBChannel::FB_COLOR_BIT) aspect |= VK_IMAGE_ASPECT_COLOR_BIT;
 	if (channelBit & FBChannel::FB_DEPTH_BIT) aspect |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBit & FBChannel::FB_STENCIL_BIT) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
-	renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
+	boundImageView_[0] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
 }
 
 uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {

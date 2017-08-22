@@ -141,13 +141,12 @@ void VulkanRenderManager::CreateBackbuffers() {
 			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
 			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
-		res = vkCreateImageView(vulkan_->GetDevice(),
-			&color_image_view, NULL, &sc_buffer.view);
+		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, NULL, &sc_buffer.view);
 		swapchainImages_.push_back(sc_buffer);
 		assert(res == VK_SUCCESS);
 	}
 	delete[] swapchainImages;
-	current_buffer = -1;
+	curSwapchainImage_ = -1;
 
 	InitDepthStencilBuffer(cmdInit);  // Must be before InitBackbufferRenderPass.
 	InitBackbufferRenderPass();  // Must be before InitFramebuffers.
@@ -186,7 +185,6 @@ VulkanRenderManager::~VulkanRenderManager() {
 	}
 	framebuffers_.clear();
 	for (int i = 0; i < ARRAY_SIZE(renderPasses_); i++) {
-		// vulkan_->Delete().QueueDeleteRenderPass(renderPasses_[i]);
 		vkDestroyRenderPass(device, renderPasses_[i], nullptr);
 	}
 }
@@ -201,14 +199,13 @@ void VulkanRenderManager::ThreadFunc() {
 }
 
 void VulkanRenderManager::BeginFrame() {
-
 	VkDevice device = vulkan_->GetDevice();
 
 	FrameData &frameData = frameData_[vulkan_->GetCurFrame()];
 
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
-	VkResult res = vkAcquireNextImageKHR(device, vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &current_buffer);
+	VkResult res = vkAcquireNextImageKHR(device, vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &curSwapchainImage_);
 	assert(res == VK_SUCCESS);
 
 	// Make sure the very last command buffer from the frame before the previous has been fully executed.
@@ -243,7 +240,7 @@ void VulkanRenderManager::EndFrame() {
 
 	FrameData &frame = frameData_[vulkan_->GetCurFrame()];
 
-	TransitionToPresent(frame.mainCmd, swapchainImages_[current_buffer].image);
+	TransitionToPresent(frame.mainCmd, swapchainImages_[curSwapchainImage_].image);
 
 	VkResult res = vkEndCommandBuffer(frame.mainCmd);
 	assert(res == VK_SUCCESS);
@@ -281,7 +278,7 @@ void VulkanRenderManager::EndFrame() {
 	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
 	present.swapchainCount = 1;
 	present.pSwapchains = &swapchain;
-	present.pImageIndices = &current_buffer;
+	present.pImageIndices = &curSwapchainImage_;
 	present.pWaitSemaphores = &renderingCompleteSemaphore;
 	present.waitSemaphoreCount = 1;
 	present.pResults = nullptr;
@@ -296,6 +293,14 @@ void VulkanRenderManager::Sync() {
 }
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil) {
+	// Eliminate dupes.
+	if (steps_.size() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
+		if (color != VKRRenderPassAction::CLEAR && depth != VKRRenderPassAction::CLEAR) {
+			// We don't move to a new step, this bind was unnecessary.
+			return;
+		}
+	}
+
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
 	// This is what queues up new passes, and can end previous ones.
 	step->render.framebuffer = fb;
@@ -304,7 +309,10 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.clearColor = clearColor;
 	step->render.clearDepth = clearDepth;
 	step->render.clearStencil = clearStencil;
+	step->render.numDraws = 0;
+	step->render.finalColorLayout = !fb ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
 	steps_.push_back(step);
+
 	curRenderStep_ = step;
 	curWidth_ = fb ? fb->width : vulkan_->GetBackbufferWidth();
 	curHeight_ = fb ? fb->height : vulkan_->GetBackbufferHeight();
@@ -579,34 +587,20 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment) {
 	// Should just mark the dependency and return the image.
-	for (int i = 0; i < (int)steps_.size() - 1; i++) {
+	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == fb) {
-			if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+			// If this framebuffer was rendered to earlier in this frame, make sure to pre-transition it to the correct layout.
+			if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			else
-				Crash();  // May need to shadow the framebuffer?
+				break;
+			}
+			else {
+				// May need to shadow the framebuffer if we re-order passes later.
+			}
 		}
 	}
 
-	/*
-	VkAccessFlags srcAccessMask;
-	VkPipelineStageFlags srcStage;
-	switch (fb->color.layout) {
-	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-		srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-		srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		break;
-	}
-	TransitionImageLayout2(transitionCmdBuf, fb->color.image, VK_IMAGE_ASPECT_COLOR_BIT,
-		fb->color.layout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		srcStage, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		srcAccessMask, VK_ACCESS_SHADER_READ_BIT);
-	fb->color.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	*/
+	curRenderStep_->preTransitions.push_back({ fb, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
 	return fb->color.imageView;
 }
 
@@ -633,7 +627,7 @@ void VulkanRenderManager::Flush() {
 	// return codes
 	// TODO: Is it best to do this here, or combine with some other transition, or just do it right before the backbuffer bind-for-render?
 	assert(res == VK_SUCCESS);
-	TransitionFromPresent(cmd, swapchainImages_[current_buffer].image);
+	TransitionFromPresent(cmd, swapchainImages_[curSwapchainImage_].image);
 
 	// Optimizes renderpasses, then sequences them.
 	for (int i = 0; i < stepsOnThread_.size(); i++) {
@@ -658,8 +652,60 @@ void VulkanRenderManager::Flush() {
 }
 
 void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
+	// TODO: If there are multiple, we can transition them together.
+	for (const auto &iter : step.preTransitions) {
+		if (iter.fb->color.layout != iter.targetLayout) {
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.oldLayout = iter.fb->color.layout;
+			barrier.subresourceRange.layerCount = 1;
+			barrier.subresourceRange.levelCount = 1;
+			barrier.image = iter.fb->color.image;
+			barrier.srcAccessMask = 0;
+			VkPipelineStageFlags srcStage;
+			VkPipelineStageFlags dstStage;
+			switch (barrier.oldLayout) {
+			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+				srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				break;
+			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				break;
+			default:
+				Crash();
+				break;
+			}
+			barrier.newLayout = iter.targetLayout;
+			switch (barrier.newLayout) {
+			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+				barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+				break;
+			default:
+				Crash();
+				break;
+			}
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+			vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+			iter.fb->color.layout = barrier.newLayout;
+		}
+	}
+
 	PerformBindFramebufferAsRenderTarget(step, cmd);
+
+	VKRFramebuffer *fb = step.render.framebuffer;
+
 	auto &commands = step.commands;
+
+	// TODO: Dynamic state commands (SetViewport, SetScissor, SetBlendConstants, SetStencil*) are only
+	// valid when a pipeline is bound with those as dynamic state. So we need to add some state tracking here
+	// for this to be correct. This is a bit of a pain but also will let us eliminate redundant calls.
+
 	for (const auto &c : commands) {
 		switch (c.cmd) {
 		case VKRRenderCommand::VIEWPORT:
@@ -733,6 +779,41 @@ void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer
 		}
 	}
 	vkCmdEndRenderPass(cmd);
+
+	// Transition the framebuffer if requested.
+	if (fb && step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED) {
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = fb->color.layout;
+		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.image = fb->color.image;
+		barrier.srcAccessMask = 0;
+		switch (barrier.oldLayout) {
+		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			break;
+		default:
+			Crash();
+		}
+		barrier.newLayout = step.render.finalColorLayout;
+		switch (barrier.newLayout) {
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			break;
+		default:
+			Crash();
+		}
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+		// we're between passes so it's OK.
+		// ARM Best Practices guide recommends these stage bits.
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		fb->color.layout = barrier.newLayout;
+	}
 }
 
 void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &step, VkCommandBuffer cmd) {
@@ -747,7 +828,7 @@ void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &st
 		h = fb->height;
 		prevLayout = fb->color.layout;
 	} else {
-		framebuf = framebuffers_[current_buffer];
+		framebuf = framebuffers_[curSwapchainImage_];
 		w = vulkan_->GetBackbufferWidth();
 		h = vulkan_->GetBackbufferHeight();
 	}
@@ -792,56 +873,51 @@ void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &st
 		// Now, if the image needs transitioning, let's transition.
 		// The backbuffer does not, that's handled by VulkanContext.
 		if (step.render.framebuffer->color.layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-			VkImageMemoryBarrier barrier{};
-			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-			barrier.oldLayout = fb->color.layout;
-			barrier.subresourceRange.layerCount = 1;
-			barrier.subresourceRange.levelCount = 1;
-			barrier.image = fb->color.image;
-			barrier.srcAccessMask = 0;
+			VkAccessFlags srcAccessMask;
+			VkPipelineStageFlags srcStage;
 			switch (fb->color.layout) {
 			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-				barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 				break;
 			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
 			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-				barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+				srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
 			}
-			barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-			barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			// TODO: Double-check these flags. Should be fine.
-			vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-			fb->color.layout = barrier.newLayout;
+
+			TransitionImageLayout2(cmd, fb->color.image, VK_IMAGE_ASPECT_COLOR_BIT,
+				fb->color.layout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				srcAccessMask, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
+			fb->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
 		if (fb->depth.layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-			VkImageMemoryBarrier barrier{};
-			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-			barrier.oldLayout = fb->depth.layout;
-			barrier.subresourceRange.layerCount = 1;
-			barrier.subresourceRange.levelCount = 1;
-			barrier.image = fb->depth.image;
-			barrier.srcAccessMask = 0;
+			VkAccessFlags srcAccessMask;
+			VkPipelineStageFlags srcStage;
 			switch (fb->depth.layout) {
 			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-				barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 				break;
 			case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-				barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+				srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
 			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-				barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
 			}
-			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-			barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-			// TODO: Double-check these flags. Should be fine.
-			vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-			fb->depth.layout = barrier.newLayout;
+			TransitionImageLayout2(cmd, fb->color.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+				fb->color.layout, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				srcStage, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+				srcAccessMask, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
+			fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		}
 
 		renderPass = renderPasses_[RPIndex(step.render.color, step.render.depthStencil)];
@@ -856,7 +932,7 @@ void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &st
 			numClearVals = 2;
 		}
 	} else {
-		renderPass = GetSurfaceRenderPass();
+		renderPass = GetBackbufferRenderpass();
 		numClearVals = 2;  // We don't bother with a depth buffer here.
 		clearVal[1].depthStencil.depth = 0.0f;
 		clearVal[1].depthStencil.stencil = 0;

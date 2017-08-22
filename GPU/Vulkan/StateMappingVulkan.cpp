@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Vulkan/VulkanLoader.h"
+#include "Common/Vulkan/VulkanRenderManager.h"
 
 #include "math/dataconv.h"
 #include "GPU/Math3D.h"
@@ -369,7 +370,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 }
 
-void DrawEngineVulkan::ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant) {
+void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant) {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
@@ -386,24 +387,15 @@ void DrawEngineVulkan::ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencil
 	}
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-		vkCmdSetScissor(cmd, 0, 1, &dynState_.scissor);
-		vkCmdSetViewport(cmd, 0, 1, &dynState_.viewport);
+		renderManager->SetScissor(dynState_.scissor);
+		renderManager->SetViewport(dynState_.viewport);
 	}
-	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
-		if (dynState_.useStencil) {
-			vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilWriteMask);
-			vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilCompareMask);
-			if (!applyStencilRef) {
-				vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilRef);
-			}
-		}
-	}
-	if (applyStencilRef) {
-		vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, stencilRef);
+	if ((gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE) && dynState_.useStencil) || applyStencilRef) {
+		renderManager->SetStencilParams(dynState_.stencilWriteMask, dynState_.stencilCompareMask, applyStencilRef ? stencilRef : dynState_.stencilRef);
 	}
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE) && useBlendConstant) {
 		float bc[4];
 		Uint8x4ToFloat4(bc, dynState_.blendColor);
-		vkCmdSetBlendConstants(cmd, bc);
+		renderManager->SetBlendFactor(bc);
 	}
 }

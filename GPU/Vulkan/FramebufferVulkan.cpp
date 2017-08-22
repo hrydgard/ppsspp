@@ -132,8 +132,8 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 	assert(vsBasicTex_ != VK_NULL_HANDLE);
 
 	// Prime the 2D pipeline cache.
-	vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS), vsBasicTex_, fsBasicTex_);
-	vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS), vsBasicTex_, fsBasicTex_);
+	// vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS), vsBasicTex_, fsBasicTex_);
+	// vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS), vsBasicTex_, fsBasicTex_);
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;

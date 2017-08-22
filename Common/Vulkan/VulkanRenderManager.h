@@ -97,10 +97,16 @@ enum class VKRRenderPassAction {
 	KEEP,
 };
 
+struct TransitionRequest {
+	VKRFramebuffer *fb;
+	VkImageLayout targetLayout;
+};
+
 struct VKRStep {
 	VKRStep(VKRStepType _type) : stepType(_type) {}
 	VKRStepType stepType;
 	std::vector<VkRenderData> commands;
+	std::vector<TransitionRequest> preTransitions;
 	union {
 		struct {
 			VKRFramebuffer *framebuffer;
@@ -221,6 +227,15 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
+	void SetStencilParams(uint8_t writeMask, uint8_t compareMask, uint8_t refValue) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		VkRenderData data{ VKRRenderCommand::STENCIL };
+		data.stencil.stencilWriteMask = writeMask;
+		data.stencil.stencilCompareMask = compareMask;
+		data.stencil.stencilRef = refValue;
+		curRenderStep_->commands.push_back(data);
+	}
+
 	void SetBlendFactor(float color[4]) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::BLEND };
@@ -230,7 +245,7 @@ public:
 
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask);
 
-	void Draw(VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count) {
+	void Draw(VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::DRAW };
 		data.draw.count = count;
@@ -246,10 +261,11 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, VkIndexType indexType) {
+	void DrawIndexed(VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::DRAW_INDEXED };
 		data.drawIndexed.count = count;
+		data.drawIndexed.instances = numInstances;
 		data.drawIndexed.pipeline = pipeline;
 		data.drawIndexed.pipelineLayout = layout;
 		data.drawIndexed.ds = descSet;
@@ -272,14 +288,18 @@ public:
 	void Sync();
 
 	VkCommandBuffer GetInitCmd();
-	VkCommandBuffer GetSurfaceCommandBuffer() {
-		return frameData_[vulkan_->GetCurFrame()].mainCmd;
-	}
-	VkRenderPass GetSurfaceRenderPass() const {
+	VkRenderPass GetBackbufferRenderpass() const {
 		return backbufferRenderPass_;
 	}
 	VkRenderPass GetRenderPass(int i) const {
 		return renderPasses_[i];
+	}
+	VkRenderPass GetCompatibleRenderpass() const {
+		if (curRenderStep_ && curRenderStep_->render.framebuffer != nullptr) {
+			return GetRenderPass(0);
+		} else {
+			return backbufferRenderPass_;
+		}
 	}
 
 	void CreateBackbuffers();
@@ -304,13 +324,15 @@ private:
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect);
 
+	// Permanent objects
 	VkSemaphore acquireSemaphore_;
 	VkSemaphore renderingCompleteSemaphore;
-
+	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
 	// TODO: Create these on demand.
 	VkRenderPass renderPasses_[9];
 
+	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 	struct FrameData {
 		VkFence fence;
 		VkCommandPool cmdPool;
@@ -320,18 +342,23 @@ private:
 	};
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
-	VulkanContext *vulkan_;
+	// Submission time state
 	int curWidth_;
 	int curHeight_;
 	bool insideFrame_ = false;
+	VKRStep *curRenderStep_;
+	VKRFramebuffer *boundFramebuffer_;
+	std::vector<VKRStep *> steps_;
 
+	// Execution time state
+	VulkanContext *vulkan_;
 	std::thread submissionThread;
 	std::mutex mutex_;
 	std::condition_variable condVar_;
-	std::vector<VKRStep *> steps_;
 	std::vector<VKRStep *> stepsOnThread_;
-	VKRStep *curRenderStep_;
+	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
 
+	// Swap chain management
 	struct SwapchainImageData {
 		VkImage image;
 		VkImageView view;
@@ -339,8 +366,7 @@ private:
 	std::vector<VkFramebuffer> framebuffers_;
 	std::vector<SwapchainImageData> swapchainImages_;
 	uint32_t swapchainImageCount_;
-	uint32_t current_buffer = 0;
-	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;
+	uint32_t curSwapchainImage_ = 0;
 	struct DepthBufferInfo {
 		VkFormat format = VK_FORMAT_UNDEFINED;
 		VkImage image = VK_NULL_HANDLE;
@@ -348,7 +374,4 @@ private:
 		VkImageView view = VK_NULL_HANDLE;
 	};
 	DepthBufferInfo depth_;
-	// Interpreter state
-	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
-	// VkRenderPass curRenderPass_ = VK_NULL_HANDLE;
 };

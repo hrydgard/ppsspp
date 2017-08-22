@@ -23,6 +23,7 @@
 #include "profiler/profiler.h"
 
 #include "Common/MemoryUtil.h"
+#include "Common/Vulkan/VulkanRenderManager.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -275,7 +276,6 @@ void DrawEngineVulkan::DeviceRestore(VulkanContext *vulkan) {
 }
 
 void DrawEngineVulkan::BeginFrame() {
-	lastCmd_ = VK_NULL_HANDLE;
 	lastPipeline_ = nullptr;
 
 	FrameData *frame = &frame_[curFrame_];
@@ -644,19 +644,12 @@ void DrawEngineVulkan::DoFlush() {
 	// TODO: Should be enough to update this once per frame?
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
-	/*
-	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
-	if (cmd != lastCmd_) {
-		lastPipeline_ = nullptr;
-		lastCmd_ = cmd;
-		// Since we have a new cmdbuf, dirty our dynamic state so it gets re-set.
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE|DIRTY_DEPTHSTENCIL_STATE|DIRTY_BLEND_STATE);
-	}*/
-	VkCommandBuffer cmd = VK_NULL_HANDLE;
-
-	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS);
-	if (!rp)
-		Crash();
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	
+	// HACK: These two lines should only execute if we started on a new render pass.
+	lastPipeline_ = nullptr;
+	// Since we have a new cmdbuf, dirty our dynamic state so it gets re-set.
+	// gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE|DIRTY_DEPTHSTENCIL_STATE|DIRTY_BLEND_STATE);
 
 	FrameData *frame = &frame_[curFrame_];
 
@@ -873,26 +866,28 @@ void DrawEngineVulkan::DoFlush() {
 				sampler = nullSampler_;
 		}
 
-		if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
+		VulkanPipeline *pipeline = lastPipeline_;
+		if (!lastPipeline_ || !gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 			if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 				ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 			}
-			VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, true);
+			Draw::NativeObject object = g_Config.iRenderingMode != 0 ? Draw::NativeObject::FRAMEBUFFER_RENDERPASS : Draw::NativeObject::BACKBUFFER_RENDERPASS;
+			VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(object);
+			pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, true);
 			if (!pipeline) {
 				// Already logged, let's bail out.
 				return;
 			}
 			if (pipeline != lastPipeline_) {
-				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 				if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
 				lastPipeline_ = pipeline;
 			}
-			ApplyDrawStateLate(cmd, false, 0, pipeline->useBlendConstant);
+			ApplyDrawStateLate(renderManager, false, 0, pipeline->useBlendConstant);
 			gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+			lastPipeline_ = pipeline;
 		}
 		lastPrim_ = prim;
 
@@ -902,28 +897,22 @@ void DrawEngineVulkan::DoFlush() {
 		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
 
 		{
-		PROFILE_THIS_SCOPE("vkdraw");
+		PROFILE_THIS_SCOPE("renderman_q");
 
 		const uint32_t dynamicUBOOffsets[3] = {
 			baseUBOOffset, lightUBOOffset, boneUBOOffset,
 		};
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
+		// vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
 		int stride = dec_->GetDecVtxFmt().stride;
 
-		VkDeviceSize offsets[1] = { vbOffset };
 		if (useElements) {
 			if (!ibuf)
 				ibOffset = (uint32_t)frame->pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &ibuf);
-			// TODO (maybe): Avoid rebinding vertex/index buffers if the vertex size stays the same by using the offset arguments.
-			// Not sure if actually worth it, binding buffers should be fast.
-			vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, offsets);
-			vkCmdBindIndexBuffer(cmd, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
 			int numInstances = (gstate_c.bezier || gstate_c.spline) ? numPatches : 1;
-			vkCmdDrawIndexed(cmd, vertexCount, numInstances, 0, 0, 0);
+			renderManager->DrawIndexed(pipeline->pipeline, pipelineLayout_, ds, 3, dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, numInstances, VK_INDEX_TYPE_UINT16);
 		} else {
-			vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, offsets);
-			vkCmdDraw(cmd, vertexCount, 1, 0, 0);
+			renderManager->Draw(pipeline->pipeline, pipelineLayout_, ds, 3, dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
 		}
 		}
 	} else {
@@ -977,27 +966,28 @@ void DrawEngineVulkan::DoFlush() {
 				if (sampler == VK_NULL_HANDLE)
 					sampler = nullSampler_;
 			}
-
+			VulkanPipeline *pipeline = lastPipeline_;
 			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
 				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 				if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 					ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 				}
-				VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
-				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, false);
+				Draw::NativeObject object = g_Config.iRenderingMode != 0 ? Draw::NativeObject::FRAMEBUFFER_RENDERPASS : Draw::NativeObject::BACKBUFFER_RENDERPASS;
+				VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(object);
+				pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, false);
 				if (!pipeline) {
 					// Already logged, let's bail out.
 					return;
 				}
 				if (pipeline != lastPipeline_) {
-					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 					if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {
 						gstate_c.Dirty(DIRTY_BLEND_STATE);
 					}
 					lastPipeline_ = pipeline;
 				}
-				ApplyDrawStateLate(cmd, false, 0, pipeline->useBlendConstant);
+				ApplyDrawStateLate(renderManager, false, 0, pipeline->useBlendConstant);
 				gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+				lastPipeline_ = pipeline;
 			}
 			lastPrim_ = prim;
 
@@ -1011,25 +1001,19 @@ void DrawEngineVulkan::DoFlush() {
 				baseUBOOffset, lightUBOOffset, boneUBOOffset,
 			};
 
-			PROFILE_THIS_SCOPE("vkdrawsoft");
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
+			PROFILE_THIS_SCOPE("renderman_q");
 
 			if (drawIndexed) {
 				VkBuffer vbuf, ibuf;
 				vbOffset = (uint32_t)frame->pushVertex->Push(drawBuffer, maxIndex * sizeof(TransformedVertex), &vbuf);
 				ibOffset = (uint32_t)frame->pushIndex->Push(inds, sizeof(short) * numTrans, &ibuf);
 				VkDeviceSize offsets[1] = { vbOffset };
-				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
-				vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, offsets);
-				vkCmdBindIndexBuffer(cmd, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
-				vkCmdDrawIndexed(cmd, numTrans, 1, 0, 0, 0);
+				renderManager->DrawIndexed(pipeline->pipeline, pipelineLayout_, ds, 3, dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, numTrans, 1, VK_INDEX_TYPE_UINT16);
 			} else {
 				VkBuffer vbuf;
 				vbOffset = (uint32_t)frame->pushVertex->Push(drawBuffer, numTrans * sizeof(TransformedVertex), &vbuf);
 				VkDeviceSize offsets[1] = { vbOffset };
-				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
-				vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, offsets);
-				vkCmdDraw(cmd, numTrans, 1, 0, 0);
+				renderManager->Draw(pipeline->pipeline, pipelineLayout_, ds, 3, dynamicUBOOffsets, vbuf, vbOffset, numTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.

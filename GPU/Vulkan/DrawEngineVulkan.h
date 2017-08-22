@@ -113,6 +113,8 @@ public:
 	u8 flags = 0;
 };
 
+class VulkanRenderManager;
+
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
@@ -161,6 +163,10 @@ public:
 
 	void DirtyAllUBOs();
 
+	void DirtyPipeline() {
+		lastPipeline_ = nullptr;
+	}
+
 	VulkanPushBuffer *GetPushBufferForTextureData() {
 		return frame_[curFrame_].pushUBO;
 	}
@@ -171,7 +177,7 @@ public:
 
 private:
 	struct FrameData;
-	void ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
+	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
 
 	void InitDeviceObjects();
@@ -191,7 +197,6 @@ private:
 	// We use a single descriptor set layout for all PSP draws.
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
-	VkCommandBuffer lastCmd_ = VK_NULL_HANDLE;
 	VulkanPipeline *lastPipeline_;
 	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
 
