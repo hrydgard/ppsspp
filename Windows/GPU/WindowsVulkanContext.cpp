@@ -128,7 +128,6 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 		return false;
 	if (msgCode == 64)  // Another useless perf warning that will be seen less and less as we optimize -  vkCmdClearAttachments() issued on command buffer object 0x00000195296C6D40 prior to any Draw Cmds. It is recommended you use RenderPass LOAD_OP_CLEAR on Attachments prior to any Draw.
 		return false;
-
 #ifdef _WIN32
 	std::string msg = message.str();
 	OutputDebugStringA(msg.c_str());
@@ -197,10 +196,13 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
 	bool success = draw_->CreatePresets();
 	assert(success);  // Doesn't fail, we include the compiler.
-	return success;
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+	return true;
 }
 
 void WindowsVulkanContext::Shutdown() {
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+
 	delete draw_;
 	draw_ = nullptr;
 

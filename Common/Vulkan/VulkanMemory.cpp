@@ -47,9 +47,9 @@ bool VulkanPushBuffer::AddBuffer() {
 		return false;
 	}
 
+	// Make validation happy.
 	VkMemoryRequirements reqs;
 	vkGetBufferMemoryRequirements(device_, info.buffer, &reqs);
-
 	// TODO: We really should use memoryTypeIndex here..
 
 	// Okay, that's the buffer. Now let's allocate some memory for it.

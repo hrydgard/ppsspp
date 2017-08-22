@@ -699,6 +699,8 @@ VKContext::VKContext(VulkanContext *vulkan)
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
+		VkResult res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[i].descriptorPool);
+		assert(res == VK_SUCCESS);
 	}
 
 	// binding 0 - uniform data
@@ -746,7 +748,7 @@ VKContext::~VKContext() {
 }
 
 void VKContext::BeginFrame() {
-	renderManager_.BeginFrameWrites();
+	renderManager_.BeginFrame();
 
 	FrameData &frame = frame_[frameNum_];
 	push_ = frame.pushBuffer;
@@ -758,8 +760,6 @@ void VKContext::BeginFrame() {
 	frame.descSets_.clear();
 	VkResult result = vkResetDescriptorPool(device_, frame.descriptorPool, 0);
 	assert(result == VK_SUCCESS);
-
-	SetScissorRect(0, 0, pixel_xres, pixel_yres);
 }
 
 void VKContext::WaitRenderCompletion(Framebuffer *fbo) {
@@ -1146,7 +1146,7 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	VkDeviceSize offsets[1] = { vbBindOffset };
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
-	renderManager_.Draw(curPipeline_->vkpipeline, pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, vbBindOffset, vertexCount);
+	renderManager_.Draw(curPipeline_->vkpipeline, pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
 }
 
 // TODO: We should avoid this function as much as possible, instead use renderpass on-load clearing.
@@ -1279,20 +1279,32 @@ void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
 
-	renderManager_.CopyFramebuffer(src->GetFB(), VkRect2D{ {x, y}, {(uint32_t)width, (uint32_t)height } }, dst->GetFB(), VkOffset2D{ dstX, dstY });
+	int aspectMask = 0;
+	if (channelBits & FBChannel::FB_COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
+	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+
+	renderManager_.CopyFramebuffer(src->GetFB(), VkRect2D{ {x, y}, {(uint32_t)width, (uint32_t)height } }, dst->GetFB(), VkOffset2D{ dstX, dstY }, aspectMask);
 }
 
 bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 	VKFramebuffer *dst = (VKFramebuffer *)dstfb;
 
-	renderManager_.BlitFramebuffer(src->GetFB(), VkRect2D{ {srcX1, srcY1}, {(uint32_t)(srcX2 - srcX1), (uint32_t)(srcY2 - srcY1) } }, dst->GetFB(), VkRect2D{ {dstX1, dstY1}, {(uint32_t)(dstX2 - dstX1), (uint32_t)(dstY2 - dstY1) } }, filter == FB_BLIT_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
+	int aspectMask = 0;
+	if (channelBits & FBChannel::FB_COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
+	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+
+	renderManager_.BlitFramebuffer(src->GetFB(), VkRect2D{ {srcX1, srcY1}, {(uint32_t)(srcX2 - srcX1), (uint32_t)(srcY2 - srcY1) } }, dst->GetFB(), VkRect2D{ {dstX1, dstY1}, {(uint32_t)(dstX2 - dstX1), (uint32_t)(dstY2 - dstY1) } }, aspectMask, filter == FB_BLIT_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
 	return true;
 }
 
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
-	renderManager_.BindFramebufferAsRenderTarget(fb->GetFB());
+	VKRRenderPassAction color = (VKRRenderPassAction)rp.color;  // same values.
+	VKRRenderPassAction depth = (VKRRenderPassAction)rp.color;  // same values.
+	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, rp.clearColor, rp.clearDepth, rp.clearStencil);
 }
 
 // color must be 0, for now.
@@ -1324,8 +1336,10 @@ void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 void VKContext::HandleEvent(Event ev, int width, int height, void *param1, void *param2) {
 	switch (ev) {
 	case Event::LOST_BACKBUFFER:
+		renderManager_.DestroyBackbuffers();
 		break;
 	case Event::GOT_BACKBUFFER:
+		renderManager_.CreateBackbuffers();
 		break;
 	}
 	// Noop
