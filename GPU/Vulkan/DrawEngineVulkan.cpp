@@ -21,9 +21,9 @@
 #include "base/timeutil.h"
 #include "math/dataconv.h"
 #include "profiler/profiler.h"
+#include "thin3d/VulkanRenderManager.h"
 
 #include "Common/MemoryUtil.h"
-#include "Common/Vulkan/VulkanRenderManager.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -646,7 +646,7 @@ void DrawEngineVulkan::DoFlush() {
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	
-	// HACK: These two lines should only execute if we started on a new render pass.
+	// HACK: These two lines should only execute if we started on a new render pass. Can't tell from in here though...
 	lastPipeline_ = nullptr;
 	// Since we have a new cmdbuf, dirty our dynamic state so it gets re-set.
 	// gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE|DIRTY_DEPTHSTENCIL_STATE|DIRTY_BLEND_STATE);

@@ -28,7 +28,7 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanMemory.h"
 #include "Common/Vulkan/VulkanImage.h"
-#include "Common/Vulkan/VulkanRenderManager.h"
+#include "thin3d/VulkanRenderManager.h"
 #include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"

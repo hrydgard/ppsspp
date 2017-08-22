@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Vulkan/VulkanLoader.h"
-#include "Common/Vulkan/VulkanRenderManager.h"
+#include "thin3d/VulkanRenderManager.h"
 
 #include "math/dataconv.h"
 #include "GPU/Math3D.h"

@@ -30,11 +30,11 @@
 #include "math/lin/matrix4x4.h"
 #include "math/dataconv.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/VulkanRenderManager.h"
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanImage.h"
 #include "Common/Vulkan/VulkanMemory.h"
-#include "Common/Vulkan/VulkanRenderManager.h"
 
 // We use a simple descriptor set for all rendering: 1 sampler, 1 texture, 1 UBO binding point.
 // binding 0 - uniform data

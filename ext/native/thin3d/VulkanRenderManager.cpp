@@ -1,7 +1,7 @@
 #include "base/logging.h"
 
-#include "VulkanRenderManager.h"
-#include "VulkanContext.h"
+#include "Common/Vulkan/VulkanContext.h"
+#include "thin3d/VulkanRenderManager.h"
 
 void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color) {
 	VkImageCreateInfo ici{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
