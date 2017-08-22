@@ -283,7 +283,6 @@ void VulkanRenderManager::EndFrame(int frame) {
 	int numCmdBufs = 0;
 	std::vector<VkCommandBuffer> cmdBufs;
 	if (frameData.hasInitCommands) {
-		vkEndCommandBuffer(frameData.initCmd);
 		cmdBufs.push_back(frameData.initCmd);
 		frameData.hasInitCommands = false;
 	}
@@ -647,14 +646,20 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 }
 
 void VulkanRenderManager::Flush() {
-	while (frameAvailable_)
-		;
+	curRenderStep_ = nullptr;
 	int curFrame = vulkan_->GetCurFrame();
+	FrameData &frameData = frameData_[curFrame];
+	if (frameData.hasInitCommands) {
+		vkEndCommandBuffer(frameData.initCmd);
+	}
 	if (!useThread) {
 		Run(curFrame);
 		EndFrame(curFrame);
 	} else {
-		frameAvailable_ = true;
+		{
+			std::unique_lock<std::mutex> lock(mutex_);
+			frameAvailable_ = true;
+		}
 		threadFrame_ = curFrame;
 		condVar_.notify_all();
 	}
@@ -666,7 +671,6 @@ void VulkanRenderManager::Run(int frame) {
 	//if ({
 	//	std::unique_lock<std::mutex> lock(mutex_);
 		stepsOnThread_ = std::move(steps_);
-		curRenderStep_ = nullptr;
 
 	FrameData &frameData = frameData_[frame];
 
