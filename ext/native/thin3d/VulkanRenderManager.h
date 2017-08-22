@@ -205,7 +205,7 @@ public:
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame();
-	void EndFrame();
+	void EndFrame(int frame);
 
 	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment);
@@ -283,7 +283,7 @@ public:
 
 	// Can run on a different thread! Just make sure to use BeginFrameWrites.
 	void Flush();
-	void Run();
+	void Run(int frame);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void Sync();
@@ -355,7 +355,7 @@ private:
 	std::vector<VKRStep *> steps_;
 
 	// Execution time state
-	int curFrame_;
+	int threadFrame_;
 	volatile bool frameAvailable_ = false;
 	bool run_ = true;
 	VulkanContext *vulkan_;

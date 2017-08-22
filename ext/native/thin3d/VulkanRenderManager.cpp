@@ -214,9 +214,10 @@ void VulkanRenderManager::ThreadFunc() {
 		std::unique_lock<std::mutex> lock(mutex_);
 		condVar_.wait(lock);
 		if (frameAvailable_) {
-			Run();
-			EndFrame();
+			int frame = threadFrame_;
 			frameAvailable_ = false;
+			Run(frame);
+			EndFrame(frame);
 		}
 	}
 }
@@ -224,7 +225,8 @@ void VulkanRenderManager::ThreadFunc() {
 void VulkanRenderManager::BeginFrame() {
 	VkDevice device = vulkan_->GetDevice();
 
-	FrameData &frameData = frameData_[vulkan_->GetCurFrame()];
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData &frameData = frameData_[curFrame];
 
 	// Make sure the very last command buffer from the frame before the previous has been fully executed.
 	if (useThread) {
@@ -236,10 +238,12 @@ void VulkanRenderManager::BeginFrame() {
 		frameData.readyForFence = false;
 	}
 	
+	ILOG("Fencing %d", curFrame);
 	vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX);
 	vkResetFences(device, 1, &frameData.fence);
 
 	// Must be after the fence - this performs deletes.
+	ILOG("BeginFrame %d", curFrame);
 	vulkan_->BeginFrame();
 
 	insideFrame_ = true;
@@ -258,18 +262,18 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 		assert(res == VK_SUCCESS);
 		frameData.hasInitCommands = true;
 	}
-	return frameData_[vulkan_->GetCurFrame()].initCmd;
+	return frameData_[curFrame].initCmd;
 }
 
 // After flush. Should probably be part of it?
-void VulkanRenderManager::EndFrame() {
+void VulkanRenderManager::EndFrame(int frame) {
 	insideFrame_ = false;
 
-	FrameData &frame = frameData_[curFrame_];
+	FrameData &frameData = frameData_[frame];
 
-	TransitionToPresent(frame.mainCmd, swapchainImages_[curSwapchainImage_].image);
+	TransitionToPresent(frameData.mainCmd, swapchainImages_[curSwapchainImage_].image);
 
-	VkResult res = vkEndCommandBuffer(frame.mainCmd);
+	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
 	assert(res == VK_SUCCESS);
 
 	// So the sequence will be, cmdInit, [cmdQueue_], frame->cmdBuf.
@@ -278,14 +282,13 @@ void VulkanRenderManager::EndFrame() {
 
 	int numCmdBufs = 0;
 	std::vector<VkCommandBuffer> cmdBufs;
-	if (frame.hasInitCommands) {
-		vkEndCommandBuffer(frame.initCmd);
-		cmdBufs.push_back(frame.initCmd);
-		frame.hasInitCommands = false;
-		ILOG("Frame %d had init commands", curFrame_);
+	if (frameData.hasInitCommands) {
+		vkEndCommandBuffer(frameData.initCmd);
+		cmdBufs.push_back(frameData.initCmd);
+		frameData.hasInitCommands = false;
 	}
 
-	cmdBufs.push_back(frame.mainCmd);
+	cmdBufs.push_back(frameData.mainCmd);
 
 	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	submit_info.waitSemaphoreCount = 1;
@@ -296,11 +299,12 @@ void VulkanRenderManager::EndFrame() {
 	submit_info.pCommandBuffers = cmdBufs.data();
 	submit_info.signalSemaphoreCount = 1;
 	submit_info.pSignalSemaphores = &renderingCompleteSemaphore;
-	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, frame.fence);
+	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, frameData.fence);
 	assert(res == VK_SUCCESS);
 
 	if (useThread) {
-		frame.readyForFence = true;
+		ILOG("Frame %d.readyForFence = true", frame);
+		frameData.readyForFence = true;
 	}
 
 	VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
@@ -634,24 +638,28 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 }
 
 void VulkanRenderManager::Flush() {
-	curFrame_ = vulkan_->GetCurFrame();
-	frameAvailable_ = true;
+	while (frameAvailable_)
+		;
+	int curFrame = vulkan_->GetCurFrame();
 	if (!useThread) {
-		Run();
-		EndFrame();
+		Run(curFrame);
+		EndFrame(curFrame);
 	} else {
+		frameAvailable_ = true;
+		threadFrame_ = curFrame;
 		condVar_.notify_all();
 	}
 	vulkan_->EndFrame();
 }
 
-void VulkanRenderManager::Run() {
+void VulkanRenderManager::Run(int frame) {
+	ILOG("Running frame %d", frame);
 	//if ({
 	//	std::unique_lock<std::mutex> lock(mutex_);
 		stepsOnThread_ = std::move(steps_);
 		curRenderStep_ = nullptr;
 
-	FrameData &frameData = frameData_[curFrame_];
+	FrameData &frameData = frameData_[frame];
 
 	VkDevice device = vulkan_->GetDevice();
 
@@ -694,6 +702,7 @@ void VulkanRenderManager::Run() {
 		delete stepsOnThread_[i];
 	}
 	stepsOnThread_.clear();
+	ILOG("Finished running frame %d", frame);
 }
 
 void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
