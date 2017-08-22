@@ -2,6 +2,9 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "thin3d/VulkanRenderManager.h"
+#include "thread/threadutil.h"
+
+const bool useThread = true;
 
 void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color) {
 	VkImageCreateInfo ici{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
@@ -85,19 +88,21 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 		cmd_pool_info.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
 		cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cmd_pool_info, nullptr, &frameData_[i].cmdPool);
+		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cmd_pool_info, nullptr, &frameData_[i].cmdPoolInit);
+		assert(res == VK_SUCCESS);
+		res = vkCreateCommandPool(vulkan_->GetDevice(), &cmd_pool_info, nullptr, &frameData_[i].cmdPoolMain);
 		assert(res == VK_SUCCESS);
 
 		VkCommandBufferAllocateInfo cmd_alloc = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-		cmd_alloc.commandPool = frameData_[i].cmdPool;
+		cmd_alloc.commandPool = frameData_[i].cmdPoolInit;
 		cmd_alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		cmd_alloc.commandBufferCount = 2;
+		cmd_alloc.commandBufferCount = 1;
 
-		VkCommandBuffer cmdBuf[2];
-		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, cmdBuf);
+		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].initCmd);
 		assert(res == VK_SUCCESS);
-		frameData_[i].mainCmd = cmdBuf[0];
-		frameData_[i].initCmd = cmdBuf[1];
+		cmd_alloc.commandPool = frameData_[i].cmdPoolMain;
+		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].mainCmd);
+		assert(res == VK_SUCCESS);
 		frameData_[i].fence = vulkan_->CreateFence(true);  // So it can be instantly waited on
 	}
 }
@@ -154,9 +159,21 @@ void VulkanRenderManager::CreateBackbuffers() {
 	InitRenderpasses();
 	curWidth_ = -1;
 	curHeight_ = -1;
+
+	// Start the thread.
+	if (useThread) {
+		run_ = true;
+		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
+	}
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
+	// Stop the thread.
+	if (useThread) {
+		run_ = false;
+		condVar_.notify_all();
+		thread_.join();
+	}
 	VkDevice device = vulkan_->GetDevice();
 	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
 		vulkan_->Delete().QueueDeleteImageView(swapchainImages_[i].view);
@@ -168,14 +185,15 @@ void VulkanRenderManager::DestroyBackbuffers() {
 }
 
 VulkanRenderManager::~VulkanRenderManager() {
+	run_ = false;
 	VkDevice device = vulkan_->GetDevice();
 	vulkan_->WaitUntilQueueIdle();
 	vkDestroySemaphore(device, acquireSemaphore_, nullptr);
 	vkDestroySemaphore(device, renderingCompleteSemaphore, nullptr);
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		VkCommandBuffer cmdBuf[2]{ frameData_[i].mainCmd, frameData_[i].initCmd };
-		vkFreeCommandBuffers(device, frameData_[i].cmdPool, 2, cmdBuf);
-		vkDestroyCommandPool(device, frameData_[i].cmdPool, nullptr);
+		vkFreeCommandBuffers(device, frameData_[i].cmdPoolInit, 1, &frameData_[i].initCmd);
+		vkFreeCommandBuffers(device, frameData_[i].cmdPoolMain, 1, &frameData_[i].mainCmd);
 		vkDestroyFence(device, frameData_[i].fence, nullptr);
 	}
 	if (backbufferRenderPass_ != VK_NULL_HANDLE)
@@ -191,10 +209,15 @@ VulkanRenderManager::~VulkanRenderManager() {
 
 // TODO: Activate this code.
 void VulkanRenderManager::ThreadFunc() {
-	while (true) {
+	setCurrentThreadName("RenderMan");
+	while (run_) {
 		std::unique_lock<std::mutex> lock(mutex_);
 		condVar_.wait(lock);
-		Flush();
+		if (frameAvailable_) {
+			Run();
+			EndFrame();
+			frameAvailable_ = false;
+		}
 	}
 }
 
@@ -203,12 +226,16 @@ void VulkanRenderManager::BeginFrame() {
 
 	FrameData &frameData = frameData_[vulkan_->GetCurFrame()];
 
-	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
-	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
-	VkResult res = vkAcquireNextImageKHR(device, vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &curSwapchainImage_);
-	assert(res == VK_SUCCESS);
-
 	// Make sure the very last command buffer from the frame before the previous has been fully executed.
+	if (useThread) {
+		// Can't wait for this fence until it's actually been enqueued.
+		// Will replace this with a condvar if it works.
+		while (!frameData.readyForFence) {
+			;
+		}
+		frameData.readyForFence = false;
+	}
+	
 	vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX);
 	vkResetFences(device, 1, &frameData.fence);
 
@@ -238,7 +265,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 void VulkanRenderManager::EndFrame() {
 	insideFrame_ = false;
 
-	FrameData &frame = frameData_[vulkan_->GetCurFrame()];
+	FrameData &frame = frameData_[curFrame_];
 
 	TransitionToPresent(frame.mainCmd, swapchainImages_[curSwapchainImage_].image);
 
@@ -255,12 +282,10 @@ void VulkanRenderManager::EndFrame() {
 		vkEndCommandBuffer(frame.initCmd);
 		cmdBufs.push_back(frame.initCmd);
 		frame.hasInitCommands = false;
-		ILOG("Frame %d had init commands", vulkan_->GetCurFrame());
+		ILOG("Frame %d had init commands", curFrame_);
 	}
 
 	cmdBufs.push_back(frame.mainCmd);
-
-	vulkan_->EndFrame();
 
 	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	submit_info.waitSemaphoreCount = 1;
@@ -273,6 +298,10 @@ void VulkanRenderManager::EndFrame() {
 	submit_info.pSignalSemaphores = &renderingCompleteSemaphore;
 	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, frame.fence);
 	assert(res == VK_SUCCESS);
+
+	if (useThread) {
+		frame.readyForFence = true;
+	}
 
 	VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
 	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -605,22 +634,38 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 }
 
 void VulkanRenderManager::Flush() {
-	{
-		std::unique_lock<std::mutex> lock(mutex_);
+	curFrame_ = vulkan_->GetCurFrame();
+	frameAvailable_ = true;
+	if (!useThread) {
+		Run();
+		EndFrame();
+	} else {
+		condVar_.notify_all();
+	}
+	vulkan_->EndFrame();
+}
+
+void VulkanRenderManager::Run() {
+	//if ({
+	//	std::unique_lock<std::mutex> lock(mutex_);
 		stepsOnThread_ = std::move(steps_);
 		curRenderStep_ = nullptr;
-	}
 
-	FrameData &frameData = frameData_[vulkan_->GetCurFrame()];
+	FrameData &frameData = frameData_[curFrame_];
 
 	VkDevice device = vulkan_->GetDevice();
+
+	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
+	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
+	VkResult res = vkAcquireNextImageKHR(device, vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &curSwapchainImage_);
+	assert(res == VK_SUCCESS);
 
 	VkCommandBuffer cmd = frameData.mainCmd;
 
 	VkCommandBufferBeginInfo begin = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	begin.pInheritanceInfo = nullptr;
-	VkResult res = vkBeginCommandBuffer(cmd, &begin);
+	res = vkBeginCommandBuffer(cmd, &begin);
 	assert(res == VK_SUCCESS);
 
 	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR

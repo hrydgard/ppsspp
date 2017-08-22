@@ -216,12 +216,6 @@ void VulkanContext::DestroyObjects() {
 		vkDestroySwapchainKHR(device_, swapchain_, nullptr);
 	swapchain_ = VK_NULL_HANDLE;
 
-	// If there happen to be any pending deletes, now is a good time.
-	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
-		frame_[i].deleteList.PerformDeletes(device_);
-	}
-	Delete().PerformDeletes(device_);
-
 	vkDestroySurfaceKHR(instance_, surface_, nullptr);
 	surface_ = VK_NULL_HANDLE;
 }
@@ -768,6 +762,12 @@ VkFence VulkanContext::CreateFence(bool presignalled) {
 }
 
 void VulkanContext::DestroyDevice() {
+	// If there happen to be any pending deletes, now is a good time.
+	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
+		frame_[i].deleteList.PerformDeletes(device_);
+	}
+	Delete().PerformDeletes(device_);
+
 	vkDestroyDevice(device_, nullptr);
 	device_ = nullptr;
 }

@@ -766,7 +766,6 @@ void VKContext::EndFrame() {
 	push_->End();
 
 	renderManager_.Flush();
-	renderManager_.EndFrame();
 
 	frameNum_++;
 	if (frameNum_ >= vulkan_->GetInflightFrames())

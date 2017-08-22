@@ -283,6 +283,7 @@ public:
 
 	// Can run on a different thread! Just make sure to use BeginFrameWrites.
 	void Flush();
+	void Run();
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void Sync();
@@ -334,8 +335,11 @@ private:
 
 	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 	struct FrameData {
+		bool readyForFence = true;
 		VkFence fence;
-		VkCommandPool cmdPool;
+		// These are on different threads so need separate pools.
+		VkCommandPool cmdPoolInit;
+		VkCommandPool cmdPoolMain;
 		VkCommandBuffer initCmd;
 		VkCommandBuffer mainCmd;
 		bool hasInitCommands = false;
@@ -351,8 +355,11 @@ private:
 	std::vector<VKRStep *> steps_;
 
 	// Execution time state
+	int curFrame_;
+	volatile bool frameAvailable_ = false;
+	bool run_ = true;
 	VulkanContext *vulkan_;
-	std::thread submissionThread;
+	std::thread thread_;
 	std::mutex mutex_;
 	std::condition_variable condVar_;
 	std::vector<VKRStep *> stepsOnThread_;
