@@ -215,9 +215,11 @@ void VulkanRenderManager::ThreadFunc() {
 		condVar_.wait(lock);
 		if (frameAvailable_) {
 			int frame = threadFrame_;
+			frameData_[frame].mutex.lock();
 			frameAvailable_ = false;
 			Run(frame);
 			EndFrame(frame);
+			frameData_[frame].mutex.unlock();
 		}
 	}
 }
@@ -236,6 +238,7 @@ void VulkanRenderManager::BeginFrame() {
 			;
 		}
 		frameData.readyForFence = false;
+		frameData.mutex.lock();
 	}
 	
 	ILOG("Fencing %d", curFrame);
@@ -656,6 +659,7 @@ void VulkanRenderManager::Flush() {
 		Run(curFrame);
 		EndFrame(curFrame);
 	} else {
+		frameData.mutex.unlock();
 		{
 			std::unique_lock<std::mutex> lock(mutex_);
 			frameAvailable_ = true;

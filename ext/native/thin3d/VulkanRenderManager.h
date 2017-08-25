@@ -335,6 +335,7 @@ private:
 
 	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 	struct FrameData {
+		std::mutex mutex;
 		bool readyForFence = true;
 		VkFence fence;
 		// These are on different threads so need separate pools.
