@@ -1023,7 +1023,11 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 			delete vs;
 			return;
 		}
-		vsCache_.Insert(id, vs);
+		if (!vsCache_.Get(id)) {
+			vsCache_.Insert(id, vs);
+		} else {
+			WARN_LOG(G3D, "Duplicate vertex shader found in GL shader cache, ignoring");
+		}
 	}
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		ShaderID id;
@@ -1031,7 +1035,11 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
-		fsCache_.Insert(id, CompileFragmentShader(id));
+		if (!fsCache_.Get(id)) {
+			fsCache_.Insert(id, CompileFragmentShader(id));
+		} else {
+			WARN_LOG(G3D, "Duplicate fragment shader found in GL shader cache, ignoring");
+		}
 	}
 	for (int i = 0; i < header.numLinkedPrograms; i++) {
 		ShaderID vsid, fsid;
