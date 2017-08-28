@@ -16,6 +16,13 @@
 
 #ifdef IOS
 extern void bindDefaultFBO();
+#else
+
+// Workaround for Retroarch. Simply declare
+//   extern GLuint g_defaultFBO;
+// and set is as appropriate. Can adjust the variables in ext/native/base/display.h as
+// appropriate.
+GLuint g_defaultFBO = 0;
 #endif
 
 namespace Draw {
@@ -1520,12 +1527,12 @@ void OpenGLContext::fbo_bind_fb_target(bool read, GLuint name) {
 void OpenGLContext::fbo_unbind() {
 #ifndef USING_GLES2
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
 	} else if (gl_extensions.EXT_framebuffer_object) {
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, g_defaultFBO);
 	}
 #else
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
 #endif
 
 #ifdef IOS
@@ -1698,7 +1705,7 @@ OpenGLFramebuffer::~OpenGLFramebuffer() {
 			glBindFramebuffer(GL_FRAMEBUFFER, handle);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
 			glDeleteFramebuffers(1, &handle);
 		}
 		if (z_stencil_buffer)
@@ -1713,7 +1720,7 @@ OpenGLFramebuffer::~OpenGLFramebuffer() {
 			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, handle);
 			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
-			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, g_defaultFBO);
 			glDeleteFramebuffersEXT(1, &handle);
 		}
 		if (z_stencil_buffer)
