@@ -771,6 +771,8 @@ void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer
 
 	VKRFramebuffer *fb = step.render.framebuffer;
 
+	VkPipeline lastPipeline = VK_NULL_HANDLE;
+
 	auto &commands = step.commands;
 
 	// TODO: Dynamic state commands (SetViewport, SetScissor, SetBlendConstants, SetStencil*) are only
@@ -798,7 +800,10 @@ void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer
 			break;
 
 		case VKRRenderCommand::DRAW_INDEXED:
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.drawIndexed.pipeline);
+			if (c.drawIndexed.pipeline != lastPipeline) {
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.drawIndexed.pipeline);
+				lastPipeline = c.drawIndexed.pipeline;
+			}
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.drawIndexed.pipelineLayout, 0, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
 			vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, VK_INDEX_TYPE_UINT16);
 			vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &c.drawIndexed.voffset);
@@ -806,7 +811,10 @@ void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer
 			break;
 
 		case VKRRenderCommand::DRAW:
-			vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.draw.pipeline);
+			if (c.draw.pipeline != lastPipeline) {
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.draw.pipeline);
+				lastPipeline = c.draw.pipeline;
+			}
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.draw.pipelineLayout, 0, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
 			vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
 			vkCmdDraw(cmd, c.draw.count, 1, 0, 0);
