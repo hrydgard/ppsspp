@@ -133,7 +133,6 @@ void __KernelInit()
 	__SslInit();
 	__ImposeInit();
 	__UsbInit();
-	__UsbGpsInit();
 	__FontInit();
 	__NetInit();
 	__NetAdhocInit();
@@ -143,6 +142,7 @@ void __KernelInit()
 	__DmacInit();
 	__AudioCodecInit();
 	__VideoPmpInit();
+	__UsbGpsInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
