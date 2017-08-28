@@ -406,11 +406,11 @@ void VulkanContext::DestroyObjects() {
 }
 
 VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions) {
-	uint32_t instance_extension_count;
 	VkResult res;
 	do {
+		uint32_t instance_extension_count;
 		res = vkEnumerateInstanceExtensionProperties(layerName, &instance_extension_count, nullptr);
-		if (res)
+		if (res != VK_SUCCESS)
 			return res;
 		if (instance_extension_count == 0)
 			return VK_SUCCESS;
@@ -421,10 +421,6 @@ VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std
 }
 
 VkResult VulkanContext::GetInstanceLayerProperties() {
-	uint32_t instance_layer_count;
-	VkLayerProperties *vk_props = NULL;
-	VkResult res;
-
 	/*
 	 * It's possible, though very rare, that the number of
 	 * instance layers could change. For example, installing something
@@ -437,16 +433,17 @@ VkResult VulkanContext::GetInstanceLayerProperties() {
 	 * entries loaded into the data pointer - in case the number
 	 * of layers went down or is smaller than the size given.
 	 */
+	uint32_t instance_layer_count;
+	std::vector<VkLayerProperties> vk_props;
+	VkResult res;
 	do {
 		res = vkEnumerateInstanceLayerProperties(&instance_layer_count, nullptr);
-		if (res)
+		if (res != VK_SUCCESS)
 			return res;
-
 		if (!instance_layer_count)
 			return VK_SUCCESS;
-
-		vk_props = (VkLayerProperties *)realloc(vk_props, instance_layer_count * sizeof(VkLayerProperties));
-		res = vkEnumerateInstanceLayerProperties(&instance_layer_count, vk_props);
+		vk_props.resize(instance_layer_count);
+		res = vkEnumerateInstanceLayerProperties(&instance_layer_count, vk_props.data());
 	} while (res == VK_INCOMPLETE);
 
 	// Now gather the extension list for each instance layer.
@@ -454,36 +451,30 @@ VkResult VulkanContext::GetInstanceLayerProperties() {
 		LayerProperties layer_props;
 		layer_props.properties = vk_props[i];
 		res = GetInstanceLayerExtensionList(layer_props.properties.layerName, layer_props.extensions);
-		if (res)
+		if (res != VK_SUCCESS)
 			return res;
 		instance_layer_properties_.push_back(layer_props);
 	}
-	free(vk_props);
-
 	return res;
 }
 
 // Pass layerName == nullptr to get the extension list for the device.
 VkResult VulkanContext::GetDeviceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions) {
-	uint32_t device_extension_count;
 	VkResult res;
 	do {
-		res = vkEnumerateDeviceExtensionProperties(physical_devices_[0], layerName, &device_extension_count, nullptr);
-		if (res)
+		uint32_t device_extension_count;
+		res = vkEnumerateDeviceExtensionProperties(physical_devices_[physical_device_], layerName, &device_extension_count, nullptr);
+		if (res != VK_SUCCESS)
 			return res;
 		if (!device_extension_count)
 			return VK_SUCCESS;
 		extensions.resize(device_extension_count);
-		res = vkEnumerateDeviceExtensionProperties(physical_devices_[0], layerName, &device_extension_count, extensions.data());
+		res = vkEnumerateDeviceExtensionProperties(physical_devices_[physical_device_], layerName, &device_extension_count, extensions.data());
 	} while (res == VK_INCOMPLETE);
 	return res;
 }
 
 VkResult VulkanContext::GetDeviceLayerProperties() {
-	uint32_t device_layer_count;
-	std::vector<VkLayerProperties> vk_props;
-	VkResult res;
-
 	/*
 	 * It's possible, though very rare, that the number of
 	 * instance layers could change. For example, installing something
@@ -496,14 +487,17 @@ VkResult VulkanContext::GetDeviceLayerProperties() {
 	 * entries loaded into the data pointer - in case the number
 	 * of layers went down or is smaller than the size given.
 	 */
+	uint32_t device_layer_count;
+	std::vector<VkLayerProperties> vk_props;
+	VkResult res;
 	do {
-		res = vkEnumerateDeviceLayerProperties(physical_devices_[0], &device_layer_count, nullptr);
-		if (res)
+		res = vkEnumerateDeviceLayerProperties(physical_devices_[physical_device_], &device_layer_count, nullptr);
+		if (res != VK_SUCCESS)
 			return res;
 		if (device_layer_count == 0)
 			return VK_SUCCESS;
 		vk_props.resize(device_layer_count);
-		res = vkEnumerateDeviceLayerProperties(physical_devices_[0], &device_layer_count, vk_props.data());
+		res = vkEnumerateDeviceLayerProperties(physical_devices_[physical_device_], &device_layer_count, vk_props.data());
 	} while (res == VK_INCOMPLETE);
 
 	// Gather the list of extensions for each device layer.
@@ -511,7 +505,7 @@ VkResult VulkanContext::GetDeviceLayerProperties() {
 		LayerProperties layer_props;
 		layer_props.properties = vk_props[i];
 		res = GetDeviceLayerExtensionList(layer_props.properties.layerName, layer_props.extensions);
-		if (res)
+		if (res != VK_SUCCESS)
 			return res;
 		device_layer_properties_.push_back(layer_props);
 	}
