@@ -457,6 +457,7 @@ public:
 	VkDescriptorSet GetOrCreateDescriptorSet(VkBuffer buffer);
 
 	std::vector<std::string> GetFeatureList() const override;
+	std::vector<std::string> GetExtensionList() const override;
 
 	uintptr_t GetNativeObject(NativeObject obj) const override {
 		switch (obj) {
@@ -1421,6 +1422,14 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	}
 
 	return features;
+}
+
+std::vector<std::string> VKContext::GetExtensionList() const {
+	std::vector<std::string> extensions;
+	for (auto &iter : vulkan_->GetDeviceExtensionsAvailable()) {
+		extensions.push_back(iter.extensionName);
+	}
+	return extensions;
 }
 
 uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {

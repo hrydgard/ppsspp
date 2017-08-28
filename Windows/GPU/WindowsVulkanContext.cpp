@@ -179,8 +179,16 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	g_LogOptions.msgBoxOnError = false;
 
 	Version gitVer(PPSSPP_GIT_VERSION);
-	g_Vulkan = new VulkanContext("PPSSPP", gitVer.ToInteger(), (g_validate_ ? VULKAN_FLAG_VALIDATE : 0) | VULKAN_FLAG_PRESENT_MAILBOX);
-	if (g_Vulkan->CreateDevice(0) != VK_SUCCESS) {
+	g_Vulkan = new VulkanContext();
+	if (VK_SUCCESS != g_Vulkan->CreateInstance("PPSSPP", gitVer.ToInteger(), (g_validate_ ? VULKAN_FLAG_VALIDATE : 0) | VULKAN_FLAG_PRESENT_MAILBOX)) {
+		*error_message = g_Vulkan->InitError();
+		return false;
+	}
+	g_Vulkan->ChooseDevice(g_Vulkan->GetBestPhysicalDevice());
+	if (g_Vulkan->EnableDeviceExtension(VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME)) {
+		supportsDedicatedAlloc_ = true;
+	}
+	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
 		*error_message = g_Vulkan->InitError();
 		return false;
 	}

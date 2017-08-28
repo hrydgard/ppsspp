@@ -43,13 +43,6 @@ enum {
 	VULKAN_FLAG_PRESENT_FIFO_RELAXED = 8,
 };
 
-// A layer can expose extensions, keep track of those extensions here.
-struct layer_properties {
-	VkLayerProperties properties;
-	std::vector<VkExtensionProperties> extensions;
-};
-
-
 struct VulkanPhysicalDeviceInfo {
 	VkFormat preferredDepthStencilFormat;
 };
@@ -206,10 +199,16 @@ private:
 // Optionally, it can create a depth buffer for you as well.
 class VulkanContext {
 public:
-	VulkanContext(const char *app_name, int app_ver, uint32_t flags);
+	VulkanContext();
 	~VulkanContext();
 
-	VkResult CreateDevice(int physical_device);
+	VkResult CreateInstance(const char *app_name, int app_ver, uint32_t flags);
+	
+	// TODO: Actually do some checks?
+	int GetBestPhysicalDevice() const { return 0; }
+	void ChooseDevice(int physical_device);
+	bool EnableDeviceExtension(const char *extension);
+	VkResult CreateDevice();
 
 	const std::string &InitError() { return init_error_; }
 
@@ -300,17 +299,29 @@ public:
 		return gpu_props;
 	}
 
-	VkResult InitGlobalExtensionProperties();
-	VkResult InitLayerExtensionProperties(layer_properties &layer_props);
+	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
+	VkResult GetInstanceLayerProperties();
 
-	VkResult InitGlobalLayerProperties();
+	VkResult GetDeviceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
+	VkResult GetDeviceLayerProperties();
 
-	VkResult InitDeviceExtensionProperties(layer_properties &layer_props);
-	VkResult InitDeviceLayerProperties();
-
+	const std::vector<VkExtensionProperties> &GetDeviceExtensionsAvailable() const {
+		return device_extension_properties_;
+	}
+	const std::vector<const char *> &GetDeviceExtensionsEnabled() const {
+		return device_extensions_enabled_;
+	}
 	const VkPhysicalDeviceFeatures &GetFeaturesAvailable() const { return featuresAvailable_; }
 	const VkPhysicalDeviceFeatures &GetFeaturesEnabled() const { return featuresEnabled_; }
 	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
+
+	bool IsDeviceExtensionAvailable(const char *name) const {
+		for (auto &iter : device_extension_properties_) {
+			if (!strcmp(name, iter.extensionName))
+				return true;
+		}
+		return false;
+	}
 
 	int GetInflightFrames() const {
 		return inflightFrames_;
@@ -319,40 +330,52 @@ public:
 	enum {
 		MAX_INFLIGHT_FRAMES = 2,
 	};
-private:
 
-	VkSemaphore acquireSemaphore;
-	VkSemaphore renderingCompleteSemaphore;
+private:
+	// A layer can expose extensions, keep track of those extensions here.
+	struct LayerProperties {
+		VkLayerProperties properties;
+		std::vector<VkExtensionProperties> extensions;
+	};
+
+	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
+
+	VkSemaphore acquireSemaphore_;
+	VkSemaphore renderingCompleteSemaphore_;
 
 #ifdef _WIN32
-	HINSTANCE connection;        // hInstance - Windows Instance
-	HWND window;          // hWnd - window handle
+	HINSTANCE connection = nullptr;        // hInstance - Windows Instance
+	HWND window = nullptr;          // hWnd - window handle
 #elif __ANDROID__  // _WIN32
-	ANativeWindow *native_window;
+	ANativeWindow *native_window = nullptr;
 #endif // _WIN32
 
-	VkInstance instance_;
-	VkDevice device_;
-	VkQueue gfx_queue_;
-
-	VkSurfaceKHR surface_;
+	VkInstance instance_ = VK_NULL_HANDLE;
+	VkDevice device_ = VK_NULL_HANDLE;
+	VkQueue gfx_queue_ = VK_NULL_HANDLE;
+	VkSurfaceKHR surface_ = VK_NULL_HANDLE;
 
 	std::string init_error_;
-	std::vector<const char *> instance_layer_names;
-	std::vector<const char *> instance_extension_names;
-	std::vector<layer_properties> instance_layer_properties;
-	std::vector<VkExtensionProperties> instance_extension_properties;
+	std::vector<const char *> instance_layer_names_;
+	std::vector<LayerProperties> instance_layer_properties_;
+	
+	std::vector<const char *> instance_extensions_enabled_;
+	std::vector<VkExtensionProperties> instance_extension_properties_;
 
-	std::vector<const char *> device_layer_names;
-	std::vector<const char *> device_extension_names;
-	std::vector<layer_properties> device_layer_properties;
-	std::vector<VkExtensionProperties> device_extension_properties;
+	std::vector<const char *> device_layer_names_;
+	std::vector<LayerProperties> device_layer_properties_;
+	
+	std::vector<const char *> device_extensions_enabled_;
+	std::vector<VkExtensionProperties> device_extension_properties_;
+	
 	std::vector<VkPhysicalDevice> physical_devices_;
 
-	uint32_t graphics_queue_family_index_;
-	VkPhysicalDeviceProperties gpu_props;
+	int physical_device_ = -1;
+
+	uint32_t graphics_queue_family_index_ = -1;
+	VkPhysicalDeviceProperties gpu_props{};
 	std::vector<VkQueueFamilyProperties> queue_props;
-	VkPhysicalDeviceMemoryProperties memory_properties;
+	VkPhysicalDeviceMemoryProperties memory_properties{};
 
 	// Custom collection of things that are good to know
 	VulkanPhysicalDeviceInfo deviceInfo_;
@@ -363,12 +386,13 @@ private:
 	};
 
 	// Swap chain
-	int width_, height_;
-	int flags_;
-	VkFormat swapchain_format;
+	int width_ = 0;
+	int height_ = 0;
+	int flags_ = 0;
+	VkFormat swapchain_format = VK_FORMAT_UNDEFINED;
 	std::vector<VkFramebuffer> framebuffers_;
-	uint32_t swapchainImageCount;
-	VkSwapchainKHR swap_chain_;
+	uint32_t swapchainImageCount = 0;
+	VkSwapchainKHR swap_chain_ = VK_NULL_HANDLE;
 	std::vector<swap_chain_buffer> swapChainBuffers;
 
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
