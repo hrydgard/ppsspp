@@ -50,9 +50,7 @@ static const char *validationLayers[] = {
 	*/
 };
 
-static VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, const std::vector<const char *> &layer_names);
-
-VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags) : flags_(flags) {
+VulkanContext::VulkanContext() {
 	if (!VulkanLoad()) {
 		init_error_ = "Failed to load Vulkan driver library";
 		// No DLL?
@@ -61,8 +59,12 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags) 
 
 	// We can get the list of layers and extensions without an instance so we can use this information
 	// to enable the extensions we need that are available.
-	InitInstanceLayerProperties();
+	GetInstanceLayerProperties();
 	GetInstanceLayerExtensionList(nullptr, instance_extension_properties_);
+}
+
+VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32_t flags) {
+	flags_ = flags;
 
 	// List extensions to try to enable.
 	instance_extensions_enabled_.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
@@ -72,7 +74,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags) 
 	instance_extension_names.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #endif
 
-	if (flags & VULKAN_FLAG_VALIDATE) {
+	if (flags_ & VULKAN_FLAG_VALIDATE) {
 		for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
 			instance_layer_names_.push_back(validationLayers[i]);
 			device_layer_names_.push_back(validationLayers[i]);
@@ -114,19 +116,19 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags) 
 	}
 	if (res != VK_SUCCESS) {
 		init_error_ = "Failed to create Vulkan instance";
-		return;
+		return res;
 	}
 
 	VulkanLoadInstanceFunctions(instance_);
 
 	uint32_t gpu_count = 1;
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, nullptr);
-	assert(gpu_count);
+	assert(gpu_count > 0);
 	physical_devices_.resize(gpu_count);
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, physical_devices_.data());
 	if (res != VK_SUCCESS) {
 		init_error_ = "Failed to enumerate physical devices";
-		return;
+		return res;
 	}
 
 	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
@@ -141,6 +143,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags) 
 		// init_error_ = "Failed to validate device layers";
 		// return;
 	}
+	return VK_SUCCESS;
 }
 
 VulkanContext::~VulkanContext() {
@@ -336,7 +339,7 @@ void VulkanBeginCommandBuffer(VkCommandBuffer cmd) {
 
 bool  VulkanContext::InitObjects(bool depthPresent) {
 	int physical_device = 0; // TODO
-	InitQueue(physical_device);
+	InitQueue();
 
 	// Create frame data
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
@@ -362,7 +365,7 @@ bool  VulkanContext::InitObjects(bool depthPresent) {
 	}
 
 	VkCommandBuffer cmd = GetInitCommandBuffer();
-	if (!InitSwapchain(physical_device, cmd)) {
+	if (!InitSwapchain(cmd)) {
 		return false;
 	}
 	InitDepthStencilBuffer(cmd);
@@ -417,7 +420,7 @@ VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std
 	return res;
 }
 
-VkResult VulkanContext::InitInstanceLayerProperties() {
+VkResult VulkanContext::GetInstanceLayerProperties() {
 	uint32_t instance_layer_count;
 	VkLayerProperties *vk_props = NULL;
 	VkResult res;
@@ -448,7 +451,7 @@ VkResult VulkanContext::InitInstanceLayerProperties() {
 
 	// Now gather the extension list for each instance layer.
 	for (uint32_t i = 0; i < instance_layer_count; i++) {
-		layer_properties layer_props;
+		LayerProperties layer_props;
 		layer_props.properties = vk_props[i];
 		res = GetInstanceLayerExtensionList(layer_props.properties.layerName, layer_props.extensions);
 		if (res)
@@ -505,7 +508,7 @@ VkResult VulkanContext::GetDeviceLayerProperties() {
 
 	// Gather the list of extensions for each device layer.
 	for (uint32_t i = 0; i < device_layer_count; i++) {
-		layer_properties layer_props;
+		LayerProperties layer_props;
 		layer_props.properties = vk_props[i];
 		res = GetDeviceLayerExtensionList(layer_props.properties.layerName, layer_props.extensions);
 		if (res)
@@ -515,51 +518,33 @@ VkResult VulkanContext::GetDeviceLayerProperties() {
 	return res;
 }
 
-// Return 1 (true) if all layer names specified in check_names can be found in given layer properties.
-static VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, const std::vector<const char *> &layer_names) {
+// Returns true if all layer names specified in check_names can be found in given layer properties.
+bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const {
 	uint32_t check_count = (uint32_t)layer_names.size();
 	uint32_t layer_count = (uint32_t)layer_props.size();
 	for (uint32_t i = 0; i < check_count; i++) {
-		VkBool32 found = 0;
+		bool found = false;
 		for (uint32_t j = 0; j < layer_count; j++) {
 			if (!strcmp(layer_names[i], layer_props[j].properties.layerName)) {
-				found = 1;
+				found = true;
 			}
 		}
 		if (!found) {
 			std::cout << "Cannot find layer: " << layer_names[i] << std::endl;
-			return 0;
+			return false;
 		}
 	}
-	return 1;
+	return true;
 }
 
-VkResult VulkanContext::CreateDevice(int physical_device) {
-	if (!init_error_.empty()) {
-		ELOG("Vulkan init failed: %s", init_error_.c_str());
-		return VK_ERROR_INITIALIZATION_FAILED;
-	}
+void VulkanContext::ChooseDevice(int physical_device) {
+	physical_device_ = physical_device;
 
-	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device], &queue_count, nullptr);
+	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, nullptr);
 	assert(queue_count >= 1);
 
 	queue_props.resize(queue_count);
-	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device], &queue_count, queue_props.data());
-	assert(queue_count >= 1);
-
-	VkDeviceQueueCreateInfo queue_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
-	float queue_priorities[1] = { 1.0f };
-	queue_info.queueCount = 1;
-	queue_info.pQueuePriorities = queue_priorities;
-	bool found = false;
-	for (int i = 0; i < (int)queue_count; i++) {
-		if (queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-			queue_info.queueFamilyIndex = i;
-			found = true;
-			break;
-		}
-	}
-	assert(found);
+	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, queue_props.data());
 	assert(queue_count >= 1);
 
 	// Detect preferred formats, in this order.
@@ -571,7 +556,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	deviceInfo_.preferredDepthStencilFormat = VK_FORMAT_UNDEFINED;
 	for (size_t i = 0; i < ARRAY_SIZE(depthStencilFormats); i++) {
 		VkFormatProperties props;
-		vkGetPhysicalDeviceFormatProperties(physical_devices_[physical_device], depthStencilFormats[i], &props);
+		vkGetPhysicalDeviceFormatProperties(physical_devices_[physical_device_], depthStencilFormats[i], &props);
 		if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
 			deviceInfo_.preferredDepthStencilFormat = depthStencilFormats[i];
 			break;
@@ -579,11 +564,11 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	}
 
 	// This is as good a place as any to do this
-	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device], &memory_properties);
-	vkGetPhysicalDeviceProperties(physical_devices_[physical_device], &gpu_props);
+	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device_], &memory_properties);
+	vkGetPhysicalDeviceProperties(physical_devices_[physical_device_], &gpu_props);
 
 	// Optional features
-	vkGetPhysicalDeviceFeatures(physical_devices_[physical_device], &featuresAvailable_);
+	vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &featuresAvailable_);
 	memset(&featuresEnabled_, 0, sizeof(featuresEnabled_));
 
 	// Enable a few safe ones if they are available.
@@ -619,9 +604,37 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
 
 	device_extensions_enabled_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-	if (IsDeviceExtensionAvailable(VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME)) {
-		device_extensions_enabled_.push_back(VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME);
+}
+
+bool VulkanContext::EnableDeviceExtension(const char *extension) {
+	for (auto &iter : device_extension_properties_) {
+		if (!strcmp(iter.extensionName, extension)) {
+			device_extensions_enabled_.push_back(extension);
+			return true;
+		}
 	}
+	return false;
+}
+
+VkResult VulkanContext::CreateDevice() {
+	if (!init_error_.empty() || physical_device_ < 0) {
+		ELOG("Vulkan init failed: %s", init_error_.c_str());
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+
+	VkDeviceQueueCreateInfo queue_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
+	float queue_priorities[1] = { 1.0f };
+	queue_info.queueCount = 1;
+	queue_info.pQueuePriorities = queue_priorities;
+	bool found = false;
+	for (int i = 0; i < (int)queue_count; i++) {
+		if (queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+			queue_info.queueFamilyIndex = i;
+			found = true;
+			break;
+		}
+	}
+	assert(found);
 
 	VkDeviceCreateInfo device_info { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
@@ -631,7 +644,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	device_info.enabledExtensionCount = (uint32_t)device_extensions_enabled_.size();
 	device_info.ppEnabledExtensionNames = device_info.enabledExtensionCount ? device_extensions_enabled_.data() : nullptr;
 	device_info.pEnabledFeatures = &featuresEnabled_;
-	VkResult res = vkCreateDevice(physical_devices_[physical_device], &device_info, nullptr, &device_);
+	VkResult res = vkCreateDevice(physical_devices_[physical_device_], &device_info, nullptr, &device_);
 	if (res != VK_SUCCESS) {
 		init_error_ = "Unable to create Vulkan device";
 		ELOG("Unable to create Vulkan device");
@@ -804,11 +817,11 @@ void VulkanContext::ReinitSurfaceAndroid(int width, int height) {
 }
 #endif
 
-void VulkanContext::InitQueue(int physical_device) {
+void VulkanContext::InitQueue() {
 	// Iterate over each queue to learn whether it supports presenting:
 	VkBool32 *supportsPresent = new VkBool32[queue_count];
 	for (uint32_t i = 0; i < queue_count; i++) {
-		vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices_[physical_device], i, surface_, &supportsPresent[i]);
+		vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices_[physical_device_], i, surface_, &supportsPresent[i]);
 	}
 
 	// Search for a graphics queue and a present queue in the array of queue
@@ -850,10 +863,10 @@ void VulkanContext::InitQueue(int physical_device) {
 
 	// Get the list of VkFormats that are supported:
 	uint32_t formatCount;
-	VkResult res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device], surface_, &formatCount, nullptr);
+	VkResult res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device_], surface_, &formatCount, nullptr);
 	assert(res == VK_SUCCESS);
 	VkSurfaceFormatKHR *surfFormats = new VkSurfaceFormatKHR[formatCount];
-	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device], surface_, &formatCount, surfFormats);
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device_], surface_, &formatCount, surfFormats);
 	assert(res == VK_SUCCESS);
 	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
 	// the surface has no preferred format.  Otherwise, at least one
@@ -892,19 +905,19 @@ void VulkanContext::InitQueue(int physical_device) {
 	assert(res == VK_SUCCESS);
 }
 
-bool VulkanContext::InitSwapchain(int physical_device, VkCommandBuffer cmd) {
+bool VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	VkResult U_ASSERT_ONLY res;
 	VkSurfaceCapabilitiesKHR surfCapabilities;
 
-	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device], surface_, &surfCapabilities);
+	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities);
 	assert(res == VK_SUCCESS);
 
 	uint32_t presentModeCount;
-	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device], surface_, &presentModeCount, nullptr);
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, nullptr);
 	assert(res == VK_SUCCESS);
 	VkPresentModeKHR *presentModes = new VkPresentModeKHR[presentModeCount];
 	assert(presentModes);
-	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device], surface_, &presentModeCount, presentModes);
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, presentModes);
 	assert(res == VK_SUCCESS);
 
 	VkExtent2D swapChainExtent;

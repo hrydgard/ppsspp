@@ -43,12 +43,6 @@ enum {
 	VULKAN_FLAG_PRESENT_FIFO_RELAXED = 8,
 };
 
-// A layer can expose extensions, keep track of those extensions here.
-struct layer_properties {
-	VkLayerProperties properties;
-	std::vector<VkExtensionProperties> extensions;
-};
-
 struct VulkanPhysicalDeviceInfo {
 	VkFormat preferredDepthStencilFormat;
 };
@@ -205,10 +199,16 @@ private:
 // Optionally, it can create a depth buffer for you as well.
 class VulkanContext {
 public:
-	VulkanContext(const char *app_name, int app_ver, uint32_t flags);
+	VulkanContext();
 	~VulkanContext();
 
-	VkResult CreateDevice(int physical_device);
+	VkResult CreateInstance(const char *app_name, int app_ver, uint32_t flags);
+	
+	// TODO: Actually do some checks?
+	int GetBestPhysicalDevice() const { return 0; }
+	void ChooseDevice(int physical_device);
+	bool EnableDeviceExtension(const char *extension);
+	VkResult CreateDevice();
 
 	const std::string &InitError() { return init_error_; }
 
@@ -226,9 +226,9 @@ public:
 	void InitSurfaceAndroid(ANativeWindow *native_window, int width, int height);
 	void ReinitSurfaceAndroid(int width, int height);
 #endif
-	void InitQueue(int physical_device);
+	void InitQueue();
 	bool InitObjects(bool depthPresent);
-	bool InitSwapchain(int physical_device, VkCommandBuffer cmd);
+	bool InitSwapchain(VkCommandBuffer cmd);
 	void InitSurfaceRenderPass(bool include_depth, bool clear);
 	void InitFramebuffers(bool include_depth);
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);
@@ -299,10 +299,8 @@ public:
 		return gpu_props;
 	}
 
-	VkResult InitInstanceExtensionProperties();
 	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
-
-	VkResult InitInstanceLayerProperties();
+	VkResult GetInstanceLayerProperties();
 
 	VkResult GetDeviceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
 	VkResult GetDeviceLayerProperties();
@@ -334,6 +332,14 @@ public:
 	};
 
 private:
+	// A layer can expose extensions, keep track of those extensions here.
+	struct LayerProperties {
+		VkLayerProperties properties;
+		std::vector<VkExtensionProperties> extensions;
+	};
+
+	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
+
 	VkSemaphore acquireSemaphore_;
 	VkSemaphore renderingCompleteSemaphore_;
 
@@ -351,18 +357,20 @@ private:
 
 	std::string init_error_;
 	std::vector<const char *> instance_layer_names_;
-	std::vector<layer_properties> instance_layer_properties_;
+	std::vector<LayerProperties> instance_layer_properties_;
 	
 	std::vector<const char *> instance_extensions_enabled_;
 	std::vector<VkExtensionProperties> instance_extension_properties_;
 
 	std::vector<const char *> device_layer_names_;
-	std::vector<layer_properties> device_layer_properties_;
+	std::vector<LayerProperties> device_layer_properties_;
 	
 	std::vector<const char *> device_extensions_enabled_;
 	std::vector<VkExtensionProperties> device_extension_properties_;
 	
 	std::vector<VkPhysicalDevice> physical_devices_;
+
+	int physical_device_ = -1;
 
 	uint32_t graphics_queue_family_index_ = -1;
 	VkPhysicalDeviceProperties gpu_props{};

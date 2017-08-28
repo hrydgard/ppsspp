@@ -278,15 +278,22 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 
 	ILOG("Creating vulkan context");
 	Version gitVer(PPSSPP_GIT_VERSION);
-	g_Vulkan = new VulkanContext("PPSSPP", gitVer.ToInteger(), VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED);
-	if (!g_Vulkan->GetInstance()) {
-		ELOG("Failed to create vulkan context");
+	g_Vulkan = new VulkanContext();
+	if (VK_SUCCESS != g_Vulkan->CreateInstance("PPSSPP", gitVer.ToInteger(), VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED)) {
+		ELOG("Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
+		delete g_Vulkan;
+		g_Vulkan = nullptr;
 		return false;
 	}
 
+	g_Vulkan->ChooseDevice(g_Vulkan->GetBestPhysicalDevice());
+	// Here we can enable device extensions if we like.
+
 	ILOG("Creating vulkan device");
-	if (g_Vulkan->CreateDevice(0) != VK_SUCCESS) {
+	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
 		ILOG("Failed to create vulkan device: %s", g_Vulkan->InitError().c_str());
+		delete g_Vulkan;
+		g_Vulkan = nullptr;
 		return false;
 	}
 	int width = desiredBackbufferSizeX;
