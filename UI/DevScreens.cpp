@@ -493,27 +493,27 @@ void SystemInfoScreen::CreateViews() {
 		cpuExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
 	}
 
-	ViewGroup *oglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	oglExtensionsScroll->SetTag("DevSystemInfoOGLExt");
-	LinearLayout *oglExtensions = new LinearLayout(ORIENT_VERTICAL);
-	oglExtensions->SetSpacing(0);
-	oglExtensionsScroll->Add(oglExtensions);
+	ViewGroup *gpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	gpuExtensionsScroll->SetTag("DevSystemInfoOGLExt");
+	LinearLayout *gpuExtensions = new LinearLayout(ORIENT_VERTICAL);
+	gpuExtensions->SetSpacing(0);
+	gpuExtensionsScroll->Add(gpuExtensions);
 
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
-		tabHolder->AddTab("OGL Extensions", oglExtensionsScroll);
+		tabHolder->AddTab("OGL Extensions", gpuExtensionsScroll);
 
 		if (!gl_extensions.IsGLES) {
-			oglExtensions->Add(new ItemHeader("OpenGL Extensions"));
+			gpuExtensions->Add(new ItemHeader("OpenGL Extensions"));
 		} else if (gl_extensions.GLES3) {
-			oglExtensions->Add(new ItemHeader("OpenGL ES 3.0 Extensions"));
+			gpuExtensions->Add(new ItemHeader("OpenGL ES 3.0 Extensions"));
 		} else {
-			oglExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
+			gpuExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
 		}
 		exts.clear();
 		SplitString(g_all_gl_extensions, ' ', exts);
 		std::sort(exts.begin(), exts.end());
 		for (size_t i = 0; i < exts.size(); i++) {
-			oglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+			gpuExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
 		}
 
 		exts.clear();
@@ -537,12 +537,17 @@ void SystemInfoScreen::CreateViews() {
 			}
 		}
 	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
-		tabHolder->AddTab("Vulkan Features", oglExtensionsScroll);
+		tabHolder->AddTab("Vulkan Features", gpuExtensionsScroll);
 
-		oglExtensions->Add(new ItemHeader("Vulkan Features"));
+		gpuExtensions->Add(new ItemHeader("Vulkan Features"));
 		std::vector<std::string> features = draw->GetFeatureList();
 		for (auto &feature : features) {
-			oglExtensions->Add(new TextView(feature))->SetFocusable(true);
+			gpuExtensions->Add(new TextView(feature))->SetFocusable(true);
+		}
+		gpuExtensions->Add(new ItemHeader("Vulkan Extensions"));
+		std::vector<std::string> extensions = draw->GetExtensionList();
+		for (auto &extension : extensions) {
+			gpuExtensions->Add(new TextView(extension))->SetFocusable(true);
 		}
 	}
 }

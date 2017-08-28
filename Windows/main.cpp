@@ -65,7 +65,7 @@
 #include "Windows/main.h"
 
 
-// Nvidia drivers >= v302 will check if the application exports a global
+// Nvidia OpenGL drivers >= v302 will check if the application exports a global
 // variable named NvOptimusEnablement to know if it should run the app in high
 // performance graphics mode or using the IGP.
 extern "C" {

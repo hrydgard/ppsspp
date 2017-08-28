@@ -52,49 +52,35 @@ static const char *validationLayers[] = {
 
 static VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, const std::vector<const char *> &layer_names);
 
-VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
-	: device_(nullptr),
-	gfx_queue_(VK_NULL_HANDLE),
-#ifdef _WIN32
-	connection(nullptr),
-	window(nullptr),
-#elif defined(__ANDROID__)
-	native_window(nullptr),
-#endif
-	graphics_queue_family_index_(-1),
-	surface_(VK_NULL_HANDLE),
-	instance_(VK_NULL_HANDLE),
-	width_(0),
-	height_(0),
-	flags_(flags),
-	swapchain_format(VK_FORMAT_UNDEFINED),
-	swapchainImageCount(0),
-	swap_chain_(VK_NULL_HANDLE),
-	queue_count(0) {
+VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags) : flags_(flags) {
 	if (!VulkanLoad()) {
 		init_error_ = "Failed to load Vulkan driver library";
 		// No DLL?
 		return;
 	}
+
+	// We can get the list of layers and extensions without an instance so we can use this information
+	// to enable the extensions we need that are available.
+	InitInstanceLayerProperties();
+	GetInstanceLayerExtensionList(nullptr, instance_extension_properties_);
+
 	// List extensions to try to enable.
-	instance_extension_names.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+	instance_extensions_enabled_.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #ifdef _WIN32
-	instance_extension_names.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+	instance_extensions_enabled_.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__ANDROID__)
 	instance_extension_names.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #endif
-	device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-	// device_extension_names.push_back(VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME);
 
 	if (flags & VULKAN_FLAG_VALIDATE) {
 		for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
-			instance_layer_names.push_back(validationLayers[i]);
-			device_layer_names.push_back(validationLayers[i]);
+			instance_layer_names_.push_back(validationLayers[i]);
+			device_layer_names_.push_back(validationLayers[i]);
 		}
-		instance_extension_names.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+		instance_extensions_enabled_.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	}
 
-	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
+	VkApplicationInfo app_info { VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.pApplicationName = app_name;
 	app_info.applicationVersion = app_ver;
 	app_info.pEngineName = app_name;
@@ -102,24 +88,24 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	app_info.engineVersion = 2;
 	app_info.apiVersion = VK_API_VERSION_1_0;
 
-	VkInstanceCreateInfo inst_info = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
+	VkInstanceCreateInfo inst_info { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
 	inst_info.flags = 0;
 	inst_info.pApplicationInfo = &app_info;
-	inst_info.enabledLayerCount = (uint32_t)instance_layer_names.size();
-	inst_info.ppEnabledLayerNames = instance_layer_names.size() ? instance_layer_names.data() : NULL;
-	inst_info.enabledExtensionCount = (uint32_t)instance_extension_names.size();
-	inst_info.ppEnabledExtensionNames = instance_extension_names.size() ? instance_extension_names.data() : NULL;
+	inst_info.enabledLayerCount = (uint32_t)instance_layer_names_.size();
+	inst_info.ppEnabledLayerNames = instance_layer_names_.size() ? instance_layer_names_.data() : nullptr;
+	inst_info.enabledExtensionCount = (uint32_t)instance_extensions_enabled_.size();
+	inst_info.ppEnabledExtensionNames = instance_extensions_enabled_.size() ? instance_extensions_enabled_.data() : nullptr;
 
-	VkResult res = vkCreateInstance(&inst_info, NULL, &instance_);
+	VkResult res = vkCreateInstance(&inst_info, nullptr, &instance_);
 	if (res != VK_SUCCESS) {
 		if (res == VK_ERROR_LAYER_NOT_PRESENT) {
 			WLOG("Validation on but layers not available - dropping layers");
 			// Drop the validation layers and try again.
-			instance_layer_names.clear();
-			device_layer_names.clear();
+			instance_layer_names_.clear();
+			device_layer_names_.clear();
 			inst_info.enabledLayerCount = 0;
-			inst_info.ppEnabledLayerNames = NULL;
-			res = vkCreateInstance(&inst_info, NULL, &instance_);
+			inst_info.ppEnabledLayerNames = nullptr;
+			res = vkCreateInstance(&inst_info, nullptr, &instance_);
 			if (res != VK_SUCCESS)
 				ELOG("Failed to create instance even without validation: %d", res);
 		} else {
@@ -134,7 +120,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	VulkanLoadInstanceFunctions(instance_);
 
 	uint32_t gpu_count = 1;
-	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, NULL);
+	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, nullptr);
 	assert(gpu_count);
 	physical_devices_.resize(gpu_count);
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, physical_devices_.data());
@@ -143,17 +129,14 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 		return;
 	}
 
-	InitGlobalLayerProperties();
-	InitGlobalExtensionProperties();
-
-	if (!CheckLayers(instance_layer_properties, instance_layer_names)) {
+	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
 		WLOG("CheckLayers failed");
 		// init_error_ = "Failed to validate instance layers";
 		// return;
 	}
 
-	InitDeviceLayerProperties();
-	if (!CheckLayers(device_layer_properties, device_layer_names)) {
+	GetDeviceLayerProperties();
+	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
 		WLOG("CheckLayers failed (2)");
 		// init_error_ = "Failed to validate device layers";
 		// return;
@@ -161,12 +144,12 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 }
 
 VulkanContext::~VulkanContext() {
-	vkDestroyInstance(instance_, NULL);
+	vkDestroyInstance(instance_, nullptr);
 	VulkanFree();
 }
 
 void TransitionToPresent(VkCommandBuffer cmd, VkImage image) {
-	VkImageMemoryBarrier prePresentBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	VkImageMemoryBarrier prePresentBarrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	prePresentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	prePresentBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 	prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -184,7 +167,7 @@ void TransitionToPresent(VkCommandBuffer cmd, VkImage image) {
 }
 
 void TransitionFromPresent(VkCommandBuffer cmd, VkImage image) {
-	VkImageMemoryBarrier prePresentBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	VkImageMemoryBarrier prePresentBarrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	prePresentBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 	prePresentBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -218,7 +201,7 @@ VkCommandBuffer VulkanContext::BeginFrame() {
 	FrameData *frame = &frame_[curFrame_];
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
-	VkResult res = vkAcquireNextImageKHR(device_, swap_chain_, UINT64_MAX, acquireSemaphore, VK_NULL_HANDLE, &current_buffer);
+	VkResult res = vkAcquireNextImageKHR(device_, swap_chain_, UINT64_MAX, acquireSemaphore_, VK_NULL_HANDLE, &current_buffer);
 	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 	// return codes
 	assert(res == VK_SUCCESS);
@@ -291,13 +274,13 @@ void VulkanContext::EndFrame() {
 
 	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	submit_info.waitSemaphoreCount = 1;
-	submit_info.pWaitSemaphores = &acquireSemaphore;
+	submit_info.pWaitSemaphores = &acquireSemaphore_;
 	VkPipelineStageFlags waitStage[1] = { VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
 	submit_info.pWaitDstStageMask = waitStage;
 	submit_info.commandBufferCount = (uint32_t)cmdBufs.size();
 	submit_info.pCommandBuffers = cmdBufs.data();
 	submit_info.signalSemaphoreCount = 1;
-	submit_info.pSignalSemaphores = &renderingCompleteSemaphore;
+	submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
 	res = vkQueueSubmit(gfx_queue_, 1, &submit_info, frame->fence);
 	assert(res == VK_SUCCESS);
 
@@ -305,7 +288,7 @@ void VulkanContext::EndFrame() {
 	present.swapchainCount = 1;
 	present.pSwapchains = &swap_chain_;
 	present.pImageIndices = &current_buffer;
-	present.pWaitSemaphores = &renderingCompleteSemaphore;
+	present.pWaitSemaphores = &renderingCompleteSemaphore_;
 	present.waitSemaphoreCount = 1;
 	present.pResults = NULL;
 
@@ -352,7 +335,8 @@ void VulkanBeginCommandBuffer(VkCommandBuffer cmd) {
 }
 
 bool  VulkanContext::InitObjects(bool depthPresent) {
-	InitQueue();
+	int physical_device = 0; // TODO
+	InitQueue(physical_device);
 
 	// Create frame data
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
@@ -378,7 +362,7 @@ bool  VulkanContext::InitObjects(bool depthPresent) {
 	}
 
 	VkCommandBuffer cmd = GetInitCommandBuffer();
-	if (!InitSwapchain(cmd)) {
+	if (!InitSwapchain(physical_device, cmd)) {
 		return false;
 	}
 	InitDepthStencilBuffer(cmd);
@@ -418,58 +402,22 @@ void VulkanContext::DestroyObjects() {
 	surface_ = VK_NULL_HANDLE;
 }
 
-VkResult VulkanContext::InitLayerExtensionProperties(layer_properties &layer_props) {
-	VkExtensionProperties *instance_extensions;
+VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions) {
 	uint32_t instance_extension_count;
 	VkResult res;
-	char *layer_name = NULL;
-
-	layer_name = layer_props.properties.layerName;
-
 	do {
-		res = vkEnumerateInstanceExtensionProperties(layer_name, &instance_extension_count, NULL);
+		res = vkEnumerateInstanceExtensionProperties(layerName, &instance_extension_count, nullptr);
 		if (res)
 			return res;
-
-		if (instance_extension_count == 0) {
+		if (instance_extension_count == 0)
 			return VK_SUCCESS;
-		}
-
-		layer_props.extensions.resize(instance_extension_count);
-		instance_extensions = layer_props.extensions.data();
-		res = vkEnumerateInstanceExtensionProperties(
-			layer_name,
-			&instance_extension_count,
-			instance_extensions);
+		extensions.resize(instance_extension_count);
+		res = vkEnumerateInstanceExtensionProperties(layerName, &instance_extension_count, extensions.data());
 	} while (res == VK_INCOMPLETE);
-
 	return res;
 }
 
-VkResult VulkanContext::InitGlobalExtensionProperties() {
-	uint32_t instance_extension_count;
-	VkResult res;
-
-	do {
-		res = vkEnumerateInstanceExtensionProperties(NULL, &instance_extension_count, NULL);
-		if (res)
-			return res;
-
-		if (instance_extension_count == 0) {
-			return VK_SUCCESS;
-		}
-
-		instance_extension_properties.resize(instance_extension_count);
-		res = vkEnumerateInstanceExtensionProperties(
-			NULL,
-			&instance_extension_count,
-			instance_extension_properties.data());
-	} while (res == VK_INCOMPLETE);
-
-	return res;
-}
-
-VkResult VulkanContext::InitGlobalLayerProperties() {
+VkResult VulkanContext::InitInstanceLayerProperties() {
 	uint32_t instance_layer_count;
 	VkLayerProperties *vk_props = NULL;
 	VkResult res;
@@ -487,16 +435,14 @@ VkResult VulkanContext::InitGlobalLayerProperties() {
 	 * of layers went down or is smaller than the size given.
 	 */
 	do {
-		res = vkEnumerateInstanceLayerProperties(&instance_layer_count, NULL);
+		res = vkEnumerateInstanceLayerProperties(&instance_layer_count, nullptr);
 		if (res)
 			return res;
 
-		if (instance_layer_count == 0) {
+		if (!instance_layer_count)
 			return VK_SUCCESS;
-		}
 
 		vk_props = (VkLayerProperties *)realloc(vk_props, instance_layer_count * sizeof(VkLayerProperties));
-
 		res = vkEnumerateInstanceLayerProperties(&instance_layer_count, vk_props);
 	} while (res == VK_INCOMPLETE);
 
@@ -504,52 +450,35 @@ VkResult VulkanContext::InitGlobalLayerProperties() {
 	for (uint32_t i = 0; i < instance_layer_count; i++) {
 		layer_properties layer_props;
 		layer_props.properties = vk_props[i];
-		res = InitLayerExtensionProperties(layer_props);
+		res = GetInstanceLayerExtensionList(layer_props.properties.layerName, layer_props.extensions);
 		if (res)
 			return res;
-		instance_layer_properties.push_back(layer_props);
+		instance_layer_properties_.push_back(layer_props);
 	}
 	free(vk_props);
 
 	return res;
 }
 
-VkResult VulkanContext::InitDeviceExtensionProperties(layer_properties &layer_props) {
-	VkExtensionProperties *device_extensions;
+// Pass layerName == nullptr to get the extension list for the device.
+VkResult VulkanContext::GetDeviceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions) {
 	uint32_t device_extension_count;
 	VkResult res;
-	char *layer_name = NULL;
-
-	layer_name = layer_props.properties.layerName;
 	do {
-		res = vkEnumerateDeviceExtensionProperties(
-			physical_devices_[0],
-			layer_name, &device_extension_count, NULL);
+		res = vkEnumerateDeviceExtensionProperties(physical_devices_[0], layerName, &device_extension_count, nullptr);
 		if (res)
 			return res;
-
-		if (device_extension_count == 0) {
+		if (!device_extension_count)
 			return VK_SUCCESS;
-		}
-
-		layer_props.extensions.resize(device_extension_count);
-		device_extensions = layer_props.extensions.data();
-		res = vkEnumerateDeviceExtensionProperties(
-			physical_devices_[0],
-			layer_name,
-			&device_extension_count,
-			device_extensions);
+		extensions.resize(device_extension_count);
+		res = vkEnumerateDeviceExtensionProperties(physical_devices_[0], layerName, &device_extension_count, extensions.data());
 	} while (res == VK_INCOMPLETE);
-
 	return res;
 }
 
-/*
- * TODO: function description here
- */
-VkResult VulkanContext::InitDeviceLayerProperties() {
+VkResult VulkanContext::GetDeviceLayerProperties() {
 	uint32_t device_layer_count;
-	VkLayerProperties *vk_props = NULL;
+	std::vector<VkLayerProperties> vk_props;
 	VkResult res;
 
 	/*
@@ -565,39 +494,28 @@ VkResult VulkanContext::InitDeviceLayerProperties() {
 	 * of layers went down or is smaller than the size given.
 	 */
 	do {
-		res = vkEnumerateDeviceLayerProperties(physical_devices_[0], &device_layer_count, NULL);
+		res = vkEnumerateDeviceLayerProperties(physical_devices_[0], &device_layer_count, nullptr);
 		if (res)
 			return res;
-
-		if (device_layer_count == 0) {
+		if (device_layer_count == 0)
 			return VK_SUCCESS;
-		}
-
-		vk_props = (VkLayerProperties *)realloc(vk_props, device_layer_count * sizeof(VkLayerProperties));
-
-		res = vkEnumerateDeviceLayerProperties(physical_devices_[0], &device_layer_count, vk_props);
+		vk_props.resize(device_layer_count);
+		res = vkEnumerateDeviceLayerProperties(physical_devices_[0], &device_layer_count, vk_props.data());
 	} while (res == VK_INCOMPLETE);
 
-	/*
-	 * Now gather the extension list for each device layer.
-	 */
+	// Gather the list of extensions for each device layer.
 	for (uint32_t i = 0; i < device_layer_count; i++) {
 		layer_properties layer_props;
 		layer_props.properties = vk_props[i];
-		res = InitDeviceExtensionProperties(layer_props);
+		res = GetDeviceLayerExtensionList(layer_props.properties.layerName, layer_props.extensions);
 		if (res)
 			return res;
-		device_layer_properties.push_back(layer_props);
+		device_layer_properties_.push_back(layer_props);
 	}
-	free(vk_props);
-
 	return res;
 }
 
-/*
- * Return 1 (true) if all layer names specified in check_names
- * can be found in given layer properties.
- */
+// Return 1 (true) if all layer names specified in check_names can be found in given layer properties.
 static VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, const std::vector<const char *> &layer_names) {
 	uint32_t check_count = (uint32_t)layer_names.size();
 	uint32_t layer_count = (uint32_t)layer_props.size();
@@ -617,18 +535,16 @@ static VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, co
 }
 
 VkResult VulkanContext::CreateDevice(int physical_device) {
-	VkResult res;
-
 	if (!init_error_.empty()) {
 		ELOG("Vulkan init failed: %s", init_error_.c_str());
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
-	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[0], &queue_count, nullptr);
+	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device], &queue_count, nullptr);
 	assert(queue_count >= 1);
 
 	queue_props.resize(queue_count);
-	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[0], &queue_count, queue_props.data());
+	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device], &queue_count, queue_props.data());
 	assert(queue_count >= 1);
 
 	VkDeviceQueueCreateInfo queue_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
@@ -646,7 +562,6 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	assert(found);
 	assert(queue_count >= 1);
 
-
 	// Detect preferred formats, in this order.
 	static const VkFormat depthStencilFormats[] = {
 		VK_FORMAT_D24_UNORM_S8_UINT,
@@ -656,7 +571,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	deviceInfo_.preferredDepthStencilFormat = VK_FORMAT_UNDEFINED;
 	for (size_t i = 0; i < ARRAY_SIZE(depthStencilFormats); i++) {
 		VkFormatProperties props;
-		vkGetPhysicalDeviceFormatProperties(physical_devices_[0], depthStencilFormats[i], &props);
+		vkGetPhysicalDeviceFormatProperties(physical_devices_[physical_device], depthStencilFormats[i], &props);
 		if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
 			deviceInfo_.preferredDepthStencilFormat = depthStencilFormats[i];
 			break;
@@ -664,11 +579,11 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	}
 
 	// This is as good a place as any to do this
-	vkGetPhysicalDeviceMemoryProperties(physical_devices_[0], &memory_properties);
-	vkGetPhysicalDeviceProperties(physical_devices_[0], &gpu_props);
+	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device], &memory_properties);
+	vkGetPhysicalDeviceProperties(physical_devices_[physical_device], &gpu_props);
 
 	// Optional features
-	vkGetPhysicalDeviceFeatures(physical_devices_[0], &featuresAvailable_);
+	vkGetPhysicalDeviceFeatures(physical_devices_[physical_device], &featuresAvailable_);
 	memset(&featuresEnabled_, 0, sizeof(featuresEnabled_));
 
 	// Enable a few safe ones if they are available.
@@ -696,31 +611,37 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	if (featuresAvailable_.samplerAnisotropy) {
 		featuresEnabled_.samplerAnisotropy = true;
 	}
+	// For easy wireframe mode, someday.
+	if (featuresEnabled_.fillModeNonSolid) {
+		featuresEnabled_.fillModeNonSolid = true;
+	}
 
-	VkDeviceCreateInfo device_info = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
+	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
+
+	device_extensions_enabled_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	if (IsDeviceExtensionAvailable(VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME)) {
+		device_extensions_enabled_.push_back(VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME);
+	}
+
+	VkDeviceCreateInfo device_info { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
 	device_info.pQueueCreateInfos = &queue_info;
-	device_info.enabledLayerCount = (uint32_t)device_layer_names.size();
-	device_info.ppEnabledLayerNames =
-		device_info.enabledLayerCount ? device_layer_names.data() : NULL;
-	device_info.enabledExtensionCount = (uint32_t)device_extension_names.size();
-	device_info.ppEnabledExtensionNames =
-		device_info.enabledExtensionCount ? device_extension_names.data() : NULL;
+	device_info.enabledLayerCount = (uint32_t)device_layer_names_.size();
+	device_info.ppEnabledLayerNames = device_info.enabledLayerCount ? device_layer_names_.data() : nullptr;
+	device_info.enabledExtensionCount = (uint32_t)device_extensions_enabled_.size();
+	device_info.ppEnabledExtensionNames = device_info.enabledExtensionCount ? device_extensions_enabled_.data() : nullptr;
 	device_info.pEnabledFeatures = &featuresEnabled_;
-
-	res = vkCreateDevice(physical_devices_[0], &device_info, NULL, &device_);
+	VkResult res = vkCreateDevice(physical_devices_[physical_device], &device_info, nullptr, &device_);
 	if (res != VK_SUCCESS) {
 		init_error_ = "Unable to create Vulkan device";
 		ELOG("Unable to create Vulkan device");
 	} else {
 		VulkanLoadDeviceFunctions(device_);
 	}
-
 	return res;
 }
 
 VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata) {
-	VkResult res;
 	VkDebugReportCallbackEXT msg_callback;
 
 	if (!(flags_ & VULKAN_FLAG_VALIDATE)) {
@@ -735,7 +656,7 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 	cb.flags = bits;
 	cb.pfnCallback = dbgFunc;
 	cb.pUserData = userdata;
-	res = vkCreateDebugReportCallbackEXT(instance_, &cb, nullptr, &msg_callback);
+	VkResult res = vkCreateDebugReportCallbackEXT(instance_, &cb, nullptr, &msg_callback);
 	switch (res) {
 	case VK_SUCCESS:
 		msg_callbacks.push_back(msg_callback);
@@ -883,11 +804,11 @@ void VulkanContext::ReinitSurfaceAndroid(int width, int height) {
 }
 #endif
 
-void VulkanContext::InitQueue() {
+void VulkanContext::InitQueue(int physical_device) {
 	// Iterate over each queue to learn whether it supports presenting:
 	VkBool32 *supportsPresent = new VkBool32[queue_count];
 	for (uint32_t i = 0; i < queue_count; i++) {
-		vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices_[0], i, surface_, &supportsPresent[i]);
+		vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices_[physical_device], i, surface_, &supportsPresent[i]);
 	}
 
 	// Search for a graphics queue and a present queue in the array of queue
@@ -929,10 +850,10 @@ void VulkanContext::InitQueue() {
 
 	// Get the list of VkFormats that are supported:
 	uint32_t formatCount;
-	VkResult res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0], surface_, &formatCount, NULL);
+	VkResult res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device], surface_, &formatCount, nullptr);
 	assert(res == VK_SUCCESS);
 	VkSurfaceFormatKHR *surfFormats = new VkSurfaceFormatKHR[formatCount];
-	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0], surface_, &formatCount, surfFormats);
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device], surface_, &formatCount, surfFormats);
 	assert(res == VK_SUCCESS);
 	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
 	// the surface has no preferred format.  Otherwise, at least one
@@ -965,25 +886,25 @@ void VulkanContext::InitQueue() {
 
 	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	semaphoreCreateInfo.flags = 0;
-	res = vkCreateSemaphore(device_, &semaphoreCreateInfo, NULL, &acquireSemaphore);
+	res = vkCreateSemaphore(device_, &semaphoreCreateInfo, nullptr, &acquireSemaphore_);
 	assert(res == VK_SUCCESS);
-	res = vkCreateSemaphore(device_, &semaphoreCreateInfo, NULL, &renderingCompleteSemaphore);
+	res = vkCreateSemaphore(device_, &semaphoreCreateInfo, nullptr, &renderingCompleteSemaphore_);
 	assert(res == VK_SUCCESS);
 }
 
-bool VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
+bool VulkanContext::InitSwapchain(int physical_device, VkCommandBuffer cmd) {
 	VkResult U_ASSERT_ONLY res;
 	VkSurfaceCapabilitiesKHR surfCapabilities;
 
-	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[0], surface_, &surfCapabilities);
+	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device], surface_, &surfCapabilities);
 	assert(res == VK_SUCCESS);
 
 	uint32_t presentModeCount;
-	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0], surface_, &presentModeCount, NULL);
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device], surface_, &presentModeCount, nullptr);
 	assert(res == VK_SUCCESS);
 	VkPresentModeKHR *presentModes = new VkPresentModeKHR[presentModeCount];
 	assert(presentModes);
-	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0], surface_, &presentModeCount, presentModes);
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device], surface_, &presentModeCount, presentModes);
 	assert(res == VK_SUCCESS);
 
 	VkExtent2D swapChainExtent;
@@ -1078,8 +999,7 @@ bool VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 		return false;
 	}
 
-	res = vkGetSwapchainImagesKHR(device_, swap_chain_,
-		&swapchainImageCount, NULL);
+	res = vkGetSwapchainImagesKHR(device_, swap_chain_, &swapchainImageCount, nullptr);
 	assert(res == VK_SUCCESS);
 
 	ILOG("Vulkan swapchain image count: %d", swapchainImageCount);
@@ -1117,21 +1037,19 @@ bool VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 
 		color_image_view.image = sc_buffer.image;
 
-		res = vkCreateImageView(device_,
-			&color_image_view, NULL, &sc_buffer.view);
+		res = vkCreateImageView(device_, &color_image_view, NULL, &sc_buffer.view);
 		swapChainBuffers.push_back(sc_buffer);
 		assert(res == VK_SUCCESS);
 	}
+
 	delete[] swapchainImages;
 	current_buffer = 0;
-
 	return true;
 }
 
 void VulkanContext::InitSurfaceRenderPass(bool include_depth, bool clear) {
-	VkResult U_ASSERT_ONLY res;
-	/* Need attachments for render target and depth buffer */
-	VkAttachmentDescription attachments[2];
+	// Need attachments for render target and depth buffer
+	VkAttachmentDescription attachments[2]{};
 	attachments[0].format = swapchain_format;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
 	attachments[0].loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -1154,36 +1072,35 @@ void VulkanContext::InitSurfaceRenderPass(bool include_depth, bool clear) {
 		attachments[1].flags = 0;
 	}
 
-	VkAttachmentReference color_reference = {};
+	VkAttachmentReference color_reference{};
 	color_reference.attachment = 0;
 	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	VkAttachmentReference depth_reference = {};
+	VkAttachmentReference depth_reference{};
 	depth_reference.attachment = 1;
 	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	VkSubpassDescription subpass = {};
+	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.flags = 0;
 	subpass.inputAttachmentCount = 0;
-	subpass.pInputAttachments = NULL;
+	subpass.pInputAttachments = nullptr;
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &color_reference;
-	subpass.pResolveAttachments = NULL;
-	subpass.pDepthStencilAttachment = include_depth ? &depth_reference : NULL;
+	subpass.pResolveAttachments = nullptr;
+	subpass.pDepthStencilAttachment = include_depth ? &depth_reference : nullptr;
 	subpass.preserveAttachmentCount = 0;
-	subpass.pPreserveAttachments = NULL;
+	subpass.pPreserveAttachments = nullptr;
 
-	VkRenderPassCreateInfo rp_info = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-	rp_info.pNext = NULL;
+	VkRenderPassCreateInfo rp_info{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
 	rp_info.attachmentCount = include_depth ? 2 : 1;
 	rp_info.pAttachments = attachments;
 	rp_info.subpassCount = 1;
 	rp_info.pSubpasses = &subpass;
 	rp_info.dependencyCount = 0;
-	rp_info.pDependencies = NULL;
+	rp_info.pDependencies = nullptr;
 
-	res = vkCreateRenderPass(device_, &rp_info, NULL, &surface_render_pass_);
+	VkResult U_ASSERT_ONLY res = vkCreateRenderPass(device_, &rp_info, nullptr, &surface_render_pass_);
 	assert(res == VK_SUCCESS);
 }
 
@@ -1193,7 +1110,7 @@ void VulkanContext::InitFramebuffers(bool include_depth) {
 	attachments[1] = depth.view;
 
 	ILOG("InitFramebuffers: %dx%d", width_, height_);
-	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+	VkFramebufferCreateInfo fb_info{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 	fb_info.renderPass = surface_render_pass_;
 	fb_info.attachmentCount = include_depth ? 2 : 1;
 	fb_info.pAttachments = attachments;
@@ -1212,7 +1129,7 @@ void VulkanContext::InitFramebuffers(bool include_depth) {
 
 VkFence VulkanContext::CreateFence(bool presignalled) {
 	VkFence fence;
-	VkFenceCreateInfo fenceInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+	VkFenceCreateInfo fenceInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 	fenceInfo.flags = presignalled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
 	vkCreateFence(device_, &fenceInfo, NULL, &fence);
 	return fence;
@@ -1225,11 +1142,11 @@ void VulkanContext::WaitAndResetFence(VkFence fence) {
 
 void VulkanContext::DestroyDepthStencilBuffer() {
 	if (depth.view != VK_NULL_HANDLE)
-		vkDestroyImageView(device_, depth.view, NULL);
+		vkDestroyImageView(device_, depth.view, nullptr);
 	if (depth.image != VK_NULL_HANDLE)
-		vkDestroyImage(device_, depth.image, NULL);
+		vkDestroyImage(device_, depth.image, nullptr);
 	if (depth.mem != VK_NULL_HANDLE)
-		vkFreeMemory(device_, depth.mem, NULL);
+		vkFreeMemory(device_, depth.mem, nullptr);
 
 	depth.view = VK_NULL_HANDLE;
 	depth.image = VK_NULL_HANDLE;
@@ -1238,26 +1155,26 @@ void VulkanContext::DestroyDepthStencilBuffer() {
 
 void VulkanContext::DestroySwapChain() {
 	for (uint32_t i = 0; i < swapchainImageCount; i++) {
-		vkDestroyImageView(device_, swapChainBuffers[i].view, NULL);
+		vkDestroyImageView(device_, swapChainBuffers[i].view, nullptr);
 	}
 	if (swap_chain_ != VK_NULL_HANDLE)
-		vkDestroySwapchainKHR(device_, swap_chain_, NULL);
+		vkDestroySwapchainKHR(device_, swap_chain_, nullptr);
 	swap_chain_ = VK_NULL_HANDLE;
 	swapChainBuffers.clear();
-	vkDestroySemaphore(device_, acquireSemaphore, NULL);
-	vkDestroySemaphore(device_, renderingCompleteSemaphore, NULL);
+	vkDestroySemaphore(device_, acquireSemaphore_, nullptr);
+	vkDestroySemaphore(device_, renderingCompleteSemaphore_, nullptr);
 }
 
 void VulkanContext::DestroyFramebuffers() {
 	for (uint32_t i = 0; i < framebuffers_.size(); i++) {
-		vkDestroyFramebuffer(device_, framebuffers_[i], NULL);
+		vkDestroyFramebuffer(device_, framebuffers_[i], nullptr);
 	}
 	framebuffers_.clear();
 }
 
 void VulkanContext::DestroySurfaceRenderPass() {
 	if (surface_render_pass_ != VK_NULL_HANDLE)
-		vkDestroyRenderPass(device_, surface_render_pass_, NULL);
+		vkDestroyRenderPass(device_, surface_render_pass_, nullptr);
 	surface_render_pass_ = VK_NULL_HANDLE;
 }
 
@@ -1282,7 +1199,7 @@ bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkSha
 	sm.pCode = spirv.data();
 	sm.codeSize = spirv.size() * sizeof(uint32_t);
 	sm.flags = 0;
-	VkResult result = vkCreateShaderModule(device_, &sm, NULL, shaderModule);
+	VkResult result = vkCreateShaderModule(device_, &sm, nullptr, shaderModule);
 	if (result != VK_SUCCESS) {
 		return false;
 	} else {
