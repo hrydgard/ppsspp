@@ -71,7 +71,7 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 #ifdef _WIN32
 	instance_extensions_enabled_.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__ANDROID__)
-	instance_extension_names.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+	instance_extensions_enabled_.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #endif
 
 	if (flags_ & VULKAN_FLAG_VALIDATE) {
