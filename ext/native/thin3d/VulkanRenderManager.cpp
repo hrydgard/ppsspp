@@ -4,7 +4,7 @@
 #include "thin3d/VulkanRenderManager.h"
 #include "thread/threadutil.h"
 
-const bool useThread = true;
+const bool useThread = false;
 
 void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color) {
 	VkImageCreateInfo ici{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
@@ -559,9 +559,18 @@ void VulkanRenderManager::InitRenderpasses() {
 
 	for (int depth = 0; depth < 3; depth++) {
 		switch ((VKRRenderPassAction)depth) {
-		case VKRRenderPassAction::CLEAR: attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; break;
-		case VKRRenderPassAction::KEEP: attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; break;
-		case VKRRenderPassAction::DONT_CARE: attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; break;
+		case VKRRenderPassAction::CLEAR:
+			attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			break;
+		case VKRRenderPassAction::KEEP:
+			attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+			attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+			break;
+		case VKRRenderPassAction::DONT_CARE:
+			attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			break;
 		}
 		for (int color = 0; color < 3; color++) {
 			switch ((VKRRenderPassAction)color) {
