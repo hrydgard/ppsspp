@@ -205,7 +205,12 @@ public:
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame();
-	void EndFrame(int frame);
+	// Can run on a different thread! Just make sure to use BeginFrameWrites.
+	void Flush();
+	void Run(int frame);
+	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
+	void Sync();
+
 
 	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment);
@@ -281,13 +286,6 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
-	// Can run on a different thread! Just make sure to use BeginFrameWrites.
-	void Flush();
-	void Run(int frame);
-
-	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
-	void Sync();
-
 	VkCommandBuffer GetInitCmd();
 	VkRenderPass GetBackbufferRenderpass() const {
 		return backbufferRenderPass_;
@@ -312,9 +310,9 @@ private:
 	void InitRenderpasses();
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
 
-	void PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd, int swapChainImage);
 
-	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd, int swapChainImage);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
 
@@ -327,7 +325,7 @@ private:
 
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;
-	VkSemaphore renderingCompleteSemaphore;
+	VkSemaphore renderingCompleteSemaphore_;
 	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
 	// TODO: Create these on demand.
@@ -335,8 +333,15 @@ private:
 
 	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 	struct FrameData {
-		std::mutex mutex;
+		std::mutex push_mutex;
+		std::condition_variable push_condVar;
+
+		std::mutex pull_mutex;
+		std::condition_variable pull_condVar;
+
 		bool readyForFence = true;
+
+		bool readyForRun = false;
 		VkFence fence;
 		// These are on different threads so need separate pools.
 		VkCommandPool cmdPoolInit;
@@ -344,6 +349,7 @@ private:
 		VkCommandBuffer initCmd;
 		VkCommandBuffer mainCmd;
 		bool hasInitCommands = false;
+		std::vector<VKRStep *> steps;
 	};
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
@@ -356,14 +362,10 @@ private:
 	std::vector<VKRStep *> steps_;
 
 	// Execution time state
-	int threadFrame_;
-	volatile bool frameAvailable_ = false;
 	bool run_ = true;
 	VulkanContext *vulkan_;
 	std::thread thread_;
 	std::mutex mutex_;
-	std::condition_variable condVar_;
-	std::vector<VKRStep *> stepsOnThread_;
 	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
 
 	// Swap chain management
@@ -374,7 +376,6 @@ private:
 	std::vector<VkFramebuffer> framebuffers_;
 	std::vector<SwapchainImageData> swapchainImages_;
 	uint32_t swapchainImageCount_;
-	uint32_t curSwapchainImage_ = 0;
 	struct DepthBufferInfo {
 		VkFormat format = VK_FORMAT_UNDEFINED;
 		VkImage image = VK_NULL_HANDLE;

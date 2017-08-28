@@ -4,6 +4,7 @@
 #include "thin3d/VulkanRenderManager.h"
 #include "thread/threadutil.h"
 
+// TODO: Using a thread here is unfinished and does not work correctly.
 const bool useThread = false;
 
 void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color) {
@@ -81,7 +82,7 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	semaphoreCreateInfo.flags = 0;
 	VkResult res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, NULL, &acquireSemaphore_);
 	assert(res == VK_SUCCESS);
-	res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, NULL, &renderingCompleteSemaphore);
+	res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, NULL, &renderingCompleteSemaphore_);
 	assert(res == VK_SUCCESS);
 
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
@@ -110,8 +111,6 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 void VulkanRenderManager::CreateBackbuffers() {
 	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, nullptr);
 	assert(res == VK_SUCCESS);
-
-	ILOG("Vulkan swapchain image count: %d", swapchainImageCount_);
 
 	VkImage* swapchainImages = new VkImage[swapchainImageCount_];
 	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, swapchainImages);
@@ -151,7 +150,6 @@ void VulkanRenderManager::CreateBackbuffers() {
 		assert(res == VK_SUCCESS);
 	}
 	delete[] swapchainImages;
-	curSwapchainImage_ = -1;
 
 	InitDepthStencilBuffer(cmdInit);  // Must be before InitBackbufferRenderPass.
 	InitBackbufferRenderPass();  // Must be before InitFramebuffers.
@@ -168,10 +166,19 @@ void VulkanRenderManager::CreateBackbuffers() {
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
-	// Stop the thread.
 	if (useThread) {
 		run_ = false;
-		condVar_.notify_all();
+		// Stop the thread.
+		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
+			{
+				std::unique_lock<std::mutex> lock(frameData_[i].push_mutex);
+				frameData_[i].push_condVar.notify_all();
+			}
+			{
+				std::unique_lock<std::mutex> lock(frameData_[i].pull_mutex);
+				frameData_[i].pull_condVar.notify_all();
+			}
+		}
 		thread_.join();
 	}
 	VkDevice device = vulkan_->GetDevice();
@@ -189,7 +196,7 @@ VulkanRenderManager::~VulkanRenderManager() {
 	VkDevice device = vulkan_->GetDevice();
 	vulkan_->WaitUntilQueueIdle();
 	vkDestroySemaphore(device, acquireSemaphore_, nullptr);
-	vkDestroySemaphore(device, renderingCompleteSemaphore, nullptr);
+	vkDestroySemaphore(device, renderingCompleteSemaphore_, nullptr);
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		VkCommandBuffer cmdBuf[2]{ frameData_[i].mainCmd, frameData_[i].initCmd };
 		vkFreeCommandBuffers(device, frameData_[i].cmdPoolInit, 1, &frameData_[i].initCmd);
@@ -210,17 +217,25 @@ VulkanRenderManager::~VulkanRenderManager() {
 // TODO: Activate this code.
 void VulkanRenderManager::ThreadFunc() {
 	setCurrentThreadName("RenderMan");
+	int threadFrame = -1;  // Increment first, start at 0.
 	while (run_) {
-		std::unique_lock<std::mutex> lock(mutex_);
-		condVar_.wait(lock);
-		if (frameAvailable_) {
-			int frame = threadFrame_;
-			frameData_[frame].mutex.lock();
-			frameAvailable_ = false;
-			Run(frame);
-			EndFrame(frame);
-			frameData_[frame].mutex.unlock();
+		{
+			threadFrame++;
+			if (threadFrame >= vulkan_->GetInflightFrames())
+				threadFrame = 0;
+			FrameData &frameData = frameData_[threadFrame];
+			std::unique_lock<std::mutex> lock(frameData.pull_mutex);
+			while (!frameData.readyForRun && run_) {
+				ILOG("PULL: Waiting for frame[%d].readyForRun", threadFrame);
+				frameData.pull_condVar.wait(lock);
+			}
+			ILOG("PULL: frame[%d].readyForRun = false", threadFrame);
+			frameData.readyForRun = false;
+			if (!run_)  // quick exit if bailing.
+				return;
 		}
+		ILOG("PULL: Running frame %d", threadFrame);
+		Run(threadFrame);
 	}
 }
 
@@ -232,21 +247,20 @@ void VulkanRenderManager::BeginFrame() {
 
 	// Make sure the very last command buffer from the frame before the previous has been fully executed.
 	if (useThread) {
-		// Can't wait for this fence until it's actually been enqueued.
-		// Will replace this with a condvar if it works.
+		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		while (!frameData.readyForFence) {
-			;
+			ILOG("PUSH: Waiting for frame[%d].readyForFence = 1", curFrame);
+			frameData.push_condVar.wait(lock);
 		}
 		frameData.readyForFence = false;
-		frameData.mutex.lock();
 	}
-	
-	ILOG("Fencing %d", curFrame);
+
+	ILOG("PUSH: Fencing %d", curFrame);
 	vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX);
 	vkResetFences(device, 1, &frameData.fence);
 
 	// Must be after the fence - this performs deletes.
-	ILOG("BeginFrame %d", curFrame);
+	ILOG("PUSH: BeginFrame %d", curFrame);
 	vulkan_->BeginFrame();
 
 	insideFrame_ = true;
@@ -266,61 +280,6 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 		frameData.hasInitCommands = true;
 	}
 	return frameData_[curFrame].initCmd;
-}
-
-// After flush. Should probably be part of it?
-void VulkanRenderManager::EndFrame(int frame) {
-	insideFrame_ = false;
-
-	FrameData &frameData = frameData_[frame];
-
-	TransitionToPresent(frameData.mainCmd, swapchainImages_[curSwapchainImage_].image);
-
-	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
-	assert(res == VK_SUCCESS);
-
-	// So the sequence will be, cmdInit, [cmdQueue_], frame->cmdBuf.
-	// This way we bunch up all the initialization needed for the frame, we render to
-	// other buffers before the back buffer, and then last we render to the backbuffer.
-
-	int numCmdBufs = 0;
-	std::vector<VkCommandBuffer> cmdBufs;
-	if (frameData.hasInitCommands) {
-		cmdBufs.push_back(frameData.initCmd);
-		frameData.hasInitCommands = false;
-	}
-
-	cmdBufs.push_back(frameData.mainCmd);
-
-	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	submit_info.waitSemaphoreCount = 1;
-	submit_info.pWaitSemaphores = &acquireSemaphore_;
-	VkPipelineStageFlags waitStage[1] = { VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
-	submit_info.pWaitDstStageMask = waitStage;
-	submit_info.commandBufferCount = (uint32_t)cmdBufs.size();
-	submit_info.pCommandBuffers = cmdBufs.data();
-	submit_info.signalSemaphoreCount = 1;
-	submit_info.pSignalSemaphores = &renderingCompleteSemaphore;
-	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, frameData.fence);
-	assert(res == VK_SUCCESS);
-
-	if (useThread) {
-		ILOG("Frame %d.readyForFence = true", frame);
-		frameData.readyForFence = true;
-	}
-
-	VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
-	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
-	present.swapchainCount = 1;
-	present.pSwapchains = &swapchain;
-	present.pImageIndices = &curSwapchainImage_;
-	present.pWaitSemaphores = &renderingCompleteSemaphore;
-	present.waitSemaphoreCount = 1;
-	present.pResults = nullptr;
-	res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
-	// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
-	// return codes
-  	assert(res == VK_SUCCESS);
 }
 
 void VulkanRenderManager::Sync() {
@@ -656,33 +615,27 @@ void VulkanRenderManager::Flush() {
 		vkEndCommandBuffer(frameData.initCmd);
 	}
 	if (!useThread) {
+		frameData.steps = std::move(steps_);
 		Run(curFrame);
-		EndFrame(curFrame);
 	} else {
-		frameData.mutex.unlock();
-		{
-			std::unique_lock<std::mutex> lock(mutex_);
-			frameAvailable_ = true;
-		}
-		threadFrame_ = curFrame;
-		condVar_.notify_all();
+		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
+		ILOG("PUSH: Frame[%d].readyForRun = true", curFrame);
+		frameData.steps = std::move(steps_);
+		frameData.readyForRun = true;
+		frameData.pull_condVar.notify_all();
 	}
 	vulkan_->EndFrame();
 }
 
 void VulkanRenderManager::Run(int frame) {
-	ILOG("Running frame %d", frame);
-	//if ({
-	//	std::unique_lock<std::mutex> lock(mutex_);
-		stepsOnThread_ = std::move(steps_);
-
 	FrameData &frameData = frameData_[frame];
-
+	auto &stepsOnThread_ = frameData_[frame].steps;
 	VkDevice device = vulkan_->GetDevice();
 
+	uint32_t curSwapchainImage = 0;
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
-	VkResult res = vkAcquireNextImageKHR(device, vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &curSwapchainImage_);
+	VkResult res = vkAcquireNextImageKHR(device, vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &curSwapchainImage);
 	assert(res == VK_SUCCESS);
 
 	VkCommandBuffer cmd = frameData.mainCmd;
@@ -697,14 +650,14 @@ void VulkanRenderManager::Run(int frame) {
 	// return codes
 	// TODO: Is it best to do this here, or combine with some other transition, or just do it right before the backbuffer bind-for-render?
 	assert(res == VK_SUCCESS);
-	TransitionFromPresent(cmd, swapchainImages_[curSwapchainImage_].image);
+	TransitionFromPresent(cmd, swapchainImages_[curSwapchainImage].image);
 
 	// Optimizes renderpasses, then sequences them.
 	for (int i = 0; i < stepsOnThread_.size(); i++) {
 		const VKRStep &step = *stepsOnThread_[i];
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
-			PerformRenderPass(step, cmd);
+			PerformRenderPass(step, cmd, curSwapchainImage);
 			break;
 		case VKRStepType::COPY:
 			PerformCopy(step, cmd);
@@ -719,10 +672,62 @@ void VulkanRenderManager::Run(int frame) {
 		delete stepsOnThread_[i];
 	}
 	stepsOnThread_.clear();
-	ILOG("Finished running frame %d", frame);
+	insideFrame_ = false;
+
+	TransitionToPresent(frameData.mainCmd, swapchainImages_[curSwapchainImage].image);
+
+	res = vkEndCommandBuffer(frameData.mainCmd);
+	assert(res == VK_SUCCESS);
+
+	// So the sequence will be, cmdInit, [cmdQueue_], frame->cmdBuf.
+	// This way we bunch up all the initialization needed for the frame, we render to
+	// other buffers before the back buffer, and then last we render to the backbuffer.
+
+	int numCmdBufs = 0;
+	std::vector<VkCommandBuffer> cmdBufs;
+	if (frameData.hasInitCommands) {
+		cmdBufs.push_back(frameData.initCmd);
+		frameData.hasInitCommands = false;
+	}
+
+	cmdBufs.push_back(frameData.mainCmd);
+
+	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	submit_info.waitSemaphoreCount = 1;
+	submit_info.pWaitSemaphores = &acquireSemaphore_;
+	VkPipelineStageFlags waitStage[1] = { VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
+	submit_info.pWaitDstStageMask = waitStage;
+	submit_info.commandBufferCount = (uint32_t)cmdBufs.size();
+	submit_info.pCommandBuffers = cmdBufs.data();
+	submit_info.signalSemaphoreCount = 1;
+	submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
+	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, frameData.fence);
+	assert(res == VK_SUCCESS);
+
+	if (useThread) {
+		ILOG("PULL: Frame %d.readyForFence = true", frame);
+		std::unique_lock<std::mutex> lock(frameData.push_mutex);
+		frameData.readyForFence = true;
+		frameData.push_condVar.notify_all();
+	}
+
+	VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
+	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+	present.swapchainCount = 1;
+	present.pSwapchains = &swapchain;
+	present.pImageIndices = &curSwapchainImage;
+	present.pWaitSemaphores = &renderingCompleteSemaphore_;
+	present.waitSemaphoreCount = 1;
+	present.pResults = nullptr;
+	res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
+	// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
+	// return codes
+	assert(res == VK_SUCCESS);
+
+	ILOG("PULL: Finished running frame %d", frame);
 }
 
-void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
+void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, int swapChainImage) {
 	// TODO: If there are multiple, we can transition them together.
 	for (const auto &iter : step.preTransitions) {
 		if (iter.fb->color.layout != iter.targetLayout) {
@@ -767,7 +772,7 @@ void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer
 		}
 	}
 
-	PerformBindFramebufferAsRenderTarget(step, cmd);
+	PerformBindFramebufferAsRenderTarget(step, cmd, swapChainImage);
 
 	VKRFramebuffer *fb = step.render.framebuffer;
 
@@ -895,7 +900,7 @@ void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer
 	}
 }
 
-void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &step, VkCommandBuffer cmd) {
+void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &step, VkCommandBuffer cmd, int swapChainImage) {
 	VkFramebuffer framebuf;
 	int w;
 	int h;
@@ -907,7 +912,7 @@ void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &st
 		h = fb->height;
 		prevLayout = fb->color.layout;
 	} else {
-		framebuf = framebuffers_[curSwapchainImage_];
+		framebuf = framebuffers_[swapChainImage];
 		w = vulkan_->GetBackbufferWidth();
 		h = vulkan_->GetBackbufferHeight();
 	}
