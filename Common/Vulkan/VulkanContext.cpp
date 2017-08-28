@@ -136,13 +136,6 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 		// init_error_ = "Failed to validate instance layers";
 		// return;
 	}
-
-	GetDeviceLayerProperties();
-	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
-		WLOG("CheckLayers failed (2)");
-		// init_error_ = "Failed to validate device layers";
-		// return;
-	}
 	return VK_SUCCESS;
 }
 
@@ -533,6 +526,13 @@ bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props,
 
 void VulkanContext::ChooseDevice(int physical_device) {
 	physical_device_ = physical_device;
+
+	GetDeviceLayerProperties();
+	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
+		WLOG("CheckLayers failed (2)");
+		// init_error_ = "Failed to validate device layers";
+		// return;
+	}
 
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, nullptr);
 	assert(queue_count >= 1);

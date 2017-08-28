@@ -1009,21 +1009,25 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 	time_update();
 	double start = time_now_d();
 
+	// Sanity check the file contents
+	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000)
+		return;
+
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		ShaderID id;
 		if (!f.ReadArray(&id, 1)) {
 			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
-		Shader *vs = CompileVertexShader(id);
-		if (vs->Failed()) {
-			// Give up on using the cache, just bail. We can't safely create the fallback shaders here
-			// without trying to deduce the vertType from the VSID.
-			ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
-			delete vs;
-			return;
-		}
 		if (!vsCache_.Get(id)) {
+			Shader *vs = CompileVertexShader(id);
+			if (vs->Failed()) {
+				// Give up on using the cache, just bail. We can't safely create the fallback shaders here
+				// without trying to deduce the vertType from the VSID.
+				ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
+				delete vs;
+				return;
+			}
 			vsCache_.Insert(id, vs);
 		} else {
 			WARN_LOG(G3D, "Duplicate vertex shader found in GL shader cache, ignoring");
