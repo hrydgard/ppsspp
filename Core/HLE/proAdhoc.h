@@ -37,7 +37,7 @@
 class PointerWrap;
 
 // Net stuff
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 #include <WS2tcpip.h>
 #else
 #include <unistd.h>
@@ -50,7 +50,7 @@ class PointerWrap;
 #include <fcntl.h>
 #include <errno.h>
 #endif
-#ifdef _MSC_VER
+#ifdef _WIN32
 #define PACK
 #undef errno
 #undef ECONNABORTED
