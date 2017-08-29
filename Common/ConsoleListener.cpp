@@ -77,7 +77,7 @@ ConsoleListener::~ConsoleListener()
 	Close();
 }
 
-#if defined(_WIN32) && !defined(__MINGW32__)
+#if defined(_WIN32)
 // Handle console event
 bool WINAPI ConsoleHandler(DWORD msgType)
 {
