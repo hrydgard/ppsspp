@@ -16,14 +16,13 @@
 
 #ifdef IOS
 extern void bindDefaultFBO();
-#else
+#endif
 
 // Workaround for Retroarch. Simply declare
 //   extern GLuint g_defaultFBO;
 // and set is as appropriate. Can adjust the variables in ext/native/base/display.h as
 // appropriate.
 GLuint g_defaultFBO = 0;
-#endif
 
 namespace Draw {
 
