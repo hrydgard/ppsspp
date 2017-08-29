@@ -62,13 +62,6 @@ private:
 
 #elif defined(_WIN32)
 
-// Check MSC ver
-	#if !defined _MSC_VER || _MSC_VER <= 1000
-#ifndef __MINGW32__
-		#error needs at least version 1000 of MSC
-#endif
-	#endif
-
 // Memory leak checks
 	#define CHECK_HEAP_INTEGRITY()
 
