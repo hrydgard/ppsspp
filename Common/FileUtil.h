@@ -26,11 +26,13 @@
 #include "Common.h"
 
 #ifdef _WIN32
+#ifndef __MINGW32__
 inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 	if (localtime_s(result, clock) == 0)
 		return result;
 	return NULL;
 }
+#endif
 #endif
 
 namespace File {
