@@ -88,6 +88,10 @@ inline void AtomicStoreRelease(volatile T& dest, U value)
 	dest = (T)value; // 32-bit writes are always atomic
 }
 
+#ifdef __MINGW32__
+void *_InterlockedExchangePointer_acq(void *volatile *, void volatile *);
+#endif
+
 template <typename T, typename U>
 inline T* AtomicExchangeAcquire(T* volatile& loc, U newval)
 {

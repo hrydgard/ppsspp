@@ -77,7 +77,7 @@ ConsoleListener::~ConsoleListener()
 	Close();
 }
 
-#ifdef _WIN32
+#if defined(_WIN32)
 // Handle console event
 bool WINAPI ConsoleHandler(DWORD msgType)
 {
