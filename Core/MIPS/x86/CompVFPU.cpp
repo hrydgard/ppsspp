@@ -1548,7 +1548,7 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 
 	if (*mult != 1.0f) {
 		if (RipAccessible(mult)) {
-			MOVSS(XMM1, M(mult));
+			MOVSS(XMM1, M(mult));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(TEMPREG), ImmPtr(mult));
 			MOVSS(XMM1, MatR(TEMPREG));
@@ -1656,14 +1656,14 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	// OK, 16 bits in each word.
 	// Let's go. Deep magic here.
 	MOVAPS(XMM1, R(XMM0));
-	ANDPS(XMM0, M(&mask_nosign[0])); // xmm0 = expmant
+	ANDPS(XMM0, M(&mask_nosign[0])); // xmm0 = expmant. not rip accessible but bailing above
 	XORPS(XMM1, R(XMM0));  // xmm1 = justsign = expmant ^ xmm0
 	MOVAPS(tempR, R(XMM0));
-	PCMPGTD(tempR, M(&was_infnan[0]));  // xmm2 = b_wasinfnan
+	PCMPGTD(tempR, M(&was_infnan[0]));  // xmm2 = b_wasinfnan. not rip accessible but bailing above
 	PSLLD(XMM0, 13);
 	MULPS(XMM0, M(magic));  /// xmm0 = scaled
 	PSLLD(XMM1, 16);  // xmm1 = sign
-	ANDPS(tempR, M(&exp_infnan[0]));
+	ANDPS(tempR, M(&exp_infnan[0])); // not rip accessible but bailing above
 	ORPS(XMM1, R(tempR));
 	ORPS(XMM0, R(XMM1));
 
@@ -1747,9 +1747,9 @@ void Jit::Comp_Vx2i(MIPSOpcode op) {
 			// vuc2i is a bit special.  It spreads out the bits like this:
 			// s[0] = 0xDDCCBBAA -> d[0] = (0xAAAAAAAA >> 1), d[1] = (0xBBBBBBBB >> 1), etc.
 			MOVSS(XMM0, fpr.V(sregs[0]));
-			if (cpu_info.bSSSE3) {
+			if (cpu_info.bSSSE3 && RipAccessible(vuc2i_shuffle)) {
 				// Not really different speed.  Generates a bit less code.
-				PSHUFB(XMM0, M(&vuc2i_shuffle[0]));
+				PSHUFB(XMM0, M(&vuc2i_shuffle[0]));  // rip accessible
 			} else {
 				// First, we change 0xDDCCBBAA to 0xDDDDCCCCBBBBAAAA.
 				PUNPCKLBW(XMM0, R(XMM0));
@@ -1757,7 +1757,7 @@ void Jit::Comp_Vx2i(MIPSOpcode op) {
 				PUNPCKLWD(XMM0, R(XMM0));
 			}
 		} else {
-			if (cpu_info.bSSSE3) {
+			if (cpu_info.bSSSE3 && RipAccessible(vc2i_shuffle)) {
 				MOVSS(XMM0, fpr.V(sregs[0]));
 				PSHUFB(XMM0, M(&vc2i_shuffle[0]));
 			} else {
@@ -3269,7 +3269,7 @@ void Jit::Comp_Vi2x(MIPSOpcode op) {
 	// At this point, everything is aligned in the high bits of our lanes.
 	if (cpu_info.bSSSE3) {
 		if (RipAccessible(vi2xc_shuffle)) {
-			PSHUFB(dst0, bits == 8 ? M(vi2xc_shuffle) : M(vi2xs_shuffle));
+			PSHUFB(dst0, bits == 8 ? M(vi2xc_shuffle) : M(vi2xs_shuffle));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(TEMPREG), bits == 8 ? ImmPtr(vi2xc_shuffle) : ImmPtr(vi2xs_shuffle));
 			PSHUFB(dst0, MatR(TEMPREG));

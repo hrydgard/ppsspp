@@ -932,7 +932,7 @@ void VertexDecoderJitCache::Jit_Color4444() {
 	// Spread to RGBA -> R00GB00A.
 	PUNPCKLBW(fpScratchReg, R(fpScratchReg));
 	if (RipAccessible(&color4444mask[0])) {
-		PAND(fpScratchReg, M(&color4444mask[0]));
+		PAND(fpScratchReg, M(&color4444mask[0]));  // rip accessible
 	} else {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&color4444mask));
 		PAND(fpScratchReg, MatR(tempReg1));

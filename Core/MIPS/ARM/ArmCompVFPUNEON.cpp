@@ -716,8 +716,6 @@ void ArmJit::CompNEON_Mftv(MIPSOpcode op) {
 				gpr.MapReg(rt);
 				STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
 			}
-			//gpr.BindToRegister(rt, true, false);
-			//MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
 
 			// TODO: Optimization if rt is Imm?
 			// Set these BEFORE disable!

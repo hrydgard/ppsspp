@@ -210,7 +210,11 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	MOVD_xmm(fpScratchReg5, MDisp(RSP, 24));
 	CVTDQ2PS(fpScratchReg5, R(fpScratchReg5));
 	SHUFPS(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
-	MULPS(fpScratchReg5, M(by256));
+	if (RipAccessible(by256)) {
+		MULPS(fpScratchReg5, M(by256));  // rip accessible
+	} else {
+		Crash();  // TODO
+	}
 	MOVAPS(XMM0, M(ones));
 	SUBPS(XMM0, R(fpScratchReg5));
 
@@ -551,7 +555,11 @@ static const u32 MEMORY_ALIGNED16(color4444mask[4]) = { 0xf00ff00f, 0xf00ff00f, 
 bool SamplerJitCache::Jit_Decode4444() {
 	MOVD_xmm(fpScratchReg1, R(resultReg));
 	PUNPCKLBW(fpScratchReg1, R(fpScratchReg1));
-	PAND(fpScratchReg1, M(color4444mask));
+	if (RipAccessible(color4444mask)) {
+		PAND(fpScratchReg1, M(color4444mask));  // rip accessible
+	} else {
+		Crash();
+	}
 	MOVSS(fpScratchReg2, R(fpScratchReg1));
 	MOVSS(fpScratchReg3, R(fpScratchReg1));
 	PSRLW(fpScratchReg2, 4);

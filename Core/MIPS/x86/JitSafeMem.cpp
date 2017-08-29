@@ -91,7 +91,7 @@ bool JitSafeMem::PrepareWrite(OpArg &dest, int size)
 #endif
 
 #if PPSSPP_ARCH(32BIT)
-			dest = M(Memory::base + addr);
+			dest = M(Memory::base + addr);  // 32-bit only
 #else
 			dest = MDisp(MEMBASEREG, addr);
 #endif
@@ -120,7 +120,7 @@ bool JitSafeMem::PrepareRead(OpArg &src, int size)
 #endif
 
 #if PPSSPP_ARCH(32BIT)
-			src = M(Memory::base + addr);
+			src = M(Memory::base + addr);  // 32-bit only
 #else
 			src = MDisp(MEMBASEREG, addr);
 #endif
@@ -144,7 +144,7 @@ OpArg JitSafeMem::NextFastAddress(int suboffset)
 #endif
 
 #if PPSSPP_ARCH(32BIT)
-		return M(Memory::base + addr);
+		return M(Memory::base + addr);  // 32-bit only
 #else
 		return MDisp(MEMBASEREG, addr);
 #endif
