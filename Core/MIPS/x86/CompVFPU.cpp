@@ -252,7 +252,6 @@ void Jit::Comp_SV(MIPSOpcode op) {
 			fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 
 			JitSafeMem safe(this, rs, imm);
-			safe.SetFar();
 			OpArg src;
 			if (safe.PrepareRead(src, 4)) {
 				MOVSS(fpr.VX(vt), safe.NextFastAddress(0));
@@ -274,7 +273,6 @@ void Jit::Comp_SV(MIPSOpcode op) {
 			fpr.MapRegV(vt, 0);
 
 			JitSafeMem safe(this, rs, imm);
-			safe.SetFar();
 			OpArg dest;
 			if (safe.PrepareWrite(dest, 4)) {
 				MOVSS(safe.NextFastAddress(0), fpr.VX(vt));
@@ -391,7 +389,6 @@ void Jit::Comp_SVQ(MIPSOpcode op) {
 
 			if (fpr.TryMapRegsVS(vregs, V_Quad, MAP_NOINIT | MAP_DIRTY)) {
 				JitSafeMem safe(this, rs, imm);
-				safe.SetFar();
 				OpArg src;
 				if (safe.PrepareRead(src, 16)) {
 					// Should be safe, since lv.q must be aligned, but let's try to avoid crashing in safe mode.
@@ -421,7 +418,6 @@ void Jit::Comp_SVQ(MIPSOpcode op) {
 			fpr.MapRegsV(vregs, V_Quad, MAP_DIRTY | MAP_NOINIT);
 
 			JitSafeMem safe(this, rs, imm);
-			safe.SetFar();
 			OpArg src;
 			if (safe.PrepareRead(src, 16)) {
 				// Just copy 4 words the easiest way while not wasting registers.
@@ -454,7 +450,6 @@ void Jit::Comp_SVQ(MIPSOpcode op) {
 
 			if (fpr.TryMapRegsVS(vregs, V_Quad, 0)) {
 				JitSafeMem safe(this, rs, imm);
-				safe.SetFar();
 				OpArg dest;
 				if (safe.PrepareWrite(dest, 16)) {
 					// Should be safe, since sv.q must be aligned, but let's try to avoid crashing in safe mode.
@@ -482,7 +477,6 @@ void Jit::Comp_SVQ(MIPSOpcode op) {
 			fpr.MapRegsV(vregs, V_Quad, 0);
 
 			JitSafeMem safe(this, rs, imm);
-			safe.SetFar();
 			OpArg dest;
 			if (safe.PrepareWrite(dest, 16)) {
 				for (int i = 0; i < 4; i++)

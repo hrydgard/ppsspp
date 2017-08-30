@@ -53,8 +53,6 @@ void JitMemCheckCleanup()
 JitSafeMem::JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask)
 	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false), alignMask_(alignMask)
 {
-	// This makes it more instructions, so let's play it safe and say we need a far jump.
-	far_ = !g_Config.bIgnoreBadMemAccess || !CBreakPoints::GetMemChecks().empty();
 	// Mask out the kernel RAM bit, because we'll end up with a negative offset to MEMBASEREG.
 	if (jit_->gpr.IsImm(raddr_))
 		iaddr_ = (jit_->gpr.GetImm(raddr_) + offset_) & 0x7FFFFFFF;
@@ -68,12 +66,6 @@ JitSafeMem::JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask)
 	const int LOOKAHEAD_OPS = 3;
 	if (!jit_->gpr.R(raddr_).IsImm() && MIPSAnalyst::IsRegisterUsed(raddr_, jit_->GetCompilerPC() + 4, LOOKAHEAD_OPS))
 		jit_->gpr.MapReg(raddr_, true, false);
-}
-
-void JitSafeMem::SetFar()
-{
-	_dbg_assert_msg_(JIT, !needsSkip_, "Sorry, you need to call SetFar() earlier.");
-	far_ = true;
 }
 
 bool JitSafeMem::PrepareWrite(OpArg &dest, int size)
@@ -222,7 +214,7 @@ OpArg JitSafeMem::PrepareMemoryOpArg(MemoryOpType type)
 void JitSafeMem::PrepareSlowAccess()
 {
 	// Skip the fast path (which the caller wrote just now.)
-	skip_ = jit_->J(far_);
+	skip_ = jit_->J(true);
 	needsSkip_ = true;
 	jit_->SetJumpTarget(tooLow_);
 	jit_->SetJumpTarget(tooHigh_);

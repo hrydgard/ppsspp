@@ -29,8 +29,6 @@ class JitSafeMem {
 public:
 	JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask = 0xFFFFFFFF);
 
-	static void Init(Jit *jit);
-
 	// Emit code necessary for a memory write, returns true if MOV to dest is needed.
 	bool PrepareWrite(Gen::OpArg &dest, int size);
 	// Emit code proceeding a slow write call, returns true if slow write is needed.
@@ -54,8 +52,6 @@ public:
 	// Cleans up final code for the memory access.
 	void Finish();
 
-	// Use this before anything else if you're gonna use the below.
-	void SetFar();
 	// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
 	Gen::OpArg NextFastAddress(int suboffset);
 	// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
@@ -83,7 +79,6 @@ private:
 	int size_;
 	bool needsCheck_;
 	bool needsSkip_;
-	bool far_;
 	bool fast_;
 	u32 alignMask_;
 	u32 iaddr_;
