@@ -30,7 +30,7 @@ struct u24_be {
 	}
 };
 
-#if defined(_WIN32) && !defined(__MINGW32__)
+#if defined(_MSC_VER)
 
 typedef unsigned __int8 u8;
 typedef unsigned __int16 u16;
