@@ -507,7 +507,7 @@ namespace MIPSComp {
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	static const float MEMORY_ALIGNED16(vavg_table[4]) = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
+	alignas(16) static const float vavg_table[4] = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
 
 	void Arm64Jit::Comp_Vhoriz(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;

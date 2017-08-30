@@ -93,8 +93,8 @@ NearestFunc SamplerJitCache::Compile(const SamplerID &id) {
 	return (NearestFunc)start;
 }
 
-static const float MEMORY_ALIGNED16(by256[4]) = { 1.0f / 256.0f, 1.0f / 256.0f, 1.0f / 256.0f, 1.0f / 256.0f, };
-static const float MEMORY_ALIGNED16(ones[4]) = { 1.0f, 1.0f, 1.0f, 1.0f, };
+alignas(16) static const float by256[4] = { 1.0f / 256.0f, 1.0f / 256.0f, 1.0f / 256.0f, 1.0f / 256.0f, };
+alignas(16) static const float ones[4] = { 1.0f, 1.0f, 1.0f, 1.0f, };
 
 LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	_assert_msg_(G3D, id.linear, "Linear should be set on sampler id");
@@ -550,7 +550,7 @@ bool SamplerJitCache::Jit_Decode5551() {
 	return true;
 }
 
-static const u32 MEMORY_ALIGNED16(color4444mask[4]) = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
+alignas(16) static const u32 color4444mask[4] = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
 
 bool SamplerJitCache::Jit_Decode4444() {
 	MOVD_xmm(fpScratchReg1, R(resultReg));

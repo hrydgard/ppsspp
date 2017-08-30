@@ -38,11 +38,11 @@ bool NEONSkinning = false;
 bool NEONMorphing = false;
 
 // Used only in non-NEON mode.
-static float MEMORY_ALIGNED16(skinMatrix[12]);
+alignas(16) static float skinMatrix[12];
 
 // Will be used only in NEON mode.
-static float MEMORY_ALIGNED16(bones[16 * 8]);  // First two are kept in registers
-static float MEMORY_ALIGNED16(boneMask[4]) = {1.0f, 1.0f, 1.0f, 0.0f};
+alignas(16) static float bones[16 * 8];  // First two are kept in registers
+alignas(16) static float boneMask[4] = {1.0f, 1.0f, 1.0f, 0.0f};
 
 // NEON register allocation:
 // Q0: Texture scaling parameters
@@ -890,7 +890,7 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 }
 
 // First is the left shift, second is the right shift (against walls, to get the RGBA values.)
-static const s16 MEMORY_ALIGNED16(color4444Shift[2][4]) = {{12, 8, 4, 0}, {-12, -12, -12, -12}};
+alignas(16) static const s16 color4444Shift[2][4] = {{12, 8, 4, 0}, {-12, -12, -12, -12}};
 
 void VertexDecoderJitCache::Jit_Color4444Morph() {
 	const bool useNEON = NEONMorphing;
@@ -972,8 +972,8 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 }
 
 // First is the left shift, second is the right shift (against walls, to get the RGBA values.)
-static const s16 MEMORY_ALIGNED16(color565Shift[2][4]) = {{11, 5, 0, 0}, {-11, -10, -11, 0}};
-static const float MEMORY_ALIGNED16(byColor565[4]) = {255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, 0.0f};
+alignas(16) static const s16 color565Shift[2][4] = {{11, 5, 0, 0}, {-11, -10, -11, 0}};
+alignas(16) static const float byColor565[4] = {255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, 0.0f};
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
 	const bool useNEON = NEONMorphing;
@@ -1057,8 +1057,8 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 }
 
 // First is the left shift, second is the right shift (against walls, to get the RGBA values.)
-static const s16 MEMORY_ALIGNED16(color5551Shift[2][4]) = {{11, 6, 1, 0}, {-11, -11, -11, -15}};
-static const float MEMORY_ALIGNED16(byColor5551[4]) = {255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f};
+alignas(16) static const s16 color5551Shift[2][4] = {{11, 6, 1, 0}, {-11, -11, -11, -15}};
+alignas(16) static const float byColor5551[4] = {255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f};
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
 	const bool useNEON = NEONMorphing;

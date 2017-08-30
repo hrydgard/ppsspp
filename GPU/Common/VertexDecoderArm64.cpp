@@ -32,8 +32,8 @@
 #include "GPU/GPUState.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
-static float MEMORY_ALIGNED16(bones[16 * 8]);  // First four are kept in registers
-static float MEMORY_ALIGNED16(boneMask[4]) = {1.0f, 1.0f, 1.0f, 0.0f};
+alignas(16) static float bones[16 * 8];  // First four are kept in registers
+alignas(16) static float boneMask[4] = {1.0f, 1.0f, 1.0f, 0.0f};
 
 static const float by128 = 1.0f / 128.0f;
 static const float by32768 = 1.0f / 32768.0f;

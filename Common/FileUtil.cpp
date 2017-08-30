@@ -738,28 +738,6 @@ void openIniFile(const std::string fileName) {
 #endif
 }
 
-// Returns the current directory
-std::string GetCurrentDir()
-{
-	char *dir;
-	// Get the current working directory (getcwd uses malloc) 
-	if (!(dir = __getcwd(NULL, 0))) {
-
-		ERROR_LOG(COMMON, "GetCurrentDirectory failed: %s",
-				  GetLastErrorMsg());
-		return NULL;
-	}
-	std::string strDir = dir;
-	free(dir);
-	return strDir;
-}
-
-// Sets the current directory to the given directory
-bool SetCurrentDir(const std::string &directory)
-{
-	return __chdir(directory.c_str()) == 0;
-}
-
 const std::string &GetExeDirectory()
 {
 	static std::string ExePath;

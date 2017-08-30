@@ -151,8 +151,8 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 	}
 }
 
-static const u64 MEMORY_ALIGNED16(ssSignBits2[2])	= {0x8000000080000000ULL, 0x8000000080000000ULL};
-static const u64 MEMORY_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
+alignas(16) static const u64 ssSignBits2[2]	= {0x8000000080000000ULL, 0x8000000080000000ULL};
+alignas(16) static const u64 ssNoSignMask[2] = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
 void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN) {
 	gpr.MapReg(MIPS_REG_FPCOND, false, true);

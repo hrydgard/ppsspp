@@ -21,12 +21,11 @@
 
 #define THUNK_ARENA_SIZE 1024*1024*1
 
-namespace
-{
+namespace {
 
 #ifndef _M_X64
-static u8 GC_ALIGNED32(saved_fp_state[16 * 4 * 4]);
-static u8 GC_ALIGNED32(saved_gpr_state[16 * 8]);
+alignas(32) static u8 saved_fp_state[16 * 4 * 4];
+alignas(32) static u8 saved_gpr_state[16 * 8];
 static u16 saved_mxcsr;
 #endif
 

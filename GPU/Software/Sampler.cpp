@@ -295,7 +295,7 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 }
 
 struct Nearest4 {
-	MEMORY_ALIGNED16(u32 v[4]);
+	alignas(16) u32 v[4];
 
 	operator u32() const {
 		return v[0];

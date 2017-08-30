@@ -23,7 +23,7 @@
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/Jit.h"
 
-static const u64 MEMORY_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
+alignas(16) static const u64 ssNoSignMask[2] = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
 namespace MIPSComp {
 using namespace Gen;

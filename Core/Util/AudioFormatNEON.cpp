@@ -27,7 +27,7 @@
 #error Should not be compiled on non-ARM.
 #endif
 
-static s16 MEMORY_ALIGNED16(volumeValues[4]) = {};
+alignas(16) static s16 volumeValues[4] = {};
 
 void AdjustVolumeBlockNEON(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {
 	if (leftVol <= 0xFFFF && -leftVol <= 0x10000 && rightVol <= 0xFFFF && -rightVol <= 0x10000) {

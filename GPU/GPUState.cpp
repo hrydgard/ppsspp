@@ -33,9 +33,9 @@
 #endif
 
 // This must be aligned so that the matrices within are aligned.
-GPUgstate MEMORY_ALIGNED16(gstate);
+alignas(16) GPUgstate gstate;
 // Let's align this one too for good measure.
-GPUStateCache MEMORY_ALIGNED16(gstate_c);
+alignas(16) GPUStateCache gstate_c;
 
 struct CmdRange {
 	u8 start;
