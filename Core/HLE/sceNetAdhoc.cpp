@@ -130,7 +130,7 @@ void __UpdateMatchingHandler(u64 ArgsPtr) {
 }
 
 static int getBlockingFlag(int id) {
-#ifdef _MSC_VER
+#ifdef _WIN32
 	return 0;
 #else
 	int sockflag = fcntl(id, F_GETFL, O_NONBLOCK);

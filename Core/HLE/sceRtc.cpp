@@ -457,7 +457,7 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickLocalPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#ifdef _MSC_VER
+#ifdef _WIN32
 		long timezone_val;
 		_get_timezone(&timezone_val);
 		srcTick -= -timezone_val * 1000000ULL;
@@ -482,7 +482,7 @@ static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickUTCPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#ifdef _MSC_VER
+#ifdef _WIN32
 		long timezone_val;
 		_get_timezone(&timezone_val);
 		srcTick += -timezone_val * 1000000ULL;
@@ -1017,7 +1017,7 @@ static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 	}
 
 	int tz_seconds;
-#ifdef _MSC_VER
+#ifdef _WIN32
 		long timezone_val;
 		_get_timezone(&timezone_val);
 		tz_seconds = -timezone_val;
@@ -1054,7 +1054,7 @@ static int sceRtcFormatRFC3339LocalTime(u32 outPtr, u32 srcTickPtr)
 	}
 
 	int tz_seconds;
-#ifdef _MSC_VER
+#ifdef _WIN32
 		long timezone_val;
 		_get_timezone(&timezone_val);
 		tz_seconds = -timezone_val;

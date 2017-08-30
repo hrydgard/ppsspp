@@ -273,7 +273,7 @@ inline void trim2(std::string& str) {
 std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire cheat list from the appropriate .ini.
 	std::string line;
 	std::vector<std::string> codesList;  // Read from INI here
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 	std::ifstream list(ConvertUTF8ToWString(activeCheatFile));
 #else
 	std::ifstream list(activeCheatFile.c_str());

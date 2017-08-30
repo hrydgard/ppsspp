@@ -11,6 +11,9 @@
 #ifdef _WIN32
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
+#ifndef AI_ADDRCONFIG
+#define AI_ADDRCONFIG 0x0400
+#endif
 #undef min
 #undef max
 #else
