@@ -51,6 +51,7 @@ class PointerWrap;
 #include <errno.h>
 #endif
 #ifdef _WIN32
+#define PACK
 #undef errno
 #undef ECONNABORTED
 #undef ECONNRESET
@@ -72,15 +73,8 @@ inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK ||
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket close
-inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS || errcode == EALREADY); }
-#endif
-
-#ifdef _WIN32
-#ifdef _MSC_VER
-#define PACK
-#else
 #define PACK __attribute__((packed))
-#endif
+inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS || errcode == EALREADY); }
 #endif
 
 #ifndef POLL_ERR
