@@ -380,7 +380,7 @@ private:
 #ifdef __ANDROID__
 	alignas(16) std::atomic<u64> curTickEst_;
 #else
-	volatile MEMORY_ALIGNED16(u64) curTickEst_;
+	alignas(16) volatile u64 curTickEst_;
 	std::mutex curTickEstLock_;
 #endif
 

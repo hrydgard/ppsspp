@@ -23,6 +23,10 @@
 template <bool> struct CompileTimeAssert;
 template<> struct CompileTimeAssert<true> {};
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#endif
+
 #if !defined(_WIN32)
 
 #include <unistd.h>
@@ -34,8 +38,6 @@ template<> struct CompileTimeAssert<true> {};
 #include <signal.h>
 #define Crash() {kill(getpid(), SIGINT);}
 #endif
-
-#define ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
 
 inline u32 __rotl(u32 x, int shift) {
 	shift &= 31;

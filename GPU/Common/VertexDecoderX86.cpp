@@ -28,21 +28,21 @@
 
 // We start out by converting the active matrices into 4x4 which are easier to multiply with
 // using SSE / NEON and store them here.
-static float MEMORY_ALIGNED16(bones[16 * 8]);
+alignas(16) static float bones[16 * 8];
 
 using namespace Gen;
 
-static const float MEMORY_ALIGNED16( by128[4] ) = {
+alignas(16) static const float by128[4] = {
 	1.0f / 128.0f, 1.0f / 128.0f, 1.0f / 128.0f, 1.0f / 128.0f
 };
-static const float MEMORY_ALIGNED16( by32768[4] ) = {
+alignas(16) static const float by32768[4] = {
 	1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f,
 };
 
-static const u32 MEMORY_ALIGNED16( threeMasks[4] ) = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0};
-static const u32 MEMORY_ALIGNED16( aOne[4] ) = {0, 0, 0, 0x3F800000};
+alignas(16) static const u32 threeMasks[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0 };
+alignas(16) static const u32 aOne[4] = {0, 0, 0, 0x3F800000};
 
-static const float MEMORY_ALIGNED16(by16384[4]) = {
+alignas(16) static const float by16384[4] = {
 	1.0f / 16384.0f, 1.0f / 16384.0f, 1.0f / 16384.0f, 1.0f / 16384.0f,
 };
 
@@ -924,7 +924,7 @@ void VertexDecoderJitCache::Jit_Color8888() {
 	SetJumpTarget(skip);
 }
 
-static const u32 MEMORY_ALIGNED16(color4444mask[4]) = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
+alignas(16) static const u32 color4444mask[4] = { 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, 0xf00ff00f, };
 
 void VertexDecoderJitCache::Jit_Color4444() {
 	// This over-reads slightly, but we assume pos or another component follows anyway.
@@ -1075,7 +1075,7 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
-static const float MEMORY_ALIGNED16(byColor4444[4]) = { 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, };
+alignas(16) static const float byColor4444[4] = { 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, 255.0f / 15.0f, };
 
 void VertexDecoderJitCache::Jit_Color4444Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
@@ -1124,8 +1124,8 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 }
 
 // The mask is intentionally in reverse order (but skips A.)
-static const u32 MEMORY_ALIGNED16(color565Mask[4]) = { 0x0000f800, 0x000007e0, 0x0000001f, 0x00000000, };
-static const float MEMORY_ALIGNED16(byColor565[4]) = { 255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, 255.0f / 1.0f, };
+alignas(16) static const u32 color565Mask[4] = { 0x0000f800, 0x000007e0, 0x0000001f, 0x00000000, };
+alignas(16) static const float byColor565[4] = { 255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, 255.0f / 1.0f, };
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
@@ -1179,8 +1179,8 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 }
 
 // The mask is intentionally in reverse order.
-static const u32 MEMORY_ALIGNED16(color5551Mask[4]) = { 0x00008000, 0x00007c00, 0x000003e0, 0x0000001f, };
-static const float MEMORY_ALIGNED16(byColor5551[4]) = { 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f, };
+alignas(16) static const u32 color5551Mask[4] = { 0x00008000, 0x00007c00, 0x000003e0, 0x0000001f, };
+alignas(16) static const float byColor5551[4] = { 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f, };
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));

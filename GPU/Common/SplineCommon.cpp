@@ -165,8 +165,8 @@ static void spline_n_4(int i, float t, float *knot, float *splineVal) {
 	const __m128 f31_42_32 = _mm_div_ps(t122, _mm_sub_ps(knot343, knot122));
 
 	// It's still faster to use SSE, even with this.
-	float MEMORY_ALIGNED16(ff30_41_52[4]);
-	float MEMORY_ALIGNED16(ff31_42_32[4]);
+	alignas(16) float ff30_41_52[4];
+	alignas(16) float ff31_42_32[4];
 	_mm_store_ps(ff30_41_52, f30_41_52);
 	_mm_store_ps(ff31_42_32, f31_42_32);
 

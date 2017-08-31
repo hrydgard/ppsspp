@@ -240,7 +240,7 @@ public:
 
 	u32 savedPC;
 
-	u32 MEMORY_ALIGNED16(vcmpResult[4]);
+	alignas(16) u32 vcmpResult[4];
 
 	float sincostemp[2];
 

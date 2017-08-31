@@ -23,20 +23,9 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <time.h>
 #include "proAdhoc.h"
-
-/*#ifdef _MSC_VER
-#define PACK
-#undef errno
-#define errno WSAGetLastError()
-#else
-#define INVALID_SOCKET -1
-#define SOCKET_ERROR -1
-#define closesocket close
-#define PACK __attribute__((packed))
-#endif*/
 
 // Server Listening Port
 //#define SERVER_PORT 27312

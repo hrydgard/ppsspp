@@ -81,7 +81,7 @@ volatile u32 hasTsEvents = 0;
 // as we can already reach that structure through a register.
 int slicelength;
 
-MEMORY_ALIGNED16(s64) globalTimer;
+alignas(16) s64 globalTimer;
 s64 idledCycles;
 s64 lastGlobalTimeTicks;
 s64 lastGlobalTimeUs;
