@@ -18,7 +18,6 @@
 #include <atomic>
 #include <mutex>
 
-#include "Globals.h" // only for clamp_s16
 #include "Common/CommonTypes.h"
 #include "Common/ChunkFile.h"
 #include "Common/FixedSizeQueue.h"

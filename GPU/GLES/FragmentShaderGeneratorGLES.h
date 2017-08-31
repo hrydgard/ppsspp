@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "Globals.h"
-
 struct ShaderID;
 
 bool GenerateFragmentShader(const ShaderID &id, char *buffer);

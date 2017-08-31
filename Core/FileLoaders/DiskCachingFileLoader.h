@@ -22,6 +22,7 @@
 #include <mutex>
 
 #include "Common/Common.h"
+#include "Common/Swap.h"
 #include "Core/Loaders.h"
 
 class DiskCachingFileLoaderCache;

@@ -80,6 +80,9 @@ static std::string langRegion;
 static std::string osName;
 static std::string gpuDriverVersion;
 
+HMENU g_hPopupMenus;
+int g_activeWindow = 0;
+
 void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }

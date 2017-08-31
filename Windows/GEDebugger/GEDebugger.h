@@ -19,7 +19,6 @@
 
 #include "Common/CommonWindows.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#include "Globals.h"
 #include "Windows/resource.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/TabControl.h"

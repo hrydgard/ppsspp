@@ -18,6 +18,8 @@
 #pragma once
 
 #include <string>
+
+#include "Common/Swap.h"
 #include "Core/Dialog/PSPDialog.h"
 
 #define SCE_UTILITY_MSGDIALOG_OPTION_ERRORSOUND         0x00000000

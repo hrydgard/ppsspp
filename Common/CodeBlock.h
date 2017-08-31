@@ -38,8 +38,11 @@ protected:
 	size_t region_size;
 };
 
-template<class T> class CodeBlock : public CodeBlockCommon, public T, NonCopyable {
+template<class T> class CodeBlock : public CodeBlockCommon, public T {
 private:
+	CodeBlock(const CodeBlock &) = delete;
+	void operator=(const CodeBlock &) = delete;
+
 	// A privately used function to set the executable RAM space to something invalid.
 	// For debugging usefulness it should be used to set the RAM to a host specific breakpoint instruction
 	virtual void PoisonMemory(int offset) = 0;

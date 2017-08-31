@@ -103,10 +103,14 @@ struct LogChannel {
 
 class ConsoleListener;
 
-class LogManager : NonCopyable {
+class LogManager {
 private:
 	LogManager();
 	~LogManager();
+
+	// Prevent copies.
+	LogManager(const LogManager &) = delete;
+	void operator=(const LogManager &) = delete;
 
 	LogChannel log_[LogTypes::NUMBER_OF_LOGS];
 	FileLogListener *fileLog_ = nullptr;

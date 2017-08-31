@@ -27,8 +27,6 @@
 // Also provides facilities for drawing and later converting raw
 // pixel data.
 
-
-#include "Globals.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "Core/Config.h"

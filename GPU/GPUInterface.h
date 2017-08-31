@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "Common/Swap.h"
 #include "GPU/GPU.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"

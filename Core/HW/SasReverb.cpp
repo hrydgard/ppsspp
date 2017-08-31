@@ -18,9 +18,8 @@
 #include <stdint.h>
 
 #include "base/basictypes.h"
-#include "Globals.h"
 #include "Core/HW/SasReverb.h"
-
+#include "Core/Util/AudioFormat.h"
 
 // This is under the assumption that the reverb used in Sas is the same as the PSX SPU reverb.
 

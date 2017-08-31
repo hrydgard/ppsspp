@@ -1,37 +1,24 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdlib.h>  // for byte swapping
+#include <cstdint>
+#include <cstdlib>  // for byte swapping
 
 #ifdef _WIN32
 #pragma warning(disable:4244)
 #pragma warning(disable:4996)
 #endif
 
+#ifndef DISALLOW_COPY_AND_ASSIGN
 #define DISALLOW_COPY_AND_ASSIGN(t) \
-private: \
-	t(const t &other);  \
-	void operator =(const t &other);
+	t(const t &other) = delete;  \
+	void operator =(const t &other) = delete;
+#endif
 
 #ifdef _WIN32
 
 typedef intptr_t ssize_t;
 
 #include <tchar.h>
-
-#define ALIGNED16(x) __declspec(align(16)) x
-#define ALIGNED32(x) __declspec(align(32)) x
-#define ALIGNED64(x) __declspec(align(64)) x
-#define ALIGNED16_DECL(x) __declspec(align(16)) x
-#define ALIGNED64_DECL(x) __declspec(align(64)) x
-
-#else
-
-#define ALIGNED16(x)  __attribute__((aligned(16))) x
-#define ALIGNED32(x)  __attribute__((aligned(32))) x
-#define ALIGNED64(x)  __attribute__((aligned(64))) x
-#define ALIGNED16_DECL(x) __attribute__((aligned(16))) x
-#define ALIGNED64_DECL(x) __attribute__((aligned(64))) x
 
 #endif  // _WIN32
 

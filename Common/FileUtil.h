@@ -124,13 +124,16 @@ const std::string &GetExeDirectory();
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
 // and make forgetting an fclose() harder
-class IOFile : NonCopyable {
+class IOFile {
 public:
 	IOFile();
 	IOFile(std::FILE* file);
 	IOFile(const std::string& filename, const char openmode[]);
-
 	~IOFile();
+
+	// Prevent copies.
+	IOFile(const IOFile &) = delete;
+	void operator=(const IOFile &) = delete;
 
 	bool Open(const std::string& filename, const char openmode[]);
 	bool Close();
@@ -189,10 +192,7 @@ public:
 	}
 
 private:
-	IOFile& operator=(const IOFile&) /*= delete*/;
-	IOFile(const IOFile&) /*= delete*/;
-
-	std::FILE* m_file;
+	std::FILE *m_file;
 	bool m_good;
 };
 

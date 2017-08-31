@@ -21,7 +21,6 @@
 
 #include "base/basictypes.h"
 #include "Common/Hashmaps.h"
-#include "Globals.h"
 #include "Common/Vulkan/VulkanMemory.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"

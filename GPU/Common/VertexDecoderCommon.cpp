@@ -28,6 +28,7 @@
 #include "Core/HDRemaster.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"

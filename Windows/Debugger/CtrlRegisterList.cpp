@@ -13,7 +13,6 @@
 #include "Debugger_MemoryDlg.h"
 
 #include "Core/Config.h"
-#include "../../globals.h"
 #include "Debugger_Disasm.h"
 #include "DebuggerShared.h"
 

@@ -15,17 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "base/basictypes.h"
 #include "profiler/profiler.h"
 
-#include "Globals.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/Util/AudioFormat.h"
 #include "SasAudio.h"
-
-#include <algorithm>
 
 // #define AUDIO_TO_FILE
 

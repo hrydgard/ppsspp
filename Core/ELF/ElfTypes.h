@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/Common.h"
+#include "Common/Swap.h"
 
 ///////////////////////
 // ELF Header Constants

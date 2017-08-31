@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "base/basictypes.h"
-#include "Globals.h"
+#include <vector>
 
+#include "base/basictypes.h"
 #include "Common/Hashmaps.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"

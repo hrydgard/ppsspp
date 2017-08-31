@@ -37,7 +37,6 @@
 #else
 #include "Common/FakeEmitter.h"
 #endif
-#include "Globals.h"
 
 // DecVtxFormat - vertex formats for PC
 // Kind of like a D3D VertexDeclaration.

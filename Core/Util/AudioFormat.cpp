@@ -19,7 +19,6 @@
 #include "Common/CPUDetect.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/AudioFormatNEON.h"
-#include "Globals.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>

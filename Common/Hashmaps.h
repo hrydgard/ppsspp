@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstring>
+#include <vector>
+
 #include "ext/xxhash.h"
 #include "Common/CommonFuncs.h"
 

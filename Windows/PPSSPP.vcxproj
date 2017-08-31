@@ -425,7 +425,6 @@
     <ClCompile Include="DSoundStream.cpp" />
     <ClCompile Include="GPU\WindowsGLContext.cpp" />
     <ClCompile Include="WindowsHost.cpp" />
-    <ClCompile Include="Globals.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -500,7 +499,6 @@
     <ClInclude Include="DSoundStream.h" />
     <ClInclude Include="GPU\WindowsGLContext.h" />
     <ClInclude Include="WindowsHost.h" />
-    <ClInclude Include="..\Globals.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />

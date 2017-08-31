@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 // This code is part shamelessly "inspired" from JPSCP.
 #include <map>
 #include <algorithm>
 #include <memory>
 
+#include "Common/Swap.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"

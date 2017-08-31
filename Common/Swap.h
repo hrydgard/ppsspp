@@ -17,6 +17,10 @@
 
 #pragma once
 
+#include <cstdlib>
+
+#include "Common/CommonTypes.h"
+
 // Android
 #if defined(__ANDROID__)
 #include <sys/endian.h>

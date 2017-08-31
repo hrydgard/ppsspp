@@ -20,7 +20,6 @@
 #include <map>
 
 #include "Common/Hashmaps.h"
-#include "Globals.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "Common/Vulkan/VulkanContext.h"
