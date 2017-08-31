@@ -8,7 +8,6 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "Globals.h"
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"

@@ -18,9 +18,9 @@
 #pragma once
 
 #include <cmath>
-#include "Globals.h"
-#include "Common/Common.h"
 
+#include "Common/Common.h"
+#include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "math/fast/fast_matrix.h"
 
 #if defined(_M_SSE)

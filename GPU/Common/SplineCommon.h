@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Common/Swap.h"
 #include "GPU/Math3D.h"
 #include "GPU/ge_constants.h"
 

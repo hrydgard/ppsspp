@@ -9,7 +9,6 @@ LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES :=\
     base/backtrace.cpp \
     base/buffer.cpp \
-    base/compat.cpp \
     base/display.cpp \
     base/timeutil.cpp \
     base/colorutil.cpp \

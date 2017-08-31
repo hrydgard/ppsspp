@@ -19,7 +19,33 @@
 
 #include "ppsspp_config.h"
 #include "Common/Common.h"
-#include "Globals.h"
+#include "Common/CommonTypes.h"
+
+#define IS_LITTLE_ENDIAN (*(const u16 *)"\0\xff" >= 0x100)
+
+static inline u8 clamp_u8(int i) {
+#if PPSSPP_ARCH(ARM) && !defined(_MSC_VER)
+	asm("usat %0, #8, %1" : "=r"(i) : "r"(i));
+#else
+	if (i > 255)
+		return 255;
+	if (i < 0)
+		return 0;
+#endif
+	return i;
+}
+
+static inline s16 clamp_s16(int i) {
+#if PPSSPP_ARCH(ARM) && !defined(_MSC_VER)
+	asm("ssat %0, #16, %1" : "=r"(i) : "r"(i));
+#else
+	if (i > 32767)
+		return 32767;
+	if (i < -32768)
+		return -32768;
+#endif
+	return i;
+}
 
 static inline s16 ApplySampleVolume(s16 sample, int vol) {
 #if PPSSPP_ARCH(ARM) && !defined(_MSC_VER)

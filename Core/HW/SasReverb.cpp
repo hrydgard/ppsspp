@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <stdint.h>
+#include <cstdint>
+#include <cstring>
 
 #include "base/basictypes.h"
-#include "Globals.h"
 #include "Core/HW/SasReverb.h"
-
+#include "Core/Util/AudioFormat.h"
 
 // This is under the assumption that the reverb used in Sas is the same as the PSX SPU reverb.
 

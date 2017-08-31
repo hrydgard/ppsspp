@@ -19,10 +19,10 @@
 
 #include <cmath>
 
-#include "Globals.h"
+#include "Common/Common.h"
+#include "Common/Swap.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
-#include "Common/Common.h"
 #include "GPU/Common/ShaderCommon.h"
 
 class PointerWrap;

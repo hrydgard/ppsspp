@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Common/CommonWindows.h"
-#include "Globals.h"
 #include "Windows/resource.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/Misc.h"

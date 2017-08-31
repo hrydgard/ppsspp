@@ -88,7 +88,6 @@
     <ClCompile Include="InputDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
-    <ClCompile Include="Globals.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="..\android\jni\ArmEmitterTest.cpp">
@@ -239,7 +238,6 @@
     <ClInclude Include="WindowsHost.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
-    <ClInclude Include="..\Globals.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Debugger\Debugger_Disasm.h">

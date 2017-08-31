@@ -1,8 +1,7 @@
 #include "math/lin/matrix4x4.h"
 
-#include <stdio.h>
+#include <cstdio>
 
-#include "base/compat.h"
 #include "math/lin/vec3.h"
 #include "math/lin/quat.h"
 #include "math/fast/fast_matrix.h"

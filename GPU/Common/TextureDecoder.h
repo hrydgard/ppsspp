@@ -25,6 +25,7 @@ enum CheckAlphaResult {
 };
 
 #include "Common/Common.h"
+#include "Common/Swap.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoderNEON.h"

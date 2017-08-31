@@ -16,7 +16,6 @@
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/BreakpointWindow.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "Globals.h"
 #include "Windows/main.h"
 
 #include "Common/CommonWindows.h"

@@ -140,7 +140,6 @@ if(APPLE)
 	find_library(COCOA_LIBRARY Cocoa)
 endif()
 
-# Needed for Globals.h
 include_directories("${CMAKE_SOURCE_DIR}")
 
 if(USING_EGL)
@@ -1604,7 +1603,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/ppge_atlas.h
 	${CORE_NEON}
 	${GPU_SOURCES}
-	Globals.h
 	git-version.cpp
 	ext/disarm.cpp
 	git-version.cpp)

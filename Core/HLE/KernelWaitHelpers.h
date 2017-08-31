@@ -20,6 +20,8 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+
+#include "Common/CommonTypes.h"
 #include "Core/HLE/sceKernelThread.h"
 
 namespace HLEKernel

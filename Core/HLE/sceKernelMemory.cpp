@@ -20,8 +20,6 @@
 #include <vector>
 #include <map>
 
-#include "base/compat.h"
-
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"

@@ -21,7 +21,6 @@
 
 #include <d3d9.h>
 
-#include "../Globals.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Directx9/TextureScalerDX9.h"

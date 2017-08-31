@@ -19,13 +19,13 @@
 #include <cmath>
 #include <mutex>
 
-#include "Globals.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Common/ChunkFile.h"
+#include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"

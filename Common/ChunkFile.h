@@ -37,6 +37,7 @@
 #include <type_traits>
 
 #include "Common.h"
+#include "Swap.h"
 #include "FileUtil.h"
 
 template <class T>

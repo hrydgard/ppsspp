@@ -5,6 +5,7 @@ extern "C"
 #include "ext/libkirk/kirk_engine.h"
 }
 #include "Common/Common.h"
+#include "Common/Swap.h"
 #include "Core/ELF/PrxDecrypter.h"
 
 #define ROUNDUP16(x)  (((x)+15)&~15)

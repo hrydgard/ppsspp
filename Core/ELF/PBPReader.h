@@ -19,6 +19,7 @@
 #pragma once
 
 #include "Common/Common.h"
+#include "Common/Swap.h"
 
 enum PBPSubFile {
 	PBP_PARAM_SFO,

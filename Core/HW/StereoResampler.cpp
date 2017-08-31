@@ -39,8 +39,8 @@
 #include "Core/Config.h"
 #include "Core/HW/StereoResampler.h"
 #include "Core/HLE/__sceAudio.h"
+#include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "Core/System.h"
-#include "Globals.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>

@@ -17,6 +17,7 @@
 
 
 #include "Common/FileUtil.h"
+#include "Common/Swap.h"
 #include "Core/Loaders.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include <cstdio>

@@ -196,7 +196,6 @@
     <ClInclude Include="base\basictypes.h" />
     <ClInclude Include="base\buffer.h" />
     <ClInclude Include="base\colorutil.h" />
-    <ClInclude Include="base\compat.h" />
     <ClInclude Include="base\display.h" />
     <ClInclude Include="base\logging.h" />
     <ClInclude Include="base\NativeApp.h" />
@@ -295,7 +294,6 @@
     <ClCompile Include="base\backtrace.cpp" />
     <ClCompile Include="base\buffer.cpp" />
     <ClCompile Include="base\colorutil.cpp" />
-    <ClCompile Include="base\compat.cpp" />
     <ClCompile Include="base\display.cpp" />
     <ClCompile Include="base\logging.cpp" />
     <ClCompile Include="base\PCMain.cpp">

@@ -304,7 +304,6 @@
     <ClInclude Include="..\..\ext\native\base\basictypes.h" />
     <ClInclude Include="..\..\ext\native\base\buffer.h" />
     <ClInclude Include="..\..\ext\native\base\colorutil.h" />
-    <ClInclude Include="..\..\ext\native\base\compat.h" />
     <ClInclude Include="..\..\ext\native\base\display.h" />
     <ClInclude Include="..\..\ext\native\base\linked_ptr.h" />
     <ClInclude Include="..\..\ext\native\base\logging.h" />
@@ -394,7 +393,6 @@
     <ClCompile Include="..\..\ext\native\base\backtrace.cpp" />
     <ClCompile Include="..\..\ext\native\base\buffer.cpp" />
     <ClCompile Include="..\..\ext\native\base\colorutil.cpp" />
-    <ClCompile Include="..\..\ext\native\base\compat.cpp" />
     <ClCompile Include="..\..\ext\native\base\display.cpp" />
     <ClCompile Include="..\..\ext\native\base\logging.cpp" />
     <ClCompile Include="..\..\ext\native\base\stringutil.cpp" />

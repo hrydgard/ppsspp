@@ -4,7 +4,6 @@
 
 #include "base/arch.h"
 #include "base/backtrace.h"
-#include "base/compat.h"
 
 // Simple wrapper around Android's logging interface that also allows other
 // implementations, and also some misc utilities.

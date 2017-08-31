@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Common/CommonWindows.h"
-#include "Globals.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include <algorithm>
 

@@ -20,7 +20,6 @@
 // DO NOT EVER INCLUDE <windows.h> directly _or indirectly_ from this file
 // since it slows down the build a lot.
 
-#include <stdlib.h>
 #include <stdarg.h>
 
 #ifdef _MSC_VER
@@ -36,18 +35,15 @@
 
 #define STACKALIGN
 
-// An inheritable class to disallow the copy constructor and operator= functions
-class NonCopyable {
-protected:
-	NonCopyable() {}
-private:
-	NonCopyable(const NonCopyable&);
-	void operator=(const NonCopyable&);
-};
-
 #include "Log.h"
 #include "CommonTypes.h"
 #include "CommonFuncs.h"
+
+#ifndef DISALLOW_COPY_AND_ASSIGN
+#define DISALLOW_COPY_AND_ASSIGN(t) \
+	t(const t &other) = delete;  \
+	void operator =(const t &other) = delete;
+#endif
 
 #ifdef __APPLE__
 // The Darwin ABI requires that stack frames be aligned to 16-byte boundaries.
@@ -101,5 +97,3 @@ private:
 #  define _M_SSE 0x200
 # endif
 #endif
-
-#include "Swap.h"
