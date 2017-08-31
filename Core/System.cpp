@@ -650,7 +650,11 @@ void InitSysDirectories() {
 
 	// If installed.txt exists(and we can determine the Documents directory)
 	if (installed && (result == S_OK))	{
+#if defined(_WIN32) && defined(__MINGW32__)
+		std::ifstream inputFile(installedFile);
+#else
 		std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
+#endif
 
 		if (!inputFile.fail() && inputFile.is_open()) {
 			std::string tempString;

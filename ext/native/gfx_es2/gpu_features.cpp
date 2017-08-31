@@ -264,6 +264,7 @@ void CheckGLExtensions() {
 		}
 	}
 
+#ifndef __LIBRETRO__
 #ifdef WIN32
 	const char *wglString = 0;
 	if (wglGetExtensionsStringEXT)
@@ -277,6 +278,7 @@ void CheckGLExtensions() {
 #elif !defined(USING_GLES2)
 	// const char *glXString = glXQueryExtensionString();
 	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
+#endif
 #endif
 
 	// Check the desktop extension instead of the OES one. They are very similar.

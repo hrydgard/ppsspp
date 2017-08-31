@@ -74,6 +74,22 @@ static u64 __RtcGetCurrentTick()
 	return CoreTiming::GetGlobalTimeUs() + rtcBaseTicks;
 }
 
+#if defined(__MINGW32__)
+errno_t _get_timezone(long *seconds)
+{
+  time_t now = time(NULL);
+
+  struct tm *gm = gmtime(&now);
+  time_t gmt = mktime(gm);
+
+  struct tm *loc = localtime(&now);
+  time_t local = mktime(loc);
+
+  *seconds = local - gmt;
+  return 0;
+}
+#endif
+
 #if defined(_WIN32)
 #define FILETIME_FROM_UNIX_EPOCH_US (rtcMagicOffset - rtcFiletimeOffset)
 
