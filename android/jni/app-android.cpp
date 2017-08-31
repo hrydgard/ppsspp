@@ -1002,6 +1002,22 @@ extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHei
 	return desiredBackbufferSizeY;
 }
 
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushNewGpsData(JNIEnv *, jclass,
+		jfloat latitude, jfloat longitude, jfloat altitude, jfloat speed, jfloat bearing, jlong time) {
+	PushNewGpsData(latitude, longitude, altitude, speed, bearing, time);
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImage(JNIEnv *env, jclass,
+		jbyteArray image) {
+
+	if (image != NULL) {
+		jlong size = env->GetArrayLength(image);
+		jbyte* buffer = env->GetByteArrayElements(image, NULL);
+		PushCameraImage(size, (unsigned char *)buffer);
+		env->ReleaseByteArrayElements(image, buffer, JNI_ABORT);
+	}
+}
+
 // Call this under frameCommandLock.
 static void ProcessFrameCommands(JNIEnv *env) {
 	while (!frameCommands.empty()) {

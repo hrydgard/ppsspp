@@ -80,6 +80,8 @@
 #include "Core/System.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbGps.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "GPU/GPUInterface.h"
@@ -1117,4 +1119,12 @@ void NativeShutdown() {
 
 void NativePermissionStatus(SystemPermission permission, PermissionStatus status) {
 	// TODO: Send this through the screen system? Nicer than listening to string messages
+}
+
+void PushNewGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time) {
+	GPS::setGpsData(latitude, longitude, altitude, speed, bearing, time);
+}
+
+void PushCameraImage(long long length, unsigned char* image) {
+	Camera::pushCameraImage(length, image);
 }
