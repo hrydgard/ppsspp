@@ -20,6 +20,7 @@
 #include <cmath>
 
 #include "Common/Common.h"
+#include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "math/fast/fast_matrix.h"
 
 #if defined(_M_SSE)
