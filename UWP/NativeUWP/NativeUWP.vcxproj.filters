@@ -70,9 +70,6 @@
     <ClCompile Include="..\..\ext\native\base\colorutil.cpp">
       <Filter>base</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\base\compat.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\native\base\display.cpp">
       <Filter>base</Filter>
     </ClCompile>
@@ -474,9 +471,6 @@
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\base\colorutil.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\base\compat.h">
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\base\display.h">

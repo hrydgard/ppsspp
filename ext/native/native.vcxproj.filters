@@ -281,9 +281,6 @@
     <ClInclude Include="thread\executor.h">
       <Filter>thread</Filter>
     </ClInclude>
-    <ClInclude Include="base\compat.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\gl_common.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -735,9 +732,6 @@
     </ClCompile>
     <ClCompile Include="thread\executor.cpp">
       <Filter>thread</Filter>
-    </ClCompile>
-    <ClCompile Include="base\compat.cpp">
-      <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="base\PCMain.cpp">
       <Filter>base</Filter>

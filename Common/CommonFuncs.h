@@ -17,11 +17,7 @@
 
 #pragma once
 
-#include "base/compat.h"
 #include "CommonTypes.h"
-
-template <bool> struct CompileTimeAssert;
-template<> struct CompileTimeAssert<true> {};
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
