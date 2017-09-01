@@ -70,9 +70,11 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define __rotr64 _rotr64
 
 // 64 bit offsets for windows
+#ifndef __MINGW32__
 	#define fseeko _fseeki64
 	#define ftello _ftelli64
 	#define atoll _atoi64
+#endif
 	#if _M_IX86
 		#define Crash() {__asm int 3}
 	#else

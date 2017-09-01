@@ -30,7 +30,7 @@
 #include "CPUDetect.h"
 #include "StringUtils.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #define _interlockedbittestandset workaround_ms_header_bug_platform_sdk6_set
