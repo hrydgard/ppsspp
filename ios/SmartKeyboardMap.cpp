@@ -57,7 +57,7 @@ int getSmartKeyboardMap(int keycode) {
         case 49: return NKCODE_BACKSLASH;
         case 51: return NKCODE_SEMICOLON;
         case 52: return NKCODE_APOSTROPHE;
-        case 53: return NKCODE_ESCAPE;//NKCODE_GRAVE;
+        case 53: return NKCODE_BACK;//NKCODE_GRAVE;
         case 54: return NKCODE_COMMA;
         case 55: return NKCODE_PERIOD;
         case 56: return NKCODE_SLASH;
