@@ -518,7 +518,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 
 	// ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
@@ -536,7 +536,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 
 	// ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
@@ -605,7 +605,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 
 	// ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
