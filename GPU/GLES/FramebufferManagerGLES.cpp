@@ -147,6 +147,7 @@ void FramebufferManagerGLES::CompilePostShader() {
 			deltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
 			pixelDeltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
 			timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
+			videoLoc_ = glsl_uniform_loc(postShaderProgram_, "u_video");
 			usePostShader_ = true;
 		}
 	} else {
@@ -171,9 +172,10 @@ void FramebufferManagerGLES::BindPostShader(const PostShaderUniforms &uniforms) 
 		glUniform2f(deltaLoc_, uniforms.texelDelta[0], uniforms.texelDelta[1]);
 	if (pixelDeltaLoc_ != -1)
 		glUniform2f(pixelDeltaLoc_, uniforms.pixelDelta[0], uniforms.pixelDelta[1]);
-	if (timeLoc_ != -1) {
+	if (timeLoc_ != -1)
 		glUniform4fv(timeLoc_, 1, uniforms.time);
-	}
+	if (videoLoc_ != -1)
+		glUniform1f(videoLoc_, uniforms.video);
 }
 
 void FramebufferManagerGLES::DestroyDraw2DProgram() {
@@ -195,6 +197,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	draw2dprogram_(nullptr),
 	postShaderProgram_(nullptr),
 	stencilUploadProgram_(nullptr),
+	videoLoc_(-1),
 	timeLoc_(-1),
 	pixelDeltaLoc_(-1),
 	deltaLoc_(-1),
