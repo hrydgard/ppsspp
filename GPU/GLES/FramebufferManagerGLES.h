@@ -127,6 +127,7 @@ private:
 	GLSLProgram *postShaderProgram_;
 	GLSLProgram *stencilUploadProgram_;
 	int plainColorLoc_;
+	int videoLoc_;
 	int timeLoc_;
 	int pixelDeltaLoc_;
 	int deltaLoc_;

@@ -1760,6 +1760,7 @@ void FramebufferManagerCommon::CalculatePostShaderUniforms(int bufferWidth, int 
 	uniforms->pixelDelta[0] = u_pixel_delta;
 	uniforms->pixelDelta[1] = v_pixel_delta;
 	memcpy(uniforms->time, time, 4 * sizeof(float));
+	uniforms->video = textureCache_->VideoIsPlaying();
 }
 
 void FramebufferManagerCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) {

@@ -68,6 +68,7 @@ class VulkanFBO;
 struct PostShaderUniforms {
 	float texelDelta[2]; float pixelDelta[2];
 	float time[4];
+	bool video;
 };
 
 struct VirtualFramebuffer {

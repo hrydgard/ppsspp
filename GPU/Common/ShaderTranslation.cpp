@@ -83,6 +83,7 @@ cbuffer data : register(b0) {
 	float2 u_texelDelta;
 	float2 u_pixelDelta;
 	float4 u_time;
+	bool u_video;
 };
 )";
 
