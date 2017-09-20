@@ -17,7 +17,9 @@
 
 #pragma once
 
-#include "StubHost.h"
+#ifdef SDL
+
+#include "headless/StubHost.h"
 
 #undef HEADLESSHOST_CLASS
 #define HEADLESSHOST_CLASS SDLHeadlessHost
@@ -28,21 +30,17 @@ typedef void *SDL_GLContext;
 class SDLHeadlessHost : public HeadlessHost
 {
 public:
-	virtual bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
-	virtual void ShutdownGraphics() override;
+	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
+	void ShutdownGraphics() override;
 
-	virtual void SwapBuffers() override;
-
-	virtual void SendDebugOutput(const std::string &output) override;
-	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) override;
-	virtual void SetComparisonScreenshot(const std::string &filename) override;
+	void SwapBuffers() override;
 
 protected:
 	void LoadNativeAssets();
-	void SendOrCollectDebugOutput(const std::string &output);
 
 	SDL_Window *screen_;
 	SDL_GLContext glContext_;
 	GraphicsContext *gfx_;
-	std::string comparisonScreenshot;
 };
+
+#endif

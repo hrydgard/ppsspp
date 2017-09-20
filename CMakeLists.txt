@@ -1769,6 +1769,7 @@ set(NativeAssets
 if(HEADLESS)
 	add_executable(PPSSPPHeadless
 		headless/Headless.cpp
+		headless/StubHost.cpp
 		headless/StubHost.h
 		headless/Compare.cpp
 		headless/Compare.h
