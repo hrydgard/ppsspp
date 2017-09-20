@@ -69,6 +69,12 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"#ifdef GL_ES\n"
 	"precision lowp float;\n"
 	"#endif\n"
+	"#if __VERSION__ >= 130\n"
+	"#define varying in\n"
+	"#define texture2D texture\n"
+	"#define gl_FragColor fragColor0\n"
+	"out vec4 fragColor0;\n"
+	"#endif\n"
 	"varying vec4 oColor0;\n"
 	"varying vec2 oTexCoord0;\n"
 	"uniform sampler2D Sampler0;\n"
@@ -107,6 +113,11 @@ static const std::vector<ShaderSource> fsCol = {
 	"#ifdef GL_ES\n"
 	"precision lowp float;\n"
 	"#endif\n"
+	"#if __VERSION__ >= 130\n"
+	"#define varying in\n"
+	"#define gl_FragColor fragColor0\n"
+	"out vec4 fragColor0;\n"
+	"#endif\n"
 	"varying vec4 oColor0;\n"
 	"void main() { gl_FragColor = oColor0; }\n"
 	},
@@ -136,6 +147,10 @@ static const std::vector<ShaderSource> fsCol = {
 
 static const std::vector<ShaderSource> vsCol = {
 	{ ShaderLanguage::GLSL_ES_200,
+	"#if __VERSION__ >= 130\n"
+	"#define attribute in\n"
+	"#define varying out\n"
+	"#endif\n"
 	"attribute vec3 Position;\n"
 	"attribute vec4 Color0;\n"
 	"varying vec4 oColor0;\n"
@@ -193,6 +208,10 @@ const UniformBufferDesc vsColBufDesc { sizeof(VsColUB), {
 
 static const std::vector<ShaderSource> vsTexCol = {
 	{ ShaderLanguage::GLSL_ES_200,
+	"#if __VERSION__ >= 130\n"
+	"#define attribute in\n"
+	"#define varying out\n"
+	"#endif\n"
 	"attribute vec3 Position;\n"
 	"attribute vec4 Color0;\n"
 	"attribute vec2 TexCoord0;\n"

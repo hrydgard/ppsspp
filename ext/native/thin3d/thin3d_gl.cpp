@@ -163,11 +163,6 @@ static const unsigned short primToGL[] = {
 
 class OpenGLBuffer;
 
-static const char *glsl_fragment_prelude =
-"#ifdef GL_ES\n"
-"precision mediump float;\n"
-"#endif\n";
-
 class OpenGLBlendState : public BlendState {
 public:
 	bool enabled;
@@ -332,9 +327,9 @@ bool OpenGLShaderModule::Compile(ShaderLanguage language, const uint8_t *data, s
 	language_ = language;
 
 	std::string temp;
-	// Add the prelude on automatically for fragment shaders.
-	if (glstage_ == GL_FRAGMENT_SHADER) {
-		temp = std::string(glsl_fragment_prelude) + source_;
+	// Add the prelude on automatically.
+	if (glstage_ == GL_FRAGMENT_SHADER || glstage_ == GL_VERTEX_SHADER) {
+		temp = ApplyGLSLPrelude(source_, glstage_);
 		source_ = temp.c_str();
 	}
 
@@ -1047,6 +1042,10 @@ bool OpenGLPipeline::LinkShaders() {
 	glBindAttribLocation(program_, SEM_NORMAL, "Normal");
 	glBindAttribLocation(program_, SEM_TANGENT, "Tangent");
 	glBindAttribLocation(program_, SEM_BINORMAL, "Binormal");
+
+	if (gl_extensions.VersionGEThan(3, 3, 0)) {
+		glBindFragDataLocation(program_, 0, "fragColor0");
+	}
 	glLinkProgram(program_);
 
 	GLint linkStatus = GL_FALSE;

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <string>
 #include "base/NativeApp.h"
 
 enum {
@@ -110,3 +111,5 @@ extern std::string g_all_egl_extensions;
 
 void CheckGLExtensions();
 void SetGLCoreContext(bool flag);
+
+std::string ApplyGLSLPrelude(const std::string &source, uint32_t stage);
