@@ -72,6 +72,8 @@ void SDLHeadlessHost::LoadNativeAssets() {
 }
 
 bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
+	SDL_Init(SDL_INIT_VIDEO);
+
 	// TODO
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
