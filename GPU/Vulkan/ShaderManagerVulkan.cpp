@@ -185,22 +185,22 @@ void ShaderManagerVulkan::Clear() {
 	});
 	fsCache_.Clear();
 	vsCache_.Clear();
-	lastFSID_.clear();
-	lastVSID_.clear();
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
+	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void ShaderManagerVulkan::ClearShaders() {
 	Clear();
 	DirtyShader();
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void ShaderManagerVulkan::DirtyShader() {
 	// Forget the last shader ID
-	lastFSID_.clear();
-	lastVSID_.clear();
-	lastVShader_ = nullptr;
-	lastFShader_ = nullptr;
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
+	DirtyLastShader();
 }
 
 void ShaderManagerVulkan::DirtyLastShader() { // disables vertex arrays
