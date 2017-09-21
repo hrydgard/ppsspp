@@ -138,12 +138,17 @@ GLuint DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, const u3
 	GLuint dstFmt = getClutDestFormat(clutFormat);
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
+	bool useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
+
 	DepalTexture *tex = new DepalTexture();
 	glGenTextures(1, &tex->texture);
 	glBindTexture(GL_TEXTURE_2D, tex->texture);
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 
 	GLuint components2 = components;
+	if (useBGRA) {
+		components2 = GL_BGRA_EXT;
+	}
 
 	glTexImage2D(GL_TEXTURE_2D, 0, components, texturePixels, 1, 0, components2, dstFmt, (void *)rawClut);
 
