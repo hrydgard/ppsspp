@@ -70,7 +70,7 @@ void EmuThread_Stop()
 	Core_WaitInactive(800);
 	if (WAIT_TIMEOUT == WaitForSingleObject(emuThread, 800))
 	{
-		_dbg_assert_msg_(COMMON, false, "Wait for EmuThread timed out.");
+		//_dbg_assert_msg_(COMMON, false, "Wait for EmuThread timed out.");
 	}
 	{
 		std::lock_guard<std::mutex> guard(emuThreadLock);

@@ -307,7 +307,7 @@ VectorSize GetHalfVectorSize(VectorSize sz) {
 	switch (sz) {
 	case V_Pair: return V_Single;
 	case V_Quad: return V_Pair;
-	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__); return V_Invalid;
+	default: /*_assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);*/ return V_Invalid;
 	}
 }
 
@@ -317,7 +317,7 @@ VectorSize GetDoubleVectorSize(VectorSize sz)
 	{
 	case V_Single: return V_Pair;
 	case V_Pair: return V_Quad;
-	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__); return V_Invalid;
+	default: /*_assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);*/ return V_Invalid;
 	}
 }
 
@@ -332,7 +332,7 @@ VectorSize GetVecSize(MIPSOpcode op)
 		case 1: return V_Pair;
 		case 2: return V_Triple;
 		case 3: return V_Quad;
-		default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__); return V_Invalid;
+		default: /*_assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);*/ return V_Invalid;
 	}
 }
 
@@ -341,7 +341,7 @@ VectorSize GetVectorSize(MatrixSize sz) {
 	case M_2x2: return V_Pair;
 	case M_3x3: return V_Triple;
 	case M_4x4: return V_Quad;
-	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__); return V_Invalid;
+	default: /*_assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);*/ return V_Invalid;
 	}
 }
 
@@ -351,7 +351,7 @@ MatrixSize GetMatrixSize(VectorSize sz) {
 	case V_Pair: return M_2x2;
 	case V_Triple: return M_3x3;
 	case V_Quad: return M_4x4;
-	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__); return M_Invalid;
+	default: /*_assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);*/ return M_Invalid;
 	}
 }
 
@@ -364,7 +364,7 @@ MatrixSize GetMtxSize(MIPSOpcode op) {
 	case 1: return M_2x2;
 	case 2: return M_3x3;
 	case 3: return M_4x4;
-	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__); return M_Invalid;
+	default: /*_assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);*/ return M_Invalid;
 	}
 }
 
@@ -373,7 +373,7 @@ VectorSize MatrixVectorSize(MatrixSize sz) {
 	case M_2x2: return V_Pair;
 	case M_3x3: return V_Triple;
 	case M_4x4: return V_Quad;
-	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__); return V_Invalid;
+	default: /*_assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);*/ return V_Invalid;
 	}
 }
 
@@ -382,7 +382,7 @@ int GetMatrixSide(MatrixSize sz) {
 	case M_2x2: return 2;
 	case M_3x3: return 3;
 	case M_4x4: return 4;
-	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__); return 0;
+	default: /*_assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);*/ return 0;
 	}
 }
 
