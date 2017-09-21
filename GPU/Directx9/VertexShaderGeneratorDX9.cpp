@@ -424,7 +424,8 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 			}
 		}
 		if (lang != HLSL_DX9) {
-			WriteGuardBand(p);
+			if (PSP_CoreParameter().compat.flags().GuardBand)
+				WriteGuardBand(p);
 		}
 		WRITE(p, "  Out.gl_Position = outPos;\n");
 	} else {
@@ -625,7 +626,8 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 				WRITE(p, "  float4 outPos = mul(viewPos, u_proj);\n");
 			}
 		}
-		WriteGuardBand(p);
+		if (PSP_CoreParameter().compat.flags().GuardBand)
+			WriteGuardBand(p);
 		WRITE(p, "  Out.gl_Position = outPos;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.

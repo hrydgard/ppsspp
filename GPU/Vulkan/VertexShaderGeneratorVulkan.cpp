@@ -28,6 +28,7 @@
 #include "base/stringutil.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/ShaderId.h"
@@ -329,7 +330,8 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 				WRITE(p, "  vec4 outPos = base.proj_mtx * vec4(position.xyz, 1.0);\n");
 			}
 		}
-		WriteGuardBand(p);
+		if (PSP_CoreParameter().compat.flags().GuardBand)
+			WriteGuardBand(p);
 		WRITE(p, "  gl_Position = outPos;\n");
 	} else {
 		// Step 1: World Transform / Skinning
@@ -478,7 +480,8 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 		} else {
 			WRITE(p, "  vec4 outPos = base.proj_mtx * viewPos;\n");
 		}
-		WriteGuardBand(p);
+		if (PSP_CoreParameter().compat.flags().GuardBand)
+			WriteGuardBand(p);
 		WRITE(p, "  gl_Position = outPos;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
