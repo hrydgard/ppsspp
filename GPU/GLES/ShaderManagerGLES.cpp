@@ -764,9 +764,6 @@ void ShaderManagerGLES::Clear() {
 	linkedShaderCache_.clear();
 	fsCache_.Clear();
 	vsCache_.Clear();
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
-	lastFSID_.set_invalid();
-	lastVSID_.set_invalid();
 	DirtyShader();
 }
 
@@ -780,7 +777,7 @@ void ShaderManagerGLES::DirtyShader() {
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	DirtyLastShader();
-	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 	shaderSwitchDirtyUniforms_ = 0;
 }
 

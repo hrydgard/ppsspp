@@ -49,7 +49,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	// Changes that dirty the framebuffer
 	{ GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_VIEWPORTSCISSOR_STATE },
-	{ GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE},
+	{ GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAMEBUF | DIRTY_TEXTURE_PARAMS | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_ZBUFPTR, FLAG_FLUSHBEFOREONCHANGE },
 	{ GE_CMD_ZBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE },
 
@@ -1789,7 +1789,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 				}
 			}
 
-			const int numPlusCount = (op & 0x7F) + i;
+			const unsigned int numPlusCount = (op & 0x7F) + i;
 			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
 				gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 			}
@@ -1801,7 +1801,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 				}
 			}
 
-			const int numPlusCount = (op & 0x7F) + i;
+			const unsigned int numPlusCount = (op & 0x7F) + i;
 			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
 				gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
 			}
