@@ -176,85 +176,86 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettingsScroll->Add(graphicsSettings);
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
-	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan (experimental)" };
-	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
-	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
+	if (!g_Config.bSimpleUI) {
+		graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
+		static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan (experimental)" };
+		PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
+		renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
 #if !PPSSPP_PLATFORM(WINDOWS)
-	renderingBackendChoice->HideChoice(1);  // D3D9
-	renderingBackendChoice->HideChoice(2);  // D3D11
-#else
-	if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
-		// Hide the D3D11 choice if Windows version is older than Windows Vista.
+		renderingBackendChoice->HideChoice(1);  // D3D9
 		renderingBackendChoice->HideChoice(2);  // D3D11
-	}
-#endif
-	bool vulkanAvailable = false;
-#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
-	vulkanAvailable = VulkanMayBeAvailable();
-#endif
-	if (!vulkanAvailable) {
-		renderingBackendChoice->HideChoice(3);
-	}
-
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
-	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
-	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
-		switch (g_Config.iRenderingMode) {
-		case FB_NON_BUFFERED_MODE:
-			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but nothing may draw in some games"), e.v);
-			break;
-		case FB_BUFFERED_MODE:
-			break;
-#ifndef USING_GLES2
-		case FB_READFBOMEMORY_CPU:
-#endif
-		case FB_READFBOMEMORY_GPU:
-			settingInfo_->Show(gr->T("RenderingMode ReadFromMemory Tip", "Causes crashes in many games, not recommended"), e.v);
-			break;
+#else
+		if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
+			// Hide the D3D11 choice if Windows version is older than Windows Vista.
+			renderingBackendChoice->HideChoice(2);  // D3D11
 		}
-		return UI::EVENT_CONTINUE;
-	});
-	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
-	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer")));
-	blockTransfer->OnClick.Add([=](EventParams &e) {
-		if (!g_Config.bBlockTransferGPU)
-			settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require this to be On for correct graphics"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
-	bool showSoftGPU = true;
-#ifdef MOBILE_DEVICE
-	// On Android, only show the software rendering setting if it's already enabled.
-	// Can still be turned on through INI file editing.
-	showSoftGPU = g_Config.bSoftwareRendering;
 #endif
-	if (showSoftGPU) {
-		CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
-		softwareGPU->OnClick.Add([=](EventParams &e) {
-			if (g_Config.bSoftwareRendering)
-				settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
-			bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
+		bool vulkanAvailable = false;
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
+		vulkanAvailable = VulkanMayBeAvailable();
+#endif
+		if (!vulkanAvailable) {
+			renderingBackendChoice->HideChoice(3);
+		}
+	
+		static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)" };
+		PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
+		renderingModeChoice->OnChoice.Add([=](EventParams &e) {
+			switch (g_Config.iRenderingMode) {
+			case FB_NON_BUFFERED_MODE:
+				settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but nothing may draw in some games"), e.v);
+				break;
+			case FB_BUFFERED_MODE:
+				break;
+#ifndef USING_GLES2
+			case FB_READFBOMEMORY_CPU:
+#endif
+			case FB_READFBOMEMORY_GPU:
+				settingInfo_->Show(gr->T("RenderingMode ReadFromMemory Tip", "Causes crashes in many games, not recommended"), e.v);
+				break;
+			}
 			return UI::EVENT_CONTINUE;
 		});
-		softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
-		if (PSP_IsInited())
-			softwareGPU->SetEnabled(false);
+		renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
+		renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer")));
+		blockTransfer->OnClick.Add([=](EventParams &e) {
+			if (!g_Config.bBlockTransferGPU)
+				settingInfo_->Show(gr->T("BlockTransfer Tip", "Some games require this to be On for correct graphics"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
+		blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+		bool showSoftGPU = true;
+#ifdef MOBILE_DEVICE
+		// On Android, only show the software rendering setting if it's already enabled.
+		// Can still be turned on through INI file editing.
+		showSoftGPU = g_Config.bSoftwareRendering;
+#endif
+		if (showSoftGPU) {
+			CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (slow)")));
+			softwareGPU->OnClick.Add([=](EventParams &e) {
+				if (g_Config.bSoftwareRendering)
+					settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
+				bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
+				return UI::EVENT_CONTINUE;
+			});
+			softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
+			if (PSP_IsInited())
+				softwareGPU->SetEnabled(false);
+		}
+	
+		graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
+		static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
+		graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
+		frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gr->T("Auto FrameSkip")));
+		frameSkipAuto_->OnClick.Handle(this, &GameSettingsScreen::OnAutoFrameskip);
+		graphicsSettings->Add(new CheckBox(&cap60FPS_, gr->T("Force max 60 FPS (helps GoW)")));
+
+		PopupSliderChoice *altSpeed = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 0, 1000, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
+		altSpeed->SetFormat("%i%%");
+		altSpeed->SetZeroLabel(gr->T("Unlimited"));
 	}
-
-	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
-	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
-	frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gr->T("Auto FrameSkip")));
-	frameSkipAuto_->OnClick.Handle(this, &GameSettingsScreen::OnAutoFrameskip);
-	graphicsSettings->Add(new CheckBox(&cap60FPS_, gr->T("Force max 60 FPS (helps GoW)")));
-
-	PopupSliderChoice *altSpeed = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 0, 1000, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
-	altSpeed->SetFormat("%i%%");
-	altSpeed->SetZeroLabel(gr->T("Unlimited"));
-
 	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
 	I18NCategory *ps = GetI18NCategory("PostShaders");
 	postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), ps->GetName()));
@@ -302,68 +303,70 @@ void GameSettingsScreen::CreateViews() {
 	hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
 #endif
 
+	if (!g_Config.bSimpleUI) {
 #ifdef _WIN32
-	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+		graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
 #endif
 
-	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
-	hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
-	hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
+		hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
+		hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
-	swSkin->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
+		swSkin->OnClick.Add([=](EventParams &e) {
+			settingInfo_->Show(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
+		swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
-	vtxCache->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	vtxCache->SetEnabledPtr(&vtxCacheEnable_);
+		CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
+		vtxCache->OnClick.Add([=](EventParams &e) {
+			settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
+		vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+		vtxCache->SetEnabledPtr(&vtxCacheEnable_);
 
-	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
-	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
+		texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gr->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
-	texSecondary_->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("RetainChangedTextures Tip", "Makes many games slower, but some games a lot faster"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gr->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
+		texSecondary_->OnClick.Add([=](EventParams &e) {
+			settingInfo_->Show(gr->T("RetainChangedTextures Tip", "Makes many games slower, but some games a lot faster"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
+		texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
-	framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
+		framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	// Seems solid, so we hide the setting.
-	/*CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gr->T("Vertex Decoder JIT")));
+		// Seems solid, so we hide the setting.
+		/*CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gr->T("Vertex Decoder JIT")));
 
-	if (PSP_IsInited()) {
-		vtxJit->SetEnabled(false);
-	}*/
+		if (PSP_IsInited()) {
+			vtxJit->SetEnabled(false);
+		}*/
 
-	static const char *quality[] = { "Low", "Medium", "High"};
-	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
-	beziersChoice->OnChoice.Add([=](EventParams &e) {
-		if (g_Config.iSplineBezierQuality != 0) {
-			settingInfo_->Show(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves"), e.v);
-		}
-		return UI::EVENT_CONTINUE;
-	});
-	bezierChoiceDisable_ = g_Config.bHardwareTessellation;
-	beziersChoice->SetDisabledPtr(&bezierChoiceDisable_);
-
-	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation", "Hardware tessellation (experimental)")));
-	tessellationHW->OnClick.Add([=](EventParams &e) {
+		static const char *quality[] = { "Low", "Medium", "High" };
+		PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
+		beziersChoice->OnChoice.Add([=](EventParams &e) {
+			if (g_Config.iSplineBezierQuality != 0) {
+				settingInfo_->Show(gr->T("LowCurves Tip", "Only used by some games, controls smoothness of curves"), e.v);
+			}
+			return UI::EVENT_CONTINUE;
+		});
 		bezierChoiceDisable_ = g_Config.bHardwareTessellation;
-		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves, always uses a fixed quality"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	tessHWEnable_ = IsBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	tessellationHW->SetEnabledPtr(&tessHWEnable_);
+		beziersChoice->SetDisabledPtr(&bezierChoiceDisable_);
+
+		CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation", "Hardware tessellation (experimental)")));
+		tessellationHW->OnClick.Add([=](EventParams &e) {
+			bezierChoiceDisable_ = g_Config.bHardwareTessellation;
+			settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves, always uses a fixed quality"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
+		tessHWEnable_ = IsBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+		tessellationHW->SetEnabledPtr(&tessHWEnable_);
+	}
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gr->T("FXAA")));
@@ -390,71 +393,73 @@ void GameSettingsScreen::CreateViews() {
 	});
 	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
-	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
-	texScalingType->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	if (!g_Config.bSimpleUI) {
+		static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
+		PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
+		texScalingType->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
-	deposterize->OnClick.Add([=](EventParams &e) {
-		if (g_Config.bTexDeposterize == true) {
-			settingInfo_->Show(gr->T("Deposterize Tip", "Fixes visual banding glitches in upscaled textures"), e.v);
-		}
-		return UI::EVENT_CONTINUE;
-	});
-	deposterize->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
+		deposterize->OnClick.Add([=](EventParams &e) {
+			if (g_Config.bTexDeposterize == true) {
+				settingInfo_->Show(gr->T("Deposterize Tip", "Fixes visual banding glitches in upscaled textures"), e.v);
+			}
+			return UI::EVENT_CONTINUE;
+		});
+		deposterize->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
-	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
-	PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gr->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gr->GetName(), screenManager()));
-	anisoFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
+		static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
+		PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gr->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gr->GetName(), screenManager()));
+		anisoFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gr->GetName(), screenManager()));
+		static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
+		graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gr->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gr->GetName(), screenManager()));
 
-	static const char *bufFilters[] = { "Linear", "Nearest", };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
+		static const char *bufFilters[] = { "Linear", "Nearest", };
+		graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
 #ifdef __ANDROID__
-	graphicsSettings->Add(new ItemHeader(gr->T("Cardboard Settings", "Cardboard Settings")));
-	CheckBox *cardboardMode = graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboard, gr->T("Enable Cardboard", "Enable Cardboard")));
-	cardboardMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	PopupSliderChoice * cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
-	cardboardScreenSize->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-	cardboardXShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-	cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		graphicsSettings->Add(new ItemHeader(gr->T("Cardboard Settings", "Cardboard Settings")));
+		CheckBox *cardboardMode = graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboard, gr->T("Enable Cardboard", "Enable Cardboard")));
+		cardboardMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		PopupSliderChoice * cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
+		cardboardScreenSize->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardXShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+		cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
 #endif
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
-	CheckBox *timerHack = graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gr->T("Timer Hack")));
-	timerHack->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("TimerHack Tip", "Changes game clock based on emu speed, may break games"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
+		graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
+		CheckBox *timerHack = graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gr->T("Timer Hack")));
+		timerHack->OnClick.Add([=](EventParams &e) {
+			settingInfo_->Show(gr->T("TimerHack Tip", "Changes game clock based on emu speed, may break games"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
 
-	CheckBox *stencilTest = graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gr->T("Disable Stencil Test")));
-	stencilTest->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		CheckBox *stencilTest = graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gr->T("Disable Stencil Test")));
+		stencilTest->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
-	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
-	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
-	bloomHack->SetEnabledPtr(&bloomHackEnable_);
-
+		static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
+		PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
+		bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
+		bloomHack->SetEnabledPtr(&bloomHackEnable_);
+	}
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	static const char *fpsChoices[] = {
 		"None", "Speed", "FPS", "Both"
 	};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gr->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gr->GetName(), screenManager()));
-	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
+	if (!g_Config.bSimpleUI) {
+		graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
-	// Developer tools are not accessible ingame, so it goes here.
-	graphicsSettings->Add(new ItemHeader(gr->T("Debugging")));
-	Choice *dump = graphicsSettings->Add(new Choice(gr->T("Dump next frame to log")));
-	dump->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
-	if (!PSP_IsInited())
-		dump->SetEnabled(false);
-
+		// Developer tools are not accessible ingame, so it goes here.
+		graphicsSettings->Add(new ItemHeader(gr->T("Debugging")));
+		Choice *dump = graphicsSettings->Add(new Choice(gr->T("Dump next frame to log")));
+		dump->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
+		if (!PSP_IsInited())
+			dump->SetEnabled(false);
+	}
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	audioSettingsScroll->SetTag("GameSettingsAudio");
@@ -470,26 +475,27 @@ void GameSettingsScreen::CreateViews() {
 	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGlobalVolume, VOLUME_OFF, VOLUME_MAX, a->T("Global volume"), screenManager()));
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
 
+	if (!g_Config.bSimpleUI) {
 #ifdef _WIN32
-	if (IsVistaOrHigher()) {
-		static const char *backend[] = { "Auto", "DSound (compatible)", "WASAPI (fast)" };
-		PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), a->GetName(), screenManager()));
-		audioBackend->SetEnabledPtr(&g_Config.bEnableSound);
-	}
+		if (IsVistaOrHigher()) {
+			static const char *backend[] = { "Auto", "DSound (compatible)", "WASAPI (fast)" };
+			PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), a->GetName(), screenManager()));
+			audioBackend->SetEnabledPtr(&g_Config.bEnableSound);
+		}
 #endif
 
-	static const char *latency[] = { "Low", "Medium", "High" };
-	PopupMultiChoice *lowAudio = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioLatency, a->T("Audio Latency"), latency, 0, ARRAY_SIZE(latency), gr->GetName(), screenManager()));
-	lowAudio->SetEnabledPtr(&g_Config.bEnableSound);
-#if defined(__ANDROID__)
-	CheckBox *extraAudio = audioSettings->Add(new CheckBox(&g_Config.bExtraAudioBuffering, a->T("AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)")));
-	extraAudio->SetEnabledPtr(&g_Config.bEnableSound);
-#endif
-	if (System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE) == 44100) {
-		CheckBox *resampling = audioSettings->Add(new CheckBox(&g_Config.bAudioResampler, a->T("Audio sync", "Audio sync (resampling)")));
-		resampling->SetEnabledPtr(&g_Config.bEnableSound);
+		static const char *latency[] = { "Low", "Medium", "High" };
+		PopupMultiChoice *lowAudio = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioLatency, a->T("Audio Latency"), latency, 0, ARRAY_SIZE(latency), gr->GetName(), screenManager()));
+		lowAudio->SetEnabledPtr(&g_Config.bEnableSound);
+//#if defined(__ANDROID__)
+		CheckBox *extraAudio = audioSettings->Add(new CheckBox(&g_Config.bExtraAudioBuffering, a->T("AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)")));
+		extraAudio->SetEnabledPtr(&g_Config.bEnableSound);
+//#endif
+		if (System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE) == 44100) {
+			CheckBox *resampling = audioSettings->Add(new CheckBox(&g_Config.bAudioResampler, a->T("Audio sync", "Audio sync (resampling)")));
+			resampling->SetEnabledPtr(&g_Config.bEnableSound);
+		}
 	}
-
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	controlsSettingsScroll->SetTag("GameSettingsControls");
@@ -500,92 +506,95 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 
+	if (!g_Config.bSimpleUI) {
 #if defined(USING_WIN_UI)
-	controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
+		controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
 #endif
 
 #if defined(MOBILE_DEVICE)
-	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
-	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons"};
-	controlsSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), co->GetName(), screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnTiltTypeChange);
+		controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
+		static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
+		controlsSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), co->GetName(), screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnTiltTypeChange);
 
-	Choice *customizeTilt = controlsSettings->Add(new Choice(co->T("Customize tilt")));
-	customizeTilt->OnClick.Handle(this, &GameSettingsScreen::OnTiltCustomize);
-	customizeTilt->SetEnabledPtr((bool *)&g_Config.iTiltInputType); //<- dirty int-to-bool cast
+		Choice *customizeTilt = controlsSettings->Add(new Choice(co->T("Customize tilt")));
+		customizeTilt->OnClick.Handle(this, &GameSettingsScreen::OnTiltCustomize);
+		customizeTilt->SetEnabledPtr((bool *)&g_Config.iTiltInputType); //<- dirty int-to-bool cast
 #endif
 
 	// TVs don't have touch control, at least not yet.
-	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
-		controlsSettings->Add(new ItemHeader(co->T("OnScreen", "On-Screen Touch Controls")));
-		controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, co->T("OnScreen", "On-Screen Touch Controls")));
-		layoutEditorChoice_ = controlsSettings->Add(new Choice(co->T("Custom layout...")));
-		layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
-		layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
+			controlsSettings->Add(new ItemHeader(co->T("OnScreen", "On-Screen Touch Controls")));
+			controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, co->T("OnScreen", "On-Screen Touch Controls")));
+			layoutEditorChoice_ = controlsSettings->Add(new Choice(co->T("Custom layout...")));
+			layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
+			layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 
-		// Re-centers itself to the touch location on touch-down.
-		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
-		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
+			// Re-centers itself to the touch location on touch-down.
+			CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
+			floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
 
-		// Combo key setup
-		Choice *comboKey = controlsSettings->Add(new Choice(co->T("Combo Key Setup")));
-		comboKey->OnClick.Handle(this, &GameSettingsScreen::OnComboKey);
-		comboKey->SetEnabledPtr(&g_Config.bShowTouchControls);
+			// Combo key setup
+			Choice *comboKey = controlsSettings->Add(new Choice(co->T("Combo Key Setup")));
+			comboKey->OnClick.Handle(this, &GameSettingsScreen::OnComboKey);
+			comboKey->SetEnabledPtr(&g_Config.bShowTouchControls);
 
-		// On non iOS systems, offer to let the user see this button.
-		// Some Windows touch devices don't have a back button or other button to call up the menu.
-		if (System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON)) {
-			CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, co->T("Show Touch Pause Menu Button")));
+			// On non iOS systems, offer to let the user see this button.
+			// Some Windows touch devices don't have a back button or other button to call up the menu.
+			if (System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON)) {
+				CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, co->T("Show Touch Pause Menu Button")));
 
-			// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
-			if (!PSP_IsInited()) {
-				enablePauseBtn->SetEnabledPtr(&g_Config.bShowTouchControls);
-			} else {
-				enablePauseBtn->SetEnabled(false);
+				// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
+				if (!PSP_IsInited()) {
+					enablePauseBtn->SetEnabledPtr(&g_Config.bShowTouchControls);
+				}
+				else {
+					enablePauseBtn->SetEnabled(false);
+				}
 			}
+
+			CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, co->T("Disable D-Pad diagonals (4-way touch)")));
+			disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
+			PopupSliderChoice *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, co->T("Button Opacity"), screenManager(), "%"));
+			opacity->SetEnabledPtr(&g_Config.bShowTouchControls);
+			opacity->SetFormat("%i%%");
+			PopupSliderChoice *autoHide = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonHideSeconds, 0, 300, co->T("Auto-hide buttons after seconds"), screenManager(), co->T("seconds, 0 : off")));
+			autoHide->SetEnabledPtr(&g_Config.bShowTouchControls);
+			autoHide->SetFormat("%is");
+			autoHide->SetZeroLabel(co->T("Off"));
+			static const char *touchControlStyles[] = { "Classic", "Thin borders" };
+			View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, co->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), co->GetName(), screenManager()));
+			style->SetEnabledPtr(&g_Config.bShowTouchControls);
 		}
 
-		CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, co->T("Disable D-Pad diagonals (4-way touch)")));
-		disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
-		PopupSliderChoice *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, co->T("Button Opacity"), screenManager(), "%"));
-		opacity->SetEnabledPtr(&g_Config.bShowTouchControls);
-		opacity->SetFormat("%i%%");
-		PopupSliderChoice *autoHide = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonHideSeconds, 0, 300, co->T("Auto-hide buttons after seconds"), screenManager(), co->T("seconds, 0 : off")));
-		autoHide->SetEnabledPtr(&g_Config.bShowTouchControls);
-		autoHide->SetFormat("%is");
-		autoHide->SetZeroLabel(co->T("Off"));
-		static const char *touchControlStyles[] = {"Classic", "Thin borders"};
-		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, co->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), co->GetName(), screenManager()));
-		style->SetEnabledPtr(&g_Config.bShowTouchControls);
-	}
-
 #ifdef _WIN32
-	static const char *inverseDeadzoneModes[] = { "Off", "X", "Y", "X + Y" };
+		static const char *inverseDeadzoneModes[] = { "Off", "X", "Y", "X + Y" };
 
-	controlsSettings->Add(new ItemHeader(co->T("DInput Analog Settings", "DInput Analog Settings")));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
-	controlsSettings->Add(new PopupMultiChoice(&g_Config.iDInputAnalogInverseMode, co->T("Analog Mapper Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), co->GetName(), screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), 0.01f, screenManager(), "/ 1.0"));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), 0.01f, screenManager(), "x"));
+		controlsSettings->Add(new ItemHeader(co->T("DInput Analog Settings", "DInput Analog Settings")));
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
+		controlsSettings->Add(new PopupMultiChoice(&g_Config.iDInputAnalogInverseMode, co->T("Analog Mapper Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), co->GetName(), screenManager()));
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), 0.01f, screenManager(), "/ 1.0"));
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), 0.01f, screenManager(), "x"));
 
-	controlsSettings->Add(new ItemHeader(co->T("XInput Analog Settings", "XInput Analog Settings")));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
-	controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputAnalogInverseMode, co->T("Analog Mapper Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), co->GetName(), screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), 0.01f, screenManager(), "/ 1.0"));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), 0.01f, screenManager(), "x"));
+		controlsSettings->Add(new ItemHeader(co->T("XInput Analog Settings", "XInput Analog Settings")));
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
+		controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputAnalogInverseMode, co->T("Analog Mapper Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), co->GetName(), screenManager()));
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), 0.01f, screenManager(), "/ 1.0"));
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), 0.01f, screenManager(), "x"));
 #else
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Axis Sensitivity", "Analog Axis Sensitivity"), 0.01f, screenManager(), "x"));
+		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Axis Sensitivity", "Analog Axis Sensitivity"), 0.01f, screenManager(), "x"));
 #endif
 
-	controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
+		controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)
-	controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, co->T("Ignore Windows Key")));
+		controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, co->T("Ignore Windows Key")));
 #endif // #if defined(USING_WIN_UI)
-	auto analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
-	controlsSettings->Add(analogLimiter);
-	analogLimiter->OnChange.Add([=](EventParams &e) {
-		settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
+		auto analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
+		controlsSettings->Add(analogLimiter);
+		analogLimiter->OnChange.Add([=](EventParams &e) {
+			settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
+	}
 #if defined(USING_WIN_UI)
 	controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
 	CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
@@ -633,8 +642,10 @@ void GameSettingsScreen::CreateViews() {
 	tools->Add(new ItemHeader(ms->T("Tools")));
 	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Handle(this, &GameSettingsScreen::OnSavedataManager);
-	tools->Add(new Choice(dev->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
-	tools->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
+	if (!g_Config.bSimpleUI) {
+		tools->Add(new Choice(dev->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
+		tools->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
+	}
 	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Handle(this, &GameSettingsScreen::OnRemoteISO);
 
 	// System
@@ -645,38 +656,39 @@ void GameSettingsScreen::CreateViews() {
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 
-	systemSettings->Add(new ItemHeader(sy->T("UI Language")));
-	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+	if (!g_Config.bSimpleUI) {
+		systemSettings->Add(new ItemHeader(sy->T("UI Language")));
+		systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 
-	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
-	enableReports_ = Reporting::IsEnabled();
-	enableReportsCheckbox_ = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
-	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
-	systemSettings->Add(enableReportsCheckbox_);
+		systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
+		enableReports_ = Reporting::IsEnabled();
+		enableReportsCheckbox_ = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
+		enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+		systemSettings->Add(enableReportsCheckbox_);
 
-	systemSettings->Add(new ItemHeader(sy->T("Emulation")));
+		systemSettings->Add(new ItemHeader(sy->T("Emulation")));
 
-	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, sy->T("Fast Memory", "Fast Memory (Unstable)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
+		systemSettings->Add(new CheckBox(&g_Config.bFastMemory, sy->T("Fast Memory", "Fast Memory (Unstable)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
-	auto separateCPUThread = new CheckBox(&g_Config.bSeparateCPUThread, sy->T("Multithreaded (experimental)"));
-	systemSettings->Add(separateCPUThread);
-	separateCPUThread->OnClick.Add([=](EventParams &e) {
-		if (g_Config.bSeparateCPUThread)
-			settingInfo_->Show(sy->T("Multithreaded Tip", "Not always faster, causes glitches/crashing"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, sy->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
-	static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays" };
-	View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));
-	ioTimingMethod->SetEnabledPtr(&g_Config.bSeparateIOThread);
-	systemSettings->Add(new CheckBox(&g_Config.bForceLagSync, sy->T("Force real clock sync (slower, less lag)")));
-	PopupSliderChoice *lockedMhz = systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, sy->T("Change CPU Clock", "Change CPU Clock (unstable)"), screenManager(), sy->T("MHz, 0:default")));
-	lockedMhz->SetZeroLabel(sy->T("Auto"));
-	PopupSliderChoice *rewindFreq = systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, sy->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (mem hog)"), screenManager(), sy->T("frames, 0:off")));
-	rewindFreq->SetZeroLabel(sy->T("Off"));
+		auto separateCPUThread = new CheckBox(&g_Config.bSeparateCPUThread, sy->T("Multithreaded (experimental)"));
+		systemSettings->Add(separateCPUThread);
+		separateCPUThread->OnClick.Add([=](EventParams &e) {
+			if (g_Config.bSeparateCPUThread)
+				settingInfo_->Show(sy->T("Multithreaded Tip", "Not always faster, causes glitches/crashing"), e.v);
+			return UI::EVENT_CONTINUE;
+		});
+		systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, sy->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
+		static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays" };
+		View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));
+		ioTimingMethod->SetEnabledPtr(&g_Config.bSeparateIOThread);
+		systemSettings->Add(new CheckBox(&g_Config.bForceLagSync, sy->T("Force real clock sync (slower, less lag)")));
+		PopupSliderChoice *lockedMhz = systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, sy->T("Change CPU Clock", "Change CPU Clock (unstable)"), screenManager(), sy->T("MHz, 0:default")));
+		lockedMhz->SetZeroLabel(sy->T("Auto"));
+		PopupSliderChoice *rewindFreq = systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, sy->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (mem hog)"), screenManager(), sy->T("frames, 0:off")));
+		rewindFreq->SetZeroLabel(sy->T("Off"));
 
-	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
-
+		systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
+	}
 	systemSettings->Add(new ItemHeader(sy->T("General")));
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -690,86 +702,95 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 #endif
+	systemSettings->Add(new CheckBox(&g_Config.bSimpleUI, sy->T("SimpleUI", "Hide advanced/rarely used settings")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguageChange);
+	if (!g_Config.bSimpleUI) {
+		systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
+		if (g_Config.iMaxRecent > 0)
+			systemSettings->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
 
-	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
-	if (g_Config.iMaxRecent > 0)
-		systemSettings->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
-
-	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
-	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
-	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
-		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
-	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
-		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
-	} else {
-		backgroundChoice_ = nullptr;
+		const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
+		const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
+		if (File::Exists(bgPng) || File::Exists(bgJpg)) {
+			backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
+		}
+		else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
+			backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
+		}
+		else {
+			backgroundChoice_ = nullptr;
+		}
+		if (backgroundChoice_ != nullptr) {
+			backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
+		}
 	}
-	if (backgroundChoice_ != nullptr) {
-		backgroundChoice_->OnClick.Handle(this, &GameSettingsScreen::OnChangeBackground);
-	}
-
 	systemSettings->Add(new Choice(sy->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
-	systemSettings->Add(new CheckBox(&g_Config.bEnableAutoLoad, sy->T("Auto Load Newest Savestate")));
+	if (!g_Config.bSimpleUI) {
+		systemSettings->Add(new CheckBox(&g_Config.bEnableAutoLoad, sy->T("Auto Load Newest Savestate")));
 
 #if defined(USING_WIN_UI)
-	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
+		systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
 #endif
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
-	SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
-	SavePathInOtherChoice = systemSettings->Add(new CheckBox(&otherinstalled_, sy->T("Save path in installed.txt", "Save path in installed.txt")));
-	SavePathInOtherChoice->SetEnabled(false);
-	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathOther);
-	wchar_t myDocumentsPath[MAX_PATH];
-	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
-	const std::string PPSSPPpath = File::GetExeDirectory();
-	const std::string installedFile = PPSSPPpath + "installed.txt";
-	installed_ = File::Exists(installedFile);
-	otherinstalled_ = false;
-	if (!installed_ && result == S_OK) {
-		if (File::CreateEmptyFile(PPSSPPpath + "installedTEMP.txt")) {
-			// Disable the setting whether cannot create & delete file
-			if (!(File::Delete(PPSSPPpath + "installedTEMP.txt")))
-				SavePathInMyDocumentChoice->SetEnabled(false);
-			else
-				SavePathInOtherChoice->SetEnabled(true);
-		} else
-			SavePathInMyDocumentChoice->SetEnabled(false);
-	} else {
-		if (installed_ && (result == S_OK)) {
-			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
-			if (!inputFile.fail() && inputFile.is_open()) {
-				std::string tempString;
-				std::getline(inputFile, tempString);
-
-				// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
-				if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
-					tempString = tempString.substr(3);
-				SavePathInOtherChoice->SetEnabled(true);
-				if (!(tempString == "")) {
-					installed_ = false;
-					otherinstalled_ = true;
-				}
+		SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
+		SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
+		SavePathInOtherChoice = systemSettings->Add(new CheckBox(&otherinstalled_, sy->T("Save path in installed.txt", "Save path in installed.txt")));
+		SavePathInOtherChoice->SetEnabled(false);
+		SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathOther);
+		wchar_t myDocumentsPath[MAX_PATH];
+		const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
+		const std::string PPSSPPpath = File::GetExeDirectory();
+		const std::string installedFile = PPSSPPpath + "installed.txt";
+		installed_ = File::Exists(installedFile);
+		otherinstalled_ = false;
+		if (!installed_ && result == S_OK) {
+			if (File::CreateEmptyFile(PPSSPPpath + "installedTEMP.txt")) {
+				// Disable the setting whether cannot create & delete file
+				if (!(File::Delete(PPSSPPpath + "installedTEMP.txt")))
+					SavePathInMyDocumentChoice->SetEnabled(false);
+				else
+					SavePathInOtherChoice->SetEnabled(true);
 			}
-			inputFile.close();
-		} else if (result != S_OK)
-			SavePathInMyDocumentChoice->SetEnabled(false);
-	}
+			else
+				SavePathInMyDocumentChoice->SetEnabled(false);
+		}
+		else {
+			if (installed_ && (result == S_OK)) {
+				std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
+				if (!inputFile.fail() && inputFile.is_open()) {
+					std::string tempString;
+					std::getline(inputFile, tempString);
+
+					// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
+					if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
+						tempString = tempString.substr(3);
+					SavePathInOtherChoice->SetEnabled(true);
+					if (!(tempString == "")) {
+						installed_ = false;
+						otherinstalled_ = true;
+					}
+				}
+				inputFile.close();
+			}
+			else if (result != S_OK)
+				SavePathInMyDocumentChoice->SetEnabled(false);
+		}
 #endif
 
 #if defined(_M_X64)
-	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")));
+		systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")));
 #endif
 
-//#ifndef __ANDROID__
-	systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats (experimental, see forums)")));
-	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
-//#endif
-	systemSettings->SetSpacing(0);
-
+		//#ifndef __ANDROID__
+		systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats (experimental, see forums)")));
+		systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
+		//#endif
+		systemSettings->SetSpacing(0);
+	}
 	systemSettings->Add(new ItemHeader(sy->T("PSP Settings")));
-	static const char *models[] = {"PSP-1000" , "PSP-2000/3000"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), sy->GetName(), screenManager()))->SetEnabled(!PSP_IsInited());
+	if (!g_Config.bSimpleUI) {
+		static const char *models[] = { "PSP-1000" , "PSP-2000/3000" };
+		systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), sy->GetName(), screenManager()))->SetEnabled(!PSP_IsInited());
+	}
 	// TODO: Come up with a way to display a keyboard for mobile users,
 	// so until then, this is Windows/Desktop only.
 #if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)  // TODO: Add all platforms where KEY_CHAR support is added
@@ -786,13 +807,15 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bUseFFV1, sy->T("Use Lossless Video Codec (FFV1)")));
 	systemSettings->Add(new CheckBox(&g_Config.bDumpAudio, sy->T("Record Audio")));
 #endif
-	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Day Light Saving")));
-	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, sy->T("Date Format"), dateFormat, 1, 3, sy->GetName(), screenManager()));
-	static const char *timeFormat[] = { "12HR", "24HR"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, sy->T("Time Format"), timeFormat, 1, 2, sy->GetName(), screenManager()));
-	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
+	if (!g_Config.bSimpleUI) {
+		systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Day Light Saving")));
+		static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY" };
+		systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, sy->T("Date Format"), dateFormat, 1, 3, sy->GetName(), screenManager()));
+		static const char *timeFormat[] = { "12HR", "24HR" };
+		systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, sy->T("Time Format"), timeFormat, 1, 2, sy->GetName(), screenManager()));
+		static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
+		systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
+	}
 }
 
 UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {

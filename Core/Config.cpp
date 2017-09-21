@@ -347,13 +347,14 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("IgnoreBadMemAccess", &g_Config.bIgnoreBadMemAccess, true, true),
 	ConfigSetting("CurrentDirectory", &g_Config.currentDirectory, ""),
 	ConfigSetting("ShowDebuggerOnLoad", &g_Config.bShowDebuggerOnLoad, false),
-	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true),
+	ConfigSetting("SimpleUI", &g_Config.bSimpleUI, true),
+	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, false),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
 	ConfigSetting("ForceLagSync", &g_Config.bForceLagSync, false, true, true),
 
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers, true, true),
 	ConfigSetting("EnableAutoLoad", &g_Config.bEnableAutoLoad, false, true, true),
-	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, false, true, true),
+	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, true, true, true),
 	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, true, true),
 
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, true, true),
@@ -409,10 +410,10 @@ static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("SeparateCPUThread", &g_Config.bSeparateCPUThread, false, true, true),
 	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, true, true),
 	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true, true, true),
-	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_FAST, true, true),
-	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
+	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_REALISTIC, true, true),
+	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, false, true, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
-	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, false, true, false),
+	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, true, true, false),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, true, true),
 
 	ConfigSetting(false),
@@ -506,7 +507,7 @@ static ConfigSetting graphicsSettings[] = {
 #else
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
 #endif
-	ReportedConfigSetting("VertexCache", &g_Config.bVertexCache, true, true, true),
+	ReportedConfigSetting("VertexCache", &g_Config.bVertexCache, false, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
 	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
@@ -530,9 +531,9 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, true, true),
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, true, true),
 	ReportedConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false, true, true),
-	ConfigSetting("VSyncInterval", &g_Config.bVSync, false, true, true),
+	ConfigSetting("VSyncInterval", &g_Config.bVSync, true, true, true),
 	ReportedConfigSetting("DisableStencilTest", &g_Config.bDisableStencilTest, false, true, true),
-	ReportedConfigSetting("BloomHack", &g_Config.iBloomHack, 0, true, true),
+	ReportedConfigSetting("BloomHack", &g_Config.iBloomHack, 2, true, true),
 
 	// Not really a graphics setting...
 	ReportedConfigSetting("TimerHack", &g_Config.bTimerHack, &DefaultTimerHack, true, true),

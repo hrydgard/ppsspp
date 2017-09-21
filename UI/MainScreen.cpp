@@ -484,8 +484,8 @@ void GameBrowser::Refresh() {
 	Add(new Spacer(1.0f));
 	I18NCategory *mm = GetI18NCategory("MainMenu");
 
-	// No topbar on recent screen
-	if (DisplayTopBar()) {
+	// No topbar with SimpleUI
+	if (!g_Config.bSimpleUI) { //(DisplayTopBar()) { // No topbar on recent screen
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		if (allowBrowsing_) {
 			topBar->Add(new Spacer(2.0f));
@@ -853,13 +853,14 @@ void MainScreen::CreateViews() {
 #endif
 	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
-	rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		Choice *gold = rightColumnItems->Add(new Choice(mm->T("Support PPSSPP")));
-		gold->OnClick.Handle(this, &MainScreen::OnSupport);
-		gold->SetIcon(I_ICONGOLD);
+	if (!g_Config.bSimpleUI) {
+		rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+		if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+			Choice *gold = rightColumnItems->Add(new Choice(mm->T("Support PPSSPP")));
+			gold->OnClick.Handle(this, &MainScreen::OnSupport);
+			gold->SetIcon(I_ICONGOLD);
+		}
 	}
-
 #if !PPSSPP_PLATFORM(UWP)
 	// Having an exit button is against UWP guidelines.
 	rightColumnItems->Add(new Spacer(25.0));
