@@ -41,6 +41,7 @@
 #include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
+#include "GPU/Common/ShaderUniforms.h"
 #include "FramebufferManagerGLES.h"
 
 Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform)
@@ -210,6 +211,7 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 	u_uvscaleoffset = glGetUniformLocation(program, "u_uvscaleoffset");
 	u_texclamp = glGetUniformLocation(program, "u_texclamp");
 	u_texclampoff = glGetUniformLocation(program, "u_texclampoff");
+	u_guardband = glGetUniformLocation(program, "u_guardband");
 
 	for (int i = 0; i < 4; i++) {
 		char temp[64];
@@ -268,7 +270,8 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 	if (u_blendFixA != -1 || u_blendFixB != -1 || u_fbotexSize != -1) availableUniforms |= DIRTY_SHADERBLEND;
 	if (u_depthRange != -1)
 		availableUniforms |= DIRTY_DEPTHRANGE;
-
+	if (u_guardband != -1)
+		availableUniforms |= DIRTY_GUARDBAND;
 	// Looping up to numBones lets us avoid checking u_bone[i]
 #ifdef USE_BONE_ARRAY
 	if (u_bone != -1) {
@@ -601,6 +604,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
 	}
+
+	if (dirty & DIRTY_GUARDBAND) {
+		float gb[4];
+		ComputeGuardband(gb, 0.0f);
+		SetFloatUniform4(u_guardband, gb);
+	}
+
 	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
 		// Since depth is [-1, 1] mapping to [minz, maxz], this is easyish.
 		float vpZScale = gstate.getViewportZScale();

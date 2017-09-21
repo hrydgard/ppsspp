@@ -136,6 +136,7 @@ bool IsColorTestTriviallyTrue() {
 	}
 }
 
+// TODO: Pack into 16-bit integer.
 const bool nonAlphaSrcFactors[16] = {
 	true,  // GE_SRCBLEND_DSTCOLOR,
 	true,  // GE_SRCBLEND_INVDSTCOLOR,

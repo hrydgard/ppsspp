@@ -96,6 +96,9 @@ public:
 	int u_texclamp;
 	int u_texclampoff;
 
+	// Clipping
+	int u_guardband;
+
 	// Lighting
 	int u_ambient;
 	int u_matambientalpha;
