@@ -1042,10 +1042,6 @@ bool OpenGLPipeline::LinkShaders() {
 	glBindAttribLocation(program_, SEM_NORMAL, "Normal");
 	glBindAttribLocation(program_, SEM_TANGENT, "Tangent");
 	glBindAttribLocation(program_, SEM_BINORMAL, "Binormal");
-
-	if (gl_extensions.VersionGEThan(3, 3, 0)) {
-		glBindFragDataLocation(program_, 0, "fragColor0");
-	}
 	glLinkProgram(program_);
 
 	GLint linkStatus = GL_FALSE;
