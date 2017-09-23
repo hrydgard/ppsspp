@@ -49,6 +49,12 @@
 // #define DEBUG_READ_PIXELS 1
 
 static const char tex_fs[] =
+	"#if __VERSION__ >= 130\n"
+	"#define varying in\n"
+	"#define texture2D texture\n"
+	"#define gl_FragColor fragColor0\n"
+	"out vec4 fragColor0;\n"
+	"#endif\n"
 #ifdef USING_GLES2
 	"precision mediump float;\n"
 #endif
@@ -59,6 +65,10 @@ static const char tex_fs[] =
 	"}\n";
 
 static const char basic_vs[] =
+	"#if __VERSION__ >= 130\n"
+	"#define attribute in\n"
+	"#define varying out\n"
+	"#endif\n"
 	"attribute vec4 a_position;\n"
 	"attribute vec2 a_texcoord0;\n"
 	"varying vec2 v_texcoord0;\n"
@@ -87,7 +97,10 @@ void FramebufferManagerGLES::DisableState() {
 void FramebufferManagerGLES::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
 		std::string errorString;
-		draw2dprogram_ = glsl_create_source(basic_vs, tex_fs, &errorString);
+		static std::string vs_code, fs_code;
+		vs_code = ApplyGLSLPrelude(basic_vs, GL_VERTEX_SHADER);
+		fs_code = ApplyGLSLPrelude(tex_fs, GL_FRAGMENT_SHADER);
+		draw2dprogram_ = glsl_create_source(vs_code.c_str(), fs_code.c_str(), &errorString);
 		if (!draw2dprogram_) {
 			ERROR_LOG_REPORT(G3D, "Failed to compile draw2dprogram! This shouldn't happen.\n%s", errorString.c_str());
 		} else {
