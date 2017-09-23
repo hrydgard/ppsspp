@@ -633,6 +633,29 @@ void EmuScreen::pspKey(int pspKeyCode, int flags) {
 		break;
 	}
 
+	switch (pspKeyCode) {
+	case CTRL_NOTE:
+		if (flags & KEY_DOWN)
+			g_Config.bEnableSound = !g_Config.bEnableSound;
+		break;
+	case CTRL_VOL_UP:
+		if (flags & KEY_DOWN && g_Config.iGlobalVolume < VOLUME_MAX)
+			g_Config.iGlobalVolume = g_Config.iGlobalVolume + 1;
+		break;
+	case CTRL_VOL_DOWN:
+		if (flags & KEY_DOWN && g_Config.iGlobalVolume > 0)
+			g_Config.iGlobalVolume = g_Config.iGlobalVolume - 1;
+		break;
+	case CTRL_WLAN:
+		if (flags & KEY_DOWN)
+			g_Config.bEnableWlan = !g_Config.bEnableWlan;
+		break;
+	case CTRL_SCREEN:
+		if (flags & KEY_DOWN)
+			NativeMessageReceived("display layout editor", "");
+		break;
+	}
+
 	for (int i = 0; i < rotations; i++) {
 		pspKeyCode = RotatePSPKeyCode(pspKeyCode);
 	}
