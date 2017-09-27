@@ -1200,26 +1200,20 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				NativeApp.sendMessage("permission_granted", "storage");
 			}
 		} else if (command.equals("gps_command")) {
-			switch (params) {
-				case "open":
-					if(!askForPermissions(permissionsForLocation, REQUEST_CODE_LOCATION_PERMISSION)) {
-						mLocationHelper.startLocationUpdates();
-					}
-					break;
-				case "close":
-					mLocationHelper.stopLocationUpdates();
-					break;
+			if (params.equals("open")) {
+				if (!askForPermissions(permissionsForLocation, REQUEST_CODE_LOCATION_PERMISSION)) {
+					mLocationHelper.startLocationUpdates();
+				}
+			} else if (params.equals("close")) {
+				mLocationHelper.stopLocationUpdates();
 			}
 		} else if (command.equals("camera_command")) {
-			switch (params) {
-				case "startVideo":
-					if(!askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
-						mCameraHelper.startCamera();
-					}
-					break;
-				case "stopVideo":
-					mCameraHelper.stopCamera();
-					break;
+			if (params.equals("startVideo")) {
+				if (!askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
+					mCameraHelper.startCamera();
+				}
+			} else if (params.equals("stopVideo")) {
+				mCameraHelper.stopCamera();
 			}
 		}
     	return false;
