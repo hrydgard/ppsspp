@@ -711,7 +711,6 @@ int main(int argc, char *argv[]) {
 					dp_yres = (float)pixel_yres * dpi_scale;
 					NativeResized();
 
-#if defined(PPSSPP)
 					// Set variable here in case fullscreen was toggled by hotkey
 					g_Config.bFullScreen = fullscreen;
 
@@ -721,7 +720,6 @@ int main(int argc, char *argv[]) {
 					} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
 						SDL_ShowCursor(SDL_ENABLE);
 					}
-	#endif
 					break;
 				}
 
@@ -860,7 +858,7 @@ int main(int argc, char *argv[]) {
 		UpdateRunLoop();
 		if (g_QuitRequested)
 			break;
-#if defined(PPSSPP) && !defined(MOBILE_DEVICE)
+#if !defined(MOBILE_DEVICE)
 		if (lastUIState != GetUIState()) {
 			lastUIState = GetUIState();
 			if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !g_Config.bShowTouchControls)
