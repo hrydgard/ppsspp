@@ -858,7 +858,7 @@ int main(int argc, char *argv[]) {
 		UpdateRunLoop();
 		if (g_QuitRequested)
 			break;
-#if defined(PPSSPP) && !defined(MOBILE_DEVICE)
+#if !defined(MOBILE_DEVICE)
 		if (lastUIState != GetUIState()) {
 			lastUIState = GetUIState();
 			if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !g_Config.bShowTouchControls)
