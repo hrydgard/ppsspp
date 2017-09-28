@@ -207,6 +207,8 @@ static int __CtrlReadSingleBuffer(PSPPointer<_ctrl_data> data, bool negative)
 		*data = ctrlBufs[ctrlBufRead];
 		ctrlBufRead = (ctrlBufRead + 1) % NUM_CTRL_BUFFERS;
 
+		// Mask out buttons games aren't allowed to see.
+		data->buttons &= CTRL_MASK_USER;
 		if (negative)
 			data->buttons = ~data->buttons;
 
@@ -500,24 +502,28 @@ static int sceCtrlPeekBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 	return done;
 }
 
-static u32 sceCtrlPeekLatch(u32 latchDataPtr)
-{
-	DEBUG_LOG(SCECTRL, "sceCtrlPeekLatch(%08x)", latchDataPtr);
-
-	if (Memory::IsValidAddress(latchDataPtr))
-		Memory::WriteStruct(latchDataPtr, &latch);
-
-	return ctrlLatchBufs;
+void __CtrlWriteUserLatch(CtrlLatch *userLatch) {
+	*userLatch = latch;
+	userLatch->btnBreak &= CTRL_MASK_USER;
+	userLatch->btnMake &= CTRL_MASK_USER;
+	userLatch->btnPress &= CTRL_MASK_USER;
+	userLatch->btnRelease &= CTRL_MASK_USER;
 }
 
-static u32 sceCtrlReadLatch(u32 latchDataPtr)
-{
-	DEBUG_LOG(SCECTRL, "sceCtrlReadLatch(%08x)", latchDataPtr);
+static u32 sceCtrlPeekLatch(u32 latchDataPtr) {
+	auto userLatch = PSPPointer<CtrlLatch>::Create(latchDataPtr);
+	if (userLatch.IsValid()) {
+		__CtrlWriteUserLatch(userLatch);
+	}
+	return hleLogSuccessI(SCECTRL, ctrlLatchBufs);
+}
 
-	if (Memory::IsValidAddress(latchDataPtr))
-		Memory::WriteStruct(latchDataPtr, &latch);
-
-	return __CtrlResetLatch();
+static u32 sceCtrlReadLatch(u32 latchDataPtr) {
+	auto userLatch = PSPPointer<CtrlLatch>::Create(latchDataPtr);
+	if (userLatch.IsValid()) {
+		__CtrlWriteUserLatch(userLatch);
+	}
+	return hleLogSuccessI(SCECTRL, __CtrlResetLatch());
 }
 
 static const HLEFunction sceCtrl[] =
@@ -531,8 +537,8 @@ static const HLEFunction sceCtrl[] =
 	{0X3A622550, &WrapI_UU<sceCtrlPeekBufferPositive>,     "sceCtrlPeekBufferPositive",        'i', "xx"},
 	{0XC152080A, &WrapI_UU<sceCtrlPeekBufferNegative>,     "sceCtrlPeekBufferNegative",        'i', "xx"},
 	{0X60B81F86, &WrapI_UU<sceCtrlReadBufferNegative>,     "sceCtrlReadBufferNegative",        'i', "xx"},
-	{0XB1D0E5CD, &WrapU_U<sceCtrlPeekLatch>,               "sceCtrlPeekLatch",                 'x', "x" },
-	{0X0B588501, &WrapU_U<sceCtrlReadLatch>,               "sceCtrlReadLatch",                 'x', "x" },
+	{0XB1D0E5CD, &WrapU_U<sceCtrlPeekLatch>,               "sceCtrlPeekLatch",                 'i', "x" },
+	{0X0B588501, &WrapU_U<sceCtrlReadLatch>,               "sceCtrlReadLatch",                 'i', "x" },
 	{0X348D99D4, nullptr,                                  "sceCtrlSetSuspendingExtraSamples", '?', ""  },
 	{0XAF5960F3, nullptr,                                  "sceCtrlGetSuspendingExtraSamples", '?', ""  },
 	{0XA68FD260, nullptr,                                  "sceCtrlClearRapidFire",            '?', ""  },

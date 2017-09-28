@@ -664,6 +664,15 @@ const KeyMap_IntStrPair psp_button_names[] = {
 
 	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
 	{VIRTKEY_DEVMENU, "DevMenu"},
+
+	{CTRL_HOME, "Home"},
+	{CTRL_HOLD, "Hold"},
+	{CTRL_WLAN, "Wlan"},
+	{CTRL_REMOTE_HOLD, "Remote hold"},
+	{CTRL_VOL_UP, "Vol +"},
+	{CTRL_VOL_DOWN, "Vol -"},
+	{CTRL_SCREEN, "Screen"},
+	{CTRL_NOTE, "Note"},
 };
 
 const int AXIS_BIND_NKCODE_START = 4000;
