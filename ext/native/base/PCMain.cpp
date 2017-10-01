@@ -558,10 +558,40 @@ int main(int argc, char *argv[]) {
 	dp_xres = (float)pixel_xres * dpi_scale;
 	dp_yres = (float)pixel_yres * dpi_scale;
 
+#ifdef _MSC_VER
+	// VFSRegister("temp/", new DirectoryAssetReader("E:\\Temp\\"));
+	TCHAR path[MAX_PATH];
+	SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, path);
+	PathAppend(path, (app_name + "\\").c_str());
+#else
+	// Mac / Linux
+	char path[2048];
+	const char *the_path = getenv("HOME");
+	if (!the_path) {
+		struct passwd* pwd = getpwuid(getuid());
+		if (pwd)
+			the_path = pwd->pw_dir;
+	}
+	strcpy(path, the_path);
+	if (path[strlen(path)-1] != '/')
+		strcat(path, "/");
+#endif
+
+#ifdef _WIN32
+	NativeInit(remain_argc, (const char **)remain_argv, path, "D:\\", nullptr);
+#else
+	NativeInit(remain_argc, (const char **)remain_argv, path, "/tmp", nullptr);
+#endif
+
+	// Use the setting from the config when initing the window.
+	if (g_Config.bFullScreen)
+		mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+
 	g_Screen = SDL_CreateWindow(app_name_nice.c_str(), SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber()),\
 					SDL_WINDOWPOS_UNDEFINED, pixel_xres, pixel_yres, mode);
 
 	if (g_Screen == NULL) {
+		NativeShutdown();
 		fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 		SDL_Quit();
 		return 2;
@@ -569,6 +599,7 @@ int main(int argc, char *argv[]) {
 
 	SDL_GLContext glContext = SDL_GL_CreateContext(g_Screen);
 	if (glContext == NULL) {
+		NativeShutdown();
 		fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
 		SDL_Quit();
 		return 2;
@@ -606,30 +637,6 @@ int main(int argc, char *argv[]) {
 	}
 #endif
 
-#ifdef _MSC_VER
-	// VFSRegister("temp/", new DirectoryAssetReader("E:\\Temp\\"));
-	TCHAR path[MAX_PATH];
-	SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, path);
-	PathAppend(path, (app_name + "\\").c_str());
-#else
-	// Mac / Linux
-	char path[2048];
-	const char *the_path = getenv("HOME");
-	if (!the_path) {
-		struct passwd* pwd = getpwuid(getuid());
-		if (pwd)
-			the_path = pwd->pw_dir;
-	}
-	strcpy(path, the_path);
-	if (path[strlen(path)-1] != '/')
-		strcat(path, "/");
-#endif
-
-#ifdef _WIN32
-	NativeInit(remain_argc, (const char **)remain_argv, path, "D:\\", nullptr);
-#else
-	NativeInit(remain_argc, (const char **)remain_argv, path, "/tmp", nullptr);
-#endif
 
 	pixel_in_dps_x = (float)pixel_xres / dp_xres;
 	pixel_in_dps_y = (float)pixel_yres / dp_yres;
