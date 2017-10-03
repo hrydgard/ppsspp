@@ -138,6 +138,7 @@ public:
 	bool bSeparateSASThread;
 	bool bSeparateIOThread;
 	int iIOTimingMethod;
+	int iIOManualDelay;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
 	bool bCacheFullIsoInRam;
