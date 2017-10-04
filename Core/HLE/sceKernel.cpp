@@ -263,7 +263,6 @@ void __KernelDoState(PointerWrap &p)
 		__UmdDoState(p);
 		__UtilityDoState(p);
 		__UsbDoState(p);
-		__UsbGpsDoState(p);
 		__VaudioDoState(p);
 		__HeapDoState(p);
 
@@ -272,6 +271,9 @@ void __KernelDoState(PointerWrap &p)
 		__sceAudiocodecDoState(p);
 		__VideoPmpDoState(p);
 		__AACDoState(p);
+		__UsbGpsDoState(p);
+
+		// IMPORTANT! Add new sections last!
 	}
 
 	{
