@@ -420,6 +420,7 @@ public:
 	int iButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;
+	bool bSavedataUpgrade;
 
 	// Networking
 	bool bEnableWlan;
