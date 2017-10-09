@@ -729,6 +729,7 @@ void OpenGLTexture::AutoGenMipmaps() {
 	}
 }
 
+// TODO: Also output storage format (GL_RGB8 etc) for modern GL usage.
 static bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint &format, GLuint &type) {
 	switch (fmt) {
 	case DataFormat::R8G8B8A8_UNORM:
@@ -736,24 +737,56 @@ static bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, 
 		format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		return true;
+
+	case DataFormat::R8G8B8_UNORM:
+		internalFormat = GL_RGB;
+		format = GL_RGB;
+		type = GL_UNSIGNED_BYTE;
+		return true;
+
 	case DataFormat::B4G4R4A4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
 		return true;
+
+	case DataFormat::B5G6R5_UNORM_PACK16:
+		internalFormat = GL_RGB;
+		format = GL_RGB;
+		type = GL_UNSIGNED_SHORT_5_6_5;
+		return true;
+
+	case DataFormat::B5G5R5A1_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_5_5_5_1;
+		return true;
+
 #ifndef USING_GLES2
 	case DataFormat::A4R4G4B4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
 		return true;
+
+	case DataFormat::R5G6B5_UNORM_PACK16:
+		internalFormat = GL_RGB;
+		format = GL_RGB;
+		type = GL_UNSIGNED_SHORT_5_6_5_REV;
+		return true;
+
+	case DataFormat::A1R5G5B5_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+		return true;
 #endif
+
 	default:
 		ELOG("Thin3d GL: Unsupported texture format %d", (int)fmt);
 		return false;
 	}
 }
-
 
 void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	if (width != width_ || height != height_ || depth != depth_) {

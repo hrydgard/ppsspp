@@ -944,6 +944,22 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			align = 4;
 		}
 
+		Draw::DataFormat dataFmt = Draw::DataFormat::UNDEFINED;
+		switch (vfb->format) {
+		case GE_FORMAT_4444:
+			dataFmt = (reverseOrder ? Draw::DataFormat::A4R4G4B4_UNORM_PACK16 : Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
+			break;
+		case GE_FORMAT_5551:
+			dataFmt = (reverseOrder ? Draw::DataFormat::A1R5G5B5_UNORM_PACK16 : Draw::DataFormat::B5G5R5A1_UNORM_PACK16);
+			break;
+		case GE_FORMAT_565:
+			dataFmt = (reverseOrder ? Draw::DataFormat::R5G6B5_UNORM_PACK16 : Draw::DataFormat::B5G6R5_UNORM_PACK16);
+			break;
+		case GE_FORMAT_8888:
+			dataFmt = Draw::DataFormat::R8G8B8A8_UNORM;
+			break;
+		};
+
 		switch (vfb->format) {
 			// GL_UNSIGNED_INT_8_8_8_8 returns A B G R (little-endian, tested in Nvidia card/x86 PC)
 			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
