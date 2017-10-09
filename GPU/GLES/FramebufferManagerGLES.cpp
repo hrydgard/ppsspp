@@ -845,6 +845,21 @@ static void LogReadPixelsError(GLenum error) {
 
 static void SafeGLReadPixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum fmt, GLenum type, void *pixels) {
 	CHECK_GL_ERROR_IF_DEBUG();
+
+	// Apply the correct alignment.
+	if (fmt == GL_RGBA && type == GL_UNSIGNED_BYTE) {
+		glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	} else if (fmt == GL_RGB && type == GL_UNSIGNED_BYTE) {
+		glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	} else if (fmt == GL_DEPTH_COMPONENT && type == GL_FLOAT) {
+		glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	} else if (fmt == GL_STENCIL_INDEX && type == GL_UNSIGNED_BYTE) {
+		glPixelStorei(GL_PACK_ALIGNMENT, 2);  // This seems dubious. 1?
+	} else {
+		// The remainders do their own calls for now.
+		// glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	}
+
 	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA)) {
 		// Some drivers seem to require we specify this.  See #8254.
 		glPixelStorei(GL_PACK_ROW_LENGTH, w);
@@ -1053,9 +1068,6 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 	if (packed) {
 		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
 
-		glPixelStorei(GL_PACK_ALIGNMENT, 4);
-		CHECK_GL_ERROR_IF_DEBUG();
-
 		SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->fb_stride, h, GL_RGBA, GL_UNSIGNED_BYTE, packed);
 
 		if (convert) {
@@ -1098,7 +1110,6 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->z_stride, h, GL_DEPTH_COMPONENT, GL_FLOAT, convBuf_);
 
 	int dstByteOffset = y * vfb->fb_stride * sizeof(u16);
@@ -1260,7 +1271,6 @@ bool FramebufferManagerGLES::GetFramebuffer(u32 fb_address, int fb_stride, GEBuf
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	SafeGLReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 
 	// We may have blitted to a temp FBO.
@@ -1275,7 +1285,6 @@ bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 
 	// The backbuffer is flipped.
 	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	SafeGLReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
@@ -1306,7 +1315,6 @@ bool FramebufferManagerGLES::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z
 		draw_->BindFramebufferForRead(vfb->fbo);
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
@@ -1331,7 +1339,6 @@ bool FramebufferManagerGLES::GetStencilbuffer(u32 fb_address, int fb_stride, GPU
 		draw_->BindFramebufferForRead(vfb->fbo);
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
-	glPixelStorei(GL_PACK_ALIGNMENT, 2);
 	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, buffer.GetData());
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
