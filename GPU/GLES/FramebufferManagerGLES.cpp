@@ -920,9 +920,15 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 	// Order packing/readback of the framebuffer
 	if (vfb) {
-		int pixelType, pixelSize, pixelFormat, align;
+		GLuint pixelType, pixelFormat;
 
 		bool reverseOrder = gstate_c.Supports(GPU_PREFER_REVERSE_COLOR_ORDER);
+		int pixelSize = 2, align = 2;
+		if (vfb->format == GE_FORMAT_8888) {
+			pixelSize = 4;
+			align = 4;
+		}
+
 		switch (vfb->format) {
 			// GL_UNSIGNED_INT_8_8_8_8 returns A B G R (little-endian, tested in Nvidia card/x86 PC)
 			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
@@ -934,8 +940,6 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_4_4_4_4_REV : GL_UNSIGNED_SHORT_4_4_4_4);
 #endif
 				pixelFormat = GL_RGBA;
-				pixelSize = 2;
-				align = 2;
 				break;
 			case GE_FORMAT_5551: // 16 bit RGBA
 #ifdef USING_GLES2
@@ -944,8 +948,6 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_1_5_5_5_REV : GL_UNSIGNED_SHORT_5_5_5_1);
 #endif
 				pixelFormat = GL_RGBA;
-				pixelSize = 2;
-				align = 2;
 				break;
 			case GE_FORMAT_565: // 16 bit RGB
 #ifdef USING_GLES2
@@ -954,20 +956,25 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_5_6_5_REV : GL_UNSIGNED_SHORT_5_6_5);
 #endif
 				pixelFormat = GL_RGB;
-				pixelSize = 2;
-				align = 2;
 				break;
 			case GE_FORMAT_8888: // 32 bit RGBA
 			default:
 				pixelType = GL_UNSIGNED_BYTE;
 				pixelFormat = GL_RGBA;
-				pixelSize = 4;
-				align = 4;
 				break;
 		}
 
+		if (useCPU) {
+			// If converting pixel formats on the CPU we'll always request RGBA8888
+			// Otherwise we'll directly request the format we need and let the GPU sort it out
+			pixelSize = 4;
+			align = 4;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_UNSIGNED_BYTE;
+		}
+
 		// If using the CPU, we need 4 bytes per pixel always.
-		u32 bufSize = vfb->fb_stride * vfb->height * (useCPU ? 4 : pixelSize);
+		u32 bufSize = vfb->fb_stride * vfb->height * pixelSize;
 		u32 fb_address = (0x04000000) | vfb->fb_address;
 
 		if (vfb->fbo) {
@@ -985,15 +992,8 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			pixelBufObj_[currentPBO_].maxSize = bufSize;
 		}
 
-		if (useCPU) {
-			// If converting pixel formats on the CPU we'll always request RGBA8888
-			glPixelStorei(GL_PACK_ALIGNMENT, 4);
-			SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-		} else {
-			// Otherwise we'll directly request the format we need and let the GPU sort it out
-			glPixelStorei(GL_PACK_ALIGNMENT, align);
-			SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
-		}
+		glPixelStorei(GL_PACK_ALIGNMENT, align);
+		SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
 
 		unbind = true;
 
@@ -1054,10 +1054,9 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
-		GLenum glfmt = GL_RGBA;
 		CHECK_GL_ERROR_IF_DEBUG();
 
-		SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed);
+		SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->fb_stride, h, GL_RGBA, GL_UNSIGNED_BYTE, packed);
 
 		if (convert) {
 			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
