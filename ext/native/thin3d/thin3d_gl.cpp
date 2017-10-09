@@ -729,11 +729,33 @@ void OpenGLTexture::AutoGenMipmaps() {
 	}
 }
 
-void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-	int internalFormat;
-	int format;
-	int type;
+static bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint &format, GLuint &type) {
+	switch (fmt) {
+	case DataFormat::R8G8B8A8_UNORM:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_BYTE;
+		return true;
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_4_4_4_4;
+		return true;
+#ifndef USING_GLES2
+	case DataFormat::A4R4G4B4_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+		return true;
+#endif
+	default:
+		ELOG("Thin3d GL: Unsupported texture format %d", (int)fmt);
+		return false;
+	}
+}
 
+
+void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	if (width != width_ || height != height_ || depth != depth_) {
 		// When switching to texStorage we need to handle this correctly.
 		width_ = width;
@@ -741,26 +763,10 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		depth_ = depth;
 	}
 
-	switch (format_) {
-	case DataFormat::R8G8B8A8_UNORM:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-		break;
-	case DataFormat::B4G4R4A4_UNORM_PACK16:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_SHORT_4_4_4_4;
-		break;
-#ifndef USING_GLES2
-	case DataFormat::A4R4G4B4_UNORM_PACK16:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-		break;
-#endif
-	default:
-		ELOG("Thin3d GL: Unsupported texture format %d", (int)format_);
+	GLuint internalFormat;
+	GLuint format;
+	GLuint type;
+	if (!Thin3DFormatToFormatAndType(format_, internalFormat, format, type)) {
 		return;
 	}
 
