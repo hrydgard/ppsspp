@@ -42,33 +42,6 @@
 //
 // Each FBO will get its own command buffer for each pass. 
 
-// 
-struct VulkanFBOPass {
-	VkCommandBuffer cmd;
-};
-
-class VulkanFBO {
-public:
-	VulkanFBO();
-	~VulkanFBO();
-
-	// Depth-format is chosen automatically depending on hardware support.
-	// Color format will be 32-bit RGBA.
-	void Create(VulkanContext *vulkan, VkCommandBuffer cmd, VkRenderPass rp_compatible, int width, int height, VkFormat colorFormat);
-
-	VulkanTexture *GetColor() { return color_; }
-	VulkanTexture *GetDepthStencil() { return depthStencil_; }
-
-	VkFramebuffer GetFramebuffer() { return framebuffer_; }
-
-private:
-	VulkanTexture *color_;
-	VulkanTexture *depthStencil_;
-
-	// This point specifically to color and depth.
-	VkFramebuffer framebuffer_;
-};
-
 // Similar to a subset of Thin3D, but separate.
 // This is used for things like postprocessing shaders, depal, etc.
 // No UBO data is used, only PushConstants.

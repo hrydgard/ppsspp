@@ -20,33 +20,6 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-VulkanFBO::VulkanFBO() : color_(nullptr), depthStencil_(nullptr) {}
-
-VulkanFBO::~VulkanFBO() {
-	delete color_;
-	delete depthStencil_;
-}
-
-void VulkanFBO::Create(VulkanContext *vulkan, VkCommandBuffer cmd, VkRenderPass rp_compatible, int width, int height, VkFormat color_Format) {
-	color_ = new VulkanTexture(vulkan);
-	VkImageCreateFlags flags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	color_->CreateDirect(cmd, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, nullptr);
-	depthStencil_->CreateDirect(cmd, width, height, 1, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, nullptr);
-
-	VkImageView views[2] = { color_->GetImageView(), depthStencil_->GetImageView() };
-
-	VkFramebufferCreateInfo fb = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	fb.pAttachments = views;
-	fb.attachmentCount = 2;
-	fb.flags = 0;
-	fb.renderPass = rp_compatible;
-	fb.width = width;
-	fb.height = height;
-	fb.layers = 1;
-
-	vkCreateFramebuffer(vulkan->GetDevice(), &fb, nullptr, &framebuffer_);
-}
-
 Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan), curFrame_(0) {
 	InitDeviceObjects();
 }

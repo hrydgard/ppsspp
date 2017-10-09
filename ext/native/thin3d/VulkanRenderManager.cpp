@@ -80,9 +80,9 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan) {
 	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	semaphoreCreateInfo.flags = 0;
-	VkResult res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, NULL, &acquireSemaphore_);
+	VkResult res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &acquireSemaphore_);
 	assert(res == VK_SUCCESS);
-	res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, NULL, &renderingCompleteSemaphore_);
+	res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &renderingCompleteSemaphore_);
 	assert(res == VK_SUCCESS);
 
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
@@ -145,7 +145,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
 			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
-		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, NULL, &sc_buffer.view);
+		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
 		swapchainImages_.push_back(sc_buffer);
 		assert(res == VK_SUCCESS);
 	}
@@ -267,8 +267,6 @@ void VulkanRenderManager::BeginFrame() {
 }
 
 VkCommandBuffer VulkanRenderManager::GetInitCmd() {
-	// assert(insideFrame_ || firstFrame_);
-
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 	if (!frameData.hasInitCommands) {
@@ -389,7 +387,7 @@ void VulkanRenderManager::InitBackbufferRenderPass() {
 	rp_info.dependencyCount = 0;
 	rp_info.pDependencies = nullptr;
 
-	res = vkCreateRenderPass(vulkan_->GetDevice(), &rp_info, NULL, &backbufferRenderPass_);
+	res = vkCreateRenderPass(vulkan_->GetDevice(), &rp_info, nullptr, &backbufferRenderPass_);
 	assert(res == VK_SUCCESS);
 }
 

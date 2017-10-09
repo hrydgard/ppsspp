@@ -175,7 +175,6 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
-	// if (!useBufferedRendering_) {
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
@@ -196,9 +195,6 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 		if (clearDepth) {
 			SetDepthUpdated();
 		}
-	//} else {
-		// TODO: Clever render pass magic.
-	//}
 }
 
 void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
@@ -486,50 +482,20 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 }
 
 bool FramebufferManagerVulkan::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	// When updating VRAM, it need to be exact format.
-	if (!gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
-		switch (nvfb->format) {
-		case GE_FORMAT_4444:
-			nvfb->colorDepth = VK_FBO_4444;
-			break;
-		case GE_FORMAT_5551:
-			nvfb->colorDepth = VK_FBO_5551;
-			break;
-		case GE_FORMAT_565:
-			nvfb->colorDepth = VK_FBO_565;
-			break;
-		case GE_FORMAT_8888:
-		default:
-			nvfb->colorDepth = VK_FBO_8888;
-			break;
-		}
-	}
+	nvfb->colorDepth = Draw::FBO_8888;
 
-	/*
-	nvfb->fbo = CreateFramebuffer(nvfb->width, nvfb->height, 1, false, (FBOColorDepth)nvfb->colorDepth);
+	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
 	if (!(nvfb->fbo)) {
 		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
 	}
 
-	BindFramebufferAsRenderTarget(nvfb->fbo);
-	*/
+	draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 	return true;
 }
 
 void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	// _assert_msg_(G3D, nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
-
-	// Discard the previous contents of this buffer where possible.
-	/*
-	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-		BindFramebufferAsRenderTargetnvfb->fbo);
-		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
-		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
-	} else if (gl_extensions.IsGLES) {
-		BindFramebufferAsRenderTargetnvfb->fbo);
-	}
-	*/
+	// Nothing to do here.
 }
 
 void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
