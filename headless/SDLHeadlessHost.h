@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2017- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,15 +17,17 @@
 
 #pragma once
 
+#ifdef SDL
+
 #include "headless/StubHost.h"
 
 #undef HEADLESSHOST_CLASS
-#define HEADLESSHOST_CLASS WindowsHeadlessHost
+#define HEADLESSHOST_CLASS SDLHeadlessHost
 
-#include "Common/CommonWindows.h"
+struct SDL_Window;
+typedef void *SDL_GLContext;
 
-// TODO: Get rid of this junk
-class WindowsHeadlessHost : public HeadlessHost
+class SDLHeadlessHost : public HeadlessHost
 {
 public:
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
@@ -33,13 +35,12 @@ public:
 
 	void SwapBuffers() override;
 
-	void SendDebugOutput(const std::string &output) override;
-
 protected:
 	void LoadNativeAssets();
 
-	HWND hWnd;
-	HDC hDC;
-	HGLRC hRC;
+	SDL_Window *screen_;
+	SDL_GLContext glContext_;
 	GraphicsContext *gfx_;
 };
+
+#endif

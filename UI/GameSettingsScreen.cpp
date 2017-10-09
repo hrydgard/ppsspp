@@ -94,7 +94,7 @@ bool CheckSupportInstancedTessellationGLES() {
 	bool vertexTexture = maxVertexTextureImageUnits >= 3; // At least 3 for hardware tessellation
 
 	bool canUseInstanceID = gl_extensions.EXT_draw_instanced || gl_extensions.ARB_draw_instanced;
-	bool canDefInstanceID = gl_extensions.IsGLES || gl_extensions.EXT_gpu_shader4;
+	bool canDefInstanceID = gl_extensions.IsGLES || gl_extensions.EXT_gpu_shader4 || gl_extensions.VersionGEThan(3, 1);
 	bool instanceRendering = gl_extensions.GLES3 || (canUseInstanceID && canDefInstanceID);
 
 	bool textureFloat = gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float;
@@ -1105,6 +1105,9 @@ void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 	// If the user ends up deciding not to restart, set the config back to the current backend
 	// so it doesn't get switched by accident.
 	if (yes) {
+		// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
+		// the GPU backend code.
+		g_Config.Save();
 		System_SendMessage("graphics_restart", "");
 	} else {
 		g_Config.iGPUBackend = (int)GetGPUBackend();

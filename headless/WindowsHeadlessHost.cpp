@@ -17,8 +17,7 @@
 
 #include <stdio.h>
 
-#include "WindowsHeadlessHost.h"
-#include "Compare.h"
+#include "headless/WindowsHeadlessHost.h"
 
 #include "Common/FileUtil.h"
 #include "Common/CommonWindows.h"
@@ -76,72 +75,6 @@ void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 {
 	fwrite(output.data(), sizeof(char), output.length(), stdout);
 	OutputDebugStringUTF8(output.c_str());
-}
-
-void WindowsHeadlessHost::SendOrCollectDebugOutput(const std::string &data)
-{
-	if (PSP_CoreParameter().printfEmuLog)
-		SendDebugOutput(data);
-	else if (PSP_CoreParameter().collectEmuLog)
-		*PSP_CoreParameter().collectEmuLog += data;
-	else
-		DEBUG_LOG(COMMON, "%s", data.c_str());
-}
-
-void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
-{
-	// Only if we're actually comparing.
-	if (comparisonScreenshot.empty()) {
-		return;
-	}
-
-	// We ignore the current framebuffer parameters and just grab the full screen.
-	const static u32 FRAME_STRIDE = 512;
-	const static u32 FRAME_WIDTH = 480;
-	const static u32 FRAME_HEIGHT = 272;
-
-	GPUDebugBuffer buffer;
-	gpuDebug->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_RENDER);
-	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
-
-	std::string error;
-	double errors = CompareScreenshot(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT, comparisonScreenshot, error);
-	if (errors < 0)
-		SendOrCollectDebugOutput(error);
-
-	if (errors > 0)
-	{
-		char temp[256];
-		sprintf_s(temp, "Screenshot error: %f%%\n", errors * 100.0f);
-		SendOrCollectDebugOutput(temp);
-	}
-
-	if (errors > 0 && !teamCityMode)
-	{
-		// Lazy, just read in the original header to output the failed screenshot.
-		u8 header[14 + 40] = {0};
-		FILE *bmp = File::OpenCFile(comparisonScreenshot, "rb");
-		if (bmp)
-		{
-			fread(&header, sizeof(header), 1, bmp);
-			fclose(bmp);
-		}
-
-		FILE *saved = File::OpenCFile("__testfailure.bmp", "wb");
-		if (saved)
-		{
-			fwrite(&header, sizeof(header), 1, saved);
-			fwrite(pixels.data(), sizeof(u32), FRAME_STRIDE * FRAME_HEIGHT, saved);
-			fclose(saved);
-
-			SendOrCollectDebugOutput("Actual output written to: __testfailure.bmp\n");
-		}
-	}
-}
-
-void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
-{
-	comparisonScreenshot = filename;
 }
 
 bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {

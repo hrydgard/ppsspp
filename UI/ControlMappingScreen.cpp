@@ -438,7 +438,7 @@ public:
 	JoystickHistoryView(int xAxis, int xDevice, int xDir, int yAxis, int yDevice, int yDir, UI::LayoutParams *layoutParams = nullptr)
 		: UI::InertView(layoutParams),
 			xAxis_(xAxis), xDevice_(xDevice), xDir_(xDir),
-			yAxis_(yAxis), yDevice_(yDevice), yDir_(xDir),
+			yAxis_(yAxis), yDevice_(yDevice), yDir_(yDir),
 			curX_(0.0f), curY_(0.0f),
 			maxCount_(500) {}
 	void Draw(UIContext &dc) override;

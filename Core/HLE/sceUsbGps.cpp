@@ -36,7 +36,7 @@ void __UsbGpsInit() {
 }
 
 void __UsbGpsDoState(PointerWrap &p) {
-	auto s = p.Section("sceUsbGps", 1, 4);
+	auto s = p.Section("sceUsbGps", 0, 1);
 	if (!s)
 		return;
 

@@ -647,6 +647,12 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8
 			} else {
 				WARN_LOG_REPORT(SCEUTILITY, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
 			}
+			if (g_Config.bSavedataUpgrade) {
+				decryptMode = prevCryptMode;
+				I18NCategory *di = GetI18NCategory("Dialog");
+				host->NotifyUserMessage(di->T("When you save, it will not work on outdated PSP Firmware anymore"), 6.0f);
+				host->NotifyUserMessage(di->T("Old savedata detected"), 6.0f);
+			}
 		}
 	}
 

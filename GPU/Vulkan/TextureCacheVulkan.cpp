@@ -135,13 +135,16 @@ TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *v
 
 TextureCacheVulkan::~TextureCacheVulkan() {
 	Clear(true);
-	allocator_->Destroy();
 
-	// We have to delete on queue, so this can free its queued deletions.
-	vulkan_->Delete().QueueCallback([](void *ptr) {
-		auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
-		delete allocator;
-	}, allocator_);
+	if (allocator_) {
+		allocator_->Destroy();
+
+		// We have to delete on queue, so this can free its queued deletions.
+		vulkan_->Delete().QueueCallback([](void *ptr) {
+			auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
+			delete allocator;
+		}, allocator_);
+	}
 }
 
 void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManager) {
@@ -170,6 +173,8 @@ void TextureCacheVulkan::DeviceLost() {
 
 void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan) {
 	vulkan_ = vulkan;
+
+	assert(!allocator_);
 
 	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 	samplerCache_.DeviceRestore(vulkan);

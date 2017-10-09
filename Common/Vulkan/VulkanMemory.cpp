@@ -143,6 +143,7 @@ void VulkanDeviceAllocator::Destroy() {
 			}
 		}
 
+		assert(slab.deviceMemory);
 		vulkan_->Delete().QueueDeleteDeviceMemory(slab.deviceMemory);
 	}
 	slabs_.clear();

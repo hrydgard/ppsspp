@@ -123,11 +123,20 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 
 	uint32_t gpu_count = 1;
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, nullptr);
+	if (gpu_count <= 0) {
+		ELOG("Vulkan driver found but no supported GPU is available");
+		init_error_ = "No Vulkan physical devices found";
+		vkDestroyInstance(instance_, nullptr);
+		instance_ = nullptr;
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+
 	assert(gpu_count > 0);
 	physical_devices_.resize(gpu_count);
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, physical_devices_.data());
 	if (res != VK_SUCCESS) {
 		init_error_ = "Failed to enumerate physical devices";
+		vkDestroyInstance(instance_, nullptr);
 		return res;
 	}
 
