@@ -466,7 +466,7 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int x, int y, int w, int h, Draw::DataFormat format, void *pixels) override;
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
@@ -870,7 +870,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels) {
+bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)src;
 	fbo_bind_fb_target(true, fb ? fb->handle : 0);
 
@@ -891,7 +891,7 @@ bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int x, int y, 
 	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
 	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA)) {
 		// Some drivers seem to require we specify this.  See #8254.
-		glPixelStorei(GL_PACK_ROW_LENGTH, w);
+		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
 	}
 
 	glReadPixels(x, y, w, h, format, type, pixels);

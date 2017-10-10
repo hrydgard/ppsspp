@@ -10,6 +10,9 @@
 #include "math/dataconv.h"
 #include "util/text/utf8.h"
 
+#include "Common/ColorConv.h"
+
+#include <cassert>
 #include <D3DCommon.h>
 #include <d3d11.h>
 #include <d3d11_1.h>
@@ -26,7 +29,6 @@ class D3D11BlendState;
 class D3D11DepthStencilState;
 class D3D11SamplerState;
 class D3D11RasterState;
-
 
 class D3D11DrawContext : public DrawContext {
 public:
@@ -56,6 +58,7 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride);
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
@@ -193,6 +196,9 @@ private:
 	uint8_t stencilRef_;
 	bool stencilRefDirty_;
 
+	// Temporaries
+	ID3D11Texture2D *packTexture_ = nullptr;
+
 	// System info
 	D3D_FEATURE_LEVEL featureLevel_;
 	std::string adapterDesc_;
@@ -237,9 +243,24 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 		dxgiDevice->Release();
 	}
 	CreatePresets();
+
+	D3D11_TEXTURE2D_DESC packDesc{};
+	packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	packDesc.BindFlags = 0;
+	packDesc.Width = 512;  // 512x512 is the maximum size of a framebuffer on the PSP.
+	packDesc.Height = 512;
+	packDesc.ArraySize = 1;
+	packDesc.MipLevels = 1;
+	packDesc.Usage = D3D11_USAGE_STAGING;
+	packDesc.SampleDesc.Count = 1;
+	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	hr = device_->CreateTexture2D(&packDesc, nullptr, &packTexture_);
+	assert(SUCCEEDED(hr));
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
+	packTexture_->Release();
+
 	// Release references.
 	ID3D11RenderTargetView *view = nullptr;
 	context_->OMSetRenderTargets(1, &view, nullptr);
@@ -1283,6 +1304,107 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 	// Unfortunately D3D11 has no equivalent to this, gotta render a quad. Well, in some cases we can issue a copy instead.
 	Crash();
 	return false;
+}
+
+// TODO: SSE/NEON
+// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
+void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, Draw::DataFormat format) {
+	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
+	const u32 *src32 = (const u32 *)src;
+
+	if (format == Draw::DataFormat::R8G8B8A8_UNORM) {
+		u32 *dst32 = (u32 *)dst;
+		if (src == dst) {
+			return;
+		} else {
+			for (u32 y = 0; y < height; ++y) {
+				memcpy(dst32, src32, width * 4);
+				src32 += srcStride;
+				dst32 += dstStride;
+			}
+		}
+	} else {
+		// But here it shouldn't matter if they do intersect
+		u16 *dst16 = (u16 *)dst;
+		switch (format) {
+		case Draw::DataFormat::R5G6B5_UNORM_PACK16: // BGR 565
+			for (u32 y = 0; y < height; ++y) {
+				ConvertRGBA8888ToRGB565(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::A1R5G5B5_UNORM_PACK16: // ABGR 1555
+			for (u32 y = 0; y < height; ++y) {
+				ConvertRGBA8888ToRGBA5551(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::A4R4G4B4_UNORM_PACK16: // ABGR 4444
+			for (u32 y = 0; y < height; ++y) {
+				ConvertRGBA8888ToRGBA4444(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::R8G8B8A8_UNORM:
+		case Draw::DataFormat::UNDEFINED:
+			// Not possible.
+			break;
+		}
+	}
+}
+
+bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) {
+	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
+
+	assert(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
+
+	bool useGlobalPacktex = (x + w <= 512 && y + h <= 512);
+
+	ID3D11Texture2D *packTex;
+	if (!useGlobalPacktex) {
+		D3D11_TEXTURE2D_DESC packDesc{};
+		packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		packDesc.BindFlags = 0;
+		packDesc.Width = w;
+		packDesc.Height = h;
+		packDesc.ArraySize = 1;
+		packDesc.MipLevels = 1;
+		packDesc.Usage = D3D11_USAGE_STAGING;
+		packDesc.SampleDesc.Count = 1;
+		packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		device_->CreateTexture2D(&packDesc, nullptr, &packTex);
+
+		context_->CopyResource(packTex, fb->colorTex);
+	} else {
+		packTex = packTexture_;
+	}
+
+	// Only copy the necessary rectangle.
+	D3D11_BOX srcBox{ (UINT)x, (UINT)y, 0, (UINT)(x + w), (UINT)(y + h), 1 };
+	context_->CopySubresourceRegion(packTex, 0, x, y, 0, fb->colorTex, 0, &srcBox);
+
+	// Ideally, we'd round robin between two packTexture_, and simply use the other one. Though if the game
+	// does a once-off copy, that won't work at all.
+
+	// BIG GPU STALL
+	D3D11_MAPPED_SUBRESOURCE map;
+	HRESULT result = context_->Map(packTex, 0, D3D11_MAP_READ, 0, &map);
+	if (FAILED(result)) {
+		return false;
+	}
+
+	const int srcByteOffset = y * map.RowPitch + x * 4;
+	// Pixel size always 4 here because we always request BGRA8888.
+	ConvertFromRGBA8888((u8 *)pixels, (u8 *)map.pData + srcByteOffset, pixelStride, map.RowPitch / 4, w, h, format);
+	context_->Unmap(packTex, 0);
+
+	if (!useGlobalPacktex) {
+		packTex->Release();
+	}
+	return true;
 }
 
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {

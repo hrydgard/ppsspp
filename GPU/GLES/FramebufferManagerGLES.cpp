@@ -943,8 +943,8 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			pixelBufObj_[currentPBO_].maxSize = bufSize;
 		}
 
-		// TODO: Change to CopyFramebufferToBuffer with a proper pointer.
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, 0, 0, vfb->fb_stride, vfb->height, dataFmt, nullptr);
+		// TODO: This is a hack since PBOs have not been implemented in Thin3D yet (and maybe shouldn't? maybe should do this internally?)
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->fb_stride, vfb->height, dataFmt, nullptr, vfb->fb_stride);
 
 		unbind = true;
 
@@ -1002,7 +1002,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 	if (packed) {
 		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
 		int packW = h == 1 ? packWidth : vfb->fb_stride;  // TODO: What's this about?
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, 0, y, packW, h, Draw::DataFormat::R8G8B8A8_UNORM, packed);
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, y, packW, h, Draw::DataFormat::R8G8B8A8_UNORM, packed, packW);
 		if (convert) {
 			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
 		}
@@ -1042,7 +1042,8 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, 0, y, h == 1 ? packWidth : vfb->z_stride, h, Draw::DataFormat::D32F, convBuf_);
+	int packW = h == 1 ? packWidth : vfb->z_stride;
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, y, packW, h, Draw::DataFormat::D32F, convBuf_, packW);
 
 	int dstByteOffset = y * vfb->fb_stride * sizeof(u16);
 	u16 *depth = (u16 *)Memory::GetPointer(z_address + dstByteOffset);
@@ -1203,12 +1204,10 @@ bool FramebufferManagerGLES::GetFramebuffer(u32 fb_address, int fb_stride, GEBuf
 	}
 
 	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
-	draw_->CopyFramebufferToMemorySync(bound, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData());
-
+	bool retval = draw_->CopyFramebufferToMemorySync(bound, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
 	// We may have blitted to a temp FBO.
 	RebindFramebuffer();
-	CHECK_GL_ERROR_IF_DEBUG();
-	return true;
+	return retval;
 }
 
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
@@ -1217,7 +1216,7 @@ bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 
 	// The backbuffer is flipped (last bool)
 	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
-	draw_->CopyFramebufferToMemorySync(nullptr, 0, 0, pw, ph, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData());
+	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, pw, ph, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), pw);
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 }
@@ -1243,7 +1242,7 @@ bool FramebufferManagerGLES::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z
 	} else {
 		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, !useBufferedRendering_);
 	}
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::D32F, buffer.GetData());
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::D32F, buffer.GetData(), vfb->renderWidth);
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 }
@@ -1263,7 +1262,7 @@ bool FramebufferManagerGLES::GetStencilbuffer(u32 fb_address, int fb_stride, GPU
 
 #ifndef USING_GLES2
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_8BIT, !useBufferedRendering_);
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::S8, buffer.GetData());
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::S8, buffer.GetData(), vfb->renderWidth);
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 #else

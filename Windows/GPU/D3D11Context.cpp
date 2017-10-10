@@ -27,10 +27,6 @@ D3D11Context::~D3D11Context() {
 void D3D11Context::SwapBuffers() {
 	swapChain_->Present(0, 0);
 	draw_->HandleEvent(Draw::Event::PRESENTED, 0, 0, nullptr, nullptr);
-
-	// Might be a good idea.
-	// context_->ClearState();
-	//
 }
 
 void D3D11Context::SwapInterval(int interval) {

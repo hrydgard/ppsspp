@@ -133,22 +133,9 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	ShaderTranslationInit();
 
 	CompilePostShader();
-
-	D3D11_TEXTURE2D_DESC packDesc{};
-	packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	packDesc.BindFlags = 0;
-	packDesc.Width = 512;  // 512x512 is the maximum size of a framebuffer on the PSP.
-	packDesc.Height = 512;
-	packDesc.ArraySize = 1;
-	packDesc.MipLevels = 1;
-	packDesc.Usage = D3D11_USAGE_STAGING;
-	packDesc.SampleDesc.Count = 1;
-	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	ASSERT_SUCCESS(device_->CreateTexture2D(&packDesc, nullptr, &packTexture_));
 }
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
-	packTexture_->Release();
 	ShaderTranslationShutdown();
 
 	// Drawing cleanup
@@ -762,53 +749,18 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 		false);
 }
 
-// TODO: SSE/NEON
-// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
-	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
-	const u32 *src32 = (const u32 *)src;
-
-	if (format == GE_FORMAT_8888) {
-		u32 *dst32 = (u32 *)dst;
-		if (src == dst) {
-			return;
-		} else {
-			for (u32 y = 0; y < height; ++y) {
-				memcpy(dst32, src32, width * 4);
-				src32 += srcStride;
-				dst32 += dstStride;
-			}
-		}
-	} else {
-		// But here it shouldn't matter if they do intersect
-		u16 *dst16 = (u16 *)dst;
-		switch (format) {
-		case GE_FORMAT_565: // BGR 565
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGB565(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case GE_FORMAT_5551: // ABGR 1555
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGBA5551(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case GE_FORMAT_4444: // ABGR 4444
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGBA4444(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case GE_FORMAT_8888:
-		case GE_FORMAT_INVALID:
-			// Not possible.
-			break;
-		}
+static Draw::DataFormat GEFormatToThin3D(int geFormat) {
+	switch (geFormat) {
+	case GE_FORMAT_4444:
+		return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
+	case GE_FORMAT_5551:
+		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case GE_FORMAT_565:
+		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case GE_FORMAT_8888:
+		return Draw::DataFormat::R8G8B8A8_UNORM;
+	default:
+		return Draw::DataFormat::UNDEFINED;
 	}
 }
 
@@ -822,7 +774,9 @@ void FramebufferManagerD3D11::PackFramebufferSync_(VirtualFramebuffer *vfb, int 
 	}
 
 	const u32 fb_address = (0x04000000) | vfb->fb_address;
-	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
+
+	Draw::DataFormat destFormat = GEFormatToThin3D(vfb->format);
+	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
 
 	// TODO: Handle the other formats?  We don't currently create them, I think.
 	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
@@ -831,26 +785,8 @@ void FramebufferManagerD3D11::PackFramebufferSync_(VirtualFramebuffer *vfb, int 
 	// We always need to convert from the framebuffer native format.
 	// Right now that's always 8888.
 	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
-	ID3D11Texture2D *colorTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT, 0);
 
-	// Only copy the necessary rectangle.
-	D3D11_BOX srcBox{ (UINT)x, (UINT)y, 0, (UINT)(x+w), (UINT)(y+h), 1 };
-	context_->CopySubresourceRegion(packTexture_, 0, x, y, 0, colorTex, 0, &srcBox);
-
-	// Ideally, we'd round robin between two packTexture_, and simply use the other one. Though if the game
-	// does a once-off copy, that won't work at all.
-
-	// BIG GPU STALL
-	D3D11_MAPPED_SUBRESOURCE map;
-	HRESULT result = context_->Map(packTexture_, 0, D3D11_MAP_READ, 0, &map);
-	if (FAILED(result)) {
-		return;
-	}
-
-	const int srcByteOffset = y * map.RowPitch + x * 4;
-	// Pixel size always 4 here because we always request BGRA8888.
-	ConvertFromRGBA8888(destPtr, (u8 *)map.pData + srcByteOffset, vfb->fb_stride, map.RowPitch/4, w, h, vfb->format);
-	context_->Unmap(packTexture_, 0);
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
 }
 
 // Nobody calls this yet.
@@ -953,7 +889,7 @@ bool FramebufferManagerD3D11::GetFramebuffer(u32 fb_address, int fb_stride, GEBu
 	}
 
 	int w = vfb->renderWidth, h = vfb->renderHeight;
-	Draw::Framebuffer *fboForRead = nullptr;
+	Draw::Framebuffer *bound = nullptr;
 	if (vfb->fbo) {
 		if (maxRes > 0 && vfb->renderWidth > vfb->width * maxRes) {
 			w = vfb->width * maxRes;
@@ -968,44 +904,17 @@ bool FramebufferManagerD3D11::GetFramebuffer(u32 fb_address, int fb_stride, GEBu
 			tempVfb.renderHeight = h;
 			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0);
 
-			fboForRead = tempFBO;
+			bound = tempFBO;
 		} else {
-			fboForRead = vfb->fbo;
+			bound = vfb->fbo;
 		}
 	}
-	if (!fboForRead)
+	if (!bound)
 		return false;
 
 	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
 
-	ID3D11Texture2D *packTex;
-	D3D11_TEXTURE2D_DESC packDesc{};
-	packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	packDesc.BindFlags = 0;
-	packDesc.Width = w;
-	packDesc.Height = h;
-	packDesc.ArraySize = 1;
-	packDesc.MipLevels = 1;
-	packDesc.Usage = D3D11_USAGE_STAGING;
-	packDesc.SampleDesc.Count = 1;
-	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	ASSERT_SUCCESS(device_->CreateTexture2D(&packDesc, nullptr, &packTex));
-
-	ID3D11Texture2D *nativeTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(fboForRead, Draw::FB_COLOR_BIT, 0);
-	context_->CopyResource(packTex, nativeTex);
-
-	D3D11_MAPPED_SUBRESOURCE map;
-	context_->Map(packTex, 0, D3D11_MAP_READ, 0, &map);
-
-	for (int y = 0; y < h; y++) {
-		uint8_t *dest = (uint8_t *)buffer.GetData() + y * w * 4;
-		const uint8_t *src = ((const uint8_t *)map.pData) + map.RowPitch * y;
-		memcpy(dest, src, 4 * w);
-	}
-
-	context_->Unmap(packTex, 0);
-	packTex->Release();
-	return true;
+	return draw_->CopyFramebufferToMemorySync(bound, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
 }
 
 bool FramebufferManagerD3D11::GetDepthStencilBuffer(VirtualFramebuffer *vfb, GPUDebugBuffer &buffer, bool stencil) {

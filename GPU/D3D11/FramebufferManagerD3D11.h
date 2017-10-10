@@ -135,10 +135,6 @@ private:
 	ShaderManagerD3D11 *shaderManagerD3D11_;
 	DrawEngineD3D11 *drawEngine_;
 
-	// Permanent 1:1 readback texture, 512x512 fixed
-	// For larger debug readbacks, we create/destroy textures on the fly.
-	ID3D11Texture2D *packTexture_;
-
 	// Used by post-processing shader
 	// Postprocessing
 	ID3D11VertexShader *postVertexShader_ = nullptr;
