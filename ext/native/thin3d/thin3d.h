@@ -620,7 +620,7 @@ public:
 	virtual bool CopyFramebufferToBuffer(Framebuffer *src, Buffer *buffer, Draw::DataFormat bufferFormat) {
 		return false;
 	}
-	virtual bool CopyFramebufferToMemorySync(int x, int y, int w, int h, Draw::DataFormat format, void *pixels) {
+	virtual bool CopyFramebufferToMemorySync(Framebuffer *src, int x, int y, int w, int h, Draw::DataFormat format, void *pixels) {
 		return false;
 	}
 
@@ -630,7 +630,6 @@ public:
 
 	// color must be 0, for now.
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
-	virtual void BindFramebufferForRead(Framebuffer *fbo) = 0;
 
 	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) = 0;
 

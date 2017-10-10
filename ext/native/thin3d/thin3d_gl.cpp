@@ -466,13 +466,12 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
-	bool CopyFramebufferToMemorySync(int x, int y, int w, int h, Draw::DataFormat format, void *pixels) override;
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int x, int y, int w, int h, Draw::DataFormat format, void *pixels) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	void BindFramebufferForRead(Framebuffer *fbo) override;
 
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
@@ -731,6 +730,37 @@ void OpenGLTexture::AutoGenMipmaps() {
 	}
 }
 
+class OpenGLFramebuffer : public Framebuffer, public GfxResourceHolder {
+public:
+	OpenGLFramebuffer() {
+		register_gl_resource_holder(this, "framebuffer", 0);
+	}
+	~OpenGLFramebuffer();
+
+	void GLLost() override {
+		handle = 0;
+		color_texture = 0;
+		z_stencil_buffer = 0;
+		z_buffer = 0;
+		stencil_buffer = 0;
+	}
+
+	void GLRestore() override {
+		ELOG("Restoring framebuffers not yet implemented");
+	}
+
+	GLuint handle = 0;
+	GLuint color_texture = 0;
+	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
+	GLuint z_buffer = 0;
+	GLuint stencil_buffer = 0;
+
+	int width;
+	int height;
+	FBColorDepth colorDepth;
+};
+
+
 // TODO: Also output storage format (GL_RGBA8 etc) for modern GL usage.
 static bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint &format, GLuint &type, int &alignment) {
 	alignment = 4;
@@ -840,7 +870,10 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-bool OpenGLContext::CopyFramebufferToMemorySync(int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels) {
+bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels) {
+	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)src;
+	fbo_bind_fb_target(true, fb ? fb->handle : 0);
+
 	// Reads from the "bound for read" framebuffer.
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
@@ -1341,36 +1374,6 @@ void OpenGLInputLayout::Unapply() {
 	}
 }
 
-class OpenGLFramebuffer : public Framebuffer, public GfxResourceHolder {
-public:
-	OpenGLFramebuffer() {
-		register_gl_resource_holder(this, "framebuffer", 0);
-	}
-	~OpenGLFramebuffer();
-
-	void GLLost() override {
-		handle = 0;
-		color_texture = 0;
-		z_stencil_buffer = 0;
-		z_buffer = 0;
-		stencil_buffer = 0;
-	}
-
-	void GLRestore() override {
-		ELOG("Restoring framebuffers not yet implemented");
-	}
-
-	GLuint handle = 0;
-	GLuint color_texture = 0;
-	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
-	GLuint z_buffer = 0;
-	GLuint stencil_buffer = 0;
-
-	int width;
-	int height;
-	FBColorDepth colorDepth;
-};
-
 // On PC, we always use GL_DEPTH24_STENCIL8. 
 // On Android, we try to use what's available.
 
@@ -1682,13 +1685,6 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 		glstate.stencilFunc.restore();
 		glstate.stencilMask.restore();
 	}
-	CHECK_GL_ERROR_IF_DEBUG();
-}
-
-// For GL_EXT_FRAMEBUFFER_BLIT and similar.
-void OpenGLContext::BindFramebufferForRead(Framebuffer *fbo) {
-	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
-	fbo_bind_fb_target(true, fb->handle);
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 

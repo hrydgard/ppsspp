@@ -61,7 +61,6 @@ public:
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	void BindFramebufferForRead(Framebuffer *fbo) override;
 
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
 
@@ -1325,10 +1324,6 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	context_->PSSetShaderResources(binding, 1, &fb->colorSRView);
-}
-
-void D3D11DrawContext::BindFramebufferForRead(Framebuffer *fbo) {
-	// This is meaningless in D3D11
 }
 
 uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {

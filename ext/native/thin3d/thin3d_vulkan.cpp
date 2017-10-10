@@ -392,7 +392,6 @@ public:
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	void BindFramebufferForRead(Framebuffer *fbo) override;
 
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
 
@@ -2021,8 +2020,6 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 	vkCmdPipelineBarrier(transitionCmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 	fb->color.layout = barrier.newLayout;
 }
-
-void VKContext::BindFramebufferForRead(Framebuffer *fbo) { /* noop */ }
 
 uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
 	// TODO: Insert transition at the end of the previous command buffer, or the one that rendered to it last.

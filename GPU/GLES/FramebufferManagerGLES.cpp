@@ -930,9 +930,7 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		u32 bufSize = vfb->fb_stride * vfb->height * pixelSize;
 		u32 fb_address = (0x04000000) | vfb->fb_address;
 
-		if (vfb->fbo) {
-			draw_->BindFramebufferForRead(vfb->fbo);
-		} else {
+		if (!vfb->fbo) {
 			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
 			return;
 		}
@@ -946,7 +944,7 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		}
 
 		// TODO: Change to CopyFramebufferToBuffer with a proper pointer.
-		draw_->CopyFramebufferToMemorySync(0, 0, vfb->fb_stride, vfb->height, dataFmt, nullptr);
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, 0, 0, vfb->fb_stride, vfb->height, dataFmt, nullptr);
 
 		unbind = true;
 
@@ -967,9 +965,7 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 }
 
 void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	if (vfb->fbo) {
-		draw_->BindFramebufferForRead(vfb->fbo);
-	} else {
+	if (!vfb->fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
 		return;
 	}
@@ -1006,7 +1002,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 	if (packed) {
 		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
 		int packW = h == 1 ? packWidth : vfb->fb_stride;  // TODO: What's this about?
-		draw_->CopyFramebufferToMemorySync(0, y, packW, h, Draw::DataFormat::R8G8B8A8_UNORM, packed);
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, 0, y, packW, h, Draw::DataFormat::R8G8B8A8_UNORM, packed);
 		if (convert) {
 			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
 		}
@@ -1028,9 +1024,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 }
 
 void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	if (vfb->fbo) {
-		draw_->BindFramebufferForRead(vfb->fbo);
-	} else {
+	if (!vfb->fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackDepthbuffer: vfb->fbo == 0");
 		return;
 	}
@@ -1048,7 +1042,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
-	draw_->CopyFramebufferToMemorySync(0, y, h == 1 ? packWidth : vfb->z_stride, h, Draw::DataFormat::D32F, convBuf_);
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, 0, y, h == 1 ? packWidth : vfb->z_stride, h, Draw::DataFormat::D32F, convBuf_);
 
 	int dstByteOffset = y * vfb->fb_stride * sizeof(u16);
 	u16 *depth = (u16 *)Memory::GetPointer(z_address + dstByteOffset);
@@ -1185,6 +1179,9 @@ bool FramebufferManagerGLES::GetFramebuffer(u32 fb_address, int fb_stride, GEBuf
 	}
 
 	int w = vfb->renderWidth, h = vfb->renderHeight;
+
+	Draw::Framebuffer *bound = nullptr;
+
 	if (vfb->fbo) {
 		if (maxRes > 0 && vfb->renderWidth > vfb->width * maxRes) {
 			w = vfb->width * maxRes;
@@ -1199,17 +1196,14 @@ bool FramebufferManagerGLES::GetFramebuffer(u32 fb_address, int fb_stride, GEBuf
 			tempVfb.renderHeight = h;
 			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0);
 
-			draw_->BindFramebufferForRead(tempFBO);
+			bound = tempFBO;
 		} else {
-			draw_->BindFramebufferForRead(vfb->fbo);
+			bound = vfb->fbo;
 		}
 	}
 
 	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-
-	draw_->CopyFramebufferToMemorySync(0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData());
+	draw_->CopyFramebufferToMemorySync(bound, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData());
 
 	// We may have blitted to a temp FBO.
 	RebindFramebuffer();
@@ -1223,7 +1217,7 @@ bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 
 	// The backbuffer is flipped (last bool)
 	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
-	draw_->CopyFramebufferToMemorySync(0, 0, pw, ph, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData());
+	draw_->CopyFramebufferToMemorySync(nullptr, 0, 0, pw, ph, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData());
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 }
@@ -1249,9 +1243,7 @@ bool FramebufferManagerGLES::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z
 	} else {
 		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, !useBufferedRendering_);
 	}
-	if (vfb->fbo)
-		draw_->BindFramebufferForRead(vfb->fbo);
-	draw_->CopyFramebufferToMemorySync(0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::D32F, buffer.GetData());
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::D32F, buffer.GetData());
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 }
@@ -1271,9 +1263,7 @@ bool FramebufferManagerGLES::GetStencilbuffer(u32 fb_address, int fb_stride, GPU
 
 #ifndef USING_GLES2
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_8BIT, !useBufferedRendering_);
-	if (vfb->fbo)
-		draw_->BindFramebufferForRead(vfb->fbo);
-	draw_->CopyFramebufferToMemorySync(0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::S8, buffer.GetData());
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::S8, buffer.GetData());
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 #else
