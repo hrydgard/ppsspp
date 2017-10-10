@@ -3,6 +3,7 @@
 #include <string>
 #include <algorithm>
 #include <map>
+#include <cassert>
 
 #include "base/logging.h"
 #include "math/dataconv.h"
@@ -465,6 +466,7 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+	bool CopyFramebufferToMemorySync(int x, int y, int w, int h, Draw::DataFormat format, void *pixels) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
@@ -729,63 +731,85 @@ void OpenGLTexture::AutoGenMipmaps() {
 	}
 }
 
-// TODO: Also output storage format (GL_RGB8 etc) for modern GL usage.
-static bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint &format, GLuint &type) {
+// TODO: Also output storage format (GL_RGBA8 etc) for modern GL usage.
+static bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint &format, GLuint &type, int &alignment) {
+	alignment = 4;
 	switch (fmt) {
 	case DataFormat::R8G8B8A8_UNORM:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
-		return true;
+		break;
+
+	case DataFormat::D32F:
+		internalFormat = GL_DEPTH_COMPONENT;
+		format = GL_DEPTH_COMPONENT;
+		type = GL_FLOAT;
+		break;
+
+	case DataFormat::S8:
+		internalFormat = GL_STENCIL_INDEX;
+		format = GL_STENCIL_INDEX;
+		type = GL_UNSIGNED_BYTE;
+		alignment = 1;
+		break;
 
 	case DataFormat::R8G8B8_UNORM:
 		internalFormat = GL_RGB;
 		format = GL_RGB;
 		type = GL_UNSIGNED_BYTE;
-		return true;
+		alignment = 1;
+		break;
 
 	case DataFormat::B4G4R4A4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
-		return true;
+		alignment = 2;
+		break;
 
 	case DataFormat::B5G6R5_UNORM_PACK16:
 		internalFormat = GL_RGB;
 		format = GL_RGB;
 		type = GL_UNSIGNED_SHORT_5_6_5;
-		return true;
+		alignment = 2;
+		break;
 
 	case DataFormat::B5G5R5A1_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_5_5_5_1;
-		return true;
+		alignment = 2;
+		break;
 
 #ifndef USING_GLES2
 	case DataFormat::A4R4G4B4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-		return true;
+		alignment = 2;
+		break;
 
 	case DataFormat::R5G6B5_UNORM_PACK16:
 		internalFormat = GL_RGB;
 		format = GL_RGB;
 		type = GL_UNSIGNED_SHORT_5_6_5_REV;
-		return true;
+		alignment = 2;
+		break;
 
 	case DataFormat::A1R5G5B5_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
-		return true;
+		alignment = 2;
+		break;
 #endif
 
 	default:
 		ELOG("Thin3d GL: Unsupported texture format %d", (int)fmt);
 		return false;
 	}
+	return true;
 }
 
 void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
@@ -799,7 +823,8 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	GLuint internalFormat;
 	GLuint format;
 	GLuint type;
-	if (!Thin3DFormatToFormatAndType(format_, internalFormat, format, type)) {
+	int alignment;
+	if (!Thin3DFormatToFormatAndType(format_, internalFormat, format, type, alignment)) {
 		return;
 	}
 
@@ -814,6 +839,40 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
+
+bool OpenGLContext::CopyFramebufferToMemorySync(int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels) {
+	// Reads from the "bound for read" framebuffer.
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+
+	CHECK_GL_ERROR_IF_DEBUG();
+
+	GLuint internalFormat;
+	GLuint format;
+	GLuint type;
+	int alignment;
+	if (!Thin3DFormatToFormatAndType(dataFormat, internalFormat, format, type, alignment)) {
+		assert(false);
+	}
+	// Apply the correct alignment.
+	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA)) {
+		// Some drivers seem to require we specify this.  See #8254.
+		glPixelStorei(GL_PACK_ROW_LENGTH, w);
+	}
+
+	glReadPixels(x, y, w, h, format, type, pixels);
+#ifdef DEBUG_READ_PIXELS
+	LogReadPixelsError(glGetError());
+#endif
+
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	}
+	CHECK_GL_ERROR_IF_DEBUG();
+	return true;
+}
+
 
 Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
 	return new OpenGLTexture(desc);

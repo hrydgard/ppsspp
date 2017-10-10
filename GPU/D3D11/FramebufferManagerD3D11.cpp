@@ -599,12 +599,12 @@ void FramebufferManagerD3D11::ReadFramebufferToMemory(VirtualFramebuffer *vfb, b
 		OptimizeDownloadRange(vfb, x, y, w, h);
 		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
 			// No need to blit
-			PackFramebufferD3D11_(vfb, x, y, w, h);
+			PackFramebufferSync_(vfb, x, y, w, h);
 		}
 		else {
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
 			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-			PackFramebufferD3D11_(nvfb, x, y, w, h);
+			PackFramebufferSync_(nvfb, x, y, w, h);
 		}
 
 		textureCacheD3D11_->ForgetLastTexture();
@@ -639,7 +639,7 @@ void FramebufferManagerD3D11::DownloadFramebufferForClut(u32 fb_address, u32 loa
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
 			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
-			PackFramebufferD3D11_(nvfb, x, y, w, h);
+			PackFramebufferSync_(nvfb, x, y, w, h);
 
 			textureCacheD3D11_->ForgetLastTexture();
 			RebindFramebuffer();
@@ -815,7 +815,7 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 wid
 // This function takes an already correctly-sized framebuffer and packs it into RAM.
 // Does not need to account for scaling.
 // Color conversion is currently done on CPU but should be done on GPU.
-void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+void FramebufferManagerD3D11::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (!vfb->fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferD3D11_: vfb->fbo == 0");
 		return;
@@ -824,12 +824,16 @@ void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int
 	const u32 fb_address = (0x04000000) | vfb->fb_address;
 	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 
+	// TODO: Handle the other formats?  We don't currently create them, I think.
+	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
+	u8 *destPtr = Memory::GetPointer(fb_address + dstByteOffset);
+
 	// We always need to convert from the framebuffer native format.
 	// Right now that's always 8888.
 	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 	ID3D11Texture2D *colorTex = (ID3D11Texture2D *)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT, 0);
 
-	// TODO: Only copy the necessary rectangle.
+	// Only copy the necessary rectangle.
 	D3D11_BOX srcBox{ (UINT)x, (UINT)y, 0, (UINT)(x+w), (UINT)(y+h), 1 };
 	context_->CopySubresourceRegion(packTexture_, 0, x, y, 0, colorTex, 0, &srcBox);
 
@@ -843,11 +847,9 @@ void FramebufferManagerD3D11::PackFramebufferD3D11_(VirtualFramebuffer *vfb, int
 		return;
 	}
 
-	// TODO: Handle the other formats?  We don't currently create them, I think.
 	const int srcByteOffset = y * map.RowPitch + x * 4;
-	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
 	// Pixel size always 4 here because we always request BGRA8888.
-	ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)map.pData + srcByteOffset, vfb->fb_stride, map.RowPitch/4, w, h, vfb->format);
+	ConvertFromRGBA8888(destPtr, (u8 *)map.pData + srcByteOffset, vfb->fb_stride, map.RowPitch/4, w, h, vfb->format);
 	context_->Unmap(packTexture_, 0);
 }
 

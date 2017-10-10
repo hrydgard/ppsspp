@@ -94,7 +94,7 @@ private:
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void Bind2DShader() override;
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
-	void PackFramebufferD3D11_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SimpleBlit(
 		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
