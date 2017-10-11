@@ -875,48 +875,6 @@ void FramebufferManagerD3D11::Resized() {
 	CompilePostShader();
 }
 
-// Lots of this code could be shared (like the downsampling).
-bool FramebufferManagerD3D11::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) {
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
-
-	if (!vfb) {
-		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, format);
-		return true;
-	}
-
-	int w = vfb->renderWidth, h = vfb->renderHeight;
-	Draw::Framebuffer *bound = nullptr;
-	if (vfb->fbo) {
-		if (maxRes > 0 && vfb->renderWidth > vfb->width * maxRes) {
-			w = vfb->width * maxRes;
-			h = vfb->height * maxRes;
-
-			Draw::Framebuffer *tempFBO = GetTempFBO(w, h);
-			VirtualFramebuffer tempVfb = *vfb;
-			tempVfb.fbo = tempFBO;
-			tempVfb.bufferWidth = vfb->width;
-			tempVfb.bufferHeight = vfb->height;
-			tempVfb.renderWidth = w;
-			tempVfb.renderHeight = h;
-			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0);
-
-			bound = tempFBO;
-		} else {
-			bound = vfb->fbo;
-		}
-	}
-	if (!bound)
-		return false;
-
-	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
-
-	return draw_->CopyFramebufferToMemorySync(bound, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
-}
-
 bool FramebufferManagerD3D11::GetDepthStencilBuffer(VirtualFramebuffer *vfb, GPUDebugBuffer &buffer, bool stencil) {
 	int w = vfb->renderWidth, h = vfb->renderHeight;
 	Draw::Framebuffer *fboForRead = nullptr;
