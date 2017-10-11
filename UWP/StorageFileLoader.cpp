@@ -137,18 +137,6 @@ void StorageFileLoader::EnsureOpen() {
 		Sleep(100);
 }
 
-// Note that multithreaded use could wreak havoc with this...
-void StorageFileLoader::Seek(s64 absolutePos) {
-	EnsureOpen();
-	seekPos_ = absolutePos;
-}
-
-size_t StorageFileLoader::Read(size_t bytes, size_t count, void *data, Flags flags) {
-	size_t bytesRead = ReadAt(seekPos_, bytes, count, data, flags);
-	seekPos_ += bytesRead;
-	return bytesRead;
-}
-
 size_t StorageFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
 	EnsureOpen();
 	if (operationRequested_ || responseAvailable_)

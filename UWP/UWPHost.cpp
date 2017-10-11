@@ -176,10 +176,6 @@ bool UWPHost::CreateDesktopShortcut(std::string argumentPath, std::string gameTi
 	return false;
 }
 
-void UWPHost::GoFullscreen(bool viewFullscreen) {
-	// TODO
-}
-
 void UWPHost::ToggleDebugConsoleVisibility() {
 	// N/A
 }

@@ -37,6 +37,7 @@ PPSSPPDebug64.exe.manifest
 PPSSPPDebug.exe.manifest
 assets/flash0
 UWP/icph
+UWP/.vs
 
 # For Mac
 .DS_Store
