@@ -1356,35 +1356,44 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 wid
 	}
 }
 
-bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) {
+bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat format, void *pixels, int pixelStride) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 
 	assert(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
 
-	bool useGlobalPacktex = (x + w <= 512 && y + h <= 512);
+	bool useGlobalPacktex = (bx + bw <= 512 && by + bh <= 512);
 
 	ID3D11Texture2D *packTex;
 	if (!useGlobalPacktex) {
 		D3D11_TEXTURE2D_DESC packDesc{};
 		packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 		packDesc.BindFlags = 0;
-		packDesc.Width = w;
-		packDesc.Height = h;
+		packDesc.Width = bw;
+		packDesc.Height = bh;
 		packDesc.ArraySize = 1;
 		packDesc.MipLevels = 1;
 		packDesc.Usage = D3D11_USAGE_STAGING;
 		packDesc.SampleDesc.Count = 1;
-		packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		device_->CreateTexture2D(&packDesc, nullptr, &packTex);
-
-		context_->CopyResource(packTex, fb->colorTex);
+		D3D11_BOX srcBox{ (UINT)bx, (UINT)by, 0, (UINT)(bx + bw), (UINT)(by + bh), 1 };
+		switch (channelBits) {
+		case FB_COLOR_BIT:
+			packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // TODO: fb->colorFormat;
+			device_->CreateTexture2D(&packDesc, nullptr, &packTex);
+			context_->CopySubresourceRegion(packTex, 0, bx, by, 0, fb->colorTex, 0, &srcBox);
+			break;
+		case FB_DEPTH_BIT:
+		case FB_STENCIL_BIT:
+			packDesc.Format = fb->depthStencilFormat;
+			device_->CreateTexture2D(&packDesc, nullptr, &packTex);
+			// For depth/stencil buffers, we can't reliably copy subrectangles, so just copy the whole resource.
+			context_->CopyResource(packTex, fb->colorTex);
+			break;
+		default:
+			assert(false);
+		}
 	} else {
 		packTex = packTexture_;
 	}
-
-	// Only copy the necessary rectangle.
-	D3D11_BOX srcBox{ (UINT)x, (UINT)y, 0, (UINT)(x + w), (UINT)(y + h), 1 };
-	context_->CopySubresourceRegion(packTex, 0, x, y, 0, fb->colorTex, 0, &srcBox);
 
 	// Ideally, we'd round robin between two packTexture_, and simply use the other one. Though if the game
 	// does a once-off copy, that won't work at all.
@@ -1396,9 +1405,32 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 		return false;
 	}
 
-	const int srcByteOffset = y * map.RowPitch + x * 4;
-	// Pixel size always 4 here because we always request BGRA8888.
-	ConvertFromRGBA8888((u8 *)pixels, (u8 *)map.pData + srcByteOffset, pixelStride, map.RowPitch / 4, w, h, format);
+	const int srcByteOffset = by * map.RowPitch + bx * 4;
+	switch (channelBits) {
+	case FB_COLOR_BIT:
+		// Pixel size always 4 here because we always request BGRA8888.
+		ConvertFromRGBA8888((uint8_t *)pixels, (uint8_t *)map.pData + srcByteOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, format);
+		break;
+	case FB_DEPTH_BIT:
+		for (int y = by; y < by + bh; y++) {
+			float *dest = (float *)((uint8_t *)pixels + y * pixelStride * sizeof(float));
+			const uint32_t *src = (const uint32_t *)((const uint8_t *)map.pData + map.RowPitch * y);
+			for (int x = bx; x < bx + bw; x++) {
+				dest[x] = (src[x] & 0xFFFFFF) / (256.f * 256.f * 256.f);
+			}
+		}
+		break;
+	case FB_STENCIL_BIT:
+		for (int y = by; y < by + bh; y++) {
+			uint8_t *destStencil = (uint8_t *)pixels + y * pixelStride;
+			const uint32_t *src = (const uint32_t *)((const uint8_t *)map.pData + map.RowPitch * y);
+			for (int x = bx; x < bx + bw; x++) {
+				destStencil[x] = src[x] >> 24;
+			}
+		}
+		break;
+	}
+
 	context_->Unmap(packTex, 0);
 
 	if (!useGlobalPacktex) {
