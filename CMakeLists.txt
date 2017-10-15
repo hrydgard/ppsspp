@@ -1614,7 +1614,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 if(ANDROID)
   set(CoreExtraLibs ${CoreExtraLibs} android)
   if(X86_64)
-    set(CoreExtraLibs -Wl,--gc-sections -Wl,--exclude-libs,ALL)
+    set(CMAKE_SHARED_LINKER_FLAGS "-Wl,-Bsymbolic")
   endif()
 endif()	
  
