@@ -903,7 +903,7 @@ int SavedataParam::BuildHash(unsigned char *output,
 	return 0;
 }
 
-std::string SavedataParam::GetSpaceText(u64 size)
+std::string SavedataParam::GetSpaceText(u64 size, bool roundUp)
 {
 	static const char *suffixes[] = {"B", "KB", "MB", "GB"};
 	char text[50];
@@ -915,7 +915,11 @@ std::string SavedataParam::GetSpaceText(u64 size)
 			snprintf(text, sizeof(text), "%lld %s", size, suffixes[i]);
 			return std::string(text);
 		}
-		size /= 1024;
+		if (roundUp) {
+			size = (size + 1023) / 1024;
+		} else {
+			size /= 1024;
+		}
 	}
 
 	snprintf(text, sizeof(text), "%llu TB", size);
@@ -936,7 +940,7 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		param->msFree->clusterSize = (u32)MemoryStick_SectorSize();
 		param->msFree->freeClusters = (u32)(freeBytes / MemoryStick_SectorSize());
 		param->msFree->freeSpaceKB = (u32)(freeBytes / 0x400);
-		const std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes);
+		const std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes, false);
 		memset(param->msFree->freeSpaceStr, 0, sizeof(param->msFree->freeSpaceStr));
 		strncpy(param->msFree->freeSpaceStr, spaceTxt.c_str(), sizeof(param->msFree->freeSpaceStr));
 	}
@@ -959,7 +963,7 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 			// Fieldrunners expects 736 KB, even though the files add up to ~600 KB.
 			int total_size = param->msData->info.usedClusters * (u32)MemoryStick_SectorSize();
 			param->msData->info.usedSpaceKB = total_size / 0x400;
-			std::string spaceTxt = SavedataParam::GetSpaceText(total_size);
+			std::string spaceTxt = SavedataParam::GetSpaceText(total_size, true);
 			strncpy(param->msData->info.usedSpaceStr, spaceTxt.c_str(), sizeof(param->msData->info.usedSpaceStr));
 
 			// TODO: What does this mean, then?  Seems to be the same.
@@ -1001,13 +1005,13 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 
 		param->utilityData->usedClusters = total_size / (u32)MemoryStick_SectorSize();
 		param->utilityData->usedSpaceKB = total_size / 0x400;
-		std::string spaceTxt = SavedataParam::GetSpaceText(total_size);
+		std::string spaceTxt = SavedataParam::GetSpaceText(total_size, true);
 		memset(param->utilityData->usedSpaceStr, 0, sizeof(param->utilityData->usedSpaceStr));
 		strncpy(param->utilityData->usedSpaceStr, spaceTxt.c_str(), sizeof(param->utilityData->usedSpaceStr));
 
 		// TODO: Maybe these are rounded to the nearest 32KB?  Or something?
 		param->utilityData->usedSpace32KB = total_size / 0x400;
-		spaceTxt = SavedataParam::GetSpaceText(total_size);
+		spaceTxt = SavedataParam::GetSpaceText(total_size, true);
 		memset(param->utilityData->usedSpace32Str, 0, sizeof(param->utilityData->usedSpace32Str));
 		strncpy(param->utilityData->usedSpace32Str, spaceTxt.c_str(), sizeof(param->utilityData->usedSpace32Str));
 	}
@@ -1188,29 +1192,62 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 		return false;
 	}
 
-	std::string saveDir = savePath + GetGameName(param) + GetSaveName(param);
+	const std::string saveDir = savePath + GetGameName(param) + GetSaveName(param);
 	PSPFileInfo info = pspFileSystem.GetFileInfo(saveDir);
 	bool exists = info.exists;
 
 	if (param->sizeInfo.IsValid())
 	{
 		const u64 freeBytes = MemoryStick_FreeSpace();
-		// TODO: Read the entries and count up the size vs. existing size?
+
+		s64 overwriteBytes = 0;
+		s64 writeBytes = 0;
+		for (int i = 0; i < param->sizeInfo->numNormalEntries; ++i) {
+			const auto &entry = param->sizeInfo->normalEntries[i];
+			overwriteBytes += pspFileSystem.GetFileInfo(saveDir + "/" + entry.name).size;
+			writeBytes += entry.size;
+		}
+		for (int i = 0; i < param->sizeInfo->numSecureEntries; ++i) {
+			const auto &entry = param->sizeInfo->secureEntries[i];
+			overwriteBytes += pspFileSystem.GetFileInfo(saveDir + "/" + entry.name).size;
+			writeBytes += entry.size + 0x10;
+		}
 
 		param->sizeInfo->sectorSize = (int)MemoryStick_SectorSize();
 		param->sizeInfo->freeSectors = (int)(freeBytes / MemoryStick_SectorSize());
 
-		// TODO: Is this after the specified files?  Before?
+		// TODO: Is this after the specified files?  Probably before?
 		param->sizeInfo->freeKB = (int)(freeBytes / 1024);
-		std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes);
-		strncpy(param->sizeInfo->freeString, spaceTxt.c_str(), 8);
-		param->sizeInfo->freeString[7] = '\0';
+		std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes, false);
+		truncate_cpy(param->sizeInfo->freeString, spaceTxt.c_str());
 
-		// TODO.
-		param->sizeInfo->neededKB = 0;
-		strcpy(param->sizeInfo->neededString, "0 KB");
-		param->sizeInfo->overwriteKB = 0;
-		strcpy(param->sizeInfo->overwriteString, "0 KB");
+		if (writeBytes - overwriteBytes < (s64)freeBytes) {
+			param->sizeInfo->neededKB = 0;
+
+			// Note: this is "needed to overwrite".
+			param->sizeInfo->overwriteKB = 0;
+
+			spaceTxt = GetSpaceText(0, true);
+			truncate_cpy(param->sizeInfo->neededString, spaceTxt.c_str());
+			truncate_cpy(param->sizeInfo->overwriteString, spaceTxt.c_str());
+		} else {
+			// Bytes needed to save additional data.
+			s64 neededBytes = writeBytes - freeBytes;
+			param->sizeInfo->neededKB = (neededBytes + 1023) / 1024;
+			spaceTxt = GetSpaceText(neededBytes, true);
+			truncate_cpy(param->sizeInfo->neededString, spaceTxt.c_str());
+
+			if (writeBytes - overwriteBytes < (s64)freeBytes) {
+				param->sizeInfo->overwriteKB = 0;
+				spaceTxt = GetSpaceText(0, true);
+				truncate_cpy(param->sizeInfo->overwriteString, spaceTxt.c_str());
+			} else {
+				s64 neededOverwriteBytes = writeBytes - freeBytes - overwriteBytes;
+				param->sizeInfo->overwriteKB = (neededOverwriteBytes + 1023) / 1024;
+				spaceTxt = GetSpaceText(neededOverwriteBytes, true);
+				truncate_cpy(param->sizeInfo->overwriteString, spaceTxt.c_str());
+			}
+		}
 	}
 
 	return exists;
