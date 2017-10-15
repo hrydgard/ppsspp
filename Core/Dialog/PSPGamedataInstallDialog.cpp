@@ -35,6 +35,9 @@ const static u32 GAMEDATA_BYTES_PER_READ = 32768;
 // If this is too high, some games (e.g. Senjou no Valkyria 3) will lag.
 const static u32 GAMEDATA_READS_PER_UPDATE = 20;
 
+const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_WRITE_PROTECTED = 0x80111903;
+const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_REMOVED = 0x80111901;
+
 static const std::string SFO_FILENAME = "PARAM.SFO";
 
 namespace
@@ -95,6 +98,9 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 int PSPGamedataInstallDialog::Update(int animSpeed) {
 	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
+
+	// TODO: This should return error codes in some cases, like write failure.
+	// request.common.result must be updated for errors as well.
 	
 	if (readFiles < numFiles) {
 		if (currentInputFile != 0 && currentOutputFile != 0) {
@@ -244,7 +250,7 @@ void PSPGamedataInstallDialog::UpdateProgress() {
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
-	auto s = p.Section("PSPGamedataInstallDialog", 0, 3);
+	auto s = p.Section("PSPGamedataInstallDialog", 0, 4);
 	if (!s)
 		return;
 
@@ -252,8 +258,8 @@ void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
 	PSPDialog::DoState(p);
 	p.Do(request);
 
-	// This was included in version 2 and higher.
-	if (s > 2) {
+	// This was included in version 2 and higher, but for BC reasons we use 3+.
+	if (s >= 3) {
 		p.Do(param.ptr);
 		p.Do(inFileNames);
 		p.Do(numFiles);
@@ -265,7 +271,7 @@ void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
 		param.ptr = 0;
 	}
 
-	if (s > 3) {
+	if (s >= 4) {
 		p.Do(currentInputFile);
 		p.Do(currentInputBytesLeft);
 		p.Do(currentOutputFile);
