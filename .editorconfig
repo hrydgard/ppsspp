@@ -23,7 +23,7 @@ indent_style = space
 indent_size = 4
 
 [Core/Dialog/PSPOskDialog.cpp]
-charset = utf-16le
+charset = utf-8-bom
 
 [ext/native/tools/kanjifilter.h]
 # This file may need to force a BOM so compilers treat as utf-8.
