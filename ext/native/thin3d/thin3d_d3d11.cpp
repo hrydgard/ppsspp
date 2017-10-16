@@ -1363,7 +1363,7 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 
 	assert(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
 
-	bool useGlobalPacktex = (bx + bw <= 512 && by + bh <= 512);
+	bool useGlobalPacktex = (bx + bw <= 512 && by + bh <= 512) && channelBits == FB_COLOR_BIT;
 
 	ID3D11Texture2D *packTex;
 	if (!useGlobalPacktex) {

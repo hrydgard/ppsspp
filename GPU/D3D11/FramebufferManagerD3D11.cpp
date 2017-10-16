@@ -778,7 +778,6 @@ void FramebufferManagerD3D11::PackFramebufferSync_(VirtualFramebuffer *vfb, int 
 	Draw::DataFormat destFormat = GEFormatToThin3D(vfb->format);
 	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
 
-	// TODO: Handle the other formats?  We don't currently create them, I think.
 	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
 	u8 *destPtr = Memory::GetPointer(fb_address + dstByteOffset);
 
