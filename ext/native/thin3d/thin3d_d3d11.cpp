@@ -1361,7 +1361,9 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 wid
 bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat format, void *pixels, int pixelStride) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 
-	assert(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
+	if (fb) {
+		assert(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
+	}
 
 	bool useGlobalPacktex = (bx + bw <= 512 && by + bh <= 512) && channelBits == FB_COLOR_BIT;
 
@@ -1383,6 +1385,7 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 			break;
 		case FB_DEPTH_BIT:
 		case FB_STENCIL_BIT:
+			assert(fb);
 			packDesc.Format = fb->depthStencilFormat;
 			break;
 		default:
@@ -1396,15 +1399,17 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 	D3D11_BOX srcBox{ (UINT)bx, (UINT)by, 0, (UINT)(bx + bw), (UINT)(by + bh), 1 };
 	switch (channelBits) {
 	case FB_COLOR_BIT:
-		context_->CopySubresourceRegion(packTex, 0, bx, by, 0, fb->colorTex, 0, &srcBox);
+		context_->CopySubresourceRegion(packTex, 0, bx, by, 0, fb ? fb->colorTex : bbRenderTargetTex_, 0, &srcBox);
 		break;
 	case FB_DEPTH_BIT:
 	case FB_STENCIL_BIT:
 		// For depth/stencil buffers, we can't reliably copy subrectangles, so just copy the whole resource.
-		context_->CopyResource(packTex, fb->colorTex);
+		assert(fb);  // We haven't got a texture for the backbuffer depth. Could make one but I don't think we need one.
+		context_->CopyResource(packTex, fb->depthStencilTex);
 		break;
 	default:
 		assert(false);
+		break;
 	}
 
 	// Ideally, we'd round robin between two packTexture_, and simply use the other one. Though if the game
@@ -1509,8 +1514,13 @@ uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int chann
 
 void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
-	*w = fb->width;
-	*h = fb->height;
+	if (fb) {
+		*w = fb->width;
+		*h = fb->height;
+	} else {
+		*w = bbWidth_;
+		*h = bbHeight_;
+	}
 }
 
 DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd) {

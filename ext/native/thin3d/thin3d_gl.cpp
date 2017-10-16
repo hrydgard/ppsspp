@@ -1866,8 +1866,13 @@ OpenGLFramebuffer::~OpenGLFramebuffer() {
 
 void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
-	*w = fb->width;
-	*h = fb->height;
+	if (fb) {
+		*w = fb->width;
+		*h = fb->height;
+	} else {
+		*w = targetWidth_;
+		*h = targetHeight_;
+	}
 }
 
 uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {

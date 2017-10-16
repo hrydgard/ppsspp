@@ -1925,3 +1925,12 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	return false;
 #endif
 }
+
+bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
+	int w, h;
+	draw_->GetFramebufferDimensions(nullptr, &w, &h);
+	buffer.Allocate(w, h, GE_FORMAT_8888, false, true);
+	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
+	return true;
+}
+

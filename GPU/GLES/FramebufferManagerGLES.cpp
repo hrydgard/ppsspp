@@ -1130,12 +1130,9 @@ void FramebufferManagerGLES::Resized() {
 }
 
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	int pw = PSP_CoreParameter().pixelWidth;
-	int ph = PSP_CoreParameter().pixelHeight;
-
-	// The backbuffer is flipped (last bool)
-	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
-	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, pw, ph, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), pw);
-	CHECK_GL_ERROR_IF_DEBUG();
+	int w, h;
+	draw_->GetFramebufferDimensions(nullptr, &w, &h);
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_888_RGB, true);
+	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), w);
 	return true;
 }

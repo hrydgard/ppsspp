@@ -281,7 +281,7 @@ public:
 	virtual bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
 	virtual bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer);
 	virtual bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
-	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer) = 0;
+	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
 protected:
 	virtual void SetViewport2D(int x, int y, int w, int h);
