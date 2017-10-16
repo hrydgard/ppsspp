@@ -244,10 +244,12 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	}
 	CreatePresets();
 
+	// Temp texture for read-back of small images. Custom textures are created on demand for larger ones.
+	// TODO: Should really benchmark if this extra complexity has any benefit.
 	D3D11_TEXTURE2D_DESC packDesc{};
 	packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 	packDesc.BindFlags = 0;
-	packDesc.Width = 512;  // 512x512 is the maximum size of a framebuffer on the PSP.
+	packDesc.Width = 512;
 	packDesc.Height = 512;
 	packDesc.ArraySize = 1;
 	packDesc.MipLevels = 1;
@@ -1378,21 +1380,31 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 		switch (channelBits) {
 		case FB_COLOR_BIT:
 			packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // TODO: fb->colorFormat;
-			device_->CreateTexture2D(&packDesc, nullptr, &packTex);
-			context_->CopySubresourceRegion(packTex, 0, bx, by, 0, fb->colorTex, 0, &srcBox);
 			break;
 		case FB_DEPTH_BIT:
 		case FB_STENCIL_BIT:
 			packDesc.Format = fb->depthStencilFormat;
-			device_->CreateTexture2D(&packDesc, nullptr, &packTex);
-			// For depth/stencil buffers, we can't reliably copy subrectangles, so just copy the whole resource.
-			context_->CopyResource(packTex, fb->colorTex);
 			break;
 		default:
 			assert(false);
 		}
+		device_->CreateTexture2D(&packDesc, nullptr, &packTex);
 	} else {
 		packTex = packTexture_;
+	}
+
+	D3D11_BOX srcBox{ (UINT)bx, (UINT)by, 0, (UINT)(bx + bw), (UINT)(by + bh), 1 };
+	switch (channelBits) {
+	case FB_COLOR_BIT:
+		context_->CopySubresourceRegion(packTex, 0, bx, by, 0, fb->colorTex, 0, &srcBox);
+		break;
+	case FB_DEPTH_BIT:
+	case FB_STENCIL_BIT:
+		// For depth/stencil buffers, we can't reliably copy subrectangles, so just copy the whole resource.
+		context_->CopyResource(packTex, fb->colorTex);
+		break;
+	default:
+		assert(false);
 	}
 
 	// Ideally, we'd round robin between two packTexture_, and simply use the other one. Though if the game

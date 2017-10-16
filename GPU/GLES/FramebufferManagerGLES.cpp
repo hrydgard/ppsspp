@@ -46,8 +46,6 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 
-// #define DEBUG_READ_PIXELS 1
-
 static const char tex_fs[] =
 	"#if __VERSION__ >= 130\n"
 	"#define varying in\n"
@@ -806,42 +804,6 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 		}
 	}
 }
-
-#ifdef DEBUG_READ_PIXELS
-// TODO: Make more generic.
-static void LogReadPixelsError(GLenum error) {
-	switch (error) {
-	case GL_NO_ERROR:
-		break;
-	case GL_INVALID_ENUM:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_ENUM");
-		break;
-	case GL_INVALID_VALUE:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_VALUE");
-		break;
-	case GL_INVALID_OPERATION:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_OPERATION");
-		break;
-	case GL_INVALID_FRAMEBUFFER_OPERATION:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
-		break;
-	case GL_OUT_OF_MEMORY:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_OUT_OF_MEMORY");
-		break;
-#ifndef USING_GLES2
-	case GL_STACK_UNDERFLOW:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_UNDERFLOW");
-		break;
-	case GL_STACK_OVERFLOW:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_OVERFLOW");
-		break;
-#endif
-    default:
-        ERROR_LOG(FRAMEBUF, "glReadPixels: %08x", error);
-        break;
-	}
-}
-#endif
 
 void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	CHECK_GL_ERROR_IF_DEBUG();

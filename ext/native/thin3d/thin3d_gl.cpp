@@ -19,6 +19,8 @@
 extern void bindDefaultFBO();
 #endif
 
+// #define DEBUG_READ_PIXELS 1
+
 // Workaround for Retroarch. Simply declare
 //   extern GLuint g_defaultFBO;
 // and set is as appropriate. Can adjust the variables in ext/native/base/display.h as
@@ -869,6 +871,43 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
+
+
+#ifdef DEBUG_READ_PIXELS
+// TODO: Make more generic.
+static void LogReadPixelsError(GLenum error) {
+	switch (error) {
+	case GL_NO_ERROR:
+		break;
+	case GL_INVALID_ENUM:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_ENUM");
+		break;
+	case GL_INVALID_VALUE:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_VALUE");
+		break;
+	case GL_INVALID_OPERATION:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_OPERATION");
+		break;
+	case GL_INVALID_FRAMEBUFFER_OPERATION:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
+		break;
+	case GL_OUT_OF_MEMORY:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_OUT_OF_MEMORY");
+		break;
+#ifndef USING_GLES2
+	case GL_STACK_UNDERFLOW:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_UNDERFLOW");
+		break;
+	case GL_STACK_OVERFLOW:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_OVERFLOW");
+		break;
+#endif
+	default:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: %08x", error);
+		break;
+	}
+}
+#endif
 
 bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)src;
