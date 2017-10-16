@@ -779,12 +779,14 @@ static bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, 
 		type = GL_FLOAT;
 		break;
 
+#ifndef USING_GLES2
 	case DataFormat::S8:
 		internalFormat = GL_STENCIL_INDEX;
 		format = GL_STENCIL_INDEX;
 		type = GL_UNSIGNED_BYTE;
 		alignment = 1;
 		break;
+#endif
 
 	case DataFormat::R8G8B8_UNORM:
 		internalFormat = GL_RGB;
