@@ -41,6 +41,20 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 	}
 }
 
+bool DataFormatIsDepthStencil(DataFormat fmt) {
+	switch (fmt) {
+	case DataFormat::D16:
+	case DataFormat::D24_S8:
+	case DataFormat::S8:
+	case DataFormat::D32F:
+	case DataFormat::D32F_S8:
+		return true;
+	default:
+		return false;
+	}
+}
+
+
 bool RefCountedObject::Release() {
 	if (refcount_ > 0 && refcount_ < 10000) {
 		refcount_--;

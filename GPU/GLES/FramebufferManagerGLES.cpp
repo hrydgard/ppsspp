@@ -46,8 +46,6 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 
-// #define DEBUG_READ_PIXELS 1
-
 static const char tex_fs[] =
 	"#if __VERSION__ >= 130\n"
 	"#define varying in\n"
@@ -807,60 +805,6 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 	}
 }
 
-#ifdef DEBUG_READ_PIXELS
-// TODO: Make more generic.
-static void LogReadPixelsError(GLenum error) {
-	switch (error) {
-	case GL_NO_ERROR:
-		break;
-	case GL_INVALID_ENUM:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_ENUM");
-		break;
-	case GL_INVALID_VALUE:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_VALUE");
-		break;
-	case GL_INVALID_OPERATION:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_OPERATION");
-		break;
-	case GL_INVALID_FRAMEBUFFER_OPERATION:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
-		break;
-	case GL_OUT_OF_MEMORY:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_OUT_OF_MEMORY");
-		break;
-#ifndef USING_GLES2
-	case GL_STACK_UNDERFLOW:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_UNDERFLOW");
-		break;
-	case GL_STACK_OVERFLOW:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_OVERFLOW");
-		break;
-#endif
-    default:
-        ERROR_LOG(FRAMEBUF, "glReadPixels: %08x", error);
-        break;
-	}
-}
-#endif
-
-static void SafeGLReadPixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum fmt, GLenum type, void *pixels) {
-	CHECK_GL_ERROR_IF_DEBUG();
-	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA)) {
-		// Some drivers seem to require we specify this.  See #8254.
-		glPixelStorei(GL_PACK_ROW_LENGTH, w);
-	}
-
-	glReadPixels(x, y, w, h, fmt, type, pixels);
-#ifdef DEBUG_READ_PIXELS
-	LogReadPixelsError(glGetError());
-#endif
-
-	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
-		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-	}
-	CHECK_GL_ERROR_IF_DEBUG();
-}
-
 void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	CHECK_GL_ERROR_IF_DEBUG();
 	const int MAX_PBO = 2;
@@ -920,59 +864,35 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 	// Order packing/readback of the framebuffer
 	if (vfb) {
-		int pixelType, pixelSize, pixelFormat, align;
-
 		bool reverseOrder = gstate_c.Supports(GPU_PREFER_REVERSE_COLOR_ORDER);
+		Draw::DataFormat dataFmt = Draw::DataFormat::UNDEFINED;
 		switch (vfb->format) {
-			// GL_UNSIGNED_INT_8_8_8_8 returns A B G R (little-endian, tested in Nvidia card/x86 PC)
-			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
-			// We want R G B A, so we use *_REV for 16-bit formats and GL_UNSIGNED_BYTE for 32-bit
-			case GE_FORMAT_4444: // 16 bit RGBA
-#ifdef USING_GLES2
-				pixelType = GL_UNSIGNED_SHORT_4_4_4_4;
-#else
-				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_4_4_4_4_REV : GL_UNSIGNED_SHORT_4_4_4_4);
-#endif
-				pixelFormat = GL_RGBA;
-				pixelSize = 2;
-				align = 2;
-				break;
-			case GE_FORMAT_5551: // 16 bit RGBA
-#ifdef USING_GLES2
-				pixelType = GL_UNSIGNED_SHORT_5_5_5_1;
-#else
-				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_1_5_5_5_REV : GL_UNSIGNED_SHORT_5_5_5_1);
-#endif
-				pixelFormat = GL_RGBA;
-				pixelSize = 2;
-				align = 2;
-				break;
-			case GE_FORMAT_565: // 16 bit RGB
-#ifdef USING_GLES2
-				pixelType = GL_UNSIGNED_SHORT_5_6_5;
-#else
-				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_5_6_5_REV : GL_UNSIGNED_SHORT_5_6_5);
-#endif
-				pixelFormat = GL_RGB;
-				pixelSize = 2;
-				align = 2;
-				break;
-			case GE_FORMAT_8888: // 32 bit RGBA
-			default:
-				pixelType = GL_UNSIGNED_BYTE;
-				pixelFormat = GL_RGBA;
-				pixelSize = 4;
-				align = 4;
-				break;
+		case GE_FORMAT_4444:
+			dataFmt = (reverseOrder ? Draw::DataFormat::A4R4G4B4_UNORM_PACK16 : Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
+			break;
+		case GE_FORMAT_5551:
+			dataFmt = (reverseOrder ? Draw::DataFormat::A1R5G5B5_UNORM_PACK16 : Draw::DataFormat::B5G5R5A1_UNORM_PACK16);
+			break;
+		case GE_FORMAT_565:
+			dataFmt = (reverseOrder ? Draw::DataFormat::R5G6B5_UNORM_PACK16 : Draw::DataFormat::B5G6R5_UNORM_PACK16);
+			break;
+		case GE_FORMAT_8888:
+			dataFmt = Draw::DataFormat::R8G8B8A8_UNORM;
+			break;
+		};
+
+		if (useCPU) {
+			dataFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		}
 
+		int pixelSize = (int)DataFormatSizeInBytes(dataFmt);
+		int align = pixelSize;
+
 		// If using the CPU, we need 4 bytes per pixel always.
-		u32 bufSize = vfb->fb_stride * vfb->height * (useCPU ? 4 : pixelSize);
+		u32 bufSize = vfb->fb_stride * vfb->height * pixelSize;
 		u32 fb_address = (0x04000000) | vfb->fb_address;
 
-		if (vfb->fbo) {
-			draw_->BindFramebufferForRead(vfb->fbo);
-		} else {
+		if (!vfb->fbo) {
 			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
 			return;
 		}
@@ -985,15 +905,8 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			pixelBufObj_[currentPBO_].maxSize = bufSize;
 		}
 
-		if (useCPU) {
-			// If converting pixel formats on the CPU we'll always request RGBA8888
-			glPixelStorei(GL_PACK_ALIGNMENT, 4);
-			SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-		} else {
-			// Otherwise we'll directly request the format we need and let the GPU sort it out
-			glPixelStorei(GL_PACK_ALIGNMENT, align);
-			SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
-		}
+		// TODO: This is a hack since PBOs have not been implemented in Thin3D yet (and maybe shouldn't? maybe should do this internally?)
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->fb_stride, vfb->height, dataFmt, nullptr, vfb->fb_stride);
 
 		unbind = true;
 
@@ -1014,9 +927,7 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 }
 
 void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	if (vfb->fbo) {
-		draw_->BindFramebufferForRead(vfb->fbo);
-	} else {
+	if (!vfb->fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
 		return;
 	}
@@ -1052,18 +963,14 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 
 	if (packed) {
 		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
-
-		glPixelStorei(GL_PACK_ALIGNMENT, 4);
-		GLenum glfmt = GL_RGBA;
-		CHECK_GL_ERROR_IF_DEBUG();
-
-		SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed);
-
+		int packW = h == 1 ? packWidth : vfb->fb_stride;  // TODO: What's this about?
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, y, packW, h, Draw::DataFormat::R8G8B8A8_UNORM, packed, packW);
 		if (convert) {
 			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
 		}
 	}
 
+	// TODO: Move this into Thin3d.
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
 #ifdef USING_GLES2
 		// GLES3 doesn't support using GL_READ_FRAMEBUFFER here.
@@ -1079,9 +986,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 }
 
 void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	if (vfb->fbo) {
-		draw_->BindFramebufferForRead(vfb->fbo);
-	} else {
+	if (!vfb->fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackDepthbuffer: vfb->fbo == 0");
 		return;
 	}
@@ -1099,8 +1004,8 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->z_stride, h, GL_DEPTH_COMPONENT, GL_FLOAT, convBuf_);
+	int packW = h == 1 ? packWidth : vfb->z_stride;
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, y, packW, h, Draw::DataFormat::D32F, convBuf_, packW);
 
 	int dstByteOffset = y * vfb->fb_stride * sizeof(u16);
 	u16 *depth = (u16 *)Memory::GetPointer(z_address + dstByteOffset);
@@ -1224,60 +1129,13 @@ void FramebufferManagerGLES::Resized() {
 	}
 }
 
-bool FramebufferManagerGLES::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) {
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
-
-	if (!vfb) {
-		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, format);
-		return true;
-	}
-
-	int w = vfb->renderWidth, h = vfb->renderHeight;
-	if (vfb->fbo) {
-		if (maxRes > 0 && vfb->renderWidth > vfb->width * maxRes) {
-			w = vfb->width * maxRes;
-			h = vfb->height * maxRes;
-
-			Draw::Framebuffer *tempFBO = GetTempFBO(w, h);
-			VirtualFramebuffer tempVfb = *vfb;
-			tempVfb.fbo = tempFBO;
-			tempVfb.bufferWidth = vfb->width;
-			tempVfb.bufferHeight = vfb->height;
-			tempVfb.renderWidth = w;
-			tempVfb.renderHeight = h;
-			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0);
-
-			draw_->BindFramebufferForRead(tempFBO);
-		} else {
-			draw_->BindFramebufferForRead(vfb->fbo);
-		}
-	}
-
-	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	SafeGLReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
-
-	// We may have blitted to a temp FBO.
-	RebindFramebuffer();
-	CHECK_GL_ERROR_IF_DEBUG();
-	return true;
-}
-
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	int pw = PSP_CoreParameter().pixelWidth;
 	int ph = PSP_CoreParameter().pixelHeight;
 
-	// The backbuffer is flipped.
+	// The backbuffer is flipped (last bool)
 	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	SafeGLReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
+	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, pw, ph, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), pw);
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 }
@@ -1303,12 +1161,7 @@ bool FramebufferManagerGLES::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z
 	} else {
 		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, !useBufferedRendering_);
 	}
-	if (vfb->fbo)
-		draw_->BindFramebufferForRead(vfb->fbo);
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::D32F, buffer.GetData(), vfb->renderWidth);
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 }
@@ -1328,12 +1181,7 @@ bool FramebufferManagerGLES::GetStencilbuffer(u32 fb_address, int fb_stride, GPU
 
 #ifndef USING_GLES2
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_8BIT, !useBufferedRendering_);
-	if (vfb->fbo)
-		draw_->BindFramebufferForRead(vfb->fbo);
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-	glPixelStorei(GL_PACK_ALIGNMENT, 2);
-	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, buffer.GetData());
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::S8, buffer.GetData(), vfb->renderWidth);
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;
 #else

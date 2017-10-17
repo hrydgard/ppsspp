@@ -67,7 +67,6 @@ public:
 
 	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
-	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) override;
 	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) override;
 	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
@@ -94,7 +93,7 @@ private:
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void Bind2DShader() override;
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
-	void PackFramebufferD3D11_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SimpleBlit(
 		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
@@ -134,10 +133,6 @@ private:
 	TextureCacheD3D11 *textureCacheD3D11_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
 	DrawEngineD3D11 *drawEngine_;
-
-	// Permanent 1:1 readback texture, 512x512 fixed
-	// For larger debug readbacks, we create/destroy textures on the fly.
-	ID3D11Texture2D *packTexture_;
 
 	// Used by post-processing shader
 	// Postprocessing

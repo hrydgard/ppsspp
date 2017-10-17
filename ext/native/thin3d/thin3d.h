@@ -617,6 +617,9 @@ public:
 
 	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) = 0;
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
+	virtual bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) {
+		return false;
+	}
 
 	// These functions should be self explanatory.
 	// Binding a zero render target means binding the backbuffer.
@@ -624,7 +627,6 @@ public:
 
 	// color must be 0, for now.
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
-	virtual void BindFramebufferForRead(Framebuffer *fbo) = 0;
 
 	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) = 0;
 
@@ -699,6 +701,10 @@ protected:
 };
 
 size_t DataFormatSizeInBytes(DataFormat fmt);
+bool DataFormatIsDepthStencil(DataFormat fmt);
+inline bool DataFormatIsColor(DataFormat fmt) {
+	return !DataFormatIsDepthStencil(fmt);
+}
 
 DrawContext *T3DCreateGLContext();
 
