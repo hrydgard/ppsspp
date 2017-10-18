@@ -44,20 +44,6 @@ R"(	vec2 texelDelta;
 	vec4 time;
 )";
 
-// Simple struct for asynchronous PBO readbacks
-// TODO: Probably will need a complete redesign.
-struct AsyncPBOVulkan {
-	//  handle;
-	u32 maxSize;
-
-	u32 fb_address;
-	u32 stride;
-	u32 height;
-	u32 size;
-	GEBufferFormat format;
-	bool reading;
-};
-
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
 	FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
@@ -118,8 +104,6 @@ private:
 
 	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
 
-	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
-
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
@@ -137,9 +121,6 @@ private:
 	TextureCacheVulkan *textureCacheVulkan_;
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngineVulkan_;
-
-	AsyncPBOVulkan *pixelBufObj_;
-	int currentPBO_;
 
 	enum {
 		MAX_COMMAND_BUFFERS = 32,

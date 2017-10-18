@@ -87,8 +87,6 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	convBufSize_(0),
 	textureCacheVulkan_(nullptr),
 	shaderManagerVulkan_(nullptr),
-	pixelBufObj_(nullptr),
-	currentPBO_(0),
 	curFrame_(0),
 	pipelinePostShader_(VK_NULL_HANDLE),
 	vulkan2D_(vulkan) {
@@ -549,8 +547,6 @@ VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, V
 
 void FramebufferManagerVulkan::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
 	PROFILE_THIS_SCOPE("gpu-readback");
-	// Flush async just in case.
-	PackFramebufferAsync_(nullptr);
 
 	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
 	if (vfb && vfb->fb_stride != 0) {
@@ -732,124 +728,6 @@ void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcSt
 	}
 }
 
-// One frame behind, but no stalling.
-void FramebufferManagerVulkan::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
-	const int MAX_PBO = 2;
-	uint8_t *packed = 0;
-	const u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
-
-	bool useCPU = false;
-
-	// We'll prepare two PBOs to switch between readying and reading
-	if (!pixelBufObj_) {
-		if (!vfb) {
-			// This call is just to flush the buffers.  We don't have any yet,
-			// so there's nothing to do.
-			return;
-		}
-
-		// GLuint pbos[MAX_PBO];
-		// glGenBuffers(MAX_PBO, pbos);
-
-		pixelBufObj_ = new AsyncPBOVulkan[MAX_PBO];
-		for (int i = 0; i < MAX_PBO; i++) {
-			// TODO
-			// pixelBufObj_[i].handle = pbos[i];
-			pixelBufObj_[i].maxSize = 0;
-			pixelBufObj_[i].reading = false;
-		}
-	}
-
-	// Receive previously requested data from a PBO
-	AsyncPBOVulkan &pbo = pixelBufObj_[nextPBO];
-	if (pbo.reading) {
-		// glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo.handle);
-		// packed = (GLubyte *)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, pbo.size, GL_MAP_READ_BIT);
-
-		if (packed) {
-			DEBUG_LOG(FRAMEBUF, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
-				pbo.size, packed, pbo.fb_address, pbo.stride, nextPBO);
-
-			// We don't need to convert, GPU already did (or should have)
-			// (vulkan: hopefully)
-			Memory::MemcpyUnchecked(pbo.fb_address, packed, pbo.size);
-
-			pbo.reading = false;
-		}
-
-		// glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-	}
-	
-	// Order packing/readback of the framebuffer
-	if (vfb) {
-		// int pixelType, pixelFormat;
-		int pixelSize, align;
-		switch (vfb->format) {
-		case GE_FORMAT_4444: // 16 bit RGBA
-			// pixelType = GL_UNSIGNED_SHORT_4_4_4_4;
-			// pixelFormat = GL_RGBA;
-			pixelSize = 2;
-			align = 2;
-			break;
-		case GE_FORMAT_5551: // 16 bit RGBA
-			// pixelType = GL_UNSIGNED_SHORT_5_5_5_1;
-			// pixelFormat = GL_RGBA;
-			pixelSize = 2;
-			align = 2;
-			break;
-		case GE_FORMAT_565: // 16 bit RGB
-			// pixelType = GL_UNSIGNED_SHORT_5_6_5;
-			// pixelFormat = GL_RGB;
-			pixelSize = 2;
-			align = 2;
-			break;
-		case GE_FORMAT_8888: // 32 bit RGBA
-		default:
-			// pixelType = GL_UNSIGNED_BYTE;
-			// pixelFormat = UseBGRA8888() ? GL_BGRA_EXT : GL_RGBA;
-			pixelSize = 4;
-			align = 4;
-			break;
-		}
-
-		// If using the CPU, we need 4 bytes per pixel always.
-		u32 bufSize = vfb->fb_stride * vfb->height * 4 * (useCPU ? 4 : pixelSize);
-		u32 fb_address = (0x04000000) | vfb->fb_address;
-
-		if (vfb->fbo) {
-			// fbo_bind_for_read(vfb->fbo);
-		} else {
-			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
-			// fbo_unbind_read();
-			return;
-		}
-
-		// glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[currentPBO_].handle);
-		if (pixelBufObj_[currentPBO_].maxSize < bufSize) {
-			// We reserve a buffer big enough to fit all those pixels
-			// glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
-			pixelBufObj_[currentPBO_].maxSize = bufSize;
-		}
-
-		if (useCPU) {
-			// If converting pixel formats on the CPU we'll always request RGBA8888
-			// SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, UseBGRA8888() ? GL_BGRA_EXT : GL_RGBA, GL_UNSIGNED_BYTE, 0);
-		} else {
-			// Otherwise we'll directly request the format we need and let the GPU sort it out
-			// SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
-		}
-
-		pixelBufObj_[currentPBO_].fb_address = fb_address;
-		pixelBufObj_[currentPBO_].size = bufSize;
-		pixelBufObj_[currentPBO_].stride = vfb->fb_stride;
-		pixelBufObj_[currentPBO_].height = vfb->height;
-		pixelBufObj_[currentPBO_].format = vfb->format;
-		pixelBufObj_[currentPBO_].reading = true;
-	}
-
-	currentPBO_ = nextPBO;
-}
-
 void FramebufferManagerVulkan::BeginFrameVulkan() {
 	BeginFrame();
 
@@ -876,8 +754,6 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 void FramebufferManagerVulkan::EndFrame() {
 	// We flush to memory last requested framebuffer, if any.
 	// Only do this in the read-framebuffer modes.
-	if (updateVRAM_)
-		PackFramebufferAsync_(nullptr);
 	FrameData &frame = frameData_[curFrame_];
 	frame.push_->End();
 
