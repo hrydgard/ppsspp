@@ -194,6 +194,11 @@ void FramebufferManagerD3D11::SetShaderManager(ShaderManagerD3D11 *sm) {
 	shaderManager_ = sm;
 }
 
+void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
+	drawEngineD3D11_ = td;
+	drawEngine_ = td;
+}
+
 void FramebufferManagerD3D11::DisableState() {
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
@@ -792,17 +797,6 @@ void FramebufferManagerD3D11::DestroyAllFBOs() {
 	tempFBOs_.clear();
 
 	DisableState();
-}
-
-void FramebufferManagerD3D11::FlushBeforeCopy() {
-	// Flush anything not yet drawn before blitting, downloading, or uploading.
-	// This might be a stalled list, or unflushed before a block transfer, etc.
-
-	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
-	// all the irrelevant state checking it'll use to decide what to do. Should
-	// do something more focused here.
-	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	drawEngine_->Flush();
 }
 
 void FramebufferManagerD3D11::Resized() {

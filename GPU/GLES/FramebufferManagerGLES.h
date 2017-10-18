@@ -55,9 +55,7 @@ public:
 
 	void SetTextureCache(TextureCacheGLES *tc);
 	void SetShaderManager(ShaderManagerGLES *sm);
-	void SetDrawEngine(DrawEngineGLES *td) {
-		drawEngine_ = td;
-	}
+	void SetDrawEngine(DrawEngineGLES *td);
 
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
@@ -91,7 +89,6 @@ public:
 protected:
 	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override;
-	void FlushBeforeCopy() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
@@ -131,7 +128,7 @@ private:
 
 	TextureCacheGLES *textureCacheGL_;
 	ShaderManagerGLES *shaderManagerGL_;
-	DrawEngineGLES *drawEngine_;
+	DrawEngineGLES *drawEngineGL_;
 
 	// Not used under ES currently.
 	AsyncPBO *pixelBufObj_; //this isn't that large

@@ -113,6 +113,11 @@ void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
 	shaderManager_ = sm;
 }
 
+void FramebufferManagerVulkan::SetDrawEngine(DrawEngineVulkan *td) {
+	drawEngineVulkan_ = td;
+	drawEngine_ = td;
+}
+
 void FramebufferManagerVulkan::InitDeviceObjects() {
 	// Initialize framedata
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
@@ -937,112 +942,10 @@ void FramebufferManagerVulkan::DestroyAllFBOs() {
 	bvfbs_.clear();
 }
 
-void FramebufferManagerVulkan::FlushBeforeCopy() {
-	// Flush anything not yet drawn before blitting, downloading, or uploading.
-	// This might be a stalled list, or unflushed before a block transfer, etc.
-
-	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
-	// all the irrelevant state checking it'll use to decide what to do. Should
-	// do something more focused here.
-	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	if (!draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS))
-		Crash();
-	drawEngine_->Flush();
-}
-
 void FramebufferManagerVulkan::Resized() {
 	FramebufferManagerCommon::Resized();
 
 	if (UpdateSize()) {
 		DestroyAllFBOs();
 	}
-}
-
-bool FramebufferManagerVulkan::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxStride) {
-	// TODO: Doing this synchronously will require stalling the pipeline. Maybe better
-	// to do it callback-style?
-/*
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
-
-	if (!vfb) {
-		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, format);
-		return true;
-	}
-
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, false, true);
-	if (vfb->fbo)
-		fbo_bind_for_read(vfb->fbo);
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
-	*/
-	return false;
-}
-
-bool FramebufferManagerVulkan::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	// TODO: Doing this synchronously will require stalling the pipeline. Maybe better
-	// to do it callback-style?
-	/*
-	fbo_unbind_read();
-
-	int pw = PSP_CoreParameter().pixelWidth;
-	int ph = PSP_CoreParameter().pixelHeight;
-
-	// The backbuffer is flipped.
-	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	SafeGLReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
-	*/
-	return false;
-}
-
-bool FramebufferManagerVulkan::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
-	// TODO: Doing this synchronously will require stalling the pipeline. Maybe better
-	// to do it callback-style?
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
-
-	if (!vfb) {
-		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
-		return true;
-	}
-
-	/*
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, false);
-	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
-	*/
-	return false;
-}
-
-bool FramebufferManagerVulkan::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {
-	// TODO: Doing this synchronously will require stalling the pipeline. Maybe better
-	// to do it callback-style?
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
-
-	if (!vfb) {
-		// If there's no vfb and we're drawing there, must be memory?
-		// TODO: Actually get the stencil.
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, GPU_DBG_FORMAT_8888);
-		return true;
-	}
-
-	/*
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_8BIT, false);
-	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, buffer.GetData());
-
-	return true;
-	*/
-	return false;
 }

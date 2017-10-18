@@ -45,10 +45,7 @@ public:
 
 	void SetTextureCache(TextureCacheDX9 *tc);
 	void SetShaderManager(ShaderManagerDX9 *sm);
-	void SetDrawEngine(DrawEngineDX9 *td) {
-		drawEngine_ = td;
-	}
-
+	void SetDrawEngine(DrawEngineDX9 *td);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
 
 	void DestroyAllFBOs();
@@ -83,7 +80,6 @@ protected:
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override;
-	void FlushBeforeCopy() override;
 	void DecimateFBOs() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
@@ -119,7 +115,7 @@ private:
 
 	TextureCacheDX9 *textureCacheDX9_;
 	ShaderManagerDX9 *shaderManagerDX9_;
-	DrawEngineDX9 *drawEngine_;
+	DrawEngineDX9 *drawEngineD3D9_;
 	
 	struct TempFBO {
 		Draw::Framebuffer *fbo;

@@ -65,9 +65,7 @@ public:
 
 	void SetTextureCache(TextureCacheVulkan *tc);
 	void SetShaderManager(ShaderManagerVulkan *sm);
-	void SetDrawEngine(DrawEngineVulkan *td) {
-		drawEngine_ = td;
-	}
+	void SetDrawEngine(DrawEngineVulkan *td);
 
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
@@ -96,11 +94,6 @@ public:
 
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
-	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) override;
-	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) override;
-	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) override;
-	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
-
 	virtual void RebindFramebuffer() override;
 	VkImageView BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
@@ -113,7 +106,6 @@ protected:
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override {}
-	void FlushBeforeCopy() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
@@ -144,7 +136,7 @@ private:
 
 	TextureCacheVulkan *textureCacheVulkan_;
 	ShaderManagerVulkan *shaderManagerVulkan_;
-	DrawEngineVulkan *drawEngine_;
+	DrawEngineVulkan *drawEngineVulkan_;
 
 	AsyncPBOVulkan *pixelBufObj_;
 	int currentPBO_;

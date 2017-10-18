@@ -43,10 +43,7 @@ public:
 
 	void SetTextureCache(TextureCacheD3D11 *tc);
 	void SetShaderManager(ShaderManagerD3D11 *sm);
-	void SetDrawEngine(DrawEngineD3D11 *td) {
-		drawEngine_ = td;
-	}
-
+	void SetDrawEngine(DrawEngineD3D11 *td);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
 
 	void DestroyAllFBOs();
@@ -75,7 +72,6 @@ public:
 
 protected:
 	void DisableState() override;
-	void FlushBeforeCopy() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
@@ -125,7 +121,7 @@ private:
 
 	TextureCacheD3D11 *textureCacheD3D11_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
-	DrawEngineD3D11 *drawEngine_;
+	DrawEngineD3D11 *drawEngineD3D11_;
 
 	// Used by post-processing shader
 	// Postprocessing

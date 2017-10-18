@@ -181,6 +181,7 @@ class DrawContext;
 struct GPUDebugBuffer;
 class TextureCacheCommon;
 class ShaderManagerCommon;
+class DrawEngineCommon;
 
 class FramebufferManagerCommon {
 public:
@@ -314,7 +315,7 @@ protected:
 	void SetNumExtraFBOs(int num);
 
 	virtual void DisableState() = 0;
-	virtual void FlushBeforeCopy() = 0;
+	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
@@ -359,6 +360,7 @@ protected:
 	Draw::DrawContext *draw_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
 	ShaderManagerCommon *shaderManager_ = nullptr;
+	DrawEngineCommon *drawEngine_ = nullptr;
 	bool needBackBufferYSwap_ = false;
 
 	u32 displayFramebufPtr_ = 0;

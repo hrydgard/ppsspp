@@ -32,6 +32,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
+#include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureCacheCommon.h"
@@ -1998,3 +1999,13 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 	}
 }
 
+void FramebufferManagerCommon::FlushBeforeCopy() {
+	// Flush anything not yet drawn before blitting, downloading, or uploading.
+	// This might be a stalled list, or unflushed before a block transfer, etc.
+
+	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
+	// all the irrelevant state checking it'll use to decide what to do. Should
+	// do something more focused here.
+	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	drawEngine_->DispatchFlush();
+}

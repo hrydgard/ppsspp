@@ -155,6 +155,11 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		shaderManager_ = sm;
 	}
 
+	void FramebufferManagerDX9::SetDrawEngine(DrawEngineDX9 *td) {
+		drawEngineD3D9_ = td;
+		drawEngine_ = td;
+	}
+
 	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
 		u8 *convBuf = NULL;
 		D3DLOCKED_RECT rect;
@@ -784,17 +789,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 		offscreenSurfaces_.clear();
 		DisableState();
-	}
-
-	void FramebufferManagerDX9::FlushBeforeCopy() {
-		// Flush anything not yet drawn before blitting, downloading, or uploading.
-		// This might be a stalled list, or unflushed before a block transfer, etc.
-
-		// TODO: It's really bad that we are calling SetRenderFramebuffer here with
-		// all the irrelevant state checking it'll use to decide what to do. Should
-		// do something more focused here.
-		SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-		drawEngine_->Flush();
 	}
 
 	void FramebufferManagerDX9::Resized() {

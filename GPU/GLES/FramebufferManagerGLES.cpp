@@ -239,6 +239,11 @@ void FramebufferManagerGLES::SetShaderManager(ShaderManagerGLES *sm) {
 	shaderManager_ = sm;
 }
 
+void FramebufferManagerGLES::SetDrawEngine(DrawEngineGLES *td) {
+	drawEngineGL_ = td;
+	drawEngine_ = td;
+}
+
 FramebufferManagerGLES::~FramebufferManagerGLES() {
 	if (drawPixelsTex_)
 		glDeleteTextures(1, &drawPixelsTex_);
@@ -417,8 +422,8 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
 	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-		drawEngine_->BindBuffer(pos, sizeof(pos), texCoords, sizeof(texCoords));
-		drawEngine_->BindElementBuffer(indices, sizeof(indices));
+		drawEngineGL_->BindBuffer(pos, sizeof(pos), texCoords, sizeof(texCoords));
+		drawEngineGL_->BindElementBuffer(indices, sizeof(indices));
 		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
 		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
 		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, 0);
@@ -1099,18 +1104,6 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 	tempFBOs_.clear();
 
 	DisableState();
-	CHECK_GL_ERROR_IF_DEBUG();
-}
-
-void FramebufferManagerGLES::FlushBeforeCopy() {
-	// Flush anything not yet drawn before blitting, downloading, or uploading.
-	// This might be a stalled list, or unflushed before a block transfer, etc.
-
-	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
-	// all the irrelevant state checking it'll use to decide what to do. Should
-	// do something more focused here.
-	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	drawEngine_->Flush();
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
