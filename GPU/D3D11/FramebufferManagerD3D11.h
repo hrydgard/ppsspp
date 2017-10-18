@@ -57,8 +57,6 @@ public:
 
 	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	std::vector<FramebufferInfo> GetFramebufferList();
-
 	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
 	virtual void RebindFramebuffer() override;

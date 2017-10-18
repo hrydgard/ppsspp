@@ -25,6 +25,7 @@
 #include "Core/MemMap.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GPUInterface.h"
 #include "thin3d/thin3d.h"
 
 enum {
@@ -212,6 +213,7 @@ public:
 		}
 	}
 	virtual void RebindFramebuffer() = 0;
+	std::vector<FramebufferInfo> GetFramebufferList();
 
 	void CopyDisplayToOutput();
 

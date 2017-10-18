@@ -718,25 +718,6 @@ void FramebufferManagerD3D11::DeviceLost() {
 	DestroyAllFBOs();
 }
 
-std::vector<FramebufferInfo> FramebufferManagerD3D11::GetFramebufferList() {
-	std::vector<FramebufferInfo> list;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-
-		FramebufferInfo info;
-		info.fb_address = vfb->fb_address;
-		info.z_address = vfb->z_address;
-		info.format = vfb->format;
-		info.width = vfb->width;
-		info.height = vfb->height;
-		info.fbo = vfb->fbo;
-		list.push_back(info);
-	}
-
-	return list;
-}
-
 void FramebufferManagerD3D11::DestroyAllFBOs() {
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;

@@ -223,9 +223,7 @@ public:
 	bool DecodeTexture(u8* dest, const GPUgstate &state) override {
 		return false;
 	}
-	std::vector<FramebufferInfo> GetFramebufferList() override {
-		return std::vector<FramebufferInfo>();
-	}
+	std::vector<FramebufferInfo> GetFramebufferList();
 	void ClearShaderCache() override {}
 	void CleanupBeforeUI() override {}
 

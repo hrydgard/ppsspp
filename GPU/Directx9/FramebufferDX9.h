@@ -59,8 +59,6 @@ public:
 
 	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	std::vector<FramebufferInfo> GetFramebufferList();
-
 	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
 	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);

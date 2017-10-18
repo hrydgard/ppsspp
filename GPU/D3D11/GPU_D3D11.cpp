@@ -755,10 +755,6 @@ void GPU_D3D11::ClearShaderCache() {
 	shaderManagerD3D11_->ClearShaders();
 }
 
-std::vector<FramebufferInfo> GPU_D3D11::GetFramebufferList() {
-	return framebufferManagerD3D11_->GetFramebufferList();
-}
-
 void GPU_D3D11::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 

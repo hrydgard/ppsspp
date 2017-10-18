@@ -688,10 +688,6 @@ void GPU_DX9::ClearShaderCache() {
 	shaderManagerDX9_->ClearCache(true);
 }
 
-std::vector<FramebufferInfo> GPU_DX9::GetFramebufferList() {
-	return framebufferManagerDX9_->GetFramebufferList();
-}
-
 void GPU_DX9::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 

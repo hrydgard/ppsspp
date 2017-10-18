@@ -71,8 +71,6 @@ public:
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
 
-	std::vector<FramebufferInfo> GetFramebufferList();
-
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
 	virtual void RebindFramebuffer() override;

@@ -2506,3 +2506,8 @@ bool GPUCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 bool GPUCommon::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	return textureCache_->GetCurrentTextureDebug(buffer, level);
 }
+
+std::vector<FramebufferInfo> GPUCommon::GetFramebufferList() {
+	return framebufferManager_->GetFramebufferList();
+}
+

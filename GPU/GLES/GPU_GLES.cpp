@@ -929,10 +929,6 @@ void GPU_GLES::CleanupBeforeUI() {
 	glstate.elementArrayBuffer.bind(0);
 }
 
-std::vector<FramebufferInfo> GPU_GLES::GetFramebufferList() {
-	return framebufferManagerGL_->GetFramebufferList();
-}
-
 void GPU_GLES::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 

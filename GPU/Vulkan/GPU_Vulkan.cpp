@@ -839,10 +839,6 @@ void GPU_Vulkan::ClearShaderCache() {
 	// TODO
 }
 
-std::vector<FramebufferInfo> GPU_Vulkan::GetFramebufferList() {
-	return framebufferManagerVulkan_->GetFramebufferList();
-}
-
 void GPU_Vulkan::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
