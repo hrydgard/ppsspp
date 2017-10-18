@@ -1617,7 +1617,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 if(ANDROID)
   set(CoreExtraLibs ${CoreExtraLibs} android)
   if(X86_64)
-    set(CoreExtraLibs ${CoreExtraLibs} android -Wl,-Bsymbolic")
+    set(CoreExtraLibs ${CoreExtraLibs} android -Wl,-Bsymbolic)
   endif()
 endif()	
  
