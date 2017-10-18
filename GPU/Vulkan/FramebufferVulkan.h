@@ -71,11 +71,6 @@ public:
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
 
-	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	VulkanTexture *GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
-
-	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
-
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;

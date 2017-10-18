@@ -478,41 +478,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 	}
 
-	void FramebufferManagerDX9::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
-		VirtualFramebuffer *vfb = GetVFBAt(fb_address);
-		if (vfb && vfb->fb_stride != 0) {
-			const u32 bpp = vfb->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
-			int x = 0;
-			int y = 0;
-			int pixels = loadBytes / bpp;
-			// The height will be 1 for each stride or part thereof.
-			int w = std::min(pixels % vfb->fb_stride, (int)vfb->width);
-			int h = std::min((pixels + vfb->fb_stride - 1) / vfb->fb_stride, (int)vfb->height);
-
-			// We might still have a pending draw to the fb in question, flush if so.
-			FlushBeforeCopy();
-
-			// No need to download if we already have it.
-			if (!vfb->memoryUpdated && vfb->clutUpdatedBytes < loadBytes) {
-				// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
-				// CLUT framebuffers are often incorrectly estimated in size.
-				if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
-					vfb->memoryUpdated = true;
-				}
-				vfb->clutUpdatedBytes = loadBytes;
-
-				// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-				VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-
-				PackFramebufferSync_(nvfb, x, y, w, h);
-
-				textureCacheDX9_->ForgetLastTexture();
-				RebindFramebuffer();
-			}
-		}
-	}
-
 	bool FramebufferManagerDX9::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 		nvfb->colorDepth = Draw::FBO_8888;
 
