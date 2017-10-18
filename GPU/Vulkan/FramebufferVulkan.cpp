@@ -391,7 +391,7 @@ void FramebufferManagerVulkan::RebindFramebuffer() {
 
 bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
 	// In Vulkan we should be able to simply copy the stencil data directly to a stencil buffer without
-	// messing about with bitplane textures and the like.
+	// messing about with bitplane textures and the like. Or actually, maybe not...
 	return false;
 }
 

@@ -1385,7 +1385,10 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 			break;
 		case FB_DEPTH_BIT:
 		case FB_STENCIL_BIT:
-			assert(fb);
+			if (!fb) {
+				// Not supported.
+				return false;
+			}
 			packDesc.Format = fb->depthStencilFormat;
 			break;
 		default:
@@ -1393,6 +1396,14 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 		}
 		device_->CreateTexture2D(&packDesc, nullptr, &packTex);
 	} else {
+		switch (channelBits) {
+		case FB_DEPTH_BIT:
+		case FB_STENCIL_BIT:
+			if (!fb)
+				return false;
+		default:
+			break;
+		}
 		packTex = packTexture_;
 	}
 
@@ -1404,7 +1415,7 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 	case FB_DEPTH_BIT:
 	case FB_STENCIL_BIT:
 		// For depth/stencil buffers, we can't reliably copy subrectangles, so just copy the whole resource.
-		assert(fb);  // We haven't got a texture for the backbuffer depth. Could make one but I don't think we need one.
+		assert(fb);  // Can't copy depth/stencil from backbuffer. Shouldn't happen thanks to checks above.
 		context_->CopyResource(packTex, fb->depthStencilTex);
 		break;
 	default:

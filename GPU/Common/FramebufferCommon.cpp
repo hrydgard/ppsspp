@@ -1872,7 +1872,15 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 		}
 	}
 
-	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
+	if (!useBufferedRendering_) {
+		// Safety check.
+		w = std::min(w, PSP_CoreParameter().pixelWidth);
+		h = std::min(h, PSP_CoreParameter().pixelHeight);
+	}
+
+	// TODO: Maybe should handle flipY inside CopyFramebufferToMemorySync somehow?
+	bool flipY = (g_Config.iGPUBackend == GPU_BACKEND_OPENGL && !useBufferedRendering_) ? true : false;
+	buffer.Allocate(w, h, GE_FORMAT_8888, flipY, true);
 	bool retval = draw_->CopyFramebufferToMemorySync(bound, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
 	// We may have blitted to a temp FBO.
 	RebindFramebuffer();
@@ -1891,16 +1899,21 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 		return true;
 	}
 
-	if (!vfb->fbo) {
-		return false;
+	int w = vfb->renderWidth;
+	int h = vfb->renderHeight;
+	if (!useBufferedRendering_) {
+		// Safety check.
+		w = std::min(w, PSP_CoreParameter().pixelWidth);
+		h = std::min(h, PSP_CoreParameter().pixelHeight);
 	}
 
+	bool flipY = (g_Config.iGPUBackend == GPU_BACKEND_OPENGL && !useBufferedRendering_) ? true : false;
 	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
-		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT_DIV_256, !useBufferedRendering_);
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT_DIV_256, flipY);
 	} else {
-		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, !useBufferedRendering_);
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
 	}
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::D32F, buffer.GetData(), vfb->renderWidth);
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w);
 	return true;
 }
 
@@ -1917,13 +1930,22 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 		return true;
 	}
 
-#ifndef USING_GLES2
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_8BIT, !useBufferedRendering_);
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::S8, buffer.GetData(), vfb->renderWidth);
-	return true;
-#else
-	return false;
-#endif
+	int w = vfb->renderWidth;
+	int h = vfb->renderHeight;
+	if (!useBufferedRendering_) {
+		// Safety check.
+		w = std::min(w, PSP_CoreParameter().pixelWidth);
+		h = std::min(h, PSP_CoreParameter().pixelHeight);
+	}
+
+	bool flipY = (g_Config.iGPUBackend == GPU_BACKEND_OPENGL && !useBufferedRendering_) ? true : false;
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT, flipY);
+	if (draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, w,h, Draw::DataFormat::S8, buffer.GetData(), w)) {
+		return true;
+	} else {
+		buffer.Free();
+		return false;
+	}
 }
 
 bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
