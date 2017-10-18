@@ -948,9 +948,9 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 	int dstByteOffset = y * vfb->fb_stride * dstBpp;
 	u8 *dst = Memory::GetPointer(fb_address + dstByteOffset);
 
-	GLubyte *packed = nullptr;
+	u8 *packed = nullptr;
 	if (!convert) {
-		packed = (GLubyte *)dst;
+		packed = (u8 *)dst;
 	} else {
 		// End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
 		if (!convBuf_ || convBufSize_ < bufSize) {

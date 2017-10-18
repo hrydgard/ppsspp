@@ -542,35 +542,6 @@ VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, V
 	}
 }
 
-void FramebufferManagerVulkan::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-	PROFILE_THIS_SCOPE("gpu-readback");
-	if (sync) {
-		// flush async just in case when we go for synchronous update
-		// Doesn't actually pack when sent a null argument.
-		PackFramebufferAsync_(nullptr);
-	}
-
-	if (vfb) {
-		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-		OptimizeDownloadRange(vfb, x, y, w, h);
-		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-
-		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
-		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
-
-		// TODO: Can we fall back to sync without these?
-		if (!sync) {
-			PackFramebufferAsync_(nvfb);
-		} else {
-			PackFramebufferSync_(nvfb, x, y, w, h);
-		}
-
-		textureCacheVulkan_->ForgetLastTexture();
-		RebindFramebuffer();
-	}
-}
-
 void FramebufferManagerVulkan::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
 	PROFILE_THIS_SCOPE("gpu-readback");
 	// Flush async just in case.
@@ -872,10 +843,6 @@ void FramebufferManagerVulkan::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	}
 
 	currentPBO_ = nextPBO;
-}
-
-void FramebufferManagerVulkan::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-
 }
 
 void FramebufferManagerVulkan::BeginFrameVulkan() {

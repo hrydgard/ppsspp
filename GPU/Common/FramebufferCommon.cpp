@@ -1934,3 +1934,45 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	return true;
 }
 
+// This function takes an already correctly-sized framebuffer and packs it into RAM.
+// Does not need to account for scaling.
+// Color conversion is currently done on CPU but should be done on GPU.
+void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+	if (!vfb->fbo) {
+		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferD3D11_: vfb->fbo == 0");
+		return;
+	}
+
+	const u32 fb_address = (0x04000000) | vfb->fb_address;
+
+	Draw::DataFormat destFormat = GEFormatToThin3D(vfb->format);
+	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
+
+	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
+	u8 *destPtr = Memory::GetPointer(fb_address + dstByteOffset);
+
+	// We always need to convert from the framebuffer native format.
+	// Right now that's always 8888.
+	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
+
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
+}
+
+void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
+	if (vfb) {
+		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
+		OptimizeDownloadRange(vfb, x, y, w, h);
+		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
+			// No need to blit
+			PackFramebufferSync_(vfb, x, y, w, h);
+		} else {
+			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
+			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+			PackFramebufferSync_(nvfb, x, y, w, h);
+		}
+
+		textureCache_->ForgetLastTexture();
+		RebindFramebuffer();
+	}
+}
+

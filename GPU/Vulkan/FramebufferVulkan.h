@@ -90,8 +90,6 @@ public:
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	VulkanTexture *GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
 
-	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
@@ -123,15 +121,12 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
-	void DoNotifyDraw();
 
 	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
-	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

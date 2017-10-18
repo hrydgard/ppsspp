@@ -159,6 +159,21 @@ enum DrawTextureFlags {
 	DRAWTEX_KEEP_TEX = 2,
 };
 
+inline Draw::DataFormat GEFormatToThin3D(int geFormat) {
+	switch (geFormat) {
+	case GE_FORMAT_4444:
+		return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
+	case GE_FORMAT_5551:
+		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case GE_FORMAT_565:
+		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case GE_FORMAT_8888:
+		return Draw::DataFormat::R8G8B8A8_UNORM;
+	default:
+		return Draw::DataFormat::UNDEFINED;
+	}
+}
+
 namespace Draw {
 class DrawContext;
 }
@@ -210,7 +225,7 @@ public:
 	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
-	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) = 0;
+	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
 	virtual void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) = 0;
 	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
 
@@ -284,6 +299,7 @@ public:
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
 protected:
+	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	virtual void SetViewport2D(int x, int y, int w, int h);
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms);
 	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) = 0;

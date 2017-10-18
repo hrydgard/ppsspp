@@ -62,7 +62,6 @@ public:
 
 	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
@@ -95,7 +94,7 @@ protected:
 
 private:
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
-	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	bool GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer);
 

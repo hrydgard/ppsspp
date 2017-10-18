@@ -580,25 +580,6 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 	}
 }
 
-void FramebufferManagerD3D11::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-	if (vfb) {
-		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-		OptimizeDownloadRange(vfb, x, y, w, h);
-		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
-			// No need to blit
-			PackFramebufferSync_(vfb, x, y, w, h);
-		}
-		else {
-			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-			PackFramebufferSync_(nvfb, x, y, w, h);
-		}
-
-		textureCacheD3D11_->ForgetLastTexture();
-		RebindFramebuffer();
-	}
-}
-
 void FramebufferManagerD3D11::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
 	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
 	if (vfb && vfb->fb_stride != 0) {
@@ -747,45 +728,6 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 		dst->fbo, dstX1, dstY1, dstX2, dstY2,
 		srcFBO, srcX1, srcY1, srcX2, srcY2,
 		false);
-}
-
-static Draw::DataFormat GEFormatToThin3D(int geFormat) {
-	switch (geFormat) {
-	case GE_FORMAT_4444:
-		return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
-	case GE_FORMAT_5551:
-		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
-	case GE_FORMAT_565:
-		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
-	case GE_FORMAT_8888:
-		return Draw::DataFormat::R8G8B8A8_UNORM;
-	default:
-		return Draw::DataFormat::UNDEFINED;
-	}
-}
-
-// This function takes an already correctly-sized framebuffer and packs it into RAM.
-// Does not need to account for scaling.
-// Color conversion is currently done on CPU but should be done on GPU.
-void FramebufferManagerD3D11::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	if (!vfb->fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferD3D11_: vfb->fbo == 0");
-		return;
-	}
-
-	const u32 fb_address = (0x04000000) | vfb->fb_address;
-
-	Draw::DataFormat destFormat = GEFormatToThin3D(vfb->format);
-	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
-
-	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
-	u8 *destPtr = Memory::GetPointer(fb_address + dstByteOffset);
-
-	// We always need to convert from the framebuffer native format.
-	// Right now that's always 8888.
-	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
-
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
 }
 
 // Nobody calls this yet.

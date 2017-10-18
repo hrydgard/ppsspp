@@ -473,20 +473,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 	}
 
-	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-		if (vfb) {
-			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-			OptimizeDownloadRange(vfb, x, y, w, h);
-			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-
-			PackFramebufferDirectx9_(nvfb, x, y, w, h);
-
-			textureCacheDX9_->ForgetLastTexture();
-			RebindFramebuffer();
-		}
-	}
-
 	void FramebufferManagerDX9::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
 		VirtualFramebuffer *vfb = GetVFBAt(fb_address);
 		if (vfb && vfb->fb_stride != 0) {
@@ -514,7 +500,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 				VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
 				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
-				PackFramebufferDirectx9_(nvfb, x, y, w, h);
+				PackFramebufferSync_(nvfb, x, y, w, h);
 
 				textureCacheDX9_->ForgetLastTexture();
 				RebindFramebuffer();
@@ -640,7 +626,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 	}
 
-	void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+	void FramebufferManagerDX9::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 		if (!vfb->fbo) {
 			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferDirectx9_: vfb->fbo == 0");
 			return;

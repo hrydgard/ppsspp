@@ -108,7 +108,7 @@ private:
 	void CompilePostShader();
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
-	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	// Used by DrawPixels

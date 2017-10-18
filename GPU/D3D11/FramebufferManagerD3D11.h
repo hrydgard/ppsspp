@@ -60,7 +60,6 @@ public:
 
 	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
@@ -89,13 +88,11 @@ private:
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void Bind2DShader() override;
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
-	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SimpleBlit(
 		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
 		Draw::Framebuffer *src, float srcX1, float srcY1, float srcX2, float srcY2,
 		bool linearFilter);
-	bool GetDepthStencilBuffer(VirtualFramebuffer *vfb, GPUDebugBuffer &buffer, bool stencil);
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
