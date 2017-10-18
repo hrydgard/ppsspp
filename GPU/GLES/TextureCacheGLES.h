@@ -67,6 +67,7 @@ public:
 	bool DecodeTexture(u8 *output, const GPUgstate &state);
 
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
+	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;

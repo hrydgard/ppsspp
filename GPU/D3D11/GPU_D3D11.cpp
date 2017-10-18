@@ -770,21 +770,6 @@ void GPU_D3D11::DoState(PointerWrap &p) {
 	}
 }
 
-bool GPU_D3D11::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
-	if (!gstate.isTextureMapEnabled()) {
-		return false;
-	}
-	return textureCacheD3D11_->GetCurrentTextureDebug(buffer, level);
-}
-
-bool GPU_D3D11::GetCurrentClut(GPUDebugBuffer &buffer) {
-	return textureCacheD3D11_->GetCurrentClutBuffer(buffer);
-}
-
-bool GPU_D3D11::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	return drawEngine_.GetCurrentSimpleVertices(count, vertices, indices);
-}
-
 std::vector<std::string> GPU_D3D11::DebugGetShaderIDs(DebugShaderType type) {
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:

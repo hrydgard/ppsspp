@@ -64,10 +64,6 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
-	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
-	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
-
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 	typedef void (GPU_GLES::*CmdFunc)(u32 op, u32 diff);

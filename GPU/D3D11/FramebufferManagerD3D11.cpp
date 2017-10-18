@@ -275,7 +275,7 @@ void FramebufferManagerD3D11::CompilePostShader() {
 }
 
 void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	u8 *convBuf = NULL;
+	u8 *convBuf = nullptr;
 
 	// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
 	if (drawPixelsTex_ && (drawPixelsTexW_ != width || drawPixelsTexH_ != height)) {
@@ -719,10 +719,10 @@ void FramebufferManagerD3D11::DeviceLost() {
 }
 
 void FramebufferManagerD3D11::DestroyAllFBOs() {
-	currentRenderVfb_ = 0;
-	displayFramebuf_ = 0;
-	prevDisplayFramebuf_ = 0;
-	prevPrevDisplayFramebuf_ = 0;
+	currentRenderVfb_ = nullptr;
+	displayFramebuf_ = nullptr;
+	prevDisplayFramebuf_ = nullptr;
+	prevPrevDisplayFramebuf_ = nullptr;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];

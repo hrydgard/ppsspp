@@ -1027,25 +1027,6 @@ void FramebufferManagerGLES::DeviceLost() {
 	DestroyDraw2DProgram();
 }
 
-std::vector<FramebufferInfo> FramebufferManagerGLES::GetFramebufferList() {
-	std::vector<FramebufferInfo> list;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-
-		FramebufferInfo info;
-		info.fb_address = vfb->fb_address;
-		info.z_address = vfb->z_address;
-		info.format = vfb->format;
-		info.width = vfb->width;
-		info.height = vfb->height;
-		info.fbo = vfb->fbo;
-		list.push_back(info);
-	}
-
-	return list;
-}
-
 void FramebufferManagerGLES::DestroyAllFBOs() {
 	CHECK_GL_ERROR_IF_DEBUG();
 	currentRenderVfb_ = 0;

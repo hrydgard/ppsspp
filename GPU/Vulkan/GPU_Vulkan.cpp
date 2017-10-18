@@ -856,10 +856,6 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 	}
 }
 
-bool GPU_Vulkan::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	return drawEngine_.GetCurrentSimpleVertices(count, vertices, indices);
-}
-
 bool GPU_Vulkan::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	if (drawEngine_.IsCodePtrVertexDecoder(ptr)) {
 		name = "VertexDecoderJit";
