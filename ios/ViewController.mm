@@ -39,7 +39,8 @@ public:
 	IOSDummyGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
-		assert(draw_->CreatePresets());
+		bool success = draw_->CreatePresets();
+		assert(success);
 	}
 	~IOSDummyGraphicsContext() {
 		delete draw_;

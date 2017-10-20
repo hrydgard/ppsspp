@@ -324,7 +324,8 @@ void PPSSPP_UWPMain::LoadStorageFile(StorageFile ^file) {
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
 	draw_ = Draw::T3DCreateD3D11Context(
 		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0);
-	assert(draw_->CreatePresets());
+	bool success = draw_->CreatePresets();
+	assert(success);
 }
 
 void UWPGraphicsContext::Shutdown() {

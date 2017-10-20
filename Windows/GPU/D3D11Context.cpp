@@ -140,7 +140,8 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 #endif
 
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_);
-	assert(draw_->CreatePresets());  // If we can run D3D11, there's a compiler installed. I think.
+	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
+	assert(success);
 
 	int width;
 	int height;

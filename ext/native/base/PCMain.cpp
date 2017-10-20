@@ -52,7 +52,8 @@ public:
 	GLDummyGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
-		assert(draw_->CreatePresets());
+		bool success = draw_->CreatePresets();
+		assert(success);
 	}
 	~GLDummyGraphicsContext() { delete draw_; }
 
