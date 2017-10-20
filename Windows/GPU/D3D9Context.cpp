@@ -165,6 +165,13 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		//deviceEx->SetMaximumFrameLatency(1);
 	}
 	draw_ = Draw::T3DCreateDX9Context(d3d_, d3dEx_, adapterId_, device_, deviceEx_);
+	if (!draw_->CreatePresets()) {
+		// Shader compiler not installed? Return an error so we can fall back to GL.
+		device_->Release();
+		d3d_->Release();
+		*error_message = "DirectX9 runtime not correctly installed. Please install.";
+		return false;
+	}
 	if (draw_)
 		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, 0, 0, nullptr);
 	return true;

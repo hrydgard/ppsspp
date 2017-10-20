@@ -583,6 +583,7 @@ struct RenderPassInfo {
 class DrawContext {
 public:
 	virtual ~DrawContext();
+	bool CreatePresets();
 
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
@@ -691,8 +692,6 @@ public:
 	virtual void FlushState() {}
 
 protected:
-	void CreatePresets();
-
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];
 

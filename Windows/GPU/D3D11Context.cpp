@@ -2,6 +2,7 @@
 
 #include "Common/CommonWindows.h"
 #include <d3d11.h>
+#include <cassert>
 
 #include "base/logging.h"
 #include "util/text/utf8.h"
@@ -139,6 +140,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 #endif
 
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_);
+	assert(draw_->CreatePresets());  // If we can run D3D11, there's a compiler installed. I think.
 
 	int width;
 	int height;

@@ -591,8 +591,6 @@ private:
 };
 
 OpenGLContext::OpenGLContext() {
-	CreatePresets();
-
 	// TODO: Detect more caps
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil || gl_extensions.OES_depth24) {
