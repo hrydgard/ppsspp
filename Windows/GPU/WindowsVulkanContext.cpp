@@ -124,17 +124,7 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	}
 	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
-	if (msgCode == 2)  // Useless perf warning
-		return false;
-
-	// This seems like a bogus result when submitting two command buffers in one go, one creating the image, the other one using it.
-	if (msgCode == 6 && startsWith(pMsg, "Cannot submit cmd buffer using image"))
-		return false;
-	if (msgCode == 11)
-		return false;
-	// Silence "invalid reads of buffer data" - usually just uninitialized color buffers that will immediately get cleared due to our
-	// lacking clearing optimizations.
-	if (msgCode == 15 && objType == VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT)
+	if (msgCode == 2)  // Useless perf warning ("Vertex attribute at location X not consumed by vertex shader")
 		return false;
 
 #ifdef _WIN32

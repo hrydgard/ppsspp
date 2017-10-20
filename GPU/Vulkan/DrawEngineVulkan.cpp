@@ -884,8 +884,11 @@ void DrawEngineVulkan::DoFlush() {
 			if (pipeline != lastPipeline_) {
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 				lastPipeline_ = pipeline;
+				if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
+				}
 			}
-			ApplyDrawStateLate(cmd, false, 0);
+			ApplyDrawStateLate(cmd, false, 0, pipeline->useBlendConstant);
 			gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 		}
 		lastPrim_ = prim;
@@ -986,8 +989,11 @@ void DrawEngineVulkan::DoFlush() {
 				if (pipeline != lastPipeline_) {
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 					lastPipeline_ = pipeline;
+					if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {
+						gstate_c.Dirty(DIRTY_BLEND_STATE);
+					}
 				}
-				ApplyDrawStateLate(cmd, false, 0);
+				ApplyDrawStateLate(cmd, false, 0, pipeline->useBlendConstant);
 				gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 			}
 			lastPrim_ = prim;

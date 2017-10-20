@@ -369,8 +369,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 }
 
-
-void DrawEngineVulkan::ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencilRef, uint8_t stencilRef) {
+void DrawEngineVulkan::ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant) {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
@@ -402,7 +401,7 @@ void DrawEngineVulkan::ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencil
 	if (applyStencilRef) {
 		vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, stencilRef);
 	}
-	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE) && useBlendConstant) {
 		float bc[4];
 		Uint8x4ToFloat4(bc, dynState_.blendColor);
 		vkCmdSetBlendConstants(cmd, bc);

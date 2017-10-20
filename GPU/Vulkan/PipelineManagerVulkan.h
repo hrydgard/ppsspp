@@ -64,6 +64,7 @@ enum {
 struct VulkanPipeline {
 	VkPipeline pipeline;
 	int uniformBlocks;  // UB_ enum above.
+	bool useBlendConstant;
 };
 
 class VulkanContext;

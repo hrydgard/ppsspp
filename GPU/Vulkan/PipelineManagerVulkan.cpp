@@ -122,6 +122,8 @@ static bool UsesBlendConstant(int factor) {
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
 		const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
+	bool useBlendConstant = false;
+
 	VkPipelineColorBlendAttachmentState blend0 = {};
 	blend0.blendEnable = key.blendEnable;
 	if (key.blendEnable) {
@@ -166,6 +168,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	if (key.blendEnable &&
 		  (UsesBlendConstant(key.srcAlpha) || UsesBlendConstant(key.srcColor) || UsesBlendConstant(key.destAlpha) || UsesBlendConstant(key.destColor))) {
 		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_BLEND_CONSTANTS;
+		useBlendConstant = true;
 	}
 	dynamicStates[numDyn++] = VK_DYNAMIC_STATE_SCISSOR;
 	dynamicStates[numDyn++] = VK_DYNAMIC_STATE_VIEWPORT;
@@ -285,6 +288,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 	vulkanPipeline->pipeline = pipeline;
 	vulkanPipeline->uniformBlocks = UB_VS_FS_BASE;
+	vulkanPipeline->useBlendConstant = useBlendConstant;
 	if (useHwTransform) {
 		if (vs->HasLights()) {
 			vulkanPipeline->uniformBlocks |= UB_VS_LIGHTS;

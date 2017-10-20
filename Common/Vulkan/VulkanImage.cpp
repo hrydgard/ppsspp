@@ -8,13 +8,6 @@ VkResult VulkanTexture::Create(int w, int h, VkFormat format) {
 
 	VkFormatProperties formatProps;
 	vkGetPhysicalDeviceFormatProperties(vulkan_->GetPhysicalDevice(), format, &formatProps);
-
-	// See if we can use a linear tiled image for a texture, if not, we will need a staging image for the texture data.
-	// Linear tiling is usually only supported for 2D non-array textures.
-	// needStaging = (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) ? true : false;
-	// Always stage.
-	needStaging = true;
-
 	return VK_SUCCESS;
 }
 
@@ -39,7 +32,7 @@ void VulkanTexture::CreateMappableImage() {
 	image_create_info.arrayLayers = 1;
 	image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
 	image_create_info.tiling = VK_IMAGE_TILING_LINEAR;
-	image_create_info.usage = needStaging ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : VK_IMAGE_USAGE_SAMPLED_BIT;
+	image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	image_create_info.queueFamilyIndexCount = 0;
 	image_create_info.pQueueFamilyIndices = NULL;
 	image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -98,15 +91,8 @@ void VulkanTexture::Unlock() {
 
 	// if we already have an image, queue it for destruction and forget it.
 	Wipe();
-	if (!needStaging) {
-		// If we can use the linear tiled image as a texture, just do it
-		image = mappableImage;
-		mem = mappableMemory;
-		TransitionImageLayout(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		// Make sure we don't accidentally delete the main image.
-		mappableImage = VK_NULL_HANDLE;
-		mappableMemory = VK_NULL_HANDLE;
-	} else {
+
+	{  // Shrink the diff by not unindenting. If you make major changes, remove this.
 		VkImageCreateInfo image_create_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 		image_create_info.imageType = VK_IMAGE_TYPE_2D;
 		image_create_info.format = format_;
@@ -145,15 +131,17 @@ void VulkanTexture::Unlock() {
 		assert(res == VK_SUCCESS);
 
 		// Since we're going to blit from the mappable image, set its layout to SOURCE_OPTIMAL
-		TransitionImageLayout(cmd, mappableImage,
+		TransitionImageLayout2(cmd, mappableImage,
 			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_PREINITIALIZED,
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
-		TransitionImageLayout(cmd, image,
+		TransitionImageLayout2(cmd, image,
 			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0, VK_ACCESS_TRANSFER_WRITE_BIT);
 
 		VkImageCopy copy_region;
 		copy_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -183,10 +171,11 @@ void VulkanTexture::Unlock() {
 		assert(res == VK_SUCCESS);
 
 		// Set the layout for the texture image from DESTINATION_OPTIMAL to SHADER_READ_ONLY
-		TransitionImageLayout(cmd, image,
+		TransitionImageLayout2(cmd, image,
 			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 
 		// Then drop the temporary mappable image - although should not be necessary...
 		vulkan_->Delete().QueueDeleteImage(mappableImage);
@@ -276,7 +265,17 @@ bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 
 	// Write a command to transition the image to the requested layout, if it's not already that layout.
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
-		TransitionImageLayout(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, initialLayout);
+		switch (initialLayout) {
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			TransitionImageLayout2(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, VK_ACCESS_TRANSFER_WRITE_BIT);
+			break;
+		default:
+			assert(false);
+			break;
+		}
 	}
 
 	vkGetImageMemoryRequirements(vulkan_->GetDevice(), image, &mem_reqs);
@@ -356,18 +355,20 @@ void VulkanTexture::UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buf
 
 void VulkanTexture::EndCreate() {
 	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
-	TransitionImageLayout(cmd, image,
+	TransitionImageLayout2(cmd, image,
 		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
 
 void VulkanTexture::TransitionForUpload() {
 	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
-	TransitionImageLayout(cmd, image,
+	TransitionImageLayout2(cmd, image,
 		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
 }
 
 void VulkanTexture::Destroy() {

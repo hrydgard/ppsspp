@@ -11,7 +11,7 @@ public:
 	VulkanTexture(VulkanContext *vulkan, VulkanDeviceAllocator *allocator = nullptr)
 		: vulkan_(vulkan), image(VK_NULL_HANDLE), mem(VK_NULL_HANDLE), view(VK_NULL_HANDLE),
 		tex_width(0), tex_height(0), numMips_(1), format_(VK_FORMAT_UNDEFINED),
-		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE), needStaging(false),
+		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE),
 		allocator_(allocator), offset_(0) {
 		memset(&mem_reqs, 0, sizeof(mem_reqs));
 	}
@@ -64,5 +64,4 @@ private:
 	VkMemoryRequirements mem_reqs;
 	VulkanDeviceAllocator *allocator_;
 	size_t offset_;
-	bool needStaging;
 };
