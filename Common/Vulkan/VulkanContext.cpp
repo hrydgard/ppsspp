@@ -1203,7 +1203,7 @@ void VulkanContext::DestroyDevice() {
 
 VkPipelineCache VulkanContext::CreatePipelineCache() {
 	VkPipelineCache cache;
-	VkPipelineCacheCreateInfo pc = { VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	pc.pInitialData = nullptr;
 	pc.initialDataSize = 0;
 	pc.flags = 0;
@@ -1213,7 +1213,7 @@ VkPipelineCache VulkanContext::CreatePipelineCache() {
 }
 
 bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule) {
-	VkShaderModuleCreateInfo sm = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+	VkShaderModuleCreateInfo sm{ VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
 	sm.pCode = spirv.data();
 	sm.codeSize = spirv.size() * sizeof(uint32_t);
 	sm.flags = 0;
@@ -1229,7 +1229,7 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFla
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
-	VkImageMemoryBarrier image_memory_barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	VkImageMemoryBarrier image_memory_barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	image_memory_barrier.srcAccessMask = srcAccessMask;
 	image_memory_barrier.dstAccessMask = dstAccessMask;
 	image_memory_barrier.oldLayout = oldImageLayout;
@@ -1237,8 +1237,8 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFla
 	image_memory_barrier.image = image;
 	image_memory_barrier.subresourceRange.aspectMask = aspectMask;
 	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-	image_memory_barrier.subresourceRange.levelCount = 1;
-	image_memory_barrier.subresourceRange.layerCount = 1;
+	image_memory_barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+	image_memory_barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 	vkCmdPipelineBarrier(cmd, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 }
 
