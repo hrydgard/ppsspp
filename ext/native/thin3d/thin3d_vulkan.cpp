@@ -1012,6 +1012,10 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	int i = 0;
 	for (auto &iter : desc.shaders) {
 		VKShaderModule *vkshader = (VKShaderModule *)iter;
+		if (!vkshader) {
+			ELOG("CreateGraphicsPipeline got passed a null shader");
+			return nullptr;
+		}
 		VkPipelineShaderStageCreateInfo &stage = stages[i++];
 		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		stage.pNext = nullptr;

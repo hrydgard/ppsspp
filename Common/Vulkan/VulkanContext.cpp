@@ -185,7 +185,7 @@ void TransitionFromPresent(VkCommandBuffer cmd, VkImage image) {
 	prePresentBarrier.subresourceRange.baseArrayLayer = 0;
 	prePresentBarrier.subresourceRange.layerCount = 1;
 	prePresentBarrier.image = image;
-	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
 		0, 0, nullptr, 0, nullptr, 1, &prePresentBarrier);
 }
 
@@ -739,10 +739,11 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	res = vkBindImageMemory(device_, depth.image, depth.mem, 0);
 	assert(res == VK_SUCCESS);
 
-	TransitionImageLayout(cmd, depth.image,
+	TransitionImageLayout2(cmd, depth.image,
 		aspectMask,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
 
 	VkImageViewCreateInfo depth_view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	depth_view_info.image = depth.image;
@@ -1283,6 +1284,22 @@ void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlag
 	vkCmdPipelineBarrier(cmd, src_stages, dest_stages, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 }
 
+void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask,
+	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
+	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
+	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
+	VkImageMemoryBarrier image_memory_barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	image_memory_barrier.srcAccessMask = srcAccessMask;
+	image_memory_barrier.dstAccessMask = dstAccessMask;
+	image_memory_barrier.oldLayout = oldImageLayout;
+	image_memory_barrier.newLayout = newImageLayout;
+	image_memory_barrier.image = image;
+	image_memory_barrier.subresourceRange.aspectMask = aspectMask;
+	image_memory_barrier.subresourceRange.baseMipLevel = 0;
+	image_memory_barrier.subresourceRange.levelCount = 1;
+	image_memory_barrier.subresourceRange.layerCount = 1;
+	vkCmdPipelineBarrier(cmd, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
+}
 
 EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
 	switch (shader_type) {

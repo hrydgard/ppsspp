@@ -145,15 +145,17 @@ void VulkanTexture::Unlock() {
 		assert(res == VK_SUCCESS);
 
 		// Since we're going to blit from the mappable image, set its layout to SOURCE_OPTIMAL
-		TransitionImageLayout(cmd, mappableImage,
+		TransitionImageLayout2(cmd, mappableImage,
 			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_PREINITIALIZED,
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
-		TransitionImageLayout(cmd, image,
+		TransitionImageLayout2(cmd, image,
 			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0, VK_ACCESS_TRANSFER_WRITE_BIT);
 
 		VkImageCopy copy_region;
 		copy_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -183,10 +185,11 @@ void VulkanTexture::Unlock() {
 		assert(res == VK_SUCCESS);
 
 		// Set the layout for the texture image from DESTINATION_OPTIMAL to SHADER_READ_ONLY
-		TransitionImageLayout(cmd, image,
+		TransitionImageLayout2(cmd, image,
 			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 
 		// Then drop the temporary mappable image - although should not be necessary...
 		vulkan_->Delete().QueueDeleteImage(mappableImage);
@@ -276,7 +279,17 @@ bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 
 	// Write a command to transition the image to the requested layout, if it's not already that layout.
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
-		TransitionImageLayout(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, initialLayout);
+		switch (initialLayout) {
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			TransitionImageLayout2(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, VK_ACCESS_TRANSFER_WRITE_BIT);
+			break;
+		default:
+			assert(false);
+			break;
+		}
 	}
 
 	vkGetImageMemoryRequirements(vulkan_->GetDevice(), image, &mem_reqs);
