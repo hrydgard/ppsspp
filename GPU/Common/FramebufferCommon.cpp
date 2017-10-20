@@ -32,6 +32,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
+#include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureCacheCommon.h"
@@ -1872,9 +1873,193 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 		}
 	}
 
-	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
+	if (!useBufferedRendering_) {
+		// Safety check.
+		w = std::min(w, PSP_CoreParameter().pixelWidth);
+		h = std::min(h, PSP_CoreParameter().pixelHeight);
+	}
+
+	// TODO: Maybe should handle flipY inside CopyFramebufferToMemorySync somehow?
+	bool flipY = (g_Config.iGPUBackend == GPU_BACKEND_OPENGL && !useBufferedRendering_) ? true : false;
+	buffer.Allocate(w, h, GE_FORMAT_8888, flipY, true);
 	bool retval = draw_->CopyFramebufferToMemorySync(bound, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
 	// We may have blitted to a temp FBO.
 	RebindFramebuffer();
 	return retval;
+}
+
+bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (!vfb) {
+		vfb = GetVFBAt(fb_address);
+	}
+
+	if (!vfb) {
+		// If there's no vfb and we're drawing there, must be memory?
+		buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+		return true;
+	}
+
+	int w = vfb->renderWidth;
+	int h = vfb->renderHeight;
+	if (!useBufferedRendering_) {
+		// Safety check.
+		w = std::min(w, PSP_CoreParameter().pixelWidth);
+		h = std::min(h, PSP_CoreParameter().pixelHeight);
+	}
+
+	bool flipY = (g_Config.iGPUBackend == GPU_BACKEND_OPENGL && !useBufferedRendering_) ? true : false;
+	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT_DIV_256, flipY);
+	} else {
+		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
+	}
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w);
+	return true;
+}
+
+bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (!vfb) {
+		vfb = GetVFBAt(fb_address);
+	}
+
+	if (!vfb) {
+		// If there's no vfb and we're drawing there, must be memory?
+		// TODO: Actually get the stencil.
+		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, GPU_DBG_FORMAT_8888);
+		return true;
+	}
+
+	int w = vfb->renderWidth;
+	int h = vfb->renderHeight;
+	if (!useBufferedRendering_) {
+		// Safety check.
+		w = std::min(w, PSP_CoreParameter().pixelWidth);
+		h = std::min(h, PSP_CoreParameter().pixelHeight);
+	}
+
+	bool flipY = (g_Config.iGPUBackend == GPU_BACKEND_OPENGL && !useBufferedRendering_) ? true : false;
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT, flipY);
+	if (draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, w,h, Draw::DataFormat::S8, buffer.GetData(), w)) {
+		return true;
+	} else {
+		buffer.Free();
+		return false;
+	}
+}
+
+bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
+	int w, h;
+	draw_->GetFramebufferDimensions(nullptr, &w, &h);
+	buffer.Allocate(w, h, GE_FORMAT_8888, false, true);
+	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
+	return true;
+}
+
+// This function takes an already correctly-sized framebuffer and packs it into RAM.
+// Does not need to account for scaling.
+// Color conversion is currently done on CPU but should be done on GPU.
+void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+	if (!vfb->fbo) {
+		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferD3D11_: vfb->fbo == 0");
+		return;
+	}
+
+	const u32 fb_address = (0x04000000) | vfb->fb_address;
+
+	Draw::DataFormat destFormat = GEFormatToThin3D(vfb->format);
+	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
+
+	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
+	u8 *destPtr = Memory::GetPointer(fb_address + dstByteOffset);
+
+	// We always need to convert from the framebuffer native format.
+	// Right now that's always 8888.
+	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
+
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
+}
+
+void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
+	if (vfb) {
+		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
+		OptimizeDownloadRange(vfb, x, y, w, h);
+		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {
+			// No need to blit
+			PackFramebufferSync_(vfb, x, y, w, h);
+		} else {
+			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
+			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+			PackFramebufferSync_(nvfb, x, y, w, h);
+		}
+
+		textureCache_->ForgetLastTexture();
+		RebindFramebuffer();
+	}
+}
+
+void FramebufferManagerCommon::FlushBeforeCopy() {
+	// Flush anything not yet drawn before blitting, downloading, or uploading.
+	// This might be a stalled list, or unflushed before a block transfer, etc.
+
+	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
+	// all the irrelevant state checking it'll use to decide what to do. Should
+	// do something more focused here.
+	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	drawEngine_->DispatchFlush();
+}
+
+void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
+	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
+	if (vfb && vfb->fb_stride != 0) {
+		const u32 bpp = vfb->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
+		int x = 0;
+		int y = 0;
+		int pixels = loadBytes / bpp;
+		// The height will be 1 for each stride or part thereof.
+		int w = std::min(pixels % vfb->fb_stride, (int)vfb->width);
+		int h = std::min((pixels + vfb->fb_stride - 1) / vfb->fb_stride, (int)vfb->height);
+
+		// We might still have a pending draw to the fb in question, flush if so.
+		FlushBeforeCopy();
+
+		// No need to download if we already have it.
+		if (!vfb->memoryUpdated && vfb->clutUpdatedBytes < loadBytes) {
+			// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
+			// CLUT framebuffers are often incorrectly estimated in size.
+			if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+				vfb->memoryUpdated = true;
+			}
+			vfb->clutUpdatedBytes = loadBytes;
+
+			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
+			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
+			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+
+			PackFramebufferSync_(nvfb, x, y, w, h);
+
+			textureCache_->ForgetLastTexture();
+			RebindFramebuffer();
+		}
+	}
+}
+
+std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() {
+	std::vector<FramebufferInfo> list;
+
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
+
+		FramebufferInfo info;
+		info.fb_address = vfb->fb_address;
+		info.z_address = vfb->z_address;
+		info.format = vfb->format;
+		info.width = vfb->width;
+		info.height = vfb->height;
+		info.fbo = vfb->fbo;
+		list.push_back(info);
+	}
+
+	return list;
 }

@@ -839,10 +839,6 @@ void GPU_Vulkan::ClearShaderCache() {
 	// TODO
 }
 
-std::vector<FramebufferInfo> GPU_Vulkan::GetFramebufferList() {
-	return framebufferManagerVulkan_->GetFramebufferList();
-}
-
 void GPU_Vulkan::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
@@ -858,18 +854,6 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 		shaderManagerVulkan_->ClearShaders();
 		pipelineManager_->Clear();
 	}
-}
-
-bool GPU_Vulkan::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	return drawEngine_.GetCurrentSimpleVertices(count, vertices, indices);
-}
-
-bool GPU_Vulkan::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	if (drawEngine_.IsCodePtrVertexDecoder(ptr)) {
-		name = "VertexDecoderJit";
-		return true;
-	}
-	return false;
 }
 
 std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {

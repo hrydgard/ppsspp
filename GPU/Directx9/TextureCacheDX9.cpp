@@ -785,4 +785,89 @@ bool TextureCacheDX9::DecodeTexture(u8 *output, const GPUgstate &state)
 	return true;
 }
 
+bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
+	SetTexture(true);
+	ApplyTexture();
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
+
+	LPDIRECT3DBASETEXTURE9 baseTex;
+	LPDIRECT3DTEXTURE9 tex;
+	LPDIRECT3DSURFACE9 offscreen = nullptr;
+	HRESULT hr;
+
+	bool success = false;
+	hr = device_->GetTexture(0, &baseTex);
+	if (SUCCEEDED(hr) && baseTex != NULL) {
+		hr = baseTex->QueryInterface(IID_IDirect3DTexture9, (void **)&tex);
+		if (SUCCEEDED(hr)) {
+			D3DSURFACE_DESC desc;
+			D3DLOCKED_RECT locked;
+			tex->GetLevelDesc(level, &desc);
+			RECT rect = { 0, 0, (LONG)desc.Width, (LONG)desc.Height };
+			hr = tex->LockRect(level, &locked, &rect, D3DLOCK_READONLY);
+
+			// If it fails, this means it's a render-to-texture, so we have to get creative.
+			if (FAILED(hr)) {
+				LPDIRECT3DSURFACE9 renderTarget = nullptr;
+				hr = tex->GetSurfaceLevel(level, &renderTarget);
+				if (renderTarget && SUCCEEDED(hr)) {
+					hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+					if (SUCCEEDED(hr)) {
+						hr = device_->GetRenderTargetData(renderTarget, offscreen);
+						if (SUCCEEDED(hr)) {
+							hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
+						}
+					}
+					renderTarget->Release();
+				}
+			}
+
+			if (SUCCEEDED(hr)) {
+				GPUDebugBufferFormat fmt;
+				int pixelSize;
+				switch (desc.Format) {
+				case D3DFMT_A1R5G5B5:
+					fmt = gstate_c.bgraTexture ? GPU_DBG_FORMAT_5551 : GPU_DBG_FORMAT_5551_BGRA;
+					pixelSize = 2;
+					break;
+				case D3DFMT_A4R4G4B4:
+					fmt = gstate_c.bgraTexture ? GPU_DBG_FORMAT_4444 : GPU_DBG_FORMAT_4444_BGRA;
+					pixelSize = 2;
+					break;
+				case D3DFMT_R5G6B5:
+					fmt = gstate_c.bgraTexture ? GPU_DBG_FORMAT_565 : GPU_DBG_FORMAT_565_BGRA;
+					pixelSize = 2;
+					break;
+				case D3DFMT_A8R8G8B8:
+					fmt = gstate_c.bgraTexture ? GPU_DBG_FORMAT_8888 : GPU_DBG_FORMAT_8888_BGRA;
+					pixelSize = 4;
+					break;
+				default:
+					fmt = GPU_DBG_FORMAT_INVALID;
+					break;
+				}
+
+				if (fmt != GPU_DBG_FORMAT_INVALID) {
+					buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);
+					memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
+					success = true;
+				} else {
+					success = false;
+				}
+				if (offscreen) {
+					offscreen->UnlockRect();
+					offscreen->Release();
+				} else {
+					tex->UnlockRect(level);
+				}
+			}
+			tex->Release();
+		}
+		baseTex->Release();
+	}
+
+	return success;
+}
+
 };

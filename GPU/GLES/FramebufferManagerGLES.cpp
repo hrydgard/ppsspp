@@ -239,6 +239,11 @@ void FramebufferManagerGLES::SetShaderManager(ShaderManagerGLES *sm) {
 	shaderManager_ = sm;
 }
 
+void FramebufferManagerGLES::SetDrawEngine(DrawEngineGLES *td) {
+	drawEngineGL_ = td;
+	drawEngine_ = td;
+}
+
 FramebufferManagerGLES::~FramebufferManagerGLES() {
 	if (drawPixelsTex_)
 		glDeleteTextures(1, &drawPixelsTex_);
@@ -417,8 +422,8 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
 	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-		drawEngine_->BindBuffer(pos, sizeof(pos), texCoords, sizeof(texCoords));
-		drawEngine_->BindElementBuffer(indices, sizeof(indices));
+		drawEngineGL_->BindBuffer(pos, sizeof(pos), texCoords, sizeof(texCoords));
+		drawEngineGL_->BindElementBuffer(indices, sizeof(indices));
 		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
 		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
 		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, 0);
@@ -571,39 +576,7 @@ void FramebufferManagerGLES::DownloadFramebufferForClut(u32 fb_address, u32 load
 	PROFILE_THIS_SCOPE("gpu-readback");
 	// Flush async just in case.
 	PackFramebufferAsync_(nullptr);
-
-	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
-	if (vfb && vfb->fb_stride != 0) {
-		const u32 bpp = vfb->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
-		int x = 0;
-		int y = 0;
-		int pixels = loadBytes / bpp;
-		// The height will be 1 for each stride or part thereof.
-		int w = std::min(pixels % vfb->fb_stride, (int)vfb->width);
-		int h = std::min((pixels + vfb->fb_stride - 1) / vfb->fb_stride, (int)vfb->height);
-
-		// We might still have a pending draw to the fb in question, flush if so.
-		FlushBeforeCopy();
-
-		// No need to download if we already have it.
-		if (!vfb->memoryUpdated && vfb->clutUpdatedBytes < loadBytes) {
-			// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
-			// CLUT framebuffers are often incorrectly estimated in size.
-			if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
-				vfb->memoryUpdated = true;
-			}
-			vfb->clutUpdatedBytes = loadBytes;
-
-			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-
-			PackFramebufferSync_(nvfb, x, y, w, h);
-
-			textureCacheGL_->ForgetLastTexture();
-			RebindFramebuffer();
-		}
-	}
+	FramebufferManagerCommon::DownloadFramebufferForClut(fb_address, loadBytes);
 }
 
 bool FramebufferManagerGLES::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
@@ -948,9 +921,9 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 	int dstByteOffset = y * vfb->fb_stride * dstBpp;
 	u8 *dst = Memory::GetPointer(fb_address + dstByteOffset);
 
-	GLubyte *packed = nullptr;
+	u8 *packed = nullptr;
 	if (!convert) {
-		packed = (GLubyte *)dst;
+		packed = (u8 *)dst;
 	} else {
 		// End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
 		if (!convBuf_ || convBufSize_ < bufSize) {
@@ -1054,25 +1027,6 @@ void FramebufferManagerGLES::DeviceLost() {
 	DestroyDraw2DProgram();
 }
 
-std::vector<FramebufferInfo> FramebufferManagerGLES::GetFramebufferList() {
-	std::vector<FramebufferInfo> list;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-
-		FramebufferInfo info;
-		info.fb_address = vfb->fb_address;
-		info.z_address = vfb->z_address;
-		info.format = vfb->format;
-		info.width = vfb->width;
-		info.height = vfb->height;
-		info.fbo = vfb->fbo;
-		list.push_back(info);
-	}
-
-	return list;
-}
-
 void FramebufferManagerGLES::DestroyAllFBOs() {
 	CHECK_GL_ERROR_IF_DEBUG();
 	currentRenderVfb_ = 0;
@@ -1102,18 +1056,6 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-void FramebufferManagerGLES::FlushBeforeCopy() {
-	// Flush anything not yet drawn before blitting, downloading, or uploading.
-	// This might be a stalled list, or unflushed before a block transfer, etc.
-
-	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
-	// all the irrelevant state checking it'll use to decide what to do. Should
-	// do something more focused here.
-	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	drawEngine_->Flush();
-	CHECK_GL_ERROR_IF_DEBUG();
-}
-
 void FramebufferManagerGLES::Resized() {
 	FramebufferManagerCommon::Resized();
 
@@ -1130,61 +1072,9 @@ void FramebufferManagerGLES::Resized() {
 }
 
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	int pw = PSP_CoreParameter().pixelWidth;
-	int ph = PSP_CoreParameter().pixelHeight;
-
-	// The backbuffer is flipped (last bool)
-	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
-	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, pw, ph, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), pw);
-	CHECK_GL_ERROR_IF_DEBUG();
+	int w, h;
+	draw_->GetFramebufferDimensions(nullptr, &w, &h);
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_888_RGB, true);
+	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), w);
 	return true;
-}
-
-bool FramebufferManagerGLES::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
-
-	if (!vfb) {
-		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
-		return true;
-	}
-
-	if (!vfb->fbo) {
-		return false;
-	}
-
-	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
-		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT_DIV_256, !useBufferedRendering_);
-	} else {
-		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, !useBufferedRendering_);
-	}
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::D32F, buffer.GetData(), vfb->renderWidth);
-	CHECK_GL_ERROR_IF_DEBUG();
-	return true;
-}
-
-bool FramebufferManagerGLES::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
-
-	if (!vfb) {
-		// If there's no vfb and we're drawing there, must be memory?
-		// TODO: Actually get the stencil.
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, GPU_DBG_FORMAT_8888);
-		return true;
-	}
-
-#ifndef USING_GLES2
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_8BIT, !useBufferedRendering_);
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, vfb->renderWidth, vfb->renderHeight, Draw::DataFormat::S8, buffer.GetData(), vfb->renderWidth);
-	CHECK_GL_ERROR_IF_DEBUG();
-	return true;
-#else
-	return false;
-#endif
 }

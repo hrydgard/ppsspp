@@ -2029,8 +2029,13 @@ uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, 
 
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
-	*w = fb->width;
-	*h = fb->height;
+	if (fb) {
+		*w = fb->width;
+		*h = fb->height;
+	} else {
+		*w = vulkan_->GetWidth();
+		*h = vulkan_->GetHeight();
+	}
 }
 
 void VKContext::HandleEvent(Event ev, int width, int height, void *param1, void *param2) {

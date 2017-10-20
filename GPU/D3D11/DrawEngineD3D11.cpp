@@ -786,10 +786,6 @@ rotateVBO:
 #endif
 }
 
-bool DrawEngineD3D11::IsCodePtrVertexDecoder(const u8 *ptr) const {
-	return decJitCache_->IsInSpace(ptr);
-}
-
 void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
 	// Position
 	if (prevSize < size) {

@@ -87,8 +87,6 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	convBufSize_(0),
 	textureCacheVulkan_(nullptr),
 	shaderManagerVulkan_(nullptr),
-	pixelBufObj_(nullptr),
-	currentPBO_(0),
 	curFrame_(0),
 	pipelinePostShader_(VK_NULL_HANDLE),
 	vulkan2D_(vulkan) {
@@ -111,6 +109,11 @@ void FramebufferManagerVulkan::SetTextureCache(TextureCacheVulkan *tc) {
 void FramebufferManagerVulkan::SetShaderManager(ShaderManagerVulkan *sm) {
 	shaderManagerVulkan_ = sm;
 	shaderManager_ = sm;
+}
+
+void FramebufferManagerVulkan::SetDrawEngine(DrawEngineVulkan *td) {
+	drawEngineVulkan_ = td;
+	drawEngine_ = td;
 }
 
 void FramebufferManagerVulkan::InitDeviceObjects() {
@@ -391,7 +394,7 @@ void FramebufferManagerVulkan::RebindFramebuffer() {
 
 bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
 	// In Vulkan we should be able to simply copy the stencil data directly to a stencil buffer without
-	// messing about with bitplane textures and the like.
+	// messing about with bitplane textures and the like. Or actually, maybe not...
 	return false;
 }
 
@@ -481,129 +484,6 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 		ERROR_LOG_REPORT_ONCE(vulkanSelfTexture, G3D, "Attempting to texture from target");
 		// To do this safely in Vulkan, we need to use input attachments.
 		return VK_NULL_HANDLE;
-	}
-}
-
-VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
-	if (framebuffer == NULL) {
-		framebuffer = currentRenderVfb_;
-	}
-
-	if (!framebuffer->fbo || !useBufferedRendering_) {
-		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return nullptr;
-	}
-
-	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
-	// Let's just not bother with the copy in that case.
-	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
-	if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
-		skipCopy = true;
-	}
-	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == fbRawAddress) {
-		// TODO: Enable the below code
-		return nullptr; // framebuffer->fbo->GetColor();
-		/*
-		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		VulkanFBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
-		if (renderCopy) {
-			VirtualFramebuffer copyInfo = *framebuffer;
-			copyInfo.fbo = renderCopy;
-
-			int x = 0;
-			int y = 0;
-			int w = framebuffer->drawnWidth;
-			int h = framebuffer->drawnHeight;
-
-			// If max is not > min, we probably could not detect it.  Skip.
-			// See the vertex decoder, where this is updated.
-			if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
-				x = gstate_c.vertBounds.minU;
-				y = gstate_c.vertBounds.minV;
-				w = gstate_c.vertBounds.maxU - x;
-				h = gstate_c.vertBounds.maxV - y;
-
-				// If we bound a framebuffer, apply the byte offset as pixels to the copy too.
-				if (flags & BINDFBCOLOR_APPLY_TEX_OFFSET) {
-					x += gstate_c.curTextureXOffset;
-					y += gstate_c.curTextureYOffset;
-				}
-			}
-
-			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
-
-			return nullptr;  // fbo_bind_color_as_texture(renderCopy, 0);
-		} else {
-			return framebuffer->fbo->GetColor();
-		}
-		*/
-	} else {
-		return nullptr; // framebuffer->fbo->GetColor();
-	}
-}
-
-void FramebufferManagerVulkan::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-	PROFILE_THIS_SCOPE("gpu-readback");
-	if (sync) {
-		// flush async just in case when we go for synchronous update
-		// Doesn't actually pack when sent a null argument.
-		PackFramebufferAsync_(nullptr);
-	}
-
-	if (vfb) {
-		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-		OptimizeDownloadRange(vfb, x, y, w, h);
-		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-
-		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
-		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
-
-		// TODO: Can we fall back to sync without these?
-		if (!sync) {
-			PackFramebufferAsync_(nvfb);
-		} else {
-			PackFramebufferSync_(nvfb, x, y, w, h);
-		}
-
-		textureCacheVulkan_->ForgetLastTexture();
-		RebindFramebuffer();
-	}
-}
-
-void FramebufferManagerVulkan::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
-	PROFILE_THIS_SCOPE("gpu-readback");
-	// Flush async just in case.
-	PackFramebufferAsync_(nullptr);
-
-	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
-	if (vfb && vfb->fb_stride != 0) {
-		const u32 bpp = vfb->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
-		int x = 0;
-		int y = 0;
-		int pixels = loadBytes / bpp;
-		// The height will be 1 for each stride or part thereof.
-		int w = std::min(pixels % vfb->fb_stride, (int)vfb->width);
-		int h = std::min((pixels + vfb->fb_stride - 1) / vfb->fb_stride, (int)vfb->height);
-
-		// No need to download if we already have it.
-		if (!vfb->memoryUpdated && vfb->clutUpdatedBytes < loadBytes) {
-			// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
-			// CLUT framebuffers are often incorrectly estimated in size.
-			if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
-				vfb->memoryUpdated = true;
-			}
-			vfb->clutUpdatedBytes = loadBytes;
-
-			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-
-			PackFramebufferSync_(nvfb, x, y, w, h);
-
-			textureCacheVulkan_->ForgetLastTexture();
-			RebindFramebuffer();
-		}
 	}
 }
 
@@ -756,164 +636,6 @@ void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcSt
 	}
 }
 
-#ifdef DEBUG_READ_PIXELS
-// TODO: Make more generic.
-static void LogReadPixelsError(GLenum error) {
-	switch (error) {
-	case GL_NO_ERROR:
-		break;
-	case GL_INVALID_ENUM:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_ENUM");
-		break;
-	case GL_INVALID_VALUE:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_VALUE");
-		break;
-	case GL_INVALID_OPERATION:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_OPERATION");
-		break;
-	case GL_INVALID_FRAMEBUFFER_OPERATION:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
-		break;
-	case GL_OUT_OF_MEMORY:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_OUT_OF_MEMORY");
-		break;
-#ifndef USING_GLES2
-	case GL_STACK_UNDERFLOW:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_UNDERFLOW");
-		break;
-	case GL_STACK_OVERFLOW:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_OVERFLOW");
-		break;
-#endif
-	default:
-		ERROR_LOG(FRAMEBUF, "glReadPixels: %08x", error);
-		break;
-	}
-}
-#endif
-
-// One frame behind, but no stalling.
-void FramebufferManagerVulkan::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
-	const int MAX_PBO = 2;
-	uint8_t *packed = 0;
-	const u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
-
-	bool useCPU = false;
-
-	// We'll prepare two PBOs to switch between readying and reading
-	if (!pixelBufObj_) {
-		if (!vfb) {
-			// This call is just to flush the buffers.  We don't have any yet,
-			// so there's nothing to do.
-			return;
-		}
-
-		// GLuint pbos[MAX_PBO];
-		// glGenBuffers(MAX_PBO, pbos);
-
-		pixelBufObj_ = new AsyncPBOVulkan[MAX_PBO];
-		for (int i = 0; i < MAX_PBO; i++) {
-			// TODO
-			// pixelBufObj_[i].handle = pbos[i];
-			pixelBufObj_[i].maxSize = 0;
-			pixelBufObj_[i].reading = false;
-		}
-	}
-
-	// Receive previously requested data from a PBO
-	AsyncPBOVulkan &pbo = pixelBufObj_[nextPBO];
-	if (pbo.reading) {
-		// glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo.handle);
-		// packed = (GLubyte *)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, pbo.size, GL_MAP_READ_BIT);
-
-		if (packed) {
-			DEBUG_LOG(FRAMEBUF, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
-				pbo.size, packed, pbo.fb_address, pbo.stride, nextPBO);
-
-			// We don't need to convert, GPU already did (or should have)
-			// (vulkan: hopefully)
-			Memory::MemcpyUnchecked(pbo.fb_address, packed, pbo.size);
-
-			pbo.reading = false;
-		}
-
-		// glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-	}
-	
-	// Order packing/readback of the framebuffer
-	if (vfb) {
-		// int pixelType, pixelFormat;
-		int pixelSize, align;
-		switch (vfb->format) {
-		case GE_FORMAT_4444: // 16 bit RGBA
-			// pixelType = GL_UNSIGNED_SHORT_4_4_4_4;
-			// pixelFormat = GL_RGBA;
-			pixelSize = 2;
-			align = 2;
-			break;
-		case GE_FORMAT_5551: // 16 bit RGBA
-			// pixelType = GL_UNSIGNED_SHORT_5_5_5_1;
-			// pixelFormat = GL_RGBA;
-			pixelSize = 2;
-			align = 2;
-			break;
-		case GE_FORMAT_565: // 16 bit RGB
-			// pixelType = GL_UNSIGNED_SHORT_5_6_5;
-			// pixelFormat = GL_RGB;
-			pixelSize = 2;
-			align = 2;
-			break;
-		case GE_FORMAT_8888: // 32 bit RGBA
-		default:
-			// pixelType = GL_UNSIGNED_BYTE;
-			// pixelFormat = UseBGRA8888() ? GL_BGRA_EXT : GL_RGBA;
-			pixelSize = 4;
-			align = 4;
-			break;
-		}
-
-		// If using the CPU, we need 4 bytes per pixel always.
-		u32 bufSize = vfb->fb_stride * vfb->height * 4 * (useCPU ? 4 : pixelSize);
-		u32 fb_address = (0x04000000) | vfb->fb_address;
-
-		if (vfb->fbo) {
-			// fbo_bind_for_read(vfb->fbo);
-		} else {
-			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
-			// fbo_unbind_read();
-			return;
-		}
-
-		// glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[currentPBO_].handle);
-		if (pixelBufObj_[currentPBO_].maxSize < bufSize) {
-			// We reserve a buffer big enough to fit all those pixels
-			// glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
-			pixelBufObj_[currentPBO_].maxSize = bufSize;
-		}
-
-		if (useCPU) {
-			// If converting pixel formats on the CPU we'll always request RGBA8888
-			// SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, UseBGRA8888() ? GL_BGRA_EXT : GL_RGBA, GL_UNSIGNED_BYTE, 0);
-		} else {
-			// Otherwise we'll directly request the format we need and let the GPU sort it out
-			// SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
-		}
-
-		pixelBufObj_[currentPBO_].fb_address = fb_address;
-		pixelBufObj_[currentPBO_].size = bufSize;
-		pixelBufObj_[currentPBO_].stride = vfb->fb_stride;
-		pixelBufObj_[currentPBO_].height = vfb->height;
-		pixelBufObj_[currentPBO_].format = vfb->format;
-		pixelBufObj_[currentPBO_].reading = true;
-	}
-
-	currentPBO_ = nextPBO;
-}
-
-void FramebufferManagerVulkan::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-
-}
-
 void FramebufferManagerVulkan::BeginFrameVulkan() {
 	BeginFrame();
 
@@ -940,8 +662,6 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 void FramebufferManagerVulkan::EndFrame() {
 	// We flush to memory last requested framebuffer, if any.
 	// Only do this in the read-framebuffer modes.
-	if (updateVRAM_)
-		PackFramebufferAsync_(nullptr);
 	FrameData &frame = frameData_[curFrame_];
 	frame.push_->End();
 
@@ -967,25 +687,6 @@ void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
 	InitDeviceObjects();
 }
 
-std::vector<FramebufferInfo> FramebufferManagerVulkan::GetFramebufferList() {
-	std::vector<FramebufferInfo> list;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-
-		FramebufferInfo info;
-		info.fb_address = vfb->fb_address;
-		info.z_address = vfb->z_address;
-		info.format = vfb->format;
-		info.width = vfb->width;
-		info.height = vfb->height;
-		info.fbo = vfb->fbo;
-		list.push_back(info);
-	}
-
-	return list;
-}
-
 void FramebufferManagerVulkan::DestroyAllFBOs() {
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
@@ -1006,112 +707,10 @@ void FramebufferManagerVulkan::DestroyAllFBOs() {
 	bvfbs_.clear();
 }
 
-void FramebufferManagerVulkan::FlushBeforeCopy() {
-	// Flush anything not yet drawn before blitting, downloading, or uploading.
-	// This might be a stalled list, or unflushed before a block transfer, etc.
-
-	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
-	// all the irrelevant state checking it'll use to decide what to do. Should
-	// do something more focused here.
-	SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	if (!draw_->GetNativeObject(Draw::NativeObject::CURRENT_RENDERPASS))
-		Crash();
-	drawEngine_->Flush();
-}
-
 void FramebufferManagerVulkan::Resized() {
 	FramebufferManagerCommon::Resized();
 
 	if (UpdateSize()) {
 		DestroyAllFBOs();
 	}
-}
-
-bool FramebufferManagerVulkan::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxStride) {
-	// TODO: Doing this synchronously will require stalling the pipeline. Maybe better
-	// to do it callback-style?
-/*
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
-
-	if (!vfb) {
-		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, format);
-		return true;
-	}
-
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, false, true);
-	if (vfb->fbo)
-		fbo_bind_for_read(vfb->fbo);
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
-	*/
-	return false;
-}
-
-bool FramebufferManagerVulkan::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
-	// TODO: Doing this synchronously will require stalling the pipeline. Maybe better
-	// to do it callback-style?
-	/*
-	fbo_unbind_read();
-
-	int pw = PSP_CoreParameter().pixelWidth;
-	int ph = PSP_CoreParameter().pixelHeight;
-
-	// The backbuffer is flipped.
-	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	SafeGLReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
-	*/
-	return false;
-}
-
-bool FramebufferManagerVulkan::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
-	// TODO: Doing this synchronously will require stalling the pipeline. Maybe better
-	// to do it callback-style?
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
-
-	if (!vfb) {
-		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
-		return true;
-	}
-
-	/*
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, false);
-	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
-	*/
-	return false;
-}
-
-bool FramebufferManagerVulkan::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {
-	// TODO: Doing this synchronously will require stalling the pipeline. Maybe better
-	// to do it callback-style?
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
-
-	if (!vfb) {
-		// If there's no vfb and we're drawing there, must be memory?
-		// TODO: Actually get the stencil.
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, GPU_DBG_FORMAT_8888);
-		return true;
-	}
-
-	/*
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_8BIT, false);
-	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, buffer.GetData());
-
-	return true;
-	*/
-	return false;
 }

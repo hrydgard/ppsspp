@@ -44,20 +44,6 @@ R"(	vec2 texelDelta;
 	vec4 time;
 )";
 
-// Simple struct for asynchronous PBO readbacks
-// TODO: Probably will need a complete redesign.
-struct AsyncPBOVulkan {
-	//  handle;
-	u32 maxSize;
-
-	u32 fb_address;
-	u32 stride;
-	u32 height;
-	u32 size;
-	GEBufferFormat format;
-	bool reading;
-};
-
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
 	FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
@@ -65,9 +51,7 @@ public:
 
 	void SetTextureCache(TextureCacheVulkan *tc);
 	void SetShaderManager(ShaderManagerVulkan *sm);
-	void SetDrawEngine(DrawEngineVulkan *td) {
-		drawEngine_ = td;
-	}
+	void SetDrawEngine(DrawEngineVulkan *td);
 
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
@@ -87,21 +71,7 @@ public:
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
 
-	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	VulkanTexture *GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
-
-	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
-	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
-
-	std::vector<FramebufferInfo> GetFramebufferList();
-
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
-
-	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) override;
-	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) override;
-	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) override;
-	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
 	virtual void RebindFramebuffer() override;
 	VkImageView BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
@@ -115,7 +85,6 @@ protected:
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override {}
-	void FlushBeforeCopy() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
@@ -123,15 +92,10 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
-	void DoNotifyDraw();
 
 	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
-
-	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
-	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -149,10 +113,7 @@ private:
 
 	TextureCacheVulkan *textureCacheVulkan_;
 	ShaderManagerVulkan *shaderManagerVulkan_;
-	DrawEngineVulkan *drawEngine_;
-
-	AsyncPBOVulkan *pixelBufObj_;
-	int currentPBO_;
+	DrawEngineVulkan *drawEngineVulkan_;
 
 	enum {
 		MAX_COMMAND_BUFFERS = 32,

@@ -1118,8 +1118,13 @@ void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChan
 
 void D3D9Context::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
-	*w = fb->width;
-	*h = fb->height;
+	if (fb) {
+		*w = fb->width;
+		*h = fb->height;
+	} else {
+		*w = targetWidth_;
+		*h = targetHeight_;
+	}
 }
 
 bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
