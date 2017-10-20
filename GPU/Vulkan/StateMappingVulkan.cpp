@@ -369,7 +369,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 }
 
-
 void DrawEngineVulkan::ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencilRef, uint8_t stencilRef) {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?

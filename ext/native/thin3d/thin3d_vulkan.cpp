@@ -1503,39 +1503,40 @@ void CreateImage(VulkanContext *vulkan, VKImage &img, int width, int height, VkF
 	res = vkBindImageMemory(vulkan->GetDevice(), img.image, img.memory, 0);
 	assert(res == VK_SUCCESS);
 
+	VkImageAspectFlags aspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+
 	VkImageViewCreateInfo ivci{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	ivci.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 	ivci.format = ici.format;
 	ivci.image = img.image;
 	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	ivci.subresourceRange.aspectMask = color ? VK_IMAGE_ASPECT_COLOR_BIT : (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+	ivci.subresourceRange.aspectMask = aspects;
 	ivci.subresourceRange.layerCount = 1;
 	ivci.subresourceRange.levelCount = 1;
 	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.view);
 	assert(res == VK_SUCCESS);
 
-	VkImageMemoryBarrier barrier{};
-	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	barrier.subresourceRange.layerCount = 1;
-	barrier.subresourceRange.levelCount = 1;
-	barrier.image = img.image;
-	barrier.srcAccessMask = 0;
+	VkPipelineStageFlagBits dstStage;
+	VkAccessFlagBits dstAccessMask;
 	switch (initialLayout) {
 	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
 		break;
 	}
-	barrier.newLayout = initialLayout;
-	barrier.subresourceRange.aspectMask = ivci.subresourceRange.aspectMask;
-	vkCmdPipelineBarrier(vulkan->GetInitCommandBuffer(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-	img.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	TransitionImageLayout2(vulkan->GetInitCommandBuffer(), img.image, aspects,
+		VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, dstStage,
+		0, dstAccessMask);
 }
 
 // A VKFramebuffer is a VkFramebuffer (note caps difference) plus all the textures it owns.

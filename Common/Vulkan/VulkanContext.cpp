@@ -1047,10 +1047,11 @@ bool VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 
 		// TODO: Pre-set them to PRESENT_SRC_KHR, as the first thing we do after acquiring
 		// in image to render to will be to transition them away from that.
-		TransitionImageLayout(cmd, sc_buffer.image,
+		TransitionImageLayout2(cmd, sc_buffer.image,
 			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
 		color_image_view.image = sc_buffer.image;
 
@@ -1222,66 +1223,6 @@ bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkSha
 	} else {
 		return true;
 	}
-}
-
-void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout) {
-	VkImageMemoryBarrier image_memory_barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-	image_memory_barrier.srcAccessMask = 0;
-	image_memory_barrier.dstAccessMask = 0;
-	image_memory_barrier.oldLayout = old_image_layout;
-	image_memory_barrier.newLayout = new_image_layout;
-	image_memory_barrier.image = image;
-	image_memory_barrier.subresourceRange.aspectMask = aspectMask;
-	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-	image_memory_barrier.subresourceRange.levelCount = 1;
-	image_memory_barrier.subresourceRange.layerCount = 1;
-	if (old_image_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-		image_memory_barrier.srcAccessMask |= VK_ACCESS_MEMORY_READ_BIT;
-	}
-	if (old_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-		image_memory_barrier.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
-	}
-
-	if (old_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-		image_memory_barrier.srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	}
-
-	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-		if (old_image_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
-			image_memory_barrier.srcAccessMask |= VK_ACCESS_HOST_WRITE_BIT;
-		}
-		image_memory_barrier.dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
-	}
-
-	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-		/* Make sure anything that was copying from this image has completed */
-		image_memory_barrier.dstAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
-	}
-
-	if (new_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-		/* Make sure any Copy or CPU writes to image are flushed */
-		if (old_image_layout != VK_IMAGE_LAYOUT_UNDEFINED) {
-			image_memory_barrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
-		}
-		image_memory_barrier.dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
-	}
-
-	if (new_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-		image_memory_barrier.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-	}
-
-	if (new_image_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-		image_memory_barrier.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-	}
-
-	if (new_image_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-		image_memory_barrier.dstAccessMask |= VK_ACCESS_MEMORY_READ_BIT;
-	}
-
-	VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-	VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-	vkCmdPipelineBarrier(cmd, src_stages, dest_stages, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 }
 
 void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask,
