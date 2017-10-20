@@ -2521,3 +2521,11 @@ bool GPUCommon::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	}
 	return textureCache_->GetCurrentTextureDebug(buffer, level);
 }
+
+bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
+	if (drawEngineCommon_->IsCodePtrVertexDecoder(ptr)) {
+		name = "VertexDecoderJit";
+		return true;
+	}
+	return false;
+}

@@ -169,10 +169,6 @@ public:
 #define new DBG_NEW
 #endif
 
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override {
-		return false;
-	}
-
 	// From GPUDebugInterface.
 	bool GetCurrentDisplayList(DisplayList &list) override;
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) override;
@@ -182,6 +178,12 @@ public:
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
+
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override { return std::vector<std::string>(); };
+	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {
+		return "N/A";
+	}
+	bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
 	std::vector<DisplayList> ActiveDisplayLists() override;
 	void ResetListPC(int listID, u32 pc) override;
@@ -234,11 +236,6 @@ public:
 			return dls[listid].waitTicks;
 		}
 		return -1;
-	}
-
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override { return std::vector<std::string>(); };
-	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {
-		return "N/A";
 	}
 
 	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);

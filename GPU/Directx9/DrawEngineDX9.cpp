@@ -707,10 +707,6 @@ rotateVBO:
 	host->GPUNotifyDraw();
 }
 
-bool DrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
-	return decJitCache_->IsInSpace(ptr);
-}
-
 void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords)
 {
 }

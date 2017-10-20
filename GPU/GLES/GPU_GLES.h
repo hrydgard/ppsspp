@@ -64,8 +64,6 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
-
 	typedef void (GPU_GLES::*CmdFunc)(u32 op, u32 diff);
 	struct CommandInfo {
 		uint64_t flags;

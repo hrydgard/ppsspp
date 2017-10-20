@@ -856,14 +856,6 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 	}
 }
 
-bool GPU_Vulkan::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	if (drawEngine_.IsCodePtrVertexDecoder(ptr)) {
-		name = "VertexDecoderJit";
-		return true;
-	}
-	return false;
-}
-
 std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderIDs();

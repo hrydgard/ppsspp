@@ -946,14 +946,6 @@ void GPU_GLES::DoState(PointerWrap &p) {
 	}
 }
 
-bool GPU_GLES::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	if (drawEngine_.IsCodePtrVertexDecoder(ptr)) {
-		name = "VertexDecoderJit";
-		return true;
-	}
-	return false;
-}
-
 std::vector<std::string> GPU_GLES::DebugGetShaderIDs(DebugShaderType type) {
 	switch (type) {
 	case SHADER_TYPE_VERTEXLOADER:
