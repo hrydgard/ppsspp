@@ -27,6 +27,7 @@ SDLJoystick *joystick = NULL;
 #endif
 
 #include <algorithm>
+#include <cassert>
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -51,6 +52,7 @@ public:
 	GLDummyGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
+		assert(draw_->CreatePresets());
 	}
 	~GLDummyGraphicsContext() { delete draw_; }
 

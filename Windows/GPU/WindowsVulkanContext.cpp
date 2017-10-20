@@ -203,7 +203,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	}
 
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
-
+	assert(draw_->CreatePresets());  // Doesn't fail, we include the compiler.
 	return true;
 }
 

@@ -719,7 +719,6 @@ VKContext::VKContext(VulkanContext *vulkan)
 	viewport_.minDepth = 0.0f;
 	viewport_.maxDepth = 0.0f;
 	memset(boundTextures_, 0, sizeof(boundTextures_));
-	CreatePresets();
 
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 200;

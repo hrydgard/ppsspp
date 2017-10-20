@@ -585,7 +585,6 @@ private:
 
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
 	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx), caps_{} {
-	CreatePresets();
 	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
 		ELOG("Failed to get adapter identifier: %d", adapterId);
 	}
@@ -633,6 +632,10 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	}
 	D3D9Pipeline *pipeline = new D3D9Pipeline(device_);
 	for (auto iter : desc.shaders) {
+		if (!iter) {
+			ELOG("NULL shader passed to CreateGraphicsPipeline");
+			return false;
+		}
 		if (iter->GetStage() == ShaderStage::FRAGMENT) {
 			pipeline->pshader = static_cast<D3D9ShaderModule *>(iter);
 		}
@@ -947,20 +950,24 @@ void D3D9Context::SetBlendFactor(float color[4]) {
 }
 
 bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size) {
-	LPD3DXMACRO defines = NULL;
-	LPD3DXINCLUDE includes = NULL;
+	LPD3DXMACRO defines = nullptr;
+	LPD3DXINCLUDE includes = nullptr;
 	DWORD flags = 0;
-	LPD3DXBUFFER codeBuffer;
-	LPD3DXBUFFER errorBuffer;
+	LPD3DXBUFFER codeBuffer = nullptr;
+	LPD3DXBUFFER errorBuffer = nullptr;
 	const char *source = (const char *)data;
 	const char *profile = stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0";
 	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, nullptr);
 	if (FAILED(hr)) {
-		const char *error = (const char *)errorBuffer->GetBufferPointer();
+		const char *error = errorBuffer ? (const char *)errorBuffer->GetBufferPointer() : "(no errorbuffer returned)";
+		if (hr == ERROR_MOD_NOT_FOUND) {
+			// No D3D9-compatible shader compiler installed.
+			error = "D3D9 shader compiler not installed";
+		}
 		OutputDebugStringA(source);
 		OutputDebugStringA(error);
-		errorBuffer->Release();
-
+		if (errorBuffer)
+			errorBuffer->Release();
 		if (codeBuffer) 
 			codeBuffer->Release();
 		return false;

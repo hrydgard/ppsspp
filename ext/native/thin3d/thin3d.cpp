@@ -299,12 +299,14 @@ static ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const st
 	return nullptr;
 }
 
-void DrawContext::CreatePresets() {
+bool DrawContext::CreatePresets() {
 	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::VERTEX, vsTexCol);
 	vsPresets_[VS_COLOR_2D] = CreateShader(this, ShaderStage::VERTEX, vsCol);
 
 	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateShader(this, ShaderStage::FRAGMENT, fsTexCol);
 	fsPresets_[FS_COLOR_2D] = CreateShader(this, ShaderStage::FRAGMENT, fsCol);
+
+	return vsPresets_[VS_TEXTURE_COLOR_2D] && vsPresets_[VS_COLOR_2D] && fsPresets_[FS_TEXTURE_COLOR_2D] && fsPresets_[FS_COLOR_2D];
 }
 
 DrawContext::~DrawContext() {
