@@ -1787,6 +1787,8 @@ void VKContext::SetupTransitionToTransferSrc(VKImage &img, VkImageMemoryBarrier 
 	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	barrier.subresourceRange.aspectMask = aspect;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	img.layout = barrier.newLayout;
 }
 
@@ -1816,6 +1818,8 @@ void VKContext::SetupTransitionToTransferDst(VKImage &img, VkImageMemoryBarrier 
 	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	barrier.subresourceRange.aspectMask = aspect;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	img.layout = barrier.newLayout;
 }
 
@@ -2008,29 +2012,23 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 		transitionCmdBuf = vulkan_->GetInitCommandBuffer();
 	}
 
-	VkImageMemoryBarrier barrier{};
-	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.oldLayout = fb->color.layout;
-	barrier.subresourceRange.layerCount = 1;
-	barrier.subresourceRange.levelCount = 1;
-	barrier.image = fb->color.image;
-	barrier.srcAccessMask = 0;
-	switch (barrier.oldLayout) {
+	VkAccessFlags srcAccessMask;
+	VkPipelineStageFlags srcStage;
+	switch (fb->color.layout) {
 	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT|VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+		srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+		srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	}
-	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-	// we're between passes so it's OK.
-	// ARM Best Practices guide recommends these stage bits.
-	vkCmdPipelineBarrier(transitionCmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-	fb->color.layout = barrier.newLayout;
+	TransitionImageLayout2(transitionCmdBuf, fb->color.image, VK_IMAGE_ASPECT_COLOR_BIT,
+		fb->color.layout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		srcStage, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		srcAccessMask, VK_ACCESS_SHADER_READ_BIT);
+	fb->color.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {

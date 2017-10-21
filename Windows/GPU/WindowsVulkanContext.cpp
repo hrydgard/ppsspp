@@ -126,6 +126,8 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 
 	if (msgCode == 2)  // Useless perf warning ("Vertex attribute at location X not consumed by vertex shader")
 		return false;
+	if (msgCode == 64)  // Another useless perf warning that will be seen less and less as we optimize -  vkCmdClearAttachments() issued on command buffer object 0x00000195296C6D40 prior to any Draw Cmds. It is recommended you use RenderPass LOAD_OP_CLEAR on Attachments prior to any Draw.
+		return false;
 
 #ifdef _WIN32
 	std::string msg = message.str();

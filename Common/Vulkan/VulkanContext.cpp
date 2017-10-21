@@ -154,39 +154,17 @@ VulkanContext::~VulkanContext() {
 }
 
 void TransitionToPresent(VkCommandBuffer cmd, VkImage image) {
-	VkImageMemoryBarrier prePresentBarrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-	prePresentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	prePresentBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	prePresentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	prePresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	prePresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	prePresentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	prePresentBarrier.subresourceRange.baseMipLevel = 0;
-	prePresentBarrier.subresourceRange.levelCount = 1;
-	prePresentBarrier.subresourceRange.baseArrayLayer = 0;
-	prePresentBarrier.subresourceRange.layerCount = 1;
-	prePresentBarrier.image = image;
-	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		0, 0, nullptr, 0, nullptr, 1, &prePresentBarrier);
+	TransitionImageLayout2(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
 }
 
 void TransitionFromPresent(VkCommandBuffer cmd, VkImage image) {
-	VkImageMemoryBarrier prePresentBarrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-	prePresentBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	prePresentBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	prePresentBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	prePresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	prePresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	prePresentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	prePresentBarrier.subresourceRange.baseMipLevel = 0;
-	prePresentBarrier.subresourceRange.levelCount = 1;
-	prePresentBarrier.subresourceRange.baseArrayLayer = 0;
-	prePresentBarrier.subresourceRange.layerCount = 1;
-	prePresentBarrier.image = image;
-	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-		0, 0, nullptr, 0, nullptr, 1, &prePresentBarrier);
+	TransitionImageLayout2(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+		VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 }
 
 VkCommandBuffer VulkanContext::GetInitCommandBuffer() {
@@ -1239,6 +1217,8 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFla
 	image_memory_barrier.subresourceRange.baseMipLevel = 0;
 	image_memory_barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
 	image_memory_barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	vkCmdPipelineBarrier(cmd, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 }
 
