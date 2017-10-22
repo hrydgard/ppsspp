@@ -1837,6 +1837,15 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 	INFO_LOG(SYSTEM, "%s", messageStream.str().c_str());
 }
 
+// We might also want to implement an asynchronous callback-style version of this. Would probably
+// only be possible to implement optimally on Vulkan, but on GL and D3D11 we could do pixel buffers
+// and read on the next frame, then call the callback. PackFramebufferAsync_ on OpenGL already does something similar.
+//
+// The main use cases for this are:
+// * GE debugging(in practice async will not matter because it will stall anyway.)
+// * Video file recording(would probably be great if it was async.)
+// * Screenshots(benefit slightly from async.)
+// * Save state screenshots(could probably be async but need to manage the stall.)
 bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {
@@ -1959,10 +1968,13 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 
 // This function takes an already correctly-sized framebuffer and packs it into RAM.
 // Does not need to account for scaling.
-// Color conversion is currently done on CPU but should be done on GPU.
+// Color conversion is currently done on CPU but should theoretically be done on GPU.
+// (Except using the GPU might cause problems because of various implementations'
+// dithering behavior and games that expect exact colors like Danganronpa, so we
+// can't entirely be rid of the CPU path.) -- unknown
 void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (!vfb->fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferD3D11_: vfb->fbo == 0");
+		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
 		return;
 	}
 
