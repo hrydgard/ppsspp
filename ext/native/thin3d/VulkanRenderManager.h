@@ -16,6 +16,7 @@
 // The cool thing is that you can Flush on a different thread than you record the commands on!
 
 enum class VKRRenderCommand : uint8_t {
+	BIND_PIPELINE,
 	STENCIL,
 	BLEND,
 	VIEWPORT,
@@ -30,6 +31,8 @@ struct VkRenderData {
 	union {
 		struct {
 			VkPipeline pipeline;
+		} pipeline;
+		struct {
 			VkPipelineLayout pipelineLayout;
 			VkDescriptorSet ds;
 			int numUboOffsets;
@@ -39,7 +42,6 @@ struct VkRenderData {
 			int count;
 		} draw;
 		struct {
-			VkPipeline pipeline;
 			VkPipelineLayout pipelineLayout;
 			VkDescriptorSet ds;
 			int numUboOffsets;
@@ -58,7 +60,6 @@ struct VkRenderData {
 			int clearStencil;
 			int clearMask;   // VK_IMAGE_ASPECT_COLOR_BIT etc
 		} clear;
-
 		struct {
 			VkViewport vp;
 		} viewport;
@@ -218,6 +219,13 @@ public:
 	void CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, int aspectMask);
 	void BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, int aspectMask, VkFilter filter);
 
+	void BindPipeline(VkPipeline pipeline) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		VkRenderData data{ VKRRenderCommand::BIND_PIPELINE };
+		data.pipeline.pipeline = pipeline;
+		curRenderStep_->commands.push_back(data);
+	}
+
 	void SetViewport(const VkViewport &vp) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::VIEWPORT };
@@ -250,11 +258,10 @@ public:
 
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask);
 
-	void Draw(VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count) {
+	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::DRAW };
 		data.draw.count = count;
-		data.draw.pipeline = pipeline;
 		data.draw.pipelineLayout = layout;
 		data.draw.ds = descSet;
 		data.draw.vbuffer = vbuffer;
@@ -266,12 +273,11 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(VkPipeline pipeline, VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
+	void DrawIndexed(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::DRAW_INDEXED };
 		data.drawIndexed.count = count;
 		data.drawIndexed.instances = numInstances;
-		data.drawIndexed.pipeline = pipeline;
 		data.drawIndexed.pipelineLayout = layout;
 		data.drawIndexed.ds = descSet;
 		data.drawIndexed.vbuffer = vbuffer;
@@ -320,8 +326,8 @@ private:
 		return (int)depth * 3 + (int)color;
 	}
 
-	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect);
-	static void SetupTransitionToTransferDst(VKRImage &img, VkImageMemoryBarrier &barrier, VkImageAspectFlags aspect);
+	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
+	static void SetupTransitionToTransferDst(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
 
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;

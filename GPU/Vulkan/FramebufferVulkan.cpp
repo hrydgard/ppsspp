@@ -367,7 +367,8 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	VkDescriptorSet descSet = vulkan2D_.GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);
-	renderManager->Draw(cur2DPipeline_, vulkan2D_.GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
+	renderManager->BindPipeline(cur2DPipeline_);
+	renderManager->Draw(vulkan2D_.GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
 }
 
 void FramebufferManagerVulkan::Bind2DShader() {

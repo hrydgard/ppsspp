@@ -1114,7 +1114,9 @@ void VKContext::Draw(int vertexCount, int offset) {
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
-	renderManager_.Draw(curPipeline_->vkpipeline, pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
+	renderManager_.BindPipeline(curPipeline_->vkpipeline);
+	// TODO: blend constants, stencil, viewports should be here, after bindpipeline..
+	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
@@ -1128,7 +1130,9 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
-	renderManager_.DrawIndexed(curPipeline_->vkpipeline, pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, vertexCount, 1, VK_INDEX_TYPE_UINT32);
+	renderManager_.BindPipeline(curPipeline_->vkpipeline);
+	// TODO: blend constants, stencil, viewports should be here, after bindpipeline..
+	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, vertexCount, 1, VK_INDEX_TYPE_UINT32);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1140,7 +1144,9 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	VkDeviceSize offsets[1] = { vbBindOffset };
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
-	renderManager_.Draw(curPipeline_->vkpipeline, pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
+	renderManager_.BindPipeline(curPipeline_->vkpipeline);
+	// TODO: blend constants, stencil, viewports should be here, after bindpipeline..
+	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
 }
 
 // TODO: We should avoid this function as much as possible, instead use renderpass on-load clearing.
