@@ -24,7 +24,7 @@ TextDrawerQt::~TextDrawerQt() {
 
 uint32_t TextDrawerQt::SetFont(const char *fontName, int size, int flags) {
 	// We will only use the default font
-	uint32_t fontHash = 0; //hash::Fletcher((const uint8_t *)fontName, strlen(fontName));
+	uint32_t fontHash = 0; //hash::Adler32((const uint8_t *)fontName, strlen(fontName));
 	fontHash ^= size;
 	fontHash ^= flags << 10;
 
@@ -72,7 +72,7 @@ void TextDrawerQt::DrawString(DrawBuffer &target, const char *str, float x, floa
 	if (!strlen(str))
 		return;
 
-	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, strlen(str));
+	uint32_t stringHash = hash::Adler32((const uint8_t *)str, strlen(str));
 	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
 
 	target.Flush(true);

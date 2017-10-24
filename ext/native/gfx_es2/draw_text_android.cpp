@@ -46,7 +46,7 @@ bool TextDrawerAndroid::IsReady() const {
 uint32_t TextDrawerAndroid::SetFont(const char *fontName, int size, int flags) {
 	// We will only use the default font but just for consistency let's still involve
 	// the font name.
-	uint32_t fontHash = hash::Fletcher((const uint8_t *)fontName, strlen(fontName));
+	uint32_t fontHash = hash::Adler32((const uint8_t *)fontName, strlen(fontName));
 	fontHash ^= size;
 	fontHash ^= flags << 10;
 
@@ -79,7 +79,7 @@ std::string TextDrawerAndroid::NormalizeString(std::string str) {
 }
 
 void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, float *h) {
-	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, len);
+	uint32_t stringHash = hash::Adler32((const uint8_t *)str, len);
 	uint32_t entryHash = stringHash ^ fontHash_;
 
 	TextMeasureEntry *entry;
@@ -129,7 +129,7 @@ void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bou
 	float total_w = 0.0f;
 	float total_h = 0.0f;
 	for (size_t i = 0; i < lines.size(); i++) {
-		uint32_t stringHash = hash::Fletcher((const uint8_t *)&lines[i][0], lines[i].length());
+		uint32_t stringHash = hash::Adler32((const uint8_t *)&lines[i][0], lines[i].length());
 		uint32_t entryHash = stringHash ^ fontHash_;
 
 		TextMeasureEntry *entry;
@@ -168,7 +168,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 	int result = javaVM->GetEnv((void **)&env, JNI_VERSION_1_6);
 	assert(env == env_);
 
-	uint32_t stringHash = hash::Fletcher((const uint8_t *)text.data(), text.size());
+	uint32_t stringHash = hash::Adler32((const uint8_t *)text.data(), text.size());
 	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
 
 	target.Flush(true);
