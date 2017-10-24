@@ -783,7 +783,7 @@ void TextEdit::Draw(UIContext &dc) {
 	float w, h;
 
 	Bounds textBounds = bounds_;
-	textBounds.x = textX;
+	textBounds.x = textX - scrollPos_;
 
 	if (text_.empty()) {
 		if (placeholderText_.size()) {
@@ -797,13 +797,14 @@ void TextEdit::Draw(UIContext &dc) {
 	if (HasFocus()) {
 		// Hack to find the caret position. Might want to find a better way...
 		dc.MeasureTextCount(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), caret_, &w, &h, ALIGN_VCENTER | ALIGN_LEFT);
-		float caretX = w;
-		caretX += textX;
-
+		float caretX = w - scrollPos_;
 		if (caretX > bounds_.w) {
-			// Scroll text to the left if the caret won't fit. Not ideal but looks better than not scrolling it.
-			textX -= caretX - bounds_.w;
+			scrollPos_ += caretX - bounds_.w;
 		}
+		if (caretX < 0) {
+			scrollPos_ += caretX;
+		}
+		caretX += textX;
 		dc.FillRect(UI::Drawable(textColor), Bounds(caretX - 1, bounds_.y + 2, 3, bounds_.h - 4));
 	}
 	dc.PopScissor();
