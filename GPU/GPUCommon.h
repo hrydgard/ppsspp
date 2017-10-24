@@ -183,7 +183,7 @@ public:
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {
 		return "N/A";
 	}
-	bool DescribeCodePtr(const u8 *ptr, std::string &name);
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 	std::vector<DisplayList> ActiveDisplayLists() override;
 	void ResetListPC(int listID, u32 pc) override;
@@ -227,7 +227,7 @@ public:
 	bool DecodeTexture(u8* dest, const GPUgstate &state) override {
 		return false;
 	}
-	std::vector<FramebufferInfo> GetFramebufferList();
+	std::vector<FramebufferInfo> GetFramebufferList() override;
 	void ClearShaderCache() override {}
 	void CleanupBeforeUI() override {}
 

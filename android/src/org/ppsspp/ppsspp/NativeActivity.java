@@ -226,7 +226,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				}
 				break;
 			case REQUEST_CODE_CAMERA_PERMISSION:
-				if (permissionsGranted(permissions, grantResults)) {
+				if (mCameraHelper != null && permissionsGranted(permissions, grantResults)) {
 					mCameraHelper.startCamera();
 				}
 				break;
@@ -332,7 +332,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
         }
 
 		mLocationHelper = new LocationHelper(this);
-		mCameraHelper = new CameraHelper(this);
+        if (Build.VERSION.SDK_INT >= 11) {
+        	// android.graphics.SurfaceTexture is not available before version 11.
+			mCameraHelper = new CameraHelper(this);
+		}
 	}
 
 	@TargetApi(24)
@@ -1209,10 +1212,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			}
 		} else if (command.equals("camera_command")) {
 			if (params.equals("startVideo")) {
-				if (!askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
+				if (mCameraHelper != null && !askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
 					mCameraHelper.startCamera();
 				}
-			} else if (params.equals("stopVideo")) {
+			} else if (mCameraHelper != null && params.equals("stopVideo")) {
 				mCameraHelper.stopCamera();
 			}
 		}
