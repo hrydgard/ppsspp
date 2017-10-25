@@ -1083,6 +1083,8 @@ void GPUCommon::ProcessEvent(GPUEvent ev) {
 		break;
 
 	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
+		// Ending the frame will unbind the framebuffer. Better finish any outstanding draw calls...
+		drawEngineCommon_->DispatchFlush();
 		CopyDisplayToOutputInternal();
 		break;
 

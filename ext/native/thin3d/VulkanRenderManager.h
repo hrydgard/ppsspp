@@ -212,7 +212,6 @@ public:
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void Sync();
 
-
 	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment);
 
@@ -364,7 +363,6 @@ private:
 	int curHeight_;
 	bool insideFrame_ = false;
 	VKRStep *curRenderStep_;
-	VKRFramebuffer *boundFramebuffer_;
 	std::vector<VKRStep *> steps_;
 
 	// Execution time state

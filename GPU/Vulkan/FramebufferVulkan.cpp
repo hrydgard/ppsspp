@@ -93,6 +93,9 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	vulkan2D_(vulkan) {
 
 	InitDeviceObjects();
+
+	// After a blit we do need to rebind for the VulkanRenderManager to know what to do.
+	needGLESRebinds_ = true;
 }
 
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {

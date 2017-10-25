@@ -141,7 +141,7 @@ bool FramebufferManagerCommon::UpdateSize() {
 
 void FramebufferManagerCommon::BeginFrame() {
 	DecimateFBOs();
-	currentRenderVfb_ = 0;
+	currentRenderVfb_ = nullptr;
 	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 }
 
@@ -1043,6 +1043,11 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 void FramebufferManagerCommon::DecimateFBOs() {
 	currentRenderVfb_ = 0;
 
+	for (auto iter : fbosToDelete_) {
+		delete iter;
+	}
+	fbosToDelete_.clear();
+
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
@@ -1153,7 +1158,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
 			}
 		}
-		delete old.fbo;
+		fbosToDelete_.push_back(old.fbo);
 		if (needGLESRebinds_) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		}

@@ -580,6 +580,9 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	step->copy.srcRect = srcRect;
 	step->copy.dst = dst;
 	step->copy.dstPos = dstPos;
+
+	// TODO: Validate or clip copy-rectangles here.
+
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
 	curRenderStep_ = nullptr;
@@ -593,6 +596,9 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	step->blit.dst = dst;
 	step->blit.dstRect = dstRect;
 	step->blit.filter = filter;
+
+	// TODO: Validate blit-rectangles here.
+
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
 	curRenderStep_ = nullptr;
@@ -985,6 +991,9 @@ void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &st
 				srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
+			default:
+				Crash();
+				break;
 			}
 
 			TransitionImageLayout2(cmd, fb->color.image, VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1008,6 +1017,9 @@ void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &st
 			case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 				srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+				break;
+			default:
+				Crash();
 				break;
 			}
 			TransitionImageLayout2(cmd, fb->color.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
@@ -1130,9 +1142,8 @@ void VulkanRenderManager::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) 
 	VKRFramebuffer *src = step.blit.src;
 	VKRFramebuffer *dst = step.blit.dst;
 
-	int srcCount = 0;
-	int dstCount = 0;
-
+	// If any validation needs to be performed here, it should probably have been done
+	// already when the blit was queued. So don't validate here.
 	VkImageBlit blit{};
 	blit.srcOffsets[0].x = step.blit.srcRect.offset.x;
 	blit.srcOffsets[0].y = step.blit.srcRect.offset.y;
@@ -1153,6 +1164,10 @@ void VulkanRenderManager::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) 
 
 	VkPipelineStageFlags srcStage = 0;
 	VkPipelineStageFlags dstStage = 0;
+
+	int srcCount = 0;
+	int dstCount = 0;
+
 	// First source barriers.
 	if (step.blit.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 		if (src->color.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
