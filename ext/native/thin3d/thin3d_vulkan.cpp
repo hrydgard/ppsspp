@@ -135,14 +135,6 @@ static const VkStencilOp stencilOpToVK[8] = {
 	VK_STENCIL_OP_DECREMENT_AND_WRAP,
 };
 
-// TODO: Replace with the one from dataconv
-static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
-	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
-	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
-	f[2] = ((u >> 16) & 0xFF) * (1.0f / 255.0f);
-	f[3] = ((u >> 24) & 0xFF) * (1.0f / 255.0f);
-}
-
 class VKBlendState : public BlendState {
 public:
 	VkPipelineColorBlendStateCreateInfo info{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
@@ -492,9 +484,6 @@ private:
 	VkDevice device_;
 	VkQueue queue_;
 	int queueFamilyIndex_;
-
-	int curWidth_ = -1;
-	int curHeight_ = -1;
 
 	enum {
 		MAX_BOUND_TEXTURES = 1,
@@ -1140,8 +1129,6 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	size_t vbBindOffset = push_->Push(vdata, vertexCount * curPipeline_->stride[0], &vulkanVbuf);
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
-	VkBuffer buffers[1] = { vulkanVbuf };
-	VkDeviceSize offsets[1] = { vbBindOffset };
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
@@ -1253,20 +1240,19 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
-	VKFramebuffer(VulkanContext *vk, VKRFramebuffer *fb) : vulkan_(vk), buf_(fb) {}
+	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {}
 	~VKFramebuffer() {
 		delete buf_;
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }
 private:
 	VKRFramebuffer *buf_;
-	VulkanContext *vulkan_;
 };
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
 	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetRenderPass(0), desc.width, desc.height);
-	VKFramebuffer *fb = new VKFramebuffer(vulkan_, vkrfb);
+	VKFramebuffer *fb = new VKFramebuffer(vkrfb);
 	return fb;
 }
 
@@ -1335,6 +1321,8 @@ void VKContext::HandleEvent(Event ev, int width, int height, void *param1, void 
 		break;
 	case Event::GOT_BACKBUFFER:
 		renderManager_.CreateBackbuffers();
+		break;
+	default:
 		break;
 	}
 	// Noop
