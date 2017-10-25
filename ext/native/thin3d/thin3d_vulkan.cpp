@@ -658,7 +658,10 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.dualSourceBlend = vulkan->GetFeaturesAvailable().dualSrcBlend != 0;
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
-	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
+	caps_.framebufferDepthBlitSupported = false;  // Can be checked for.
+	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
+	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
+
 	device_ = vulkan->GetDevice();
 
 	queue_ = vulkan->GetGraphicsQueue();

@@ -555,6 +555,8 @@ struct DeviceCaps {
 	bool logicOpSupported;
 	bool framebufferCopySupported;
 	bool framebufferBlitSupported;
+	bool framebufferDepthCopySupported;
+	bool framebufferDepthBlitSupported;
 };
 
 struct TextureDesc {
