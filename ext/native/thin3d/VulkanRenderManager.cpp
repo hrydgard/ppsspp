@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "base/logging.h"
 
 #include "Common/Vulkan/VulkanContext.h"
@@ -594,7 +595,7 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
 	curRenderStep_ = nullptr;
-	curFramebuffer_ = nullptr;
+	curFramebuffer_ = VK_NULL_HANDLE;
 }
 
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, int aspectMask, VkFilter filter) {
@@ -620,7 +621,7 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
 	curRenderStep_ = nullptr;
-	curFramebuffer_ = nullptr;
+	curFramebuffer_ = VK_NULL_HANDLE;
 }
 
 VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment) {
@@ -644,7 +645,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 
 void VulkanRenderManager::Flush() {
 	curRenderStep_ = nullptr;
-	curFramebuffer_ = nullptr;
+	curFramebuffer_ = VK_N;
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 	if (frameData.hasInitCommands) {
