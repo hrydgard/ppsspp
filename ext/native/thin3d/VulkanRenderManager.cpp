@@ -758,7 +758,11 @@ void VulkanRenderManager::Run(int frame) {
 	res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
 	// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
 	// return codes
-	assert(res == VK_SUCCESS);
+	if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+		// ignore, it'll be fine. this happens sometimes during resizes, and we do make sure to recreate the swap chain.
+	} else {
+		assert(res == VK_SUCCESS);
+	}
 
 	VLOG("PULL: Finished running frame %d", frame);
 }

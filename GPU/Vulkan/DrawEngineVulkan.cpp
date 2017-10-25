@@ -126,7 +126,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[4].binding = DRAW_BINDING_DYNUBO_BONE;
-	// Hardware tessellation
+	// Hardware tessellation. TODO: Don't allocate these unless actually drawing splines.
+	// Will require additional
 	bindings[5].descriptorCount = 1;
 	bindings[5].pImmutableSamplers = nullptr;
 	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -152,9 +153,9 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[2];
-	dpTypes[0].descriptorCount = 4096;
+	dpTypes[0].descriptorCount = 8192;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 2048;
+	dpTypes[1].descriptorCount = 8192 + 4096;  // Due to the tess stuff, we need a LOT of these. Most will be empty...
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
@@ -536,7 +537,8 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	descAlloc.descriptorPool = frame->descPool;
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
-	assert(result == VK_SUCCESS);
+	// Even in release mode, this is bad.
+	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptors in pool. sz=%d", (int)frame->descSets.size());
 
 	// We just don't write to the slots we don't care about.
 	VkWriteDescriptorSet writes[7];
