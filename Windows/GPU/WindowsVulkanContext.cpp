@@ -171,7 +171,13 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 
 	Version gitVer(PPSSPP_GIT_VERSION);
 	g_Vulkan = new VulkanContext();
-	if (VK_SUCCESS != g_Vulkan->CreateInstance("PPSSPP", gitVer.ToInteger(), (g_validate_ ? VULKAN_FLAG_VALIDATE : 0) | VULKAN_FLAG_PRESENT_FIFO_RELAXED)) {
+
+	// int vulkanFlags = VULKAN_FLAG_PRESENT_FIFO_RELAXED;
+	int vulkanFlags = VULKAN_FLAG_PRESENT_MAILBOX;
+	if (g_validate_) {
+		vulkanFlags |= VULKAN_FLAG_VALIDATE;
+	}
+	if (VK_SUCCESS != g_Vulkan->CreateInstance("PPSSPP", gitVer.ToInteger(), vulkanFlags)) {
 		*error_message = g_Vulkan->InitError();
 		return false;
 	}
@@ -225,6 +231,7 @@ void WindowsVulkanContext::Resize() {
 	g_Vulkan->DestroyObjects();
 
 	g_Vulkan->ReinitSurfaceWin32();
+
 	g_Vulkan->InitObjects();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }

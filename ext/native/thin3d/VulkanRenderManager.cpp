@@ -4,6 +4,12 @@
 #include "thin3d/VulkanRenderManager.h"
 #include "thread/threadutil.h"
 
+#ifdef _DEBUG
+#define VLOG ILOG
+#else
+#define VLOG(...)
+#endif
+
 // TODO: Using a thread here is unfinished and does not work correctly.
 const bool useThread = false;
 
@@ -106,6 +112,9 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		assert(res == VK_SUCCESS);
 		frameData_[i].fence = vulkan_->CreateFence(true);  // So it can be instantly waited on
 	}
+
+	InitBackbufferRenderPass();
+	InitRenderpasses();
 }
 
 void VulkanRenderManager::CreateBackbuffers() {
@@ -152,9 +161,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 	delete[] swapchainImages;
 
 	InitDepthStencilBuffer(cmdInit);  // Must be before InitBackbufferRenderPass.
-	InitBackbufferRenderPass();  // Must be before InitFramebuffers.
 	InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	InitRenderpasses();
 	curWidth_ = -1;
 	curHeight_ = -1;
 
@@ -188,6 +195,12 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	vulkan_->Delete().QueueDeleteImageView(depth_.view);
 	vulkan_->Delete().QueueDeleteImage(depth_.image);
 	vulkan_->Delete().QueueDeleteDeviceMemory(depth_.mem);
+	for (uint32_t i = 0; i < framebuffers_.size(); i++) {
+		assert(framebuffers_[i] != VK_NULL_HANDLE);
+		vulkan_->Delete().QueueDeleteFramebuffer(framebuffers_[i]);
+	}
+	framebuffers_.clear();
+
 	swapchainImages_.clear();
 }
 
@@ -201,17 +214,16 @@ VulkanRenderManager::~VulkanRenderManager() {
 		VkCommandBuffer cmdBuf[2]{ frameData_[i].mainCmd, frameData_[i].initCmd };
 		vkFreeCommandBuffers(device, frameData_[i].cmdPoolInit, 1, &frameData_[i].initCmd);
 		vkFreeCommandBuffers(device, frameData_[i].cmdPoolMain, 1, &frameData_[i].mainCmd);
+		vkDestroyCommandPool(device, frameData_[i].cmdPoolInit, nullptr);
+		vkDestroyCommandPool(device, frameData_[i].cmdPoolMain, nullptr);
 		vkDestroyFence(device, frameData_[i].fence, nullptr);
 	}
-	if (backbufferRenderPass_ != VK_NULL_HANDLE)
-		vkDestroyRenderPass(device, backbufferRenderPass_, nullptr);
-	for (uint32_t i = 0; i < framebuffers_.size(); i++) {
-		vkDestroyFramebuffer(device, framebuffers_[i], nullptr);
-	}
-	framebuffers_.clear();
 	for (int i = 0; i < ARRAY_SIZE(renderPasses_); i++) {
+		assert(renderPasses_[i] != VK_NULL_HANDLE);
 		vkDestroyRenderPass(device, renderPasses_[i], nullptr);
 	}
+	assert(backbufferRenderPass_ != VK_NULL_HANDLE);
+	vkDestroyRenderPass(device, backbufferRenderPass_, nullptr);
 }
 
 // TODO: Activate this code.
@@ -226,15 +238,15 @@ void VulkanRenderManager::ThreadFunc() {
 			FrameData &frameData = frameData_[threadFrame];
 			std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 			while (!frameData.readyForRun && run_) {
-				ILOG("PULL: Waiting for frame[%d].readyForRun", threadFrame);
+				VLOG("PULL: Waiting for frame[%d].readyForRun", threadFrame);
 				frameData.pull_condVar.wait(lock);
 			}
-			ILOG("PULL: frame[%d].readyForRun = false", threadFrame);
+			VLOG("PULL: frame[%d].readyForRun = false", threadFrame);
 			frameData.readyForRun = false;
 			if (!run_)  // quick exit if bailing.
 				return;
 		}
-		ILOG("PULL: Running frame %d", threadFrame);
+		VLOG("PULL: Running frame %d", threadFrame);
 		Run(threadFrame);
 	}
 }
@@ -249,18 +261,18 @@ void VulkanRenderManager::BeginFrame() {
 	if (useThread) {
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		while (!frameData.readyForFence) {
-			ILOG("PUSH: Waiting for frame[%d].readyForFence = 1", curFrame);
+			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1", curFrame);
 			frameData.push_condVar.wait(lock);
 		}
 		frameData.readyForFence = false;
 	}
 
-	ILOG("PUSH: Fencing %d", curFrame);
+	VLOG("PUSH: Fencing %d", curFrame);
 	vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX);
 	vkResetFences(device, 1, &frameData.fence);
 
 	// Must be after the fence - this performs deletes.
-	ILOG("PUSH: BeginFrame %d", curFrame);
+	VLOG("PUSH: BeginFrame %d", curFrame);
 	vulkan_->BeginFrame();
 
 	insideFrame_ = true;
@@ -315,7 +327,7 @@ void VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
 	// We share the same depth buffer but have multiple color buffers, see the loop below.
 	VkImageView attachments[2] = { VK_NULL_HANDLE, depth_.view };
 
-	ILOG("InitFramebuffers: %dx%d", width, height);
+	VLOG("InitFramebuffers: %dx%d", width, height);
 	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 	fb_info.renderPass = backbufferRenderPass_;
 	fb_info.attachmentCount = 2;
@@ -347,8 +359,7 @@ void VulkanRenderManager::InitBackbufferRenderPass() {
 	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	attachments[0].flags = 0;
 
-	assert(depth_.format != VK_FORMAT_UNDEFINED);
-	attachments[1].format = depth_.format;
+	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;  // must use this same format later for the back depth buffer.
 	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
 	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -537,7 +548,8 @@ void VulkanRenderManager::InitRenderpasses() {
 			case VKRRenderPassAction::KEEP: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; break;
 			case VKRRenderPassAction::DONT_CARE: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; break;
 			}
-			vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &renderPasses_[RPIndex((VKRRenderPassAction)color, (VKRRenderPassAction)depth)]);
+			int index = RPIndex((VKRRenderPassAction)color, (VKRRenderPassAction)depth);
+			vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &renderPasses_[index]);
 		}
 	}
 }
@@ -617,7 +629,7 @@ void VulkanRenderManager::Flush() {
 		Run(curFrame);
 	} else {
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
-		ILOG("PUSH: Frame[%d].readyForRun = true", curFrame);
+		VLOG("PUSH: Frame[%d].readyForRun = true", curFrame);
 		frameData.steps = std::move(steps_);
 		frameData.readyForRun = true;
 		frameData.pull_condVar.notify_all();
@@ -703,7 +715,7 @@ void VulkanRenderManager::Run(int frame) {
 	assert(res == VK_SUCCESS);
 
 	if (useThread) {
-		ILOG("PULL: Frame %d.readyForFence = true", frame);
+		VLOG("PULL: Frame %d.readyForFence = true", frame);
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		frameData.readyForFence = true;
 		frameData.push_condVar.notify_all();
@@ -722,7 +734,7 @@ void VulkanRenderManager::Run(int frame) {
 	// return codes
 	assert(res == VK_SUCCESS);
 
-	ILOG("PULL: Finished running frame %d", frame);
+	VLOG("PULL: Finished running frame %d", frame);
 }
 
 void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, int swapChainImage) {
@@ -1006,7 +1018,7 @@ void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &st
 		}
 
 		renderPass = renderPasses_[RPIndex(step.render.color, step.render.depthStencil)];
-		// ILOG("Switching framebuffer to FBO (fc=%d, cmd=%x, rp=%x)", frameNum_, (int)(uintptr_t)cmd_, (int)(uintptr_t)renderPass);
+		// VLOG("Switching framebuffer to FBO (fc=%d, cmd=%x, rp=%x)", frameNum_, (int)(uintptr_t)cmd_, (int)(uintptr_t)renderPass);
 		if (step.render.color == VKRRenderPassAction::CLEAR) {
 			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 			numClearVals = 1;
