@@ -576,12 +576,12 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, int aspectMask) {
 	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x < 0");
 	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y < 0");
-	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= src->width, "srcrect offset x + extent > width");
-	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= src->height, "srcrect offset y + extent > height");
+	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x + extent > width");
+	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y + extent > height");
 	_dbg_assert_msg_(G3D, dstPos.x >= 0, "dstPos offset x < 0");
 	_dbg_assert_msg_(G3D, dstPos.y >= 0, "dstPos offset y < 0");
-	_dbg_assert_msg_(G3D, dstPos.x + srcRect.extent.width <= dst->width, "dstPos + extent x > width");
-	_dbg_assert_msg_(G3D, dstPos.y + srcRect.extent.height <= dst->height, "dstPos + extent y > height");
+	_dbg_assert_msg_(G3D, dstPos.x + srcRect.extent.width <= (uint32_t)dst->width, "dstPos + extent x > width");
+	_dbg_assert_msg_(G3D, dstPos.y + srcRect.extent.height <= (uint32_t)dst->height, "dstPos + extent y > height");
 
 	VKRStep *step = new VKRStep{ VKRStepType::COPY };
 
@@ -600,13 +600,13 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, int aspectMask, VkFilter filter) {
 	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x < 0");
 	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y < 0");
-	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= src->width, "srcrect offset x + extent > width");
-	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= src->height, "srcrect offset y + extent > height");
+	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x + extent > width");
+	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y + extent > height");
 
 	_dbg_assert_msg_(G3D, dstRect.offset.x >= 0, "dstrect offset x < 0");
 	_dbg_assert_msg_(G3D, dstRect.offset.y >= 0, "dstrect offset y < 0");
-	_dbg_assert_msg_(G3D, dstRect.offset.x + dstRect.extent.width <= dst->width, "dstrect offset x + extent > width");
-	_dbg_assert_msg_(G3D, dstRect.offset.y + dstRect.extent.height <= dst->height, "dstrect offset y + extent > height");
+	_dbg_assert_msg_(G3D, dstRect.offset.x + dstRect.extent.width <= (uint32_t)dst->width, "dstrect offset x + extent > width");
+	_dbg_assert_msg_(G3D, dstRect.offset.y + dstRect.extent.height <= (uint32_t)dst->height, "dstrect offset y + extent > height");
 
 	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
 
