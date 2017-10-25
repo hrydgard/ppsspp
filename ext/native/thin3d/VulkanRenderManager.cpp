@@ -574,22 +574,42 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 }
 
 void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, int aspectMask) {
+	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x < 0");
+	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y < 0");
+	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= src->width, "srcrect offset x + extent > width");
+	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= src->height, "srcrect offset y + extent > height");
+	_dbg_assert_msg_(G3D, dstPos.x >= 0, "dstPos offset x < 0");
+	_dbg_assert_msg_(G3D, dstPos.y >= 0, "dstPos offset y < 0");
+	_dbg_assert_msg_(G3D, dstPos.x + srcRect.extent.width <= dst->width, "dstPos + extent x > width");
+	_dbg_assert_msg_(G3D, dstPos.y + srcRect.extent.height <= dst->height, "dstPos + extent y > height");
+
 	VKRStep *step = new VKRStep{ VKRStepType::COPY };
+
 	step->copy.aspectMask = aspectMask;
 	step->copy.src = src;
 	step->copy.srcRect = srcRect;
 	step->copy.dst = dst;
 	step->copy.dstPos = dstPos;
 
-	// TODO: Validate or clip copy-rectangles here.
-
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
 	curRenderStep_ = nullptr;
+	curFramebuffer_ = nullptr;
 }
 
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, int aspectMask, VkFilter filter) {
+	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x < 0");
+	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y < 0");
+	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= src->width, "srcrect offset x + extent > width");
+	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= src->height, "srcrect offset y + extent > height");
+
+	_dbg_assert_msg_(G3D, dstRect.offset.x >= 0, "dstrect offset x < 0");
+	_dbg_assert_msg_(G3D, dstRect.offset.y >= 0, "dstrect offset y < 0");
+	_dbg_assert_msg_(G3D, dstRect.offset.x + dstRect.extent.width <= dst->width, "dstrect offset x + extent > width");
+	_dbg_assert_msg_(G3D, dstRect.offset.y + dstRect.extent.height <= dst->height, "dstrect offset y + extent > height");
+
 	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
+
 	step->blit.aspectMask = aspectMask;
 	step->blit.src = src;
 	step->blit.srcRect = srcRect;
@@ -597,11 +617,10 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	step->blit.dstRect = dstRect;
 	step->blit.filter = filter;
 
-	// TODO: Validate blit-rectangles here.
-
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
 	curRenderStep_ = nullptr;
+	curFramebuffer_ = nullptr;
 }
 
 VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment) {
@@ -625,6 +644,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 
 void VulkanRenderManager::Flush() {
 	curRenderStep_ = nullptr;
+	curFramebuffer_ = nullptr;
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 	if (frameData.hasInitCommands) {
@@ -792,6 +812,7 @@ void VulkanRenderManager::PerformRenderPass(const VKRStep &step, VkCommandBuffer
 		}
 	}
 
+	// This is supposed to bind a vulkan render pass to the command buffer.
 	PerformBindFramebufferAsRenderTarget(step, cmd, swapChainImage);
 
 	VKRFramebuffer *fb = step.render.framebuffer;
@@ -936,6 +957,8 @@ void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &st
 		h = vulkan_->GetBackbufferHeight();
 	}
 
+#if 0
+	// This part is based on faulty old thinking.
 	if (framebuf == curFramebuffer_) {
 		if (framebuf == 0)
 			Crash();
@@ -966,6 +989,7 @@ void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &st
 		// We're done.
 		return;
 	}
+#endif
 
 	VkRenderPass renderPass;
 	int numClearVals = 0;
@@ -1022,8 +1046,8 @@ void VulkanRenderManager::PerformBindFramebufferAsRenderTarget(const VKRStep &st
 				Crash();
 				break;
 			}
-			TransitionImageLayout2(cmd, fb->color.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
-				fb->color.layout, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			TransitionImageLayout2(cmd, fb->depth.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+				fb->depth.layout, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 				srcStage, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 				srcAccessMask, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
 			fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -1086,8 +1110,8 @@ void VulkanRenderManager::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) 
 	int srcCount = 0;
 	int dstCount = 0;
 
-	VkPipelineStageFlags srcStage;
-	VkPipelineStageFlags dstStage;
+	VkPipelineStageFlags srcStage = 0;
+	VkPipelineStageFlags dstStage = 0;
 	// First source barriers.
 	if (step.copy.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 		if (src->color.layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
@@ -1200,6 +1224,9 @@ void VulkanRenderManager::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) 
 		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		vkCmdBlitImage(cmd, src->color.image, src->color.layout, dst->color.image, dst->color.layout, 1, &blit, step.blit.filter);
 	}
+
+	// TODO: Need to check if the depth format is blittable.
+	// Actually, we should probably almost always use copies rather than blits for depth buffers.
 	if (step.blit.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 		blit.srcSubresource.aspectMask = 0;
 		blit.dstSubresource.aspectMask = 0;
