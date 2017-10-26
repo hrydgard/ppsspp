@@ -58,6 +58,3 @@ struct VulkanPipelineRasterStateKey {
 		return memcmp(this, &other, size) < 0;
 	}
 };
-
-class ShaderManagerVulkan;
-void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);

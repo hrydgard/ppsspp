@@ -84,10 +84,8 @@ uint8_t *VulkanTexture::Lock(int level, int *rowPitch) {
 	return (uint8_t *)data;
 }
 
-void VulkanTexture::Unlock() {
+void VulkanTexture::Unlock(VkCommandBuffer cmd) {
 	vkUnmapMemory(vulkan_->GetDevice(), mappableMemory);
-
-	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
 
 	// if we already have an image, queue it for destruction and forget it.
 	Wipe();
@@ -227,10 +225,8 @@ static bool IsDepthStencilFormat(VkFormat format) {
 	}
 }
 
-bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
+bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
 	Wipe();
-
-	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
 
 	tex_width = w;
 	tex_height = h;
@@ -336,7 +332,7 @@ bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 	return true;
 }
 
-void VulkanTexture::UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength) {
+void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength) {
 	VkBufferImageCopy copy_region = {};
 	copy_region.bufferOffset = offset;
 	copy_region.bufferRowLength = (uint32_t)rowLength;
@@ -349,12 +345,10 @@ void VulkanTexture::UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buf
 	copy_region.imageSubresource.baseArrayLayer = 0;
 	copy_region.imageSubresource.layerCount = 1;
 
-	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
 	vkCmdCopyBufferToImage(cmd, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
 }
 
-void VulkanTexture::EndCreate() {
-	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
+void VulkanTexture::EndCreate(VkCommandBuffer cmd) {
 	TransitionImageLayout2(cmd, image,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -362,8 +356,7 @@ void VulkanTexture::EndCreate() {
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
 
-void VulkanTexture::TransitionForUpload() {
-	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
+void VulkanTexture::TransitionForUpload(VkCommandBuffer cmd) {
 	TransitionImageLayout2(cmd, image,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,

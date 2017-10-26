@@ -141,7 +141,7 @@ bool FramebufferManagerCommon::UpdateSize() {
 
 void FramebufferManagerCommon::BeginFrame() {
 	DecimateFBOs();
-	currentRenderVfb_ = 0;
+	currentRenderVfb_ = nullptr;
 	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 }
 
@@ -307,7 +307,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	bool vfbFormatChanged = false;
 
 	// Find a matching framebuffer
-	VirtualFramebuffer *vfb = 0;
+	VirtualFramebuffer *vfb = nullptr;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (v->fb_address == params.fb_address) {
@@ -809,7 +809,7 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 }
 
 void FramebufferManagerCommon::CopyDisplayToOutput() {
-	DownloadFramebufferOnSwitch(currentRenderVfb_);
+	// DownloadFramebufferOnSwitch(currentRenderVfb_);
 
 	currentRenderVfb_ = 0;
 
@@ -1043,6 +1043,11 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 void FramebufferManagerCommon::DecimateFBOs() {
 	currentRenderVfb_ = 0;
 
+	for (auto iter : fbosToDelete_) {
+		delete iter;
+	}
+	fbosToDelete_.clear();
+
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
@@ -1089,6 +1094,9 @@ void FramebufferManagerCommon::DecimateFBOs() {
 
 void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force, bool skipCopy) {
 	VirtualFramebuffer old = *vfb;
+
+	int oldWidth = vfb->bufferWidth;
+	int oldHeight = vfb->bufferHeight;
 
 	if (force) {
 		vfb->bufferWidth = w;
@@ -1146,14 +1154,14 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
 	if (old.fbo) {
-		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
+		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %d x %d x %d", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 			if (!skipCopy && !g_Config.bDisableSlowFramebufEffects) {
-				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
+				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0);
 			}
 		}
-		delete old.fbo;
+		fbosToDelete_.push_back(old.fbo);
 		if (needGLESRebinds_) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		}

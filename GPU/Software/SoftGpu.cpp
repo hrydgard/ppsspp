@@ -146,13 +146,6 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	if (!draw_)
 		return;
-	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
-	float dstheight = (float)PSP_CoreParameter().pixelHeight;
-
-	Draw::Viewport viewport = {0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f};
-	draw_->SetViewports(1, &viewport);
-	draw_->SetScissorRect(0, 0, dstwidth, dstheight);
-
 	float u0 = 0.0f;
 	float u1;
 
@@ -216,6 +209,9 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 	fbTex = draw_->CreateTexture(desc);
 
+	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
+	float dstheight = (float)PSP_CoreParameter().pixelHeight;
+
 	float x, y, w, h;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
 
@@ -242,6 +238,9 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		std::swap(v0, v1);
 	}
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE });
+	Draw::Viewport viewport = { 0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f };
+	draw_->SetViewports(1, &viewport);
+	draw_->SetScissorRect(0, 0, dstwidth, dstheight);
 
 	Draw::SamplerState *sampler;
 	if (g_Config.iBufFilter == SCALE_NEAREST) {

@@ -42,33 +42,6 @@
 //
 // Each FBO will get its own command buffer for each pass. 
 
-// 
-struct VulkanFBOPass {
-	VkCommandBuffer cmd;
-};
-
-class VulkanFBO {
-public:
-	VulkanFBO();
-	~VulkanFBO();
-
-	// Depth-format is chosen automatically depending on hardware support.
-	// Color format will be 32-bit RGBA.
-	void Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int width, int height, VkFormat colorFormat);
-
-	VulkanTexture *GetColor() { return color_; }
-	VulkanTexture *GetDepthStencil() { return depthStencil_; }
-
-	VkFramebuffer GetFramebuffer() { return framebuffer_; }
-
-private:
-	VulkanTexture *color_;
-	VulkanTexture *depthStencil_;
-
-	// This point specifically to color and depth.
-	VkFramebuffer framebuffer_;
-};
-
 // Similar to a subset of Thin3D, but separate.
 // This is used for things like postprocessing shaders, depal, etc.
 // No UBO data is used, only PushConstants.
@@ -84,14 +57,11 @@ public:
 	void Shutdown();
 
 	VkPipeline GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShaderModule vs, VkShaderModule fs);
-
+	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 	void BeginFrame();
 	void EndFrame();
 
 	VkDescriptorSet GetDescriptorSet(VkImageView tex1, VkSampler sampler1, VkImageView tex2, VkSampler sampler2);
-
-	// Simple way
-	void BindDescriptorSet(VkCommandBuffer cmd, VkImageView tex1, VkSampler sampler1);
 
 	struct Vertex {
 		float x, y, z;

@@ -26,16 +26,16 @@ public:
 	// been called.
 	VkResult Create(int w, int h, VkFormat format);
 	uint8_t *Lock(int level, int *rowPitch);
-	void Unlock();
+	void Unlock(VkCommandBuffer cmd);
 
 	// Fast uploads from buffer. Mipmaps supported.
 	// Usage must at least include VK_IMAGE_USAGE_TRANSFER_DST_BIT in order to use UploadMip.
 	// When using UploadMip, initialLayout should be VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
-	bool CreateDirect(int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, const VkComponentMapping *mapping = nullptr);
-	void UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
-	void EndCreate();
+	bool CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, const VkComponentMapping *mapping = nullptr);
+	void UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
+	void EndCreate(VkCommandBuffer cmd);
 
-	void TransitionForUpload();
+	void TransitionForUpload(VkCommandBuffer cmd);
 
 	int GetNumMips() const { return numMips_; }
 	void Destroy();

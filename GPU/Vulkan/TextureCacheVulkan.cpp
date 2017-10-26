@@ -466,6 +466,7 @@ VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
 void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
+	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 
@@ -588,7 +589,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 			break;
 		}
 
-		bool allocSuccess = image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+		bool allocSuccess = image->CreateDirect(cmdInit, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 		if (!allocSuccess && !lowMemoryMode_) {
 			WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 			lowMemoryMode_ = true;
@@ -607,7 +608,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 			scaleFactor = 1;
 			actualFmt = dstFmt;
 
-			allocSuccess = image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+			allocSuccess = image->CreateDirect(cmdInit, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 		}
 
 		if (!allocSuccess) {
@@ -615,7 +616,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 			entry->vkTex = nullptr;
 		}
 	} else {
-		entry->vkTex->texture_->TransitionForUpload();
+		entry->vkTex->texture_->TransitionForUpload(cmdInit);
 	}
 	lastBoundTexture = entry->vkTex;
 
@@ -652,7 +653,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 			} else {
 				if (fakeMipmap) {
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, level, scaleFactor, dstFmt);
-					entry->vkTex->texture_->UploadMip(0, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+					entry->vkTex->texture_->UploadMip(cmdInit, 0, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 					break;
 				} else {
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
@@ -661,7 +662,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 					replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, mipWidth, mipHeight);
 				}
 			}
-			entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+			entry->vkTex->texture_->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 		}
 
 		if (maxLevel == 0) {
@@ -674,7 +675,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 		}
 	}
 
-	entry->vkTex->texture_->EndCreate();
+	entry->vkTex->texture_->EndCreate(cmdInit);
 
 	gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 	gstate_c.SetTextureSimpleAlpha(entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN);

@@ -322,9 +322,11 @@ enum class NativeObject {
 	BACKBUFFER_DEPTH_TEX,
 	FEATURE_LEVEL,
 	COMPATIBLE_RENDERPASS,
-	CURRENT_RENDERPASS,
-	RENDERPASS_COMMANDBUFFER,
+	BACKBUFFER_RENDERPASS,
+	FRAMEBUFFER_RENDERPASS,
+	INIT_COMMANDBUFFER,
 	BOUND_TEXTURE_IMAGEVIEW,
+	RENDER_MANAGER,
 };
 
 enum FBColorDepth {
@@ -553,6 +555,8 @@ struct DeviceCaps {
 	bool logicOpSupported;
 	bool framebufferCopySupported;
 	bool framebufferBlitSupported;
+	bool framebufferDepthCopySupported;
+	bool framebufferDepthBlitSupported;
 };
 
 struct TextureDesc {
@@ -677,7 +681,7 @@ public:
 	}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
-	virtual uintptr_t GetNativeObject(NativeObject obj) const = 0;
+	virtual uintptr_t GetNativeObject(NativeObject obj) = 0;
 
 	virtual void HandleEvent(Event ev, int width, int height, void *param1 = nullptr, void *param2 = nullptr) = 0;
 

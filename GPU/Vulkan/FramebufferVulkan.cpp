@@ -28,6 +28,7 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanMemory.h"
 #include "Common/Vulkan/VulkanImage.h"
+#include "thin3d/VulkanRenderManager.h"
 #include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
@@ -92,6 +93,9 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	vulkan2D_(vulkan) {
 
 	InitDeviceObjects();
+
+	// After a blit we do need to rebind for the VulkanRenderManager to know what to do.
+	needGLESRebinds_ = true;
 }
 
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {
@@ -131,8 +135,8 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 	assert(vsBasicTex_ != VK_NULL_HANDLE);
 
 	// Prime the 2D pipeline cache.
-	vulkan2D_.GetPipeline(pipelineCache2D_, vulkan_->GetSurfaceRenderPass(), vsBasicTex_, fsBasicTex_);
-	vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS), vsBasicTex_, fsBasicTex_);
+	// vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS), vsBasicTex_, fsBasicTex_);
+	// vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS), vsBasicTex_, fsBasicTex_);
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -174,7 +178,6 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
-	// if (!useBufferedRendering_) {
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
@@ -195,9 +198,6 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 		if (clearDepth) {
 			SetDepthUpdated();
 		}
-	//} else {
-		// TODO: Clever render pass magic.
-	//}
 }
 
 void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
@@ -234,13 +234,15 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 		drawPixelsTex_ = nullptr;
 	}
 
+	VkCommandBuffer initCmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
+
 	if (!drawPixelsTex_) {
 		drawPixelsTex_ = new VulkanTexture(vulkan_);
-		drawPixelsTex_->CreateDirect(width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		drawPixelsTex_->CreateDirect(initCmd, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		// Initialize backbuffer texture for DrawPixels
 		drawPixelsTexFormat_ = srcPixelFormat;
 	} else {
-		drawPixelsTex_->TransitionForUpload();
+		drawPixelsTex_->TransitionForUpload(initCmd);
 	}
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
@@ -297,25 +299,22 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 
 	VkBuffer buffer;
 	size_t offset = frameData_[curFrame_].push_->Push(data, width * height * 4, &buffer);
-	drawPixelsTex_->UploadMip(0, width, height, buffer, (uint32_t)offset, width);
-	drawPixelsTex_->EndCreate();
+	drawPixelsTex_->UploadMip(initCmd, 0, width, height, buffer, (uint32_t)offset, width);
+	drawPixelsTex_->EndCreate(initCmd);
 
 	overrideImageView_ = drawPixelsTex_->GetImageView();
 }
 
 void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
-	VkViewport vp;
-	vp.minDepth = 0.0;
-	vp.maxDepth = 1.0;
-	vp.x = (float)x;
-	vp.y = (float)y;
-	vp.width = (float)w;
-	vp.height = (float)h;
-
+	Draw::Viewport vp;
+	vp.MinDepth = 0.0;
+	vp.MaxDepth = 1.0;
+	vp.TopLeftX = (float)x;
+	vp.TopLeftY = (float)y;
+	vp.Width = (float)w;
+	vp.Height = (float)h;
 	// Since we're about to override it.
-	draw_->FlushState();
-	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
-	vkCmdSetViewport(cmd, 0, 1, &vp);
+	draw_->SetViewports(1, &vp);
 }
 
 void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
@@ -359,18 +358,16 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	// TODO: Should probably use draw_ directly and not go low level
 
 	VulkanPushBuffer *push = frameData_[curFrame_].push_;
-
-	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::RENDERPASS_COMMANDBUFFER);
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	VkImageView view = overrideImageView_ ? overrideImageView_ : (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
 	if ((flags & DRAWTEX_KEEP_TEX) == 0)
 		overrideImageView_ = VK_NULL_HANDLE;
-	vulkan2D_.BindDescriptorSet(cmd, view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_);
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cur2DPipeline_);
+	VkDescriptorSet descSet = vulkan2D_.GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);
-	vkCmdBindVertexBuffers(cmd, 0, 1, &vbuffer, &offset);
-	vkCmdDraw(cmd, 4, 1, 0, 0);
+	renderManager->BindPipeline(cur2DPipeline_);
+	renderManager->Draw(vulkan2D_.GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
 }
 
 void FramebufferManagerVulkan::Bind2DShader() {
@@ -437,13 +434,15 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 	bool matchingSize = src->width == dst->width && src->height == dst->height;
 	bool matchingRenderSize = src->renderWidth == dst->renderWidth && src->renderHeight == dst->renderHeight;
-
-	if (gstate_c.Supports(GPU_SUPPORTS_ANY_COPY_IMAGE) && matchingDepthBuffer && matchingRenderSize && matchingSize) {
+	if (matchingDepthBuffer && matchingRenderSize && matchingSize) {
+		// TODO: Currently, this copies depth AND stencil, which is a problem.  See #9740.
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT);
 	} else if (matchingDepthBuffer && matchingSize) {
+		/*
 		int w = std::min(src->renderWidth, dst->renderWidth);
 		int h = std::min(src->renderHeight, dst->renderHeight);
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST);
+		*/
 	}
 }
 
@@ -488,50 +487,20 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 }
 
 bool FramebufferManagerVulkan::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	// When updating VRAM, it need to be exact format.
-	if (!gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
-		switch (nvfb->format) {
-		case GE_FORMAT_4444:
-			nvfb->colorDepth = VK_FBO_4444;
-			break;
-		case GE_FORMAT_5551:
-			nvfb->colorDepth = VK_FBO_5551;
-			break;
-		case GE_FORMAT_565:
-			nvfb->colorDepth = VK_FBO_565;
-			break;
-		case GE_FORMAT_8888:
-		default:
-			nvfb->colorDepth = VK_FBO_8888;
-			break;
-		}
-	}
+	nvfb->colorDepth = Draw::FBO_8888;
 
-	/*
-	nvfb->fbo = CreateFramebuffer(nvfb->width, nvfb->height, 1, false, (FBOColorDepth)nvfb->colorDepth);
+	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
 	if (!(nvfb->fbo)) {
 		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
 	}
 
-	BindFramebufferAsRenderTarget(nvfb->fbo);
-	*/
+	draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 	return true;
 }
 
 void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	// _assert_msg_(G3D, nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
-
-	// Discard the previous contents of this buffer where possible.
-	/*
-	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-		BindFramebufferAsRenderTargetnvfb->fbo);
-		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
-		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
-	} else if (gl_extensions.IsGLES) {
-		BindFramebufferAsRenderTargetnvfb->fbo);
-	}
-	*/
+	// Nothing to do here.
 }
 
 void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
@@ -645,18 +614,6 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 
 	frame.push_->Reset();
 	frame.push_->Begin(vulkan_);
-	
-	if (!useBufferedRendering_) {
-		// TODO: This hackery should not be necessary. Is it? Need to check.
-		// We only use a single command buffer in this case.
-		VkCommandBuffer cmd = vulkan_->GetSurfaceCommandBuffer();
-		VkRect2D scissor;
-		scissor.offset = { 0, 0 };
-		scissor.extent = { (uint32_t)pixelWidth_, (uint32_t)pixelHeight_ };
-		vkCmdSetScissor(cmd, 0, 1, &scissor);
-	} else {
-		// Each render pass will set up scissor again.
-	}
 }
 
 void FramebufferManagerVulkan::EndFrame() {

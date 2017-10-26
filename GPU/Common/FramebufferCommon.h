@@ -190,7 +190,7 @@ public:
 	virtual ~FramebufferManagerCommon();
 
 	virtual void Init();
-	void BeginFrame();
+	virtual void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	void DestroyFramebuf(VirtualFramebuffer *v);
 
@@ -209,6 +209,8 @@ public:
 			FramebufferHeuristicParams inputs;
 			GetFramebufferHeuristicInputs(&inputs, gstate);
 			VirtualFramebuffer *vfb = DoSetRenderFrameBuffer(inputs, skipDrawReason);
+			_dbg_assert_msg_(G3D, vfb, "DoSetRenderFramebuffer must return a valid framebuffer.");
+			_dbg_assert_msg_(G3D, currentRenderVfb_, "DoSetRenderFramebuffer must set a valid framebuffer.");
 			return vfb;
 		}
 	}
@@ -411,6 +413,8 @@ protected:
 	};
 
 	std::map<u64, TempFBO> tempFBOs_;
+
+	std::vector<Draw::Framebuffer *> fbosToDelete_;
 
 	// Aggressively delete unused FBOs to save gpu memory.
 	enum {
