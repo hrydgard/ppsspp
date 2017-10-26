@@ -8,7 +8,7 @@
 
     <uses-sdk
         android:minSdkVersion="9"
-        android:targetSdkVersion="25" />
+        android:targetSdkVersion="26" />
 
     <uses-feature android:glEsVersion="0x00020000" />
     <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
