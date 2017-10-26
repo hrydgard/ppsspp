@@ -317,12 +317,13 @@ void GPU_D3D11::EndHostFrame() {
 }
 
 void GPU_D3D11::BeginFrameInternal() {
+	GPUCommon::BeginFrameInternal();
+
 	textureCacheD3D11_->StartFrame();
 	drawEngine_.BeginFrame();
 	depalShaderCache_->Decimate();
 	// fragmentTestCache_.Decimate();
 
-	GPUCommon::BeginFrameInternal();
 	shaderManagerD3D11_->DirtyLastShader();
 
 	framebufferManagerD3D11_->BeginFrame();

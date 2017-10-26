@@ -242,7 +242,7 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 }
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].Destroy(vulkan_);
 	}
 	if (depalSampler_ != VK_NULL_HANDLE)

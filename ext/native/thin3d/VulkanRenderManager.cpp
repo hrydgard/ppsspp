@@ -60,12 +60,12 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.imageView);
 	assert(res == VK_SUCCESS);
 
-	VkPipelineStageFlagBits dstStage;
+	VkPipelineStageFlags dstStage;
 	VkAccessFlagBits dstAccessMask;
 	switch (initialLayout) {
 	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 		dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+		dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 		dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -73,7 +73,10 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 		break;
 	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
 		dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+		dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		break;
+	default:
+		Crash();
 		break;
 	}
 
@@ -645,7 +648,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 
 void VulkanRenderManager::Flush() {
 	curRenderStep_ = nullptr;
-	curFramebuffer_ = VK_N;
+	curFramebuffer_ = VK_NULL_HANDLE;
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 	if (frameData.hasInitCommands) {

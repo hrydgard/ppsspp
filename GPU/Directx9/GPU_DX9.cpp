@@ -295,7 +295,7 @@ void GPU_DX9::BeginFrameInternal() {
 	GPUCommon::BeginFrameInternal();
 	shaderManagerDX9_->DirtyShader();
 
-	framebufferManagerDX9_->BeginFrame();
+	framebufferManager_->BeginFrame();
 }
 
 void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
