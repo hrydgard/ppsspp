@@ -39,7 +39,7 @@ struct VkRenderData {
 			uint32_t uboOffsets[3];
 			VkBuffer vbuffer;
 			VkDeviceSize voffset;
-			int count;
+			uint32_t count;
 		} draw;
 		struct {
 			VkPipelineLayout pipelineLayout;
@@ -50,7 +50,7 @@ struct VkRenderData {
 			VkDeviceSize voffset;
 			VkBuffer ibuffer;
 			VkDeviceSize ioffset;
-			int16_t count;
+			uint32_t count;
 			int16_t instances;
 			VkIndexType indexType;
 		} drawIndexed;
