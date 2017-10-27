@@ -448,9 +448,9 @@ public:
 			// Return a representative renderpass.
 			return (uintptr_t)renderManager_.GetRenderPass(0);
 		case NativeObject::BACKBUFFER_RENDERPASS:
-			return (uintptr_t)renderManager_.GetBackbufferRenderpass();
+			return (uintptr_t)renderManager_.GetBackbufferRenderPass();
 		case NativeObject::COMPATIBLE_RENDERPASS:
-			return (uintptr_t)renderManager_.GetCompatibleRenderpass();
+			return (uintptr_t)renderManager_.GetCompatibleRenderPass();
 		case NativeObject::INIT_COMMANDBUFFER:
 			return (uintptr_t)renderManager_.GetInitCmd();
 		case NativeObject::BOUND_TEXTURE_IMAGEVIEW:
@@ -893,7 +893,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	info.pViewportState = &vs;  // Must set viewport and scissor counts even if we set the actual state dynamically.
 	info.layout = pipelineLayout_;
 	info.subpass = 0;
-	info.renderPass = renderManager_.GetBackbufferRenderpass();
+	info.renderPass = renderManager_.GetBackbufferRenderPass();
 
 	// OK, need to create a new pipeline.
 	VkResult result = vkCreateGraphicsPipelines(device_, pipelineCache_, 1, &info, nullptr, &pipeline->vkpipeline);
