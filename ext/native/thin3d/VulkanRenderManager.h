@@ -1,5 +1,9 @@
 #pragma once
 
+// VulkanRenderManager takes the role that a GL driver does of sequencing and optimizing render passes.
+// Only draws and binds are handled here, resource creation and allocations are handled as normal -
+// that's the nice thing with Vulkan.
+
 #include <cstdint>
 #include <thread>
 #include <mutex>
@@ -9,10 +13,6 @@
 #include "math/dataconv.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/VulkanQueueRunner.h"
-
-// Takes the role that a GL driver does of sequencing and optimizing render passes.
-// Only draws and binds are handled here, resource creation and allocations are handled as normal -
-// that's the nice thing with Vulkan.
 
 // Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
 // to let them have individual non-pooled allocations. Until it's not fine. We'll see.

@@ -9,8 +9,6 @@
 class VKRFramebuffer;
 struct VKRImage;
 
-// The cool thing is that you can Flush on a different thread than you record the commands on!
-
 enum class VKRRenderCommand : uint8_t {
 	BIND_PIPELINE,
 	STENCIL,
