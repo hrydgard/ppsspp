@@ -1288,8 +1288,13 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 
+	VkFormat vkFormat = DataFormatToVulkan(format);
+
 	int aspectMask = 0;
-	if (channelBits & FBChannel::FB_COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
+	if (channelBits & FBChannel::FB_COLOR_BIT) {
+		assert(vkFormat == src->GetFB()->color.format);
+		aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
+	}
 	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 

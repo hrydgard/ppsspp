@@ -129,8 +129,6 @@ struct VKRStep {
 		struct {
 			int aspectMask;
 			VKRFramebuffer *src;
-			uint8_t *destPtr;
-			int pixelStride;
 			VkRect2D srcRect;
 		} readback;
 	};
@@ -158,7 +156,7 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyReadbackBuffer(const VKRStep &step);
+	void CopyReadbackBuffer(int width, int height, int pixelStride, uint8_t *pixels);
 
 private:
 	void InitBackbufferRenderPass();

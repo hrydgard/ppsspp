@@ -5,7 +5,7 @@
 #include "thin3d/VulkanRenderManager.h"
 #include "thread/threadutil.h"
 
-#ifdef _DEBUG
+#if 0 // def _DEBUG
 #define VLOG ILOG
 #else
 #define VLOG(...)
@@ -92,6 +92,8 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, dstStage,
 		0, dstAccessMask);
 	img.layout = initialLayout;
+
+	img.format = format;
 }
 
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan), queueRunner_(vulkan) {
@@ -328,8 +330,6 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, uint8_t *pixels, int pixelStride) {
 	VKRStep *step = new VKRStep{ VKRStepType::READBACK };
 	step->readback.aspectMask = aspectBits;
-	step->readback.destPtr = (uint8_t *)pixels;
-	step->readback.pixelStride = pixelStride;
 	step->readback.src = src;
 	step->readback.srcRect.offset = { x, y };
 	step->readback.srcRect.extent = { (uint32_t)w, (uint32_t)h };
@@ -339,8 +339,8 @@ void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 
 	FlushSync();
 
-	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(*step);
+	// Need to call this after FlushSyfnc so the pixels are guaranteed to be ready in CPU-accessible VRAM.
+	queueRunner_.CopyReadbackBuffer(w, h, pixelStride, pixels);
 }
 
 
@@ -569,7 +569,7 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	}
 }
 
-void VulkanRenderManager::Submit(int frame) {
+void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	FrameData &frameData = frameData_[frame];
 	if (frameData.hasInitCommands) {
 		VkResult res = vkEndCommandBuffer(frameData.initCmd);
@@ -590,16 +590,20 @@ void VulkanRenderManager::Submit(int frame) {
 	cmdBufs.push_back(frameData.mainCmd);
 
 	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	submit_info.waitSemaphoreCount = 1;
-	submit_info.pWaitSemaphores = &acquireSemaphore_;
+	if (triggerFence) {
+		submit_info.waitSemaphoreCount = 1;
+		submit_info.pWaitSemaphores = &acquireSemaphore_;
+	}
 
 	VkPipelineStageFlags waitStage[1] = { VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
 	submit_info.pWaitDstStageMask = waitStage;
 	submit_info.commandBufferCount = (uint32_t)cmdBufs.size();
 	submit_info.pCommandBuffers = cmdBufs.data();
-	submit_info.signalSemaphoreCount = 1;
-	submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
-	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, frameData.fence);
+	if (triggerFence) {
+		submit_info.signalSemaphoreCount = 1;
+		submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
+	}
+	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFence ? frameData.fence : VK_NULL_HANDLE);
 	assert(res == VK_SUCCESS);
 
 	if (useThread) {
@@ -617,7 +621,7 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 
 	TransitionToPresent(frameData.mainCmd, swapchainImages_[frameData.curSwapchainImage].image);
 
-	Submit(frame);
+	Submit(frame, true);
 
 	VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
 	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -660,22 +664,25 @@ void VulkanRenderManager::FlushSync() {
 	BeginSubmitFrame(frame);
 
 	FrameData &frameData = frameData_[frame];
+	frameData.steps = std::move(steps_);
+
 	auto &stepsOnThread = frameData_[frame].steps;
 	VkCommandBuffer cmd = frameData.mainCmd;
 	queueRunner_.RunSteps(cmd, stepsOnThread);
 	stepsOnThread.clear();
 
-	Submit(frame);
+	Submit(frame, false);
 
 	vkDeviceWaitIdle(vulkan_->GetDevice());
 
 	// At this point we can resume filling the command buffers for the current frame since
 	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
 	// No need to switch to the next frame number.
-	VkCommandBufferBeginInfo begin = {
+	VkCommandBufferBeginInfo begin{
 		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		nullptr,
 		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 	};
-	vkBeginCommandBuffer(frameData_->mainCmd, &begin);
+	VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
+	assert(res == VK_SUCCESS);
 }

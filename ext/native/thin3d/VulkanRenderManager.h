@@ -21,6 +21,7 @@ struct VKRImage {
 	VkImageView imageView;
 	VkDeviceMemory memory;
 	VkImageLayout layout;
+	VkFormat format;
 };
 void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color);
 
@@ -186,7 +187,7 @@ private:
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
-	void Submit(int frame);
+	void Submit(int frame, bool triggerFence);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();

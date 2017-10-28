@@ -725,28 +725,37 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 		assert(false);
 	}
 
+	assert(srcImage->format == VK_FORMAT_R8G8B8A8_UNORM);
+
+	VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	VkPipelineStageFlags stage = 0;
+	SetupTransitionToTransferSrc(*srcImage, barrier, stage, step.readback.aspectMask);
+	vkCmdPipelineBarrier(cmd, stage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
 	VkBufferImageCopy region{};
 	region.imageOffset = { step.readback.srcRect.offset.x, step.readback.srcRect.offset.y, 0 };
 	region.imageExtent = { step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, 1 };
 	region.imageSubresource.aspectMask = step.readback.aspectMask;
+	region.imageSubresource.layerCount = 1;
 	region.bufferOffset = 0;
-	region.bufferRowLength = 0;
+	region.bufferRowLength = step.readback.srcRect.extent.width;
 	region.bufferImageHeight = step.readback.srcRect.extent.height;
 	vkCmdCopyImageToBuffer(cmd, srcImage->image, srcImage->layout, readbackBuffer_, 1, &region);
 
 	// NOTE: Can't read the buffer using the CPU here - need to sync first.
 }
 
-void VulkanQueueRunner::CopyReadbackBuffer(const VKRStep &step) {
+void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, int pixelStride, uint8_t *pixels) {
 	// Read back to the requested address in ram from buffer.
 	void *mappedData;
-	VkResult res = vkMapMemory(vulkan_->GetDevice(), readbackMemory_, 0, step.readback.srcRect.extent.width * step.readback.srcRect.extent.height * 4, 0, &mappedData);
+	const int pixelSize = 4;  // TODO: Fix.
+	VkResult res = vkMapMemory(vulkan_->GetDevice(), readbackMemory_, 0, width * height * pixelSize, 0, &mappedData);
 	assert(res == VK_SUCCESS);
 
-	const int pixelSize = 4;  // TODO: Fix.
-	for (int y = 0; y < step.readback.srcRect.extent.height; y++) {
-		const uint8_t *src = (const uint8_t *)mappedData + step.readback.srcRect.extent.width * y;
-		uint8_t *dst = (uint8_t *)step.readback.destPtr + step.readback.pixelStride * pixelSize * y;
+	for (int y = 0; y < height; y++) {
+		const uint8_t *src = (const uint8_t *)mappedData + width * y;
+		uint8_t *dst = pixels + pixelStride * pixelSize * y;
+		memcpy(dst, src, width * pixelSize);
 	}
 	vkUnmapMemory(vulkan_->GetDevice(), readbackMemory_);
 }
