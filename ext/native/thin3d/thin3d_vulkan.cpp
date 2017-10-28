@@ -757,7 +757,7 @@ void VKContext::EndFrame() {
 	// Stop collecting data in the frame's data pushbuffer.
 	push_->End();
 
-	renderManager_.Flush();
+	renderManager_.Finish();
 
 	frameNum_++;
 	if (frameNum_ >= vulkan_->GetInflightFrames())

@@ -509,7 +509,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	return fb->color.imageView;
 }
 
-void VulkanRenderManager::Flush() {
+void VulkanRenderManager::Finish() {
 	curRenderStep_ = nullptr;
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
@@ -529,45 +529,41 @@ void VulkanRenderManager::Flush() {
 	vulkan_->EndFrame();
 }
 
-void VulkanRenderManager::Run(int frame) {
+// Can be called multiple times with no bad side effects. This is so that we can either begin a frame the normal way,
+void VulkanRenderManager::BeginFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
-	auto &stepsOnThread = frameData_[frame].steps;
-	VkDevice device = vulkan_->GetDevice();
+	if (!frameData.hasBegun) {
+		// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
+		// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
+		VkResult res = vkAcquireNextImageKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &frameData.curSwapchainImage);
+		assert(res == VK_SUCCESS);
+		// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
+		// return codes
 
-	uint32_t curSwapchainImage = 0;
-	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
-	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
-	VkResult res = vkAcquireNextImageKHR(device, vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &curSwapchainImage);
-	assert(res == VK_SUCCESS);
+		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
 
-	VkCommandBuffer cmd = frameData.mainCmd;
+		assert(res == VK_SUCCESS);
 
-	VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	res = vkBeginCommandBuffer(cmd, &begin);
+		// TODO: Is it best to do this here, or combine with some other transition, or just do it right before the backbuffer bind-for-render?
+		TransitionFromPresent(frameData.mainCmd, swapchainImages_[frameData.curSwapchainImage].image);
 
-	assert(res == VK_SUCCESS);
+		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage]);
 
-	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
-	// return codes
-	// TODO: Is it best to do this here, or combine with some other transition, or just do it right before the backbuffer bind-for-render?
-	assert(res == VK_SUCCESS);
-	TransitionFromPresent(cmd, swapchainImages_[curSwapchainImage].image);
+		frameData.hasBegun = true;
+	}
+}
 
-	queueRunner_.SetBackbuffer(framebuffers_[curSwapchainImage]);
-	queueRunner_.RunSteps(cmd, stepsOnThread);
-	stepsOnThread.clear();
-
+void VulkanRenderManager::EndFrame(int frame) {
+	FrameData &frameData = frameData_[frame];
+	frameData.hasBegun = false;
 	insideFrame_ = false;
 
-	TransitionToPresent(frameData.mainCmd, swapchainImages_[curSwapchainImage].image);
+	TransitionToPresent(frameData.mainCmd, swapchainImages_[frameData.curSwapchainImage].image);
 
-	res = vkEndCommandBuffer(frameData.mainCmd);
+	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
 	assert(res == VK_SUCCESS);
-
-	// So the sequence will be, cmdInit, [cmdQueue_], frame->cmdBuf.
-	// This way we bunch up all the initialization needed for the frame, we render to
-	// other buffers before the back buffer, and then last we render to the backbuffer.
 
 	int numCmdBufs = 0;
 	std::vector<VkCommandBuffer> cmdBufs;
@@ -602,7 +598,7 @@ void VulkanRenderManager::Run(int frame) {
 	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
 	present.swapchainCount = 1;
 	present.pSwapchains = &swapchain;
-	present.pImageIndices = &curSwapchainImage;
+	present.pImageIndices = &frameData.curSwapchainImage;
 	present.pWaitSemaphores = &renderingCompleteSemaphore_;
 	present.waitSemaphoreCount = 1;
 	present.pResults = nullptr;
@@ -614,6 +610,21 @@ void VulkanRenderManager::Run(int frame) {
 	} else {
 		assert(res == VK_SUCCESS);
 	}
+}
+
+void VulkanRenderManager::Run(int frame) {
+	VkDevice device = vulkan_->GetDevice();
+
+	BeginFrame(frame);
+
+	FrameData &frameData = frameData_[frame];
+	auto &stepsOnThread = frameData_[frame].steps;
+	VkCommandBuffer cmd = frameData.mainCmd;
+	queueRunner_.RunSteps(cmd, stepsOnThread);
+	stepsOnThread.clear();
+
+	EndFrame(frame);
+
 
 	VLOG("PULL: Finished running frame %d", frame);
 }

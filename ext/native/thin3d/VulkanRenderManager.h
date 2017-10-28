@@ -78,12 +78,13 @@ public:
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame();
+	void EndFrame();
 	// Can run on a different thread! Just make sure to use BeginFrameWrites.
-	void Flush();
+	void Finish();
 	void Run(int frame);
+
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void Sync();
-	void RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps, int curSwapChainImage);
 
 	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment);
@@ -186,6 +187,9 @@ public:
 private:
 	void InitBackbufferFramebuffers(int width, int height);
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
+	void BeginFrame(int frame);
+	void EndFrame(int frame);
+
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;
 	VkSemaphore renderingCompleteSemaphore_;
@@ -209,6 +213,10 @@ private:
 		VkCommandBuffer mainCmd;
 		bool hasInitCommands = false;
 		std::vector<VKRStep *> steps;
+
+		// Swapchain.
+		bool hasBegun = false;
+		uint32_t curSwapchainImage;
 	};
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
