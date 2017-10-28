@@ -1,5 +1,9 @@
 #pragma once
 
+// VulkanRenderManager takes the role that a GL driver does of sequencing and optimizing render passes.
+// Only draws and binds are handled here, resource creation and allocations are handled as normal -
+// that's the nice thing with Vulkan.
+
 #include <cstdint>
 #include <thread>
 #include <mutex>
@@ -8,139 +12,7 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
 #include "thin3d/thin3d.h"
-
-// Takes the role that a GL driver does of sequencing and optimizing render passes.
-// Only draws and binds are handled here, resource creation and allocations are handled as normal -
-// that's the nice thing with Vulkan.
-
-// The cool thing is that you can Flush on a different thread than you record the commands on!
-
-enum class VKRRenderCommand : uint8_t {
-	BIND_PIPELINE,
-	STENCIL,
-	BLEND,
-	VIEWPORT,
-	SCISSOR,
-	CLEAR,
-	DRAW,
-	DRAW_INDEXED,
-};
-
-struct VkRenderData {
-	VKRRenderCommand cmd;
-	union {
-		struct {
-			VkPipeline pipeline;
-		} pipeline;
-		struct {
-			VkPipelineLayout pipelineLayout;
-			VkDescriptorSet ds;
-			int numUboOffsets;
-			uint32_t uboOffsets[3];
-			VkBuffer vbuffer;
-			VkDeviceSize voffset;
-			uint32_t count;
-		} draw;
-		struct {
-			VkPipelineLayout pipelineLayout;
-			VkDescriptorSet ds;
-			int numUboOffsets;
-			uint32_t uboOffsets[3];
-			VkBuffer vbuffer;  // might need to increase at some point
-			VkDeviceSize voffset;
-			VkBuffer ibuffer;
-			VkDeviceSize ioffset;
-			uint32_t count;
-			int16_t instances;
-			VkIndexType indexType;
-		} drawIndexed;
-		struct {
-			uint32_t clearColor;
-			float clearZ;
-			int clearStencil;
-			int clearMask;   // VK_IMAGE_ASPECT_COLOR_BIT etc
-		} clear;
-		struct {
-			VkViewport vp;
-		} viewport;
-		struct {
-			VkRect2D scissor;
-		} scissor;
-		struct {
-			uint8_t stencilWriteMask;
-			uint8_t stencilCompareMask;
-			uint8_t stencilRef;
-		} stencil;
-		struct {
-			float color[4];
-		} blendColor;
-		struct {
-
-		} beginRp;
-		struct {
-
-		} endRp;
-	};
-};
-
-enum class VKRStepType : uint8_t {
-	RENDER,
-	COPY,
-	BLIT,
-	READBACK,
-};
-
-class VKRFramebuffer;
-
-enum class VKRRenderPassAction {
-	DONT_CARE,
-	CLEAR,
-	KEEP,
-};
-
-struct TransitionRequest {
-	VKRFramebuffer *fb;
-	VkImageLayout targetLayout;
-};
-
-struct VKRStep {
-	VKRStep(VKRStepType _type) : stepType(_type) {}
-	VKRStepType stepType;
-	std::vector<VkRenderData> commands;
-	std::vector<TransitionRequest> preTransitions;
-	union {
-		struct {
-			VKRFramebuffer *framebuffer;
-			VKRRenderPassAction color;
-			VKRRenderPassAction depthStencil;
-			uint32_t clearColor;
-			float clearDepth;
-			int clearStencil;
-			int numDraws;
-			VkImageLayout finalColorLayout;
-		} render;
-		struct {
-			VKRFramebuffer *src;
-			VKRFramebuffer *dst;
-			VkRect2D srcRect;
-			VkOffset2D dstPos;
-			int aspectMask;
-		} copy;
-		struct {
-			VKRFramebuffer *src;
-			VKRFramebuffer *dst;
-			VkRect2D srcRect;
-			VkRect2D dstRect;
-			int aspectMask;
-			VkFilter filter;
-		} blit;
-		struct {
-			VKRFramebuffer *src;
-			void *destPtr;
-			VkRect2D srcRect;
-		} readback;
-	};
-};
+#include "thin3d/VulkanQueueRunner.h"
 
 // Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
 // to let them have individual non-pooled allocations. Until it's not fine. We'll see.
@@ -211,6 +83,7 @@ public:
 	void Run(int frame);
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void Sync();
+	void RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps, int curSwapChainImage);
 
 	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment);
@@ -292,17 +165,18 @@ public:
 	}
 
 	VkCommandBuffer GetInitCmd();
-	VkRenderPass GetBackbufferRenderpass() const {
-		return backbufferRenderPass_;
+
+	VkRenderPass GetRenderPass(int pass) const {
+		return queueRunner_.GetRenderPass(pass);
 	}
-	VkRenderPass GetRenderPass(int i) const {
-		return renderPasses_[i];
+	VkRenderPass GetBackbufferRenderPass() const {
+		return queueRunner_.GetBackbufferRenderPass();
 	}
-	VkRenderPass GetCompatibleRenderpass() const {
+	VkRenderPass GetCompatibleRenderPass() const {
 		if (curRenderStep_ && curRenderStep_->render.framebuffer != nullptr) {
-			return GetRenderPass(0);
+			return queueRunner_.GetRenderPass(0);
 		} else {
-			return backbufferRenderPass_;
+			return queueRunner_.GetBackbufferRenderPass();
 		}
 	}
 
@@ -311,30 +185,10 @@ public:
 
 private:
 	void InitBackbufferFramebuffers(int width, int height);
-	void InitBackbufferRenderPass();
-	void InitRenderpasses();
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
-
-	void PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd, int swapChainImage);
-
-	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd, int swapChainImage);
-	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
-	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
-
-	inline int RPIndex(VKRRenderPassAction color, VKRRenderPassAction depth) {
-		return (int)depth * 3 + (int)color;
-	}
-
-	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
-	static void SetupTransitionToTransferDst(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
-
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;
 	VkSemaphore renderingCompleteSemaphore_;
-	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;
-	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
-	// TODO: Create these on demand.
-	VkRenderPass renderPasses_[9];
 
 	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 	struct FrameData {
@@ -370,7 +224,7 @@ private:
 	VulkanContext *vulkan_;
 	std::thread thread_;
 	std::mutex mutex_;
-	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
+	VulkanQueueRunner queueRunner_;
 
 	// Swap chain management
 	struct SwapchainImageData {
