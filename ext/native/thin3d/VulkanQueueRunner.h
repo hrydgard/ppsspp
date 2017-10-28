@@ -127,8 +127,10 @@ struct VKRStep {
 			VkFilter filter;
 		} blit;
 		struct {
+			int aspectMask;
 			VKRFramebuffer *src;
-			void *destPtr;
+			uint8_t *destPtr;
+			int pixelStride;
 			VkRect2D srcRect;
 		} readback;
 	};
@@ -156,6 +158,8 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
+	void CopyReadbackBuffer(const VKRStep &step);
+
 private:
 	void InitBackbufferRenderPass();
 	void InitRenderpasses();
@@ -164,6 +168,7 @@ private:
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd);
 
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
@@ -177,4 +182,9 @@ private:
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
 	// TODO: Create these on demand.
 	VkRenderPass renderPasses_[9]{};
+
+	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
+	// We size it generously.
+	VkDeviceMemory readbackMemory_;
+	VkBuffer readbackBuffer_;
 };

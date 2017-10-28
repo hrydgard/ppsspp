@@ -85,25 +85,25 @@ private:
 
 	u32 TexturePreviewFlags(const GPUgstate &state);
 
-	CtrlDisplayListView *displayList;
-	TabDisplayLists *lists;
-	TabStateFlags *flags;
-	TabStateLighting *lighting;
-	TabStateTexture *textureState;
-	TabStateSettings *settings;
-	TabVertices *vertices;
-	TabMatrices *matrices;
-	SimpleGLWindow *primaryWindow;
-	SimpleGLWindow *secondWindow;
-	TabStateWatch *watch;
-	TabControl *tabs;
-	TabControl *fbTabs;
-	int textureLevel_;
-	bool showClut_;
-	bool forceOpaque_;
+	CtrlDisplayListView *displayList = nullptr;
+	TabDisplayLists *lists = nullptr;
+	TabStateFlags *flags = nullptr;
+	TabStateLighting *lighting = nullptr;
+	TabStateTexture *textureState = nullptr;
+	TabStateSettings *settings = nullptr;
+	TabVertices *vertices = nullptr;
+	TabMatrices *matrices = nullptr;
+	SimpleGLWindow *primaryWindow = nullptr;
+	SimpleGLWindow *secondWindow = nullptr;
+	TabStateWatch *watch = nullptr;
+	TabControl *tabs = nullptr;
+	TabControl *fbTabs = nullptr;
+	int textureLevel_ = 0;
+	bool showClut_ = false;
+	bool forceOpaque_ = false;
 	// The most recent primary/framebuffer and texture buffers.
-	const GPUDebugBuffer *primaryBuffer_;
-	const GPUDebugBuffer *secondBuffer_;
+	const GPUDebugBuffer *primaryBuffer_ = nullptr;
+	const GPUDebugBuffer *secondBuffer_ = nullptr;
 
 	int minWidth_;
 	int minHeight_;

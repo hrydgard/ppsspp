@@ -78,16 +78,13 @@ public:
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame();
-	void EndFrame();
-	// Can run on a different thread! Just make sure to use BeginFrameWrites.
+	// Can run on a different thread!
 	void Finish();
 	void Run(int frame);
 
-	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
-	void Sync();
-
 	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment);
+	void CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, uint8_t *pixels, int pixelStride);
 
 	void CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, int aspectMask);
 	void BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, int aspectMask, VkFilter filter);
@@ -187,8 +184,12 @@ public:
 private:
 	void InitBackbufferFramebuffers(int width, int height);
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
-	void BeginFrame(int frame);
-	void EndFrame(int frame);
+	void BeginSubmitFrame(int frame);
+	void EndSubmitFrame(int frame);
+	void Submit(int frame);
+
+	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
+	void FlushSync();
 
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;

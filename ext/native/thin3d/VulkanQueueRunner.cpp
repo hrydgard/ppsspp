@@ -1,13 +1,40 @@
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
 
+const uint32_t readbackBufferSize = 2048 * 2048 * 4;
+
 void VulkanQueueRunner::CreateDeviceObjects() {
 	InitBackbufferRenderPass();
 	InitRenderpasses();
+
+	VkDevice device = vulkan_->GetDevice();
+
+	VkBufferCreateInfo buf{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	buf.size = readbackBufferSize;
+	buf.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	vkCreateBuffer(device, &buf, nullptr, &readbackBuffer_);
+
+	VkMemoryRequirements reqs{};
+	vkGetBufferMemoryRequirements(device, readbackBuffer_, &reqs);
+
+	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	alloc.allocationSize = reqs.size;
+
+	VkFlags typeReqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	bool success = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &alloc.memoryTypeIndex);
+	assert(success);
+	vkAllocateMemory(device, &alloc, nullptr, &readbackMemory_);
+
+	uint32_t offset = 0;
+	vkBindBufferMemory(device, readbackBuffer_, readbackMemory_, offset);
 }
 
 void VulkanQueueRunner::DestroyDeviceObjects() {
 	VkDevice device = vulkan_->GetDevice();
+	vkFreeMemory(device, readbackMemory_, nullptr);
+	vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
+
 	for (int i = 0; i < ARRAY_SIZE(renderPasses_); i++) {
 		assert(renderPasses_[i] != VK_NULL_HANDLE);
 		vkDestroyRenderPass(device, renderPasses_[i], nullptr);
@@ -15,7 +42,6 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 	assert(backbufferRenderPass_ != VK_NULL_HANDLE);
 	vkDestroyRenderPass(device, backbufferRenderPass_, nullptr);
 }
-
 
 void VulkanQueueRunner::InitBackbufferRenderPass() {
 	VkResult U_ASSERT_ONLY res;
@@ -167,7 +193,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 			PerformBlit(step, cmd);
 			break;
 		case VKRStepType::READBACK:
-			// PerformReadback
+			PerformReadback(step, cmd);
 			break;
 		}
 		delete steps[i];
@@ -687,4 +713,40 @@ void VulkanQueueRunner::SetupTransitionToTransferDst(VKRImage &img, VkImageMemor
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	img.layout = barrier.newLayout;
+}
+
+void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd) {
+	VKRImage *srcImage;
+	if (step.readback.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
+		srcImage = &step.readback.src->color;
+	} else if (step.readback.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+		srcImage = &step.readback.src->depth;
+	} else {
+		assert(false);
+	}
+
+	VkBufferImageCopy region{};
+	region.imageOffset = { step.readback.srcRect.offset.x, step.readback.srcRect.offset.y, 0 };
+	region.imageExtent = { step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, 1 };
+	region.imageSubresource.aspectMask = step.readback.aspectMask;
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = step.readback.srcRect.extent.height;
+	vkCmdCopyImageToBuffer(cmd, srcImage->image, srcImage->layout, readbackBuffer_, 1, &region);
+
+	// NOTE: Can't read the buffer using the CPU here - need to sync first.
+}
+
+void VulkanQueueRunner::CopyReadbackBuffer(const VKRStep &step) {
+	// Read back to the requested address in ram from buffer.
+	void *mappedData;
+	VkResult res = vkMapMemory(vulkan_->GetDevice(), readbackMemory_, 0, step.readback.srcRect.extent.width * step.readback.srcRect.extent.height * 4, 0, &mappedData);
+	assert(res == VK_SUCCESS);
+
+	const int pixelSize = 4;  // TODO: Fix.
+	for (int y = 0; y < step.readback.srcRect.extent.height; y++) {
+		const uint8_t *src = (const uint8_t *)mappedData + step.readback.srcRect.extent.width * y;
+		uint8_t *dst = (uint8_t *)step.readback.destPtr + step.readback.pixelStride * pixelSize * y;
+	}
+	vkUnmapMemory(vulkan_->GetDevice(), readbackMemory_);
 }
