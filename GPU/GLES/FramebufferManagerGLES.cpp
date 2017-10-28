@@ -204,7 +204,6 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	FramebufferManagerCommon(draw),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
-	convBuf_(nullptr),
 	draw2dprogram_(nullptr),
 	postShaderProgram_(nullptr),
 	stencilUploadProgram_(nullptr),
@@ -721,63 +720,6 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-// TODO: SSE/NEON
-// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
-	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
-	const u32 *src32 = (const u32 *)src;
-
-	if (format == GE_FORMAT_8888) {
-		u32 *dst32 = (u32 *)dst;
-		if (src == dst) {
-			return;
-		} else {
-			// Here let's assume they don't intersect
-			for (u32 y = 0; y < height; ++y) {
-				memcpy(dst32, src32, width * 4);
-				src32 += srcStride;
-				dst32 += dstStride;
-			}
-		}
-	} else {
-		// But here it shouldn't matter if they do intersect
-		u16 *dst16 = (u16 *)dst;
-		switch (format) {
-			case GE_FORMAT_565: // BGR 565
-				{
-					for (u32 y = 0; y < height; ++y) {
-						ConvertRGBA8888ToRGB565(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				}
-				break;
-			case GE_FORMAT_5551: // ABGR 1555
-				{
-					for (u32 y = 0; y < height; ++y) {
-						ConvertRGBA8888ToRGBA5551(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				}
-				break;
-			case GE_FORMAT_4444: // ABGR 4444
-				{
-					for (u32 y = 0; y < height; ++y) {
-						ConvertRGBA8888ToRGBA4444(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				}
-				break;
-			case GE_FORMAT_8888:
-			case GE_FORMAT_INVALID:
-				// Not possible.
-				break;
-		}
-	}
-}
-
 void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	CHECK_GL_ERROR_IF_DEBUG();
 	const int MAX_PBO = 2;
@@ -900,48 +842,7 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 }
 
 void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	if (!vfb->fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
-		return;
-	}
-
-	int possibleH = std::max(vfb->height - y, 0);
-	if (h > possibleH) {
-		h = possibleH;
-	}
-
-	// Pixel size always 4 here because we always request RGBA8888
-	u32 bufSize = vfb->fb_stride * h * 4;
-	u32 fb_address = 0x04000000 | vfb->fb_address;
-
-	bool convert = vfb->format != GE_FORMAT_8888;
-	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
-	const int packWidth = std::min(vfb->fb_stride, std::min(x + w, (int)vfb->width));
-
-	int dstByteOffset = y * vfb->fb_stride * dstBpp;
-	u8 *dst = Memory::GetPointer(fb_address + dstByteOffset);
-
-	u8 *packed = nullptr;
-	if (!convert) {
-		packed = (u8 *)dst;
-	} else {
-		// End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
-		if (!convBuf_ || convBufSize_ < bufSize) {
-			delete [] convBuf_;
-			convBuf_ = new u8[bufSize];
-			convBufSize_ = bufSize;
-		}
-		packed = convBuf_;
-	}
-
-	if (packed) {
-		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
-		int packW = h == 1 ? packWidth : vfb->fb_stride;  // TODO: What's this about?
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, y, packW, h, Draw::DataFormat::R8G8B8A8_UNORM, packed, packW);
-		if (convert) {
-			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
-		}
-	}
+	FramebufferManagerCommon::PackFramebufferSync_(vfb, x, y, w, h);
 
 	// TODO: Move this into Thin3d.
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {

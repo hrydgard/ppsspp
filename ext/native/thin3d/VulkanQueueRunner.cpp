@@ -753,7 +753,7 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, int pixelStrid
 	assert(res == VK_SUCCESS);
 
 	for (int y = 0; y < height; y++) {
-		const uint8_t *src = (const uint8_t *)mappedData + width * y;
+		const uint8_t *src = (const uint8_t *)mappedData + width * pixelSize * y;
 		uint8_t *dst = pixels + pixelStride * pixelSize * y;
 		memcpy(dst, src, width * pixelSize);
 	}
