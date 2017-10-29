@@ -4,7 +4,7 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
-#include "thin3d/thin3d.h"
+#include "thin3d/DataFormat.h"
 
 class VKRFramebuffer;
 struct VKRImage;
@@ -127,8 +127,8 @@ struct VKRStep {
 			VkFilter filter;
 		} blit;
 		struct {
+			int aspectMask;
 			VKRFramebuffer *src;
-			void *destPtr;
 			VkRect2D srcRect;
 		} readback;
 	};
@@ -156,6 +156,8 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
+	void CopyReadbackBuffer(int width, int height, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+
 private:
 	void InitBackbufferRenderPass();
 	void InitRenderpasses();
@@ -164,6 +166,7 @@ private:
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd);
 
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
@@ -177,4 +180,9 @@ private:
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
 	// TODO: Create these on demand.
 	VkRenderPass renderPasses_[9]{};
+
+	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
+	// We size it generously.
+	VkDeviceMemory readbackMemory_;
+	VkBuffer readbackBuffer_;
 };

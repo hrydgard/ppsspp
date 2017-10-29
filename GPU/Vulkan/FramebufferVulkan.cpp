@@ -387,6 +387,7 @@ void FramebufferManagerVulkan::RebindFramebuffer() {
 		// Should this even happen?
 		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
 bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skipZero) {

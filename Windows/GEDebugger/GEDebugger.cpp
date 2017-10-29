@@ -61,8 +61,7 @@ void CGEDebugger::Init() {
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), primaryWindow(nullptr), secondWindow(nullptr),
-	  textureLevel_(0), showClut_(false), primaryBuffer_(nullptr), secondBuffer_(nullptr) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent) {
 	GPUBreakpoints::Init();
 	Core_ListenShutdown(ForceUnpause);
 

@@ -1310,56 +1310,6 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 	return false;
 }
 
-// TODO: SSE/NEON
-// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, Draw::DataFormat format) {
-	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
-	const u32 *src32 = (const u32 *)src;
-
-	if (format == Draw::DataFormat::R8G8B8A8_UNORM) {
-		u32 *dst32 = (u32 *)dst;
-		if (src == dst) {
-			return;
-		} else {
-			for (u32 y = 0; y < height; ++y) {
-				memcpy(dst32, src32, width * 4);
-				src32 += srcStride;
-				dst32 += dstStride;
-			}
-		}
-	} else {
-		// But here it shouldn't matter if they do intersect
-		u16 *dst16 = (u16 *)dst;
-		switch (format) {
-		case Draw::DataFormat::R5G6B5_UNORM_PACK16: // BGR 565
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGB565(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case Draw::DataFormat::A1R5G5B5_UNORM_PACK16: // ABGR 1555
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGBA5551(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case Draw::DataFormat::A4R4G4B4_UNORM_PACK16: // ABGR 4444
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGBA4444(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case Draw::DataFormat::R8G8B8A8_UNORM:
-		case Draw::DataFormat::UNDEFINED:
-			// Not possible.
-			break;
-		}
-	}
-}
-
 bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat format, void *pixels, int pixelStride) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 

@@ -11,7 +11,7 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
-#include "thin3d/thin3d.h"
+#include "thin3d/DataFormat.h"
 #include "thin3d/VulkanQueueRunner.h"
 
 // Simple independent framebuffer image. Gets its own allocation, we don't have that many framebuffers so it's fine
@@ -21,6 +21,7 @@ struct VKRImage {
 	VkImageView imageView;
 	VkDeviceMemory memory;
 	VkImageLayout layout;
+	VkFormat format;
 };
 void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, VkFormat format, VkImageLayout initialLayout, bool color);
 
@@ -78,15 +79,13 @@ public:
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame();
-	// Can run on a different thread! Just make sure to use BeginFrameWrites.
-	void Flush();
+	// Can run on a different thread!
+	void Finish();
 	void Run(int frame);
-	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
-	void Sync();
-	void RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps, int curSwapChainImage);
 
 	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment);
+	void CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride);
 
 	void CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, int aspectMask);
 	void BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, int aspectMask, VkFilter filter);
@@ -186,6 +185,13 @@ public:
 private:
 	void InitBackbufferFramebuffers(int width, int height);
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
+	void BeginSubmitFrame(int frame);
+	void EndSubmitFrame(int frame);
+	void Submit(int frame, bool triggerFence);
+
+	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
+	void FlushSync();
+
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;
 	VkSemaphore renderingCompleteSemaphore_;
@@ -209,6 +215,10 @@ private:
 		VkCommandBuffer mainCmd;
 		bool hasInitCommands = false;
 		std::vector<VKRStep *> steps;
+
+		// Swapchain.
+		bool hasBegun = false;
+		uint32_t curSwapchainImage;
 	};
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 

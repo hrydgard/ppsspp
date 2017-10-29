@@ -240,6 +240,7 @@
     <ClInclude Include="gfx_es2\draw_text_qt.h" />
     <ClInclude Include="gfx_es2\draw_text_win.h" />
     <ClInclude Include="thin3d\d3d11_loader.h" />
+    <ClInclude Include="thin3d\DataFormat.h" />
     <ClInclude Include="thin3d\VulkanQueueRunner.h" />
     <ClInclude Include="thin3d\VulkanRenderManager.h" />
     <ClInclude Include="util\text\wrap_text.h" />

@@ -1,7 +1,9 @@
 #include <cstring>
-#include <thin3d/thin3d.h>
+#include <cstdint>
 
 #include "base/logging.h"
+#include "thin3d/thin3d.h"
+#include "Common/ColorConv.h"
 
 namespace Draw {
 
@@ -319,5 +321,56 @@ DrawContext::~DrawContext() {
 			fsPresets_[i]->Release();
 	}
 }
+
+// TODO: SSE/NEON
+// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
+void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
+	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
+	const uint32_t *src32 = (const uint32_t *)src;
+
+	if (format == Draw::DataFormat::R8G8B8A8_UNORM) {
+		uint32_t *dst32 = (uint32_t *)dst;
+		if (src == dst) {
+			return;
+		} else {
+			for (uint32_t y = 0; y < height; ++y) {
+				memcpy(dst32, src32, width * 4);
+				src32 += srcStride;
+				dst32 += dstStride;
+			}
+		}
+	} else {
+		// But here it shouldn't matter if they do intersect
+		uint16_t *dst16 = (uint16_t *)dst;
+		switch (format) {
+		case Draw::DataFormat::R5G6B5_UNORM_PACK16: // BGR 565
+			for (uint32_t y = 0; y < height; ++y) {
+				ConvertRGBA8888ToRGB565(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::A1R5G5B5_UNORM_PACK16: // ABGR 1555
+			for (uint32_t y = 0; y < height; ++y) {
+				ConvertRGBA8888ToRGBA5551(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::A4R4G4B4_UNORM_PACK16: // ABGR 4444
+			for (uint32_t y = 0; y < height; ++y) {
+				ConvertRGBA8888ToRGBA4444(dst16, src32, width);
+				src32 += srcStride;
+				dst16 += dstStride;
+			}
+			break;
+		case Draw::DataFormat::R8G8B8A8_UNORM:
+		case Draw::DataFormat::UNDEFINED:
+			// Not possible.
+			break;
+		}
+	}
+}
+
 
 }  // namespace Draw
