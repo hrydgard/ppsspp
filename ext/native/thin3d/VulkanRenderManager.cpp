@@ -327,7 +327,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	curHeight_ = fb ? fb->height : vulkan_->GetBackbufferHeight();
 }
 
-void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, uint8_t *pixels, int pixelStride) {
+void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, VkFormat destFormat, uint8_t *pixels, int pixelStride) {
 	VKRStep *step = new VKRStep{ VKRStepType::READBACK };
 	step->readback.aspectMask = aspectBits;
 	step->readback.src = src;
@@ -340,9 +340,8 @@ void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 	FlushSync();
 
 	// Need to call this after FlushSyfnc so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(w, h, pixelStride, pixels);
+	queueRunner_.CopyReadbackBuffer(w, h, destFormat, pixelStride, pixels);
 }
-
 
 void VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
 	VkResult U_ASSERT_ONLY res;

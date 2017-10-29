@@ -156,7 +156,7 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyReadbackBuffer(int width, int height, int pixelStride, uint8_t *pixels);
+	void CopyReadbackBuffer(int width, int height, VkFormat destFormat, int pixelStride, uint8_t *pixels);
 
 private:
 	void InitBackbufferRenderPass();

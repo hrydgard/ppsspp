@@ -1292,13 +1292,12 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 
 	int aspectMask = 0;
 	if (channelBits & FBChannel::FB_COLOR_BIT) {
-		assert(vkFormat == src->GetFB()->color.format);
 		aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
 	}
 	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
-	renderManager_.CopyFramebufferToMemorySync(src->GetFB(), aspectMask, x, y, w, h, (uint8_t *)pixels, pixelStride);
+	renderManager_.CopyFramebufferToMemorySync(src->GetFB(), aspectMask, x, y, w, h, vkFormat, (uint8_t *)pixels, pixelStride);
 	return true;
 }
 
