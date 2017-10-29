@@ -1974,63 +1974,6 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	return true;
 }
 
-// TODO: SSE/NEON
-// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
-	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
-	const u32 *src32 = (const u32 *)src;
-
-	if (format == GE_FORMAT_8888) {
-		u32 *dst32 = (u32 *)dst;
-		if (src == dst) {
-			return;
-		} else {
-			// Here let's assume they don't intersect
-			for (u32 y = 0; y < height; ++y) {
-				memcpy(dst32, src32, width * 4);
-				src32 += srcStride;
-				dst32 += dstStride;
-			}
-		}
-	} else {
-		// But here it shouldn't matter if they do intersect
-		u16 *dst16 = (u16 *)dst;
-		switch (format) {
-		case GE_FORMAT_565: // BGR 565
-		{
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGB565(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-		}
-		break;
-		case GE_FORMAT_5551: // ABGR 1555
-		{
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGBA5551(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-		}
-		break;
-		case GE_FORMAT_4444: // ABGR 4444
-		{
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGBA4444(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-		}
-		break;
-		case GE_FORMAT_8888:
-		case GE_FORMAT_INVALID:
-			// Not possible.
-			break;
-		}
-	}
-}
-
 // This function takes an already correctly-sized framebuffer and packs it into RAM.
 // Does not need to account for scaling.
 // Color conversion is currently done on CPU but should theoretically be done on GPU.
@@ -2043,43 +1986,19 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 		return;
 	}
 
-	int possibleH = std::max(vfb->height - y, 0);
-	if (h > possibleH) {
-		h = possibleH;
-	}
+	const u32 fb_address = (0x04000000) | vfb->fb_address;
 
-	// Pixel size always 4 here because we always request RGBA8888
-	u32 bufSize = vfb->fb_stride * h * 4;
-	u32 fb_address = 0x04000000 | vfb->fb_address;
+	Draw::DataFormat destFormat = GEFormatToThin3D(vfb->format);
+	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
 
-	bool convert = vfb->format != GE_FORMAT_8888;
-	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
-	const int packWidth = std::min(vfb->fb_stride, std::min(x + w, (int)vfb->width));
+	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
+	u8 *destPtr = Memory::GetPointer(fb_address + dstByteOffset);
 
-	int dstByteOffset = y * vfb->fb_stride * dstBpp;
-	u8 *dst = Memory::GetPointer(fb_address + dstByteOffset);
+	// We always need to convert from the framebuffer native format.
+	// Right now that's always 8888.
+	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 
-	u8 *packed = nullptr;
-	if (!convert) {
-		packed = (u8 *)dst;
-	} else {
-		// End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
-		if (!convBuf_ || convBufSize_ < bufSize) {
-			delete[] convBuf_;
-			convBuf_ = new u8[bufSize];
-			convBufSize_ = bufSize;
-		}
-		packed = convBuf_;
-	}
-
-	if (packed) {
-		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
-		int packW = h == 1 ? packWidth : vfb->fb_stride;  // TODO: What's this about?
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, y, w, h, Draw::DataFormat::R8G8B8A8_UNORM, packed, packW);
-		if (convert) {
-			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
-		}
-	}
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
 }
 
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {

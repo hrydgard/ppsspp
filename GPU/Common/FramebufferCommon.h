@@ -402,10 +402,6 @@ protected:
 	int bloomHack_ = 0;
 	bool trueColor_ = false;
 
-	// Used to convert readbacks.
-	u8 *convBuf_ = nullptr;
-	u32 convBufSize_ = 0;
-
 	// Used by post-processing shaders
 	std::vector<Draw::Framebuffer *> extraFBOs_;
 
