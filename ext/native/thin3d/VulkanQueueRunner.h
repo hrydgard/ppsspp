@@ -4,7 +4,7 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
-#include "thin3d/thin3d.h"
+#include "thin3d/DataFormat.h"
 
 class VKRFramebuffer;
 struct VKRImage;
@@ -156,7 +156,7 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyReadbackBuffer(int width, int height, VkFormat destFormat, int pixelStride, uint8_t *pixels);
+	void CopyReadbackBuffer(int width, int height, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 private:
 	void InitBackbufferRenderPass();

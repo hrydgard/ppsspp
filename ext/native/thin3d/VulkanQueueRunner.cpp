@@ -1,5 +1,4 @@
-#include "Common/ColorConv.h"
-
+#include "DataFormat.h"
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
 
@@ -747,60 +746,7 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 	// NOTE: Can't read the buffer using the CPU here - need to sync first.
 }
 
-// Would love to share this with D3D11 but don't have a shared format enum we can use... as we don't want
-// to depend on thin3d here.
-// TODO: SSE/NEON
-// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-// Strides are in pixels.
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, VkFormat format) {
-	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
-	const u32 *src32 = (const u32 *)src;
-
-	if (format == VK_FORMAT_R8G8B8A8_UNORM) {
-		u32 *dst32 = (u32 *)dst;
-		if (src == dst) {
-			return;
-		} else {
-			for (u32 y = 0; y < height; ++y) {
-				memcpy(dst32, src32, width * 4);
-				src32 += srcStride;
-				dst32 += dstStride;
-			}
-		}
-	} else {
-		// But here it shouldn't matter if they do intersect
-		u16 *dst16 = (u16 *)dst;
-		switch (format) {
-		case VK_FORMAT_B5G6R5_UNORM_PACK16: // BGR 565
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGB565(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case VK_FORMAT_A1R5G5B5_UNORM_PACK16: // ABGR 1555
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGBA5551(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case VK_FORMAT_R4G4B4A4_UNORM_PACK16: // ABGR 4444
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGBA4444(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		default:
-			Crash();
-			// Not possible.
-			break;
-		}
-	}
-}
-
-void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, VkFormat destFormat, int pixelStride, uint8_t *pixels) {
+void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 	// Read back to the requested address in ram from buffer.
 	void *mappedData;
 	const int srcPixelSize = 4;  // TODO: Fix.

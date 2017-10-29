@@ -326,6 +326,9 @@
     <ClInclude Include="thin3d\VulkanRenderManager.h">
       <Filter>thin3d</Filter>
     </ClInclude>
+    <ClInclude Include="thin3d\DataFormat.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">

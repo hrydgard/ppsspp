@@ -1288,8 +1288,6 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 
-	VkFormat vkFormat = DataFormatToVulkan(format);
-
 	int aspectMask = 0;
 	if (channelBits & FBChannel::FB_COLOR_BIT) {
 		aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1297,7 +1295,7 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
-	renderManager_.CopyFramebufferToMemorySync(src->GetFB(), aspectMask, x, y, w, h, vkFormat, (uint8_t *)pixels, pixelStride);
+	renderManager_.CopyFramebufferToMemorySync(src->GetFB(), aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride);
 	return true;
 }
 

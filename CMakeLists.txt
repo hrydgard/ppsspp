@@ -808,7 +808,8 @@ if(VULKAN)
 	ext/native/thin3d/VulkanRenderManager.cpp
 	ext/native/thin3d/VulkanRenderManager.h
 	ext/native/thin3d/VulkanQueueRunner.cpp
-	ext/native/thin3d/VulkanQueueRunner.h)
+	ext/native/thin3d/VulkanQueueRunner.h
+	ext/native/thin3d/DataFormat.h)
 endif()
 if(WIN32)
   set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
