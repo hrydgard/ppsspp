@@ -66,7 +66,6 @@ public:
 private:
 	u32 GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat);
 
-	VkCommandBuffer cmd_ = VK_NULL_HANDLE;
 	Draw::DrawContext *draw_ = nullptr;
 	VulkanContext *vulkan_ = nullptr;
 	VulkanPushBuffer *push_ = nullptr;

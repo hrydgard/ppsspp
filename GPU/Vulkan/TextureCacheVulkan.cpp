@@ -23,6 +23,8 @@
 #include "math/math_util.h"
 #include "profiler/profiler.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/VulkanRenderManager.h"
+
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -130,10 +132,19 @@ TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *v
 	lastBoundTexture = nullptr;
 	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 
+	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.magFilter = VK_FILTER_NEAREST;
+	samp.minFilter = VK_FILTER_NEAREST;
+	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
 	SetupTextureDecoder();
 }
 
 TextureCacheVulkan::~TextureCacheVulkan() {
+	vulkan_->Delete().QueueDeleteSampler(samplerNearest_);
 	Clear(true);
 
 	if (allocator_) {
@@ -333,19 +344,19 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	if (!entry || !entry->vkTex) {
 		imageView_ = VK_NULL_HANDLE;
-		sampler_ = VK_NULL_HANDLE;
+		curSampler_ = VK_NULL_HANDLE;
 		return;
 	}
 
 	imageView_ = entry->vkTex->texture_->GetImageView();
 	SamplerCacheKey key;
 	UpdateSamplingParams(*entry, key);
-	sampler_ = samplerCache_.GetOrCreateSampler(key);
+	curSampler_ = samplerCache_.GetOrCreateSampler(key);
 }
 
 void TextureCacheVulkan::Unbind() {
 	imageView_ = VK_NULL_HANDLE;
-	sampler_ = VK_NULL_HANDLE;
+	curSampler_ = VK_NULL_HANDLE;
 	InvalidateLastTexture();
 }
 
@@ -413,6 +424,13 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			verts[3].v = uvtop;
 		}
 
+		VkBuffer pushed;
+		uint32_t offset = push_->PushAligned(verts, sizeof(verts), 4, &pushed);
+		VkImageView fbo = (VkImageView)draw_->GetFramebufferAPITexture(framebuffer->fbo, Draw::FB_COLOR_BIT, 0);
+
+		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, samplerNearest_, clutTexture->GetImageView(), samplerNearest_);
+		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, pushed, offset, 4);
 		shaderManagerVulkan_->DirtyLastShader();
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
@@ -435,7 +453,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 	SamplerCacheKey samplerKey;
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
-	sampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
+	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	InvalidateLastTexture(entry);
 }
 

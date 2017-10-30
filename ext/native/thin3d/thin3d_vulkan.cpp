@@ -1140,7 +1140,6 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
 }
 
-// TODO: We should avoid this function as much as possible, instead use renderpass on-load clearing.
 void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int stencilVal) {
 	int mask = 0;
 	if (clearMask & FBChannel::FB_COLOR_BIT)
@@ -1359,9 +1358,9 @@ void VKContext::HandleEvent(Event ev, int width, int height, void *param1, void 
 		renderManager_.CreateBackbuffers();
 		break;
 	default:
+		assert(false);
 		break;
 	}
-	// Noop
 }
 
 }  // namespace Draw

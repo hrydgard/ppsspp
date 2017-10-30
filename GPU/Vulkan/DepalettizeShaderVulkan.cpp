@@ -22,6 +22,19 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "Common/Vulkan/VulkanImage.h"
 
+static const char depal_vs[] = R"(#version 400
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+layout (location = 0) in vec3 a_position;
+layout (location = 1) in vec2 a_texcoord0;
+layout (location = 0) out vec2 v_texcoord0;
+out gl_PerVertex { vec4 gl_Position; };
+void main() {
+  v_texcoord0 = a_texcoord0;
+  gl_Position = vec4(a_position, 1.0);
+}
+)";
+
 static VkFormat GetClutDestFormat(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
@@ -38,11 +51,14 @@ static VkFormat GetClutDestFormat(GEPaletteFormat format) {
 
 DepalShaderCacheVulkan::DepalShaderCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
 	: draw_(draw), vulkan_(vulkan) {
-
+	std::string errors;
+	vshader_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, depal_vs, &errors);
+	assert(vshader_ != VK_NULL_HANDLE);
 }
 
 DepalShaderCacheVulkan::~DepalShaderCacheVulkan() {
-
+	Clear();
+	vulkan_->Delete().QueueDeleteShaderModule(vshader_);
 }
 
 DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat) {
@@ -53,15 +69,16 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 		return shader->second;
 	}
 
-	char *buffer = new char[2048];
-
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS);
 
+	char *buffer = new char[2048];
 	GenerateDepalShader(buffer, pixelFormat, GLSL_VULKAN);
 
 	std::string error;
 	VkShaderModule fshader = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, buffer, &error);
 	if (fshader == VK_NULL_HANDLE) {
+		Crash();
+		delete[] buffer;
 		return nullptr;
 	}
 
@@ -74,10 +91,11 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 	depal->pipeline = pipeline;
 	depal->code = buffer;
 	cache_[id] = depal;
-	return nullptr;
+	return depal;
 }
 
 VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat, u32 clutID, u32 *rawClut) {
+	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	const u32 realClutID = clutID ^ clutFormat;
 
 	auto oldtex = texCache_.find(realClutID);
@@ -93,9 +111,12 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 	uint32_t pushOffset = push_->PushAligned(rawClut, 1024, 4, &pushBuffer);
 
 	VulkanTexture *vktex = new VulkanTexture(vulkan_, alloc_);
-	vktex->CreateDirect(cmd_, texturePixels, 1, 1, destFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT, nullptr);
-	vktex->UploadMip(cmd_, 0, texturePixels, 1, pushBuffer, pushOffset, texturePixels);
-	vktex->EndCreate(cmd_);
+	if (!vktex->CreateDirect(cmd, texturePixels, 1, 1, destFormat,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, nullptr)) {
+		Crash();
+	}
+	vktex->UploadMip(cmd, 0, texturePixels, 1, pushBuffer, pushOffset, texturePixels);
+	vktex->EndCreate(cmd);
 
 	DepalTextureVulkan *tex = new DepalTextureVulkan();
 	tex->texture = vktex;
@@ -107,6 +128,8 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 void DepalShaderCacheVulkan::Clear() {
 	for (auto shader = cache_.begin(); shader != cache_.end(); ++shader) {
 		// Delete the shader/pipeline too.
+		vulkan_->Delete().QueueDeletePipeline(shader->second->pipeline);
+		delete[] shader->second->code;
 		delete shader->second;
 	}
 	cache_.clear();
@@ -116,8 +139,6 @@ void DepalShaderCacheVulkan::Clear() {
 		delete tex->second;
 	}
 	texCache_.clear();
-
-	// TODO: Delete vertex shader.
 }
 
 void DepalShaderCacheVulkan::Decimate() {

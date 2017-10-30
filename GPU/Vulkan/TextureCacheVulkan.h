@@ -101,7 +101,7 @@ public:
 
 	void GetVulkanHandles(VkImageView &imageView, VkSampler &sampler) {
 		imageView = imageView_;
-		sampler = sampler_;
+		sampler = curSampler_;
 	}
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
@@ -144,7 +144,9 @@ private:
 
 	// Bound state to emulate an API similar to the others
 	VkImageView imageView_ = VK_NULL_HANDLE;
-	VkSampler sampler_ = VK_NULL_HANDLE;
+	VkSampler curSampler_ = VK_NULL_HANDLE;
+
+	VkSampler samplerNearest_ = VK_NULL_HANDLE;
 };
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format);
