@@ -515,7 +515,8 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				break;
 			}
-			else {
+			else if (steps_[i]->render.finalColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+				Crash();
 				// May need to shadow the framebuffer if we re-order passes later.
 			}
 		}

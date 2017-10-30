@@ -1315,11 +1315,28 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 	if (channelBit & FBChannel::FB_COLOR_BIT) aspect |= VK_IMAGE_ASPECT_COLOR_BIT;
 	if (channelBit & FBChannel::FB_DEPTH_BIT) aspect |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBit & FBChannel::FB_STENCIL_BIT) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
+
+	ILOG("Binding image as texture: %x", (int)fb->GetFB()->color.image);
+
 	boundImageView_[0] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
 }
 
 uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
-	return 0;
+	if (!fbo)
+		return 0;
+
+	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	VkImageView view = VK_NULL_HANDLE;
+	switch (channelBit) {
+	case FB_COLOR_BIT:
+		view = fb->GetFB()->color.imageView;
+		break;
+	case FB_DEPTH_BIT:
+	case FB_STENCIL_BIT:
+		view = fb->GetFB()->depth.imageView;
+		break;
+	}
+	return (uintptr_t)view;
 }
 
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
