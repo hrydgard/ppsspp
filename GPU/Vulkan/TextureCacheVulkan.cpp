@@ -152,6 +152,11 @@ void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManag
 	framebufferManager_ = fbManager;
 }
 
+void TextureCacheVulkan::SetVulkan2D(Vulkan2D *vk2d) {
+	vulkan2D_ = vk2d;
+	depalShaderCache_->SetVulkan2D(vk2d);
+}
+
 void TextureCacheVulkan::DeviceLost() {
 	Clear(true);
 
@@ -269,6 +274,8 @@ void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 
 void TextureCacheVulkan::StartFrame() {
 	InvalidateLastTexture();
+	depalShaderCache_->Decimate();
+
 	timesInvalidatedAllThisFrame_ = 0;
 	texelsScaledThisFrame_ = 0;
 
@@ -343,42 +350,24 @@ void TextureCacheVulkan::Unbind() {
 }
 
 void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
-	DepalShaderVulkan *depal = nullptr;
+	DepalShaderVulkan *depalShader = nullptr;
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-		// depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
+		depalShader = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
 	}
-	if (depal) {
-		// VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		// VulkanFBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, VK_FBO_8888);
+	if (depalShader) {
+		depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
+		VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
-		//depalFBO->BeginPass(cmd);
+		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(
+			framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
+		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 
-		struct Pos {
-			Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
-			}
-			float x;
-			float y;
-			float z;
-		};
-		struct UV {
-			UV(float u_, float v_) : u(u_), v(v_) {
-			}
-			float u;
-			float v;
-		};
-
-		Pos pos[4] = {
-			{ -1, -1, -1 },
-			{ 1, -1, -1 },
-			{ 1,  1, -1 },
-			{ -1,  1, -1 },
-		};
-		UV uv[4] = {
-			{ 0, 0 },
-			{ 1, 0 },
-			{ 1, 1 },
-			{ 0, 1 },
+		Vulkan2D::Vertex verts[4] = {
+			{ -1, -1, -1, 0, 0 },
+			{  1, -1, -1, 1, 0 },
+			{  1,  1, -1, 1, 1 },
+			{ -1,  1, -1, 0, 1 },
 		};
 		static const int indices[4] = { 0, 1, 3, 2 };
 
@@ -400,27 +389,31 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			const float top = v1 * invHalfHeight - 1.0f;
 			const float bottom = v2 * invHalfHeight - 1.0f;
 			// Points are: BL, BR, TR, TL.
-			pos[0] = Pos(left, bottom, -1.0f);
-			pos[1] = Pos(right, bottom, -1.0f);
-			pos[2] = Pos(right, top, -1.0f);
-			pos[3] = Pos(left, top, -1.0f);
+			verts[0].x = left;
+			verts[0].y = bottom;
+			verts[1].x = right;
+			verts[1].y = bottom;
+			verts[2].x = right;
+			verts[2].y = top;
+			verts[3].x = left;
+			verts[3].y = top;
 
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
 			const float uvright = u2 * invWidth;
 			const float uvtop = v1 * invHeight;
 			const float uvbottom = v2 * invHeight;
-			uv[0] = UV(uvleft, uvbottom);
-			uv[1] = UV(uvright, uvbottom);
-			uv[2] = UV(uvright, uvtop);
-			uv[3] = UV(uvleft, uvtop);
+			verts[0].u = uvleft;
+			verts[0].v = uvbottom;
+			verts[1].u = uvright;
+			verts[1].v = uvbottom;
+			verts[2].u = uvright;
+			verts[2].v = uvtop;
+			verts[3].u = uvleft;
+			verts[3].v = uvtop;
 		}
 
 		shaderManagerVulkan_->DirtyLastShader();
-
-		//depalFBO->EndPass(cmd);
-		//depalFBO->TransitionToTexture(cmd);
-		//imageView = depalFBO->GetColorImageView();
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
@@ -429,7 +422,8 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 		gstate_c.SetTextureSimpleAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE);
 
-		// imageView_ = depalFbo->getImageView().
+		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
+		imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 

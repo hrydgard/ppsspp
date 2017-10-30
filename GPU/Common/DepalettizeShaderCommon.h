@@ -20,4 +20,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 
+static const int DEPAL_TEXTURE_OLD_AGE = 120;
+
 void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language);

@@ -61,6 +61,7 @@ private:
 	DenseHashMap<SamplerCacheKey, VkSampler, (VkSampler)VK_NULL_HANDLE> cache_;
 };
 
+class Vulkan2D;
 
 class TextureCacheVulkan : public TextureCacheCommon {
 public:
@@ -82,6 +83,10 @@ public:
 	}
 	void SetDrawEngine(DrawEngineVulkan *td) {
 		drawEngine_ = td;
+	}
+	void SetVulkan2D(Vulkan2D *vk2d);
+	void SetPushBuffer(VulkanPushBuffer *push) {
+		push_ = push;
 	}
 
 	void ForgetLastTexture() override {
@@ -119,6 +124,7 @@ private:
 
 	VulkanContext *vulkan_;
 	VulkanDeviceAllocator *allocator_;
+	VulkanPushBuffer *push_;
 
 	SamplerCache samplerCache_;
 
@@ -134,6 +140,7 @@ private:
 	DepalShaderCacheVulkan *depalShaderCache_;
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
+	Vulkan2D *vulkan2D_;
 
 	// Bound state to emulate an API similar to the others
 	VkImageView imageView_ = VK_NULL_HANDLE;

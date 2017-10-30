@@ -101,6 +101,10 @@ private:
 	void ReinitializeInternal() override;
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
+
+	void InitDeviceObjects();
+	void DestroyDeviceObjects();
+
 	static CommandInfo cmdInfo_[256];
 
 	VulkanContext *vulkan_;
@@ -121,4 +125,14 @@ private:
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
+
+	// Simple 2D drawing engine.
+	Vulkan2D vulkan2D_;
+
+	struct FrameData {
+		VulkanPushBuffer *push_;
+	};
+
+	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
+	int curFrame_ = 0;
 };

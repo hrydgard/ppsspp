@@ -56,7 +56,7 @@ public:
 	void DeviceRestore(VulkanContext *vulkan);
 	void Shutdown();
 
-	VkPipeline GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShaderModule vs, VkShaderModule fs);
+	VkPipeline GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderModule fs);
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 	void BeginFrame();
 	void EndFrame();
@@ -72,9 +72,10 @@ private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
-	VulkanContext *vulkan_;
-	VkDescriptorSetLayout descriptorSetLayout_;
-	VkPipelineLayout pipelineLayout_;
+	VulkanContext *vulkan_ = nullptr;
+	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
+	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
+	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 
 	// Yes, another one...
 	struct DescriptorSetKey {

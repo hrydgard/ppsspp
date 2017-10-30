@@ -20,42 +20,59 @@
 #include <map>
 
 #include "Common/CommonTypes.h"
+#include "Common/Vulkan/VulkanContext.h"
+#include "Common/Vulkan/VulkanImage.h"
+#include "Common/Vulkan/VulkanMemory.h"
 #include "GPU/ge_constants.h"
+#include "thin3d/thin3d.h"
 
 class DepalShaderVulkan {
 public:
-	/*
-	GLuint program;
-	GLuint fragShader;
-	GLint a_position;
-	GLint a_texcoord0;
-	*/
+	~DepalShaderVulkan() {
+		delete[] code;
+	}
+	// A Vulkan2D pipeline. Set texture to slot 0 and palette texture to slot 1.
+	VkPipeline pipeline;
+	const char *code = nullptr;;
 };
 
 class DepalTextureVulkan {
 public:
-	int  texture;
+	VulkanTexture *texture;
 	int lastFrame;
 };
 
 class VulkanTexture;
+class Vulkan2D;
 
 // Caches both shaders and palette textures.
 // Could even avoid bothering with palette texture and just use uniform data...
 class DepalShaderCacheVulkan {
 public:
-	DepalShaderCacheVulkan();
+	DepalShaderCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
 	~DepalShaderCacheVulkan();
 
 	// This also uploads the palette and binds the correct texture.
-	DepalShaderVulkan *GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	DepalShaderVulkan *GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat);
 	VulkanTexture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 	void Clear();
 	void Decimate();
 
+	void SetVulkan2D(Vulkan2D *vk2d) { vulkan2D_ = vk2d; }
+	void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
+	void SetAllocator(VulkanDeviceAllocator *alloc) { alloc_ = alloc; }
+	void SetVShader(VkShaderModule vshader) { vshader_ = vshader; }
+
 private:
-	u32 GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
-	bool CreateVertexShader();
+	u32 GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat);
+
+	VkCommandBuffer cmd_ = VK_NULL_HANDLE;
+	Draw::DrawContext *draw_ = nullptr;
+	VulkanContext *vulkan_ = nullptr;
+	VulkanPushBuffer *push_ = nullptr;
+	VulkanDeviceAllocator *alloc_ = nullptr;
+	VkShaderModule vshader_ = VK_NULL_HANDLE;
+	Vulkan2D *vulkan2D_ = nullptr;
 
 	// GLuint vertexShader_;
 	std::map<u32, DepalShaderVulkan *> cache_;
