@@ -426,10 +426,14 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 		VkBuffer pushed;
 		uint32_t offset = push_->PushAligned(verts, sizeof(verts), 4, &pushed);
-		VkImageView fbo = (VkImageView)draw_->GetFramebufferAPITexture(framebuffer->fbo, Draw::FB_COLOR_BIT, 0);
+
+		ILOG("DEPAL 2");
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, Draw::FB_COLOR_BIT, 0);
+		VkImageView fbo = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
 
 		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, samplerNearest_, clutTexture->GetImageView(), samplerNearest_);
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		renderManager->BindPipeline(depalShader->pipeline);
 		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, pushed, offset, 4);
 		shaderManagerVulkan_->DirtyLastShader();
 
@@ -440,11 +444,16 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 		gstate_c.SetTextureSimpleAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE);
 
+		framebufferManager_->RebindFramebuffer();
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 		imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+
+		// Need to rebind the pipeline since we switched it.
+		drawEngine_->DirtyPipeline();
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 
+		framebufferManager_->RebindFramebuffer();
 		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);

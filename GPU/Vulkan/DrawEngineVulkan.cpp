@@ -897,7 +897,6 @@ void DrawEngineVulkan::DoFlush() {
 		UpdateUBOs(frame);
 
 		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
-
 		{
 		PROFILE_THIS_SCOPE("renderman_q");
 

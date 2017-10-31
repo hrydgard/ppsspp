@@ -343,6 +343,8 @@ private:
 	DataFormat format_;
 };
 
+class VKFramebuffer;
+
 class VKContext : public DrawContext {
 public:
 	VKContext(VulkanContext *vulkan);
@@ -481,6 +483,7 @@ private:
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
 	VkPipelineCache pipelineCache_;
+	VKFramebuffer *curFramebuffer_ = nullptr;
 
 	VkDevice device_;
 	VkQueue queue_;
@@ -1303,12 +1306,26 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	VKRRenderPassAction color = (VKRRenderPassAction)rp.color;  // same values.
 	VKRRenderPassAction depth = (VKRRenderPassAction)rp.color;  // same values.
+
+	if (fb) {
+		ILOG("Binding image as RT: %x (clear_color: %d)", (int)fb->GetFB()->color.image, rp.color == RPAction::CLEAR);
+	}
+
+	if (fb && boundImageView_[0] == fb->GetFB()->color.imageView) {
+		// Crash();
+	}
+
 	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, rp.clearColor, rp.clearDepth, rp.clearStencil);
+	curFramebuffer_ = fb;
 }
 
 // color must be 0, for now.
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+
+	if (fb == curFramebuffer_) {
+		Crash();
+	}
 
 	int aspect = 0;
 	if (channelBit & FBChannel::FB_COLOR_BIT) aspect |= VK_IMAGE_ASPECT_COLOR_BIT;

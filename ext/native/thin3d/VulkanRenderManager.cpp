@@ -306,6 +306,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	if (steps_.size() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		if (color != VKRRenderPassAction::CLEAR && depth != VKRRenderPassAction::CLEAR) {
 			// We don't move to a new step, this bind was unnecessary.
+			ILOG("Redundant bind");
 			return;
 		}
 	}
