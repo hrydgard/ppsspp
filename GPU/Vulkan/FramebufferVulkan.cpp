@@ -206,22 +206,17 @@ void FramebufferManagerVulkan::Init() {
 }
 
 void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTex_->GetWidth() != width || drawPixelsTex_->GetHeight() != height)) {
+	if (drawPixelsTex_) {
 		delete drawPixelsTex_;
 		drawPixelsTex_ = nullptr;
 	}
 
 	VkCommandBuffer initCmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 
-	if (!drawPixelsTex_) {
-		drawPixelsTex_ = new VulkanTexture(vulkan_);
-		drawPixelsTex_->CreateDirect(initCmd, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
-		// Initialize backbuffer texture for DrawPixels
-		drawPixelsTexFormat_ = srcPixelFormat;
-	} else {
-		// TODO: We may want to double-buffer these, when we have more frames hanging about.
-		drawPixelsTex_->TransitionForUpload(initCmd);
-	}
+	drawPixelsTex_ = new VulkanTexture(vulkan_);
+	drawPixelsTex_->CreateDirect(initCmd, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+	// Initialize backbuffer texture for DrawPixels
+	drawPixelsTexFormat_ = srcPixelFormat;
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
