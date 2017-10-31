@@ -536,7 +536,6 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		}
 
 		renderPass = renderPasses_[RPIndex(step.render.color, step.render.depthStencil)];
-		// VLOG("Switching framebuffer to FBO (fc=%d, cmd=%x, rp=%x)", frameNum_, (int)(uintptr_t)cmd_, (int)(uintptr_t)renderPass);
 		if (step.render.color == VKRRenderPassAction::CLEAR) {
 			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 			numClearVals = 1;

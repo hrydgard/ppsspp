@@ -587,15 +587,13 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
 	assert(res == VK_SUCCESS);
 
+	VkCommandBuffer cmdBufs[2];
 	int numCmdBufs = 0;
-	std::vector<VkCommandBuffer> cmdBufs;
-	cmdBufs.reserve(2);
 	if (frameData.hasInitCommands) {
-		cmdBufs.push_back(frameData.initCmd);
+		cmdBufs[numCmdBufs++] = frameData.initCmd;
 		frameData.hasInitCommands = false;
 	}
-
-	cmdBufs.push_back(frameData.mainCmd);
+	cmdBufs[numCmdBufs++] = frameData.mainCmd;
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	if (triggerFence) {
@@ -605,13 +603,14 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 
 	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
 	submit_info.pWaitDstStageMask = waitStage;
-	submit_info.commandBufferCount = (uint32_t)cmdBufs.size();
-	submit_info.pCommandBuffers = cmdBufs.data();
+	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
+	submit_info.pCommandBuffers = cmdBufs;
 	if (triggerFence) {
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
 	}
 	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFence ? frameData.fence : VK_NULL_HANDLE);
+
 	if (res == VK_ERROR_DEVICE_LOST) {
 		//	_assert_msg_(G3D, false, "Lost the Vulkan device! What did we do wrong?");
 		ELOG("DEVICE LOST");

@@ -168,7 +168,7 @@ public:
 	}
 
 	VulkanPushBuffer *GetPushBufferForTextureData() {
-		return frame_[curFrame_].pushUBO;
+		return frame_[vulkan_->GetCurFrame()].pushUBO;
 	}
 
 	const DrawEngineVulkanStats &GetStats() const {
@@ -233,7 +233,6 @@ private:
 	};
 
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
-	int curFrame_;
 	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	// Other

@@ -79,7 +79,6 @@ enum {
 DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
 	:	vulkan_(vulkan),
 		draw_(draw),
-		curFrame_(0),
 		stats_{},
 		vai_(1024) {
 	decOptions_.expandAllWeightsToFloat = false;
@@ -279,7 +278,8 @@ void DrawEngineVulkan::DeviceRestore(VulkanContext *vulkan) {
 void DrawEngineVulkan::BeginFrame() {
 	lastPipeline_ = nullptr;
 
-	FrameData *frame = &frame_[curFrame_];
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData *frame = &frame_[curFrame];
 
 	// First reset all buffers, then begin. This is so that Reset can free memory and Begin can allocate it,
 	// if growing the buffer is needed. Doing it this way will reduce fragmentation if more than one buffer
@@ -358,16 +358,13 @@ void DrawEngineVulkan::BeginFrame() {
 }
 
 void DrawEngineVulkan::EndFrame() {
-	FrameData *frame = &frame_[curFrame_];
+	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 	stats_.pushUBOSpaceUsed = (int)frame->pushUBO->GetOffset();
 	stats_.pushVertexSpaceUsed = (int)frame->pushVertex->GetOffset();
 	stats_.pushIndexSpaceUsed = (int)frame->pushIndex->GetOffset();
 	frame->pushUBO->End();
 	frame->pushVertex->End();
 	frame->pushIndex->End();
-	curFrame_++;
-	if (curFrame_ >= vulkan_->GetInflightFrames())
-		curFrame_ = 0;
 	vertexCache_->End();
 }
 
@@ -520,7 +517,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	assert(light != VK_NULL_HANDLE);
 	assert(bone != VK_NULL_HANDLE);
 
-	FrameData *frame = &frame_[curFrame_];
+	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 	if (!gstate_c.bezier && !gstate_c.spline) { // Has no cache when HW tessellation.
 		VkDescriptorSet d = frame->descSets.Get(key);
 		if (d != VK_NULL_HANDLE)
@@ -668,7 +665,7 @@ void DrawEngineVulkan::DoFlush() {
 	// Since we have a new cmdbuf, dirty our dynamic state so it gets re-set.
 	// gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE|DIRTY_DEPTHSTENCIL_STATE|DIRTY_BLEND_STATE);
 
-	FrameData *frame = &frame_[curFrame_];
+	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
