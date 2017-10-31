@@ -593,16 +593,28 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 		cmdBufs[numCmdBufs++] = frameData.initCmd;
 		frameData.hasInitCommands = false;
 	}
+	if (false) {
+		// Send the init commands off separately. Used this once to confirm that the cause of a device loss was in the init cmdbuf.
+		VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+		submit_info.commandBufferCount = (uint32_t)numCmdBufs;
+		submit_info.pCommandBuffers = cmdBufs;
+		res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
+		if (res == VK_ERROR_DEVICE_LOST) {
+			_assert_msg_(G3D, false, "Lost the Vulkan device!");
+		} else {
+			assert(res == VK_SUCCESS);
+		}
+		numCmdBufs = 0;
+	}
 	cmdBufs[numCmdBufs++] = frameData.mainCmd;
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	if (triggerFence) {
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &acquireSemaphore_;
+		VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		submit_info.pWaitDstStageMask = waitStage;
 	}
-
-	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
-	submit_info.pWaitDstStageMask = waitStage;
 	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
 	submit_info.pCommandBuffers = cmdBufs;
 	if (triggerFence) {
@@ -610,10 +622,8 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 		submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
 	}
 	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFence ? frameData.fence : VK_NULL_HANDLE);
-
 	if (res == VK_ERROR_DEVICE_LOST) {
-		//	_assert_msg_(G3D, false, "Lost the Vulkan device! What did we do wrong?");
-		ELOG("DEVICE LOST");
+		_assert_msg_(G3D, false, "Lost the Vulkan device!");
 	} else {
 		assert(res == VK_SUCCESS);
 	}
