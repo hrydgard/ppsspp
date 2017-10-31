@@ -393,9 +393,6 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFla
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);
 
-void TransitionFromPresent(VkCommandBuffer cmd, VkImage image);
-void TransitionToPresent(VkCommandBuffer cmd, VkImage image);
-
 // GLSL compiler
 void init_glslang();
 void finalize_glslang();

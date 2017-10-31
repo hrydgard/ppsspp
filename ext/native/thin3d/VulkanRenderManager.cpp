@@ -302,6 +302,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 }
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil) {
+	assert(insideFrame_);
 	// Eliminate dupes.
 	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == VKRStepType::RENDER) {
 		if (color != VKRRenderPassAction::CLEAR && depth != VKRRenderPassAction::CLEAR) {
@@ -570,9 +571,6 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 
 		assert(res == VK_SUCCESS);
 
-		// TODO: Is it best to do this here, or combine with some other transition, or just do it right before the backbuffer bind-for-render?
-		TransitionFromPresent(frameData.mainCmd, swapchainImages_[frameData.curSwapchainImage].image);
-
 		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage]);
 
 		frameData.hasBegun = true;
@@ -629,8 +627,6 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 	frameData.hasBegun = false;
 	insideFrame_ = false;
 
-	TransitionToPresent(frameData.mainCmd, swapchainImages_[frameData.curSwapchainImage].image);
-
 	Submit(frame, true);
 
 	VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
@@ -640,7 +636,6 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 	present.pImageIndices = &frameData.curSwapchainImage;
 	present.pWaitSemaphores = &renderingCompleteSemaphore_;
 	present.waitSemaphoreCount = 1;
-	present.pResults = nullptr;
 
 	VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
 	// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
