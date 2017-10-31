@@ -269,6 +269,8 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 				0, VK_ACCESS_TRANSFER_WRITE_BIT);
 			break;
 		default:
+			// If you planned to use UploadMip, you want VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL. After the
+			// upload, you can transition.
 			assert(false);
 			break;
 		}

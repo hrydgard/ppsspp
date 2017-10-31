@@ -76,7 +76,9 @@ static const VulkanCommandTableEntry commandTable[] = {
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
 		vulkan_((VulkanContext *)gfxCtx->GetAPIContext()),
-		drawEngine_(vulkan_, draw) {
+		drawEngine_(vulkan_, draw),
+		depalShaderCache_(draw, vulkan_),
+		vulkan2D_(vulkan_) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
@@ -97,10 +99,14 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
 	framebufferManagerVulkan_->SetShaderManager(shaderManagerVulkan_);
-	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
+	framebufferManagerVulkan_->SetVulkan2D(&vulkan2D_);
 	textureCacheVulkan_->SetDepalShaderCache(&depalShaderCache_);
+	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
 	textureCacheVulkan_->SetDrawEngine(&drawEngine_);
+	textureCacheVulkan_->SetVulkan2D(&vulkan2D_);
+
+	InitDeviceObjects();
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -155,7 +161,9 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
+	DestroyDeviceObjects();
 	framebufferManagerVulkan_->DestroyAllFBOs();
+	vulkan2D_.Shutdown();
 	depalShaderCache_.Clear();
 	delete textureCacheVulkan_;
 	delete pipelineManager_;
@@ -209,9 +217,19 @@ void GPU_Vulkan::BeginHostFrame() {
 	resized_ = false;
 
 	textureCacheVulkan_->StartFrame();
-	depalShaderCache_.Decimate();
+
+
+	FrameData &frame = frameData_[curFrame_];
+
+	frame.push_->Reset();
+	frame.push_->Begin(vulkan_);
 
 	framebufferManagerVulkan_->BeginFrameVulkan();
+	framebufferManagerVulkan_->SetPushBuffer(frameData_[curFrame_].push_);
+	depalShaderCache_.SetPushBuffer(frameData_[curFrame_].push_);
+	textureCacheVulkan_->SetPushBuffer(frameData_[curFrame_].push_);
+
+	vulkan2D_.BeginFrame();
 
 	shaderManagerVulkan_->DirtyShader();
 	gstate_c.Dirty(DIRTY_ALL);
@@ -226,6 +244,16 @@ void GPU_Vulkan::BeginHostFrame() {
 }
 
 void GPU_Vulkan::EndHostFrame() {
+	FrameData &frame = frameData_[curFrame_];
+	frame.push_->End();
+
+	vulkan2D_.EndFrame();
+
+	curFrame_++;
+	if (curFrame_ >= vulkan_->GetInflightFrames()) {
+		curFrame_ = 0;
+	}
+
 	drawEngine_.EndFrame();
 	framebufferManagerVulkan_->EndFrame();
 	textureCacheVulkan_->EndFrame();
@@ -769,7 +797,26 @@ void GPU_Vulkan::FastLoadBoneMatrix(u32 target) {
 	gstate.FastLoadBoneMatrix(target);
 }
 
+void GPU_Vulkan::InitDeviceObjects() {
+	// Initialize framedata
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
+	}
+}
+
+void GPU_Vulkan::DestroyDeviceObjects() {
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		if (frameData_[i].push_) {
+			frameData_[i].push_->Destroy(vulkan_);
+			delete frameData_[i].push_;
+			frameData_[i].push_ = nullptr;
+		}
+	}
+}
+
 void GPU_Vulkan::DeviceLost() {
+	DestroyDeviceObjects();
+
 	framebufferManagerVulkan_->DeviceLost();
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();

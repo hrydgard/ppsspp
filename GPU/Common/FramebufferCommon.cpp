@@ -1806,8 +1806,6 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(u16 w, u16 h, Draw::FBCo
 	if (!fbo)
 		return fbo;
 
-	// TODO: Move binding out of here!
-	draw_->BindFramebufferAsRenderTarget(fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 	const TempFBO info = { fbo, gpuStats.numFlips };
 	tempFBOs_[key] = info;
 	return fbo;

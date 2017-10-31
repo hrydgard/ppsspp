@@ -26,14 +26,12 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-//#include "GPU/Vulkan/StateMappingVulkan.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
-//#include "GPU/Vulkan/PixelShaderGeneratorVulkan.h"
 
 // These tables all fit into u8s.
 static const VkBlendFactor vkBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
@@ -123,8 +121,8 @@ static const VkLogicOp logicOps[] = {
 	VK_LOGIC_OP_SET,
 };
 
-void ResetShaderBlending() {
-	//
+void DrawEngineVulkan::ResetShaderBlending() {
+	boundSecondary_ = VK_NULL_HANDLE;
 }
 
 // TODO: Do this more progressively. No need to compute the entire state if the entire state hasn't changed.
@@ -136,8 +134,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		// Unfortunately, this isn't implemented yet.
-		gstate_c.SetAllowShaderBlend(false);
+		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
 		if (gstate.isModeClear()) {
 			key.logicOpEnable = false;
 			key.logicOp = VK_LOGIC_OP_CLEAR;
@@ -375,15 +372,14 @@ void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bo
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
 		// TODO: Test texture?
-		/*
 		if (fboTexNeedBind_) {
 			// Note that this is positions, not UVs, that we need the copy from.
 			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			// If we are rendering at a higher resolution, linear is probably best for the dest color.
+			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
 			fboTexBound_ = true;
 			fboTexNeedBind_ = false;
 		}
-		*/
 	}
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {

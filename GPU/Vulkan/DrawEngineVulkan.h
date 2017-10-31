@@ -179,6 +179,7 @@ private:
 	struct FrameData;
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
+	void ResetShaderBlending();
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -199,6 +200,10 @@ private:
 	VkPipelineLayout pipelineLayout_;
 	VulkanPipeline *lastPipeline_;
 	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
+
+	// Secondary texture for shader blending
+	VkImageView boundSecondary_ = VK_NULL_HANDLE;
+	VkSampler samplerSecondary_ = VK_NULL_HANDLE;
 
 	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
 	VulkanPushBuffer *vertexCache_;
@@ -237,16 +242,14 @@ private:
 	TextureCacheVulkan *textureCache_ = nullptr;
 	FramebufferManagerVulkan *framebufferManager_ = nullptr;
 
-	VkSampler depalSampler_;
-
 	// State cache
 	uint64_t dirtyUniforms_;
 	uint32_t baseUBOOffset;
 	uint32_t lightUBOOffset;
 	uint32_t boneUBOOffset;
 	VkBuffer baseBuf, lightBuf, boneBuf;
-	VkImageView imageView;
-	VkSampler sampler;
+	VkImageView imageView = VK_NULL_HANDLE;
+	VkSampler sampler = VK_NULL_HANDLE;
 
 	// Null texture
 	VulkanTexture *nullTexture_ = nullptr;

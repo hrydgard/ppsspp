@@ -22,6 +22,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Vulkan/VulkanUtil.h"
+#include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 
 // TODO: Remove?
 enum VulkanFBOColorDepth {
@@ -44,6 +45,8 @@ R"(	vec2 texelDelta;
 	vec4 time;
 )";
 
+class VulkanPushBuffer;
+
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
 	FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
@@ -52,6 +55,8 @@ public:
 	void SetTextureCache(TextureCacheVulkan *tc);
 	void SetShaderManager(ShaderManagerVulkan *sm);
 	void SetDrawEngine(DrawEngineVulkan *td);
+	void SetVulkan2D(Vulkan2D *vk2d) { vulkan2D_ = vk2d; }
+	void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
 
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
@@ -105,27 +110,20 @@ private:
 	// Used to keep track of command buffers here but have moved all that into Thin3D.
 
 	// Used by DrawPixels
-	VulkanTexture *drawPixelsTex_;
-	GEBufferFormat drawPixelsTexFormat_;
-
-	u8 *convBuf_;
-	u32 convBufSize_;
+	VulkanTexture *drawPixelsTex_ = nullptr;
+	GEBufferFormat drawPixelsTexFormat_ = GE_FORMAT_INVALID;
+	u8 *convBuf_ = nullptr;
+	u32 convBufSize_ = 0;
 
 	TextureCacheVulkan *textureCacheVulkan_;
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngineVulkan_;
+	VulkanPushBuffer *push_;
 
+	DepalShaderCacheVulkan depalVulkan_;
 	enum {
 		MAX_COMMAND_BUFFERS = 32,
 	};
-
-	// Commandbuffers are handled internally in thin3d, one for each framebuffer pass.
-	struct FrameData {
-		VulkanPushBuffer *push_;
-	};
-
-	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
-	int curFrame_;
 
 	// This gets copied to the current frame's push buffer as needed.
 	PostShaderUniforms postUniforms_;
@@ -148,5 +146,5 @@ private:
 	VkImageView overrideImageView_ = VK_NULL_HANDLE;
 
 	// Simple 2D drawing engine.
-	Vulkan2D vulkan2D_;
+	Vulkan2D *vulkan2D_;
 };

@@ -343,6 +343,8 @@ private:
 	DataFormat format_;
 };
 
+class VKFramebuffer;
+
 class VKContext : public DrawContext {
 public:
 	VKContext(VulkanContext *vulkan);
@@ -454,9 +456,10 @@ public:
 			return (uintptr_t)renderManager_.GetCompatibleRenderPass();
 		case NativeObject::INIT_COMMANDBUFFER:
 			return (uintptr_t)renderManager_.GetInitCmd();
-		case NativeObject::BOUND_TEXTURE_IMAGEVIEW:
+		case NativeObject::BOUND_TEXTURE0_IMAGEVIEW:
 			return (uintptr_t)boundImageView_[0];
-
+		case NativeObject::BOUND_TEXTURE1_IMAGEVIEW:
+			return (uintptr_t)boundImageView_[1];
 		case NativeObject::RENDER_MANAGER:
 			return (uintptr_t)&renderManager_;
 		default:
@@ -478,21 +481,22 @@ private:
 	VKBuffer *curIBuffer_ = nullptr;
 	int curIBufferOffset_ = 0;
 
-	VkDescriptorSetLayout descriptorSetLayout_;
-	VkPipelineLayout pipelineLayout_;
-	VkPipelineCache pipelineCache_;
+	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
+	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
+	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
+	VKFramebuffer *curFramebuffer_ = nullptr;
 
 	VkDevice device_;
 	VkQueue queue_;
 	int queueFamilyIndex_;
 
 	enum {
-		MAX_BOUND_TEXTURES = 1,
+		MAX_BOUND_TEXTURES = 2,
 		MAX_FRAME_COMMAND_BUFFERS = 256,
 	};
-	VKTexture *boundTextures_[MAX_BOUND_TEXTURES];
-	VKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES];
-	VkImageView boundImageView_[MAX_BOUND_TEXTURES];
+	VKTexture *boundTextures_[MAX_BOUND_TEXTURES]{};
+	VKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES]{};
+	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 
 	struct FrameData {
 		VulkanPushBuffer *pushBuffer;
@@ -1140,7 +1144,6 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
 }
 
-// TODO: We should avoid this function as much as possible, instead use renderpass on-load clearing.
 void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int stencilVal) {
 	int mask = 0;
 	if (clearMask & FBChannel::FB_COLOR_BIT)
@@ -1289,9 +1292,7 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 
 	int aspectMask = 0;
-	if (channelBits & FBChannel::FB_COLOR_BIT) {
-		aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
-	}
+	if (channelBits & FBChannel::FB_COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
 	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
@@ -1299,27 +1300,47 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 	return true;
 }
 
-
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	VKRRenderPassAction color = (VKRRenderPassAction)rp.color;  // same values.
 	VKRRenderPassAction depth = (VKRRenderPassAction)rp.color;  // same values.
+
 	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, rp.clearColor, rp.clearDepth, rp.clearStencil);
+	curFramebuffer_ = fb;
 }
 
 // color must be 0, for now.
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 
+	if (fb == curFramebuffer_) {
+		Crash();
+	}
+
 	int aspect = 0;
 	if (channelBit & FBChannel::FB_COLOR_BIT) aspect |= VK_IMAGE_ASPECT_COLOR_BIT;
 	if (channelBit & FBChannel::FB_DEPTH_BIT) aspect |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBit & FBChannel::FB_STENCIL_BIT) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
-	boundImageView_[0] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
+
+	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
 }
 
 uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
-	return 0;
+	if (!fbo)
+		return 0;
+
+	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	VkImageView view = VK_NULL_HANDLE;
+	switch (channelBit) {
+	case FB_COLOR_BIT:
+		view = fb->GetFB()->color.imageView;
+		break;
+	case FB_DEPTH_BIT:
+	case FB_STENCIL_BIT:
+		view = fb->GetFB()->depth.imageView;
+		break;
+	}
+	return (uintptr_t)view;
 }
 
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
@@ -1342,9 +1363,9 @@ void VKContext::HandleEvent(Event ev, int width, int height, void *param1, void 
 		renderManager_.CreateBackbuffers();
 		break;
 	default:
+		assert(false);
 		break;
 	}
-	// Noop
 }
 
 }  // namespace Draw

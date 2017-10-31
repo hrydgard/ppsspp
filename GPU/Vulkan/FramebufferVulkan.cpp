@@ -88,9 +88,8 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	convBufSize_(0),
 	textureCacheVulkan_(nullptr),
 	shaderManagerVulkan_(nullptr),
-	curFrame_(0),
 	pipelinePostShader_(VK_NULL_HANDLE),
-	vulkan2D_(vulkan) {
+	depalVulkan_(draw, vulkan) {
 
 	InitDeviceObjects();
 
@@ -101,7 +100,6 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 	delete[] convBuf_;
 
-	vulkan2D_.Shutdown();
 	DestroyDeviceObjects();
 }
 
@@ -121,22 +119,11 @@ void FramebufferManagerVulkan::SetDrawEngine(DrawEngineVulkan *td) {
 }
 
 void FramebufferManagerVulkan::InitDeviceObjects() {
-	// Initialize framedata
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
-	}
-
-	pipelineCache2D_ = vulkan_->CreatePipelineCache();
-
 	std::string fs_errors, vs_errors;
 	fsBasicTex_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, tex_fs, &fs_errors);
 	vsBasicTex_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, tex_vs, &vs_errors);
 	assert(fsBasicTex_ != VK_NULL_HANDLE);
 	assert(vsBasicTex_ != VK_NULL_HANDLE);
-
-	// Prime the 2D pipeline cache.
-	// vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS), vsBasicTex_, fsBasicTex_);
-	// vulkan2D_.GetPipeline(pipelineCache2D_, (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS), vsBasicTex_, fsBasicTex_);
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -153,13 +140,6 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::DestroyDeviceObjects() {
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		if (frameData_[i].push_) {
-			frameData_[i].push_->Destroy(vulkan_);
-			delete frameData_[i].push_;
-			frameData_[i].push_ = nullptr;
-		}
-	}
 	delete drawPixelsTex_;
 	drawPixelsTex_ = nullptr;
 
@@ -172,32 +152,29 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeleteSampler(linearSampler_);
 	if (nearestSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
-	// pipelineBasicTex_ and pipelineBasicTex_ come from vulkan2D_.
-	if (pipelineCache2D_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache2D_);
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+	float x, y, w, h;
+	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
-		int mask = 0;
-		// The Clear detection takes care of doing a regular draw instead if separate masking
-		// of color and alpha is needed, so we can just treat them as the same.
-		if (clearColor || clearAlpha)
-			mask |= Draw::FBChannel::FB_COLOR_BIT;
-		if (clearDepth)
-			mask |= Draw::FBChannel::FB_DEPTH_BIT;
-		if (clearAlpha)
-			mask |= Draw::FBChannel::FB_STENCIL_BIT;
+	int mask = 0;
+	// The Clear detection takes care of doing a regular draw instead if separate masking
+	// of color and alpha is needed, so we can just treat them as the same.
+	if (clearColor || clearAlpha)
+		mask |= Draw::FBChannel::FB_COLOR_BIT;
+	if (clearDepth)
+		mask |= Draw::FBChannel::FB_DEPTH_BIT;
+	if (clearAlpha)
+		mask |= Draw::FBChannel::FB_STENCIL_BIT;
 
-		draw_->Clear(mask, color, depth, 0);
-		if (clearColor || clearAlpha) {
-			SetColorUpdated(gstate_c.skipDrawReason);
-		}
-		if (clearDepth) {
-			SetDepthUpdated();
-		}
+	draw_->Clear(mask, color, depth, 0);
+	if (clearColor || clearAlpha) {
+		SetColorUpdated(gstate_c.skipDrawReason);
+	}
+	if (clearDepth) {
+		SetDepthUpdated();
+	}
 }
 
 void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
@@ -242,6 +219,7 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 		// Initialize backbuffer texture for DrawPixels
 		drawPixelsTexFormat_ = srcPixelFormat;
 	} else {
+		// TODO: We may want to double-buffer these, when we have more frames hanging about.
 		drawPixelsTex_->TransitionForUpload(initCmd);
 	}
 
@@ -298,7 +276,7 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 	}
 
 	VkBuffer buffer;
-	size_t offset = frameData_[curFrame_].push_->Push(data, width * height * 4, &buffer);
+	size_t offset = push_->Push(data, width * height * 4, &buffer);
 	drawPixelsTex_->UploadMip(initCmd, 0, width, height, buffer, (uint32_t)offset, width);
 	drawPixelsTex_->EndCreate(initCmd);
 
@@ -357,22 +335,21 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 
 	// TODO: Should probably use draw_ directly and not go low level
 
-	VulkanPushBuffer *push = frameData_[curFrame_].push_;
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	VkImageView view = overrideImageView_ ? overrideImageView_ : (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+	VkImageView view = overrideImageView_ ? overrideImageView_ : (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 	if ((flags & DRAWTEX_KEEP_TEX) == 0)
 		overrideImageView_ = VK_NULL_HANDLE;
-	VkDescriptorSet descSet = vulkan2D_.GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
+	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 	VkBuffer vbuffer;
-	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);
+	VkDeviceSize offset = push_->Push(vtx, sizeof(vtx), &vbuffer);
 	renderManager->BindPipeline(cur2DPipeline_);
-	renderManager->Draw(vulkan2D_.GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
+	renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
 }
 
 void FramebufferManagerVulkan::Bind2DShader() {
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
-	cur2DPipeline_ = vulkan2D_.GetPipeline(pipelineCache2D_, rp, vsBasicTex_, fsBasicTex_);
+	cur2DPipeline_ = vulkan2D_->GetPipeline(rp, vsBasicTex_, fsBasicTex_);
 }
 
 void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms) {
@@ -461,10 +438,6 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 	}
 	// Currently rendering to this framebuffer. Need to make a copy.
 	if (!skipCopy && framebuffer == currentRenderVfb_) {
-		// ignore this case for now, doesn't work
-		// ILOG("Texturing from current render Vfb!");
-		return VK_NULL_HANDLE;
-
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {
@@ -476,10 +449,10 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 		}
-		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 	} else if (framebuffer != currentRenderVfb_) {
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
-		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+		return (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 	} else {
 		ERROR_LOG_REPORT_ONCE(vulkanSelfTexture, G3D, "Attempting to texture from target");
 		// To do this safely in Vulkan, we need to use input attachments.
@@ -608,31 +581,13 @@ void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcSt
 
 void FramebufferManagerVulkan::BeginFrameVulkan() {
 	BeginFrame();
-
-	vulkan2D_.BeginFrame();
-
-	FrameData &frame = frameData_[curFrame_];
-
-	frame.push_->Reset();
-	frame.push_->Begin(vulkan_);
 }
 
 void FramebufferManagerVulkan::EndFrame() {
-	// We flush to memory last requested framebuffer, if any.
-	// Only do this in the read-framebuffer modes.
-	FrameData &frame = frameData_[curFrame_];
-	frame.push_->End();
-
-	vulkan2D_.EndFrame();
-
-	curFrame_++;
-	if (curFrame_ >= vulkan_->GetInflightFrames()) {
-		curFrame_ = 0;
-	}
 }
 
 void FramebufferManagerVulkan::DeviceLost() {
-	vulkan2D_.DeviceLost();
+	vulkan2D_->DeviceLost();
 
 	DestroyAllFBOs();
 	DestroyDeviceObjects();
@@ -641,7 +596,7 @@ void FramebufferManagerVulkan::DeviceLost() {
 void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
 	vulkan_ = vulkan;
 
-	vulkan2D_.DeviceRestore(vulkan_);
+	vulkan2D_->DeviceRestore(vulkan_);
 	InitDeviceObjects();
 }
 

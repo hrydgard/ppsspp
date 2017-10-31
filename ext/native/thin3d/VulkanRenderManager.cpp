@@ -303,11 +303,21 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil) {
 	// Eliminate dupes.
-	if (steps_.size() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
+	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == VKRStepType::RENDER) {
 		if (color != VKRRenderPassAction::CLEAR && depth != VKRRenderPassAction::CLEAR) {
-			// We don't move to a new step, this bind was unnecessary.
+			// We don't move to a new step, this bind was unnecessary and we can safely skip it.
 			return;
 		}
+	}
+	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color == VKRRenderPassAction::KEEP && curRenderStep_->render.depthStencil == VKRRenderPassAction::KEEP) {
+		// Can trivially kill the last empty render step.
+		assert(steps_.back() == curRenderStep_);
+		delete steps_.back();
+		steps_.pop_back();
+		curRenderStep_ = nullptr;
+	}
+	if (curRenderStep_ && curRenderStep_->commands.size() == 0) {
+		ILOG("Empty render step. Usually happens after uploading pixels..");
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
@@ -515,7 +525,8 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				break;
 			}
-			else {
+			else if (steps_[i]->render.finalColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+				Crash();
 				// May need to shadow the framebuffer if we re-order passes later.
 			}
 		}
@@ -653,7 +664,6 @@ void VulkanRenderManager::Run(int frame) {
 	stepsOnThread.clear();
 
 	EndSubmitFrame(frame);
-
 
 	VLOG("PULL: Finished running frame %d", frame);
 }

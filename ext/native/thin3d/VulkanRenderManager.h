@@ -226,7 +226,7 @@ private:
 	int curWidth_;
 	int curHeight_;
 	bool insideFrame_ = false;
-	VKRStep *curRenderStep_;
+	VKRStep *curRenderStep_ = nullptr;
 	std::vector<VKRStep *> steps_;
 
 	// Execution time state

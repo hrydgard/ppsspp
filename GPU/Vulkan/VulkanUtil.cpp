@@ -36,6 +36,7 @@ void Vulkan2D::DestroyDeviceObjects() {
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		if (frameData_[i].descPool != VK_NULL_HANDLE) {
 			vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
+			frameData_[i].descPool = VK_NULL_HANDLE;
 		}
 	}
 	for (auto it : pipelines_) {
@@ -52,9 +53,16 @@ void Vulkan2D::DestroyDeviceObjects() {
 		vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
 		pipelineLayout_ = VK_NULL_HANDLE;
 	}
+
+	// pipelineBasicTex_ and pipelineBasicTex_ come from vulkan2D_.
+	if (pipelineCache_ != VK_NULL_HANDLE) {
+		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
+		pipelineCache_ = VK_NULL_HANDLE;
+	}
 }
 
 void Vulkan2D::InitDeviceObjects() {
+	pipelineCache_ = vulkan_->CreatePipelineCache();
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
 	VkDescriptorSetLayoutBinding bindings[2] = {};
 	bindings[0].descriptorCount = 1;
@@ -188,7 +196,7 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	return desc;
 }
 
-VkPipeline Vulkan2D::GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShaderModule vs, VkShaderModule fs) {
+VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderModule fs) {
 	PipelineKey key;
 	key.vs = vs;
 	key.fs = fs;
@@ -298,7 +306,7 @@ VkPipeline Vulkan2D::GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShade
 	pipe.subpass = 0;
 
 	VkPipeline pipeline;
-	VkResult result = vkCreateGraphicsPipelines(vulkan_->GetDevice(), cache, 1, &pipe, nullptr, &pipeline);
+	VkResult result = vkCreateGraphicsPipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pipe, nullptr, &pipeline);
 	if (result == VK_SUCCESS) {
 		pipelines_[key] = pipeline;
 		return pipeline;

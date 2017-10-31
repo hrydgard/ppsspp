@@ -23,6 +23,8 @@
 #include "math/math_util.h"
 #include "profiler/profiler.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/VulkanRenderManager.h"
+
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -130,10 +132,19 @@ TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *v
 	lastBoundTexture = nullptr;
 	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 
+	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.magFilter = VK_FILTER_NEAREST;
+	samp.minFilter = VK_FILTER_NEAREST;
+	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
 	SetupTextureDecoder();
 }
 
 TextureCacheVulkan::~TextureCacheVulkan() {
+	vulkan_->Delete().QueueDeleteSampler(samplerNearest_);
 	Clear(true);
 
 	if (allocator_) {
@@ -150,6 +161,11 @@ TextureCacheVulkan::~TextureCacheVulkan() {
 void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManager) {
 	framebufferManagerVulkan_ = fbManager;
 	framebufferManager_ = fbManager;
+}
+
+void TextureCacheVulkan::SetVulkan2D(Vulkan2D *vk2d) {
+	vulkan2D_ = vk2d;
+	depalShaderCache_->SetVulkan2D(vk2d);
 }
 
 void TextureCacheVulkan::DeviceLost() {
@@ -269,6 +285,8 @@ void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 
 void TextureCacheVulkan::StartFrame() {
 	InvalidateLastTexture();
+	depalShaderCache_->Decimate();
+
 	timesInvalidatedAllThisFrame_ = 0;
 	texelsScaledThisFrame_ = 0;
 
@@ -326,61 +344,42 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	if (!entry || !entry->vkTex) {
 		imageView_ = VK_NULL_HANDLE;
-		sampler_ = VK_NULL_HANDLE;
+		curSampler_ = VK_NULL_HANDLE;
 		return;
 	}
 
 	imageView_ = entry->vkTex->texture_->GetImageView();
 	SamplerCacheKey key;
 	UpdateSamplingParams(*entry, key);
-	sampler_ = samplerCache_.GetOrCreateSampler(key);
+	curSampler_ = samplerCache_.GetOrCreateSampler(key);
 }
 
 void TextureCacheVulkan::Unbind() {
 	imageView_ = VK_NULL_HANDLE;
-	sampler_ = VK_NULL_HANDLE;
+	curSampler_ = VK_NULL_HANDLE;
 	InvalidateLastTexture();
 }
 
 void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
-	DepalShaderVulkan *depal = nullptr;
+	DepalShaderVulkan *depalShader = nullptr;
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-		// depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
+		depalShader = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
 	}
-	if (depal) {
-		// VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		// VulkanFBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, VK_FBO_8888);
+	if (depalShader) {
+		depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
+		VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
-		//depalFBO->BeginPass(cmd);
+		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(
+			framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
+		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 
-		struct Pos {
-			Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
-			}
-			float x;
-			float y;
-			float z;
+		Vulkan2D::Vertex verts[4] = {
+			{ -1, -1, 0.0f, 0, 0 },
+			{  1, -1, 0.0f, 1, 0 },
+			{ -1,  1, 0.0f, 0, 1 },
+			{  1,  1, 0.0f, 1, 1 },
 		};
-		struct UV {
-			UV(float u_, float v_) : u(u_), v(v_) {
-			}
-			float u;
-			float v;
-		};
-
-		Pos pos[4] = {
-			{ -1, -1, -1 },
-			{ 1, -1, -1 },
-			{ 1,  1, -1 },
-			{ -1,  1, -1 },
-		};
-		UV uv[4] = {
-			{ 0, 0 },
-			{ 1, 0 },
-			{ 1, 1 },
-			{ 0, 1 },
-		};
-		static const int indices[4] = { 0, 1, 3, 2 };
 
 		// If min is not < max, then we don't have values (wasn't set during decode.)
 		if (gstate_c.vertBounds.minV < gstate_c.vertBounds.maxV) {
@@ -400,27 +399,43 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			const float top = v1 * invHalfHeight - 1.0f;
 			const float bottom = v2 * invHalfHeight - 1.0f;
 			// Points are: BL, BR, TR, TL.
-			pos[0] = Pos(left, bottom, -1.0f);
-			pos[1] = Pos(right, bottom, -1.0f);
-			pos[2] = Pos(right, top, -1.0f);
-			pos[3] = Pos(left, top, -1.0f);
+			verts[0].x = left;
+			verts[0].y = bottom;
+			verts[1].x = right;
+			verts[1].y = bottom;
+			verts[2].x = left;
+			verts[2].y = top;
+			verts[3].x = right;
+			verts[3].y = top;
 
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
 			const float uvright = u2 * invWidth;
 			const float uvtop = v1 * invHeight;
 			const float uvbottom = v2 * invHeight;
-			uv[0] = UV(uvleft, uvbottom);
-			uv[1] = UV(uvright, uvbottom);
-			uv[2] = UV(uvright, uvtop);
-			uv[3] = UV(uvleft, uvtop);
+			verts[0].u = uvleft;
+			verts[0].v = uvbottom;
+			verts[1].u = uvright;
+			verts[1].v = uvbottom;
+			verts[2].u = uvleft;
+			verts[2].v = uvtop;
+			verts[3].u = uvright;
+			verts[3].v = uvtop;
 		}
 
-		shaderManagerVulkan_->DirtyLastShader();
+		VkBuffer pushed;
+		uint32_t offset = push_->PushAligned(verts, sizeof(verts), 4, &pushed);
 
-		//depalFBO->EndPass(cmd);
-		//depalFBO->TransitionToTexture(cmd);
-		//imageView = depalFBO->GetColorImageView();
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, Draw::FB_COLOR_BIT, 0);
+		VkImageView fbo = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
+
+		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, samplerNearest_, clutTexture->GetImageView(), samplerNearest_);
+		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		renderManager->BindPipeline(depalShader->pipeline);
+		renderManager->SetScissor(VkRect2D{ {0, 0}, { framebuffer->renderWidth, framebuffer->renderHeight} });
+		renderManager->SetViewport(VkViewport{ 0.f, 0.f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.f, 1.f });
+		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, pushed, offset, 4);
+		shaderManagerVulkan_->DirtyLastShader();
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
@@ -429,10 +444,16 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 		gstate_c.SetTextureSimpleAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE);
 
-		// imageView_ = depalFbo->getImageView().
+		framebufferManager_->RebindFramebuffer();
+		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
+		imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
+
+		// Need to rebind the pipeline since we switched it.
+		drawEngine_->DirtyPipeline();
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 
+		framebufferManager_->RebindFramebuffer();
 		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
@@ -441,7 +462,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 	SamplerCacheKey samplerKey;
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
-	sampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
+	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	InvalidateLastTexture(entry);
 }
 
