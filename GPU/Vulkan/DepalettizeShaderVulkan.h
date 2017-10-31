@@ -32,13 +32,13 @@ public:
 		delete[] code;
 	}
 	// A Vulkan2D pipeline. Set texture to slot 0 and palette texture to slot 1.
-	VkPipeline pipeline;
+	VkPipeline pipeline = VK_NULL_HANDLE;
 	const char *code = nullptr;;
 };
 
 class DepalTextureVulkan {
 public:
-	VulkanTexture *texture;
+	VulkanTexture *texture = nullptr;
 	int lastFrame;
 };
 

@@ -456,9 +456,10 @@ public:
 			return (uintptr_t)renderManager_.GetCompatibleRenderPass();
 		case NativeObject::INIT_COMMANDBUFFER:
 			return (uintptr_t)renderManager_.GetInitCmd();
-		case NativeObject::BOUND_TEXTURE_IMAGEVIEW:
+		case NativeObject::BOUND_TEXTURE0_IMAGEVIEW:
 			return (uintptr_t)boundImageView_[0];
-
+		case NativeObject::BOUND_TEXTURE1_IMAGEVIEW:
+			return (uintptr_t)boundImageView_[1];
 		case NativeObject::RENDER_MANAGER:
 			return (uintptr_t)&renderManager_;
 		default:
@@ -480,9 +481,9 @@ private:
 	VKBuffer *curIBuffer_ = nullptr;
 	int curIBufferOffset_ = 0;
 
-	VkDescriptorSetLayout descriptorSetLayout_;
-	VkPipelineLayout pipelineLayout_;
-	VkPipelineCache pipelineCache_;
+	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
+	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
+	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 	VKFramebuffer *curFramebuffer_ = nullptr;
 
 	VkDevice device_;
@@ -490,12 +491,12 @@ private:
 	int queueFamilyIndex_;
 
 	enum {
-		MAX_BOUND_TEXTURES = 1,
+		MAX_BOUND_TEXTURES = 2,
 		MAX_FRAME_COMMAND_BUFFERS = 256,
 	};
-	VKTexture *boundTextures_[MAX_BOUND_TEXTURES];
-	VKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES];
-	VkImageView boundImageView_[MAX_BOUND_TEXTURES];
+	VKTexture *boundTextures_[MAX_BOUND_TEXTURES]{};
+	VKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES]{};
+	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 
 	struct FrameData {
 		VulkanPushBuffer *pushBuffer;
@@ -1291,9 +1292,7 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 
 	int aspectMask = 0;
-	if (channelBits & FBChannel::FB_COLOR_BIT) {
-		aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
-	}
+	if (channelBits & FBChannel::FB_COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
 	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
@@ -1301,19 +1300,10 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 	return true;
 }
 
-
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	VKRRenderPassAction color = (VKRRenderPassAction)rp.color;  // same values.
 	VKRRenderPassAction depth = (VKRRenderPassAction)rp.color;  // same values.
-
-	if (fb) {
-		ILOG("Binding image as RT: %x (clear_color: %d)", (int)fb->GetFB()->color.image, rp.color == RPAction::CLEAR);
-	}
-
-	if (fb && boundImageView_[0] == fb->GetFB()->color.imageView) {
-		// Crash();
-	}
 
 	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, rp.clearColor, rp.clearDepth, rp.clearStencil);
 	curFramebuffer_ = fb;
@@ -1332,9 +1322,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 	if (channelBit & FBChannel::FB_DEPTH_BIT) aspect |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBit & FBChannel::FB_STENCIL_BIT) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
-	ILOG("Binding image as texture: %x", (int)fb->GetFB()->color.image);
-
-	boundImageView_[0] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
+	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
 }
 
 uintptr_t VKContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {

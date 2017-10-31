@@ -56,6 +56,7 @@ public:
 	void DeviceRestore(VulkanContext *vulkan);
 	void Shutdown();
 
+	// The only supported primitive is the triangle strip, for simplicity.
 	VkPipeline GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderModule fs);
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 	void BeginFrame();

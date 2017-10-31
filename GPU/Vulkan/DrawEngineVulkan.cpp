@@ -202,7 +202,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	samp.flags = 0;
 	samp.magFilter = VK_FILTER_NEAREST;
 	samp.minFilter = VK_FILTER_NEAREST;
-	res = vkCreateSampler(device, &samp, nullptr, &depalSampler_);
+	res = vkCreateSampler(device, &samp, nullptr, &samplerSecondary_);
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	assert(VK_SUCCESS == res);
 
@@ -245,8 +245,8 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].Destroy(vulkan_);
 	}
-	if (depalSampler_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteSampler(depalSampler_);
+	if (samplerSecondary_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteSampler(samplerSecondary_);
 	if (nullSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nullSampler_);
 	if (pipelineLayout_ != VK_NULL_HANDLE)
@@ -507,12 +507,11 @@ void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset,
 	}
 }
 
-
 VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone) {
 	DescriptorSetKey key;
 	key.imageView_ = imageView;
 	key.sampler_ = sampler;
-	key.secondaryImageView_ = VK_NULL_HANDLE;
+	key.secondaryImageView_ = boundSecondary_;
 	key.base_ = base;
 	key.light_ = light;
 	key.bone_ = bone;
@@ -554,6 +553,21 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = DRAW_BINDING_TEXTURE;
+		writes[n].pImageInfo = &tex;
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		writes[n].dstSet = desc;
+		n++;
+	}
+
+	if (boundSecondary_) {
+		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
+		tex.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		tex.imageView = boundSecondary_;
+		tex.sampler = samplerSecondary_;
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].pNext = nullptr;
+		writes[n].dstBinding = DRAW_BINDING_2ND_TEXTURE;
 		writes[n].pImageInfo = &tex;
 		writes[n].descriptorCount = 1;
 		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -903,7 +917,6 @@ void DrawEngineVulkan::DoFlush() {
 		const uint32_t dynamicUBOOffsets[3] = {
 			baseUBOOffset, lightUBOOffset, boneUBOOffset,
 		};
-		// vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
 		int stride = dec_->GetDecVtxFmt().stride;
 

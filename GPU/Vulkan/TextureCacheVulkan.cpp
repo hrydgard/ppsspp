@@ -375,12 +375,11 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 
 		Vulkan2D::Vertex verts[4] = {
-			{ -1, -1, -1, 0, 0 },
-			{  1, -1, -1, 1, 0 },
-			{  1,  1, -1, 1, 1 },
-			{ -1,  1, -1, 0, 1 },
+			{ -1, -1, 0.0f, 0, 0 },
+			{  1, -1, 0.0f, 1, 0 },
+			{ -1,  1, 0.0f, 0, 1 },
+			{  1,  1, 0.0f, 1, 1 },
 		};
-		static const int indices[4] = { 0, 1, 3, 2 };
 
 		// If min is not < max, then we don't have values (wasn't set during decode.)
 		if (gstate_c.vertBounds.minV < gstate_c.vertBounds.maxV) {
@@ -404,9 +403,9 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			verts[0].y = bottom;
 			verts[1].x = right;
 			verts[1].y = bottom;
-			verts[2].x = right;
+			verts[2].x = left;
 			verts[2].y = top;
-			verts[3].x = left;
+			verts[3].x = right;
 			verts[3].y = top;
 
 			// And also the UVs, same order.
@@ -418,22 +417,23 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			verts[0].v = uvbottom;
 			verts[1].u = uvright;
 			verts[1].v = uvbottom;
-			verts[2].u = uvright;
+			verts[2].u = uvleft;
 			verts[2].v = uvtop;
-			verts[3].u = uvleft;
+			verts[3].u = uvright;
 			verts[3].v = uvtop;
 		}
 
 		VkBuffer pushed;
 		uint32_t offset = push_->PushAligned(verts, sizeof(verts), 4, &pushed);
 
-		ILOG("DEPAL 2");
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, Draw::FB_COLOR_BIT, 0);
-		VkImageView fbo = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+		VkImageView fbo = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 
 		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, samplerNearest_, clutTexture->GetImageView(), samplerNearest_);
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager->BindPipeline(depalShader->pipeline);
+		renderManager->SetScissor(VkRect2D{ {0, 0}, { framebuffer->renderWidth, framebuffer->renderHeight} });
+		renderManager->SetViewport(VkViewport{ 0.f, 0.f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.f, 1.f });
 		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, pushed, offset, 4);
 		shaderManagerVulkan_->DirtyLastShader();
 
@@ -446,7 +446,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 		framebufferManager_->RebindFramebuffer();
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
-		imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE_IMAGEVIEW);
+		imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 
 		// Need to rebind the pipeline since we switched it.
 		drawEngine_->DirtyPipeline();

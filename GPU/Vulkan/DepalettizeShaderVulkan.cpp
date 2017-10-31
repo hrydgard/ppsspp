@@ -127,9 +127,7 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 
 void DepalShaderCacheVulkan::Clear() {
 	for (auto shader = cache_.begin(); shader != cache_.end(); ++shader) {
-		// Delete the shader/pipeline too.
-		vulkan_->Delete().QueueDeletePipeline(shader->second->pipeline);
-		delete[] shader->second->code;
+		// Don't need to destroy the pipelines, they're handled by Vulkan2D.
 		delete shader->second;
 	}
 	cache_.clear();
