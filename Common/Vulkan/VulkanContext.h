@@ -306,6 +306,8 @@ public:
 		return swapchainFormat_;
 	}
 
+	// 1 for no frame overlap and thus minimal latency but worst performance.
+	// 2 is an OK compromise, while 3 performs best but risks slightly higher latency.
 	enum {
 		MAX_INFLIGHT_FRAMES = 3,
 	};
