@@ -597,13 +597,13 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 
 	cmdBufs.push_back(frameData.mainCmd);
 
-	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	if (triggerFence) {
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &acquireSemaphore_;
 	}
 
-	VkPipelineStageFlags waitStage[1] = { VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
+	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
 	submit_info.pWaitDstStageMask = waitStage;
 	submit_info.commandBufferCount = (uint32_t)cmdBufs.size();
 	submit_info.pCommandBuffers = cmdBufs.data();
@@ -612,7 +612,12 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 		submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
 	}
 	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFence ? frameData.fence : VK_NULL_HANDLE);
-	assert(res == VK_SUCCESS);
+	if (res == VK_ERROR_DEVICE_LOST) {
+		//	_assert_msg_(G3D, false, "Lost the Vulkan device! What did we do wrong?");
+		ELOG("DEVICE LOST");
+	} else {
+		assert(res == VK_SUCCESS);
+	}
 
 	if (useThread) {
 		VLOG("PULL: Frame %d.readyForFence = true", frame);
@@ -655,6 +660,7 @@ void VulkanRenderManager::Run(int frame) {
 	FrameData &frameData = frameData_[frame];
 	auto &stepsOnThread = frameData_[frame].steps;
 	VkCommandBuffer cmd = frameData.mainCmd;
+	// queueRunner_.LogSteps(stepsOnThread);
 	queueRunner_.RunSteps(cmd, stepsOnThread);
 	stepsOnThread.clear();
 
@@ -677,6 +683,8 @@ void VulkanRenderManager::FlushSync() {
 
 	Submit(frame, false);
 
+	// This is brutal! Should probably wait for a fence instead, not that it'll matter much since we'll
+	// still stall everything.
 	vkDeviceWaitIdle(vulkan_->GetDevice());
 
 	// At this point we can resume filling the command buffers for the current frame since

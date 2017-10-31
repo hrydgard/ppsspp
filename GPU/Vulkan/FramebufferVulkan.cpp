@@ -225,6 +225,7 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
+	// Could also convert directly into the pushbuffer easily.
 	const uint8_t *data = srcPixels;
 	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
 		u32 neededSize = width * height * 4;

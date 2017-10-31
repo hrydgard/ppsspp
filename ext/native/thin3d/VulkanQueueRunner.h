@@ -141,6 +141,7 @@ public:
 		backbuffer_ = fb;
 	}
 	void RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps);
+	void LogSteps(const std::vector<VKRStep *> &steps);
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
@@ -167,6 +168,11 @@ private:
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd);
+
+	void LogRenderPass(const VKRStep &pass);
+	void LogCopy(const VKRStep &pass);
+	void LogBlit(const VKRStep &pass);
+	void LogReadback(const VKRStep &pass);
 
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
