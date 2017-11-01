@@ -147,6 +147,10 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeleteShaderModule(fsBasicTex_);
 	if (vsBasicTex_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteShaderModule(vsBasicTex_);
+	if (stencilFs_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteShaderModule(stencilFs_);
+	if (stencilVs_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteShaderModule(stencilVs_);
 
 	if (linearSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(linearSampler_);
@@ -367,12 +371,6 @@ void FramebufferManagerVulkan::RebindFramebuffer() {
 		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
-}
-
-bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
-	// In Vulkan we should be able to simply copy the stencil data directly to a stencil buffer without
-	// messing about with bitplane textures and the like. Or actually, maybe not...
-	return false;
 }
 
 int FramebufferManagerVulkan::GetLineWidth() {

@@ -18,6 +18,7 @@ enum class VKRRenderCommand : uint8_t {
 	CLEAR,
 	DRAW,
 	DRAW_INDEXED,
+	PUSH_CONSTANTS,
 };
 
 struct VkRenderData {
@@ -69,11 +70,12 @@ struct VkRenderData {
 			float color[4];
 		} blendColor;
 		struct {
-
-		} beginRp;
-		struct {
-
-		} endRp;
+			VkPipelineLayout pipelineLayout;
+			VkShaderStageFlags stages;
+			uint8_t offset;
+			uint8_t size;
+			uint8_t data[32];  // Should be enough for now.
+		} push;
 	};
 };
 

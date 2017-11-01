@@ -18,6 +18,7 @@
 #include "gfx_es2/glsl_program.h"
 #include "Core/Reporting.h"
 #include "ext/native/gfx/GLStateCache.h"
+#include "GPU/Common/StencilCommon.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
@@ -58,40 +59,6 @@ static const char *stencil_vs =
 "  v_texcoord0 = a_texcoord0;\n"
 "  gl_Position = a_position;\n"
 "}\n";
-
-static u8 StencilBits5551(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
-
-	for (u32 i = 0; i < numPixels / 2; ++i) {
-		if (ptr[i] & 0x80008000) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static u8 StencilBits4444(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
-	u32 bits = 0;
-
-	for (u32 i = 0; i < numPixels / 2; ++i) {
-		bits |= ptr[i];
-	}
-
-	return ((bits >> 12) & 0xF) | (bits >> 28);
-}
-
-static u8 StencilBits8888(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
-	u32 bits = 0;
-
-	for (u32 i = 0; i < numPixels; ++i) {
-		bits |= ptr[i];
-	}
-
-	return bits >> 24;
-}
 
 bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
 	if (!MayIntersectFramebuffer(addr)) {

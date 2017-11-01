@@ -259,6 +259,9 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
 		case VKRRenderCommand::VIEWPORT:
 			ILOG("  Viewport(%f, %f, %f, %f, %f, %f)", cmd.viewport.vp.x, cmd.viewport.vp.y, cmd.viewport.vp.width, cmd.viewport.vp.height, cmd.viewport.vp.minDepth, cmd.viewport.vp.maxDepth);
 			break;
+		case VKRRenderCommand::PUSH_CONSTANTS:
+			ILOG("  PushConstants(%d)", cmd.push.size);
+			break;
 		}
 	}
 	ILOG("RenderPass End(%x)", fb);
@@ -334,6 +337,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	VKRFramebuffer *fb = step.render.framebuffer;
 
 	VkPipeline lastPipeline = VK_NULL_HANDLE;
+	VkDescriptorSet lastDescSet = VK_NULL_HANDLE;
 
 	auto &commands = step.commands;
 
@@ -362,6 +366,10 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			vkCmdSetBlendConstants(cmd, c.blendColor.color);
 			break;
 
+		case VKRRenderCommand::PUSH_CONSTANTS:
+			vkCmdPushConstants(cmd, c.push.pipelineLayout, c.push.stages, c.push.offset, c.push.size, c.push.data);
+			break;
+
 		case VKRRenderCommand::STENCIL:
 			vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, c.stencil.stencilWriteMask);
 			vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FRONT_AND_BACK, c.stencil.stencilCompareMask);
@@ -377,7 +385,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW:
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.draw.pipelineLayout, 0, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
-			vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
+			if (c.draw.vbuffer) {
+				vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
+			}
 			vkCmdDraw(cmd, c.draw.count, 1, 0, 0);
 			break;
 

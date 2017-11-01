@@ -1298,8 +1298,8 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
-	VKRRenderPassAction color = (VKRRenderPassAction)rp.color;  // same values.
-	VKRRenderPassAction depth = (VKRRenderPassAction)rp.color;  // same values.
+	VKRRenderPassAction color = (VKRRenderPassAction)rp.color;
+	VKRRenderPassAction depth = (VKRRenderPassAction)rp.depth;
 
 	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, rp.clearColor, rp.clearDepth, rp.clearStencil);
 	curFramebuffer_ = fb;

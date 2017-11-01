@@ -47,6 +47,8 @@
 // No UBO data is used, only PushConstants.
 // No transform matrices, only post-proj coordinates.
 // Two textures can be sampled.
+// Some simplified depth/stencil modes available.
+
 class Vulkan2D {
 public:
 	Vulkan2D(VulkanContext *vulkan);
@@ -56,8 +58,14 @@ public:
 	void DeviceRestore(VulkanContext *vulkan);
 	void Shutdown();
 
+	enum class VK2DDepthStencilMode {
+		NONE,
+		STENCIL_REPLACE_ALWAYS,  // Does not draw to color.
+	};
+
 	// The only supported primitive is the triangle strip, for simplicity.
-	VkPipeline GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderModule fs);
+	// ReadVertices can be used for vertex-less rendering where you generate verts in the vshader.
+	VkPipeline GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderModule fs, bool readVertices = true, VK2DDepthStencilMode depthStencilMode = VK2DDepthStencilMode::NONE);
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 	void BeginFrame();
 	void EndFrame();
@@ -93,8 +101,10 @@ private:
 		VkShaderModule vs;
 		VkShaderModule fs;
 		VkRenderPass rp;
+		VK2DDepthStencilMode depthStencilMode;
+		bool readVertices;
 		bool operator < (const PipelineKey &other) const {
-			return std::tie(vs, fs, rp) < std::tie(other.vs, other.fs, other.rp);
+			return std::tie(vs, fs, rp, depthStencilMode, readVertices) < std::tie(other.vs, other.fs, other.rp, depthStencilMode, readVertices);
 		}
 	};
 

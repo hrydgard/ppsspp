@@ -1174,6 +1174,7 @@ set(GPU_VULKAN
 	GPU/Vulkan/ShaderManagerVulkan.h
 	GPU/Vulkan/StateMappingVulkan.cpp
 	GPU/Vulkan/StateMappingVulkan.h
+	GPU/Vulkan/StencilBufferVulkan.cpp
 	GPU/Vulkan/TextureCacheVulkan.cpp
 	GPU/Vulkan/TextureCacheVulkan.h
 	GPU/Vulkan/TextureScalerVulkan.cpp
@@ -1266,6 +1267,8 @@ set(GPU_SOURCES
 	GPU/Common/ShaderCommon.h
 	GPU/Common/SplineCommon.cpp
 	GPU/Common/SplineCommon.h
+	GPU/Common/StencilCommon.cpp
+	GPU/Common/StencilCommon.h
 	GPU/Common/SoftwareTransformCommon.cpp
 	GPU/Common/SoftwareTransformCommon.h
 	GPU/Common/VertexDecoderCommon.cpp

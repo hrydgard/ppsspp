@@ -83,12 +83,12 @@ void Vulkan2D::InitDeviceObjects() {
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[1];
-	dpTypes[0].descriptorCount = 1500;
+	dpTypes[0].descriptorCount = 3000;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
-	dp.maxSets = 1500;
+	dp.maxSets = 3000;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
@@ -98,7 +98,7 @@ void Vulkan2D::InitDeviceObjects() {
 
 	VkPushConstantRange push = {};
 	push.offset = 0;
-	push.size = 32;
+	push.size = 16;
 	push.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
@@ -195,11 +195,13 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	return desc;
 }
 
-VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderModule fs) {
+VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderModule fs, bool readVertices, VK2DDepthStencilMode depthStencilMode) {
 	PipelineKey key;
 	key.vs = vs;
 	key.fs = fs;
 	key.rp = rp;
+	key.depthStencilMode = depthStencilMode;
+	key.readVertices = readVertices;
 
 	auto iter = pipelines_.find(key);
 	if (iter != pipelines_.end()) {
@@ -208,7 +210,7 @@ VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderMod
 
 	VkPipelineColorBlendAttachmentState blend0 = {};
 	blend0.blendEnable = false;
-	blend0.colorWriteMask = 0xF;
+	blend0.colorWriteMask = depthStencilMode == VK2DDepthStencilMode::STENCIL_REPLACE_ALWAYS ? 0 : 0xF;
 
 	VkPipelineColorBlendStateCreateInfo cbs = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
 	cbs.pAttachments = &blend0;
@@ -217,13 +219,32 @@ VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderMod
 
 	VkPipelineDepthStencilStateCreateInfo dss = { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
 	dss.depthBoundsTestEnable = false;
-	dss.stencilTestEnable = false;
 	dss.depthTestEnable = false;
+	dss.stencilTestEnable = false;
+	switch (depthStencilMode) {
+	case VK2DDepthStencilMode::NONE:
+		break;
+	case VK2DDepthStencilMode::STENCIL_REPLACE_ALWAYS:
+		dss.stencilTestEnable = true;
+		dss.front.reference = 0xFF;
+		dss.front.compareMask = 0xFF;
+		dss.front.compareOp = VK_COMPARE_OP_ALWAYS;
+		dss.front.depthFailOp = VK_STENCIL_OP_REPLACE;
+		dss.front.failOp = VK_STENCIL_OP_REPLACE;
+		dss.front.passOp = VK_STENCIL_OP_REPLACE;
+		dss.back = dss.front;
+		break;
+	}
 
-	VkDynamicState dynamicStates[2];
+	VkDynamicState dynamicStates[5];
 	int numDyn = 0;
 	dynamicStates[numDyn++] = VK_DYNAMIC_STATE_SCISSOR;
 	dynamicStates[numDyn++] = VK_DYNAMIC_STATE_VIEWPORT;
+	if (depthStencilMode == VK2DDepthStencilMode::STENCIL_REPLACE_ALWAYS) {
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_WRITE_MASK;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_REFERENCE;
+	}
 
 	VkPipelineDynamicStateCreateInfo ds = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	ds.pDynamicStates = dynamicStates;
@@ -270,10 +291,10 @@ VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderMod
 	ibd.stride = vertexStride;
 
 	VkPipelineVertexInputStateCreateInfo vis = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
-	vis.vertexBindingDescriptionCount = 1;
-	vis.pVertexBindingDescriptions = &ibd;
-	vis.vertexAttributeDescriptionCount = attributeCount;
-	vis.pVertexAttributeDescriptions = attrs;
+	vis.vertexBindingDescriptionCount = readVertices ? 1 : 0;
+	vis.pVertexBindingDescriptions = readVertices ? &ibd : nullptr;
+	vis.vertexAttributeDescriptionCount = readVertices ? attributeCount : 0;
+	vis.pVertexAttributeDescriptions = readVertices ? attrs : nullptr;
 
 	VkPipelineViewportStateCreateInfo views = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
 	views.viewportCount = 1;
@@ -291,7 +312,6 @@ VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderMod
 	pipe.pDepthStencilState = &dss;
 	pipe.pRasterizationState = &rs;
 
-	// We will use dynamic viewport state.
 	pipe.pVertexInputState = &vis;
 	pipe.pViewportState = &views;
 	pipe.pTessellationState = nullptr;
