@@ -127,9 +127,7 @@ public:
 	}
 
 	void Clear() {
-		for (int i = 0; i < state.size(); i++) {
-			state[i] = BucketState::FREE;
-		}
+		memset(state.data(), (int)BucketState::FREE, state.size());
 	}
 
 	void Rebuild() {
@@ -266,9 +264,7 @@ public:
 	}
 
 	void Clear() {
-		for (int i = 0; i < state.size(); i++) {
-			state[i] = BucketState::FREE;
-		}
+		memset(state.data(), (int)BucketState::FREE, state.size());
 	}
 
 	// Gets rid of REMOVED tombstones, making lookups somewhat more efficient.
