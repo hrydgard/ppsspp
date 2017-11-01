@@ -15,8 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// TODO: What a mess this is :(
-
+#include <cassert>
 #include "Common/Log.h"
 #include "Common/CommonWindows.h"
 #include "gfx/gl_common.h"
@@ -358,6 +357,8 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
+	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
+	assert(success);
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;												// Success
 }

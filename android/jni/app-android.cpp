@@ -133,6 +133,8 @@ bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, in
 	gl->MakeCurrent();
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
+	bool success = draw_->CreatePresets();  // There will always be a GLSL compiler capable of compiling these.
+	assert(success);
 	return true;
 }
 
@@ -157,6 +159,8 @@ public:
 	AndroidJavaEGLGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
+		bool success = draw_->CreatePresets();
+		assert(success);
 	}
 	~AndroidJavaEGLGraphicsContext() {
 		delete draw_;
@@ -308,17 +312,20 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
 	}
-	g_Vulkan->InitObjects(true);
+	g_Vulkan->InitObjects();
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
+	bool success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
+	assert(success);
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	return true;
 }
 
 void AndroidVulkanContext::Shutdown() {
 	ILOG("AndroidVulkanContext::Shutdown");
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	delete draw_;
 	draw_ = nullptr;
 	NativeShutdownGraphics();
-
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDebugMsgCallback();
@@ -335,11 +342,13 @@ void AndroidVulkanContext::SwapBuffers() {
 
 void AndroidVulkanContext::Resize() {
 	g_Vulkan->WaitUntilQueueIdle();
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroyObjects();
 
 	// backbufferResize updated these values.	TODO: Notify another way?
 	g_Vulkan->ReinitSurfaceAndroid(pixel_xres, pixel_yres);
-	g_Vulkan->InitObjects(g_Vulkan);
+	g_Vulkan->InitObjects();
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }
 
 void AndroidVulkanContext::SwapInterval(int interval) {

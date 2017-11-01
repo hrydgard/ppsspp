@@ -1045,3 +1045,36 @@ bool TextureCacheGLES::DecodeTexture(u8* output, const GPUgstate &state) {
 	gstate = oldState;
 	return true;
 }
+
+bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
+#ifndef USING_GLES2
+	GPUgstate saved;
+	if (level != 0) {
+		saved = gstate;
+
+		// The way we set textures is a bit complex.  Let's just override level 0.
+		gstate.texsize[0] = gstate.texsize[level];
+		gstate.texaddr[0] = gstate.texaddr[level];
+		gstate.texbufwidth[0] = gstate.texbufwidth[level];
+	}
+
+	SetTexture(true);
+	ApplyTexture();
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &h);
+
+	if (level != 0) {
+		gstate = saved;
+	}
+
+	buffer.Allocate(w, h, GE_FORMAT_8888, false);
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
+
+	return true;
+#else
+	return false;
+#endif
+}

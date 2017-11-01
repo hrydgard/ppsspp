@@ -317,12 +317,13 @@ void GPU_D3D11::EndHostFrame() {
 }
 
 void GPU_D3D11::BeginFrameInternal() {
+	GPUCommon::BeginFrameInternal();
+
 	textureCacheD3D11_->StartFrame();
 	drawEngine_.BeginFrame();
 	depalShaderCache_->Decimate();
 	// fragmentTestCache_.Decimate();
 
-	GPUCommon::BeginFrameInternal();
 	shaderManagerD3D11_->DirtyLastShader();
 
 	framebufferManagerD3D11_->BeginFrame();
@@ -755,10 +756,6 @@ void GPU_D3D11::ClearShaderCache() {
 	shaderManagerD3D11_->ClearShaders();
 }
 
-std::vector<FramebufferInfo> GPU_D3D11::GetFramebufferList() {
-	return framebufferManagerD3D11_->GetFramebufferList();
-}
-
 void GPU_D3D11::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
@@ -772,21 +769,6 @@ void GPU_D3D11::DoState(PointerWrap &p) {
 		framebufferManagerD3D11_->DestroyAllFBOs();
 		shaderManagerD3D11_->ClearShaders();
 	}
-}
-
-bool GPU_D3D11::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
-	if (!gstate.isTextureMapEnabled()) {
-		return false;
-	}
-	return textureCacheD3D11_->GetCurrentTextureDebug(buffer, level);
-}
-
-bool GPU_D3D11::GetCurrentClut(GPUDebugBuffer &buffer) {
-	return textureCacheD3D11_->GetCurrentClutBuffer(buffer);
-}
-
-bool GPU_D3D11::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	return drawEngine_.GetCurrentSimpleVertices(count, vertices, indices);
 }
 
 std::vector<std::string> GPU_D3D11::DebugGetShaderIDs(DebugShaderType type) {

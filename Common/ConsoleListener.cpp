@@ -136,6 +136,7 @@ void ConsoleListener::Open()
 		// Set the console window title
 		SetConsoleTitle(title_.c_str());
 		SetConsoleCP(CP_UTF8);
+		SetConsoleOutputCP(CP_UTF8);
 
 		// Set letter space
 		LetterSpace(openWidth_, LOG_MAX_DISPLAY_LINES);
@@ -503,7 +504,7 @@ void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Tex
 	SetConsoleTextAttribute(hConsole, Color);
 	int wlen = MultiByteToWideChar(CP_UTF8, 0, Text, (int)Len, NULL, NULL);
 	MultiByteToWideChar(CP_UTF8, 0, Text, (int)Len, tempBuf, wlen);
-	WriteConsole(hConsole, tempBuf, (DWORD)Len, &cCharsWritten, NULL);
+	WriteConsole(hConsole, tempBuf, (DWORD)wlen, &cCharsWritten, NULL);
 }
 #endif
 

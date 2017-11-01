@@ -2509,6 +2509,29 @@ bool GPUCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	return framebufferManager_ ? framebufferManager_->GetOutputFramebuffer(buffer) : false;
 }
 
+std::vector<FramebufferInfo> GPUCommon::GetFramebufferList() {
+	return framebufferManager_->GetFramebufferList();
+}
+
+bool GPUCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	return drawEngineCommon_->GetCurrentSimpleVertices(count, vertices, indices);
+}
+
+bool GPUCommon::GetCurrentClut(GPUDebugBuffer &buffer) {
+	return textureCache_->GetCurrentClutBuffer(buffer);
+}
+
 bool GPUCommon::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
+	if (!gstate.isTextureMapEnabled()) {
+		return false;
+	}
 	return textureCache_->GetCurrentTextureDebug(buffer, level);
+}
+
+bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
+	if (drawEngineCommon_->IsCodePtrVertexDecoder(ptr)) {
+		name = "VertexDecoderJit";
+		return true;
+	}
+	return false;
 }

@@ -55,9 +55,7 @@ public:
 
 	void SetTextureCache(TextureCacheGLES *tc);
 	void SetShaderManager(ShaderManagerGLES *sm);
-	void SetDrawEngine(DrawEngineGLES *td) {
-		drawEngine_ = td;
-	}
+	void SetDrawEngine(DrawEngineGLES *td);
 
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
@@ -80,13 +78,8 @@ public:
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
 
-	std::vector<FramebufferInfo> GetFramebufferList();
-
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
-	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) override;
-	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) override;
-	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
 	virtual void RebindFramebuffer() override;
@@ -94,7 +87,6 @@ public:
 protected:
 	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override;
-	void FlushBeforeCopy() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
@@ -111,7 +103,7 @@ private:
 	void CompilePostShader();
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
-	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	// Used by DrawPixels
@@ -134,7 +126,7 @@ private:
 
 	TextureCacheGLES *textureCacheGL_;
 	ShaderManagerGLES *shaderManagerGL_;
-	DrawEngineGLES *drawEngine_;
+	DrawEngineGLES *drawEngineGL_;
 
 	// Not used under ES currently.
 	AsyncPBO *pixelBufObj_; //this isn't that large

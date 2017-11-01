@@ -47,10 +47,16 @@ bool VulkanPushBuffer::AddBuffer() {
 		return false;
 	}
 
+	// Make validation happy.
+	VkMemoryRequirements reqs;
+	vkGetBufferMemoryRequirements(device_, info.buffer, &reqs);
+	// TODO: We really should use memoryTypeIndex here..
+
 	// Okay, that's the buffer. Now let's allocate some memory for it.
 	VkMemoryAllocateInfo alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	// TODO: Should check here that memoryTypeIndex_ matches reqs.memoryTypeBits.
 	alloc.memoryTypeIndex = memoryTypeIndex_;
-	alloc.allocationSize = size_;
+	alloc.allocationSize = reqs.size;
 
 	res = vkAllocateMemory(device_, &alloc, nullptr, &info.deviceMemory);
 	if (VK_SUCCESS != res) {

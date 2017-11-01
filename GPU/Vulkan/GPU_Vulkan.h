@@ -84,9 +84,6 @@ public:
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
-	std::vector<FramebufferInfo> GetFramebufferList() override;
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
@@ -104,6 +101,10 @@ private:
 	void ReinitializeInternal() override;
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
+
+	void InitDeviceObjects();
+	void DestroyDeviceObjects();
+
 	static CommandInfo cmdInfo_[256];
 
 	VulkanContext *vulkan_;
@@ -124,4 +125,13 @@ private:
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
+
+	// Simple 2D drawing engine.
+	Vulkan2D vulkan2D_;
+
+	struct FrameData {
+		VulkanPushBuffer *push_;
+	};
+
+	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 };

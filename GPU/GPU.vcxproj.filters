@@ -265,6 +265,9 @@
     <ClInclude Include="Debugger\Record.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="Common\StencilCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -524,6 +527,15 @@
     </ClCompile>
     <ClCompile Include="Debugger\Record.cpp">
       <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\StencilBufferVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Source.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\StencilCommon.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

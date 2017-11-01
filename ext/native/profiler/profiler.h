@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+// NOTE : This profiler is very single-threaded. Cannot be used from multiple threads yet.
+
 // #define USE_PROFILER
 
 #ifdef USE_PROFILER
@@ -13,7 +15,6 @@ void internal_profiler_end_frame();
 
 int internal_profiler_enter(const char *category_name);  // Returns the category number.
 void internal_profiler_leave(int category);
-
 
 const char *Profiler_GetCategoryName(int i);
 int Profiler_GetNumCategories();

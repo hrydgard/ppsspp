@@ -10,6 +10,9 @@
 #include "math/dataconv.h"
 #include "util/text/utf8.h"
 
+#include "Common/ColorConv.h"
+
+#include <cassert>
 #include <D3DCommon.h>
 #include <d3d11.h>
 #include <d3d11_1.h>
@@ -26,7 +29,6 @@ class D3D11BlendState;
 class D3D11DepthStencilState;
 class D3D11SamplerState;
 class D3D11RasterState;
-
 
 class D3D11DrawContext : public DrawContext {
 public:
@@ -56,12 +58,12 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride);
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	void BindFramebufferForRead(Framebuffer *fbo) override;
 
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) override;
 
@@ -114,7 +116,7 @@ public:
 		}
 	}
 
-	uintptr_t GetNativeObject(NativeObject obj) const override {
+	uintptr_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
 		case NativeObject::DEVICE:
 			return (uintptr_t)device_;
@@ -194,6 +196,9 @@ private:
 	uint8_t stencilRef_;
 	bool stencilRefDirty_;
 
+	// Temporaries
+	ID3D11Texture2D *packTexture_ = nullptr;
+
 	// System info
 	D3D_FEATURE_LEVEL featureLevel_;
 	std::string adapterDesc_;
@@ -212,6 +217,9 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 
 	caps_.depthRangeMinusOneToOne = false;
 	caps_.framebufferBlitSupported = false;
+	caps_.framebufferCopySupported = true;
+	caps_.framebufferDepthBlitSupported = false;
+	caps_.framebufferDepthCopySupported = true;
 
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
@@ -237,10 +245,26 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 		}
 		dxgiDevice->Release();
 	}
-	CreatePresets();
+
+	// Temp texture for read-back of small images. Custom textures are created on demand for larger ones.
+	// TODO: Should really benchmark if this extra complexity has any benefit.
+	D3D11_TEXTURE2D_DESC packDesc{};
+	packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	packDesc.BindFlags = 0;
+	packDesc.Width = 512;
+	packDesc.Height = 512;
+	packDesc.ArraySize = 1;
+	packDesc.MipLevels = 1;
+	packDesc.Usage = D3D11_USAGE_STAGING;
+	packDesc.SampleDesc.Count = 1;
+	packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	hr = device_->CreateTexture2D(&packDesc, nullptr, &packTexture_);
+	assert(SUCCEEDED(hr));
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
+	packTexture_->Release();
+
 	// Release references.
 	ID3D11RenderTargetView *view = nullptr;
 	context_->OMSetRenderTargets(1, &view, nullptr);
@@ -1286,6 +1310,115 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 	return false;
 }
 
+bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat format, void *pixels, int pixelStride) {
+	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
+
+	if (fb) {
+		assert(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
+	}
+
+	bool useGlobalPacktex = (bx + bw <= 512 && by + bh <= 512) && channelBits == FB_COLOR_BIT;
+
+	ID3D11Texture2D *packTex;
+	if (!useGlobalPacktex) {
+		D3D11_TEXTURE2D_DESC packDesc{};
+		packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		packDesc.BindFlags = 0;
+		packDesc.Width = bw;
+		packDesc.Height = bh;
+		packDesc.ArraySize = 1;
+		packDesc.MipLevels = 1;
+		packDesc.Usage = D3D11_USAGE_STAGING;
+		packDesc.SampleDesc.Count = 1;
+		D3D11_BOX srcBox{ (UINT)bx, (UINT)by, 0, (UINT)(bx + bw), (UINT)(by + bh), 1 };
+		switch (channelBits) {
+		case FB_COLOR_BIT:
+			packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // TODO: fb->colorFormat;
+			break;
+		case FB_DEPTH_BIT:
+		case FB_STENCIL_BIT:
+			if (!fb) {
+				// Not supported.
+				return false;
+			}
+			packDesc.Format = fb->depthStencilFormat;
+			break;
+		default:
+			assert(false);
+		}
+		device_->CreateTexture2D(&packDesc, nullptr, &packTex);
+	} else {
+		switch (channelBits) {
+		case FB_DEPTH_BIT:
+		case FB_STENCIL_BIT:
+			if (!fb)
+				return false;
+		default:
+			break;
+		}
+		packTex = packTexture_;
+	}
+
+	D3D11_BOX srcBox{ (UINT)bx, (UINT)by, 0, (UINT)(bx + bw), (UINT)(by + bh), 1 };
+	switch (channelBits) {
+	case FB_COLOR_BIT:
+		context_->CopySubresourceRegion(packTex, 0, bx, by, 0, fb ? fb->colorTex : bbRenderTargetTex_, 0, &srcBox);
+		break;
+	case FB_DEPTH_BIT:
+	case FB_STENCIL_BIT:
+		// For depth/stencil buffers, we can't reliably copy subrectangles, so just copy the whole resource.
+		assert(fb);  // Can't copy depth/stencil from backbuffer. Shouldn't happen thanks to checks above.
+		context_->CopyResource(packTex, fb->depthStencilTex);
+		break;
+	default:
+		assert(false);
+		break;
+	}
+
+	// Ideally, we'd round robin between two packTexture_, and simply use the other one. Though if the game
+	// does a once-off copy, that won't work at all.
+
+	// BIG GPU STALL
+	D3D11_MAPPED_SUBRESOURCE map;
+	HRESULT result = context_->Map(packTex, 0, D3D11_MAP_READ, 0, &map);
+	if (FAILED(result)) {
+		return false;
+	}
+
+	const int srcByteOffset = by * map.RowPitch + bx * 4;
+	switch (channelBits) {
+	case FB_COLOR_BIT:
+		// Pixel size always 4 here because we always request BGRA8888.
+		ConvertFromRGBA8888((uint8_t *)pixels, (uint8_t *)map.pData + srcByteOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, format);
+		break;
+	case FB_DEPTH_BIT:
+		for (int y = by; y < by + bh; y++) {
+			float *dest = (float *)((uint8_t *)pixels + y * pixelStride * sizeof(float));
+			const uint32_t *src = (const uint32_t *)((const uint8_t *)map.pData + map.RowPitch * y);
+			for (int x = bx; x < bx + bw; x++) {
+				dest[x] = (src[x] & 0xFFFFFF) / (256.f * 256.f * 256.f);
+			}
+		}
+		break;
+	case FB_STENCIL_BIT:
+		for (int y = by; y < by + bh; y++) {
+			uint8_t *destStencil = (uint8_t *)pixels + y * pixelStride;
+			const uint32_t *src = (const uint32_t *)((const uint8_t *)map.pData + map.RowPitch * y);
+			for (int x = bx; x < bx + bw; x++) {
+				destStencil[x] = src[x] >> 24;
+			}
+		}
+		break;
+	}
+
+	context_->Unmap(packTex, 0);
+
+	if (!useGlobalPacktex) {
+		packTex->Release();
+	}
+	return true;
+}
+
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	// TODO: deviceContext1 can actually discard. Useful on Windows Mobile.
 	if (fbo) {
@@ -1327,10 +1460,6 @@ void D3D11DrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, F
 	context_->PSSetShaderResources(binding, 1, &fb->colorSRView);
 }
 
-void D3D11DrawContext::BindFramebufferForRead(Framebuffer *fbo) {
-	// This is meaningless in D3D11
-}
-
 uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit, int attachment) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	switch (channelBit) {
@@ -1348,8 +1477,13 @@ uintptr_t D3D11DrawContext::GetFramebufferAPITexture(Framebuffer *fbo, int chann
 
 void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
-	*w = fb->width;
-	*h = fb->height;
+	if (fb) {
+		*w = fb->width;
+		*h = fb->height;
+	} else {
+		*w = bbWidth_;
+		*h = bbHeight_;
+	}
 }
 
 DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd) {

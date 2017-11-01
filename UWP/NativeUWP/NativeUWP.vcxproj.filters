@@ -454,6 +454,9 @@
     <ClCompile Include="..\..\ext\native\base\logging.cpp">
       <Filter>base</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\native\math\dataconv.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />

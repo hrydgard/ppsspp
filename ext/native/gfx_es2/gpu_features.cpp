@@ -492,6 +492,7 @@ static const char *glsl_fragment_prelude =
 "#endif\n";
 
 std::string ApplyGLSLPrelude(const std::string &source, uint32_t stage) {
+#if !PPSSPP_PLATFORM(UWP)
 	std::string temp;
 	std::string version = "";
 	if (!gl_extensions.IsGLES && gl_extensions.IsCoreContext) {
@@ -512,4 +513,7 @@ std::string ApplyGLSLPrelude(const std::string &source, uint32_t stage) {
 		temp = version + source;
 	}
 	return temp;
+#else
+	return source;
+#endif
 }

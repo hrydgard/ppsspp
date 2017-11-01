@@ -42,38 +42,13 @@
 //
 // Each FBO will get its own command buffer for each pass. 
 
-// 
-struct VulkanFBOPass {
-	VkCommandBuffer cmd;
-};
-
-class VulkanFBO {
-public:
-	VulkanFBO();
-	~VulkanFBO();
-
-	// Depth-format is chosen automatically depending on hardware support.
-	// Color format will be 32-bit RGBA.
-	void Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int width, int height, VkFormat colorFormat);
-
-	VulkanTexture *GetColor() { return color_; }
-	VulkanTexture *GetDepthStencil() { return depthStencil_; }
-
-	VkFramebuffer GetFramebuffer() { return framebuffer_; }
-
-private:
-	VulkanTexture *color_;
-	VulkanTexture *depthStencil_;
-
-	// This point specifically to color and depth.
-	VkFramebuffer framebuffer_;
-};
-
 // Similar to a subset of Thin3D, but separate.
 // This is used for things like postprocessing shaders, depal, etc.
 // No UBO data is used, only PushConstants.
 // No transform matrices, only post-proj coordinates.
 // Two textures can be sampled.
+// Some simplified depth/stencil modes available.
+
 class Vulkan2D {
 public:
 	Vulkan2D(VulkanContext *vulkan);
@@ -83,15 +58,19 @@ public:
 	void DeviceRestore(VulkanContext *vulkan);
 	void Shutdown();
 
-	VkPipeline GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShaderModule vs, VkShaderModule fs);
+	enum class VK2DDepthStencilMode {
+		NONE,
+		STENCIL_REPLACE_ALWAYS,  // Does not draw to color.
+	};
 
+	// The only supported primitive is the triangle strip, for simplicity.
+	// ReadVertices can be used for vertex-less rendering where you generate verts in the vshader.
+	VkPipeline GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderModule fs, bool readVertices = true, VK2DDepthStencilMode depthStencilMode = VK2DDepthStencilMode::NONE);
+	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 	void BeginFrame();
 	void EndFrame();
 
 	VkDescriptorSet GetDescriptorSet(VkImageView tex1, VkSampler sampler1, VkImageView tex2, VkSampler sampler2);
-
-	// Simple way
-	void BindDescriptorSet(VkCommandBuffer cmd, VkImageView tex1, VkSampler sampler1);
 
 	struct Vertex {
 		float x, y, z;
@@ -102,9 +81,10 @@ private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
-	VulkanContext *vulkan_;
-	VkDescriptorSetLayout descriptorSetLayout_;
-	VkPipelineLayout pipelineLayout_;
+	VulkanContext *vulkan_ = nullptr;
+	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
+	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
+	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 
 	// Yes, another one...
 	struct DescriptorSetKey {
@@ -121,8 +101,10 @@ private:
 		VkShaderModule vs;
 		VkShaderModule fs;
 		VkRenderPass rp;
+		VK2DDepthStencilMode depthStencilMode;
+		bool readVertices;
 		bool operator < (const PipelineKey &other) const {
-			return std::tie(vs, fs, rp) < std::tie(other.vs, other.fs, other.rp);
+			return std::tie(vs, fs, rp, depthStencilMode, readVertices) < std::tie(other.vs, other.fs, other.rp, depthStencilMode, readVertices);
 		}
 	};
 
@@ -132,7 +114,6 @@ private:
 	};
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
-	int curFrame_ = 0;
 
 	std::map<PipelineKey, VkPipeline> pipelines_;
 };

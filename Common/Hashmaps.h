@@ -20,7 +20,7 @@ inline bool KeyEquals(const K &a, const K &b) {
 	return !memcmp(&a, &b, sizeof(K));
 }
 
-enum class BucketState {
+enum class BucketState : uint8_t {
 	FREE,
 	TAKEN,
 	REMOVED,  // for linear probing to work (and removal during deletion) we need tombstones
@@ -35,6 +35,7 @@ class DenseHashMap {
 public:
 	DenseHashMap(int initialCapacity) : capacity_(initialCapacity) {
 		map.resize(initialCapacity);
+		state.resize(initialCapacity);
 	}
 
 	// Returns nullptr if no entry was found.
@@ -44,9 +45,9 @@ public:
 		// No? Let's go into search mode. Linear probing.
 		uint32_t p = pos;
 		while (true) {
-			if (map[p].state == BucketState::TAKEN && KeyEquals(key, map[p].key))
+			if (state[p] == BucketState::TAKEN && KeyEquals(key, map[p].key))
 				return map[p].value;
-			else if (map[p].state == BucketState::FREE)
+			else if (state[p] == BucketState::FREE)
 				return NullValue;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
 			if (p == pos)
@@ -65,7 +66,7 @@ public:
 		uint32_t pos = HashKey(key) & mask;
 		uint32_t p = pos;
 		while (true) {
-			if (map[p].state == BucketState::TAKEN) {
+			if (state[p] == BucketState::TAKEN) {
 				if (KeyEquals(key, map[p].key)) {
 					Crash();  // Bad! We already got this one. Let's avoid this case.
 					return false;
@@ -81,10 +82,10 @@ public:
 				Crash();
 			}
 		}
-		if (map[p].state == BucketState::REMOVED) {
+		if (state[p] == BucketState::REMOVED) {
 			removedCount_--;
 		}
-		map[p].state = BucketState::TAKEN;
+		state[p] = BucketState::TAKEN;
 		map[p].key = key;
 		map[p].value = value;
 		count_++;
@@ -95,10 +96,10 @@ public:
 		uint32_t mask = capacity_ - 1;
 		uint32_t pos = HashKey(key) & mask;
 		uint32_t p = pos;
-		while (map[p].state != BucketState::FREE) {
-			if (map[p].state == BucketState::TAKEN && KeyEquals(key, map[p].key)) {
+		while (state[p] != BucketState::FREE) {
+			if (state[p] == BucketState::TAKEN && KeyEquals(key, map[p].key)) {
 				// Got it! Mark it as removed.
-				map[p].state = BucketState::REMOVED;
+				state[p] = BucketState::REMOVED;
 				removedCount_++;
 				count_--;
 				return true;
@@ -118,17 +119,15 @@ public:
 
 	template<class T>
 	inline void Iterate(T func) {
-		for (auto &iter : map) {
-			if (iter.state == BucketState::TAKEN) {
-				func(iter.key, iter.value);
+		for (size_t i = 0; i < map.size(); i++) {
+			if (state[i] == BucketState::TAKEN) {
+				func(map[i].key, map[i].value);
 			}
 		}
 	}
 
 	void Clear() {
-		// TODO: Speedup?
-		map.clear();
-		map.resize(capacity_);
+		memset(state.data(), (int)BucketState::FREE, state.size());
 	}
 
 	void Rebuild() {
@@ -147,23 +146,24 @@ private:
 		// We simply move out the existing data, then we re-insert the old.
 		// This is extremely non-atomic and will need synchronization.
 		std::vector<Pair> old = std::move(map);
+		std::vector<BucketState> oldState = std::move(state);
 		capacity_ *= factor;
-		map.clear();
 		map.resize(capacity_);
+		state.resize(capacity_);
 		count_ = 0;  // Insert will update it.
 		removedCount_ = 0;
-		for (auto &iter : old) {
-			if (iter.state == BucketState::TAKEN) {
-				Insert(iter.key, iter.value);
+		for (size_t i = 0; i < old.size(); i++) {
+			if (oldState[i] == BucketState::TAKEN) {
+				Insert(old[i].key, old[i].value);
 			}
 		}
 	}
 	struct Pair {
-		BucketState state;
 		Key key;
 		Value value;
 	};
 	std::vector<Pair> map;
+	std::vector<BucketState> state;
 	int capacity_;
 	int count_ = 0;
 	int removedCount_ = 0;
@@ -176,6 +176,7 @@ class PrehashMap {
 public:
 	PrehashMap(int initialCapacity) : capacity_(initialCapacity) {
 		map.resize(initialCapacity);
+		state.resize(initialCapacity);
 	}
 
 	// Returns nullptr if no entry was found.
@@ -185,9 +186,9 @@ public:
 		// No? Let's go into search mode. Linear probing.
 		uint32_t p = pos;
 		while (true) {
-			if (map[p].state == BucketState::TAKEN && hash == map[p].hash)
+			if (state[p] == BucketState::TAKEN && hash == map[p].hash)
 				return map[p].value;
-			else if (map[p].state == BucketState::FREE)
+			else if (state[p] == BucketState::FREE)
 				return NullValue;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
 			if (p == pos)
@@ -205,8 +206,8 @@ public:
 		uint32_t mask = capacity_ - 1;
 		uint32_t pos = hash & mask;
 		uint32_t p = pos;
-		while (map[p].state != BucketState::FREE) {
-			if (map[p].state == BucketState::TAKEN) {
+		while (state[p] != BucketState::FREE) {
+			if (state[p] == BucketState::TAKEN) {
 				if (hash == map[p].hash)
 					return false;  // Bad!
 			} else {
@@ -219,10 +220,10 @@ public:
 				Crash();
 			}
 		}
-		if (map[p].state == BucketState::REMOVED) {
+		if (state[p] == BucketState::REMOVED) {
 			removedCount_--;
 		}
-		map[p].state = BucketState::TAKEN;
+		state[p] = BucketState::TAKEN;
 		map[p].hash = hash;
 		map[p].value = value;
 		count_++;
@@ -233,10 +234,10 @@ public:
 		uint32_t mask = capacity_ - 1;
 		uint32_t pos = hash & mask;
 		uint32_t p = pos;
-		while (map[p].state != BucketState::FREE) {
-			if (map[p].state == BucketState::TAKEN && hash == map[p].hash) {
+		while (state[p] != BucketState::FREE) {
+			if (state[p] == BucketState::TAKEN && hash == map[p].hash) {
 				// Got it!
-				map[p].state = BucketState::REMOVED;
+				state[p] = BucketState::REMOVED;
 				removedCount_++;
 				count_--;
 				return true;
@@ -255,17 +256,15 @@ public:
 
 	template<class T>
 	void Iterate(T func) {
-		for (auto &iter : map) {
-			if (iter.state == BucketState::TAKEN) {
-				func(iter.hash, iter.value);
+		for (size_t i = 0; i < map.size(); i++) {
+			if (state[i] == BucketState::TAKEN) {
+				func(map[i].hash, map[i].value);
 			}
 		}
 	}
 
 	void Clear() {
-		// TODO: Speedup?
-		map.clear();
-		map.resize(capacity_);
+		memset(state.data(), (int)BucketState::FREE, state.size());
 	}
 
 	// Gets rid of REMOVED tombstones, making lookups somewhat more efficient.
@@ -285,23 +284,24 @@ private:
 		// We simply move out the existing data, then we re-insert the old.
 		// This is extremely non-atomic and will need synchronization.
 		std::vector<Pair> old = std::move(map);
+		std::vector<BucketState> oldState = std::move(state);
 		capacity_ *= factor;
-		map.clear();
 		map.resize(capacity_);
+		state.resize(capacity_);
 		count_ = 0;  // Insert will update it.
 		removedCount_ = 0;
-		for (auto &iter : old) {
-			if (iter.state == BucketState::TAKEN) {
-				Insert(iter.hash, iter.value);
+		for (size_t i = 0; i < old.size(); i++) {
+			if (oldState[i] == BucketState::TAKEN) {
+				Insert(old[i].hash, old[i].value);
 			}
 		}
 	}
 	struct Pair {
-		BucketState state;
 		uint32_t hash;
 		Value value;
 	};
 	std::vector<Pair> map;
+	std::vector<BucketState> state;
 	int capacity_;
 	int count_ = 0;
 	int removedCount_ = 0;

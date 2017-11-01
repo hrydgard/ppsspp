@@ -113,6 +113,8 @@ public:
 	u8 flags = 0;
 };
 
+class VulkanRenderManager;
+
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
@@ -147,8 +149,6 @@ public:
 		DoFlush();
 	}
 
-	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
-
 	void DispatchFlush() override { Flush(); }
 	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
 		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
@@ -163,8 +163,12 @@ public:
 
 	void DirtyAllUBOs();
 
+	void DirtyPipeline() {
+		lastPipeline_ = nullptr;
+	}
+
 	VulkanPushBuffer *GetPushBufferForTextureData() {
-		return frame_[curFrame_].pushUBO;
+		return frame_[vulkan_->GetCurFrame()].pushUBO;
 	}
 
 	const DrawEngineVulkanStats &GetStats() const {
@@ -173,8 +177,9 @@ public:
 
 private:
 	struct FrameData;
-	void ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencilRef, uint8_t stencilRef);
+	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
+	void ResetShaderBlending();
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -193,9 +198,12 @@ private:
 	// We use a single descriptor set layout for all PSP draws.
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
-	VkCommandBuffer lastCmd_ = VK_NULL_HANDLE;
 	VulkanPipeline *lastPipeline_;
 	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
+
+	// Secondary texture for shader blending
+	VkImageView boundSecondary_ = VK_NULL_HANDLE;
+	VkSampler samplerSecondary_ = VK_NULL_HANDLE;
 
 	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
 	VulkanPushBuffer *vertexCache_;
@@ -225,7 +233,6 @@ private:
 	};
 
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
-	int curFrame_;
 	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	// Other
@@ -234,16 +241,14 @@ private:
 	TextureCacheVulkan *textureCache_ = nullptr;
 	FramebufferManagerVulkan *framebufferManager_ = nullptr;
 
-	VkSampler depalSampler_;
-
 	// State cache
 	uint64_t dirtyUniforms_;
 	uint32_t baseUBOOffset;
 	uint32_t lightUBOOffset;
 	uint32_t boneUBOOffset;
 	VkBuffer baseBuf, lightBuf, boneBuf;
-	VkImageView imageView;
-	VkSampler sampler;
+	VkImageView imageView = VK_NULL_HANDLE;
+	VkSampler sampler = VK_NULL_HANDLE;
 
 	// Null texture
 	VulkanTexture *nullTexture_ = nullptr;
@@ -257,14 +262,15 @@ private:
 	// Hardware tessellation
 	class TessellationDataTransferVulkan : public TessellationDataTransfer {
 	private:
-		VulkanContext *vulkan;
+		VulkanContext *vulkan_;
+		Draw::DrawContext *draw_;
 		VulkanTexture *data_tex[3];
 		VkSampler sampler;
 	public:
-		TessellationDataTransferVulkan(VulkanContext *vulkan) 
-			: TessellationDataTransfer(), vulkan(vulkan), data_tex(), sampler() {
+		TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw) 
+			: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw), data_tex(), sampler() {
 			for (int i = 0; i < 3; i++)
-				data_tex[i] = new VulkanTexture(vulkan);
+				data_tex[i] = new VulkanTexture(vulkan_);
 
 			CreateSampler();
 		}
@@ -272,7 +278,7 @@ private:
 			for (int i = 0; i < 3; i++)
 				delete data_tex[i];
 
-			vulkan->Delete().QueueDeleteSampler(sampler);
+			vulkan_->Delete().QueueDeleteSampler(sampler);
 		}
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
 		void PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) override;
@@ -303,7 +309,7 @@ private:
 			samp.minLod = 0.0f;
 			samp.mipLodBias = 0.0f;
 
-			VkResult res = vkCreateSampler(vulkan->GetDevice(), &samp, nullptr, &sampler);
+			VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &sampler);
 			assert(res == VK_SUCCESS);
 		}
 	};

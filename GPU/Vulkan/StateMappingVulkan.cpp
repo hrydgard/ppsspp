@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Vulkan/VulkanLoader.h"
+#include "thin3d/VulkanRenderManager.h"
 
 #include "math/dataconv.h"
 #include "GPU/Math3D.h"
@@ -25,14 +26,12 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-//#include "GPU/Vulkan/StateMappingVulkan.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
-//#include "GPU/Vulkan/PixelShaderGeneratorVulkan.h"
 
 // These tables all fit into u8s.
 static const VkBlendFactor vkBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
@@ -122,8 +121,8 @@ static const VkLogicOp logicOps[] = {
 	VK_LOGIC_OP_SET,
 };
 
-void ResetShaderBlending() {
-	//
+void DrawEngineVulkan::ResetShaderBlending() {
+	boundSecondary_ = VK_NULL_HANDLE;
 }
 
 // TODO: Do this more progressively. No need to compute the entire state if the entire state hasn't changed.
@@ -135,8 +134,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
-		// Unfortunately, this isn't implemented yet.
-		gstate_c.SetAllowShaderBlend(false);
+		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
 		if (gstate.isModeClear()) {
 			key.logicOpEnable = false;
 			key.logicOp = VK_LOGIC_OP_CLEAR;
@@ -369,42 +367,31 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 }
 
-
-void DrawEngineVulkan::ApplyDrawStateLate(VkCommandBuffer cmd, bool applyStencilRef, uint8_t stencilRef) {
+void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant) {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
 		// TODO: Test texture?
-		/*
 		if (fboTexNeedBind_) {
 			// Note that this is positions, not UVs, that we need the copy from.
 			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			// If we are rendering at a higher resolution, linear is probably best for the dest color.
+			boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
 			fboTexBound_ = true;
 			fboTexNeedBind_ = false;
 		}
-		*/
 	}
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-		vkCmdSetScissor(cmd, 0, 1, &dynState_.scissor);
-		vkCmdSetViewport(cmd, 0, 1, &dynState_.viewport);
+		renderManager->SetScissor(dynState_.scissor);
+		renderManager->SetViewport(dynState_.viewport);
 	}
-	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
-		if (dynState_.useStencil) {
-			vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilWriteMask);
-			vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilCompareMask);
-			if (!applyStencilRef) {
-				vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, dynState_.stencilRef);
-			}
-		}
+	if ((gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE) && dynState_.useStencil) || applyStencilRef) {
+		renderManager->SetStencilParams(dynState_.stencilWriteMask, dynState_.stencilCompareMask, applyStencilRef ? stencilRef : dynState_.stencilRef);
 	}
-	if (applyStencilRef) {
-		vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, stencilRef);
-	}
-	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
+	if (gstate_c.IsDirty(DIRTY_BLEND_STATE) && useBlendConstant) {
 		float bc[4];
 		Uint8x4ToFloat4(bc, dynState_.blendColor);
-		vkCmdSetBlendConstants(cmd, bc);
+		renderManager->SetBlendFactor(bc);
 	}
 }

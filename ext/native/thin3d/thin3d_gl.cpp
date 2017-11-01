@@ -3,6 +3,7 @@
 #include <string>
 #include <algorithm>
 #include <map>
+#include <cassert>
 
 #include "base/logging.h"
 #include "math/dataconv.h"
@@ -17,6 +18,8 @@
 #ifdef IOS
 extern void bindDefaultFBO();
 #endif
+
+// #define DEBUG_READ_PIXELS 1
 
 // Workaround for Retroarch. Simply declare
 //   extern GLuint g_defaultFBO;
@@ -465,12 +468,12 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	void BindFramebufferForRead(Framebuffer *fbo) override;
 
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
@@ -557,7 +560,7 @@ public:
 		}
 	}
 
-	uintptr_t GetNativeObject(NativeObject obj) const override {
+	uintptr_t GetNativeObject(NativeObject obj) override {
 		return 0;
 	}
 
@@ -588,8 +591,6 @@ private:
 };
 
 OpenGLContext::OpenGLContext() {
-	CreatePresets();
-
 	// TODO: Detect more caps
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil || gl_extensions.OES_depth24) {
@@ -601,6 +602,7 @@ OpenGLContext::OpenGLContext() {
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
 	}
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
+	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
 }
 
 OpenGLContext::~OpenGLContext() {
@@ -729,11 +731,121 @@ void OpenGLTexture::AutoGenMipmaps() {
 	}
 }
 
-void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-	int internalFormat;
-	int format;
-	int type;
+class OpenGLFramebuffer : public Framebuffer, public GfxResourceHolder {
+public:
+	OpenGLFramebuffer() {
+		register_gl_resource_holder(this, "framebuffer", 0);
+	}
+	~OpenGLFramebuffer();
 
+	void GLLost() override {
+		handle = 0;
+		color_texture = 0;
+		z_stencil_buffer = 0;
+		z_buffer = 0;
+		stencil_buffer = 0;
+	}
+
+	void GLRestore() override {
+		ELOG("Restoring framebuffers not yet implemented");
+	}
+
+	GLuint handle = 0;
+	GLuint color_texture = 0;
+	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
+	GLuint z_buffer = 0;
+	GLuint stencil_buffer = 0;
+
+	int width;
+	int height;
+	FBColorDepth colorDepth;
+};
+
+
+// TODO: Also output storage format (GL_RGBA8 etc) for modern GL usage.
+static bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint &format, GLuint &type, int &alignment) {
+	alignment = 4;
+	switch (fmt) {
+	case DataFormat::R8G8B8A8_UNORM:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_BYTE;
+		break;
+
+	case DataFormat::D32F:
+		internalFormat = GL_DEPTH_COMPONENT;
+		format = GL_DEPTH_COMPONENT;
+		type = GL_FLOAT;
+		break;
+
+#ifndef USING_GLES2
+	case DataFormat::S8:
+		internalFormat = GL_STENCIL_INDEX;
+		format = GL_STENCIL_INDEX;
+		type = GL_UNSIGNED_BYTE;
+		alignment = 1;
+		break;
+#endif
+
+	case DataFormat::R8G8B8_UNORM:
+		internalFormat = GL_RGB;
+		format = GL_RGB;
+		type = GL_UNSIGNED_BYTE;
+		alignment = 1;
+		break;
+
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_4_4_4_4;
+		alignment = 2;
+		break;
+
+	case DataFormat::B5G6R5_UNORM_PACK16:
+		internalFormat = GL_RGB;
+		format = GL_RGB;
+		type = GL_UNSIGNED_SHORT_5_6_5;
+		alignment = 2;
+		break;
+
+	case DataFormat::B5G5R5A1_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_5_5_5_1;
+		alignment = 2;
+		break;
+
+#ifndef USING_GLES2
+	case DataFormat::A4R4G4B4_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+		alignment = 2;
+		break;
+
+	case DataFormat::R5G6B5_UNORM_PACK16:
+		internalFormat = GL_RGB;
+		format = GL_RGB;
+		type = GL_UNSIGNED_SHORT_5_6_5_REV;
+		alignment = 2;
+		break;
+
+	case DataFormat::A1R5G5B5_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+		alignment = 2;
+		break;
+#endif
+
+	default:
+		ELOG("Thin3d GL: Unsupported texture format %d", (int)fmt);
+		return false;
+	}
+	return true;
+}
+
+void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	if (width != width_ || height != height_ || depth != depth_) {
 		// When switching to texStorage we need to handle this correctly.
 		width_ = width;
@@ -741,26 +853,11 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		depth_ = depth;
 	}
 
-	switch (format_) {
-	case DataFormat::R8G8B8A8_UNORM:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-		break;
-	case DataFormat::B4G4R4A4_UNORM_PACK16:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_SHORT_4_4_4_4;
-		break;
-#ifndef USING_GLES2
-	case DataFormat::A4R4G4B4_UNORM_PACK16:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-		break;
-#endif
-	default:
-		ELOG("Thin3d GL: Unsupported texture format %d", (int)format_);
+	GLuint internalFormat;
+	GLuint format;
+	GLuint type;
+	int alignment;
+	if (!Thin3DFormatToFormatAndType(format_, internalFormat, format, type, alignment)) {
 		return;
 	}
 
@@ -775,6 +872,80 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
+
+
+#ifdef DEBUG_READ_PIXELS
+// TODO: Make more generic.
+static void LogReadPixelsError(GLenum error) {
+	switch (error) {
+	case GL_NO_ERROR:
+		break;
+	case GL_INVALID_ENUM:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_ENUM");
+		break;
+	case GL_INVALID_VALUE:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_VALUE");
+		break;
+	case GL_INVALID_OPERATION:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_OPERATION");
+		break;
+	case GL_INVALID_FRAMEBUFFER_OPERATION:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
+		break;
+	case GL_OUT_OF_MEMORY:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_OUT_OF_MEMORY");
+		break;
+#ifndef USING_GLES2
+	case GL_STACK_UNDERFLOW:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_UNDERFLOW");
+		break;
+	case GL_STACK_OVERFLOW:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_OVERFLOW");
+		break;
+#endif
+	default:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: %08x", error);
+		break;
+	}
+}
+#endif
+
+bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride) {
+	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)src;
+	fbo_bind_fb_target(true, fb ? fb->handle : 0);
+
+	// Reads from the "bound for read" framebuffer.
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+
+	CHECK_GL_ERROR_IF_DEBUG();
+
+	GLuint internalFormat;
+	GLuint format;
+	GLuint type;
+	int alignment;
+	if (!Thin3DFormatToFormatAndType(dataFormat, internalFormat, format, type, alignment)) {
+		assert(false);
+	}
+	// Apply the correct alignment.
+	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA)) {
+		// Some drivers seem to require we specify this.  See #8254.
+		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
+	}
+
+	glReadPixels(x, y, w, h, format, type, pixels);
+#ifdef DEBUG_READ_PIXELS
+	LogReadPixelsError(glGetError());
+#endif
+
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	}
+	CHECK_GL_ERROR_IF_DEBUG();
+	return true;
+}
+
 
 Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
 	return new OpenGLTexture(desc);
@@ -1243,36 +1414,6 @@ void OpenGLInputLayout::Unapply() {
 	}
 }
 
-class OpenGLFramebuffer : public Framebuffer, public GfxResourceHolder {
-public:
-	OpenGLFramebuffer() {
-		register_gl_resource_holder(this, "framebuffer", 0);
-	}
-	~OpenGLFramebuffer();
-
-	void GLLost() override {
-		handle = 0;
-		color_texture = 0;
-		z_stencil_buffer = 0;
-		z_buffer = 0;
-		stencil_buffer = 0;
-	}
-
-	void GLRestore() override {
-		ELOG("Restoring framebuffers not yet implemented");
-	}
-
-	GLuint handle = 0;
-	GLuint color_texture = 0;
-	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
-	GLuint z_buffer = 0;
-	GLuint stencil_buffer = 0;
-
-	int width;
-	int height;
-	FBColorDepth colorDepth;
-};
-
 // On PC, we always use GL_DEPTH24_STENCIL8. 
 // On Android, we try to use what's available.
 
@@ -1587,13 +1728,6 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-// For GL_EXT_FRAMEBUFFER_BLIT and similar.
-void OpenGLContext::BindFramebufferForRead(Framebuffer *fbo) {
-	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
-	fbo_bind_fb_target(true, fb->handle);
-	CHECK_GL_ERROR_IF_DEBUG();
-}
-
 void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
@@ -1731,8 +1865,13 @@ OpenGLFramebuffer::~OpenGLFramebuffer() {
 
 void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
-	*w = fb->width;
-	*h = fb->height;
+	if (fb) {
+		*w = fb->width;
+		*h = fb->height;
+	} else {
+		*w = targetWidth_;
+		*h = targetHeight_;
+	}
 }
 
 uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {

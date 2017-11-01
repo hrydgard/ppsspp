@@ -3,35 +3,7 @@
 
 namespace hash {
 
-// uint32_t
-// WARNING - may read one more byte! Fine if the input is a null-terminated string.
-// Implementation from Wikipedia.
-uint32_t Fletcher(const uint8_t *data_uint8, size_t length) {
-  const uint16_t *data = (const uint16_t *)data_uint8;
-  size_t len = (length + 1) / 2;
-  uint32_t sum1 = 0xffff, sum2 = 0xffff;
-
-  while (len) {
-    size_t tlen = len > 360 ? 360 : len;
-    len -= tlen;
-
-    do {
-      sum1 += *data++;
-      sum2 += sum1;
-    } while (--tlen);
-
-    sum1 = (sum1 & 0xffff) + (sum1 >> 16);
-    sum2 = (sum2 & 0xffff) + (sum2 >> 16);
-  }
-
-  /* Second reduction step to reduce sums to 16 bits */
-  sum1 = (sum1 & 0xffff) + (sum1 >> 16);
-  sum2 = (sum2 & 0xffff) + (sum2 >> 16);
-  return sum2 << 16 | sum1;
-}
-
 // Implementation from Wikipedia
-// Slightly slower than Fletcher above, but slighly more reliable.
 #define MOD_ADLER 65521
 // data: Pointer to the data to be summed; len is in bytes
 uint32_t Adler32(const uint8_t *data, size_t len) {

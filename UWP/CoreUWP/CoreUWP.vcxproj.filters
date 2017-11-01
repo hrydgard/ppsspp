@@ -617,6 +617,9 @@
       <Filter>MIPS\IR</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Core\AVIDump.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceUsbCam.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1152,5 +1155,8 @@
       <Filter>MIPS\IR</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\AVIDump.h" />
+    <ClInclude Include="..\..\Core\HLE\sceUsbCam.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -8,6 +8,7 @@
 #import "ViewController.h"
 #import "AudioEngine.h"
 #import <GLKit/GLKit.h>
+#include <cassert>
 
 #include "base/display.h"
 #include "base/timeutil.h"
@@ -38,6 +39,8 @@ public:
 	IOSDummyGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
+		bool success = draw_->CreatePresets();
+		assert(success);
 	}
 	~IOSDummyGraphicsContext() {
 		delete draw_;

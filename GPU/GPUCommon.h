@@ -169,17 +169,21 @@ public:
 #define new DBG_NEW
 #endif
 
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override {
-		return false;
-	}
-
 	// From GPUDebugInterface.
 	bool GetCurrentDisplayList(DisplayList &list) override;
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) override;
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
+	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
+
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override { return std::vector<std::string>(); };
+	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {
+		return "N/A";
+	}
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 	std::vector<DisplayList> ActiveDisplayLists() override;
 	void ResetListPC(int listID, u32 pc) override;
@@ -223,9 +227,7 @@ public:
 	bool DecodeTexture(u8* dest, const GPUgstate &state) override {
 		return false;
 	}
-	std::vector<FramebufferInfo> GetFramebufferList() override {
-		return std::vector<FramebufferInfo>();
-	}
+	std::vector<FramebufferInfo> GetFramebufferList() override;
 	void ClearShaderCache() override {}
 	void CleanupBeforeUI() override {}
 
@@ -234,11 +236,6 @@ public:
 			return dls[listid].waitTicks;
 		}
 		return -1;
-	}
-
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override { return std::vector<std::string>(); };
-	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {
-		return "N/A";
 	}
 
 	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);

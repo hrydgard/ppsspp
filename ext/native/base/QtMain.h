@@ -18,6 +18,8 @@ QTM_USE_NAMESPACE
 #endif
 #endif
 
+#include <cassert>
+
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
@@ -42,6 +44,8 @@ class QtDummyGraphicsContext : public DummyGraphicsContext {
 public:
 	QtDummyGraphicsContext() {
 		draw_ = Draw::T3DCreateGLContext();
+		bool success = draw_->CreatePresets();
+		assert(success);
 	}
 	~QtDummyGraphicsContext() {
 		delete draw_;

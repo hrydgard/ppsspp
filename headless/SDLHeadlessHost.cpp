@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <SDL.h>
+#include <cassert>
 #include "gfx/gl_lost_manager.h"
 
 #include "headless/SDLHeadlessHost.h"
@@ -54,6 +55,8 @@ public:
 	GLDummyGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
+		bool success = draw_->CreatePresets();
+		assert(success);
 	}
 	~GLDummyGraphicsContext() { delete draw_; }
 

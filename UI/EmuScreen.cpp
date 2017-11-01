@@ -1007,6 +1007,8 @@ void EmuScreen::postRender() {
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	if (!draw)
 		return;
+	if (invalid_)
+		draw->WipeQueue();
 	draw->EndFrame();
 }
 

@@ -490,7 +490,6 @@ public:
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
-	void BindFramebufferForRead(Framebuffer *fbo) override {}
 	
 	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
 
@@ -530,7 +529,7 @@ public:
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
-	uintptr_t GetNativeObject(NativeObject obj) const override {
+	uintptr_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
 		case NativeObject::CONTEXT:
 			return (uintptr_t)d3d_;
@@ -586,7 +585,6 @@ private:
 
 D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
 	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx), caps_{} {
-	CreatePresets();
 	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
 		ELOG("Failed to get adapter identifier: %d", adapterId);
 	}
@@ -603,6 +601,8 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.tesselationShaderSupported = false;
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = false;
+	caps_.framebufferDepthBlitSupported = true;
+	caps_.framebufferDepthCopySupported = false;
 	if (d3d) {
 		D3DDISPLAYMODE displayMode;
 		d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &displayMode);
@@ -634,6 +634,10 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	}
 	D3D9Pipeline *pipeline = new D3D9Pipeline(device_);
 	for (auto iter : desc.shaders) {
+		if (!iter) {
+			ELOG("NULL shader passed to CreateGraphicsPipeline");
+			return false;
+		}
 		if (iter->GetStage() == ShaderStage::FRAGMENT) {
 			pipeline->pshader = static_cast<D3D9ShaderModule *>(iter);
 		}
@@ -948,20 +952,24 @@ void D3D9Context::SetBlendFactor(float color[4]) {
 }
 
 bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size) {
-	LPD3DXMACRO defines = NULL;
-	LPD3DXINCLUDE includes = NULL;
+	LPD3DXMACRO defines = nullptr;
+	LPD3DXINCLUDE includes = nullptr;
 	DWORD flags = 0;
-	LPD3DXBUFFER codeBuffer;
-	LPD3DXBUFFER errorBuffer;
+	LPD3DXBUFFER codeBuffer = nullptr;
+	LPD3DXBUFFER errorBuffer = nullptr;
 	const char *source = (const char *)data;
 	const char *profile = stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0";
 	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, nullptr);
 	if (FAILED(hr)) {
-		const char *error = (const char *)errorBuffer->GetBufferPointer();
+		const char *error = errorBuffer ? (const char *)errorBuffer->GetBufferPointer() : "(no errorbuffer returned)";
+		if (hr == ERROR_MOD_NOT_FOUND) {
+			// No D3D9-compatible shader compiler installed.
+			error = "D3D9 shader compiler not installed";
+		}
 		OutputDebugStringA(source);
 		OutputDebugStringA(error);
-		errorBuffer->Release();
-
+		if (errorBuffer)
+			errorBuffer->Release();
 		if (codeBuffer) 
 			codeBuffer->Release();
 		return false;
@@ -1119,8 +1127,13 @@ void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChan
 
 void D3D9Context::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
-	*w = fb->width;
-	*h = fb->height;
+	if (fb) {
+		*w = fb->width;
+		*h = fb->height;
+	} else {
+		*w = targetWidth_;
+		*h = targetHeight_;
+	}
 }
 
 bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {

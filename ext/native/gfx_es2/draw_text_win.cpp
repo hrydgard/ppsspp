@@ -83,7 +83,7 @@ TextDrawerWin32::~TextDrawerWin32() {
 }
 
 uint32_t TextDrawerWin32::SetFont(const char *fontName, int size, int flags) {
-	uint32_t fontHash = fontName ? hash::Fletcher((const uint8_t *)fontName, strlen(fontName)) : 0;
+	uint32_t fontHash = fontName ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 0;
 	fontHash ^= size;
 	fontHash ^= flags << 10;
 
@@ -119,7 +119,7 @@ void TextDrawerWin32::SetFont(uint32_t fontHandle) {
 }
 
 void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float *h) {
-	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, len);
+	uint32_t stringHash = hash::Adler32((const uint8_t *)str, len);
 	uint32_t entryHash = stringHash ^ fontHash_;
 
 	TextMeasureEntry *entry;
@@ -164,7 +164,7 @@ void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bound
 	float total_w = 0.0f;
 	float total_h = 0.0f;
 	for (size_t i = 0; i < lines.size(); i++) {
-		uint32_t stringHash = hash::Fletcher((const uint8_t *)&lines[i][0], lines[i].length());
+		uint32_t stringHash = hash::Adler32((const uint8_t *)&lines[i][0], lines[i].length());
 		uint32_t entryHash = stringHash ^ fontHash_;
 
 		TextMeasureEntry *entry;
@@ -197,7 +197,7 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 	if (!strlen(str))
 		return;
 
-	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, strlen(str));
+	uint32_t stringHash = hash::Adler32((const uint8_t *)str, strlen(str));
 	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
 
 	target.Flush(true);

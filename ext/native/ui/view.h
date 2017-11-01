@@ -780,7 +780,7 @@ private:
 class TextEdit : public View {
 public:
 	TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams = 0);
-	void SetText(const std::string &text) { text_ = text; caret_ = (int)text_.size(); }
+	void SetText(const std::string &text) { text_ = text; scrollPos_ = 0; caret_ = (int)text_.size(); }
 	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	const std::string &GetText() const { return text_; }
 	void SetMaxLen(size_t maxLen) { maxLen_ = maxLen; }
@@ -802,6 +802,7 @@ private:
 	uint32_t textColor_;
 	bool hasTextColor_ = false;
 	int caret_;
+	int scrollPos_ = 0;
 	size_t maxLen_;
 	bool ctrlDown_ = false;  // TODO: Make some global mechanism for this.
 	// TODO: Selections

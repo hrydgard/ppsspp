@@ -320,6 +320,15 @@
     <ClInclude Include="gfx_es2\draw_text_android.h">
       <Filter>gfx</Filter>
     </ClInclude>
+    <ClInclude Include="thin3d\VulkanQueueRunner.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
+    <ClInclude Include="thin3d\VulkanRenderManager.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
+    <ClInclude Include="thin3d\DataFormat.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -780,6 +789,12 @@
     </ClCompile>
     <ClCompile Include="math\dataconv.cpp">
       <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\VulkanQueueRunner.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\VulkanRenderManager.cpp">
+      <Filter>thin3d</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

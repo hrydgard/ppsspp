@@ -2,6 +2,7 @@
 
 #include "Common/CommonWindows.h"
 #include <d3d11.h>
+#include <cassert>
 
 #include "base/logging.h"
 #include "util/text/utf8.h"
@@ -27,10 +28,6 @@ D3D11Context::~D3D11Context() {
 void D3D11Context::SwapBuffers() {
 	swapChain_->Present(0, 0);
 	draw_->HandleEvent(Draw::Event::PRESENTED, 0, 0, nullptr, nullptr);
-
-	// Might be a good idea.
-	// context_->ClearState();
-	//
 }
 
 void D3D11Context::SwapInterval(int interval) {
@@ -143,6 +140,8 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 #endif
 
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_);
+	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
+	assert(success);
 
 	int width;
 	int height;
