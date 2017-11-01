@@ -35,15 +35,24 @@ void main() {
 }
 )";
 
-static VkFormat GetClutDestFormat(GEPaletteFormat format) {
+static const VkComponentMapping VULKAN_4444_SWIZZLE = { VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B };
+static const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_A };
+static const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+static const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+
+static VkFormat GetClutDestFormat(GEPaletteFormat format, VkComponentMapping *componentMapping) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
-		return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
+		*componentMapping = VULKAN_4444_SWIZZLE;
+		return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
 	case GE_CMODE_16BIT_ABGR5551:
+		*componentMapping = VULKAN_1555_SWIZZLE;
 		return VK_FORMAT_A1R5G5B5_UNORM_PACK16;
 	case GE_CMODE_16BIT_BGR5650:
-		return VK_FORMAT_R5G6B5_UNORM_PACK16;
+		*componentMapping = VULKAN_565_SWIZZLE;
+		return VK_FORMAT_B5G6R5_UNORM_PACK16;
 	case GE_CMODE_32BIT_ABGR8888:
+		*componentMapping = VULKAN_8888_SWIZZLE;
 		return VK_FORMAT_R8G8B8A8_UNORM;
 	}
 	return VK_FORMAT_UNDEFINED;
@@ -104,7 +113,8 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 		return oldtex->second->texture;
 	}
 
-	VkFormat destFormat = GetClutDestFormat(clutFormat);
+	VkComponentMapping componentMapping;
+	VkFormat destFormat = GetClutDestFormat(clutFormat, &componentMapping);
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
 	VkBuffer pushBuffer;
@@ -112,7 +122,7 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 
 	VulkanTexture *vktex = new VulkanTexture(vulkan_, alloc_);
 	if (!vktex->CreateDirect(cmd, texturePixels, 1, 1, destFormat,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, nullptr)) {
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, &componentMapping)) {
 		Crash();
 	}
 	vktex->UploadMip(cmd, 0, texturePixels, 1, pushBuffer, pushOffset, texturePixels);

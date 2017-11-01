@@ -20,7 +20,7 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan), curFrame_(0) {
+Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
 	InitDeviceObjects();
 }
 
@@ -121,15 +121,13 @@ void Vulkan2D::DeviceRestore(VulkanContext *vulkan) {
 }
 
 void Vulkan2D::BeginFrame() {
-	FrameData &frame = frameData_[curFrame_];
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData &frame = frameData_[curFrame];
 	frame.descSets.clear();
 	vkResetDescriptorPool(vulkan_->GetDevice(), frame.descPool, 0);
 }
 
 void Vulkan2D::EndFrame() {
-	curFrame_++;
-	if (curFrame_ >= vulkan_->GetInflightFrames())
-		curFrame_ = 0;
 }
 
 VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1, VkImageView tex2, VkSampler sampler2) {
@@ -139,7 +137,8 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	key.sampler[0] = sampler1;
 	key.sampler[1] = sampler2;
 
-	FrameData *frame = &frameData_[curFrame_];
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData *frame = &frameData_[curFrame];
 	auto iter = frame->descSets.find(key);
 	if (iter != frame->descSets.end()) {
 		return iter->second;

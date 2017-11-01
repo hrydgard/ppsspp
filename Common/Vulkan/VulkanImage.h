@@ -35,8 +35,6 @@ public:
 	void UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
 	void EndCreate(VkCommandBuffer cmd);
 
-	void TransitionForUpload(VkCommandBuffer cmd);
-
 	int GetNumMips() const { return numMips_; }
 	void Destroy();
 

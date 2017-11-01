@@ -302,6 +302,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 }
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil) {
+	assert(insideFrame_);
 	// Eliminate dupes.
 	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == VKRStepType::RENDER) {
 		if (color != VKRRenderPassAction::CLEAR && depth != VKRRenderPassAction::CLEAR) {
@@ -554,6 +555,8 @@ void VulkanRenderManager::Finish() {
 }
 
 // Can be called multiple times with no bad side effects. This is so that we can either begin a frame the normal way,
+// or stop it in the middle for a synchronous readback, then start over again mostly normally but without repeating
+// the backbuffer image acquisition.
 void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 	if (!frameData.hasBegun) {
@@ -569,9 +572,6 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
 
 		assert(res == VK_SUCCESS);
-
-		// TODO: Is it best to do this here, or combine with some other transition, or just do it right before the backbuffer bind-for-render?
-		TransitionFromPresent(frameData.mainCmd, swapchainImages_[frameData.curSwapchainImage].image);
 
 		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage]);
 
@@ -589,32 +589,46 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
 	assert(res == VK_SUCCESS);
 
+	VkCommandBuffer cmdBufs[2];
 	int numCmdBufs = 0;
-	std::vector<VkCommandBuffer> cmdBufs;
-	cmdBufs.reserve(2);
 	if (frameData.hasInitCommands) {
-		cmdBufs.push_back(frameData.initCmd);
+		cmdBufs[numCmdBufs++] = frameData.initCmd;
 		frameData.hasInitCommands = false;
 	}
+	if (false) {
+		// Send the init commands off separately. Used this once to confirm that the cause of a device loss was in the init cmdbuf.
+		VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+		submit_info.commandBufferCount = (uint32_t)numCmdBufs;
+		submit_info.pCommandBuffers = cmdBufs;
+		res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
+		if (res == VK_ERROR_DEVICE_LOST) {
+			_assert_msg_(G3D, false, "Lost the Vulkan device!");
+		} else {
+			assert(res == VK_SUCCESS);
+		}
+		numCmdBufs = 0;
+	}
+	cmdBufs[numCmdBufs++] = frameData.mainCmd;
 
-	cmdBufs.push_back(frameData.mainCmd);
-
-	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	if (triggerFence) {
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &acquireSemaphore_;
+		VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		submit_info.pWaitDstStageMask = waitStage;
 	}
-
-	VkPipelineStageFlags waitStage[1] = { VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
-	submit_info.pWaitDstStageMask = waitStage;
-	submit_info.commandBufferCount = (uint32_t)cmdBufs.size();
-	submit_info.pCommandBuffers = cmdBufs.data();
+	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
+	submit_info.pCommandBuffers = cmdBufs;
 	if (triggerFence) {
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
 	}
 	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFence ? frameData.fence : VK_NULL_HANDLE);
-	assert(res == VK_SUCCESS);
+	if (res == VK_ERROR_DEVICE_LOST) {
+		_assert_msg_(G3D, false, "Lost the Vulkan device!");
+	} else {
+		assert(res == VK_SUCCESS);
+	}
 
 	if (useThread) {
 		VLOG("PULL: Frame %d.readyForFence = true", frame);
@@ -629,8 +643,6 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 	frameData.hasBegun = false;
 	insideFrame_ = false;
 
-	TransitionToPresent(frameData.mainCmd, swapchainImages_[frameData.curSwapchainImage].image);
-
 	Submit(frame, true);
 
 	VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
@@ -640,7 +652,6 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 	present.pImageIndices = &frameData.curSwapchainImage;
 	present.pWaitSemaphores = &renderingCompleteSemaphore_;
 	present.waitSemaphoreCount = 1;
-	present.pResults = nullptr;
 
 	VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
 	// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
@@ -660,6 +671,7 @@ void VulkanRenderManager::Run(int frame) {
 	FrameData &frameData = frameData_[frame];
 	auto &stepsOnThread = frameData_[frame].steps;
 	VkCommandBuffer cmd = frameData.mainCmd;
+	// queueRunner_.LogSteps(stepsOnThread);
 	queueRunner_.RunSteps(cmd, stepsOnThread);
 	stepsOnThread.clear();
 
@@ -682,6 +694,8 @@ void VulkanRenderManager::FlushSync() {
 
 	Submit(frame, false);
 
+	// This is brutal! Should probably wait for a fence instead, not that it'll matter much since we'll
+	// still stall everything.
 	vkDeviceWaitIdle(vulkan_->GetDevice());
 
 	// At this point we can resume filling the command buffers for the current frame since

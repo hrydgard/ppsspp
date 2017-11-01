@@ -306,6 +306,8 @@ public:
 		return swapchainFormat_;
 	}
 
+	// 1 for no frame overlap and thus minimal latency but worst performance.
+	// 2 is an OK compromise, while 3 performs best but risks slightly higher latency.
 	enum {
 		MAX_INFLIGHT_FRAMES = 3,
 	};
@@ -392,9 +394,6 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFla
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);
-
-void TransitionFromPresent(VkCommandBuffer cmd, VkImage image);
-void TransitionToPresent(VkCommandBuffer cmd, VkImage image);
 
 // GLSL compiler
 void init_glslang();

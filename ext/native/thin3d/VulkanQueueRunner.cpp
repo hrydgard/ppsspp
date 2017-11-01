@@ -54,21 +54,21 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;  // We don't want to preserve the backbuffer between frames so we really don't care.
+	attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;  // We only render once to the backbuffer per frame so we can do this here.
 	attachments[0].flags = 0;
 
 	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;  // must use this same format later for the back depth buffer.
 	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
 	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;  // Don't care about storing backbuffer Z - we clear it anyway.
 	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	attachments[1].flags = 0;
 
-	VkAttachmentReference color_reference = {};
+	VkAttachmentReference color_reference{};
 	color_reference.attachment = 0;
 	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -76,7 +76,7 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	depth_reference.attachment = 1;
 	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	VkSubpassDescription subpass = {};
+	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.flags = 0;
 	subpass.inputAttachmentCount = 0;
@@ -88,14 +88,23 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	subpass.preserveAttachmentCount = 0;
 	subpass.pPreserveAttachments = nullptr;
 
-	VkRenderPassCreateInfo rp_info = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-	rp_info.pNext = nullptr;
+	// For the built-in layout transitions.
+	VkSubpassDependency dep{};
+	dep.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dep.dstSubpass = 0;
+	dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dep.srcAccessMask = 0;
+	dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	VkRenderPassCreateInfo rp_info{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
 	rp_info.attachmentCount = 2;
 	rp_info.pAttachments = attachments;
 	rp_info.subpassCount = 1;
 	rp_info.pSubpasses = &subpass;
-	rp_info.dependencyCount = 0;
-	rp_info.pDependencies = nullptr;
+	rp_info.dependencyCount = 1;
+	rp_info.pDependencies = &dep;
 
 	res = vkCreateRenderPass(vulkan_->GetDevice(), &rp_info, nullptr, &backbufferRenderPass_);
 	assert(res == VK_SUCCESS);
@@ -112,7 +121,7 @@ void VulkanQueueRunner::InitRenderpasses() {
 	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;  // TODO: Look into auto-transitioning to SAMPLED when appropriate.
 	attachments[0].flags = 0;
 
 	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
@@ -125,15 +134,15 @@ void VulkanQueueRunner::InitRenderpasses() {
 	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	attachments[1].flags = 0;
 
-	VkAttachmentReference color_reference = {};
+	VkAttachmentReference color_reference{};
 	color_reference.attachment = 0;
 	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	VkAttachmentReference depth_reference = {};
+	VkAttachmentReference depth_reference{};
 	depth_reference.attachment = 1;
 	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	VkSubpassDescription subpass = {};
+	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.flags = 0;
 	subpass.inputAttachmentCount = 0;
@@ -145,13 +154,12 @@ void VulkanQueueRunner::InitRenderpasses() {
 	subpass.preserveAttachmentCount = 0;
 	subpass.pPreserveAttachments = nullptr;
 
-	VkRenderPassCreateInfo rp = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
+	VkRenderPassCreateInfo rp{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
 	rp.attachmentCount = 2;
 	rp.pAttachments = attachments;
 	rp.subpassCount = 1;
 	rp.pSubpasses = &subpass;
 	rp.dependencyCount = 0;
-	rp.pDependencies = nullptr;
 
 	for (int depth = 0; depth < 3; depth++) {
 		switch ((VKRRenderPassAction)depth) {
@@ -199,6 +207,73 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 		}
 		delete steps[i];
 	}
+}
+
+void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
+	ILOG("=======================================");
+	for (int i = 0; i < steps.size(); i++) {
+		const VKRStep &step = *steps[i];
+		switch (step.stepType) {
+		case VKRStepType::RENDER:
+			LogRenderPass(step);
+			break;
+		case VKRStepType::COPY:
+			LogCopy(step);
+			break;
+		case VKRStepType::BLIT:
+			LogBlit(step);
+			break;
+		case VKRStepType::READBACK:
+			LogReadback(step);
+			break;
+		}
+	}
+}
+
+void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
+	int fb = (int)(intptr_t)(pass.render.framebuffer ? pass.render.framebuffer->framebuf : 0);
+	ILOG("RenderPass Begin(%x)", fb);
+	for (auto &cmd : pass.commands) {
+		switch (cmd.cmd) {
+		case VKRRenderCommand::BIND_PIPELINE:
+			ILOG("  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
+			break;
+		case VKRRenderCommand::BLEND:
+			ILOG("  Blend(%f, %f, %f, %f)", cmd.blendColor.color[0], cmd.blendColor.color[1], cmd.blendColor.color[2], cmd.blendColor.color[3]);
+			break;
+		case VKRRenderCommand::CLEAR:
+			ILOG("  Clear");
+			break;
+		case VKRRenderCommand::DRAW:
+			ILOG("  Draw(%d)", cmd.draw.count);
+			break;
+		case VKRRenderCommand::DRAW_INDEXED:
+			ILOG("  DrawIndexed(%d)", cmd.drawIndexed.count);
+			break;
+		case VKRRenderCommand::SCISSOR:
+			ILOG("  Scissor(%d, %d, %d, %d)", (int)cmd.scissor.scissor.offset.x, (int)cmd.scissor.scissor.offset.y, (int)cmd.scissor.scissor.extent.width, (int)cmd.scissor.scissor.extent.height);
+			break;
+		case VKRRenderCommand::STENCIL:
+			ILOG("  Stencil(ref=%d, compare=%d, write=%d)", cmd.stencil.stencilRef, cmd.stencil.stencilCompareMask, cmd.stencil.stencilWriteMask);
+			break;
+		case VKRRenderCommand::VIEWPORT:
+			ILOG("  Viewport(%f, %f, %f, %f, %f, %f)", cmd.viewport.vp.x, cmd.viewport.vp.y, cmd.viewport.vp.width, cmd.viewport.vp.height, cmd.viewport.vp.minDepth, cmd.viewport.vp.maxDepth);
+			break;
+		}
+	}
+	ILOG("RenderPass End(%x)", fb);
+}
+
+void VulkanQueueRunner::LogCopy(const VKRStep &pass) {
+	ILOG("Copy()");
+}
+
+void VulkanQueueRunner::LogBlit(const VKRStep &pass) {
+	ILOG("Blit()");
+}
+
+void VulkanQueueRunner::LogReadback(const VKRStep &pass) {
+	ILOG("Readback");
 }
 
 void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
@@ -461,7 +536,6 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		}
 
 		renderPass = renderPasses_[RPIndex(step.render.color, step.render.depthStencil)];
-		// VLOG("Switching framebuffer to FBO (fc=%d, cmd=%x, rp=%x)", frameNum_, (int)(uintptr_t)cmd_, (int)(uintptr_t)renderPass);
 		if (step.render.color == VKRRenderPassAction::CLEAR) {
 			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 			numClearVals = 1;

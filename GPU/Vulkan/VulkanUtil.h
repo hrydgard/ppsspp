@@ -104,7 +104,6 @@ private:
 	};
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
-	int curFrame_ = 0;
 
 	std::map<PipelineKey, VkPipeline> pipelines_;
 };

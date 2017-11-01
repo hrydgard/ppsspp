@@ -509,7 +509,6 @@ private:
 
 	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
-	int frameNum_ = 0;
 	VulkanPushBuffer *push_ = nullptr;
 
 	DeviceCaps caps_{};
@@ -655,7 +654,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, const TextureDesc &desc) {
 }
 
 VKContext::VKContext(VulkanContext *vulkan)
-	: vulkan_(vulkan), frameNum_(0), caps_{}, renderManager_(vulkan) {
+	: vulkan_(vulkan), caps_{}, renderManager_(vulkan) {
 	caps_.anisoSupported = vulkan->GetFeaturesAvailable().samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetFeaturesAvailable().geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetFeaturesAvailable().tessellationShader != 0;
@@ -742,7 +741,7 @@ VKContext::~VKContext() {
 void VKContext::BeginFrame() {
 	renderManager_.BeginFrame();
 
-	FrameData &frame = frame_[frameNum_];
+	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 	push_ = frame.pushBuffer;
 
 	// OK, we now know that nothing is reading from this frame's data pushbuffer,
@@ -764,16 +763,13 @@ void VKContext::EndFrame() {
 
 	renderManager_.Finish();
 
-	frameNum_++;
-	if (frameNum_ >= vulkan_->GetInflightFrames())
-		frameNum_ = 0;
 	push_ = nullptr;
 }
 
 VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	DescriptorSetKey key;
 
-	FrameData *frame = &frame_[frameNum_];
+	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 
 	key.texture_ = boundTextures_[0];
 	key.sampler_ = boundSamplers_[0];

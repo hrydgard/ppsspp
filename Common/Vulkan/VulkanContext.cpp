@@ -153,20 +153,6 @@ VulkanContext::~VulkanContext() {
 	VulkanFree();
 }
 
-void TransitionToPresent(VkCommandBuffer cmd, VkImage image) {
-	TransitionImageLayout2(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
-}
-
-void TransitionFromPresent(VkCommandBuffer cmd, VkImage image) {
-	TransitionImageLayout2(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-		VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-}
-
 void VulkanContext::BeginFrame() {
 	FrameData *frame = &frame_[curFrame_];
 	// Process pending deletes.

@@ -514,9 +514,6 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 		}
 	}
 
-	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-
 	int scaleFactor = standardScaleFactor_;
 
 	// Rachet down scale factor in low-memory mode.
@@ -572,6 +569,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 	if (badMipSizes) {
 		maxLevel = 0;
 	}
+
+	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.

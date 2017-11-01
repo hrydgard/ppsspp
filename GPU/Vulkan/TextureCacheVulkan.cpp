@@ -550,6 +550,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 	int h = gstate.getTextureHeight(0);
 	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
+		if (replaceImages) {
+			// Since we're replacing the texture, we can't replace the image inside.
+			ReleaseTexture(entry, true);
+			replaceImages = false;
+		}
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
 		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
@@ -586,7 +591,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 	if (replaced.Valid()) {
 		actualFmt = ToVulkanFormat(replaced.Format(0));
 	}
-	if (!entry->vkTex) {
+
+	{
+		delete entry->vkTex;
 		entry->vkTex = new CachedTextureVulkan();
 		entry->vkTex->texture_ = new VulkanTexture(vulkan_, allocator_);
 		VulkanTexture *image = entry->vkTex->texture_;
@@ -636,8 +643,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 			delete entry->vkTex;
 			entry->vkTex = nullptr;
 		}
-	} else {
-		entry->vkTex->texture_->TransitionForUpload(cmdInit);
 	}
 	lastBoundTexture = entry->vkTex;
 

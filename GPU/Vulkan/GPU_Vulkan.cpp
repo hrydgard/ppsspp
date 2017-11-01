@@ -218,16 +218,16 @@ void GPU_Vulkan::BeginHostFrame() {
 
 	textureCacheVulkan_->StartFrame();
 
-
-	FrameData &frame = frameData_[curFrame_];
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData &frame = frameData_[curFrame];
 
 	frame.push_->Reset();
 	frame.push_->Begin(vulkan_);
 
 	framebufferManagerVulkan_->BeginFrameVulkan();
-	framebufferManagerVulkan_->SetPushBuffer(frameData_[curFrame_].push_);
-	depalShaderCache_.SetPushBuffer(frameData_[curFrame_].push_);
-	textureCacheVulkan_->SetPushBuffer(frameData_[curFrame_].push_);
+	framebufferManagerVulkan_->SetPushBuffer(frameData_[curFrame].push_);
+	depalShaderCache_.SetPushBuffer(frameData_[curFrame].push_);
+	textureCacheVulkan_->SetPushBuffer(frameData_[curFrame].push_);
 
 	vulkan2D_.BeginFrame();
 
@@ -244,15 +244,11 @@ void GPU_Vulkan::BeginHostFrame() {
 }
 
 void GPU_Vulkan::EndHostFrame() {
-	FrameData &frame = frameData_[curFrame_];
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData &frame = frameData_[curFrame];
 	frame.push_->End();
 
 	vulkan2D_.EndFrame();
-
-	curFrame_++;
-	if (curFrame_ >= vulkan_->GetInflightFrames()) {
-		curFrame_ = 0;
-	}
 
 	drawEngine_.EndFrame();
 	framebufferManagerVulkan_->EndFrame();
