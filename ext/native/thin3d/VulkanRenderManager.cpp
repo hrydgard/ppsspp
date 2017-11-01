@@ -554,6 +554,14 @@ void VulkanRenderManager::Finish() {
 	vulkan_->EndFrame();
 }
 
+void VulkanRenderManager::Wipe() {
+	int curFrame = vulkan_->GetCurFrame();
+	for (auto iter : steps_) {
+		delete iter;
+	}
+	steps_.clear();
+}
+
 // Can be called multiple times with no bad side effects. This is so that we can either begin a frame the normal way,
 // or stop it in the middle for a synchronous readback, then start over again mostly normally but without repeating
 // the backbuffer image acquisition.

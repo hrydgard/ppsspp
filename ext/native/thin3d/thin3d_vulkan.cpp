@@ -418,6 +418,7 @@ public:
 
 	void BeginFrame() override;
 	void EndFrame() override;
+	void WipeQueue() override;
 
 	void FlushState() override {
 	}
@@ -764,6 +765,10 @@ void VKContext::EndFrame() {
 	renderManager_.Finish();
 
 	push_ = nullptr;
+}
+
+void VKContext::WipeQueue() {
+	renderManager_.Wipe();
 }
 
 VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {

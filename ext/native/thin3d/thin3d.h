@@ -609,6 +609,7 @@ public:
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
 	virtual void BeginFrame() {}
 	virtual void EndFrame() {}
+	virtual void WipeQueue() {}
 
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
 	// on Vulkan.

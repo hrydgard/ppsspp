@@ -118,6 +118,22 @@ FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
 }
 
 FramebufferManagerCommon::~FramebufferManagerCommon() {
+	DecimateFBOs();
+	for (auto vfb : vfbs_) {
+		DestroyFramebuf(vfb);
+	}
+	vfbs_.clear();
+
+	for (auto &tempFB : tempFBOs_) {
+		tempFB.second.fbo->Release();
+	}
+	tempFBOs_.clear();
+
+	// Do the same for ReadFramebuffersToMemory's VFBs
+	for (auto vfb : bvfbs_) {
+		DestroyFramebuf(vfb);
+	}
+	bvfbs_.clear();
 }
 
 void FramebufferManagerCommon::Init() {
