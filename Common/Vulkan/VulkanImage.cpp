@@ -358,14 +358,6 @@ void VulkanTexture::EndCreate(VkCommandBuffer cmd) {
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
 
-void VulkanTexture::TransitionForUpload(VkCommandBuffer cmd) {
-	TransitionImageLayout2(cmd, image,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
-}
-
 void VulkanTexture::Destroy() {
 	if (view != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteImageView(view);

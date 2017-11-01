@@ -592,7 +592,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 		actualFmt = ToVulkanFormat(replaced.Format(0));
 	}
 
-	if (!entry->vkTex) {  // Change to "if (true) {" to always recreate.
+	{
 		delete entry->vkTex;
 		entry->vkTex = new CachedTextureVulkan();
 		entry->vkTex->texture_ = new VulkanTexture(vulkan_, allocator_);
@@ -643,8 +643,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 			delete entry->vkTex;
 			entry->vkTex = nullptr;
 		}
-	} else {
-		entry->vkTex->texture_->TransitionForUpload(cmdInit);
 	}
 	lastBoundTexture = entry->vkTex;
 
