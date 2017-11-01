@@ -624,7 +624,6 @@ void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 	int bz_vcount = (op >> 8) & 0xFF;
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
-	int bytesRead = 0;
 
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
@@ -635,6 +634,7 @@ void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 		}
 	}
 
+	int bytesRead = 0;
 	UpdateUVScaleOffset();
 	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
 

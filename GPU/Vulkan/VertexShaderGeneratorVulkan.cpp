@@ -626,7 +626,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 						if (doBezier || doSpline)
 							WRITE(p, "  v_texcoord = vec3(tex.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
 						else
-							WRITE(p, "  v_texcoord = vec3(texcoord.xy, 0.0);\n");
+							WRITE(p, "  v_texcoord = vec3(texcoord.xy * base.uvscaleoffset.xy, 0.0);\n");
 					} else {
 						WRITE(p, "  v_texcoord = vec3(0.0);\n");
 					}
