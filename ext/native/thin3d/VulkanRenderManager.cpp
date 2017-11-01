@@ -555,6 +555,8 @@ void VulkanRenderManager::Finish() {
 }
 
 // Can be called multiple times with no bad side effects. This is so that we can either begin a frame the normal way,
+// or stop it in the middle for a synchronous readback, then start over again mostly normally but without repeating
+// the backbuffer image acquisition.
 void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 	if (!frameData.hasBegun) {
