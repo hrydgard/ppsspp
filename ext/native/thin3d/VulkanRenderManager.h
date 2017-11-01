@@ -127,6 +127,18 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
+	void PushConstants(VkPipelineLayout pipelineLayout, VkShaderStageFlags stages, int offset, int size, void *constants) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		assert(size + offset < 32);
+		VkRenderData data{ VKRRenderCommand::PUSH_CONSTANTS };
+		data.push.pipelineLayout = pipelineLayout;
+		data.push.stages = stages;
+		data.push.offset = offset;
+		data.push.size = size;
+		memcpy(data.push.data, constants, size);
+		curRenderStep_->commands.push_back(data);
+	}
+
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask);
 
 	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count) {

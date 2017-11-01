@@ -525,5 +525,8 @@
     <ClCompile Include="Debugger\Record.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="Vulkan\StencilBufferVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

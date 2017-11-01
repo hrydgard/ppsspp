@@ -1174,6 +1174,7 @@ set(GPU_VULKAN
 	GPU/Vulkan/ShaderManagerVulkan.h
 	GPU/Vulkan/StateMappingVulkan.cpp
 	GPU/Vulkan/StateMappingVulkan.h
+	GPU/Vulkan/StencilBufferVulkan.cpp
 	GPU/Vulkan/TextureCacheVulkan.cpp
 	GPU/Vulkan/TextureCacheVulkan.h
 	GPU/Vulkan/TextureScalerVulkan.cpp

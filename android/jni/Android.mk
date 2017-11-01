@@ -136,6 +136,7 @@ VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/PipelineManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/ShaderManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/StateMappingVulkan.cpp \
+  $(SRC)/GPU/Vulkan/StencilBufferVulkan.cpp \
   $(SRC)/GPU/Vulkan/TextureCacheVulkan.cpp \
   $(SRC)/GPU/Vulkan/TextureScalerVulkan.cpp \
   $(SRC)/GPU/Vulkan/DepalettizeShaderVulkan.cpp \

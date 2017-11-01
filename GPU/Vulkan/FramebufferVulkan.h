@@ -134,6 +134,9 @@ private:
 	VkShaderModule fsBasicTex_;
 	VkShaderModule vsBasicTex_;
 
+	VkShaderModule stencilVs_ = VK_NULL_HANDLE;
+	VkShaderModule stencilFs_ = VK_NULL_HANDLE;
+
 	VkPipeline cur2DPipeline_ = VK_NULL_HANDLE;
 
 	// Postprocessing
