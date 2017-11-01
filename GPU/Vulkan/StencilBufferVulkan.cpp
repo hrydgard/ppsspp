@@ -20,6 +20,7 @@
 #include "ext/native/thin3d/thin3d.h"
 #include "ext/native/thin3d/VulkanRenderManager.h"
 #include "Core/Reporting.h"
+#include "GPU/Common/StencilCommon.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
 #include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
@@ -64,39 +65,6 @@ void main() {
   gl_Position = vec4(v_texcoord0 * vec2(2.0, 2.0) + vec2(-1.0, -1.0), 0.0, 1.0);
 }
 )";
-
-static u8 StencilBits5551(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
-
-	for (u32 i = 0; i < numPixels / 2; ++i) {
-		if (ptr[i] & 0x80008000) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static u8 StencilBits4444(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
-	u32 bits = 0;
-
-	for (u32 i = 0; i < numPixels / 2; ++i) {
-		bits |= ptr[i];
-	}
-
-	return ((bits >> 12) & 0xF) | (bits >> 28);
-}
-
-static u8 StencilBits8888(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
-	u32 bits = 0;
-
-	for (u32 i = 0; i < numPixels; ++i) {
-		bits |= ptr[i];
-	}
-
-	return bits >> 24;
-}
 
 // In Vulkan we should be able to simply copy the stencil data directly to a stencil buffer without
 // messing about with bitplane textures and the like. Or actually, maybe not... Let's start with

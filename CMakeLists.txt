@@ -1267,6 +1267,8 @@ set(GPU_SOURCES
 	GPU/Common/ShaderCommon.h
 	GPU/Common/SplineCommon.cpp
 	GPU/Common/SplineCommon.h
+	GPU/Common/StencilCommon.cpp
+	GPU/Common/StencilCommon.h
 	GPU/Common/SoftwareTransformCommon.cpp
 	GPU/Common/SoftwareTransformCommon.h
 	GPU/Common/VertexDecoderCommon.cpp

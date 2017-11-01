@@ -223,6 +223,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureScalerCommon.cpp.arm \
   $(SRC)/GPU/Common/ShaderCommon.cpp \
+  $(SRC)/GPU/Common/StencilCommon.cpp \
   $(SRC)/GPU/Common/SplineCommon.cpp.arm \
   $(SRC)/GPU/Common/DrawEngineCommon.cpp.arm \
   $(SRC)/GPU/Common/TransformCommon.cpp.arm \
