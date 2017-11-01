@@ -57,7 +57,7 @@ enum {
 };
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
-#define DESCRIPTORSET_DECIMATION_INTERVAL 13
+#define DESCRIPTORSET_DECIMATION_INTERVAL 1  // Temporarily cut to 1. Handle reuse breaks this when textures get deleted.
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
@@ -295,6 +295,7 @@ void DrawEngineVulkan::BeginFrame() {
 
 	// TODO : Find a better place to do this.
 	if (!nullTexture_) {
+		ILOG("INIT : Creating null texture");
 		VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 		nullTexture_ = new VulkanTexture(vulkan_);
 		int w = 8;
@@ -1087,6 +1088,7 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 
 void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) {
 	int rowPitch;
+	ILOG("INIT : Prep tess");
 
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// Position
