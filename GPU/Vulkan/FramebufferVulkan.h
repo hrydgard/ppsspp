@@ -86,6 +86,7 @@ public:
 	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
 
 protected:
+	void CompilePostShader();
 	void Bind2DShader() override;
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void SetViewport2D(int x, int y, int w, int h) override;
@@ -99,8 +100,6 @@ protected:
 private:
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
-
-	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -130,16 +129,20 @@ private:
 	VkPipelineCache pipelineCache2D_;
 
 	// Basic shaders
-	VkShaderModule fsBasicTex_;
-	VkShaderModule vsBasicTex_;
+	VkShaderModule fsBasicTex_ = VK_NULL_HANDLE;
+	VkShaderModule vsBasicTex_ = VK_NULL_HANDLE;
 
 	VkShaderModule stencilVs_ = VK_NULL_HANDLE;
 	VkShaderModule stencilFs_ = VK_NULL_HANDLE;
 
+
 	VkPipeline cur2DPipeline_ = VK_NULL_HANDLE;
 
 	// Postprocessing
-	VkPipeline pipelinePostShader_;
+	VkShaderModule postVs_ = VK_NULL_HANDLE;
+	VkShaderModule postFs_ = VK_NULL_HANDLE;
+	VkPipeline pipelinePostShader_ = VK_NULL_HANDLE;
+	PostShaderUniforms postShaderUniforms_;
 
 	VkSampler linearSampler_;
 	VkSampler nearestSampler_;

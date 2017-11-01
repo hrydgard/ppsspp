@@ -74,7 +74,7 @@ struct VkRenderData {
 			VkShaderStageFlags stages;
 			uint8_t offset;
 			uint8_t size;
-			uint8_t data[32];  // Should be enough for now.
+			uint8_t data[40];  // Should be enough for now.
 		} push;
 	};
 };
