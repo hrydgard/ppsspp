@@ -32,6 +32,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 #include "Common/ChunkFile.h"
 
 #include "Core/HLE/sceAudio.h"
@@ -2463,7 +2464,12 @@ int sceKernelDelayThread(u32 usec) {
 	s64 delayUs = __KernelDelayThreadUs(usec);
 	__KernelScheduleWakeup(curThread, delayUs);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
-	return hleLogSuccessI(SCEKERNEL, 0, "delaying %lld usecs", delayUs);
+	int result = 0;
+	if (PSP_CoreParameter().compat.flags().DelayDelayThreadHack)
+		result = hleDelayResult(hleLogSuccessI(SCEKERNEL, 0, "delaying %lld usecs", delayUs), "hack", 6000);
+	else
+		result = hleLogSuccessI(SCEKERNEL, 0, "delaying %lld usecs", delayUs);
+	return result;
 }
 
 int sceKernelDelaySysClockThreadCB(u32 sysclockAddr) {
