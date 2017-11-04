@@ -19,8 +19,6 @@
 //#define SHADERLOG
 #endif
 
-#include <map>
-
 #include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"

@@ -187,6 +187,7 @@ void VulkanQueueRunner::InitRenderpasses() {
 		}
 	}
 }
+
 void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
 	for (int i = 0; i < steps.size(); i++) {
