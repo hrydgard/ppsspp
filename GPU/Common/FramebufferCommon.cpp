@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <sstream>
+#include <cassert>
 
 #include "ext/native/thin3d/thin3d.h"
 #include "base/timeutil.h"
@@ -213,7 +214,7 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferForma
 	static const int MAX_FRAMEBUF_HEIGHT = 512;
 
 	// Games don't always set any of these.  Take the greatest parameter that looks valid based on stride.
-	if (viewport_width > 4 && viewport_width <= fb_stride) {
+	if (viewport_width > 4 && viewport_width <= fb_stride && viewport_height > 0) {
 		drawing_width = viewport_width;
 		drawing_height = viewport_height;
 		// Some games specify a viewport with 0.5, but don't have VRAM for 273.  480x272 is the buffer size.
@@ -300,8 +301,19 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	params->isModeThrough = gstate.isModeThrough();
 
 	// Viewport-X1 and Y1 are not the upper left corner, but half the width/height. A bit confusing.
-	params->viewportWidth = (int)(fabsf(gstate.getViewportXScale()*2.0f));
-	params->viewportHeight = (int)(fabsf(gstate.getViewportYScale()*2.0f));
+	float vpx = gstate.getViewportXScale();
+	float vpy = gstate.getViewportYScale();
+
+	// Work around problem in F1 Grand Prix, where it draws in through mode with a bogus viewport.
+	// We set bad values to 0 which causes the framebuffer size heuristic to rely on the other parameters instead.
+	if (isnan(vpx) || vpx > 10000000.0f) {
+		vpx = 0.f;
+	}
+	if (isnan(vpy) || vpy > 10000000.0f) {
+		vpy = 0.f;
+	}
+	params->viewportWidth = (int)(fabsf(vpx) * 2.0f);
+	params->viewportHeight = (int)(fabsf(vpy) * 2.0f);
 	params->regionWidth = gstate.getRegionX2() + 1;
 	params->regionHeight = gstate.getRegionY2() + 1;
 	params->scissorWidth = gstate.getScissorX2() + 1;
@@ -1108,7 +1120,9 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	}
 }
 
-void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force, bool skipCopy) {
+void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force, bool skipCopy) {
+	assert(w > 0);
+	assert(h > 0);
 	VirtualFramebuffer old = *vfb;
 
 	int oldWidth = vfb->bufferWidth;
@@ -1123,8 +1137,8 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 		}
 
 		// In case it gets thin and wide, don't resize down either side.
-		vfb->bufferWidth = std::max(vfb->bufferWidth, w);
-		vfb->bufferHeight = std::max(vfb->bufferHeight, h);
+		vfb->bufferWidth = std::max((int)vfb->bufferWidth, w);
+		vfb->bufferHeight = std::max((int)vfb->bufferHeight, h);
 	}
 
 	SetRenderSize(vfb);

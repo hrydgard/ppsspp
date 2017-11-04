@@ -318,7 +318,9 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		curRenderStep_ = nullptr;
 	}
 	if (curRenderStep_ && curRenderStep_->commands.size() == 0) {
+#ifdef _DEBUG
 		ILOG("Empty render step. Usually happens after uploading pixels..");
+#endif
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
