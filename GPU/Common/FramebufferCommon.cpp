@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <sstream>
 #include <cassert>
+#include <cmath>
 
 #include "ext/native/thin3d/thin3d.h"
 #include "base/timeutil.h"
