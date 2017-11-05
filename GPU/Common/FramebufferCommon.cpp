@@ -307,10 +307,10 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 
 	// Work around problem in F1 Grand Prix, where it draws in through mode with a bogus viewport.
 	// We set bad values to 0 which causes the framebuffer size heuristic to rely on the other parameters instead.
-	if (isnan(vpx) || vpx > 10000000.0f) {
+	if (std::isnan(vpx) || vpx > 10000000.0f) {
 		vpx = 0.f;
 	}
-	if (isnan(vpy) || vpy > 10000000.0f) {
+	if (std::isnan(vpy) || vpy > 10000000.0f) {
 		vpy = 0.f;
 	}
 	params->viewportWidth = (int)(fabsf(vpx) * 2.0f);
