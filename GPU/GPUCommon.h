@@ -251,8 +251,6 @@ protected:
 	virtual void ReapplyGfxStateInternal();
 	virtual void FastLoadBoneMatrix(u32 target);
 
-	void ProcessEvent(GPUEvent ev);
-
 	// TODO: Unify this.
 	virtual void FinishDeferred() {}
 

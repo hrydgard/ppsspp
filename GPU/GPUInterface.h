@@ -155,56 +155,6 @@ enum GPUInvalidationType {
 	GPU_INVALIDATE_SAFE,
 };
 
-enum GPUEventType {
-	GPU_EVENT_INVALID,
-	GPU_EVENT_PROCESS_QUEUE,
-	GPU_EVENT_INIT_CLEAR,
-	GPU_EVENT_BEGIN_FRAME,
-	GPU_EVENT_COPY_DISPLAY_TO_OUTPUT,
-	GPU_EVENT_REAPPLY_GFX_STATE,
-	GPU_EVENT_INVALIDATE_CACHE,
-	GPU_EVENT_FINISH_EVENT_LOOP,
-	GPU_EVENT_SYNC_THREAD,
-	GPU_EVENT_FB_MEMCPY,
-	GPU_EVENT_FB_MEMSET,
-	GPU_EVENT_FB_STENCIL_UPLOAD,
-	GPU_EVENT_REINITIALIZE,
-};
-
-struct GPUEvent {
-	GPUEvent(GPUEventType t) : type(t) {}
-	GPUEventType type;
-	union {
-		// GPU_EVENT_INVALIDATE_CACHE
-		struct {
-			u32 addr;
-			int size;
-			GPUInvalidationType type;
-		} invalidate_cache;
-		// GPU_EVENT_FB_MEMCPY
-		struct {
-			u32 dst;
-			u32 src;
-			int size;
-		} fb_memcpy;
-		// GPU_EVENT_FB_MEMSET
-		struct {
-			u32 dst;
-			u8 v;
-			int size;
-		} fb_memset;
-		// GPU_EVENT_FB_STENCIL_UPLOAD
-		struct {
-			u32 dst;
-			int size;
-		} fb_stencil_upload;
-	};
-
-	operator GPUEventType() const {
-		return type;
-	}
-};
-
 namespace Draw {
 class DrawContext;
 }

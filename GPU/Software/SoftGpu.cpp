@@ -283,7 +283,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 void SoftGPU::CopyDisplayToOutput()
 {
-	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
+	CopyDisplayToOutputInternal();
 }
 
 void SoftGPU::CopyDisplayToOutputInternal()
@@ -299,17 +299,6 @@ void SoftGPU::CopyDisplayToOutputInternal()
 	} else {
 		PSP_CoreParameter().renderWidth = 480;
 		PSP_CoreParameter().renderHeight = 272;
-	}
-}
-
-void SoftGPU::ProcessEvent(GPUEvent ev) {
-	switch (ev.type) {
-	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
-		CopyDisplayToOutputInternal();
-		break;
-
-	default:
-		GPUCommon::ProcessEvent(ev);
 	}
 }
 

@@ -1028,53 +1028,6 @@ inline void GPUCommon::UpdateState(GPURunState state) {
 		downcount = 0;
 }
 
-void GPUCommon::ProcessEvent(GPUEvent ev) {
-	switch (ev.type) {
-	case GPU_EVENT_PROCESS_QUEUE:
-		ProcessDLQueueInternal();
-		break;
-
-	case GPU_EVENT_REAPPLY_GFX_STATE:
-		ReapplyGfxStateInternal();
-		break;
-
-	case GPU_EVENT_INIT_CLEAR:
-		InitClearInternal();
-		break;
-
-	case GPU_EVENT_BEGIN_FRAME:
-		BeginFrameInternal();
-		break;
-
-	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
-		CopyDisplayToOutputInternal();
-		break;
-
-	case GPU_EVENT_INVALIDATE_CACHE:
-		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
-		break;
-
-	case GPU_EVENT_FB_MEMCPY:
-		PerformMemoryCopyInternal(ev.fb_memcpy.dst, ev.fb_memcpy.src, ev.fb_memcpy.size);
-		break;
-
-	case GPU_EVENT_FB_MEMSET:
-		PerformMemorySetInternal(ev.fb_memset.dst, ev.fb_memset.v, ev.fb_memset.size);
-		break;
-
-	case GPU_EVENT_FB_STENCIL_UPLOAD:
-		PerformStencilUploadInternal(ev.fb_stencil_upload.dst, ev.fb_stencil_upload.size);
-		break;
-
-	case GPU_EVENT_REINITIALIZE:
-		break;
-
-	default:
-		ERROR_LOG_REPORT(G3D, "Unexpected GPU event type: %d", (int)ev);
-		break;
-	}
-}
-
 int GPUCommon::GetNextListIndex() {
 	auto iter = dlQueue.begin();
 	if (iter != dlQueue.end()) {

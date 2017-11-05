@@ -94,8 +94,6 @@ public:
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
-	void ScheduleEvent(GPUEvent ev) { ProcessEvent(ev); }
-	void ProcessEvent(GPUEvent ev);
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
 
 private:
