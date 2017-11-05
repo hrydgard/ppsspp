@@ -210,7 +210,7 @@ VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderMod
 
 	VkPipelineColorBlendAttachmentState blend0 = {};
 	blend0.blendEnable = false;
-	blend0.colorWriteMask = depthStencilMode == VK2DDepthStencilMode::STENCIL_REPLACE_ALWAYS ? 0 : 0xF;
+	blend0.colorWriteMask = depthStencilMode == VK2DDepthStencilMode::STENCIL_REPLACE_ALWAYS ? VK_COLOR_COMPONENT_A_BIT : 0xF;
 
 	VkPipelineColorBlendStateCreateInfo cbs = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
 	cbs.pAttachments = &blend0;

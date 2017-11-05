@@ -28,9 +28,6 @@
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
 
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
-
 struct StencilValueUB {
 	uint32_t u_stencilValue[4];
 };
