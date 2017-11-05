@@ -127,10 +127,6 @@ public:
 	// Note: Not virtual!
 	inline void Flush();
 
-	u64 GetTickEstimate() override {
-		return curTickEst_;
-	}
-
 #ifdef USE_CRT_DBG
 #undef new
 #endif
@@ -290,8 +286,6 @@ protected:
 	GEPrimitiveType lastPrim_;
 
 private:
-	u64 curTickEst_;
-
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;

@@ -57,10 +57,6 @@ static int geSyncEvent;
 static int geInterruptEvent;
 static int geCycleEvent;
 
-// Let's try updating 10 times per vblank - this is the interval for geCycleEvent.
-const int geIntervalUs = 1000000 / (60 * 10);
-const int geBehindThresholdUs = 1000000 / (60 * 10);
-
 class GeIntrHandler : public IntrHandler {
 public:
 	GeIntrHandler() : IntrHandler(PSP_GE_INTR) {}
@@ -193,19 +189,8 @@ static void __GeExecuteInterrupt(u64 userdata, int cyclesLate) {
 	__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
 }
 
-// Should we still do this?
 static void __GeCheckCycles(u64 userdata, int cyclesLate) {
-	u64 geTicks = gpu->GetTickEstimate();
-	if (geTicks != 0) {
-		if (CoreTiming::GetTicks() > geTicks + usToCycles(geBehindThresholdUs)) {
-			u64 diff = CoreTiming::GetTicks() - geTicks;
-			CoreTiming::Advance();
-		}
-	}
-
-	// This may get out of step if we synced (because we don't correct for cyclesLate),
-	// but that's okay - __GeCheckCycles is a very rough way to synchronize anyway.
-	CoreTiming::ScheduleEvent(usToCycles(geIntervalUs), geCycleEvent, 0);
+	// Deprecated
 }
 
 void __GeInit() {
@@ -216,15 +201,12 @@ void __GeInit() {
 
 	geSyncEvent = CoreTiming::RegisterEvent("GeSyncEvent", &__GeExecuteSync);
 	geInterruptEvent = CoreTiming::RegisterEvent("GeInterruptEvent", &__GeExecuteInterrupt);
+
+	// Deprecated
 	geCycleEvent = CoreTiming::RegisterEvent("GeCycleEvent", &__GeCheckCycles);
 
 	listWaitingThreads.clear();
 	drawWaitingThreads.clear();
-
-	// When we're using separate CPU/GPU threads, we need to keep them in sync.
-	if (IsOnSeparateCPUThread()) {
-		CoreTiming::ScheduleEvent(usToCycles(geIntervalUs), geCycleEvent, 0);
-	}
 }
 
 struct GeInterruptData_v1 {
