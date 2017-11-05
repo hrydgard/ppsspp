@@ -654,6 +654,7 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 	const u32 texaddr = ((entry->addr + texaddrOffset) & ~mirrorMask);
 	const bool noOffset = texaddr == addr;
 	const bool exactMatch = noOffset && entry->format < 4;
+	const u32 w = 1 << ((entry->dim >> 0) & 0xf);
 	const u32 h = 1 << ((entry->dim >> 8) & 0xf);
 	// 512 on a 272 framebuffer is sane, so let's be lenient.
 	const u32 minSubareaHeight = h / 4;
@@ -701,6 +702,13 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 				DetachFramebuffer(entry, address, framebuffer);
 				return false;
 			}
+		}
+
+		// Check if it's in bufferWidth (which might be higher than width and may indicate the framebuffer includes the data.)
+		if (fbInfo.xOffset >= framebuffer->bufferWidth && fbInfo.xOffset + w <= framebuffer->fb_stride) {
+			// This happens in Brave Story, see #10045 - the texture is in the space between strides, with matching stride.
+			DetachFramebuffer(entry, address, framebuffer);
+			return false;
 		}
 
 		if (fbInfo.yOffset + minSubareaHeight >= framebuffer->height) {
