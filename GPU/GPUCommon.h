@@ -66,7 +66,7 @@ public:
 	void PreExecuteOp(u32 op, u32 diff) override;
 
 	bool InterpretList(DisplayList &list) override;
-	virtual bool ProcessDLQueue();
+	void ProcessDLQueue();
 	u32  UpdateStall(int listid, u32 newstall) override;
 	u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) override;
 	u32  DequeueList(int listid) override;
@@ -79,8 +79,8 @@ public:
 	u32  Break(int mode) override;
 	void ReapplyGfxState() override;
 
-	void CopyDisplayToOutput() override;
-	void InitClear() override;
+	void CopyDisplayToOutput() override = 0;
+	void InitClear() override = 0;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformMemoryDownload(u32 dest, int size) override;
@@ -105,10 +105,6 @@ public:
 	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 
-	void Execute_TexScaleU(u32 op, u32 diff);
-	void Execute_TexScaleV(u32 op, u32 diff);
-	void Execute_TexOffsetU(u32 op, u32 diff);
-	void Execute_TexOffsetV(u32 op, u32 diff);
 	void Execute_TexLevel(u32 op, u32 diff);
 
 	void Execute_WorldMtxNum(u32 op, u32 diff);
@@ -233,11 +229,7 @@ protected:
 		}
 	}
 
-	virtual void InitClearInternal() {}
 	void BeginFrame() override;
-	virtual void BeginFrameInternal();
-	virtual void CopyDisplayToOutputInternal() {}
-	virtual void ReinitializeInternal() {}
 
 	// To avoid virtual calls to PreExecuteOp().
 	virtual void FastRunLoop(DisplayList &list) = 0;
@@ -247,8 +239,6 @@ protected:
 	void PopDLQueue();
 	void CheckDrawSync();
 	int  GetNextListIndex();
-	void ProcessDLQueueInternal();
-	virtual void ReapplyGfxStateInternal();
 	virtual void FastLoadBoneMatrix(u32 target);
 
 	// TODO: Unify this.
@@ -264,11 +254,6 @@ protected:
 			gstate_c.vertexAddr += bytesRead;
 		}
 	}
-
-	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
-	void PerformMemorySetInternal(u32 dest, u8 v, int size);
-	void PerformStencilUploadInternal(u32 dest, int size);
-	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
 	FramebufferManagerCommon *framebufferManager_;
 	TextureCacheCommon *textureCache_;

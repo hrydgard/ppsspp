@@ -286,7 +286,7 @@ void GPU_D3D11::DeviceRestore() {
 	// Nothing needed.
 }
 
-void GPU_D3D11::InitClearInternal() {
+void GPU_D3D11::InitClear() {
 	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
 	if (useNonBufferedRendering) {
 		// device_->Clear(0, NULL, D3DCLEAR_STENCIL | D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
@@ -305,8 +305,8 @@ void GPU_D3D11::BeginHostFrame() {
 	}
 }
 
-void GPU_D3D11::ReapplyGfxStateInternal() {
-	GPUCommon::ReapplyGfxStateInternal();
+void GPU_D3D11::ReapplyGfxState() {
+	GPUCommon::ReapplyGfxState();
 
 	// TODO: Dirty our caches for depth states etc
 }
@@ -316,8 +316,8 @@ void GPU_D3D11::EndHostFrame() {
 	draw_->BindPipeline(nullptr);
 }
 
-void GPU_D3D11::BeginFrameInternal() {
-	GPUCommon::BeginFrameInternal();
+void GPU_D3D11::BeginFrame() {
+	GPUCommon::BeginFrame();
 
 	textureCacheD3D11_->StartFrame();
 	drawEngine_.BeginFrame();
@@ -357,7 +357,7 @@ bool GPU_D3D11::FramebufferReallyDirty() {
 	return true;
 }
 
-void GPU_D3D11::CopyDisplayToOutputInternal() {
+void GPU_D3D11::CopyDisplayToOutput() {
 	float blendColor[4]{};
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], blendColor, 0xFFFFFFFF);
 

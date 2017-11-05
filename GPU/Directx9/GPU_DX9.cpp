@@ -251,7 +251,7 @@ void GPU_DX9::DeviceRestore() {
 	// Nothing needed.
 }
 
-void GPU_DX9::InitClearInternal() {
+void GPU_DX9::InitClear() {
 	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
 	if (useNonBufferedRendering) {
 		dxstate.depthWrite.set(true);
@@ -272,12 +272,12 @@ void GPU_DX9::BeginHostFrame() {
 	}
 }
 
-void GPU_DX9::ReapplyGfxStateInternal() {
+void GPU_DX9::ReapplyGfxState() {
 	dxstate.Restore();
-	GPUCommon::ReapplyGfxStateInternal();
+	GPUCommon::ReapplyGfxState();
 }
 
-void GPU_DX9::BeginFrameInternal() {
+void GPU_DX9::BeginFrame() {
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
@@ -292,7 +292,7 @@ void GPU_DX9::BeginFrameInternal() {
 	depalShaderCache_.Decimate();
 	// fragmentTestCache_.Decimate();
 
-	GPUCommon::BeginFrameInternal();
+	GPUCommon::BeginFrame();
 	shaderManagerDX9_->DirtyShader();
 
 	framebufferManager_->BeginFrame();
@@ -323,7 +323,7 @@ bool GPU_DX9::FramebufferReallyDirty() {
 	return true;
 }
 
-void GPU_DX9::CopyDisplayToOutputInternal() {
+void GPU_DX9::CopyDisplayToOutput() {
 	dxstate.depthWrite.set(true);
 	dxstate.colorMask.set(true, true, true, true);
 

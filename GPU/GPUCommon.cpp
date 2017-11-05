@@ -381,14 +381,6 @@ void GPUCommon::EndHostFrame() {
 
 }
 
-void GPUCommon::InitClear() {
-	InitClearInternal();
-}
-
-void GPUCommon::CopyDisplayToOutput() {
-	CopyDisplayToOutputInternal();
-}
-
 void GPUCommon::Reinitialize() {
 	memset(dls, 0, sizeof(dls));
 	for (int i = 0; i < DisplayListMaxCount; ++i) {
@@ -404,7 +396,6 @@ void GPUCommon::Reinitialize() {
 	timeSpentStepping_ = 0.0;
 	interruptsEnabled_ = true;
 	curTickEst_ = 0;
-	ReinitializeInternal();
 }
 
 int GPUCommon::EstimatePerVertexCost() {
@@ -927,10 +918,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 }
 
 void GPUCommon::BeginFrame() {
-	BeginFrameInternal();
-}
-
-void GPUCommon::BeginFrameInternal() {
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
 		dumpThisFrame_ = true;
@@ -994,10 +981,6 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 }
 
 void GPUCommon::ReapplyGfxState() {
-	ReapplyGfxStateInternal();
-}
-
-void GPUCommon::ReapplyGfxStateInternal() {
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFFF as the diff.
 
@@ -1037,12 +1020,7 @@ int GPUCommon::GetNextListIndex() {
 	}
 }
 
-bool GPUCommon::ProcessDLQueue() {
-	ProcessDLQueueInternal();
-	return true;
-}
-
-void GPUCommon::ProcessDLQueueInternal() {
+void GPUCommon::ProcessDLQueue() {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
 	curTickEst_ = std::max(busyTicks, startingTicks + cyclesExecuted);
@@ -1326,7 +1304,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 				__GeTriggerSync(GPU_SYNC_LIST, currentList->id, currentList->waitTicks);
 				if (currentList->started && currentList->context.IsValid()) {
 					gstate.Restore(currentList->context);
-					ReapplyGfxStateInternal();
+					ReapplyGfxState();
 				}
 			}
 			break;
@@ -2231,27 +2209,17 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
-void GPUCommon::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
-	if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
-		// We use a little hack for Download/Upload using a VRAM mirror.
-		// Since they're identical we don't need to copy.
-		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
-			Memory::Memcpy(dest, src, size);
-		}
-	}
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-}
-
-void GPUCommon::PerformMemorySetInternal(u32 dest, u8 v, int size) {
-	if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
-		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	}
-}
-
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
-		PerformMemoryCopyInternal(dest, src, size);
+		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
+			// We use a little hack for Download/Upload using a VRAM mirror.
+			// Since they're identical we don't need to copy.
+			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
+				Memory::Memcpy(dest, src, size);
+			}
+		}
+		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 		return true;
 	}
 
@@ -2264,7 +2232,9 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 	// This may indicate a memset, usually to 0, of a framebuffer.
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
 		Memory::Memset(dest, v, size);
-		PerformMemorySetInternal(dest, v, size);
+		if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
+			InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+		}
 		return true;
 	}
 
@@ -2294,10 +2264,6 @@ bool GPUCommon::PerformMemoryUpload(u32 dest, int size) {
 }
 
 void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
-	InvalidateCacheInternal(addr, size, type);
-}
-
-void GPUCommon::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
 		textureCache_->Invalidate(addr, size, type);
 	else
@@ -2322,14 +2288,10 @@ void GPUCommon::NotifyVideoUpload(u32 addr, int size, int width, int format) {
 
 bool GPUCommon::PerformStencilUpload(u32 dest, int size) {
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
-		PerformStencilUploadInternal(dest, size);
+		framebufferManager_->NotifyStencilUpload(dest, size);
 		return true;
 	}
 	return false;
-}
-
-void GPUCommon::PerformStencilUploadInternal(u32 dest, int size) {
-	framebufferManager_->NotifyStencilUpload(dest, size);
 }
 
 bool GPUCommon::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {

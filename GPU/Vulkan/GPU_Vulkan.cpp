@@ -332,21 +332,17 @@ void GPU_Vulkan::BuildReportingInfo() {
 	Reporting::UpdateConfig();
 }
 
-void GPU_Vulkan::ReinitializeInternal() {
+void GPU_Vulkan::Reinitialize() {
+	GPUCommon::Reinitialize();
 	textureCacheVulkan_->Clear(true);
 	depalShaderCache_.Clear();
 	framebufferManagerVulkan_->DestroyAllFBOs();
 }
 
-void GPU_Vulkan::InitClearInternal() {
+void GPU_Vulkan::InitClear() {
 	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
 	if (useNonBufferedRendering) {
-		/*
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(0, 0, 0, 1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-		*/
+		// TODO?
 	}
 }
 
@@ -389,7 +385,7 @@ bool GPU_Vulkan::FramebufferReallyDirty() {
 	return true;
 }
 
-void GPU_Vulkan::CopyDisplayToOutputInternal() {
+void GPU_Vulkan::CopyDisplayToOutput() {
 	// Flush anything left over.
 	drawEngine_.Flush();
 

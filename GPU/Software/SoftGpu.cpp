@@ -281,13 +281,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	draw_->BindIndexBuffer(nullptr, 0);
 }
 
-void SoftGPU::CopyDisplayToOutput()
-{
-	CopyDisplayToOutputInternal();
-}
-
-void SoftGPU::CopyDisplayToOutputInternal()
-{
+void SoftGPU::CopyDisplayToOutput() {
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	framebufferDirty_ = false;
