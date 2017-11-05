@@ -67,14 +67,10 @@ DepalShaderCacheDX9::~DepalShaderCacheDX9() {
 	}
 }
 
-u32 DepalShaderCacheDX9::GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) {
-	return (clutMode & 0xFFFFFF) | (pixelFormat << 24);
-}
+LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(GEPaletteFormat clutFormat, u32 clutHash, u32 *rawClut) {
+	u32 clutId = GetClutID(clutFormat, clutHash);
 
-LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut) {
-	const u32 realClutID = clutID ^ clutFormat;
-
-	auto oldtex = texCache_.find(realClutID);
+	auto oldtex = texCache_.find(clutId);
 	if (oldtex != texCache_.end()) {
 		oldtex->second->lastFrame = gpuStats.numFlips;
 		return oldtex->second->texture;
@@ -117,7 +113,7 @@ LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(GEPaletteFormat clutForma
 	device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 
 	tex->lastFrame = gpuStats.numFlips;
-	texCache_[realClutID] = tex;
+	texCache_[clutId] = tex;
 	return tex->texture;
 }
 
