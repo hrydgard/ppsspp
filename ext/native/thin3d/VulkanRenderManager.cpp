@@ -179,7 +179,15 @@ void VulkanRenderManager::CreateBackbuffers() {
 
 	// Start the thread.
 	if (useThread) {
+		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
+			// Reset all the frameData.  Might be dirty from previous thread stop.
+			frameData_[i].readyForRun = false;
+			frameData_[i].readyForFence = true;
+		}
+
 		run_ = true;
+		// Won't necessarily be 0.
+		threadInitFrame_ = vulkan_->GetCurFrame();
 		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
 	}
 }
@@ -236,12 +244,15 @@ VulkanRenderManager::~VulkanRenderManager() {
 // TODO: Activate this code.
 void VulkanRenderManager::ThreadFunc() {
 	setCurrentThreadName("RenderMan");
-	int threadFrame = -1;  // Increment first, start at 0.
+	int threadFrame = threadInitFrame_;
+	bool nextFrame = false;
 	while (run_) {
 		{
-			threadFrame++;
-			if (threadFrame >= vulkan_->GetInflightFrames())
-				threadFrame = 0;
+			if (nextFrame) {
+				threadFrame++;
+				if (threadFrame >= vulkan_->GetInflightFrames())
+					threadFrame = 0;
+			}
 			FrameData &frameData = frameData_[threadFrame];
 			std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 			while (!frameData.readyForRun && run_) {
@@ -252,10 +263,14 @@ void VulkanRenderManager::ThreadFunc() {
 			frameData.readyForRun = false;
 			if (!run_)  // quick exit if bailing.
 				return;
+
+			nextFrame = true;
 		}
 		VLOG("PULL: Running frame %d", threadFrame);
 		Run(threadFrame);
+		VLOG("PULL: Finished frame %d", threadFrame);
 	}
+	VLOG("PULL: Quitting");
 }
 
 void VulkanRenderManager::BeginFrame() {

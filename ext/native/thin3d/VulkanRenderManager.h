@@ -249,6 +249,7 @@ private:
 	VulkanContext *vulkan_;
 	std::thread thread_;
 	std::mutex mutex_;
+	int threadInitFrame_ = 0;
 	VulkanQueueRunner queueRunner_;
 
 	// Swap chain management
