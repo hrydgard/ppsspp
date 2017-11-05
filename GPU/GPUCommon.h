@@ -294,48 +294,6 @@ protected:
 	void PerformStencilUploadInternal(u32 dest, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
-	// This mutex can be disabled, which is useful for single core mode.
-	class optional_mutex {
-	public:
-		optional_mutex() : enabled_(true) {}
-		void set_enabled(bool enabled) {
-			enabled_ = enabled;
-		}
-		void lock() {
-			if (enabled_)
-				mutex_.lock();
-		}
-		void unlock() {
-			if (enabled_)
-				mutex_.unlock();
-		}
-	private:
-		std::mutex mutex_;
-		bool enabled_;
-	};
-
-
-	// Allows early unlocking with a guard.  Do not double unlock.
-	class easy_guard {
-	public:
-		easy_guard(optional_mutex &mtx) : mtx_(mtx), locked_(true) { mtx_.lock(); }
-		~easy_guard() {
-			if (locked_)
-				mtx_.unlock();
-		}
-		void unlock() {
-			if (locked_)
-				mtx_.unlock();
-			else
-				Crash();
-			locked_ = false;
-		}
-
-	private:
-		optional_mutex &mtx_;
-		bool locked_;
-	};
-
 	FramebufferManagerCommon *framebufferManager_;
 	TextureCacheCommon *textureCache_;
 	DrawEngineCommon *drawEngineCommon_;
@@ -350,7 +308,6 @@ protected:
 	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
-	optional_mutex listLock;
 
 	bool interruptRunning;
 	GPURunState gpuState;
