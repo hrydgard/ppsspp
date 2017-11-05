@@ -137,6 +137,7 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 	if (res != VK_SUCCESS) {
 		init_error_ = "Failed to enumerate physical devices";
 		vkDestroyInstance(instance_, nullptr);
+		instance_ = nullptr;
 		return res;
 	}
 

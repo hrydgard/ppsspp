@@ -1038,6 +1038,9 @@ void EmuScreen::render() {
 	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {
 		DrawContext *thin3d = screenManager()->getDrawContext();
 
+		// It's possible we never ended up outputted anything - make sure we have the backbuffer.
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::KEEP });
+
 		// This sets up some important states but not the viewport.
 		screenManager()->getUIContext()->Begin();
 

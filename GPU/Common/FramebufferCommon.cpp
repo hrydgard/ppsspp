@@ -838,7 +838,7 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 }
 
 void FramebufferManagerCommon::CopyDisplayToOutput() {
-	// DownloadFramebufferOnSwitch(currentRenderVfb_);
+	DownloadFramebufferOnSwitch(currentRenderVfb_);
 
 	currentRenderVfb_ = 0;
 
@@ -1073,7 +1073,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	currentRenderVfb_ = 0;
 
 	for (auto iter : fbosToDelete_) {
-		delete iter;
+		iter->Release();
 	}
 	fbosToDelete_.clear();
 

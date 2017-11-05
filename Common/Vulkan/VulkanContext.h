@@ -378,7 +378,7 @@ private:
 
 	std::vector<VkDebugReportCallbackEXT> msg_callbacks;
 
-	VkSwapchainKHR swapchain_;
+	VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
 	VkFormat swapchainFormat_;
 
 	uint32_t queue_count = 0;

@@ -208,7 +208,8 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 }
 
 void WindowsVulkanContext::Shutdown() {
-	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+	if (draw_)
+		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 
 	delete draw_;
 	draw_ = nullptr;
@@ -227,7 +228,6 @@ void WindowsVulkanContext::SwapBuffers() {
 }
 
 void WindowsVulkanContext::Resize() {
-	g_Vulkan->WaitUntilQueueIdle();
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroyObjects();
 
