@@ -326,8 +326,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 			vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 			iter.fb->color.layout = barrier.newLayout;
-			iter.fb->Release();
 		}
+		iter.fb->Release();
 	}
 
 	// This is supposed to bind a vulkan render pass to the command buffer.
