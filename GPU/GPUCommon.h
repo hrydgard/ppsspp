@@ -2,7 +2,6 @@
 
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
-#include "Core/ThreadEventQueue.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -14,8 +13,6 @@
 #if defined(_M_SSE)
 #include <emmintrin.h>
 #endif
-
-typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID, GPU_EVENT_SYNC_THREAD, GPU_EVENT_FINISH_EVENT_LOOP> GPUThreadEventQueue;
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
@@ -42,7 +39,7 @@ enum {
 	FLAG_DIRTYONCHANGE = 64,  // NOTE: Either this or FLAG_EXECUTE*, not both!
 };
 
-class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface {
+class GPUCommon : public GPUInterface, public GPUDebugInterface {
 public:
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	virtual ~GPUCommon();
@@ -77,14 +74,6 @@ public:
 	u32  DrawSync(int mode) override;
 	int  GetStack(int index, u32 stackPtr) override;
 	void DoState(PointerWrap &p) override;
-	bool FramebufferDirty() override {
-		SyncThread();
-		return true;
-	}
-	bool FramebufferReallyDirty() override {
-		SyncThread();
-		return true;
-	}
 	bool BusyDrawing() override;
 	u32  Continue() override;
 	u32  Break(int mode) override;
@@ -261,12 +250,12 @@ protected:
 	void ProcessDLQueueInternal();
 	virtual void ReapplyGfxStateInternal();
 	virtual void FastLoadBoneMatrix(u32 target);
-	void ProcessEvent(GPUEvent ev) override;
-	bool ShouldExitEventLoop() override {
-		return coreState != CORE_RUNNING;
-	}
-	virtual void FinishDeferred() {
-	}
+
+	void ScheduleEvent(GPUEventType event);
+	void ProcessEvent(GPUEvent ev);
+
+	// TODO: Unify this.
+	virtual void FinishDeferred() {}
 
 	void DoBlockTransfer(u32 skipDrawReason);
 

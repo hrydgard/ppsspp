@@ -193,13 +193,12 @@ static void __GeExecuteInterrupt(u64 userdata, int cyclesLate) {
 	__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
 }
 
+// Should we still do this?
 static void __GeCheckCycles(u64 userdata, int cyclesLate) {
 	u64 geTicks = gpu->GetTickEstimate();
 	if (geTicks != 0) {
 		if (CoreTiming::GetTicks() > geTicks + usToCycles(geBehindThresholdUs)) {
 			u64 diff = CoreTiming::GetTicks() - geTicks;
-			// Let the GPU thread catch up.
-			gpu->SyncThread();
 			CoreTiming::Advance();
 		}
 	}
@@ -504,7 +503,6 @@ static int sceGeUnsetCallback(u32 cbID) {
 // unless some insane game pokes it and relies on it...
 u32 sceGeSaveContext(u32 ctxAddr) {
 	DEBUG_LOG(SCEGE, "sceGeSaveContext(%08x)", ctxAddr);
-	gpu->SyncThread();
 
 	if (gpu->BusyDrawing()) {
 		WARN_LOG(SCEGE, "sceGeSaveContext(%08x): lists in process, aborting", ctxAddr);
@@ -524,7 +522,6 @@ u32 sceGeSaveContext(u32 ctxAddr) {
 
 u32 sceGeRestoreContext(u32 ctxAddr) {
 	DEBUG_LOG(SCEGE, "sceGeRestoreContext(%08x)", ctxAddr);
-	gpu->SyncThread();
 
 	if (gpu->BusyDrawing()) {
 		WARN_LOG(SCEGE, "sceGeRestoreContext(%08x): lists in process, aborting", ctxAddr);

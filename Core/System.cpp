@@ -328,7 +328,6 @@ void CPU_RunLoop() {
 		switch (cpuThreadState) {
 		case CPU_THREAD_EXECUTE:
 			mipsr4k.RunLoopUntil(cpuThreadUntil);
-			gpu->FinishEventLoop();
 			CPU_NextState(CPU_THREAD_EXECUTE, CPU_THREAD_RUNNING);
 			break;
 
@@ -352,12 +351,6 @@ void CPU_RunLoop() {
 
 	if (coreState != CORE_ERROR) {
 		coreState = CORE_POWERDOWN;
-	}
-
-	// Let's make sure the gpu has already cleaned up before we start freeing memory.
-	if (gpu) {
-		gpu->FinishEventLoop();
-		gpu->SyncThread(true);
 	}
 
 	CPU_Shutdown();
@@ -384,9 +377,6 @@ static void Core_UpdateDebugStats(bool flag) {
 void System_Wake() {
 	// Ping the threads so they check coreState.
 	CPU_NextStateNot(CPU_THREAD_NOT_RUNNING, CPU_THREAD_SHUTDOWN);
-	if (gpu) {
-		gpu->FinishEventLoop();
-	}
 }
 
 // Ugly!
@@ -545,9 +535,8 @@ void PSP_RunLoopUntil(u64 globalticks) {
 		cpuThread = new std::thread(&CPU_RunLoop);
 		cpuThreadID = cpuThread->get_id();
 		cpuThread->detach();
-		if (gpu) {
-			gpu->SetThreadEnabled(true);
-		}
+		// Probably needs to tell the gpu that it will need to queue up its output
+		// on another thread.
 		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 	} else if (!useCPUThread && cpuThread != nullptr) {
 		CPU_SetState(CPU_THREAD_QUIT);
@@ -555,21 +544,15 @@ void PSP_RunLoopUntil(u64 globalticks) {
 		delete cpuThread;
 		cpuThread = nullptr;
 		cpuThreadID = std::thread::id();
-		if (gpu) {
-			gpu->SetThreadEnabled(false);
-		}
 	}
 
 	if (cpuThread != nullptr) {
-		// Tell the gpu a new frame is about to begin, before we start the CPU.
-		gpu->SyncBeginFrame();
-
 		cpuThreadUntil = globalticks;
 		if (CPU_NextState(CPU_THREAD_RUNNING, CPU_THREAD_EXECUTE)) {
 			// The CPU doesn't actually respect cpuThreadUntil well, especially when skipping frames.
 			// TODO: Something smarter?  Or force CPU to bail periodically?
 			while (!CPU_IsReady()) {
-				gpu->RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
+				// Have the GPU do stuff here.
 				if (coreState != CORE_RUNNING) {
 					CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 				}

@@ -225,10 +225,6 @@ public:
 	virtual void BeginHostFrame() = 0;
 	virtual void EndHostFrame() = 0;
 
-	// Events
-	virtual void RunEventsUntil(u64 globalticks) = 0;
-	virtual void FinishEventLoop() = 0;
-
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;
 	// TODO: Much of this should probably be shared between the different GPU implementations.
@@ -277,8 +273,6 @@ public:
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore() = 0;
 	virtual void ReapplyGfxState() = 0;
-	virtual void SyncThread(bool force = false) = 0;
-	virtual void SyncBeginFrame() = 0;
 	virtual u64  GetTickEstimate() = 0;
 	virtual void DoState(PointerWrap &p) = 0;
 
@@ -289,7 +283,6 @@ public:
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;
-	virtual void SetThreadEnabled(bool threadEnabled) = 0;
 
 	// If any jit is being used inside the GPU.
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;

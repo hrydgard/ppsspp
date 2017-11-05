@@ -362,7 +362,6 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 
 	Reinitialize();
 	SetupColorConv();
-	SetThreadEnabled(false);
 	gstate.Reset();
 	gstate_c.Reset();
 	gpuStats.Reset();
@@ -406,6 +405,11 @@ void GPUCommon::Reinitialize() {
 	interruptsEnabled_ = true;
 	curTickEst_ = 0;
 	ScheduleEvent(GPU_EVENT_REINITIALIZE);
+}
+
+void GPUCommon::ScheduleEvent(GPUEventType event) {
+	// Queue is gone, we now process events immediately.
+	ProcessEvent(event);
 }
 
 int GPUCommon::EstimatePerVertexCost() {
@@ -470,11 +474,6 @@ void GPUCommon::DumpNextFrame() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
-	if (ThreadEnabled()) {
-		// Sync first, because the CPU is usually faster than the emulated GPU.
-		SyncThread();
-	}
-
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
@@ -523,11 +522,6 @@ void GPUCommon::CheckDrawSync() {
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
-	if (ThreadEnabled()) {
-		// Sync first, because the CPU is usually faster than the emulated GPU.
-		SyncThread();
-	}
-
 	if (listid < 0 || listid >= DisplayListMaxCount)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -2319,9 +2313,6 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 			ev.fb_memcpy.src = src;
 			ev.fb_memcpy.size = size;
 			ScheduleEvent(ev);
-
-			// This is a memcpy, so we need to wait for it to complete.
-			SyncThread();
 		} else {
 			PerformMemoryCopyInternal(dest, src, size);
 		}

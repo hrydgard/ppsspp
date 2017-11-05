@@ -504,11 +504,6 @@ void GPU_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 }
 
 bool GPU_GLES::FramebufferDirty() {
-	if (ThreadEnabled()) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	VirtualFramebuffer *vfb = framebufferManagerGL_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
@@ -519,11 +514,6 @@ bool GPU_GLES::FramebufferDirty() {
 }
 
 bool GPU_GLES::FramebufferReallyDirty() {
-	if (ThreadEnabled()) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	VirtualFramebuffer *vfb = framebufferManagerGL_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;

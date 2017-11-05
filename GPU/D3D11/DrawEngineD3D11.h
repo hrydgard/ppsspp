@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <map>
 #include <d3d11.h>
 #include <d3d11_1.h>
 
@@ -190,7 +191,8 @@ private:
 	PushBufferD3D11 *pushVerts_;
 	PushBufferD3D11 *pushInds_;
 
-	// D3D11 state object caches
+	// D3D11 state object caches.
+	// TODO: Change them to DenseHashMaps.
 	std::map<uint64_t, ID3D11BlendState *> blendCache_;
 	std::map<uint64_t, ID3D11BlendState1 *> blendCache1_;
 	std::map<uint64_t, ID3D11DepthStencilState *> depthStencilCache_;

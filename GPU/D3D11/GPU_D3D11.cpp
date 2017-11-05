@@ -338,13 +338,6 @@ void GPU_D3D11::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat f
 }
 
 bool GPU_D3D11::FramebufferDirty() {
-	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-	if (ThreadEnabled()) {
-		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
 	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
@@ -353,15 +346,8 @@ bool GPU_D3D11::FramebufferDirty() {
 	}
 	return true;
 }
-bool GPU_D3D11::FramebufferReallyDirty() {
-	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-	if (ThreadEnabled()) {
-		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
 
+bool GPU_D3D11::FramebufferReallyDirty() {
 	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;

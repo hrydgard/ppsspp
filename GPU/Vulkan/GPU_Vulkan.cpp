@@ -370,11 +370,6 @@ void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat 
 }
 
 bool GPU_Vulkan::FramebufferDirty() {
-	if (ThreadEnabled()) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
@@ -385,11 +380,6 @@ bool GPU_Vulkan::FramebufferDirty() {
 }
 
 bool GPU_Vulkan::FramebufferReallyDirty() {
-	if (ThreadEnabled()) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;

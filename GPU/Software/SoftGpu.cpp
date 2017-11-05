@@ -28,6 +28,7 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
+#include "Core/Core.h"
 #include "profiler/profiler.h"
 #include "thin3d/thin3d.h"
 
