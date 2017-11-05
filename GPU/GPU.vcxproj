@@ -360,7 +360,6 @@
     <ClCompile Include="Software\SoftGpu.cpp" />
     <ClCompile Include="Software\TransformUnit.cpp" />
     <ClCompile Include="Common\TextureDecoder.cpp" />
-    <ClCompile Include="Source.cpp" />
     <ClCompile Include="Vulkan\DepalettizeShaderVulkan.cpp" />
     <ClCompile Include="Vulkan\DrawEngineVulkan.cpp" />
     <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp" />

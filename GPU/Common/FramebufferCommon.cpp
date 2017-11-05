@@ -2033,9 +2033,9 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 }
 
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-	// Clamp to width. Sometimes block transfers can cause this to hit.
-	if (x + w >= vfb->width) {
-		w = vfb->width - x;
+	// Clamp to bufferWidth. Sometimes block transfers can cause this to hit.
+	if (x + w >= vfb->bufferWidth) {
+		w = vfb->bufferWidth - x;
 	}
 	if (vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
