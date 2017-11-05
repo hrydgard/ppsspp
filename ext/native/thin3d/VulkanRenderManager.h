@@ -70,6 +70,11 @@ private:
 	VulkanContext *vulkan_;
 };
 
+enum class VKRRunType {
+	END,
+	SYNC,
+};
+
 class VulkanRenderManager {
 public:
 	VulkanRenderManager(VulkanContext *vulkan);
@@ -206,6 +211,7 @@ private:
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
+	void EndSyncFrame(int frame);
 
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;
@@ -220,8 +226,9 @@ private:
 		std::condition_variable pull_condVar;
 
 		bool readyForFence = true;
-
 		bool readyForRun = false;
+		VKRRunType type = VKRRunType::END;
+
 		VkFence fence;
 		// These are on different threads so need separate pools.
 		VkCommandPool cmdPoolInit;
