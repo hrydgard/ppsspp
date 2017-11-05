@@ -616,8 +616,27 @@ void VulkanRenderManager::Finish() {
 
 void VulkanRenderManager::Wipe() {
 	int curFrame = vulkan_->GetCurFrame();
-	for (auto iter : steps_) {
-		delete iter;
+	for (auto step : steps_) {
+		// Need to release held framebuffers.
+		switch (step->stepType) {
+		case VKRStepType::RENDER:
+			for (const auto &iter : step->preTransitions) {
+				iter.fb->Release();
+			}
+			break;
+		case VKRStepType::COPY:
+			step->copy.src->Release();
+			step->copy.dst->Release();
+			break;
+		case VKRStepType::BLIT:
+			step->blit.src->Release();
+			step->blit.dst->Release();
+			break;
+		case VKRStepType::READBACK:
+			step->readback.src->Release();
+			break;
+		}
+		delete step;
 	}
 	steps_.clear();
 }
