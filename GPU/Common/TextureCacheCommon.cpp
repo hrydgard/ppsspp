@@ -781,7 +781,7 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		nextTexture_ = entry;
 	} else {
 		if (framebuffer->fbo) {
-			delete framebuffer->fbo;
+			framebuffer->fbo->Release();
 			framebuffer->fbo = nullptr;
 		}
 		Unbind();

@@ -198,7 +198,7 @@ bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffe
 
 void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
 	for (size_t i = 0; i < extraFBOs_.size(); i++) {
-		delete extraFBOs_[i];
+		extraFBOs_[i]->Release();
 	}
 	extraFBOs_.clear();
 	for (int i = 0; i < num; i++) {
@@ -620,7 +620,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 		if (vfb->fbo) {
 			// This should only happen very briefly when toggling useBufferedRendering_.
 			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
-			delete vfb->fbo;
+			vfb->fbo->Release();
 			vfb->fbo = nullptr;
 		}
 
@@ -1173,7 +1173,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	if (!useBufferedRendering_) {
 		if (vfb->fbo) {
-			delete vfb->fbo;
+			vfb->fbo->Release();
 			vfb->fbo = nullptr;
 		}
 		return;
