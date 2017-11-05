@@ -1072,7 +1072,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	currentRenderVfb_ = 0;
 
 	for (auto iter : fbosToDelete_) {
-		delete iter;
+		iter->Release();
 	}
 	fbosToDelete_.clear();
 

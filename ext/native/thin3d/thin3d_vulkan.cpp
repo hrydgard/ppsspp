@@ -1248,9 +1248,10 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
+	// Inherits ownership so no AddRef.
 	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {}
 	~VKFramebuffer() {
-		delete buf_;
+		buf_->Release();
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }
 private:

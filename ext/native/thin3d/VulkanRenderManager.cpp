@@ -96,6 +96,16 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	img.format = format;
 }
 
+bool VKRFramebuffer::Release() {
+	if (--refcount_ == 0) {
+		delete this;
+		return true;
+	} else if (refcount_ >= 10000 || refcount_ < 0) {
+		ELOG("Refcount (%d) invalid for object %p - corrupt?", refcount_.load(), this);
+	}
+	return false;
+}
+
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan), queueRunner_(vulkan) {
 	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	semaphoreCreateInfo.flags = 0;
@@ -351,6 +361,9 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.numDraws = 0;
 	step->render.finalColorLayout = !fb ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
 	steps_.push_back(step);
+	if (fb) {
+		fb->AddRef();
+	}
 
 	curRenderStep_ = step;
 	curWidth_ = fb ? fb->width : vulkan_->GetBackbufferWidth();
@@ -364,6 +377,7 @@ void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 	step->readback.srcRect.offset = { x, y };
 	step->readback.srcRect.extent = { (uint32_t)w, (uint32_t)h };
 	steps_.push_back(step);
+	src->AddRef();
 
 	curRenderStep_ = nullptr;
 
@@ -505,6 +519,8 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	step->copy.srcRect = srcRect;
 	step->copy.dst = dst;
 	step->copy.dstPos = dstPos;
+	src->AddRef();
+	dst->AddRef();
 
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
@@ -530,6 +546,8 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	step->blit.dst = dst;
 	step->blit.dstRect = dstRect;
 	step->blit.filter = filter;
+	src->AddRef();
+	dst->AddRef();
 
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
@@ -553,6 +571,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	}
 
 	curRenderStep_->preTransitions.push_back({ fb, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+	fb->AddRef();
 	return fb->color.imageView;
 }
 

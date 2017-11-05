@@ -4,10 +4,11 @@
 // Only draws and binds are handled here, resource creation and allocations are handled as normal -
 // that's the nice thing with Vulkan.
 
-#include <cstdint>
-#include <thread>
-#include <mutex>
+#include <atomic>
 #include <condition_variable>
+#include <cstdint>
+#include <mutex>
+#include <thread>
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
@@ -28,6 +29,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 class VKRFramebuffer {
 public:
 	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height) : vulkan_(vk) {
+		refcount_ = 1;
 		width = _width;
 		height = _height;
 
@@ -58,6 +60,11 @@ public:
 		vulkan_->Delete().QueueDeleteFramebuffer(framebuf);
 	}
 
+	void AddRef() {
+		refcount_++;
+	}
+	bool Release();
+
 	int numShadows = 1;  // TODO: Support this.
 
 	VkFramebuffer framebuf = VK_NULL_HANDLE;
@@ -68,6 +75,7 @@ public:
 
 private:
 	VulkanContext *vulkan_;
+	std::atomic<int> refcount_;
 };
 
 enum class VKRRunType {
