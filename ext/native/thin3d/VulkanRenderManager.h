@@ -221,6 +221,8 @@ private:
 	void FlushSync();
 	void EndSyncFrame(int frame);
 
+	void StopThread(bool shutdown);
+
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;
 	VkSemaphore renderingCompleteSemaphore_;

@@ -189,12 +189,6 @@ void VulkanRenderManager::CreateBackbuffers() {
 
 	// Start the thread.
 	if (useThread) {
-		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
-			// Reset all the frameData.  Might be dirty from previous thread stop.
-			frameData_[i].readyForRun = false;
-			frameData_[i].readyForFence = true;
-		}
-
 		run_ = true;
 		// Won't necessarily be 0.
 		threadInitFrame_ = vulkan_->GetCurFrame();
@@ -202,22 +196,37 @@ void VulkanRenderManager::CreateBackbuffers() {
 	}
 }
 
-void VulkanRenderManager::DestroyBackbuffers() {
-	if (useThread) {
+void VulkanRenderManager::StopThread(bool shutdown) {
+	if (useThread && run_) {
 		run_ = false;
 		// Stop the thread.
 		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
+			auto &frameData = frameData_[i];
 			{
-				std::unique_lock<std::mutex> lock(frameData_[i].push_mutex);
-				frameData_[i].push_condVar.notify_all();
+				std::unique_lock<std::mutex> lock(frameData.push_mutex);
+				frameData.push_condVar.notify_all();
 			}
 			{
-				std::unique_lock<std::mutex> lock(frameData_[i].pull_mutex);
-				frameData_[i].pull_condVar.notify_all();
+				std::unique_lock<std::mutex> lock(frameData.pull_mutex);
+				frameData.pull_condVar.notify_all();
 			}
 		}
 		thread_.join();
+
+		// Resignal fences for next time around - must be done after join.
+		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
+			auto &frameData = frameData_[i];
+			frameData.readyForRun = false;
+			if (!shutdown && !frameData.readyForFence) {
+				vkDestroyFence(vulkan_->GetDevice(), frameData.fence, nullptr);
+				frameData.fence = vulkan_->CreateFence(true);
+			}
+		}
 	}
+}
+
+void VulkanRenderManager::DestroyBackbuffers() {
+	StopThread(false);
 	vulkan_->WaitUntilQueueIdle();
 
 	VkDevice device = vulkan_->GetDevice();
@@ -237,9 +246,10 @@ void VulkanRenderManager::DestroyBackbuffers() {
 }
 
 VulkanRenderManager::~VulkanRenderManager() {
-	run_ = false;
-	VkDevice device = vulkan_->GetDevice();
+	StopThread(true);
 	vulkan_->WaitUntilQueueIdle();
+
+	VkDevice device = vulkan_->GetDevice();
 	vkDestroySemaphore(device, acquireSemaphore_, nullptr);
 	vkDestroySemaphore(device, renderingCompleteSemaphore_, nullptr);
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
