@@ -659,7 +659,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 		assert(res == VK_SUCCESS);
 	}
 
-	// TODO: If !triggerFence, we're actually not using the thread right now.
+	// When !triggerFence, we notify after syncing with Vulkan.
 	if (useThread && triggerFence) {
 		VLOG("PULL: Frame %d.readyForFence = true", frame);
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
