@@ -251,7 +251,6 @@ protected:
 	virtual void ReapplyGfxStateInternal();
 	virtual void FastLoadBoneMatrix(u32 target);
 
-	void ScheduleEvent(GPUEventType event);
 	void ProcessEvent(GPUEvent ev);
 
 	// TODO: Unify this.

@@ -382,11 +382,11 @@ void GPUCommon::EndHostFrame() {
 }
 
 void GPUCommon::InitClear() {
-	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
+	InitClearInternal();
 }
 
 void GPUCommon::CopyDisplayToOutput() {
-	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
+	CopyDisplayToOutputInternal();
 }
 
 void GPUCommon::Reinitialize() {
@@ -404,12 +404,7 @@ void GPUCommon::Reinitialize() {
 	timeSpentStepping_ = 0.0;
 	interruptsEnabled_ = true;
 	curTickEst_ = 0;
-	ScheduleEvent(GPU_EVENT_REINITIALIZE);
-}
-
-void GPUCommon::ScheduleEvent(GPUEventType event) {
-	// Queue is gone, we now process events immediately.
-	ProcessEvent(event);
+	ReinitializeInternal();
 }
 
 int GPUCommon::EstimatePerVertexCost() {
@@ -450,7 +445,7 @@ void GPUCommon::PopDLQueue() {
 			if (running)
 				currentList->state = PSP_GE_DL_STATE_RUNNING;
 		} else {
-			currentList = NULL;
+			currentList = nullptr;
 		}
 	}
 }
@@ -932,7 +927,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 }
 
 void GPUCommon::BeginFrame() {
-	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
+	BeginFrameInternal();
 }
 
 void GPUCommon::BeginFrameInternal() {
@@ -999,11 +994,7 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 }
 
 void GPUCommon::ReapplyGfxState() {
-	if (IsOnSeparateCPUThread()) {
-		ScheduleEvent(GPU_EVENT_REAPPLY_GFX_STATE);
-	} else {
-		ReapplyGfxStateInternal();
-	}
+	ReapplyGfxStateInternal();
 }
 
 void GPUCommon::ReapplyGfxStateInternal() {
@@ -1094,7 +1085,7 @@ int GPUCommon::GetNextListIndex() {
 }
 
 bool GPUCommon::ProcessDLQueue() {
-	ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
+	ProcessDLQueueInternal();
 	return true;
 }
 
@@ -2307,15 +2298,7 @@ void GPUCommon::PerformMemorySetInternal(u32 dest, u8 v, int size) {
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
-			ev.fb_memcpy.dst = dest;
-			ev.fb_memcpy.src = src;
-			ev.fb_memcpy.size = size;
-			ScheduleEvent(ev);
-		} else {
-			PerformMemoryCopyInternal(dest, src, size);
-		}
+		PerformMemoryCopyInternal(dest, src, size);
 		return true;
 	}
 
@@ -2328,18 +2311,7 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 	// This may indicate a memset, usually to 0, of a framebuffer.
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
 		Memory::Memset(dest, v, size);
-
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMSET);
-			ev.fb_memset.dst = dest;
-			ev.fb_memset.v = v;
-			ev.fb_memset.size = size;
-			ScheduleEvent(ev);
-
-			// We don't need to wait for the framebuffer to be updated.
-		} else {
-			PerformMemorySetInternal(dest, v, size);
-		}
+		PerformMemorySetInternal(dest, v, size);
 		return true;
 	}
 
@@ -2369,11 +2341,7 @@ bool GPUCommon::PerformMemoryUpload(u32 dest, int size) {
 }
 
 void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
-	GPUEvent ev(GPU_EVENT_INVALIDATE_CACHE);
-	ev.invalidate_cache.addr = addr;
-	ev.invalidate_cache.size = size;
-	ev.invalidate_cache.type = type;
-	ScheduleEvent(ev);
+	InvalidateCacheInternal(addr, size, type);
 }
 
 void GPUCommon::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
@@ -2401,14 +2369,7 @@ void GPUCommon::NotifyVideoUpload(u32 addr, int size, int width, int format) {
 
 bool GPUCommon::PerformStencilUpload(u32 dest, int size) {
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
-			ev.fb_stencil_upload.dst = dest;
-			ev.fb_stencil_upload.size = size;
-			ScheduleEvent(ev);
-		} else {
-			PerformStencilUploadInternal(dest, size);
-		}
+		PerformStencilUploadInternal(dest, size);
 		return true;
 	}
 	return false;
