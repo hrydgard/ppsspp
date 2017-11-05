@@ -573,6 +573,8 @@ void VulkanRenderManager::Finish() {
 		frameData.pull_condVar.notify_all();
 	}
 	vulkan_->EndFrame();
+
+	insideFrame_ = false;
 }
 
 void VulkanRenderManager::Wipe() {
@@ -671,7 +673,6 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 void VulkanRenderManager::EndSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 	frameData.hasBegun = false;
-	insideFrame_ = false;
 
 	Submit(frame, true);
 
