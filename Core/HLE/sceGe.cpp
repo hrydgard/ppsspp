@@ -251,20 +251,18 @@ void __GeDoState(PointerWrap &p) {
 void __GeShutdown() {
 }
 
-// Warning: may be called from the GPU thread, if there is a separate one (multithread mode).
 bool __GeTriggerSync(GPUSyncType type, int id, u64 atTicks) {
 	u64 userdata = (u64)id << 32 | (u64)type;
 	s64 future = atTicks - CoreTiming::GetTicks();
 	if (type == GPU_SYNC_DRAW) {
-		s64 left = CoreTiming::UnscheduleThreadsafeEvent(geSyncEvent, userdata);
+		s64 left = CoreTiming::UnscheduleEvent(geSyncEvent, userdata);
 		if (left > future)
 			future = left;
 	}
-	CoreTiming::ScheduleEvent_Threadsafe(future, geSyncEvent, userdata);
+	CoreTiming::ScheduleEvent(future, geSyncEvent, userdata);
 	return true;
 }
 
-// Warning: may be called from the GPU thread, if there is a separate one (multithread mode).
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks) {
 	GeInterruptData intrdata;
 	intrdata.listid = listid;
@@ -274,7 +272,7 @@ bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks) {
 	ge_pending_cb.push_back(intrdata);
 
 	u64 userdata = (u64)listid << 32 | (u64) pc;
-	CoreTiming::ScheduleEvent_Threadsafe(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
+	CoreTiming::ScheduleEvent(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
 	return true;
 }
 
