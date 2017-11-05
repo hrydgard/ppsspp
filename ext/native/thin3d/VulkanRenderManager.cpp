@@ -640,7 +640,8 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 		assert(res == VK_SUCCESS);
 	}
 
-	if (useThread) {
+	// TODO: If !triggerFence, we're actually not using the thread right now.
+	if (useThread && triggerFence) {
 		VLOG("PULL: Frame %d.readyForFence = true", frame);
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		frameData.readyForFence = true;
