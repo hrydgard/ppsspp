@@ -913,11 +913,6 @@ bool SoftGPU::PerformStencilUpload(u32 dest, int size)
 }
 
 bool SoftGPU::FramebufferDirty() {
-	if (g_Config.bSeparateCPUThread) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	if (g_Config.iFrameSkip != 0) {
 		bool dirty = framebufferDirty_;
 		framebufferDirty_ = false;

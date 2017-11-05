@@ -359,11 +359,11 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	// The compiler was not rounding the struct size up to an 8 byte boundary, which
 	// you'd expect due to the int64 field, but the Linux ABI apparently does not require that.
 	static_assert(sizeof(DisplayList) == 456, "Bad DisplayList size");
-	listLock.set_enabled(g_Config.bSeparateCPUThread);
+	listLock.set_enabled(false);
 
 	Reinitialize();
 	SetupColorConv();
-	SetThreadEnabled(g_Config.bSeparateCPUThread);
+	SetThreadEnabled(false);
 	gstate.Reset();
 	gstate_c.Reset();
 	gpuStats.Reset();

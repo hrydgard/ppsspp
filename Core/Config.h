@@ -132,8 +132,6 @@ public:
 	bool bFuncReplacements;
 	bool bHideSlowWarnings;
 
-	// Definitely cannot be changed while game is running.
-	bool bSeparateCPUThread;
 	bool bSeparateSASThread;
 	bool bSeparateIOThread;
 	int iIOTimingMethod;

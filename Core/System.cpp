@@ -392,10 +392,10 @@ void System_Wake() {
 // Ugly!
 static bool pspIsInited = false;
 static bool pspIsIniting = false;
-static bool pspIsQuiting = false;
+static bool pspIsQuitting = false;
 
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
-	if (pspIsIniting || pspIsQuiting) {
+	if (pspIsIniting || pspIsQuitting) {
 		return false;
 	}
 
@@ -415,7 +415,9 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	coreParameter.errorString = "";
 	pspIsIniting = true;
 
-	if (g_Config.bSeparateCPUThread) {
+	// Keeping this around because we might need it in the future.
+	const bool separateCPUThread = false;
+	if (separateCPUThread) {
 		Core_ListenShutdown(System_Wake);
 		CPU_SetState(CPU_THREAD_PENDING);
 		cpuThread = new std::thread(&CPU_RunLoop);
@@ -438,7 +440,7 @@ bool PSP_InitUpdate(std::string *error_string) {
 		return true;
 	}
 
-	if (g_Config.bSeparateCPUThread && !CPU_IsReady()) {
+	if (!CPU_IsReady()) {
 		return false;
 	}
 
@@ -459,7 +461,8 @@ bool PSP_InitUpdate(std::string *error_string) {
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	PSP_InitStart(coreParam, error_string);
 
-	if (g_Config.bSeparateCPUThread) {
+	// For a potential resurrection of separate CPU thread later.
+	if (false) {
 		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 	}
 
@@ -472,12 +475,12 @@ bool PSP_IsIniting() {
 }
 
 bool PSP_IsInited() {
-	return pspIsInited && !pspIsQuiting;
+	return pspIsInited && !pspIsQuitting;
 }
 
 void PSP_Shutdown() {
 	// Do nothing if we never inited.
-	if (!pspIsInited && !pspIsIniting && !pspIsQuiting) {
+	if (!pspIsInited && !pspIsIniting && !pspIsQuitting) {
 		return;
 	}
 
@@ -488,7 +491,7 @@ void PSP_Shutdown() {
 #endif
 
 	// Make sure things know right away that PSP memory, etc. is going away.
-	pspIsQuiting = true;
+	pspIsQuitting = true;
 	if (coreState == CORE_RUNNING)
 		Core_UpdateState(CORE_ERROR);
 	Core_NotifyShutdown();
@@ -507,7 +510,7 @@ void PSP_Shutdown() {
 	currentMIPS = 0;
 	pspIsInited = false;
 	pspIsIniting = false;
-	pspIsQuiting = false;
+	pspIsQuitting = false;
 	g_Config.unloadGameConfig();
 }
 
@@ -532,8 +535,9 @@ void PSP_RunLoopUntil(u64 globalticks) {
 		return;
 	}
 
-	// Switch the CPU thread on or off, as the case may be.
-	bool useCPUThread = g_Config.bSeparateCPUThread;
+	// We no longer allow a separate CPU thread but if we add a render queue
+	// to GL we're gonna need it.
+	bool useCPUThread = false;
 	if (useCPUThread && cpuThread == nullptr) {
 		// Need to start the cpu thread.
 		Core_ListenShutdown(System_Wake);
