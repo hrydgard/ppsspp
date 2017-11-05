@@ -450,6 +450,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 		// Need to rebind the pipeline since we switched it.
 		drawEngine_->DirtyPipeline();
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 
