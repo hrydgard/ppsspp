@@ -143,17 +143,7 @@ public:
 	inline void Flush();
 
 	u64 GetTickEstimate() override {
-#if defined(_M_X64) || defined(__ANDROID__)
 		return curTickEst_;
-#elif defined(_M_SSE)
-		__m64 result = *(__m64 *)&curTickEst_;
-		u64 safeResult = *(u64 *)&result;
-		_mm_empty();
-		return safeResult;
-#else
-		std::lock_guard<std::mutex> guard(curTickEstLock_);
-		return curTickEst_;
-#endif
 	}
 
 #ifdef USE_CRT_DBG
@@ -329,27 +319,7 @@ protected:
 	GEPrimitiveType lastPrim_;
 
 private:
-
-	// For CPU/GPU sync.
-#ifdef __ANDROID__
-	alignas(16) std::atomic<u64> curTickEst_;
-#else
-	alignas(16) volatile u64 curTickEst_;
-	std::mutex curTickEstLock_;
-#endif
-
-	inline void UpdateTickEstimate(u64 value) {
-#if defined(_M_X64) || defined(__ANDROID__)
-		curTickEst_ = value;
-#elif defined(_M_SSE)
-		__m64 result = *(__m64 *)&value;
-		*(__m64 *)&curTickEst_ = result;
-		_mm_empty();
-#else
-		std::lock_guard<std::mutex> guard(curTickEstLock_);
-		curTickEst_ = value;
-#endif
-	}
+	u64 curTickEst_;
 
 	// Debug stats.
 	double timeSteppingStarted_;

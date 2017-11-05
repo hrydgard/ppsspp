@@ -404,7 +404,7 @@ void GPUCommon::Reinitialize() {
 	busyTicks = 0;
 	timeSpentStepping_ = 0.0;
 	interruptsEnabled_ = true;
-	UpdateTickEstimate(0);
+	curTickEst_ = 0;
 	ScheduleEvent(GPU_EVENT_REINITIALIZE);
 }
 
@@ -1107,7 +1107,7 @@ bool GPUCommon::ProcessDLQueue() {
 void GPUCommon::ProcessDLQueueInternal() {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
-	UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
+	curTickEst_ = std::max(busyTicks, startingTicks + cyclesExecuted);
 
 	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
@@ -1126,7 +1126,7 @@ void GPUCommon::ProcessDLQueueInternal() {
 				// At the end, we can remove it from the queue and continue.
 				dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
 			}
-			UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
+			curTickEst_ = std::max(busyTicks, startingTicks + cyclesExecuted);
 		}
 	}
 
@@ -1136,7 +1136,7 @@ void GPUCommon::ProcessDLQueueInternal() {
 	busyTicks = std::max(busyTicks, drawCompleteTicks);
 	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
-	UpdateTickEstimate(0);
+	curTickEst_ = 0;
 }
 
 void GPUCommon::PreExecuteOp(u32 op, u32 diff) {
