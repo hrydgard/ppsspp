@@ -250,7 +250,7 @@ private:
 
 		// Swapchain.
 		bool hasBegun = false;
-		uint32_t curSwapchainImage;
+		uint32_t curSwapchainImage = -1;
 	};
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 

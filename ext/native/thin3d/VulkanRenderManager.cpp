@@ -187,11 +187,14 @@ void VulkanRenderManager::CreateBackbuffers() {
 	curWidth_ = -1;
 	curHeight_ = -1;
 
+	VLOG("Backbuffers Created");
+
 	// Start the thread.
 	if (useThread) {
 		run_ = true;
 		// Won't necessarily be 0.
 		threadInitFrame_ = vulkan_->GetCurFrame();
+		VLOG("starting thread");
 		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
 	}
 }
@@ -212,6 +215,7 @@ void VulkanRenderManager::StopThread(bool shutdown) {
 			}
 		}
 		thread_.join();
+		VLOG("thread joined.");
 
 		// Resignal fences for next time around - must be done after join.
 		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
@@ -243,6 +247,7 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	framebuffers_.clear();
 
 	swapchainImages_.clear();
+	VLOG("Backbuffers Destroyed");
 }
 
 VulkanRenderManager::~VulkanRenderManager() {
@@ -283,8 +288,8 @@ void VulkanRenderManager::ThreadFunc() {
 			}
 			VLOG("PULL: frame[%d].readyForRun = false", threadFrame);
 			frameData.readyForRun = false;
-			if (!run_)  // quick exit if bailing.
-				return;
+			// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
+			// but that created a race condition where frames could end up not finished properly on resize etc.
 
 			// Only increment next time if we're done.
 			nextFrame = frameData.type == VKRRunType::END;
@@ -298,6 +303,7 @@ void VulkanRenderManager::ThreadFunc() {
 }
 
 void VulkanRenderManager::BeginFrame() {
+	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
 	int curFrame = vulkan_->GetCurFrame();
