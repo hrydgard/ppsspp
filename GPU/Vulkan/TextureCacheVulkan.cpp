@@ -362,12 +362,13 @@ void TextureCacheVulkan::Unbind() {
 
 void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	DepalShaderVulkan *depalShader = nullptr;
-	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-		depalShader = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
+		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, framebuffer->drawnFormat);
 	}
 	if (depalShader) {
 		depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
+		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(
