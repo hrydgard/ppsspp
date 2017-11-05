@@ -279,18 +279,25 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	}
 
 	// Make sure we can allocate a buffer to compress before compressing.
-	size_t comp_len = snappy_max_compressed_length(sz);
-	u8 *compressed_buffer = (u8 *)malloc(comp_len);
+	size_t write_len = snappy_max_compressed_length(sz);
+	u8 *compressed_buffer = (u8 *)malloc(write_len);
+	u8 *write_buffer = buffer;
 	if (!compressed_buffer) {
 		ERROR_LOG(SAVESTATE, "ChunkReader: Unable to allocate compressed buffer");
 		// We'll save uncompressed.  Better than not saving...
+		write_len = sz;
+	} else {
+		snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &write_len);
+		free(buffer);
+
+		write_buffer = compressed_buffer;
 	}
 
 	// Create header
 	SChunkHeader header;
 	header.Compress = compressed_buffer ? 1 : 0;
 	header.Revision = REVISION_CURRENT;
-	header.ExpectedSize = (u32)sz;
+	header.ExpectedSize = (u32)write_len;
 	header.UncompressedSize = (u32)sz;
 	truncate_cpy(header.GitVersion, gitVersion);
 
@@ -298,40 +305,26 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	char titleFixed[128];
 	truncate_cpy(titleFixed, title.c_str());
 
-	// Write to file
-	if (compressed_buffer) {
-		snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &comp_len);
-		free(buffer);
-		header.ExpectedSize = (u32)comp_len;
-
-		if (!pFile.WriteArray(&header, 1)) {
-			ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing header");
-			return ERROR_BAD_FILE;
-		}
-		if (!pFile.WriteArray(titleFixed, sizeof(titleFixed))) {
-			ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing title");
-			return ERROR_BAD_FILE;
-		}
-		if (!pFile.WriteBytes(compressed_buffer, comp_len)) {
-			ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing compressed data");
-			return ERROR_BAD_FILE;
-		}	else {
-			INFO_LOG(SAVESTATE, "Savestate: Compressed %i bytes into %i", (int)sz, (int)comp_len);
-		}
-		free(compressed_buffer);
-	} else {
-		if (!pFile.WriteArray(&header, 1)) {
-			ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing header");
-			free(buffer);
-			return ERROR_BAD_FILE;
-		}
-		if (!pFile.WriteBytes(&buffer[0], sz)) {
-			ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing data");
-			free(buffer);
-			return ERROR_BAD_FILE;
-		}
-		free(buffer);
+	// Now let's start writing out the file...
+	if (!pFile.WriteArray(&header, 1)) {
+		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing header");
+		free(write_buffer);
+		return ERROR_BAD_FILE;
 	}
+	if (!pFile.WriteArray(titleFixed, sizeof(titleFixed))) {
+		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing title");
+		free(write_buffer);
+		return ERROR_BAD_FILE;
+	}
+
+	if (!pFile.WriteBytes(write_buffer, write_len)) {
+		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing compressed data");
+		free(write_buffer);
+		return ERROR_BAD_FILE;
+	} else if (sz != write_len) {
+		INFO_LOG(SAVESTATE, "Savestate: Compressed %i bytes into %i", (int)sz, (int)write_len);
+	}
+	free(write_buffer);
 
 	INFO_LOG(SAVESTATE, "ChunkReader: Done writing %s", filename.c_str());
 	return ERROR_NONE;
