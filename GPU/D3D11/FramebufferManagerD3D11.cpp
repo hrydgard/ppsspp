@@ -738,7 +738,7 @@ void FramebufferManagerD3D11::DestroyAllFBOs() {
 	bvfbs_.clear();
 
 	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		delete it->second.fbo;
+		it->second.fbo->Release();
 	}
 	tempFBOs_.clear();
 

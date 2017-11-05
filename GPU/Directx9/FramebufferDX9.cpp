@@ -131,7 +131,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			drawPixelsTex_->Release();
 		}
 		for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-			delete it->second.fbo;
+			it->second.fbo->Release();
 		}
 		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
 			it->second.surface->Release();
@@ -726,7 +726,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		bvfbs_.clear();
 
 		for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-			delete it->second.fbo;
+			it->second.fbo->Release();
 		}
 		tempFBOs_.clear();
 
@@ -777,7 +777,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 				success = GetRenderTargetFramebuffer(renderTarget, offscreen, w, h, buffer);
 			}
 			if (tempFBO) {
-				delete tempFBO;
+				tempFBO->Release();
 			}
 		}
 
