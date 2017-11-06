@@ -586,10 +586,16 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x + extent > width");
 	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y + extent > height");
 
+	_dbg_assert_msg_(G3D, srcRect.extent.width > 0, "blit srcwidth == 0");
+	_dbg_assert_msg_(G3D, srcRect.extent.height > 0, "blit srcheight == 0");
+
 	_dbg_assert_msg_(G3D, dstRect.offset.x >= 0, "dstrect offset x < 0");
 	_dbg_assert_msg_(G3D, dstRect.offset.y >= 0, "dstrect offset y < 0");
 	_dbg_assert_msg_(G3D, dstRect.offset.x + dstRect.extent.width <= (uint32_t)dst->width, "dstrect offset x + extent > width");
 	_dbg_assert_msg_(G3D, dstRect.offset.y + dstRect.extent.height <= (uint32_t)dst->height, "dstrect offset y + extent > height");
+
+	_dbg_assert_msg_(G3D, dstRect.extent.width > 0, "blit dstwidth == 0");
+	_dbg_assert_msg_(G3D, dstRect.extent.height > 0, "blit dstheight == 0");
 
 	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
 

@@ -2081,7 +2081,7 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 		FlushBeforeCopy();
 
 		// No need to download if we already have it.
-		if (!vfb->memoryUpdated && vfb->clutUpdatedBytes < loadBytes) {
+		if (w > 0 && h > 0 && !vfb->memoryUpdated && vfb->clutUpdatedBytes < loadBytes) {
 			// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
 			// CLUT framebuffers are often incorrectly estimated in size.
 			if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
