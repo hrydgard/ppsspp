@@ -407,11 +407,13 @@ void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 		case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
 		default: assert(false);
 		}
-	} else if (aspectBits & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+	} else if (aspectBits & VK_IMAGE_ASPECT_STENCIL_BIT) {
+		// Copies from stencil are always S8.
+		srcFormat = Draw::DataFormat::S8;
+	} else if (aspectBits & VK_IMAGE_ASPECT_DEPTH_BIT) {
 		switch (src->depth.format) {
 		case VK_FORMAT_D24_UNORM_S8_UINT: srcFormat = Draw::DataFormat::D24_S8; break;
-		case VK_FORMAT_D32_SFLOAT_S8_UINT: srcFormat = Draw::DataFormat::D32F_S8; break;
-		// TODO: Wrong.
+		case VK_FORMAT_D32_SFLOAT_S8_UINT: srcFormat = Draw::DataFormat::D32F; break;
 		case VK_FORMAT_D16_UNORM_S8_UINT: srcFormat = Draw::DataFormat::D16; break;
 		default: assert(false);
 		}

@@ -891,7 +891,7 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 	// Read back to the requested address in ram from buffer.
 	void *mappedData;
-	const size_t srcPixelSize = DataFormatSizeInBytes(destFormat);
+	const size_t srcPixelSize = DataFormatSizeInBytes(srcFormat);
 
 	VkResult res = vkMapMemory(vulkan_->GetDevice(), readbackMemory_, 0, width * height * srcPixelSize, 0, &mappedData);
 	assert(res == VK_SUCCESS);
@@ -905,8 +905,10 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 			src += width * srcPixelSize;
 			dst += pixelStride * srcPixelSize;
 		}
+	} else if (destFormat == Draw::DataFormat::D32F) {
+		ConvertToD32F(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, srcFormat);
 	} else {
-		// TODO: Maybe depth conversion or something?
+		// TODO: Maybe a depth conversion or something?
 		assert(false);
 	}
 	vkUnmapMemory(vulkan_->GetDevice(), readbackMemory_);
