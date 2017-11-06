@@ -819,6 +819,20 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	if (!nextTexture_)
 		return false;
 
+	// TODO: Centralize.
+	if (nextTexture_->framebuffer) {
+		VirtualFramebuffer *vfb = nextTexture_->framebuffer;
+		bool flipY = g_Config.iGPUBackend == GPU_BACKEND_OPENGL && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, flipY);
+		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth);
+		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
+		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+		// We may have blitted to a temp FBO.
+		framebufferManager_->RebindFramebuffer();
+		return retval;
+	}
+
 	ID3D11Texture2D *texture = (ID3D11Texture2D *)nextTexture_->texturePtr;
 	if (!texture)
 		return false;
