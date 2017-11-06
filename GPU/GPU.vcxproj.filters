@@ -255,7 +255,6 @@
     <ClInclude Include="D3D11\D3D11Util.h">
       <Filter>D3D11</Filter>
     </ClInclude>
-    <ClInclude Include="D3D11\StateMappingD3D11.h" />
     <ClInclude Include="Common\ShaderTranslation.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -267,6 +266,9 @@
     </ClInclude>
     <ClInclude Include="Common\StencilCommon.h">
       <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D11\StateMappingD3D11.h">
+      <Filter>D3D11</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

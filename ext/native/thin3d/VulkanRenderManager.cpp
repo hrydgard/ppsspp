@@ -401,8 +401,43 @@ void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 
 	FlushSync();
 
-	// Need to call this after FlushSyfnc so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(w, h, destFormat, pixelStride, pixels);
+	Draw::DataFormat srcFormat;
+	if (aspectBits & VK_IMAGE_ASPECT_COLOR_BIT) {
+		switch (src->color.format) {
+		case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
+		default: assert(false);
+		}
+	} else if (aspectBits & VK_IMAGE_ASPECT_STENCIL_BIT) {
+		// Copies from stencil are always S8.
+		srcFormat = Draw::DataFormat::S8;
+	} else if (aspectBits & VK_IMAGE_ASPECT_DEPTH_BIT) {
+		switch (src->depth.format) {
+		case VK_FORMAT_D24_UNORM_S8_UINT: srcFormat = Draw::DataFormat::D24_S8; break;
+		case VK_FORMAT_D32_SFLOAT_S8_UINT: srcFormat = Draw::DataFormat::D32F; break;
+		case VK_FORMAT_D16_UNORM_S8_UINT: srcFormat = Draw::DataFormat::D16; break;
+		default: assert(false);
+		}
+	} else {
+		assert(false);
+	}
+	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
+	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
+}
+
+void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+	VKRStep *step = new VKRStep{ VKRStepType::READBACK_IMAGE };
+	step->readback_image.image = image;
+	step->readback_image.srcRect.offset = { x, y };
+	step->readback_image.srcRect.extent = { (uint32_t)w, (uint32_t)h };
+	step->readback_image.mipLevel = mipLevel;
+	steps_.push_back(step);
+
+	curRenderStep_ = nullptr;
+
+	FlushSync();
+
+	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
+	queueRunner_.CopyReadbackBuffer(w, h, destFormat, destFormat, pixelStride, pixels);
 }
 
 void VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
@@ -635,6 +670,10 @@ void VulkanRenderManager::Wipe() {
 		case VKRStepType::READBACK:
 			step->readback.src->Release();
 			break;
+		case VKRStepType::READBACK_IMAGE:
+			break;
+		default:
+			assert(false);
 		}
 		delete step;
 	}

@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cstring>
 #include <cstdint>
 
@@ -13,6 +14,7 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 	case DataFormat::R8G8_UNORM: return 2;
 	case DataFormat::R8G8B8_UNORM: return 3;
 
+	case DataFormat::R4G4_UNORM_PACK8: return 1;
 	case DataFormat::R4G4B4A4_UNORM_PACK16: return 2;
 	case DataFormat::B4G4R4A4_UNORM_PACK16: return 2;
 	case DataFormat::A4R4G4B4_UNORM_PACK16: return 2;
@@ -37,6 +39,13 @@ size_t DataFormatSizeInBytes(DataFormat fmt) {
 	case DataFormat::R32G32_FLOAT: return 8;
 	case DataFormat::R32G32B32_FLOAT: return 12;
 	case DataFormat::R32G32B32A32_FLOAT: return 16;
+
+	case DataFormat::S8: return 1;
+	case DataFormat::D16: return 2;
+	case DataFormat::D24_S8: return 4;
+	case DataFormat::D32F: return 4;
+	// Or maybe 8...
+	case DataFormat::D32F_S8: return 5;
 
 	default:
 		return 0;
@@ -369,6 +378,44 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 			// Not possible.
 			break;
 		}
+	}
+}
+
+void ConvertToD32F(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
+	if (format == Draw::DataFormat::D32F) {
+		const float *src32 = (const float *)src;
+		float *dst32 = (float *)dst;
+		if (src == dst) {
+			return;
+		} else {
+			for (uint32_t y = 0; y < height; ++y) {
+				memcpy(dst32, src32, width * 4);
+				src32 += srcStride;
+				dst32 += dstStride;
+			}
+		}
+	} else if (format == Draw::DataFormat::D16) {
+		const uint16_t *src16 = (const uint16_t *)src;
+		float *dst32 = (float *)dst;
+		for (uint32_t y = 0; y < height; ++y) {
+			for (uint32_t x = 0; x < width; ++x) {
+				dst32[x] = (float)(int)src16[x] / 65535.0f;
+			}
+			src16 += srcStride;
+			dst32 += dstStride;
+		}
+	} else if (format == Draw::DataFormat::D24_S8) {
+		const uint32_t *src32 = (const uint32_t *)src;
+		float *dst32 = (float *)dst;
+		for (uint32_t y = 0; y < height; ++y) {
+			for (uint32_t x = 0; x < width; ++x) {
+				dst32[x] = (src32[x] & 0x00FFFFFF) / 16777215.0f;
+			}
+			src32 += srcStride;
+			dst32 += dstStride;
+		}
+	} else {
+		assert(false);
 	}
 }
 
