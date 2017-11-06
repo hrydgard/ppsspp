@@ -705,7 +705,7 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 		}
 
 		// Check if it's in bufferWidth (which might be higher than width and may indicate the framebuffer includes the data.)
-		if (fbInfo.xOffset >= framebuffer->bufferWidth && fbInfo.xOffset + w <= framebuffer->fb_stride) {
+		if (fbInfo.xOffset >= framebuffer->bufferWidth && fbInfo.xOffset + w <= (u32)framebuffer->fb_stride) {
 			// This happens in Brave Story, see #10045 - the texture is in the space between strides, with matching stride.
 			DetachFramebuffer(entry, address, framebuffer);
 			return false;
