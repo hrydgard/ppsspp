@@ -644,12 +644,6 @@ protected:
 	int targetHeight_;
 };
 
-size_t DataFormatSizeInBytes(DataFormat fmt);
-bool DataFormatIsDepthStencil(DataFormat fmt);
-inline bool DataFormatIsColor(DataFormat fmt) {
-	return !DataFormatIsDepthStencil(fmt);
-}
-
 DrawContext *T3DCreateGLContext();
 
 extern const UniformBufferDesc UBPresetDesc;
