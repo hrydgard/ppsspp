@@ -906,11 +906,10 @@ const char *VulkanResultToString(VkResult res) {
 	case VK_ERROR_OUT_OF_DATE_KHR: return "VK_ERROR_OUT_OF_DATE_KHR";
 	case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR: return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
 	case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR: return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
-	default:
-		return "Unknown";
-	}
-}
+	case VK_ERROR_OUT_OF_POOL_MEMORY_KHR: return "VK_ERROR_OUT_OF_POOL_MEMORY_KHR";
+	case VK_ERROR_INVALID_EXTERNAL_HANDLE_KHX: return "VK_ERROR_INVALID_EXTERNAL_HANDLE_KHX";
 
-void VulkanAssertImpl(VkResult check, const char *function, const char *file, int line) {
-	const char *error = "(none)";
+	default:
+		return "VK_ERROR_...(unknown)";
+	}
 }

@@ -695,7 +695,11 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 		// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
 		VkResult res = vkAcquireNextImageKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &frameData.curSwapchainImage);
-		assert(res == VK_SUCCESS);
+		if (res == VK_SUBOPTIMAL_KHR) {
+			// Hopefully the resize will happen shortly. Ignore.
+		} else {
+			assert(res == VK_SUCCESS);
+		}
 		// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 		// return codes
 

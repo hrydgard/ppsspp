@@ -400,5 +400,7 @@ void init_glslang();
 void finalize_glslang();
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<uint32_t> &spirv, std::string *errorMessage = nullptr);
 
+const char *VulkanResultToString(VkResult res);
+
 #endif // UTIL_INIT
 

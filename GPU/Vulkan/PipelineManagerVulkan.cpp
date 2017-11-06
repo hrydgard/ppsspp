@@ -281,7 +281,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkPipeline pipeline;
 	VkResult result = vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipe, nullptr, &pipeline);
 	if (result != VK_SUCCESS) {
-		ERROR_LOG(G3D, "Failed creating graphics pipeline!");
+		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		return nullptr;
 	}
 
@@ -321,6 +321,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
 		rasterKey, vtxDec, vs, fs, useHwTransform);
+	// Even if the result is nullptr, insert it so we don't try to create it repeatedly.
 	pipelines_.Insert(key, pipeline);
 	return pipeline;
 }
