@@ -96,9 +96,9 @@ private:
 	}
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
-	void InitClearInternal() override;
-	void CopyDisplayToOutputInternal() override;
-	void ReinitializeInternal() override;
+	void InitClear() override;
+	void CopyDisplayToOutput() override;
+	void Reinitialize() override;
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
 

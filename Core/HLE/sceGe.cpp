@@ -57,10 +57,6 @@ static int geSyncEvent;
 static int geInterruptEvent;
 static int geCycleEvent;
 
-// Let's try updating 10 times per vblank - this is the interval for geCycleEvent.
-const int geIntervalUs = 1000000 / (60 * 10);
-const int geBehindThresholdUs = 1000000 / (60 * 10);
-
 class GeIntrHandler : public IntrHandler {
 public:
 	GeIntrHandler() : IntrHandler(PSP_GE_INTR) {}
@@ -194,19 +190,7 @@ static void __GeExecuteInterrupt(u64 userdata, int cyclesLate) {
 }
 
 static void __GeCheckCycles(u64 userdata, int cyclesLate) {
-	u64 geTicks = gpu->GetTickEstimate();
-	if (geTicks != 0) {
-		if (CoreTiming::GetTicks() > geTicks + usToCycles(geBehindThresholdUs)) {
-			u64 diff = CoreTiming::GetTicks() - geTicks;
-			// Let the GPU thread catch up.
-			gpu->SyncThread();
-			CoreTiming::Advance();
-		}
-	}
-
-	// This may get out of step if we synced (because we don't correct for cyclesLate),
-	// but that's okay - __GeCheckCycles is a very rough way to synchronize anyway.
-	CoreTiming::ScheduleEvent(usToCycles(geIntervalUs), geCycleEvent, 0);
+	// Deprecated
 }
 
 void __GeInit() {
@@ -217,15 +201,12 @@ void __GeInit() {
 
 	geSyncEvent = CoreTiming::RegisterEvent("GeSyncEvent", &__GeExecuteSync);
 	geInterruptEvent = CoreTiming::RegisterEvent("GeInterruptEvent", &__GeExecuteInterrupt);
+
+	// Deprecated
 	geCycleEvent = CoreTiming::RegisterEvent("GeCycleEvent", &__GeCheckCycles);
 
 	listWaitingThreads.clear();
 	drawWaitingThreads.clear();
-
-	// When we're using separate CPU/GPU threads, we need to keep them in sync.
-	if (IsOnSeparateCPUThread()) {
-		CoreTiming::ScheduleEvent(usToCycles(geIntervalUs), geCycleEvent, 0);
-	}
 }
 
 struct GeInterruptData_v1 {
@@ -270,20 +251,18 @@ void __GeDoState(PointerWrap &p) {
 void __GeShutdown() {
 }
 
-// Warning: may be called from the GPU thread, if there is a separate one (multithread mode).
 bool __GeTriggerSync(GPUSyncType type, int id, u64 atTicks) {
 	u64 userdata = (u64)id << 32 | (u64)type;
 	s64 future = atTicks - CoreTiming::GetTicks();
 	if (type == GPU_SYNC_DRAW) {
-		s64 left = CoreTiming::UnscheduleThreadsafeEvent(geSyncEvent, userdata);
+		s64 left = CoreTiming::UnscheduleEvent(geSyncEvent, userdata);
 		if (left > future)
 			future = left;
 	}
-	CoreTiming::ScheduleEvent_Threadsafe(future, geSyncEvent, userdata);
+	CoreTiming::ScheduleEvent(future, geSyncEvent, userdata);
 	return true;
 }
 
-// Warning: may be called from the GPU thread, if there is a separate one (multithread mode).
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks) {
 	GeInterruptData intrdata;
 	intrdata.listid = listid;
@@ -293,7 +272,7 @@ bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks) {
 	ge_pending_cb.push_back(intrdata);
 
 	u64 userdata = (u64)listid << 32 | (u64) pc;
-	CoreTiming::ScheduleEvent_Threadsafe(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
+	CoreTiming::ScheduleEvent(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
 	return true;
 }
 
@@ -504,7 +483,6 @@ static int sceGeUnsetCallback(u32 cbID) {
 // unless some insane game pokes it and relies on it...
 u32 sceGeSaveContext(u32 ctxAddr) {
 	DEBUG_LOG(SCEGE, "sceGeSaveContext(%08x)", ctxAddr);
-	gpu->SyncThread();
 
 	if (gpu->BusyDrawing()) {
 		WARN_LOG(SCEGE, "sceGeSaveContext(%08x): lists in process, aborting", ctxAddr);
@@ -524,7 +502,6 @@ u32 sceGeSaveContext(u32 ctxAddr) {
 
 u32 sceGeRestoreContext(u32 ctxAddr) {
 	DEBUG_LOG(SCEGE, "sceGeRestoreContext(%08x)", ctxAddr);
-	gpu->SyncThread();
 
 	if (gpu->BusyDrawing()) {
 		WARN_LOG(SCEGE, "sceGeRestoreContext(%08x): lists in process, aborting", ctxAddr);

@@ -400,6 +400,7 @@ void SoftwareTransform(
 	// rectangle out of many. Quite a small optimization though.
 	// Experiment: Disable on PowerVR (see issue #6290)
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
+	// TODO: Allow creating a depth clear and a color draw.
 	bool reallyAClear = false;
 	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear()) {
 		int scissorX2 = gstate.getScissorX2() + 1;

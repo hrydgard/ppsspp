@@ -12,7 +12,7 @@
 #endif
 
 // TODO: Using a thread here is unfinished and does not work correctly.
-const bool useThread = false;
+const bool useThread = true;
 
 #ifndef UINT64_MAX
 #define UINT64_MAX 0xFFFFFFFFFFFFFFFFULL

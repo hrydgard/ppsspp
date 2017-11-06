@@ -28,6 +28,7 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
+#include "Core/Core.h"
 #include "profiler/profiler.h"
 #include "thin3d/thin3d.h"
 
@@ -280,13 +281,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	draw_->BindIndexBuffer(nullptr, 0);
 }
 
-void SoftGPU::CopyDisplayToOutput()
-{
-	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
-}
-
-void SoftGPU::CopyDisplayToOutputInternal()
-{
+void SoftGPU::CopyDisplayToOutput() {
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	framebufferDirty_ = false;
@@ -298,17 +293,6 @@ void SoftGPU::CopyDisplayToOutputInternal()
 	} else {
 		PSP_CoreParameter().renderWidth = 480;
 		PSP_CoreParameter().renderHeight = 272;
-	}
-}
-
-void SoftGPU::ProcessEvent(GPUEvent ev) {
-	switch (ev.type) {
-	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
-		CopyDisplayToOutputInternal();
-		break;
-
-	default:
-		GPUCommon::ProcessEvent(ev);
 	}
 }
 
@@ -913,11 +897,6 @@ bool SoftGPU::PerformStencilUpload(u32 dest, int size)
 }
 
 bool SoftGPU::FramebufferDirty() {
-	if (g_Config.bSeparateCPUThread) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	if (g_Config.iFrameSkip != 0) {
 		bool dirty = framebufferDirty_;
 		framebufferDirty_ = false;
