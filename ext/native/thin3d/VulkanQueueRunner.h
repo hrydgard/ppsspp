@@ -84,6 +84,7 @@ enum class VKRStepType : uint8_t {
 	COPY,
 	BLIT,
 	READBACK,
+	READBACK_IMAGE,
 };
 
 enum class VKRRenderPassAction {
@@ -133,6 +134,11 @@ struct VKRStep {
 			VKRFramebuffer *src;
 			VkRect2D srcRect;
 		} readback;
+		struct {
+			VkImage image;
+			VkRect2D srcRect;
+			int mipLevel;
+		} readback_image;
 	};
 };
 
@@ -159,7 +165,7 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyReadbackBuffer(int width, int height, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 private:
 	void InitBackbufferRenderPass();
@@ -170,11 +176,13 @@ private:
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformReadbackImage(const VKRStep &pass, VkCommandBuffer cmd);
 
 	void LogRenderPass(const VKRStep &pass);
 	void LogCopy(const VKRStep &pass);
 	void LogBlit(const VKRStep &pass);
 	void LogReadback(const VKRStep &pass);
+	void LogReadbackImage(const VKRStep &pass);
 
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);

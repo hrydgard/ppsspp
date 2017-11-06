@@ -1118,8 +1118,8 @@ void VKContext::Draw(int vertexCount, int offset) {
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
-	VKBuffer *ibuf = static_cast<VKBuffer *>(curIBuffer_);
-	VKBuffer *vbuf = static_cast<VKBuffer *>(curVBuffers_[0]);
+	VKBuffer *ibuf = curIBuffer_;
+	VKBuffer *vbuf = curVBuffers_[0];
 
 	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
@@ -1248,9 +1248,10 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
+	// Inherits ownership so no AddRef.
 	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {}
 	~VKFramebuffer() {
-		delete buf_;
+		buf_->Release();
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }
 private:

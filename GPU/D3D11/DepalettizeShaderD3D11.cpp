@@ -70,14 +70,10 @@ DepalShaderCacheD3D11::~DepalShaderCacheD3D11() {
 	inputLayout_->Release();
 }
 
-u32 DepalShaderCacheD3D11::GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) {
-	return (clutMode & 0xFFFFFF) | (pixelFormat << 24);
-}
+ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut, bool expandTo32bit) {
+	const u32 clutId = GetClutID(clutFormat, clutHash);
 
-ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut, bool expandTo32bit) {
-	const u32 realClutID = clutID ^ clutFormat;
-
-	auto oldtex = texCache_.find(realClutID);
+	auto oldtex = texCache_.find(clutId);
 	if (oldtex != texCache_.end()) {
 		oldtex->second->lastFrame = gpuStats.numFlips;
 		return oldtex->second->view;
@@ -128,7 +124,7 @@ ID3D11ShaderResourceView *DepalShaderCacheD3D11::GetClutTexture(GEPaletteFormat 
 	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, &data, &tex->texture));
 	ASSERT_SUCCESS(device_->CreateShaderResourceView(tex->texture, nullptr, &tex->view));
 	tex->lastFrame = gpuStats.numFlips;
-	texCache_[realClutID] = tex;
+	texCache_[clutId] = tex;
 
 	if (expandTo32bit) {
 		delete[] expanded;

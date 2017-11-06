@@ -4,10 +4,11 @@
 // Only draws and binds are handled here, resource creation and allocations are handled as normal -
 // that's the nice thing with Vulkan.
 
-#include <cstdint>
-#include <thread>
-#include <mutex>
+#include <atomic>
 #include <condition_variable>
+#include <cstdint>
+#include <mutex>
+#include <thread>
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
@@ -28,6 +29,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 class VKRFramebuffer {
 public:
 	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height) : vulkan_(vk) {
+		refcount_ = 1;
 		width = _width;
 		height = _height;
 
@@ -58,6 +60,11 @@ public:
 		vulkan_->Delete().QueueDeleteFramebuffer(framebuf);
 	}
 
+	void AddRef() {
+		refcount_++;
+	}
+	bool Release();
+
 	int numShadows = 1;  // TODO: Support this.
 
 	VkFramebuffer framebuf = VK_NULL_HANDLE;
@@ -68,6 +75,12 @@ public:
 
 private:
 	VulkanContext *vulkan_;
+	std::atomic<int> refcount_;
+};
+
+enum class VKRRunType {
+	END,
+	SYNC,
 };
 
 class VulkanRenderManager {
@@ -89,6 +102,7 @@ public:
 	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment);
 	void CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride);
+	void CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride);
 
 	void CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, int aspectMask);
 	void BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, int aspectMask, VkFilter filter);
@@ -206,6 +220,9 @@ private:
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
+	void EndSyncFrame(int frame);
+
+	void StopThread(bool shutdown);
 
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;
@@ -220,8 +237,9 @@ private:
 		std::condition_variable pull_condVar;
 
 		bool readyForFence = true;
-
 		bool readyForRun = false;
+		VKRRunType type = VKRRunType::END;
+
 		VkFence fence;
 		// These are on different threads so need separate pools.
 		VkCommandPool cmdPoolInit;
@@ -233,7 +251,7 @@ private:
 
 		// Swapchain.
 		bool hasBegun = false;
-		uint32_t curSwapchainImage;
+		uint32_t curSwapchainImage = -1;
 	};
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
@@ -249,6 +267,7 @@ private:
 	VulkanContext *vulkan_;
 	std::thread thread_;
 	std::mutex mutex_;
+	int threadInitFrame_ = 0;
 	VulkanQueueRunner queueRunner_;
 
 	// Swap chain management

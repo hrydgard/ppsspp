@@ -367,12 +367,13 @@ void TextureCacheVulkan::Unbind() {
 
 void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	DepalShaderVulkan *depalShader = nullptr;
-	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-		depalShader = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
+		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, framebuffer->drawnFormat);
 	}
 	if (depalShader) {
 		depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
+		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(
@@ -455,6 +456,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 		// Need to rebind the pipeline since we switched it.
 		drawEngine_->DirtyPipeline();
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 
@@ -812,6 +814,62 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 }
 
 bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-	// TODO
-	return false;
+	ApplyTexture();
+	SetTexture(false);
+	if (!nextTexture_)
+		return false;
+
+	// TODO: Centralize?
+	if (nextTexture_->framebuffer) {
+		VirtualFramebuffer *vfb = nextTexture_->framebuffer;
+		bool flipY = g_Config.iGPUBackend == GPU_BACKEND_OPENGL && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, flipY);
+		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth);
+		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
+		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+		// We may have blitted to a temp FBO.
+		framebufferManager_->RebindFramebuffer();
+		return retval;
+	}
+
+	if (!nextTexture_->vkTex || !nextTexture_->vkTex->texture_)
+		return false;
+	VulkanTexture *texture = nextTexture_->vkTex->texture_;
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
+	GPUDebugBufferFormat bufferFormat;
+	Draw::DataFormat drawFormat;
+	switch (texture->GetFormat()) {
+	case VULKAN_565_FORMAT:
+		bufferFormat = GPU_DBG_FORMAT_565;
+		drawFormat = Draw::DataFormat::B5G6R5_UNORM_PACK16;
+		break;
+	case VULKAN_1555_FORMAT:
+		bufferFormat = GPU_DBG_FORMAT_5551;
+		drawFormat = Draw::DataFormat::B5G5R5A1_UNORM_PACK16;
+		break;
+	case VULKAN_4444_FORMAT:
+		bufferFormat = GPU_DBG_FORMAT_4444;
+		drawFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+		break;
+	case VULKAN_8888_FORMAT:
+	default:
+		bufferFormat = GPU_DBG_FORMAT_8888;
+		drawFormat = Draw::DataFormat::R8G8B8A8_UNORM;
+		break;
+	}
+
+	int w = texture->GetWidth();
+	int h = texture->GetHeight();
+	buffer.Allocate(w, h, bufferFormat);
+
+	renderManager->CopyImageToMemorySync(texture->GetImage(), level, 0, 0, w, h, drawFormat, (uint8_t *)buffer.GetData(), w);
+
+	// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
+	// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+	framebufferManager_->RebindFramebuffer();
+
+	return true;
 }

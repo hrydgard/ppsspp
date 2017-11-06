@@ -120,14 +120,10 @@ bool DepalShaderCacheGLES::CreateVertexShader() {
 	return !vertexShaderFailed_;
 }
 
-u32 DepalShaderCacheGLES::GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) {
-	return (clutMode & 0xFFFFFF) | (pixelFormat << 24);
-}
+GLuint DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
+	u32 clutId = GetClutID(clutFormat, clutHash);
 
-GLuint DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut) {
-	const u32 realClutID = clutID ^ clutFormat;
-
-	auto oldtex = texCache_.find(realClutID);
+	auto oldtex = texCache_.find(clutId);
 	if (oldtex != texCache_.end()) {
 		oldtex->second->lastFrame = gpuStats.numFlips;
 		return oldtex->second->texture;
@@ -156,7 +152,7 @@ GLuint DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, const u3
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	tex->lastFrame = gpuStats.numFlips;
-	texCache_[realClutID] = tex;
+	texCache_[clutId] = tex;
 	return tex->texture;
 }
 

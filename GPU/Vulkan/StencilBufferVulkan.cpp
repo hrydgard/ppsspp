@@ -27,29 +27,22 @@
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
-
-struct StencilValueUB {
-	uint32_t u_stencilValue[4];
-};
-
 static const char *stencil_fs = R"(#version 400
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 layout (binding = 0) uniform sampler2D tex;
 layout(push_constant) uniform params {
-  int u_stencilValue;
+	int u_stencilValue;
 };
 layout (location = 0) in vec2 v_texcoord0;
 layout (location = 0) out vec4 fragColor0;
 
 void main() {
-  vec4 index = texture(tex, v_texcoord0);
+	vec4 index = texture(tex, v_texcoord0);
 	int indexBits = int(floor(index.a * 255.99)) & 0xFF;
 	if ((indexBits & u_stencilValue) == 0)
 		discard;
-  fragColor0 = index.aaaa;
+	fragColor0 = index.aaaa;
 }
 )";
 
@@ -60,9 +53,9 @@ layout (location = 0) out vec2 v_texcoord0;
 out gl_PerVertex { vec4 gl_Position; };
 void main() {
 	int id = gl_VertexIndex;
-  v_texcoord0.x = (id == 2) ? 2.0 : 0.0;
-  v_texcoord0.y = (id == 1) ? 2.0 : 0.0;
-  gl_Position = vec4(v_texcoord0 * vec2(2.0, 2.0) + vec2(-1.0, -1.0), 0.0, 1.0);
+	v_texcoord0.x = (id == 2) ? 2.0 : 0.0;
+	v_texcoord0.y = (id == 1) ? 2.0 : 0.0;
+	gl_Position = vec4(v_texcoord0 * vec2(2.0, 2.0) + vec2(-1.0, -1.0), 0.0, 1.0);
 }
 )";
 

@@ -152,8 +152,13 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
 		} else {
-			key.logicOpEnable = false;
-			key.logicOp = VK_LOGIC_OP_CLEAR;
+			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
+				key.logicOpEnable = true;
+				key.logicOp = logicOps[gstate.getLogicOp()];
+			} else {
+				key.logicOpEnable = false;
+				key.logicOp = VK_LOGIC_OP_CLEAR;
+			}
 
 			// Set blend - unless we need to do it in the shader.
 			GenericBlendState blendState;
@@ -275,16 +280,6 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				dynState.useStencil = false;
 			}
 		} else {
-			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-				// Logic Ops
-				if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
-					key.logicOpEnable = true;
-					key.logicOp = logicOps[gstate.getLogicOp()];
-				} else {
-					key.logicOpEnable = false;
-				}
-			}
-
 			// Depth Test
 			if (gstate.isDepthTestEnabled()) {
 				key.depthTestEnable = true;

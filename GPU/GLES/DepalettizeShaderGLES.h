@@ -21,6 +21,7 @@
 #include "gfx/gl_common.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
+#include "GPU/Common/DepalettizeShaderCommon.h"
 
 class DepalShader {
 public:
@@ -38,7 +39,7 @@ public:
 };
 
 // Caches both shaders and palette textures.
-class DepalShaderCacheGLES {
+class DepalShaderCacheGLES : public DepalShaderCacheCommon {
 public:
 	DepalShaderCacheGLES();
 	~DepalShaderCacheGLES();
@@ -52,7 +53,6 @@ public:
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 private:
-	u32 GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat);
 	bool CreateVertexShader();
 
 	bool useGL3_;

@@ -35,7 +35,6 @@ public:
 	void UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
 	void EndCreate(VkCommandBuffer cmd);
 
-	int GetNumMips() const { return numMips_; }
 	void Destroy();
 
 	// Used in image copies, etc.
@@ -46,6 +45,8 @@ public:
 
 	int32_t GetWidth() const { return tex_width; }
 	int32_t GetHeight() const { return tex_height; }
+	int32_t GetNumMips() const { return numMips_; }
+	VkFormat GetFormat() const { return format_; }
 
 private:
 	void CreateMappableImage();

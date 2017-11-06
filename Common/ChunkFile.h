@@ -29,6 +29,7 @@
 // + Sections can be versioned for backwards/forwards compatibility
 // - Serialization code for anything complex has to be manually written.
 
+#include <cstdlib>
 #include <map>
 #include <unordered_map>
 #include <deque>
@@ -646,17 +647,9 @@ public:
 	{
 		// Get data
 		size_t const sz = MeasurePtr(_class);
-		u8 *buffer = nullptr;
-#if PPSSPP_PLATFORM(ANDROID)
-		buffer = new u8[sz];
-#else
-		try {
-			buffer = new u8[sz];
-		}
-		catch (std::bad_alloc e) {
+		u8 *buffer = (u8 *)malloc(sz);
+		if (!buffer)
 			return ERROR_BAD_ALLOC;
-		}
-#endif
 		Error error = SavePtr(buffer, _class);
 
 		// SaveFile takes ownership of buffer

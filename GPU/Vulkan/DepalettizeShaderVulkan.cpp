@@ -103,11 +103,9 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 	return depal;
 }
 
-VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat, u32 clutID, u32 *rawClut) {
-	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-	const u32 realClutID = clutID ^ clutFormat;
-
-	auto oldtex = texCache_.find(realClutID);
+VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat, u32 clutHash, u32 *rawClut) {
+	u32 clutId = GetClutID(clutFormat, clutHash);
+	auto oldtex = texCache_.find(clutId);
 	if (oldtex != texCache_.end()) {
 		oldtex->second->lastFrame = gpuStats.numFlips;
 		return oldtex->second->texture;
@@ -121,6 +119,7 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 	uint32_t pushOffset = push_->PushAligned(rawClut, 1024, 4, &pushBuffer);
 
 	VulkanTexture *vktex = new VulkanTexture(vulkan_, alloc_);
+	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	if (!vktex->CreateDirect(cmd, texturePixels, 1, 1, destFormat,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, &componentMapping)) {
 		Crash();
@@ -131,7 +130,7 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 	DepalTextureVulkan *tex = new DepalTextureVulkan();
 	tex->texture = vktex;
 	tex->lastFrame = gpuStats.numFlips;
-	texCache_[realClutID] = tex;
+	texCache_[clutId] = tex;
 	return tex->texture;
 }
 
@@ -160,8 +159,4 @@ void DepalShaderCacheVulkan::Decimate() {
 			++tex;
 		}
 	}
-}
-
-u32 DepalShaderCacheVulkan::GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) {
-	return (clutMode & 0xFFFFFF) | (pixelFormat << 24);
 }

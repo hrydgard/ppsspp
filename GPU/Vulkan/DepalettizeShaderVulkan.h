@@ -25,6 +25,7 @@
 #include "Common/Vulkan/VulkanMemory.h"
 #include "GPU/ge_constants.h"
 #include "thin3d/thin3d.h"
+#include "GPU/Common/DepalettizeShaderCommon.h"
 
 class DepalShaderVulkan {
 public:
@@ -33,7 +34,7 @@ public:
 	}
 	// A Vulkan2D pipeline. Set texture to slot 0 and palette texture to slot 1.
 	VkPipeline pipeline = VK_NULL_HANDLE;
-	const char *code = nullptr;;
+	const char *code = nullptr;
 };
 
 class DepalTextureVulkan {
@@ -47,7 +48,7 @@ class Vulkan2D;
 
 // Caches both shaders and palette textures.
 // Could even avoid bothering with palette texture and just use uniform data...
-class DepalShaderCacheVulkan {
+class DepalShaderCacheVulkan : public DepalShaderCacheCommon {
 public:
 	DepalShaderCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
 	~DepalShaderCacheVulkan();
@@ -64,8 +65,6 @@ public:
 	void SetVShader(VkShaderModule vshader) { vshader_ = vshader; }
 
 private:
-	u32 GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat);
-
 	Draw::DrawContext *draw_ = nullptr;
 	VulkanContext *vulkan_ = nullptr;
 	VulkanPushBuffer *push_ = nullptr;

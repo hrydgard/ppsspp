@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <map>
-
 #include "base/basictypes.h"
 #include "Common/Hashmaps.h"
 #include "Common/Vulkan/VulkanMemory.h"

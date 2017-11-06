@@ -173,7 +173,6 @@ GPU_Vulkan::~GPU_Vulkan() {
 
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
-	features |= GPU_SUPPORTS_16BIT_FORMATS;
 	if (vulkan_->GetFeaturesEnabled().wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;
 	}

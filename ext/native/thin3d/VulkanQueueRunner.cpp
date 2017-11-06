@@ -2,6 +2,8 @@
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
 
+// TODO: This is only enough for 4x render resolution / 4x texture upscale for debugger.
+// Maybe we should use a dynamically allocated one for larger?
 const uint32_t readbackBufferSize = 2048 * 2048 * 4;
 
 void VulkanQueueRunner::CreateDeviceObjects() {
@@ -187,6 +189,7 @@ void VulkanQueueRunner::InitRenderpasses() {
 		}
 	}
 }
+
 void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
 	for (int i = 0; i < steps.size(); i++) {
@@ -203,6 +206,9 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 			break;
 		case VKRStepType::READBACK:
 			PerformReadback(step, cmd);
+			break;
+		case VKRStepType::READBACK_IMAGE:
+			PerformReadbackImage(step, cmd);
 			break;
 		}
 		delete steps[i];
@@ -225,6 +231,9 @@ void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
 			break;
 		case VKRStepType::READBACK:
 			LogReadback(step);
+			break;
+		case VKRStepType::READBACK_IMAGE:
+			LogReadbackImage(step);
 			break;
 		}
 	}
@@ -279,6 +288,10 @@ void VulkanQueueRunner::LogReadback(const VKRStep &pass) {
 	ILOG("Readback");
 }
 
+void VulkanQueueRunner::LogReadbackImage(const VKRStep &pass) {
+	ILOG("ReadbackImage");
+}
+
 void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
 	// TODO: If there are multiple, we can transition them together.
 	for (const auto &iter : step.preTransitions) {
@@ -326,6 +339,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 			iter.fb->color.layout = barrier.newLayout;
 		}
+		iter.fb->Release();
 	}
 
 	// This is supposed to bind a vulkan render pass to the command buffer.
@@ -378,7 +392,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW_INDEXED:
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.drawIndexed.pipelineLayout, 0, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
-			vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, VK_INDEX_TYPE_UINT16);
+			vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, c.drawIndexed.indexType);
 			vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &c.drawIndexed.voffset);
 			vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, 0, 0, 0);
 			break;
@@ -557,6 +571,9 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		}
 	} else {
 		renderPass = GetBackbufferRenderPass();
+		assert(step.render.color == VKRRenderPassAction::CLEAR || step.render.color == VKRRenderPassAction::DONT_CARE);
+		assert(step.render.depthStencil == VKRRenderPassAction::CLEAR || step.render.depthStencil == VKRRenderPassAction::DONT_CARE);
+		Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 		numClearVals = 2;  // We don't bother with a depth buffer here.
 		clearVal[1].depthStencil.depth = 0.0f;
 		clearVal[1].depthStencil.stencil = 0;
@@ -572,6 +589,10 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 	rp_begin.clearValueCount = numClearVals;
 	rp_begin.pClearValues = numClearVals ? clearVal : nullptr;
 	vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+
+	if (step.render.framebuffer) {
+		step.render.framebuffer->Release();
+	}
 }
 
 void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
@@ -645,6 +666,9 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 		}
 		vkCmdCopyImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &copy);
 	}
+
+	src->Release();
+	dst->Release();
 }
 
 void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
@@ -728,6 +752,9 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 		}
 		vkCmdBlitImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &blit, step.blit.filter);
 	}
+
+	src->Release();
+	dst->Release();
 }
 
 void VulkanQueueRunner::SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect) {
@@ -810,12 +837,12 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 		assert(false);
 	}
 
-	assert(srcImage->format == VK_FORMAT_R8G8B8A8_UNORM);
-
 	VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	VkPipelineStageFlags stage = 0;
-	SetupTransitionToTransferSrc(*srcImage, barrier, stage, step.readback.aspectMask);
-	vkCmdPipelineBarrier(cmd, stage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	if (srcImage->layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+		SetupTransitionToTransferSrc(*srcImage, barrier, stage, step.readback.aspectMask);
+		vkCmdPipelineBarrier(cmd, stage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	}
 
 	VkBufferImageCopy region{};
 	region.imageOffset = { step.readback.srcRect.offset.x, step.readback.srcRect.offset.y, 0 };
@@ -828,15 +855,64 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 	vkCmdCopyImageToBuffer(cmd, srcImage->image, srcImage->layout, readbackBuffer_, 1, &region);
 
 	// NOTE: Can't read the buffer using the CPU here - need to sync first.
+
+	step.readback.src->Release();
 }
 
-void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
+void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffer cmd) {
+	// TODO: Clean this up - just reusing `SetupTransitionToTransferSrc`.
+	VKRImage srcImage;
+	srcImage.image = step.readback_image.image;
+	srcImage.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	VkPipelineStageFlags stage = 0;
+	SetupTransitionToTransferSrc(srcImage, barrier, stage, VK_IMAGE_ASPECT_COLOR_BIT);
+	vkCmdPipelineBarrier(cmd, stage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+	VkBufferImageCopy region{};
+	region.imageOffset = { step.readback_image.srcRect.offset.x, step.readback_image.srcRect.offset.y, 0 };
+	region.imageExtent = { step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height, 1 };
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.layerCount = 1;
+	region.imageSubresource.mipLevel = step.readback_image.mipLevel;
+	region.bufferOffset = 0;
+	region.bufferRowLength = step.readback_image.srcRect.extent.width;
+	region.bufferImageHeight = step.readback_image.srcRect.extent.height;
+	vkCmdCopyImageToBuffer(cmd, step.readback_image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readbackBuffer_, 1, &region);
+
+	// Now transfer it back to a texture.
+	TransitionImageLayout2(cmd, step.readback_image.image,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+	// NOTE: Can't read the buffer using the CPU here - need to sync first.
+}
+
+void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 	// Read back to the requested address in ram from buffer.
 	void *mappedData;
-	const int srcPixelSize = 4;  // TODO: Fix.
+	const size_t srcPixelSize = DataFormatSizeInBytes(srcFormat);
 
 	VkResult res = vkMapMemory(vulkan_->GetDevice(), readbackMemory_, 0, width * height * srcPixelSize, 0, &mappedData);
 	assert(res == VK_SUCCESS);
-	ConvertFromRGBA8888(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, destFormat);
+	if (srcFormat == Draw::DataFormat::R8G8B8A8_UNORM) {
+		ConvertFromRGBA8888(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, destFormat);
+	} else if (srcFormat == destFormat) {
+		uint8_t *dst = pixels;
+		const uint8_t *src = (const uint8_t *)mappedData;
+		for (int y = 0; y < height; ++y) {
+			memcpy(dst, src, width * srcPixelSize);
+			src += width * srcPixelSize;
+			dst += pixelStride * srcPixelSize;
+		}
+	} else if (destFormat == Draw::DataFormat::D32F) {
+		ConvertToD32F(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, srcFormat);
+	} else {
+		// TODO: Maybe a depth conversion or something?
+		assert(false);
+	}
 	vkUnmapMemory(vulkan_->GetDevice(), readbackMemory_);
 }

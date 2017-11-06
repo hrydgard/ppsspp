@@ -17,6 +17,8 @@
 
 #include <algorithm>
 #include <sstream>
+#include <cassert>
+#include <cmath>
 
 #include "ext/native/thin3d/thin3d.h"
 #include "base/timeutil.h"
@@ -199,7 +201,7 @@ bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffe
 
 void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
 	for (size_t i = 0; i < extraFBOs_.size(); i++) {
-		delete extraFBOs_[i];
+		extraFBOs_[i]->Release();
 	}
 	extraFBOs_.clear();
 	for (int i = 0; i < num; i++) {
@@ -216,7 +218,7 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferForma
 	static const int MAX_FRAMEBUF_HEIGHT = 512;
 
 	// Games don't always set any of these.  Take the greatest parameter that looks valid based on stride.
-	if (viewport_width > 4 && viewport_width <= fb_stride) {
+	if (viewport_width > 4 && viewport_width <= fb_stride && viewport_height > 0) {
 		drawing_width = viewport_width;
 		drawing_height = viewport_height;
 		// Some games specify a viewport with 0.5, but don't have VRAM for 273.  480x272 is the buffer size.
@@ -303,8 +305,19 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	params->isModeThrough = gstate.isModeThrough();
 
 	// Viewport-X1 and Y1 are not the upper left corner, but half the width/height. A bit confusing.
-	params->viewportWidth = (int)(fabsf(gstate.getViewportXScale()*2.0f));
-	params->viewportHeight = (int)(fabsf(gstate.getViewportYScale()*2.0f));
+	float vpx = gstate.getViewportXScale();
+	float vpy = gstate.getViewportYScale();
+
+	// Work around problem in F1 Grand Prix, where it draws in through mode with a bogus viewport.
+	// We set bad values to 0 which causes the framebuffer size heuristic to rely on the other parameters instead.
+	if (std::isnan(vpx) || vpx > 10000000.0f) {
+		vpx = 0.f;
+	}
+	if (std::isnan(vpy) || vpy > 10000000.0f) {
+		vpy = 0.f;
+	}
+	params->viewportWidth = (int)(fabsf(vpx) * 2.0f);
+	params->viewportHeight = (int)(fabsf(vpy) * 2.0f);
 	params->regionWidth = gstate.getRegionX2() + 1;
 	params->regionHeight = gstate.getRegionY2() + 1;
 	params->scissorWidth = gstate.getScissorX2() + 1;
@@ -610,7 +623,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 		if (vfb->fbo) {
 			// This should only happen very briefly when toggling useBufferedRendering_.
 			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
-			delete vfb->fbo;
+			vfb->fbo->Release();
 			vfb->fbo = nullptr;
 		}
 
@@ -828,7 +841,7 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 }
 
 void FramebufferManagerCommon::CopyDisplayToOutput() {
-	// DownloadFramebufferOnSwitch(currentRenderVfb_);
+	DownloadFramebufferOnSwitch(currentRenderVfb_);
 
 	currentRenderVfb_ = 0;
 
@@ -1063,7 +1076,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	currentRenderVfb_ = 0;
 
 	for (auto iter : fbosToDelete_) {
-		delete iter;
+		iter->Release();
 	}
 	fbosToDelete_.clear();
 
@@ -1111,7 +1124,9 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	}
 }
 
-void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force, bool skipCopy) {
+void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force, bool skipCopy) {
+	assert(w > 0);
+	assert(h > 0);
 	VirtualFramebuffer old = *vfb;
 
 	int oldWidth = vfb->bufferWidth;
@@ -1126,8 +1141,8 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 		}
 
 		// In case it gets thin and wide, don't resize down either side.
-		vfb->bufferWidth = std::max(vfb->bufferWidth, w);
-		vfb->bufferHeight = std::max(vfb->bufferHeight, h);
+		vfb->bufferWidth = std::max((int)vfb->bufferWidth, w);
+		vfb->bufferHeight = std::max((int)vfb->bufferHeight, h);
 	}
 
 	SetRenderSize(vfb);
@@ -1161,7 +1176,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 
 	if (!useBufferedRendering_) {
 		if (vfb->fbo) {
-			delete vfb->fbo;
+			vfb->fbo->Release();
 			vfb->fbo = nullptr;
 		}
 		return;
@@ -1917,6 +1932,9 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 	bool flipY = (g_Config.iGPUBackend == GPU_BACKEND_OPENGL && !useBufferedRendering_) ? true : false;
 	buffer.Allocate(w, h, GE_FORMAT_8888, flipY, true);
 	bool retval = draw_->CopyFramebufferToMemorySync(bound, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
+	// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
+	// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 	// We may have blitted to a temp FBO.
 	RebindFramebuffer();
 	return retval;
@@ -2019,9 +2037,9 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 }
 
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-	// Clamp to width. Sometimes block transfers can cause this to hit.
-	if (x + w >= vfb->width) {
-		w = vfb->width - x;
+	// Clamp to bufferWidth. Sometimes block transfers can cause this to hit.
+	if (x + w >= vfb->bufferWidth) {
+		w = vfb->bufferWidth - x;
 	}
 	if (vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.

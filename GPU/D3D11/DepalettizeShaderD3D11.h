@@ -23,6 +23,7 @@
 #include "Common/CommonTypes.h"
 #include "GPU/ge_constants.h"
 #include "thin3d/thin3d.h"
+#include "GPU/Common/DepalettizeShaderCommon.h"
 
 class DepalShaderD3D11 {
 public:
@@ -44,7 +45,7 @@ public:
 };
 
 // Caches both shaders and palette textures.
-class DepalShaderCacheD3D11 {
+class DepalShaderCacheD3D11 : public DepalShaderCacheCommon {
 public:
 	DepalShaderCacheD3D11(Draw::DrawContext *draw);
 	~DepalShaderCacheD3D11();
@@ -60,8 +61,6 @@ public:
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 private:
-	u32 GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat);
-
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
 	D3D_FEATURE_LEVEL featureLevel_;
