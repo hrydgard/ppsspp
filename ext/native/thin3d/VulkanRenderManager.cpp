@@ -217,13 +217,15 @@ void VulkanRenderManager::StopThread(bool shutdown) {
 		thread_.join();
 		VLOG("thread joined.");
 
-		// Resignal fences for next time around - must be done after join.
+		// Wait for any fences to finish and be resignaled, so we don't have sync issues.
 		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 			auto &frameData = frameData_[i];
 			frameData.readyForRun = false;
-			if (!shutdown && !frameData.readyForFence) {
-				vkDestroyFence(vulkan_->GetDevice(), frameData.fence, nullptr);
-				frameData.fence = vulkan_->CreateFence(true);
+
+			std::unique_lock<std::mutex> lock(frameData.push_mutex);
+			while (!frameData.readyForFence) {
+				VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (stop)", i);
+				frameData.push_condVar.wait(lock);
 			}
 		}
 	}
@@ -268,12 +270,11 @@ VulkanRenderManager::~VulkanRenderManager() {
 	queueRunner_.DestroyDeviceObjects();
 }
 
-// TODO: Activate this code.
 void VulkanRenderManager::ThreadFunc() {
 	setCurrentThreadName("RenderMan");
 	int threadFrame = threadInitFrame_;
 	bool nextFrame = false;
-	while (run_) {
+	while (true) {
 		{
 			if (nextFrame) {
 				threadFrame++;
@@ -285,6 +286,10 @@ void VulkanRenderManager::ThreadFunc() {
 			while (!frameData.readyForRun && run_) {
 				VLOG("PULL: Waiting for frame[%d].readyForRun", threadFrame);
 				frameData.pull_condVar.wait(lock);
+			}
+			if (!frameData.readyForRun && !run_) {
+				// This means we're out of frames to render and run_ is false, so bail.
+				break;
 			}
 			VLOG("PULL: frame[%d].readyForRun = false", threadFrame);
 			frameData.readyForRun = false;
@@ -656,7 +661,6 @@ void VulkanRenderManager::Finish() {
 }
 
 void VulkanRenderManager::Wipe() {
-	int curFrame = vulkan_->GetCurFrame();
 	for (auto step : steps_) {
 		// Need to release held framebuffers.
 		switch (step->stepType) {
