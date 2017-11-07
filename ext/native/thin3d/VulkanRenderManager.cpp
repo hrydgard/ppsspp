@@ -701,6 +701,8 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		VkResult res = vkAcquireNextImageKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &frameData.curSwapchainImage);
 		if (res == VK_SUBOPTIMAL_KHR) {
 			// Hopefully the resize will happen shortly. Ignore.
+		} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+			frameData.skipSwap = true;
 		} else {
 			assert(res == VK_SUCCESS);
 		}
@@ -751,7 +753,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	cmdBufs[numCmdBufs++] = frameData.mainCmd;
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	if (triggerFence) {
+	if (triggerFence && !frameData.skipSwap) {
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &acquireSemaphore_;
 		VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -759,7 +761,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	}
 	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
 	submit_info.pCommandBuffers = cmdBufs;
-	if (triggerFence) {
+	if (triggerFence && !frameData.skipSwap) {
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
 	}
@@ -785,21 +787,25 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 
 	Submit(frame, true);
 
-	VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
-	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
-	present.swapchainCount = 1;
-	present.pSwapchains = &swapchain;
-	present.pImageIndices = &frameData.curSwapchainImage;
-	present.pWaitSemaphores = &renderingCompleteSemaphore_;
-	present.waitSemaphoreCount = 1;
+	if (!frameData.skipSwap) {
+		VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
+		VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+		present.swapchainCount = 1;
+		present.pSwapchains = &swapchain;
+		present.pImageIndices = &frameData.curSwapchainImage;
+		present.pWaitSemaphores = &renderingCompleteSemaphore_;
+		present.waitSemaphoreCount = 1;
 
-	VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
-	// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
-	// return codes
-	if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-		// ignore, it'll be fine. this happens sometimes during resizes, and we do make sure to recreate the swap chain.
+		VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
+		// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
+		// return codes
+		if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+			// ignore, it'll be fine. this happens sometimes during resizes, and we do make sure to recreate the swap chain.
+		} else {
+			assert(res == VK_SUCCESS);
+		}
 	} else {
-		assert(res == VK_SUCCESS);
+		frameData.skipSwap = false;
 	}
 }
 
