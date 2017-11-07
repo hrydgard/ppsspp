@@ -57,6 +57,7 @@ public class TextRenderer {
 
 		int [] pixels = new int[w * h];
 		bmp.getPixels(pixels, 0, w, 0, 0, w, h);
+		bmp.recycle();
 		return pixels;
 	}
 }
