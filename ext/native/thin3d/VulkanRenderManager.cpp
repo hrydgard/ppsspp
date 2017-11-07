@@ -224,6 +224,7 @@ void VulkanRenderManager::StopThread(bool shutdown) {
 			if (!shutdown && !frameData.readyForFence) {
 				vkDestroyFence(vulkan_->GetDevice(), frameData.fence, nullptr);
 				frameData.fence = vulkan_->CreateFence(true);
+				frameData.readyForFence = true;
 			}
 		}
 	}
@@ -268,7 +269,6 @@ VulkanRenderManager::~VulkanRenderManager() {
 	queueRunner_.DestroyDeviceObjects();
 }
 
-// TODO: Activate this code.
 void VulkanRenderManager::ThreadFunc() {
 	setCurrentThreadName("RenderMan");
 	int threadFrame = threadInitFrame_;
