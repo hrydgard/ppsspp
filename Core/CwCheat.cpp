@@ -150,7 +150,7 @@ void CheatFileParser::ParseLine(const std::string &line) {
 
 	case 'C':
 		// Cheat name and activation status.
-		if (line.length() >= 3 && line[2] == '1') {
+		if (line.length() >= 3 && line[2] >= '1' && line[2] <= '9') {
 			cheatEnabled_ = true;
 		} else if (line.length() >= 3 && line[2] == '0') {
 			cheatEnabled_ = false;
