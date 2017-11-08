@@ -158,6 +158,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	static double deadline;
 	deadline = time_now() + timeout;
 
+	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
+
 	PSP_BeginHostFrame();
 
 	coreState = CORE_RUNNING;

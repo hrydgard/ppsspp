@@ -73,6 +73,9 @@ void PSP_EndHostFrame();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
 
+// Call before PSP_BeginHostFrame() in order to not miss any GPU stats.
+void Core_UpdateDebugStats(bool collectStats);
+
 void Audio_Init();
 
 bool IsOnSeparateCPUThread();

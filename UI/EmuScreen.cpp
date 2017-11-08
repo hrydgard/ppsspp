@@ -1012,6 +1012,8 @@ void EmuScreen::render() {
 		}
 	}
 
+	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
+
 	PSP_BeginHostFrame();
 
 	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.

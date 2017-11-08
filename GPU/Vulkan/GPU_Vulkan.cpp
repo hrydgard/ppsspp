@@ -833,6 +833,7 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
+		"Readbacks: %d\n"
 		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
 		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
@@ -850,6 +851,7 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheVulkan_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
+		gpuStats.numReadbacks,
 		shaderManagerVulkan_->GetNumVertexShaders(),
 		shaderManagerVulkan_->GetNumFragmentShaders(),
 		pipelineManager_->GetNumPipelines(),
