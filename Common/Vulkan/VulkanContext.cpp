@@ -786,7 +786,8 @@ bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkSha
 void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
-	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
+	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+	int numMipLevels) {
 	VkImageMemoryBarrier image_memory_barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	image_memory_barrier.srcAccessMask = srcAccessMask;
 	image_memory_barrier.dstAccessMask = dstAccessMask;
@@ -795,8 +796,8 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFla
 	image_memory_barrier.image = image;
 	image_memory_barrier.subresourceRange.aspectMask = aspectMask;
 	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-	image_memory_barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-	image_memory_barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+	image_memory_barrier.subresourceRange.levelCount = numMipLevels;
+	image_memory_barrier.subresourceRange.layerCount = 1;  // We never use more than one layer, and old Mali drivers have problems with VK_REMAINING_ARRAY_LAYERS/VK_REMAINING_MIP_LEVELS.
 	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	vkCmdPipelineBarrier(cmd, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);

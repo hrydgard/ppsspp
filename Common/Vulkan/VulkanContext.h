@@ -393,7 +393,7 @@ private:
 void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
-	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);
+	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, int mipLevels = VK_REMAINING_MIP_LEVELS);
 
 // GLSL compiler
 void init_glslang();
