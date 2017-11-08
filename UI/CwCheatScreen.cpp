@@ -155,6 +155,7 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
 	}
 	fs.close();
 
+	g_Config.bReloadCheats = true;
 	return UI::EVENT_DONE;
 }
 
