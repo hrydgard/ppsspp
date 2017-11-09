@@ -495,11 +495,11 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 		addr = GetAddress(line1.part1 & 0x0FFFFFFF);
 		if (i < cheat.lines.size()) {
 			const CheatLine &line2 = cheat.lines[i++];
-			const int count = line2.part1 & 0xFFFF;
+			int count = line2.part1 & 0xFFFF;
 
-			// Doesn't have enough lines to process.
-			if (i - 1 + count > cheat.lines.size())
-				return { CheatOp::Invalid };
+			// Clamp lines to process - previously allowed invalid counts.
+			if (i + count > cheat.lines.size())
+				count = cheat.lines.size() - i;
 
 			CheatOperation op = { CheatOp::CwCheatPointerCommands, addr, 0, arg };
 			op.pointerCommands.offset = (int)line2.part2;
