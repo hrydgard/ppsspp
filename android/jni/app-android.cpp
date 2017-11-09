@@ -340,6 +340,7 @@ void AndroidVulkanContext::Shutdown() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	delete draw_;
 	draw_ = nullptr;
+	ILOG("Calling NativeShutdownGraphics");
 	NativeShutdownGraphics();
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();

@@ -70,6 +70,11 @@ DepalShaderCacheVulkan::~DepalShaderCacheVulkan() {
 	vulkan_->Delete().QueueDeleteShaderModule(vshader_);
 }
 
+void DepalShaderCacheVulkan::DeviceRestore(Draw::DrawContext *draw, VulkanContext *vulkan) {
+	draw_ = draw;
+	vulkan_ = vulkan;
+}
+
 DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat) {
 	u32 id = GenerateShaderID(clutMode, pixelFormat);
 

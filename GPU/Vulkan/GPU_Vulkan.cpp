@@ -813,17 +813,19 @@ void GPU_Vulkan::DeviceLost() {
 
 void GPU_Vulkan::DeviceRestore() {
 	vulkan_ = (VulkanContext *)PSP_CoreParameter().graphicsContext->GetAPIContext();
+	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
 	InitDeviceObjects();
 
 	CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();
 
-	framebufferManagerVulkan_->DeviceRestore(vulkan_);
-	drawEngine_.DeviceRestore(vulkan_);
+	framebufferManagerVulkan_->DeviceRestore(vulkan_, draw_);
+	drawEngine_.DeviceRestore(vulkan_, draw_);
 	pipelineManager_->DeviceRestore(vulkan_);
-	textureCacheVulkan_->DeviceRestore(vulkan_);
+	textureCacheVulkan_->DeviceRestore(vulkan_, draw_);
 	shaderManagerVulkan_->DeviceRestore(vulkan_);
+	depalShaderCache_.DeviceRestore(draw_, vulkan_);
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {

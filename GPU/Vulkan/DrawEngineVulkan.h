@@ -137,7 +137,7 @@ public:
 	}
 
 	void DeviceLost();
-	void DeviceRestore(VulkanContext *vulkan);
+	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 
 	void SetupVertexDecoder(u32 vertType);
 	void SetupVertexDecoderInternal(u32 vertType);

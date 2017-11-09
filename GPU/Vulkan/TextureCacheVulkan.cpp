@@ -187,8 +187,9 @@ void TextureCacheVulkan::DeviceLost() {
 	nextTexture_ = nullptr;
 }
 
-void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan) {
+void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
 	vulkan_ = vulkan;
+	draw_ = draw;
 
 	assert(!allocator_);
 

@@ -269,8 +269,9 @@ void DrawEngineVulkan::DeviceLost() {
 	DirtyAllUBOs();
 }
 
-void DrawEngineVulkan::DeviceRestore(VulkanContext *vulkan) {
+void DrawEngineVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
 	vulkan_ = vulkan;
+	draw_ = draw;
 
 	InitDeviceObjects();
 }

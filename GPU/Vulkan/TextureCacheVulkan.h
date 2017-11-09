@@ -72,7 +72,7 @@ public:
 	void EndFrame();
 
 	void DeviceLost();
-	void DeviceRestore(VulkanContext *vulkan);
+	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 
 	void SetFramebufferManager(FramebufferManagerVulkan *fbManager);
 	void SetDepalShaderCache(DepalShaderCacheVulkan *dpCache) {

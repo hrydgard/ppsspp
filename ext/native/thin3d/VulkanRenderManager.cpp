@@ -199,7 +199,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 	}
 }
 
-void VulkanRenderManager::StopThread(bool shutdown) {
+void VulkanRenderManager::StopThread() {
 	if (useThread && run_) {
 		run_ = false;
 		// Stop the thread.
@@ -232,7 +232,7 @@ void VulkanRenderManager::StopThread(bool shutdown) {
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
-	StopThread(false);
+	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
 	VkDevice device = vulkan_->GetDevice();
@@ -253,7 +253,8 @@ void VulkanRenderManager::DestroyBackbuffers() {
 }
 
 VulkanRenderManager::~VulkanRenderManager() {
-	StopThread(true);
+	ILOG("VulkanRenderManager destructor");
+	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
 	VkDevice device = vulkan_->GetDevice();

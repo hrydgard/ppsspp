@@ -9,6 +9,7 @@
 const uint32_t readbackBufferSize = 2048 * 2048 * 4;
 
 void VulkanQueueRunner::CreateDeviceObjects() {
+	ILOG("VulkanQueueRuner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
 	InitRenderpasses();
 
@@ -36,16 +37,21 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 }
 
 void VulkanQueueRunner::DestroyDeviceObjects() {
+	ILOG("VulkanQueueRuner::DestroyDeviceObjects");
 	VkDevice device = vulkan_->GetDevice();
 	vkFreeMemory(device, readbackMemory_, nullptr);
+	readbackMemory_ = VK_NULL_HANDLE;
 	vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
+	readbackBuffer_ = VK_NULL_HANDLE;
 
 	for (int i = 0; i < ARRAY_SIZE(renderPasses_); i++) {
 		assert(renderPasses_[i] != VK_NULL_HANDLE);
 		vkDestroyRenderPass(device, renderPasses_[i], nullptr);
+		renderPasses_[i] = VK_NULL_HANDLE;
 	}
 	assert(backbufferRenderPass_ != VK_NULL_HANDLE);
 	vkDestroyRenderPass(device, backbufferRenderPass_, nullptr);
+	backbufferRenderPass_ = VK_NULL_HANDLE;
 }
 
 void VulkanQueueRunner::InitBackbufferRenderPass() {

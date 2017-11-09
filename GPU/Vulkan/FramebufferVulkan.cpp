@@ -593,8 +593,9 @@ void FramebufferManagerVulkan::DeviceLost() {
 	DestroyDeviceObjects();
 }
 
-void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
+void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
 	vulkan_ = vulkan;
+	draw_ = draw;
 
 	vulkan2D_->DeviceRestore(vulkan_);
 	InitDeviceObjects();
