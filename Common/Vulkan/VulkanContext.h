@@ -43,6 +43,15 @@ enum {
 	VULKAN_FLAG_PRESENT_FIFO_RELAXED = 8,
 };
 
+enum {
+	VULKAN_VENDOR_NVIDIA = 0x000010de,
+	VULKAN_VENDOR_INTEL = 0x00008086,   // Haha!
+	VULKAN_VENDOR_AMD = 0x00001002,
+	VULKAN_VENDOR_ARM = 0x000013B5,  // Mali
+	VULKAN_VENDOR_QUALCOMM = 0x00005143,
+	VULKAN_VENDOR_IMGTEC = 0x00001010,  // PowerVR
+};
+
 struct VulkanPhysicalDeviceInfo {
 	VkFormat preferredDepthStencilFormat;
 };
@@ -203,8 +212,7 @@ public:
 
 	VkResult CreateInstance(const char *app_name, int app_ver, uint32_t flags);
 	
-	// TODO: Actually do some checks?
-	int GetBestPhysicalDevice() const { return 0; }
+	int GetBestPhysicalDevice();
 	void ChooseDevice(int physical_device);
 	bool EnableDeviceExtension(const char *extension);
 	VkResult CreateDevice();

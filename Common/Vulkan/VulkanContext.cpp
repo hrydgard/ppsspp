@@ -120,6 +120,11 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 	}
 
 	VulkanLoadInstanceFunctions(instance_);
+	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
+		WLOG("CheckLayers for instance failed");
+		// init_error_ = "Failed to validate instance layers";
+		// return;
+	}
 
 	uint32_t gpu_count = 1;
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, nullptr);
@@ -141,11 +146,6 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 		return res;
 	}
 
-	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
-		WLOG("CheckLayers failed");
-		// init_error_ = "Failed to validate instance layers";
-		// return;
-	}
 	return VK_SUCCESS;
 }
 
@@ -333,14 +333,47 @@ bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props,
 	return true;
 }
 
+int VulkanContext::GetBestPhysicalDevice() {
+	// Rules: Prefer discrete over embedded.
+	// Prefer nVidia over Intel.
+
+	int maxScore = -1;
+	int best = -1;
+
+	for (size_t i = 0; i < physical_devices_.size(); i++) {
+		int score = 0;
+		VkPhysicalDeviceProperties props;
+		vkGetPhysicalDeviceProperties(physical_devices_[i], &props);
+		switch (props.deviceType) {
+		case VK_PHYSICAL_DEVICE_TYPE_CPU:
+			score += 1;
+			break;
+		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+			score += 20;
+			break;
+		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+			score += 10;
+			break;
+		}
+		if (props.vendorID == VULKAN_VENDOR_AMD) {
+			score += 5;
+		} else if (props.vendorID == VULKAN_VENDOR_NVIDIA) {
+			score += 5;
+		}
+		if (score > maxScore) {
+			best = i;
+			maxScore = score;
+		}
+	}
+	return best;
+}
+
 void VulkanContext::ChooseDevice(int physical_device) {
 	physical_device_ = physical_device;
 
 	GetDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
-		WLOG("CheckLayers failed (2)");
-		// init_error_ = "Failed to validate device layers";
-		// return;
+		WLOG("CheckLayers for device %d failed", physical_device);
 	}
 
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, nullptr);
