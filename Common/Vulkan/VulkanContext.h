@@ -52,6 +52,9 @@ enum {
 	VULKAN_VENDOR_IMGTEC = 0x00001010,  // PowerVR
 };
 
+std::string VulkanVendorString(uint32_t vendorId);
+
+
 struct VulkanPhysicalDeviceInfo {
 	VkFormat preferredDepthStencilFormat;
 };

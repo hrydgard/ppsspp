@@ -8,6 +8,7 @@
 #include "base/basictypes.h"
 #include "VulkanContext.h"
 #include "GPU/Common/ShaderCommon.h"
+#include "Common/StringUtils.h"
 
 #ifdef USE_CRT_DBG
 #undef new
@@ -49,6 +50,20 @@ static const char *validationLayers[] = {
 	"VK_LAYER_GOOGLE_unique_objects",
 	*/
 };
+
+std::string VulkanVendorString(uint32_t vendorId) {
+	switch (vendorId) {
+	case VULKAN_VENDOR_INTEL: return "Intel";
+	case VULKAN_VENDOR_NVIDIA: return "nVidia";
+	case VULKAN_VENDOR_AMD: return "AMD";
+	case VULKAN_VENDOR_ARM: return "ARM";
+	case VULKAN_VENDOR_QUALCOMM: return "Qualcomm";
+	case VULKAN_VENDOR_IMGTEC: return "Imagination";
+
+	default:
+		return StringFromFormat("%08x", vendorId);
+	}
+}
 
 VulkanContext::VulkanContext() {
 	if (!VulkanLoad()) {
@@ -361,7 +376,7 @@ int VulkanContext::GetBestPhysicalDevice() {
 			score += 5;
 		}
 		if (score > maxScore) {
-			best = i;
+			best = (int)i;
 			maxScore = score;
 		}
 	}
