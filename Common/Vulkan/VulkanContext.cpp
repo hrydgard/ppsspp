@@ -219,6 +219,7 @@ bool VulkanContext::InitObjects() {
 }
 
 void VulkanContext::DestroyObjects() {
+	ILOG("VulkanContext::DestroyObjects (including swapchain)");
 	if (swapchain_ != VK_NULL_HANDLE)
 		vkDestroySwapchainKHR(device_, swapchain_, nullptr);
 	swapchain_ = VK_NULL_HANDLE;
@@ -584,6 +585,7 @@ void VulkanContext::InitSurfaceAndroid(ANativeWindow *wnd, int width, int height
 }
 
 void VulkanContext::ReinitSurfaceAndroid(int width, int height) {
+	ILOG("Destroying and reiniting Android Vulkan surface");
 	if (surface_ != VK_NULL_HANDLE) {
 		vkDestroySurfaceKHR(instance_, surface_, nullptr);
 		surface_ = VK_NULL_HANDLE;

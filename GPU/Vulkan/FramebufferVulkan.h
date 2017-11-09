@@ -120,7 +120,6 @@ private:
 	DrawEngineVulkan *drawEngineVulkan_;
 	VulkanPushBuffer *push_;
 
-	DepalShaderCacheVulkan depalVulkan_;
 	enum {
 		MAX_COMMAND_BUFFERS = 32,
 	};

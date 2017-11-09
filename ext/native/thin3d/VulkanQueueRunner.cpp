@@ -39,6 +39,7 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 void VulkanQueueRunner::DestroyDeviceObjects() {
 	ILOG("VulkanQueueRuner::DestroyDeviceObjects");
 	VkDevice device = vulkan_->GetDevice();
+	vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
 	vkFreeMemory(device, readbackMemory_, nullptr);
 	readbackMemory_ = VK_NULL_HANDLE;
 	vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
@@ -46,11 +47,11 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 
 	for (int i = 0; i < ARRAY_SIZE(renderPasses_); i++) {
 		assert(renderPasses_[i] != VK_NULL_HANDLE);
-		vkDestroyRenderPass(device, renderPasses_[i], nullptr);
+		vulkan_->Delete().QueueDeleteRenderPass(renderPasses_[i]);
 		renderPasses_[i] = VK_NULL_HANDLE;
 	}
 	assert(backbufferRenderPass_ != VK_NULL_HANDLE);
-	vkDestroyRenderPass(device, backbufferRenderPass_, nullptr);
+	vulkan_->Delete().QueueDeleteRenderPass(backbufferRenderPass_);
 	backbufferRenderPass_ = VK_NULL_HANDLE;
 }
 
@@ -425,8 +426,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			VkClearRect rc{};
 			rc.baseArrayLayer = 0;
 			rc.layerCount = 1;
-			rc.rect.extent.width = curWidth;
-			rc.rect.extent.height = curHeight;
+			rc.rect.extent.width = (uint32_t)curWidth;
+			rc.rect.extent.height = (uint32_t)curHeight;
 			VkClearAttachment attachments[2];
 			if (c.clear.clearMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 				VkClearAttachment &attachment = attachments[numAttachments++];
@@ -442,7 +443,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 					attachment.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 				}
 				if (c.clear.clearMask & VK_IMAGE_ASPECT_STENCIL_BIT) {
-					attachment.clearValue.depthStencil.stencil = c.clear.clearStencil;
+					attachment.clearValue.depthStencil.stencil = (uint32_t)c.clear.clearStencil;
 					attachment.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 				}
 			}

@@ -194,7 +194,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 		run_ = true;
 		// Won't necessarily be 0.
 		threadInitFrame_ = vulkan_->GetCurFrame();
-		VLOG("starting thread");
+		ILOG("Starting Vulkan submission thread");
 		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
 	}
 }
@@ -215,7 +215,7 @@ void VulkanRenderManager::StopThread() {
 			}
 		}
 		thread_.join();
-		VLOG("thread joined.");
+		ILOG("Vulkan submission thread joined.");
 
 		// Wait for any fences to finish and be resignaled, so we don't have sync issues.
 		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
@@ -228,6 +228,8 @@ void VulkanRenderManager::StopThread() {
 				frameData.push_condVar.wait(lock);
 			}
 		}
+	} else {
+		ILOG("Vulkan submission thread was already stopped.");
 	}
 }
 
@@ -331,6 +333,9 @@ void VulkanRenderManager::BeginFrame() {
 
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
+	if (!run_) {
+		WLOG("BeginFrame while !run_!");
+	}
 	vulkan_->BeginFrame();
 
 	insideFrame_ = true;

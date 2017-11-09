@@ -249,10 +249,10 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	if (nullSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nullSampler_);
 	if (pipelineLayout_ != VK_NULL_HANDLE)
-		vkDestroyPipelineLayout(vulkan_->GetDevice(), pipelineLayout_, nullptr);
+		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 	pipelineLayout_ = VK_NULL_HANDLE;
 	if (descriptorSetLayout_ != VK_NULL_HANDLE)
-		vkDestroyDescriptorSetLayout(vulkan_->GetDevice(), descriptorSetLayout_, nullptr);
+		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 	descriptorSetLayout_ = VK_NULL_HANDLE;
 	if (nullTexture_) {
 		nullTexture_->Destroy();

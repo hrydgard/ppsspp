@@ -88,8 +88,7 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	convBufSize_(0),
 	textureCacheVulkan_(nullptr),
 	shaderManagerVulkan_(nullptr),
-	pipelinePostShader_(VK_NULL_HANDLE),
-	depalVulkan_(draw, vulkan) {
+	pipelinePostShader_(VK_NULL_HANDLE) {
 
 	InitDeviceObjects();
 

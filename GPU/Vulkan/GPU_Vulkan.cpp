@@ -807,7 +807,7 @@ void GPU_Vulkan::DeviceLost() {
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
-	depalShaderCache_.Clear();
+	depalShaderCache_.DeviceLost();
 	shaderManagerVulkan_->ClearShaders();
 }
 

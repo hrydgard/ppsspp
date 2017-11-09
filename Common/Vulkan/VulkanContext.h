@@ -71,6 +71,7 @@ class VulkanDeleteList {
 	};
 
 public:
+	// NOTE: These all take reference handles so they can zero the input value.
 	void QueueDeleteCommandPool(VkCommandPool &pool) { cmdPools_.push_back(pool); pool = VK_NULL_HANDLE; }
 	void QueueDeleteDescriptorPool(VkDescriptorPool &pool) { descPools_.push_back(pool); pool = VK_NULL_HANDLE; }
 	void QueueDeleteShaderModule(VkShaderModule &module) { modules_.push_back(module); module = VK_NULL_HANDLE; }
@@ -122,6 +123,7 @@ public:
 	}
 
 	void PerformDeletes(VkDevice device) {
+		ILOG("PerformDeletes");
 		for (auto &cmdPool : cmdPools_) {
 			vkDestroyCommandPool(device, cmdPool, nullptr);
 		}
