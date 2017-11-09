@@ -44,6 +44,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "HW/MemoryStick.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
 namespace SaveState
@@ -591,6 +592,10 @@ namespace SaveState
 					callbackMessage = sc->T("Loaded State");
 					callbackResult = true;
 					hasLoadedState = true;
+					if (gpu) {
+						// Workaround for d3d11 load state glitches
+						gpu->ClearCacheNextFrame();
+					}
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
 					callbackMessage = i18nLoadFailure;
