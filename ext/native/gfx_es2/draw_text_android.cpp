@@ -269,7 +269,7 @@ void TextDrawerAndroid::OncePerFrame() {
 	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
 	float newDpiScale = CalculateDPIScale();
 	if (newDpiScale != dpiScale_) {
-		ILOG("Scale changed - wiping cache");
+		ILOG("DPI Scale changed (%f to %f) - wiping font cache", dpiScale_, newDpiScale);
 		dpiScale_ = newDpiScale;
 		ClearCache();
 		fontMap_.clear();  // size is precomputed using dpiScale_.
