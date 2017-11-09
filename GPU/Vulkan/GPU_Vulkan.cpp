@@ -177,7 +177,9 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_WIDE_LINES;
 	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
-		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+		// Work around for Intel driver bug. See issue #10074.
+		if (vulkan_->GetPhysicalDeviceProperties().vendorID != VULKAN_VENDOR_INTEL)
+			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	}
 	if (vulkan_->GetFeaturesEnabled().logicOp) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
