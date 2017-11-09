@@ -349,9 +349,6 @@ bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props,
 }
 
 int VulkanContext::GetBestPhysicalDevice() {
-	// DO NOT COMMIT
-	return 1;
-
 	// Rules: Prefer discrete over embedded.
 	// Prefer nVidia over Intel.
 
