@@ -42,13 +42,7 @@
     <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpContext.cpp">
       <Filter>glslang</Filter>
     </ClCompile>
-    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpMemory.cpp">
-      <Filter>glslang</Filter>
-    </ClCompile>
     <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpScanner.cpp">
-      <Filter>glslang</Filter>
-    </ClCompile>
-    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpSymbols.cpp">
       <Filter>glslang</Filter>
     </ClCompile>
     <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpTokens.cpp">
@@ -135,9 +129,6 @@
       <Filter>HLSL</Filter>
     </ClCompile>
     <ClCompile Include="glslang\hlsl\hlslParseables.cpp">
-      <Filter>HLSL</Filter>
-    </ClCompile>
-    <ClCompile Include="glslang\hlsl\hlslParseHelper.cpp">
       <Filter>HLSL</Filter>
     </ClCompile>
     <ClCompile Include="glslang\hlsl\hlslScanContext.cpp">
@@ -288,9 +279,6 @@
       <Filter>HLSL</Filter>
     </ClInclude>
     <ClInclude Include="glslang\hlsl\hlslParseables.h">
-      <Filter>HLSL</Filter>
-    </ClInclude>
-    <ClInclude Include="glslang\hlsl\hlslParseHelper.h">
       <Filter>HLSL</Filter>
     </ClInclude>
     <ClInclude Include="glslang\hlsl\hlslScanContext.h">

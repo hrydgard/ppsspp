@@ -22,7 +22,8 @@
     <ProjectGuid>{EDFA2E87-8AC1-4853-95D4-D7594FF81947}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>glslang</RootNamespace>
-    <WindowsTargetPlatformVersion></WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>
+    </WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -168,9 +169,7 @@
     <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\Pp.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpAtom.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpContext.cpp" />
-    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpMemory.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpScanner.cpp" />
-    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpSymbols.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpTokens.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\propagateNoContraction.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\reflection.cpp" />
@@ -184,7 +183,6 @@
     <ClCompile Include="glslang\hlsl\hlslGrammar.cpp" />
     <ClCompile Include="glslang\hlsl\hlslOpMap.cpp" />
     <ClCompile Include="glslang\hlsl\hlslParseables.cpp" />
-    <ClCompile Include="glslang\hlsl\hlslParseHelper.cpp" />
     <ClCompile Include="glslang\hlsl\hlslScanContext.cpp" />
     <ClCompile Include="glslang\hlsl\hlslTokenStream.cpp" />
     <ClCompile Include="glslang\OGLCompilersDLL\InitializeDll.cpp" />
@@ -231,7 +229,6 @@
     <ClInclude Include="glslang\hlsl\hlslGrammar.h" />
     <ClInclude Include="glslang\hlsl\hlslOpMap.h" />
     <ClInclude Include="glslang\hlsl\hlslParseables.h" />
-    <ClInclude Include="glslang\hlsl\hlslParseHelper.h" />
     <ClInclude Include="glslang\hlsl\hlslScanContext.h" />
     <ClInclude Include="glslang\hlsl\hlslTokens.h" />
     <ClInclude Include="glslang\hlsl\hlslTokenStream.h" />
