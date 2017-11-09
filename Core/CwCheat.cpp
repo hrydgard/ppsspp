@@ -495,10 +495,10 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 		addr = GetAddress(line1.part1 & 0x0FFFFFFF);
 		if (i < cheat.lines.size()) {
 			const CheatLine &line2 = cheat.lines[i++];
-			const int count = line1.part1 & 0xFFFF;
+			const int count = line2.part1 & 0xFFFF;
 
 			// Doesn't have enough lines to process.
-			if (i + count > cheat.lines.size())
+			if (i - 1 + count > cheat.lines.size())
 				return { CheatOp::Invalid };
 
 			CheatOperation op = { CheatOp::CwCheatPointerCommands, addr, 0, arg };
@@ -506,7 +506,7 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 			// TODO: Verify sign handling.  Is this really supposed to sign extend?
 			op.pointerCommands.baseOffset = ((int)line2.part1 >> 20) * 4;
 			op.pointerCommands.count = count;
-			op.pointerCommands.type = (line1.part1 >> 16) & 0xF;
+			op.pointerCommands.type = (line2.part1 >> 16) & 0xF;
 			return op;
 		}
 		return { CheatOp::Invalid };
