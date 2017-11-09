@@ -165,8 +165,13 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 }
 
 VulkanContext::~VulkanContext() {
+	assert(instance_ == VK_NULL_HANDLE);
+}
+
+void VulkanContext::DestroyInstance() {
 	vkDestroyInstance(instance_, nullptr);
 	VulkanFree();
+	instance_ = VK_NULL_HANDLE;
 }
 
 void VulkanContext::BeginFrame() {
@@ -797,6 +802,7 @@ VkFence VulkanContext::CreateFence(bool presignalled) {
 }
 
 void VulkanContext::DestroyDevice() {
+	ILOG("VulkanContext::DestroyDevice (performing deletes)");
 	// If there happen to be any pending deletes, now is a good time.
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
 		frame_[i].deleteList.PerformDeletes(device_);

@@ -781,13 +781,16 @@ void GPU_Vulkan::FastLoadBoneMatrix(u32 target) {
 }
 
 void GPU_Vulkan::InitDeviceObjects() {
+	ILOG("GPU_Vulkan::InitDeviceObjects");
 	// Initialize framedata
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		assert(!frameData_[i].push_);
 		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
 	}
 }
 
 void GPU_Vulkan::DestroyDeviceObjects() {
+	ILOG("GPU_Vulkan::DestroyDeviceObjects");
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		if (frameData_[i].push_) {
 			frameData_[i].push_->Destroy(vulkan_);
@@ -810,6 +813,8 @@ void GPU_Vulkan::DeviceLost() {
 
 void GPU_Vulkan::DeviceRestore() {
 	vulkan_ = (VulkanContext *)PSP_CoreParameter().graphicsContext->GetAPIContext();
+	InitDeviceObjects();
+
 	CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();

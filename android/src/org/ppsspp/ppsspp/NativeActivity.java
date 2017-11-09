@@ -647,10 +647,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.pause();
 	    if (!javaGL) {
-			Log.i(TAG, "Pausing surface view");
 			mSurfaceView.onPause();
-			Log.i(TAG, "Joining render thread");
+			Log.i(TAG, "Joining render thread...");
 			joinRenderLoopThread();
+			Log.i(TAG, "Joined render thread");
 	    } else {
 			if (mGLSurfaceView != null) {
 				mGLSurfaceView.onPause();

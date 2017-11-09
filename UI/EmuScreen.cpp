@@ -1104,12 +1104,16 @@ void EmuScreen::deviceLost() {
 	ILOG("EmuScreen::deviceLost()");
 	if (gpu)
 		gpu->DeviceLost();
+	else
+		ILOG("No gpu to deviceLost!");
 }
 
 void EmuScreen::deviceRestore() {
 	ILOG("EmuScreen::deviceRestore()");
 	if (gpu)
 		gpu->DeviceRestore();
+	else
+		ILOG("No gpu to deviceRestore!");
 
 	RecreateViews();
 }

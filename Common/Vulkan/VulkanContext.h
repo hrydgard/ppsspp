@@ -214,7 +214,8 @@ public:
 	~VulkanContext();
 
 	VkResult CreateInstance(const char *app_name, int app_ver, uint32_t flags);
-	
+	void DestroyInstance();
+
 	int GetBestPhysicalDevice();
 	void ChooseDevice(int physical_device);
 	bool EnableDeviceExtension(const char *extension);

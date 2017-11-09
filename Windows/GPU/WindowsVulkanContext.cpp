@@ -218,6 +218,8 @@ void WindowsVulkanContext::Shutdown() {
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDevice();
 	g_Vulkan->DestroyDebugMsgCallback();
+	g_Vulkan->DestroyInstance();
+
 	delete g_Vulkan;
 	g_Vulkan = nullptr;
 
