@@ -33,16 +33,13 @@ LOCAL_SRC_FILES := \
     ../glslang/glslang/MachineIndependent/preprocessor/Pp.cpp \
     ../glslang/glslang/MachineIndependent/preprocessor/PpAtom.cpp \
     ../glslang/glslang/MachineIndependent/preprocessor/PpContext.cpp \
-    ../glslang/glslang/MachineIndependent/preprocessor/PpMemory.cpp \
     ../glslang/glslang/MachineIndependent/preprocessor/PpScanner.cpp \
-    ../glslang/glslang/MachineIndependent/preprocessor/PpSymbols.cpp \
     ../glslang/glslang/MachineIndependent/preprocessor/PpTokens.cpp \
     ../glslang/glslang/OSDependent/Unix/ossource.cpp \
     ../glslang/hlsl/hlslAttributes.cpp \
     ../glslang/hlsl/hlslGrammar.cpp \
     ../glslang/hlsl/hlslOpMap.cpp \
     ../glslang/hlsl/hlslParseables.cpp \
-    ../glslang/hlsl/hlslParseHelper.cpp \
     ../glslang/hlsl/hlslScanContext.cpp \
     ../glslang/hlsl/hlslTokenStream.cpp \
     ../glslang/SPIRV/disassemble.cpp \
