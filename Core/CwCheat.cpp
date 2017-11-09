@@ -495,11 +495,11 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 		addr = GetAddress(line1.part1 & 0x0FFFFFFF);
 		if (i < cheat.lines.size()) {
 			const CheatLine &line2 = cheat.lines[i++];
-			int count = line2.part1 & 0xFFFF;
+			int count = (line2.part1 & 0xFFFF) - 1;
 
-			// Clamp lines to process - previously allowed invalid counts.
+			// Validate lines to process - make sure we stay inside cheat.lines.
 			if (i + count > cheat.lines.size())
-				count = cheat.lines.size() - i;
+				return { CheatOp::Invalid };
 
 			CheatOperation op = { CheatOp::CwCheatPointerCommands, addr, 0, arg };
 			op.pointerCommands.offset = (int)line2.part2;
@@ -912,7 +912,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 			u32 base = Memory::Read_U32(op.addr + op.pointerCommands.baseOffset);
 			u32 val = op.val;
 			int type = op.pointerCommands.type;
-			for (int a = 1; a < op.pointerCommands.count; ++a) {
+			for (int a = 0; a < op.pointerCommands.count; ++a) {
 				const CheatLine &line = cheat.lines[i++];
 				switch (line.part1 >> 28) {
 				case 0x1: // type copy byte
