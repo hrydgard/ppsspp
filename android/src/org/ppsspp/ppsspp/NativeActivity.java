@@ -518,7 +518,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
         }
     }
 
-	Point desiredSize = new Point();
+	private Point desiredSize = new Point();
 
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
@@ -527,6 +527,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight);
 		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
 		getDesiredBackbufferSize(desiredSize);
+
+		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
 		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
 		if (mGLSurfaceView != null) {
 			mGLSurfaceView.getHolder().setFixedSize(desiredSize.x, desiredSize.y);
@@ -537,8 +539,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-		if (width != desiredSize.x || height != desiredSize.y) {
-			Log.w(TAG, "Surface changed but not to desired size. Ignoring.");
+		if (desiredSize.x > 0 && desiredSize.y > 0 && (width != desiredSize.x || height != desiredSize.y)) {
+			Log.w(TAG, "Surface changed but not to desired size. Ignoring. width=" + width + " height=" + height + " desWidth=" + desiredSize.x + " desHeight=" + desiredSize.y);
 			return;
 		}
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
