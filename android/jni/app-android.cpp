@@ -741,6 +741,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
 	ILOG("NativeApp.backbufferResize(%d x %d)", bufw, bufh);
 
+	bool new_size = pixel_xres != bufw || pixel_yres != bufh;
+
 	// pixel_*res is the backbuffer resolution.
 	pixel_xres = bufw;
 	pixel_yres = bufh;
@@ -767,7 +769,10 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	ILOG("dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
 	ILOG("pixel_xres=%d pixel_yres=%d", pixel_xres, pixel_yres);
 
-	NativeResized();
+	if (new_size) {
+		ILOG("Size change detected - calling NativeResized()");
+		NativeResized();
+	}
 }
 
 

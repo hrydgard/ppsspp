@@ -126,36 +126,14 @@ void SamplerCache::DeviceRestore(VulkanContext *vulkan) {
 TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
 	: TextureCacheCommon(draw),
 		vulkan_(vulkan),
-		samplerCache_(vulkan),
-		texelsScaledThisFrame_(0) {
+		samplerCache_(vulkan) {
 	timesInvalidatedAllThisFrame_ = 0;
-	lastBoundTexture = nullptr;
-	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
-
-	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samp.magFilter = VK_FILTER_NEAREST;
-	samp.minFilter = VK_FILTER_NEAREST;
-	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
+	DeviceRestore(vulkan, draw);
 	SetupTextureDecoder();
 }
 
 TextureCacheVulkan::~TextureCacheVulkan() {
-	vulkan_->Delete().QueueDeleteSampler(samplerNearest_);
-	Clear(true);
-
-	if (allocator_) {
-		allocator_->Destroy();
-
-		// We have to delete on queue, so this can free its queued deletions.
-		vulkan_->Delete().QueueCallback([](void *ptr) {
-			auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
-			delete allocator;
-		}, allocator_);
-	}
+	DeviceLost();
 }
 
 void TextureCacheVulkan::SetFramebufferManager(FramebufferManagerVulkan *fbManager) {
@@ -183,6 +161,7 @@ void TextureCacheVulkan::DeviceLost() {
 	}
 
 	samplerCache_.DeviceLost();
+	vulkan_->Delete().QueueDeleteSampler(samplerNearest_);
 
 	nextTexture_ = nullptr;
 }
@@ -195,6 +174,15 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext 
 
 	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 	samplerCache_.DeviceRestore(vulkan);
+
+	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.magFilter = VK_FILTER_NEAREST;
+	samp.minFilter = VK_FILTER_NEAREST;
+	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
 }
 
 void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {

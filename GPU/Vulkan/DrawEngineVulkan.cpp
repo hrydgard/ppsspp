@@ -93,8 +93,6 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
-
-	tessDataTransfer = new TessellationDataTransferVulkan(vulkan, draw);
 }
 
 void DrawEngineVulkan::InitDeviceObjects() {
@@ -206,6 +204,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	assert(VK_SUCCESS == res);
 
 	vertexCache_ = new VulkanPushBuffer(vulkan_, VERTEX_CACHE_SIZE);
+
+	tessDataTransfer = new TessellationDataTransferVulkan(vulkan_, draw_);
 }
 
 DrawEngineVulkan::~DrawEngineVulkan() {
@@ -214,8 +214,6 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 
 	DestroyDeviceObjects();
-
-	delete tessDataTransfer;
 }
 
 void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
@@ -241,6 +239,9 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 }
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
+	delete tessDataTransfer;
+	tessDataTransfer = nullptr;
+
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].Destroy(vulkan_);
 	}
