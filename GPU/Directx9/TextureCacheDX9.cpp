@@ -524,6 +524,11 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 		}
 	}
 
+	// In addition, simply don't load more than level 0 if g_Config.bMipMap is false.
+	if (!g_Config.bMipMap) {
+		maxLevel = 0;
+	}
+
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
@@ -548,8 +553,10 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
 		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-		maxLevel = replaced.MaxLevel();
-		badMipSizes = false;
+		if (g_Config.bMipMap) {
+			maxLevel = replaced.MaxLevel();
+			badMipSizes = false;
+		}
 	}
 
 	// Don't scale the PPGe texture.

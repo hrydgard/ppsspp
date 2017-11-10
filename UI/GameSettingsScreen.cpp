@@ -307,7 +307,11 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 		graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
 #endif
-
+		CheckBox *mipMap = graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gr->T("Mipmapping")));
+		mipMap->OnClick.Add([=](EventParams &e) {
+			settingInfo_->Show(gr->T("MipMap Tip", "Currently buggy in some games."), e.v);
+			return UI::EVENT_CONTINUE;
+		});
 		CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 		hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
 		hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);

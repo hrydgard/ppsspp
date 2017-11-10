@@ -536,8 +536,10 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
 		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-		maxLevel = replaced.MaxLevel();
-		badMipSizes = false;
+		if (g_Config.bMipMap) {
+			maxLevel = replaced.MaxLevel();
+			badMipSizes = false;
+		}
 	}
 
 	// Don't scale the PPGe texture.
@@ -568,6 +570,10 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 
 	// Seems to cause problems in Tactics Ogre.
 	if (badMipSizes) {
+		maxLevel = 0;
+	}
+	// In addition, simply don't load more than level 0 if g_Config.bMipMap is false.
+	if (!g_Config.bMipMap) {
 		maxLevel = 0;
 	}
 

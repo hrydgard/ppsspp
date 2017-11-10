@@ -537,6 +537,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 	}
 
 	// In addition, simply don't load more than level 0 if g_Config.bMipMap is false.
+	if (!g_Config.bMipMap) {
+		maxLevel = 0;
+	}
 	if (badMipSizes) {
 		maxLevel = 0;
 	}
@@ -565,8 +568,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
 		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
-		maxLevel = replaced.MaxLevel();
-		badMipSizes = false;
+		if (g_Config.bMipMap) {
+			maxLevel = replaced.MaxLevel();
+			badMipSizes = false;
+		}
 	}
 
 	// Don't scale the PPGe texture.
