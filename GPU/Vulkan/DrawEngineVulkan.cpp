@@ -93,8 +93,6 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
-
-	tessDataTransfer = new TessellationDataTransferVulkan(vulkan, draw);
 }
 
 void DrawEngineVulkan::InitDeviceObjects() {
@@ -206,6 +204,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	assert(VK_SUCCESS == res);
 
 	vertexCache_ = new VulkanPushBuffer(vulkan_, VERTEX_CACHE_SIZE);
+
+	tessDataTransfer = new TessellationDataTransferVulkan(vulkan_, draw_);
 }
 
 DrawEngineVulkan::~DrawEngineVulkan() {
@@ -214,8 +214,6 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 
 	DestroyDeviceObjects();
-
-	delete tessDataTransfer;
 }
 
 void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
@@ -241,6 +239,9 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 }
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
+	delete tessDataTransfer;
+	tessDataTransfer = nullptr;
+
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].Destroy(vulkan_);
 	}
@@ -249,11 +250,9 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	if (nullSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nullSampler_);
 	if (pipelineLayout_ != VK_NULL_HANDLE)
-		vkDestroyPipelineLayout(vulkan_->GetDevice(), pipelineLayout_, nullptr);
-	pipelineLayout_ = VK_NULL_HANDLE;
+		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 	if (descriptorSetLayout_ != VK_NULL_HANDLE)
-		vkDestroyDescriptorSetLayout(vulkan_->GetDevice(), descriptorSetLayout_, nullptr);
-	descriptorSetLayout_ = VK_NULL_HANDLE;
+		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 	if (nullTexture_) {
 		nullTexture_->Destroy();
 		delete nullTexture_;
@@ -262,6 +261,7 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	vertexCache_->Destroy(vulkan_);
 	delete vertexCache_;
 	vertexCache_ = nullptr;
+	vai_.Clear();  // Need to clear this to get rid of all remaining references to the dead buffers.
 }
 
 void DrawEngineVulkan::DeviceLost() {
@@ -269,8 +269,9 @@ void DrawEngineVulkan::DeviceLost() {
 	DirtyAllUBOs();
 }
 
-void DrawEngineVulkan::DeviceRestore(VulkanContext *vulkan) {
+void DrawEngineVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
 	vulkan_ = vulkan;
+	draw_ = draw;
 
 	InitDeviceObjects();
 }

@@ -193,7 +193,7 @@ public:
 	const std::string &GetSource() const { return source_; }
 	~VKShaderModule() {
 		if (module_) {
-			vkDestroyShaderModule(device_, module_, nullptr);
+			vulkan_->Delete().QueueDeleteShaderModule(module_);
 		}
 	}
 	VkShaderModule Get() const { return module_; }
@@ -202,7 +202,7 @@ public:
 	}
 
 private:
-	VkDevice device_;
+	VulkanContext *vulkan_;
 	VkShaderModule module_;
 	VkShaderStageFlagBits vkstage_;
 	bool ok_;
@@ -211,9 +211,9 @@ private:
 };
 
 bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size) {
+	vulkan_ = vulkan;
 	// We'll need this to free it later.
-	device_ = vulkan->GetDevice();
-	this->source_ = (const char *)data;
+	source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
 	if (!GLSLtoSPV(vkstage_, source_.c_str(), spirv)) {
 		return false;

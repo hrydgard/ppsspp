@@ -189,6 +189,11 @@ static VulkanContext *g_Vulkan;
 class AndroidVulkanContext : public AndroidGraphicsContext {
 public:
 	AndroidVulkanContext() : draw_(nullptr) {}
+	~AndroidVulkanContext() {
+		delete g_Vulkan;
+		g_Vulkan = nullptr;
+	}
+
 	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
@@ -270,10 +275,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags,
 }
 
 bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
-	if (g_Vulkan) {
-		return false;
-	}
-
+	ILOG("AndroidVulkanContext::Init");
 	init_glslang();
 
 	g_LogOptions.breakOnError = true;
@@ -282,7 +284,10 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 
 	ILOG("Creating vulkan context");
 	Version gitVer(PPSSPP_GIT_VERSION);
-	g_Vulkan = new VulkanContext();
+
+	if (!g_Vulkan) {
+		g_Vulkan = new VulkanContext();
+	}
 	if (VK_SUCCESS != g_Vulkan->CreateInstance("PPSSPP", gitVer.ToInteger(), VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED)) {
 		ELOG("Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
 		delete g_Vulkan;
@@ -326,6 +331,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	bool success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
 	assert(success);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+	ILOG("AndroidVulkanContext::Init completed");
 	return true;
 }
 
@@ -334,22 +340,27 @@ void AndroidVulkanContext::Shutdown() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	delete draw_;
 	draw_ = nullptr;
+	ILOG("Calling NativeShutdownGraphics");
 	NativeShutdownGraphics();
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
-	g_Vulkan->DestroyDebugMsgCallback();
 	g_Vulkan->DestroyDevice();
+	g_Vulkan->DestroyDebugMsgCallback();
 
-	delete g_Vulkan;
-	g_Vulkan = nullptr;
+	g_Vulkan->DestroyInstance();
+
+	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
 
 	finalize_glslang();
+	ILOG("AndroidVulkanContext::Shutdown completed");
 }
 
 void AndroidVulkanContext::SwapBuffers() {
 }
 
 void AndroidVulkanContext::Resize() {
+	ILOG("AndroidVulkanContext::Resize begin (%d, %d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroyObjects();
 
@@ -357,6 +368,7 @@ void AndroidVulkanContext::Resize() {
 	g_Vulkan->ReinitSurfaceAndroid(pixel_xres, pixel_yres);
 	g_Vulkan->InitObjects();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+	ILOG("AndroidVulkanContext::Resize end (%d, %d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }
 
 void AndroidVulkanContext::SwapInterval(int interval) {
@@ -729,6 +741,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
 	ILOG("NativeApp.backbufferResize(%d x %d)", bufw, bufh);
 
+	bool new_size = pixel_xres != bufw || pixel_yres != bufh;
+	int old_w = pixel_xres;
+	int old_h = pixel_yres;
 	// pixel_*res is the backbuffer resolution.
 	pixel_xres = bufw;
 	pixel_yres = bufh;
@@ -755,7 +770,12 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	ILOG("dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
 	ILOG("pixel_xres=%d pixel_yres=%d", pixel_xres, pixel_yres);
 
-	NativeResized();
+	if (new_size) {
+		ILOG("Size change detected (previously %d,%d) - calling NativeResized()", old_w, old_h);
+		NativeResized();
+	} else {
+		ILOG("Size didn't change.");
+	}
 }
 
 
@@ -1124,7 +1144,7 @@ retry:
 		ProcessFrameCommands(env);
 	}
 
-	ILOG("After render loop.");
+	ILOG("Leaving EGL/Vulkan render loop.");
 	g_gameInfoCache->WorkQueue()->Flush();
 
 	NativeDeviceLost();

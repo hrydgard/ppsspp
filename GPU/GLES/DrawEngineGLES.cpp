@@ -701,8 +701,15 @@ rotateVBO:
 		params.allowSeparateAlphaClear = true;
 
 		int maxIndex = indexGen.MaxIndex();
+		int vertexCount = indexGen.VertexCount();
+
+		// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
+#if defined(MOBILE_DEVICE)
+		if (vertexCount > 0x10000 / 3)
+			vertexCount = 0x10000 / 3;
+#endif
 		SoftwareTransform(
-			prim, indexGen.VertexCount(),
+			prim, vertexCount,
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
 		ApplyDrawStateLate();

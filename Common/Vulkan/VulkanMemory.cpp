@@ -78,7 +78,6 @@ void VulkanPushBuffer::Destroy(VulkanContext *vulkan) {
 		vulkan->Delete().QueueDeleteBuffer(info.buffer);
 		vulkan->Delete().QueueDeleteDeviceMemory(info.deviceMemory);
 	}
-
 	buffers_.clear();
 }
 

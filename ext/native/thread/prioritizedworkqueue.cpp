@@ -31,7 +31,9 @@ void PrioritizedWorkQueue::Flush() {
 		flush_count++;
 	}
 	queue_.clear();
-	ILOG("Flushed %d un-executed tasks", flush_count);
+	if (flush_count > 0) {
+		ILOG("PrioritizedWorkQueue: Flushed %d un-executed tasks", flush_count);
+	}
 }
 
 bool PrioritizedWorkQueue::WaitUntilDone(bool all) {

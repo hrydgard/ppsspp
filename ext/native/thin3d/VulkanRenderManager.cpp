@@ -194,12 +194,12 @@ void VulkanRenderManager::CreateBackbuffers() {
 		run_ = true;
 		// Won't necessarily be 0.
 		threadInitFrame_ = vulkan_->GetCurFrame();
-		VLOG("starting thread");
+		ILOG("Starting Vulkan submission thread (threadInitFrame_ = %d)", vulkan_->GetCurFrame());
 		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
 	}
 }
 
-void VulkanRenderManager::StopThread(bool shutdown) {
+void VulkanRenderManager::StopThread() {
 	if (useThread && run_) {
 		run_ = false;
 		// Stop the thread.
@@ -215,12 +215,21 @@ void VulkanRenderManager::StopThread(bool shutdown) {
 			}
 		}
 		thread_.join();
-		VLOG("thread joined.");
+		ILOG("Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
+
+		// Eat whatever has been queued up for this frame if anything.
+		Wipe();
 
 		// Wait for any fences to finish and be resignaled, so we don't have sync issues.
+		// Also clean out any queued data, which might refer to things that might not be valid
+		// when we restart...
 		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 			auto &frameData = frameData_[i];
+			if (frameData.readyForRun || frameData.hasInitCommands || frameData.steps.size() != 0) {
+				Crash();
+			}
 			frameData.readyForRun = false;
+			frameData.steps.clear();
 
 			std::unique_lock<std::mutex> lock(frameData.push_mutex);
 			while (!frameData.readyForFence) {
@@ -228,11 +237,13 @@ void VulkanRenderManager::StopThread(bool shutdown) {
 				frameData.push_condVar.wait(lock);
 			}
 		}
+	} else {
+		ILOG("Vulkan submission thread was already stopped.");
 	}
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
-	StopThread(false);
+	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
 	VkDevice device = vulkan_->GetDevice();
@@ -253,7 +264,8 @@ void VulkanRenderManager::DestroyBackbuffers() {
 }
 
 VulkanRenderManager::~VulkanRenderManager() {
-	StopThread(true);
+	ILOG("VulkanRenderManager destructor");
+	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
 	VkDevice device = vulkan_->GetDevice();
@@ -274,6 +286,7 @@ void VulkanRenderManager::ThreadFunc() {
 	setCurrentThreadName("RenderMan");
 	int threadFrame = threadInitFrame_;
 	bool nextFrame = false;
+	bool firstFrame = true;
 	while (true) {
 		{
 			if (nextFrame) {
@@ -301,9 +314,17 @@ void VulkanRenderManager::ThreadFunc() {
 			assert(frameData.type == VKRRunType::END || frameData.type == VKRRunType::SYNC);
 		}
 		VLOG("PULL: Running frame %d", threadFrame);
+		if (firstFrame) {
+			ILOG("Running first frame (%d)", threadFrame);
+			firstFrame = false;
+		}
 		Run(threadFrame);
 		VLOG("PULL: Finished frame %d", threadFrame);
 	}
+
+	// Wait for the device to be done with everything, before tearing stuff down.
+	vkDeviceWaitIdle(vulkan_->GetDevice());
+
 	VLOG("PULL: Quitting");
 }
 
@@ -330,6 +351,9 @@ void VulkanRenderManager::BeginFrame() {
 
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
+	if (!run_) {
+		WLOG("BeginFrame while !run_!");
+	}
 	vulkan_->BeginFrame();
 
 	insideFrame_ = true;
@@ -368,9 +392,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		curRenderStep_ = nullptr;
 	}
 	if (curRenderStep_ && curRenderStep_->commands.size() == 0) {
-#ifdef _DEBUG
-		ILOG("Empty render step. Usually happens after uploading pixels..");
-#endif
+		VLOG("Empty render step. Usually happens after uploading pixels..");
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };

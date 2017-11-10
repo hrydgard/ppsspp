@@ -52,6 +52,8 @@ class DepalShaderCacheVulkan : public DepalShaderCacheCommon {
 public:
 	DepalShaderCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
 	~DepalShaderCacheVulkan();
+	void DeviceLost();
+	void DeviceRestore(Draw::DrawContext *draw, VulkanContext *vulkan);
 
 	// This also uploads the palette and binds the correct texture.
 	DepalShaderVulkan *GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat);

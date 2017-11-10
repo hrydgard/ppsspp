@@ -222,7 +222,7 @@ private:
 	void FlushSync();
 	void EndSyncFrame(int frame);
 
-	void StopThread(bool shutdown);
+	void StopThread();
 
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;

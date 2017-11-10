@@ -781,13 +781,16 @@ void GPU_Vulkan::FastLoadBoneMatrix(u32 target) {
 }
 
 void GPU_Vulkan::InitDeviceObjects() {
+	ILOG("GPU_Vulkan::InitDeviceObjects");
 	// Initialize framedata
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		assert(!frameData_[i].push_);
 		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
 	}
 }
 
 void GPU_Vulkan::DestroyDeviceObjects() {
+	ILOG("GPU_Vulkan::DestroyDeviceObjects");
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		if (frameData_[i].push_) {
 			frameData_[i].push_->Destroy(vulkan_);
@@ -804,21 +807,25 @@ void GPU_Vulkan::DeviceLost() {
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
-	depalShaderCache_.Clear();
+	depalShaderCache_.DeviceLost();
 	shaderManagerVulkan_->ClearShaders();
 }
 
 void GPU_Vulkan::DeviceRestore() {
 	vulkan_ = (VulkanContext *)PSP_CoreParameter().graphicsContext->GetAPIContext();
+	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
+	InitDeviceObjects();
+
 	CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();
 
-	framebufferManagerVulkan_->DeviceRestore(vulkan_);
-	drawEngine_.DeviceRestore(vulkan_);
+	framebufferManagerVulkan_->DeviceRestore(vulkan_, draw_);
+	drawEngine_.DeviceRestore(vulkan_, draw_);
 	pipelineManager_->DeviceRestore(vulkan_);
-	textureCacheVulkan_->DeviceRestore(vulkan_);
+	textureCacheVulkan_->DeviceRestore(vulkan_, draw_);
 	shaderManagerVulkan_->DeviceRestore(vulkan_);
+	depalShaderCache_.DeviceRestore(draw_, vulkan_);
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {

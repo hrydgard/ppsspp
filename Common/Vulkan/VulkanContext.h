@@ -71,6 +71,7 @@ class VulkanDeleteList {
 	};
 
 public:
+	// NOTE: These all take reference handles so they can zero the input value.
 	void QueueDeleteCommandPool(VkCommandPool &pool) { cmdPools_.push_back(pool); pool = VK_NULL_HANDLE; }
 	void QueueDeleteDescriptorPool(VkDescriptorPool &pool) { descPools_.push_back(pool); pool = VK_NULL_HANDLE; }
 	void QueueDeleteShaderModule(VkShaderModule &module) { modules_.push_back(module); module = VK_NULL_HANDLE; }
@@ -88,105 +89,8 @@ public:
 	void QueueDeleteDescriptorSetLayout(VkDescriptorSetLayout &descSetLayout) { descSetLayouts_.push_back(descSetLayout); descSetLayout = VK_NULL_HANDLE; }
 	void QueueCallback(void(*func)(void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
 
-	void Take(VulkanDeleteList &del) {
-		assert(cmdPools_.size() == 0);
-		assert(descPools_.size() == 0);
-		assert(modules_.size() == 0);
-		assert(buffers_.size() == 0);
-		assert(bufferViews_.size() == 0);
-		assert(images_.size() == 0);
-		assert(imageViews_.size() == 0);
-		assert(deviceMemory_.size() == 0);
-		assert(samplers_.size() == 0);
-		assert(pipelines_.size() == 0);
-		assert(pipelineCaches_.size() == 0);
-		assert(renderPasses_.size() == 0);
-		assert(framebuffers_.size() == 0);
-		assert(callbacks_.size() == 0);
-		cmdPools_ = std::move(del.cmdPools_);
-		descPools_ = std::move(del.descPools_);
-		modules_ = std::move(del.modules_);
-		buffers_ = std::move(del.buffers_);
-		bufferViews_ = std::move(del.bufferViews_);
-		images_ = std::move(del.images_);
-		imageViews_ = std::move(del.imageViews_);
-		deviceMemory_ = std::move(del.deviceMemory_);
-		samplers_ = std::move(del.samplers_);
-		pipelines_ = std::move(del.pipelines_);
-		pipelineCaches_ = std::move(del.pipelineCaches_);
-		renderPasses_ = std::move(del.renderPasses_);
-		framebuffers_ = std::move(del.framebuffers_);
-		pipelineLayouts_ = std::move(del.pipelineLayouts_);
-		descSetLayouts_ = std::move(del.descSetLayouts_);
-		callbacks_ = std::move(del.callbacks_);
-	}
-
-	void PerformDeletes(VkDevice device) {
-		for (auto &cmdPool : cmdPools_) {
-			vkDestroyCommandPool(device, cmdPool, nullptr);
-		}
-		cmdPools_.clear();
-		for (auto &descPool : descPools_) {
-			vkDestroyDescriptorPool(device, descPool, nullptr);
-		}
-		descPools_.clear();
-		for (auto &module : modules_) {
-			vkDestroyShaderModule(device, module, nullptr);
-		}
-		modules_.clear();
-		for (auto &buf : buffers_) {
-			vkDestroyBuffer(device, buf, nullptr);
-		}
-		buffers_.clear();
-		for (auto &bufView : bufferViews_) {
-			vkDestroyBufferView(device, bufView, nullptr);
-		}
-		bufferViews_.clear();
-		for (auto &image : images_) {
-			vkDestroyImage(device, image, nullptr);
-		}
-		images_.clear();
-		for (auto &imageView : imageViews_) {
-			vkDestroyImageView(device, imageView, nullptr);
-		}
-		imageViews_.clear();
-		for (auto &mem : deviceMemory_) {
-			vkFreeMemory(device, mem, nullptr);
-		}
-		deviceMemory_.clear();
-		for (auto &sampler : samplers_) {
-			vkDestroySampler(device, sampler, nullptr);
-		}
-		samplers_.clear();
-		for (auto &pipeline : pipelines_) {
-			vkDestroyPipeline(device, pipeline, nullptr);
-		}
-		pipelines_.clear();
-		for (auto &pcache : pipelineCaches_) {
-			vkDestroyPipelineCache(device, pcache, nullptr);
-		}
-		pipelineCaches_.clear();
-		for (auto &renderPass : renderPasses_) {
-			vkDestroyRenderPass(device, renderPass, nullptr);
-		}
-		renderPasses_.clear();
-		for (auto &framebuffer : framebuffers_) {
-			vkDestroyFramebuffer(device, framebuffer, nullptr);
-		}
-		framebuffers_.clear();
-		for (auto &pipeLayout : pipelineLayouts_) {
-			vkDestroyPipelineLayout(device, pipeLayout, nullptr);
-		}
-		pipelineLayouts_.clear();
-		for (auto &descSetLayout : descSetLayouts_) {
-			vkDestroyDescriptorSetLayout(device, descSetLayout, nullptr);
-		}
-		descSetLayouts_.clear();
-		for (auto &callback : callbacks_) {
-			callback.func(callback.userdata);
-		}
-		callbacks_.clear();
-	}
+	void Take(VulkanDeleteList &del);
+	void PerformDeletes(VkDevice device);
 
 private:
 	std::vector<VkCommandPool> cmdPools_;
@@ -214,7 +118,8 @@ public:
 	~VulkanContext();
 
 	VkResult CreateInstance(const char *app_name, int app_ver, uint32_t flags);
-	
+	void DestroyInstance();
+
 	int GetBestPhysicalDevice();
 	void ChooseDevice(int physical_device);
 	bool EnableDeviceExtension(const char *extension);

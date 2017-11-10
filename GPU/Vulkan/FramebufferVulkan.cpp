@@ -88,8 +88,7 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	convBufSize_(0),
 	textureCacheVulkan_(nullptr),
 	shaderManagerVulkan_(nullptr),
-	pipelinePostShader_(VK_NULL_HANDLE),
-	depalVulkan_(draw, vulkan) {
+	pipelinePostShader_(VK_NULL_HANDLE) {
 
 	InitDeviceObjects();
 
@@ -593,8 +592,9 @@ void FramebufferManagerVulkan::DeviceLost() {
 	DestroyDeviceObjects();
 }
 
-void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
+void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
 	vulkan_ = vulkan;
+	draw_ = draw;
 
 	vulkan2D_->DeviceRestore(vulkan_);
 	InitDeviceObjects();

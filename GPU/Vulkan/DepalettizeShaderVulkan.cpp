@@ -60,14 +60,26 @@ static VkFormat GetClutDestFormat(GEPaletteFormat format, VkComponentMapping *co
 
 DepalShaderCacheVulkan::DepalShaderCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
 	: draw_(draw), vulkan_(vulkan) {
-	std::string errors;
-	vshader_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, depal_vs, &errors);
-	assert(vshader_ != VK_NULL_HANDLE);
+	DeviceRestore(draw, vulkan);
 }
 
 DepalShaderCacheVulkan::~DepalShaderCacheVulkan() {
+	DeviceLost();
+}
+
+void DepalShaderCacheVulkan::DeviceLost() {
 	Clear();
 	vulkan_->Delete().QueueDeleteShaderModule(vshader_);
+	draw_ = nullptr;
+	vulkan_ = nullptr;
+}
+
+void DepalShaderCacheVulkan::DeviceRestore(Draw::DrawContext *draw, VulkanContext *vulkan) {
+	draw_ = draw;
+	vulkan_ = vulkan;
+	std::string errors;
+	vshader_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, depal_vs, &errors);
+	assert(vshader_ != VK_NULL_HANDLE);
 }
 
 DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat) {

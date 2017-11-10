@@ -29,7 +29,8 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 	} else {
 		ELOG("Failed to find class: '%s'", textRendererClassName);
 	}
-	dpiScale_ = 1.0f;
+	dpiScale_ = CalculateDPIScale();
+	ILOG("Initializing TextDrawerAndroid with DPI scale %f", dpiScale_);
 }
 
 TextDrawerAndroid::~TextDrawerAndroid() {
@@ -269,7 +270,8 @@ void TextDrawerAndroid::OncePerFrame() {
 	// If DPI changed (small-mode, future proper monitor DPI support), drop everything.
 	float newDpiScale = CalculateDPIScale();
 	if (newDpiScale != dpiScale_) {
-		ILOG("Scale changed - wiping cache");
+		// TODO: Don't bother if it's a no-op (cache already empty)
+		ILOG("DPI Scale changed (%f to %f) - wiping font cache (%d items, %d fonts)", dpiScale_, newDpiScale, (int)cache_.size(), (int)fontMap_.size());
 		dpiScale_ = newDpiScale;
 		ClearCache();
 		fontMap_.clear();  // size is precomputed using dpiScale_.
