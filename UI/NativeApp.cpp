@@ -845,6 +845,12 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		graphicsContext->Resize();
 		screenManager->resized();
 
+		// Do not enable unless you are testing device-loss on Windows
+#if 0
+		screenManager->deviceLost();
+		screenManager->deviceRestore();
+#endif
+
 		// TODO: Move this to new GraphicsContext objects for each backend.
 #ifndef _WIN32
 		if (GetGPUBackend() == GPUBackend::OPENGL) {

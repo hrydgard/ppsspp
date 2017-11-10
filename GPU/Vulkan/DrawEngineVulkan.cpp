@@ -251,10 +251,8 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeleteSampler(nullSampler_);
 	if (pipelineLayout_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
-	pipelineLayout_ = VK_NULL_HANDLE;
 	if (descriptorSetLayout_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
-	descriptorSetLayout_ = VK_NULL_HANDLE;
 	if (nullTexture_) {
 		nullTexture_->Destroy();
 		delete nullTexture_;
@@ -263,6 +261,7 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	vertexCache_->Destroy(vulkan_);
 	delete vertexCache_;
 	vertexCache_ = nullptr;
+	vai_.Clear();  // Need to clear this to get rid of all remaining references to the dead buffers.
 }
 
 void DrawEngineVulkan::DeviceLost() {

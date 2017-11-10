@@ -119,8 +119,6 @@ private:
 	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;
 
-	int lastVsync_;
-	VkCommandBuffer curCmd_;
 	int vertexCost_ = 0;
 
 	std::string reportingPrimaryInfo_;
