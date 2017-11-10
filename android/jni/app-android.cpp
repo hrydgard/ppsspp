@@ -773,6 +773,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	if (new_size) {
 		ILOG("Size change detected (previously %d,%d) - calling NativeResized()", old_w, old_h);
 		NativeResized();
+	} else {
+		ILOG("Size didn't change.");
 	}
 }
 

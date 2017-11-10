@@ -127,6 +127,8 @@ std::unique_ptr<ManagedTexture> uiTexture;
 ScreenManager *screenManager;
 std::string config_filename;
 
+bool g_graphicsInited;
+
 #ifdef IOS
 bool iosCanUseJit;
 bool targetIsJailbroken;
@@ -675,10 +677,13 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 #endif
 
 	g_gameInfoCache = new GameInfoCache();
+
+	g_graphicsInited = true;
 	ILOG("NativeInitGraphics completed");
 }
 
 void NativeShutdownGraphics() {
+	g_graphicsInited = false;
 	ILOG("NativeShutdownGraphics");
 
 #ifdef _WIN32
@@ -817,6 +822,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	}
 
 	if (resized) {
+		ILOG("resized was set to true - resizing");
 		resized = false;
 
 		if (uiContext) {
@@ -1072,7 +1078,11 @@ void NativeMessageReceived(const char *message, const char *value) {
 
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
-	resized = true;
+	if (g_graphicsInited) {
+		resized = true;
+	} else {
+		ILOG("NativeResized ignored, not initialized");
+	}
 }
 
 void NativeSetRestarting() {
