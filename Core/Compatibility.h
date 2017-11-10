@@ -54,6 +54,7 @@ struct CompatFlags {
 	bool FakeMipmapChange;
 	bool RequireBufferedRendering;
 	bool RequireBlockTransfer;
+	bool DisableReadbacks;
 };
 
 class IniFile;
