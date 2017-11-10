@@ -53,7 +53,7 @@ void OutputDebugStringUTF8(const char *p);
 
 // Must only be used for logging
 #ifndef APP_NAME
-#define APP_NAME "NativeApp"
+#define APP_NAME "PPSSPP"
 #endif
 
 #ifdef _DEBUG
