@@ -323,7 +323,6 @@
     <ClInclude Include="..\..\ext\glslang\hlsl\hlslGrammar.h" />
     <ClInclude Include="..\..\ext\glslang\hlsl\hlslOpMap.h" />
     <ClInclude Include="..\..\ext\glslang\hlsl\hlslParseables.h" />
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslParseHelper.h" />
     <ClInclude Include="..\..\ext\glslang\hlsl\hlslScanContext.h" />
     <ClInclude Include="..\..\ext\glslang\hlsl\hlslTokens.h" />
     <ClInclude Include="..\..\ext\glslang\hlsl\hlslTokenStream.h" />
@@ -365,9 +364,7 @@
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\Pp.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpAtom.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpContext.cpp" />
-    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpMemory.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpScanner.cpp" />
-    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpSymbols.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpTokens.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\propagateNoContraction.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\reflection.cpp" />
@@ -381,7 +378,6 @@
     <ClCompile Include="..\..\ext\glslang\hlsl\hlslGrammar.cpp" />
     <ClCompile Include="..\..\ext\glslang\hlsl\hlslOpMap.cpp" />
     <ClCompile Include="..\..\ext\glslang\hlsl\hlslParseables.cpp" />
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslParseHelper.cpp" />
     <ClCompile Include="..\..\ext\glslang\hlsl\hlslScanContext.cpp" />
     <ClCompile Include="..\..\ext\glslang\hlsl\hlslTokenStream.cpp" />
     <ClCompile Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.cpp" />

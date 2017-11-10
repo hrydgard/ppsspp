@@ -203,7 +203,6 @@ void TextureCacheD3D11::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffer
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
 	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0);
 
 	key.minFilt = minFilt & 1;

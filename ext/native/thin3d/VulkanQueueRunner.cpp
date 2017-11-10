@@ -2,6 +2,8 @@
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
 
+// Debug help: adb logcat -s DEBUG NativeActivity NativeApp PPSSPP
+
 // TODO: This is only enough for 4x render resolution / 4x texture upscale for debugger.
 // Maybe we should use a dynamically allocated one for larger?
 const uint32_t readbackBufferSize = 2048 * 2048 * 4;
@@ -342,6 +344,12 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		iter.fb->Release();
 	}
 
+	// Don't execute empty renderpasses.
+	if (step.commands.empty() && step.render.color == VKRRenderPassAction::KEEP && step.render.depthStencil == VKRRenderPassAction::KEEP) {
+		// Nothing to do.
+		return;
+	}
+
 	// This is supposed to bind a vulkan render pass to the command buffer.
 	PerformBindFramebufferAsRenderTarget(step, cmd);
 
@@ -481,28 +489,17 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 }
 
 void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step, VkCommandBuffer cmd) {
+	VkRenderPass renderPass;
+	int numClearVals = 0;
+	VkClearValue clearVal[2]{};
 	VkFramebuffer framebuf;
 	int w;
 	int h;
-	VkImageLayout prevLayout;
 	if (step.render.framebuffer) {
 		VKRFramebuffer *fb = step.render.framebuffer;
 		framebuf = fb->framebuf;
 		w = fb->width;
 		h = fb->height;
-		prevLayout = fb->color.layout;
-	} else {
-		framebuf = backbuffer_;
-		w = vulkan_->GetBackbufferWidth();
-		h = vulkan_->GetBackbufferHeight();
-	}
-
-	VkRenderPass renderPass;
-	int numClearVals = 0;
-	VkClearValue clearVal[2];
-	memset(clearVal, 0, sizeof(clearVal));
-	if (step.render.framebuffer) {
-		VKRFramebuffer *fb = step.render.framebuffer;
 		// Now, if the image needs transitioning, let's transition.
 		// The backbuffer does not, that's handled by VulkanContext.
 		if (step.render.framebuffer->color.layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
@@ -526,15 +523,17 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 				break;
 			}
 
+			// Due to a known bug in the Mali driver, pass the level count explicitly.
 			TransitionImageLayout2(cmd, fb->color.image, VK_IMAGE_ASPECT_COLOR_BIT,
 				fb->color.layout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				srcAccessMask, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
+				srcAccessMask, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, 1);
 			fb->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
 		if (fb->depth.layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
 			VkAccessFlags srcAccessMask;
 			VkPipelineStageFlags srcStage;
+
 			switch (fb->depth.layout) {
 			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 				srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -552,10 +551,13 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 				Crash();
 				break;
 			}
+
+			// Due to a known bug in the Mali driver, pass the level count explicitly (last param).
 			TransitionImageLayout2(cmd, fb->depth.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
 				fb->depth.layout, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 				srcStage, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-				srcAccessMask, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
+				srcAccessMask, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+				1);
 			fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		}
 
@@ -570,6 +572,9 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			numClearVals = 2;
 		}
 	} else {
+		framebuf = backbuffer_;
+		w = vulkan_->GetBackbufferWidth();
+		h = vulkan_->GetBackbufferHeight();
 		renderPass = GetBackbufferRenderPass();
 		assert(step.render.color == VKRRenderPassAction::CLEAR || step.render.color == VKRRenderPassAction::DONT_CARE);
 		assert(step.render.depthStencil == VKRRenderPassAction::CLEAR || step.render.depthStencil == VKRRenderPassAction::DONT_CARE);

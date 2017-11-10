@@ -40,7 +40,7 @@ public:
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 
-	void ReapplyGfxStateInternal() override;
+	void ReapplyGfxState() override;
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	void ClearCacheNextFrame() override;
@@ -96,9 +96,9 @@ private:
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 
-	void InitClearInternal() override;
-	void BeginFrameInternal() override;
-	void CopyDisplayToOutputInternal() override;
+	void InitClear() override;
+	void BeginFrame() override;
+	void CopyDisplayToOutput() override;
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;

@@ -94,12 +94,9 @@ public:
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
-	void ProcessEvent(GPUEvent ev) override;
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
 
 private:
-	void CopyDisplayToOutputInternal() override;
-
 	bool framebufferDirty_;
 	u32 displayFramebuf_;
 	u32 displayStride_;

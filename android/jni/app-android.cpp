@@ -290,12 +290,21 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 		return false;
 	}
 
-	g_Vulkan->ChooseDevice(g_Vulkan->GetBestPhysicalDevice());
+	int physicalDevice = g_Vulkan->GetBestPhysicalDevice();
+	if (physicalDevice < 0) {
+		ELOG("No usable Vulkan device found.");
+		delete g_Vulkan;
+		g_Vulkan = nullptr;
+		return false;
+	}
+
+	g_Vulkan->ChooseDevice(physicalDevice);
 	// Here we can enable device extensions if we like.
 
 	ILOG("Creating vulkan device");
 	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
 		ILOG("Failed to create vulkan device: %s", g_Vulkan->InitError().c_str());
+		System_SendMessage("toast", "No Vulkan driver found. Using OpenGL instead.");
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
 		return false;

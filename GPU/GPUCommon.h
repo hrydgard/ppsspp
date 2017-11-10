@@ -2,7 +2,6 @@
 
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
-#include "Core/ThreadEventQueue.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -14,8 +13,6 @@
 #if defined(_M_SSE)
 #include <emmintrin.h>
 #endif
-
-typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID, GPU_EVENT_SYNC_THREAD, GPU_EVENT_FINISH_EVENT_LOOP> GPUThreadEventQueue;
 
 class FramebufferManagerCommon;
 class TextureCacheCommon;
@@ -42,7 +39,7 @@ enum {
 	FLAG_DIRTYONCHANGE = 64,  // NOTE: Either this or FLAG_EXECUTE*, not both!
 };
 
-class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface {
+class GPUCommon : public GPUInterface, public GPUDebugInterface {
 public:
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	virtual ~GPUCommon();
@@ -69,7 +66,7 @@ public:
 	void PreExecuteOp(u32 op, u32 diff) override;
 
 	bool InterpretList(DisplayList &list) override;
-	virtual bool ProcessDLQueue();
+	void ProcessDLQueue();
 	u32  UpdateStall(int listid, u32 newstall) override;
 	u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) override;
 	u32  DequeueList(int listid) override;
@@ -77,21 +74,13 @@ public:
 	u32  DrawSync(int mode) override;
 	int  GetStack(int index, u32 stackPtr) override;
 	void DoState(PointerWrap &p) override;
-	bool FramebufferDirty() override {
-		SyncThread();
-		return true;
-	}
-	bool FramebufferReallyDirty() override {
-		SyncThread();
-		return true;
-	}
 	bool BusyDrawing() override;
 	u32  Continue() override;
 	u32  Break(int mode) override;
 	void ReapplyGfxState() override;
 
-	void CopyDisplayToOutput() override;
-	void InitClear() override;
+	void CopyDisplayToOutput() override = 0;
+	void InitClear() override = 0;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformMemoryDownload(u32 dest, int size) override;
@@ -116,10 +105,6 @@ public:
 	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 
-	void Execute_TexScaleU(u32 op, u32 diff);
-	void Execute_TexScaleV(u32 op, u32 diff);
-	void Execute_TexOffsetU(u32 op, u32 diff);
-	void Execute_TexOffsetV(u32 op, u32 diff);
 	void Execute_TexLevel(u32 op, u32 diff);
 
 	void Execute_WorldMtxNum(u32 op, u32 diff);
@@ -141,20 +126,6 @@ public:
 
 	// Note: Not virtual!
 	inline void Flush();
-
-	u64 GetTickEstimate() override {
-#if defined(_M_X64) || defined(__ANDROID__)
-		return curTickEst_;
-#elif defined(_M_SSE)
-		__m64 result = *(__m64 *)&curTickEst_;
-		u64 safeResult = *(u64 *)&result;
-		_mm_empty();
-		return safeResult;
-#else
-		std::lock_guard<std::mutex> guard(curTickEstLock_);
-		return curTickEst_;
-#endif
-	}
 
 #ifdef USE_CRT_DBG
 #undef new
@@ -254,11 +225,7 @@ protected:
 		}
 	}
 
-	virtual void InitClearInternal() {}
 	void BeginFrame() override;
-	virtual void BeginFrameInternal();
-	virtual void CopyDisplayToOutputInternal() {}
-	virtual void ReinitializeInternal() {}
 
 	// To avoid virtual calls to PreExecuteOp().
 	virtual void FastRunLoop(DisplayList &list) = 0;
@@ -268,15 +235,10 @@ protected:
 	void PopDLQueue();
 	void CheckDrawSync();
 	int  GetNextListIndex();
-	void ProcessDLQueueInternal();
-	virtual void ReapplyGfxStateInternal();
 	virtual void FastLoadBoneMatrix(u32 target);
-	void ProcessEvent(GPUEvent ev) override;
-	bool ShouldExitEventLoop() override {
-		return coreState != CORE_RUNNING;
-	}
-	virtual void FinishDeferred() {
-	}
+
+	// TODO: Unify this.
+	virtual void FinishDeferred() {}
 
 	void DoBlockTransfer(u32 skipDrawReason);
 
@@ -288,53 +250,6 @@ protected:
 			gstate_c.vertexAddr += bytesRead;
 		}
 	}
-
-	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
-	void PerformMemorySetInternal(u32 dest, u8 v, int size);
-	void PerformStencilUploadInternal(u32 dest, int size);
-	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
-
-	// This mutex can be disabled, which is useful for single core mode.
-	class optional_mutex {
-	public:
-		optional_mutex() : enabled_(true) {}
-		void set_enabled(bool enabled) {
-			enabled_ = enabled;
-		}
-		void lock() {
-			if (enabled_)
-				mutex_.lock();
-		}
-		void unlock() {
-			if (enabled_)
-				mutex_.unlock();
-		}
-	private:
-		std::mutex mutex_;
-		bool enabled_;
-	};
-
-
-	// Allows early unlocking with a guard.  Do not double unlock.
-	class easy_guard {
-	public:
-		easy_guard(optional_mutex &mtx) : mtx_(mtx), locked_(true) { mtx_.lock(); }
-		~easy_guard() {
-			if (locked_)
-				mtx_.unlock();
-		}
-		void unlock() {
-			if (locked_)
-				mtx_.unlock();
-			else
-				Crash();
-			locked_ = false;
-		}
-
-	private:
-		optional_mutex &mtx_;
-		bool locked_;
-	};
 
 	FramebufferManagerCommon *framebufferManager_;
 	TextureCacheCommon *textureCache_;
@@ -350,7 +265,6 @@ protected:
 	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
-	optional_mutex listLock;
 
 	bool interruptRunning;
 	GPURunState gpuState;
@@ -372,28 +286,6 @@ protected:
 	GEPrimitiveType lastPrim_;
 
 private:
-
-	// For CPU/GPU sync.
-#ifdef __ANDROID__
-	alignas(16) std::atomic<u64> curTickEst_;
-#else
-	alignas(16) volatile u64 curTickEst_;
-	std::mutex curTickEstLock_;
-#endif
-
-	inline void UpdateTickEstimate(u64 value) {
-#if defined(_M_X64) || defined(__ANDROID__)
-		curTickEst_ = value;
-#elif defined(_M_SSE)
-		__m64 result = *(__m64 *)&value;
-		*(__m64 *)&curTickEst_ = result;
-		_mm_empty();
-#else
-		std::lock_guard<std::mutex> guard(curTickEstLock_);
-		curTickEst_ = value;
-#endif
-	}
-
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;

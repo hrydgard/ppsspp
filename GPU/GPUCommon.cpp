@@ -359,11 +359,9 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	// The compiler was not rounding the struct size up to an 8 byte boundary, which
 	// you'd expect due to the int64 field, but the Linux ABI apparently does not require that.
 	static_assert(sizeof(DisplayList) == 456, "Bad DisplayList size");
-	listLock.set_enabled(g_Config.bSeparateCPUThread);
 
 	Reinitialize();
 	SetupColorConv();
-	SetThreadEnabled(g_Config.bSeparateCPUThread);
 	gstate.Reset();
 	gstate_c.Reset();
 	gpuStats.Reset();
@@ -383,16 +381,7 @@ void GPUCommon::EndHostFrame() {
 
 }
 
-void GPUCommon::InitClear() {
-	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
-}
-
-void GPUCommon::CopyDisplayToOutput() {
-	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
-}
-
 void GPUCommon::Reinitialize() {
-	easy_guard guard(listLock);
 	memset(dls, 0, sizeof(dls));
 	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		dls[i].state = PSP_GE_DL_STATE_NONE;
@@ -400,14 +389,12 @@ void GPUCommon::Reinitialize() {
 	}
 
 	nextListID = 0;
-	currentList = NULL;
+	currentList = nullptr;
 	isbreak = false;
 	drawCompleteTicks = 0;
 	busyTicks = 0;
 	timeSpentStepping_ = 0.0;
 	interruptsEnabled_ = true;
-	UpdateTickEstimate(0);
-	ScheduleEvent(GPU_EVENT_REINITIALIZE);
 }
 
 int GPUCommon::EstimatePerVertexCost() {
@@ -440,7 +427,6 @@ int GPUCommon::EstimatePerVertexCost() {
 }
 
 void GPUCommon::PopDLQueue() {
-	easy_guard guard(listLock);
 	if(!dlQueue.empty()) {
 		dlQueue.pop_front();
 		if(!dlQueue.empty()) {
@@ -449,7 +435,7 @@ void GPUCommon::PopDLQueue() {
 			if (running)
 				currentList->state = PSP_GE_DL_STATE_RUNNING;
 		} else {
-			currentList = NULL;
+			currentList = nullptr;
 		}
 	}
 }
@@ -457,7 +443,6 @@ void GPUCommon::PopDLQueue() {
 bool GPUCommon::BusyDrawing() {
 	u32 state = DrawSync(1);
 	if (state == PSP_GE_LIST_DRAWING || state == PSP_GE_LIST_STALLING) {
-		easy_guard guard(listLock);
 		if (currentList && currentList->state != PSP_GE_DL_STATE_PAUSED) {
 			return true;
 		}
@@ -474,12 +459,6 @@ void GPUCommon::DumpNextFrame() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
-	if (ThreadEnabled()) {
-		// Sync first, because the CPU is usually faster than the emulated GPU.
-		SyncThread();
-	}
-
-	easy_guard guard(listLock);
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
@@ -521,7 +500,6 @@ u32 GPUCommon::DrawSync(int mode) {
 }
 
 void GPUCommon::CheckDrawSync() {
-	easy_guard guard(listLock);
 	if (dlQueue.empty()) {
 		for (int i = 0; i < DisplayListMaxCount; ++i)
 			dls[i].state = PSP_GE_DL_STATE_NONE;
@@ -529,12 +507,6 @@ void GPUCommon::CheckDrawSync() {
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
-	if (ThreadEnabled()) {
-		// Sync first, because the CPU is usually faster than the emulated GPU.
-		SyncThread();
-	}
-
-	easy_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -579,8 +551,7 @@ int GPUCommon::ListSync(int listid, int mode) {
 }
 
 int GPUCommon::GetStack(int index, u32 stackPtr) {
-	easy_guard guard(listLock);
-	if (currentList == NULL) {
+	if (!currentList) {
 		// Seems like it doesn't return an error code?
 		return 0;
 	}
@@ -605,7 +576,6 @@ int GPUCommon::GetStack(int index, u32 stackPtr) {
 }
 
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) {
-	easy_guard guard(listLock);
 	// TODO Check the stack values in missing arg and ajust the stack depth
 
 	// Check alignment
@@ -704,7 +674,6 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		drawCompleteTicks = (u64)-1;
 
 		// TODO save context when starting the list if param is set
-		guard.unlock();
 		ProcessDLQueue();
 	}
 
@@ -712,7 +681,6 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 }
 
 u32 GPUCommon::DequeueList(int listid) {
-	easy_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -736,7 +704,6 @@ u32 GPUCommon::DequeueList(int listid) {
 }
 
 u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
-	easy_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	auto &dl = dls[listid];
@@ -748,14 +715,12 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
 	if (dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE && PSP_CoreParameter().compat.flags().HackFixHangs)
 		dl.signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
 	
-	guard.unlock();
 	ProcessDLQueue();
 
 	return 0;
 }
 
 u32 GPUCommon::Continue() {
-	easy_guard guard(listLock);
 	if (!currentList)
 		return 0;
 
@@ -791,13 +756,11 @@ u32 GPUCommon::Continue() {
 		return -1;
 	}
 
-	guard.unlock();
 	ProcessDLQueue();
 	return 0;
 }
 
 u32 GPUCommon::Break(int mode) {
-	easy_guard guard(listLock);
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
@@ -886,8 +849,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		start = time_now_d();
 	}
 
-	easy_guard guard(listLock);
-
 	if (list.state == PSP_GE_DL_STATE_PAUSED)
 		return false;
 	currentList = &list;
@@ -911,14 +872,12 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	list.interrupted = false;
 
 	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
-	guard.unlock();
 
 	debugRecording_ = GPURecord::IsActive();
 	const bool useDebugger = host->GPUDebuggingActive() || debugRecording_;
 	const bool useFastRunLoop = !dumpThisFrame_ && !useDebugger;
 	while (gpuState == GPUSTATE_RUNNING) {
 		{
-			easy_guard innerGuard(listLock);
 			if (list.pc == list.stall) {
 				gpuState = GPUSTATE_STALL;
 				if (PSP_CoreParameter().compat.flags().FlushAtStall) {
@@ -935,7 +894,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		}
 
 		{
-			easy_guard innerGuard(listLock);
 			downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
 
 			if (gpuState == GPUSTATE_STALL && list.stall != list.pc) {
@@ -965,10 +923,6 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 }
 
 void GPUCommon::BeginFrame() {
-	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
-}
-
-void GPUCommon::BeginFrameInternal() {
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
 		dumpThisFrame_ = true;
@@ -1032,14 +986,6 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 }
 
 void GPUCommon::ReapplyGfxState() {
-	if (IsOnSeparateCPUThread()) {
-		ScheduleEvent(GPU_EVENT_REAPPLY_GFX_STATE);
-	} else {
-		ReapplyGfxStateInternal();
-	}
-}
-
-void GPUCommon::ReapplyGfxStateInternal() {
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFFF as the diff.
 
@@ -1070,55 +1016,7 @@ inline void GPUCommon::UpdateState(GPURunState state) {
 		downcount = 0;
 }
 
-void GPUCommon::ProcessEvent(GPUEvent ev) {
-	switch (ev.type) {
-	case GPU_EVENT_PROCESS_QUEUE:
-		ProcessDLQueueInternal();
-		break;
-
-	case GPU_EVENT_REAPPLY_GFX_STATE:
-		ReapplyGfxStateInternal();
-		break;
-
-	case GPU_EVENT_INIT_CLEAR:
-		InitClearInternal();
-		break;
-
-	case GPU_EVENT_BEGIN_FRAME:
-		BeginFrameInternal();
-		break;
-
-	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
-		CopyDisplayToOutputInternal();
-		break;
-
-	case GPU_EVENT_INVALIDATE_CACHE:
-		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
-		break;
-
-	case GPU_EVENT_FB_MEMCPY:
-		PerformMemoryCopyInternal(ev.fb_memcpy.dst, ev.fb_memcpy.src, ev.fb_memcpy.size);
-		break;
-
-	case GPU_EVENT_FB_MEMSET:
-		PerformMemorySetInternal(ev.fb_memset.dst, ev.fb_memset.v, ev.fb_memset.size);
-		break;
-
-	case GPU_EVENT_FB_STENCIL_UPLOAD:
-		PerformStencilUploadInternal(ev.fb_stencil_upload.dst, ev.fb_stencil_upload.size);
-		break;
-
-	case GPU_EVENT_REINITIALIZE:
-		break;
-
-	default:
-		ERROR_LOG_REPORT(G3D, "Unexpected GPU event type: %d", (int)ev);
-		break;
-	}
-}
-
 int GPUCommon::GetNextListIndex() {
-	easy_guard guard(listLock);
 	auto iter = dlQueue.begin();
 	if (iter != dlQueue.end()) {
 		return *iter;
@@ -1127,15 +1025,9 @@ int GPUCommon::GetNextListIndex() {
 	}
 }
 
-bool GPUCommon::ProcessDLQueue() {
-	ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
-	return true;
-}
-
-void GPUCommon::ProcessDLQueueInternal() {
+void GPUCommon::ProcessDLQueue() {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
-	UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
 
 	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
@@ -1149,25 +1041,20 @@ void GPUCommon::ProcessDLQueueInternal() {
 		if (!InterpretList(l)) {
 			return;
 		} else {
-			easy_guard guard(listLock);
-
 			// Some other list could've taken the spot while we dilly-dallied around.
 			if (l.state != PSP_GE_DL_STATE_QUEUED) {
 				// At the end, we can remove it from the queue and continue.
 				dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
 			}
-			UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
 		}
 	}
 
-	easy_guard guard(listLock);
-	currentList = NULL;
+	currentList = nullptr;
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;
 	busyTicks = std::max(busyTicks, drawCompleteTicks);
 	__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
 	// Since the event is in CoreTiming, we're in sync.  Just set 0 now.
-	UpdateTickEstimate(0);
 }
 
 void GPUCommon::PreExecuteOp(u32 op, u32 diff) {
@@ -1187,12 +1074,10 @@ void GPUCommon::Execute_Iaddr(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Origin(u32 op, u32 diff) {
-	easy_guard guard(listLock);
 	gstate_c.offsetAddr = currentList->pc;
 }
 
 void GPUCommon::Execute_Jump(u32 op, u32 diff) {
-	easy_guard guard(listLock);
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 #ifdef _DEBUG
 	if (!Memory::IsValidAddress(target)) {
@@ -1207,7 +1092,6 @@ void GPUCommon::Execute_Jump(u32 op, u32 diff) {
 void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 	if (!currentList->bboxResult) {
 		// bounding box jump.
-		easy_guard guard(listLock);
 		const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 		if (Memory::IsValidAddress(target)) {
 			UpdatePC(currentList->pc, target - 4);
@@ -1220,7 +1104,6 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 
 void GPUCommon::Execute_Call(u32 op, u32 diff) {
 	PROFILE_THIS_SCOPE("gpu_call");
-	easy_guard guard(listLock);
 
 	// Saint Seiya needs correct support for relative calls.
 	const u32 retval = currentList->pc + 4;
@@ -1259,7 +1142,6 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Ret(u32 op, u32 diff) {
-	easy_guard guard(listLock);
 	if (currentList->stackptr == 0) {
 		DEBUG_LOG_REPORT(G3D, "RET: Stack empty!");
 	} else {
@@ -1281,7 +1163,6 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 void GPUCommon::Execute_End(u32 op, u32 diff) {
 	Flush();
 
-	easy_guard guard(listLock);
 	const u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 	UpdatePC(currentList->pc, currentList->pc);
 	// Count in a few extra cycles on END.
@@ -1425,7 +1306,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 				__GeTriggerSync(GPU_SYNC_LIST, currentList->id, currentList->waitTicks);
 				if (currentList->started && currentList->context.IsValid()) {
 					gstate.Restore(currentList->context);
-					ReapplyGfxStateInternal();
+					ReapplyGfxState();
 				}
 			}
 			break;
@@ -1606,7 +1487,6 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
-	easy_guard innerGuard(listLock);
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
 }
@@ -1654,7 +1534,6 @@ void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
-	easy_guard innerGuard(listLock);
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
 }
@@ -1702,7 +1581,6 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0x1F);
 
 	// Skip over the loaded data, it's done now.
-	easy_guard innerGuard(listLock);
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
 }
@@ -1751,7 +1629,6 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op + count) & 0xF);
 
 	// Skip over the loaded data, it's done now.
-	easy_guard innerGuard(listLock);
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
 }
@@ -1818,7 +1695,6 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
 
 	// Skip over the loaded data, it's done now.
-	easy_guard innerGuard(listLock);
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
 }
@@ -2034,8 +1910,6 @@ struct DisplayList_v2 {
 };
 
 void GPUCommon::DoState(PointerWrap &p) {
-	easy_guard guard(listLock);
-
 	auto s = p.Section("GPUCommon", 1, 4);
 	if (!s)
 		return;
@@ -2114,7 +1988,6 @@ void GPUCommon::InterruptStart(int listid) {
 	interruptRunning = true;
 }
 void GPUCommon::InterruptEnd(int listid) {
-	easy_guard guard(listLock);
 	interruptRunning = false;
 	isbreak = false;
 
@@ -2130,13 +2003,11 @@ void GPUCommon::InterruptEnd(int listid) {
 		__GeTriggerWait(GPU_SYNC_LIST, listid);
 	}
 
-	guard.unlock();
 	ProcessDLQueue();
 }
 
 // TODO: Maybe cleaner to keep this in GE and trigger the clear directly?
 void GPUCommon::SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) {
-	easy_guard guard(listLock);
 	if (waitType == GPU_SYNC_DRAW && wokeThreads)
 	{
 		for (int i = 0; i < DisplayListMaxCount; ++i) {
@@ -2148,7 +2019,6 @@ void GPUCommon::SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) {
 }
 
 bool GPUCommon::GetCurrentDisplayList(DisplayList &list) {
-	easy_guard guard(listLock);
 	if (!currentList) {
 		return false;
 	}
@@ -2159,7 +2029,6 @@ bool GPUCommon::GetCurrentDisplayList(DisplayList &list) {
 std::vector<DisplayList> GPUCommon::ActiveDisplayLists() {
 	std::vector<DisplayList> result;
 
-	easy_guard guard(listLock);
 	for (auto it = dlQueue.begin(), end = dlQueue.end(); it != end; ++it) {
 		result.push_back(dls[*it]);
 	}
@@ -2173,7 +2042,6 @@ void GPUCommon::ResetListPC(int listID, u32 pc) {
 		return;
 	}
 
-	easy_guard guard(listLock);
 	dls[listID].pc = pc;
 }
 
@@ -2183,7 +2051,6 @@ void GPUCommon::ResetListStall(int listID, u32 stall) {
 		return;
 	}
 
-	easy_guard guard(listLock);
 	dls[listID].stall = stall;
 }
 
@@ -2193,7 +2060,6 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 		return;
 	}
 
-	easy_guard guard(listLock);
 	dls[listID].state = state;
 }
 
@@ -2345,38 +2211,17 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
-void GPUCommon::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
-	if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
-		// We use a little hack for Download/Upload using a VRAM mirror.
-		// Since they're identical we don't need to copy.
-		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
-			Memory::Memcpy(dest, src, size);
-		}
-	}
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-}
-
-void GPUCommon::PerformMemorySetInternal(u32 dest, u8 v, int size) {
-	if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
-		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	}
-}
-
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
-			ev.fb_memcpy.dst = dest;
-			ev.fb_memcpy.src = src;
-			ev.fb_memcpy.size = size;
-			ScheduleEvent(ev);
-
-			// This is a memcpy, so we need to wait for it to complete.
-			SyncThread();
-		} else {
-			PerformMemoryCopyInternal(dest, src, size);
+		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
+			// We use a little hack for Download/Upload using a VRAM mirror.
+			// Since they're identical we don't need to copy.
+			if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
+				Memory::Memcpy(dest, src, size);
+			}
 		}
+		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 		return true;
 	}
 
@@ -2389,17 +2234,8 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 	// This may indicate a memset, usually to 0, of a framebuffer.
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
 		Memory::Memset(dest, v, size);
-
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMSET);
-			ev.fb_memset.dst = dest;
-			ev.fb_memset.v = v;
-			ev.fb_memset.size = size;
-			ScheduleEvent(ev);
-
-			// We don't need to wait for the framebuffer to be updated.
-		} else {
-			PerformMemorySetInternal(dest, v, size);
+		if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
+			InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 		}
 		return true;
 	}
@@ -2430,14 +2266,6 @@ bool GPUCommon::PerformMemoryUpload(u32 dest, int size) {
 }
 
 void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
-	GPUEvent ev(GPU_EVENT_INVALIDATE_CACHE);
-	ev.invalidate_cache.addr = addr;
-	ev.invalidate_cache.size = size;
-	ev.invalidate_cache.type = type;
-	ScheduleEvent(ev);
-}
-
-void GPUCommon::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
 		textureCache_->Invalidate(addr, size, type);
 	else
@@ -2462,21 +2290,10 @@ void GPUCommon::NotifyVideoUpload(u32 addr, int size, int width, int format) {
 
 bool GPUCommon::PerformStencilUpload(u32 dest, int size) {
 	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
-			ev.fb_stencil_upload.dst = dest;
-			ev.fb_stencil_upload.size = size;
-			ScheduleEvent(ev);
-		} else {
-			PerformStencilUploadInternal(dest, size);
-		}
+		framebufferManager_->NotifyStencilUpload(dest, size);
 		return true;
 	}
 	return false;
-}
-
-void GPUCommon::PerformStencilUploadInternal(u32 dest, int size) {
-	framebufferManager_->NotifyStencilUpload(dest, size);
 }
 
 bool GPUCommon::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {

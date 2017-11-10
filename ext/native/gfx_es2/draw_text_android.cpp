@@ -164,9 +164,6 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 	std::string text(NormalizeString(std::string(str)));
 	if (text.empty())
 		return;
-	JNIEnv *env;
-	int result = javaVM->GetEnv((void **)&env, JNI_VERSION_1_6);
-	assert(env == env_);
 
 	uint32_t stringHash = hash::Adler32((const uint8_t *)text.data(), text.size());
 	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
@@ -221,6 +218,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 			}
 		}
 		env_->ReleaseIntArrayElements(imageData, jimage, 0);
+		env_->DeleteLocalRef(imageData);
 		desc.initData.push_back((uint8_t *)bitmapData);
 		entry->texture = draw_->CreateTexture(desc);
 		delete[] bitmapData;

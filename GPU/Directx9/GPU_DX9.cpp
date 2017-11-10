@@ -251,7 +251,7 @@ void GPU_DX9::DeviceRestore() {
 	// Nothing needed.
 }
 
-void GPU_DX9::InitClearInternal() {
+void GPU_DX9::InitClear() {
 	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
 	if (useNonBufferedRendering) {
 		dxstate.depthWrite.set(true);
@@ -272,12 +272,12 @@ void GPU_DX9::BeginHostFrame() {
 	}
 }
 
-void GPU_DX9::ReapplyGfxStateInternal() {
+void GPU_DX9::ReapplyGfxState() {
 	dxstate.Restore();
-	GPUCommon::ReapplyGfxStateInternal();
+	GPUCommon::ReapplyGfxState();
 }
 
-void GPU_DX9::BeginFrameInternal() {
+void GPU_DX9::BeginFrame() {
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
@@ -292,7 +292,7 @@ void GPU_DX9::BeginFrameInternal() {
 	depalShaderCache_.Decimate();
 	// fragmentTestCache_.Decimate();
 
-	GPUCommon::BeginFrameInternal();
+	GPUCommon::BeginFrame();
 	shaderManagerDX9_->DirtyShader();
 
 	framebufferManager_->BeginFrame();
@@ -304,13 +304,6 @@ void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 }
 
 bool GPU_DX9::FramebufferDirty() {
-	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-	if (ThreadEnabled()) {
-		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
 	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
@@ -319,15 +312,8 @@ bool GPU_DX9::FramebufferDirty() {
 	}
 	return true;
 }
-bool GPU_DX9::FramebufferReallyDirty() {
-	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-	if (ThreadEnabled()) {
-		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
 
+bool GPU_DX9::FramebufferReallyDirty() {
 	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
@@ -337,7 +323,7 @@ bool GPU_DX9::FramebufferReallyDirty() {
 	return true;
 }
 
-void GPU_DX9::CopyDisplayToOutputInternal() {
+void GPU_DX9::CopyDisplayToOutput() {
 	dxstate.depthWrite.set(true);
 	dxstate.colorMask.set(true, true, true, true);
 
@@ -659,6 +645,7 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
+		"Readbacks: %d\n"
 		"Vertex, Fragment shaders loaded: %i, %i\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,
@@ -675,6 +662,7 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheDX9_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
+		gpuStats.numReadbacks,
 		shaderManagerDX9_->GetNumVertexShaders(),
 		shaderManagerDX9_->GetNumFragmentShaders()
 	);

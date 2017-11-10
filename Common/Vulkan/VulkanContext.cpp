@@ -8,6 +8,7 @@
 #include "base/basictypes.h"
 #include "VulkanContext.h"
 #include "GPU/Common/ShaderCommon.h"
+#include "Common/StringUtils.h"
 
 #ifdef USE_CRT_DBG
 #undef new
@@ -49,6 +50,20 @@ static const char *validationLayers[] = {
 	"VK_LAYER_GOOGLE_unique_objects",
 	*/
 };
+
+std::string VulkanVendorString(uint32_t vendorId) {
+	switch (vendorId) {
+	case VULKAN_VENDOR_INTEL: return "Intel";
+	case VULKAN_VENDOR_NVIDIA: return "nVidia";
+	case VULKAN_VENDOR_AMD: return "AMD";
+	case VULKAN_VENDOR_ARM: return "ARM";
+	case VULKAN_VENDOR_QUALCOMM: return "Qualcomm";
+	case VULKAN_VENDOR_IMGTEC: return "Imagination";
+
+	default:
+		return StringFromFormat("%08x", vendorId);
+	}
+}
 
 VulkanContext::VulkanContext() {
 	if (!VulkanLoad()) {
@@ -120,6 +135,11 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 	}
 
 	VulkanLoadInstanceFunctions(instance_);
+	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
+		WLOG("CheckLayers for instance failed");
+		// init_error_ = "Failed to validate instance layers";
+		// return;
+	}
 
 	uint32_t gpu_count = 1;
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, nullptr);
@@ -141,11 +161,6 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 		return res;
 	}
 
-	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
-		WLOG("CheckLayers failed");
-		// init_error_ = "Failed to validate instance layers";
-		// return;
-	}
 	return VK_SUCCESS;
 }
 
@@ -333,14 +348,47 @@ bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props,
 	return true;
 }
 
+int VulkanContext::GetBestPhysicalDevice() {
+	// Rules: Prefer discrete over embedded.
+	// Prefer nVidia over Intel.
+
+	int maxScore = -1;
+	int best = -1;
+
+	for (size_t i = 0; i < physical_devices_.size(); i++) {
+		int score = 0;
+		VkPhysicalDeviceProperties props;
+		vkGetPhysicalDeviceProperties(physical_devices_[i], &props);
+		switch (props.deviceType) {
+		case VK_PHYSICAL_DEVICE_TYPE_CPU:
+			score += 1;
+			break;
+		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+			score += 20;
+			break;
+		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+			score += 10;
+			break;
+		}
+		if (props.vendorID == VULKAN_VENDOR_AMD) {
+			score += 5;
+		} else if (props.vendorID == VULKAN_VENDOR_NVIDIA) {
+			score += 5;
+		}
+		if (score > maxScore) {
+			best = (int)i;
+			maxScore = score;
+		}
+	}
+	return best;
+}
+
 void VulkanContext::ChooseDevice(int physical_device) {
 	physical_device_ = physical_device;
 
 	GetDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties_, device_layer_names_)) {
-		WLOG("CheckLayers failed (2)");
-		// init_error_ = "Failed to validate device layers";
-		// return;
+		WLOG("CheckLayers for device %d failed", physical_device);
 	}
 
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, nullptr);
@@ -786,7 +834,8 @@ bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkSha
 void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
-	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
+	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+	int numMipLevels) {
 	VkImageMemoryBarrier image_memory_barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	image_memory_barrier.srcAccessMask = srcAccessMask;
 	image_memory_barrier.dstAccessMask = dstAccessMask;
@@ -795,8 +844,8 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFla
 	image_memory_barrier.image = image;
 	image_memory_barrier.subresourceRange.aspectMask = aspectMask;
 	image_memory_barrier.subresourceRange.baseMipLevel = 0;
-	image_memory_barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-	image_memory_barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+	image_memory_barrier.subresourceRange.levelCount = numMipLevels;
+	image_memory_barrier.subresourceRange.layerCount = 1;  // We never use more than one layer, and old Mali drivers have problems with VK_REMAINING_ARRAY_LAYERS/VK_REMAINING_MIP_LEVELS.
 	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	vkCmdPipelineBarrier(cmd, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
@@ -906,11 +955,10 @@ const char *VulkanResultToString(VkResult res) {
 	case VK_ERROR_OUT_OF_DATE_KHR: return "VK_ERROR_OUT_OF_DATE_KHR";
 	case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR: return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
 	case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR: return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
-	default:
-		return "Unknown";
-	}
-}
+	case VK_ERROR_OUT_OF_POOL_MEMORY_KHR: return "VK_ERROR_OUT_OF_POOL_MEMORY_KHR";
+	case VK_ERROR_INVALID_EXTERNAL_HANDLE_KHX: return "VK_ERROR_INVALID_EXTERNAL_HANDLE_KHX";
 
-void VulkanAssertImpl(VkResult check, const char *function, const char *file, int line) {
-	const char *error = "(none)";
+	default:
+		return "VK_ERROR_...(unknown)";
+	}
 }

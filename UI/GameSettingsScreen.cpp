@@ -670,13 +670,7 @@ void GameSettingsScreen::CreateViews() {
 
 		systemSettings->Add(new CheckBox(&g_Config.bFastMemory, sy->T("Fast Memory", "Fast Memory (Unstable)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
-		auto separateCPUThread = new CheckBox(&g_Config.bSeparateCPUThread, sy->T("Multithreaded (experimental)"));
-		systemSettings->Add(separateCPUThread);
-		separateCPUThread->OnClick.Add([=](EventParams &e) {
-			if (g_Config.bSeparateCPUThread)
-				settingInfo_->Show(sy->T("Multithreaded Tip", "Not always faster, causes glitches/crashing"), e.v);
-			return UI::EVENT_CONTINUE;
-		});
+
 		systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, sy->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
 		static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays" };
 		View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));

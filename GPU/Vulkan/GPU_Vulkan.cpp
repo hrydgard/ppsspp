@@ -177,7 +177,9 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_WIDE_LINES;
 	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
-		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+		// Work around for Intel driver bug. See issue #10074.
+		if (vulkan_->GetPhysicalDeviceProperties().vendorID != VULKAN_VENDOR_INTEL)
+			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	}
 	if (vulkan_->GetFeaturesEnabled().logicOp) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
@@ -332,21 +334,17 @@ void GPU_Vulkan::BuildReportingInfo() {
 	Reporting::UpdateConfig();
 }
 
-void GPU_Vulkan::ReinitializeInternal() {
+void GPU_Vulkan::Reinitialize() {
+	GPUCommon::Reinitialize();
 	textureCacheVulkan_->Clear(true);
 	depalShaderCache_.Clear();
 	framebufferManagerVulkan_->DestroyAllFBOs();
 }
 
-void GPU_Vulkan::InitClearInternal() {
+void GPU_Vulkan::InitClear() {
 	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
 	if (useNonBufferedRendering) {
-		/*
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(0, 0, 0, 1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-		*/
+		// TODO?
 	}
 }
 
@@ -370,11 +368,6 @@ void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat 
 }
 
 bool GPU_Vulkan::FramebufferDirty() {
-	if (ThreadEnabled()) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
@@ -385,11 +378,6 @@ bool GPU_Vulkan::FramebufferDirty() {
 }
 
 bool GPU_Vulkan::FramebufferReallyDirty() {
-	if (ThreadEnabled()) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
@@ -399,7 +387,7 @@ bool GPU_Vulkan::FramebufferReallyDirty() {
 	return true;
 }
 
-void GPU_Vulkan::CopyDisplayToOutputInternal() {
+void GPU_Vulkan::CopyDisplayToOutput() {
 	// Flush anything left over.
 	drawEngine_.Flush();
 
@@ -847,6 +835,7 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
+		"Readbacks: %d\n"
 		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
 		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
@@ -864,6 +853,7 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheVulkan_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
+		gpuStats.numReadbacks,
 		shaderManagerVulkan_->GetNumVertexShaders(),
 		shaderManagerVulkan_->GetNumFragmentShaders(),
 		pipelineManager_->GetNumPipelines(),

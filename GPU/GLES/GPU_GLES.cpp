@@ -401,13 +401,14 @@ void GPU_GLES::DeviceRestore() {
 	UpdateVsyncInterval(true);
 }
 
-void GPU_GLES::ReinitializeInternal() {
+void GPU_GLES::Reinitialize() {
+	GPUCommon::Reinitialize();
 	textureCacheGL_->Clear(true);
 	depalShaderCache_.Clear();
 	framebufferManagerGL_->DestroyAllFBOs();
 }
 
-void GPU_GLES::InitClearInternal() {
+void GPU_GLES::InitClear() {
 	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
 	if (useNonBufferedRendering) {
 		glstate.depthWrite.set(GL_TRUE);
@@ -467,13 +468,13 @@ void GPU_GLES::UpdateCmdInfo() {
 	}
 }
 
-void GPU_GLES::ReapplyGfxStateInternal() {
+void GPU_GLES::ReapplyGfxState() {
 	drawEngine_.RestoreVAO();
 	glstate.Restore();
-	GPUCommon::ReapplyGfxStateInternal();
+	GPUCommon::ReapplyGfxState();
 }
 
-void GPU_GLES::BeginFrameInternal() {
+void GPU_GLES::BeginFrame() {
 	UpdateVsyncInterval(resized_);
 	resized_ = false;
 
@@ -483,7 +484,7 @@ void GPU_GLES::BeginFrameInternal() {
 	depalShaderCache_.Decimate();
 	fragmentTestCache_.Decimate();
 
-	GPUCommon::BeginFrameInternal();
+	GPUCommon::BeginFrame();
 
 	// Save the cache from time to time. TODO: How often?
 	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 1023) == 0) {
@@ -504,11 +505,6 @@ void GPU_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 }
 
 bool GPU_GLES::FramebufferDirty() {
-	if (ThreadEnabled()) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	VirtualFramebuffer *vfb = framebufferManagerGL_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
@@ -519,11 +515,6 @@ bool GPU_GLES::FramebufferDirty() {
 }
 
 bool GPU_GLES::FramebufferReallyDirty() {
-	if (ThreadEnabled()) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	VirtualFramebuffer *vfb = framebufferManagerGL_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
@@ -533,7 +524,7 @@ bool GPU_GLES::FramebufferReallyDirty() {
 	return true;
 }
 
-void GPU_GLES::CopyDisplayToOutputInternal() {
+void GPU_GLES::CopyDisplayToOutput() {
 	// Flush anything left over.
 	framebufferManagerGL_->RebindFramebuffer();
 	drawEngine_.Flush();
@@ -893,6 +884,7 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
+		"Readbacks: %d\n"
 		"Vertex, Fragment, Programs loaded: %i, %i, %i\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,
@@ -909,6 +901,7 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		(int)textureCacheGL_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
+		gpuStats.numReadbacks,
 		shaderManagerGL_->GetNumVertexShaders(),
 		shaderManagerGL_->GetNumFragmentShaders(),
 		shaderManagerGL_->GetNumPrograms());

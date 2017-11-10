@@ -238,6 +238,7 @@ private:
 
 		bool readyForFence = true;
 		bool readyForRun = false;
+		bool skipSwap = false;
 		VKRRunType type = VKRRunType::END;
 
 		VkFence fence;

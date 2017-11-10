@@ -986,11 +986,11 @@ void DrawEngineVulkan::DoFlush() {
 				Draw::NativeObject object = g_Config.iRenderingMode != 0 ? Draw::NativeObject::FRAMEBUFFER_RENDERPASS : Draw::NativeObject::BACKBUFFER_RENDERPASS;
 				VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(object);
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, dec_, vshader, fshader, false);
-				renderManager->BindPipeline(pipeline->pipeline);
 				if (!pipeline) {
 					// Already logged, let's bail out.
 					return;
 				}
+				renderManager->BindPipeline(pipeline->pipeline);
 				if (pipeline != lastPipeline_) {
 					if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {
 						gstate_c.Dirty(DIRTY_BLEND_STATE);

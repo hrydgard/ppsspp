@@ -86,7 +86,7 @@ namespace KeyMap {
 	// Key & Button names
 	struct KeyMap_IntStrPair {
 		int key;
-		std::string name;
+		const char *name;
 	};
 
 	// Use if you need to display the textual name

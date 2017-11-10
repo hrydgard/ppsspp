@@ -12,7 +12,7 @@
 #endif
 
 // TODO: Using a thread here is unfinished and does not work correctly.
-const bool useThread = false;
+const bool useThread = true;
 
 #ifndef UINT64_MAX
 #define UINT64_MAX 0xFFFFFFFFFFFFFFFFULL
@@ -217,13 +217,15 @@ void VulkanRenderManager::StopThread(bool shutdown) {
 		thread_.join();
 		VLOG("thread joined.");
 
-		// Resignal fences for next time around - must be done after join.
+		// Wait for any fences to finish and be resignaled, so we don't have sync issues.
 		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 			auto &frameData = frameData_[i];
 			frameData.readyForRun = false;
-			if (!shutdown && !frameData.readyForFence) {
-				vkDestroyFence(vulkan_->GetDevice(), frameData.fence, nullptr);
-				frameData.fence = vulkan_->CreateFence(true);
+
+			std::unique_lock<std::mutex> lock(frameData.push_mutex);
+			while (!frameData.readyForFence) {
+				VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (stop)", i);
+				frameData.push_condVar.wait(lock);
 			}
 		}
 	}
@@ -268,12 +270,11 @@ VulkanRenderManager::~VulkanRenderManager() {
 	queueRunner_.DestroyDeviceObjects();
 }
 
-// TODO: Activate this code.
 void VulkanRenderManager::ThreadFunc() {
 	setCurrentThreadName("RenderMan");
 	int threadFrame = threadInitFrame_;
 	bool nextFrame = false;
-	while (run_) {
+	while (true) {
 		{
 			if (nextFrame) {
 				threadFrame++;
@@ -285,6 +286,10 @@ void VulkanRenderManager::ThreadFunc() {
 			while (!frameData.readyForRun && run_) {
 				VLOG("PULL: Waiting for frame[%d].readyForRun", threadFrame);
 				frameData.pull_condVar.wait(lock);
+			}
+			if (!frameData.readyForRun && !run_) {
+				// This means we're out of frames to render and run_ is false, so bail.
+				break;
 			}
 			VLOG("PULL: frame[%d].readyForRun = false", threadFrame);
 			frameData.readyForRun = false;
@@ -586,10 +591,16 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x + extent > width");
 	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y + extent > height");
 
+	_dbg_assert_msg_(G3D, srcRect.extent.width > 0, "blit srcwidth == 0");
+	_dbg_assert_msg_(G3D, srcRect.extent.height > 0, "blit srcheight == 0");
+
 	_dbg_assert_msg_(G3D, dstRect.offset.x >= 0, "dstrect offset x < 0");
 	_dbg_assert_msg_(G3D, dstRect.offset.y >= 0, "dstrect offset y < 0");
 	_dbg_assert_msg_(G3D, dstRect.offset.x + dstRect.extent.width <= (uint32_t)dst->width, "dstrect offset x + extent > width");
 	_dbg_assert_msg_(G3D, dstRect.offset.y + dstRect.extent.height <= (uint32_t)dst->height, "dstrect offset y + extent > height");
+
+	_dbg_assert_msg_(G3D, dstRect.extent.width > 0, "blit dstwidth == 0");
+	_dbg_assert_msg_(G3D, dstRect.extent.height > 0, "blit dstheight == 0");
 
 	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
 
@@ -650,7 +661,6 @@ void VulkanRenderManager::Finish() {
 }
 
 void VulkanRenderManager::Wipe() {
-	int curFrame = vulkan_->GetCurFrame();
 	for (auto step : steps_) {
 		// Need to release held framebuffers.
 		switch (step->stepType) {
@@ -689,7 +699,13 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 		// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
 		VkResult res = vkAcquireNextImageKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), UINT64_MAX, acquireSemaphore_, (VkFence)VK_NULL_HANDLE, &frameData.curSwapchainImage);
-		assert(res == VK_SUCCESS);
+		if (res == VK_SUBOPTIMAL_KHR) {
+			// Hopefully the resize will happen shortly. Ignore.
+		} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+			frameData.skipSwap = true;
+		} else {
+			assert(res == VK_SUCCESS);
+		}
 		// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 		// return codes
 
@@ -737,7 +753,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	cmdBufs[numCmdBufs++] = frameData.mainCmd;
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	if (triggerFence) {
+	if (triggerFence && !frameData.skipSwap) {
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &acquireSemaphore_;
 		VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -745,7 +761,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	}
 	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
 	submit_info.pCommandBuffers = cmdBufs;
-	if (triggerFence) {
+	if (triggerFence && !frameData.skipSwap) {
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
 	}
@@ -771,21 +787,25 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 
 	Submit(frame, true);
 
-	VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
-	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
-	present.swapchainCount = 1;
-	present.pSwapchains = &swapchain;
-	present.pImageIndices = &frameData.curSwapchainImage;
-	present.pWaitSemaphores = &renderingCompleteSemaphore_;
-	present.waitSemaphoreCount = 1;
+	if (!frameData.skipSwap) {
+		VkSwapchainKHR swapchain = vulkan_->GetSwapchain();
+		VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+		present.swapchainCount = 1;
+		present.pSwapchains = &swapchain;
+		present.pImageIndices = &frameData.curSwapchainImage;
+		present.pWaitSemaphores = &renderingCompleteSemaphore_;
+		present.waitSemaphoreCount = 1;
 
-	VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
-	// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
-	// return codes
-	if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-		// ignore, it'll be fine. this happens sometimes during resizes, and we do make sure to recreate the swap chain.
+		VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
+		// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
+		// return codes
+		if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+			// ignore, it'll be fine. this happens sometimes during resizes, and we do make sure to recreate the swap chain.
+		} else {
+			assert(res == VK_SUCCESS);
+		}
 	} else {
-		assert(res == VK_SUCCESS);
+		frameData.skipSwap = false;
 	}
 }
 

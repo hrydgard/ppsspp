@@ -40,6 +40,7 @@ public:
 	bool PerformMemoryUpload(u32 dest, int size) override;
 	bool PerformStencilUpload(u32 dest, int size) override;
 	void ClearCacheNextFrame() override {}
+	bool FramebufferDirty() override { return true; }
 
 	void DeviceLost() override {}
 	void DeviceRestore() override {}

@@ -103,13 +103,7 @@
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpContext.cpp">
       <Filter>glslang\MachineIndependent\Preprocessor</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpMemory.cpp">
-      <Filter>glslang\MachineIndependent\Preprocessor</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpScanner.cpp">
-      <Filter>glslang\MachineIndependent\Preprocessor</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpSymbols.cpp">
       <Filter>glslang\MachineIndependent\Preprocessor</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpTokens.cpp">
@@ -152,9 +146,6 @@
       <Filter>hlsl</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\glslang\hlsl\hlslParseables.cpp">
-      <Filter>hlsl</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\glslang\hlsl\hlslParseHelper.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\glslang\hlsl\hlslScanContext.cpp">
@@ -312,9 +303,6 @@
       <Filter>hlsl</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\glslang\hlsl\hlslParseables.h">
-      <Filter>hlsl</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\glslang\hlsl\hlslParseHelper.h">
       <Filter>hlsl</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\glslang\hlsl\hlslScanContext.h">

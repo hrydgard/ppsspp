@@ -1014,10 +1014,13 @@ void EmuScreen::postRender() {
 void EmuScreen::render() {
 	using namespace Draw;
 
+	DrawContext *thin3d = screenManager()->getDrawContext();
+
 	if (invalid_) {
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
 		checkPowerDown();
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR });
 		return;
 	}
 
@@ -1031,6 +1034,8 @@ void EmuScreen::render() {
 			PSP_CoreParameter().frozen = false;
 		}
 	}
+
+	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
 	PSP_BeginHostFrame();
 
@@ -1047,22 +1052,19 @@ void EmuScreen::render() {
 	if (coreState == CORE_NEXTFRAME) {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
+	} else {
+		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
+		// In this case we need to bind and wipe the backbuffer, at least.
+		// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR });
 	}
 	checkPowerDown();
 
 	PSP_EndHostFrame();
-
 	if (invalid_)
 		return;
 	
-	// Here the backbuffer will always be bound.
-
 	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {
-		DrawContext *thin3d = screenManager()->getDrawContext();
-
-		// It's possible we never ended up outputted anything - make sure we have the backbuffer.
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::KEEP });
-
 		// This sets up some important states but not the viewport.
 		screenManager()->getUIContext()->Begin();
 
