@@ -65,6 +65,16 @@ std::string VulkanVendorString(uint32_t vendorId) {
 	}
 }
 
+const char *PresentModeString(VkPresentModeKHR presentMode) {
+	switch (presentMode) {
+	case VK_PRESENT_MODE_IMMEDIATE_KHR: return "IMMEDIATE";
+	case VK_PRESENT_MODE_MAILBOX_KHR: return "MAILBOX";
+	case VK_PRESENT_MODE_FIFO_KHR: return "FIFO";
+	case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return "FIFO_RELAXED";
+	default: return "UNKNOWN";
+	}
+}
+
 VulkanContext::VulkanContext() {
 	if (!VulkanLoad()) {
 		init_error_ = "Failed to load Vulkan driver library";
@@ -719,7 +729,7 @@ bool VulkanContext::InitSwapchain() {
 	// to fall back in a sensible way.
 	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
 	for (size_t i = 0; i < presentModeCount; i++) {
-		ILOG("Supported present mode: %d", presentModes[i]);
+		ILOG("Supported present mode: %d (%s)", presentModes[i], PresentModeString(presentModes[i]));
 	}
 	for (size_t i = 0; i < presentModeCount; i++) {
 		if (swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {
@@ -743,7 +753,7 @@ bool VulkanContext::InitSwapchain() {
 	// HACK
 	swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 #endif
-	ILOG("Chosen present mode: %d", swapchainPresentMode);
+	ILOG("Chosen present mode: %d (%s)", swapchainPresentMode, PresentModeString(swapchainPresentMode));
 	delete[] presentModes;
 	// Determine the number of VkImage's to use in the swap chain (we desire to
 	// own only 1 image at a time, besides the images being displayed and

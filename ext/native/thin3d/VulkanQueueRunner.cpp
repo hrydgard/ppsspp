@@ -2,14 +2,14 @@
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
 
-// Debug help: adb logcat -s DEBUG NativeActivity NativeApp PPSSPP
+// Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP
 
 // TODO: This is only enough for 4x render resolution / 4x texture upscale for debugger.
 // Maybe we should use a dynamically allocated one for larger?
 const uint32_t readbackBufferSize = 2048 * 2048 * 4;
 
 void VulkanQueueRunner::CreateDeviceObjects() {
-	ILOG("VulkanQueueRuner::CreateDeviceObjects");
+	ILOG("VulkanQueueRunner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
 	InitRenderpasses();
 
@@ -37,7 +37,7 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 }
 
 void VulkanQueueRunner::DestroyDeviceObjects() {
-	ILOG("VulkanQueueRuner::DestroyDeviceObjects");
+	ILOG("VulkanQueueRunner::DestroyDeviceObjects");
 	VkDevice device = vulkan_->GetDevice();
 	vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
 	vkFreeMemory(device, readbackMemory_, nullptr);

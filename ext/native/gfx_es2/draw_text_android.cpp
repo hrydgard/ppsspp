@@ -29,7 +29,8 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 	} else {
 		ELOG("Failed to find class: '%s'", textRendererClassName);
 	}
-	dpiScale_ = 1.0f;
+	dpiScale_ = CalculateDPIScale();
+	ILOG("Initializing TextDrawerAndroid with DPI scale %f", dpiScale_);
 }
 
 TextDrawerAndroid::~TextDrawerAndroid() {

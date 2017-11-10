@@ -58,7 +58,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	// Remember to loadLibrary your JNI .so in a static {} block
 
 	// Adjust these as necessary
-	private static String TAG = "NativeActivity";
+	private static String TAG = "PPSSPPNativeActivity";
 
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
