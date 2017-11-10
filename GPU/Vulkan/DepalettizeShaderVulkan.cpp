@@ -70,7 +70,6 @@ DepalShaderCacheVulkan::~DepalShaderCacheVulkan() {
 void DepalShaderCacheVulkan::DeviceLost() {
 	Clear();
 	vulkan_->Delete().QueueDeleteShaderModule(vshader_);
-	vshader_ = nullptr;
 	draw_ = nullptr;
 	vulkan_ = nullptr;
 }
