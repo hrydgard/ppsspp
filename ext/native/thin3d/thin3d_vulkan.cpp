@@ -1251,7 +1251,10 @@ public:
 	// Inherits ownership so no AddRef.
 	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {}
 	~VKFramebuffer() {
-		buf_->Release();
+		buf_->vulkan_->Delete().QueueCallback([](void *fb) {
+			VKRFramebuffer *vfb = static_cast<VKRFramebuffer *>(fb);
+			delete vfb;
+		}, buf_);
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }
 private:
