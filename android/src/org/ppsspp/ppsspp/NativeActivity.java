@@ -524,23 +524,22 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	public void surfaceCreated(SurfaceHolder holder) {
 		pixelWidth = holder.getSurfaceFrame().width();
 		pixelHeight = holder.getSurfaceFrame().height();
-		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight);
+		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString());
 		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
 		getDesiredBackbufferSize(desiredSize);
 
 		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
 		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
-		if (mGLSurfaceView != null) {
-			mGLSurfaceView.getHolder().setFixedSize(desiredSize.x, desiredSize.y);
-		} else {
-			mSurfaceView.getHolder().setFixedSize(desiredSize.x, desiredSize.y);
-		}
+		holder.setFixedSize(desiredSize.x, desiredSize.y);
 	}
 
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-		if (desiredSize.x > 0 && desiredSize.y > 0 && (width != desiredSize.x || height != desiredSize.y)) {
-			Log.w(TAG, "Surface changed but not to desired size. Ignoring. width=" + width + " height=" + height + " desWidth=" + desiredSize.x + " desHeight=" + desiredSize.y);
+		Log.v(TAG, "surfaceChanged: isCreating:" + holder.isCreating() + " holder: " + holder.toString());
+		if (holder.isCreating() && desiredSize.x > 0 && desiredSize.y > 0) {
+			// We have called setFixedSize which will trigger another surfaceChanged after the initial one. This one is the original one
+			// and we don't care about it.
+			Log.w(TAG, "holder.isCreating = true, ignoring. width=" + width + " height=" + height + " desWidth=" + desiredSize.x + " desHeight=" + desiredSize.y);
 			return;
 		}
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
