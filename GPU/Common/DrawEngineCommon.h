@@ -155,6 +155,7 @@ protected:
 	int numPatches;
 	class TessellationDataTransfer {
 	protected:
+		// TODO: These aren't used by all backends.
 		int prevSize;
 		int prevSizeTex;
 		int prevSizeCol;
