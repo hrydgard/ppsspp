@@ -542,8 +542,8 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptors in pool. sz=%d", (int)frame->descSets.size());
 
 	// We just don't write to the slots we don't care about.
-	VkWriteDescriptorSet writes[7];
-	memset(writes, 0, sizeof(writes));
+	// We need 8 now that we support secondary texture bindings.
+	VkWriteDescriptorSet writes[8]{};
 	// Main texture
 	int n = 0;
 	VkDescriptorImageInfo tex{};
@@ -586,7 +586,9 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		for (int i = 0; i < 3; i++) {
 			VulkanTexture *texture = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetTexture(i);
 			if (texture) {
+				assert(texture->GetImageView());
 				VkImageView imageView = texture->GetImageView();
+
 				tess_tex[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				tess_tex[i].imageView = imageView;
 				tess_tex[i].sampler = sampler;
@@ -1098,56 +1100,61 @@ DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulka
 	vulkan_->Delete().QueueDeleteSampler(sampler);
 }
 
+// TODO: Consolidate the three textures into one, with height 3.
+// This can be done for all the backends.
 void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) {
-	ILOG("INIT : Prep tess");
+	assert(size > 0);
 
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// Position
 	delete data_tex[0];
 	data_tex[0] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
-	data_tex[0]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	bool success = data_tex[0]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	assert(success);
 
-	posSize_ = size;
 	pos = (float *)push_->Push(size * sizeof(float) * 4, &posOffset_, &posBuf_);
+	posSize_ = size;
 
 	// Texcoords
 	delete data_tex[1];
-	data_tex[1] = nullptr;
 	if (hasTexCoords) {
 		data_tex[1] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
-		data_tex[1]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		success = data_tex[1]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		assert(success);
 
 		tex = (float *)push_->Push(size * sizeof(float) * 4, &texOffset_, &texBuf_);
 		texSize_ = size;
 	} else {
-		texSize_ = 0;
+		data_tex[1] = nullptr;
 		tex = nullptr;
+		texSize_ = 0;
 	}
 
 	// Color
 	colSize_ = hasColor ? size : 1;
 	delete data_tex[2];
 	data_tex[2] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
-	data_tex[2]->CreateDirect(cmd, colSize_, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	success = data_tex[2]->CreateDirect(cmd, colSize_, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	assert(success);
 
-	col = (float *)push_->Push(size * sizeof(float) * 4, &colOffset_, &colBuf_);
+	col = (float *)push_->Push(colSize_ * sizeof(float) * 4, &colOffset_, &colBuf_);
 }
 
 void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// Position
 	data_tex[0]->UploadMip(cmd, 0, posSize_, 1, posBuf_, posOffset_, posSize_);
-	data_tex[0]->EndCreate(cmd);
+	data_tex[0]->EndCreate(cmd, true);
 
 	// Texcoords
 	if (hasTexCoords) {
 		data_tex[1]->UploadMip(cmd, 0, texSize_, 1, texBuf_, texOffset_, texSize_);
-		data_tex[1]->EndCreate(cmd);
+		data_tex[1]->EndCreate(cmd, true);
 	}
 
 	// Color
 	data_tex[2]->UploadMip(cmd, 0, colSize_, 1, colBuf_, colOffset_, colSize_);
-	data_tex[2]->EndCreate(cmd);
+	data_tex[2]->EndCreate(cmd, true);
 }
 
 void DrawEngineVulkan::TessellationDataTransferVulkan::CreateSampler() {
