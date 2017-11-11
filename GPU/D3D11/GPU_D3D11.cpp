@@ -749,13 +749,12 @@ void GPU_D3D11::DoState(PointerWrap &p) {
 
 	// TODO: Some of these things may not be necessary.
 	// None of these are necessary when saving.
-	if (p.mode == p.MODE_READ) {
+	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
 		textureCacheD3D11_->Clear(true);
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManagerD3D11_->DestroyAllFBOs();
-		shaderManagerD3D11_->ClearShaders();
 	}
 }
 
