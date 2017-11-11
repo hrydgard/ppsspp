@@ -897,8 +897,6 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManagerVulkan_->DestroyAllFBOs();
-		shaderManagerVulkan_->ClearShaders();
-		pipelineManager_->Clear();
 	}
 }
 

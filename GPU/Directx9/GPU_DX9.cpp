@@ -687,7 +687,6 @@ void GPU_DX9::DoState(PointerWrap &p) {
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManagerDX9_->DestroyAllFBOs();
-		shaderManagerDX9_->ClearCache(true);
 	}
 }
 
