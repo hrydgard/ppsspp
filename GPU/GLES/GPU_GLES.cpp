@@ -930,12 +930,10 @@ void GPU_GLES::DoState(PointerWrap &p) {
 	// In Freeze-Frame mode, we don't want to do any of this.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
 		textureCacheGL_->Clear(true);
-		depalShaderCache_.Clear();
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManagerGL_->DestroyAllFBOs();
-		shaderManagerGL_->ClearCache(true);
 	}
 }
 
