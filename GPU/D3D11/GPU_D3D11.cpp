@@ -278,6 +278,7 @@ void GPU_D3D11::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	shaderManagerD3D11_->ClearShaders();
+	drawEngine_.ClearInputLayoutMap();
 	textureCacheD3D11_->Clear(false);
 	framebufferManagerD3D11_->DeviceLost();
 }
@@ -742,6 +743,7 @@ void GPU_D3D11::ClearCacheNextFrame() {
 
 void GPU_D3D11::ClearShaderCache() {
 	shaderManagerD3D11_->ClearShaders();
+	drawEngine_.ClearInputLayoutMap();
 }
 
 void GPU_D3D11::DoState(PointerWrap &p) {
