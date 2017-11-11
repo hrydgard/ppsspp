@@ -7,6 +7,7 @@
 #include "math/math_util.h"
 #include "math/lin/vec3.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Math3D.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -167,30 +168,27 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_DEPTHRANGE) {
-		float viewZScale = gstate.getViewportZScale();
-		float viewZCenter = gstate.getViewportZCenter();
+		// Same formulas as D3D9 now. Should work for both Vulkan and D3D11.
 
-		// We had to scale and translate Z to account for our clamped Z range.
-		// Therefore, we also need to reverse this to round properly.
-		//
-		// Example: scale = 65535.0, center = 0.0
-		// Resulting range = -65535 to 65535, clamped to [0, 65535]
-		// gstate_c.vpDepthScale = 2.0f
-		// gstate_c.vpZOffset = -1.0f
-		//
-		// The projection already accounts for those, so we need to reverse them.
-		//
-		// Additionally, D3D9 uses a range from [0, 1].  We double and move the center.
-		viewZScale *= (1.0f / gstate_c.vpDepthScale) * 2.0f;
-		viewZCenter -= 65535.0f * gstate_c.vpZOffset + 32768.5f;
+		// Depth is [0, 1] mapping to [minz, maxz], not too hard.
+		float vpZScale = gstate.getViewportZScale();
+		float vpZCenter = gstate.getViewportZCenter();
 
+		// These are just the reverse of the formulas in GPUStateUtils.
+		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
+		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
+		float viewZScale = halfActualZRange * 2.0f;
+		// Account for the half pixel offset.
+		float viewZCenter = minz + (DepthSliceFactor() / 256.0f) * 0.5f;
 		float viewZInvScale;
+
 		if (viewZScale != 0.0) {
 			viewZInvScale = 1.0f / viewZScale;
 		} else {
 			viewZInvScale = 0.0;
 		}
 
+		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
 		ub->depthRange[0] = viewZScale;
 		ub->depthRange[1] = viewZCenter;
 		ub->depthRange[2] = viewZCenter;
