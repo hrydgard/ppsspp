@@ -72,7 +72,7 @@ public:
 	void EndFrame();
 
 	void DeviceLost();
-	void DeviceRestore(VulkanContext *vulkan);
+	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 
 	void SetFramebufferManager(FramebufferManagerVulkan *fbManager);
 	void SetDepalShaderCache(DepalShaderCacheVulkan *dpCache) {
@@ -122,19 +122,19 @@ private:
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
 	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
-	VulkanContext *vulkan_;
-	VulkanDeviceAllocator *allocator_;
-	VulkanPushBuffer *push_;
+	VulkanContext *vulkan_ = nullptr;
+	VulkanDeviceAllocator *allocator_ = nullptr;
+	VulkanPushBuffer *push_ = nullptr;
 
 	SamplerCache samplerCache_;
 
 	TextureScalerVulkan scaler;
 
-	CachedTextureVulkan *lastBoundTexture;
+	CachedTextureVulkan *lastBoundTexture = nullptr;
 
-	int decimationCounter_;
-	int texelsScaledThisFrame_;
-	int timesInvalidatedAllThisFrame_;
+	int decimationCounter_ = 0;
+	int texelsScaledThisFrame_ = 0;
+	int timesInvalidatedAllThisFrame_ = 0;
 
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	DepalShaderCacheVulkan *depalShaderCache_;

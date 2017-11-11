@@ -96,16 +96,6 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	img.format = format;
 }
 
-bool VKRFramebuffer::Release() {
-	if (--refcount_ == 0) {
-		delete this;
-		return true;
-	} else if (refcount_ >= 10000 || refcount_ < 0) {
-		ELOG("Refcount (%d) invalid for object %p - corrupt?", refcount_.load(), this);
-	}
-	return false;
-}
-
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan), queueRunner_(vulkan) {
 	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	semaphoreCreateInfo.flags = 0;
@@ -194,12 +184,12 @@ void VulkanRenderManager::CreateBackbuffers() {
 		run_ = true;
 		// Won't necessarily be 0.
 		threadInitFrame_ = vulkan_->GetCurFrame();
-		VLOG("starting thread");
+		ILOG("Starting Vulkan submission thread (threadInitFrame_ = %d)", vulkan_->GetCurFrame());
 		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
 	}
 }
 
-void VulkanRenderManager::StopThread(bool shutdown) {
+void VulkanRenderManager::StopThread() {
 	if (useThread && run_) {
 		run_ = false;
 		// Stop the thread.
@@ -215,12 +205,21 @@ void VulkanRenderManager::StopThread(bool shutdown) {
 			}
 		}
 		thread_.join();
-		VLOG("thread joined.");
+		ILOG("Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
+
+		// Eat whatever has been queued up for this frame if anything.
+		Wipe();
 
 		// Wait for any fences to finish and be resignaled, so we don't have sync issues.
+		// Also clean out any queued data, which might refer to things that might not be valid
+		// when we restart...
 		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 			auto &frameData = frameData_[i];
+			if (frameData.readyForRun || frameData.hasInitCommands || frameData.steps.size() != 0) {
+				Crash();
+			}
 			frameData.readyForRun = false;
+			frameData.steps.clear();
 
 			std::unique_lock<std::mutex> lock(frameData.push_mutex);
 			while (!frameData.readyForFence) {
@@ -228,11 +227,13 @@ void VulkanRenderManager::StopThread(bool shutdown) {
 				frameData.push_condVar.wait(lock);
 			}
 		}
+	} else {
+		ILOG("Vulkan submission thread was already stopped.");
 	}
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
-	StopThread(false);
+	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
 	VkDevice device = vulkan_->GetDevice();
@@ -253,7 +254,8 @@ void VulkanRenderManager::DestroyBackbuffers() {
 }
 
 VulkanRenderManager::~VulkanRenderManager() {
-	StopThread(true);
+	ILOG("VulkanRenderManager destructor");
+	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
 	VkDevice device = vulkan_->GetDevice();
@@ -274,6 +276,7 @@ void VulkanRenderManager::ThreadFunc() {
 	setCurrentThreadName("RenderMan");
 	int threadFrame = threadInitFrame_;
 	bool nextFrame = false;
+	bool firstFrame = true;
 	while (true) {
 		{
 			if (nextFrame) {
@@ -301,9 +304,17 @@ void VulkanRenderManager::ThreadFunc() {
 			assert(frameData.type == VKRRunType::END || frameData.type == VKRRunType::SYNC);
 		}
 		VLOG("PULL: Running frame %d", threadFrame);
+		if (firstFrame) {
+			ILOG("Running first frame (%d)", threadFrame);
+			firstFrame = false;
+		}
 		Run(threadFrame);
 		VLOG("PULL: Finished frame %d", threadFrame);
 	}
+
+	// Wait for the device to be done with everything, before tearing stuff down.
+	vkDeviceWaitIdle(vulkan_->GetDevice());
+
 	VLOG("PULL: Quitting");
 }
 
@@ -330,6 +341,9 @@ void VulkanRenderManager::BeginFrame() {
 
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
+	if (!run_) {
+		WLOG("BeginFrame while !run_!");
+	}
 	vulkan_->BeginFrame();
 
 	insideFrame_ = true;
@@ -368,9 +382,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		curRenderStep_ = nullptr;
 	}
 	if (curRenderStep_ && curRenderStep_->commands.size() == 0) {
-#ifdef _DEBUG
-		ILOG("Empty render step. Usually happens after uploading pixels..");
-#endif
+		VLOG("Empty render step. Usually happens after uploading pixels..");
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
@@ -384,9 +396,6 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.numDraws = 0;
 	step->render.finalColorLayout = !fb ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
 	steps_.push_back(step);
-	if (fb) {
-		fb->AddRef();
-	}
 
 	curRenderStep_ = step;
 	curWidth_ = fb ? fb->width : vulkan_->GetBackbufferWidth();
@@ -400,7 +409,6 @@ void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 	step->readback.srcRect.offset = { x, y };
 	step->readback.srcRect.extent = { (uint32_t)w, (uint32_t)h };
 	steps_.push_back(step);
-	src->AddRef();
 
 	curRenderStep_ = nullptr;
 
@@ -577,8 +585,6 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	step->copy.srcRect = srcRect;
 	step->copy.dst = dst;
 	step->copy.dstPos = dstPos;
-	src->AddRef();
-	dst->AddRef();
 
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
@@ -610,8 +616,6 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	step->blit.dst = dst;
 	step->blit.dstRect = dstRect;
 	step->blit.filter = filter;
-	src->AddRef();
-	dst->AddRef();
 
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
@@ -635,7 +639,6 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	}
 
 	curRenderStep_->preTransitions.push_back({ fb, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
-	fb->AddRef();
 	return fb->color.imageView;
 }
 
@@ -662,29 +665,6 @@ void VulkanRenderManager::Finish() {
 
 void VulkanRenderManager::Wipe() {
 	for (auto step : steps_) {
-		// Need to release held framebuffers.
-		switch (step->stepType) {
-		case VKRStepType::RENDER:
-			for (const auto &iter : step->preTransitions) {
-				iter.fb->Release();
-			}
-			break;
-		case VKRStepType::COPY:
-			step->copy.src->Release();
-			step->copy.dst->Release();
-			break;
-		case VKRStepType::BLIT:
-			step->blit.src->Release();
-			step->blit.dst->Release();
-			break;
-		case VKRStepType::READBACK:
-			step->readback.src->Release();
-			break;
-		case VKRStepType::READBACK_IMAGE:
-			break;
-		default:
-			assert(false);
-		}
 		delete step;
 	}
 	steps_.clear();

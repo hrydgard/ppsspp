@@ -1314,7 +1314,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		FlushBeforeCopy();
 		if (srcH == 0 || srcY + srcH > srcBuffer->bufferHeight) {
 			WARN_LOG_REPORT_ONCE(btdcpyheight, G3D, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
-		} else if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
+		} else if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated && !PSP_CoreParameter().compat.flags().DisableReadbacks) {
 			ReadFramebufferToMemory(srcBuffer, true, 0, srcY, srcBuffer->width, srcH);
 			srcBuffer->usageFlags = (srcBuffer->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 		}

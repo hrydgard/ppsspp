@@ -177,9 +177,15 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_WIDE_LINES;
 	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
-		// Work around for Intel driver bug. See issue #10074.
-		if (vulkan_->GetPhysicalDeviceProperties().vendorID != VULKAN_VENDOR_INTEL)
+		switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
+		case VULKAN_VENDOR_INTEL:
+		case VULKAN_VENDOR_AMD:
+			// Work around for Intel driver bug. See issue #10074, and also #10065 (AMD)
+			break;
+		default:
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+			break;
+		}
 	}
 	if (vulkan_->GetFeaturesEnabled().logicOp) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
@@ -193,6 +199,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	}
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
+	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_SUPPORTS_FBO;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
@@ -781,13 +788,16 @@ void GPU_Vulkan::FastLoadBoneMatrix(u32 target) {
 }
 
 void GPU_Vulkan::InitDeviceObjects() {
+	ILOG("GPU_Vulkan::InitDeviceObjects");
 	// Initialize framedata
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		assert(!frameData_[i].push_);
 		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
 	}
 }
 
 void GPU_Vulkan::DestroyDeviceObjects() {
+	ILOG("GPU_Vulkan::DestroyDeviceObjects");
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		if (frameData_[i].push_) {
 			frameData_[i].push_->Destroy(vulkan_);
@@ -804,21 +814,25 @@ void GPU_Vulkan::DeviceLost() {
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
-	depalShaderCache_.Clear();
+	depalShaderCache_.DeviceLost();
 	shaderManagerVulkan_->ClearShaders();
 }
 
 void GPU_Vulkan::DeviceRestore() {
 	vulkan_ = (VulkanContext *)PSP_CoreParameter().graphicsContext->GetAPIContext();
+	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
+	InitDeviceObjects();
+
 	CheckGPUFeatures();
 	BuildReportingInfo();
 	UpdateCmdInfo();
 
-	framebufferManagerVulkan_->DeviceRestore(vulkan_);
-	drawEngine_.DeviceRestore(vulkan_);
+	framebufferManagerVulkan_->DeviceRestore(vulkan_, draw_);
+	drawEngine_.DeviceRestore(vulkan_, draw_);
 	pipelineManager_->DeviceRestore(vulkan_);
-	textureCacheVulkan_->DeviceRestore(vulkan_);
+	textureCacheVulkan_->DeviceRestore(vulkan_, draw_);
 	shaderManagerVulkan_->DeviceRestore(vulkan_);
+	depalShaderCache_.DeviceRestore(draw_, vulkan_);
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
@@ -883,8 +897,6 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManagerVulkan_->DestroyAllFBOs();
-		shaderManagerVulkan_->ClearShaders();
-		pipelineManager_->Clear();
 	}
 }
 

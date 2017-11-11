@@ -46,11 +46,11 @@ void Vulkan2D::DestroyDeviceObjects() {
 
 	VkDevice device = vulkan_->GetDevice();
 	if (descriptorSetLayout_ != VK_NULL_HANDLE) {
-		vkDestroyDescriptorSetLayout(device, descriptorSetLayout_, nullptr);
+		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 		descriptorSetLayout_ = VK_NULL_HANDLE;
 	}
 	if (pipelineLayout_ != VK_NULL_HANDLE) {
-		vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
+		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 		pipelineLayout_ = VK_NULL_HANDLE;
 	}
 

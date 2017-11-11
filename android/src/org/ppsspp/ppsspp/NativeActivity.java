@@ -58,7 +58,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	// Remember to loadLibrary your JNI .so in a static {} block
 
 	// Adjust these as necessary
-	private static String TAG = "NativeActivity";
+	private static String TAG = "PPSSPPNativeActivity";
 
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
@@ -518,24 +518,30 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
         }
     }
 
+	private Point desiredSize = new Point();
+
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		pixelWidth = holder.getSurfaceFrame().width();
 		pixelHeight = holder.getSurfaceFrame().height();
-		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight);
+		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString());
 		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
-		Point sz = new Point();
-		getDesiredBackbufferSize(sz);
-		Log.d(TAG, "Setting fixed size " + sz.x + " x " + sz.y);
-		if (mGLSurfaceView != null) {
-			mGLSurfaceView.getHolder().setFixedSize(sz.x, sz.y);
-		} else {
-			mSurfaceView.getHolder().setFixedSize(sz.x, sz.y);
-		}
+		getDesiredBackbufferSize(desiredSize);
+
+		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
+		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
+		holder.setFixedSize(desiredSize.x, desiredSize.y);
 	}
 
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+		Log.v(TAG, "surfaceChanged: isCreating:" + holder.isCreating() + " holder: " + holder.toString());
+		if (holder.isCreating() && desiredSize.x > 0 && desiredSize.y > 0) {
+			// We have called setFixedSize which will trigger another surfaceChanged after the initial one. This one is the original one
+			// and we don't care about it.
+			Log.w(TAG, "holder.isCreating = true, ignoring. width=" + width + " height=" + height + " desWidth=" + desiredSize.x + " desHeight=" + desiredSize.y);
+			return;
+		}
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		NativeApp.backbufferResize(width, height, format);
 		mSurface = holder.getSurface();
@@ -647,10 +653,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.pause();
 	    if (!javaGL) {
-			Log.i(TAG, "Pausing surface view");
 			mSurfaceView.onPause();
-			Log.i(TAG, "Joining render thread");
+			Log.i(TAG, "Joining render thread...");
 			joinRenderLoopThread();
+			Log.i(TAG, "Joined render thread");
 	    } else {
 			if (mGLSurfaceView != null) {
 				mGLSurfaceView.onPause();

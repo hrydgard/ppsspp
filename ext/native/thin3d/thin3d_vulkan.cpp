@@ -193,7 +193,7 @@ public:
 	const std::string &GetSource() const { return source_; }
 	~VKShaderModule() {
 		if (module_) {
-			vkDestroyShaderModule(device_, module_, nullptr);
+			vulkan_->Delete().QueueDeleteShaderModule(module_);
 		}
 	}
 	VkShaderModule Get() const { return module_; }
@@ -202,7 +202,7 @@ public:
 	}
 
 private:
-	VkDevice device_;
+	VulkanContext *vulkan_;
 	VkShaderModule module_;
 	VkShaderStageFlagBits vkstage_;
 	bool ok_;
@@ -211,9 +211,9 @@ private:
 };
 
 bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size) {
+	vulkan_ = vulkan;
 	// We'll need this to free it later.
-	device_ = vulkan->GetDevice();
-	this->source_ = (const char *)data;
+	source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
 	if (!GLSLtoSPV(vkstage_, source_.c_str(), spirv)) {
 		return false;
@@ -374,7 +374,7 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride);
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
@@ -1251,7 +1251,10 @@ public:
 	// Inherits ownership so no AddRef.
 	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {}
 	~VKFramebuffer() {
-		buf_->Release();
+		buf_->vulkan_->Delete().QueueCallback([](void *fb) {
+			VKRFramebuffer *vfb = static_cast<VKRFramebuffer *>(fb);
+			delete vfb;
+		}, buf_);
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }
 private:

@@ -2,13 +2,14 @@
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
 
-// Debug help: adb logcat -s DEBUG NativeActivity NativeApp PPSSPP
+// Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP
 
 // TODO: This is only enough for 4x render resolution / 4x texture upscale for debugger.
 // Maybe we should use a dynamically allocated one for larger?
 const uint32_t readbackBufferSize = 2048 * 2048 * 4;
 
 void VulkanQueueRunner::CreateDeviceObjects() {
+	ILOG("VulkanQueueRunner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
 	InitRenderpasses();
 
@@ -36,16 +37,22 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 }
 
 void VulkanQueueRunner::DestroyDeviceObjects() {
+	ILOG("VulkanQueueRunner::DestroyDeviceObjects");
 	VkDevice device = vulkan_->GetDevice();
+	vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
 	vkFreeMemory(device, readbackMemory_, nullptr);
+	readbackMemory_ = VK_NULL_HANDLE;
 	vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
+	readbackBuffer_ = VK_NULL_HANDLE;
 
 	for (int i = 0; i < ARRAY_SIZE(renderPasses_); i++) {
 		assert(renderPasses_[i] != VK_NULL_HANDLE);
-		vkDestroyRenderPass(device, renderPasses_[i], nullptr);
+		vulkan_->Delete().QueueDeleteRenderPass(renderPasses_[i]);
+		renderPasses_[i] = VK_NULL_HANDLE;
 	}
 	assert(backbufferRenderPass_ != VK_NULL_HANDLE);
-	vkDestroyRenderPass(device, backbufferRenderPass_, nullptr);
+	vulkan_->Delete().QueueDeleteRenderPass(backbufferRenderPass_);
+	backbufferRenderPass_ = VK_NULL_HANDLE;
 }
 
 void VulkanQueueRunner::InitBackbufferRenderPass() {
@@ -341,7 +348,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 			iter.fb->color.layout = barrier.newLayout;
 		}
-		iter.fb->Release();
 	}
 
 	// Don't execute empty renderpasses.
@@ -419,8 +425,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			VkClearRect rc{};
 			rc.baseArrayLayer = 0;
 			rc.layerCount = 1;
-			rc.rect.extent.width = curWidth;
-			rc.rect.extent.height = curHeight;
+			rc.rect.extent.width = (uint32_t)curWidth;
+			rc.rect.extent.height = (uint32_t)curHeight;
 			VkClearAttachment attachments[2];
 			if (c.clear.clearMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 				VkClearAttachment &attachment = attachments[numAttachments++];
@@ -436,7 +442,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 					attachment.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 				}
 				if (c.clear.clearMask & VK_IMAGE_ASPECT_STENCIL_BIT) {
-					attachment.clearValue.depthStencil.stencil = c.clear.clearStencil;
+					attachment.clearValue.depthStencil.stencil = (uint32_t)c.clear.clearStencil;
 					attachment.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 				}
 			}
@@ -594,10 +600,6 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 	rp_begin.clearValueCount = numClearVals;
 	rp_begin.pClearValues = numClearVals ? clearVal : nullptr;
 	vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
-
-	if (step.render.framebuffer) {
-		step.render.framebuffer->Release();
-	}
 }
 
 void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
@@ -671,9 +673,6 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 		}
 		vkCmdCopyImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &copy);
 	}
-
-	src->Release();
-	dst->Release();
 }
 
 void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
@@ -757,9 +756,6 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 		}
 		vkCmdBlitImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &blit, step.blit.filter);
 	}
-
-	src->Release();
-	dst->Release();
 }
 
 void VulkanQueueRunner::SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect) {
@@ -860,8 +856,6 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 	vkCmdCopyImageToBuffer(cmd, srcImage->image, srcImage->layout, readbackBuffer_, 1, &region);
 
 	// NOTE: Can't read the buffer using the CPU here - need to sync first.
-
-	step.readback.src->Release();
 }
 
 void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffer cmd) {

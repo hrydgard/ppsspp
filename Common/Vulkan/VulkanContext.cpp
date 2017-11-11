@@ -65,6 +65,16 @@ std::string VulkanVendorString(uint32_t vendorId) {
 	}
 }
 
+const char *PresentModeString(VkPresentModeKHR presentMode) {
+	switch (presentMode) {
+	case VK_PRESENT_MODE_IMMEDIATE_KHR: return "IMMEDIATE";
+	case VK_PRESENT_MODE_MAILBOX_KHR: return "MAILBOX";
+	case VK_PRESENT_MODE_FIFO_KHR: return "FIFO";
+	case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return "FIFO_RELAXED";
+	default: return "UNKNOWN";
+	}
+}
+
 VulkanContext::VulkanContext() {
 	if (!VulkanLoad()) {
 		init_error_ = "Failed to load Vulkan driver library";
@@ -165,8 +175,13 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 }
 
 VulkanContext::~VulkanContext() {
+	assert(instance_ == VK_NULL_HANDLE);
+}
+
+void VulkanContext::DestroyInstance() {
 	vkDestroyInstance(instance_, nullptr);
 	VulkanFree();
+	instance_ = VK_NULL_HANDLE;
 }
 
 void VulkanContext::BeginFrame() {
@@ -214,6 +229,7 @@ bool VulkanContext::InitObjects() {
 }
 
 void VulkanContext::DestroyObjects() {
+	ILOG("VulkanContext::DestroyObjects (including swapchain)");
 	if (swapchain_ != VK_NULL_HANDLE)
 		vkDestroySwapchainKHR(device_, swapchain_, nullptr);
 	swapchain_ = VK_NULL_HANDLE;
@@ -580,11 +596,14 @@ void VulkanContext::InitSurfaceAndroid(ANativeWindow *wnd, int width, int height
 
 void VulkanContext::ReinitSurfaceAndroid(int width, int height) {
 	if (surface_ != VK_NULL_HANDLE) {
+		ILOG("Destroying Android Vulkan surface (%d, %d)", width_, height_);
 		vkDestroySurfaceKHR(instance_, surface_, nullptr);
 		surface_ = VK_NULL_HANDLE;
 	}
 
 	VkResult U_ASSERT_ONLY res;
+
+	ILOG("Creating Android Vulkan surface (%d, %d)", width, height);
 
 	VkAndroidSurfaceCreateInfoKHR android = { VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR };
 	android.flags = 0;
@@ -710,7 +729,7 @@ bool VulkanContext::InitSwapchain() {
 	// to fall back in a sensible way.
 	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
 	for (size_t i = 0; i < presentModeCount; i++) {
-		ILOG("Supported present mode: %d", presentModes[i]);
+		ILOG("Supported present mode: %d (%s)", presentModes[i], PresentModeString(presentModes[i]));
 	}
 	for (size_t i = 0; i < presentModeCount; i++) {
 		if (swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {
@@ -734,7 +753,7 @@ bool VulkanContext::InitSwapchain() {
 	// HACK
 	swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 #endif
-	ILOG("Chosen present mode: %d", swapchainPresentMode);
+	ILOG("Chosen present mode: %d (%s)", swapchainPresentMode, PresentModeString(swapchainPresentMode));
 	delete[] presentModes;
 	// Determine the number of VkImage's to use in the swap chain (we desire to
 	// own only 1 image at a time, besides the images being displayed and
@@ -797,6 +816,7 @@ VkFence VulkanContext::CreateFence(bool presignalled) {
 }
 
 void VulkanContext::DestroyDevice() {
+	ILOG("VulkanContext::DestroyDevice (performing deletes)");
 	// If there happen to be any pending deletes, now is a good time.
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
 		frame_[i].deleteList.PerformDeletes(device_);
@@ -961,4 +981,104 @@ const char *VulkanResultToString(VkResult res) {
 	default:
 		return "VK_ERROR_...(unknown)";
 	}
+}
+
+void VulkanDeleteList::Take(VulkanDeleteList &del) {
+	assert(cmdPools_.size() == 0);
+	assert(descPools_.size() == 0);
+	assert(modules_.size() == 0);
+	assert(buffers_.size() == 0);
+	assert(bufferViews_.size() == 0);
+	assert(images_.size() == 0);
+	assert(imageViews_.size() == 0);
+	assert(deviceMemory_.size() == 0);
+	assert(samplers_.size() == 0);
+	assert(pipelines_.size() == 0);
+	assert(pipelineCaches_.size() == 0);
+	assert(renderPasses_.size() == 0);
+	assert(framebuffers_.size() == 0);
+	assert(callbacks_.size() == 0);
+	cmdPools_ = std::move(del.cmdPools_);
+	descPools_ = std::move(del.descPools_);
+	modules_ = std::move(del.modules_);
+	buffers_ = std::move(del.buffers_);
+	bufferViews_ = std::move(del.bufferViews_);
+	images_ = std::move(del.images_);
+	imageViews_ = std::move(del.imageViews_);
+	deviceMemory_ = std::move(del.deviceMemory_);
+	samplers_ = std::move(del.samplers_);
+	pipelines_ = std::move(del.pipelines_);
+	pipelineCaches_ = std::move(del.pipelineCaches_);
+	renderPasses_ = std::move(del.renderPasses_);
+	framebuffers_ = std::move(del.framebuffers_);
+	pipelineLayouts_ = std::move(del.pipelineLayouts_);
+	descSetLayouts_ = std::move(del.descSetLayouts_);
+	callbacks_ = std::move(del.callbacks_);
+}
+
+void VulkanDeleteList::PerformDeletes(VkDevice device) {
+	for (auto &cmdPool : cmdPools_) {
+		vkDestroyCommandPool(device, cmdPool, nullptr);
+	}
+	cmdPools_.clear();
+	for (auto &descPool : descPools_) {
+		vkDestroyDescriptorPool(device, descPool, nullptr);
+	}
+	descPools_.clear();
+	for (auto &module : modules_) {
+		vkDestroyShaderModule(device, module, nullptr);
+	}
+	modules_.clear();
+	for (auto &buf : buffers_) {
+		vkDestroyBuffer(device, buf, nullptr);
+	}
+	buffers_.clear();
+	for (auto &bufView : bufferViews_) {
+		vkDestroyBufferView(device, bufView, nullptr);
+	}
+	bufferViews_.clear();
+	for (auto &image : images_) {
+		vkDestroyImage(device, image, nullptr);
+	}
+	images_.clear();
+	for (auto &imageView : imageViews_) {
+		vkDestroyImageView(device, imageView, nullptr);
+	}
+	imageViews_.clear();
+	for (auto &mem : deviceMemory_) {
+		vkFreeMemory(device, mem, nullptr);
+	}
+	deviceMemory_.clear();
+	for (auto &sampler : samplers_) {
+		vkDestroySampler(device, sampler, nullptr);
+	}
+	samplers_.clear();
+	for (auto &pipeline : pipelines_) {
+		vkDestroyPipeline(device, pipeline, nullptr);
+	}
+	pipelines_.clear();
+	for (auto &pcache : pipelineCaches_) {
+		vkDestroyPipelineCache(device, pcache, nullptr);
+	}
+	pipelineCaches_.clear();
+	for (auto &renderPass : renderPasses_) {
+		vkDestroyRenderPass(device, renderPass, nullptr);
+	}
+	renderPasses_.clear();
+	for (auto &framebuffer : framebuffers_) {
+		vkDestroyFramebuffer(device, framebuffer, nullptr);
+	}
+	framebuffers_.clear();
+	for (auto &pipeLayout : pipelineLayouts_) {
+		vkDestroyPipelineLayout(device, pipeLayout, nullptr);
+	}
+	pipelineLayouts_.clear();
+	for (auto &descSetLayout : descSetLayouts_) {
+		vkDestroyDescriptorSetLayout(device, descSetLayout, nullptr);
+	}
+	descSetLayouts_.clear();
+	for (auto &callback : callbacks_) {
+		callback.func(callback.userdata);
+	}
+	callbacks_.clear();
 }

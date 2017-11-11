@@ -29,7 +29,6 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 class VKRFramebuffer {
 public:
 	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height) : vulkan_(vk) {
-		refcount_ = 1;
 		width = _width;
 		height = _height;
 
@@ -50,6 +49,7 @@ public:
 
 		vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf);
 	}
+
 	~VKRFramebuffer() {
 		vulkan_->Delete().QueueDeleteImage(color.image);
 		vulkan_->Delete().QueueDeleteImage(depth.image);
@@ -60,11 +60,6 @@ public:
 		vulkan_->Delete().QueueDeleteFramebuffer(framebuf);
 	}
 
-	void AddRef() {
-		refcount_++;
-	}
-	bool Release();
-
 	int numShadows = 1;  // TODO: Support this.
 
 	VkFramebuffer framebuf = VK_NULL_HANDLE;
@@ -73,9 +68,7 @@ public:
 	int width = 0;
 	int height = 0;
 
-private:
 	VulkanContext *vulkan_;
-	std::atomic<int> refcount_;
 };
 
 enum class VKRRunType {
@@ -222,7 +215,7 @@ private:
 	void FlushSync();
 	void EndSyncFrame(int frame);
 
-	void StopThread(bool shutdown);
+	void StopThread();
 
 	// Permanent objects
 	VkSemaphore acquireSemaphore_;

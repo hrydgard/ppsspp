@@ -70,7 +70,7 @@ public:
 
 	void Resized() override;
 	void DeviceLost();
-	void DeviceRestore(VulkanContext *vulkan);
+	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 	int GetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
@@ -120,7 +120,6 @@ private:
 	DrawEngineVulkan *drawEngineVulkan_;
 	VulkanPushBuffer *push_;
 
-	DepalShaderCacheVulkan depalVulkan_;
 	enum {
 		MAX_COMMAND_BUFFERS = 32,
 	};

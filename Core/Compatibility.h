@@ -55,6 +55,7 @@ struct CompatFlags {
 	bool FakeMipmapChange;
 	bool RequireBufferedRendering;
 	bool RequireBlockTransfer;
+	bool DisableReadbacks;
 	bool HackFixVideo;
 	bool HackFixHangs;
 	bool HackLatchedFramebuffer;
