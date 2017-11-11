@@ -294,6 +294,9 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushVertex->Begin(vulkan_);
 	frame->pushIndex->Begin(vulkan_);
 
+	// TODO: How can we make this nicer...
+	((TessellationDataTransferVulkan *)tessDataTransfer)->SetPushBuffer(frame->pushUBO);
+
 	// TODO : Find a better place to do this.
 	if (!nullTexture_) {
 		ILOG("INIT : Creating null texture");
@@ -539,8 +542,8 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptors in pool. sz=%d", (int)frame->descSets.size());
 
 	// We just don't write to the slots we don't care about.
-	VkWriteDescriptorSet writes[7];
-	memset(writes, 0, sizeof(writes));
+	// We need 8 now that we support secondary texture bindings.
+	VkWriteDescriptorSet writes[8]{};
 	// Main texture
 	int n = 0;
 	VkDescriptorImageInfo tex{};
@@ -582,8 +585,10 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		VkSampler sampler = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetSampler();
 		for (int i = 0; i < 3; i++) {
 			VulkanTexture *texture = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetTexture(i);
-			VkImageView imageView = texture->GetImageView();
-			if (i == 0 || imageView) {
+			if (texture) {
+				assert(texture->GetImageView());
+				VkImageView imageView = texture->GetImageView();
+
 				tess_tex[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				tess_tex[i].imageView = imageView;
 				tess_tex[i].sampler = sampler;
@@ -1084,48 +1089,99 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	}
 }
 
+DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
+	: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw) {
+	CreateSampler();
+}
+
+DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulkan() {
+	for (int i = 0; i < 3; i++)
+		delete data_tex[i];
+	vulkan_->Delete().QueueDeleteSampler(sampler);
+}
+
+// TODO: Consolidate the three textures into one, with height 3.
+// This can be done for all the backends.
 void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) {
-	int rowPitch;
-	ILOG("INIT : Prep tess");
+	assert(size > 0);
 
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// Position
-	if (prevSize < size) {
-		prevSize = size;
+	delete data_tex[0];
+	data_tex[0] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
+	bool success = data_tex[0]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	assert(success);
 
-		data_tex[0]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	}
-	pos = (float *)data_tex[0]->Lock(0, &rowPitch);
+	pos = (float *)push_->Push(size * sizeof(float) * 4, &posOffset_, &posBuf_);
+	posSize_ = size;
 
 	// Texcoords
+	delete data_tex[1];
 	if (hasTexCoords) {
-		if (prevSizeTex < size) {
-			prevSizeTex = size;
+		data_tex[1] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
+		success = data_tex[1]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		assert(success);
 
-			data_tex[1]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		}
-		tex = (float *)data_tex[1]->Lock(0, &rowPitch);
+		tex = (float *)push_->Push(size * sizeof(float) * 4, &texOffset_, &texBuf_);
+		texSize_ = size;
+	} else {
+		data_tex[1] = nullptr;
+		tex = nullptr;
+		texSize_ = 0;
 	}
 
 	// Color
-	int sizeColor = hasColor ? size : 1;
-	if (prevSizeCol < sizeColor) {
-		prevSizeCol = sizeColor;
+	colSize_ = hasColor ? size : 1;
+	delete data_tex[2];
+	data_tex[2] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
+	success = data_tex[2]->CreateDirect(cmd, colSize_, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	assert(success);
 
-		data_tex[2]->CreateDirect(cmd, sizeColor, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	}
-	col = (float *)data_tex[2]->Lock(0, &rowPitch);
+	col = (float *)push_->Push(colSize_ * sizeof(float) * 4, &colOffset_, &colBuf_);
 }
 
 void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// Position
-	data_tex[0]->Unlock(cmd);
+	data_tex[0]->UploadMip(cmd, 0, posSize_, 1, posBuf_, posOffset_, posSize_);
+	data_tex[0]->EndCreate(cmd, true);
 
 	// Texcoords
-	if (hasTexCoords)
-		data_tex[1]->Unlock(cmd);
+	if (hasTexCoords) {
+		data_tex[1]->UploadMip(cmd, 0, texSize_, 1, texBuf_, texOffset_, texSize_);
+		data_tex[1]->EndCreate(cmd, true);
+	}
 
 	// Color
-	data_tex[2]->Unlock(cmd);
+	data_tex[2]->UploadMip(cmd, 0, colSize_, 1, colBuf_, colOffset_, colSize_);
+	data_tex[2]->EndCreate(cmd, true);
+}
+
+void DrawEngineVulkan::TessellationDataTransferVulkan::CreateSampler() {
+	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	samp.compareOp = VK_COMPARE_OP_NEVER;
+	samp.flags = 0;
+	samp.magFilter = VK_FILTER_NEAREST;
+	samp.minFilter = VK_FILTER_NEAREST;
+	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
+	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+		// Docs say the min of this value and the supported max are used.
+		samp.maxAnisotropy = 1 << g_Config.iAnisotropyLevel;
+		samp.anisotropyEnable = true;
+	} else {
+		samp.maxAnisotropy = 1.0f;
+		samp.anisotropyEnable = false;
+	}
+
+	samp.maxLod = 1.0f;
+	samp.minLod = 0.0f;
+	samp.mipLodBias = 0.0f;
+
+	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &sampler);
+	assert(res == VK_SUCCESS);
 }
