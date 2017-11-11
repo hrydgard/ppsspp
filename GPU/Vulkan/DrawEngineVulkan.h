@@ -264,25 +264,16 @@ private:
 	private:
 		VulkanContext *vulkan_;
 		Draw::DrawContext *draw_;
-		VulkanTexture *data_tex[3];
-		VkSampler sampler;
+		VulkanTexture *data_tex[3]{};
+		VkSampler sampler = VK_NULL_HANDLE;
 	public:
-		TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw) 
-			: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw), data_tex(), sampler() {
-			for (int i = 0; i < 3; i++)
-				data_tex[i] = new VulkanTexture(vulkan_);
-
-			CreateSampler();
-		}
-		~TessellationDataTransferVulkan() {
-			for (int i = 0; i < 3; i++)
-				delete data_tex[i];
-
-			vulkan_->Delete().QueueDeleteSampler(sampler);
-		}
+		TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw);
+		~TessellationDataTransferVulkan();
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
 		void PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) override;
+
 		VulkanTexture *GetTexture(int i) const { return data_tex[i]; }
+
 		VkSampler GetSampler() const { return sampler; }
 		void CreateSampler() {
 			VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };

@@ -582,8 +582,8 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		VkSampler sampler = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetSampler();
 		for (int i = 0; i < 3; i++) {
 			VulkanTexture *texture = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetTexture(i);
-			VkImageView imageView = texture->GetImageView();
-			if (i == 0 || imageView) {
+			if (texture) {
+				VkImageView imageView = texture->GetImageView();
 				tess_tex[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				tess_tex[i].imageView = imageView;
 				tess_tex[i].sampler = sampler;
@@ -1084,6 +1084,17 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	}
 }
 
+DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
+	: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw) {
+	CreateSampler();
+}
+
+DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulkan() {
+	for (int i = 0; i < 3; i++)
+		delete data_tex[i];
+	vulkan_->Delete().QueueDeleteSampler(sampler);
+}
+
 void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) {
 	int rowPitch;
 	ILOG("INIT : Prep tess");
@@ -1093,6 +1104,8 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 	if (prevSize < size) {
 		prevSize = size;
 
+		delete data_tex[0];
+		data_tex[0] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
 		data_tex[0]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
 	pos = (float *)data_tex[0]->Lock(0, &rowPitch);
@@ -1102,6 +1115,8 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 		if (prevSizeTex < size) {
 			prevSizeTex = size;
 
+			delete data_tex[1];
+			data_tex[1] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
 			data_tex[1]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		}
 		tex = (float *)data_tex[1]->Lock(0, &rowPitch);
@@ -1112,6 +1127,8 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 	if (prevSizeCol < sizeColor) {
 		prevSizeCol = sizeColor;
 
+		delete data_tex[2];
+		data_tex[2] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
 		data_tex[2]->CreateDirect(cmd, sizeColor, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
 	col = (float *)data_tex[2]->Lock(0, &rowPitch);
