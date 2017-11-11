@@ -1258,7 +1258,6 @@ public:
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }
 private:
-	VulkanContext *vulkan_;  // Unfortunate to have to keep this in each VKFramebuffer.
 	VKRFramebuffer *buf_;
 };
 
