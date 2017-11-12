@@ -1048,9 +1048,9 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	const bool hasVisibileUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls;
+	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls;
 	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler;
-	if (hasVisibileUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
+	if (hasVisibleUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
 		// This sets up some important states but not the viewport.
 		screenManager()->getUIContext()->Begin();
 
