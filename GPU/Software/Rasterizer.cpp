@@ -1183,7 +1183,7 @@ template <bool clearMode>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
 	int minX, int minY, int maxX, int maxY,
-	int hy1, int hy2)
+	bool byY, int h1, int h2)
 {
 	Vec4<int> bias0 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0);
 	Vec4<int> bias1 = Vec4<int>::AssignToAll(IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0);
@@ -1215,15 +1215,18 @@ void DrawTriangleSlice(
 	TriangleEdge e1;
 	TriangleEdge e2;
 
+	if (byY) {
+		maxY = std::min(maxY, minY + h2 * 16 * 2);
+		minY += h1 * 16 * 2;
+	} else {
+		maxX = std::min(maxX, minX + h2 * 16 * 2);
+		minX += h1 * 16 * 2;
+	}
+
 	ScreenCoords pprime(minX, minY, 0);
 	Vec4<int> w0_base = e0.Start(v1.screenpos, v2.screenpos, pprime);
 	Vec4<int> w1_base = e1.Start(v2.screenpos, v0.screenpos, pprime);
 	Vec4<int> w2_base = e2.Start(v0.screenpos, v1.screenpos, pprime);
-
-	// Step forward to y1 (slice..)
-	w0_base += e0.stepY * hy1;
-	w1_base += e1.stepY * hy1;
-	w2_base += e2.stepY * hy1;
 
 	// All the z values are the same, no interpolation required.
 	// This is common, and when we interpolate, we lose accuracy.
@@ -1231,7 +1234,7 @@ void DrawTriangleSlice(
 
 	Sampler::Funcs sampler = Sampler::GetFuncs();
 
-	for (pprime.y = minY + hy1 * 32; pprime.y < minY + hy2 * 32; pprime.y += 32,
+	for (pprime.y = minY; pprime.y < maxY; pprime.y += 32,
 										w0_base = e0.StepY(w0_base),
 										w1_base = e1.StepY(w1_base),
 										w2_base = e2.StepY(w2_base)) {
@@ -1351,8 +1354,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~0xF;
 	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~0xF;
-	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~0xF;
-	int maxY = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~0xF;
+	int maxX = (std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) + 0xF) & ~0xF;
+	int maxY = (std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) + 0xF) & ~0xF;
 
 	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
 	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
@@ -1362,24 +1365,37 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
 
 	// 32 because we do two pixels at once, and we don't want overlap.
-	int range = (maxY - minY) / 32 + 1;
-	if (gstate.isModeClear()) {
-		if (range >= 12 && (maxX - minX) >= 24 * 16) {
+	int rangeY = (maxY - minY) / 32 + 1;
+	int rangeX = (maxX - minX) / 32 + 1;
+	if (rangeY >= 12 && rangeX >= rangeY * 4) {
+		if (gstate.isModeClear()) {
 			auto bound = [&](int a, int b) -> void {
-				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
+				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, false, a, b);
 			};
-			GlobalThreadPool::Loop(bound, 0, range);
+			GlobalThreadPool::Loop(bound, 0, rangeX);
 		} else {
-			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
+			auto bound = [&](int a, int b) -> void {
+				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, false, a, b);
+			};
+			GlobalThreadPool::Loop(bound, 0, rangeX);
+		}
+	} else if (rangeY >= 12 && rangeX >= 12) {
+		if (gstate.isModeClear()) {
+			auto bound = [&](int a, int b) -> void {
+				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, true, a, b);
+			};
+			GlobalThreadPool::Loop(bound, 0, rangeY);
+		} else {
+			auto bound = [&](int a, int b) -> void {
+				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, true, a, b);
+			};
+			GlobalThreadPool::Loop(bound, 0, rangeY);
 		}
 	} else {
-		if (range >= 12 && (maxX - minX) >= 24 * 16) {
-			auto bound = [&](int a, int b) -> void {
-				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
-			};
-			GlobalThreadPool::Loop(bound, 0, range);
+		if (gstate.isModeClear()) {
+			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY);
 		} else {
-			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
+			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, true, 0, rangeY);
 		}
 	}
 }
