@@ -997,6 +997,8 @@ void DrawEngineVulkan::DoFlush() {
 					}
 					lastPipeline_ = pipeline;
 				}
+				if (result.setStencil)
+					dynState_.stencilRef = result.stencilValue;
 				ApplyDrawStateLate(renderManager, false, 0, pipeline->useBlendConstant);
 				gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 				lastPipeline_ = pipeline;

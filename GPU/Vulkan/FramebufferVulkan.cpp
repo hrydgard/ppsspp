@@ -362,7 +362,6 @@ void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms
 	}
 
 	postShaderUniforms_ = uniforms;
-	// VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	cur2DPipeline_ = pipelinePostShader_;
 
 	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);

@@ -4,8 +4,6 @@
 
 // Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP
 
-// TODO: This is only enough for 4x render resolution / 4x texture upscale for debugger.
-// Maybe we should use a dynamically allocated one for larger?
 void VulkanQueueRunner::CreateDeviceObjects() {
 	ILOG("VulkanQueueRunner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
