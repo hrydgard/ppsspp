@@ -768,6 +768,15 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		gpuStats.numTexturesDecoded++;
 
 		if (scaleFactor > 1) {
+			// Check alpha before scaling: it's slower to check it from writePtr.
+			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
+			if (alphaStatus != TexCacheEntry::STATUS_ALPHA_SIMPLE) {
+				entry.SetAlphaStatus(alphaStatus, level);
+			} else {
+				// Scaling may invent alpha values from SIMPLE.  Let's play it safe.
+				entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
+			}
+
 			u32 fmt = dstFmt;
 			scaler.ScaleAlways((u32 *)writePtr, pixelData, fmt, w, h, scaleFactor);
 			pixelData = (u32 *)writePtr;
@@ -786,9 +795,9 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 				}
 				decPitch = rowPitch;
 			}
-		}
-
-		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+		} else if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+			// TODO: Since we decode directly, this can be more expensive (maybe not on mobile?)
+			// This does allow us to skip alpha testing, though.
 			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
 			entry.SetAlphaStatus(alphaStatus, level);
 		} else {
