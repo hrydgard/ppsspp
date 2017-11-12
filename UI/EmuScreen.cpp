@@ -965,7 +965,11 @@ void EmuScreen::preRender() {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if ((!useBufferedRendering && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
 		// We need to clear here already so that drawing during the frame is done on a clean slate.
-		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
+		if (Core_IsStepping()) {
+			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE });
+		} else {
+			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
+		}
 
 		Viewport viewport;
 		viewport.TopLeftX = 0;
@@ -1029,6 +1033,9 @@ void EmuScreen::render() {
 	if (coreState == CORE_NEXTFRAME) {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
+	} else if (coreState == CORE_STEPPING) {
+		// If we're stepping, it's convenient not to clear the screen.
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE });
 	} else {
 		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
 		// In this case we need to bind and wipe the backbuffer, at least.
@@ -1040,8 +1047,10 @@ void EmuScreen::render() {
 	PSP_EndHostFrame();
 	if (invalid_)
 		return;
-	
-	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {
+
+	const bool hasVisibileUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls;
+	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler;
+	if (hasVisibileUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
 		// This sets up some important states but not the viewport.
 		screenManager()->getUIContext()->Begin();
 
