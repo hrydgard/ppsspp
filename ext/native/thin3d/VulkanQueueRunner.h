@@ -184,6 +184,8 @@ private:
 	void LogReadback(const VKRStep &pass);
 	void LogReadbackImage(const VKRStep &pass);
 
+	void ResizeReadbackBuffer(VkDeviceSize requiredSize);
+
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
 
@@ -199,6 +201,7 @@ private:
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.
-	VkDeviceMemory readbackMemory_;
-	VkBuffer readbackBuffer_;
+	VkDeviceMemory readbackMemory_ = VK_NULL_HANDLE;
+	VkBuffer readbackBuffer_ = VK_NULL_HANDLE;
+	VkDeviceSize readbackBufferSize_ = 0;
 };

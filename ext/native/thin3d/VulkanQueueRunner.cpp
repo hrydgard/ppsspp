@@ -6,17 +6,29 @@
 
 // TODO: This is only enough for 4x render resolution / 4x texture upscale for debugger.
 // Maybe we should use a dynamically allocated one for larger?
-const uint32_t readbackBufferSize = 2048 * 2048 * 4;
-
 void VulkanQueueRunner::CreateDeviceObjects() {
 	ILOG("VulkanQueueRunner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
 	InitRenderpasses();
+}
+
+void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
+	if (readbackBuffer_ && requiredSize <= readbackBufferSize_) {
+		return;
+	}
+	if (readbackMemory_) {
+		vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
+	}
+	if (readbackBuffer_) {
+		vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
+	}
+
+	readbackBufferSize_ = requiredSize;
 
 	VkDevice device = vulkan_->GetDevice();
 
 	VkBufferCreateInfo buf{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-	buf.size = readbackBufferSize;
+	buf.size = readbackBufferSize_;
 	buf.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
 	vkCreateBuffer(device, &buf, nullptr, &readbackBuffer_);
@@ -40,10 +52,8 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 	ILOG("VulkanQueueRunner::DestroyDeviceObjects");
 	VkDevice device = vulkan_->GetDevice();
 	vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
-	vkFreeMemory(device, readbackMemory_, nullptr);
-	readbackMemory_ = VK_NULL_HANDLE;
 	vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
-	readbackBuffer_ = VK_NULL_HANDLE;
+	readbackBufferSize_ = 0;
 
 	for (int i = 0; i < ARRAY_SIZE(renderPasses_); i++) {
 		assert(renderPasses_[i] != VK_NULL_HANDLE);
@@ -845,6 +855,8 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 		vkCmdPipelineBarrier(cmd, stage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 	}
 
+	ResizeReadbackBuffer(sizeof(uint32_t) * step.readback.srcRect.extent.width * step.readback.srcRect.extent.height);
+
 	VkBufferImageCopy region{};
 	region.imageOffset = { step.readback.srcRect.offset.x, step.readback.srcRect.offset.y, 0 };
 	region.imageExtent = { step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, 1 };
@@ -868,6 +880,8 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 	VkPipelineStageFlags stage = 0;
 	SetupTransitionToTransferSrc(srcImage, barrier, stage, VK_IMAGE_ASPECT_COLOR_BIT);
 	vkCmdPipelineBarrier(cmd, stage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+	ResizeReadbackBuffer(sizeof(uint32_t) * step.readback_image.srcRect.extent.width * step.readback_image.srcRect.extent.height);
 
 	VkBufferImageCopy region{};
 	region.imageOffset = { step.readback_image.srcRect.offset.x, step.readback_image.srcRect.offset.y, 0 };
