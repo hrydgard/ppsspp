@@ -270,7 +270,7 @@ private:
 
 		void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
-		void PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) override;
+		void PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) override;
 
 		VulkanTexture *GetTexture(int i) const { return data_tex[i]; }
 

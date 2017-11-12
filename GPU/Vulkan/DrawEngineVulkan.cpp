@@ -1111,7 +1111,9 @@ DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulka
 // TODO: Consolidate the three textures into one, with height 3.
 // This can be done for all the backends.
 // TODO: Actually, even better, avoid the usage of textures altogether and just use shader storage buffers from the current pushbuffer.
-void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) {
+void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) {
+	colStride = 4;
+
 	assert(size > 0);
 
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
@@ -1122,6 +1124,7 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 	assert(success);
 
 	pos = (float *)push_->Push(size * sizeof(float) * 4, &posOffset_, &posBuf_);
+	posStride = 4;
 	posSize_ = size;
 
 	// Texcoords
@@ -1132,15 +1135,22 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 		assert(success);
 
 		tex = (float *)push_->Push(size * sizeof(float) * 4, &texOffset_, &texBuf_);
+		texStride = 4;
 		texSize_ = size;
 	} else {
 		data_tex[1] = nullptr;
 		tex = nullptr;
+		texStride = 0;
 		texSize_ = 0;
 	}
 
 	// Color
 	colSize_ = hasColor ? size : 1;
+	if (colSize_ == 1)
+		colStride = 0;
+	else
+		colStride = 4;
+
 	delete data_tex[2];
 	data_tex[2] = new VulkanTexture(vulkan_, &tessAlloc_);
 	success = data_tex[2]->CreateDirect(cmd, colSize_, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
