@@ -1131,11 +1131,11 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 	delete data_tex[1];
 	if (hasTexCoords) {
 		data_tex[1] = new VulkanTexture(vulkan_, &tessAlloc_);
-		success = data_tex[1]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		success = data_tex[1]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		assert(success);
 
-		tex = (float *)push_->Push(size * sizeof(float) * 4, &texOffset_, &texBuf_);
-		texStride = 4;
+		tex = (float *)push_->Push(size * sizeof(float) * 2, &texOffset_, &texBuf_);
+		texStride = 2;
 		texSize_ = size;
 	} else {
 		data_tex[1] = nullptr;
