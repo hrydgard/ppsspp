@@ -67,9 +67,7 @@ enum {
 	DRAW_BINDING_DYNUBO_BASE = 2,
 	DRAW_BINDING_DYNUBO_LIGHT = 3,
 	DRAW_BINDING_DYNUBO_BONE = 4,
-	DRAW_BINDING_TESS_POS_TEXTURE = 5,
-	DRAW_BINDING_TESS_TEX_TEXTURE = 6,
-	DRAW_BINDING_TESS_COL_TEXTURE = 7,
+	DRAW_BINDING_TESS_STORAGE_BUF = 5,
 };
 
 enum {
@@ -97,7 +95,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 
 void DrawEngineVulkan::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
-	VkDescriptorSetLayoutBinding bindings[8];
+	VkDescriptorSetLayoutBinding bindings[6];
 	bindings[0].descriptorCount = 1;
 	bindings[0].pImmutableSamplers = nullptr;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -123,37 +121,28 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[4].binding = DRAW_BINDING_DYNUBO_BONE;
-	// Hardware tessellation. TODO: Don't allocate these unless actually drawing splines.
-	// Will require additional
+	// Used only for hardware tessellation.
 	bindings[5].descriptorCount = 1;
 	bindings[5].pImmutableSamplers = nullptr;
-	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	bindings[5].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[5].binding = DRAW_BINDING_TESS_POS_TEXTURE;
-	bindings[6].descriptorCount = 1;
-	bindings[6].pImmutableSamplers = nullptr;
-	bindings[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindings[6].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[6].binding = DRAW_BINDING_TESS_TEX_TEXTURE;
-	bindings[7].descriptorCount = 1;
-	bindings[7].pImmutableSamplers = nullptr;
-	bindings[7].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindings[7].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[7].binding = DRAW_BINDING_TESS_COL_TEXTURE;
+	bindings[5].binding = DRAW_BINDING_TESS_STORAGE_BUF;
 
 	VkDevice device = vulkan_->GetDevice();
 
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-	dsl.bindingCount = 8;
+	dsl.bindingCount = ARRAY_SIZE(bindings);
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
 
-	VkDescriptorPoolSize dpTypes[2];
+	VkDescriptorPoolSize dpTypes[3];
 	dpTypes[0].descriptorCount = 8192;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	dpTypes[1].descriptorCount = 8192 + 4096;  // Due to the tess stuff, we need a LOT of these. Most will be empty...
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	dpTypes[2].descriptorCount = 2048;
+	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.pNext = nullptr;
@@ -586,29 +575,27 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
   // Skipping 2nd texture for now.
 
-	// Tessellation data textures
+	// Tessellation data buffer. Make sure this is declared outside the if to avoid optimizer
+	// shenanigans.
+	VkDescriptorBufferInfo tess_buf{};
 	if (tess) {
-		VkDescriptorImageInfo tess_tex[3]{};
-		VkSampler sampler = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetSampler();
-		for (int i = 0; i < 3; i++) {
-			VulkanTexture *texture = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetTexture(i);
-			if (texture) {
-				assert(texture->GetImageView());
-				VkImageView imageView = texture->GetImageView();
-
-				tess_tex[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				tess_tex[i].imageView = imageView;
-				tess_tex[i].sampler = sampler;
-				writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				writes[n].pNext = nullptr;
-				writes[n].dstBinding = DRAW_BINDING_TESS_POS_TEXTURE + i;
-				writes[n].pImageInfo = &tess_tex[i];
-				writes[n].descriptorCount = 1;
-				writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				writes[n].dstSet = desc;
-				n++;
-			}
-		}
+		VkBuffer buf;
+		VkDeviceSize offset;
+		VkDeviceSize range;
+		((TessellationDataTransferVulkan *)tessDataTransfer)->GetBufferAndOffset(&buf, &offset, &range);
+		assert(buf);
+		tess_buf.buffer = buf;
+		tess_buf.offset = offset;
+		tess_buf.range = range;
+		tessOffset_ = offset;
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].pNext = nullptr;
+		writes[n].dstBinding = DRAW_BINDING_TESS_STORAGE_BUF;
+		writes[n].pBufferInfo = &tess_buf;
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		writes[n].dstSet = desc;
+		n++;
 	}
 
 	// Uniform buffer objects
@@ -1097,100 +1084,41 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 }
 
 DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
-	: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw), tessAlloc_(vulkan_, 128 * 1024, 4096 * 1024) {
-	CreateSampler();
+	: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw) {
 }
 
 DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulkan() {
-	for (int i = 0; i < 3; i++)
-		delete data_tex[i];
-	tessAlloc_.Destroy();
-	vulkan_->Delete().QueueDeleteSampler(sampler);
 }
 
 // TODO: Consolidate the three textures into one, with height 3.
 // This can be done for all the backends.
 // TODO: Actually, even better, avoid the usage of textures altogether and just use shader storage buffers from the current pushbuffer.
-void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) {
+void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) {
+	colStride = 4;
+
 	assert(size > 0);
 
-	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-	// Position
-	delete data_tex[0];
-	data_tex[0] = new VulkanTexture(vulkan_, &tessAlloc_);
-	bool success = data_tex[0]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	assert(success);
+	// TODO: This SHOULD work without padding but I can't get it to work on nvidia, so had
+	// to expand to vec4. Driver bug?
+	struct TessData {
+		float pos[3]; float pad1;
+		float uv[2]; float pad2[2];
+		float color[4];
+	};
 
-	pos = (float *)push_->Push(size * sizeof(float) * 4, &posOffset_, &posBuf_);
-	posSize_ = size;
+	int ssboAlignment = vulkan_->GetPhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
+	uint8_t *data = (uint8_t *)push_->PushAligned(size * sizeof(TessData), &offset_, &buf_, ssboAlignment);
+	range_ = size * sizeof(TessData);
 
-	// Texcoords
-	delete data_tex[1];
-	if (hasTexCoords) {
-		data_tex[1] = new VulkanTexture(vulkan_, &tessAlloc_);
-		success = data_tex[1]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		assert(success);
-
-		tex = (float *)push_->Push(size * sizeof(float) * 4, &texOffset_, &texBuf_);
-		texSize_ = size;
-	} else {
-		data_tex[1] = nullptr;
-		tex = nullptr;
-		texSize_ = 0;
-	}
-
-	// Color
-	colSize_ = hasColor ? size : 1;
-	delete data_tex[2];
-	data_tex[2] = new VulkanTexture(vulkan_, &tessAlloc_);
-	success = data_tex[2]->CreateDirect(cmd, colSize_, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	assert(success);
-
-	col = (float *)push_->Push(colSize_ * sizeof(float) * 4, &colOffset_, &colBuf_);
+	pos = (float *)(data);
+	tex = (float *)(data + offsetof(TessData, uv));
+	col = (float *)(data + offsetof(TessData, color));
+	posStride = sizeof(TessData) / sizeof(float);
+	colStride = hasColor ? (sizeof(TessData) / sizeof(float)) : 0;
+	texStride = sizeof(TessData) / sizeof(float);
 }
 
 void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
-	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-	// Position
-	data_tex[0]->UploadMip(cmd, 0, posSize_, 1, posBuf_, posOffset_, posSize_);
-	data_tex[0]->EndCreate(cmd, true);
-
-	// Texcoords
-	if (hasTexCoords) {
-		data_tex[1]->UploadMip(cmd, 0, texSize_, 1, texBuf_, texOffset_, texSize_);
-		data_tex[1]->EndCreate(cmd, true);
-	}
-
-	// Color
-	data_tex[2]->UploadMip(cmd, 0, colSize_, 1, colBuf_, colOffset_, colSize_);
-	data_tex[2]->EndCreate(cmd, true);
-}
-
-void DrawEngineVulkan::TessellationDataTransferVulkan::CreateSampler() {
-	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	samp.compareOp = VK_COMPARE_OP_NEVER;
-	samp.flags = 0;
-	samp.magFilter = VK_FILTER_NEAREST;
-	samp.minFilter = VK_FILTER_NEAREST;
-	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-
-	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
-		// Docs say the min of this value and the supported max are used.
-		samp.maxAnisotropy = 1 << g_Config.iAnisotropyLevel;
-		samp.anisotropyEnable = true;
-	} else {
-		samp.maxAnisotropy = 1.0f;
-		samp.anisotropyEnable = false;
-	}
-
-	samp.maxLod = 1.0f;
-	samp.minLod = 0.0f;
-	samp.mipLodBias = 0.0f;
-
-	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &sampler);
-	assert(res == VK_SUCCESS);
+	assert(pos);
+	// Nothing to do here!
 }

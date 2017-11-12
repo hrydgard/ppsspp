@@ -908,13 +908,22 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		const bool hasColor = (origVertType & GE_VTYPE_COL_MASK) != 0;
 		const bool hasTexCoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
-		tessDataTransfer->PrepareBuffers(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
+		int posStride, texStride, colStride;
+		tessDataTransfer->PrepareBuffers(pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
+		float *p = pos;
+		float *t = tex;
+		float *c = col;
 		for (int idx = 0; idx < count_u * count_v; idx++) {
-			memcpy(pos + idx * 4, points[idx]->pos.AsArray(), 3 * sizeof(float));
-			if (hasTexCoords)
-				memcpy(tex + idx * 4, points[idx]->uv, 2 * sizeof(float));
-			if (hasColor)
-				memcpy(col + idx * 4, Vec4f::FromRGBA(points[idx]->color_32).AsArray(), 4 * sizeof(float));
+			memcpy(p, points[idx]->pos.AsArray(), 3 * sizeof(float));
+			p += posStride;
+			if (hasTexCoords) {
+				memcpy(t, points[idx]->uv, 2 * sizeof(float));
+				t += texStride;
+			}
+			if (hasColor) {
+				memcpy(c, Vec4f::FromRGBA(points[idx]->color_32).AsArray(), 4 * sizeof(float));
+				c += colStride;
+			}
 		}
 		if (!hasColor)
 			memcpy(col, Vec4f::FromRGBA(points[0]->color_32).AsArray(), 4 * sizeof(float));
@@ -985,7 +994,6 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
 
-
 	float *pos = (float*)(decoded + 65536 * 18); // Size 4 float
 	float *tex = pos + count_u * count_v * 4; // Size 4 float
 	float *col = tex + count_u * count_v * 4; // Size 4 float
@@ -997,14 +1005,23 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	int num_patches_v = (count_v - 1) / 3;
 	BezierPatch *patches = nullptr;
 	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
-		tessDataTransfer->PrepareBuffers(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
+		int posStride, texStride, colStride;
+		tessDataTransfer->PrepareBuffers(pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
+		float *p = pos;
+		float *t = tex;
+		float *c = col;
 		for (int idx = 0; idx < count_u * count_v; idx++) {
 			SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
-			memcpy(pos + idx * 4, point->pos.AsArray(), 3 * sizeof(float));
-			if (hasTexCoords)
-				memcpy(tex + idx * 4, point->uv, 2 * sizeof(float));
-			if (hasColor)
-				memcpy(col + idx * 4, Vec4f::FromRGBA(point->color_32).AsArray(), 4 * sizeof(float));
+			memcpy(p, point->pos.AsArray(), 3 * sizeof(float));
+			p += posStride;
+			if (hasTexCoords) {
+				memcpy(t, point->uv, 2 * sizeof(float));
+				t += texStride;
+			}
+			if (hasColor) {
+				memcpy(c, Vec4f::FromRGBA(point->color_32).AsArray(), 4 * sizeof(float));
+				c += colStride;
+			}
 		}
 		if (!hasColor) {
 			SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(0) : 0);
