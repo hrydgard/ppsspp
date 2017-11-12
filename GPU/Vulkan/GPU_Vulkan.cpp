@@ -158,6 +158,9 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateVsyncInterval(true);
 
 	textureCacheVulkan_->NotifyConfigChanged();
+	if (vulkan_->GetFeaturesEnabled().wideLines) {
+		drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
+	}
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
@@ -221,6 +224,9 @@ void GPU_Vulkan::BeginHostFrame() {
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		textureCacheVulkan_->NotifyConfigChanged();
+		if (vulkan_->GetFeaturesEnabled	().wideLines) {
+			drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
+		}
 	}
 	resized_ = false;
 

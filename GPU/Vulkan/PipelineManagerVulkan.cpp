@@ -121,7 +121,7 @@ static bool UsesBlendConstant(int factor) {
 
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
-		const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
+		const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
 	bool useBlendConstant = false;
 
 	VkPipelineColorBlendAttachmentState blend0 = {};
@@ -188,7 +188,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	rs.depthBiasEnable = false;
 	rs.cullMode = key.cullMode;
 	rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	rs.lineWidth = 1.0f;
+	rs.lineWidth = lineWidth;
 	rs.rasterizerDiscardEnable = false;
 	rs.polygonMode = VK_POLYGON_MODE_FILL;
 	rs.depthClampEnable = false;
@@ -289,6 +289,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	vulkanPipeline->pipeline = pipeline;
 	vulkanPipeline->uniformBlocks = UB_VS_FS_BASE;
 	vulkanPipeline->useBlendConstant = useBlendConstant;
+	vulkanPipeline->usesLines = key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_LIST || key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
 	if (useHwTransform) {
 		if (vs->HasLights()) {
 			vulkanPipeline->uniformBlocks |= UB_VS_LIGHTS;
@@ -320,7 +321,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
-		rasterKey, vtxDec, vs, fs, useHwTransform);
+		rasterKey, vtxDec, vs, fs, useHwTransform, lineWidth_);
 	// Even if the result is nullptr, insert it so we don't try to create it repeatedly.
 	pipelines_.Insert(key, pipeline);
 	return pipeline;
@@ -369,4 +370,19 @@ std::string PipelineManagerVulkan::DebugGetObjectString(std::string id, DebugSha
 	default:
 		return "N/A";
 	}
+}
+
+void PipelineManagerVulkan::SetLineWidth(float lineWidth) {
+	if (lineWidth_ == lineWidth)
+		return;
+	lineWidth_ = lineWidth;
+
+	// Wipe all line-drawing pipelines.
+	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
+		if (value->usesLines) {
+			vulkan_->Delete().QueueDeletePipeline(value->pipeline);
+			delete value;
+			pipelines_.Remove(key);
+		}
+	});
 }

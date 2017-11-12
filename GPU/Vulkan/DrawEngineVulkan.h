@@ -175,6 +175,8 @@ public:
 		return stats_;
 	}
 
+	void SetLineWidth(float lineWidth);
+
 private:
 	struct FrameData;
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);

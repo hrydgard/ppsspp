@@ -509,6 +509,10 @@ void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset,
 	}
 }
 
+void DrawEngineVulkan::SetLineWidth(float lineWidth) {
+	pipelineManager_->SetLineWidth(lineWidth);
+}
+
 VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone) {
 	DescriptorSetKey key;
 	key.imageView_ = imageView;
@@ -517,12 +521,15 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	key.base_ = base;
 	key.light_ = light;
 	key.bone_ = bone;
-	assert(base != VK_NULL_HANDLE);
-	assert(light != VK_NULL_HANDLE);
-	assert(bone != VK_NULL_HANDLE);
+	_dbg_assert_(G3D, base != VK_NULL_HANDLE);
+	_dbg_assert_(G3D, light != VK_NULL_HANDLE);
+	_dbg_assert_(G3D, bone != VK_NULL_HANDLE);
+
+	bool tess = gstate_c.bezier || gstate_c.spline;
 
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
-	if (!gstate_c.bezier && !gstate_c.spline) { // Has no cache when HW tessellation.
+	// See if we already have this descriptor set cached.
+	if (!tess) { // Don't cache descriptors for HW tessellation.
 		VkDescriptorSet d = frame->descSets.Get(key);
 		if (d != VK_NULL_HANDLE)
 			return d;
@@ -580,7 +587,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
   // Skipping 2nd texture for now.
 
 	// Tessellation data textures
-	if (gstate_c.bezier || gstate_c.spline) {
+	if (tess) {
 		VkDescriptorImageInfo tess_tex[3]{};
 		VkSampler sampler = ((TessellationDataTransferVulkan *)tessDataTransfer)->GetSampler();
 		for (int i = 0; i < 3; i++) {

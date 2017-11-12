@@ -226,7 +226,6 @@ void FramebufferManagerGLES::Init() {
 	// Workaround for upscaling shaders where we force x1 resolution without saving it
 	Resized();
 	CompileDraw2DProgram();
-	SetLineWidth();
 }
 
 void FramebufferManagerGLES::SetTextureCache(TextureCacheGLES *tc) {
@@ -447,18 +446,6 @@ void FramebufferManagerGLES::RebindFramebuffer() {
 	}
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE)
 		glstate.viewport.restore();
-}
-
-void FramebufferManagerGLES::SetLineWidth() {
-#ifndef USING_GLES2
-	if (g_Config.iInternalResolution == 0) {
-		glLineWidth(std::max(1, (int)(renderWidth_ / 480)));
-		glPointSize(std::max(1.0f, (float)(renderWidth_ / 480.f)));
-	} else {
-		glLineWidth(g_Config.iInternalResolution);
-		glPointSize((float)g_Config.iInternalResolution);
-	}
-#endif
 }
 
 void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
@@ -1064,7 +1051,16 @@ void FramebufferManagerGLES::Resized() {
 	}
 
 	DestroyDraw2DProgram();
-	SetLineWidth();
+
+#ifndef USING_GLES2
+	if (g_Config.iInternalResolution == 0) {
+		glLineWidth(std::max(1, (int)(renderWidth_ / 480)));
+		glPointSize(std::max(1.0f, (float)(renderWidth_ / 480.f)));
+	} else {
+		glLineWidth(g_Config.iInternalResolution);
+		glPointSize((float)g_Config.iInternalResolution);
+	}
+#endif
 
 	if (!draw2dprogram_) {
 		CompileDraw2DProgram();

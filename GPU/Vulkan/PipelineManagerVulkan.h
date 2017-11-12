@@ -65,6 +65,7 @@ struct VulkanPipeline {
 	VkPipeline pipeline;
 	int uniformBlocks;  // UB_ enum above.
 	bool useBlendConstant;
+	bool usesLines;
 };
 
 class VulkanContext;
@@ -81,6 +82,8 @@ public:
 
 	void Clear();
 
+	void SetLineWidth(float lw);
+
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
 
@@ -91,4 +94,5 @@ private:
 	DenseHashMap<VulkanPipelineKey, VulkanPipeline *, nullptr> pipelines_;
 	VkPipelineCache pipelineCache_;
 	VulkanContext *vulkan_;
+	float lineWidth_ = 1.0f;
 };
