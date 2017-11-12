@@ -63,12 +63,13 @@ void Vulkan2D::DestroyDeviceObjects() {
 
 void Vulkan2D::InitDeviceObjects() {
 	pipelineCache_ = vulkan_->CreatePipelineCache();
-	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
 	VkDescriptorSetLayoutBinding bindings[2] = {};
+	// Texture.
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[0].binding = 0;
+	// In depal, this second texture is used for the palette.
 	bindings[1].descriptorCount = 1;
 	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -98,8 +99,8 @@ void Vulkan2D::InitDeviceObjects() {
 
 	VkPushConstantRange push = {};
 	push.offset = 0;
-	push.size = 16;
-	push.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	push.size = 48;
+	push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT;
 
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = &push;
