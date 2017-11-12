@@ -17,8 +17,6 @@
 
 #include "ppsspp_config.h"
 
-#if !defined(ANDROID)
-
 #include <memory>
 #include <vector>
 #include <sstream>
@@ -34,12 +32,15 @@
 #include "ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 #include "thin3d/thin3d.h"
+
+#if !defined(ANDROID)
 #include "ext/SPIRV-Cross/spirv.hpp"
 #include "ext/SPIRV-Cross/spirv_common.hpp"
 #include "ext/SPIRV-Cross/spirv_cross.hpp"
 #include "ext/SPIRV-Cross/spirv_glsl.hpp"
 #ifdef _WIN32
 #include "ext/SPIRV-Cross/spirv_hlsl.hpp"
+#endif
 #endif
 
 extern void init_resources(TBuiltInResource &Resources);
@@ -58,12 +59,12 @@ static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
 
 void ShaderTranslationInit() {
 	// TODO: We have TLS issues on UWP
-#if !PPSSPP_PLATFORM(UWP)
+#if !PPSSPP_PLATFORM(UWP) && !defined(ANDROID)
 	glslang::InitializeProcess();
 #endif
 }
 void ShaderTranslationShutdown() {
-#if !PPSSPP_PLATFORM(UWP)
+#if !PPSSPP_PLATFORM(UWP) && !defined(ANDROID)
 	glslang::FinalizeProcess();
 #endif
 }
@@ -189,11 +190,15 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 	if (srcLang != GLSL_300 && srcLang != GLSL_140)
 		return false;
 
-	if (srcLang == GLSL_140 || srcLang == GLSL_300 && destLang == GLSL_VULKAN) {
+	if ((srcLang == GLSL_140 || srcLang == GLSL_300) && destLang == GLSL_VULKAN) {
 		// Let's just mess about at the string level, no need to recompile.
 		bool result = ConvertToVulkanGLSL(dest, destMetadata, src, stage, errorMessage);
 		return result;
 	}
+
+#if defined(ANDROID)
+	return false;
+#else
 
 #if PPSSPP_PLATFORM(UWP)
 	return false;
@@ -304,6 +309,5 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 	default:
 		return false;
 	}
-}
-
 #endif
+}

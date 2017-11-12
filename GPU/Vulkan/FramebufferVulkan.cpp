@@ -640,11 +640,9 @@ void FramebufferManagerVulkan::Resized() {
 void FramebufferManagerVulkan::CompilePostShader() {
 	if (postVs_) {
 		vulkan_->Delete().QueueDeleteShaderModule(postVs_);
-		postVs_ = nullptr;
 	}
 	if (postFs_) {
 		vulkan_->Delete().QueueDeleteShaderModule(postFs_);
-		postFs_ = nullptr;
 	}
 
 	const ShaderInfo *shaderInfo = nullptr;
