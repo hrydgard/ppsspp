@@ -1097,25 +1097,27 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 }
 
 DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
-	: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw) {
+	: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw), tessAlloc_(vulkan_, 128 * 1024, 4096 * 1024) {
 	CreateSampler();
 }
 
 DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulkan() {
 	for (int i = 0; i < 3; i++)
 		delete data_tex[i];
+	tessAlloc_.Destroy();
 	vulkan_->Delete().QueueDeleteSampler(sampler);
 }
 
 // TODO: Consolidate the three textures into one, with height 3.
 // This can be done for all the backends.
+// TODO: Actually, even better, avoid the usage of textures altogether and just use shader storage buffers from the current pushbuffer.
 void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) {
 	assert(size > 0);
 
 	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 	// Position
 	delete data_tex[0];
-	data_tex[0] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
+	data_tex[0] = new VulkanTexture(vulkan_, &tessAlloc_);
 	bool success = data_tex[0]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	assert(success);
 
@@ -1125,7 +1127,7 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 	// Texcoords
 	delete data_tex[1];
 	if (hasTexCoords) {
-		data_tex[1] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
+		data_tex[1] = new VulkanTexture(vulkan_, &tessAlloc_);
 		success = data_tex[1]->CreateDirect(cmd, size, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		assert(success);
 
@@ -1140,7 +1142,7 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 	// Color
 	colSize_ = hasColor ? size : 1;
 	delete data_tex[2];
-	data_tex[2] = new VulkanTexture(vulkan_, nullptr);  // TODO: Should really use an allocator.
+	data_tex[2] = new VulkanTexture(vulkan_, &tessAlloc_);
 	success = data_tex[2]->CreateDirect(cmd, colSize_, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	assert(success);
 

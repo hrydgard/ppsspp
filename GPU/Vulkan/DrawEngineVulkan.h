@@ -33,6 +33,7 @@
 #include <unordered_map>
 
 #include "Common/Hashmaps.h"
+#include "Common/Vulkan/VulkanMemory.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
 
@@ -281,6 +282,7 @@ private:
 		VulkanTexture *data_tex[3]{};
 		VkSampler sampler = VK_NULL_HANDLE;
 		VulkanPushBuffer *push_;  // Updated each frame.
+		VulkanDeviceAllocator tessAlloc_;
 
 		int posSize_ = 0;
 		uint32_t posOffset_ = 0;
