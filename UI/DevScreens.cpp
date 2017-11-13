@@ -386,9 +386,10 @@ void SystemInfoScreen::CreateViews() {
 	std::string vendor = draw->GetInfoString(InfoField::VENDOR);
 	if (vendor.size())
 		deviceSpecs->Add(new InfoItem("Vendor (detected)", vendor));
-	deviceSpecs->Add(new InfoItem("Driver", draw->GetInfoString(InfoField::DRIVER)));
+	deviceSpecs->Add(new InfoItem("Driver Version", draw->GetInfoString(InfoField::DRIVER)));
 #ifdef _WIN32
-	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
+	if (g_Config.iGPUBackend != GPU_BACKEND_VULKAN)
+		deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		deviceSpecs->Add(new InfoItem("D3DX Version", StringFromFormat("%d", GetD3DXVersion())));

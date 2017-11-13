@@ -182,8 +182,12 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
 		switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
 		case VULKAN_VENDOR_INTEL:
+			// Work around for Intel driver bug.
+			break;
 		case VULKAN_VENDOR_AMD:
-			// Work around for Intel driver bug. See issue #10074, and also #10065 (AMD)
+			// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for
+			if (vulkan_->GetPhysicalDeviceProperties().driverVersion >= 0x00407000)
+				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 			break;
 		default:
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
