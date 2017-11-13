@@ -69,8 +69,6 @@ public:
 	};
 
 	void Execute_Prim(u32 op, u32 diff);
-	void Execute_VertexType(u32 op, u32 diff);
-	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 	void Execute_TexSize0(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
 

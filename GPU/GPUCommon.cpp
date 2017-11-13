@@ -1323,6 +1323,49 @@ void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE);
 }
 
+void GPUCommon::Execute_TexSize0(u32 op, u32 diff) {
+	// Render to texture may have overridden the width/height.
+	// Don't reset it unless the size is different / the texture has changed.
+	if (diff || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) {
+		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
+		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		// We will need to reset the texture now.
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	}
+}
+
+void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
+	if (diff)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		if (diff & GE_VTYPE_THROUGH_MASK)
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	}
+}
+
+void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
+	// Don't flush when weight count changes, unless morph is enabled.
+	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		// Restore and flush
+		gstate.vertType ^= diff;
+		Flush();
+		gstate.vertType ^= diff;
+		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		// In this case, we may be doing weights and morphs.
+		// Update any bone matrix uniforms so it uses them correctly.
+		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
+			gstate_c.deferredVertTypeDirty = 0;
+		}
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	}
+	if (diff & GE_VTYPE_THROUGH_MASK)
+		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
+}
+
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	drawEngineCommon_->DispatchFlush();
 

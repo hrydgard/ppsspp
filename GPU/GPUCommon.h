@@ -100,11 +100,15 @@ public:
 	void Execute_Ret(u32 op, u32 diff);
 	void Execute_End(u32 op, u32 diff);
 
+	void Execute_VertexType(u32 op, u32 diff);
+	void Execute_VertexTypeSkinning(u32 op, u32 diff);
+
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 
+	void Execute_TexSize0(u32 op, u32 diff);
 	void Execute_TexLevel(u32 op, u32 diff);
 
 	void Execute_WorldMtxNum(u32 op, u32 diff);

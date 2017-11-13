@@ -63,12 +63,12 @@ struct GLESCommandTableEntry {
 // TODO: Share this table between the backends. Will have to make another indirection for the function pointers though..
 static const GLESCommandTableEntry commandTable[] = {
 	// Changes that dirty the current texture.
-	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, DIRTY_UVSCALEOFFSET, &GPU_GLES::Execute_TexSize0 },
+	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_TexSize0 },
 
 	{ GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_STENCILREPLACEVALUE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE },
 
 	// Changing the vertex type requires us to flush.
-	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPU_GLES::Execute_VertexType },
+	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
 
 	{ GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPU_GLES::Execute_Prim },
 	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
@@ -461,10 +461,10 @@ inline void GPU_GLES::UpdateVsyncInterval(bool force) {
 void GPU_GLES::UpdateCmdInfo() {
 	if (g_Config.bSoftwareSkinning) {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPU_GLES::Execute_VertexTypeSkinning;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
 	} else {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPU_GLES::Execute_VertexType;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
 	}
 }
 
@@ -686,47 +686,6 @@ void GPU_GLES::Execute_Prim(u32 op, u32 diff) {
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
 	AdvanceVerts(gstate.vertType, count, bytesRead);
-}
-
-void GPU_GLES::Execute_VertexType(u32 op, u32 diff) {
-	if (diff)
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		if (diff & GE_VTYPE_THROUGH_MASK)
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
-	}
-}
-
-void GPU_GLES::Execute_VertexTypeSkinning(u32 op, u32 diff) {
-	// Don't flush when weight count changes, unless morph is enabled.
-	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-		// Restore and flush
-		gstate.vertType ^= diff;
-		Flush();
-		gstate.vertType ^= diff;
-		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
-			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		// In this case, we may be doing weights and morphs.
-		// Update any bone matrix uniforms so it uses them correctly.
-		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
-			gstate_c.deferredVertTypeDirty = 0;
-		}
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	}
-	if (diff & GE_VTYPE_THROUGH_MASK)
-		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
-}
-
-void GPU_GLES::Execute_TexSize0(u32 op, u32 diff) {
-	// Render to texture may have overridden the width/height.
-	// Don't reset it unless the size is different / the texture has changed.
-	if (diff || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) {
-		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
-		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET | DIRTY_TEXTURE_PARAMS);
-	}
 }
 
 void GPU_GLES::Execute_LoadClut(u32 op, u32 diff) {
