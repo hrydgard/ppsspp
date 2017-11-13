@@ -139,7 +139,7 @@ public:
 
 	void PushConstants(VkPipelineLayout pipelineLayout, VkShaderStageFlags stages, int offset, int size, void *constants) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		assert(size + offset < 32);
+		assert(size + offset < 40);
 		VkRenderData data{ VKRRenderCommand::PUSH_CONSTANTS };
 		data.push.pipelineLayout = pipelineLayout;
 		data.push.stages = stages;

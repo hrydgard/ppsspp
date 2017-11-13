@@ -218,11 +218,15 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 
 		RotateUVThrough(v0, v1, *topright, *bottomleft);
 
-		// Four triangles to do backfaces as well. Two of them will get backface culled.
-		Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);
-		Rasterizer::DrawTriangle(*bottomright, *topright, *topleft);
-		Rasterizer::DrawTriangle(*bottomright, *bottomleft, *topleft);
-		Rasterizer::DrawTriangle(*topleft, *bottomleft, *bottomright);
+		if (gstate.isModeClear()) {
+			Rasterizer::ClearRectangle(v0, v1);
+		} else {
+			// Four triangles to do backfaces as well. Two of them will get backface culled.
+			Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);
+			Rasterizer::DrawTriangle(*bottomright, *topright, *topleft);
+			Rasterizer::DrawTriangle(*bottomright, *bottomleft, *topleft);
+			Rasterizer::DrawTriangle(*topleft, *bottomleft, *bottomright);
+		}
 	}
 }
 

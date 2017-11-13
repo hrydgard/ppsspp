@@ -104,7 +104,7 @@ private:
 		VK2DDepthStencilMode depthStencilMode;
 		bool readVertices;
 		bool operator < (const PipelineKey &other) const {
-			return std::tie(vs, fs, rp, depthStencilMode, readVertices) < std::tie(other.vs, other.fs, other.rp, depthStencilMode, readVertices);
+			return std::tie(vs, fs, rp, depthStencilMode, readVertices) < std::tie(other.vs, other.fs, other.rp, other.depthStencilMode, other.readVertices);
 		}
 	};
 

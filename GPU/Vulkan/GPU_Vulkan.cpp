@@ -95,11 +95,11 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngine_.SetFramebufferManager(framebufferManagerVulkan_);
 	drawEngine_.SetShaderManager(shaderManagerVulkan_);
 	drawEngine_.SetPipelineManager(pipelineManager_);
+	framebufferManagerVulkan_->SetVulkan2D(&vulkan2D_);
 	framebufferManagerVulkan_->Init();
 	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
 	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
 	framebufferManagerVulkan_->SetShaderManager(shaderManagerVulkan_);
-	framebufferManagerVulkan_->SetVulkan2D(&vulkan2D_);
 	textureCacheVulkan_->SetDepalShaderCache(&depalShaderCache_);
 	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
 	textureCacheVulkan_->SetShaderManager(shaderManagerVulkan_);
@@ -158,6 +158,9 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateVsyncInterval(true);
 
 	textureCacheVulkan_->NotifyConfigChanged();
+	if (vulkan_->GetFeaturesEnabled().wideLines) {
+		drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
+	}
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
@@ -221,6 +224,9 @@ void GPU_Vulkan::BeginHostFrame() {
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		textureCacheVulkan_->NotifyConfigChanged();
+		if (vulkan_->GetFeaturesEnabled	().wideLines) {
+			drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
+		}
 	}
 	resized_ = false;
 

@@ -33,6 +33,7 @@
 #include <unordered_map>
 
 #include "Common/Hashmaps.h"
+#include "Common/Vulkan/VulkanMemory.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
 
@@ -175,6 +176,8 @@ public:
 		return stats_;
 	}
 
+	void SetLineWidth(float lineWidth);
+
 private:
 	struct FrameData;
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
@@ -259,6 +262,8 @@ private:
 	VulkanPipelineRasterStateKey pipelineKey_{};
 	VulkanDynamicState dynState_{};
 
+	int tessOffset_ = 0;
+
 	// Hardware tessellation
 	class TessellationDataTransferVulkan : public TessellationDataTransfer {
 	public:
@@ -267,28 +272,26 @@ private:
 
 		void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
-		void PrepareBuffers(float *&pos, float *&tex, float *&col, int size, bool hasColor, bool hasTexCoords) override;
+		void PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) override;
 
-		VulkanTexture *GetTexture(int i) const { return data_tex[i]; }
+		void GetBufferAndOffset(VkBuffer *buf, VkDeviceSize *offset, VkDeviceSize *range) {
+			*buf = buf_;
+			*offset = (VkDeviceSize)offset_;
+			*range = (VkDeviceSize)range_;
 
-		VkSampler GetSampler() const { return sampler; }
-		void CreateSampler();
+			buf_ = 0;
+			offset_ = 0;
+			range_ = 0;
+		}
+
 	private:
 		VulkanContext *vulkan_;
 		Draw::DrawContext *draw_;
-		VulkanTexture *data_tex[3]{};
-		VkSampler sampler = VK_NULL_HANDLE;
 		VulkanPushBuffer *push_;  // Updated each frame.
 
-		int posSize_ = 0;
-		uint32_t posOffset_ = 0;
-		VkBuffer posBuf_ = 0;
-		int texSize_ = 0;
-		uint32_t texOffset_ = 0;
-		VkBuffer texBuf_ = 0;
-		int colSize_ = 0;
-		uint32_t colOffset_ = 0;
-		VkBuffer colBuf_ = 0;
-
+		int size_ = 0;
+		uint32_t offset_ = 0;
+		uint32_t range_ = 0;
+		VkBuffer buf_ = VK_NULL_HANDLE;
 	};
 };

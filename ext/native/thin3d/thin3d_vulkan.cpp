@@ -312,8 +312,9 @@ struct DescriptorSetKey {
 class VKTexture : public Texture {
 public:
 	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, const TextureDesc &desc)
-		: vulkan_(vulkan), format_(desc.format), mipLevels_(desc.mipLevels) {
-		Create(cmd, desc);
+		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {
+		bool result = Create(cmd, desc);
+		assert(result);
 	}
 
 	~VKTexture() {
@@ -336,7 +337,7 @@ private:
 	}
 
 	VulkanContext *vulkan_;
-	VulkanTexture *vkTex_;
+	VulkanTexture *vkTex_ = nullptr;
 
 	int mipLevels_;
 

@@ -103,8 +103,16 @@ public:
 	}
 
 	// "Zero-copy" variant - you can write the data directly as you compute it.
+	// Recommended.
 	void *Push(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf) {
 		assert(writePtr_);
+		size_t off = Allocate(size, vkbuf);
+		*bindOffset = (uint32_t)off;
+		return writePtr_ + off;
+	}
+	void *PushAligned(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf, int align) {
+		assert(writePtr_);
+		offset_ = (offset_ + align - 1) & ~(align - 1);
 		size_t off = Allocate(size, vkbuf);
 		*bindOffset = (uint32_t)off;
 		return writePtr_ + off;

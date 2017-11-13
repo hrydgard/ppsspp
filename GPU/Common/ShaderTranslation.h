@@ -21,8 +21,6 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "thin3d/thin3d.h"
 
-#ifndef ANDROID
-
 struct TranslatedShaderMetadata {
 
 };
@@ -31,5 +29,3 @@ void ShaderTranslationInit();
 void ShaderTranslationShutdown();
 
 bool TranslateShader(std::string *dst, ShaderLanguage destLang, TranslatedShaderMetadata *destMetadata, std::string src, ShaderLanguage srcLang, Draw::ShaderStage stage, std::string *errorMessage);
-
-#endif

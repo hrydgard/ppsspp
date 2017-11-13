@@ -272,7 +272,7 @@ private:
 	VkPhysicalDeviceMemoryProperties memory_properties{};
 
 	// Custom collection of things that are good to know
-	VulkanPhysicalDeviceInfo deviceInfo_;
+	VulkanPhysicalDeviceInfo deviceInfo_{};
 
 	// Swap chain
 	int width_ = 0;
@@ -299,8 +299,8 @@ private:
 
 	uint32_t queue_count = 0;
 
-	VkPhysicalDeviceFeatures featuresAvailable_;
-	VkPhysicalDeviceFeatures featuresEnabled_;
+	VkPhysicalDeviceFeatures featuresAvailable_{};
+	VkPhysicalDeviceFeatures featuresEnabled_{};
 
 	std::vector<VkCommandBuffer> cmdQueue_;
 };

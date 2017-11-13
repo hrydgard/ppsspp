@@ -23,6 +23,8 @@
 #include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
 #include "math/dataconv.h"
+#include "i18n/i18n.h"
+#include "ext/native/file/vfs.h"
 #include "ext/native/thin3d/thin3d.h"
 
 #include "Common/Vulkan/VulkanContext.h"
@@ -39,6 +41,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
+#include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/FramebufferCommon.h"
@@ -155,6 +158,12 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeleteSampler(linearSampler_);
 	if (nearestSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
+
+	if (postVs_)
+		vulkan_->Delete().QueueDeleteShaderModule(postVs_);
+	if (postFs_)
+		vulkan_->Delete().QueueDeleteShaderModule(postFs_);
+	pipelinePostShader_ = VK_NULL_HANDLE;  // actual pipeline should get destroyed by vulkan2d.
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
@@ -178,28 +187,6 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 	if (clearDepth) {
 		SetDepthUpdated();
 	}
-}
-
-void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
-	float u_delta = 1.0f / renderWidth;
-	float v_delta = 1.0f / renderHeight;
-	float u_pixel_delta = u_delta;
-	float v_pixel_delta = v_delta;
-	if (postShaderAtOutputResolution_) {
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-		u_pixel_delta = (1.0f / w) * (480.0f / bufferWidth);
-		v_pixel_delta = (1.0f / h) * (272.0f / bufferHeight);
-	}
-
-	postUniforms_.texelDelta[0] = u_delta;
-	postUniforms_.texelDelta[1] = v_delta;
-	postUniforms_.pixelDelta[0] = u_pixel_delta;
-	postUniforms_.pixelDelta[1] = v_pixel_delta;
-	int flipCount = __DisplayGetFlipCount();
-	int vCount = __DisplayGetVCount();
-	float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
-	memcpy(postUniforms_.time, time, 4 * sizeof(float));
 }
 
 void FramebufferManagerVulkan::Init() {
@@ -349,6 +336,9 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push_->Push(vtx, sizeof(vtx), &vbuffer);
 	renderManager->BindPipeline(cur2DPipeline_);
+	if (cur2DPipeline_ == pipelinePostShader_) {
+		renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, (int)sizeof(postShaderUniforms_), &postShaderUniforms_);
+	}
 	renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
 }
 
@@ -358,7 +348,22 @@ void FramebufferManagerVulkan::Bind2DShader() {
 }
 
 void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms) {
-	Bind2DShader();
+	if (!pipelinePostShader_) {
+		if (usePostShader_) {
+			CompilePostShader();
+		}
+		if (!usePostShader_) {
+			SetNumExtraFBOs(0);
+			Bind2DShader();
+			return;
+		} else {
+			SetNumExtraFBOs(1);
+		}
+	}
+
+	postShaderUniforms_ = uniforms;
+	cur2DPipeline_ = pipelinePostShader_;
+
 	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 }
 
@@ -462,7 +467,7 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 bool FramebufferManagerVulkan::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	nvfb->colorDepth = Draw::FBO_8888;
 
-	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
+	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->height, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
 	if (!(nvfb->fbo)) {
 		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
@@ -626,4 +631,72 @@ void FramebufferManagerVulkan::Resized() {
 	if (UpdateSize()) {
 		DestroyAllFBOs();
 	}
+
+	// Might have a new post shader - let's compile it.
+	CompilePostShader();
+}
+
+void FramebufferManagerVulkan::CompilePostShader() {
+	if (postVs_) {
+		vulkan_->Delete().QueueDeleteShaderModule(postVs_);
+	}
+	if (postFs_) {
+		vulkan_->Delete().QueueDeleteShaderModule(postFs_);
+	}
+
+	const ShaderInfo *shaderInfo = nullptr;
+	if (g_Config.sPostShaderName == "Off") {
+		usePostShader_ = false;
+		return;
+	}
+
+	usePostShader_ = false;
+
+	ReloadAllPostShaderInfo();
+	shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	std::string errorVSX, errorFSX;
+	std::string vsSource;
+	std::string fsSource;
+	if (shaderInfo) {
+		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+		size_t sz;
+		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
+		if (!vs)
+			return;
+		char *fs = (char *)VFSReadFile(shaderInfo->fragmentShaderFile.c_str(), &sz);
+		if (!fs) {
+			free(vs);
+			return;
+		}
+		std::string vsSourceGLSL = vs;
+		std::string fsSourceGLSL = fs;
+		free(vs);
+		free(fs);
+		TranslatedShaderMetadata metaVS, metaFS;
+		if (!TranslateShader(&vsSource, GLSL_VULKAN, &metaVS, vsSourceGLSL, GLSL_140, Draw::ShaderStage::VERTEX, &errorVSX))
+			return;
+		if (!TranslateShader(&fsSource, GLSL_VULKAN, &metaFS, fsSourceGLSL, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorFSX))
+			return;
+	} else {
+		return;
+	}
+	I18NCategory *gr = GetI18NCategory("Graphics");
+
+	// TODO: Delete the old pipeline?
+
+	std::string errorVS;
+	std::string errorFS;
+	postVs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, vsSource.c_str(), &errorVS);
+	postFs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, fsSource.c_str(), &errorFS);
+
+	VkRenderPass backbufferRP = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS);
+
+	if (postVs_ && postFs_) {
+		pipelinePostShader_ = vulkan2D_->GetPipeline(backbufferRP, postVs_, postFs_, true, Vulkan2D::VK2DDepthStencilMode::NONE);
+	} else {
+		ELOG("Failed to compile.");
+	}
+
+
+	usePostShader_ = true;
 }

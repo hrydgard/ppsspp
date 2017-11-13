@@ -89,6 +89,8 @@ const char *GetFn(const char *fn);
 	} \
 } while (false)
 
+#define DUMPLOG(x) OutputDebugStringUTF8(x)
+
 #ifdef _DEBUG
 #define DLOG(...) XLOG_IMPL("D", __VA_ARGS__)
 #else

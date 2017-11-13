@@ -155,22 +155,31 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		fbTex = nullptr;
 	}
 
+	// For accuracy, try to handle 0 stride - sometimes used.
+	if (displayStride_ == 0) {
+		srcheight = 1;
+	}
+
 	Draw::TextureDesc desc{};
 	desc.type = Draw::TextureType::LINEAR2D;
 	desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 	desc.depth = 1;
 	desc.mipLevels = 1;
 	bool hasImage = true;
-	if (!Memory::IsValidAddress(displayFramebuf_)) {
+	if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;
 		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
 		u8 *data = Memory::GetPointer(displayFramebuf_);
-		desc.width = displayStride_;
+		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
 		desc.height = srcheight;
 		desc.initData.push_back(data);
 		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
-		u1 = (float)srcwidth / displayStride_;
+		if (displayStride_ != 0) {
+			u1 = (float)srcwidth / displayStride_;
+		} else {
+			u1 = 1.0f;
+		}
 	} else {
 		// TODO: This should probably be converted in a shader instead..
 		fbTexBuffer.resize(srcwidth * srcheight);

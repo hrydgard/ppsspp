@@ -38,7 +38,7 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 
 static const char *vulkan_glsl_preamble =
-"#version 400\n"
+"#version 430\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n\n";
 
@@ -224,9 +224,14 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 	WRITE(p, "out gl_PerVertex { vec4 gl_Position; };\n");
 
 	if (doBezier || doSpline) {
-		WRITE(p, "layout (binding = 5) uniform sampler2D u_tess_pos_tex;\n");
-		WRITE(p, "layout (binding = 6) uniform sampler2D u_tess_tex_tex;\n");
-		WRITE(p, "layout (binding = 7) uniform sampler2D u_tess_col_tex;\n");
+		WRITE(p, "layout (std430) struct TessData {\n");
+		WRITE(p, "  vec4 pos;\n");
+		WRITE(p, "  vec4 uv;\n");
+		WRITE(p, "  vec4 color;\n");
+		WRITE(p, "};");
+		WRITE(p, "layout (std430, set = 0, binding = 5) buffer s_tess_data {\n");
+		WRITE(p, "  TessData data[];");
+		WRITE(p, "} tess_data;");
 
 		for (int i = 2; i <= 4; i++) {
 			// Define 3 types vec2, vec3, vec4
@@ -347,12 +352,11 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 				WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
 				WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
 				WRITE(p, "      int idx = (i + v%s) * base.spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
-				WRITE(p, "      ivec2 index = ivec2(idx, 0);\n");
-				WRITE(p, "      _pos[i * 4 + j] = texelFetch(u_tess_pos_tex, index, 0).xyz;\n");
+				WRITE(p, "      _pos[i * 4 + j] = tess_data.data[idx].pos.xyz;\n");
 				if (doTexture && hasTexcoord && hasTexcoordTess)
-					WRITE(p, "      _tex[i * 4 + j] = texelFetch(u_tess_tex_tex, index, 0).xy;\n");
+					WRITE(p, "      _tex[i * 4 + j] = tess_data.data[idx].uv.xy;\n");
 				if (hasColor && hasColorTess)
-					WRITE(p, "      _col[i * 4 + j] = texelFetch(u_tess_col_tex, index, 0).rgba;\n");
+					WRITE(p, "      _col[i * 4 + j] = tess_data.data[idx].color;\n");
 				WRITE(p, "    }\n");
 				WRITE(p, "  }\n");
 				WRITE(p, "  vec2 tess_pos = position.xy;\n");
@@ -381,7 +385,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 					if (hasColorTess)
 						WRITE(p, "  vec4 col = tess_sample(_col, weights);\n");
 					else
-						WRITE(p, "  vec4 col = texelFetch(u_tess_col_tex, ivec2(0, 0), 0).rgba;\n");
+						WRITE(p, "  vec4 col = tess_data.data[0].color;\n");
 				}
 				if (hasNormal) {
 					// Curved surface is probably always need to compute normal(not sampling from control points)
