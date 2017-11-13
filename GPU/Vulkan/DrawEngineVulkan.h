@@ -140,9 +140,6 @@ public:
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 
-	void SetupVertexDecoder(u32 vertType);
-	void SetupVertexDecoderInternal(u32 vertType);
-
 	// So that this can be inlined
 	void Flush() {
 		if (!numDrawCalls)
