@@ -320,11 +320,13 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		// We will push MainScreen in update().
 		PSP_Shutdown();
 		bootPending_ = false;
+		stopRender_ = true;
 		invalid_ = true;
 		host->UpdateDisassembly();
 	} else if (!strcmp(message, "reset")) {
 		PSP_Shutdown();
 		bootPending_ = true;
+		stopRender_ = true;
 		invalid_ = true;
 		host->UpdateDisassembly();
 
@@ -987,7 +989,7 @@ void EmuScreen::postRender() {
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	if (!draw)
 		return;
-	if (invalid_)
+	if (stopRender_)
 		draw->WipeQueue();
 	draw->EndFrame();
 }
