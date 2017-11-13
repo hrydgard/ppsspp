@@ -170,7 +170,9 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 			value = i;
 		}
 		renderManager->SetStencilParams(mask, 0xFF, 0xFF);
-		renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &value);
+		// Need to specify both VERTEX and FRAGMENT bits here since that's what we set up in the pipeline layout, and we need
+		// that for the post shaders. There's probably not really a cost to this.
+		renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &value);
 		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, VK_NULL_HANDLE, 0, 3);  // full screen triangle
 	}
 
