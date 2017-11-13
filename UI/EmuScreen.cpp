@@ -326,13 +326,13 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "reset")) {
 		PSP_Shutdown();
 		bootPending_ = true;
-		stopRender_ = true;
 		invalid_ = true;
 		host->UpdateDisassembly();
 
 		std::string resetError;
 		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
 			ELOG("Error resetting: %s", resetError.c_str());
+			stopRender_ = true;
 			screenManager()->switchScreen(new MainScreen());
 			System_SendMessage("event", "failstartgame");
 			return;
