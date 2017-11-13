@@ -66,8 +66,8 @@ static const VulkanCommandTableEntry commandTable[] = {
 	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPU_Vulkan::Execute_VertexType },
 
 	{ GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_Prim },
-	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_Bezier },
-	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_Spline },
+	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
+	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_LoadClut },
@@ -584,143 +584,6 @@ void GPU_Vulkan::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 	}
 	if (diff & GE_VTYPE_THROUGH_MASK)
 		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
-}
-
-void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
-	Flush();
-
-	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-
-	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
-		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-		return;
-	}
-
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-		return;
-	}
-
-	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-	void *indices = NULL;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-			return;
-		}
-		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	}
-
-	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
-		DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
-	}
-	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
-	}
-
-	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(patchPrim));
-
-	int bz_ucount = op & 0xFF;
-	int bz_vcount = (op >> 8) & 0xFF;
-	bool computeNormals = gstate.isLightingEnabled();
-	bool patchFacing = gstate.patchfacing & 1;
-
-	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-		gstate_c.bezier = true;
-		if (gstate_c.spline_count_u != bz_ucount) {
-			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_count_u = bz_ucount;
-		}
-	}
-
-	int bytesRead = 0;
-	UpdateUVScaleOffset();
-	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
-
-	if (gstate_c.bezier)
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	gstate_c.bezier = false;
-
-	// After drawing, we advance pointers - see SubmitPrim which does the same.
-	int count = bz_ucount * bz_vcount;
-	AdvanceVerts(gstate.vertType, count, bytesRead);
-}
-
-void GPU_Vulkan::Execute_Spline(u32 op, u32 diff) {
-	Flush();
-
-	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-
-	// This also make skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
-		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-		return;
-	}
-
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-		return;
-	}
-
-	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-	void *indices = NULL;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-			return;
-		}
-		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	}
-
-	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
-		DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
-	}
-	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
-	}
-
-	int sp_ucount = op & 0xFF;
-	int sp_vcount = (op >> 8) & 0xFF;
-	int sp_utype = (op >> 16) & 0x3;
-	int sp_vtype = (op >> 18) & 0x3;
-	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(patchPrim));
-	bool computeNormals = gstate.isLightingEnabled();
-	bool patchFacing = gstate.patchfacing & 1;
-	u32 vertType = gstate.vertType;
-
-	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-		gstate_c.spline = true;
-		bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
-		bool typesChanged = gstate_c.spline_type_u != sp_utype || gstate_c.spline_type_v != sp_vtype;
-		if (countsChanged || typesChanged) {
-			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_count_u = sp_ucount;
-			gstate_c.spline_count_v = sp_vcount;
-			gstate_c.spline_type_u = sp_utype;
-			gstate_c.spline_type_v = sp_vtype;
-		}
-	}
-
-	int bytesRead = 0;
-	UpdateUVScaleOffset();
-	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
-
-	if (gstate_c.spline)
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	gstate_c.spline = false;
-
-	// After drawing, we advance pointers - see SubmitPrim which does the same.
-	int count = sp_ucount * sp_vcount;
-	AdvanceVerts(gstate.vertType, count, bytesRead);
 }
 
 void GPU_Vulkan::Execute_TexSize0(u32 op, u32 diff) {
