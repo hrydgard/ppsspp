@@ -38,6 +38,7 @@
 #include "gfx_es2/gpu_features.h"
 
 #include "thin3d/thin3d.h"
+#include "thin3d/VulkanRenderManager.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Core/System.h"
@@ -326,13 +327,29 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
 	}
-	g_Vulkan->InitObjects();
-	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
-	bool success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
-	assert(success);
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	ILOG("AndroidVulkanContext::Init completed");
-	return true;
+
+	bool success = true;
+	if (g_Vulkan->InitObjects()) {
+		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
+		success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
+		assert(success);
+		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+
+		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		success = renderManager->HasBackbuffers();
+	} else {
+		success = false;
+	}
+
+	ILOG("AndroidVulkanContext::Init completed, %s", success ? "successfully" : "but failed");
+	if (!success) {
+		g_Vulkan->DestroyObjects();
+		g_Vulkan->DestroyDevice();
+		g_Vulkan->DestroyDebugMsgCallback();
+
+		g_Vulkan->DestroyInstance();
+	}
+	return success;
 }
 
 void AndroidVulkanContext::Shutdown() {

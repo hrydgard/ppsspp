@@ -204,9 +204,13 @@ public:
 	void CreateBackbuffers();
 	void DestroyBackbuffers();
 
+	bool HasBackbuffers() {
+		return !framebuffers_.empty();
+	}
+
 private:
-	void InitBackbufferFramebuffers(int width, int height);
-	void InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
+	bool InitBackbufferFramebuffers(int width, int height);
+	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
 	void Submit(int frame, bool triggerFence);

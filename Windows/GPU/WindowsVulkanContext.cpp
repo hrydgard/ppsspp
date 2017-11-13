@@ -56,6 +56,7 @@
 
 #include "base/stringutil.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/VulkanRenderManager.h"
 #include "util/text/parsers.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
 
@@ -204,6 +205,12 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	bool success = draw_->CreatePresets();
 	assert(success);  // Doesn't fail, we include the compiler.
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	if (!renderManager->HasBackbuffers()) {
+		Shutdown();
+		return false;
+	}
 	return true;
 }
 
