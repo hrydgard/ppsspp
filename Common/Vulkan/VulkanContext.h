@@ -141,7 +141,7 @@ public:
 	void InitSurfaceAndroid(ANativeWindow *native_window, int width, int height);
 	void ReinitSurfaceAndroid(int width, int height);
 #endif
-	void InitQueue();
+	bool InitQueue();
 	bool InitObjects();
 	bool InitSwapchain();
 
