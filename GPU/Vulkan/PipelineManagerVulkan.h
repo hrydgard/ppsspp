@@ -40,10 +40,10 @@ enum class PspAttributeLocation {
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
 	VkRenderPass renderPass;
-	bool useHWTransform;
-	uint32_t vtxDecId;
 	VkShaderModule vShader;
 	VkShaderModule fShader;
+	uint32_t vtxDecId;
+	bool useHWTransform;
 
 	void ToString(std::string *str) const {
 		str->resize(sizeof(*this));
