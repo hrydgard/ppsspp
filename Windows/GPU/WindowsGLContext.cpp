@@ -253,47 +253,50 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 
 	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
 	// glewExperimental allows us to force GLEW to search for the pointers anyway.
-	if (gl_extensions.IsCoreContext)
-		glewExperimental = true;
+	glewExperimental = true;
 	if (GLEW_OK != glewInit()) {
 		*error_message = "Failed to initialize GLEW.";
 		return false;
 	}
 	// Unfortunately, glew will generate an invalid enum error, ignore.
-	if (gl_extensions.IsCoreContext)
-		glGetError();
+	glGetError();
 
 	int contextFlags = g_Config.bGfxDebugOutput ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
 
-	HGLRC m_hrc = NULL;
+	HGLRC m_hrc = nullptr;
 	// Alright, now for the modernity. First try a 4.4, then 4.3, context, if that fails try 3.3.
 	// I can't seem to find a way that lets you simply request the newest version available.
 	if (wglewIsSupported("WGL_ARB_create_context") == 1) {
-		for (int minor = 5; minor >= 0 && m_hrc == NULL; --minor) {
-			const int attribs4x[] = {
-				WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
-				WGL_CONTEXT_MINOR_VERSION_ARB, minor,
+		for (int tryCore = 1; tryCore >= 0 && m_hrc == nullptr; --tryCore) {
+			SetGLCoreContext(tryCore == 1);
+
+			for (int minor = 6; minor >= 0 && m_hrc == nullptr; --minor) {
+				const int attribs4x[] = {
+					WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+					WGL_CONTEXT_MINOR_VERSION_ARB, minor,
+					WGL_CONTEXT_FLAGS_ARB, contextFlags,
+					WGL_CONTEXT_PROFILE_MASK_ARB, gl_extensions.IsCoreContext ? WGL_CONTEXT_CORE_PROFILE_BIT_ARB : WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+					0
+				};
+				m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs4x);
+			}
+			const int attribs33[] = {
+				WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+				WGL_CONTEXT_MINOR_VERSION_ARB, 3,
 				WGL_CONTEXT_FLAGS_ARB, contextFlags,
 				WGL_CONTEXT_PROFILE_MASK_ARB, gl_extensions.IsCoreContext ? WGL_CONTEXT_CORE_PROFILE_BIT_ARB : WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
 				0
 			};
-			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs4x);
+			if (!m_hrc)
+				m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs33);
 		}
-		const int attribs33[] = {
-			WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
-			WGL_CONTEXT_MINOR_VERSION_ARB, 3,
-			WGL_CONTEXT_FLAGS_ARB, contextFlags,
-			WGL_CONTEXT_PROFILE_MASK_ARB, gl_extensions.IsCoreContext ? WGL_CONTEXT_CORE_PROFILE_BIT_ARB : WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-			0
-		};
-		if (!m_hrc)
-			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs33);
+
 		if (!m_hrc) {
 			// Fall back
 			m_hrc = hRC;
 		} else {
 			// Switch to the new ARB context.
-			wglMakeCurrent(NULL, NULL);
+			wglMakeCurrent(nullptr, nullptr);
 			wglDeleteContext(hRC);
 			wglMakeCurrent(hDC, m_hrc);
 		}
