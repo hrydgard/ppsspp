@@ -899,14 +899,17 @@ UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *view) {
+int ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *view) {
 	using namespace UI;
 	std::vector<std::string> shaderIds_ = gpu->DebugGetShaderIDs(shaderType);
+	int count = 0;
 	for (auto id : shaderIds_) {
 		Choice *choice = view->Add(new Choice(gpu->DebugGetShaderString(id, shaderType, SHADER_STRING_SHORT_DESC)));
 		choice->SetTag(id);
 		choice->OnClick.Handle(this, &ShaderListScreen::OnShaderClick);
+		count++;
 	}
+	return count;
 }
 
 struct { DebugShaderType type; const char *name; } shaderTypes[] = {
@@ -933,9 +936,9 @@ void ShaderListScreen::CreateViews() {
 	for (size_t i = 0; i < ARRAY_SIZE(shaderTypes); i++) {
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 		LinearLayout *shaderList = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-		ListShaders(shaderTypes[i].type, shaderList);
+		int count = ListShaders(shaderTypes[i].type, shaderList);
 		scroll->Add(shaderList);
-		tabs_->AddTab(shaderTypes[i].name, scroll);
+		tabs_->AddTab(StringFromFormat("%s (%d)", shaderTypes[i].name, count), scroll);
 	}
 }
 

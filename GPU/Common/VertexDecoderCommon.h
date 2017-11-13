@@ -43,6 +43,7 @@
 // Can write code to easily bind these using OpenGL, or read these manually.
 // No morph support, that is taken care of by the VertexDecoder.
 
+// Keep this in 4 bits.
 enum {
 	DEC_NONE,
 	DEC_FLOAT_1,
@@ -59,8 +60,6 @@ enum {
 	DEC_U16_2,
 	DEC_U16_3,
 	DEC_U16_4,
-	DEC_U8A_2,
-	DEC_U16A_2,
 };
 
 int DecFmtSize(u8 fmt);
@@ -74,6 +73,9 @@ struct DecVtxFormat {
 	u8 nrmfmt; u8 nrmoff;
 	u8 posfmt; u8 posoff;
 	short stride;
+
+	uint32_t id;
+	void ComputeID();
 };
 
 struct TransformedVertex
@@ -297,21 +299,6 @@ public:
 			}
 			break;
 
-		case DEC_U8A_2:
-			{
-				const u8 *b = (const u8 *)(data_ + decFmt_.uvoff);
-				uv[0] = (float)b[0];
-				uv[1] = (float)b[1];
-			}
-			break;
-
-		case DEC_U16A_2:
-			{
-				const u16 *p = (const u16 *)(data_ + decFmt_.uvoff);
-				uv[0] = (float)p[0];
-				uv[1] = (float)p[1];
-			}
-			break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmtuv, G3D, "Reader: Unsupported UV Format %d", decFmt_.uvfmt);
 			memset(uv, 0, sizeof(float) * 2);

@@ -66,9 +66,6 @@ static const DeclTypeInfo VComp[] = {
 	{ VK_FORMAT_R16G16_UNORM, "R16G16_UNORM" },	// 	DEC_U16_2,
 	{ VK_FORMAT_R16G16B16A16_UNORM, "R16G16B16A16_UNORM " }, // DEC_U16_3,
 	{ VK_FORMAT_R16G16B16A16_UNORM, "R16G16B16A16_UNORM " }, // DEC_U16_4,
-
-	{ VK_FORMAT_R8G8_UINT, "R8G8_UINT" },   // DEC_U8A_2,
-	{ VK_FORMAT_R16G16_UINT, "R16G16_UINT" }, // DEC_U16A_2,
 };
 
 static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location) {
@@ -121,7 +118,7 @@ static bool UsesBlendConstant(int factor) {
 
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
-		const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
+		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
 	bool useBlendConstant = false;
 
 	VkPipelineColorBlendAttachmentState blend0 = {};
@@ -229,10 +226,10 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkVertexInputAttributeDescription attrs[8];
 	int attributeCount;
 	if (useHwTransform) {
-		attributeCount = SetupVertexAttribs(attrs, vtxDec->decFmt);
-		vertexStride = vtxDec->decFmt.stride;
+		attributeCount = SetupVertexAttribs(attrs, *decFmt);
+		vertexStride = decFmt->stride;
 	} else {
-		attributeCount = SetupVertexAttribsPretransformed(attrs, vtxDec->decFmt);
+		attributeCount = SetupVertexAttribsPretransformed(attrs, *decFmt);
 		vertexStride = 36;
 	}
 
@@ -301,7 +298,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	return vulkanPipeline;
 }
 
-VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
+VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
 	VulkanPipelineKey key;
 	if (!renderPass)
 		Crash();
@@ -311,7 +308,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	key.useHWTransform = useHwTransform;
 	key.vShader = vs->GetModule();
 	key.fShader = fs->GetModule();
-	key.vtxDec = useHwTransform ? vtxDec : nullptr;
+	key.vtxDecId = useHwTransform ? decFmt->id : 0;
 
 	auto iter = pipelines_.Get(key);
 	if (iter)
@@ -321,7 +318,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
-		rasterKey, vtxDec, vs, fs, useHwTransform, lineWidth_);
+		rasterKey, decFmt, vs, fs, useHwTransform, lineWidth_);
 	// Even if the result is nullptr, insert it so we don't try to create it repeatedly.
 	pipelines_.Insert(key, pipeline);
 	return pipeline;

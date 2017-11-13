@@ -73,11 +73,13 @@ int DecFmtSize(u8 fmt) {
 	case DEC_U16_2: return 4;
 	case DEC_U16_3: return 8;
 	case DEC_U16_4: return 8;
-	case DEC_U8A_2: return 4;
-	case DEC_U16A_2: return 4;
 	default:
 		return 0;
 	}
+}
+
+void DecVtxFormat::ComputeID() {
+	id = w0fmt | (w1fmt << 4) | (uvfmt << 8) | (c0fmt << 12) | (c1fmt << 16) | (nrmfmt << 20) | (posfmt << 24);
 }
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
@@ -1151,6 +1153,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	}
 
 	decFmt.stride = decOff;
+
+	decFmt.ComputeID();
 
 	size = align(size, biggest);
 	onesize_ = size;

@@ -175,8 +175,6 @@ static const DeclTypeInfo VComp[] = {
 	{ DXGI_FORMAT_UNKNOWN, "UNUSED_DEC_U16_2" },	// 	DEC_U16_2,
 	{ DXGI_FORMAT_R16G16B16A16_UNORM	,"D3DDECLTYPE_USHORT4N "}, // DEC_U16_3,
 	{ DXGI_FORMAT_R16G16B16A16_UNORM	,"D3DDECLTYPE_USHORT4N "}, // DEC_U16_4,
-	{ DXGI_FORMAT_UNKNOWN, "UNUSED_DEC_U8A_2"}, // DEC_U8A_2,
-	{ DXGI_FORMAT_UNKNOWN, "UNUSED_DEC_U16A_2" }, // DEC_U16A_2,
 };
 
 static void VertexAttribSetup(D3D11_INPUT_ELEMENT_DESC * VertexElement, u8 fmt, u8 offset, const char *semantic, u8 semantic_index = 0) {
