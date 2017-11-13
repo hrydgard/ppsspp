@@ -439,6 +439,7 @@ public:
 			return StringFromFormat("%d.%d.%d.%d (%08x)", major, minor, secondaryBranch, tertiaryBranch, props.driverVersion);
 		} else {
 			uint32_t branch = props.driverVersion & 0xfff;
+			minor = (props.driverVersion >> 12) & 0x0ff;
 			return StringFromFormat("%d.%d.%d (%08x)", major, minor, branch, props.driverVersion);
 		}
 	}

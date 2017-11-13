@@ -159,6 +159,9 @@ void WindowsHost::SetWindowTitle(const char *message) {
 		winTitle.append(ConvertUTF8ToWString(" - "));
 		winTitle.append(ConvertUTF8ToWString(message));
 	}
+#ifdef _DEBUG
+	winTitle.append(L" (debug)");
+#endif
 
 	MainWindow::SetWindowTitle(winTitle.c_str());
 	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
