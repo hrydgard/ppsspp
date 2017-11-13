@@ -35,6 +35,9 @@
 #include "Core/System.h"
 #ifndef MOBILE_DEVICE
 #include "Core/WaveFile.h"
+#include "Core/ELF/ParamSFO.h"
+#include "Core/HLE/sceKernelTime.h"
+#include "StringUtils.h"
 #endif
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceAudio.h"
@@ -383,9 +386,13 @@ void __AudioUpdate() {
 #ifndef MOBILE_DEVICE
 		if (!m_logAudio) {
 			if (g_Config.bDumpAudio) {
-				std::string audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) + "audiodump.wav";
+				// Use gameID_EmulatedTimestamp for filename
+				std::string discID = g_paramSFO.GetDiscID();
+				std::string audio_file_name = StringFromFormat("%s%s_%d.wav", GetSysDirectory(DIRECTORY_AUDIO).c_str(), discID, returnEmulatedTime()).c_str();
+				INFO_LOG(COMMON,"Recording audio to: %s", audio_file_name.c_str());
 				// Create the path just in case it doesn't exist
-				File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
+				if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))
+					File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
 				File::CreateEmptyFile(audio_file_name);
 				__StartLogAudio(audio_file_name);
 			}

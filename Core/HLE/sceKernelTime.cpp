@@ -171,3 +171,7 @@ u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
 	hleReSchedule("libc timeofday");
 	return 0;
 }
+
+u32 returnEmulatedTime() {
+	return (u32)start_time + (u32)(CoreTiming::GetGlobalTimeUs() / 1000000ULL);
+}
