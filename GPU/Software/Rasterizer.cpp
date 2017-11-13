@@ -1560,7 +1560,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
 			for (pprime.y = minY; pprime.y < maxY; pprime.y += 16) {
 				DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-				if ((new_color & 0xFF) == (new_color >> 8) && (new_color && 0xFFFF) == (new_color >> 16)) {
+				if ((new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16)) {
 					u32 *row = &fb.as32[p.x + p.y * stride];
 					memset(row, new_color, w * 4);
 				} else {
