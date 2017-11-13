@@ -757,6 +757,14 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
 		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
 
+		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
+		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
+			entry.SetAlphaStatus(alphaStatus, level);
+		} else {
+			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
+		}
+
 		if (scaleFactor > 1) {
 			u32 scaleFmt = (u32)dstFmt;
 			scaler.ScaleAlways((u32 *)mapData, pixelData, scaleFmt, w, h, scaleFactor);
@@ -776,13 +784,6 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 				}
 				decPitch = mapRowPitch;
 			}
-		}
-
-		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
-			entry.SetAlphaStatus(alphaStatus, level);
-		} else {
-			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 		}
 
 		if (replacer_.Enabled()) {

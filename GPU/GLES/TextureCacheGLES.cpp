@@ -867,17 +867,18 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		// Textures are always aligned to 16 bytes bufw, so this could safely be 4 always.
 		texByteAlign = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-
 		pixelData = (u32 *)finalBuf;
-		if (scaleFactor > 1)
-			scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 
+		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, useUnpack ? bufw : w, w, h);
 			entry.SetAlphaStatus(alphaStatus, level);
 		} else {
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 		}
+
+		if (scaleFactor > 1)
+			scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 
 		if (replacer_.Enabled()) {
 			ReplacedTextureDecodeInfo replacedInfo;

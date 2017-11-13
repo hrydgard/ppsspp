@@ -764,11 +764,17 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, false);
 		gpuStats.numTexturesDecoded++;
 
-		if (scaleFactor > 1) {
-			// Check alpha before scaling: it's slower to check it from writePtr.
+		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
+		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+			// TODO: When we decode directly, this can be more expensive (maybe not on mobile?)
+			// This does allow us to skip alpha testing, though.
 			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
 			entry.SetAlphaStatus(alphaStatus, level);
+		} else {
+			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
+		}
 
+		if (scaleFactor > 1) {
 			u32 fmt = dstFmt;
 			scaler.ScaleAlways((u32 *)writePtr, pixelData, fmt, w, h, scaleFactor);
 			pixelData = (u32 *)writePtr;
@@ -787,13 +793,6 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 				}
 				decPitch = rowPitch;
 			}
-		} else if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-			// TODO: Since we decode directly, this can be more expensive (maybe not on mobile?)
-			// This does allow us to skip alpha testing, though.
-			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
-			entry.SetAlphaStatus(alphaStatus, level);
-		} else {
-			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 		}
 	}
 }
