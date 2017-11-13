@@ -425,13 +425,31 @@ public:
 	}
 	void WaitRenderCompletion(Framebuffer *fbo) override;
 
+	// From Sascha's code
+	static std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props) {
+		uint32_t major = (props.driverVersion >> 22) & 0x3ff;
+		uint32_t minor = (props.driverVersion >> 14) & 0x0ff;
+		if (props.vendorID == 4318) {
+			// 10 bits = major version (up to r1023)
+			// 8 bits = minor version (up to 255)
+			// 8 bits = secondary branch version/build version (up to 255)
+			// 6 bits = tertiary branch/build version (up to 63)
+			uint32_t secondaryBranch = (props.driverVersion >> 6) & 0x0ff;
+			uint32_t tertiaryBranch = (props.driverVersion) & 0x003f;
+			return StringFromFormat("%d.%d.%d.%d (%08x)", major, minor, secondaryBranch, tertiaryBranch, props.driverVersion);
+		} else {
+			uint32_t branch = props.driverVersion & 0xfff;
+			return StringFromFormat("%d.%d.%d (%08x)", major, minor, branch, props.driverVersion);
+		}
+	}
+
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
 		switch (info) {
 		case APINAME: return "Vulkan";
 		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties().deviceName;
 		case VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties().vendorID);
-		case DRIVER: return StringFromFormat("%08x", vulkan_->GetPhysicalDeviceProperties().driverVersion);
+		case DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties());
 		case SHADELANGVERSION: return "N/A";;
 		case APIVERSION: 
 		{

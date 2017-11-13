@@ -1450,7 +1450,6 @@ void TextureCacheCommon::ApplyTexture() {
 	} else {
 		BindTexture(entry);
 		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
-		gstate_c.SetTextureSimpleAlpha(entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 	}
 }
 

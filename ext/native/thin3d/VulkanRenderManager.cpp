@@ -133,9 +133,13 @@ void VulkanRenderManager::CreateBackbuffers() {
 	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, nullptr);
 	assert(res == VK_SUCCESS);
 
-	VkImage* swapchainImages = new VkImage[swapchainImageCount_];
+	VkImage *swapchainImages = new VkImage[swapchainImageCount_];
 	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, swapchainImages);
 	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS) {
+		delete[] swapchainImages;
+		return;
+	}
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
@@ -172,15 +176,19 @@ void VulkanRenderManager::CreateBackbuffers() {
 	}
 	delete[] swapchainImages;
 
-	InitDepthStencilBuffer(cmdInit);  // Must be before InitBackbufferRenderPass.
-	InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+	// Must be before InitBackbufferRenderPass.
+	if (InitDepthStencilBuffer(cmdInit)) {
+		InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+	}
 	curWidth_ = -1;
 	curHeight_ = -1;
 
-	VLOG("Backbuffers Created");
+	if (HasBackbuffers()) {
+		VLOG("Backbuffers Created");
+	}
 
 	// Start the thread.
-	if (useThread) {
+	if (useThread && HasBackbuffers()) {
 		run_ = true;
 		// Won't necessarily be 0.
 		threadInitFrame_ = vulkan_->GetCurFrame();
@@ -453,8 +461,8 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 	queueRunner_.CopyReadbackBuffer(w, h, destFormat, destFormat, pixelStride, pixels);
 }
 
-void VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
-	VkResult U_ASSERT_ONLY res;
+bool VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
+	VkResult res;
 	// We share the same depth buffer but have multiple color buffers, see the loop below.
 	VkImageView attachments[2] = { VK_NULL_HANDLE, depth_.view };
 
@@ -473,12 +481,18 @@ void VulkanRenderManager::InitBackbufferFramebuffers(int width, int height) {
 		attachments[0] = swapchainImages_[i].view;
 		res = vkCreateFramebuffer(vulkan_->GetDevice(), &fb_info, nullptr, &framebuffers_[i]);
 		assert(res == VK_SUCCESS);
+		if (res != VK_SUCCESS) {
+			framebuffers_.clear();
+			return false;
+		}
 	}
+
+	return true;
 }
 
-void VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
-	VkResult U_ASSERT_ONLY res;
-	bool U_ASSERT_ONLY pass;
+bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
+	VkResult res;
+	bool pass;
 
 	const VkFormat depth_format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -506,8 +520,10 @@ void VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	depth_.format = depth_format;
 
 	VkDevice device = vulkan_->GetDevice();
-	res = vkCreateImage(device, &image_info, NULL, &depth_.image);
+	res = vkCreateImage(device, &image_info, nullptr, &depth_.image);
 	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS)
+		return false;
 
 	vkGetImageMemoryRequirements(device, depth_.image, &mem_reqs);
 
@@ -517,12 +533,18 @@ void VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 		0, /* No requirements */
 		&mem_alloc.memoryTypeIndex);
 	assert(pass);
+	if (!pass)
+		return false;
 
 	res = vkAllocateMemory(device, &mem_alloc, NULL, &depth_.mem);
 	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS)
+		return false;
 
 	res = vkBindImageMemory(device, depth_.image, depth_.mem, 0);
 	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS)
+		return false;
 
 	TransitionImageLayout2(cmd, depth_.image,
 		aspectMask,
@@ -547,6 +569,10 @@ void VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
 	res = vkCreateImageView(device, &depth_view_info, NULL, &depth_.view);
 	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS)
+		return false;
+
+	return true;
 }
 
 void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask) {

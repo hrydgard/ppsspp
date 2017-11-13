@@ -220,7 +220,9 @@ bool VulkanContext::MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirem
 }
 
 bool VulkanContext::InitObjects() {
-	InitQueue();
+	if (!InitQueue()) {
+		return false;
+	}
 
 	if (!InitSwapchain()) {
 		return false;
@@ -616,7 +618,7 @@ void VulkanContext::ReinitSurfaceAndroid(int width, int height) {
 }
 #endif
 
-void VulkanContext::InitQueue() {
+bool VulkanContext::InitQueue() {
 	// Iterate over each queue to learn whether it supports presenting:
 	VkBool32 *supportsPresent = new VkBool32[queue_count];
 	for (uint32_t i = 0; i < queue_count; i++) {
@@ -654,8 +656,8 @@ void VulkanContext::InitQueue() {
 
 	// Generate error if could not find both a graphics and a present queue
 	if (graphicsQueueNodeIndex == UINT32_MAX || presentQueueNodeIndex == UINT32_MAX) {
-		std::cout << "Could not find a graphics and a present queue";
-		exit(-1);
+		ELOG("Could not find a graphics and a present queue");
+		return false;
 	}
 
 	graphics_queue_family_index_ = graphicsQueueNodeIndex;
@@ -664,9 +666,15 @@ void VulkanContext::InitQueue() {
 	uint32_t formatCount;
 	VkResult res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device_], surface_, &formatCount, nullptr);
 	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS)
+		return false;
 	VkSurfaceFormatKHR *surfFormats = new VkSurfaceFormatKHR[formatCount];
 	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[physical_device_], surface_, &formatCount, surfFormats);
 	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS) {
+		delete[] surfFormats;
+		return false;
+	}
 	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
 	// the surface has no preferred format.  Otherwise, at least one
 	// supported format will be returned.
@@ -695,6 +703,7 @@ void VulkanContext::InitQueue() {
 
 	vkGetDeviceQueue(device_, graphics_queue_family_index_, 0, &gfx_queue_);
 	ILOG("gfx_queue_: %p", gfx_queue_);
+	return true;
 }
 
 bool VulkanContext::InitSwapchain() {
