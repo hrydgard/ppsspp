@@ -255,6 +255,7 @@ void GameSettingsScreen::CreateViews() {
 		PopupSliderChoice *altSpeed = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 0, 1000, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
 		altSpeed->SetFormat("%i%%");
 		altSpeed->SetZeroLabel(gr->T("Unlimited"));
+		CheckBox *untoggleFpsLimit = graphicsSettings->Add(new CheckBox(&g_Config.bUnToggleFpsLimit, gr->T("Unthrottle-like Alternative Speed")));
 	}
 	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
 	I18NCategory *ps = GetI18NCategory("PostShaders");

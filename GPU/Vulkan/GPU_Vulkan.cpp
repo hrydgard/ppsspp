@@ -182,7 +182,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
 		switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
 		case VULKAN_VENDOR_INTEL:
-		case VULKAN_VENDOR_AMD:
+		//case VULKAN_VENDOR_AMD: //AMD doesn't need it on updated drivers.
 			// Work around for Intel driver bug. See issue #10074, and also #10065 (AMD)
 			break;
 		default:
