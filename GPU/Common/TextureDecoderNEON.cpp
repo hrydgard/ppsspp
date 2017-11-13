@@ -342,4 +342,48 @@ CheckAlphaResult CheckAlphaABGR1555NEON(const u32 *pixelData, int stride, int w,
 	return CHECKALPHA_FULL;
 }
 
+CheckAlphaResult CheckAlphaRGBA4444NEON(const u32 *pixelData, int stride, int w, int h) {
+	const u16 *p = (const u16 *)pixelData;
+
+	const uint16x8_t mask = vdupq_n_u16((u16)0xF000);
+	uint16x8_t bits = mask;
+	for (int y = 0; y < h; ++y) {
+		for (int i = 0; i < w; i += 8) {
+			const uint16x8_t a = vld1q_u16(&p[i]);
+			bits = vandq_u16(bits, a);
+		}
+
+		uint16x8_t result = veorq_u16(bits, mask);
+		if (VectorIsNonZeroNEON(result)) {
+			return CHECKALPHA_ANY;
+		}
+
+		p += stride;
+	}
+
+	return CHECKALPHA_FULL;
+}
+
+CheckAlphaResult CheckAlphaRGBA5551NEON(const u32 *pixelData, int stride, int w, int h) {
+	const u16 *p = (const u16 *)pixelData;
+
+	const uint16x8_t mask = vdupq_n_u16((u16)0x8000);
+	uint16x8_t bits = mask;
+	for (int y = 0; y < h; ++y) {
+		for (int i = 0; i < w; i += 8) {
+			const uint16x8_t a = vld1q_u16(&p[i]);
+			bits = vandq_u16(bits, a);
+		}
+
+		uint16x8_t result = veorq_u16(bits, mask);
+		if (VectorIsNonZeroNEON(result)) {
+			return CHECKALPHA_ANY;
+		}
+
+		p += stride;
+	}
+
+	return CHECKALPHA_FULL;
+}
+
 #endif

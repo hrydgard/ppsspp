@@ -659,12 +659,16 @@ CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w
 }
 
 CheckAlphaResult CheckAlphaRGBA4444Basic(const u32 *pixelData, int stride, int w, int h) {
-#ifdef _M_SSE
 	// Use SSE if aligned to 16 bytes / 8 pixels (usually the case.)
 	if ((w & 7) == 0 && (stride & 7) == 0) {
+#ifdef _M_SSE
 		return CheckAlphaRGBA4444SSE2(pixelData, stride, w, h);
-	}
+#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
+		if (cpu_info.bNEON) {
+			return CheckAlphaRGBA4444NEON(pixelData, stride, w, h);
+		}
 #endif
+	}
 
 	const u32 *p = pixelData;
 	const int w2 = (w + 1) / 2;
@@ -688,12 +692,16 @@ CheckAlphaResult CheckAlphaRGBA4444Basic(const u32 *pixelData, int stride, int w
 }
 
 CheckAlphaResult CheckAlphaRGBA5551Basic(const u32 *pixelData, int stride, int w, int h) {
-#ifdef _M_SSE
 	// Use SSE if aligned to 16 bytes / 8 pixels (usually the case.)
 	if ((w & 7) == 0 && (stride & 7) == 0) {
+#ifdef _M_SSE
 		return CheckAlphaRGBA5551SSE2(pixelData, stride, w, h);
-	}
+#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
+		if (cpu_info.bNEON) {
+			return CheckAlphaRGBA5551NEON(pixelData, stride, w, h);
+		}
 #endif
+	}
 
 	const u32 *p = pixelData;
 	const int w2 = (w + 1) / 2;
