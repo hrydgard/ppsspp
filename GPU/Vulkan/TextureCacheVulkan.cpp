@@ -432,7 +432,6 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 		TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
-		gstate_c.SetTextureSimpleAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE);
 
 		framebufferManager_->RebindFramebuffer();
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
@@ -448,7 +447,6 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
-		gstate_c.SetTextureSimpleAlpha(gstate_c.textureFullAlpha);
 	}
 
 	SamplerCacheKey samplerKey;
@@ -695,7 +693,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 	entry->vkTex->texture_->EndCreate(cmdInit);
 
 	gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
-	gstate_c.SetTextureSimpleAlpha(entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 }
 
 VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
@@ -770,12 +767,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		if (scaleFactor > 1) {
 			// Check alpha before scaling: it's slower to check it from writePtr.
 			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
-			if (alphaStatus != TexCacheEntry::STATUS_ALPHA_SIMPLE) {
-				entry.SetAlphaStatus(alphaStatus, level);
-			} else {
-				// Scaling may invent alpha values from SIMPLE.  Let's play it safe.
-				entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
-			}
+			entry.SetAlphaStatus(alphaStatus, level);
 
 			u32 fmt = dstFmt;
 			scaler.ScaleAlways((u32 *)writePtr, pixelData, fmt, w, h, scaleFactor);

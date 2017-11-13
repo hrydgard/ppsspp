@@ -99,8 +99,9 @@ struct TexCacheEntry {
 
 		STATUS_ALPHA_UNKNOWN = 0x04,
 		STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
-		STATUS_ALPHA_SIMPLE = 0x08,    // Like above, but also has 0 alpha (e.g. 5551.)
-		STATUS_ALPHA_MASK = 0x0c,
+		STATUS_ALPHA_MASK = 0x04,
+
+		// 0x08 free.
 
 		STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 6 frames in between.)
 		STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
@@ -166,8 +167,6 @@ struct TexCacheEntry {
 		// For non-level zero, only set more restrictive.
 		if (newStatus == STATUS_ALPHA_UNKNOWN || level == 0) {
 			SetAlphaStatus(newStatus);
-		} else if (newStatus == STATUS_ALPHA_SIMPLE && GetAlphaStatus() == STATUS_ALPHA_FULL) {
-			SetAlphaStatus(STATUS_ALPHA_SIMPLE);
 		}
 	}
 

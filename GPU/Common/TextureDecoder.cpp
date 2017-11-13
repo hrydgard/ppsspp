@@ -473,7 +473,7 @@ CheckAlphaResult CheckAlphaRGBA8888SSE2(const u32 *pixelData, int stride, int w,
 
 	// Now let's sum up the bits.
 	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
-		return CHECKALPHA_ZERO;
+		return CHECKALPHA_ANY;
 	} else {
 		return CHECKALPHA_FULL;
 	}
@@ -516,7 +516,7 @@ CheckAlphaResult CheckAlphaABGR4444SSE2(const u32 *pixelData, int stride, int w,
 
 	// Now let's sum up the bits.
 	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
-		return CHECKALPHA_ZERO;
+		return CHECKALPHA_ANY;
 	} else {
 		return CHECKALPHA_FULL;
 	}
@@ -538,7 +538,7 @@ CheckAlphaResult CheckAlphaABGR1555SSE2(const u32 *pixelData, int stride, int w,
 
 		__m128i result = _mm_xor_si128(bits, mask);
 		if (CombineSSEBitsToDWORD(result) != 0) {
-			return CHECKALPHA_ZERO;
+			return CHECKALPHA_ANY;
 		}
 
 		p += stride8;
@@ -581,7 +581,7 @@ CheckAlphaResult CheckAlphaRGBA4444SSE2(const u32 *pixelData, int stride, int w,
 
 	// Now let's sum up the bits.
 	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
-		return CHECKALPHA_ZERO;
+		return CHECKALPHA_ANY;
 	} else {
 		return CHECKALPHA_FULL;
 	}
@@ -603,7 +603,7 @@ CheckAlphaResult CheckAlphaRGBA5551SSE2(const u32 *pixelData, int stride, int w,
 
 		__m128i result = _mm_xor_si128(bits, mask);
 		if (CombineSSEBitsToDWORD(result) != 0) {
-			return CHECKALPHA_ZERO;
+			return CHECKALPHA_ANY;
 		}
 
 		p += stride8;
@@ -641,7 +641,7 @@ CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w
 	}
 
 	if (hitZeroAlpha) {
-		return CHECKALPHA_ZERO;
+		return CHECKALPHA_ANY;
 	} else {
 		return CHECKALPHA_FULL;
 	}
@@ -678,7 +678,7 @@ CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w
 	}
 
 	if (hitZeroAlpha) {
-		return CHECKALPHA_ZERO;
+		return CHECKALPHA_ANY;
 	} else {
 		return CHECKALPHA_FULL;
 	}
@@ -707,7 +707,7 @@ CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w
 		}
 
 		if ((bits ^ 0x00010001) != 0) {
-			return CHECKALPHA_ZERO;
+			return CHECKALPHA_ANY;
 		}
 
 		p += stride2;
@@ -743,7 +743,7 @@ CheckAlphaResult CheckAlphaRGBA4444Basic(const u32 *pixelData, int stride, int w
 	}
 
 	if (hitZeroAlpha) {
-		return CHECKALPHA_ZERO;
+		return CHECKALPHA_ANY;
 	} else {
 		return CHECKALPHA_FULL;
 	}
@@ -769,7 +769,7 @@ CheckAlphaResult CheckAlphaRGBA5551Basic(const u32 *pixelData, int stride, int w
 		}
 
 		if ((bits ^ 0x80008000) != 0) {
-			return CHECKALPHA_ZERO;
+			return CHECKALPHA_ANY;
 		}
 
 		p += stride2;

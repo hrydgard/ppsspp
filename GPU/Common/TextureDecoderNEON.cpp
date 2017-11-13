@@ -311,7 +311,7 @@ CheckAlphaResult CheckAlphaRGBA8888NEON(const u32 *pixelData, int stride, int w,
 
 	// Now let's sum up the bits.
 	if (VectorIsNonZeroNEON(foundAZero)) {
-		return CHECKALPHA_ZERO;
+		return CHECKALPHA_ANY;
 	} else {
 		return CHECKALPHA_FULL;
 	}
@@ -352,7 +352,7 @@ CheckAlphaResult CheckAlphaABGR4444NEON(const u32 *pixelData, int stride, int w,
 
 	// Now let's sum up the bits.
 	if (VectorIsNonZeroNEON(foundAZero)) {
-		return CHECKALPHA_ZERO;
+		return CHECKALPHA_ANY;
 	} else {
 		return CHECKALPHA_FULL;
 	}
@@ -372,7 +372,7 @@ CheckAlphaResult CheckAlphaABGR1555NEON(const u32 *pixelData, int stride, int w,
 
 		uint16x8_t result = veorq_u16(bits, mask);
 		if (VectorIsNonZeroNEON(result)) {
-			return CHECKALPHA_ZERO;
+			return CHECKALPHA_ANY;
 		}
 
 		p += stride;

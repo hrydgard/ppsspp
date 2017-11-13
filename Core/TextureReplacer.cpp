@@ -561,8 +561,6 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), png.width, png.height);
 		if (res == CHECKALPHA_ANY || level == 0) {
 			alphaStatus_ = ReplacedTextureAlpha(res);
-		} else if (res == CHECKALPHA_ZERO && alphaStatus_ == ReplacedTextureAlpha::FULL) {
-			alphaStatus_ = ReplacedTextureAlpha(res);
 		}
 	}
 

@@ -255,9 +255,8 @@ void GPUStateCache::DoState(PointerWrap &p) {
 	// needShaderTexClamp and bgraTexture don't need to be saved.
 
 	if (s >= 3) {
-		p.Do(textureSimpleAlpha);
-	} else {
-		textureSimpleAlpha = false;
+		bool oldTextureSimpleAlpha = false;
+		p.Do(oldTextureSimpleAlpha);
 	}
 
 	if (s < 2) {
