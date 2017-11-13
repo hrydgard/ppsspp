@@ -502,7 +502,7 @@ void DrawEngineVulkan::SetLineWidth(float lineWidth) {
 	pipelineManager_->SetLineWidth(lineWidth);
 }
 
-VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone) {
+VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess) {
 	DescriptorSetKey key;
 	key.imageView_ = imageView;
 	key.sampler_ = sampler;
@@ -513,8 +513,6 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	_dbg_assert_(G3D, base != VK_NULL_HANDLE);
 	_dbg_assert_(G3D, light != VK_NULL_HANDLE);
 	_dbg_assert_(G3D, bone != VK_NULL_HANDLE);
-
-	bool tess = gstate_c.bezier || gstate_c.spline;
 
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 	// See if we already have this descriptor set cached.
@@ -627,7 +625,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
 	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
 
-	if (!(gstate_c.bezier || gstate_c.spline)) // Avoid caching when HW tessellation.
+	if (!tess) // Again, avoid caching when HW tessellation.
 		frame->descSets.Insert(key, desc);
 	return desc;
 }
@@ -666,6 +664,8 @@ void DrawEngineVulkan::DoFlush() {
 	// gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE|DIRTY_DEPTHSTENCIL_STATE|DIRTY_BLEND_STATE);
 
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
+
+	bool tess = gstate_c.bezier || gstate_c.spline;
 
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
@@ -908,7 +908,7 @@ void DrawEngineVulkan::DoFlush() {
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 		UpdateUBOs(frame);
 
-		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
+		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
 		{
 		PROFILE_THIS_SCOPE("renderman_q");
 
@@ -921,7 +921,7 @@ void DrawEngineVulkan::DoFlush() {
 		if (useElements) {
 			if (!ibuf)
 				ibOffset = (uint32_t)frame->pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &ibuf);
-			int numInstances = (gstate_c.bezier || gstate_c.spline) ? numPatches : 1;
+			int numInstances = tess ? numPatches : 1;
 			renderManager->DrawIndexed(pipelineLayout_, ds, 3, dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, numInstances, VK_INDEX_TYPE_UINT16);
 		} else {
 			renderManager->Draw(pipelineLayout_, ds, 3, dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
@@ -1008,7 +1008,7 @@ void DrawEngineVulkan::DoFlush() {
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
 			UpdateUBOs(frame);
 
-			VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
+			VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
 			const uint32_t dynamicUBOOffsets[3] = {
 				baseUBOOffset, lightUBOOffset, boneUBOOffset,
 			};

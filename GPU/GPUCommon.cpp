@@ -1324,7 +1324,11 @@ void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
-	Flush();
+	drawEngineCommon_->DispatchFlush();
+
+	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -1355,12 +1359,29 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(patchPrim));
+
 	int bz_ucount = op & 0xFF;
 	int bz_vcount = (op >> 8) & 0xFF;
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
+
+	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+		gstate_c.bezier = true;
+		if (gstate_c.spline_count_u != bz_ucount) {
+			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
+			gstate_c.spline_count_u = bz_ucount;
+		}
+	}
+
 	int bytesRead = 0;
+	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+
+	if (gstate_c.bezier)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.bezier = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = bz_ucount * bz_vcount;
@@ -1368,7 +1389,11 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Spline(u32 op, u32 diff) {
-	Flush();
+	drawEngineCommon_->DispatchFlush();
+
+	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+
 	// This also make skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -1403,11 +1428,32 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	int sp_utype = (op >> 16) & 0x3;
 	int sp_vtype = (op >> 18) & 0x3;
 	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(patchPrim));
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
 	u32 vertType = gstate.vertType;
+
+	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+		gstate_c.spline = true;
+		bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
+		bool typesChanged = gstate_c.spline_type_u != sp_utype || gstate_c.spline_type_v != sp_vtype;
+		if (countsChanged || typesChanged) {
+			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
+			gstate_c.spline_count_u = sp_ucount;
+			gstate_c.spline_count_v = sp_vcount;
+			gstate_c.spline_type_u = sp_utype;
+			gstate_c.spline_type_v = sp_vtype;
+		}
+	}
+
 	int bytesRead = 0;
+	UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
+
+	if (gstate_c.spline)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	gstate_c.spline = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = sp_ucount * sp_vcount;

@@ -193,7 +193,7 @@ private:
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
 
-	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone);
+	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess);
 
 	VulkanContext *vulkan_;
 	Draw::DrawContext *draw_;

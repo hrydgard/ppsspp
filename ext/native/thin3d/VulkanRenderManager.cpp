@@ -11,7 +11,7 @@
 #define VLOG(...)
 #endif
 
-// TODO: Using a thread here is unfinished and does not work correctly.
+// This works great. Not much reason to disable so let's not even bother with an option.
 const bool useThread = true;
 
 #ifndef UINT64_MAX
