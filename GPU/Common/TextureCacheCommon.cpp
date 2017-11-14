@@ -142,14 +142,15 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr, bool &autoMip) {
+void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr, GETexLevelMode &mode) {
 	minFilt = gstate.texfilter & 0x7;
 	magFilt = gstate.isMagnifyFilteringEnabled();
 	sClamp = gstate.isTexCoordClampedS();
 	tClamp = gstate.isTexCoordClampedT();
 
 	GETexLevelMode mipMode = gstate.getTexLevelMode();
-	autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
+	mode = mipMode;
+	bool autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
 	lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
 	if (mipMode == GE_TEXLEVEL_MODE_SLOPE) {
 		lodBias += 1.0f + TexLog2(gstate.getTextureLodSlope()) * (1.0f / 256.0f);

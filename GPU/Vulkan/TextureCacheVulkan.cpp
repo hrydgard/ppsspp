@@ -102,7 +102,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 		samp.anisotropyEnable = false;
 	}
 
-	samp.maxLod = key.maxLevel;
+	samp.maxLod = 0; // key.maxLevel;
 	samp.minLod = 0.0f;
 	samp.mipLodBias = 0.0f;
 
@@ -217,9 +217,9 @@ void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
 	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
+	GETexLevelMode mode;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
@@ -227,20 +227,7 @@ void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	key.sClamp = sClamp;
 	key.tClamp = tClamp;
 	key.maxLevel = entry.vkTex->texture_->GetNumMips() - 1;
-	/*
-	if (entry.maxLevel != 0) {
-		if (force || entry.lodBias != lodBias) {
-			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-				if (autoMip) {
-					// TODO
-				} else {
-					// TODO
-				}
-			}
-			entry.lodBias = lodBias;
-		}
-	}
-	*/
+	// TODO: Support lod bias stuff
 
 	if (entry.framebuffer) {
 		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
@@ -253,8 +240,8 @@ void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, autoMip);
+	GETexLevelMode mode;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
 
 	key.minFilt = minFilt & 1;
 	key.mipFilt = 0;

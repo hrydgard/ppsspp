@@ -176,19 +176,33 @@ void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheK
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
+	GETexLevelMode mode;
 	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
 	key.minFilt = minFilt & 1;
 	key.mipEnable = (minFilt >> 2) & 1;
 	key.mipFilt = (minFilt >> 1) & 1;
 	key.magFilt = magFilt & 1;
 	key.sClamp = sClamp;
 	key.tClamp = tClamp;
+	switch (mode) {
+	case GE_TEXLEVEL_MODE_AUTO:
+		key.lodBias = (int)(lodBias * 256.0f);
+		key.maxLevel = maxLevel;
+		key.lodAuto = true;
+		break;
+	case GE_TEXLEVEL_MODE_CONST:
+		key.lodBias = 0;
+		key.maxLevel = maxLevel;
+		key.lodAuto = false;
+		break;
+	case GE_TEXLEVEL_MODE_SLOPE:
+		key.lodBias = 0;
+		key.maxLevel = maxLevel;
+		key.lodAuto = true;
+		break;
+	}
 	// Don't clamp to maxLevel - this may bias magnify levels.
-	key.lodBias = (int)(lodBias * 256.0f);
-	key.maxLevel = maxLevel;
-	key.lodAuto = autoMip;
 
 	if (entry.framebuffer) {
 		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
@@ -201,8 +215,8 @@ void TextureCacheD3D11::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffer
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, autoMip);
+	GETexLevelMode mode;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
 
 	key.minFilt = minFilt & 1;
 	key.mipFilt = 0;
