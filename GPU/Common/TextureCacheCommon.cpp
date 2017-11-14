@@ -1190,18 +1190,11 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 					memcpy(out + outPitch * y, texptr + bufw * sizeof(u16) * y, w * sizeof(u16));
 				}
 			}
-		} else if (h >= 8) {
+		} else if (h >= 8 && !expandTo32bit) {
 			// Note: this is always safe since h must be a power of 2, so a multiple of 8.
-			if (!expandTo32bit) {
-				UnswizzleFromMem((u32 *)out, outPitch, texptr, bufw, h, 2);
-				if (reverseColors) {
-					ReverseColors(out, out, format, h * outPitch / 2, useBGRA);
-				}
-			} else if (expandTo32bit) {
-				UnswizzleFromMem((u32 *)out, outPitch / 2, texptr, bufw, h, 2);
-				for (int y = h - 1; y >= 0; --y) {
-					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)(out + outPitch / 2 * y), w);
-				}
+			UnswizzleFromMem((u32 *)out, outPitch, texptr, bufw, h, 2);
+			if (reverseColors) {
+				ReverseColors(out, out, format, h * outPitch / 2, useBGRA);
 			}
 		} else {
 			// We don't have enough space for all rows in out, so use a temp buffer.
