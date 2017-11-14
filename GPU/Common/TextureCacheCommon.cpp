@@ -195,6 +195,55 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	}
 }
 
+void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key) {
+	// TODO: Make GetSamplingParams write SamplerCacheKey directly
+	int minFilt;
+	int magFilt;
+	bool sClamp;
+	bool tClamp;
+	float lodBias;
+	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
+	GETexLevelMode mode;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
+	key.minFilt = minFilt & 1;
+	key.mipEnable = (minFilt >> 2) & 1;
+	key.mipFilt = (minFilt >> 1) & 1;
+	key.magFilt = magFilt & 1;
+	key.sClamp = sClamp;
+	key.tClamp = tClamp;
+
+	if (!key.mipEnable) {
+		key.maxLevel = 0;
+		key.minLevel = 0;
+		key.lodBias = 0;
+	} else {
+		switch (mode) {
+		case GE_TEXLEVEL_MODE_AUTO:
+			key.maxLevel = entry.maxLevel * 256;
+			key.minLevel = 0;
+			key.lodBias = (int)(lodBias * 256.0f);
+			break;
+		case GE_TEXLEVEL_MODE_CONST:
+			key.maxLevel = (int)(lodBias * 256.0f);
+			key.minLevel = (int)(lodBias * 256.0f);
+			key.lodBias = 0;
+			break;
+		case GE_TEXLEVEL_MODE_SLOPE:
+			// Just do the normal thing without bias.
+			key.maxLevel = entry.maxLevel;
+			key.minLevel = 0;
+			key.lodBias = 0;
+			break;
+		}
+	}
+
+	// TODO: Support lod bias stuff
+
+	if (entry.framebuffer) {
+		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
+	}
+}
+
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
 	// If the texture is >= 512 pixels tall...
 	if (entry->dim >= 0x900) {

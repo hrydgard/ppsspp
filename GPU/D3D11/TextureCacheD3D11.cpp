@@ -91,21 +91,9 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 	samp.MinLOD = -FLT_MAX;
 	samp.MipLODBias = 0.0f;
 #else
-	if (!key.mipEnable) {
-		samp.MaxLOD = 0.0f;
-		samp.MinLOD = 0.0f;
-		samp.MipLODBias = 0.0f;
-	} else if (key.lodAuto) {
-		// Auto selected mip + bias.
-		samp.MaxLOD = key.maxLevel;
-		samp.MinLOD = 0.0f;
-		samp.MipLODBias = (float)key.lodBias / 256.0f;
-	} else {
-		// Constant mip at bias.
-		samp.MaxLOD = std::max(0.0f, std::min((float)key.maxLevel, (float)key.lodBias / 256.0f));
-		samp.MinLOD = std::max(0.0f, std::min((float)key.maxLevel, (float)key.lodBias / 256.0f));
-		samp.MipLODBias = 0.0f;
-	}
+	samp.MaxLOD = key.maxLevel / 256.0f;
+	samp.MinLOD = key.minLevel / 256.0f;
+	samp.MipLODBias = key.lodBias / 256.0f;
 #endif
 	samp.ComparisonFunc = D3D11_COMPARISON_NEVER;
 	for (int i = 0; i < 4; i++) {
@@ -166,46 +154,6 @@ void TextureCacheD3D11::ForgetLastTexture() {
 void TextureCacheD3D11::InvalidateLastTexture(TexCacheEntry *entry) {
 	if (!entry || entry->texturePtr == lastBoundTexture) {
 		lastBoundTexture = INVALID_TEX;
-	}
-}
-
-void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key) {
-	// TODO: Make GetSamplingParams write SamplerCacheKey directly
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	GETexLevelMode mode;
-	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
-	key.minFilt = minFilt & 1;
-	key.mipEnable = (minFilt >> 2) & 1;
-	key.mipFilt = (minFilt >> 1) & 1;
-	key.magFilt = magFilt & 1;
-	key.sClamp = sClamp;
-	key.tClamp = tClamp;
-	switch (mode) {
-	case GE_TEXLEVEL_MODE_AUTO:
-		key.lodBias = (int)(lodBias * 256.0f);
-		key.maxLevel = maxLevel;
-		key.lodAuto = true;
-		break;
-	case GE_TEXLEVEL_MODE_CONST:
-		key.lodBias = 0;
-		key.maxLevel = maxLevel;
-		key.lodAuto = false;
-		break;
-	case GE_TEXLEVEL_MODE_SLOPE:
-		key.lodBias = 0;
-		key.maxLevel = maxLevel;
-		key.lodAuto = true;
-		break;
-	}
-	// Don't clamp to maxLevel - this may bias magnify levels.
-
-	if (entry.framebuffer) {
-		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
 	}
 }
 
