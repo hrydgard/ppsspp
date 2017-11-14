@@ -362,8 +362,9 @@ void DrawEngineVulkan::EndFrame() {
 }
 
 void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX)
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		Flush();
+	}
 
 	// TODO: Is this the right thing to do?
 	if (prim == GE_PRIM_KEEP_PREVIOUS) {
@@ -863,7 +864,9 @@ void DrawEngineVulkan::DoFlush() {
 		}
 
 		if (!lastPipeline_ || !gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, true);  // usehwtransform
+			_dbg_assert_msg_(G3D, vshader->UseHWTransform(), "Bad vshader");
+
 			if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 				ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 			}
@@ -961,7 +964,8 @@ void DrawEngineVulkan::DoFlush() {
 					sampler = nullSampler_;
 			}
 			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
-				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
+				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, false);  // usehwtransform
+				_dbg_assert_msg_(G3D, !vshader->UseHWTransform(), "Bad vshader");
 				if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 					ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 				}
