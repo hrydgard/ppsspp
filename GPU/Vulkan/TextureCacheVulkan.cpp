@@ -325,7 +325,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	}
 
 	imageView_ = entry->vkTex->texture_->GetImageView();
-	SamplerCacheKey key;
+	SamplerCacheKey key{};
 	UpdateSamplingParams(*entry, key);
 	curSampler_ = samplerCache_.GetOrCreateSampler(key);
 }
@@ -436,7 +436,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
-	SamplerCacheKey samplerKey;
+	SamplerCacheKey samplerKey{};
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	InvalidateLastTexture(entry);

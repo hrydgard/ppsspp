@@ -289,7 +289,7 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		context_->PSSetShaderResources(0, 1, &textureView);
 		lastBoundTexture = textureView;
 	}
-	SamplerCacheKey key;
+	SamplerCacheKey key{};
 	UpdateSamplingParams(*entry, key);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, key);
 	context_->PSSetSamplers(0, 1, &state);
@@ -469,7 +469,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 		framebufferManagerD3D11_->RebindFramebuffer();  // Probably not necessary.
 	}
-	SamplerCacheKey samplerKey;
+	SamplerCacheKey samplerKey{};
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
