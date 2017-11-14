@@ -229,15 +229,15 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 			key.lodBias = 0;
 			break;
 		case GE_TEXLEVEL_MODE_SLOPE:
-			// Just do the normal thing without bias.
+			// It's incorrect to use the slope as a bias. Instead it should be passed
+			// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
+			// lodBias in this mode, working around #9772.
 			key.maxLevel = entry.maxLevel;
 			key.minLevel = 0;
 			key.lodBias = 0;
 			break;
 		}
 	}
-
-	// TODO: Support lod bias stuff
 
 	if (entry.framebuffer) {
 		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");

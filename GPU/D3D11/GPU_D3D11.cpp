@@ -176,16 +176,6 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
 	textureCache_->NotifyConfigChanged();
-
-	if (g_Config.bHardwareTessellation) {
-		if (false) { // TODO: Check GPU features
-			// Disable hardware tessellation.
-			g_Config.bHardwareTessellation = false;
-			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
-			I18NCategory *gr = GetI18NCategory("Graphics");
-			host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
-		}
-	}
 }
 
 GPU_D3D11::~GPU_D3D11() {
