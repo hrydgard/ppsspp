@@ -49,9 +49,6 @@
 #ifndef MOBILE_DEVICE
 #include "Core/AVIDump.h"
 #include "Core/HLE/__sceAudio.h"
-
-AVIDump video;
-WAVDump audio;
 #endif
 
 namespace SaveState
@@ -602,11 +599,11 @@ namespace SaveState
 #ifndef MOBILE_DEVICE
 					if (g_Config.bSaveLoadResetsAVdumping) {
 						if (g_Config.bDumpFrames) {
-							video.Stop();
-							video.Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+							AVIDump::Stop();
+							AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 						}
 						if (g_Config.bDumpAudio) {
-							audio.Reset();
+							WAVDump::Reset();
 						}
 					}
 #endif
@@ -637,11 +634,11 @@ namespace SaveState
 #ifndef MOBILE_DEVICE
 					if (g_Config.bSaveLoadResetsAVdumping) {
 						if (g_Config.bDumpFrames) {
-							video.Stop();
-							video.Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+							AVIDump::Stop();
+							AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 						}
 						if (g_Config.bDumpAudio) {
-							audio.Reset();
+							WAVDump::Reset();
 						}
 					}
 #endif

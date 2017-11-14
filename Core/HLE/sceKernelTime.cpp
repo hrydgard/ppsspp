@@ -172,6 +172,6 @@ u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
 	return 0;
 }
 
-u32 returnEmulatedTime() {
+u32 KernelTimeNow() {
 	return (u32)start_time + (u32)(CoreTiming::GetGlobalTimeUs() / 1000000ULL);
 }
