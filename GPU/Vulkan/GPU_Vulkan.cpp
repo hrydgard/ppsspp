@@ -214,6 +214,9 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
+	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
+	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
+	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	gstate_c.featureFlags = features;
 }
 
