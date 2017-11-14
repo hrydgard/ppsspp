@@ -387,7 +387,7 @@ void __AudioUpdate(bool resetRecording) {
 		if (g_Config.bSaveLoadResetsAVdumping && resetRecording) {
 			__StopLogAudio();
 			std::string discID = g_paramSFO.GetDiscID();
-			std::string audio_file_name = StringFromFormat("%s%s %s.wav", GetSysDirectory(DIRECTORY_AUDIO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
+			std::string audio_file_name = StringFromFormat("%s%s_%s.wav", GetSysDirectory(DIRECTORY_AUDIO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
 			INFO_LOG(COMMON, "Restarted audio recording to: %s", audio_file_name.c_str());
 			if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))
 				File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
@@ -398,7 +398,7 @@ void __AudioUpdate(bool resetRecording) {
 			if (g_Config.bDumpAudio) {
 				// Use gameID_EmulatedTimestamp for filename
 				std::string discID = g_paramSFO.GetDiscID();
-				std::string audio_file_name = StringFromFormat("%s%s %s.wav", GetSysDirectory(DIRECTORY_AUDIO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
+				std::string audio_file_name = StringFromFormat("%s%s_%s.wav", GetSysDirectory(DIRECTORY_AUDIO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
 				INFO_LOG(COMMON,"Recording audio to: %s", audio_file_name.c_str());
 				// Create the path just in case it doesn't exist
 				if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))

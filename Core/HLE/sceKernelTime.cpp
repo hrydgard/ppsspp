@@ -185,6 +185,6 @@ std::string KernelTimeNowFormatted() {
 	u8 days = timePtr->tm_mday;
 	u8 months = timePtr->tm_mon + 1;
 	u16 years = timePtr->tm_year + 1900;
-	std::string timestamp = StringFromFormat("%04d-%02d-%02d %02d-%02d-%02d", years, months, days, hours, minutes, seconds);
+	std::string timestamp = StringFromFormat("%04d-%02d-%02d_%02d-%02d-%02d", years, months, days, hours, minutes, seconds);
 	return timestamp;
 }
