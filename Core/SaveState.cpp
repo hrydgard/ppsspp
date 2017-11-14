@@ -46,6 +46,11 @@
 #include "HW/MemoryStick.h"
 #include "GPU/GPUState.h"
 
+#ifndef MOBILE_DEVICE
+#include "Core/AVIDump.h"
+#include "Core/HLE/__sceAudio.h"
+#endif
+
 namespace SaveState
 {
 	struct SaveStart
@@ -591,6 +596,17 @@ namespace SaveState
 					callbackMessage = sc->T("Loaded State");
 					callbackResult = true;
 					hasLoadedState = true;
+#ifndef MOBILE_DEVICE
+					if (g_Config.bSaveLoadResetsAVdumping) {
+						if (g_Config.bDumpFrames) {
+							AVIDump::Stop();
+							AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+						}
+						if (g_Config.bDumpAudio) {
+							WAVDump::Reset();
+						}
+					}
+#endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
 					callbackMessage = i18nLoadFailure;
@@ -615,6 +631,17 @@ namespace SaveState
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Saved State");
 					callbackResult = true;
+#ifndef MOBILE_DEVICE
+					if (g_Config.bSaveLoadResetsAVdumping) {
+						if (g_Config.bDumpFrames) {
+							AVIDump::Stop();
+							AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+						}
+						if (g_Config.bDumpAudio) {
+							WAVDump::Reset();
+						}
+					}
+#endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
 					callbackMessage = i18nSaveFailure;

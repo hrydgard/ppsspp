@@ -79,7 +79,7 @@
 #endif
 
 #ifndef MOBILE_DEVICE
-AVIDump avi;
+static AVIDump avi;
 #endif
 
 static bool frameStep_;
