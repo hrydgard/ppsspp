@@ -60,16 +60,16 @@ struct D3D9CommandTableEntry {
 // This table gets crunched into a faster form by init.
 static const D3D9CommandTableEntry commandTable[] = {
 	// Changes that dirty the current texture.
-	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_DX9::Execute_TexSize0 },
+	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_TexSize0 },
 
 	{ GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_STENCILREPLACEVALUE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE },
 
 	// Changing the vertex type requires us to flush.
-	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPU_DX9::Execute_VertexType },
+	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
 
 	{ GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPU_DX9::Execute_Prim },
-	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPU_DX9::Execute_Bezier },
-	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPU_DX9::Execute_Spline },
+	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
+	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_DX9::Execute_LoadClut },
@@ -171,10 +171,10 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 void GPU_DX9::UpdateCmdInfo() {
 	if (g_Config.bSoftwareSkinning) {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPU_DX9::Execute_VertexTypeSkinning;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
 	} else {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPU_DX9::Execute_VertexType;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
 	}
 
 	CheckGPUFeatures();
@@ -408,37 +408,6 @@ void GPU_DX9::ExecuteOp(u32 op, u32 diff) {
 	}
 }
 
-void GPU_DX9::Execute_VertexType(u32 op, u32 diff) {
-	if (diff)
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		if (diff & GE_VTYPE_THROUGH_MASK)
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
-	}
-}
-
-void GPU_DX9::Execute_VertexTypeSkinning(u32 op, u32 diff) {
-	// Don't flush when weight count changes, unless morph is enabled.
-	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-		// Restore and flush
-		gstate.vertType ^= diff;
-		Flush();
-		gstate.vertType ^= diff;
-		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
-			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		// In this case, we may be doing weights and morphs.
-		// Update any bone matrix uniforms so it uses them correctly.
-		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
-			gstate_c.deferredVertTypeDirty = 0;
-		}
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	}
-	if (diff & GE_VTYPE_THROUGH_MASK)
-		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
-}
-
 void GPU_DX9::Execute_Prim(u32 op, u32 diff) {
 	// This drives all drawing. All other state we just buffer up, then we apply it only
 	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
@@ -509,121 +478,6 @@ void GPU_DX9::Execute_Prim(u32 op, u32 diff) {
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
 	AdvanceVerts(vertexType, count, bytesRead);
-}
-
-void GPU_DX9::Execute_Bezier(u32 op, u32 diff) {
-	Flush();
-
-	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-
-	// This also make skipping drawing very effective.
-	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
-		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-		return;
-	}
-
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-		return;
-	}
-
-	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-	void *indices = NULL;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-			return;
-		}
-		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	}
-
-	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
-		DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
-	}
-	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
-	}
-
-	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(patchPrim));
-	int bz_ucount = op & 0xFF;
-	int bz_vcount = (op >> 8) & 0xFF;
-	bool computeNormals = gstate.isLightingEnabled();
-	bool patchFacing = gstate.patchfacing & 1;
-	int bytesRead = 0;
-	UpdateUVScaleOffset();
-	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
-
-	// After drawing, we advance pointers - see SubmitPrim which does the same.
-	int count = bz_ucount * bz_vcount;
-	AdvanceVerts(gstate.vertType, count, bytesRead);
-}
-
-void GPU_DX9::Execute_Spline(u32 op, u32 diff) {
-	Flush();
-
-	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-
-	// This also make skipping drawing very effective.
-	framebufferManagerDX9_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
-		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-		return;
-	}
-
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-		return;
-	}
-
-	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-	void *indices = NULL;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-			return;
-		}
-		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	}
-
-	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
-		DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
-	}
-	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
-	}
-
-	int sp_ucount = op & 0xFF;
-	int sp_vcount = (op >> 8) & 0xFF;
-	int sp_utype = (op >> 16) & 0x3;
-	int sp_vtype = (op >> 18) & 0x3;
-	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(patchPrim));
-	bool computeNormals = gstate.isLightingEnabled();
-	bool patchFacing = gstate.patchfacing & 1;
-	u32 vertType = gstate.vertType;
-	int bytesRead = 0;
-	UpdateUVScaleOffset();
-	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
-
-	// After drawing, we advance pointers - see SubmitPrim which does the same.
-	int count = sp_ucount * sp_vcount;
-	AdvanceVerts(gstate.vertType, count, bytesRead);
-}
-
-void GPU_DX9::Execute_TexSize0(u32 op, u32 diff) {
-	// Render to texture may have overridden the width/height.
-	// Don't reset it unless the size is different / the texture has changed.
-	if (diff || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) {
-		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
-		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		// We will need to reset the texture now.
-		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	}
 }
 
 void GPU_DX9::Execute_LoadClut(u32 op, u32 diff) {

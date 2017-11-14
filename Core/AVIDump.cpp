@@ -34,6 +34,10 @@ extern "C" {
 
 #include "GPU/Common/GPUDebugInterface.h"
 
+#include "Core/ELF/ParamSFO.h"
+#include "Core/HLE/sceKernelTime.h"
+#include "StringUtils.h"
+
 #ifdef USE_FFMPEG
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(55, 28, 1)
@@ -86,10 +90,16 @@ bool AVIDump::CreateAVI() {
 #ifdef USE_FFMPEG
 	AVCodec* codec = nullptr;
 
+	// Use gameID_EmulatedTimestamp for filename
+	std::string discID = g_paramSFO.GetDiscID();
+	std::string video_file_name = StringFromFormat("%s%s_%s.avi", GetSysDirectory(DIRECTORY_VIDEO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
+
 	s_format_context = avformat_alloc_context();
 	std::stringstream s_file_index_str;
-	s_file_index_str << s_file_index;
-	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", (GetSysDirectory(DIRECTORY_VIDEO) + "framedump" + s_file_index_str.str() + ".avi").c_str());
+	s_file_index_str << video_file_name;
+
+	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", s_file_index_str.str().c_str());
+	INFO_LOG(COMMON, "Recording Video to: %s", s_format_context->filename);
 	// Make sure that the path exists
 	if (!File::Exists(GetSysDirectory(DIRECTORY_VIDEO)))
 		File::CreateDir(GetSysDirectory(DIRECTORY_VIDEO));
@@ -214,6 +224,7 @@ void AVIDump::AddFrame()
 	if (error)
 		ERROR_LOG(G3D, "Error while encoding video: %d", error);
 #endif
+	delete[] flipbuffer;
 }
 
 void AVIDump::Stop() {

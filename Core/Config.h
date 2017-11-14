@@ -105,6 +105,7 @@ public:
 	bool bUseFFV1;
 	bool bDumpFrames;
 	bool bDumpAudio;
+	bool bSaveLoadResetsAVdumping;
 	bool bEnableLogging;
 	bool bDumpDecryptedEboot;
 	bool bFullscreenOnDoubleclick;

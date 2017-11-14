@@ -77,6 +77,7 @@ private:
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
 	bool quit_;
+	bool stopRender_ = false;
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.

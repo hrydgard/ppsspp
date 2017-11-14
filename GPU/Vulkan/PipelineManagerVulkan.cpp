@@ -66,9 +66,6 @@ static const DeclTypeInfo VComp[] = {
 	{ VK_FORMAT_R16G16_UNORM, "R16G16_UNORM" },	// 	DEC_U16_2,
 	{ VK_FORMAT_R16G16B16A16_UNORM, "R16G16B16A16_UNORM " }, // DEC_U16_3,
 	{ VK_FORMAT_R16G16B16A16_UNORM, "R16G16B16A16_UNORM " }, // DEC_U16_4,
-
-	{ VK_FORMAT_R8G8_UINT, "R8G8_UINT" },   // DEC_U8A_2,
-	{ VK_FORMAT_R16G16_UINT, "R16G16_UINT" }, // DEC_U16A_2,
 };
 
 static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location) {
@@ -121,7 +118,7 @@ static bool UsesBlendConstant(int factor) {
 
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
-		const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
+		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
 	bool useBlendConstant = false;
 
 	VkPipelineColorBlendAttachmentState blend0 = {};
@@ -229,10 +226,10 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkVertexInputAttributeDescription attrs[8];
 	int attributeCount;
 	if (useHwTransform) {
-		attributeCount = SetupVertexAttribs(attrs, vtxDec->decFmt);
-		vertexStride = vtxDec->decFmt.stride;
+		attributeCount = SetupVertexAttribs(attrs, *decFmt);
+		vertexStride = decFmt->stride;
 	} else {
-		attributeCount = SetupVertexAttribsPretransformed(attrs, vtxDec->decFmt);
+		attributeCount = SetupVertexAttribsPretransformed(attrs, *decFmt);
 		vertexStride = 36;
 	}
 
@@ -301,8 +298,8 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	return vulkanPipeline;
 }
 
-VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
-	VulkanPipelineKey key;
+VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
+	VulkanPipelineKey key{};
 	if (!renderPass)
 		Crash();
 
@@ -311,7 +308,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	key.useHWTransform = useHwTransform;
 	key.vShader = vs->GetModule();
 	key.fShader = fs->GetModule();
-	key.vtxDec = useHwTransform ? vtxDec : nullptr;
+	key.vtxDecId = useHwTransform ? decFmt->id : 0;
 
 	auto iter = pipelines_.Get(key);
 	if (iter)
@@ -321,7 +318,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
-		rasterKey, vtxDec, vs, fs, useHwTransform, lineWidth_);
+		rasterKey, decFmt, vs, fs, useHwTransform, lineWidth_);
 	// Even if the result is nullptr, insert it so we don't try to create it repeatedly.
 	pipelines_.Insert(key, pipeline);
 	return pipeline;
@@ -345,14 +342,75 @@ std::vector<std::string> PipelineManagerVulkan::DebugGetObjectIDs(DebugShaderTyp
 	return ids;
 }
 
+static const char *const topologies[8] = {
+	"POINTLIST",
+	"LINELIST",
+	"LINESTRIP",
+	"TRILIST",
+	"TRISTRIP",
+	"TRIFAN",
+};
+
+static const char *const blendOps[8] = {
+	"ADD",
+	"SUB",
+	"REVSUB",
+	"MIN",
+	"MAX",
+};
+
+static const char *const compareOps[8] = {
+	"NEVER",
+	"<",
+	"==",
+	"<=",
+	">",
+	">=",
+	"!=",
+	"ALWAYS",
+};
+
+static const char *const stencilOps[8] = {
+	"KEEP",
+	"ZERO",
+	"REPLACE",
+	"INC_CLAMP",
+	"DEC_CLAMP",
+	"INVERT",
+	"INC_WRAP",
+	"DEC_WRAP",
+};
+
+static const char *const blendFactors[19] = {
+	"ZERO",
+	"ONE",
+	"SRC_COLOR",
+	"ONE_MINUS_SRC_COLOR",
+	"DST_COLOR",
+	"ONE_MINUS_DST_COLOR",
+	"SRC_ALPHA",
+	"ONE_MINUS_SRC_ALPHA",
+	"DST_ALPHA",
+	"ONE_MINUS_DST_ALPHA",
+	"CONSTANT_COLOR",
+	"ONE_MINUS_CONSTANT_COLOR",
+	"CONSTANT_ALPHA",
+	"ONE_MINUS_CONSTANT_ALPHA",
+	"SRC_ALPHA_SATURATE",
+	"SRC1_COLOR",
+	"ONE_MINUS_SRC1_COLOR",
+	"SRC1_ALPHA",
+	"ONE_MINUS_SRC1_ALPHA",
+};
+
 std::string PipelineManagerVulkan::DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
 	if (type != SHADER_TYPE_PIPELINE)
 		return "N/A";
 
-	VulkanPipelineKey shaderId;
-	shaderId.FromString(id);
+	VulkanPipelineKey pipelineKey;
+	pipelineKey.FromString(id);
 
-	VulkanPipeline *iter = pipelines_.Get(shaderId);
+	VulkanPipeline *iter = pipelines_.Get(pipelineKey);
 	if (!iter) {
 		return "";
 	}
@@ -360,7 +418,62 @@ std::string PipelineManagerVulkan::DebugGetObjectString(std::string id, DebugSha
 	switch (stringType) {
 	case SHADER_STRING_SHORT_DESC:
 	{
-		return StringFromFormat("%p", iter);
+		std::stringstream str;
+		str << topologies[pipelineKey.raster.topology] << " ";
+		if (pipelineKey.raster.blendEnable) {
+			str << "Blend(";
+			str << "C:" << blendOps[pipelineKey.raster.blendOpColor] << "/"
+				<< blendFactors[pipelineKey.raster.srcColor] << ":" << blendFactors[pipelineKey.raster.destColor] << " ";
+			if (pipelineKey.raster.blendOpAlpha != VK_BLEND_OP_ADD ||
+				pipelineKey.raster.srcAlpha != VK_BLEND_FACTOR_ONE ||
+				pipelineKey.raster.destAlpha != VK_BLEND_FACTOR_ZERO) {
+				str << "A:" << blendOps[pipelineKey.raster.blendOpAlpha] << "/"
+					<< blendFactors[pipelineKey.raster.srcColor] << ":" << blendFactors[pipelineKey.raster.destColor] << " ";
+			}
+			str << ") ";
+		}
+		if (pipelineKey.raster.colorWriteMask != 0xF) {
+			str << "Mask(";
+			for (int i = 0; i < 4; i++) {
+				if (pipelineKey.raster.colorWriteMask & (1 << i)) {
+					str << "RGBA"[i];
+				} else {
+					str << "_";
+				}
+			}
+			str << ") ";
+		}
+		if (pipelineKey.raster.depthTestEnable) {
+			str << "Depth(";
+			if (pipelineKey.raster.depthWriteEnable)
+				str << "W, ";
+			if (pipelineKey.raster.depthCompareOp)
+				str << compareOps[pipelineKey.raster.depthCompareOp & 7];
+			str << ") ";
+		}
+		if (pipelineKey.raster.stencilTestEnable) {
+			str << "Stencil(";
+			str << compareOps[pipelineKey.raster.stencilCompareOp & 7] << " ";
+			str << stencilOps[pipelineKey.raster.stencilPassOp & 7] << "/";
+			str << stencilOps[pipelineKey.raster.stencilFailOp & 7] << "/";
+			str << stencilOps[pipelineKey.raster.stencilDepthFailOp& 7];
+			str << ") ";
+		}
+		if (pipelineKey.raster.logicOpEnable) {
+			str << "Logic(";
+			str << ") ";
+		}
+		if (pipelineKey.useHWTransform) {
+			str << "HWX ";
+		}
+		if (pipelineKey.vtxDecId) {
+			str << "V(";
+			str << StringFromFormat("%08x", pipelineKey.vtxDecId);  // TODO: Format nicer.
+			str << ") ";
+		} else {
+			str << "SWX ";
+		}
+		return StringFromFormat("%p: %s", iter, str.str().c_str());
 	}
 
 	case SHADER_STRING_SOURCE_CODE:

@@ -11,7 +11,7 @@
 #define VLOG(...)
 #endif
 
-// TODO: Using a thread here is unfinished and does not work correctly.
+// This works great. Not much reason to disable so let's not even bother with an option.
 const bool useThread = true;
 
 #ifndef UINT64_MAX
@@ -227,6 +227,9 @@ void VulkanRenderManager::StopThread() {
 				Crash();
 			}
 			frameData.readyForRun = false;
+			for (size_t i = 0; i < frameData.steps.size(); i++) {
+				delete frameData.steps[i];
+			}
 			frameData.steps.clear();
 
 			std::unique_lock<std::mutex> lock(frameData.push_mutex);
@@ -803,8 +806,7 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 		present.waitSemaphoreCount = 1;
 
 		VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
-		// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
-		// return codes
+		// TODO: Deal with VK_SUBOPTIMAL_WSI ?
 		if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			// ignore, it'll be fine. this happens sometimes during resizes, and we do make sure to recreate the swap chain.
 		} else {

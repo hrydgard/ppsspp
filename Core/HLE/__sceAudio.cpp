@@ -35,6 +35,9 @@
 #include "Core/System.h"
 #ifndef MOBILE_DEVICE
 #include "Core/WaveFile.h"
+#include "Core/ELF/ParamSFO.h"
+#include "Core/HLE/sceKernelTime.h"
+#include "StringUtils.h"
 #endif
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceAudio.h"
@@ -332,7 +335,7 @@ void __AudioSetOutputFrequency(int freq) {
 // Mix samples from the various audio channels into a single sample queue.
 // This single sample queue is where __AudioMix should read from. If the sample queue is full, we should
 // just sleep the main emulator thread a little.
-void __AudioUpdate() {
+void __AudioUpdate(bool resetRecording) {
 	// Audio throttle doesn't really work on the PSP since the mixing intervals are so closely tied
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
@@ -385,11 +388,25 @@ void __AudioUpdate() {
 	if (g_Config.bEnableSound) {
 		resampler.PushSamples(mixBuffer, hwBlockSize);
 #ifndef MOBILE_DEVICE
+		if (g_Config.bSaveLoadResetsAVdumping && resetRecording) {
+			__StopLogAudio();
+			std::string discID = g_paramSFO.GetDiscID();
+			std::string audio_file_name = StringFromFormat("%s%s_%s.wav", GetSysDirectory(DIRECTORY_AUDIO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
+			INFO_LOG(COMMON, "Restarted audio recording to: %s", audio_file_name.c_str());
+			if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))
+				File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
+			File::CreateEmptyFile(audio_file_name);
+			__StartLogAudio(audio_file_name);
+		}
 		if (!m_logAudio) {
 			if (g_Config.bDumpAudio) {
-				std::string audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) + "audiodump.wav";
+				// Use gameID_EmulatedTimestamp for filename
+				std::string discID = g_paramSFO.GetDiscID();
+				std::string audio_file_name = StringFromFormat("%s%s_%s.wav", GetSysDirectory(DIRECTORY_AUDIO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
+				INFO_LOG(COMMON,"Recording audio to: %s", audio_file_name.c_str());
 				// Create the path just in case it doesn't exist
-				File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
+				if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))
+					File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
 				File::CreateEmptyFile(audio_file_name);
 				__StartLogAudio(audio_file_name);
 			}
@@ -447,3 +464,7 @@ void __StopLogAudio() {
 	}
 }
 #endif
+
+void WAVDump::Reset() {
+	__AudioUpdate(true);
+}

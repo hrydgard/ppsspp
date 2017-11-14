@@ -79,7 +79,7 @@
 #endif
 
 #ifndef MOBILE_DEVICE
-AVIDump avi;
+static AVIDump avi;
 #endif
 
 static bool frameStep_;
@@ -320,6 +320,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		// We will push MainScreen in update().
 		PSP_Shutdown();
 		bootPending_ = false;
+		stopRender_ = true;
 		invalid_ = true;
 		host->UpdateDisassembly();
 	} else if (!strcmp(message, "reset")) {
@@ -331,6 +332,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		std::string resetError;
 		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
 			ELOG("Error resetting: %s", resetError.c_str());
+			stopRender_ = true;
 			screenManager()->switchScreen(new MainScreen());
 			System_SendMessage("event", "failstartgame");
 			return;
@@ -1019,7 +1021,7 @@ void EmuScreen::postRender() {
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	if (!draw)
 		return;
-	if (invalid_)
+	if (stopRender_)
 		draw->WipeQueue();
 	draw->EndFrame();
 }

@@ -121,9 +121,6 @@ public:
 
 	void BeginFrame();
 
-	void SetupVertexDecoder(u32 vertType);
-	void SetupVertexDecoderInternal(u32 vertType);
-
 	// So that this can be inlined
 	void Flush() {
 		if (!numDrawCalls)
@@ -170,11 +167,11 @@ private:
 
 	struct InputLayoutKey {
 		D3D11VertexShader *vshader;
-		u32 vertType;
+		u32 decFmtId;
 		bool operator <(const InputLayoutKey &other) const {
-			if (vertType < other.vertType)
+			if (decFmtId < other.decFmtId)
 				return true;
-			if (vertType > other.vertType)
+			if (decFmtId > other.decFmtId)
 				return false;
 			return vshader < other.vshader;
 		}
