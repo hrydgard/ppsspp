@@ -33,7 +33,7 @@ struct AudioDebugStats {
 
 void __AudioInit();
 void __AudioDoState(PointerWrap &p);
-void __AudioUpdate();
+void __AudioUpdate(bool resetRecording = false);
 void __AudioShutdown();
 void __AudioSetOutputFrequency(int freq);
 
@@ -49,3 +49,9 @@ void __PushExternalAudio(const s32 *audio, int numSamples);  // Should not be us
 // Audio Dumping stuff
 void __StartLogAudio(const std::string& filename);
 void __StopLogAudio();
+
+class WAVDump
+{
+public:
+	static void Reset();
+};
