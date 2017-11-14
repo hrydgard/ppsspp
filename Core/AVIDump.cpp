@@ -92,7 +92,7 @@ bool AVIDump::CreateAVI() {
 
 	// Use gameID_EmulatedTimestamp for filename
 	std::string discID = g_paramSFO.GetDiscID();
-	std::string video_file_name = StringFromFormat("%s%s_%d.avi", GetSysDirectory(DIRECTORY_VIDEO).c_str(), discID.c_str(), KernelTimeNow()).c_str();
+	std::string video_file_name = StringFromFormat("%s%s %s.avi", GetSysDirectory(DIRECTORY_VIDEO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
 
 	s_format_context = avformat_alloc_context();
 	std::stringstream s_file_index_str;

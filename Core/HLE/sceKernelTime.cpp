@@ -31,6 +31,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/MemMap.h"
+#include "StringUtils.h"
 
 // The time when the game started.
 static time_t start_time;
@@ -172,6 +173,18 @@ u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
 	return 0;
 }
 
-u32 KernelTimeNow() {
-	return (u32)start_time + (u32)(CoreTiming::GetGlobalTimeUs() / 1000000ULL);
+std::string KernelTimeNowFormatted() {
+	time_t emulatedTime = (u32)start_time + (u32)(CoreTiming::GetGlobalTimeUs() / 1000000ULL);
+	tm* timePtr = localtime(&emulatedTime);
+	bool DST = timePtr->tm_isdst;
+	u8 seconds = timePtr->tm_sec;
+	u8 minutes = timePtr->tm_min;
+	u8 hours = timePtr->tm_hour;
+	if (DST)
+		hours = timePtr->tm_hour + 1;
+	u8 days = timePtr->tm_mday;
+	u8 months = timePtr->tm_mon + 1;
+	u16 years = timePtr->tm_year + 1900;
+	std::string timestamp = StringFromFormat("%04d-%02d-%02d %02d-%02d-%02d", years, months, days, hours, minutes, seconds).c_str();
+	return timestamp;
 }
