@@ -210,6 +210,17 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
+	if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
+		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+	}
+	else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+		// Use fragment rounding on desktop and GLES3, most accurate.
+		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+	}
+	else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
+		features |= GPU_ROUND_DEPTH_TO_16BIT;
+	}
+
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
