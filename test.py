@@ -40,7 +40,7 @@ class Command(object):
   def run(self, timeout):
     def target():
       self.process = subprocess.Popen(self.cmd, bufsize=1, stdin=subprocess.PIPE, stdout=sys.stdout, stderr=subprocess.STDOUT)
-      self.process.stdin.write(self.data)
+      self.process.stdin.write(self.data.encode('utf-8'))
       self.process.stdin.close()
       self.process.communicate()
 
@@ -397,7 +397,7 @@ def run_tests(test_list, args):
     c = Command(cmdline, '\n'.join(test_filenames))
     c.run(TIMEOUT * len(test_filenames))
 
-    print("Ran " + PPSSPP_EXE)
+    print("Ran " + ' '.join(cmdline))
 
 
 def main():
