@@ -62,7 +62,6 @@ build*/
 # Temp file used by jenkins windows build (TODO: remove)
 desc.txt
 
-
 Logs
 Memstick
 memstick
@@ -95,6 +94,9 @@ tags
 debian/files
 debian/ppsspp.substvars
 debian/ppsspp/
+
+# Libretro build
+*.o
 
 # YouCompleteMe file
 .ycm_extra_conf.pyc
