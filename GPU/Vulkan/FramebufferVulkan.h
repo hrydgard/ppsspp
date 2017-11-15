@@ -78,7 +78,6 @@ public:
 
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
-	virtual void RebindFramebuffer() override;
 	VkImageView BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,

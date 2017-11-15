@@ -2103,6 +2103,16 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 	}
 }
 
+void FramebufferManagerCommon::RebindFramebuffer() {
+	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
+		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+	} else {
+		// Should this even happen?
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+	}
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+}
+
 std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() {
 	std::vector<FramebufferInfo> list;
 
