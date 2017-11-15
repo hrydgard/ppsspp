@@ -72,6 +72,7 @@ struct SamplerCacheKey {
 			bool magFilt : 1;
 			bool sClamp : 1;
 			bool tClamp : 1;
+			bool aniso : 1;
 		};
 	};
 	bool operator < (const SamplerCacheKey &other) const {

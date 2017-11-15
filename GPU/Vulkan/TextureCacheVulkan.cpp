@@ -86,13 +86,12 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.addressModeV = key.tClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.addressModeW = samp.addressModeU;  // irrelevant, but Mali recommends that all clamp modes are the same if possible.
-	samp.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 	samp.compareOp = VK_COMPARE_OP_ALWAYS;
 	samp.flags = 0;
 	samp.magFilter = key.magFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.mipmapMode = key.mipFilt ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+	if (key.aniso) {
 		// Docs say the min of this value and the supported max are used.
 		samp.maxAnisotropy = 1 << g_Config.iAnisotropyLevel;
 		samp.anisotropyEnable = true;

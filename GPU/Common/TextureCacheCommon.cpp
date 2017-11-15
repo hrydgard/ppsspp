@@ -211,6 +211,7 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	key.magFilt = magFilt & 1;
 	key.sClamp = sClamp;
 	key.tClamp = tClamp;
+	key.aniso = false;
 
 	if (!key.mipEnable) {
 		key.maxLevel = 0;
@@ -222,7 +223,10 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 			key.maxLevel = entry.maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = (int)(lodBias * 256.0f);
-			break;
+			if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+				key.aniso = true;
+				break;
+			}
 		case GE_TEXLEVEL_MODE_CONST:
 			key.maxLevel = (int)(lodBias * 256.0f);
 			key.minLevel = (int)(lodBias * 256.0f);
@@ -232,7 +236,7 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 			// It's incorrect to use the slope as a bias. Instead it should be passed
 			// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
 			// lodBias in this mode, working around #9772.
-			key.maxLevel = entry.maxLevel;
+			key.maxLevel = entry.maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = 0;
 			break;

@@ -64,7 +64,7 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 	samp.AddressU = key.sClamp ? D3D11_TEXTURE_ADDRESS_CLAMP : D3D11_TEXTURE_ADDRESS_WRAP;
 	samp.AddressV = key.tClamp ? D3D11_TEXTURE_ADDRESS_CLAMP : D3D11_TEXTURE_ADDRESS_WRAP;
 	samp.AddressW = samp.AddressU;  // Mali benefits from all clamps being the same, and this one is irrelevant.
-	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+	if (key.aniso) {
 		samp.MaxAnisotropy = (float)(1 << g_Config.iAnisotropyLevel);
 	} else {
 		samp.MaxAnisotropy = 1.0f;
@@ -81,7 +81,7 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 		D3D11_FILTER_MIN_MAG_MIP_LINEAR,
 	};
 	// Only switch to aniso if linear min and mag are set.
-	if (samp.MaxAnisotropy > 1.0f && key.magFilt != 0 && key.minFilt != 0)
+	if (key.aniso && key.magFilt != 0 && key.minFilt != 0)
 		samp.Filter = D3D11_FILTER_ANISOTROPIC;
 	else
 		samp.Filter = filters[filterKey];
