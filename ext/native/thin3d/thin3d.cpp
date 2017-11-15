@@ -389,16 +389,10 @@ void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 
 	if (format == Draw::DataFormat::R8G8B8A8_UNORM) {
 		uint32_t *dst32 = (uint32_t *)dst;
-		if (src == dst) {
-			return;
-		}
-		else {
-			for (uint32_t y = 0; y < height; ++y) {
-				ConvertBGRA8888ToRGBA8888(dst32, src32, width);
-				memcpy(dst32, src32, width * 4);
-				src32 += srcStride;
-				dst32 += dstStride;
-			}
+		for (uint32_t y = 0; y < height; ++y) {
+			ConvertBGRA8888ToRGBA8888(dst32, src32, width);
+			src32 += srcStride;
+			dst32 += dstStride;
 		}
 	}
 	else {
