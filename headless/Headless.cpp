@@ -161,6 +161,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
 	PSP_BeginHostFrame();
+	if (coreParameter.thin3d)
+		coreParameter.thin3d->BeginFrame();
 
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
@@ -185,6 +187,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 		}
 	}
 
+	if (coreParameter.thin3d)
+		coreParameter.thin3d->EndFrame();
 	PSP_EndHostFrame();
 
 	PSP_Shutdown();
