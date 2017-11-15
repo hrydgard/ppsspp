@@ -523,16 +523,16 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	VkWriteDescriptorSet writes[8]{};
 	// Main texture
 	int n = 0;
-	VkDescriptorImageInfo tex{};
+	VkDescriptorImageInfo tex[2]{};
 	if (imageView) {
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
-		tex.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		tex.imageView = imageView;
-		tex.sampler = sampler;
+		tex[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		tex[0].imageView = imageView;
+		tex[0].sampler = sampler;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = DRAW_BINDING_TEXTURE;
-		writes[n].pImageInfo = &tex;
+		writes[n].pImageInfo = &tex[0];
 		writes[n].descriptorCount = 1;
 		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		writes[n].dstSet = desc;
@@ -541,13 +541,13 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
 	if (boundSecondary_) {
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
-		tex.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		tex.imageView = boundSecondary_;
-		tex.sampler = samplerSecondary_;
+		tex[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		tex[1].imageView = boundSecondary_;
+		tex[1].sampler = samplerSecondary_;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = DRAW_BINDING_2ND_TEXTURE;
-		writes[n].pImageInfo = &tex;
+		writes[n].pImageInfo = &tex[1];
 		writes[n].descriptorCount = 1;
 		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		writes[n].dstSet = desc;
@@ -877,6 +877,7 @@ void DrawEngineVulkan::DoFlush() {
 				// Already logged, let's bail out.
 				return;
 			}
+			BindShaderBlendTex();  // This might cause copies so important to do before BindPipeline.
 			renderManager->BindPipeline(pipeline->pipeline);
 			if (pipeline != lastPipeline_) {
 				if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {
@@ -976,6 +977,7 @@ void DrawEngineVulkan::DoFlush() {
 					// Already logged, let's bail out.
 					return;
 				}
+				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
 				renderManager->BindPipeline(pipeline->pipeline);
 				if (pipeline != lastPipeline_) {
 					if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {

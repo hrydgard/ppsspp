@@ -362,7 +362,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 }
 
-void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant) {
+void DrawEngineVulkan::BindShaderBlendTex() {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
@@ -377,6 +377,9 @@ void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bo
 		}
 	}
 
+}
+
+void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant) {
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
 		renderManager->SetScissor(dynState_.scissor);
 		renderManager->SetViewport(dynState_.viewport);
