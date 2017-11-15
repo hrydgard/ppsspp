@@ -181,8 +181,13 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
 		switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
+		case VULKAN_VENDOR_NVIDIA:
+			// Workaround for Shield TV driver bug.
+			if (strcmp(vulkan_->GetPhysicalDeviceProperties().deviceName, "NVIDIA Tegra X1") != 0)
+				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+			break;
 		case VULKAN_VENDOR_INTEL:
-			// Work around for Intel driver bug.
+			// Workaround for Intel driver bug.
 			break;
 		case VULKAN_VENDOR_AMD:
 			// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for
