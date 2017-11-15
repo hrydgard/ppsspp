@@ -160,7 +160,7 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 
 	if (maxLevel != 0) {
 		if (mode == GE_TEXLEVEL_MODE_AUTO) {
-			dxstate.texMaxMipLevel.set(maxLevel);
+			dxstate.texMaxMipLevel.set(0);
 			dxstate.texMipLodBias.set(lodBias);
 		} else if (mode == GE_TEXLEVEL_MODE_CONST) {
 			// TODO: This is just an approximation - texMaxMipLevel sets the lowest numbered mip to use.
@@ -168,7 +168,7 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 			dxstate.texMaxMipLevel.set(std::max(0, std::min((int)maxLevel, (int)lodBias)));
 			dxstate.texMipLodBias.set(-1000.0f);
 		} else {  // if (mode == GE_TEXLEVEL_MODE_SLOPE{
-			dxstate.texMaxMipLevel.set(maxLevel);
+			dxstate.texMaxMipLevel.set(0);
 			dxstate.texMipLodBias.set(0.0f);
 		}
 		entry.lodBias = lodBias;
