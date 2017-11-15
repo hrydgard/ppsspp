@@ -800,6 +800,11 @@ bool VulkanContext::InitSwapchain() {
 	swap_chain_info.oldSwapchain = VK_NULL_HANDLE;
 	swap_chain_info.clipped = true;
 	swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+#ifndef ANDROID
+	// We don't support screenshots on Android
+	swap_chain_info.imageUsage = swap_chain_info.imageUsage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+#endif
+
 	swap_chain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swap_chain_info.queueFamilyIndexCount = 0;
 	swap_chain_info.pQueueFamilyIndices = NULL;

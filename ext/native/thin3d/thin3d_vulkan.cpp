@@ -1337,8 +1337,7 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 	if (channelBits & FBChannel::FB_DEPTH_BIT) aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
-	renderManager_.CopyFramebufferToMemorySync(src->GetFB(), aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride);
-	return true;
+	return renderManager_.CopyFramebufferToMemorySync(src ? src->GetFB() : nullptr, aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride);
 }
 
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {

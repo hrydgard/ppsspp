@@ -700,3 +700,13 @@ void FramebufferManagerVulkan::CompilePostShader() {
 
 	usePostShader_ = true;
 }
+
+bool FramebufferManagerVulkan::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
+	int w, h;
+	draw_->GetFramebufferDimensions(nullptr, &w, &h);
+	// I'm really not sure why I have to pass the wrong format here, it seems all the other color conversion are correct.
+	// But I get R/B swapped if I do what seems right... Maybe driver bug for copies from the backbuffer, who knows.
+	buffer.Allocate(w, h, GPU_DBG_FORMAT_8888_BGRA, false);
+	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
+	return true;
+}
