@@ -198,6 +198,7 @@ public:
 	const VkPhysicalDeviceFeatures &GetFeaturesAvailable() const { return featuresAvailable_; }
 	const VkPhysicalDeviceFeatures &GetFeaturesEnabled() const { return featuresEnabled_; }
 	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
+	const VkSurfaceCapabilitiesKHR &GetSurfaceCapabilities() const { return surfCapabilities_; }
 
 	bool IsDeviceExtensionAvailable(const char *name) const {
 		for (auto &iter : device_extension_properties_) {
@@ -301,6 +302,8 @@ private:
 
 	VkPhysicalDeviceFeatures featuresAvailable_{};
 	VkPhysicalDeviceFeatures featuresEnabled_{};
+
+	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 
 	std::vector<VkCommandBuffer> cmdQueue_;
 };
