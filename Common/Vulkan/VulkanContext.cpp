@@ -431,6 +431,10 @@ void VulkanContext::ChooseDevice(int physical_device) {
 			break;
 		}
 	}
+	if (deviceInfo_.preferredDepthStencilFormat == VK_FORMAT_UNDEFINED) {
+		// WTF? This is bad.
+		ELOG("Could not find a usable depth stencil format.");
+	}
 
 	// This is as good a place as any to do this
 	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device_], &memory_properties);
