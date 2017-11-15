@@ -413,7 +413,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	curHeight_ = fb ? fb->height : vulkan_->GetBackbufferHeight();
 }
 
-void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
 	VKRStep *step = new VKRStep{ VKRStepType::READBACK };
 	step->readback.aspectMask = aspectBits;
 	step->readback.src = src;
@@ -427,9 +427,26 @@ void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 
 	Draw::DataFormat srcFormat;
 	if (aspectBits & VK_IMAGE_ASPECT_COLOR_BIT) {
-		switch (src->color.format) {
-		case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
-		default: assert(false);
+		if (src) {
+			switch (src->color.format) {
+			case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
+			default: assert(false);
+			}
+		}
+		else {
+			// Backbuffer.
+			if (!(vulkan_->GetSurfaceCapabilities().supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
+				ELOG("Copying from backbuffer not supported, can't take screenshots");
+				return false;
+			}
+			switch (vulkan_->GetSwapchainFormat()) {
+			case VK_FORMAT_B8G8R8A8_UNORM: srcFormat = Draw::DataFormat::B8G8R8A8_UNORM; break;
+			case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
+			// NOTE: If you add supported formats here, make sure to also support them in VulkanQueueRunner::CopyReadbackBuffer.
+			default:
+				ELOG("Unsupported backbuffer format for screenshots");
+				return false;
+			}
 		}
 	} else if (aspectBits & VK_IMAGE_ASPECT_STENCIL_BIT) {
 		// Copies from stencil are always S8.
@@ -446,6 +463,7 @@ void VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 	}
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
 	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
+	return true;
 }
 
 void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
@@ -724,7 +742,7 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 
 		assert(res == VK_SUCCESS);
 
-		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage]);
+		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 
 		frameData.hasBegun = true;
 	}

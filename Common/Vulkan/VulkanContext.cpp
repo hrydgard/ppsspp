@@ -712,9 +712,8 @@ bool VulkanContext::InitQueue() {
 
 bool VulkanContext::InitSwapchain() {
 	VkResult U_ASSERT_ONLY res;
-	VkSurfaceCapabilitiesKHR surfCapabilities;
 
-	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities);
+	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
 	assert(res == VK_SUCCESS);
 
 	uint32_t presentModeCount;
@@ -727,7 +726,7 @@ bool VulkanContext::InitSwapchain() {
 
 	VkExtent2D swapChainExtent;
 	// width and height are either both -1, or both not -1.
-	if (surfCapabilities.currentExtent.width == (uint32_t)-1) {
+	if (surfCapabilities_.currentExtent.width == (uint32_t)-1) {
 		// If the surface size is undefined, the size is set to
 		// the size of the images requested.
 		ILOG("initSwapchain: %dx%d", width_, height_);
@@ -735,7 +734,7 @@ bool VulkanContext::InitSwapchain() {
 		swapChainExtent.height = height_;
 	} else {
 		// If the surface size is defined, the swap chain size must match
-		swapChainExtent = surfCapabilities.currentExtent;
+		swapChainExtent = surfCapabilities_.currentExtent;
 	}
 
 	// TODO: Find a better way to specify the prioritized present mode while being able
@@ -771,20 +770,20 @@ bool VulkanContext::InitSwapchain() {
 	// Determine the number of VkImage's to use in the swap chain (we desire to
 	// own only 1 image at a time, besides the images being displayed and
 	// queued for display):
-	uint32_t desiredNumberOfSwapChainImages = surfCapabilities.minImageCount + 1;
+	uint32_t desiredNumberOfSwapChainImages = surfCapabilities_.minImageCount + 1;
 	ILOG("numSwapChainImages: %d", desiredNumberOfSwapChainImages);
-	if ((surfCapabilities.maxImageCount > 0) &&
-		(desiredNumberOfSwapChainImages > surfCapabilities.maxImageCount))
+	if ((surfCapabilities_.maxImageCount > 0) &&
+		(desiredNumberOfSwapChainImages > surfCapabilities_.maxImageCount))
 	{
 		// Application must settle for fewer images than desired:
-		desiredNumberOfSwapChainImages = surfCapabilities.maxImageCount;
+		desiredNumberOfSwapChainImages = surfCapabilities_.maxImageCount;
 	}
 
 	VkSurfaceTransformFlagBitsKHR preTransform;
-	if (surfCapabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
+	if (surfCapabilities_.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	} else {
-		preTransform = surfCapabilities.currentTransform;
+		preTransform = surfCapabilities_.currentTransform;
 	}
 
 	VkSwapchainCreateInfoKHR swap_chain_info = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
@@ -799,12 +798,22 @@ bool VulkanContext::InitSwapchain() {
 	swap_chain_info.presentMode = swapchainPresentMode;
 	swap_chain_info.oldSwapchain = VK_NULL_HANDLE;
 	swap_chain_info.clipped = true;
-	swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+		swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+#ifndef ANDROID
+	// We don't support screenshots on Android
+	// Add more usage flags if they're supported.
+	if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+		swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+#endif
+
 	swap_chain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swap_chain_info.queueFamilyIndexCount = 0;
 	swap_chain_info.pQueueFamilyIndices = NULL;
 	// OPAQUE is not supported everywhere.
-	if (surfCapabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) {
+	if (surfCapabilities_.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) {
 		swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	} else {
 		// This should be supported anywhere, and is the only thing supported on the SHIELD TV, for example.
