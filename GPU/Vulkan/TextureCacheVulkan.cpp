@@ -100,9 +100,9 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 		samp.maxAnisotropy = 1.0f;
 		samp.anisotropyEnable = false;
 	}
-	samp.maxLod = (float)key.maxLevel / 256.0f;
-	samp.minLod = (float)key.minLevel / 256.0f;
-	samp.mipLodBias = key.lodBias / 256.0f;
+	samp.maxLod = (float)(int32_t)key.maxLevel * (1.0f / 256.0f);
+	samp.minLod = (float)(int32_t)key.minLevel * (1.0f / 256.0f);
+	samp.mipLodBias = (float)(int32_t)key.lodBias * (1.0f / 256.0f);
 
 	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &sampler);
 	assert(res == VK_SUCCESS);
