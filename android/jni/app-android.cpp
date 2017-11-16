@@ -291,6 +291,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	}
 	if (VK_SUCCESS != g_Vulkan->CreateInstance("PPSSPP", gitVer.ToInteger(), VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED)) {
 		ELOG("Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
+		System_SendMessage("toast", "No Vulkan compatible device found. Using OpenGL instead.");
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
 		return false;
