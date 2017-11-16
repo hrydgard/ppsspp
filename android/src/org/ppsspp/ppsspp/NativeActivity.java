@@ -520,7 +520,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
     }
 
 	private Point desiredSize = new Point();
-
+	private int badOrientationCount = 0;
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		pixelWidth = holder.getSurfaceFrame().width();
@@ -530,10 +530,13 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		int requestedOr = getRequestedOrientation();
 		boolean requestedPortrait = requestedOr == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT || requestedOr == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
 		boolean detectedPortrait = pixelHeight > pixelWidth;
-		if (requestedPortrait != detectedPortrait) {
-			Log.e(TAG, "Bad orientation detected! Recreating activity.");
+		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait) {
+			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
+			badOrientationCount++;
 			recreate();;
 			return;
+		} else if (requestedPortrait == detectedPortrait) {
+			badOrientationCount = 0;
 		}
 
 		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
