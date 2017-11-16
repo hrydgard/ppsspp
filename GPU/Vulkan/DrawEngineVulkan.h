@@ -147,6 +147,15 @@ public:
 		DoFlush();
 	}
 
+	void FinishDeferred() {
+		if (!numDrawCalls)
+			return;
+		// Decode any pending vertices. And also flush while we're at it, for simplicity.
+		// It might be possible to only decode like in the other backends, but meh, it can't matter.
+		// Issue #10095 has a nice example of where this is required.
+		DoFlush();
+	}
+
 	void DispatchFlush() override { Flush(); }
 	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
 		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
