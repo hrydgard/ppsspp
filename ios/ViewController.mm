@@ -8,6 +8,7 @@
 #import "ViewController.h"
 #import "AudioEngine.h"
 #import <GLKit/GLKit.h>
+#include <cassert>
 
 #include "base/display.h"
 #include "base/timeutil.h"
@@ -21,7 +22,6 @@
 
 #include "Core/Config.h"
 #include "Common/GraphicsContext.h"
-#include "GPU/GLES/FBO.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -36,10 +36,20 @@
 
 class IOSDummyGraphicsContext : public DummyGraphicsContext {
 public:
-    Draw::DrawContext *CreateThin3DContext() override {
-        CheckGLExtensions();
-        return Draw::T3DCreateGLContext();
-    }
+	IOSDummyGraphicsContext() {
+		CheckGLExtensions();
+		draw_ = Draw::T3DCreateGLContext();
+		bool success = draw_->CreatePresets();
+		assert(success);
+	}
+	~IOSDummyGraphicsContext() {
+		delete draw_;
+	}
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
+private:
+	Draw::DrawContext *draw_;
 };
 
 float dp_xscale = 1.0f;
@@ -50,9 +60,7 @@ double lastStartPress = 0.0f;
 bool simulateAnalog = false;
 
 extern ScreenManager *screenManager;
-InputState input_state;
 
-extern std::string ram_temp_file;
 extern bool iosCanUseJit;
 extern bool targetIsJailbroken;
 
@@ -69,7 +77,7 @@ static GraphicsContext *graphicsContext;
 @property (nonatomic) NSString* bundlePath;
 @property (nonatomic) NSMutableArray* touches;
 @property (nonatomic) AudioEngine* audioEngine;
-@property (nonatomic) iCadeReaderView* iCadeView;
+//@property (nonatomic) iCadeReaderView* iCadeView;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 @property (nonatomic) GCController *gameController __attribute__((weak_import));
 #endif
@@ -93,12 +101,6 @@ static GraphicsContext *graphicsContext;
 		self.documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 
-		memset(&input_state, 0, sizeof(input_state));
-
-		net::Init();
-
-		ram_temp_file = [[NSTemporaryDirectory() stringByAppendingPathComponent:@"ram_tmp.file"] fileSystemRepresentation];
-		
 		iosCanUseJit = true;
 		targetIsJailbroken = false;
 		NSArray *jailPath = [NSArray arrayWithObjects:
@@ -175,15 +177,19 @@ static GraphicsContext *graphicsContext;
 		size.width = h;
 	}
 
-	g_dpi = (IS_IPAD() ? 200 : 150) * scale;
-	g_dpi_scale = 240.0f / (float)g_dpi;
+	g_dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
+	g_dpi_scale_x = 240.0f / g_dpi;
+	g_dpi_scale_y = 240.0f / g_dpi;
+	g_dpi_scale_real_x = g_dpi_scale_x;
+	g_dpi_scale_real_y = g_dpi_scale_y;
 	pixel_xres = size.width * scale;
 	pixel_yres = size.height * scale;
 
-	dp_xres = pixel_xres * g_dpi_scale;
-	dp_yres = pixel_yres * g_dpi_scale;
+	dp_xres = pixel_xres * g_dpi_scale_x;
+	dp_yres = pixel_yres * g_dpi_scale_y;
 
-	pixel_in_dps = (float)pixel_xres / (float)dp_xres;
+	pixel_in_dps_x = (float)pixel_xres / (float)dp_xres;
+	pixel_in_dps_y = (float)pixel_yres / (float)dp_yres;
 
 	graphicsContext = new IOSDummyGraphicsContext();
 
@@ -192,10 +198,10 @@ static GraphicsContext *graphicsContext;
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
 	
-	self.iCadeView = [[iCadeReaderView alloc] init];
+	/*self.iCadeView = [[iCadeReaderView alloc] init];
 	[self.view addSubview:self.iCadeView];
 	self.iCadeView.delegate = self;
-	self.iCadeView.active = YES;
+	self.iCadeView.active = YES;*/
 	
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 	if ([GCController class]) {
@@ -253,21 +259,13 @@ static GraphicsContext *graphicsContext;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-	{
-		lock_guard guard(input_state.lock);
-		UpdateInputState(&input_state);
-		NativeUpdate(input_state);
-		EndInputState(&input_state);
-	}
-
+	NativeUpdate();
 	NativeRender(graphicsContext);
 	time_update();
 }
 
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
 {
-	lock_guard guard(input_state.lock);
-
 	float scale = [UIScreen mainScreen].scale;
 	
 	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
@@ -278,19 +276,14 @@ static GraphicsContext *graphicsContext;
 	float scaledY = (int)(y * dp_yscale) * scale;
 
 	TouchInput input;
-
-	input_state.pointer_x[pointerId] = scaledX;
-	input_state.pointer_y[pointerId] = scaledY;
 	input.x = scaledX;
 	input.y = scaledY;
 	switch (code) {
 		case 1 :
-			input_state.pointer_down[pointerId] = true;
 			input.flags = TOUCH_DOWN;
 			break;
 
 		case 2 :
-			input_state.pointer_down[pointerId] = false;
 			input.flags = TOUCH_UP;
 			break;
 
@@ -298,7 +291,6 @@ static GraphicsContext *graphicsContext;
 			input.flags = TOUCH_MOVE;
 			break;
 	}
-	input_state.mouse_valid = true;
 	input.id = pointerId;
 	NativeTouch(input);
 }
@@ -356,6 +348,17 @@ static GraphicsContext *graphicsContext;
 		[self touchX:point.x y:point.y code:2 pointerId:[[dict objectForKey:@"index"] intValue]];
 		[self.touches removeObject:dict];
 	}
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    for(UITouch* touch in touches)
+    {
+        CGPoint point = [touch locationInView:self.view];
+        NSDictionary* dict = [self touchDictBy:touch];
+        [self touchX:point.x y:point.y code:2 pointerId:[[dict objectForKey:@"index"] intValue]];
+        [self.touches removeObject:dict];
+    }
 }
 
 - (void)bindDefaultFBO
@@ -582,7 +585,7 @@ static GraphicsContext *graphicsContext;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_X;
-		axisInput.value = value;
+		axisInput.value = value * g_Config.fXInputAnalogSensitivity;
 		NativeAxis(axisInput);
 	};
 	
@@ -591,7 +594,7 @@ static GraphicsContext *graphicsContext;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Y;
-		axisInput.value = -value;
+		axisInput.value = -value * g_Config.fXInputAnalogSensitivity;
 		NativeAxis(axisInput);
 	};
 	
@@ -601,7 +604,7 @@ static GraphicsContext *graphicsContext;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Z;
-		axisInput.value = value;
+		axisInput.value = value * g_Config.fXInputAnalogSensitivity;
 		NativeAxis(axisInput);
 	};
 	
@@ -610,7 +613,7 @@ static GraphicsContext *graphicsContext;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_RZ;
-		axisInput.value = -value;
+		axisInput.value = -value * g_Config.fXInputAnalogSensitivity;
 		NativeAxis(axisInput);
 	};
 }

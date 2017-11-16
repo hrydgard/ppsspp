@@ -42,6 +42,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 	off.section = "Off";
 	off.outputResolution = false;
 	off.isUpscalingFilter = false;
+	off.requires60fps = false;
 	shaderInfo.push_back(off);
 
 	for (size_t d = 0; d < directories.size(); d++) {
@@ -86,6 +87,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					info.vertexShaderFile = path + "/" + temp;
 					section.Get("OutputResolution", &info.outputResolution, false);
 					section.Get("Upscaling", &info.isUpscalingFilter, false);
+					section.Get("60fps", &info.requires60fps, false);
 
 					// Let's ignore shaders we can't support. TODO: Not a very good check
 					if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
@@ -107,7 +109,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 }
 
 // Scans the directories for shader ini files and collects info about all the shaders found.
-void LoadAllPostShaderInfo() {
+void ReloadAllPostShaderInfo() {
 	std::vector<std::string> directories;
 	directories.push_back("shaders");
 	directories.push_back(g_Config.memStickDirectory + "PSP/shaders");
@@ -115,15 +117,13 @@ void LoadAllPostShaderInfo() {
 }
 
 const ShaderInfo *GetPostShaderInfo(std::string name) {
-	LoadAllPostShaderInfo();
 	for (size_t i = 0; i < shaderInfo.size(); i++) {
 		if (shaderInfo[i].section == name)
 			return &shaderInfo[i];
 	}
-	return 0;
+	return nullptr;
 }
 
 const std::vector<ShaderInfo> &GetAllPostShaderInfo() {
-	LoadAllPostShaderInfo();
 	return shaderInfo;
 }

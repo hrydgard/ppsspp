@@ -33,7 +33,7 @@ extern bool MsgAlert(bool yes_no, int Style, const char* format, ...)
 void SetEnableAlert(bool enable);
 
 #ifndef GEKKO
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 	#define PanicAlert(format, ...) MsgAlert(false, WARNING, format, __VA_ARGS__) 
 	#define PanicYesNo(format, ...) MsgAlert(true, WARNING, format, __VA_ARGS__) 
 #else

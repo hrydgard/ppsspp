@@ -137,13 +137,6 @@ void SoftwareTransform(
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
-	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
-
-#if defined(MOBILE_DEVICE)
-	if (vertexCount > 0x10000/3)
-		vertexCount = 0x10000/3;
-#endif
-
 	float uscale = 1.0f;
 	float vscale = 1.0f;
 	if (throughmode) {
@@ -400,13 +393,14 @@ void SoftwareTransform(
 	// rectangle out of many. Quite a small optimization though.
 	// Experiment: Disable on PowerVR (see issue #6290)
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
+	// TODO: Allow creating a depth clear and a color draw.
 	bool reallyAClear = false;
 	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear()) {
 		int scissorX2 = gstate.getScissorX2() + 1;
 		int scissorY2 = gstate.getScissorY2() + 1;
 		reallyAClear = IsReallyAClear(transformed, maxIndex, scissorX2, scissorY2);
 	}
-	if (reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {  // && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+	if (reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
 		// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
 		bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
 		bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
@@ -502,7 +496,7 @@ void SoftwareTransform(
 		const u16 *indsIn = (const u16 *)inds;
 		u16 *newInds = inds + vertexCount;
 		u16 *indsOut = newInds;
-		maxIndex = 4 * vertexCount;
+		maxIndex = 4 * (vertexCount / 2);
 		for (int i = 0; i < vertexCount; i += 2) {
 			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];

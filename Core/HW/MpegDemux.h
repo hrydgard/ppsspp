@@ -69,7 +69,7 @@ private:
 
 	int m_index;
 	int m_len;
-	u8* m_buf;
+	u8 *m_buf;
 	BufferQueue m_audioStream;
 	u8  m_audioFrame[0x2000];
 	int m_audioChannel;

@@ -13,7 +13,6 @@ import android.os.Environment;
 
 /**
  * Simple dialog to pick file. 
- * TODO: Use GameBrowser from MainScreen.cpp instead. Then remove this class.
  */
 public class SimpleFileChooser {
 

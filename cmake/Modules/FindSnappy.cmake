@@ -58,7 +58,7 @@ mark_as_advanced(
     SNAPPY_LIBRARIES
     SNAPPY_INCLUDE_DIR)
 
-add_library(Snappy::Snappy IMPORTED UNKNOWN GLOBAL)
+add_library(Snappy::Snappy IMPORTED UNKNOWN)
 set_target_properties(Snappy::Snappy PROPERTIES
   IMPORTED_LOCATION "${SNAPPY_LIBRARIES}"
   INTERFACE_INCLUDE_DIRECTORIES "${SNAPPY_INCLUDE_DIR}"

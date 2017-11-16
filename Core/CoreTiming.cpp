@@ -18,9 +18,9 @@
 
 #include <vector>
 #include <cstdio>
+#include <mutex>
 
 #include "base/logging.h"
-#include "base/mutex.h"
 #include "profiler/profiler.h"
 
 #include "Common/MsgHandler.h"
@@ -81,12 +81,12 @@ volatile u32 hasTsEvents = 0;
 // as we can already reach that structure through a register.
 int slicelength;
 
-MEMORY_ALIGNED16(s64) globalTimer;
+alignas(16) s64 globalTimer;
 s64 idledCycles;
 s64 lastGlobalTimeTicks;
 s64 lastGlobalTimeUs;
 
-static recursive_mutex externalEventSection;
+static std::mutex externalEventLock;
 
 std::vector<MHzChangeCallback> mhzChangeCallbacks;
 
@@ -181,7 +181,7 @@ int RegisterEvent(const char *name, TimedCallback callback)
 
 void AntiCrashCallback(u64 userdata, int cyclesLate)
 {
-	ERROR_LOG(TIME, "Savestate broken: an unregistered event was called.");
+	ERROR_LOG(SAVESTATE, "Savestate broken: an unregistered event was called.");
 	Core_Halt("invalid timing events");
 }
 
@@ -226,7 +226,7 @@ void Shutdown()
 		delete ev;
 	}
 
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 	while(eventTsPool)
 	{
 		Event *ev = eventTsPool;
@@ -250,7 +250,7 @@ u64 GetIdleTicks()
 // schedule things to be executed on the main thread.
 void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata)
 {
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 	Event *ne = GetNewTsEvent();
 	ne->time = GetTicks() + cyclesIntoFuture;
 	ne->type = event_type;
@@ -271,7 +271,7 @@ void ScheduleEvent_Threadsafe_Immediate(int event_type, u64 userdata)
 {
 	if(false) //Core::IsCPUThread())
 	{
-		lock_guard lk(externalEventSection);
+		std::lock_guard<std::mutex> lk(externalEventLock);
 		event_types[event_type].callback(userdata, 0);
 	}
 	else
@@ -366,7 +366,7 @@ s64 UnscheduleEvent(int event_type, u64 userdata)
 s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 {
 	s64 result = 0;
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 	if (!tsFirst)
 		return result;
 	while(tsFirst)
@@ -470,7 +470,7 @@ void RemoveEvent(int event_type)
 
 void RemoveThreadsafeEvent(int event_type)
 {
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 	if (!tsFirst)
 	{
 		return;
@@ -526,7 +526,7 @@ void ProcessFifoWaitEvents()
 	{
 		if (first->time <= (s64)GetTicks())
 		{
-//			LOG(TIMER, "[Scheduler] %s		 (%lld, %lld) ",
+//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ",
 //				first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
 			Event* evt = first;
 			first = first->next;
@@ -544,7 +544,7 @@ void MoveEvents()
 {
 	Common::AtomicStoreRelease(hasTsEvents, 0);
 
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 	// Move events from async queue into main queue
 	while (tsFirst)
 	{
@@ -573,6 +573,10 @@ void ForceCheck()
 	currentMIPS->downcount = -1;
 	// But let's not eat a bunch more time in Advance() because of this.
 	slicelength = -1;
+
+#ifdef _DEBUG
+	_dbg_assert_msg_(CPU, cyclesExecuted >= 0, "Shouldn't have a negative cyclesExecuted");
+#endif
 }
 
 void Advance()
@@ -613,7 +617,7 @@ void LogPendingEvents()
 	Event *ptr = first;
 	while (ptr)
 	{
-		//INFO_LOG(TIMER, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
+		//INFO_LOG(CPU, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
 		ptr = ptr->next;
 	}
 }
@@ -638,7 +642,7 @@ void Idle(int maxIdle)
 		}
 	}
 
-	VERBOSE_LOG(TIME, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
+	// VERBOSE_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
 	idledCycles += cyclesDown;
 	currentMIPS->downcount -= cyclesDown;
@@ -682,7 +686,7 @@ void Event_DoStateOld(PointerWrap &p, BaseEvent *ev)
 
 void DoState(PointerWrap &p)
 {
-	lock_guard lk(externalEventSection);
+	std::lock_guard<std::mutex> lk(externalEventLock);
 
 	auto s = p.Section("CoreTiming", 1, 3);
 	if (!s)

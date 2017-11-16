@@ -30,7 +30,7 @@
 #include "CPUDetect.h"
 #include "StringUtils.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #define _interlockedbittestandset workaround_ms_header_bug_platform_sdk6_set
@@ -52,7 +52,7 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
 #else
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 
 #define _XCR_XFEATURE_ENABLED_MASK 0
 static unsigned long long _xgetbv(unsigned int index)
@@ -108,14 +108,13 @@ void CPUInfo::Detect() {
 #endif
 	num_cores = 1;
 
-#ifdef _WIN32
-#ifdef _M_IX86
+#if PPSSPP_PLATFORM(UWP)
+	OS64bit = Mode64bit;  // TODO: Not always accurate!
+#elif defined(_WIN32) && defined(_M_IX86)
 	BOOL f64 = false;
 	IsWow64Process(GetCurrentProcess(), &f64);
 	OS64bit = (f64 == TRUE) ? true : false;
 #endif
-#endif
-
 	// Set obvious defaults, for extra safety
 	if (Mode64bit) {
 		bSSE = true;
@@ -268,10 +267,10 @@ std::string CPUInfo::Summarize()
 {
 	std::string sum;
 	if (num_cores == 1)
-		sum = StringFromFormat("%s, %i core", cpu_string, num_cores);
+		sum = StringFromFormat("%s, %d core", cpu_string, num_cores);
 	else
 	{
-		sum = StringFromFormat("%s, %i cores", cpu_string, num_cores);
+		sum = StringFromFormat("%s, %d cores", cpu_string, num_cores);
 		if (HTT) sum += StringFromFormat(" (%i logical threads per physical core)", logical_cpu_count);
 	}
 	if (bSSE) sum += ", SSE";

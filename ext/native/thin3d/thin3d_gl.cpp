@@ -1,16 +1,31 @@
 #include <stdio.h>
 #include <vector>
 #include <string>
+#include <algorithm>
 #include <map>
+#include <cassert>
 
 #include "base/logging.h"
-#include "image/zim_load.h"
 #include "math/dataconv.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "gfx/gl_common.h"
+#include "gfx/gl_debug_log.h"
+#include "gfx/GLStateCache.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx/gl_lost_manager.h"
+
+#ifdef IOS
+extern void bindDefaultFBO();
+#endif
+
+// #define DEBUG_READ_PIXELS 1
+
+// Workaround for Retroarch. Simply declare
+//   extern GLuint g_defaultFBO;
+// and set is as appropriate. Can adjust the variables in ext/native/base/display.h as
+// appropriate.
+GLuint g_defaultFBO = 0;
 
 namespace Draw {
 
@@ -73,7 +88,7 @@ static const unsigned short texWrapToGL[] = {
 #if !defined(USING_GLES2)
 	GL_CLAMP_TO_BORDER,
 #else
-	GL_REPEAT,
+	GL_CLAMP_TO_EDGE,
 #endif
 };
 
@@ -149,10 +164,7 @@ static const unsigned short primToGL[] = {
 #endif
 };
 
-static const char *glsl_fragment_prelude =
-"#ifdef GL_ES\n"
-"precision mediump float;\n"
-"#endif\n";
+class OpenGLBuffer;
 
 class OpenGLBlendState : public BlendState {
 public:
@@ -187,30 +199,12 @@ public:
 
 class OpenGLSamplerState : public SamplerState {
 public:
-	// Old school. Should also support using a sampler object.
-
-	GLint wrapS;
-	GLint wrapT;
+	GLint wrapU;
+	GLint wrapV;
+	GLint wrapW;
 	GLint magFilt;
 	GLint minFilt;
 	GLint mipMinFilt;
-
-	void Apply(bool hasMips, bool canWrap) {
-		if (canWrap) {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
-		} else {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		}
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilt);
-		if (hasMips) {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mipMinFilt);
-		} else {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilt);
-		}
-	}
 };
 
 class OpenGLDepthStencilState : public DepthStencilState {
@@ -244,13 +238,13 @@ public:
 		} else {
 			glDisable(GL_STENCIL_TEST);
 		}
-		glDisable(GL_STENCIL_TEST);
 	}
 };
 
 class OpenGLRasterState : public RasterState {
 public:
 	void Apply() {
+		glEnable(GL_SCISSOR_TEST);
 		if (!cullEnable) {
 			glDisable(GL_CULL_FACE);
 			return;
@@ -258,67 +252,11 @@ public:
 		glEnable(GL_CULL_FACE);
 		glFrontFace(frontFace);
 		glCullFace(cullMode);
-		glEnable(GL_SCISSOR_TEST);
 	}
 
 	GLboolean cullEnable;
 	GLenum cullMode;
 	GLenum frontFace;
-};
-
-class OpenGLBuffer : public Buffer, GfxResourceHolder {
-public:
-	OpenGLBuffer(size_t size, uint32_t flags) {
-		glGenBuffers(1, &buffer_);
-		target_ = (flags & BufferUsageFlag::INDEXDATA) ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
-		usage_ = 0;
-		if (flags & BufferUsageFlag::DYNAMIC)
-			usage_ = GL_STREAM_DRAW;
-		else
-			usage_ = GL_STATIC_DRAW;
-		knownSize_ = 0;
-		register_gl_resource_holder(this);
-	}
-	~OpenGLBuffer() override {
-		unregister_gl_resource_holder(this);
-		glDeleteBuffers(1, &buffer_);
-	}
-
-	void SetData(const uint8_t *data, size_t size) override {
-		Bind();
-		glBufferData(target_, size, data, usage_);
-		knownSize_ = size;
-	}
-
-	void SubData(const uint8_t *data, size_t offset, size_t size) override {
-		Bind();
-		if (size + offset > knownSize_) {
-			// Allocate the buffer.
-			glBufferData(target_, size + offset, NULL, usage_);
-			knownSize_ = size + offset;
-		}
-		glBufferSubData(target_, offset, size, data);
-	}
-	void Bind() {
-		glBindBuffer(target_, buffer_);
-	}
-
-	void GLLost() override {
-		buffer_ = 0;
-	}
-
-	void GLRestore() override {
-		ILOG("Recreating vertex buffer after gl_restore");
-		knownSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
-		glGenBuffers(1, &buffer_);
-	}
-
-private:
-	GLuint buffer_;
-	GLuint target_;
-	GLuint usage_;
-
-	size_t knownSize_;
 };
 
 GLuint ShaderStageToOpenGL(ShaderStage stage) {
@@ -336,51 +274,70 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 	}
 }
 
-// Not registering this as a resource holder, instead Pipeline is registered. It will
-// invoke Compile again to recreate the shader then link them together.
-class OpenGLShaderModule : public ShaderModule {
+class OpenGLShaderModule : public ShaderModule, public GfxResourceHolder {
 public:
-	OpenGLShaderModule(ShaderStage stage) : stage_(stage), shader_(0) {
+	OpenGLShaderModule(ShaderStage stage) : stage_(stage) {
+		ILOG("Shader module created (%p)", this);
+		register_gl_resource_holder(this, "drawcontext_shader_module", 0);
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
 
 	~OpenGLShaderModule() {
-		glDeleteShader(shader_);
+		ILOG("Shader module destroyed (%p)", this);
+		if (shader_)
+			glDeleteShader(shader_);
+		unregister_gl_resource_holder(this);
 	}
 
-	bool Compile(const char *source);
+	bool Compile(ShaderLanguage language, const uint8_t *data, size_t dataSize);
 	GLuint GetShader() const {
 		return shader_;
 	}
 	const std::string &GetSource() const { return source_; }
 
-	void Unset() {
-		shader_ = 0;
+	ShaderLanguage GetLanguage() {
+		return language_;
 	}
 	ShaderStage GetStage() const override {
 		return stage_;
 	}
 
+	void GLLost() override {
+		ILOG("Shader module lost");
+		// Shader has been destroyed since the old context is gone, so let's zero it.
+		shader_ = 0;
+	}
+
+	void GLRestore() override {
+		ILOG("Shader module being restored");
+		if (!Compile(language_, (const uint8_t *)source_.data(), source_.size())) {
+			ELOG("Shader restore compilation failed: %s", source_.c_str());
+		}
+	}
+
 private:
 	ShaderStage stage_;
-	GLuint shader_;
-	GLuint glstage_;
-	bool ok_;
+	ShaderLanguage language_;
+	GLuint shader_ = 0;
+	GLuint glstage_ = 0;
+	bool ok_ = false;
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool OpenGLShaderModule::Compile(const char *source) {
-	source_ = source;
+bool OpenGLShaderModule::Compile(ShaderLanguage language, const uint8_t *data, size_t dataSize) {
+	source_ = std::string((const char *)data);
 	shader_ = glCreateShader(glstage_);
+	language_ = language;
 
 	std::string temp;
-	// Add the prelude on automatically for fragment shaders.
-	if (glstage_ == GL_FRAGMENT_SHADER) {
-		temp = std::string(glsl_fragment_prelude) + source;
-		source = temp.c_str();
+	// Add the prelude on automatically.
+	if (glstage_ == GL_FRAGMENT_SHADER || glstage_ == GL_VERTEX_SHADER) {
+		temp = ApplyGLSLPrelude(source_, glstage_);
+		source_ = temp.c_str();
 	}
 
-	glShaderSource(shader_, 1, &source, nullptr);
+	const char *code = source_.c_str();
+	glShaderSource(shader_, 1, &code, nullptr);
 	glCompileShader(shader_);
 	GLint success = 0;
 	glGetShaderiv(shader_, GL_COMPILE_STATUS, &success);
@@ -424,16 +381,16 @@ struct UniformInfo {
 	int loc_;
 };
 
-// TODO: Add Uniform Buffer support.
 class OpenGLPipeline : public Pipeline, GfxResourceHolder {
 public:
 	OpenGLPipeline() {
 		program_ = 0;
-		register_gl_resource_holder(this);
+		// Priority 1 so this gets restored after the shaders.
+		register_gl_resource_holder(this, "drawcontext_pipeline", 1);
 	}
 	~OpenGLPipeline() {
 		unregister_gl_resource_holder(this);
-		for (auto iter : shaders) {
+		for (auto &iter : shaders) {
 			iter->Release();
 		}
 		glDeleteProgram(program_);
@@ -442,32 +399,22 @@ public:
 		if (raster) raster->Release();
 		if (inputLayout) inputLayout->Release();
 	}
-	bool RequiresBuffer() override {
-		return inputLayout->RequiresBuffer();
-	}
 
 	bool LinkShaders();
 
-	void Apply();
-	void Unapply();
-
 	int GetUniformLoc(const char *name);
-
-	void SetVector(const char *name, float *value, int n) override;
-	void SetMatrix4x4(const char *name, const float value[16]) override;
 
 	void GLLost() override {
 		program_ = 0;
-		for (auto iter : shaders) {
-			iter->Unset();
-		}
 	}
 
 	void GLRestore() override {
-		for (auto iter : shaders) {
-			iter->Compile(iter->GetSource().c_str());
-		}
+		// Shaders will have been restored before the pipeline.
 		LinkShaders();
+	}
+
+	bool RequiresBuffer() override {
+		return inputLayout->RequiresBuffer();
 	}
 
 	GLuint prim;
@@ -477,10 +424,16 @@ public:
 	OpenGLBlendState *blend = nullptr;
 	OpenGLRasterState *raster = nullptr;
 
-private:
+	// TODO: Optimize by getting the locations first and putting in a custom struct
+	UniformBufferDesc dynamicUniforms;
+
 	GLuint program_;
-	std::map<std::string, UniformInfo> uniforms_;
+private:
+	std::map<std::string, UniformInfo> uniformCache_;
 };
+
+class OpenGLFramebuffer;
+class OpenGLTexture;
 
 class OpenGLContext : public DrawContext {
 public:
@@ -490,47 +443,59 @@ public:
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
 	}
+	uint32_t GetSupportedShaderLanguages() const override {
+#if defined(USING_GLES2)
+		return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_ES_300;
+#else
+		return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_410;
+#endif
+	}
+	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
-	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
-	Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
-	Texture *CreateTexture() override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
+
+	Texture *CreateTexture(const TextureDesc &desc) override;
+	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
+	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
+
+	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
+
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) override;
+
+	// These functions should be self explanatory.
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
+	// color must be 0, for now.
+	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
+
+	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
+
+	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
-		if (samplerStates_.size() < (size_t)(start + count)) {
-			samplerStates_.resize(start + count);
+		if (boundSamplers_.size() < (size_t)(start + count)) {
+			boundSamplers_.resize(start + count);
 		}
-		for (int i = 0; i < count; ++i) {
+		for (int i = 0; i < count; i++) {
 			int index = i + start;
-			OpenGLSamplerState *s = static_cast<OpenGLSamplerState *>(states[index]);
-
-			if (samplerStates_[index]) {
-				samplerStates_[index]->Release();
-			}
-			samplerStates_[index] = s;
-			samplerStates_[index]->AddRef();
-
-			// TODO: Ideally, get these from the texture and apply on the right stage?
-			if (index == 0) {
-				s->Apply(false, true);
-			}
+			boundSamplers_[index] = static_cast<OpenGLSamplerState *>(states[index]);
 		}
 	}
-
-	ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorRect(int left, int top, int width, int height) override {
 		glScissor(left, targetHeight_ - (top + height), width, height);
 	}
 
 	void SetViewports(int count, Viewport *viewports) override {
-		// TODO: Add support for multiple viewports.
-		glViewport(viewports[0].TopLeftX, viewports[0].TopLeftY, viewports[0].Width, viewports[0].Height);
+		// TODO: Use glViewportArrayv.
+		glViewport((GLint)viewports[0].TopLeftX, (GLint)viewports[0].TopLeftY, (GLsizei)viewports[0].Width, (GLsizei)viewports[0].Height);
 #if defined(USING_GLES2)
 		glDepthRangef(viewports[0].MinDepth, viewports[0].MaxDepth);
 #else
@@ -538,13 +503,30 @@ public:
 #endif
 	}
 
+	void SetBlendFactor(float color[4]) override {
+		glBlendColor(color[0], color[1], color[2], color[3]);
+	}
+
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindPipeline(Pipeline *pipeline) override;
+	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
+		for (int i = 0; i < count; i++) {
+			curVBuffers_[i + start] = (OpenGLBuffer  *)buffers[i];
+			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
+		}
+	}
+	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
+		curIBuffer_ = (OpenGLBuffer  *)indexBuffer;
+		curIBufferOffset_ = offset;
+	}
+
+	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
 	// TODO: Add more sophisticated draws.
-	void Draw(Buffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) override;
+	void Draw(int vertexCount, int offset) override;
+	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
+
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	std::string GetInfoString(InfoField info) const override {
@@ -571,30 +553,60 @@ public:
 					return "VENDOR_UNKNOWN";
 				}
 				break;
-			case RENDERER: return (const char *)glGetString(GL_RENDERER);
+			case DRIVER: return (const char *)glGetString(GL_RENDERER);
 			case SHADELANGVERSION: return (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
 			case APIVERSION: return (const char *)glGetString(GL_VERSION);
 			default: return "?";
 		}
 	}
 
-	std::vector<OpenGLSamplerState *> samplerStates_;
-	OpenGLPipeline *curPipeline_;
-	DeviceCaps caps_;
+	uintptr_t GetNativeObject(NativeObject obj) override {
+		return 0;
+	}
+
+	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override {}
+
+private:
+	OpenGLFramebuffer *fbo_ext_create(const FramebufferDesc &desc);
+	void fbo_bind_fb_target(bool read, GLuint name);
+	GLenum fbo_get_fb_target(bool read, GLuint **cached);
+	void fbo_unbind();
+	void ApplySamplers();
+
+	std::vector<OpenGLSamplerState *> boundSamplers_;
+	OpenGLTexture *boundTextures_[8]{};
+	int maxTextures_ = 0;
+	DeviceCaps caps_{};
+	
+	// Bound state
+	OpenGLPipeline *curPipeline_ = nullptr;
+	OpenGLBuffer *curVBuffers_[4]{};
+	int curVBufferOffsets_[4]{};
+	OpenGLBuffer *curIBuffer_ = nullptr;
+	int curIBufferOffset_ = 0;
+
+	// Framebuffer state
+	GLuint currentDrawHandle_ = 0;
+	GLuint currentReadHandle_ = 0;
 };
 
 OpenGLContext::OpenGLContext() {
-	CreatePresets();
-	// TODO: Detect caps
+	// TODO: Detect more caps
+	if (gl_extensions.IsGLES) {
+		if (gl_extensions.OES_packed_depth_stencil || gl_extensions.OES_depth24) {
+			caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
+		} else {
+			caps_.preferredDepthBufferFormat = DataFormat::D16;
+		}
+	} else {
+		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
+	}
+	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
+	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
 }
 
 OpenGLContext::~OpenGLContext() {
-	for (OpenGLSamplerState *s : samplerStates_) {
-		if (s) {
-			s->Release();
-		}
-	}
-	samplerStates_.clear();
+	boundSamplers_.clear();
 }
 
 InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
@@ -607,152 +619,249 @@ InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
 GLuint TypeToTarget(TextureType type) {
 	switch (type) {
 #ifndef USING_GLES2
-	case LINEAR1D: return GL_TEXTURE_1D;
+	case TextureType::LINEAR1D: return GL_TEXTURE_1D;
 #endif
-	case LINEAR2D: return GL_TEXTURE_2D;
-	case LINEAR3D: return GL_TEXTURE_3D;
-	case CUBE: return GL_TEXTURE_CUBE_MAP;
+	case TextureType::LINEAR2D: return GL_TEXTURE_2D;
+	case TextureType::LINEAR3D: return GL_TEXTURE_3D;
+	case TextureType::CUBE: return GL_TEXTURE_CUBE_MAP;
 #ifndef USING_GLES2
-	case ARRAY1D: return GL_TEXTURE_1D_ARRAY;
+	case TextureType::ARRAY1D: return GL_TEXTURE_1D_ARRAY;
 #endif
-	case ARRAY2D: return GL_TEXTURE_2D_ARRAY;
-	default: return GL_NONE;
+	case TextureType::ARRAY2D: return GL_TEXTURE_2D_ARRAY;
+	default:
+		ELOG("Bad texture type %d", (int)type);
+		return GL_NONE;
 	}
 }
 
-class Thin3DGLTexture : public Texture, GfxResourceHolder {
+inline bool isPowerOf2(int n) {
+	return n == 1 || (n & (n - 1)) == 0;
+}
+
+class OpenGLTexture : public Texture {
 public:
-	Thin3DGLTexture() : tex_(0), target_(0) {
-		generatedMips_ = false;
-		canWrap_ = true;
-		width_ = 0;
-		height_ = 0;
-		depth_ = 0;
-		glGenTextures(1, &tex_);
-		register_gl_resource_holder(this);
-	}
-	Thin3DGLTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
-		generatedMips_ = false;
-		canWrap_ = true;
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
-		glGenTextures(1, &tex_);
-		register_gl_resource_holder(this);
-	}
-	~Thin3DGLTexture() {
-		unregister_gl_resource_holder(this);
-		Destroy();
-	}
+	OpenGLTexture(const TextureDesc &desc);
+	~OpenGLTexture();
 
-	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override {
-		generatedMips_ = false;
-		canWrap_ = true;
-		format_ = format;
-		target_ = TypeToTarget(type);
-		mipLevels_ = mipLevels;
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
-		return true;
-	}
-
-	void Destroy() {
-		if (tex_) {
-			glDeleteTextures(1, &tex_);
-			tex_ = 0;
-			generatedMips_ = false;
-		}
-	}
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
-	void AutoGenMipmaps() override;
-
-	bool HasMips() {
+	bool HasMips() const {
 		return mipLevels_ > 1 || generatedMips_;
 	}
-	bool CanWrap() {
+	bool CanWrap() const {
 		return canWrap_;
 	}
-
+	TextureType GetType() const { return type_; }
 	void Bind() {
 		glBindTexture(target_, tex_);
 	}
 
-	void GLLost() override {
-		// We can assume that the texture is gone.
-		tex_ = 0;
-		generatedMips_ = false;
-	}
-
-	void GLRestore() override {
-		if (!filename_.empty()) {
-			if (LoadFromFile(filename_.c_str())) {
-				ILOG("Reloaded lost texture %s", filename_.c_str());
-			} else {
-				ELOG("Failed to reload lost texture %s", filename_.c_str());
-				tex_ = 0;
-			}
-		} else {
-			WLOG("Texture %p cannot be restored - has no filename", this);
-			tex_ = 0;
-		}
-	}
-
-	void Finalize(int zim_flags) override;
+	void AutoGenMipmaps();
 
 private:
-	GLuint tex_;
-	GLuint target_;
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
+
+	GLuint tex_ = 0;
+	GLuint target_ = 0;
 
 	DataFormat format_;
+	TextureType type_;
 	int mipLevels_;
 	bool generatedMips_;
 	bool canWrap_;
 };
 
-Texture *OpenGLContext::CreateTexture() {
-	return new Thin3DGLTexture();
+OpenGLTexture::OpenGLTexture(const TextureDesc &desc) {
+	generatedMips_ = false;
+	canWrap_ = true;
+	width_ = desc.width;
+	height_ = desc.height;
+	depth_ = desc.depth;
+	format_ = desc.format;
+	type_ = desc.type;
+	target_ = TypeToTarget(desc.type);
+	canWrap_ = isPowerOf2(width_) && isPowerOf2(height_);
+	mipLevels_ = desc.mipLevels;
+	if (!desc.initData.size())
+		return;
+
+	glActiveTexture(GL_TEXTURE0 + 0);
+	glGenTextures(1, &tex_);
+	glBindTexture(target_, tex_);
+
+	int level = 0;
+	for (auto data : desc.initData) {
+		SetImageData(0, 0, 0, width_, height_, depth_, level, 0, data);
+		width_ = (width_ + 1) / 2;
+		height_ = (height_ + 1) / 2;
+		level++;
+	}
+	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
+
+#ifdef USING_GLES2
+	if (gl_extensions.GLES3) {
+		glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, mipLevels_ - 1);
+	}
+#else
+	glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, mipLevels_ - 1);
+#endif
+	glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, mipLevels_ > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+	glTexParameteri(target_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	if ((int)desc.initData.size() < desc.mipLevels && desc.generateMips) {
+		ILOG("Generating mipmaps");
+		AutoGenMipmaps();
+	}
+
+	// Unbind.
+	glBindTexture(target_, 0);
 }
 
-Texture *OpenGLContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	return new Thin3DGLTexture(type, format, width, height, depth, mipLevels);
+OpenGLTexture::~OpenGLTexture() {
+	if (tex_) {
+		glDeleteTextures(1, &tex_);
+		tex_ = 0;
+		generatedMips_ = false;
+	}
 }
 
-void Thin3DGLTexture::AutoGenMipmaps() {
+void OpenGLTexture::AutoGenMipmaps() {
 	if (!generatedMips_) {
-		Bind();
+		glBindTexture(target_, tex_);
 		glGenerateMipmap(target_);
-		// TODO: Really, this should follow the sampler state.
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 		generatedMips_ = true;
 	}
 }
 
-void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-	int internalFormat;
-	int format;
-	int type;
-	switch (format_) {
+class OpenGLFramebuffer : public Framebuffer, public GfxResourceHolder {
+public:
+	OpenGLFramebuffer() {
+		register_gl_resource_holder(this, "framebuffer", 0);
+	}
+	~OpenGLFramebuffer();
+
+	void GLLost() override {
+		handle = 0;
+		color_texture = 0;
+		z_stencil_buffer = 0;
+		z_buffer = 0;
+		stencil_buffer = 0;
+	}
+
+	void GLRestore() override {
+		ELOG("Restoring framebuffers not yet implemented");
+	}
+
+	GLuint handle = 0;
+	GLuint color_texture = 0;
+	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
+	GLuint z_buffer = 0;
+	GLuint stencil_buffer = 0;
+
+	int width;
+	int height;
+	FBColorDepth colorDepth;
+};
+
+
+// TODO: Also output storage format (GL_RGBA8 etc) for modern GL usage.
+static bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint &format, GLuint &type, int &alignment) {
+	alignment = 4;
+	switch (fmt) {
 	case DataFormat::R8G8B8A8_UNORM:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case DataFormat::R4G4B4A4_UNORM:
+
+	case DataFormat::D32F:
+		internalFormat = GL_DEPTH_COMPONENT;
+		format = GL_DEPTH_COMPONENT;
+		type = GL_FLOAT;
+		break;
+
+#ifndef USING_GLES2
+	case DataFormat::S8:
+		internalFormat = GL_STENCIL_INDEX;
+		format = GL_STENCIL_INDEX;
+		type = GL_UNSIGNED_BYTE;
+		alignment = 1;
+		break;
+#endif
+
+	case DataFormat::R8G8B8_UNORM:
+		internalFormat = GL_RGB;
+		format = GL_RGB;
+		type = GL_UNSIGNED_BYTE;
+		alignment = 1;
+		break;
+
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
+		alignment = 2;
 		break;
+
+	case DataFormat::B5G6R5_UNORM_PACK16:
+		internalFormat = GL_RGB;
+		format = GL_RGB;
+		type = GL_UNSIGNED_SHORT_5_6_5;
+		alignment = 2;
+		break;
+
+	case DataFormat::B5G5R5A1_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_5_5_5_1;
+		alignment = 2;
+		break;
+
+#ifndef USING_GLES2
+	case DataFormat::A4R4G4B4_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+		alignment = 2;
+		break;
+
+	case DataFormat::R5G6B5_UNORM_PACK16:
+		internalFormat = GL_RGB;
+		format = GL_RGB;
+		type = GL_UNSIGNED_SHORT_5_6_5_REV;
+		alignment = 2;
+		break;
+
+	case DataFormat::A1R5G5B5_UNORM_PACK16:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+		alignment = 2;
+		break;
+#endif
+
 	default:
-		return;
+		ELOG("Thin3d GL: Unsupported texture format %d", (int)fmt);
+		return false;
 	}
-	if (level == 0) {
+	return true;
+}
+
+void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
+	if (width != width_ || height != height_ || depth != depth_) {
+		// When switching to texStorage we need to handle this correctly.
 		width_ = width;
 		height_ = height;
 		depth_ = depth;
 	}
 
-	Bind();
+	GLuint internalFormat;
+	GLuint format;
+	GLuint type;
+	int alignment;
+	if (!Thin3DFormatToFormatAndType(format_, internalFormat, format, type, alignment)) {
+		return;
+	}
+
+	CHECK_GL_ERROR_IF_DEBUG();
 	switch (target_) {
 	case GL_TEXTURE_2D:
 		glTexImage2D(GL_TEXTURE_2D, level, internalFormat, width_, height_, 0, format, type, data);
@@ -761,16 +870,86 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 		ELOG("Thin3D GL: Targets other than GL_TEXTURE_2D not yet supported");
 		break;
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-bool isPowerOf2(int n) {
-	return n == 1 || (n & (n - 1)) == 0;
+
+#ifdef DEBUG_READ_PIXELS
+// TODO: Make more generic.
+static void LogReadPixelsError(GLenum error) {
+	switch (error) {
+	case GL_NO_ERROR:
+		break;
+	case GL_INVALID_ENUM:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_ENUM");
+		break;
+	case GL_INVALID_VALUE:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_VALUE");
+		break;
+	case GL_INVALID_OPERATION:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_OPERATION");
+		break;
+	case GL_INVALID_FRAMEBUFFER_OPERATION:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
+		break;
+	case GL_OUT_OF_MEMORY:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_OUT_OF_MEMORY");
+		break;
+#ifndef USING_GLES2
+	case GL_STACK_UNDERFLOW:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_UNDERFLOW");
+		break;
+	case GL_STACK_OVERFLOW:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: GL_STACK_OVERFLOW");
+		break;
+#endif
+	default:
+		ERROR_LOG(FRAMEBUF, "glReadPixels: %08x", error);
+		break;
+	}
+}
+#endif
+
+bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride) {
+	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)src;
+	fbo_bind_fb_target(true, fb ? fb->handle : 0);
+
+	// Reads from the "bound for read" framebuffer.
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+
+	CHECK_GL_ERROR_IF_DEBUG();
+
+	GLuint internalFormat;
+	GLuint format;
+	GLuint type;
+	int alignment;
+	if (!Thin3DFormatToFormatAndType(dataFormat, internalFormat, format, type, alignment)) {
+		assert(false);
+	}
+	// Apply the correct alignment.
+	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA)) {
+		// Some drivers seem to require we specify this.  See #8254.
+		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
+	}
+
+	glReadPixels(x, y, w, h, format, type, pixels);
+#ifdef DEBUG_READ_PIXELS
+	LogReadPixelsError(glGetError());
+#endif
+
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	}
+	CHECK_GL_ERROR_IF_DEBUG();
+	return true;
 }
 
-void Thin3DGLTexture::Finalize(int zim_flags) {
-	canWrap_ = (zim_flags & ZIM_CLAMP) || !isPowerOf2(width_) || !isPowerOf2(height_);
-}
 
+Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
+	return new OpenGLTexture(desc);
+}
 
 OpenGLInputLayout::~OpenGLInputLayout() {
 	if (id_) {
@@ -837,8 +1016,9 @@ BlendState *OpenGLContext::CreateBlendState(const BlendStateDesc &desc) {
 
 SamplerState *OpenGLContext::CreateSamplerState(const SamplerStateDesc &desc) {
 	OpenGLSamplerState *samps = new OpenGLSamplerState();
-	samps->wrapS = texWrapToGL[(int)desc.wrapU];
-	samps->wrapT = texWrapToGL[(int)desc.wrapV];
+	samps->wrapU = texWrapToGL[(int)desc.wrapU];
+	samps->wrapV = texWrapToGL[(int)desc.wrapV];
+	samps->wrapW = texWrapToGL[(int)desc.wrapW];
 	samps->magFilt = texFilterToGL[(int)desc.magFilter];
 	samps->minFilt = texFilterToGL[(int)desc.minFilter];
 	samps->mipMinFilt = texMipFilterToGL[(int)desc.minFilter][(int)desc.mipFilter];
@@ -852,7 +1032,7 @@ RasterState *OpenGLContext::CreateRasterState(const RasterStateDesc &desc) {
 		return rs;
 	}
 	rs->cullEnable = GL_TRUE;
-	switch (desc.facing) {
+	switch (desc.frontFace) {
 	case Facing::CW:
 		rs->frontFace = GL_CW;
 		break;
@@ -870,12 +1050,68 @@ RasterState *OpenGLContext::CreateRasterState(const RasterStateDesc &desc) {
 	case CullMode::FRONT_AND_BACK:
 		rs->cullMode = GL_FRONT_AND_BACK;
 		break;
+	case CullMode::NONE:
+		// Unsupported
+		break;
 	}
 	return rs;
 }
 
+class OpenGLBuffer : public Buffer, GfxResourceHolder {
+public:
+	OpenGLBuffer(size_t size, uint32_t flags) {
+		glGenBuffers(1, &buffer_);
+		target_ = (flags & BufferUsageFlag::INDEXDATA) ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
+		usage_ = 0;
+		if (flags & BufferUsageFlag::DYNAMIC)
+			usage_ = GL_STREAM_DRAW;
+		else
+			usage_ = GL_STATIC_DRAW;
+		totalSize_ = size;
+		glBindBuffer(target_, buffer_);
+		glBufferData(target_, size, NULL, usage_);
+		register_gl_resource_holder(this, "drawcontext_buffer", 0);
+	}
+	~OpenGLBuffer() override {
+		unregister_gl_resource_holder(this);
+		glDeleteBuffers(1, &buffer_);
+	}
+
+	void Bind(int offset) {
+		// TODO: Can't support offset using ES 2.0
+		glBindBuffer(target_, buffer_);
+	}
+
+	void GLLost() override {
+		buffer_ = 0;
+	}
+
+	void GLRestore() override {
+		ILOG("Recreating vertex buffer after gl_restore");
+		totalSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
+		glGenBuffers(1, &buffer_);
+	}
+
+	GLuint buffer_;
+	GLuint target_;
+	GLuint usage_;
+
+	size_t totalSize_;
+};
+
 Buffer *OpenGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new OpenGLBuffer(size, usageFlags);
+}
+
+void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) {
+	OpenGLBuffer *buf = (OpenGLBuffer *)buffer;
+
+	buf->Bind(0);
+	if (size + offset > buf->totalSize_) {
+		Crash();
+	}
+	// if (flags & UPDATE_DISCARD) we could try to orphan the buffer using glBufferData.
+	glBufferSubData(buf->target_, offset, size, data);
 }
 
 Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
@@ -899,30 +1135,64 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->blend->AddRef();
 		pipeline->raster->AddRef();
 		pipeline->inputLayout->AddRef();
+		if (desc.uniformDesc)
+			pipeline->dynamicUniforms = *desc.uniformDesc;
 		return pipeline;
 	} else {
+		ELOG("Failed to create pipeline - shaders failed to link");
 		delete pipeline;
 		return NULL;
 	}
 }
 
 void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
+	maxTextures_ = std::max(maxTextures_, start + count);
 	for (int i = start; i < start + count; i++) {
-		Thin3DGLTexture *glTex = static_cast<Thin3DGLTexture *>(textures[i]);
+		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i]);
 		glActiveTexture(GL_TEXTURE0 + i);
-		glTex->Bind();
-
-		if ((int)samplerStates_.size() > i && samplerStates_[i]) {
-			samplerStates_[i]->Apply(glTex->HasMips(), glTex->CanWrap());
+		if (!glTex) {
+			boundTextures_[i] = 0;
+			glBindTexture(GL_TEXTURE_2D, 0);
+			continue;
 		}
+		glTex->Bind();
+		boundTextures_[i] = glTex;
 	}
 	glActiveTexture(GL_TEXTURE0);
 }
 
+void OpenGLContext::ApplySamplers() {
+	for (int i = 0; i < maxTextures_; i++) {
+		if ((int)boundSamplers_.size() > i && boundSamplers_[i]) {
+			const OpenGLSamplerState *samp = boundSamplers_[i];
+			const OpenGLTexture *tex = boundTextures_[i];
+			if (!tex)
+				continue;
+			if (tex->CanWrap()) {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, samp->wrapU);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, samp->wrapV);
+#ifndef USING_GLES2
+				if (tex->GetType() == TextureType::LINEAR3D)
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, samp->wrapW);
+#endif
+			} else {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			}
 
-ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, samp->magFilt);
+			if (tex->HasMips()) {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, samp->mipMinFilt);
+			} else {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, samp->minFilt);
+			}
+		}
+	}
+}
+
+ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
 	OpenGLShaderModule *shader = new OpenGLShaderModule(stage);
-	if (shader->Compile(glsl_source)) {
+	if (shader->Compile(language, data, dataSize)) {
 		return shader;
 	} else {
 		shader->Release();
@@ -959,6 +1229,8 @@ bool OpenGLPipeline::LinkShaders() {
 			OutputDebugStringUTF8(buf);
 #endif
 			delete[] buf;
+		} else {
+			ELOG("Could not link program with %d shaders for unknown reason:", (int)shaders.size());
 		}
 		return false;
 	}
@@ -980,46 +1252,17 @@ bool OpenGLPipeline::LinkShaders() {
 }
 
 int OpenGLPipeline::GetUniformLoc(const char *name) {
-	auto iter = uniforms_.find(name);
+	auto iter = uniformCache_.find(name);
 	int loc = -1;
-	if (iter != uniforms_.end()) {
+	if (iter != uniformCache_.end()) {
 		loc = iter->second.loc_;
 	} else {
 		loc = glGetUniformLocation(program_, name);
 		UniformInfo info;
 		info.loc_ = loc;
-		uniforms_[name] = info;
+		uniformCache_[name] = info;
 	}
 	return loc;
-}
-
-void OpenGLPipeline::SetVector(const char *name, float *value, int n) {
-	glUseProgram(program_);
-	int loc = GetUniformLoc(name);
-	if (loc != -1) {
-		switch (n) {
-		case 1: glUniform1fv(loc, 1, value); break;
-		case 2: glUniform1fv(loc, 2, value); break;
-		case 3: glUniform1fv(loc, 3, value); break;
-		case 4: glUniform1fv(loc, 4, value); break;
-		}
-	}
-}
-
-void OpenGLPipeline::SetMatrix4x4(const char *name, const float value[16]) {
-	glUseProgram(program_);
-	int loc = GetUniformLoc(name);
-	if (loc != -1) {
-		glUniformMatrix4fv(loc, 1, false, value);
-	}
-}
-
-void OpenGLPipeline::Apply() {
-	glUseProgram(program_);
-}
-
-void OpenGLPipeline::Unapply() {
-	glUseProgram(0);
 }
 
 void OpenGLContext::BindPipeline(Pipeline *pipeline) {
@@ -1027,46 +1270,63 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_->blend->Apply();
 	curPipeline_->depthStencil->Apply();
 	curPipeline_->raster->Apply();
+	glUseProgram(curPipeline_->program_);
 }
 
-void OpenGLContext::Draw(Buffer *vdata, int vertexCount, int offset) {
-	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
+void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
+	if (curPipeline_->dynamicUniforms.uniformBufferSize != size) {
+		Crash();
+	}
 
-	vbuf->Bind();
+	for (auto &uniform : curPipeline_->dynamicUniforms.uniforms) {
+		GLuint loc = curPipeline_->GetUniformLoc(uniform.name);
+		if (loc == -1)
+			Crash();
+		const float *data = (const float *)((uint8_t *)ub + uniform.offset);
+		switch (uniform.type) {
+		case UniformType::FLOAT4:
+			glUniform1fv(loc, 4, data);
+			break;
+		case UniformType::MATRIX4X4:
+			glUniformMatrix4fv(loc, 1, false, data);
+			break;
+		}
+	}
+}
+
+void OpenGLContext::Draw(int vertexCount, int offset) {
+	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
-	curPipeline_->Apply();
+	ApplySamplers();
 
 	glDrawArrays(curPipeline_->prim, offset, vertexCount);
 
-	curPipeline_->Unapply();
 	curPipeline_->inputLayout->Unapply();
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void OpenGLContext::DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
-	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
-	OpenGLBuffer *ibuf = static_cast<OpenGLBuffer *>(idata);
-
-	vbuf->Bind();
+void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
+	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
 	curPipeline_->inputLayout->Apply();
-	curPipeline_->Apply();
+	ApplySamplers();
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
-	ibuf->Bind();
+	curIBuffer_->Bind(curIBufferOffset_);
 
 	glDrawElements(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	
-	curPipeline_->Unapply();
 	curPipeline_->inputLayout->Unapply();
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	curPipeline_->inputLayout->Apply(vdata);
-	curPipeline_->Apply();
+	ApplySamplers();
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glDrawArrays(curPipeline_->prim, 0, vertexCount);
 
-	curPipeline_->Unapply();
 	curPipeline_->inputLayout->Unapply();
 }
 
@@ -1074,11 +1334,11 @@ void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stenc
 	float col[4];
 	Uint8x4ToFloat4(col, colorval);
 	GLuint glMask = 0;
-	if (mask & ClearFlag::COLOR) {
+	if (mask & FBChannel::FB_COLOR_BIT) {
 		glClearColor(col[0], col[1], col[2], col[3]);
 		glMask |= GL_COLOR_BUFFER_BIT;
 	}
-	if (mask & ClearFlag::DEPTH) {
+	if (mask & FBChannel::FB_DEPTH_BIT) {
 #if defined(USING_GLES2)
 		glClearDepthf(depthVal);
 #else
@@ -1086,7 +1346,7 @@ void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stenc
 #endif
 		glMask |= GL_DEPTH_BUFFER_BIT;
 	}
-	if (mask & ClearFlag::STENCIL) {
+	if (mask & FBChannel::FB_STENCIL_BIT) {
 		glClearStencil(stencilVal);
 		glMask |= GL_STENCIL_BUFFER_BIT;
 	}
@@ -1151,6 +1411,499 @@ void OpenGLInputLayout::Unapply() {
 		}
 	} else {
 		glBindVertexArray(0);
+	}
+}
+
+// On PC, we always use GL_DEPTH24_STENCIL8. 
+// On Android, we try to use what's available.
+
+#ifndef USING_GLES2
+OpenGLFramebuffer *OpenGLContext::fbo_ext_create(const FramebufferDesc &desc) {
+	OpenGLFramebuffer *fbo = new OpenGLFramebuffer();
+	fbo->width = desc.width;
+	fbo->height = desc.height;
+	fbo->colorDepth = desc.colorDepth;
+
+	// Color texture is same everywhere
+	glGenFramebuffersEXT(1, &fbo->handle);
+	glGenTextures(1, &fbo->color_texture);
+
+	// Create the surfaces.
+	glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// TODO: We could opt to only create 16-bit render targets on slow devices. For later.
+	switch (fbo->colorDepth) {
+	case FBO_8888:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		break;
+	case FBO_4444:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
+		break;
+	case FBO_5551:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
+		break;
+	case FBO_565:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, fbo->width, fbo->height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, NULL);
+		break;
+	}
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	fbo->stencil_buffer = 0;
+	fbo->z_buffer = 0;
+	// 24-bit Z, 8-bit stencil
+	glGenRenderbuffersEXT(1, &fbo->z_stencil_buffer);
+	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
+	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_STENCIL_EXT, fbo->width, fbo->height);
+	//glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH24_STENCIL8, width, height);
+
+	// Bind it all together
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo->color_texture, 0);
+	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
+	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
+
+	GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+	switch (status) {
+	case GL_FRAMEBUFFER_COMPLETE_EXT:
+		// ILOG("Framebuffer verified complete.");
+		break;
+	case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
+		ELOG("GL_FRAMEBUFFER_UNSUPPORTED");
+		break;
+	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
+		ELOG("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
+		break;
+	default:
+		FLOG("Other framebuffer error: %i", status);
+		break;
+	}
+	// Unbind state we don't need
+	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	currentDrawHandle_ = fbo->handle;
+	currentReadHandle_ = fbo->handle;
+	return fbo;
+}
+#endif
+
+Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
+	CheckGLExtensions();
+
+#ifndef USING_GLES2
+	if (!gl_extensions.ARB_framebuffer_object && gl_extensions.EXT_framebuffer_object) {
+		return fbo_ext_create(desc);
+	} else if (!gl_extensions.ARB_framebuffer_object) {
+		return nullptr;
+	}
+	// If GLES2, we have basic FBO support and can just proceed.
+#endif
+	CHECK_GL_ERROR_IF_DEBUG();
+
+	OpenGLFramebuffer *fbo = new OpenGLFramebuffer();
+	fbo->width = desc.width;
+	fbo->height = desc.height;
+	fbo->colorDepth = desc.colorDepth;
+
+	// Color texture is same everywhere
+	glGenFramebuffers(1, &fbo->handle);
+	glGenTextures(1, &fbo->color_texture);
+
+	// Create the surfaces.
+	glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// TODO: We could opt to only create 16-bit render targets on slow devices. For later.
+	switch (fbo->colorDepth) {
+	case FBO_8888:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		break;
+	case FBO_4444:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
+		break;
+	case FBO_5551:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
+		break;
+	case FBO_565:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, fbo->width, fbo->height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, NULL);
+		break;
+	}
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	if (gl_extensions.IsGLES) {
+		if (gl_extensions.OES_packed_depth_stencil) {
+			ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8", fbo->width, fbo->height);
+			// Standard method
+			fbo->stencil_buffer = 0;
+			fbo->z_buffer = 0;
+			// 24-bit Z, 8-bit stencil combined
+			glGenRenderbuffers(1, &fbo->z_stencil_buffer);
+			glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_stencil_buffer);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, fbo->width, fbo->height);
+
+			// Bind it all together
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+		} else {
+			ILOG("Creating %i x %i FBO using separate stencil", fbo->width, fbo->height);
+			// TEGRA
+			fbo->z_stencil_buffer = 0;
+			// 16/24-bit Z, separate 8-bit stencil
+			glGenRenderbuffers(1, &fbo->z_buffer);
+			glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_buffer);
+			// Don't forget to make sure fbo_standard_z_depth() matches.
+			glRenderbufferStorage(GL_RENDERBUFFER, gl_extensions.OES_depth24 ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT16, fbo->width, fbo->height);
+
+			// 8-bit stencil buffer
+			glGenRenderbuffers(1, &fbo->stencil_buffer);
+			glBindRenderbuffer(GL_RENDERBUFFER, fbo->stencil_buffer);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, fbo->width, fbo->height);
+
+			// Bind it all together
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_buffer);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
+		}
+	} else {
+		fbo->stencil_buffer = 0;
+		fbo->z_buffer = 0;
+		// 24-bit Z, 8-bit stencil
+		glGenRenderbuffers(1, &fbo->z_stencil_buffer);
+		glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_stencil_buffer);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, fbo->width, fbo->height);
+
+		// Bind it all together
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+	}
+
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	switch (status) {
+	case GL_FRAMEBUFFER_COMPLETE:
+		// ILOG("Framebuffer verified complete.");
+		break;
+	case GL_FRAMEBUFFER_UNSUPPORTED:
+		ELOG("GL_FRAMEBUFFER_UNSUPPORTED");
+		break;
+	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+		ELOG("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
+		break;
+	default:
+		FLOG("Other framebuffer error: %i", status);
+		break;
+	}
+
+	// Unbind state we don't need
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	CHECK_GL_ERROR_IF_DEBUG();
+
+	currentDrawHandle_ = fbo->handle;
+	currentReadHandle_ = fbo->handle;
+	return fbo;
+}
+
+GLenum OpenGLContext::fbo_get_fb_target(bool read, GLuint **cached) {
+	bool supportsBlit = gl_extensions.ARB_framebuffer_object;
+	if (gl_extensions.IsGLES) {
+		supportsBlit = (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit);
+	}
+
+	// Note: GL_FRAMEBUFFER_EXT and GL_FRAMEBUFFER have the same value, same with _NV.
+	if (supportsBlit) {
+		if (read) {
+			*cached = &currentReadHandle_;
+			return GL_READ_FRAMEBUFFER;
+		} else {
+			*cached = &currentDrawHandle_;
+			return GL_DRAW_FRAMEBUFFER;
+		}
+	} else {
+		*cached = &currentDrawHandle_;
+		return GL_FRAMEBUFFER;
+	}
+}
+
+void OpenGLContext::fbo_bind_fb_target(bool read, GLuint name) {
+	GLuint *cached;
+	GLenum target = fbo_get_fb_target(read, &cached);
+	if (*cached != name) {
+		if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
+			glBindFramebuffer(target, name);
+		} else {
+#ifndef USING_GLES2
+			glBindFramebufferEXT(target, name);
+#endif
+		}
+		*cached = name;
+	}
+}
+
+void OpenGLContext::fbo_unbind() {
+#ifndef USING_GLES2
+	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
+		glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
+	} else if (gl_extensions.EXT_framebuffer_object) {
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, g_defaultFBO);
+	}
+#else
+	glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
+#endif
+
+#ifdef IOS
+	bindDefaultFBO();
+#endif
+
+	currentDrawHandle_ = 0;
+	currentReadHandle_ = 0;
+}
+
+void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
+	CHECK_GL_ERROR_IF_DEBUG();
+	if (fbo) {
+		OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
+		// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
+		// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
+		fbo_bind_fb_target(false, fb->handle);
+		// Always restore viewport after render target binding. Works around driver bugs.
+		glstate.viewport.restore();
+	} else {
+		fbo_unbind();
+	}
+	int clearFlags = 0;
+	if (rp.color == RPAction::CLEAR) {
+		float fc[4]{};
+		if (rp.clearColor) {
+			Uint8x4ToFloat4(fc, rp.clearColor);
+		}
+		glClearColor(fc[0], fc[1], fc[2], fc[3]);
+		clearFlags |= GL_COLOR_BUFFER_BIT;
+		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	}
+	if (rp.depth == RPAction::CLEAR) {
+#ifdef USING_GLES2
+		glClearDepthf(rp.clearDepth);
+#else
+		glClearDepth(rp.clearDepth);
+#endif
+		glClearStencil(rp.clearStencil);
+		clearFlags |= GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+		glstate.depthWrite.force(GL_TRUE);
+		glstate.stencilFunc.force(GL_ALWAYS, 0, 0);
+		glstate.stencilMask.force(0xFF);
+	}
+	if (clearFlags) {
+		glstate.scissorTest.force(false);
+		glClear(clearFlags);
+		glstate.scissorTest.restore();
+	}
+	if (rp.color == RPAction::CLEAR) {
+		glstate.colorMask.restore();
+	}
+	if (rp.depth == RPAction::CLEAR) {
+		glstate.depthWrite.restore();
+		glstate.stencilFunc.restore();
+		glstate.stencilMask.restore();
+	}
+	CHECK_GL_ERROR_IF_DEBUG();
+}
+
+void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
+	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
+	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
+	GLuint srcTex = 0;
+	GLuint dstTex = 0;
+	GLuint target = GL_TEXTURE_2D;
+	switch (channelBits) {
+	case FB_COLOR_BIT:
+		srcTex = src->color_texture;
+		dstTex = dst->color_texture;
+		break;
+	case FB_DEPTH_BIT:
+		target = GL_RENDERBUFFER;
+		srcTex = src->z_buffer ? src->z_buffer : src->z_stencil_buffer;
+		dstTex = dst->z_buffer ? dst->z_buffer : dst->z_stencil_buffer;
+		break;
+	}
+#if defined(USING_GLES2)
+#ifndef IOS
+	glCopyImageSubDataOES(
+		srcTex, target, srcLevel, srcX, srcY, srcZ,
+		dstTex, target, dstLevel, dstX, dstY, dstZ,
+		width, height, depth);
+#endif
+#else
+	if (gl_extensions.ARB_copy_image) {
+		glCopyImageSubData(
+			srcTex, target, srcLevel, srcX, srcY, srcZ,
+			dstTex, target, dstLevel, dstX, dstY, dstZ,
+			width, height, depth);
+	} else if (gl_extensions.NV_copy_image) {
+		// Older, pre GL 4.x NVIDIA cards.
+		glCopyImageSubDataNV(
+			srcTex, target, srcLevel, srcX, srcY, srcZ,
+			dstTex, target, dstLevel, dstX, dstY, dstZ,
+			width, height, depth);
+	}
+#endif
+	CHECK_GL_ERROR_IF_DEBUG();
+}
+
+bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter) {
+	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
+	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
+	GLuint bits = 0;
+	if (channels & FB_COLOR_BIT)
+		bits |= GL_COLOR_BUFFER_BIT;
+	if (channels & FB_DEPTH_BIT)
+		bits |= GL_DEPTH_BUFFER_BIT;
+	if (channels & FB_STENCIL_BIT)
+		bits |= GL_STENCIL_BUFFER_BIT;
+	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
+	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
+	fbo_bind_fb_target(false, dst->handle);
+	fbo_bind_fb_target(true, src->handle);
+	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
+		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
+		CHECK_GL_ERROR_IF_DEBUG();
+#if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
+		return true;
+	} else if (gl_extensions.NV_framebuffer_blit) {
+		glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
+		CHECK_GL_ERROR_IF_DEBUG();
+#endif // defined(USING_GLES2) && defined(__ANDROID__)
+		return true;
+	} else {
+		return false;
+	}
+}
+
+uintptr_t OpenGLContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
+	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
+	switch (channelBits) {
+	case FB_COLOR_BIT: return (uintptr_t)fb->color_texture;
+	case FB_DEPTH_BIT: return (uintptr_t)(fb->z_buffer ? fb->z_buffer : fb->z_stencil_buffer);
+	default:
+		return 0;
+	}
+}
+
+void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
+	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
+	if (!fb)
+		return;
+	if (binding != 0)
+		glActiveTexture(GL_TEXTURE0 + binding);
+	switch (channelBit) {
+	case FB_DEPTH_BIT:
+		glBindTexture(GL_TEXTURE_2D, fb->z_buffer ? fb->z_buffer : fb->z_stencil_buffer);
+	case FB_COLOR_BIT:
+	default:
+		glBindTexture(GL_TEXTURE_2D, fb->color_texture);
+		break;
+	}
+	glActiveTexture(GL_TEXTURE0);
+}
+
+OpenGLFramebuffer::~OpenGLFramebuffer() {
+	unregister_gl_resource_holder(this);
+	CHECK_GL_ERROR_IF_DEBUG();
+	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
+		if (handle) {
+			glBindFramebuffer(GL_FRAMEBUFFER, handle);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
+			glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
+			glDeleteFramebuffers(1, &handle);
+		}
+		if (z_stencil_buffer)
+			glDeleteRenderbuffers(1, &z_stencil_buffer);
+		if (z_buffer)
+			glDeleteRenderbuffers(1, &z_buffer);
+		if (stencil_buffer)
+			glDeleteRenderbuffers(1, &stencil_buffer);
+	} else if (gl_extensions.EXT_framebuffer_object) {
+#ifndef USING_GLES2
+		if (handle) {
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, handle);
+			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, g_defaultFBO);
+			glDeleteFramebuffersEXT(1, &handle);
+		}
+		if (z_stencil_buffer)
+			glDeleteRenderbuffers(1, &z_stencil_buffer);
+		if (z_buffer)
+			glDeleteRenderbuffers(1, &z_buffer);
+		if (stencil_buffer)
+			glDeleteRenderbuffers(1, &stencil_buffer);
+#endif
+	}
+
+	glDeleteTextures(1, &color_texture);
+}
+
+void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
+	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
+	if (fb) {
+		*w = fb->width;
+		*h = fb->height;
+	} else {
+		*w = targetWidth_;
+		*h = targetHeight_;
+	}
+}
+
+uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
+	switch (fmt) {
+	case DataFormat::B8G8R8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_AUTOGEN_MIPS;
+	case DataFormat::B4G4R4A4_UNORM_PACK16:
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_AUTOGEN_MIPS;  // native support
+	case DataFormat::A4R4G4B4_UNORM_PACK16:
+#ifndef USING_GLES2
+		// Can support this if _REV formats are supported.
+		return FMT_TEXTURE;
+#endif
+		return 0;
+
+	case DataFormat::R8G8B8A8_UNORM:
+		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT | FMT_AUTOGEN_MIPS;
+
+	case DataFormat::R32_FLOAT:
+	case DataFormat::R32G32_FLOAT:
+	case DataFormat::R32G32B32_FLOAT:
+	case DataFormat::R32G32B32A32_FLOAT:
+		return FMT_INPUTLAYOUT;
+
+	case DataFormat::R8_UNORM:
+		return 0;
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+	case DataFormat::BC2_UNORM_BLOCK:
+	case DataFormat::BC3_UNORM_BLOCK:
+		return FMT_TEXTURE;
+	default:
+		return 0;
 	}
 }
 

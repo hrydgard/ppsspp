@@ -1,10 +1,9 @@
 #pragma once
 
-#include <string.h>
+#include <cstring>
 
 #include "base/arch.h"
 #include "base/backtrace.h"
-#include "base/compat.h"
 
 // Simple wrapper around Android's logging interface that also allows other
 // implementations, and also some misc utilities.
@@ -22,8 +21,10 @@
 
 #ifdef _M_X64
 inline void Crash() { int *x = (int *)1337; *x = 1; }
-#else
+#elif defined(_M_IX86)
 inline void Crash() { __asm { int 3 }; }
+#elif defined(_M_ARM)
+inline void Crash() { int *x = (int *)1337; *x = 1; }
 #endif
 
 #else
@@ -52,7 +53,7 @@ void OutputDebugStringUTF8(const char *p);
 
 // Must only be used for logging
 #ifndef APP_NAME
-#define APP_NAME "NativeApp"
+#define APP_NAME "PPSSPP"
 #endif
 
 #ifdef _DEBUG
@@ -72,10 +73,12 @@ void OutputDebugStringUTF8(const char *p);
 
 #ifdef _WIN32
 
+const char *GetFn(const char *fn);
+
 #define XLOG_IMPL(type, ...) do {\
 	char temp[512]; \
 	char *p = temp; \
-	int len = snprintf(p, sizeof(temp), type ": %s:%i: ", __FILE__, __LINE__); \
+	int len = snprintf(p, sizeof(temp), type ": %s:%i: ", GetFn(__FILE__), __LINE__); \
 	if (len < sizeof(temp)) { \
 		p += len; \
 		p += snprintf(p, sizeof(temp) - len - 3, type ": " __VA_ARGS__);  \
@@ -85,6 +88,8 @@ void OutputDebugStringUTF8(const char *p);
 		OutputDebugStringUTF8(temp); \
 	} \
 } while (false)
+
+#define DUMPLOG(x) OutputDebugStringUTF8(x)
 
 #ifdef _DEBUG
 #define DLOG(...) XLOG_IMPL("D", __VA_ARGS__)

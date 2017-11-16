@@ -1,3 +1,5 @@
+#include "ppsspp_config.h"
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -5,8 +7,6 @@
 #ifndef strcasecmp
 #define strcasecmp _stricmp
 #endif
-#define fseeko _fseeki64
-#define ftello _ftelli64
 #else
 #include <dirent.h>
 #include <unistd.h>
@@ -83,13 +83,23 @@ uint64_t GetSize(FILE *f)
 	}
 	return size;
 #else
+#ifdef _WIN32
+	uint64_t pos = _ftelli64(f);
+#else
 	uint64_t pos = ftello(f);
+#endif
 	if (fseek(f, 0, SEEK_END) != 0) {
 		return 0;
 	}
+#ifdef _WIN32
+	uint64_t size = _ftelli64(f);
+	// Reset the seek position to where it was when we started.
+	if (size != pos && _fseeki64(f, pos, SEEK_SET) != 0) {
+#else
 	uint64_t size = ftello(f);
 	// Reset the seek position to where it was when we started.
 	if (size != pos && fseeko(f, pos, SEEK_SET) != 0) {
+#endif
 		// Should error here.
 		return 0;
 	}
@@ -151,12 +161,16 @@ bool getFileInfo(const char *path, FileInfo *fileInfo) {
 	fileInfo->isWritable = (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
 	fileInfo->exists = true;
 #else
-	struct stat64 file_info;
 
 	std::string copy(path);
 
+#if (defined __ANDROID__) && (__ANDROID_API__ < 21)
+	struct stat file_info;
+	int result = stat(copy.c_str(), &file_info);
+#else
+	struct stat64 file_info;
 	int result = stat64(copy.c_str(), &file_info);
-
+#endif
 	if (result < 0) {
 		WLOG("IsDirectory: stat failed on %s", path);
 		fileInfo->exists = false;
@@ -215,12 +229,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 #ifdef _WIN32
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
-#ifdef UNICODE
-
-	HANDLE hFind = FindFirstFile((ConvertUTF8ToWString(directory) + L"\\*").c_str(), &ffd);
-#else
-	HANDLE hFind = FindFirstFile((std::string(directory) + "\\*").c_str(), &ffd);
-#endif
+	HANDLE hFind = FindFirstFileEx((ConvertUTF8ToWString(directory) + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 	if (hFind == INVALID_HANDLE_VALUE) {
 		FindClose(hFind);
 		return 0;
@@ -296,6 +305,9 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 // Returns a vector with the device names
 std::vector<std::string> getWindowsDrives()
 {
+#if PPSSPP_PLATFORM(UWP)
+	return std::vector<std::string>();  // TODO UWP http://stackoverflow.com/questions/37404405/how-to-get-logical-drives-names-in-windows-10
+#else
 	std::vector<std::string> drives;
 
 	const DWORD buffsize = GetLogicalDriveStrings(0, NULL);
@@ -315,5 +327,6 @@ std::vector<std::string> getWindowsDrives()
 		}
 	}
 	return drives;
+#endif
 }
 #endif

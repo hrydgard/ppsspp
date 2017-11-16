@@ -1,11 +1,9 @@
-#include <stdio.h>
+#include <cstdio>
 
-#include "base/compat.h"
 #include "util/text/utf8.h"
 
 #include "BreakpointWindow.h"
 #include "../resource.h"
-
 
 BreakpointWindow* BreakpointWindow::bp;
 

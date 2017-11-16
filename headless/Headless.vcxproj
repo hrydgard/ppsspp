@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -23,32 +23,33 @@
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Headless</RootNamespace>
     <ProjectName>PPSSPPHeadless</ProjectName>
+    <WindowsTargetPlatformVersion></WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -91,7 +92,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_32=1;_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../Common;..;../Core;../ext/glew;../ext/native</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../dx9sdk/Include/DX11;../Common;..;../Core;../ext/glew;../ext/native</AdditionalIncludeDirectories>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -123,7 +124,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_64=1;_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../Common;..;../Core;../ext/glew;../ext/native</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../dx9sdk/Include/DX11;../Common;..;../Core;../ext/glew;../ext/native</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -158,7 +159,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_ARCH_32=1;_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../Common;..;../Core;../ext/glew;../ext/native</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../dx9sdk/Include/DX11;../Common;..;../Core;../ext/glew;../ext/native</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -193,7 +194,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_ARCH_64=1;_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../Common;..;../Core;../ext/glew;../ext/native</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../dx9sdk/Include/DX11;../Common;..;../Core;../ext/glew;../ext/native</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -224,6 +225,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\glew\glew.c" />
+    <ClCompile Include="..\Windows\GPU\D3D11Context.cpp" />
     <ClCompile Include="..\Windows\GPU\D3D9Context.cpp" />
     <ClCompile Include="..\Windows\GPU\WindowsGLContext.cpp" />
     <ClCompile Include="..\Windows\GPU\WindowsVulkanContext.cpp" />
@@ -235,6 +237,13 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="SDLHeadlessHost.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="StubHost.cpp" />
     <ClCompile Include="WindowsHeadlessHost.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -266,6 +275,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Compare.h" />
+    <ClInclude Include="SDLHeadlessHost.h" />
     <ClInclude Include="StubHost.h" />
     <ClInclude Include="WindowsHeadlessHost.h" />
   </ItemGroup>

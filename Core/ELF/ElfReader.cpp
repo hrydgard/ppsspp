@@ -26,15 +26,19 @@
 
 const char *ElfReader::GetSectionName(int section) const {
 	if (sections[section].sh_type == SHT_NULL)
-		return 0;
+		return nullptr;
 
 	int nameOffset = sections[section].sh_name;
+	if (nameOffset < 0 || nameOffset >= size_) {
+		ERROR_LOG(LOADER, "ELF: Bad name offset %d in section %d (max = %d)", nameOffset, section, (int)size_);
+		return nullptr;
+	}
 	const char *ptr = (const char *)GetSectionDataPtr(header->e_shstrndx);
 
 	if (ptr)
 		return ptr + nameOffset;
 	else
-		return 0;
+		return nullptr;
 }
 
 void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
@@ -49,7 +53,7 @@ void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
 	}
 }
 
-bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
+bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs)
 {
 	int numErrors = 0;
 	DEBUG_LOG(LOADER, "Loading %i relocations...", numRelocs);
@@ -196,7 +200,6 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 
 void ElfReader::LoadRelocations2(int rel_seg)
 {
-	Elf32_Phdr *ph;
 	u8 *buf, *end, *flag_table, *type_table;
 	int flag_table_size, type_table_size;
 	int flag_bits, seg_bits, type_bits;
@@ -206,8 +209,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 	u32 op, addr;
 	int rcount = 0;
 
-	ph = segments + rel_seg;
-
+	const Elf32_Phdr *ph = segments + rel_seg;
 
 	buf = (u8*)GetSegmentPtr(rel_seg);
 	end = buf+ph->p_filesz;
@@ -260,6 +262,10 @@ void ElfReader::LoadRelocations2(int rel_seg)
 		}else{
 			addr_seg = seg;
 			relocate_to = segmentVAddr[addr_seg];
+			if (!Memory::IsValidAddress(relocate_to)) {
+				ERROR_LOG(LOADER, "ELF: Bad address to relocate to: %08x", relocate_to);
+				continue;
+			}
 
 			if((flag&0x06)==0x00){
 				rel_offset = cmd;
@@ -288,6 +294,10 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 
 			rel_offset = rel_base+segmentVAddr[off_seg];
+			if (!Memory::IsValidAddress(rel_offset)) {
+				ERROR_LOG(LOADER, "ELF: Bad rel_offset: %08x", rel_offset);
+				continue;
+			}
 
 			if((flag&0x38)==0x00){
 				lo16 = 0;
@@ -376,7 +386,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	// Look for the module info - we need to know whether this is kernel or user.
 	const PspModuleInfo *modInfo = 0;
 	for (int i = 0; i < GetNumSections(); i++) {
-		Elf32_Shdr *s = &sections[i];
+		const Elf32_Shdr *s = &sections[i];
 		const char *name = GetSectionName(i);
 		if (name && !strcmp(name, ".rodata.sceModuleInfo")) {
 			modInfo = (const PspModuleInfo *)GetPtr(s->sh_offset);
@@ -398,7 +408,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	u32 totalStart = 0xFFFFFFFF;
 	u32 totalEnd = 0;
 	for (int i = 0; i < header->e_phnum; i++) {
-		Elf32_Phdr *p = &segments[i];
+		const Elf32_Phdr *p = &segments[i];
 		if (p->p_type == PT_LOAD) {
 			if (p->p_vaddr < totalStart)
 				totalStart = p->p_vaddr;
@@ -447,7 +457,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 	for (int i = 0; i < header->e_phnum; i++)
 	{
-		Elf32_Phdr *p = segments + i;
+		const Elf32_Phdr *p = segments + i;
 		DEBUG_LOG(LOADER, "Type: %08x Vaddr: %08x Filesz: %08x Memsz: %08x ", (int)p->p_type, (u32)p->p_vaddr, (int)p->p_filesz, (int)p->p_memsz);
 
 		if (p->p_type == PT_LOAD)
@@ -455,7 +465,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 			segmentVAddr[i] = baseAddress + p->p_vaddr;
 			u32 writeAddr = segmentVAddr[i];
 
-			u8 *src = GetSegmentPtr(i);
+			const u8 *src = GetSegmentPtr(i);
 			u8 *dst = Memory::GetPointer(writeAddr);
 			u32 srcSize = p->p_filesz;
 			u32 dstSize = p->p_memsz;
@@ -476,7 +486,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 	for (int i = 0; i < GetNumSections(); i++)
 	{
-		Elf32_Shdr *s = &sections[i];
+		const Elf32_Shdr *s = &sections[i];
 		const char *name = GetSectionName(i);
 
 		u32 writeAddr = s->sh_addr + baseAddress;
@@ -498,7 +508,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	// Second pass: Do necessary relocations
 	for (int i = 0; i < GetNumSections(); i++)
 	{
-		Elf32_Shdr *s = &sections[i];
+		const Elf32_Shdr *s = &sections[i];
 		const char *name = GetSectionName(i);
 
 		if (s->sh_type == SHT_PSPREL)
@@ -559,7 +569,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	if (GetNumSections() == 0) {
 		for (int i = 0; i < header->e_phnum; i++)
 		{
-			Elf32_Phdr *p = &segments[i];
+			const Elf32_Phdr *p = &segments[i];
 			if (p->p_type == PT_PSPREL1) {
 				INFO_LOG(LOADER,"Loading segment relocations");
 				int numRelocs = p->p_filesz / sizeof(Elf32_Rel);

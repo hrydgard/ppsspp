@@ -49,7 +49,7 @@ GLSLProgram *glsl_create(const char *vshader, const char *fshader, std::string *
 		delete program;
 		return 0;
 	}
-	register_gl_resource_holder(program);
+	register_gl_resource_holder(program, "glsl_program", 0);
 	return program;
 }
 
@@ -70,7 +70,7 @@ GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src
 		delete program;
 		return 0;
 	}
-	register_gl_resource_holder(program);
+	register_gl_resource_holder(program, "glsl_program_src", 0);
 	return program;
 }
 
@@ -221,13 +221,9 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 }
 
 void GLSLProgram::GLLost() {
-	// Quoth http://developer.android.com/reference/android/opengl/GLSurfaceView.Renderer.html;
+	// Quoth http://developer.android.com/reference/android/opengl/GLSurfaceView.Renderer.html:
 	// "Note that when the EGL context is lost, all OpenGL resources associated with that context will be automatically deleted. 
 	// You do not need to call the corresponding "glDelete" methods such as glDeleteTextures to manually delete these lost resources."
-	// Hence, we comment out:
-	// glDeleteShader(this->vsh_);
-	// glDeleteShader(this->fsh_);
-	// glDeleteProgram(this->program_);
 	program_ = 0;
 	vsh_ = 0;
 	fsh_ = 0;
@@ -262,13 +258,21 @@ void glsl_destroy(GLSLProgram *program) {
 	delete program;
 }
 
+static const GLSLProgram *curProgram;
+
 void glsl_bind(const GLSLProgram *program) {
 	if (program)
 		glUseProgram(program->program_);
 	else
 		glUseProgram(0);
+	curProgram = program;
 }
 
 void glsl_unbind() {
 	glUseProgram(0);
+	curProgram = nullptr;
+}
+
+const GLSLProgram *glsl_get_program() {
+	return curProgram;
 }

@@ -24,9 +24,9 @@ uint32_t alphaMul(uint32_t color, float alphaMul) {
 	uint32_t rgb = color & 0xFFFFFF;
 	uint32_t alpha = color >> 24;
 	alpha *= alphaMul;
-	if (alpha < 0.0f) alpha = 0.0f;
-	if (alpha > 255.0f) alpha = 255.0f;
-	return ((int)(alpha)<<24) | (rgb & 0xFFFFFF);
+	if (alpha < 0) alpha = 0.0f;
+	if (alpha > 255) alpha = 255.0f;
+	return (alpha << 24) | (rgb & 0xFFFFFF);
 }
 
 uint32_t rgba(float r, float g, float b, float alpha) {

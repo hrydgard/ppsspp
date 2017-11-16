@@ -191,6 +191,9 @@ extern PFN_vkQueuePresentKHR vkQueuePresentKHR;
 extern PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT;
 extern PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT;
 
+// Way to do a quick check before even attempting to load.
+bool VulkanMayBeAvailable();
+
 bool VulkanLoad();
 void VulkanLoadInstanceFunctions(VkInstance instance);
 void VulkanLoadDeviceFunctions(VkDevice device);

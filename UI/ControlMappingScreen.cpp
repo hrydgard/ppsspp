@@ -17,8 +17,8 @@
 
 #include <algorithm>
 #include <deque>
+#include <mutex>
 
-#include "base/mutex.h"
 #include "base/colorutil.h"
 #include "base/logging.h"
 #include "i18n/i18n.h"
@@ -41,12 +41,13 @@ class ControlMapper : public UI::LinearLayout {
 public:
 	ControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
 
-	virtual void Update(const InputState &input);
+	void Update() override;
 	int GetPspKey() const { return pspKey_; }
 private:
 	void Refresh();
 
 	UI::EventReturn OnAdd(UI::EventParams &params);
+	UI::EventReturn OnAddMouse(UI::EventParams &params);
 	UI::EventReturn OnDelete(UI::EventParams &params);
 	UI::EventReturn OnReplace(UI::EventParams &params);
 	UI::EventReturn OnReplaceAll(UI::EventParams &params);
@@ -74,7 +75,7 @@ ControlMapper::ControlMapper(ControlMappingScreen *ctrlScreen, int pspKey, std::
 	Refresh();
 }
 
-void ControlMapper::Update(const InputState &input) {
+void ControlMapper::Update() {
 	if (refresh_) {
 		refresh_ = false;
 		Refresh();
@@ -119,6 +120,10 @@ void ControlMapper::Refresh() {
 
 	Choice *p = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
 	p->OnClick.Handle(this, &ControlMapper::OnAdd);
+	if (g_Config.bMouseControl) {
+		Choice *p = root->Add(new Choice("M", new LayoutParams(WRAP_CONTENT, itemH)));
+		p->OnClick.Handle(this, &ControlMapper::OnAddMouse);
+	}
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	rightColumn->SetSpacing(2.0f);
@@ -168,6 +173,7 @@ void ControlMapper::MappedCallback(KeyDef kdf) {
 	default:
 		;
 	}
+	g_Config.bMapMouse = false;
 	refresh_ = true;
 	ctrlScreen_->KeyMapped(pspKey_);
 	// After this, we do not exist any more. So the refresh_ = true is probably irrelevant.
@@ -176,19 +182,29 @@ void ControlMapper::MappedCallback(KeyDef kdf) {
 UI::EventReturn ControlMapper::OnReplace(UI::EventParams &params) {
 	actionIndex_ = atoi(params.v->Tag().c_str());
 	action_ = REPLACEONE;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn ControlMapper::OnReplaceAll(UI::EventParams &params) {
 	action_ = REPLACEALL;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn ControlMapper::OnAdd(UI::EventParams &params) {
 	action_ = ADD;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1)));
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
+	return UI::EVENT_DONE;
+}
+UI::EventReturn ControlMapper::OnAddMouse(UI::EventParams &params) {
+	action_ = ADD;
+	g_Config.bMapMouse = true;
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, std::placeholders::_1), km));
 	return UI::EVENT_DONE;
 }
 
@@ -266,6 +282,8 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	}
 	I18NCategory *km = GetI18NCategory("KeyMapping");
 	ListPopupScreen *autoConfList = new ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
+	if (params.v)
+		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);
 	return UI::EVENT_DONE;
 }
@@ -294,10 +312,11 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	I18NCategory *km = GetI18NCategory("KeyMapping");
+	I18NCategory *mc = GetI18NCategory("MappableControls");
 
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
-	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + pspButtonName, new LinearLayoutParams(Margins(10,0))));
+	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + mc->T(pspButtonName), new LinearLayoutParams(Margins(10,0))));
 }
 
 bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
@@ -310,7 +329,35 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 
 		mapped_ = true;
 		KeyDef kdf(key.deviceId, key.keyCode);
-		screenManager()->finishDialog(this, DR_OK);
+		TriggerFinish(DR_OK);
+		if (callback_)
+			callback_(kdf);
+	}
+	return true;
+}
+
+void KeyMappingNewMouseKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+
+	parent->Add(new TextView(std::string(km->T("You can press ESC to cancel.")), new LinearLayoutParams(Margins(10, 0))));
+}
+
+bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
+	if (mapped_)
+		return false;
+	if (key.flags & KEY_DOWN) {
+		if (key.keyCode == NKCODE_ESCAPE) {
+			TriggerFinish(DR_OK);
+			g_Config.bMapMouse = false;
+			return false;
+		}
+
+		mapped_ = true;
+		KeyDef kdf(key.deviceId, key.keyCode);
+		TriggerFinish(DR_OK);
+		g_Config.bMapMouse = false;
 		if (callback_)
 			callback_(kdf);
 	}
@@ -347,7 +394,7 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
-		screenManager()->finishDialog(this, DR_OK);
+		TriggerFinish(DR_OK);
 		if (callback_)
 			callback_(kdf);
 	}
@@ -355,7 +402,31 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value < -AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
-		screenManager()->finishDialog(this, DR_OK);
+		TriggerFinish(DR_OK);
+		if (callback_)
+			callback_(kdf);
+	}
+	return true;
+}
+
+bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
+	if (mapped_)
+		return false;
+	if (IgnoreAxisForMapping(axis.axisId))
+		return false;
+
+	if (axis.value > AXIS_BIND_THRESHOLD) {
+		mapped_ = true;
+		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
+		TriggerFinish(DR_OK);
+		if (callback_)
+			callback_(kdf);
+	}
+
+	if (axis.value < -AXIS_BIND_THRESHOLD) {
+		mapped_ = true;
+		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
+		TriggerFinish(DR_OK);
 		if (callback_)
 			callback_(kdf);
 	}
@@ -364,20 +435,20 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 
 class JoystickHistoryView : public UI::InertView {
 public:
-	JoystickHistoryView(int xAxis, int xDevice, int yAxis, int yDevice, UI::LayoutParams *layoutParams = nullptr)
+	JoystickHistoryView(int xAxis, int xDevice, int xDir, int yAxis, int yDevice, int yDir, UI::LayoutParams *layoutParams = nullptr)
 		: UI::InertView(layoutParams),
-			xAxis_(xAxis), xDevice_(xDevice),
-			yAxis_(yAxis), yDevice_(yDevice),
+			xAxis_(xAxis), xDevice_(xDevice), xDir_(xDir),
+			yAxis_(yAxis), yDevice_(yDevice), yDir_(yDir),
 			curX_(0.0f), curY_(0.0f),
 			maxCount_(500) {}
 	void Draw(UIContext &dc) override;
-	void Update(const InputState &input_state) override;
+	void Update() override;
 	void Axis(const AxisInput &input) override {
 		// TODO: Check input.deviceId?
 		if (input.axisId == xAxis_) {
-			curX_ = input.value;
+			curX_ = input.value * xDir_;
 		} else if (input.axisId == yAxis_) {
-			curY_ = input.value;
+			curY_ = input.value * yDir_;
 		}
 	}
 
@@ -391,8 +462,10 @@ private:
 
 	int xAxis_;
 	int xDevice_;
+	int xDir_;
 	int yAxis_;
 	int yDevice_;
+	int yDir_;
 
 	float curX_;
 	float curY_;
@@ -425,7 +498,7 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 	}
 }
 
-void JoystickHistoryView::Update(const InputState &input_state) {
+void JoystickHistoryView::Update() {
 	locations_.push_back(Location(curX_, curY_));
 	if ((int)locations_.size() > maxCount_) {
 		locations_.pop_front();
@@ -435,7 +508,7 @@ void JoystickHistoryView::Update(const InputState &input_state) {
 bool AnalogTestScreen::key(const KeyInput &key) {
 	bool retval = true;
 	if (UI::IsEscapeKey(key)) {
-		screenManager()->finishDialog(this, DR_BACK);
+		TriggerFinish(DR_BACK);
 		return true;
 	}
 
@@ -490,12 +563,12 @@ void AnalogTestScreen::CreateViews() {
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
 
-	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new LinearLayoutParams(1.0f)));
+	theTwo->Add(new JoystickHistoryView(axis1, device1, dir1, axis2, device2, dir2, new LinearLayoutParams(1.0f)));
 
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
 
-	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new LinearLayoutParams(1.0f)));
+	theTwo->Add(new JoystickHistoryView(axis1, device1, dir1, axis2, device2, dir2, new LinearLayoutParams(1.0f)));
 
 	root_->Add(theTwo);
 

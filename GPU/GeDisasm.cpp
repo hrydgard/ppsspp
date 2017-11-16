@@ -102,6 +102,15 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			snprintf(buffer, bufsize, "NOP");
 		break;
 
+		// Pretty sure this is some sort of NOP to eat some pipelining issue,
+		// often seen after CALL instructions.
+	case GE_CMD_NOP_FF:
+		if (data != 0)
+			snprintf(buffer, bufsize, "NOP_FF: data= %06x", data);
+		else
+			snprintf(buffer, bufsize, "NOP_FF");
+		break;
+
 	case GE_CMD_BASE:
 		snprintf(buffer, bufsize, "BASE: %06x", data);
 		break;
@@ -135,7 +144,6 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		}
 		break;
 
-	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
 			int bz_ucount = data & 0xFF;
@@ -521,7 +529,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			break;
 		}
 
-	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
+	case GE_CMD_TRANSFERSTART:
 		if (data & ~1)
 			snprintf(buffer, bufsize, "Block transfer start: %d (extra %x)", data & 1, data & ~1);
 		else

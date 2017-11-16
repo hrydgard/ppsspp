@@ -14,10 +14,11 @@
 //commented out until someone bothers to maintain it
 //#include "GPU/GLES/VertexDecoder.h"
 
-Debugger_DisplayList::Debugger_DisplayList(DebugInterface *_cpu, MainWindow* mainWindow_, QWidget *parent) :
+Debugger_DisplayList::Debugger_DisplayList(DebugInterface *_cpu, Draw::DrawContext *draw, MainWindow* mainWindow_, QWidget *parent) :
 	QDialog(parent),
 	ui(new Ui::Debugger_DisplayList),
 	cpu(_cpu),
+	draw_(draw),
 	mainWindow(mainWindow_),
 	currentRenderFrameDisplay(0),
 	currentTextureDisplay(0),
@@ -674,7 +675,7 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			return QString("Block Transfer Rect Size: %1 x %2").arg(w).arg(h);
 		}
 
-	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
+	case GE_CMD_TRANSFERSTART:
 		{
 		return QString("Block Transfer Start : %1").arg(data ? "32-bit texel size" : "16-bit texel size");
 		}
@@ -1348,12 +1349,12 @@ void Debugger_DisplayList::UpdateRenderBufferGUI()
 	}
 	else
 	{
-		fbo_get_dimensions(currentTextureDisplay, &FRAME_WIDTH, &FRAME_HEIGHT);
+		draw_->GetFramebufferDimensions(currentTextureDisplay, &FRAME_WIDTH, &FRAME_HEIGHT);
 		data = new u8[FRAME_WIDTH * FRAME_HEIGHT * 4];
 		memset(data,0,FRAME_WIDTH * FRAME_HEIGHT * 4);
 		if(currentRenderFrameDisplay == 0)
 		{
-			fbo_bind_color_as_texture(currentTextureDisplay,0);
+			draw_->BindFramebufferAsTexture(currentTextureDisplay, 0, Draw::FB_COLOR_BIT, 0);
 			glGetTexImage(GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_BYTE, data);
 		}
 	}
@@ -1439,7 +1440,7 @@ void Debugger_DisplayList::UpdateRenderBufferListGUI()
 void Debugger_DisplayList::on_fboList_itemClicked(QTreeWidgetItem *item, int column)
 {
 	u64 addr = item->data(0,Qt::UserRole).toULongLong();
-	FBO* fbo = (FBO*)addr;
+	Draw::Framebuffer * fbo = (Draw::Framebuffer *)addr;
 	currentTextureDisplay = fbo;
 	UpdateRenderBufferGUI();
 }

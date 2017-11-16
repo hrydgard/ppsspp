@@ -54,6 +54,7 @@ enum PSPDirectories {
 class GraphicsContext;
 enum class GPUBackend;
 
+void ResetUIState();
 void UpdateUIState(GlobalUIState newState);
 GlobalUIState GetUIState();
 
@@ -71,8 +72,9 @@ void PSP_BeginHostFrame();
 void PSP_EndHostFrame();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
-void PSP_BeginFrame();
-void PSP_EndFrame();
+
+// Call before PSP_BeginHostFrame() in order to not miss any GPU stats.
+void Core_UpdateDebugStats(bool collectStats);
 
 void Audio_Init();
 
@@ -87,8 +89,7 @@ void InitSysDirectories();
 #endif
 
 // RUNNING must be at 0, NEXTFRAME must be at 1.
-enum CoreState
-{
+enum CoreState {
 	CORE_RUNNING = 0,
 	CORE_NEXTFRAME = 1,
 	CORE_STEPPING,
@@ -96,6 +97,8 @@ enum CoreState
 	CORE_POWERDOWN,
 	CORE_ERROR,
 };
+
+extern bool coreCollectDebugStats;
 
 extern volatile CoreState coreState;
 extern volatile bool coreStatePending;

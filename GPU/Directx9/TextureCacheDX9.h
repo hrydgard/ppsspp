@@ -19,9 +19,8 @@
 
 #include <map>
 
-#include "../Globals.h"
-#include "helper/global.h"
-#include "helper/dx_fbo.h"
+#include <d3d9.h>
+
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Directx9/TextureScalerDX9.h"
@@ -37,21 +36,12 @@ class ShaderManagerDX9;
 
 class TextureCacheDX9 : public TextureCacheCommon {
 public:
-	TextureCacheDX9();
+	TextureCacheDX9(Draw::DrawContext *draw);
 	~TextureCacheDX9();
 
-	void SetTexture(bool force = false);
-	virtual bool SetOffsetTexture(u32 offset) override;
-
-	void Clear(bool delete_them);
 	void StartFrame();
-	void Invalidate(u32 addr, int size, GPUInvalidationType type);
-	void InvalidateAll(GPUInvalidationType type);
-	void ClearNextFrame();
 
-	void SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
-		framebufferManager_ = fbManager;
-	}
+	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
 	void SetDepalShaderCache(DepalShaderCacheDX9 *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
@@ -59,58 +49,41 @@ public:
 		shaderManager_ = sm;
 	}
 
-	size_t NumLoadedTextures() const {
-		return cache.size();
-	}
-
 	// Only used by Qt UI?
 	bool DecodeTexture(u8 *output, const GPUgstate &state);
 
-	void ForgetLastTexture();
+	void ForgetLastTexture() override;
+	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override;
 
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
-	void ApplyTexture();
+	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
 
 protected:
-	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override;
+	void BindTexture(TexCacheEntry *entry) override;
+	void Unbind() override;
+	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 
 private:
-	void Decimate();  // Run this once per frame to get rid of old textures.
-	void DeleteTexture(TexCache::iterator it);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt);
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
-	u32 GetCurrentClutHash();
-	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override;
-	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
-	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
+	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
-	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
-	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
-	void BuildTexture(TexCacheEntry *const entry, bool replaceImages);
+	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
+	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
 	LPDIRECT3DTEXTURE9 &DxTex(TexCacheEntry *entry) {
 		return *(LPDIRECT3DTEXTURE9 *)&entry->texturePtr;
 	}
-	void ReleaseTexture(TexCacheEntry *entry) {
-		LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
-		if (texture) {
-			texture->Release();
-			texture = nullptr;
-		}
-	}
 
-	TexCache secondCache;
-	u32 secondCacheSizeEstimate_;
+	LPDIRECT3DDEVICE9 device_;
+	LPDIRECT3DDEVICE9EX deviceEx_;
 
-	bool clearCacheNextFrame_;
-	bool lowMemoryMode_;
 	TextureScalerDX9 scaler;
 
-	u32 clutHash_;
+	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl;
 
 	LPDIRECT3DTEXTURE9 lastBoundTexture;
 	float maxAnisotropyLevel;
@@ -119,14 +92,9 @@ private:
 	int texelsScaledThisFrame_;
 	int timesInvalidatedAllThisFrame_;
 
-	FramebufferManagerDX9 *framebufferManager_;
+	FramebufferManagerDX9 *framebufferManagerDX9_;
 	DepalShaderCacheDX9 *depalShaderCache_;
 	ShaderManagerDX9 *shaderManager_;
-
-	const char *nextChangeReason_;
-	bool nextNeedsRehash_;
-	bool nextNeedsChange_;
-	bool nextNeedsRebuild_;
 };
 
 D3DFORMAT getClutDestFormat(GEPaletteFormat format);

@@ -20,11 +20,12 @@
 #endif
 
 #include <map>
-#include "helper/global.h"
+#include "gfx/d3d9_shader.h"
 #include "base/logging.h"
 #include "i18n/i18n.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
+#include "math/dataconv.h"
 #include "util/text/utf8.h"
 
 #include "Common/Common.h"
@@ -40,7 +41,7 @@
 
 namespace DX9 {
 
-PSShader::PSShader(ShaderID id, const char *code) : id_(id), shader(nullptr), failed_(false) {
+PSShader::PSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code) : id_(id), shader(nullptr), failed_(false) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -48,7 +49,7 @@ PSShader::PSShader(ShaderID id, const char *code) : id_(id), shader(nullptr), fa
 	bool success;
 	std::string errorMessage;
 
-	success = CompilePixelShader(code, &shader, NULL, errorMessage);
+	success = CompilePixelShader(device, code, &shader, NULL, errorMessage);
 
 	if (!errorMessage.empty()) {
 		if (success) {
@@ -75,7 +76,6 @@ PSShader::PSShader(ShaderID id, const char *code) : id_(id), shader(nullptr), fa
 }
 
 PSShader::~PSShader() {
-	pD3Ddevice->SetPixelShader(NULL);
 	if (shader)
 		shader->Release();
 }
@@ -91,7 +91,7 @@ std::string PSShader::GetShaderString(DebugShaderStringType type) const {
 	}
 }
 
-VSShader::VSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
+VSShader::VSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -99,7 +99,7 @@ VSShader::VSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id)
 	bool success;
 	std::string errorMessage;
 
-	success = CompileVertexShader(code, &shader, NULL, errorMessage);
+	success = CompileVertexShader(device, code, &shader, NULL, errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -125,7 +125,6 @@ VSShader::VSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id)
 }
 
 VSShader::~VSShader() {
-	pD3Ddevice->SetVertexShader(NULL);
 	if (shader)
 		shader->Release();
 }
@@ -142,28 +141,20 @@ std::string VSShader::GetShaderString(DebugShaderStringType type) const {
 }
 
 void ShaderManagerDX9::PSSetColorUniform3(int creg, u32 color) {
-	const float col[4] = {
-		((color & 0xFF)) * (1.0f / 255.0f),
-		((color & 0xFF00) >> 8) * (1.0f / 255.0f),
-		((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
-		0.0f
-	};
-	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
+	float f[4];
+	Uint8x3ToFloat4(f, color);
+	device_->SetPixelShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
-	const float col[4] = {
-		(float)((color & 0xFF)),
-		(float)((color & 0xFF00) >> 8),
-		(float)((color & 0xFF0000) >> 16),
-		(float)alpha,
-	};
-	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
+	float f[4];
+	Uint8x3ToFloat4_AlphaUint8(f, color, alpha);
+	device_->SetPixelShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::PSSetFloat(int creg, float value) {
 	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
-	pD3Ddevice->SetPixelShaderConstantF(creg, f, 1);
+	device_->SetPixelShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::PSSetFloatArray(int creg, const float *value, int count) {
@@ -171,12 +162,12 @@ void ShaderManagerDX9::PSSetFloatArray(int creg, const float *value, int count) 
 	for (int i = 0; i < count; i++) {
 		f[i] = value[i];
 	}
-	pD3Ddevice->SetPixelShaderConstantF(creg, f, 1);
+	device_->SetPixelShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::VSSetFloat(int creg, float value) {
 	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
-	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
+	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::VSSetFloatArray(int creg, const float *value, int count) {
@@ -184,39 +175,30 @@ void ShaderManagerDX9::VSSetFloatArray(int creg, const float *value, int count) 
 	for (int i = 0; i < count; i++) {
 		f[i] = value[i];
 	}
-	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
+	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
 // Utility
 void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		0.0f
-	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
+	float f[4];
+	Uint8x3ToFloat4(f, color);
+	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
-	pD3Ddevice->SetVertexShaderConstantF(creg, data, 1);
+	device_->SetVertexShaderConstantF(creg, data, 1);
 }
 
 void ShaderManagerDX9::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
-	const u32 col[4] = {
-		data[0] >> 8, data[1] >> 8, data[2] >> 8, 0
-	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, (const float *)&col[0], 1);
+	float f[4];
+	ExpandFloat24x3ToFloat4(f, data);
+	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		alpha/255.0f
-	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
+	float f[4];
+	Uint8x3ToFloat4_AlphaUint8(f, color, alpha);
+	device_->SetVertexShaderConstantF(creg, f, 1);
 }
 
 void ShaderManagerDX9::VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
@@ -226,34 +208,34 @@ void ShaderManagerDX9::VSSetColorUniform3ExtraFloat(int creg, u32 color, float e
 		((color & 0xFF0000) >> 16) / 255.0f,
 		extra
 	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
+	device_->SetVertexShaderConstantF(creg, col, 1);
 }
 
 // Utility
 void ShaderManagerDX9::VSSetMatrix4x3(int creg, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
-	pD3Ddevice->SetVertexShaderConstantF(creg, m4x4, 4);
+	device_->SetVertexShaderConstantF(creg, m4x4, 4);
 }
 
 void ShaderManagerDX9::VSSetMatrix4x3_3(int creg, const float *m4x3) {
-	float m3x4[16];
+	float m3x4[12];
 	ConvertMatrix4x3To3x4Transposed(m3x4, m4x3);
-	pD3Ddevice->SetVertexShaderConstantF(creg, m3x4, 3);
+	device_->SetVertexShaderConstantF(creg, m3x4, 3);
 }
 
 void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 	float transp[16];
 	Transpose4x4(transp, pMatrix);
-	pD3Ddevice->SetVertexShaderConstantF(creg, transp, 4);
+	device_->SetVertexShaderConstantF(creg, transp, 4);
 }
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
 static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY) {
 	// Half pixel offset hack
-	float xoff = 0.5f / gstate_c.curRTRenderWidth;
+	float xoff = 1.0f / gstate_c.curRTRenderWidth;
 	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
-	float yoff = -0.5f / gstate_c.curRTRenderHeight;
+	float yoff = -1.0f / gstate_c.curRTRenderHeight;
 	yoff = gstate_c.vpYOffset + (invertedY ? yoff : -yoff);
 
 	if (invertedX)
@@ -267,12 +249,14 @@ static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY
 }
 
 static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
-	float xoff = -0.5f / gstate_c.curRTRenderWidth;
-	float yoff = 0.5f / gstate_c.curRTRenderHeight;
+	float xoff = -1.0f / gstate_c.curRTRenderWidth;
+	float yoff = 1.0f / gstate_c.curRTRenderHeight;
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
-void ShaderManagerDX9::PSUpdateUniforms(int dirtyUniforms) {
+const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP;
+
+void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		PSSetColorUniform3(CONST_PS_TEXENV, gstate.texenvcolor);
 	}
@@ -324,7 +308,11 @@ void ShaderManagerDX9::PSUpdateUniforms(int dirtyUniforms) {
 	}
 }
 
-void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
+const uint64_t vsUniforms = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX |
+DIRTY_FOGCOEF | DIRTY_BONE_UNIFORMS | DIRTY_UVSCALEOFFSET | DIRTY_DEPTHRANGE |
+DIRTY_AMBIENT | DIRTY_MATAMBIENTALPHA | DIRTY_MATSPECULAR | DIRTY_MATDIFFUSE | DIRTY_MATEMISSIVE | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3;
+
+void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 	// Update any dirty uniforms before we draw
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
@@ -505,7 +493,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 	}
 }
 
-ShaderManagerDX9::ShaderManagerDX9() : lastVShader_(nullptr), lastPShader_(nullptr), globalDirty_(0xFFFFFFFF) {
+ShaderManagerDX9::ShaderManagerDX9(LPDIRECT3DDEVICE9 device) : device_(device), lastVShader_(nullptr), lastPShader_(nullptr) {
 	codeBuffer_ = new char[16384];
 }
 
@@ -522,9 +510,6 @@ void ShaderManagerDX9::Clear() {
 	}
 	fsCache_.clear();
 	vsCache_.clear();
-	globalDirty_ = 0xFFFFFFFF;
-	lastFSID_.clear();
-	lastVSID_.clear();
 	DirtyShader();
 }
 
@@ -535,11 +520,11 @@ void ShaderManagerDX9::ClearCache(bool deleteThem) {
 
 void ShaderManagerDX9::DirtyShader() {
 	// Forget the last shader ID
-	lastFSID_.clear();
-	lastVSID_.clear();
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
 	lastVShader_ = nullptr;
 	lastPShader_ = nullptr;
-	globalDirty_ = 0xFFFFFFFF;
+	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
@@ -551,16 +536,30 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
 	ShaderID VSID;
-	ComputeVertexShaderID(&VSID, vertType, useHWTransform);
+	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
+		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
+		ComputeVertexShaderID(&VSID, vertType, useHWTransform);
+	} else {
+		VSID = lastVSID_;
+	}
+
 	ShaderID FSID;
-	ComputeFragmentShaderID(&FSID);
+	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
+		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
+		ComputeFragmentShaderID(&FSID);
+	} else {
+		FSID = lastFSID_;
+	}
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastPShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
-		if (globalDirty_) {
-			PSUpdateUniforms(globalDirty_);
-			VSUpdateUniforms(globalDirty_);
-			globalDirty_ = 0;
+		uint64_t dirtyUniforms = gstate_c.GetDirtyUniforms();
+		if (dirtyUniforms) {
+			if (dirtyUniforms & psUniforms)
+				PSUpdateUniforms(dirtyUniforms);
+			if (dirtyUniforms & vsUniforms)
+				VSUpdateUniforms(dirtyUniforms);
+			gstate_c.CleanUniforms();
 		}
 		return lastVShader_;	// Already all set.
 	}
@@ -569,13 +568,15 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	VSShader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShaderDX9(VSID, codeBuffer_);
-		vs = new VSShader(VSID, codeBuffer_, useHWTransform);
+		GenerateVertexShaderHLSL(VSID, codeBuffer_);
+		vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 
 		if (vs->Failed()) {
 			I18NCategory *gr = GetI18NCategory("Graphics");
-			ERROR_LOG(HLE, "Shader compilation failed, falling back to software transform");
-			host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
+			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
+			if (!g_Config.bHideSlowWarnings) {
+				host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
+			}
 			delete vs;
 
 			ComputeVertexShaderID(&VSID, vertType, false);
@@ -585,8 +586,8 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShaderDX9(VSID, codeBuffer_);
-			vs = new VSShader(VSID, codeBuffer_, false);
+			GenerateVertexShaderHLSL(VSID, codeBuffer_);
+			vs = new VSShader(device_, VSID, codeBuffer_, false);
 		}
 
 		vsCache_[VSID] = vs;
@@ -599,8 +600,8 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	PSShader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShaderDX9(FSID, codeBuffer_);
-		fs = new PSShader(FSID, codeBuffer_);
+		GenerateFragmentShaderHLSL(FSID, codeBuffer_);
+		fs = new PSShader(device_, FSID, codeBuffer_);
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
@@ -608,14 +609,17 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 
 	lastFSID_ = FSID;
 
-	if (globalDirty_) {
-		PSUpdateUniforms(globalDirty_);
-		VSUpdateUniforms(globalDirty_);
-		globalDirty_ = 0;
+	uint64_t dirtyUniforms = gstate_c.GetDirtyUniforms();
+	if (dirtyUniforms) {
+		if (dirtyUniforms & psUniforms)
+			PSUpdateUniforms(dirtyUniforms);
+		if (dirtyUniforms & vsUniforms)
+			VSUpdateUniforms(dirtyUniforms);
+		gstate_c.CleanUniforms();
 	}
 
-	pD3Ddevice->SetPixelShader(fs->shader);
-	pD3Ddevice->SetVertexShader(vs->shader);
+	device_->SetPixelShader(fs->shader);
+	device_->SetVertexShader(vs->shader);
 
 	lastPShader_ = fs;
 	lastVShader_ = vs;

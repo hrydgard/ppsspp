@@ -175,24 +175,18 @@ const char *GetFuncName(const char *moduleName, u32 nib)
 	return temp;
 }
 
-u32 GetSyscallOp(const char *moduleName, u32 nib)
-{
+u32 GetSyscallOp(const char *moduleName, u32 nib) {
 	// Special case to hook up bad imports.
-	if (moduleName == NULL)
-	{
+	if (moduleName == NULL) {
 		return (0x03FFFFCC);	// invalid syscall
 	}
 
 	int modindex = GetModuleIndex(moduleName);
-	if (modindex != -1)
-	{
+	if (modindex != -1) {
 		int funcindex = GetFuncIndex(modindex, nib);
-		if (funcindex != -1)
-		{
+		if (funcindex != -1) {
 			return (0x0000000c | (modindex<<18) | (funcindex<<6));
-		}
-		else
-		{
+		} else {
 			INFO_LOG(HLE, "Syscall (%s, %08x) unknown", moduleName, nib);
 			return (0x0003FFCC | (modindex<<18));  // invalid syscall
 		}
@@ -478,38 +472,37 @@ inline void CallSyscallWithoutFlags(const HLEFunction *info)
 		SetDeadbeefRegs();
 }
 
-const HLEFunction *GetSyscallInfo(MIPSOpcode op)
+const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op)
 {
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
 	if (funcnum == 0xfff) {
-		ERROR_LOG(HLE, "Unknown syscall: Module: %s", modulenum > (int) moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name); 
+		ERROR_LOG(HLE, "Unknown syscall: Module: %s (module: %d func: %d)", modulenum > (int)moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name, modulenum, funcnum);
 		return NULL;
 	}
 	if (modulenum >= (int)moduleDB.size()) {
-		ERROR_LOG(HLE, "Syscall had bad module number %i - probably executing garbage", modulenum);
+		ERROR_LOG(HLE, "Syscall had bad module number %d - probably executing garbage", modulenum);
 		return NULL;
 	}
 	if (funcnum >= moduleDB[modulenum].numFunctions) {
-		ERROR_LOG(HLE, "Syscall had bad function number %i in module %i - probably executing garbage", funcnum, modulenum);
+		ERROR_LOG(HLE, "Syscall had bad function number %d in module %d - probably executing garbage", funcnum, modulenum);
 		return NULL;
 	}
 	return &moduleDB[modulenum].funcTable[funcnum];
 }
 
-void *GetQuickSyscallFunc(MIPSOpcode op)
-{
-	// TODO: Clear jit cache on g_Config.bShowDebugStats change?
-	if (g_Config.bShowDebugStats)
-		return NULL;
+void *GetQuickSyscallFunc(MIPSOpcode op) {
+	if (coreCollectDebugStats)
+		return nullptr;
 
-	const HLEFunction *info = GetSyscallInfo(op);
+	const HLEFunction *info = GetSyscallFuncPointer(op);
 	if (!info || !info->func)
-		return NULL;
+		return nullptr;
+	DEBUG_LOG(HLE, "Compiling syscall to %s", info->name);
 
 	// TODO: Do this with a flag?
-	if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
+	if (op == idleOp)
 		return (void *)info->func;
 	if (info->flags != 0)
 		return (void *)&CallSyscallWithFlags;
@@ -525,14 +518,13 @@ void hleSetSteppingTime(double t)
 void CallSyscall(MIPSOpcode op)
 {
 	PROFILE_THIS_SCOPE("syscall");
-	double start = 0.0;  // need to initialize to fix the race condition where g_Config.bShowDebugStats is enabled in the middle of this func.
-	if (g_Config.bShowDebugStats)
-	{
+	double start = 0.0;  // need to initialize to fix the race condition where coreCollectDebugStats is enabled in the middle of this func.
+	if (coreCollectDebugStats) {
 		time_update();
 		start = time_now_d();
 	}
 
-	const HLEFunction *info = GetSyscallInfo(op);
+	const HLEFunction *info = GetSyscallFuncPointer(op);
 	if (!info) {
 		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
 		return;
@@ -551,8 +543,7 @@ void CallSyscall(MIPSOpcode op)
 		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
 	}
 
-	if (g_Config.bShowDebugStats)
-	{
+	if (coreCollectDebugStats) {
 		time_update();
 		u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 		int funcnum = callno & 0xFFF;

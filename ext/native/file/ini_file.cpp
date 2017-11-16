@@ -503,7 +503,7 @@ bool IniFile::Load(const char* filename)
 
 	// Open file
 	std::ifstream in;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 	in.open(ConvertUTF8ToWString(filename), std::ios::in);
 #else
 	in.open(filename, std::ios::in);
@@ -581,7 +581,7 @@ bool IniFile::Load(std::istream &in) {
 bool IniFile::Save(const char* filename)
 {
 	std::ofstream out;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 	out.open(ConvertUTF8ToWString(filename), std::ios::out);
 #else
 	out.open(filename, std::ios::out);

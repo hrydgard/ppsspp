@@ -8,8 +8,7 @@
 // from the framework, which exposes the native JNI api which is a bit
 // more complicated.
 
-// This is defined in input/input_state.h.
-struct InputState;
+// These are defined in input/input_state.h.
 struct TouchInput;
 struct KeyInput;
 struct AxisInput;
@@ -64,9 +63,15 @@ void NativeDeviceRestore();
 // and only write dp_xres and dp_yres.
 void NativeResized();
 
+// Set a flag to indicate a restart.  Reset after NativeInit().
+void NativeSetRestarting();
+
+// Retrieve current restarting flag.
+bool NativeIsRestarting();
+
 // Called ~sixty times a second, delivers the current input state.
 // Main thread.
-void NativeUpdate(InputState &input);
+void NativeUpdate();
 
 // Delivers touch events "instantly", without waiting for the next frame so that NativeUpdate can deliver.
 // Useful for triggering audio events, saving a few ms.
@@ -150,17 +155,25 @@ enum SystemProperty {
 	SYSPROP_NAME,
 	SYSPROP_LANGREGION,
 	SYSPROP_CPUINFO,
+	SYSPROP_BOARDNAME,
 	SYSPROP_CLIPBOARD_TEXT,
 	SYSPROP_GPUDRIVER_VERSION,
+
+	SYSPROP_HAS_FILE_BROWSER,
+	SYSPROP_HAS_IMAGE_BROWSER,
+	SYSPROP_HAS_BACK_BUTTON,
 
 	// Available as Int:
 	SYSPROP_SYSTEMVERSION,
 	SYSPROP_DISPLAY_XRES,
 	SYSPROP_DISPLAY_YRES,
 	SYSPROP_DISPLAY_REFRESH_RATE,  // returns 1000*the refresh rate in Hz as it can be non-integer
+	SYSPROP_DISPLAY_DPI,
+	SYSPROP_DISPLAY_COUNT,
 	SYSPROP_MOGA_VERSION,
 
 	SYSPROP_DEVICE_TYPE,
+	SYSPROP_APP_GOLD,  // To avoid having #ifdef GOLD other than in main.cpp and similar.
 
 	// Exposed on Android. Choosing the optimal sample rate for audio
 	// will result in lower latencies. Buffer size is automatically matched
@@ -171,8 +184,12 @@ enum SystemProperty {
 	SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER,
 
 	SYSPROP_SUPPORTS_PERMISSIONS,
+	SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE,
 };
 
 std::string System_GetProperty(SystemProperty prop);
 int System_GetPropertyInt(SystemProperty prop);
+bool System_GetPropertyBool(SystemProperty prop);
 
+void PushNewGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time);
+void PushCameraImage(long long length, unsigned char* image);

@@ -19,8 +19,10 @@
 
 #include <vector>
 #include <map>
-#include "base/mutex.h"
+#include <mutex>
+
 #include "Common/Common.h"
+#include "Common/Swap.h"
 #include "Core/Loaders.h"
 
 class DiskCachingFileLoaderCache;
@@ -36,13 +38,6 @@ public:
 	s64 FileSize() override;
 	std::string Path() const override;
 
-	void Seek(s64 absolutePos) override;
-	size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
-		return ReadAt(filepos_, bytes, count, data, flags);
-	}
-	size_t Read(size_t bytes, void *data, Flags flags = Flags::NONE) override {
-		return ReadAt(filepos_, bytes, data, flags);
-	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
 		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
 	}
@@ -57,14 +52,13 @@ private:
 
 	bool prepared_;
 	s64 filesize_;
-	s64 filepos_;
 	FileLoader *backend_;
 	DiskCachingFileLoaderCache *cache_;
 
 	// We don't support concurrent disk cache access (we use memory cached indexes.)
 	// So we have to ensure there's only one of these per.
 	static std::map<std::string, DiskCachingFileLoaderCache *> caches_;
-	static recursive_mutex cachesMutex_;
+	static std::mutex cachesMutex_;
 };
 
 class DiskCachingFileLoaderCache {
@@ -154,7 +148,7 @@ private:
 	u32 flags_;
 	size_t cacheSize_;
 	size_t indexCount_;
-	recursive_mutex lock_;
+	std::mutex lock_;
 	std::string origPath_;
 
 	struct FileHeader {

@@ -21,10 +21,10 @@ enum CheckAlphaResult {
 	// These are intended to line up with TexCacheEntry::STATUS_ALPHA_UNKNOWN, etc.
 	CHECKALPHA_FULL = 0,
 	CHECKALPHA_ANY = 4,
-	CHECKALPHA_ZERO = 8,
 };
 
 #include "Common/Common.h"
+#include "Common/Swap.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoderNEON.h"
@@ -115,9 +115,9 @@ struct DXT5Block {
 	u8 alpha1; u8 alpha2;
 };
 
-void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha = false);
-void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch);
-void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch);
+void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, bool ignore1bitAlpha);
+void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height);
+void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height);
 
 static const u8 textureBitsPerPixel[16] = {
 	16,  //GE_TFMT_5650,

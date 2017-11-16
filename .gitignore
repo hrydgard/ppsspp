@@ -36,6 +36,8 @@ PPSSPPWindows.exe.manifest
 PPSSPPDebug64.exe.manifest
 PPSSPPDebug.exe.manifest
 assets/flash0
+UWP/icph
+UWP/.vs
 
 # For Mac
 .DS_Store
@@ -47,20 +49,24 @@ PPSSPPControls.dat
 # Qt Linguist files
 *.qm
 
-#Android stuff
+# Gradle/Android Studio
+.gradle
 .idea
-android/.idea
+*.iml
+build
+build.ios
+versionname.txt
+versioncode.txt
+build*/
+
+# Temp file used by jenkins windows build (TODO: remove)
+desc.txt
 
 Logs
 Memstick
 memstick
 Cheats
 
-bin
-gen
-libs
-obj
-build*/
 /git-version.cpp
 
 .pspsh.hist
@@ -88,6 +94,9 @@ tags
 debian/files
 debian/ppsspp.substvars
 debian/ppsspp/
+
+# Libretro build
+*.o
 
 # YouCompleteMe file
 .ycm_extra_conf.pyc

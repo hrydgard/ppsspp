@@ -67,7 +67,7 @@ class Buffer {
   bool FlushSocket(uintptr_t sock);  // Windows portability
 
   bool ReadAll(int fd, int hintSize = 0);
-  bool ReadAllWithProgress(int fd, int knownSize, float *progress);
+  bool ReadAllWithProgress(int fd, int knownSize, float *progress, bool *cancelled);
 
 	// < 0: error
 	// >= 0: number of bytes read

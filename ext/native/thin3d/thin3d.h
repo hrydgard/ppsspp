@@ -12,17 +12,25 @@
 #include <string>
 
 #include "base/logging.h"
+#include "DataFormat.h"
 
 class Matrix4x4;
 
 #ifdef _WIN32
-
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#include <d3dcommon.h>
 struct IDirect3DDevice9;
 struct IDirect3D9;
 struct IDirect3DDevice9Ex;
 struct IDirect3D9Ex;
 struct ID3D11Device;
 struct ID3D11DeviceContext;
+struct ID3D11Device1;
+struct ID3D11DeviceContext1;
 
 #endif
 
@@ -105,14 +113,15 @@ enum class StencilOp {
 };
 
 enum class TextureFilter : int {
-	NEAREST,
-	LINEAR,
+	NEAREST = 0,
+	LINEAR = 1,
 };
 
 enum BufferUsageFlag : int {
 	VERTEXDATA = 1,
 	INDEXDATA = 2,
 	GENERIC = 4,
+	UNIFORM = 8,
 
 	DYNAMIC = 16,
 };
@@ -142,6 +151,8 @@ enum class Primitive {
 	LINE_STRIP_ADJ,
 	TRIANGLE_LIST_ADJ,
 	TRIANGLE_STRIP_ADJ,
+
+	UNDEFINED,
 };
 
 enum VertexShaderPreset : int {
@@ -156,13 +167,7 @@ enum FragmentShaderPreset : int {
 	FS_MAX_PRESET,
 };
 
-enum ClearFlag : int {
-	COLOR = 1,
-	DEPTH = 2,
-	STENCIL = 4,
-};
-
-enum TextureType : uint8_t {
+enum class TextureType : uint8_t {
 	UNKNOWN,
 	LINEAR1D,
 	LINEAR2D,
@@ -170,59 +175,6 @@ enum TextureType : uint8_t {
 	CUBE,
 	ARRAY1D,
 	ARRAY2D,
-};
-
-enum class DataFormat : uint8_t {
-	UNDEFINED,
-
-	R8_UNORM,
-	R8G8_UNORM,
-	R8G8B8_UNORM,
-
-	R8G8B8A8_UNORM,
-	R8G8B8A8_UNORM_SRGB,
-
-	R8G8B8A8_SNORM,
-	R8G8B8A8_UINT,
-	R8G8B8A8_SINT,
-
-	R4G4_UNORM,
-	R4G4B4A4_UNORM,
-
-	R16_FLOAT,
-	R16G16_FLOAT,
-	R16G16B16A16_FLOAT,
-
-	R32_FLOAT,
-	R32G32_FLOAT,
-	R32G32B32_FLOAT,
-	R32G32B32A32_FLOAT,
-
-	// Block compression formats.
-	// These are modern names for DXT and friends, now patent free.
-	// https://msdn.microsoft.com/en-us/library/bb694531.aspx
-	BC1_RGBA_UNORM_BLOCK,
-	BC1_RGBA_SRGB_BLOCK,
-	BC2_UNORM_BLOCK,  // 4-bit straight alpha + DXT1 color. Usually not worth using
-	BC2_SRGB_BLOCK,
-	BC3_UNORM_BLOCK,  // 3-bit alpha with 2 ref values (+ magic) + DXT1 color
-	BC3_SRGB_BLOCK,
-	BC4_UNORM_BLOCK,  // 1-channel, same storage as BC3 alpha
-	BC4_SNORM_BLOCK,
-	BC5_UNORM_BLOCK,  // 2-channel RG, each has same storage as BC3 alpha
-	BC5_SNORM_BLOCK,
-	BC6H_UFLOAT_BLOCK,  // TODO
-	BC6H_SFLOAT_BLOCK,
-	BC7_UNORM_BLOCK,    // Highly advanced, very expensive to compress, very good quality.
-	BC7_SRGB_BLOCK,
-
-	ETC1,
-
-	S8,
-	D16,
-	D24_S8,
-	D32F,
-	D32F_S8,
 };
 
 enum class ShaderStage {
@@ -261,27 +213,32 @@ enum {
 };
 
 enum class TextureAddressMode {
-	REPEAT,
+	REPEAT = 0,
 	REPEAT_MIRROR,
 	CLAMP_TO_EDGE,
 	CLAMP_TO_BORDER,
 };
 
 enum class ShaderLanguage {
-	GLSL_ES_200,
-	GLSL_ES_300,
-	GLSL_410,
-	GLSL_VULKAN,
-	HLSL_D3D9,
-	HLSL_D3D11,
+	GLSL_ES_200 = 1,
+	GLSL_ES_300 = 2,
+	GLSL_410 = 4,
+	GLSL_VULKAN = 8,
+	SPIRV_VULKAN = 16,
+	HLSL_D3D9 = 32,
+	HLSL_D3D11 = 64,
+	HLSL_D3D9_BYTECODE = 128,
+	HLSL_D3D11_BYTECODE = 256,
+	METAL = 512,
+	METAL_BYTECODE = 1024,
 };
 
-enum ImageFileType {
-	PNG,
-	JPEG,
-	ZIM,
-	DETECT,
-	TYPE_UNKNOWN,
+enum FormatSupport {
+	FMT_RENDERTARGET = 1,
+	FMT_TEXTURE = 2,
+	FMT_INPUTLAYOUT = 4,
+	FMT_DEPTHSTENCIL = 8,
+	FMT_AUTOGEN_MIPS = 16,
 };
 
 enum InfoField {
@@ -290,7 +247,75 @@ enum InfoField {
 	VENDORSTRING,
 	VENDOR,
 	SHADELANGVERSION,
-	RENDERER,
+	DRIVER,
+};
+
+enum class NativeObject {
+	CONTEXT,
+	CONTEXT_EX,
+	DEVICE,
+	DEVICE_EX,
+	BACKBUFFER_COLOR_VIEW,
+	BACKBUFFER_DEPTH_VIEW,
+	BACKBUFFER_COLOR_TEX,
+	BACKBUFFER_DEPTH_TEX,
+	FEATURE_LEVEL,
+	COMPATIBLE_RENDERPASS,
+	BACKBUFFER_RENDERPASS,
+	FRAMEBUFFER_RENDERPASS,
+	INIT_COMMANDBUFFER,
+	BOUND_TEXTURE0_IMAGEVIEW,
+	BOUND_TEXTURE1_IMAGEVIEW,
+	RENDER_MANAGER,
+};
+
+enum FBColorDepth {
+	FBO_8888,
+	FBO_565,
+	FBO_4444,
+	FBO_5551,
+};
+
+enum FBChannel {
+	FB_COLOR_BIT = 1,
+	FB_DEPTH_BIT = 2,
+	FB_STENCIL_BIT = 4,
+
+	// Implementation specific
+	FB_SURFACE_BIT = 32,  // Used in conjunction with the others in D3D9 to get surfaces through get_api_texture
+	FB_VIEW_BIT = 64,     // Used in conjunction with the others in D3D11 to get shader resource views through get_api_texture
+	FB_FORMAT_BIT = 128,  // Actually retrieves the native format instead. D3D11 only.
+};
+
+enum FBBlitFilter {
+	FB_BLIT_NEAREST = 0,
+	FB_BLIT_LINEAR = 1,
+};
+
+enum UpdateBufferFlags {
+	UPDATE_DISCARD = 1,
+};
+
+enum class Event {
+	// These happen on D3D resize. Only the backbuffer needs to be resized.
+	LOST_BACKBUFFER,
+	GOT_BACKBUFFER,
+
+	// These are a bit more serious...
+	LOST_DEVICE,
+	GOT_DEVICE,
+
+	RESIZED,
+	PRESENTED,
+};
+
+struct FramebufferDesc {
+	int width;
+	int height;
+	int depth;
+	int numColorAttachments;
+	bool z_stencil;
+	FBColorDepth colorDepth;
 };
 
 // Binary compatible with D3D11 viewport.
@@ -327,27 +352,20 @@ class DepthStencilState : public RefCountedObject {
 public:
 };
 
+class Framebuffer : public RefCountedObject {
+public:
+};
+
 class Buffer : public RefCountedObject {
 public:
-	virtual void SetData(const uint8_t *data, size_t size) = 0;
-	virtual void SubData(const uint8_t *data, size_t offset, size_t size) = 0;
 };
 
 class Texture : public RefCountedObject {
 public:
-	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT);
-	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type = ImageFileType::DETECT);
-
-	virtual bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
-	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
-	virtual void AutoGenMipmaps() = 0;
-	virtual void Finalize(int zim_flags) = 0;  // TODO: Tidy up
-
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Depth() { return depth_; }
 protected:
-	std::string filename_;  // Textures that are loaded from files can reload themselves automatically.
 	int width_, height_, depth_;
 };
 
@@ -371,20 +389,22 @@ struct InputLayoutDesc {
 class InputLayout : public RefCountedObject { };
 
 enum class UniformType : int8_t {
-	FLOAT, FLOAT2, FLOAT3, FLOAT4,
+	FLOAT4,
 	MATRIX4X4,
 };
 
 // For emulation of uniform buffers on D3D9/GL
 struct UniformDesc {
-	int16_t offset;
+	const char *name;  // For GL
+	int16_t vertexReg;        // For D3D
+	int16_t fragmentReg;      // For D3D
 	UniformType type;
-	int8_t reg;  // For D3D
-
+	int16_t offset;
 	// TODO: Support array elements etc.
 };
 
 struct UniformBufferDesc {
+	size_t uniformBufferSize;
 	std::vector<UniformDesc> uniforms;
 };
 
@@ -395,9 +415,7 @@ public:
 
 class Pipeline : public RefCountedObject {
 public:
-	// TODO: Use a uniform-buffer based interface instead.
-	virtual void SetVector(const char *name, float *value, int n) = 0;
-	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
+	virtual ~Pipeline() {}
 	virtual bool RequiresBuffer() = 0;
 };
 
@@ -451,7 +469,7 @@ struct SamplerStateDesc {
 
 struct RasterStateDesc {
 	CullMode cull;
-	Facing facing;
+	Facing frontFace;
 };
 
 struct PipelineDesc {
@@ -461,6 +479,7 @@ struct PipelineDesc {
 	DepthStencilState *depthStencil;
 	BlendState *blend;
 	RasterState *raster;
+	const UniformBufferDesc *uniformDesc;
 };
 
 struct DeviceCaps {
@@ -473,27 +492,57 @@ struct DeviceCaps {
 	bool tesselationShaderSupported;
 	bool multiViewport;
 	bool dualSourceBlend;
+	bool logicOpSupported;
+	bool framebufferCopySupported;
+	bool framebufferBlitSupported;
+	bool framebufferDepthCopySupported;
+	bool framebufferDepthBlitSupported;
 };
 
-class DrawContext : public RefCountedObject {
+struct TextureDesc {
+	TextureType type;
+	DataFormat format;
+	int width;
+	int height;
+	int depth;
+	int mipLevels;
+	bool generateMips;
+	std::vector<uint8_t *> initData;
+};
+
+enum class RPAction {
+	DONT_CARE,
+	CLEAR,
+	KEEP,
+};
+
+struct RenderPassInfo {
+	RPAction color;
+	RPAction depth;
+	uint32_t clearColor;
+	float clearDepth;
+	uint8_t clearStencil;
+};
+
+class DrawContext {
 public:
 	virtual ~DrawContext();
+	bool CreatePresets();
 
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
+	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetExtensionList() const { return std::vector<std::string>(); }
+
+	virtual uint32_t GetSupportedShaderLanguages() const = 0;
 
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	virtual DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) = 0;
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
-	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 	// virtual ComputePipeline CreateComputePipeline(const ComputePipelineDesc &desc) = 0
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
-
-	// Common Thin3D function, uses CreateTexture
-	Texture *CreateTextureFromFile(const char *filename, ImageFileType fileType);
-	Texture *CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }
@@ -501,36 +550,71 @@ public:
 
 	// Resources
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
-	virtual Texture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
-	virtual Texture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual Texture *CreateTexture(const TextureDesc &desc) = 0;
+	// On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
+	virtual Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) = 0;
 
-	// The implementation makes the choice of which shader code to use.
-	virtual ShaderModule *CreateShaderModule(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
+	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
+	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
+
+	// Copies data from the CPU over into the buffer, at a specific offset. This does not change the size of the buffer and cannot write outside it.
+	virtual void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) = 0;
+
+	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) = 0;
+	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
+	virtual bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) {
+		return false;
+	}
+
+	// These functions should be self explanatory.
+	// Binding a zero render target means binding the backbuffer.
+	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) = 0;
+
+	// color must be 0, for now.
+	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
+
+	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) = 0;
+
+	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
+
+	// Useful in OpenGL ES to give hints about framebuffers on tiler GPUs.
+	virtual void InvalidateFramebuffer(Framebuffer *fbo) {}
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
 	virtual void SetViewports(int count, Viewport *viewports) = 0;
+	virtual void SetBlendFactor(float color[4]) = 0;
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void BindTextures(int start, int count, Texture **textures) = 0;
+	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) = 0;
+	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
+
+	// Only supports a single dynamic uniform buffer, for maximum compatibility with the old APIs and ease of emulation.
+	// More modern methods will be added later.
+	virtual void UpdateDynamicUniformBuffer(const void *ub, size_t size) = 0;
+
 	void BindTexture(int stage, Texture *texture) {
 		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
 
+	// Call this with 0 to signal that you have been drawing on your own, and need the state reset on the next pipeline bind.
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
-	virtual void Draw(Buffer *vdata, int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(Buffer *vdata, Buffer *idata, int vertexCount, int offset) = 0;
+	virtual void Draw(int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(int vertexCount, int offset) = 0;
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
-	// Render pass management. Default implementations here.
-	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
-		Clear(0xF, colorval, depthVal, stencilVal);
-	}
-	virtual void End() {}
+	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
+	virtual void BeginFrame() {}
+	virtual void EndFrame() {}
+	virtual void WipeQueue() {}
+
+	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
+	// on Vulkan.
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
-	
+
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.
 	void SetTargetSize(int w, int h) {
 		targetWidth_ = w;
@@ -538,10 +622,21 @@ public:
 	}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
+	virtual uintptr_t GetNativeObject(NativeObject obj) = 0;
+
+	virtual void HandleEvent(Event ev, int width, int height, void *param1 = nullptr, void *param2 = nullptr) = 0;
+
+	// This flushes command buffers and waits for execution at the point of the end of the last
+	// renderpass that wrote to the requested framebuffer. This is needed before trying to read it back
+	// on modern APIs like Vulkan. Ifr the framebuffer is currently being rendered to, we'll just end the render pass.
+	// The next draw call will automatically start up a new one.
+	// APIs like OpenGL won't need to implement this one.
+	virtual void WaitRenderCompletion(Framebuffer *fbo) {}
+
+	// Flush state like scissors etc so the caller can do its own custom drawing.
+	virtual void FlushState() {}
 
 protected:
-	void CreatePresets();
-
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];
 
@@ -551,11 +646,24 @@ protected:
 
 DrawContext *T3DCreateGLContext();
 
+extern const UniformBufferDesc UBPresetDesc;
+
 #ifdef _WIN32
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context);
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd);
 #endif
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *context);
+
+// UBs for the preset shaders
+
+struct VsTexColUB {
+	float WorldViewProj[16];
+};
+extern const UniformBufferDesc vsTexColBufDesc;
+struct VsColUB {
+	float WorldViewProj[16];
+};
+extern const UniformBufferDesc vsColBufDesc;
 
 }  // namespace Draw

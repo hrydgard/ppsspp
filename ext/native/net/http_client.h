@@ -1,16 +1,18 @@
-#ifndef _NET_HTTP_HTTP_CLIENT
-#define _NET_HTTP_HTTP_CLIENT
+#pragma once
 
 #include <functional>
 #include <memory>
+#include <thread>
 
 #include "base/basictypes.h"
 #include "base/buffer.h"
-#include "thread/thread.h"
 
 #ifdef _WIN32
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -28,7 +30,7 @@ public:
 	// Inits the sockaddr_in.
 	bool Resolve(const char *host, int port);
 
-	bool Connect(int maxTries = 2, double timeout = 20.0f);
+	bool Connect(int maxTries = 2, double timeout = 20.0f, bool *cancelConnect = nullptr);
 	void Disconnect();
 
 	// Only to be used for bring-up and debugging.
@@ -57,7 +59,8 @@ public:
 	~Client();
 
 	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
-	int GET(const char *resource, Buffer *output, float *progress = nullptr);
+	int GET(const char *resource, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
+	int GET(const char *resource, Buffer *output, std::vector<std::string> &responseHeaders, float *progress = nullptr, bool *cancelled = nullptr);
 
 	// Return value is the HTTP return code.
 	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, float *progress = nullptr);
@@ -69,7 +72,7 @@ public:
 	int SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders = nullptr, float *progress = nullptr);
 	int ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress = nullptr);
 	// If your response contains a response, you must read it.
-	int ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr);
+	int ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
 
 	const char *userAgent_;
 	const char *httpVersion_;
@@ -135,7 +138,7 @@ private:
 	int resultCode_;
 	bool completed_;
 	bool failed_;
-	volatile bool cancelled_;
+	bool cancelled_;
 	bool hidden_;
 	std::function<void(Download &)> callback_;
 };
@@ -165,8 +168,4 @@ private:
 	std::vector<std::shared_ptr<Download>> downloads_;
 };
 
-
 }	// http
-
-#endif	// _NET_HTTP_HTTP_CLIENT
-

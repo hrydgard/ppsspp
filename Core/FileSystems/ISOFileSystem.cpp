@@ -187,7 +187,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	treeroot->valid = false;
 
 	if (memcmp(desc.cd001, "CD001", 5)) {
-		ERROR_LOG(FILESYS, "ISO looks bogus? Giving up...");
+		ERROR_LOG(FILESYS, "ISO looks bogus, expected CD001 signature not present? Giving up...");
 		return;
 	}
 
@@ -652,7 +652,7 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path) {
 		x.isOnSectorSystem = true;
 		x.startSector = e->startingPosition/2048;
 		x.sectorSize = sectorSize;
-		x.numSectors = (e->size + sectorSize - 1) / sectorSize;
+		x.numSectors = (u32)((e->size + sectorSize - 1) / sectorSize);
 		memset(&x.atime, 0, sizeof(x.atime));
 		memset(&x.mtime, 0, sizeof(x.mtime));
 		memset(&x.ctime, 0, sizeof(x.ctime));

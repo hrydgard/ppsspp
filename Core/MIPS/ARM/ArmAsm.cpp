@@ -56,11 +56,8 @@ static const bool disasm = false;
 extern volatile CoreState coreState;
 
 void ShowPC(u32 sp) {
-	if (currentMIPS) {
-		ERROR_LOG(JIT, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
-	} else {
-		ERROR_LOG(JIT, "Universe corrupt?");
-	}
+	ERROR_LOG(JIT, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
+	// Sleep(1);
 }
 
 void DisassembleArm(const u8 *data, int size);
@@ -149,13 +146,15 @@ void ArmJit::GenerateFixedCode() {
 	SetCC(CC_AL);
 
 	PUSH(9, R4, R5, R6, R7, R8, R9, R10, R11, R_LR);
-
 	// Take care to 8-byte align stack for function calls.
 	// We are misaligned here because of an odd number of args for PUSH.
 	// It's not like x86 where you need to account for an extra 4 bytes
 	// consumed by CALL.
 	SUB(R_SP, R_SP, 4);
 	// Now we are correctly aligned and plan to stay that way.
+	if (cpu_info.bNEON) {
+		VPUSH(D8, 8);
+	}
 
 	// Fixed registers, these are always kept when in Jit context.
 	// R8 is used to hold flags during delay slots. Not always needed.
@@ -169,11 +168,6 @@ void ArmJit::GenerateFixedCode() {
 	MOVP2R(CTXREG, mips_);
 	MOVP2R(JITBASEREG, GetBasePtr());
 
-	// Doing this down here for better pipelining, just in case.
-	if (cpu_info.bNEON) {
-		VPUSH(D8, 8);
-	}
-
 	RestoreDowncount();
 	MovFromPC(R0);
 	outerLoopPCInR0 = GetCodePtr();
@@ -184,13 +178,15 @@ void ArmJit::GenerateFixedCode() {
 		QuickCallFunction(R0, &CoreTiming::Advance);
 		ApplyRoundingMode(true);
 		RestoreDowncount();
-		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
+		FixupBranch skipToCoreStateCheck = B(); //skip the downcount check
 
 		dispatcherCheckCoreState = GetCodePtr();
 
 		// The result of slice decrementation should be in flags if somebody jumped here
 		// IMPORTANT - We jump on negative, not carry!!!
 		FixupBranch bailCoreState = B_CC(CC_MI);
+
+		SetJumpTarget(skipToCoreStateCheck);
 
 		MOVI2R(R0, (u32)(uintptr_t)&coreState);
 		LDR(R0, R0);
@@ -209,7 +205,6 @@ void ArmJit::GenerateFixedCode() {
 			// IMPORTANT - We jump on negative, not carry!!!
 			FixupBranch bail = B_CC(CC_MI);
 
-			SetJumpTarget(skipToRealDispatch);
 			SetJumpTarget(skipToRealDispatch2);
 
 			dispatcherNoCheck = GetCodePtr();
@@ -259,18 +254,17 @@ void ArmJit::GenerateFixedCode() {
 	SetJumpTarget(badCoreState);
 	breakpointBailout = GetCodePtr();
 
+	SaveDowncount();
+	RestoreRoundingMode(true);
+
 	// Doing this above the downcount for better pipelining (slightly.)
 	if (cpu_info.bNEON) {
 		VPOP(D8, 8);
 	}
 
-	SaveDowncount();
-	RestoreRoundingMode(true);
-
 	ADD(R_SP, R_SP, 4);
 
 	POP(9, R4, R5, R6, R7, R8, R9, R10, R11, R_PC);  // Returns
-
 
 	// Uncomment if you want to see the output...
 	if (disasm) {

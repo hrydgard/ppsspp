@@ -17,6 +17,7 @@
 
 
 #include "Common/FileUtil.h"
+#include "Common/Swap.h"
 #include "Core/Loaders.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include <cstdio>
@@ -30,16 +31,17 @@ extern "C"
 #include "ext/libkirk/kirk_engine.h"
 };
 
+std::mutex NPDRMDemoBlockDevice::mutex_;
+
 BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 	// Check for CISO
 	if (!fileLoader->Exists())
 		return nullptr;
-	char buffer[4];
+	char buffer[4]{};
 	size_t size = fileLoader->ReadAt(0, 1, 4, buffer);
-	fileLoader->Seek(0);
-	if (!memcmp(buffer, "CISO", 4) && size == 4)
+	if (size == 4 && !memcmp(buffer, "CISO", 4))
 		return new CISOFileBlockDevice(fileLoader);
-	else if (!memcmp(buffer, "\x00PBP", 4) && size == 4)
+	else if (size == 4 && !memcmp(buffer, "\x00PBP", 4))
 		return new NPDRMDemoBlockDevice(fileLoader);
 	else
 		return new FileBlockDevice(fileLoader);
@@ -51,7 +53,7 @@ u32 BlockDevice::CalculateCRC() {
 	u8 block[2048];
 	for (u32 i = 0; i < GetNumBlocks(); ++i) {
 		if (!ReadBlock(i, block, true)) {
-			ERROR_LOG(HLE, "Failed to read block for CRC");
+			ERROR_LOG(FILESYS, "Failed to read block for CRC");
 			return 0;
 		}
 		crc = crc32(crc, block, 2048);
@@ -360,13 +362,10 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 	return true;
 }
 
-
-recursive_mutex NPDRMDemoBlockDevice::mutex_;
-
 NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	: fileLoader_(fileLoader)
 {
-	lock_guard guard(mutex_);
+	std::lock_guard<std::mutex> guard(mutex_);
 	MAC_KEY mkey;
 	CIPHER_KEY ckey;
 	u8 np_header[256];
@@ -432,7 +431,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice()
 {
-	lock_guard guard(mutex_);
+	std::lock_guard<std::mutex> guard(mutex_);
 	delete [] table;
 	delete [] tempBuf;
 	delete [] blockBuf;
@@ -443,7 +442,7 @@ int lzrc_decompress(void *out, int out_len, void *in, int in_len);
 bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
-	lock_guard guard(mutex_);
+	std::lock_guard<std::mutex> guard(mutex_);
 	CIPHER_KEY ckey;
 	int block, lba, lzsize;
 	size_t readSize;

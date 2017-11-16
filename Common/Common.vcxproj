@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -22,31 +22,33 @@
     <ProjectGuid>{3FCDBAE2-5103-4350-9A8E-848CE9C73195}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Common</RootNamespace>
+    <WindowsTargetPlatformVersion>
+    </WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -225,6 +227,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="GraphicsContext.h" />
+    <ClInclude Include="Hashmaps.h" />
     <ClInclude Include="KeyMap.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
@@ -233,6 +236,7 @@
     <ClInclude Include="MemoryUtil.h" />
     <ClInclude Include="MipsEmitter.h" />
     <ClInclude Include="MsgHandler.h" />
+    <ClInclude Include="OSVersion.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Swap.h" />
@@ -292,11 +296,15 @@
     </ClCompile>
     <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="LogManager.cpp" />
-    <ClCompile Include="MemArena.cpp" />
+    <ClCompile Include="MemArenaAndroid.cpp" />
+    <ClCompile Include="MemArenaPosix.cpp" />
+    <ClCompile Include="MemArenaWin32.cpp" />
+    <ClCompile Include="MemArenaDarwin.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
     <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Misc.cpp" />
     <ClCompile Include="MsgHandler.cpp" />
+    <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -314,9 +322,6 @@
     <ClCompile Include="Vulkan\VulkanMemory.cpp" />
     <ClCompile Include="x64Analyzer.cpp" />
     <ClCompile Include="x64Emitter.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ext\native\native.vcxproj">

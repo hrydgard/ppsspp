@@ -25,7 +25,9 @@ void ScreenManager::switchScreen(Screen *screen) {
 	// until that switch.
 	// TODO: is this still true?
 	if (nextScreen_ != 0) {
-		FLOG("Already had a nextScreen_");
+		ELOG("Already had a nextScreen_! Asynchronous open while doing something? Deleting the new screen.");
+		delete screen;
+		return;
 	}
 	if (screen == 0) {
 		WLOG("Swiching to a zero screen, this can't be good");
@@ -36,18 +38,19 @@ void ScreenManager::switchScreen(Screen *screen) {
 	}
 }
 
-void ScreenManager::update(InputState &input) {
+void ScreenManager::update() {
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (nextScreen_) {
 		switchToNext();
 	}
 
 	if (stack_.size()) {
-		stack_.back().screen->update(input);
+		stack_.back().screen->update();
 	}
 }
 
 void ScreenManager::switchToNext() {
-	lock_guard guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!nextScreen_) {
 		ELOG("switchToNext: No nextScreen_!");
 	}
@@ -67,16 +70,17 @@ void ScreenManager::switchToNext() {
 }
 
 bool ScreenManager::touch(const TouchInput &touch) {
-	lock_guard guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!stack_.empty()) {
-		return stack_.back().screen->touch(touch);
+		Screen *screen = stack_.back().screen;
+		return screen->touch(screen->transformTouch(touch));
 	} else {
 		return false;
 	}
 }
 
 bool ScreenManager::key(const KeyInput &key) {
-	lock_guard guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!stack_.empty()) {
 		return stack_.back().screen->key(key);
 	} else {
@@ -85,7 +89,7 @@ bool ScreenManager::key(const KeyInput &key) {
 }
 
 bool ScreenManager::axis(const AxisInput &axis) {
-	lock_guard guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (!stack_.empty()) {
 		return stack_.back().screen->axis(axis);
 	} else {
@@ -94,7 +98,7 @@ bool ScreenManager::axis(const AxisInput &axis) {
 }
 
 void ScreenManager::resized() {
-	lock_guard guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	// Have to notify the whole stack, otherwise there will be problems when going back
 	// to non-top screens.
 	for (auto iter = stack_.begin(); iter != stack_.end(); ++iter) {
@@ -121,12 +125,16 @@ void ScreenManager::render() {
 				backback.screen->preRender();
 				backback.screen->render();
 				stack_.back().screen->render();
-				stack_.back().screen->postRender();
+				if (postRenderCb_)
+					postRenderCb_(getUIContext(), postRenderUserdata_);
+				backback.screen->postRender();
 				break;
 			}
 		default:
 			stack_.back().screen->preRender();
 			stack_.back().screen->render();
+			if (postRenderCb_)
+				postRenderCb_(getUIContext(), postRenderUserdata_);
 			stack_.back().screen->postRender();
 			break;
 		}
@@ -168,7 +176,7 @@ Screen *ScreenManager::topScreen() const {
 }
 
 void ScreenManager::shutdown() {
-	lock_guard guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	for (auto x = stack_.begin(); x != stack_.end(); x++)
 		delete x->screen;
 	stack_.clear();
@@ -177,7 +185,7 @@ void ScreenManager::shutdown() {
 }
 
 void ScreenManager::push(Screen *screen, int layerFlags) {
-	lock_guard guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (nextScreen_ && stack_.empty()) {
 		// we're during init, this is OK
 		switchToNext();
@@ -192,7 +200,7 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 }
 
 void ScreenManager::pop() {
-	lock_guard guard(inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	if (stack_.size()) {
 		delete stack_.back().screen;
 		stack_.pop_back();
@@ -223,7 +231,7 @@ void ScreenManager::finishDialog(Screen *dialog, DialogResult result) {
 
 void ScreenManager::processFinishDialog() {
 	if (dialogFinished_) {
-		lock_guard guard(inputLock_);
+		std::lock_guard<std::recursive_mutex> guard(inputLock_);
 		// Another dialog may have been pushed before the render, so search for it.
 		Screen *caller = 0;
 		for (size_t i = 0; i < stack_.size(); ++i) {

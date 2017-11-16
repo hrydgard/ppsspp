@@ -84,14 +84,12 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 #else
 	if (flip)
 		ELOG("pngLoad: flip flag not supported, image will be loaded upside down");
-	png_image png;
-	memset(&png, 0, sizeof(png));
+	png_image png{};
 	png.version = PNG_IMAGE_VERSION;
 
 	png_image_begin_read_from_memory(&png, input_ptr, input_len);
 
-	if (PNG_IMAGE_FAILED(png))
-	{
+	if (PNG_IMAGE_FAILED(png)) {
 		ELOG("pngLoad: %s", png.message);
 		return 0;
 	}
@@ -100,7 +98,14 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	png.format = PNG_FORMAT_RGBA;
 
 	int stride = PNG_IMAGE_ROW_STRIDE(png);
-	*image_data_ptr = (unsigned char *)malloc(PNG_IMAGE_SIZE(png));
+
+	size_t size = PNG_IMAGE_SIZE(png);
+	if (!size) {
+		ELOG("pngLoad: empty image");
+		return 0;
+	}
+
+	*image_data_ptr = (unsigned char *)malloc(size);
 	png_image_finish_read(&png, NULL, *image_data_ptr, stride, NULL);
 #endif
 

@@ -2,70 +2,65 @@
 #include "android/jni/native_audio.h"
 #include "android/jni/native-audio-so.h"
 
-struct AudioState {
-	void *so;
-	AndroidAudioCallback callback;
-	bool playing;
-	int frames_per_buffer;
-	int sample_rate;
+struct AndroidAudioState {
+	AudioContext *ctx = nullptr;
+	AndroidAudioCallback callback = nullptr;
+	int frames_per_buffer = 0;
+	int sample_rate = 0;
 };
 
-static AudioState *state = 0;
-
-bool AndroidAudio_Init(AndroidAudioCallback callback, std::string libraryDir, int optimalFramesPerBuffer, int optimalSampleRate) {
-	if (state != 0) {
-		ELOG("Audio state already exists");
-		return false;
-	}
-
-	state = new AudioState();
+AndroidAudioState *AndroidAudio_Init(AndroidAudioCallback callback, std::string libraryDir, int optimalFramesPerBuffer, int optimalSampleRate) {
+	AndroidAudioState *state = new AndroidAudioState();
 	state->callback = callback;
-	state->playing = false;
 	state->frames_per_buffer = optimalFramesPerBuffer ? optimalFramesPerBuffer : 256;
 	state->sample_rate = optimalSampleRate ? optimalSampleRate : 44100;
-
-	return true;
+	return state;
 }
 
-bool AndroidAudio_Resume() {
+bool AndroidAudio_Resume(AndroidAudioState *state) {
 	if (!state) {
 		ELOG("Audio was shutdown, cannot resume!");
 		return false;
 	}
-	if (!state->playing) {
+	if (!state->ctx) {
 		ILOG("Calling OpenSLWrap_Init_T...");
-		bool init_retval = OpenSLWrap_Init(state->callback, state->frames_per_buffer, state->sample_rate);
+		state->ctx = new OpenSLContext(state->callback, state->frames_per_buffer, state->sample_rate);
 		ILOG("Returned from OpenSLWrap_Init_T");
-		state->playing = true;
+		bool init_retval = state->ctx->Init();
+		if (!init_retval) {
+			delete state->ctx;
+			state->ctx = nullptr;
+		}
 		return init_retval;
 	}
 	return false;
 }
 
-bool AndroidAudio_Pause() {
+bool AndroidAudio_Pause(AndroidAudioState *state) {
 	if (!state) {
 		ELOG("Audio was shutdown, cannot pause!");
 		return false;
 	}
-	if (state->playing) {
+	if (state->ctx) {
 		ILOG("Calling OpenSLWrap_Shutdown_T...");
-		OpenSLWrap_Shutdown();
+		delete state->ctx;
+		state->ctx = nullptr;
 		ILOG("Returned from OpenSLWrap_Shutdown_T ...");
-		state->playing = false;
 		return true;
 	}
 	return false;
 }
 
-void AndroidAudio_Shutdown() {
+bool AndroidAudio_Shutdown(AndroidAudioState *state) {
 	if (!state) {
 		ELOG("Audio already shutdown!");
-		return;
+		return false;
 	}
-	if (state->playing) {
+	if (state->ctx) {
 		ELOG("Should not shut down when playing! Something is wrong!");
+		return false;
 	}
 	delete state;
-	state = 0;
 	ILOG("OpenSLWrap completely unloaded.");
+	return true;
 }

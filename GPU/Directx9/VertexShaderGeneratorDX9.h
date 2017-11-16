@@ -17,15 +17,13 @@
 
 #pragma once
 
-#include "Globals.h"
-
 #include "GPU/Common/ShaderID.h"
 
 namespace DX9 {
 
 // #define USE_BONE_ARRAY
 
-	void GenerateVertexShaderDX9(const ShaderID &id, char *buffer);
+	void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
 
 #define CONST_VS_PROJ 0
 #define CONST_VS_PROJ_THROUGH 4

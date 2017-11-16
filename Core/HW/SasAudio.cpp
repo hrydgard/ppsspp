@@ -15,17 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "base/basictypes.h"
 #include "profiler/profiler.h"
 
-#include "Globals.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/Util/AudioFormat.h"
 #include "SasAudio.h"
-
-#include <algorithm>
 
 // #define AUDIO_TO_FILE
 
@@ -325,7 +325,7 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 	sustainLevel 	= getSustainLevel(ADSREnv1);
 
 	if (attackRate < 0 || decayRate < 0 || sustainRate < 0 || releaseRate < 0) {
-		ERROR_LOG_REPORT(SCESAS, "Simple ADSR resulted in invalid rates: %04x, %04x", ADSREnv1, ADSREnv2);
+		ERROR_LOG_REPORT(SASMIX, "Simple ADSR resulted in invalid rates: %04x, %04x", ADSREnv1, ADSREnv2);
 	}
 }
 
@@ -505,7 +505,8 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		u32 sampleFrac = voice.sampleFrac;
 		int samplesToRead = (sampleFrac + voicePitch * std::max(0, grainSize - delay)) >> PSP_SAS_PITCH_BASE_SHIFT;
 		if (samplesToRead > ARRAY_SIZE(mixTemp_) - 2) {
-			PanicAlert("Too many samples to read! This shouldn't happen.");
+			ERROR_LOG(SCESAS, "Too many samples to read (%d)! This shouldn't happen.", samplesToRead);
+			samplesToRead = ARRAY_SIZE(mixTemp_) - 2;
 		}
 		voice.ReadSamples(&mixTemp_[2], samplesToRead);
 		int tempPos = 2 + samplesToRead;
@@ -545,7 +546,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		if (voice.HaveSamplesEnded())
 			voice.envelope.End();
 		if (voice.envelope.HasEnded()) {
-			// NOTICE_LOG(SCESAS, "Hit end of envelope");
+			// NOTICE_LOG(SASMIX, "Hit end of envelope");
 			voice.playing = false;
 			voice.on = false;
 		}
@@ -576,7 +577,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 		s16 *outpR = outp + grainSize * 1;
 		s16 *outpSendL = outp + grainSize * 2;
 		s16 *outpSendR = outp + grainSize * 3;
-		WARN_LOG_REPORT_ONCE(sasraw, SCESAS, "sceSasCore: raw outputMode");
+		WARN_LOG_REPORT_ONCE(sasraw, SASMIX, "sceSasCore: raw outputMode");
 		for (int i = 0; i < grainSize * 2; i += 2) {
 			*outpL++ = clamp_s16(mixBuffer[i + 0]);
 			*outpR++ = clamp_s16(mixBuffer[i + 1]);
@@ -702,7 +703,7 @@ void SasInstance::DoState(PointerWrap &p) {
 	int n = PSP_SAS_VOICES_MAX;
 	p.Do(n);
 	if (n != PSP_SAS_VOICES_MAX) {
-		ERROR_LOG(HLE, "Savestate failure: wrong number of SAS voices");
+		ERROR_LOG(SAVESTATE, "Wrong number of SAS voices");
 		return;
 	}
 	p.DoArray(voices, ARRAY_SIZE(voices));

@@ -19,7 +19,6 @@
 
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
-#include "input/input_state.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -31,9 +30,8 @@
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 
-struct InputState;
 // Temporary hacks around annoying linking errors.  Copied from Headless.
-void NativeUpdate(InputState &input_state) { }
+void NativeUpdate() { }
 void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
@@ -81,7 +79,7 @@ static void SetupJitHarness() {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE;
-	PSP_CoreParameter().cpuCore = CPU_CORE_INTERPRETER;
+	PSP_CoreParameter().cpuCore = CPUCore::INTERPRETER;
 	PSP_CoreParameter().unthrottle = true;
 
 	Memory::Init();
@@ -93,8 +91,8 @@ static void DestroyJitHarness() {
 	// Clear our custom module out to be safe.
 	HLEShutdown();
 	CoreTiming::Shutdown();
-	Memory::Shutdown();
 	mipsr4k.Shutdown();
+	Memory::Shutdown();
 	coreState = CORE_POWERDOWN;
 	currentMIPS = nullptr;
 }
@@ -167,7 +165,7 @@ bool TestJit() {
 	double jit_speed = 0.0, interp_speed = 0.0;
 	if (compileSuccess) {
 		interp_speed = ExecCPUTest();
-		mipsr4k.UpdateCore(CPU_CORE_JIT);
+		mipsr4k.UpdateCore(CPUCore::JIT);
 		jit_speed = ExecCPUTest();
 
 		// Disassemble

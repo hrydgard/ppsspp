@@ -28,7 +28,7 @@
 // TODO: Move some common things into here.
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 #if _M_SSE >= 0x401
 #include <smmintrin.h>
 #endif
@@ -109,7 +109,7 @@ u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
 			u32 x32[4];
 			u16 x16[8];
 		};
-		u32x4_u16x8 cursor = {0, 0, 0, 0};
+		u32x4_u16x8 cursor{};
 		u32x4_u16x8 cursor2;
 		static const u16 update[8] = {0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U};
 
@@ -251,51 +251,55 @@ void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch) {
 void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch) {
 	// ydestp is in 32-bits, so this is convenient.
 	const u32 pitchBy32 = pitch >> 2;
+
 #ifdef _M_SSE
-	const __m128i *src = (const __m128i *)texptr;
-	// The pitch parameter is in bytes, so shift down for 128-bit.
-	// Note: it's always aligned to 16 bytes, so this is safe.
-	const u32 pitchBy128 = pitch >> 4;
-	for (int by = 0; by < byc; by++) {
-		__m128i *xdest = (__m128i *)ydestp;
-		for (int bx = 0; bx < bxc; bx++) {
-			__m128i *dest = xdest;
-			for (int n = 0; n < 2; n++) {
-				// Textures are always 16-byte aligned so this is fine.
-				__m128i temp1 = _mm_load_si128(src);
-				__m128i temp2 = _mm_load_si128(src + 1);
-				__m128i temp3 = _mm_load_si128(src + 2);
-				__m128i temp4 = _mm_load_si128(src + 3);
-				_mm_store_si128(dest, temp1);
-				dest += pitchBy128;
-				_mm_store_si128(dest, temp2);
-				dest += pitchBy128;
-				_mm_store_si128(dest, temp3);
-				dest += pitchBy128;
-				_mm_store_si128(dest, temp4);
-				dest += pitchBy128;
-				src += 4;
+	if (((uintptr_t)ydestp & 0xF) == 0) {
+		const __m128i *src = (const __m128i *)texptr;
+		// The pitch parameter is in bytes, so shift down for 128-bit.
+		// Note: it's always aligned to 16 bytes, so this is safe.
+		const u32 pitchBy128 = pitch >> 4;
+		for (int by = 0; by < byc; by++) {
+			__m128i *xdest = (__m128i *)ydestp;
+			for (int bx = 0; bx < bxc; bx++) {
+				__m128i *dest = xdest;
+				for (int n = 0; n < 2; n++) {
+					// Textures are always 16-byte aligned so this is fine.
+					__m128i temp1 = _mm_load_si128(src);
+					__m128i temp2 = _mm_load_si128(src + 1);
+					__m128i temp3 = _mm_load_si128(src + 2);
+					__m128i temp4 = _mm_load_si128(src + 3);
+					_mm_store_si128(dest, temp1);
+					dest += pitchBy128;
+					_mm_store_si128(dest, temp2);
+					dest += pitchBy128;
+					_mm_store_si128(dest, temp3);
+					dest += pitchBy128;
+					_mm_store_si128(dest, temp4);
+					dest += pitchBy128;
+					src += 4;
+				}
+				xdest++;
 			}
-			xdest++;
+			ydestp += pitchBy32 * 8;
 		}
-		ydestp += pitchBy32 * 8;
-	}
-#else
-	const u32 *src = (const u32 *)texptr;
-	for (int by = 0; by < byc; by++) {
-		u32 *xdest = ydestp;
-		for (int bx = 0; bx < bxc; bx++) {
-			u32 *dest = xdest;
-			for (int n = 0; n < 8; n++) {
-				memcpy(dest, src, 16);
-				dest += pitchBy32;
-				src += 4;
-			}
-			xdest += 4;
-		}
-		ydestp += pitchBy32 * 8;
-	}
+	} else
 #endif
+	{
+		const u32 *src = (const u32 *)texptr;
+		for (int by = 0; by < byc; by++) {
+			u32 *xdest = ydestp;
+			for (int bx = 0; bx < bxc; bx++) {
+				u32 *dest = xdest;
+				for (int n = 0; n < 8; n++) {
+					memcpy(dest, src, 16);
+					dest += pitchBy32;
+					src += 4;
+				}
+				xdest += 4;
+			}
+			ydestp += pitchBy32 * 8;
+		}
+	}
 }
 
 #ifndef _M_SSE
@@ -328,7 +332,7 @@ static inline u32 makecol(int r, int g, int b, int a) {
 }
 
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
-void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha) {
+void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, bool ignore1bitAlpha) {
 	// S3TC Decoder
 	// Needs more speed and debugging.
 	u16 c1 = (src->color1);
@@ -356,7 +360,7 @@ void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitA
 		colors[3] = makecol(red2, green2, blue2, 0);	// Color2 but transparent
 	}
 
-	for (int y = 0; y < 4; y++) {
+	for (int y = 0; y < height; y++) {
 		int val = src->lines[y];
 		for (int x = 0; x < 4; x++) {
 			dst[x] = colors[val & 3];
@@ -366,11 +370,11 @@ void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitA
 	}
 }
 
-void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch)
+void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height)
 {
-	DecodeDXT1Block(dst, &src->color, pitch, true);
+	DecodeDXT1Block(dst, &src->color, pitch, height, true);
 
-	for (int y = 0; y < 4; y++) {
+	for (int y = 0; y < height; y++) {
 		u32 line = src->alphaLines[y];
 		for (int x = 0; x < 4; x++) {
 			const u8 a4 = line & 0xF;
@@ -392,8 +396,8 @@ static inline u8 lerp6(const DXT5Block *src, int n) {
 }
 
 // The alpha channel is not 100% correct 
-void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
-	DecodeDXT1Block(dst, &src->color, pitch, true);
+void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height) {
+	DecodeDXT1Block(dst, &src->color, pitch, height, true);
 	u8 alpha[8];
 
 	alpha[0] = src->alpha1;
@@ -416,7 +420,7 @@ void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 
 	u64 data = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
 
-	for (int y = 0; y < 4; y++) {
+	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < 4; x++) {
 			dst[x] = (dst[x] & 0xFFFFFF) | (alpha[data & 7] << 24);
 			data >>= 3;
@@ -434,92 +438,32 @@ static inline u32 CombineSSEBitsToDWORD(const __m128i &v) {
 }
 
 CheckAlphaResult CheckAlphaRGBA8888SSE2(const u32 *pixelData, int stride, int w, int h) {
-	const __m128i zero = _mm_setzero_si128();
-	const __m128i full = _mm_set1_epi32(0xFF);
+	const __m128i mask = _mm_set1_epi32(0xFF000000);
 
 	const __m128i *p = (const __m128i *)pixelData;
 	const int w4 = w / 4;
 	const int stride4 = stride / 4;
 
-	// Have alpha values == 0 been seen?
-	__m128i hasZeroCursor = _mm_setzero_si128();
+	__m128i bits = mask;
 	for (int y = 0; y < h; ++y) {
-		// Have alpha values > 0 and < 0xFF been seen?
-		__m128i hasAnyCursor = _mm_setzero_si128();
-
 		for (int i = 0; i < w4; ++i) {
-			const __m128i a = _mm_srli_epi32(_mm_load_si128(&p[i]), 24);
-
-			const __m128i isZero = _mm_cmpeq_epi32(a, zero);
-			hasZeroCursor = _mm_or_si128(hasZeroCursor, isZero);
-
-			// If a = FF, isNotFull will be 0 -> hasAny will be 0.
-			// If a = 00, a & isNotFull will be 0 -> hasAny will be 0.
-			// In any other case, hasAny will have some bits set.
-			const __m128i isNotFull = _mm_cmplt_epi32(a, full);
-			hasAnyCursor = _mm_or_si128(hasAnyCursor, _mm_and_si128(a, isNotFull));
+			const __m128i a = _mm_load_si128(&p[i]);
+			bits = _mm_and_si128(bits, a);
 		}
-		p += stride4;
 
-		// We check any early, in case we can skip the rest of the rows.
-		if (CombineSSEBitsToDWORD(hasAnyCursor) != 0) {
+		__m128i result = _mm_xor_si128(bits, mask);
+		if (CombineSSEBitsToDWORD(result) != 0) {
 			return CHECKALPHA_ANY;
 		}
+
+		p += stride4;
 	}
 
-	// Now let's sum up the bits.
-	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
-		return CHECKALPHA_ZERO;
-	} else {
-		return CHECKALPHA_FULL;
-	}
+	return CHECKALPHA_FULL;
 }
 
 CheckAlphaResult CheckAlphaABGR4444SSE2(const u32 *pixelData, int stride, int w, int h) {
-	const __m128i zero = _mm_setzero_si128();
-	const __m128i full = _mm_set1_epi16((short)0xF000);
-
-	const __m128i *p = (const __m128i *)pixelData;
-	const int w8 = w / 8;
-	const int stride8 = stride / 8;
-
-	__m128i hasZeroCursor = _mm_setzero_si128();
-	for (int y = 0; y < h; ++y) {
-		__m128i hasAnyCursor = _mm_setzero_si128();
-
-		for (int i = 0; i < w8; ++i) {
-			// This moves XXXA to A000.
-			const __m128i a = _mm_slli_epi16(_mm_load_si128(&p[i]), 12);
-
-			// At least one bit in isZero, and therefore hasZeroCursor, will get set if there's a zero.
-			const __m128i isZero = _mm_cmpeq_epi16(a, zero);
-			hasZeroCursor = _mm_or_si128(hasZeroCursor, isZero);
-
-			// If a = F, isFull will be 1 -> hasAny will be 0.
-			// If a = 0, a & !isFull will be 0 -> hasAny will be 0.
-			// In any other case, hasAny will have some bits set.
-			const __m128i isFull = _mm_cmpeq_epi32(a, full);
-			const __m128i hasAny = _mm_andnot_si128(isFull, a);
-			hasAnyCursor = _mm_or_si128(hasAnyCursor, hasAny);
-		}
-		p += stride8;
-
-		// We check any early, in case we can skip the rest of the rows.
-		if (CombineSSEBitsToDWORD(hasAnyCursor) != 0) {
-			return CHECKALPHA_ANY;
-		}
-	}
-
-	// Now let's sum up the bits.
-	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
-		return CHECKALPHA_ZERO;
-	} else {
-		return CHECKALPHA_FULL;
-	}
-}
-
-CheckAlphaResult CheckAlphaABGR1555SSE2(const u32 *pixelData, int stride, int w, int h) {
-	const __m128i mask = _mm_set1_epi16(1);
+	const __m128i mask = _mm_set1_epi16((short)0x000F);
 
 	const __m128i *p = (const __m128i *)pixelData;
 	const int w8 = w / 8;
@@ -534,7 +478,32 @@ CheckAlphaResult CheckAlphaABGR1555SSE2(const u32 *pixelData, int stride, int w,
 
 		__m128i result = _mm_xor_si128(bits, mask);
 		if (CombineSSEBitsToDWORD(result) != 0) {
-			return CHECKALPHA_ZERO;
+			return CHECKALPHA_ANY;
+		}
+
+		p += stride8;
+	}
+
+	return CHECKALPHA_FULL;
+}
+
+CheckAlphaResult CheckAlphaABGR1555SSE2(const u32 *pixelData, int stride, int w, int h) {
+	const __m128i mask = _mm_set1_epi16((short)0x0001);
+
+	const __m128i *p = (const __m128i *)pixelData;
+	const int w8 = w / 8;
+	const int stride8 = stride / 8;
+
+	__m128i bits = mask;
+	for (int y = 0; y < h; ++y) {
+		for (int i = 0; i < w8; ++i) {
+			const __m128i a = _mm_load_si128(&p[i]);
+			bits = _mm_and_si128(bits, a);
+		}
+
+		__m128i result = _mm_xor_si128(bits, mask);
+		if (CombineSSEBitsToDWORD(result) != 0) {
+			return CHECKALPHA_ANY;
 		}
 
 		p += stride8;
@@ -544,43 +513,28 @@ CheckAlphaResult CheckAlphaABGR1555SSE2(const u32 *pixelData, int stride, int w,
 }
 
 CheckAlphaResult CheckAlphaRGBA4444SSE2(const u32 *pixelData, int stride, int w, int h) {
-	const __m128i zero = _mm_setzero_si128();
-	const __m128i full = _mm_set1_epi16(0x000F);
+	const __m128i mask = _mm_set1_epi16((short)0xF000);
 
 	const __m128i *p = (const __m128i *)pixelData;
 	const int w8 = w / 8;
 	const int stride8 = stride / 8;
 
-	__m128i hasZeroCursor = _mm_setzero_si128();
+	__m128i bits = mask;
 	for (int y = 0; y < h; ++y) {
-		__m128i hasAnyCursor = _mm_setzero_si128();
-
 		for (int i = 0; i < w8; ++i) {
-			const __m128i a = _mm_srli_epi16(_mm_load_si128(&p[i]), 12);
-
-			const __m128i isZero = _mm_cmpeq_epi16(a, zero);
-			hasZeroCursor = _mm_or_si128(hasZeroCursor, isZero);
-
-			// If a = F, isNotFull will be 0 -> hasAny will be 0.
-			// If a = 0, a & isNotFull will be 0 -> hasAny will be 0.
-			// In any other case, hasAny will have some bits set.
-			const __m128i isNotFull = _mm_cmplt_epi32(a, full);
-			hasAnyCursor = _mm_or_si128(hasAnyCursor, _mm_and_si128(a, isNotFull));
+			const __m128i a = _mm_load_si128(&p[i]);
+			bits = _mm_and_si128(bits, a);
 		}
-		p += stride8;
 
-		// We check any early, in case we can skip the rest of the rows.
-		if (CombineSSEBitsToDWORD(hasAnyCursor) != 0) {
+		__m128i result = _mm_xor_si128(bits, mask);
+		if (CombineSSEBitsToDWORD(result) != 0) {
 			return CHECKALPHA_ANY;
 		}
+
+		p += stride8;
 	}
 
-	// Now let's sum up the bits.
-	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
-		return CHECKALPHA_ZERO;
-	} else {
-		return CHECKALPHA_FULL;
-	}
+	return CHECKALPHA_FULL;
 }
 
 CheckAlphaResult CheckAlphaRGBA5551SSE2(const u32 *pixelData, int stride, int w, int h) {
@@ -599,7 +553,7 @@ CheckAlphaResult CheckAlphaRGBA5551SSE2(const u32 *pixelData, int stride, int w,
 
 		__m128i result = _mm_xor_si128(bits, mask);
 		if (CombineSSEBitsToDWORD(result) != 0) {
-			return CHECKALPHA_ZERO;
+			return CHECKALPHA_ANY;
 		}
 
 		p += stride8;
@@ -621,26 +575,22 @@ CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w
 #endif
 	}
 
-	u32 hitZeroAlpha = 0;
-
 	const u32 *p = pixelData;
 	for (int y = 0; y < h; ++y) {
+		u32 bits = 0xFF000000;
 		for (int i = 0; i < w; ++i) {
-			u32 a = p[i] & 0xFF000000;
-			hitZeroAlpha |= a ^ 0xFF000000;
-			if (a != 0xFF000000 && a != 0) {
-				// We're done, we hit non-zero, non-full alpha.
-				return CHECKALPHA_ANY;
-			}
+			bits &= p[i];
 		}
+
+		if (bits != 0xFF000000) {
+			// We're done, we hit non-full alpha.
+			return CHECKALPHA_ANY;
+		}
+
 		p += stride;
 	}
 
-	if (hitZeroAlpha) {
-		return CHECKALPHA_ZERO;
-	} else {
-		return CHECKALPHA_FULL;
-	}
+	return CHECKALPHA_FULL;
 }
 
 CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w, int h) {
@@ -655,29 +605,25 @@ CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w
 #endif
 	}
 
-	u32 hitZeroAlpha = 0;
-
 	const u32 *p = pixelData;
 	const int w2 = (w + 1) / 2;
 	const int stride2 = (stride + 1) / 2;
 
 	for (int y = 0; y < h; ++y) {
+		u32 bits = 0x000F000F;
 		for (int i = 0; i < w2; ++i) {
-			u32 a = p[i] & 0x000F000F;
-			hitZeroAlpha |= a ^ 0x000F000F;
-			if (a != 0x000F000F && a != 0x0000000F && a != 0x000F0000 && a != 0) {
-				// We're done, we hit non-zero, non-full alpha.
-				return CHECKALPHA_ANY;
-			}
+			bits &= p[i];
 		}
+
+		if (bits != 0x000F000F) {
+			// We're done, we hit non-full alpha.
+			return CHECKALPHA_ANY;
+		}
+
 		p += stride2;
 	}
 
-	if (hitZeroAlpha) {
-		return CHECKALPHA_ZERO;
-	} else {
-		return CHECKALPHA_FULL;
-	}
+	return CHECKALPHA_FULL;
 }
 
 CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w, int h) {
@@ -696,14 +642,14 @@ CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w
 	const int w2 = (w + 1) / 2;
 	const int stride2 = (stride + 1) / 2;
 
-	u32 bits = 0x00010001;
 	for (int y = 0; y < h; ++y) {
+		u32 bits = 0x00010001;
 		for (int i = 0; i < w2; ++i) {
 			bits &= p[i];
 		}
 
-		if ((bits ^ 0x00010001) != 0) {
-			return CHECKALPHA_ZERO;
+		if (bits != 0x00010001) {
+			return CHECKALPHA_ANY;
 		}
 
 		p += stride2;
@@ -713,59 +659,62 @@ CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w
 }
 
 CheckAlphaResult CheckAlphaRGBA4444Basic(const u32 *pixelData, int stride, int w, int h) {
-#ifdef _M_SSE
 	// Use SSE if aligned to 16 bytes / 8 pixels (usually the case.)
 	if ((w & 7) == 0 && (stride & 7) == 0) {
+#ifdef _M_SSE
 		return CheckAlphaRGBA4444SSE2(pixelData, stride, w, h);
-	}
-#endif
-
-	u32 hitZeroAlpha = 0;
-
-	const u32 *p = pixelData;
-	const int w2 = (w + 1) / 2;
-	const int stride2 = (stride + 1) / 2;
-
-	for (int y = 0; y < h; ++y) {
-		for (int i = 0; i < w2; ++i) {
-			u32 a = p[i] & 0xF000F000;
-			hitZeroAlpha |= a ^ 0xF000F000;
-			if (a != 0xF000F000 && a != 0xF0000000 && a != 0x0000F000 && a != 0) {
-				// We're done, we hit non-zero, non-full alpha.
-				return CHECKALPHA_ANY;
-			}
+#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
+		if (cpu_info.bNEON) {
+			return CheckAlphaRGBA4444NEON(pixelData, stride, w, h);
 		}
-		p += stride2;
-	}
-
-	if (hitZeroAlpha) {
-		return CHECKALPHA_ZERO;
-	} else {
-		return CHECKALPHA_FULL;
-	}
-}
-
-CheckAlphaResult CheckAlphaRGBA5551Basic(const u32 *pixelData, int stride, int w, int h) {
-#ifdef _M_SSE
-	// Use SSE if aligned to 16 bytes / 8 pixels (usually the case.)
-	if ((w & 7) == 0 && (stride & 7) == 0) {
-		return CheckAlphaRGBA5551SSE2(pixelData, stride, w, h);
-	}
 #endif
-
-	u32 bits = 0x80008000;
+	}
 
 	const u32 *p = pixelData;
 	const int w2 = (w + 1) / 2;
 	const int stride2 = (stride + 1) / 2;
 
 	for (int y = 0; y < h; ++y) {
+		u32 bits = 0xF000F000;
 		for (int i = 0; i < w2; ++i) {
 			bits &= p[i];
 		}
 
-		if ((bits ^ 0x80008000) != 0) {
-			return CHECKALPHA_ZERO;
+		if (bits != 0xF000F000) {
+			// We're done, we hit non-full alpha.
+			return CHECKALPHA_ANY;
+		}
+
+		p += stride2;
+	}
+
+	return CHECKALPHA_FULL;
+}
+
+CheckAlphaResult CheckAlphaRGBA5551Basic(const u32 *pixelData, int stride, int w, int h) {
+	// Use SSE if aligned to 16 bytes / 8 pixels (usually the case.)
+	if ((w & 7) == 0 && (stride & 7) == 0) {
+#ifdef _M_SSE
+		return CheckAlphaRGBA5551SSE2(pixelData, stride, w, h);
+#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
+		if (cpu_info.bNEON) {
+			return CheckAlphaRGBA5551NEON(pixelData, stride, w, h);
+		}
+#endif
+	}
+
+	const u32 *p = pixelData;
+	const int w2 = (w + 1) / 2;
+	const int stride2 = (stride + 1) / 2;
+
+	for (int y = 0; y < h; ++y) {
+		u32 bits = 0x80008000;
+		for (int i = 0; i < w2; ++i) {
+			bits &= p[i];
+		}
+
+		if (bits != 0x80008000) {
+			return CHECKALPHA_ANY;
 		}
 
 		p += stride2;

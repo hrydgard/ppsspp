@@ -36,6 +36,8 @@ struct ShaderInfo {
 	bool outputResolution;
 	// Use x1 rendering res + nearest screen scaling filter
 	bool isUpscalingFilter;
+	// Force constant/max refresh for animated filters
+	bool requires60fps;
 
 	// TODO: Add support for all kinds of fun options like mapping the depth buffer,
 	// SRGB texture reads, multiple shaders chained, etc.
@@ -43,8 +45,12 @@ struct ShaderInfo {
 	bool operator == (const std::string &other) {
 		return name == other;
 	}
+	bool operator == (const ShaderInfo &other) {
+		return name == other.name;
+	}
 };
 
-const ShaderInfo *GetPostShaderInfo(std::string name);
+void ReloadAllPostShaderInfo();
 
+const ShaderInfo *GetPostShaderInfo(std::string name);
 const std::vector<ShaderInfo> &GetAllPostShaderInfo();

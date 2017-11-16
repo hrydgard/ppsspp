@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <limits>
 
+#include "base/display.h"
+
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -30,7 +32,6 @@
 #include "GPU/Common/FramebufferCommon.h"
 
 #include "GPU/Common/GPUStateUtils.h"
-
 
 bool CanUseHardwareTransform(int prim) {
 	if (!g_Config.bHardwareTransform)

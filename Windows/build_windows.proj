@@ -1,0 +1,14 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Both">
+  <Target Name="Both">
+    <MSBuild Projects="PPSSPP.sln"
+      Targets="PPSSPPWindows:Rebuild"
+      Properties="Configuration=Release;Platform=Win32"
+      StopOnFirstFailure="true">
+    </MSBuild>
+    <MSBuild Projects="PPSSPP.sln"
+      Targets="PPSSPPWindows:Rebuild"
+      Properties="Configuration=Release;Platform=x64"
+      StopOnFirstFailure="true">
+    </MSBuild>
+  </Target>
+</Project>

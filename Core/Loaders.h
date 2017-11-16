@@ -18,38 +18,45 @@
 #pragma	once
 
 #include <string>
+#include <memory>
 
-enum IdentifiedFileType {
-	FILETYPE_ERROR,
+#include "Common/CommonTypes.h"
 
-	FILETYPE_PSP_PBP_DIRECTORY,
+enum class IdentifiedFileType {
+	ERROR_IDENTIFYING,
 
-	FILETYPE_PSP_PBP,
-	FILETYPE_PSP_ELF,
-	FILETYPE_PSP_ISO,
-	FILETYPE_PSP_ISO_NP,
+	PSP_PBP_DIRECTORY,
 
-	FILETYPE_PSP_DISC_DIRECTORY,
+	PSP_PBP,
+	PSP_ELF,
+	PSP_ISO,
+	PSP_ISO_NP,
 
-	FILETYPE_UNKNOWN_BIN,
-	FILETYPE_UNKNOWN_ELF,
+	PSP_DISC_DIRECTORY,
+
+	UNKNOWN_BIN,
+	UNKNOWN_ELF,
 
 	// Try to reduce support emails...
-	FILETYPE_ARCHIVE_RAR,
-	FILETYPE_ARCHIVE_ZIP,
-	FILETYPE_ARCHIVE_7Z,
-	FILETYPE_PSP_PS1_PBP,
-	FILETYPE_ISO_MODE2,
+	ARCHIVE_RAR,
+	ARCHIVE_ZIP,
+	ARCHIVE_7Z,
+	PSP_PS1_PBP,
+	ISO_MODE2,
 
-	FILETYPE_NORMAL_DIRECTORY,
+	NORMAL_DIRECTORY,
 
-	FILETYPE_PSP_SAVEDATA_DIRECTORY,
-	FILETYPE_PPSSPP_SAVESTATE,
+	PSP_SAVEDATA_DIRECTORY,
+	PPSSPP_SAVESTATE,
 
-	FILETYPE_UNKNOWN
+	PPSSPP_GE_DUMP,
+
+	UNKNOWN,
 };
 
+
 class FileLoader {
+// NB: It is a REQUIREMENT that implementations of this class are entirely thread safe!
 public:
 	enum class Flags {
 		NONE,
@@ -75,12 +82,6 @@ public:
 			return filename.substr(pos);
 		}
 	}
-
-	virtual void Seek(s64 absolutePos) = 0;
-	virtual size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
-	virtual size_t Read(size_t bytes, void *data, Flags flags = Flags::NONE) {
-		return Read(1, bytes, data, flags);
-	}
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) {
 		return ReadAt(absolutePos, 1, bytes, data, flags);
@@ -99,6 +100,12 @@ std::string ResolvePBPDirectory(const std::string &filename);
 std::string ResolvePBPFile(const std::string &filename);
 
 IdentifiedFileType Identify_File(FileLoader *fileLoader);
+
+class FileLoaderFactory {
+public:
+	virtual FileLoader *ConstructFileLoader(const std::string &filename) = 0;
+};
+void RegisterFileLoaderFactory(std::string name, std::unique_ptr<FileLoaderFactory> factory);
 
 // Can modify the string filename, as it calls IdentifyFile above.
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string);

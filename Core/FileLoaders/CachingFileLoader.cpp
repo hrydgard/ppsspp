@@ -15,27 +15,26 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <string.h>
-#include "thread/thread.h"
+#include <cstring>
+#include <thread>
+#include <algorithm>
+
 #include "thread/threadutil.h"
 #include "base/timeutil.h"
 #include "Core/FileLoaders/CachingFileLoader.h"
 
 // Takes ownership of backend.
 CachingFileLoader::CachingFileLoader(FileLoader *backend)
-	: filesize_(0), filepos_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false), prepared_(false) {
+	: filesize_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false) {
 }
 
 void CachingFileLoader::Prepare() {
-	if (prepared_) {
-		return;
-	}
-	prepared_ = true;
-
-	filesize_ = backend_->FileSize();
-	if (filesize_ > 0) {
-		InitCache();
-	}
+	std::call_once(preparedFlag_, [this](){
+		filesize_ = backend_->FileSize();
+		if (filesize_ > 0) {
+			InitCache();
+		}
+	});
 }
 
 CachingFileLoader::~CachingFileLoader() {
@@ -48,7 +47,6 @@ CachingFileLoader::~CachingFileLoader() {
 
 bool CachingFileLoader::Exists() {
 	if (exists_ == -1) {
-		lock_guard guard(backendMutex_);
 		exists_ = backend_->Exists() ? 1 : 0;
 	}
 	return exists_ == 1;
@@ -56,7 +54,6 @@ bool CachingFileLoader::Exists() {
 
 bool CachingFileLoader::ExistsFast() {
 	if (exists_ == -1) {
-		lock_guard guard(backendMutex_);
 		return backend_->ExistsFast();
 	}
 	return exists_ == 1;
@@ -64,7 +61,6 @@ bool CachingFileLoader::ExistsFast() {
 
 bool CachingFileLoader::IsDirectory() {
 	if (isDirectory_ == -1) {
-		lock_guard guard(backendMutex_);
 		isDirectory_ = backend_->IsDirectory() ? 1 : 0;
 	}
 	return isDirectory_ == 1;
@@ -76,12 +72,7 @@ s64 CachingFileLoader::FileSize() {
 }
 
 std::string CachingFileLoader::Path() const {
-	lock_guard guard(backendMutex_);
 	return backend_->Path();
-}
-
-void CachingFileLoader::Seek(s64 absolutePos) {
-	filepos_ = absolutePos;
 }
 
 size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
@@ -89,12 +80,11 @@ size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flag
 	if (absolutePos >= filesize_) {
 		bytes = 0;
 	} else if (absolutePos + (s64)bytes >= filesize_) {
-		bytes = filesize_ - absolutePos;
+		bytes = (size_t)(filesize_ - absolutePos);
 	}
 
 	size_t readSize = 0;
 	if ((flags & Flags::HINT_UNCACHED) != 0) {
-		lock_guard guard(backendMutex_);
 		readSize = backend_->ReadAt(absolutePos, bytes, data, flags);
 	} else {
 		readSize = ReadFromCache(absolutePos, bytes, data);
@@ -112,7 +102,6 @@ size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flag
 		StartReadAhead(absolutePos + readSize);
 	}
 
-	filepos_ = absolutePos + readSize;
 	return readSize;
 }
 
@@ -130,7 +119,7 @@ void CachingFileLoader::ShutdownCache() {
 		sleep_ms(1);
 	}
 
-	lock_guard guard(blocksMutex_);
+	std::lock_guard<std::recursive_mutex> guard(blocksMutex_);
 	for (auto block : blocks_) {
 		delete [] block.second.ptr;
 	}
@@ -146,7 +135,7 @@ size_t CachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
 	size_t offset = (size_t)(pos - (cacheStartPos << BLOCK_SHIFT));
 	u8 *p = (u8 *)data;
 
-	lock_guard guard(blocksMutex_);
+	std::lock_guard<std::recursive_mutex> guard(blocksMutex_);
 	for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
 		auto block = blocks_.find(i);
 		if (block == blocks_.end()) {
@@ -168,7 +157,7 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 	s64 cacheStartPos = pos >> BLOCK_SHIFT;
 	s64 cacheEndPos = (pos + bytes - 1) >> BLOCK_SHIFT;
 
-	lock_guard guard(blocksMutex_);
+	std::lock_guard<std::recursive_mutex> guard(blocksMutex_);
 	size_t blocksToRead = 0;
 	for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
 		auto block = blocks_.find(i);
@@ -189,9 +178,7 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 		blocksMutex_.unlock();
 
 		u8 *buf = new u8[BLOCK_SIZE];
-		backendMutex_.lock();
 		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, BLOCK_SIZE, buf, flags);
-		backendMutex_.unlock();
 
 		blocksMutex_.lock();
 		// While blocksMutex_ was unlocked, another thread may have read.
@@ -205,9 +192,7 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 		blocksMutex_.unlock();
 
 		u8 *wholeRead = new u8[blocksToRead << BLOCK_SHIFT];
-		backendMutex_.lock();
 		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, blocksToRead << BLOCK_SHIFT, wholeRead, flags);
-		backendMutex_.unlock();
 
 		blocksMutex_.lock();
 		for (size_t i = 0; i < blocksToRead; ++i) {
@@ -233,7 +218,7 @@ bool CachingFileLoader::MakeCacheSpaceFor(size_t blocks, bool readingAhead) {
 		return false;
 	}
 
-	lock_guard guard(blocksMutex_);
+	std::lock_guard<std::recursive_mutex> guard(blocksMutex_);
 	while (cacheSize_ > goal) {
 		u64 minGeneration = generation_;
 
@@ -272,7 +257,7 @@ bool CachingFileLoader::MakeCacheSpaceFor(size_t blocks, bool readingAhead) {
 }
 
 void CachingFileLoader::StartReadAhead(s64 pos) {
-	lock_guard guard(blocksMutex_);
+	std::lock_guard<std::recursive_mutex> guard(blocksMutex_);
 	if (aheadThread_) {
 		// Already going.
 		return;
@@ -286,14 +271,14 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 	std::thread th([this, pos] {
 		setCurrentThreadName("FileLoaderReadAhead");
 
-		lock_guard guard(blocksMutex_);
+		std::unique_lock<std::recursive_mutex> guard(blocksMutex_);
 		s64 cacheStartPos = pos >> BLOCK_SHIFT;
 		s64 cacheEndPos = cacheStartPos + BLOCK_READAHEAD - 1;
 
 		for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
 			auto block = blocks_.find(i);
 			if (block == blocks_.end()) {
-				blocksMutex_.unlock();
+				guard.unlock();
 				SaveIntoCache(i << BLOCK_SHIFT, BLOCK_SIZE * BLOCK_READAHEAD, Flags::NONE, true);
 				break;
 			}

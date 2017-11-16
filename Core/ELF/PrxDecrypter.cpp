@@ -5,6 +5,7 @@ extern "C"
 #include "ext/libkirk/kirk_engine.h"
 }
 #include "Common/Common.h"
+#include "Common/Swap.h"
 #include "Core/ELF/PrxDecrypter.h"
 
 #define ROUNDUP16(x)  (((x)+15)&~15)
@@ -305,7 +306,7 @@ bool HasKey(int key)
 		case 0x63: case 0x64:
 			return true;
 		default:
-			INFO_LOG(HLE, "Missing key %02X, cannot decrypt module", key);
+			INFO_LOG(LOADER, "Missing key %02X, cannot decrypt module", key);
 			return false;
 	}
 }

@@ -17,13 +17,12 @@
 
 #pragma once
 
-#include "Globals.h"
-
 #include "GPU/Common/ShaderId.h"
+#include "GPU/Common/ShaderCommon.h"
 
 namespace DX9 {
 
-bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer);
+bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
 
 #define CONST_PS_TEXENV 0
 #define CONST_PS_ALPHACOLORREF 1

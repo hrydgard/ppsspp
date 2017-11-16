@@ -38,6 +38,8 @@ namespace Draw {
 	class DrawContext;
 }
 
+enum class CPUCore;
+
 // PSP_CoreParameter()
 struct CoreParameter {
 	CoreParameter() : thin3d(nullptr), collectEmuLog(0), unthrottle(false), fpsLimit(0), updateRecent(true), freezeNext(false), frozen(false), mountIsoLoader(nullptr) {}

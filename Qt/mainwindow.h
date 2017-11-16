@@ -129,6 +129,7 @@ private slots:
 	// Help
 	void websiteAct();
 	void forumAct();
+	void gitAct();
 	void aboutAct();
 
 	// Others
@@ -145,7 +146,6 @@ private:
 	QString currentLanguage;
 
 	CoreState nextState;
-	InputState input_state;
 	GlobalUIState lastUIState;
 
 	Debugger_Disasm *dialogDisasm;

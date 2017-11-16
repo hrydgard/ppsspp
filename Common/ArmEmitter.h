@@ -18,7 +18,7 @@
 #pragma once
 
 #include <vector>
-#include <stdint.h>
+#include <cstdint>
 
 #include "Common.h"
 #include "ArmCommon.h"
@@ -895,7 +895,7 @@ public:
 
 class ARMXCodeBlock : public CodeBlock<ARMXEmitter> {
 public:
-	void PoisonMemory() override;
+	void PoisonMemory(int offset) override;
 };
 
 // VFP Specific

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -21,32 +21,34 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{457F45D2-556F-47BC-A31D-AFF0D15BEAED}</ProjectGuid>
     <RootNamespace>GPU</RootNamespace>
+    <WindowsTargetPlatformVersion>
+    </WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -83,7 +85,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -105,7 +107,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -131,7 +133,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -157,7 +159,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/native;../ext/glew;../ext/snappy;</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -190,8 +192,11 @@
     <ClInclude Include="Common\PostShader.h" />
     <ClInclude Include="Common\ShaderCommon.h" />
     <ClInclude Include="Common\ShaderId.h" />
+    <ClInclude Include="Common\ShaderTranslation.h" />
+    <ClInclude Include="Common\ShaderUniforms.h" />
     <ClInclude Include="Common\SoftwareTransformCommon.h" />
     <ClInclude Include="Common\SplineCommon.h" />
+    <ClInclude Include="Common\StencilCommon.h" />
     <ClInclude Include="Common\TextureDecoderNEON.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -202,36 +207,42 @@
     <ClInclude Include="Common\TextureScalerCommon.h" />
     <ClInclude Include="Common\TransformCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
+    <ClInclude Include="D3D11\D3D11Util.h" />
+    <ClInclude Include="D3D11\DepalettizeShaderD3D11.h" />
+    <ClInclude Include="D3D11\DrawEngineD3D11.h" />
+    <ClInclude Include="D3D11\FragmentShaderGeneratorD3D11.h" />
+    <ClInclude Include="D3D11\FramebufferManagerD3D11.h" />
+    <ClInclude Include="D3D11\GPU_D3D11.h" />
+    <ClInclude Include="D3D11\ShaderManagerD3D11.h" />
+    <ClInclude Include="D3D11\StateMappingD3D11.h" />
+    <ClInclude Include="D3D11\TextureCacheD3D11.h" />
+    <ClInclude Include="D3D11\TextureScalerD3D11.h" />
+    <ClInclude Include="D3D11\VertexShaderGeneratorD3D11.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
+    <ClInclude Include="Debugger\Record.h" />
     <ClInclude Include="Debugger\Stepping.h" />
     <ClInclude Include="Directx9\DepalettizeShaderDX9.h" />
     <ClInclude Include="Directx9\GPU_DX9.h" />
-    <ClInclude Include="Directx9\helper\dx_state.h" />
-    <ClInclude Include="Directx9\helper\dx_fbo.h" />
-    <ClInclude Include="Directx9\helper\global.h" />
     <ClInclude Include="Directx9\PixelShaderGeneratorDX9.h" />
     <ClInclude Include="Directx9\FramebufferDX9.h" />
     <ClInclude Include="Directx9\ShaderManagerDX9.h" />
-    <ClInclude Include="Directx9\StateMappingDX9.h" />
     <ClInclude Include="Directx9\TextureCacheDX9.h" />
     <ClInclude Include="Directx9\TextureScalerDX9.h" />
     <ClInclude Include="Directx9\DrawEngineDX9.h" />
     <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h" />
     <ClInclude Include="ge_constants.h" />
     <ClInclude Include="GeDisasm.h" />
-    <ClInclude Include="GLES\DepalettizeShader.h" />
-    <ClInclude Include="GLES\FBO.h" />
-    <ClInclude Include="GLES\FragmentShaderGenerator.h" />
-    <ClInclude Include="GLES\FragmentTestCache.h" />
-    <ClInclude Include="GLES\Framebuffer.h" />
+    <ClInclude Include="GLES\DepalettizeShaderGLES.h" />
+    <ClInclude Include="GLES\FragmentShaderGeneratorGLES.h" />
+    <ClInclude Include="GLES\FragmentTestCacheGLES.h" />
+    <ClInclude Include="GLES\FramebufferManagerGLES.h" />
     <ClInclude Include="GLES\GPU_GLES.h" />
-    <ClInclude Include="GLES\GLStateCache.h" />
-    <ClInclude Include="GLES\ShaderManager.h" />
-    <ClInclude Include="GLES\StateMapping.h" />
-    <ClInclude Include="GLES\TextureCache.h" />
-    <ClInclude Include="GLES\TextureScaler.h" />
+    <ClInclude Include="GLES\ShaderManagerGLES.h" />
+    <ClInclude Include="GLES\StateMappingGLES.h" />
+    <ClInclude Include="GLES\TextureCacheGLES.h" />
+    <ClInclude Include="GLES\TextureScalerGLES.h" />
     <ClInclude Include="GLES\DrawEngineGLES.h" />
-    <ClInclude Include="GLES\VertexShaderGenerator.h" />
+    <ClInclude Include="GLES\VertexShaderGeneratorGLES.h" />
     <ClInclude Include="GPU.h" />
     <ClInclude Include="GPUCommon.h" />
     <ClInclude Include="GPUInterface.h" />
@@ -241,6 +252,7 @@
     <ClInclude Include="Software\Clipper.h" />
     <ClInclude Include="Software\Lighting.h" />
     <ClInclude Include="Software\Rasterizer.h" />
+    <ClInclude Include="Software\Sampler.h" />
     <ClInclude Include="Software\SoftGpu.h" />
     <ClInclude Include="Software\TransformUnit.h" />
     <ClInclude Include="Common\TextureDecoder.h" />
@@ -266,8 +278,12 @@
     <ClCompile Include="Common\GPUStateUtils.cpp" />
     <ClCompile Include="Common\IndexGenerator.cpp" />
     <ClCompile Include="Common\PostShader.cpp" />
+    <ClCompile Include="Common\ShaderCommon.cpp" />
     <ClCompile Include="Common\ShaderId.cpp" />
+    <ClCompile Include="Common\ShaderTranslation.cpp" />
+    <ClCompile Include="Common\ShaderUniforms.cpp" />
     <ClCompile Include="Common\SplineCommon.cpp" />
+    <ClCompile Include="Common\StencilCommon.cpp" />
     <ClCompile Include="Common\TextureDecoderNEON.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -292,13 +308,23 @@
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderCommon.cpp" />
     <ClCompile Include="Common\VertexDecoderX86.cpp" />
+    <ClCompile Include="D3D11\D3D11Util.cpp" />
+    <ClCompile Include="D3D11\DepalettizeShaderD3D11.cpp" />
+    <ClCompile Include="D3D11\DrawEngineD3D11.cpp" />
+    <ClCompile Include="D3D11\FragmentShaderGeneratorD3D11.cpp" />
+    <ClCompile Include="D3D11\FramebufferManagerD3D11.cpp" />
+    <ClCompile Include="D3D11\GPU_D3D11.cpp" />
+    <ClCompile Include="D3D11\ShaderManagerD3D11.cpp" />
+    <ClCompile Include="D3D11\StateMappingD3D11.cpp" />
+    <ClCompile Include="D3D11\StencilBufferD3D11.cpp" />
+    <ClCompile Include="D3D11\TextureCacheD3D11.cpp" />
+    <ClCompile Include="D3D11\TextureScalerD3D11.cpp" />
+    <ClCompile Include="D3D11\VertexShaderGeneratorD3D11.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
+    <ClCompile Include="Debugger\Record.cpp" />
     <ClCompile Include="Debugger\Stepping.cpp" />
     <ClCompile Include="Directx9\DepalettizeShaderDX9.cpp" />
     <ClCompile Include="Directx9\GPU_DX9.cpp" />
-    <ClCompile Include="Directx9\helper\dx_state.cpp" />
-    <ClCompile Include="Directx9\helper\dx_fbo.cpp" />
-    <ClCompile Include="Directx9\helper\global.cpp" />
     <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp" />
     <ClCompile Include="Directx9\FramebufferDX9.cpp" />
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp" />
@@ -309,20 +335,18 @@
     <ClCompile Include="Directx9\DrawEngineDX9.cpp" />
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
-    <ClCompile Include="GLES\DepalettizeShader.cpp" />
-    <ClCompile Include="GLES\FBO.cpp" />
-    <ClCompile Include="GLES\FragmentShaderGenerator.cpp" />
-    <ClCompile Include="GLES\FragmentTestCache.cpp" />
-    <ClCompile Include="GLES\Framebuffer.cpp" />
+    <ClCompile Include="GLES\DepalettizeShaderGLES.cpp" />
+    <ClCompile Include="GLES\FragmentShaderGeneratorGLES.cpp" />
+    <ClCompile Include="GLES\FragmentTestCacheGLES.cpp" />
+    <ClCompile Include="GLES\FramebufferManagerGLES.cpp" />
     <ClCompile Include="GLES\GPU_GLES.cpp" />
-    <ClCompile Include="GLES\GLStateCache.cpp" />
-    <ClCompile Include="GLES\ShaderManager.cpp" />
-    <ClCompile Include="GLES\StateMapping.cpp" />
-    <ClCompile Include="GLES\StencilBuffer.cpp" />
-    <ClCompile Include="GLES\TextureCache.cpp" />
-    <ClCompile Include="GLES\TextureScaler.cpp" />
+    <ClCompile Include="GLES\ShaderManagerGLES.cpp" />
+    <ClCompile Include="GLES\StateMappingGLES.cpp" />
+    <ClCompile Include="GLES\StencilBufferGLES.cpp" />
+    <ClCompile Include="GLES\TextureCacheGLES.cpp" />
+    <ClCompile Include="GLES\TextureScalerGLES.cpp" />
     <ClCompile Include="GLES\DrawEngineGLES.cpp" />
-    <ClCompile Include="GLES\VertexShaderGenerator.cpp" />
+    <ClCompile Include="GLES\VertexShaderGeneratorGLES.cpp" />
     <ClCompile Include="GPU.cpp" />
     <ClCompile Include="GPUCommon.cpp" />
     <ClCompile Include="GPUState.cpp" />
@@ -331,6 +355,8 @@
     <ClCompile Include="Software\Clipper.cpp" />
     <ClCompile Include="Software\Lighting.cpp" />
     <ClCompile Include="Software\Rasterizer.cpp" />
+    <ClCompile Include="Software\Sampler.cpp" />
+    <ClCompile Include="Software\SamplerX86.cpp" />
     <ClCompile Include="Software\SoftGpu.cpp" />
     <ClCompile Include="Software\TransformUnit.cpp" />
     <ClCompile Include="Common\TextureDecoder.cpp" />
@@ -342,6 +368,7 @@
     <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\StateMappingVulkan.cpp" />
+    <ClCompile Include="Vulkan\StencilBufferVulkan.cpp" />
     <ClCompile Include="Vulkan\TextureCacheVulkan.cpp" />
     <ClCompile Include="Vulkan\TextureScalerVulkan.cpp" />
     <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp" />
@@ -350,6 +377,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
       <Project>{3fcdbae2-5103-4350-9a8e-848ce9c73195}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\ext\SPIRV-Cross.vcxproj">
+      <Project>{4328a62c-f1e9-47ed-b816-a1a81daf4363}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

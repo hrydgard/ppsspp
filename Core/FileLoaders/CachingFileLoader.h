@@ -18,7 +18,8 @@
 #pragma once
 
 #include <map>
-#include "base/mutex.h"
+#include <mutex>
+
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
 
@@ -33,13 +34,6 @@ public:
 	s64 FileSize() override;
 	std::string Path() const override;
 
-	void Seek(s64 absolutePos) override;
-	size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
-		return ReadAt(filepos_, bytes, count, data, flags);
-	}
-	size_t Read(size_t bytes, void *data, Flags flags = Flags::NONE) override {
-		return ReadAt(filepos_, bytes, data, flags);
-	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
 		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
 	}
@@ -64,7 +58,6 @@ private:
 	};
 
 	s64 filesize_;
-	s64 filepos_;
 	FileLoader *backend_;
 	int exists_;
 	int isDirectory_;
@@ -83,8 +76,7 @@ private:
 	};
 
 	std::map<s64, BlockInfo> blocks_;
-	recursive_mutex blocksMutex_;
-	mutable recursive_mutex backendMutex_;
+	std::recursive_mutex blocksMutex_;
 	bool aheadThread_;
-	bool prepared_;
+	std::once_flag preparedFlag_;
 };

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/NativeApp.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
@@ -74,10 +75,15 @@ static int sceUsbStop(const char* driverName, u32 argsSize, u32 argsPtr) {
 }
 
 static int sceUsbGetState() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbGetState");
-	int state = (usbStarted ? USB_STATUS_STARTED : USB_STATUS_STOPPED)
-	    | (usbConnected ? USB_STATUS_CONNECTED : USB_STATUS_DISCONNECTED)
-	    | (usbActivated ? USB_STATUS_ACTIVATED : USB_STATUS_DEACTIVATED);
+	int state = 0;
+	if (!usbStarted) {
+		state = 0x80243007;
+	} else {
+		state = USB_STATUS_STARTED
+			| (usbConnected ? USB_STATUS_CONNECTED : USB_STATUS_DISCONNECTED)
+			| (usbActivated ? USB_STATUS_ACTIVATED : USB_STATUS_DEACTIVATED);
+	}
+	ERROR_LOG(HLE, "UNIMPL sceUsbGetState: 0x%x", state);
 	return state;
 }
 
@@ -122,68 +128,9 @@ const HLEFunction sceUsbstorBoot[] =
 	{0XA55C9E16, nullptr,                            "sceUsbstorBootUnregisterNotify",          '?', ""   },
 };
 
-const HLEFunction sceUsbCam[] =
-{
-	{0X17F7B2FB, nullptr,                            "sceUsbCamSetupVideo",                     '?', ""   },
-	{0XF93C4669, nullptr,                            "sceUsbCamAutoImageReverseSW",             '?', ""   },
-	{0X574A8C3F, nullptr,                            "sceUsbCamStartVideo",                     '?', ""   },
-	{0X6CF32CB9, nullptr,                            "sceUsbCamStopVideo",                      '?', ""   },
-	{0X03ED7A82, nullptr,                            "sceUsbCamSetupMic",                       '?', ""   },
-	{0X82A64030, nullptr,                            "sceUsbCamStartMic",                       '?', ""   },
-	{0X7DAC0C71, nullptr,                            "sceUsbCamReadVideoFrameBlocking",         '?', ""   },
-	{0X99D86281, nullptr,                            "sceUsbCamReadVideoFrame",                 '?', ""   },
-	{0X41E73E95, nullptr,                            "sceUsbCamPollReadVideoFrameEnd",          '?', ""   },
-	{0XF90B2293, nullptr,                            "sceUsbCamWaitReadVideoFrameEnd",          '?', ""   },
-	{0X4C34F553, nullptr,                            "sceUsbCamGetLensDirection",               '?', ""   },
-	{0X3F0CF289, nullptr,                            "sceUsbCamSetupStill",                     '?', ""   },
-	{0X0A41A298, nullptr,                            "sceUsbCamSetupStillEx",                   '?', ""   },
-	{0X61BE5CAC, nullptr,                            "sceUsbCamStillInputBlocking",             '?', ""   },
-	{0XFB0A6C5D, nullptr,                            "sceUsbCamStillInput",                     '?', ""   },
-	{0X7563AFA1, nullptr,                            "sceUsbCamStillWaitInputEnd",              '?', ""   },
-	{0X1A46CFE7, nullptr,                            "sceUsbCamStillPollInputEnd",              '?', ""   },
-	{0XA720937C, nullptr,                            "sceUsbCamStillCancelInput",               '?', ""   },
-	{0XE5959C36, nullptr,                            "sceUsbCamStillGetInputLength",            '?', ""   },
-	{0XCFE9E999, nullptr,                            "sceUsbCamSetupVideoEx",                   '?', ""   },
-	{0XDF9D0C92, nullptr,                            "sceUsbCamGetReadVideoFrameSize",          '?', ""   },
-	{0X6E205974, nullptr,                            "sceUsbCamSetSaturation",                  '?', ""   },
-	{0X4F3D84D5, nullptr,                            "sceUsbCamSetBrightness",                  '?', ""   },
-	{0X09C26C7E, nullptr,                            "sceUsbCamSetContrast",                    '?', ""   },
-	{0X622F83CC, nullptr,                            "sceUsbCamSetSharpness",                   '?', ""   },
-	{0XD4876173, nullptr,                            "sceUsbCamSetImageEffectMode",             '?', ""   },
-	{0X1D686870, nullptr,                            "sceUsbCamSetEvLevel",                     '?', ""   },
-	{0X951BEDF5, nullptr,                            "sceUsbCamSetReverseMode",                 '?', ""   },
-	{0XC484901F, nullptr,                            "sceUsbCamSetZoom",                        '?', ""   },
-	{0X383E9FA8, nullptr,                            "sceUsbCamGetSaturation",                  '?', ""   },
-	{0X70F522C5, nullptr,                            "sceUsbCamGetBrightness",                  '?', ""   },
-	{0XA063A957, nullptr,                            "sceUsbCamGetContrast",                    '?', ""   },
-	{0XFDB68C23, nullptr,                            "sceUsbCamGetSharpness",                   '?', ""   },
-	{0X994471E0, nullptr,                            "sceUsbCamGetImageEffectMode",             '?', ""   },
-	{0X2BCD50C0, nullptr,                            "sceUsbCamGetEvLevel",                     '?', ""   },
-	{0XD5279339, nullptr,                            "sceUsbCamGetReverseMode",                 '?', ""   },
-	{0X9E8AAF8D, nullptr,                            "sceUsbCamGetZoom",                        '?', ""   },
-	{0X11A1F128, nullptr,                            "sceUsbCamGetAutoImageReverseState",       '?', ""   },
-	{0X08AEE98A, nullptr,                            "sceUsbCamSetMicGain",                     '?', ""   },
-	{0X2E930264, nullptr,                            "sceUsbCamSetupMicEx",                     '?', ""   },
-	{0X36636925, nullptr,                            "sceUsbCamReadMicBlocking",                '?', ""   },
-	{0X3DC0088E, nullptr,                            "sceUsbCamReadMic",                        '?', ""   },
-	{0X41EE8797, nullptr,                            "sceUsbCamUnregisterLensRotationCallback", '?', ""   },
-	{0X5145868A, nullptr,                            "sceUsbCamStopMic",                        '?', ""   },
-	{0X5778B452, nullptr,                            "sceUsbCamGetMicDataLength",               '?', ""   },
-	{0X6784E6A8, nullptr,                            "sceUsbCamSetAntiFlicker",                 '?', ""   },
-	{0XAA7D94BA, nullptr,                            "sceUsbCamGetAntiFlicker",                 '?', ""   },
-	{0XB048A67D, nullptr,                            "sceUsbCamWaitReadMicEnd",                 '?', ""   },
-	{0XD293A100, nullptr,                            "sceUsbCamRegisterLensRotationCallback",   '?', ""   },
-	{0XF8847F60, nullptr,                            "sceUsbCamPollReadMicEnd",                 '?', ""   },
-};
-
 void Register_sceUsb()
 {
 	RegisterModule("sceUsbstor", ARRAY_SIZE(sceUsbstor), sceUsbstor);
 	RegisterModule("sceUsbstorBoot", ARRAY_SIZE(sceUsbstorBoot), sceUsbstorBoot);
 	RegisterModule("sceUsb", ARRAY_SIZE(sceUsb), sceUsb);
-}
-
-void Register_sceUsbCam()
-{
-	RegisterModule("sceUsbCam", ARRAY_SIZE(sceUsbCam), sceUsbCam);
 }

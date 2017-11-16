@@ -82,6 +82,7 @@ void WordWrapper::WrapBeforeWord() {
 			out_[out_.size() - 1] = '-';
 		}
 		out_ += "\n";
+		lastLineStart_ = (int)out_.size();
 		x_ = 0.0f;
 		forceEarlyWrap_ = false;
 	}
@@ -93,6 +94,13 @@ void WordWrapper::AppendWord(int endIndex, bool addNewline) {
 	out_ += std::string(str_ + lastIndex_, endIndex - lastIndex_);
 	if (addNewline) {
 		out_ += "\n";
+		lastLineStart_ = (int)out_.size();
+	} else {
+		// We may have appended a newline - check.
+		size_t pos = out_.find_last_of("\n", lastLineStart_);
+		if (pos != out_.npos) {
+			lastLineStart_ = (int)pos;
+		}
 	}
 	lastIndex_ = endIndex;
 }
@@ -135,9 +143,8 @@ void WordWrapper::Wrap() {
 		// Is this the end of a word (space)?
 		if (wordWidth_ > 0.0f && IsSpace(c)) {
 			AppendWord(afterIndex, false);
-			// We include the space in the x increase.
-			// If the space takes it over, we'll wrap on the next word.
-			x_ += newWordWidth;
+			// To account for kerning around spaces, we recalculate the entire line width.
+			x_ = MeasureWidth(out_.c_str() + lastLineStart_, out_.size() - lastLineStart_);
 			wordWidth_ = 0.0f;
 			continue;
 		}

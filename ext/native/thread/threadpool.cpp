@@ -1,11 +1,11 @@
 #include "base/logging.h"
-#include "threadpool.h"
+#include "thread/threadpool.h"
+#include "thread/threadutil.h"
 
 ///////////////////////////// WorkerThread
 
 WorkerThread::WorkerThread() : active(true), started(false) {
-	thread = new std::thread(std::bind(&WorkerThread::WorkFunc, this));
-	doneMutex.lock();
+	thread.reset(new std::thread(std::bind(&WorkerThread::WorkFunc, this)));
 	while(!started) { };
 }
 
@@ -15,58 +15,64 @@ WorkerThread::~WorkerThread() {
 	signal.notify_one();
 	mutex.unlock();
 	thread->join();
-	delete thread;
 }
 
 void WorkerThread::Process(const std::function<void()>& work) {
 	mutex.lock();
 	work_ = work;
+	jobsTarget = jobsDone + 1;
 	signal.notify_one();
 	mutex.unlock();
 }
 
 void WorkerThread::WaitForCompletion() {
-	done.wait(doneMutex);
+	std::unique_lock<std::mutex> guard(doneMutex);
+	if (jobsDone < jobsTarget) {
+		done.wait(guard);
+	}
 }
 
 void WorkerThread::WorkFunc() {
-	mutex.lock();
+	setCurrentThreadName("Worker");
+	std::unique_lock<std::mutex> guard(mutex);
 	started = true;
 	while (active) {
-		signal.wait(mutex);
+		signal.wait(guard);
 		if (active) {
 			work_();
 			doneMutex.lock();
 			done.notify_one();
+			jobsDone++;
 			doneMutex.unlock();
 		}
 	}
 }
 
 LoopWorkerThread::LoopWorkerThread() : WorkerThread(true) {
-	thread = new std::thread(std::bind(&LoopWorkerThread::WorkFunc, this));
-	doneMutex.lock();
-	while(!started) { };
+	thread.reset(new std::thread(std::bind(&LoopWorkerThread::WorkFunc, this)));
+	while (!started) { };
 }
 
 void LoopWorkerThread::Process(const std::function<void(int, int)> &work, int start, int end) {
-	mutex.lock();
+	std::lock_guard<std::mutex> guard(mutex);
 	work_ = work;
 	start_ = start;
 	end_ = end;
+	jobsTarget = jobsDone + 1;
 	signal.notify_one();
-	mutex.unlock();
 }
 
 void LoopWorkerThread::WorkFunc() {
-	mutex.lock();
+	setCurrentThreadName("LoopWorker");
+	std::unique_lock<std::mutex> guard(mutex);
 	started = true;
 	while (active) {
-		signal.wait(mutex);
+		signal.wait(guard);
 		if (active) {
 			work_(start_, end_);
 			doneMutex.lock();
 			done.notify_one();
+			jobsDone++;
 			doneMutex.unlock();
 		}
 	}
@@ -98,7 +104,7 @@ void ThreadPool::StartWorkers() {
 void ThreadPool::ParallelLoop(const std::function<void(int,int)> &loop, int lower, int upper) {
 	int range = upper - lower;
 	if (range >= numThreads_ * 2) { // don't parallelize tiny loops (this could be better, maybe add optional parameter that estimates work per iteration)
-		lock_guard guard(mutex);
+		std::lock_guard<std::mutex> guard(mutex);
 		StartWorkers();
 
 		// could do slightly better load balancing for the generic case, 

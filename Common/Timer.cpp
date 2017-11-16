@@ -17,11 +17,11 @@
 
 #include <time.h>
 
+#include "ppsspp_config.h"
+
 #ifdef _WIN32
 #include "CommonWindows.h"
-#ifndef _XBOX
 #include <mmsystem.h>
-#endif
 #include <sys/timeb.h>
 #else
 #include <sys/time.h>
@@ -35,10 +35,12 @@ namespace Common
 
 u32 Timer::GetTimeMs()
 {
-#ifdef _XBOX
-	return GetTickCount();
-#elif defined(_WIN32)
+#if defined(_WIN32)
+#if PPSSPP_PLATFORM(UWP)
+	return (u32)GetTickCount64();
+#else
 	return timeGetTime();
+#endif
 #else
 	// REALTIME is probably not a good idea for measuring updates.
 	struct timeval t;
@@ -141,7 +143,7 @@ std::string Timer::GetTimeElapsedFormatted() const
 	// Hours
 	u32 Hours = Minutes / 60;
 
-	std::string TmpStr = StringFromFormat("%02i:%02i:%02i:%03i",
+	std::string TmpStr = StringFromFormat("%02d:%02d:%02d:%03d",
 		Hours, Minutes % 60, Seconds % 60, Milliseconds % 1000);
 	return TmpStr;
 }
@@ -207,11 +209,11 @@ void Timer::GetTimeFormatted(char formattedTime[13])
 #ifdef _WIN32
 	struct timeb tp;
 	(void)::ftime(&tp);
-	sprintf(formattedTime, "%s:%03i", tmp, tp.millitm);
+	snprintf(formattedTime, 13, "%s:%03i", tmp, tp.millitm);
 #else
 	struct timeval t;
 	(void)gettimeofday(&t, NULL);
-	sprintf(formattedTime, "%s:%03d", tmp, (int)(t.tv_usec / 1000));
+	snprintf(formattedTime, 13, "%s:%03d", tmp, (int)(t.tv_usec / 1000));
 #endif
 }
 

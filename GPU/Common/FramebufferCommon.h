@@ -19,17 +19,22 @@
 
 #include <set>
 #include <vector>
+#include <map>
 
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GPUInterface.h"
+#include "thin3d/thin3d.h"
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
 	FB_USAGE_RENDERTARGET = 2,
 	FB_USAGE_TEXTURE = 4,
 	FB_USAGE_CLUT = 8,
+	FB_USAGE_DOWNLOAD = 16,
+	FB_USAGE_DOWNLOAD_CLEAR = 32,
 };
 
 enum {
@@ -46,12 +51,26 @@ enum {
 	FBO_READFBOMEMORY_MIN = 2
 };
 
-struct FBO;
-namespace DX9 {
-	struct FBO_DX9;
+namespace Draw {
+	class Framebuffer;
 }
 
+struct CardboardSettings {
+	bool enabled;
+	float leftEyeXPosition;
+	float rightEyeXPosition;
+	float screenYPosition;
+	float screenWidth;
+	float screenHeight;
+};
+
 class VulkanFBO;
+
+struct PostShaderUniforms {
+	float texelDelta[2]; float pixelDelta[2];
+	float time[4];
+	float video;
+};
 
 struct VirtualFramebuffer {
 	int last_frame_used;
@@ -59,6 +78,7 @@ struct VirtualFramebuffer {
 	int last_frame_render;
 	int last_frame_displayed;
 	int last_frame_clut;
+	int last_frame_failed;
 	u32 clutUpdatedBytes;
 	bool memoryUpdated;
 	bool depthUpdated;
@@ -91,11 +111,7 @@ struct VirtualFramebuffer {
 
 	// TODO: Handle fbo and colorDepth better.
 	u8 colorDepth;
-	union {
-		FBO *fbo;
-		DX9::FBO_DX9 *fbo_dx9;
-		VulkanFBO *fbo_vk;
-	};
+	Draw::Framebuffer *fbo;
 
 	u16 drawnWidth;
 	u16 drawnHeight;
@@ -138,16 +154,47 @@ enum BindFramebufferColorFlags {
 	BINDFBCOLOR_APPLY_TEX_OFFSET = 4,
 };
 
+enum DrawTextureFlags {
+	DRAWTEX_NEAREST = 0,
+	DRAWTEX_LINEAR = 1,
+	DRAWTEX_KEEP_TEX = 2,
+};
+
+inline Draw::DataFormat GEFormatToThin3D(int geFormat) {
+	switch (geFormat) {
+	case GE_FORMAT_4444:
+		return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
+	case GE_FORMAT_5551:
+		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case GE_FORMAT_565:
+		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case GE_FORMAT_8888:
+		return Draw::DataFormat::R8G8B8A8_UNORM;
+	default:
+		return Draw::DataFormat::UNDEFINED;
+	}
+}
+
+namespace Draw {
+class DrawContext;
+}
+
+struct GPUDebugBuffer;
+class TextureCacheCommon;
+class ShaderManagerCommon;
+class DrawEngineCommon;
+
 class FramebufferManagerCommon {
 public:
-	FramebufferManagerCommon();
+	FramebufferManagerCommon(Draw::DrawContext *draw);
 	virtual ~FramebufferManagerCommon();
 
 	virtual void Init();
-	void BeginFrame();
+	virtual void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
+	void DestroyFramebuf(VirtualFramebuffer *v);
 
-	VirtualFramebuffer *DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason);
+	VirtualFramebuffer *DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason);	
 	VirtualFramebuffer *SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason) {
 		// Inlining this part since it's so frequent.
 		if (!framebufChanged && currentRenderVfb_) {
@@ -162,14 +209,20 @@ public:
 			FramebufferHeuristicParams inputs;
 			GetFramebufferHeuristicInputs(&inputs, gstate);
 			VirtualFramebuffer *vfb = DoSetRenderFrameBuffer(inputs, skipDrawReason);
+			_dbg_assert_msg_(G3D, vfb, "DoSetRenderFramebuffer must return a valid framebuffer.");
+			_dbg_assert_msg_(G3D, currentRenderVfb_, "DoSetRenderFramebuffer must set a valid framebuffer.");
 			return vfb;
 		}
 	}
-	virtual void RebindFramebuffer() = 0;
+	virtual void RebindFramebuffer();
+	std::vector<FramebufferInfo> GetFramebufferList();
+
+	void CopyDisplayToOutput();
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset, u32 skipDrawReason);
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size, bool safe);
+	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
 	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) = 0;
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
@@ -177,10 +230,12 @@ public:
 	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
-	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) = 0;
-	virtual void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) = 0;
-	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
-	virtual void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) = 0;
+	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
+
+	virtual void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
+	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
+
+	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 
 	size_t NumVFBs() const { return vfbs_.size(); }
 
@@ -208,6 +263,9 @@ public:
 		return true;
 	}
 
+	VirtualFramebuffer *GetCurrentRenderVFB() const {
+		return currentRenderVfb_;
+	}
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetVFBAt(u32 addr);
 	VirtualFramebuffer *GetDisplayVFB() {
@@ -236,29 +294,51 @@ public:
 	void SetRenderSize(VirtualFramebuffer *vfb);
 	void SetSafeSize(u16 w, u16 h);
 
-	virtual void Resized() = 0;
+	virtual void Resized();
+
+	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth colorDepth = Draw::FBO_8888);
+
+	// Debug features
+	virtual bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
+	virtual bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer);
+	virtual bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
+	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
 protected:
-	void UpdateSize();
+	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	virtual void SetViewport2D(int x, int y, int w, int h);
+	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms);
+	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) = 0;
+	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) = 0;
+	virtual void Bind2DShader() = 0;
+	virtual void BindPostShader(const PostShaderUniforms &uniforms) = 0;
+
+	// Cardboard Settings Calculator
+	void GetCardboardSettings(CardboardSettings *cardboardSettings);
+
+	bool UpdateSize();
+	void SetNumExtraFBOs(int num);
 
 	virtual void DisableState() = 0;
-	virtual void ClearBuffer(bool keepState = false) = 0;
-	virtual void FlushBeforeCopy() = 0;
-	virtual void DecimateFBOs() = 0;
+	void FlushBeforeCopy();
+	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) = 0;
+	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
 	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 	static bool MaskedEqual(u32 addr1, u32 addr2);
 
-	virtual void DestroyFramebuf(VirtualFramebuffer *vfb) = 0;
-	virtual void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false, bool skipCopy = false) = 0;
-	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) = 0;
-	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) = 0;
-	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) = 0;
+	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb);
+	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged);
+	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
+	virtual void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) = 0;
+	virtual void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) = 0;
+
+	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
 	void ShowScreenResolution();
 
 	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
@@ -282,38 +362,59 @@ protected:
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}
 
-	u32 displayFramebufPtr_;
-	u32 displayStride_;
+	Draw::DrawContext *draw_ = nullptr;
+	TextureCacheCommon *textureCache_ = nullptr;
+	ShaderManagerCommon *shaderManager_ = nullptr;
+	DrawEngineCommon *drawEngine_ = nullptr;
+	bool needBackBufferYSwap_ = false;
+
+	u32 displayFramebufPtr_ = 0;
+	u32 displayStride_ = 0;
 	GEBufferFormat displayFormat_;
 
-	VirtualFramebuffer *displayFramebuf_;
-	VirtualFramebuffer *prevDisplayFramebuf_;
-	VirtualFramebuffer *prevPrevDisplayFramebuf_;
-	int frameLastFramebufUsed_;
+	VirtualFramebuffer *displayFramebuf_ = nullptr;
+	VirtualFramebuffer *prevDisplayFramebuf_ = nullptr;
+	VirtualFramebuffer *prevPrevDisplayFramebuf_ = nullptr;
+	int frameLastFramebufUsed_ = 0;
 
-	VirtualFramebuffer *currentRenderVfb_;
+	VirtualFramebuffer *currentRenderVfb_ = nullptr;
 
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
-	u32 framebufRangeEnd_;
+	u32 framebufRangeEnd_ = 0;
 
-	bool useBufferedRendering_;
-	bool updateVRAM_;
-	bool usePostShader_;
-	bool postShaderAtOutputResolution_;
-	bool postShaderIsUpscalingFilter_;
+	bool useBufferedRendering_ = false;
+	bool updateVRAM_ = false;
+	bool usePostShader_ = false;
+	bool postShaderAtOutputResolution_ = false;
+	bool postShaderIsUpscalingFilter_ = false;
 
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
-	bool hackForce04154000Download_;
-	bool gameUsesSequentialCopies_;
+	bool gameUsesSequentialCopies_ = false;
 
 	// Sampled in BeginFrame for safety.
 	float renderWidth_;
 	float renderHeight_;
 	int pixelWidth_;
 	int pixelHeight_;
+	int bloomHack_ = 0;
+	bool trueColor_ = false;
+
+	// Used by post-processing shaders
+	std::vector<Draw::Framebuffer *> extraFBOs_;
+
+	bool needGLESRebinds_ = false;
+
+	struct TempFBO {
+		Draw::Framebuffer *fbo;
+		int last_frame_used;
+	};
+
+	std::map<u64, TempFBO> tempFBOs_;
+
+	std::vector<Draw::Framebuffer *> fbosToDelete_;
 
 	// Aggressively delete unused FBOs to save gpu memory.
 	enum {

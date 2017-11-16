@@ -1,5 +1,4 @@
-#ifndef DEBUGGER_DISPLAYLIST_H
-#define DEBUGGER_DISPLAYLIST_H
+#pragma once
 
 #include "Core/Debugger/DebugInterface.h"
 
@@ -7,7 +6,7 @@
 #include <QTreeWidgetItem>
 
 #include "GPU/GPUState.h"
-#include "GPU/GLES/FBO.h"
+#include "thin3d/thin3d.h"
 
 class MainWindow;
 namespace Ui {
@@ -38,7 +37,7 @@ class Debugger_DisplayList : public QDialog
 	Q_OBJECT
 	
 public:
-	explicit Debugger_DisplayList(DebugInterface *_cpu, MainWindow *mainWindow_, QWidget *parent = 0);
+	Debugger_DisplayList(DebugInterface *_cpu, Draw::DrawContext *draw, MainWindow *mainWindow_, QWidget *parent = 0);
 	~Debugger_DisplayList();
 
 	void UpdateDisplayList();
@@ -88,12 +87,13 @@ private:
 
 	Ui::Debugger_DisplayList *ui;
 	DebugInterface* cpu;
+	Draw::DrawContext* draw_;
 	MainWindow* mainWindow;
 	QTreeWidgetItem* displayListRowSelected;
 	QTreeWidgetItem* displayListDataSelected;
 	QTreeWidgetItem* textureDataSelected;
 	int currentRenderFrameDisplay;
-	FBO* currentTextureDisplay;
+	Draw::Framebuffer *currentTextureDisplay;
 	float fboZoomFactor;
 	int maxVtxDisplay;
 	int maxIdxDisplay;
@@ -102,5 +102,3 @@ private:
 	std::map<u32, int> vtxBufferSize;
 	std::map<u32, int> idxBufferSize;
 };
-
-#endif // DEBUGGER_DISPLAYLIST_H

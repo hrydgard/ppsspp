@@ -25,12 +25,26 @@
 
 #include "vulkan.h"
 
-/*
- * Loader-ICD version negotiation API
- */
-#define CURRENT_LOADER_ICD_INTERFACE_VERSION 3
+// Loader-ICD version negotiation API.  Versions add the following features:
+//   Version 0 - Initial.  Doesn't support vk_icdGetInstanceProcAddr
+//               or vk_icdNegotiateLoaderICDInterfaceVersion.
+//   Version 1 - Add support for vk_icdGetInstanceProcAddr.
+//   Version 2 - Add Loader/ICD Interface version negotiation
+//               via vk_icdNegotiateLoaderICDInterfaceVersion.
+//   Version 3 - Add ICD creation/destruction of KHR_surface objects.
+//   Version 4 - Add unknown physical device extension qyering via
+//               vk_icdGetPhysicalDeviceProcAddr.
+#define CURRENT_LOADER_ICD_INTERFACE_VERSION 4
 #define MIN_SUPPORTED_LOADER_ICD_INTERFACE_VERSION 0
+#define MIN_PHYS_DEV_EXTENSION_ICD_INTERFACE_VERSION 4
 typedef VkResult (VKAPI_PTR *PFN_vkNegotiateLoaderICDInterfaceVersion)(uint32_t *pVersion);
+
+// This is defined in vk_layer.h which will be found by the loader, but if an ICD is building against this
+// flie directly, it won't be found.
+#ifndef PFN_GetPhysicalDeviceProcAddr
+typedef PFN_vkVoidFunction (VKAPI_PTR *PFN_GetPhysicalDeviceProcAddr)(VkInstance instance, const char* pName);
+#endif
+
 /*
  * The ICD must reserve space for a pointer for the loader's dispatch
  * table, at the start of <each object>.

@@ -2674,7 +2674,7 @@ static const uint16_t ud_itab__446[] = {
 };
 
 
-struct ud_lookup_table_list_entry ud_lookup_table_list[] = {
+const struct ud_lookup_table_list_entry ud_lookup_table_list[] = {
     /* 000 */ { ud_itab__0, UD_TAB__OPC_TABLE, "opctbl" },
     /* 001 */ { ud_itab__1, UD_TAB__OPC_MODE, "/m" },
     /* 002 */ { ud_itab__2, UD_TAB__OPC_MODE, "/m" },
@@ -3269,7 +3269,7 @@ struct ud_lookup_table_list_entry ud_lookup_table_list[] = {
 #define O_sIv     { OP_sI,       SZ_V     }
 #define O_sIz     { OP_sI,       SZ_Z     }
 
-struct ud_itab_entry ud_itab[] = {
+const struct ud_itab_entry ud_itab[] = {
   /* 0000 */ { UD_Iinvalid, O_NONE, O_NONE, O_NONE, O_NONE, P_none },
   /* 0001 */ { UD_Iaaa, O_NONE, O_NONE, O_NONE, O_NONE, P_none },
   /* 0002 */ { UD_Iaad, O_Ib, O_NONE, O_NONE, O_NONE, P_none },
@@ -5028,8 +5028,7 @@ struct ud_itab_entry ud_itab[] = {
   /* 1755 */ { UD_Ivpsllq, O_H, O_V, O_W, O_NONE, P_aso|P_rexr|P_rexx|P_rexb },
 };
 
-
-const char* ud_mnemonics_str[] = {
+const char* const ud_mnemonics_str[] = {
     "aaa",
     "aad",
     "aam",

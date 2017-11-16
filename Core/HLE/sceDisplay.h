@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "Core/MemMap.h"
+
 void __DisplayInit();
 void __DisplayDoState(PointerWrap &p);
 void __DisplayShutdown();
@@ -27,7 +29,8 @@ void Register_sceDisplay();
 bool __DisplayFrameDone();
 
 // Get information about the current framebuffer.
-bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int mode);
+bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, u32 *pixelFormat, int mode);
+void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync);
 
 typedef void (*VblankCallback)();
 // Listen for vblank events.  Only register during init.

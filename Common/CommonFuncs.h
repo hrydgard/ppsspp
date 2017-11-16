@@ -17,13 +17,14 @@
 
 #pragma once
 
-#include "base/compat.h"
 #include "CommonTypes.h"
 
-template <bool> struct CompileTimeAssert;
-template<> struct CompileTimeAssert<true> {};
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#endif
 
 #if !defined(_WIN32)
+
 
 #include <unistd.h>
 #include <errno.h>
@@ -34,8 +35,6 @@ template<> struct CompileTimeAssert<true> {};
 #include <signal.h>
 #define Crash() {kill(getpid(), SIGINT);}
 #endif
-
-#define ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
 
 inline u32 __rotl(u32 x, int shift) {
 	shift &= 31;
@@ -71,22 +70,16 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define __rotr64 _rotr64
 
 // 64 bit offsets for windows
+#ifndef __MINGW32__
 	#define fseeko _fseeki64
 	#define ftello _ftelli64
 	#define atoll _atoi64
-	#define fileno _fileno
-#ifndef _XBOX
+#endif
 	#if _M_IX86
 		#define Crash() {__asm int 3}
 	#else
-extern "C" {
-	__declspec(dllimport) void __stdcall DebugBreak(void);
-}
-		#define Crash() {DebugBreak();}
+		#define Crash() {__debugbreak();}
 	#endif // M_IX86
-#else
-	#define Crash() {DebugBreak();}
-#endif // _XBOX ndef
 #endif // WIN32 ndef
 
 // Generic function to get last error message.

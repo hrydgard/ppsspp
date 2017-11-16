@@ -1150,6 +1150,39 @@ static int Hook_mytranwars_upload_frame() {
 	return 0;
 }
 
+static u32 marvelalliance1_copy_src = 0;
+static u32 marvelalliance1_copy_dst = 0;
+static u32 marvelalliance1_copy_size = 0;
+
+static int Hook_marvelalliance1_copy_a1_before() {
+	marvelalliance1_copy_src = currentMIPS->r[MIPS_REG_A1];
+	marvelalliance1_copy_dst = currentMIPS->r[MIPS_REG_V1];
+	marvelalliance1_copy_size = currentMIPS->r[MIPS_REG_V0] - currentMIPS->r[MIPS_REG_V1];
+
+	gpu->PerformMemoryDownload(marvelalliance1_copy_src, marvelalliance1_copy_size);
+	CBreakPoints::ExecMemCheck(marvelalliance1_copy_src, true, marvelalliance1_copy_size, currentMIPS->pc);
+
+	return 0;
+}
+
+static int Hook_marvelalliance1_copy_a2_before() {
+	marvelalliance1_copy_src = currentMIPS->r[MIPS_REG_A2];
+	marvelalliance1_copy_dst = currentMIPS->r[MIPS_REG_V0];
+	marvelalliance1_copy_size = currentMIPS->r[MIPS_REG_A1] - currentMIPS->r[MIPS_REG_A2];
+
+	gpu->PerformMemoryDownload(marvelalliance1_copy_src, marvelalliance1_copy_size);
+	CBreakPoints::ExecMemCheck(marvelalliance1_copy_src, true, marvelalliance1_copy_size, currentMIPS->pc);
+
+	return 0;
+}
+
+static int Hook_marvelalliance1_copy_after() {
+	gpu->PerformMemoryUpload(marvelalliance1_copy_dst, marvelalliance1_copy_size);
+	CBreakPoints::ExecMemCheck(marvelalliance1_copy_dst, false, marvelalliance1_copy_size, currentMIPS->pc);
+
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1247,6 +1280,18 @@ static const ReplacementTableEntry entries[] = {
 	{ "katamari_render_check", &Hook_katamari_render_check, 0, REPFLAG_HOOKENTER, 0, },
 	{ "katamari_screenshot_to_565", &Hook_katamari_screenshot_to_565, 0, REPFLAG_HOOKENTER, 0 },
 	{ "mytranwars_upload_frame", &Hook_mytranwars_upload_frame, 0, REPFLAG_HOOKENTER, 0x128 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOKENTER, 0x284 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x2bc },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOKENTER, 0x2e8 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x320 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a2_before, 0, REPFLAG_HOOKENTER, 0x3b0 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x3e8 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a2_before, 0, REPFLAG_HOOKENTER, 0x410 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x448 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOKENTER, 0x600 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x638 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOKENTER, 0x664 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x69c },
 	{}
 };
 

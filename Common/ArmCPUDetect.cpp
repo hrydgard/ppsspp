@@ -208,11 +208,18 @@ void CPUInfo::Detect()
 #endif
 	strcpy(brand_string, "Apple A");
 	num_cores = 2;
+#elif PPSSPP_PLATFORM(UWP)
+	strcpy(brand_string, "Unknown");
+	isVFP3 = true;
+	isVFP4 = false;
+	SYSTEM_INFO sysInfo;
+	GetSystemInfo(&sysInfo);
+	num_cores = sysInfo.dwNumberOfProcessors;
 #else // !PPSSPP_PLATFORM(IOS)
 	strcpy(brand_string, "Unknown");
 	num_cores = 1;
 #endif
-	strncpy(cpu_string, brand_string, sizeof(cpu_string));
+	truncate_cpy(cpu_string, brand_string);
 	// Hardcode this for now
 	bSwp = true;
 	bHalf = true;
@@ -230,8 +237,8 @@ void CPUInfo::Detect()
 	bFP = false;
 	bASIMD = false;
 #else // PPSSPP_PLATFORM(LINUX)
-	strncpy(cpu_string, GetCPUString().c_str(), sizeof(cpu_string));
-	strncpy(brand_string, GetCPUBrandString().c_str(), sizeof(brand_string));
+	truncate_cpy(cpu_string, GetCPUString().c_str());
+	truncate_cpy(brand_string, GetCPUBrandString().c_str());
 
 	bSwp = CheckCPUFeature("swp");
 	bHalf = CheckCPUFeature("half");
@@ -267,9 +274,9 @@ std::string CPUInfo::Summarize()
 {
 	std::string sum;
 	if (num_cores == 1)
-		sum = StringFromFormat("%s, %i core", cpu_string, num_cores);
+		sum = StringFromFormat("%s, %d core", cpu_string, num_cores);
 	else
-		sum = StringFromFormat("%s, %i cores", cpu_string, num_cores);
+		sum = StringFromFormat("%s, %d cores", cpu_string, num_cores);
 	if (bSwp) sum += ", SWP";
 	if (bHalf) sum += ", Half";
 	if (bThumb) sum += ", Thumb";

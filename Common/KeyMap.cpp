@@ -242,8 +242,8 @@ static const DefMappingStruct defaultOuyaMap[] = {
 	{VIRTKEY_PAUSE       , NKCODE_BUTTON_THUMBR},
 	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
 	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
-	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
 	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
+	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
 };
 
 static const DefMappingStruct defaultXperiaPlay[] = {
@@ -395,7 +395,7 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 	UpdateNativeMenuKeys();
 }
 
-const KeyMap_IntStrPair key_names[] = {
+static const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_A, "A"},
 	{NKCODE_B, "B"},
 	{NKCODE_C, "C"},
@@ -576,6 +576,8 @@ const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_EXT_MOUSEBUTTON_1, "MB1"},
 	{NKCODE_EXT_MOUSEBUTTON_2, "MB2"},
 	{NKCODE_EXT_MOUSEBUTTON_3, "MB3"},
+	{NKCODE_EXT_MOUSEBUTTON_4, "MB4"},
+	{NKCODE_EXT_MOUSEBUTTON_5, "MB5"},
 	{NKCODE_EXT_MOUSEWHEEL_UP, "MWheelU"},
 	{NKCODE_EXT_MOUSEWHEEL_DOWN, "MWheelD"},
 
@@ -584,7 +586,7 @@ const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_RIGHTBRACE, "}"},
 };
 
-const KeyMap_IntStrPair axis_names[] = {
+static const KeyMap_IntStrPair axis_names[] = {
 	{JOYSTICK_AXIS_X, "X Axis"},
 	{JOYSTICK_AXIS_Y, "Y Axis"},
 	{JOYSTICK_AXIS_PRESSURE, "Pressure"},
@@ -662,6 +664,15 @@ const KeyMap_IntStrPair psp_button_names[] = {
 
 	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
 	{VIRTKEY_DEVMENU, "DevMenu"},
+
+	{CTRL_HOME, "Home"},
+	{CTRL_HOLD, "Hold"},
+	{CTRL_WLAN, "Wlan"},
+	{CTRL_REMOTE_HOLD, "Remote hold"},
+	{CTRL_VOL_UP, "Vol +"},
+	{CTRL_VOL_DOWN, "Vol -"},
+	{CTRL_SCREEN, "Screen"},
+	{CTRL_NOTE, "Note"},
 };
 
 const int AXIS_BIND_NKCODE_START = 4000;
@@ -863,7 +874,7 @@ void LoadFromIni(IniFile &file) {
 	IniFile::Section *controls = file.GetOrCreateSection("ControlMapping");
 	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
 		std::string value;
-		controls->Get(psp_button_names[i].name.c_str(), &value, "");
+		controls->Get(psp_button_names[i].name, &value, "");
 
 		// Erase default mapping
 		g_controllerMap.erase(psp_button_names[i].key);
@@ -902,7 +913,7 @@ void SaveToIni(IniFile &file) {
 				value += ",";
 		}
 
-		controls->Set(psp_button_names[i].name.c_str(), value, "");
+		controls->Set(psp_button_names[i].name, value, "");
 	}
 }
 

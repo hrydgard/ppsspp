@@ -19,8 +19,9 @@
 
 #include <functional>
 #include <vector>
+#include <mutex>
 
-#include "base/mutex.h"
+#include "i18n/i18n.h"
 #include "ui/view.h"
 #include "ui/ui_screen.h"
 
@@ -49,8 +50,31 @@ private:
 
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback)
-		: PopupScreen("Map Key", "Cancel", ""), callback_(callback), mapped_(false) {
+	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, I18NCategory *i18n)
+		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), callback_(callback), mapped_(false) {
+		pspBtn_ = btn;
+	}
+
+	virtual bool key(const KeyInput &key) override;
+	virtual bool axis(const AxisInput &axis) override;
+
+protected:
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+
+	virtual bool FillVertical() const override { return false; }
+	virtual bool ShowButtons() const override { return true; }
+	virtual void OnCompleted(DialogResult result) override {}
+
+private:
+	int pspBtn_;
+	std::function<void(KeyDef)> callback_;
+	bool mapped_;  // Prevent double registrations
+};
+
+class KeyMappingNewMouseKeyDialog : public PopupScreen {
+public:
+	explicit KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, I18NCategory *i18n)
+		: PopupScreen(i18n->T("Map Mouse"), "", ""), callback_(callback), mapped_(false) {
 		pspBtn_ = btn;
 	}
 

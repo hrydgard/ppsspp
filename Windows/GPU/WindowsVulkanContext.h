@@ -23,6 +23,7 @@
 
 class WindowsVulkanContext : public WindowsGraphicsContext {
 public:
+	WindowsVulkanContext() : draw_(nullptr) {}
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
@@ -31,6 +32,9 @@ public:
 
 	void *GetAPIContext();
 
-	Draw::DrawContext *CreateThin3DContext() override;
+	Draw::DrawContext *GetDrawContext() override { return draw_; }
+private:
+	Draw::DrawContext *draw_;
+	bool supportsDedicatedAlloc_;
 };
 

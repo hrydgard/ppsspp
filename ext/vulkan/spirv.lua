@@ -1,4 +1,4 @@
--- Copyright (c) 2014-2016 The Khronos Group Inc.
+-- Copyright (c) 2014-2017 The Khronos Group Inc.
 -- 
 -- Permission is hereby granted, free of charge, to any person obtaining a copy
 -- of this software and/or associated documentation files (the "Materials"),
@@ -42,7 +42,7 @@
 spv = {
     MagicNumber = 0x07230203,
     Version = 0x00010100,
-    Revision = 4,
+    Revision = 5,
     OpCodeMask = 0xffff,
     WordCountShift = 16,
 
@@ -578,6 +578,7 @@ spv = {
         PipeStorage = 60,
         SubgroupBallotKHR = 4423,
         DrawParameters = 4427,
+        SubgroupVoteKHR = 4431,
     },
 
     Op = {
@@ -887,6 +888,10 @@ spv = {
         OpModuleProcessed = 330,
         OpSubgroupBallotKHR = 4421,
         OpSubgroupFirstInvocationKHR = 4422,
+        OpSubgroupAllKHR = 4428,
+        OpSubgroupAnyKHR = 4429,
+        OpSubgroupAllEqualKHR = 4430,
+        OpSubgroupReadInvocationKHR = 4432,
     },
 
 }

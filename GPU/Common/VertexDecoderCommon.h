@@ -20,6 +20,7 @@
 #include <cstring>
 #include "ppsspp_config.h"
 #include "base/basictypes.h"
+#include "Common/Hashmaps.h"
 #include "Common/Log.h"
 #include "Common/CommonTypes.h"
 #include "Core/Reporting.h"
@@ -36,13 +37,13 @@
 #else
 #include "Common/FakeEmitter.h"
 #endif
-#include "Globals.h"
 
 // DecVtxFormat - vertex formats for PC
 // Kind of like a D3D VertexDeclaration.
 // Can write code to easily bind these using OpenGL, or read these manually.
 // No morph support, that is taken care of by the VertexDecoder.
 
+// Keep this in 4 bits.
 enum {
 	DEC_NONE,
 	DEC_FLOAT_1,
@@ -59,8 +60,6 @@ enum {
 	DEC_U16_2,
 	DEC_U16_3,
 	DEC_U16_4,
-	DEC_U8A_2,
-	DEC_U16A_2,
 };
 
 int DecFmtSize(u8 fmt);
@@ -74,6 +73,9 @@ struct DecVtxFormat {
 	u8 nrmfmt; u8 nrmoff;
 	u8 posfmt; u8 posoff;
 	short stride;
+
+	uint32_t id;
+	void ComputeID();
 };
 
 struct TransformedVertex
@@ -105,6 +107,35 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 inline int RoundUp4(int x) {
 	return (x + 3) & ~3;
 }
+
+class IndexConverter {
+private:
+	union {
+		const void *indices;
+		const u8 *indices8;
+		const u16 *indices16;
+		const u32 *indices32;
+	};
+	u32 indexType;
+
+public:
+	IndexConverter(u32 vertType, const void *indices)
+		: indices(indices), indexType(vertType & GE_VTYPE_IDX_MASK) {
+	}
+
+	inline u32 convert(u32 index) const {
+		switch (indexType) {
+		case GE_VTYPE_IDX_8BIT:
+			return indices8[index];
+		case GE_VTYPE_IDX_16BIT:
+			return indices16[index];
+		case GE_VTYPE_IDX_32BIT:
+			return indices32[index];
+		default:
+			return index;
+		}
+	}
+};
 
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
 class VertexReader {
@@ -268,21 +299,6 @@ public:
 			}
 			break;
 
-		case DEC_U8A_2:
-			{
-				const u8 *b = (const u8 *)(data_ + decFmt_.uvoff);
-				uv[0] = (float)b[0];
-				uv[1] = (float)b[1];
-			}
-			break;
-
-		case DEC_U16A_2:
-			{
-				const u16 *p = (const u16 *)(data_ + decFmt_.uvoff);
-				uv[0] = (float)p[0];
-				uv[1] = (float)p[1];
-			}
-			break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmtuv, G3D, "Reader: Unsupported UV Format %d", decFmt_.uvfmt);
 			memset(uv, 0, sizeof(float) * 2);
@@ -451,8 +467,8 @@ class VertexDecoder {
 public:
 	VertexDecoder();
 
-	// A jit cache is not mandatory, we don't use it in the sw renderer
-	void SetVertexType(u32 vtype, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache = 0);
+	// A jit cache is not mandatory.
+	void SetVertexType(u32 vtype, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache = nullptr);
 
 	u32 VertexType() const { return fmt_; }
 
@@ -485,17 +501,11 @@ public:
 	void Step_TcU16DoublePrescale() const;
 	void Step_TcFloatPrescale() const;
 
-	void Step_TcU16Double() const;
-	void Step_TcU16Through() const;
-	void Step_TcU16ThroughDouble() const;
 	void Step_TcU16DoubleToFloat() const;
 	void Step_TcU16ThroughToFloat() const;
 	void Step_TcU16ThroughDoubleToFloat() const;
 	void Step_TcFloatThrough() const;
 
-	void Step_TcU8Morph() const;
-	void Step_TcU16Morph() const;
-	void Step_TcU16DoubleMorph() const;
 	void Step_TcU8MorphToFloat() const;
 	void Step_TcU16MorphToFloat() const;
 	void Step_TcU16DoubleMorphToFloat() const;
@@ -646,10 +656,6 @@ public:
 	void Jit_TcU16PrescaleMorph();
 	void Jit_TcFloatPrescaleMorph();
 
-	void Jit_TcU16Double();
-	void Jit_TcU16ThroughDouble();
-
-	void Jit_TcU16Through();
 	void Jit_TcU16ThroughToFloat();
 	void Jit_TcFloatThrough();
 

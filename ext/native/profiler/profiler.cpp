@@ -13,7 +13,7 @@
 
 #define MAX_CATEGORIES 32 // Can be any number
 #define MAX_DEPTH 16      // Can be any number
-#define HISTORY_SIZE 256  // Must be power of 2
+#define HISTORY_SIZE 128 // Must be power of 2
 
 #ifndef _DEBUG
 // If the compiler can collapse identical strings, we don't even need the strcmp.

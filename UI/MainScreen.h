@@ -82,7 +82,7 @@ public:
 protected:
 	void CreateViews() override;
 	void DrawBackground(UIContext &dc) override;
-	void update(InputState &input) override;
+	void update() override;
 	void sendMessage(const char *message, const char *value) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
@@ -129,7 +129,7 @@ public:
 
 protected:
 	void CreateViews() override;
-	void update(InputState &input) override;
+	void update() override;
 	//virtual void sendMessage(const char *message, const char *value);
 
 private:

@@ -39,7 +39,7 @@ public:
 #if defined(USING_WIN_UI)
 	COORD GetCoordinates(int BytesRead, int BufferWidth);
 #endif
-	void Log(LogTypes::LOG_LEVELS, const char *Text);
+	void Log(const LogMessage &message);
 	void ClearScreen(bool Cursor = true);
 
 	void Show(bool bShow);

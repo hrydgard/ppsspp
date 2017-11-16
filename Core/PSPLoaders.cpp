@@ -16,17 +16,23 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "file/file_util.h"
+#include "util/text/utf8.h"
 
+#include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
+#ifdef _WIN32
+#include "Common/CommonWindows.h"
+#endif
 
 #include "Core/ELF/ElfReader.h"
 #include "Core/ELF/ParamSFO.h"
 
-#include "FileSystems/BlockDevices.h"
-#include "FileSystems/DirectoryFileSystem.h"
-#include "FileSystems/ISOFileSystem.h"
-#include "FileSystems/MetaFileSystem.h"
-#include "FileSystems/VirtualDiscFileSystem.h"
+#include "Core/FileSystems/BlockDevices.h"
+#include "Core/FileSystems/BlobFileSystem.h"
+#include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/FileSystems/VirtualDiscFileSystem.h"
 
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
@@ -174,25 +180,20 @@ static const char *altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/ss.RAW",
 };
 
-bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string)
-{
+bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	// Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
-	if (fileInfo.exists)
-	{
+	if (fileInfo.exists) {
 		std::vector<u8> paramsfo;
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
-		if (g_paramSFO.ReadSFO(paramsfo))
-		{
-			char title[1024];
-			sprintf(title, "%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
-			INFO_LOG(LOADER, "%s", title);
-			host->SetWindowTitle(title);
+		if (g_paramSFO.ReadSFO(paramsfo)) {
+			std::string title = StringFromFormat("%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
+			INFO_LOG(LOADER, "%s", title.c_str());
+			host->SetWindowTitle(title.c_str());
 		}
 	}
-
 
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
 
@@ -251,25 +252,24 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string)
 	return __KernelLoadExec(bootpath.c_str(), 0, error_string);
 }
 
-static std::string NormalizePath(const std::string &path)
-{
+static std::string NormalizePath(const std::string &path) {
 #ifdef _WIN32
-	char buf[512] = {0};
-	if (GetFullPathNameA(path.c_str(), sizeof(buf) - 1, buf, NULL) == 0)
+	wchar_t buf[512] = {0};
+	std::wstring wpath = ConvertUTF8ToWString(path);
+	if (GetFullPathName(wpath.c_str(), (int)ARRAY_SIZE(buf) - 1, buf, NULL) == 0)
 		return "";
+	return ConvertWStringToUTF8(buf);
 #else
 	char buf[PATH_MAX + 1];
 	if (realpath(path.c_str(), buf) == NULL)
 		return "";
-#endif
 	return buf;
+#endif
 }
 
-bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string)
-{
+bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	// This is really just for headless, might need tweaking later.
-	if (PSP_CoreParameter().mountIsoLoader != nullptr)
-	{
+	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
 		auto bd = constructBlockDevice(PSP_CoreParameter().mountIsoLoader);
 		if (bd != NULL) {
 			ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, bd);
@@ -283,7 +283,19 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string)
 	std::string full_path = fileLoader->Path();
 	std::string path, file, extension;
 	SplitPath(ReplaceAll(full_path, "\\", "/"), &path, &file, &extension);
+
+	size_t pos = path.find("/PSP/GAME/");
+	std::string ms_path;
+	if (pos != std::string::npos) {
+		ms_path = "ms0:" + path.substr(pos);
+	} else {
+		// This is wrong, but it's better than not having a working directory at all.
+		// Note that umd0:/ is actually the writable containing directory, in this case.
+		ms_path = "umd0:/";
+	}
+
 #ifdef _WIN32
+	// Turn the slashes back to the Windows way.
 	path = ReplaceAll(path, "/", "\\");
 #endif
 
@@ -303,15 +315,51 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string)
 		path = rootNorm + "/";
 		pspFileSystem.SetStartingDirectory(filepath);
 	} else {
-		size_t pos = path.find("/PSP/GAME/");
-		if (pos != std::string::npos) {
-			pspFileSystem.SetStartingDirectory("ms0:" + path.substr(pos));
-		}
+		pspFileSystem.SetStartingDirectory(ms_path);
 	}
 
 	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
 	pspFileSystem.Mount("umd0:", fs);
 
-	std::string finalName = "umd0:/" + file + extension;
+	std::string finalName = ms_path + file + extension;
+
+	std::string homebrewName = PSP_CoreParameter().fileToStart;
+	std::size_t lslash = homebrewName.find_last_of("/");
+	homebrewName = homebrewName.substr(lslash + 1);
+	std::string madeUpID = g_paramSFO.GenerateFakeID();
+
+	std::string title = StringFromFormat("%s : %s", madeUpID.c_str(), homebrewName.c_str());
+	INFO_LOG(LOADER, "%s", title.c_str());
+	host->SetWindowTitle(title.c_str());
+
+	// Temporary code
+	// TODO: Remove this after ~ 1.6
+	// It checks for old filenames for homebrew savestates(folder name) and rename them to new fakeID format
+	std::string savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
+
+	for (int i = 0; i < 5; i += 1) {
+		std::string oldName = StringFromFormat("%s%s_%d.ppst", savestateDir.c_str(), homebrewName.c_str(), i);
+		if (File::Exists(oldName)) {
+			std::string newName = StringFromFormat("%s%s_1.00_%d.ppst", savestateDir.c_str(), madeUpID.c_str(), i);
+			File::Rename(oldName, newName);
+		}
+	}
+	for (int i = 0; i < 5; i += 1) {
+		std::string oldName = StringFromFormat("%s%s_%d.jpg", savestateDir.c_str(), homebrewName.c_str(), i);
+		if (File::Exists(oldName)) {
+			std::string newName = StringFromFormat("%s%s_1.00_%d.jpg", savestateDir.c_str(), madeUpID.c_str(), i);
+			File::Rename(oldName, newName);
+		}
+	}
+	// End of temporary code
+
 	return __KernelLoadExec(finalName.c_str(), 0, error_string);
+}
+
+bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
+	BlobFileSystem *umd = new BlobFileSystem(&pspFileSystem, fileLoader, "data.ppdmp");
+	pspFileSystem.Mount("disc0:", umd);
+
+	__KernelLoadGEDump("disc0:/data.ppdmp", error_string);
+	return true;
 }

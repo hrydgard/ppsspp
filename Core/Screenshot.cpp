@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
+#include <algorithm>
 #ifdef USING_QT_UI
 #include <QtGui/QImage>
 #else
@@ -26,11 +29,8 @@
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
+#include "Core/Core.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#ifdef _WIN32
-#include "GPU/Directx9/GPU_DX9.h"
-#endif
-#include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
@@ -71,13 +71,13 @@ private:
 static bool WriteScreenshotToJPEG(const char *filename, int width, int height, int num_channels, const uint8_t *image_data, const jpge::params &comp_params) {
 	JPEGFileStream dst_stream(filename);
 	if (!dst_stream.Valid()) {
-		ERROR_LOG(COMMON, "Unable to open screenshot file for writing.");
+		ERROR_LOG(SYSTEM, "Unable to open screenshot file for writing.");
 		return false;
 	}
 
 	jpge::jpeg_encoder dst_image;
 	if (!dst_image.init(&dst_stream, width, height, num_channels, comp_params)) {
-		ERROR_LOG(COMMON, "Screenshot JPEG encode init failed.");
+		ERROR_LOG(SYSTEM, "Screenshot JPEG encode init failed.");
 		return false;
 	}
 
@@ -85,18 +85,18 @@ static bool WriteScreenshotToJPEG(const char *filename, int width, int height, i
 		for (int i = 0; i < height; i++) {
 			const uint8_t *buf = image_data + i * width * num_channels;
 			if (!dst_image.process_scanline(buf)) {
-				ERROR_LOG(COMMON, "Screenshot JPEG encode scanline failed.");
+				ERROR_LOG(SYSTEM, "Screenshot JPEG encode scanline failed.");
 				return false;
 			}
 		}
 		if (!dst_image.process_scanline(NULL)) {
-			ERROR_LOG(COMMON, "Screenshot JPEG encode scanline flush failed.");
+			ERROR_LOG(SYSTEM, "Screenshot JPEG encode scanline flush failed.");
 			return false;
 		}
 	}
 
 	if (!dst_stream.Valid()) {
-		ERROR_LOG(COMMON, "Screenshot file write failed.");
+		ERROR_LOG(SYSTEM, "Screenshot file write failed.");
 	}
 
 	dst_image.deinit();
@@ -106,18 +106,18 @@ static bool WriteScreenshotToJPEG(const char *filename, int width, int height, i
 static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
-		ERROR_LOG(COMMON, "Unable to open screenshot file for writing.");
+		ERROR_LOG(SYSTEM, "Unable to open screenshot file for writing.");
 		return false;
 	}
 
 	if (png_image_write_to_stdio(image, fp, convert_to_8bit, buffer, row_stride, colormap)) {
 		if (fclose(fp) != 0) {
-			ERROR_LOG(COMMON, "Screenshot file write failed.");
+			ERROR_LOG(SYSTEM, "Screenshot file write failed.");
 			return false;
 		}
 		return true;
 	} else {
-		ERROR_LOG(COMMON, "Screenshot PNG encode failed.");
+		ERROR_LOG(SYSTEM, "Screenshot PNG encode failed.");
 		fclose(fp);
 		remove(filename);
 		return false;
@@ -204,7 +204,7 @@ const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u3
 					b = (src >> 16) & 0xFF;
 					break;
 				default:
-					ERROR_LOG(COMMON, "Unsupported framebuffer format for screenshot: %d", buf.GetFormat());
+					ERROR_LOG(G3D, "Unsupported framebuffer format for screenshot: %d", buf.GetFormat());
 					return nullptr;
 				}
 			}
@@ -216,31 +216,27 @@ const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u3
 }
 
 bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
+	if (!gpuDebug) {
+		ERROR_LOG(SYSTEM, "Can't take screenshots when GPU not running");
+		return false;
+	}
 	GPUDebugBuffer buf;
 	bool success = false;
 	u32 w = (u32)-1;
 	u32 h = (u32)-1;
 
 	if (type == SCREENSHOT_DISPLAY || type == SCREENSHOT_RENDER) {
-		if (gpuDebug) {
-			success = gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes);
-		}
+		success = gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes);
 
 		// Only crop to the top left when using a render screenshot.
 		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
 		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
 	} else {
-		if (GetGPUBackend() == GPUBackend::OPENGL) {
-			success = GPU_GLES::GetOutputFramebuffer(buf);
-#ifdef _WIN32
-		} else if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-			success = DX9::GPU_DX9::GetOutputFramebuffer(buf);
-#endif
-		}
+		success = gpuDebug->GetOutputFramebuffer(buf);
 	}
 
 	if (!success) {
-		ERROR_LOG(COMMON, "Failed to obtain screenshot data.");
+		ERROR_LOG(G3D, "Failed to obtain screenshot data.");
 		return false;
 	}
 
@@ -277,7 +273,7 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 			png_image_free(&png);
 
 			if (png.warning_or_error >= 2) {
-				ERROR_LOG(COMMON, "Saving screenshot to PNG produced errors.");
+				ERROR_LOG(SYSTEM, "Saving screenshot to PNG produced errors.");
 				success = false;
 			}
 		} else if (success && fmt == SCREENSHOT_JPG) {
@@ -291,7 +287,7 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 	}
 #endif
 	if (!success) {
-		ERROR_LOG(COMMON, "Failed to write screenshot.");
+		ERROR_LOG(SYSTEM, "Failed to write screenshot.");
 	}
 	return success;
 }

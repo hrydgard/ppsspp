@@ -1,19 +1,18 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
+#include <mutex>
 
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
-#include "base/mutex.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "util/text/utf8.h"
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "../Globals.h"
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"
 #include "Windows/resource.h"
+#include "Windows/WindowsHost.h"
 #include "Core/Reporting.h"
 #include "Core/MemMap.h"
 #include "Core/Core.h"
@@ -25,13 +24,12 @@
 #include <tchar.h>
 #include <process.h>
 #include <intrin.h>
+
 #pragma intrinsic(_InterlockedExchange)
 
-static recursive_mutex emuThreadLock;
+static std::mutex emuThreadLock;
 static HANDLE emuThread;
 static volatile long emuThreadReady;
-
-InputState input_state;
 
 extern std::vector<std::wstring> GetWideCmdLine();
 
@@ -46,7 +44,7 @@ enum EmuThreadStatus : long
 
 HANDLE EmuThread_GetThreadHandle()
 {
-	lock_guard guard(emuThreadLock);
+	std::lock_guard<std::mutex> guard(emuThreadLock);
 	return emuThread;
 }
 
@@ -54,7 +52,7 @@ unsigned int WINAPI TheThread(void *);
 
 void EmuThread_Start()
 {
-	lock_guard guard(emuThreadLock);
+	std::lock_guard<std::mutex> guard(emuThreadLock);
 	emuThread = (HANDLE)_beginthreadex(0, 0, &TheThread, 0, 0, 0);
 }
 
@@ -62,7 +60,7 @@ void EmuThread_Stop()
 {
 	// Already stopped?
 	{
-		lock_guard guard(emuThreadLock);
+		std::lock_guard<std::mutex> guard(emuThreadLock);
 		if (emuThread == NULL || emuThreadReady == THREAD_END)
 			return;
 	}
@@ -75,11 +73,11 @@ void EmuThread_Stop()
 		_dbg_assert_msg_(COMMON, false, "Wait for EmuThread timed out.");
 	}
 	{
-		lock_guard guard(emuThreadLock);
+		std::lock_guard<std::mutex> guard(emuThreadLock);
 		CloseHandle(emuThread);
 		emuThread = 0;
 	}
-	host->UpdateUI();
+	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
 bool EmuThread_Ready()
@@ -93,9 +91,8 @@ unsigned int WINAPI TheThread(void *)
 
 	setCurrentThreadName("Emu");  // And graphics...
 
-	// Native overwrites host. Can't allow that.
-
-	Host *oldHost = host;
+	host = new WindowsHost(MainWindow::GetHInstance(), MainWindow::GetHWND(), MainWindow::GetDisplayHWND());
+	host->SetWindowTitle(nullptr);
 
 	// Convert the command-line arguments to Unicode, then to proper UTF-8 
 	// (the benefit being that we don't have to pollute the UI project with win32 ifdefs and lots of Convert<whatever>To<whatever>).
@@ -114,17 +111,23 @@ unsigned int WINAPI TheThread(void *)
 		args.push_back(string.c_str());
 	}
 
+	bool performingRestart = NativeIsRestarting();
 	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", nullptr);
-
-	Host *nativeHost = host;
-	host = oldHost;
 
 	host->UpdateUI();
 
-	GraphicsContext *graphicsContext;
+	GraphicsContext *graphicsContext = nullptr;
 
 	std::string error_string;
 	if (!host->InitGraphics(&error_string, &graphicsContext)) {
+		// Before anything: are we restarting right now?
+		if (performingRestart) {
+			// Okay, switching graphics didn't work out.  Probably a driver bug - fallback to restart.
+			// This happens on NVIDIA when switching OpenGL -> Vulkan.
+			g_Config.Save();
+			W32Util::ExitAndRestart();
+		}
+
 		I18NCategory *err = GetI18NCategory("Error");
 		Reporting::ReportMessage("Graphics init error: %s", error_string.c_str());
 
@@ -190,7 +193,7 @@ unsigned int WINAPI TheThread(void *)
 		if (!Core_IsActive())
 			UpdateUIState(UISTATE_MENU);
 
-		Core_Run(graphicsContext, &input_state);
+		Core_Run(graphicsContext);
 	}
 
 shutdown:
@@ -198,11 +201,8 @@ shutdown:
 
 	NativeShutdownGraphics();
 
-	host->ShutdownSound();
-	host = nativeHost;
+	// NativeShutdown deletes the graphics context through host->ShutdownGraphics().
 	NativeShutdown();
-	host = oldHost;
-	host->ShutdownGraphics();
 	
 	_InterlockedExchange(&emuThreadReady, THREAD_END);
 

@@ -17,9 +17,10 @@
 
 #pragma once
 
+#include <thread>
+#include <mutex>
+
 #include "base/timeutil.h"
-#include "base/mutex.h"
-#include "thread/thread.h"
 #include "net/resolve.h"
 #include "Common/ChunkFile.h"
 
@@ -36,10 +37,7 @@
 class PointerWrap;
 
 // Net stuff
-#ifdef _XBOX
-#include <winsockx.h>
-typedef int socklen_t;
-#elif defined(_MSC_VER)
+#if defined(_WIN32)
 #include <WS2tcpip.h>
 #else
 #include <unistd.h>
@@ -52,8 +50,14 @@ typedef int socklen_t;
 #include <fcntl.h>
 #include <errno.h>
 #endif
+
 #ifdef _MSC_VER
-#define PACK
+#define PACK  // on MSVC we use #pragma pack() instead so let's kill this.
+#else
+#define PACK __attribute__((packed))
+#endif
+
+#ifdef _WIN32
 #undef errno
 #undef ECONNABORTED
 #undef ECONNRESET
@@ -75,7 +79,6 @@ inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK ||
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket close
-#define PACK __attribute__((packed))
 inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS || errcode == EALREADY); }
 #endif
 
@@ -414,7 +417,7 @@ typedef struct SceNetAdhocMatchingContext {
   // Local PDP Socket
   s32_le socket;
   // Socket Lock
-  recursive_mutex *socketlock;
+  std::recursive_mutex *socketlock;
 
   // Receive Buffer Length
   s32_le rxbuflen;
@@ -470,11 +473,11 @@ typedef struct SceNetAdhocMatchingContext {
   bool inputRunning = false;
 
   // Event Caller Thread Message Stack
-  recursive_mutex *eventlock; // s32_le event_stack_lock;
+  std::recursive_mutex *eventlock; // s32_le event_stack_lock;
   ThreadMessage *event_stack;
 
   // IO Handler Thread Message Stack
-  recursive_mutex *inputlock; // s32_le input_stack_lock;
+  std::recursive_mutex *inputlock; // s32_le input_stack_lock;
   ThreadMessage *input_stack;
 
   // Socket Connectivity
@@ -790,7 +793,7 @@ extern int metasocket;
 extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
-extern recursive_mutex peerlock;
+extern std::recursive_mutex peerlock;
 extern SceNetAdhocPdpStat * pdp[255];
 extern SceNetAdhocPtpStat * ptp[255];
 extern std::map<int, AdhocctlHandler> adhocctlHandlers;

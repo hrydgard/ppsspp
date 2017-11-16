@@ -22,7 +22,7 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	if (id.Bit(VS_BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(VS_BIT_NORM_REVERSE)) desc << "RevN ";
 	if (id.Bit(VS_BIT_DO_TEXTURE)) desc << "Tex ";
-	if (id.Bit(VS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
+	if (id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM)) desc << "TexProj ";
 	int uvgMode = id.Bits(VS_BIT_UVGEN_MODE, 2);
 	const char *uvgModes[4] = { "UV ", "UVMtx ", "UVEnv ", "UVUnk " };
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
@@ -45,6 +45,12 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	if (id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc << "WScale " << id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2) << " ";
 	if (id.Bit(VS_BIT_FLATSHADE)) desc << "Flat ";
 
+	if (id.Bit(VS_BIT_BEZIER)) desc << "Bezier ";
+	if (id.Bit(VS_BIT_SPLINE)) desc << "Spline ";
+	if (id.Bit(VS_BIT_HAS_COLOR_TESS)) desc << "TessC ";
+	if (id.Bit(VS_BIT_HAS_TEXCOORD_TESS)) desc << "TessT ";
+	if (id.Bit(VS_BIT_NORM_REVERSE_TESS)) desc << "TessRevN ";
+
 	// TODO: More...
 
 	return desc.str();
@@ -52,13 +58,19 @@ std::string VertexShaderDesc(const ShaderID &id) {
 
 void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) {
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
-	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+	bool doTextureTransform = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
 	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
 	bool hasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0;
+
+	bool doBezier = gstate_c.bezier;
+	bool doSpline = gstate_c.spline;
+	bool hasColorTess = (gstate.vertType & GE_VTYPE_COL_MASK) != 0 && (doBezier || doSpline);
+	bool hasTexcoordTess = (gstate.vertType & GE_VTYPE_TC_MASK) != 0 && (doBezier || doSpline);
+
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	// lmode: && !isModeThrough!?
@@ -71,7 +83,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 	if (doTexture) {
 		id.SetBit(VS_BIT_DO_TEXTURE);
-		id.SetBit(VS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
+		id.SetBit(VS_BIT_DO_TEXTURE_TRANSFORM, doTextureTransform);
 	}
 
 	if (useHWTransform) {
@@ -82,7 +94,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		id.SetBits(VS_BIT_UVGEN_MODE, 2, gstate.getUVGenMode());
 
 		// The next bits are used differently depending on UVgen mode
-		if (doTextureProjection) {
+		if (doTextureTransform) {
 			id.SetBits(VS_BIT_UVPROJ_MODE, 2, gstate.getUVProjMode());
 		} else if (doShadeMapping) {
 			id.SetBits(VS_BIT_LS0, 2, gstate.getUVLS0());
@@ -119,6 +131,14 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		id.SetBit(VS_BIT_HAS_TEXCOORD, hasTexcoord);
+
+		if (g_Config.bHardwareTessellation) {
+			id.SetBit(VS_BIT_BEZIER, doBezier);
+			id.SetBit(VS_BIT_SPLINE, doSpline);
+			id.SetBit(VS_BIT_HAS_COLOR_TESS, hasColorTess);
+			id.SetBit(VS_BIT_HAS_TEXCOORD_TESS, hasTexcoordTess);
+			id.SetBit(VS_BIT_NORM_REVERSE_TESS, gstate.isPatchNormalsReversed());
+		}
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
@@ -128,6 +148,10 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 
 static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
+
+static bool MatrixNeedsProjection(const float m[12]) {
+	return m[2] != 0.0f || m[5] != 0.0f || m[8] != 0.0f || m[11] != 1.0f;
+}
 
 std::string FragmentShaderDesc(const ShaderID &id) {
 	std::stringstream desc;
@@ -201,10 +225,10 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 		bool isModeThrough = gstate.isModeThrough();
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
 		bool enableFog = gstate.isFogEnabled() && !isModeThrough;
-		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
+		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
-		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+		bool doTextureProjection = (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX && MatrixNeedsProjection(gstate.tgenMatrix));
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 
@@ -212,6 +236,7 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
+		// Note that checking this means that we must dirty the fragment shader ID whenever textureFullAlpha changes.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 			doTextureAlpha = false;
 

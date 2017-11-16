@@ -3,6 +3,7 @@
 // Refer to the license.txt file included.
 
 #ifndef MOBILE_DEVICE
+
 #if defined(__FreeBSD__)
 #define __STDC_CONSTANT_MACROS 1
 #endif
@@ -11,12 +12,16 @@
 #include <cstdint>
 #include <sstream>
 
+#ifdef USE_FFMPEG
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/mathematics.h>
 #include <libswscale/swscale.h>
 }
+
+#endif
 
 #include "Common/FileUtil.h"
 #include "Common/MsgHandler.h"
@@ -29,6 +34,12 @@ extern "C" {
 
 #include "GPU/Common/GPUDebugInterface.h"
 
+#include "Core/ELF/ParamSFO.h"
+#include "Core/HLE/sceKernelTime.h"
+#include "StringUtils.h"
+
+#ifdef USE_FFMPEG
+
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(55, 28, 1)
 #define av_frame_alloc avcodec_alloc_frame
 #define av_frame_free avcodec_free_frame
@@ -38,8 +49,11 @@ static AVFormatContext* s_format_context = nullptr;
 static AVStream* s_stream = nullptr;
 static AVFrame* s_src_frame = nullptr;
 static AVFrame* s_scaled_frame = nullptr;
-static int s_bytes_per_pixel;
 static SwsContext* s_sws_context = nullptr;
+
+#endif
+
+static int s_bytes_per_pixel;
 static int s_width;
 static int s_height;
 static bool s_start_dumping = false;
@@ -48,12 +62,12 @@ static int s_current_height;
 static int s_file_index = 0;
 static GPUDebugBuffer buf;
 
-static void InitAVCodec()
-{
+static void InitAVCodec() {
 	static bool first_run = true;
-	if (first_run)
-	{
+	if (first_run) {
+#ifdef USE_FFMPEG
 		av_register_all();
+#endif
 		first_run = false;
 	}
 }
@@ -72,14 +86,20 @@ bool AVIDump::Start(int w, int h)
 	return success;
 }
 
-bool AVIDump::CreateAVI()
-{
+bool AVIDump::CreateAVI() {
+#ifdef USE_FFMPEG
 	AVCodec* codec = nullptr;
+
+	// Use gameID_EmulatedTimestamp for filename
+	std::string discID = g_paramSFO.GetDiscID();
+	std::string video_file_name = StringFromFormat("%s%s_%s.avi", GetSysDirectory(DIRECTORY_VIDEO).c_str(), discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
 
 	s_format_context = avformat_alloc_context();
 	std::stringstream s_file_index_str;
-	s_file_index_str << s_file_index;
-	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", (GetSysDirectory(DIRECTORY_VIDEO) + "framedump" + s_file_index_str.str() + ".avi").c_str());
+	s_file_index_str << video_file_name;
+
+	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", s_file_index_str.str().c_str());
+	INFO_LOG(COMMON, "Recording Video to: %s", s_format_context->filename);
 	// Make sure that the path exists
 	if (!File::Exists(GetSysDirectory(DIRECTORY_VIDEO)))
 		File::CreateDir(GetSysDirectory(DIRECTORY_VIDEO));
@@ -132,14 +152,20 @@ bool AVIDump::CreateAVI()
 	}
 
 	return true;
+#else
+	return false;
+#endif
 }
 
-static void PreparePacket(AVPacket* pkt)
-{
+#ifdef USE_FFMPEG
+
+static void PreparePacket(AVPacket* pkt) {
 	av_init_packet(pkt);
 	pkt->data = nullptr;
 	pkt->size = 0;
 }
+
+#endif
 
 void AVIDump::AddFrame()
 {
@@ -149,6 +175,9 @@ void AVIDump::AddFrame()
 	CheckResolution(w, h);
 	u8 *flipbuffer = nullptr;
 	const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer, w, h);
+
+#ifdef USE_FFMPEG
+
 	s_src_frame->data[0] = const_cast<u8*>(buffer);
 	s_src_frame->linesize[0] = w * 3;
 	s_src_frame->format = AV_PIX_FMT_RGB24;
@@ -194,18 +223,23 @@ void AVIDump::AddFrame()
 	}
 	if (error)
 		ERROR_LOG(G3D, "Error while encoding video: %d", error);
+#endif
+	delete[] flipbuffer;
 }
 
-void AVIDump::Stop()
-{
+void AVIDump::Stop() {
+#ifdef USE_FFMPEG
+
 	av_write_trailer(s_format_context);
 	CloseFile();
 	s_file_index = 0;
+#endif
 	NOTICE_LOG(G3D, "Stopping frame dump");
 }
 
-void AVIDump::CloseFile()
-{
+void AVIDump::CloseFile() {
+#ifdef USE_FFMPEG
+
 	if (s_stream)
 	{
 		if (s_stream->codec)
@@ -233,10 +267,11 @@ void AVIDump::CloseFile()
 		sws_freeContext(s_sws_context);
 		s_sws_context = nullptr;
 	}
+#endif
 }
 
-void AVIDump::CheckResolution(int width, int height)
-{
+void AVIDump::CheckResolution(int width, int height) {
+#ifdef USE_FFMPEG
 	// We check here to see if the requested width and height have changed since the last frame which
 	// was dumped, then create a new file accordingly. However, is it possible for the width and height
 	// to have a value of zero. If this is the case, simply keep the last known resolution of the video
@@ -250,5 +285,6 @@ void AVIDump::CheckResolution(int width, int height)
 		s_current_width = width;
 		s_current_height = height;
 	}
+#endif // USE_FFMPEG
 }
 #endif

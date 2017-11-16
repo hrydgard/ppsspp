@@ -1,54 +1,41 @@
-#include "gfx/gl_common.h"
-#include "base/logging.h"
+#include <cstdlib>
 
-void glCheckzor(const char *file, int line) {
-	GLenum err = glGetError();
-	if (err != GL_NO_ERROR) {
-		ELOG("GL error on line %i in %s: %i (%04x)", line, file, (int)err, (int)err);
+#include "base/logging.h"
+#include "gfx/gl_common.h"
+#include "gfx/gl_debug_log.h"
+
+// This we can expand as needed.
+std::string GLEnumToString(uint16_t value) {
+	char str[64];
+	switch (value) {
+	case GL_UNSIGNED_SHORT_4_4_4_4: return "GL_UNSIGNED_SHORT_4_4_4_4";
+	case GL_UNSIGNED_SHORT_5_5_5_1: return "GL_UNSIGNED_SHORT_5_5_5_1";
+	case GL_UNSIGNED_SHORT_5_6_5: return "GL_UNSIGNED_SHORT_5_6_5";
+	case GL_UNSIGNED_BYTE: return "GL_UNSIGNED_BYTE";
+	case GL_RGBA: return "GL_RGBA";
+	case GL_RGB: return "GL_RGB";
+#if !defined(USING_GLES2)
+	case GL_BGRA: return "GL_BGRA";
+	case GL_UNSIGNED_SHORT_4_4_4_4_REV: return "GL_UNSIGNED_SHORT_4_4_4_4_REV";
+	case GL_UNSIGNED_SHORT_5_6_5_REV: return "GL_UNSIGNED_SHORT_5_6_5_REV";
+	case GL_UNSIGNED_SHORT_1_5_5_5_REV: return "GL_UNSIGNED_SHORT_1_5_5_5_REV";
+	case GL_UNSIGNED_INT_8_8_8_8_REV: return "GL_UNSIGNED_INT_8_8_8_8_REV";
+#endif
+	case GL_OUT_OF_MEMORY: return "GL_OUT_OF_MEMORY";
+	case GL_PACK_ALIGNMENT: return "GL_PACK_ALIGNMENT";
+	case GL_INVALID_ENUM: return "GL_INVALID_ENUM";
+	case GL_INVALID_VALUE: return "GL_INVALID_VALUE";
+	case GL_INVALID_OPERATION: return "GL_INVALID_OPERATION";
+	default: {
+		snprintf(str, sizeof(str), "(unk:%04x)", value);
+		return str;
+	}
 	}
 }
 
-#if !defined(USING_GLES2)
-#if 0
-void log_callback(GLenum source, GLenum type,
-	GLuint id,
-	GLenum severity,
-	GLsizei length,
-	const GLchar* message,
-	GLvoid* userParam) {
-		const char *src = "unknown";
-		switch (source) {
-		case GL_DEBUG_SOURCE_API_GL_ARB:
-			src = "GL";
-			break;
-		case GL_DEBUG_SOURCE_SHADER_COMPILER_ARB:
-			src = "GLSL";
-			break;
-		case GL_DEBUG_SOURCE_WINDOW_SYSTEM_ARB:
-			src = "X";
-			break;
-		default:
-			break;
-		}
-		switch (type) {
-		case GL_DEBUG_TYPE_ERROR_ARB:
-		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
-			ELOG("%s: %s", src, message);
-			break;
-		default:
-			ILOG("%s: %s", src, message);
-			break;
-		}
-}
-#endif
-#endif
-
-void gl_log_enable() {
-#if !defined(USING_GLES2)
-#if 0
-	glEnable(DEBUG_OUTPUT_SYNCHRONOUS_ARB);	// TODO: Look into disabling, for more perf
-	glDebugMessageCallback(&log_callback, 0);
-	glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, 0, GL_TRUE);
-#endif
-#endif
+void CheckGLError(const char *file, int line) {
+	GLenum err = glGetError();
+	if (err != GL_NO_ERROR) {
+		ELOG("GL error %s on %s:%d", GLEnumToString(err).c_str(), file, line);
+	}
 }

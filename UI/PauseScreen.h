@@ -18,22 +18,23 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
+#include "UI/TextureUtil.h"
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
 	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename), finishNextFrame_(false), gamePath_(filename) {}
 	virtual ~GamePauseScreen();
 
-	void onFinish(DialogResult result) override;
 	virtual void dialogFinished(const Screen *dialog, DialogResult dr) override;
 
 protected:
 	virtual void CreateViews() override;
-	virtual void update(InputState &input) override;
+	virtual void update() override;
 	virtual void sendMessage(const char *message, const char *value) override;
 	void CallbackDeleteConfig(bool yes);
 
@@ -68,11 +69,8 @@ class PrioritizedWorkQueue;
 // of the view. TODO: Actually make async using the task.
 class AsyncImageFileView : public UI::Clickable {
 public:
-	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0)
-		: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(NULL), textureFailed_(false), textureAutoGen_(true), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
-	~AsyncImageFileView() {
-		delete texture_;
-	}
+	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0);
+	~AsyncImageFileView();
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
@@ -82,7 +80,6 @@ public:
 	void SetOverlayText(std::string text) { text_ = text; }
 	void SetFixedSize(float fixW, float fixH) { fixedSizeW_ = fixW; fixedSizeH_ = fixH; }
 	void SetCanBeFocused(bool can) { canFocus_ = can; }
-	void SetAutoGenMipmaps(bool a) { textureAutoGen_ = a; }
 
 	bool CanBeFocused() const override { return canFocus_; }
 
@@ -95,9 +92,8 @@ private:
 	uint32_t color_;
 	UI::ImageSizeMode sizeMode_;
 
-	Draw::Texture *texture_;
+	std::unique_ptr<ManagedTexture> texture_;
 	bool textureFailed_;
-	bool textureAutoGen_;
 	float fixedSizeW_;
 	float fixedSizeH_;
 };

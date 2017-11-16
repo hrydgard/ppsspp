@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Common/CommonTypes.h"
+
 #include "GPU/ge_constants.h"
 
 // TODO: Replace enums and structs with same from thin3d.h, for convenient mapping.

@@ -19,11 +19,12 @@
 
 #include <string>
 #include <map>
+#include <mutex>
+#include <atomic>
 
-#include "base/mutex.h"
 #include "file/file_util.h"
 #include "Core/ELF/ParamSFO.h"
-#include "Core/Loaders.h"
+#include "UI/TextureUtil.h"
 
 namespace Draw {
 	class DrawContext;
@@ -52,55 +53,40 @@ enum GameInfoWantFlags {
 	GAMEINFO_WANTBG = 0x01,
 	GAMEINFO_WANTSIZE = 0x02,
 	GAMEINFO_WANTSND = 0x04,
+	GAMEINFO_WANTBGDATA = 0x08, // Use with WANTBG.
 };
 
-// TODO: Need to use std::atomic<bool> instead.
-class CompletionFlag {
-public:
-	CompletionFlag() : pending(1) {
-	}
+class FileLoader;
+enum class IdentifiedFileType;
 
-	void SetDone() {
-#if defined(_WIN32)
-		_WriteBarrier();
-		pending = 0;
-#else
-		__sync_lock_release(&pending);
-#endif
+struct GameInfoTex {
+	GameInfoTex() {}
+	~GameInfoTex() {
+		if (texture) {
+			ELOG("LEAKED GameInfoTex");
+		}
 	}
+	std::string data;
+	std::unique_ptr<ManagedTexture> texture;
+	// The time at which the Icon and the BG were loaded.
+	// Can be useful to fade them in smoothly once they appear.
+	double timeLoaded = 0.0;
+	std::atomic<bool> dataLoaded{};
 
-	bool IsDone() {
-		const bool done = pending == 0;
-#if defined(_WIN32)
-		_ReadBarrier();
-#else
-		__sync_synchronize();
-#endif
-		return done;
+	void Clear() {
+		if (!data.empty()) {
+			data.clear();
+			dataLoaded = false;
+		}
+		texture.reset(nullptr);
 	}
-
-	CompletionFlag &operator =(const bool &v) {
-		pending = v ? 0 : 1;
-		return *this;
-	}
-
-	operator bool() {
-		return IsDone();
-	}
-
 private:
-	volatile u32 pending;
-
-	DISALLOW_COPY_AND_ASSIGN(CompletionFlag);
+	DISALLOW_COPY_AND_ASSIGN(GameInfoTex);
 };
 
 class GameInfo {
 public:
-	GameInfo()
-		: disc_total(0), disc_number(0), region(-1), fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false),
-			hasConfig(false), iconTexture(nullptr), pic0Texture(nullptr), pic1Texture(nullptr), wantFlags(0),
-		  lastAccessedTime(0.0), timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
-		  gameSize(0), saveDataSize(0), installDataSize(0), pending(true), working(false), fileLoader(nullptr) {}
+	GameInfo();
 	~GameInfo();
 
 	bool Delete();  // Better be sure what you're doing when calling this.
@@ -128,55 +114,45 @@ public:
 	// Don't need to hold it when just passing around the pointer,
 	// and obviously also not when creating it and holding the only pointer
 	// to it.
-	recursive_mutex lock;
+	std::mutex lock;
 
 	std::string id;
 	std::string id_version;
-	int disc_total;
-	int disc_number;
-	int region;
+	int disc_total = 0;
+	int disc_number = 0;
+	int region = -1;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
-	bool paramSFOLoaded;
-	bool hasConfig;
+	bool paramSFOLoaded = false;
+	bool hasConfig = false;
 
 	// Pre read the data, create a texture the next time (GL thread..)
-	std::string iconTextureData;
-	Draw::Texture *iconTexture;
-	std::string pic0TextureData;
-	Draw::Texture *pic0Texture;
-	std::string pic1TextureData;
-	Draw::Texture *pic1Texture;
+	GameInfoTex icon;
+	GameInfoTex pic0;
+	GameInfoTex pic1;
 
 	std::string sndFileData;
+	std::atomic<bool> sndDataLoaded{};
 
-	int wantFlags;
+	int wantFlags = 0;
 
-	double lastAccessedTime;
+	double lastAccessedTime = 0.0;
 
-	// The time at which the Icon and the BG were loaded.
-	// Can be useful to fade them in smoothly once they appear.
-	double timeIconWasLoaded;
-	double timePic0WasLoaded;
-	double timePic1WasLoaded;
-
-	CompletionFlag iconDataLoaded;
-	CompletionFlag pic0DataLoaded;
-	CompletionFlag pic1DataLoaded;
-	CompletionFlag sndDataLoaded;
-
-	u64 gameSize;
-	u64 saveDataSize;
-	u64 installDataSize;
-	bool pending;
-	bool working;
+	u64 gameSize = 0;
+	u64 saveDataSize = 0;
+	u64 installDataSize = 0;
+	bool pending = true;
+	bool working = false;
 
 protected:
 	// Note: this can change while loading, use GetTitle().
 	std::string title;
 
-	FileLoader *fileLoader;
+	FileLoader *fileLoader = nullptr;
 	std::string filePath_;
+
+private:
+	DISALLOW_COPY_AND_ASSIGN(GameInfo);
 };
 
 class GameInfoCache {
@@ -188,24 +164,25 @@ public:
 	void Clear();
 	void PurgeType(IdentifiedFileType fileType);
 
-	// All data in GameInfo including iconTexture may be zero the first time you call this
+	// All data in GameInfo including icon.texture may be zero the first time you call this
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
-	GameInfo *GetInfo(Draw::DrawContext *thin3d, const std::string &gamePath, int wantFlags);
+	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags);
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
 	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
 
-	void WaitUntilDone(GameInfo *info);
+	void WaitUntilDone(std::shared_ptr<GameInfo> &info);
 
 private:
 	void Init();
 	void Shutdown();
-	void SetupTexture(GameInfo *info, std::string &textureData, Draw::DrawContext *thin3d, Draw::Texture *&tex, double &loadTime);
+	void SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawContext *draw, GameInfoTex &tex);
 
-	// Maps ISO path to info.
-	std::map<std::string, GameInfo *> info_;
+	// Maps ISO path to info. Need to use shared_ptr as we can return these pointers - 
+	// and if they get destructed while being in use, that's bad.
+	std::map<std::string, std::shared_ptr<GameInfo> > info_;
 
 	// Work queue and management
 	PrioritizedWorkQueue *gameInfoWQ_;

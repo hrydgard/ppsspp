@@ -17,7 +17,8 @@
 
 #include <map>
 #include <set>
-#include "base/mutex.h"
+#include <mutex>
+
 #include "Core/ThreadEventQueue.h"
 
 class NoBase {
@@ -84,8 +85,6 @@ public:
 	void Shutdown();
 
 	bool HasResult(u32 handle);
-	bool PopResult(u32 handle, AsyncIOResult &result);
-	bool ReadResult(u32 handle, AsyncIOResult &result);
 	bool WaitResult(u32 handle, AsyncIOResult &result);
 	u64 ResultFinishTicks(u32 handle);
 
@@ -96,13 +95,15 @@ protected:
 	}
 
 private:
+	bool PopResult(u32 handle, AsyncIOResult &result);
+	bool ReadResult(u32 handle, AsyncIOResult &result);
 	void Read(u32 handle, u8 *buf, size_t bytes, u32 invalidateAddr);
 	void Write(u32 handle, u8 *buf, size_t bytes);
 
 	void EventResult(u32 handle, AsyncIOResult result);
 
-	recursive_mutex resultsLock_;
-	condition_variable resultsWait_;
+	std::mutex resultsLock_;
+	std::condition_variable resultsWait_;
 	std::set<u32> resultsPending_;
 	std::map<u32, AsyncIOResult> results_;
 };

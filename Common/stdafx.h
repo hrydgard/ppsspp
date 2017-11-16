@@ -17,18 +17,21 @@
 
 #pragma once
 
+#ifdef _WIN32
 #ifndef _WIN32_WINNT
 
 #if _MSC_VER < 1700
-#define _WIN32_WINNT 0x501 // Compile for XP on Visual Studio 2010 and below
+#error You need a newer version of Visual Studio.
 #else
-#define _WIN32_WINNT 0x600 // Compile for Vista on Visual Studio 2012 and above
-#endif // #if _MSC_VER < 1700
+#define _WIN32_WINNT 0x600
+#endif
 
 #endif // #ifndef _WIN32_WINNT
 
+#undef WINVER
+#define WINVER 0x0600
 #ifndef _WIN32_IE
-#define _WIN32_IE 0x0500       // Default value is 0x0400
+#define _WIN32_IE 0x0600       // Default value is 0x0400
 #endif
 
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
@@ -36,3 +39,4 @@
 #include "CommonWindows.h"
 #include <tchar.h>
 #include <vector>
+#endif

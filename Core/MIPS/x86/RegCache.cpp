@@ -327,16 +327,16 @@ OpArg GPRRegCache::GetDefaultLocation(MIPSGPReg reg) const {
 	}
 	switch (reg) {
 	case MIPS_REG_HI:
-		return M(&mips->hi);
+		return MIPSSTATE_VAR(hi);
 	case MIPS_REG_LO:
-		return M(&mips->lo);
+		return MIPSSTATE_VAR(lo);
 	case MIPS_REG_FPCOND:
-		return M(&mips->fpcond);
+		return MIPSSTATE_VAR(fpcond);
 	case MIPS_REG_VFPUCC:
-		return M(&mips->vfpuCtrl[VFPU_CTRL_CC]);
+		return MIPSSTATE_VAR(vfpuCtrl[VFPU_CTRL_CC]);
 	default:
 		ERROR_LOG_REPORT(JIT, "bad mips register %i", reg);
-		return M(&mips->r[0]);
+		return MIPSSTATE_VAR(r[0]);
 	}
 }
 

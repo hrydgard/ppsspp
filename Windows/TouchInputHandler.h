@@ -1,7 +1,5 @@
 #pragma once
 
-#include <map>
-
 typedef BOOL(WINAPI *getTouchInputProc)(
 	HTOUCHINPUT hTouchInput,
 	UINT cInputs,
@@ -20,22 +18,25 @@ typedef BOOL(WINAPI *registerTouchProc)(
 
 class TouchInputHandler
 {
-private:
-	std::map<int, int> touchTranslate;
-	getTouchInputProc touchInfo;
-	closeTouchInputProc closeTouch;
-	registerTouchProc registerTouch;
-
 public:
 	TouchInputHandler();
 	~TouchInputHandler();
 	void handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	void registerTouchWindow(HWND wnd);
 	bool hasTouch();
+
 private:
+	int ToTouchID(int windowsID, bool allowAllocate = true);
+	bool GetTouchPoint(HWND hWnd, const TOUCHINPUT &input, float &x, float &y);
+
 	void disablePressAndHold(HWND hWnd);
 	void touchUp(int id, float x, float y);
 	void touchDown(int id, float x, float y);
 	void touchMove(int id, float x, float y);
+
+	int touchIds[10]{};
+	getTouchInputProc touchInfo;
+	closeTouchInputProc closeTouch;
+	registerTouchProc registerTouch;
 };
 

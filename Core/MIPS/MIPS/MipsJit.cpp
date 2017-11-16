@@ -99,11 +99,6 @@ void MipsJit::ClearCache()
 	//GenerateFixedCode();
 }
 
-void MipsJit::InvalidateCache()
-{
-	blocks.Clear();
-}
-
 void MipsJit::InvalidateCacheAt(u32 em_address, int length)
 {
 	blocks.InvalidateICache(em_address, length);

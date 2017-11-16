@@ -28,6 +28,8 @@
 struct ShaderInfo;
 
 extern std::string boot_filename;
+void UIBackgroundInit(UIContext &dc);
+void UIBackgroundShutdown();
 
 inline void NoOpVoidBool(bool) {}
 
@@ -115,7 +117,8 @@ public:
 	LogoScreen()
 		: frames_(0), switched_(false) {}
 	bool key(const KeyInput &key) override;
-	void update(InputState &input) override;
+	bool touch(const TouchInput &touch) override;
+	void update() override;
 	void render() override;
 	void sendMessage(const char *message, const char *value) override;
 	void CreateViews() override {}
@@ -129,7 +132,7 @@ private:
 class CreditsScreen : public UIDialogScreenWithBackground {
 public:
 	CreditsScreen() : frames_(0) {}
-	void update(InputState &input) override;
+	void update() override;
 	void render() override;
 
 	void CreateViews() override;
@@ -146,7 +149,3 @@ private:
 
 	int frames_;
 };
-
-
-// Utility functions that create various popup screens
-ListPopupScreen *CreateLanguageScreen();

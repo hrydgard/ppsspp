@@ -17,16 +17,18 @@
 
 #include <map>
 
+#include <d3d9.h>
 #include "Common/CommonTypes.h"
 #include "GPU/ge_constants.h"
-
-#include "GPU/Directx9/helper/global.h"
+#include "GPU/Common/ShaderCommon.h"
+#include "GPU/Common/DepalettizeShaderCommon.h"
 
 namespace DX9 {
 
 class DepalShaderDX9 {
 public:
 	LPDIRECT3DPIXELSHADER9 pixelShader;
+	std::string code;
 };
 
 class DepalTextureDX9 {
@@ -36,21 +38,22 @@ public:
 };
 
 // Caches both shaders and palette textures.
-class DepalShaderCacheDX9 {
+class DepalShaderCacheDX9 : public DepalShaderCacheCommon {
 public:
-	DepalShaderCacheDX9();
+	DepalShaderCacheDX9(Draw::DrawContext *draw);
 	~DepalShaderCacheDX9();
 
 	// This also uploads the palette and binds the correct texture.
-	LPDIRECT3DPIXELSHADER9 GetDepalettizePixelShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	LPDIRECT3DPIXELSHADER9 GetDepalettizePixelShader(uint32_t clutMode, GEBufferFormat pixelFormat);
 	LPDIRECT3DVERTEXSHADER9 GetDepalettizeVertexShader() { return vertexShader_; }
-	LPDIRECT3DTEXTURE9 GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	LPDIRECT3DTEXTURE9 GetClutTexture(GEPaletteFormat clutFormat, u32 clutHash, u32 *rawClut);
 	void Clear();
 	void Decimate();
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 private:
-	u32 GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
-
+	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DVERTEXSHADER9 vertexShader_;
 	std::map<u32, DepalShaderDX9 *> cache_;
 	std::map<u32, DepalTextureDX9 *> texCache_;

@@ -15,13 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <set>
+#include <mutex>
 
 #include "base/NativeApp.h"
 #include "base/display.h"
-#include "base/mutex.h"
 #include "base/timeutil.h"
-#include "input/input_state.h"
+#include "thread/threadutil.h"
 #include "profiler/profiler.h"
 
 #include "Core/Core.h"
@@ -30,11 +32,9 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
+#include "Common/GraphicsContext.h"
 
 #ifdef _WIN32
-#include "Windows/GPU/WindowsGLContext.h"
-#include "Windows/GPU/D3D9Context.h"
-#include "Windows/GPU/WindowsVulkanContext.h"
 #include "Windows/InputDevice.h"
 #endif
 
@@ -47,9 +47,9 @@
 static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
 
 static event m_hStepEvent;
-static recursive_mutex m_hStepMutex;
+static std::mutex m_hStepMutex;
 static event m_hInactiveEvent;
-static recursive_mutex m_hInactiveMutex;
+static std::mutex m_hInactiveMutex;
 static bool singleStepPending = false;
 static std::set<Core_ShutdownFunc> shutdownFuncs;
 static bool windowHidden = false;
@@ -130,17 +130,39 @@ bool Core_GetPowerSaving() {
 	return powerSaving;
 }
 
-bool UpdateScreenScale(int width, int height, bool smallWindow) {
-	g_dpi = 72;
-	g_dpi_scale = 1.0f;
+static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
+	// Can't take this from config as it will not be set if windows is maximized.
+	int w = (int)(pixelWidth * g_dpi_scale_x);
+	int h = (int)(pixelHeight * g_dpi_scale_y);
+	return g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
+}
+
+// TODO: Feels like this belongs elsewhere.
+bool UpdateScreenScale(int width, int height) {
+	bool smallWindow;
+#ifdef _WIN32
+	g_dpi = (float)System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
+	g_dpi_scale_x = 96.0f / g_dpi;
+	g_dpi_scale_y = 96.0f / g_dpi;
+#else
+	g_dpi = 96.0f;
+	g_dpi_scale_x = 1.0f;
+	g_dpi_scale_y = 1.0f;
+#endif
+	g_dpi_scale_real_x = g_dpi_scale_x;
+	g_dpi_scale_real_y = g_dpi_scale_y;
+
+	smallWindow = IsWindowSmall(width, height);
 	if (smallWindow) {
-		g_dpi_scale = 2.0f;
+		g_dpi /= 2.0f;
+		g_dpi_scale_x *= 2.0f;
+		g_dpi_scale_y *= 2.0f;
 	}
+	pixel_in_dps_x = 1.0f / g_dpi_scale_x;
+	pixel_in_dps_y = 1.0f / g_dpi_scale_y;
 
-	pixel_in_dps = 1.0f / g_dpi_scale;
-
-	int new_dp_xres = width * g_dpi_scale;
-	int new_dp_yres = height * g_dpi_scale;
+	int new_dp_xres = width * g_dpi_scale_x;
+	int new_dp_yres = height * g_dpi_scale_y;
 
 	bool dp_changed = new_dp_xres != dp_xres || new_dp_yres != dp_yres;
 	bool px_changed = pixel_xres != width || pixel_yres != height;
@@ -150,37 +172,32 @@ bool UpdateScreenScale(int width, int height, bool smallWindow) {
 		dp_yres = new_dp_yres;
 		pixel_xres = width;
 		pixel_yres = height;
-
+		INFO_LOG(SYSTEM, "pixel_res: %dx%d. Calling NativeResized()", pixel_xres, pixel_yres);
 		NativeResized();
 		return true;
 	}
 	return false;
 }
 
-void UpdateRunLoop(InputState *input_state) {
+void UpdateRunLoop() {
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
 		return;
 	}
-	NativeUpdate(*input_state);
-
-	{
-		lock_guard guard(input_state->lock);
-		EndInputState(input_state);
-	}
+	NativeUpdate();
 
 	if (GetUIState() != UISTATE_EXIT) {
 		NativeRender(graphicsContext);
 	}
 }
 
-void Core_RunLoop(GraphicsContext *ctx, InputState *input_state) {
+void Core_RunLoop(GraphicsContext *ctx) {
 	graphicsContext = ctx;
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		time_update();
 #if defined(USING_WIN_UI)
 		double startTime = time_now_d();
-		UpdateRunLoop(input_state);
+		UpdateRunLoop();
 
 		// Simple throttling to not burn the GPU in the menu.
 		time_update();
@@ -192,13 +209,13 @@ void Core_RunLoop(GraphicsContext *ctx, InputState *input_state) {
 			ctx->SwapBuffers();
 		}
 #else
-		UpdateRunLoop(input_state);
+		UpdateRunLoop();
 #endif
 	}
 
 	while (!coreState && GetUIState() == UISTATE_INGAME) {
 		time_update();
-		UpdateRunLoop(input_state);
+		UpdateRunLoop();
 #if defined(USING_WIN_UI)
 		if (!windowHidden && !Core_IsStepping()) {
 			ctx->SwapBuffers();
@@ -239,7 +256,7 @@ static inline void CoreStateProcessed() {
 }
 
 // Some platforms, like Android, do not call this function but handle things on their own.
-void Core_Run(GraphicsContext *ctx, InputState *input_state)
+void Core_Run(GraphicsContext *ctx)
 {
 #if defined(_DEBUG)
 	host->UpdateDisassembly();
@@ -254,7 +271,7 @@ reswitch:
 			if (GetUIState() == UISTATE_EXIT) {
 				return;
 			}
-			Core_RunLoop(ctx, input_state);
+			Core_RunLoop(ctx);
 #if defined(USING_QT_UI) && !defined(MOBILE_DEVICE)
 			return;
 #else
@@ -266,7 +283,7 @@ reswitch:
 		{
 		case CORE_RUNNING:
 			// enter a fast runloop
-			Core_RunLoop(ctx, input_state);
+			Core_RunLoop(ctx);
 			break;
 
 		// We should never get here on Android.

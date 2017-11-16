@@ -932,6 +932,11 @@ int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelTryLockLwMutex(%08x, %i)", workareaPtr, count);
 
+	if (!Memory::IsValidAddress(workareaPtr)) {
+		ERROR_LOG(SCEKERNEL, "Bad workarea pointer for LwMutex");
+		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+	}
+
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	u32 error = 0;
@@ -948,6 +953,11 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelTryLockLwMutex_600(%08x, %i)", workareaPtr, count);
 
+	if (!Memory::IsValidAddress(workareaPtr)) {
+		ERROR_LOG(SCEKERNEL, "Bad workarea pointer for LwMutex");
+		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+	}
+
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	u32 error = 0;
@@ -962,6 +972,11 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 {
 	VERBOSE_LOG(SCEKERNEL, "sceKernelLockLwMutex(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
+
+	if (!Memory::IsValidAddress(workareaPtr)) {
+		ERROR_LOG(SCEKERNEL, "Bad workarea pointer for LwMutex");
+		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
@@ -994,6 +1009,11 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 {
 	VERBOSE_LOG(SCEKERNEL, "sceKernelLockLwMutexCB(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
+	if (!Memory::IsValidAddress(workareaPtr)) {
+		ERROR_LOG(SCEKERNEL, "Bad workarea pointer for LwMutex");
+		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+	}
+
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
 	u32 error = 0;
@@ -1024,6 +1044,11 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 {
 	VERBOSE_LOG(SCEKERNEL, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
+
+	if (!Memory::IsValidAddress(workareaPtr)) {
+		ERROR_LOG(SCEKERNEL, "Bad workarea pointer for LwMutex");
+		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 
@@ -1093,8 +1118,10 @@ int sceKernelReferLwMutexStatusByID(SceUID uid, u32 infoPtr)
 
 int sceKernelReferLwMutexStatus(u32 workareaPtr, u32 infoPtr)
 {
-	if (!Memory::IsValidAddress(workareaPtr))
-		return -1;
+	if (!Memory::IsValidAddress(workareaPtr)) {
+		ERROR_LOG(SCEKERNEL, "Bad workarea pointer for LwMutex");
+		return SCE_KERNEL_ERROR_ACCESS_ERROR;
+	}
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 

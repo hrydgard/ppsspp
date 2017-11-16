@@ -1,18 +1,13 @@
 #pragma once
 
-// InputState is the simple way of getting input. All the input we have is collected
-// to a canonical Xbox360-style pad fully automatically.
-//
-// Recommended for use in game UIs and games that don't have advanced needs.
-//
 // For more detailed and configurable input, implement NativeTouch, NativeKey and NativeAxis and do your
 // own mapping. Might later move the mapping system from PPSSPP to native.
 
 #include <map>
 #include <vector>
+#include <mutex>
 
 #include "math/lin/vec3.h"
-#include "base/mutex.h"
 #include "base/basictypes.h"
 #include "input/keycodes.h"
 
@@ -34,6 +29,9 @@ enum {
 	DEVICE_ID_PAD_8 = 18,
 	DEVICE_ID_PAD_9 = 19,
 	DEVICE_ID_X360_0 = 20,  // XInput joypads
+	DEVICE_ID_X360_1 = 21,
+	DEVICE_ID_X360_2 = 22,
+	DEVICE_ID_X360_3 = 23,
 	DEVICE_ID_ACCELEROMETER = 30,
 };
 
@@ -74,8 +72,6 @@ enum {
 	PAD_BUTTON_UNTHROTTLE = 1 << 20, // Click Tab to unthrottle
 };
 
-#define MAX_POINTERS 10
-
 #ifndef MAX_KEYQUEUESIZE
 #define MAX_KEYQUEUESIZE 20
 #endif
@@ -102,68 +98,6 @@ public:
 	}
 };
 
-// Represents a single bindable axis direction
-struct AxisPos {
-	int axis;
-	float position;
-
-	bool operator < (const AxisPos &other) const {
-		if (axis < other.axis) return true;
-		if (axis > other.axis) return false;
-		return position < other.position;
-	}
-	bool operator == (const AxisPos &other) const {
-		return axis == other.axis && position == other.position;
-	}
-};
-
-
-// Collection of all possible inputs, and automatically computed
-// deltas where applicable.
-struct InputState {
-	// Lock this whenever you access the data in this struct.
-	mutable recursive_mutex lock;
-	InputState()
-		: pad_buttons(0),
-			pad_last_buttons(0),
-			pad_buttons_down(0),
-			pad_buttons_up(0),
-			mouse_valid(false),
-			accelerometer_valid(false) {
-		memset(pointer_down, 0, sizeof(pointer_down));
-	}
-
-	// Gamepad style input. For ease of use.
-	int pad_buttons; // bitfield
-	int pad_last_buttons;
-	int pad_buttons_down;	// buttons just pressed this frame
-	int pad_buttons_up;	// buttons just pressed last frame
-	float pad_lstick_x;
-	float pad_lstick_y;
-	float pad_rstick_x;
-	float pad_rstick_y;
-	float pad_ltrigger;
-	float pad_rtrigger;
-
-	// Mouse/touch style input
-	// There are up to 8 mice / fingers.
-	volatile bool mouse_valid;
-
-	int pointer_x[MAX_POINTERS];
-	int pointer_y[MAX_POINTERS];
-	bool pointer_down[MAX_POINTERS];
-
-	// Accelerometer
-	bool accelerometer_valid;
-	Vec3 acc;
-
-private:
-	DISALLOW_COPY_AND_ASSIGN(InputState);
-};
-
-void UpdateInputState(InputState *input, bool merge = false);
-void EndInputState(InputState *input);
-
 enum {
 	TOUCH_MOVE = 1 << 0,
 	TOUCH_DOWN = 1 << 1,
@@ -188,7 +122,7 @@ enum {
 struct TouchInput {
 	float x;
 	float y;
-	int id;  // can be relied upon to be 0...MAX_POINTERS
+	int id; // Needs to be <= GestureDetector::MAX_PTRS (10.)
 	int flags;
 	double timestamp;
 };
@@ -218,28 +152,6 @@ struct AxisInput {
 	float value;
 	int flags;
 };
-
-
-class ButtonTracker {
-public:
-	ButtonTracker() { Reset(); }
-	void Reset() { 
-		pad_buttons_ = 0;
-		pad_buttons_async_set = 0;
-		pad_buttons_async_clear = 0;
-	}
-	void Process(const KeyInput &input);
-	uint32_t Update();
-	uint32_t GetPadButtons() const { return pad_buttons_; }
-
-private:
-	uint32_t pad_buttons_;
-	uint32_t pad_buttons_async_set;
-	uint32_t pad_buttons_async_clear;
-};
-
-// Platforms should call g_buttonTracker.Process().
-extern ButtonTracker g_buttonTracker;
 
 // Is there a nicer place for this stuff? It's here to avoid dozens of linking errors in UnitTest..
 extern std::vector<KeyDef> dpadKeys;

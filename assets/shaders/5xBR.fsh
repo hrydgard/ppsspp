@@ -52,18 +52,25 @@ vec4 weighted_distance(vec4 a, vec4 b, vec4 c, vec4 d, vec4 e, vec4 f, vec4 g, v
 
 
 void main(){
+
+ bool upscale = u_texelDelta.x > (1.6 * u_pixelDelta.x);
+ vec3 res = texture2D(sampler0, v_texcoord0.xy).xyz;
+
+ // Let's skip the whole scaling if output size smaller than 1.6x of input size
+ if (upscale) {
+
 	bvec4 edr, edr_left, edr_up, px; // px = pixel, edr = edge detection rule
 	bvec4 interp_restriction_lv1, interp_restriction_lv2_left, interp_restriction_lv2_up;
 	bvec4 nc; // new_color
 	bvec4 fx, fx_left, fx_up; // inequations of straight lines.
-	
+
 	vec2 pS  = 1.0 / u_texelDelta.xy;
 	vec2 fp  = fract(v_texcoord0.xy*pS.xy);
 	vec2 TexCoord_0 = v_texcoord0.xy-fp*u_pixelDelta.xy;
 	vec2 dx  = vec2(u_texelDelta.x,0.0);
 	vec2 dy  = vec2(0.0,u_texelDelta.y);
 	vec2 y2  = dy + dy; vec2 x2  = dx + dx;
-	
+
 	vec3 A  = texture2D(sampler0, TexCoord_0 -dx -dy	).xyz;
 	vec3 B  = texture2D(sampler0, TexCoord_0	 -dy	).xyz;
 	vec3 C  = texture2D(sampler0, TexCoord_0 +dx -dy	).xyz;
@@ -111,7 +118,7 @@ void main(){
 	edr	  = bvec4(vec4(lessThan(weighted_distance( e, c, g, i, h5, f4, h, f), weighted_distance( h, d, i5, f, i4, b, e, i)))*vec4(interp_restriction_lv1));
 	edr_left = bvec4(vec4(lessThanEqual(coef*df(f,g),df(h,c)))*vec4(interp_restriction_lv2_left)); 
 	edr_up   = bvec4(vec4(greaterThanEqual(df(f,g),coef*df(h,c)))*vec4(interp_restriction_lv2_up));
-	
+
 	nc.x = ( edr.x && (fx.x || edr_left.x && fx_left.x || edr_up.x && fx_up.x) );
 	nc.y = ( edr.y && (fx.y || edr_left.y && fx_left.y || edr_up.y && fx_up.y) );
 	nc.z = ( edr.z && (fx.z || edr_left.z && fx_left.z || edr_up.z && fx_up.z) );
@@ -119,8 +126,8 @@ void main(){
 
 	px = lessThanEqual(df(e,f),df(e,h));
 
-	vec3 res = nc.x ? px.x ? F : H : nc.y ? px.y ? B : F : nc.z ? px.z ? D : B : nc.w ? px.w ? H : D : E;	
-	
+	res = nc.x ? px.x ? F : H : nc.y ? px.y ? B : F : nc.z ? px.z ? D : B : nc.w ? px.w ? H : D : E;	
+ }
 	gl_FragColor.rgb = res;
 	gl_FragColor.a = 1.0;
 }

@@ -22,7 +22,6 @@
 
 #include "gfx_es2/glsl_program.h"
 #include "Common/CommonWindows.h"
-#include "Globals.h"
 
 struct SimpleGLWindow {
 	static const wchar_t *windowClass;

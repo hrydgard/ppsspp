@@ -4,7 +4,6 @@ set(SRCS
 	view.cpp
 	viewgroup.cpp
   screen.cpp
-  virtual_input.cpp
 )
 
 set(SRCS ${SRCS})

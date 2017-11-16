@@ -8,6 +8,8 @@
 #include "base/logging.h"
 #include "thin3d/d3dx9_loader.h"
 
+// TODO: See if we can use the bundled D3Dcompiler_47.dll to compiler for DX9 as well.
+
 typedef BOOL(__stdcall *TFunc_D3DXCheckVersion)(UINT D3DSDKVersion, UINT D3DXSDKVersion);
 typedef HRESULT(__stdcall *TFunc_D3DXCompileShader)(
 	LPCSTR pSrcData,

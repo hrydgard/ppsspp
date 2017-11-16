@@ -19,6 +19,9 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
+#ifdef _WIN32
+typedef void *HANDLE;
+#endif
 
 class LocalFileLoader : public FileLoader {
 public:
@@ -29,15 +32,14 @@ public:
 	virtual bool IsDirectory() override;
 	virtual s64 FileSize() override;
 	virtual std::string Path() const override;
-
-	virtual void Seek(s64 absolutePos) override;
-	virtual size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 
 private:
-	// First only used by Android, but we can keep it here for everyone.
+#ifndef _WIN32
 	int fd_;
-	FILE *f_;
+#else
+	HANDLE handle_;
+#endif
 	u64 filesize_;
 	std::string filename_;
 };

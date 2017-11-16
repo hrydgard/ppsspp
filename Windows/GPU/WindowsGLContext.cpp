@@ -15,11 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// TODO: What a mess this is :(
-
+#include <cassert>
 #include "Common/Log.h"
 #include "Common/CommonWindows.h"
 #include "gfx/gl_common.h"
+#include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
@@ -263,39 +263,29 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 	if (gl_extensions.IsCoreContext)
 		glGetError();
 
-	CheckGLExtensions();
-
 	int contextFlags = g_Config.bGfxDebugOutput ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
 
+	HGLRC m_hrc = NULL;
 	// Alright, now for the modernity. First try a 4.4, then 4.3, context, if that fails try 3.3.
 	// I can't seem to find a way that lets you simply request the newest version available.
-	const int attribs44[] = {
-		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
-		WGL_CONTEXT_MINOR_VERSION_ARB, 4,
-		WGL_CONTEXT_FLAGS_ARB, contextFlags,
-		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-		0
-	};
-	const int attribs43[] = {
-		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
-		WGL_CONTEXT_MINOR_VERSION_ARB, 3,
-		WGL_CONTEXT_FLAGS_ARB, contextFlags,
-		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-		0
-	};
-	const int attribs33[] = {
-		WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
-		WGL_CONTEXT_MINOR_VERSION_ARB, 3,
-		WGL_CONTEXT_FLAGS_ARB, contextFlags,
-		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-		0
-	};
-
-	HGLRC	m_hrc;
 	if (wglewIsSupported("WGL_ARB_create_context") == 1) {
-		m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs44);
-		if (!m_hrc)
-			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs43);
+		for (int minor = 5; minor >= 0 && m_hrc == NULL; --minor) {
+			const int attribs4x[] = {
+				WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+				WGL_CONTEXT_MINOR_VERSION_ARB, minor,
+				WGL_CONTEXT_FLAGS_ARB, contextFlags,
+				WGL_CONTEXT_PROFILE_MASK_ARB, gl_extensions.IsCoreContext ? WGL_CONTEXT_CORE_PROFILE_BIT_ARB : WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+				0
+			};
+			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs4x);
+		}
+		const int attribs33[] = {
+			WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+			WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+			WGL_CONTEXT_FLAGS_ARB, contextFlags,
+			WGL_CONTEXT_PROFILE_MASK_ARB, gl_extensions.IsCoreContext ? WGL_CONTEXT_CORE_PROFILE_BIT_ARB : WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+			0
+		};
 		if (!m_hrc)
 			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs33);
 		if (!m_hrc) {
@@ -316,6 +306,9 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 		*error_message = "Failed to re-initialize GLEW.";
 		return false;
 	}
+	// Unfortunately, glew will generate an invalid enum error, ignore.
+	if (gl_extensions.IsCoreContext)
+		glGetError();
 
 	if (!m_hrc) {
 		*error_message = "No m_hrc";
@@ -362,6 +355,11 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 	pauseEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	resumeEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
+	CheckGLExtensions();
+	draw_ = Draw::T3DCreateGLContext();
+	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
+	assert(success);
+	CHECK_GL_ERROR_IF_DEBUG();
 	return true;												// Success
 }
 
@@ -372,6 +370,8 @@ void WindowsGLContext::SwapInterval(int interval) {
 }
 
 void WindowsGLContext::Shutdown() {
+	delete draw_;
+	draw_ = nullptr;
 	CloseHandle(pauseEvent);
 	CloseHandle(resumeEvent);
 	if (hRC) {
@@ -398,9 +398,4 @@ void WindowsGLContext::Shutdown() {
 }
 
 void WindowsGLContext::Resize() {
-}
-
-Draw::DrawContext *WindowsGLContext::CreateThin3DContext() {
-	CheckGLExtensions();
-	return Draw::T3DCreateGLContext();
 }

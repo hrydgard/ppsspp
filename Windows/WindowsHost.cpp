@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #include <algorithm>
 
 // For shell links
@@ -24,10 +26,13 @@
 #include "objbase.h"
 #include "objidl.h"
 #include "shlguid.h"
+#pragma warning(push)
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
 #include "shlobj.h"
+#pragma warning(pop)
 
 // native stuff
+#include "base/display.h"
 #include "base/NativeApp.h"
 #include "file/file_util.h"
 #include "input/input_state.h"
@@ -44,6 +49,7 @@
 #include "Windows/DSoundStream.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
+
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
 #include "Windows/GPU/D3D9Context.h"
@@ -62,8 +68,8 @@
 
 static const int numCPUs = 1;
 
-float mouseDeltaX = 0;
-float mouseDeltaY = 0;
+float g_mouseDeltaX = 0;
+float g_mouseDeltaY = 0;
 
 static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
@@ -74,8 +80,8 @@ WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindo
 		mainWindow_(mainWindow),
 		displayWindow_(displayWindow)
 {
-	mouseDeltaX = 0;
-	mouseDeltaY = 0;
+	g_mouseDeltaX = 0;
+	g_mouseDeltaY = 0;
 
 	//add first XInput device to respond
 	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
@@ -140,15 +146,22 @@ void WindowsHost::ShutdownGraphics() {
 	gfx_->Shutdown();
 	delete gfx_;
 	gfx_ = nullptr;
-	PostMessage(mainWindow_, WM_CLOSE, 0, 0);
 }
 
 void WindowsHost::SetWindowTitle(const char *message) {
-	std::wstring winTitle = ConvertUTF8ToWString(std::string("PPSSPP ") + PPSSPP_GIT_VERSION);
+#ifdef GOLD
+	const char *name = "PPSSPP Gold ";
+#else
+	const char *name = "PPSSPP ";
+#endif
+	std::wstring winTitle = ConvertUTF8ToWString(std::string(name) + PPSSPP_GIT_VERSION);
 	if (message != nullptr) {
 		winTitle.append(ConvertUTF8ToWString(" - "));
 		winTitle.append(ConvertUTF8ToWString(message));
 	}
+#ifdef _DEBUG
+	winTitle.append(L" (debug)");
+#endif
 
 	MainWindow::SetWindowTitle(winTitle.c_str());
 	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
@@ -190,23 +203,22 @@ void WindowsHost::SetDebugMode(bool mode) {
 			PostDialogMessage(disasmWindow[i], WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
 }
 
-void WindowsHost::PollControllers(InputState &input_state) {
+void WindowsHost::PollControllers() {
 	bool doPad = true;
 	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
 	{
 		auto device = *iter;
 		if (!doPad && device->IsPad())
 			continue;
-		if (device->UpdateState(input_state) == InputDevice::UPDATESTATE_SKIP_PAD)
+		if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
 			doPad = false;
 	}
 
-	mouseDeltaX *= 0.9f;
-	mouseDeltaY *= 0.9f;
+	float scaleFactor_x = g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+	float scaleFactor_y = g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
 
-	// TODO: Tweak!
-	float mx = std::max(-1.0f, std::min(1.0f, mouseDeltaX * 0.01f));
-	float my = std::max(-1.0f, std::min(1.0f, mouseDeltaY * 0.01f));
+	float mx = std::max(-1.0f, std::min(1.0f, g_mouseDeltaX * scaleFactor_x));
+	float my = std::max(-1.0f, std::min(1.0f, g_mouseDeltaY * scaleFactor_y));
 	AxisInput axisX, axisY;
 	axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
 	axisX.deviceId = DEVICE_ID_MOUSE;
@@ -215,14 +227,21 @@ void WindowsHost::PollControllers(InputState &input_state) {
 	axisY.deviceId = DEVICE_ID_MOUSE;
 	axisY.value = my;
 
-	// Disabled for now as it makes the mapping dialog unusable!
-	//if (fabsf(mx) > 0.1f) NativeAxis(axisX);
-	//if (fabsf(my) > 0.1f) NativeAxis(axisY);
+	// Disabled by default, needs a workaround to map to psp keys.
+	if (g_Config.bMouseControl){
+		if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
+			if (fabsf(mx) > 0.01f) NativeAxis(axisX);
+			if (fabsf(my) > 0.01f) NativeAxis(axisY);
+		}
+	}
+
+	g_mouseDeltaX *= g_Config.fMouseSmoothing;
+	g_mouseDeltaY *= g_Config.fMouseSmoothing;
 }
 
 void WindowsHost::BootDone() {
 	g_symbolMap->SortSymbols();
-	SendMessage(mainWindow_, WM_USER + 1, 0, 0);
+	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
 
 	SetDebugMode(!g_Config.bAutoRun);
 	Core_EnableStepping(!g_Config.bAutoRun);
@@ -343,10 +362,6 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 
 	delete [] pathbuf;
 	return false;
-}
-
-void WindowsHost::GoFullscreen(bool viewFullscreen) {
-	MainWindow::SendToggleFullscreen(viewFullscreen);
 }
 
 void WindowsHost::ToggleDebugConsoleVisibility() {

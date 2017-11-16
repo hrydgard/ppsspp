@@ -61,8 +61,8 @@ void InstallZipScreen::CreateViews() {
 }
 
 bool InstallZipScreen::key(const KeyInput &key) {
-	// Ignore all key presses during installation to avoid user escape
-	if (!g_GameManager.IsInstallInProgress()) {
+	// Ignore all key presses during download and installation to avoid user escape
+	if (g_GameManager.GetState() == GameManagerState::IDLE) {
 		return UIScreen::key(key);
 	}
 	return false;
@@ -76,13 +76,13 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-void InstallZipScreen::update(InputState &input) {
+void InstallZipScreen::update() {
 	I18NCategory *iz = GetI18NCategory("InstallZip");
 
 	using namespace UI;
-	if (g_GameManager.IsInstallInProgress()) {
+	if (g_GameManager.GetState() != GameManagerState::IDLE) {
 		progressBar_->SetVisibility(V_VISIBLE);
-		progressBar_->SetProgress(g_GameManager.GetCurrentInstallProgress());
+		progressBar_->SetProgress(g_GameManager.GetCurrentInstallProgressPercentage());
 		backChoice_->SetEnabled(false);
 	} else {
 		progressBar_->SetVisibility(V_GONE);
@@ -95,5 +95,5 @@ void InstallZipScreen::update(InputState &input) {
 			MainScreen::showHomebrewTab = true;
 		}
 	}
-	UIScreen::update(input);
+	UIScreen::update();
 }

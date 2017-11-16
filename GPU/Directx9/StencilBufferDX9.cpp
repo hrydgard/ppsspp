@@ -15,11 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <d3d9.h>
+
 #include "base/logging.h"
 
-#include "helper/dx_state.h"
-#include "helper/dx_fbo.h"
+#include "gfx/d3d9_state.h"
+#include "ext/native/thin3d/thin3d.h"
 #include "Core/Reporting.h"
+#include "GPU/Common/StencilCommon.h"
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
@@ -60,40 +63,6 @@ static const char *stencil_vs =
 "  Out.v_texcoord0 = In.a_texcoord0;\n"
 "  return Out;\n"
 "}\n";
-
-static u8 StencilBits5551(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
-
-	for (u32 i = 0; i < numPixels / 2; ++i) {
-		if (ptr[i] & 0x80008000) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static u8 StencilBits4444(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
-	u32 bits = 0;
-
-	for (u32 i = 0; i < numPixels / 2; ++i) {
-		bits |= ptr[i];
-	}
-
-	return ((bits >> 12) & 0xF) | (bits >> 28);
-}
-
-static u8 StencilBits8888(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
-	u32 bits = 0;
-
-	for (u32 i = 0; i < numPixels; ++i) {
-		bits |= ptr[i];
-	}
-
-	return bits >> 24;
-}
 
 bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
 	if (!MayIntersectFramebuffer(addr)) {
@@ -150,7 +119,9 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 		dxstate.scissorTest.disable();
 		dxstate.colorMask.set(false, false, false, true);
 		// TODO: Verify this clears only stencil/alpha.
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_STENCIL, D3DCOLOR_RGBA(0, 0, 0, 0), 0.0f, 0);
+		device_->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_STENCIL, D3DCOLOR_RGBA(0, 0, 0, 0), 0.0f, 0);
+
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 		return true;
 	}
 
@@ -161,7 +132,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	// TODO: Helper with logging?
 	if (!stencilUploadPS_) {
 		std::string errorMessage;
-		bool success = CompilePixelShader(stencil_ps, &stencilUploadPS_, NULL, errorMessage);
+		bool success = CompilePixelShader(device_, stencil_ps, &stencilUploadPS_, NULL, errorMessage);
 		if (!errorMessage.empty()) {
 			if (success) {
 				ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -183,7 +154,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	}
 	if (!stencilUploadVS_) {
 		std::string errorMessage;
-		bool success = CompileVertexShader(stencil_vs, &stencilUploadVS_, NULL, errorMessage);
+		bool success = CompileVertexShader(device_, stencil_vs, &stencilUploadVS_, NULL, errorMessage);
 		if (!errorMessage.empty()) {
 			if (success) {
 				ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -208,52 +179,49 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 		return false;
 	}
 
-	shaderManager_->DirtyLastShader();
+	shaderManagerDX9_->DirtyLastShader();
 
 	DisableState();
 	dxstate.colorMask.set(false, false, false, true);
 	dxstate.stencilTest.enable();
 	dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	u16 w = dstBuffer->renderWidth;
 	u16 h = dstBuffer->renderHeight;
 
-	if (dstBuffer->fbo_dx9) {
-		fbo_bind_as_render_target(dstBuffer->fbo_dx9);
+	if (dstBuffer->fbo) {
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
 	}
-	DXSetViewport(0, 0, w, h);
+	D3DVIEWPORT9 vp{ 0, 0, w, h, 0.0f, 1.0f };
+	device_->SetViewport(&vp);
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 
-	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
+	float u1 = 1.0f;
+	float v1 = 1.0f;
+	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
 
-	pD3Ddevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_STENCIL, D3DCOLOR_RGBA(0, 0, 0, 0), 0.0f, 0);
+	device_->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_STENCIL, D3DCOLOR_RGBA(0, 0, 0, 0), 0.0f, 0);
 
 	dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0xFF, 0xFF);
 
-	float fw = dstBuffer->width;
-	float fh = dstBuffer->height;
 	float coord[20] = {
-		0.0f,0.0f,0.0f, 0.0f,0.0f,
-		fw,0.0f,0.0f, 1.0f,0.0f,
-		fw,fh,0.0f, 1.0f,1.0f,
-		0.0f,fh,0.0f, 0.0f,1.0f,
+		-1.0f,  1.0f, 0.0f, 0.0f, 0.0f,
+		 1.0f,  1.0f, 0.0f, u1,   0.0f,
+		-1.0f, -1.0f, 0.0f, 0.0f, v1,
+		 1.0f, -1.0f, 0.0f, u1,   v1,
 	};
-	float invDestW = 1.0f / (fw * 0.5f);
-	float invDestH = 1.0f / (fh * 0.5f);
-	for (int i = 0; i < 4; i++) {
-		coord[i * 5] = coord[i * 5] * invDestW - 1.0f;
-		coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f);
-	}
 
-	pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+	device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
-	pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
-	pD3Ddevice->SetPixelShader(stencilUploadPS_);
-	pD3Ddevice->SetVertexShader(stencilUploadVS_);
+	device_->SetVertexDeclaration(pFramebufferVertexDecl);
+	device_->SetPixelShader(stencilUploadPS_);
+	device_->SetVertexShader(stencilUploadVS_);
 
-	pD3Ddevice->SetTexture(0, drawPixelsTex_);
+	device_->SetTexture(0, drawPixelsTex_);
 
-	shaderManager_->DirtyLastShader();
-	textureCache_->ForgetLastTexture();
+	shaderManagerDX9_->DirtyLastShader();
+	textureCacheDX9_->ForgetLastTexture();
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
@@ -263,17 +231,17 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 		if (dstBuffer->format == GE_FORMAT_4444) {
 			dxstate.stencilMask.set(i | (i << 4));
 			const float f[4] = {i * (16.0f / 255.0f)};
-			pD3Ddevice->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
+			device_->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
 		} else if (dstBuffer->format == GE_FORMAT_5551) {
 			dxstate.stencilMask.set(0xFF);
 			const float f[4] = {i * (128.0f / 255.0f)};
-			pD3Ddevice->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
+			device_->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
 		} else {
 			dxstate.stencilMask.set(i);
 			const float f[4] = {i * (1.0f / 255.0f)};
-			pD3Ddevice->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
+			device_->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
 		}
-		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
+		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "Failed to draw stencil bit %x: %08x", i, hr);
 		}

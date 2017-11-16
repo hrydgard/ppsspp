@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+
 #ifdef _WIN32
 #pragma warning(disable:4091)
 #include "Common/CommonWindows.h"
@@ -22,11 +24,11 @@
 #include <string>
 #include <codecvt>
 #endif
+#include <thread>
+#include <mutex>
 
 #include "math/math_util.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
-#include "base/mutex.h"
 #include "util/text/utf8.h"
 
 #include "Core/MemMap.h"
@@ -78,11 +80,14 @@ static CoreParameter coreParameter;
 static FileLoader *loadedFile;
 static std::thread *cpuThread = nullptr;
 static std::thread::id cpuThreadID;
-static recursive_mutex cpuThreadLock;
-static condition_variable cpuThreadCond;
-static condition_variable cpuThreadReplyCond;
+static std::mutex cpuThreadLock;
+static std::condition_variable cpuThreadCond;
+static std::condition_variable cpuThreadReplyCond;
 static u64 cpuThreadUntil;
 bool audioInitialized;
+
+bool coreCollectDebugStats = false;
+bool coreCollectDebugStatsForced = false;
 
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING;
@@ -91,6 +96,10 @@ volatile bool coreStatePending = false;
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
 static GPUBackend gpuBackend;
+
+void ResetUIState() {
+	globalUIState = UISTATE_MENU;
+}
 
 void UpdateUIState(GlobalUIState newState) {
 	// Never leave the EXIT state.
@@ -131,17 +140,21 @@ bool IsOnSeparateCPUThread() {
 	}
 }
 
-void CPU_SetState(CPUThreadState to) {
-	lock_guard guard(cpuThreadLock);
+void CPU_SetStateNoLock(CPUThreadState to) {
 	cpuThreadState = to;
 	cpuThreadCond.notify_one();
 	cpuThreadReplyCond.notify_one();
 }
 
+void CPU_SetState(CPUThreadState to) {
+	std::lock_guard<std::mutex> guard(cpuThreadLock);
+	CPU_SetStateNoLock(to);
+}
+
 bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
-	lock_guard guard(cpuThreadLock);
+	std::lock_guard<std::mutex> guard(cpuThreadLock);
 	if (cpuThreadState == from) {
-		CPU_SetState(to);
+		CPU_SetStateNoLock(to);
 		return true;
 	} else {
 		return false;
@@ -149,9 +162,9 @@ bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
 }
 
 bool CPU_NextStateNot(CPUThreadState from, CPUThreadState to) {
-	lock_guard guard(cpuThreadLock);
+	std::lock_guard<std::mutex> guard(cpuThreadLock);
 	if (cpuThreadState != from) {
-		CPU_SetState(to);
+		CPU_SetStateNoLock(to);
 		return true;
 	} else {
 		return false;
@@ -170,10 +183,10 @@ bool CPU_HasPendingAction() {
 	return cpuThreadState != CPU_THREAD_RUNNING;
 }
 
-void CPU_WaitStatus(condition_variable &cond, bool (*pred)()) {
-	lock_guard guard(cpuThreadLock);
+void CPU_WaitStatus(std::condition_variable &cond, bool (*pred)()) {
+	std::unique_lock<std::mutex> guard(cpuThreadLock);
 	while (!pred()) {
-		cond.wait(cpuThreadLock);
+		cond.wait(guard);
 	}
 }
 
@@ -211,17 +224,16 @@ void CPU_Init() {
 	Replacement_Init();
 
 	switch (type) {
-	case FILETYPE_PSP_ISO:
-	case FILETYPE_PSP_ISO_NP:
-	case FILETYPE_PSP_DISC_DIRECTORY:
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:
 		InitMemoryForGameISO(loadedFile);
 		break;
-	case FILETYPE_PSP_PBP:
-		InitMemoryForGamePBP(loadedFile);
-		break;
-	case FILETYPE_PSP_PBP_DIRECTORY:
+	case IdentifiedFileType::PSP_PBP:
+	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		// This is normal for homebrew.
 		// ERROR_LOG(LOADER, "PBP directory resolution failed.");
+		InitMemoryForGamePBP(loadedFile);
 		break;
 	default:
 		break;
@@ -230,10 +242,8 @@ void CPU_Init() {
 	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.
 	// Homebrew usually has an empty discID, and even if they do have a disc id, it's not
 	// likely to collide with any commercial ones.
-	std::string discID = g_paramSFO.GetValueString("DISC_ID");
-	if (!discID.empty()) {
-		coreParameter.compat.Load(discID);
-	}
+	std::string discID = g_paramSFO.GetDiscID();
+	coreParameter.compat.Load(discID);
 
 	Memory::Init();
 	mipsr4k.Reset();
@@ -318,7 +328,6 @@ void CPU_RunLoop() {
 		switch (cpuThreadState) {
 		case CPU_THREAD_EXECUTE:
 			mipsr4k.RunLoopUntil(cpuThreadUntil);
-			gpu->FinishEventLoop();
 			CPU_NextState(CPU_THREAD_EXECUTE, CPU_THREAD_RUNNING);
 			break;
 
@@ -344,12 +353,6 @@ void CPU_RunLoop() {
 		coreState = CORE_POWERDOWN;
 	}
 
-	// Let's make sure the gpu has already cleaned up before we start freeing memory.
-	if (gpu) {
-		gpu->FinishEventLoop();
-		gpu->SyncThread(true);
-	}
-
 	CPU_Shutdown();
 	CPU_SetState(CPU_THREAD_NOT_RUNNING);
 }
@@ -361,21 +364,28 @@ void Core_UpdateState(CoreState newState) {
 	Core_UpdateSingleStep();
 }
 
+void Core_UpdateDebugStats(bool collectStats) {
+	if (coreCollectDebugStats != collectStats) {
+		coreCollectDebugStats = collectStats;
+		mipsr4k.ClearJitCache();
+	}
+
+	kernelStats.ResetFrame();
+	gpuStats.ResetFrame();
+}
+
 void System_Wake() {
 	// Ping the threads so they check coreState.
 	CPU_NextStateNot(CPU_THREAD_NOT_RUNNING, CPU_THREAD_SHUTDOWN);
-	if (gpu) {
-		gpu->FinishEventLoop();
-	}
 }
 
+// Ugly!
 static bool pspIsInited = false;
 static bool pspIsIniting = false;
-static bool pspIsQuiting = false;
-// Ugly!
+static bool pspIsQuitting = false;
 
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
-	if (pspIsIniting || pspIsQuiting) {
+	if (pspIsIniting || pspIsQuitting) {
 		return false;
 	}
 
@@ -395,7 +405,9 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	coreParameter.errorString = "";
 	pspIsIniting = true;
 
-	if (g_Config.bSeparateCPUThread) {
+	// Keeping this around because we might need it in the future.
+	const bool separateCPUThread = false;
+	if (separateCPUThread) {
 		Core_ListenShutdown(System_Wake);
 		CPU_SetState(CPU_THREAD_PENDING);
 		cpuThread = new std::thread(&CPU_RunLoop);
@@ -418,7 +430,7 @@ bool PSP_InitUpdate(std::string *error_string) {
 		return true;
 	}
 
-	if (g_Config.bSeparateCPUThread && !CPU_IsReady()) {
+	if (!CPU_IsReady()) {
 		return false;
 	}
 
@@ -439,7 +451,8 @@ bool PSP_InitUpdate(std::string *error_string) {
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	PSP_InitStart(coreParam, error_string);
 
-	if (g_Config.bSeparateCPUThread) {
+	// For a potential resurrection of separate CPU thread later.
+	if (false) {
 		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 	}
 
@@ -452,12 +465,12 @@ bool PSP_IsIniting() {
 }
 
 bool PSP_IsInited() {
-	return pspIsInited && !pspIsQuiting;
+	return pspIsInited && !pspIsQuitting;
 }
 
 void PSP_Shutdown() {
 	// Do nothing if we never inited.
-	if (!pspIsInited && !pspIsIniting && !pspIsQuiting) {
+	if (!pspIsInited && !pspIsIniting && !pspIsQuitting) {
 		return;
 	}
 
@@ -468,7 +481,7 @@ void PSP_Shutdown() {
 #endif
 
 	// Make sure things know right away that PSP memory, etc. is going away.
-	pspIsQuiting = true;
+	pspIsQuitting = true;
 	if (coreState == CORE_RUNNING)
 		Core_UpdateState(CORE_ERROR);
 	Core_NotifyShutdown();
@@ -487,7 +500,7 @@ void PSP_Shutdown() {
 	currentMIPS = 0;
 	pspIsInited = false;
 	pspIsIniting = false;
-	pspIsQuiting = false;
+	pspIsQuitting = false;
 	g_Config.unloadGameConfig();
 }
 
@@ -510,8 +523,9 @@ void PSP_RunLoopUntil(u64 globalticks) {
 		return;
 	}
 
-	// Switch the CPU thread on or off, as the case may be.
-	bool useCPUThread = g_Config.bSeparateCPUThread;
+	// We no longer allow a separate CPU thread but if we add a render queue
+	// to GL we're gonna need it.
+	bool useCPUThread = false;
 	if (useCPUThread && cpuThread == nullptr) {
 		// Need to start the cpu thread.
 		Core_ListenShutdown(System_Wake);
@@ -519,9 +533,8 @@ void PSP_RunLoopUntil(u64 globalticks) {
 		cpuThread = new std::thread(&CPU_RunLoop);
 		cpuThreadID = cpuThread->get_id();
 		cpuThread->detach();
-		if (gpu) {
-			gpu->SetThreadEnabled(true);
-		}
+		// Probably needs to tell the gpu that it will need to queue up its output
+		// on another thread.
 		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 	} else if (!useCPUThread && cpuThread != nullptr) {
 		CPU_SetState(CPU_THREAD_QUIT);
@@ -529,21 +542,15 @@ void PSP_RunLoopUntil(u64 globalticks) {
 		delete cpuThread;
 		cpuThread = nullptr;
 		cpuThreadID = std::thread::id();
-		if (gpu) {
-			gpu->SetThreadEnabled(false);
-		}
 	}
 
 	if (cpuThread != nullptr) {
-		// Tell the gpu a new frame is about to begin, before we start the CPU.
-		gpu->SyncBeginFrame();
-
 		cpuThreadUntil = globalticks;
 		if (CPU_NextState(CPU_THREAD_RUNNING, CPU_THREAD_EXECUTE)) {
 			// The CPU doesn't actually respect cpuThreadUntil well, especially when skipping frames.
 			// TODO: Something smarter?  Or force CPU to bail periodically?
 			while (!CPU_IsReady()) {
-				gpu->RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
+				// Have the GPU do stuff here.
 				if (coreState != CORE_RUNNING) {
 					CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 				}
@@ -613,19 +620,26 @@ void InitSysDirectories() {
 	const std::string path = File::GetExeDirectory();
 
 	// Mount a filesystem
-	g_Config.flash0Directory = path + "flash0/";
+	g_Config.flash0Directory = path + "assets/flash0/";
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
+#if PPSSPP_PLATFORM(UWP)
+	// We set g_Config.memStickDirectory outside.
+
+#else
 	wchar_t myDocumentsPath[MAX_PATH];
 	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 	const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
-
 	const std::string installedFile = path + "installed.txt";
 	const bool installed = File::Exists(installedFile);
 
 	// If installed.txt exists(and we can determine the Documents directory)
 	if (installed && (result == S_OK))	{
+#if defined(_WIN32) && defined(__MINGW32__)
+		std::ifstream inputFile(installedFile);
+#else
 		std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
+#endif
 
 		if (!inputFile.fail() && inputFile.is_open()) {
 			std::string tempString;
@@ -669,6 +683,19 @@ void InitSysDirectories() {
 	// Clean up our mess.
 	if (File::Exists(testFile))
 		File::Delete(testFile);
+#endif
+
+	// Create the default directories that a real PSP creates. Good for homebrew so they can
+	// expect a standard environment. Skipping THEME though, that's pointless.
+	File::CreateDir(g_Config.memStickDirectory + "PSP");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/COMMON");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/GAME");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/SAVEDATA");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/PPSSPP_STATE");
+#ifdef ANDROID
+	// Avoid media scanners in PPSSPP_STATE directory
+	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/PPSSPP_STATE/.nomedia");
+#endif
 
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);

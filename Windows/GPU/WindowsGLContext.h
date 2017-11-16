@@ -21,9 +21,10 @@ public:
 
 	void Resize() override;
 
-	Draw::DrawContext *CreateThin3DContext() override;
+	Draw::DrawContext *GetDrawContext() override { return draw_; }
 
 private:
+	Draw::DrawContext *draw_;
 	HDC hDC;     // Private GDI Device Context
 	HGLRC hRC;   // Permanent Rendering Context
 	HWND hWnd;   // Holds Our Window Handle
@@ -32,5 +33,6 @@ private:
 	HANDLE pauseEvent;
 	HANDLE resumeEvent;
 
-	int xres, yres;
+	int xres;
+	int yres;
 };

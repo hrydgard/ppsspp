@@ -185,8 +185,8 @@ struct ud_lookup_table_list_entry {
     const char *meta;
 };
      
-extern struct ud_itab_entry ud_itab[];
-extern struct ud_lookup_table_list_entry ud_lookup_table_list[];
+extern const struct ud_itab_entry ud_itab[];
+extern const struct ud_lookup_table_list_entry ud_lookup_table_list[];
 
 #endif /* UD_DECODE_H */
 

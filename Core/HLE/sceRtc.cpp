@@ -17,10 +17,8 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
-#ifndef _XBOX
  // timeval already defined in xtl.h
 #include <Winsock2.h>
-#endif
 #else
 #include <sys/time.h>
 #endif
@@ -75,6 +73,22 @@ static u64 __RtcGetCurrentTick()
 	// TODO: It's probably expecting ticks since January 1, 0001?
 	return CoreTiming::GetGlobalTimeUs() + rtcBaseTicks;
 }
+
+#if defined(__MINGW32__)
+errno_t _get_timezone(long *seconds)
+{
+  time_t now = time(NULL);
+
+  struct tm *gm = gmtime(&now);
+  time_t gmt = mktime(gm);
+
+  struct tm *loc = localtime(&now);
+  time_t local = mktime(loc);
+
+  *seconds = local - gmt;
+  return 0;
+}
+#endif
 
 #if defined(_WIN32)
 #define FILETIME_FROM_UNIX_EPOCH_US (rtcMagicOffset - rtcFiletimeOffset)
@@ -131,7 +145,7 @@ void __RtcInit()
 	timeval tv;
 	gettimeofday(&tv, NULL);
 	rtcBaseTime.tv_sec = tv.tv_sec;
-	rtcBaseTime.tv_usec = tv.tv_usec;
+	rtcBaseTime.tv_usec = 0;
 	// Precalculate the current time in microseconds (rtcMagicOffset is offset to 1970.)
 	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcBaseTime.tv_usec + rtcMagicOffset;
 }
@@ -459,7 +473,7 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickLocalPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#ifdef _MSC_VER
+#ifdef _WIN32
 		long timezone_val;
 		_get_timezone(&timezone_val);
 		srcTick -= -timezone_val * 1000000ULL;
@@ -484,7 +498,7 @@ static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickUTCPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#ifdef _MSC_VER
+#ifdef _WIN32
 		long timezone_val;
 		_get_timezone(&timezone_val);
 		srcTick += -timezone_val * 1000000ULL;
@@ -1019,7 +1033,7 @@ static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 	}
 
 	int tz_seconds;
-#ifdef _MSC_VER
+#ifdef _WIN32
 		long timezone_val;
 		_get_timezone(&timezone_val);
 		tz_seconds = -timezone_val;
@@ -1056,7 +1070,7 @@ static int sceRtcFormatRFC3339LocalTime(u32 outPtr, u32 srcTickPtr)
 	}
 
 	int tz_seconds;
-#ifdef _MSC_VER
+#ifdef _WIN32
 		long timezone_val;
 		_get_timezone(&timezone_val);
 		tz_seconds = -timezone_val;
