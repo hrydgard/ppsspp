@@ -283,4 +283,7 @@ private:
 		VkImageView view = VK_NULL_HANDLE;
 	};
 	DepthBufferInfo depth_;
+
+	// This works great - except see issue #10097. WTF?
+	bool useThread_ = true;
 };

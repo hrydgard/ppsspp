@@ -516,7 +516,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
 	// Even in release mode, this is bad.
-	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptors in pool. sz=%d", (int)frame->descSets.size());
+	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d", (int)frame->descSets.size());
 
 	// We just don't write to the slots we don't care about.
 	// We need 8 now that we support secondary texture bindings.
