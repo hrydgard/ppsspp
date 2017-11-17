@@ -1505,13 +1505,17 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 
 void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	// Just resetting, nothing to check bounds for.
-	const u32 data = op & 0x00FFFFFF;
-	if (data == 0) {
+	const u32 count = op & 0xFFFFFF;
+	if (count == 0) {
 		currentList->bboxResult = false;
 		return;
 	}
-	if (((data & 7) == 0) && data <= 64) {  // Sanity check
+	if (((count & 7) == 0) && count <= 64) {  // Sanity check
 		void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+		if (!control_points) {
+			return;
+		}
+
 		if (gstate.vertType & GE_VTYPE_IDX_MASK) {
 			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
 			// Data seems invalid. Let's assume the box test passed.
@@ -1520,11 +1524,11 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 		}
 
 		// Test if the bounding box is within the drawing region.
-		if (control_points) {
-			currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, data, gstate.vertType);
-		}
+		int bytesRead;
+		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, count, gstate.vertType, &bytesRead);
+		AdvanceVerts(gstate.vertType, count, bytesRead);
 	} else {
-		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
+		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", count);
 		// Data seems invalid. Let's assume the box test passed.
 		currentList->bboxResult = true;
 	}
