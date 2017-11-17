@@ -180,7 +180,9 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 	if (clearAlpha)
 		mask |= Draw::FBChannel::FB_STENCIL_BIT;
 
-	draw_->Clear(mask, color, depth, 0);
+	// Note that since the alpha channel and the stencil channel are shared on the PSP,
+	// when we clear alpha, we also clear stencil to the same value.
+	draw_->Clear(mask, color, depth, color >> 24);
 	if (clearColor || clearAlpha) {
 		SetColorUpdated(gstate_c.skipDrawReason);
 	}
