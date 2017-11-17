@@ -694,8 +694,8 @@ void GameSettingsScreen::CreateViews() {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
-		static const char *screenRotation[] = {"Auto", "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
-		PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, co->T("Screen Rotation"), screenRotation, 0, ARRAY_SIZE(screenRotation), co->GetName(), screenManager()));
+		static const char *screenRotation[] = {"Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
+		PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, co->T("Screen Rotation"), screenRotation, 1, ARRAY_SIZE(screenRotation), co->GetName(), screenManager()));
 		rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
 
 		if (System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE)) {
@@ -866,7 +866,7 @@ static void RecreateActivity() {
 }
 
 UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
-	LaunchBrowser("http://forums.ppsspp.org/forumdisplay.php?fid=34");
+	LaunchBrowser("https://forums.ppsspp.org/forumdisplay.php?fid=34");
 	return UI::EVENT_DONE;
 }
 
@@ -1136,6 +1136,7 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 		g_Config.sNickName = StripSpaces(name);
 	}
 #elif defined(__ANDROID__)
+	// TODO: The return value is handled in NativeApp::inputbox_completed. This is horrific.
 	System_SendMessage("inputbox", ("nickname:" + g_Config.sNickName).c_str());
 #endif
 	return UI::EVENT_DONE;

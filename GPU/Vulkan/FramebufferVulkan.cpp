@@ -367,16 +367,6 @@ void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms
 	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 }
 
-void FramebufferManagerVulkan::RebindFramebuffer() {
-	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
-	} else {
-		// Should this even happen?
-		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
-	}
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
-}
-
 int FramebufferManagerVulkan::GetLineWidth() {
 	if (g_Config.iInternalResolution == 0) {
 		return std::max(1, (int)(renderWidth_ / 480));

@@ -161,6 +161,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
 	PSP_BeginHostFrame();
+	if (coreParameter.thin3d)
+		coreParameter.thin3d->BeginFrame();
 
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
@@ -184,8 +186,10 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			Core_Stop();
 		}
 	}
-
 	PSP_EndHostFrame();
+
+	if (coreParameter.thin3d)
+		coreParameter.thin3d->EndFrame();
 
 	PSP_Shutdown();
 
@@ -268,7 +272,7 @@ int main(int argc, const char* argv[])
 			else if (!strcasecmp(gpuName, "null"))
 				gpuCore = GPUCORE_NULL;
 			else
-				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=");
+				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=. Allowed: software, directx9, directx11, vulkan, gles, null.");
 		}
 		// Default to GLES if no value selected.
 		else if (!strcmp(argv[i], "--graphics"))

@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
+#include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Null/NullGpu.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -25,7 +25,17 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
-NullGPU::NullGPU() : GPUCommon(nullptr, nullptr) { }
+class NullDrawEngine : public DrawEngineCommon {
+public:
+	void DispatchFlush() override {
+	}
+	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
+	}
+};
+
+NullGPU::NullGPU() : GPUCommon(nullptr, nullptr) {
+	drawEngineCommon_ = new NullDrawEngine();
+}
 NullGPU::~NullGPU() { }
 
 void NullGPU::FastRunLoop(DisplayList &list) {

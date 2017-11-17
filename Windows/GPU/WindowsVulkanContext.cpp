@@ -173,6 +173,12 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 
 	Version gitVer(PPSSPP_GIT_VERSION);
 	g_Vulkan = new VulkanContext();
+	if (g_Vulkan->InitError().size()) {
+		*error_message = g_Vulkan->InitError();
+		delete g_Vulkan;
+		g_Vulkan = nullptr;
+		return false;
+	}
 
 	// int vulkanFlags = VULKAN_FLAG_PRESENT_FIFO_RELAXED;
 	int vulkanFlags = VULKAN_FLAG_PRESENT_MAILBOX;
@@ -181,6 +187,8 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	}
 	if (VK_SUCCESS != g_Vulkan->CreateInstance("PPSSPP", gitVer.ToInteger(), vulkanFlags)) {
 		*error_message = g_Vulkan->InitError();
+		delete g_Vulkan;
+		g_Vulkan = nullptr;
 		return false;
 	}
 	g_Vulkan->ChooseDevice(g_Vulkan->GetBestPhysicalDevice());
@@ -189,6 +197,8 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	}
 	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
 		*error_message = g_Vulkan->InitError();
+		delete g_Vulkan;
+		g_Vulkan = nullptr;
 		return false;
 	}
 	if (g_validate_) {
@@ -197,6 +207,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	}
 	g_Vulkan->InitSurfaceWin32(hInst, hWnd);
 	if (!g_Vulkan->InitObjects()) {
+		*error_message = g_Vulkan->InitError();
 		Shutdown();
 		return false;
 	}

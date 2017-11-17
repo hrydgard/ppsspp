@@ -147,6 +147,15 @@ public:
 		DoFlush();
 	}
 
+	void FinishDeferred() {
+		if (!numDrawCalls)
+			return;
+		// Decode any pending vertices. And also flush while we're at it, for simplicity.
+		// It might be possible to only decode like in the other backends, but meh, it can't matter.
+		// Issue #10095 has a nice example of where this is required.
+		DoFlush();
+	}
+
 	void DispatchFlush() override { Flush(); }
 	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
 		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
@@ -179,6 +188,7 @@ private:
 	struct FrameData;
 	void ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant);
 	void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState);
+	void BindShaderBlendTex();
 	void ResetShaderBlending();
 
 	void InitDeviceObjects();
@@ -203,7 +213,7 @@ private:
 
 	// Secondary texture for shader blending
 	VkImageView boundSecondary_ = VK_NULL_HANDLE;
-	VkSampler samplerSecondary_ = VK_NULL_HANDLE;
+	VkSampler samplerSecondary_ = VK_NULL_HANDLE;  // This one is actually never used since we use fetch.
 
 	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
 	VulkanPushBuffer *vertexCache_;

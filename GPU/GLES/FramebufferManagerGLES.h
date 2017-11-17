@@ -81,7 +81,6 @@ public:
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
-
 	virtual void RebindFramebuffer() override;
 
 protected:

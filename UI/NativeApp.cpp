@@ -302,12 +302,6 @@ bool CheckFontIsUsable(const wchar_t *fontFace) {
 #endif
 
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir, bool fs) {
-#ifdef ANDROID_NDK_PROFILER
-	setenv("CPUPROFILE_FREQUENCY", "500", 1);
-	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
-	monstartup("ppsspp_jni.so");
-#endif
-
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	InitFastMath(cpu_info.bNEON);
@@ -442,6 +436,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			}
 		} else {
 			if (boot_filename.empty()) {
+				ILOG("Boot filename found in args: %s", argv[i]);
 				boot_filename = argv[i];
 #ifdef _WIN32
 				boot_filename = ReplaceAll(boot_filename, "\\", "/");
@@ -460,7 +455,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		}
 	}
 
-	if (fileToLog != NULL)
+	if (fileToLog)
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 
 #ifndef _WIN32
@@ -874,8 +869,12 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		std::string setString = inputboxValue.size() > 1 ? inputboxValue[1] : "";
 		if (inputboxValue[0] == "IP")
 			g_Config.proAdhocServer = setString;
-		if (inputboxValue[0] == "nickname")
+		else if (inputboxValue[0] == "nickname")
 			g_Config.sNickName = setString;
+		else if (inputboxValue[0] == "remoteiso_subdir")
+			g_Config.sRemoteISOSubdir = setString;
+		else if (inputboxValue[0] == "remoteiso_server")
+			g_Config.sLastRemoteISOServer = setString;
 		inputboxValue.clear();
 	}
 	if (msg == "bgImage_updated") {

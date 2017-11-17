@@ -438,12 +438,7 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 }
 
 void FramebufferManagerGLES::RebindFramebuffer() {
-	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
-	} else {
-		// Should this even happen?
-		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
-	}
+	FramebufferManagerCommon::RebindFramebuffer();
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE)
 		glstate.viewport.restore();
 }

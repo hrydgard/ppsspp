@@ -140,9 +140,11 @@ void DrawEngineCommon::Resized() {
 	ClearTrackedVertexArrays();
 }
 
-u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) {
+u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
 	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
 	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
+	if (vertexSize)
+		*vertexSize = dec->VertexSize();
 	return DrawEngineCommon::NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
 }
 
@@ -150,7 +152,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
-bool DrawEngineCommon::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
+bool DrawEngineCommon::TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
 	float *verts = (float *)(decoded + 65536 * 18);
 
@@ -158,25 +160,30 @@ bool DrawEngineCommon::TestBoundingBox(void* control_points, int vertexCount, u3
 	// and a large vertex format.
 	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {
 		verts = (float *)control_points;
+		*bytesRead = 3 * sizeof(float) * vertexCount;
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT) {
 		const s8 *vtx = (const s8 *)control_points;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 128.0f);
 		}
+		*bytesRead = 3 * sizeof(s8) * vertexCount;
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT) {
 		const s16 *vtx = (const s16*)control_points;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 32768.0f);
 		}
+		*bytesRead = 3 * sizeof(s16) * vertexCount;
 	} else {
 		// Simplify away bones and morph before proceeding
 		u8 *temp_buffer = decoded + 65536 * 24;
-		NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
+		int vertexSize = 0;
+		NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType, &vertexSize);
 		for (int i = 0; i < vertexCount; i++) {
 			verts[i * 3] = corners[i].pos.x;
 			verts[i * 3 + 1] = corners[i].pos.y;
 			verts[i * 3 + 2] = corners[i].pos.z;
 		}
+		*bytesRead = vertexSize * vertexCount;
 	}
 
 	Plane planes[6];

@@ -304,15 +304,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 	}
 
-	void FramebufferManagerDX9::RebindFramebuffer() {
-		if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-			draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
-		} else {
-			// Should this even happen?
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
-		}
-	}
-
 	void FramebufferManagerDX9::Bind2DShader() {
 		device_->SetVertexDeclaration(pFramebufferVertexDecl);
 		device_->SetPixelShader(pFramebufferPixelShader);

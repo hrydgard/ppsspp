@@ -530,9 +530,9 @@ void CreditsScreen::CreateViews() {
 	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
 	back->OnClick.Handle(this, &CreditsScreen::OnOK);
 	root_->SetDefaultFocusView(back);
-#ifndef GOLD
-	root_->Add(new Button(cr->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
-#endif
+	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+		root_->Add(new Button(cr->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
+	}
 	root_->Add(new Button(cr->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
 	root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 #ifdef __ANDROID__
@@ -550,7 +550,7 @@ UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
 #ifdef __ANDROID__
 	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
 #else
-	LaunchBrowser("http://central.ppsspp.org/buygold");
+	LaunchBrowser("https://central.ppsspp.org/buygold");
 #endif
 	return UI::EVENT_DONE;
 }
@@ -565,12 +565,12 @@ UI::EventReturn CreditsScreen::OnTwitter(UI::EventParams &e) {
 }
 
 UI::EventReturn CreditsScreen::OnPPSSPPOrg(UI::EventParams &e) {
-	LaunchBrowser("http://www.ppsspp.org");
+	LaunchBrowser("https://www.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnForums(UI::EventParams &e) {
-	LaunchBrowser("http://forums.ppsspp.org");
+	LaunchBrowser("https://forums.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 
@@ -689,7 +689,7 @@ void CreditsScreen::render() {
 		"",
 		"",
 		cr->T("check", "Also check out Dolphin, the best Wii/GC emu around:"),
-		"http://www.dolphin-emu.org",
+		"https://www.dolphin-emu.org",
 		"",
 		"",
 		cr->T("info1", "PPSSPP is only intended to play games you own."),

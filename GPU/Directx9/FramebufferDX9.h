@@ -66,8 +66,6 @@ public:
 	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 
-	virtual void RebindFramebuffer() override;
-
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb);
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(D3DFORMAT fmt, u32 w, u32 h);
 

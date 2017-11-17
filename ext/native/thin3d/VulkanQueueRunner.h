@@ -145,8 +145,9 @@ struct VKRStep {
 class VulkanQueueRunner {
 public:
 	VulkanQueueRunner(VulkanContext *vulkan) : vulkan_(vulkan) {}
-	void SetBackbuffer(VkFramebuffer fb) {
+	void SetBackbuffer(VkFramebuffer fb, VkImage img) {
 		backbuffer_ = fb;
+		backbufferImage_ = img;
 	}
 	void RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps);
 	void LogSteps(const std::vector<VKRStep *> &steps);
@@ -192,6 +193,7 @@ private:
 	VulkanContext *vulkan_;
 
 	VkFramebuffer backbuffer_;
+	VkImage backbufferImage_;
 	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
 
 	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;

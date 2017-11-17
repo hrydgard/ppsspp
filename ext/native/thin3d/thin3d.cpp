@@ -381,6 +381,25 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 	}
 }
 
+// TODO: SSE/NEON
+// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
+void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
+	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
+	const uint32_t *src32 = (const uint32_t *)src;
+
+	if (format == Draw::DataFormat::R8G8B8A8_UNORM) {
+		uint32_t *dst32 = (uint32_t *)dst;
+		for (uint32_t y = 0; y < height; ++y) {
+			ConvertBGRA8888ToRGBA8888(dst32, src32, width);
+			src32 += srcStride;
+			dst32 += dstStride;
+		}
+	}
+	else {
+		// Don't even bother with these, this path only happens in screenshots and we don't save those to 16-bit.
+		assert(false);
+	}
+}
 void ConvertToD32F(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
 	if (format == Draw::DataFormat::D32F) {
 		const float *src32 = (const float *)src;

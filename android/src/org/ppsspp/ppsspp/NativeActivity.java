@@ -310,7 +310,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 		// OK, config should be initialized, we can query for screen rotation.
 		if (Build.VERSION.SDK_INT >= 9) {
-			updateScreenRotation();
+			updateScreenRotation("Initialize");
 		}
 
 	    // Detect OpenGL support.
@@ -355,7 +355,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	}
 
 	@TargetApi(9)
-	private void updateScreenRotation() {
+	private void updateScreenRotation(String cause) {
 		// Query the native application on the desired rotation.
 		int rot = 0;
 		String rotString = NativeApp.queryConfig("screenRotation");
@@ -365,11 +365,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			Log.e(TAG, "Invalid rotation: " + rotString);
 			return;
 		}
-		Log.i(TAG, "Setting requested rotation: " + rot + " ('" + rotString + "')");
+		Log.i(TAG, "Setting requested rotation: " + rot + " ('" + rotString + "') (" + cause + ")");
 
 		switch (rot) {
 		case 0:
-			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+			// Auto is no longer supported.
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 			break;
 		case 1:
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -462,7 +463,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		refreshRate = display.getRefreshRate();
 
 		// OK, config should be initialized, we can query for screen rotation.
-		updateScreenRotation();
+		updateScreenRotation("onCreate");
 		updateSustainedPerformanceMode();
 
 		// Keep the screen bright - very annoying if it goes dark when tilting away
@@ -519,12 +520,26 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
     }
 
 	private Point desiredSize = new Point();
-
+	private int badOrientationCount = 0;
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		pixelWidth = holder.getSurfaceFrame().width();
 		pixelHeight = holder.getSurfaceFrame().height();
-		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString());
+
+		// Workaround for terrible bug when locking and unlocking the screen in landscape mode on Nexus 5X.
+		int requestedOr = getRequestedOrientation();
+		boolean requestedPortrait = requestedOr == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT || requestedOr == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
+		boolean detectedPortrait = pixelHeight > pixelWidth;
+		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait) {
+			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
+			badOrientationCount++;
+			recreate();;
+			return;
+		} else if (requestedPortrait == detectedPortrait) {
+			badOrientationCount = 0;
+		}
+
+		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
 		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
 		getDesiredBackbufferSize(desiredSize);
 
@@ -687,7 +702,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
         }
 		// OK, config should be initialized, we can query for screen rotation.
 		if (javaGL || Build.VERSION.SDK_INT >= 9) {
-			updateScreenRotation();
+			updateScreenRotation("onResume");
 		}
 
 		Log.i(TAG, "onResume");
@@ -840,10 +855,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			return input.getDescriptor();
 		} else {
 			List<InputDevice.MotionRange> motions = input.getMotionRanges();
-			String fakeid = "";
+			StringBuilder fakeid = new StringBuilder();
 			for (InputDevice.MotionRange range : motions)
-				fakeid += range.getAxis();
-			return fakeid;
+				fakeid.append(range.getAxis());
+			return fakeid.toString();
 		}
 	}
 
@@ -999,7 +1014,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
     	input.selectAll();
 
     	// Lovely!
-    	AlertDialog.Builder bld = null;
+    	AlertDialog.Builder bld;
     	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
     		bld = new AlertDialog.Builder(this);
     	else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH)
@@ -1181,13 +1196,13 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			finish();
 		} else if (command.equals("rotate")) {
 			if (javaGL) {
-				updateScreenRotation();
+				updateScreenRotation("rotate");
 				if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 					Log.i(TAG, "Must recreate activity on rotation");
 				}
 			} else {
 				if (Build.VERSION.SDK_INT >= 9) {
-					updateScreenRotation();
+					updateScreenRotation("rotate");
 				}
 			}
 		} else if (command.equals("sustainedPerfMode")) {

@@ -459,8 +459,6 @@ void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms)
 	context_->Unmap(postConstants_, 0);
 	context_->VSSetConstantBuffers(0, 1, &postConstants_);  // Probably not necessary
 	context_->PSSetConstantBuffers(0, 1, &postConstants_);
-
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 }
 
 void FramebufferManagerD3D11::RebindFramebuffer() {

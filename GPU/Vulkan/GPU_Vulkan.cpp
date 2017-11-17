@@ -181,8 +181,13 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
 		switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
+		case VULKAN_VENDOR_NVIDIA:
+			// Workaround for Shield TV driver bug.
+			if (strcmp(vulkan_->GetPhysicalDeviceProperties().deviceName, "NVIDIA Tegra X1") != 0)
+				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+			break;
 		case VULKAN_VENDOR_INTEL:
-			// Work around for Intel driver bug.
+			// Workaround for Intel driver bug.
 			break;
 		case VULKAN_VENDOR_AMD:
 			// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for
@@ -205,6 +210,17 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
+	if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
+		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+	}
+	else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+		// Use fragment rounding on desktop and GLES3, most accurate.
+		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+	}
+	else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
+		features |= GPU_ROUND_DEPTH_TO_16BIT;
+	}
+
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
@@ -214,6 +230,9 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
+	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
+	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
+	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	gstate_c.featureFlags = features;
 }
 
@@ -454,6 +473,7 @@ void GPU_Vulkan::FastRunLoop(DisplayList &list) {
 }
 
 void GPU_Vulkan::FinishDeferred() {
+	drawEngine_.FinishDeferred();
 }
 
 inline void GPU_Vulkan::CheckFlushOp(int cmd, u32 diff) {
@@ -525,12 +545,14 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 
 	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	void *inds = 0;
+	u32 vertexType = gstate.vertType;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+		u32 indexAddr = gstate_c.indexAddr;
+		if (!Memory::IsValidAddress(indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
 			return;
 		}
-		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+		inds = Memory::GetPointerUnchecked(indexAddr);
 	}
 
 #ifndef MOBILE_DEVICE
@@ -547,12 +569,12 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
-	drawEngine_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
+	drawEngine_.SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
 
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
-	AdvanceVerts(gstate.vertType, count, bytesRead);
+	AdvanceVerts(vertexType, count, bytesRead);
 }
 
 void GPU_Vulkan::Execute_LoadClut(u32 op, u32 diff) {
