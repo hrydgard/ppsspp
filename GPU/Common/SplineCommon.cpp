@@ -855,7 +855,6 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		GetIndexBounds(indices, count_u * count_v, vertType, &index_lower_bound, &index_upper_bound);
 
 	VertexDecoder *origVDecoder = GetVertexDecoder((vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24));
-	// TODO: If indexing is on, this may be wrong!
 	*bytesRead = count_u * count_v * origVDecoder->VertexSize();
 
 	// Real hardware seems to draw nothing when given < 4 either U or V.
@@ -972,7 +971,6 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		GetIndexBounds(indices, count_u*count_v, vertType, &index_lower_bound, &index_upper_bound);
 
 	VertexDecoder *origVDecoder = GetVertexDecoder((vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24));
-	// TODO: If indexing is on, this may be wrong!
 	*bytesRead = count_u * count_v * origVDecoder->VertexSize();
 
 	// Real hardware seems to draw nothing when given < 4 either U or V.
