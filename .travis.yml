@@ -39,29 +39,29 @@ notifications:
 matrix:
   include:
     - os: linux
-      compiler: "gcc linux"
+      compiler: "gcc"
       env: PPSSPP_BUILD_TYPE=Linux
     - os: linux
-      compiler: "gcc android-arm64-v8a"
+      compiler: "gcc"
       env: PPSSPP_BUILD_TYPE=Android
            APP_ABI=arm64-v8a
     - os: linux
-      compiler: "gcc android-armeabi-v7a"
+      compiler: "gcc"
       env: PPSSPP_BUILD_TYPE=Android
            APP_ABI=armeabi-v7a
     - os: linux
-      compiler: "gcc android-x86"
+      compiler: "gcc"
       env: PPSSPP_BUILD_TYPE=Android
            APP_ABI=x86
     - os: linux
-      compiler: "gcc android-x86_64"
+      compiler: "gcc"
       env: PPSSPP_BUILD_TYPE=Android
            APP_ABI=x86_64
     - os: linux
       compiler: "clang linux"
       env: PPSSPP_BUILD_TYPE=Linux
     - os: linux
-      compiler: "gcc qt"
+      compiler: "gcc"
       env: PPSSPP_BUILD_TYPE=Linux
            QT=TRUE
     - os: osx
