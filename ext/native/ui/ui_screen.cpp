@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <map>
 #include "base/display.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "math/curves.h"
 #include "ui/ui_screen.h"
 #include "ui/ui_context.h"
 #include "ui/screen.h"
@@ -11,7 +13,7 @@
 static const bool ClickDebug = false;
 
 UIScreen::UIScreen()
-	: Screen(), root_(0), recreateViews_(true), hatDown_(0) {
+	: Screen(), root_(nullptr), translation_(0.0f), scale_(1.0f), recreateViews_(true), hatDown_(0) {
 }
 
 UIScreen::~UIScreen() {
@@ -19,7 +21,7 @@ UIScreen::~UIScreen() {
 }
 
 void UIScreen::DoRecreateViews() {
-	lock_guard guard(screenManager()->inputLock_);
+	std::lock_guard<std::recursive_mutex> guard(screenManager()->inputLock_);
 
 	if (recreateViews_) {
 		UI::PersistMap persisted;
@@ -50,20 +52,23 @@ void UIScreen::DoRecreateViews() {
 	}
 }
 
-void UIScreen::update(InputState &input) {
+void UIScreen::update() {
 	DoRecreateViews();
 
 	if (root_) {
-		UpdateViewHierarchy(input, root_);
+		UpdateViewHierarchy(root_);
 	}
 }
 
 void UIScreen::preRender() {
-	Draw::DrawContext *thin3d = screenManager()->getThin3DContext();
-	if (!thin3d) {
+	using namespace Draw;
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+	if (!draw) {
 		return;
 	}
-	thin3d->Begin(true, 0xFF000000, 0.0f, 0);
+	draw->BeginFrame();
+	// Bind and clear the back buffer
+	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
 
 	Draw::Viewport viewport;
 	viewport.TopLeftX = 0;
@@ -72,30 +77,47 @@ void UIScreen::preRender() {
 	viewport.Height = pixel_yres;
 	viewport.MaxDepth = 1.0;
 	viewport.MinDepth = 0.0;
-	thin3d->SetViewports(1, &viewport);
-	thin3d->SetTargetSize(pixel_xres, pixel_yres);
+	draw->SetViewports(1, &viewport);
+	draw->SetTargetSize(pixel_xres, pixel_yres);
 }
 
 void UIScreen::postRender() {
-	auto thin3d = screenManager()->getThin3DContext();
-	if (!thin3d) {
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+	if (!draw) {
 		return;
 	}
-	thin3d->End();
+	draw->EndFrame();
 }
 
 void UIScreen::render() {
 	DoRecreateViews();
 
 	if (root_) {
-		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+		UIContext *uiContext = screenManager()->getUIContext();
+		UI::LayoutViewHierarchy(*uiContext, root_);
 
-		screenManager()->getUIContext()->Begin();
-		DrawBackground(*screenManager()->getUIContext());
-		root_->Draw(*screenManager()->getUIContext());
-		screenManager()->getUIContext()->End();
-		screenManager()->getUIContext()->Flush();
+		uiContext->PushTransform({translation_, scale_, alpha_});
+
+		uiContext->Begin();
+		DrawBackground(*uiContext);
+		root_->Draw(*uiContext);
+		uiContext->End();
+		uiContext->Flush();
+
+		uiContext->PopTransform();
 	}
+}
+
+TouchInput UIScreen::transformTouch(const TouchInput &touch) {
+	TouchInput updated = touch;
+
+	float x = touch.x - translation_.x;
+	float y = touch.y - translation_.y;
+	// Scale around the center as the origin.
+	updated.x = (x - dp_xres * 0.5f) / scale_.x + dp_xres * 0.5f;
+	updated.y = (y - dp_yres * 0.5f) / scale_.y + dp_yres * 0.5f;
+
+	return updated;
 }
 
 bool UIScreen::touch(const TouchInput &touch) {
@@ -122,6 +144,10 @@ bool UIScreen::key(const KeyInput &key) {
 	return false;
 }
 
+void UIScreen::TriggerFinish(DialogResult result) {
+	screenManager()->finishDialog(this, result);
+}
+
 bool UIDialogScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
 	if (!retval && (key.flags & KEY_DOWN) && UI::IsEscapeKey(key)) {
@@ -129,7 +155,7 @@ bool UIDialogScreen::key(const KeyInput &key) {
 			ELOG("Screen already finished");
 		} else {
 			finished_ = true;
-			screenManager()->finishDialog(this, DR_BACK);
+			TriggerFinish(DR_BACK);
 		}
 		return true;
 	}
@@ -173,17 +199,17 @@ bool UIScreen::axis(const AxisInput &axis) {
 }
 
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_BACK);
+	TriggerFinish(DR_BACK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn UIScreen::OnOK(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn UIScreen::OnCancel(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_CANCEL);
+	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
@@ -194,6 +220,8 @@ PopupScreen::PopupScreen(std::string title, std::string button1, std::string but
 		button1_ = di->T(button1.c_str());
 	if (!button2.empty())
 		button2_ = di->T(button2.c_str());
+
+	alpha_ = 0.0f;
 }
 
 bool PopupScreen::touch(const TouchInput &touch) {
@@ -202,7 +230,7 @@ bool PopupScreen::touch(const TouchInput &touch) {
 	}
 
 	if (!box_->GetBounds().Contains(touch.x, touch.y))
-		screenManager()->finishDialog(this, DR_BACK);
+		TriggerFinish(DR_BACK);
 
 	return UIDialogScreen::touch(touch);
 }
@@ -210,7 +238,7 @@ bool PopupScreen::touch(const TouchInput &touch) {
 bool PopupScreen::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode == NKCODE_ENTER && defaultButton_) {
-			UI::EventParams e;
+			UI::EventParams e{};
 			defaultButton_->OnClick.Trigger(e);
 			return true;
 		}
@@ -219,9 +247,63 @@ bool PopupScreen::key(const KeyInput &key) {
 	return UIDialogScreen::key(key);
 }
 
+void PopupScreen::update() {
+	UIDialogScreen::update();
+
+	float animatePos = 1.0f;
+
+	++frames_;
+	if (finishFrame_ >= 0) {
+		float leadOut = bezierEaseInOut((frames_ - finishFrame_) * (1.0f / (float)FRAMES_LEAD_OUT));
+		animatePos = 1.0f - leadOut;
+
+		if (frames_ >= finishFrame_ + FRAMES_LEAD_OUT) {
+			// Actual finish happens here.
+			screenManager()->finishDialog(this, finishResult_);
+		}
+	} else if (frames_ < FRAMES_LEAD_IN) {
+		float leadIn = bezierEaseInOut(frames_ * (1.0f / (float)FRAMES_LEAD_IN));
+		animatePos = leadIn;
+	}
+
+	if (animatePos < 1.0f) {
+		alpha_ = animatePos;
+		scale_.x = 0.9f + animatePos * 0.1f;
+		scale_.y =  0.9f + animatePos * 0.1f;
+
+		if (hasPopupOrigin_) {
+			float xoff = popupOrigin_.x - dp_xres / 2;
+			float yoff = popupOrigin_.y - dp_yres / 2;
+
+			// Pull toward the origin a bit.
+			translation_.x = xoff * (1.0f - animatePos) * 0.2f;
+			translation_.y = yoff * (1.0f - animatePos) * 0.2f;
+		} else {
+			translation_.y = -dp_yres * (1.0f - animatePos) * 0.2f;
+		}
+	} else {
+		alpha_ = 1.0f;
+		scale_.x = 1.0f;
+		scale_.y = 1.0f;
+		translation_.x = 0.0f;
+		translation_.y = 0.0f;
+	}
+}
+
+void PopupScreen::SetPopupOrigin(const UI::View *view) {
+	hasPopupOrigin_ = true;
+	popupOrigin_ = view->GetBounds().Center();
+}
+
+void PopupScreen::TriggerFinish(DialogResult result) {
+	finishFrame_ = frames_;
+	finishResult_ = result;
+
+	OnCompleted(result);
+}
+
 void PopupScreen::CreateViews() {
 	using namespace UI;
-
 	UIContext &dc = *screenManager()->getUIContext();
 
 	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -234,8 +316,10 @@ void PopupScreen::CreateViews() {
 		new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), dc.GetBounds().centerY(), NONE, NONE, true));
 
 	root_->Add(box_);
-	box_->SetBG(UI::Drawable(0xFF303030));
+	box_->SetBG(dc.theme->popupStyle.background);
 	box_->SetHasDropShadow(true);
+	// Since we scale a bit, make the dropshadow bleed past the edges.
+	box_->SetDropShadowExpand(std::max(dp_xres, dp_yres));
 
 	View *title = new PopupHeader(title_);
 	box_->Add(title);
@@ -252,14 +336,14 @@ void PopupScreen::CreateViews() {
 		// Adjust button order to the platform default.
 #if defined(_WIN32)
 		defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f, buttonMargins)));
-		defaultButton_->OnClick.Handle(this, &PopupScreen::OnOK);
+		defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 		if (!button2_.empty())
-			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 #else
 		if (!button2_.empty())
-			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 		defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)));
-		defaultButton_->OnClick.Handle(this, &PopupScreen::OnOK);
+		defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 #endif
 
 		box_->Add(buttonRow);
@@ -267,10 +351,13 @@ void PopupScreen::CreateViews() {
 }
 
 void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
+
 	std::vector<std::string> messageLines;
 	SplitString(message_, '\n', messageLines);
 	for (const auto& lineOfText : messageLines)
-		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER, false));
+		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER, false))->SetTextColor(dc.theme->popupStyle.fgColor);
 }
 
 void MessagePopupScreen::OnCompleted(DialogResult result) {
@@ -281,18 +368,6 @@ void MessagePopupScreen::OnCompleted(DialogResult result) {
 		if (callback_)
 			callback_(false);
 	}
-}
-
-UI::EventReturn PopupScreen::OnOK(UI::EventParams &e) {
-	OnCompleted(DR_OK);
-	screenManager()->finishDialog(this, DR_OK);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn PopupScreen::OnCancel(UI::EventParams &e) {
-	OnCompleted(DR_CANCEL);
-	screenManager()->finishDialog(this, DR_CANCEL);
-	return UI::EVENT_DONE;
 }
 
 void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -307,8 +382,7 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	adaptor_.SetSelected(e.a);
 	if (callback_)
 		callback_(adaptor_.GetSelected());
-	screenManager()->finishDialog(this, DR_OK);
-	OnCompleted(DR_OK);
+	TriggerFinish(DR_OK);
 	OnChoice.Dispatch(e);
 	return UI::EVENT_DONE;
 }
@@ -336,11 +410,13 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_,
 		std::bind(&PopupMultiChoice::ChoiceCallback, this, std::placeholders::_1));
 	popupScreen->SetHiddenChoices(hidden_);
+	if (e.v)
+		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
 	return UI::EVENT_DONE;
 }
 
-void PopupMultiChoice::Update(const InputState &input_state) {
+void PopupMultiChoice::Update() {
 	UpdateText();
 }
 
@@ -359,7 +435,7 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 		*value_ = num + minVal_;
 		UpdateText();
 
-		UI::EventParams e;
+		UI::EventParams e{};
 		e.v = this;
 		e.a = num;
 		OnChoice.Trigger(e);
@@ -415,6 +491,8 @@ EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 
 	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
+	if (e.v)
+		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
 }
@@ -457,6 +535,8 @@ EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 
 	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
+	if (e.v)
+		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
 }
@@ -541,23 +621,29 @@ EventReturn SliderPopupScreen::OnTextChange(EventParams &params) {
 
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
+
 	sliderValue_ = *value_;
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
 	slider_->OnChange.Handle(this, &SliderPopupScreen::OnSliderChange);
 	vert->Add(slider_);
+
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
 	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
+
 	char temp[64];
 	sprintf(temp, "%d", sliderValue_);
 	edit_ = new TextEdit(temp, "", new LinearLayoutParams(10.0f));
 	edit_->SetMaxLen(16);
+	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
 	edit_->OnTextChange.Handle(this, &SliderPopupScreen::OnTextChange);
 	changing_ = false;
 	lin->Add(edit_);
+
 	if (!units_.empty())
-		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
+		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->popupStyle.fgColor);
 
 	if (IsFocusMovementEnabled())
 		UI::SetFocusedView(slider_);
@@ -565,23 +651,28 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
+
 	sliderValue_ = *value_;
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	slider_ = new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
 	slider_->OnChange.Handle(this, &SliderFloatPopupScreen::OnSliderChange);
 	vert->Add(slider_);
+
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
 	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
+
 	char temp[64];
 	sprintf(temp, "%0.3f", sliderValue_);
 	edit_ = new TextEdit(temp, "", new LinearLayoutParams(10.0f));
 	edit_->SetMaxLen(16);
+	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
 	edit_->OnTextChange.Handle(this, &SliderFloatPopupScreen::OnTextChange);
 	changing_ = false;
 	lin->Add(edit_);
 	if (!units_.empty())
-		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
+		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->popupStyle.fgColor);
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	if (IsFocusMovementEnabled())
@@ -636,8 +727,8 @@ EventReturn SliderFloatPopupScreen::OnTextChange(EventParams &params) {
 void SliderPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
 		*value_ = sliderValue_;
-		EventParams e;
-		e.v = 0;
+		EventParams e{};
+		e.v = nullptr;
 		e.a = *value_;
 		OnChange.Trigger(e);
 	}
@@ -646,8 +737,8 @@ void SliderPopupScreen::OnCompleted(DialogResult result) {
 void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
 		*value_ = sliderValue_;
-		EventParams e;
-		e.v = 0;
+		EventParams e{};
+		e.v = nullptr;
 		e.a = (int)*value_;
 		e.f = *value_;
 		OnChange.Trigger(e);
@@ -664,6 +755,8 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 
 	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, ChopTitle(text_), maxLen_);
 	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
+	if (e.v)
+		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
 }
@@ -696,11 +789,13 @@ EventReturn PopupTextInputChoice::HandleChange(EventParams &e) {
 
 void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
+	UIContext &dc = *screenManager()->getUIContext();
 
 	textEditValue_ = *value_;
 	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams((UI::Size)300, WRAP_CONTENT)));
 	edit_ = new TextEdit(textEditValue_, placeholder_, new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(maxLen_);
+	edit_->SetTextColor(dc.theme->popupStyle.fgColor);
 	lin->Add(edit_);
 
 	if (IsFocusMovementEnabled())
@@ -709,8 +804,8 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 void TextEditPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
-		*value_ = edit_->GetText();
-		EventParams e;
+		*value_ = StripSpaces(edit_->GetText());
+		EventParams e{};
 		e.v = edit_;
 		OnChange.Trigger(e);
 	}

@@ -19,16 +19,20 @@
 #include <cmath>
 
 #include "Common/CommonWindows.h"
+#include "Common/OSVersion.h"
+
 #include <Wbemidl.h>
 #include <shellapi.h>
 #include <mmsystem.h>
 
+#include "base/display.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "base/NativeApp.h"
 #include "profiler/profiler.h"
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
+#include "net/resolve.h"
 
 #include "Core/Config.h"
 #include "Core/SaveState.h"
@@ -61,7 +65,7 @@
 #include "Windows/main.h"
 
 
-// Nvidia drivers >= v302 will check if the application exports a global
+// Nvidia OpenGL drivers >= v302 will check if the application exports a global
 // variable named NvOptimusEnablement to know if it should run the app in high
 // performance graphics mode or using the IGP.
 extern "C" {
@@ -76,92 +80,15 @@ static std::string langRegion;
 static std::string osName;
 static std::string gpuDriverVersion;
 
+HMENU g_hPopupMenus;
+int g_activeWindow = 0;
+
 void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
 void Vibrate(int length_ms) {
 	// Ignore on PC
-}
-
-bool DoesVersionMatchWindows(const u32 major, const u32 minor, const u32 spMajor = 0, const u32 spMinor = 0) {
-	u64 conditionMask = 0;
-	OSVERSIONINFOEX osvi;
-	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
-
-	osvi.dwOSVersionInfoSize = sizeof(osvi);
-	osvi.dwMajorVersion = major;
-	osvi.dwMinorVersion = minor;
-	osvi.wServicePackMajor = spMajor;
-	osvi.wServicePackMinor = spMinor;
-	u32 op = VER_EQUAL;
-
-	VER_SET_CONDITION(conditionMask, VER_MAJORVERSION, op);
-	VER_SET_CONDITION(conditionMask, VER_MINORVERSION, op);
-	VER_SET_CONDITION(conditionMask, VER_SERVICEPACKMAJOR, op);
-	VER_SET_CONDITION(conditionMask, VER_SERVICEPACKMINOR, op);
-
-	const u32 typeMask = VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR;
-
-	return VerifyVersionInfo(&osvi, typeMask, conditionMask) != FALSE;
-}
-
-std::string GetWindowsVersion() {
-	const bool IsWindowsXPSP2 = DoesVersionMatchWindows(5, 1, 2, 0);
-	const bool IsWindowsXPSP3 = DoesVersionMatchWindows(5, 1, 3, 0);
-	const bool IsWindowsVista = DoesVersionMatchWindows(6, 0);
-	const bool IsWindowsVistaSP1 = DoesVersionMatchWindows(6, 0, 1, 0);
-	const bool IsWindowsVistaSP2 = DoesVersionMatchWindows(6, 0, 2, 0);
-	const bool IsWindows7 = DoesVersionMatchWindows(6, 1);
-	const bool IsWindows7SP1 = DoesVersionMatchWindows(6, 1, 1, 0);
-	const bool IsWindows8 = DoesVersionMatchWindows(6, 2);
-	const bool IsWindows8_1 = DoesVersionMatchWindows(6, 3);
-
-
-	if (IsWindowsXPSP2)
-		return "Microsoft Windows XP, Service Pack 2";
-
-	if (IsWindowsXPSP3)
-		return "Microsoft Windows XP, Service Pack 3";
-
-	if (IsWindowsVista)
-		return "Microsoft Windows Vista";
-
-	if (IsWindowsVistaSP1)
-		return "Microsoft Windows Vista, Service Pack 1";
-
-	if (IsWindowsVistaSP2)
-		return "Microsoft Windows Vista, Service Pack 2";
-
-	if (IsWindows7)
-		return "Microsoft Windows 7";
-
-	if (IsWindows7SP1)
-		return "Microsoft Windows 7, Service Pack 1";
-
-	if (IsWindows8)
-		return "Microsoft Windows 8 or greater"; // "Applications not manifested for Windows 10 will return the Windows 8 OS version value (6.2)."
-												
-	if (IsWindows8_1)
-		return "Microsoft Windows 8.1";
-
-	return "Unsupported version of Microsoft Windows.";
-}
-
-std::string GetWindowsSystemArchitecture() {
-	SYSTEM_INFO sysinfo;
-	ZeroMemory(&sysinfo, sizeof(SYSTEM_INFO));
-	GetNativeSystemInfo(&sysinfo);
-
-	if (sysinfo.wProcessorArchitecture & PROCESSOR_ARCHITECTURE_AMD64)
-		return "(x64)";
-	// Need to check for equality here, since ANDing with 0 is always 0.
-	else if (sysinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_INTEL)
-		return "(x86)";
-	else if (sysinfo.wProcessorArchitecture & PROCESSOR_ARCHITECTURE_ARM)
-		return "(ARM)";
-	else
-		return "(Unknown)";
 }
 
 // Adapted mostly as-is from http://www.gamedev.net/topic/495075-how-to-retrieve-info-about-videocard/?view=findpost&p=4229170
@@ -263,6 +190,21 @@ std::string System_GetProperty(SystemProperty prop) {
 // Ugly!
 extern WindowsAudioBackend *winAudioBackend;
 
+#ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+static int ScreenDPI() {
+	return 96;  // TODO UWP
+}
+#else
+static int ScreenDPI() {
+	HDC screenDC = GetDC(nullptr);
+	int dotsPerInch = GetDeviceCaps(screenDC, LOGPIXELSY);
+	ReleaseDC(nullptr, screenDC);
+	return dotsPerInch ? dotsPerInch : 96;
+}
+#endif
+#endif
+
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
@@ -271,14 +213,46 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
 		return DEVICE_TYPE_DESKTOP;
+	case SYSPROP_DISPLAY_DPI:
+		return ScreenDPI();
+	case SYSPROP_DISPLAY_COUNT:
+		return GetSystemMetrics(SM_CMONITORS);
 	default:
 		return -1;
 	}
 }
 
+bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_HAS_FILE_BROWSER:
+		return true;
+	case SYSPROP_HAS_IMAGE_BROWSER:
+		return true;
+	case SYSPROP_HAS_BACK_BUTTON:
+		return true;
+	case SYSPROP_APP_GOLD:
+#ifdef GOLD
+		return true;
+#else
+		return false;
+#endif
+	default:
+		return false;
+	}
+}
+
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
-		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		if (!NativeIsRestarting()) {
+			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		}
+	} else if (!strcmp(command, "graphics_restart")) {
+		if (IsDebuggerPresent()) {
+			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
+		} else {
+			g_Config.bRestartRequired = true;
+			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+		}
 	} else if (!strcmp(command, "setclipboardtext")) {
 		if (OpenClipboard(MainWindow::GetDisplayHWND())) {
 			std::wstring data = ConvertUTF8ToWString(parameter);
@@ -290,6 +264,18 @@ void System_SendMessage(const char *command, const char *parameter) {
 			GlobalFree(handle);
 			CloseClipboard();
 		}
+	} else if (!strcmp(command, "browse_file")) {
+		MainWindow::BrowseAndBoot("");
+	} else if (!strcmp(command, "bgImage_browse")) {
+		MainWindow::BrowseBackground();
+	} else if (!strcmp(command, "toggle_fullscreen")) {
+		bool flag = !g_Config.bFullScreen;
+		if (strcmp(parameter, "0") == 0) {
+			flag = false;
+		} else if (strcmp(parameter, "1") == 0) {
+			flag = true;
+		}
+		MainWindow::SendToggleFullscreen(flag);
 	}
 }
 
@@ -363,15 +349,22 @@ std::vector<std::wstring> GetWideCmdLine() {
 	wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
 
 	std::vector<std::wstring> wideArgs(wargv, wargv + wargc);
-
 	return wideArgs;
 }
 
-int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
-{
+int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
 	setCurrentThreadName("Main");
 
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
+
+	// Windows, API init stuff
+	INITCOMMONCONTROLSEX comm;
+	comm.dwSize = sizeof(comm);
+	comm.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_TAB_CLASSES;
+	InitCommonControlsEx(&comm);
+
+	EnableCrashingOnCrashes();
 
 #ifdef _DEBUG
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -382,8 +375,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
 	_set_FMA3_enable(0);
 #endif
-
-	EnableCrashingOnCrashes();
 
 #ifndef _DEBUG
 	bool showLog = false;
@@ -423,6 +414,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			}
 		}
 	}
+
+	LogManager::Init();
 
 	// On Win32 it makes more sense to initialize the system directories here 
 	// because the next place it was called was in the EmuThread, and it's too late by then.
@@ -475,8 +468,14 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				if (restOfOption == L"directx9") {
 					g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
 					g_Config.bSoftwareRendering = false;
+				} else if (restOfOption == L"directx11") {
+					g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D11;
+					g_Config.bSoftwareRendering = false;
 				} else if (restOfOption == L"gles") {
 					g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+					g_Config.bSoftwareRendering = false;
+				} else if (restOfOption == L"vulkan") {
+					g_Config.iGPUBackend = GPU_BACKEND_VULKAN;
 					g_Config.bSoftwareRendering = false;
 				} else if (restOfOption == L"software") {
 					g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
@@ -494,7 +493,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		g_Config.bFullScreen = true;
 	}
 
-	LogManager::Init();
 	// Consider at least the following cases before changing this code:
 	//   - By default in Release, the console should be hidden by default even if logging is enabled.
 	//   - By default in Debug, the console should be shown by default.
@@ -505,12 +503,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	if (debugLogLevel)
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
 
-	//Windows, API init stuff
-	INITCOMMONCONTROLSEX comm;
-	comm.dwSize = sizeof(comm);
-	comm.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_TAB_CLASSES;
-	InitCommonControlsEx(&comm);
-	timeBeginPeriod(1);
+	timeBeginPeriod(1);  // TODO: Evaluate if this makes sense to keep.
+
 	MainWindow::Init(_hInstance);
 
 	g_hPopupMenus = LoadMenu(_hInstance, (LPCWSTR)IDR_POPUPMENUS);
@@ -527,9 +521,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	CGEDebugger::Init();
 
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
-
-	host = new WindowsHost(_hInstance, hwndMain, hwndDisplay);
-	host->SetWindowTitle(0);
 
 	MainWindow::CreateDebugWindows();
 
@@ -592,20 +583,21 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	VFSShutdown();
 
 	InputDevice::StopPolling();
+
+	// The emuthread calls NativeShutdown when shutting down.
 	EmuThread_Stop();
 
 	MainWindow::DestroyDebugWindows();
 	DialogManager::DestroyAll();
 	timeEndPeriod(1);
-	delete host;
 
-	g_Config.Save();
 	LogManager::Shutdown();
 
 	if (g_Config.bRestartRequired) {
 		W32Util::ExitAndRestart();
 	}
 
+	net::Shutdown();
 	CoUninitialize();
 
 	return 0;

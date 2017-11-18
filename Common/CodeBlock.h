@@ -38,11 +38,14 @@ protected:
 	size_t region_size;
 };
 
-template<class T> class CodeBlock : public CodeBlockCommon, public T, NonCopyable {
+template<class T> class CodeBlock : public CodeBlockCommon, public T {
 private:
+	CodeBlock(const CodeBlock &) = delete;
+	void operator=(const CodeBlock &) = delete;
+
 	// A privately used function to set the executable RAM space to something invalid.
 	// For debugging usefulness it should be used to set the RAM to a host specific breakpoint instruction
-	virtual void PoisonMemory() = 0;
+	virtual void PoisonMemory(int offset) = 0;
 
 public:
 	CodeBlock() : writeStart_(nullptr) {}
@@ -51,27 +54,24 @@ public:
 	// Call this before you generate any code.
 	void AllocCodeSpace(int size) {
 		region_size = size;
+		// The protection will be set to RW if PlatformIsWXExclusive.
 		region = (u8*)AllocateExecutableMemory(region_size);
 		T::SetCodePointer(region);
-		// On W^X platforms, we start with writable but not executable pages.
-		if (PlatformIsWXExclusive()) {
-			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
-		}
 	}
 
 	// Always clear code space with breakpoints, so that if someone accidentally executes
 	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace() {
+	void ClearCodeSpace(int offset) {
 		if (PlatformIsWXExclusive()) {
 			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
-		} else {
-			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE | MEM_PROT_EXEC);
 		}
-		PoisonMemory();
-		ResetCodePtr();
+		// If not WX Exclusive, no need to call ProtectMemoryPages because we never change the protection from RWX.
+		PoisonMemory(offset);
+		ResetCodePtr(offset);
 	}
 
-	// BeginWrite/EndWrite assume that we keep appending. If you don't specify a size and we encounter later executable block, we're screwed.
+	// BeginWrite/EndWrite assume that we keep appending.
+	// If you don't specify a size and we later encounter an executable non-writable block, we're screwed.
 	// These CANNOT be nested. We rely on the memory protection starting at READ|WRITE after start and reset.
 	void BeginWrite(size_t sizeEstimate = 1) {
 #ifdef _DEBUG
@@ -88,15 +88,16 @@ public:
 
 	void EndWrite() {
 		// OK, we're done. Re-protect the memory we touched.
-		if (PlatformIsWXExclusive()) {
+		if (PlatformIsWXExclusive() && writeStart_ != nullptr) {
 			const uint8_t *end = GetCodePtr();
-			ProtectMemoryPages(writeStart_, end, MEM_PROT_READ | MEM_PROT_EXEC);
+			ProtectMemoryPages(writeStart_, end - writeStart_, MEM_PROT_READ | MEM_PROT_EXEC);
 			writeStart_ = nullptr;
 		}
 	}
 
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
 	void FreeCodeSpace() {
+		ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
 		FreeMemoryPages(region, region_size);
 		region = nullptr;
 		region_size = 0;
@@ -110,8 +111,8 @@ public:
 		return T::GetCodePointer();
 	}
 
-	void ResetCodePtr() {
-		T::SetCodePointer(region);
+	void ResetCodePtr(int offset) {
+		T::SetCodePointer(region + offset);
 	}
 
 	size_t GetSpaceLeft() const {

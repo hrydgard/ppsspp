@@ -7,7 +7,6 @@
 #include "Windows/Debugger/CtrlDisasmView.h"
 #include "Windows/Debugger/Debugger_Lists.h"
 #include "Windows/Debugger/CPURegsInterface.h"
-#include "Globals.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/Breakpoints.h"
 #include <vector>

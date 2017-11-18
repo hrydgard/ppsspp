@@ -16,42 +16,28 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <list>
+#include <thread>
 #include <memory>
-#include "base/mutex.h"
+#include <mutex>
+
 #include "input/input_state.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Windows/InputDevice.h"
-#include "Windows/XinputDevice.h"
-#include "Windows/DinputDevice.h"
-#include "Windows/KeyboardDevice.h"
 #include "Windows/WindowsHost.h"
 
 static volatile bool inputThreadStatus = false;
 static volatile bool inputThreadEnabled = false;
 static std::thread *inputThread = NULL;
-static recursive_mutex inputMutex;
-static condition_variable inputEndCond;
+static std::mutex inputMutex;
+static std::condition_variable inputEndCond;
 static bool focused = true;
 
-extern InputState input_state;
-
 inline static void ExecuteInputPoll() {
-	// Hm, we may hold the input_state lock for quite a while (time it takes to poll all devices)...
-	// If that becomes an issue, maybe should poll to a copy of inputstate and only hold the lock while
-	// copying that one to the real one?
-	lock_guard guard(input_state.lock);
-	input_state.pad_buttons = 0;
-	input_state.pad_lstick_x = 0;
-	input_state.pad_lstick_y = 0;
-	input_state.pad_rstick_x = 0;
-	input_state.pad_rstick_y = 0;
 	if (host && (focused || !g_Config.bGamepadOnlyFocused)) {
-		host->PollControllers(input_state);
+		host->PollControllers();
 	}
-	UpdateInputState(&input_state);
 }
 
 static void RunInputThread() {
@@ -67,13 +53,13 @@ static void RunInputThread() {
 		Sleep(4);
 	}
 
-	lock_guard guard(inputMutex);
+	std::lock_guard<std::mutex> guard(inputMutex);
 	inputThreadStatus = false;
 	inputEndCond.notify_one();
 }
 
 void InputDevice::BeginPolling() {
-	lock_guard guard(inputMutex);
+	std::lock_guard<std::mutex> guard(inputMutex);
 	inputThreadEnabled = true;
 	inputThread = new std::thread(&RunInputThread);
 	inputThread->detach();
@@ -82,9 +68,9 @@ void InputDevice::BeginPolling() {
 void InputDevice::StopPolling() {
 	inputThreadEnabled = false;
 
-	lock_guard guard(inputMutex);
+	std::unique_lock<std::mutex> guard(inputMutex);
 	if (inputThreadStatus) {
-		inputEndCond.wait(inputMutex);
+		inputEndCond.wait(guard);
 	}
 	delete inputThread;
 	inputThread = NULL;

@@ -66,10 +66,11 @@
 #include "sceSsl.h"
 #include "sceUmd.h"
 #include "sceUsb.h"
+#include "sceUsbCam.h"
+#include "sceUsbGps.h"
 #include "sceUtility.h"
 #include "sceVaudio.h"
 #include "sceMt19937.h"
-#include "sceUsbGps.h"
 #include "sceSha256.h"
 #include "sceAdler.h"
 #include "sceSfmt19937.h"
@@ -92,6 +93,7 @@ const HLEFunction FakeSysCalls[] = {
 	{NID_EXTENDRETURN, __KernelReturnFromExtendStack, "__KernelReturnFromExtendStack"},
 	{NID_MODULERETURN, __KernelReturnFromModuleFunc, "__KernelReturnFromModuleFunc"},
 	{NID_IDLE, __KernelIdle, "_sceKernelIdle"},
+	{NID_GPUREPLAY, __KernelGPUReplay, "__KernelGPUReplay"},
 };
 
 const HLEFunction UtilsForUser[] = 

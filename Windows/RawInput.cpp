@@ -18,10 +18,11 @@
 #include <set>
 #include <algorithm>
 #include <vector>
-#include "base/NativeApp.h"
 
-#include "Common/Log.h"
+#include "base/NativeApp.h"
+#include "base/display.h"
 #include "input/input_state.h"
+#include "Common/Log.h"
 #include "Windows/RawInput.h"
 #include "Windows/KeyboardDevice.h"
 #include "Windows/MainWindow.h"
@@ -54,15 +55,15 @@
 #define HID_USAGE_GENERIC_MULTIAXIS    ((USHORT) 0x07)
 #endif
 
-extern InputState input_state;
-
 namespace WindowsRawInput {
 	static std::set<int> keyboardKeysDown;
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
 	static bool menuActive;
 	static bool focused = true;
-	static bool mouseRightDown = false;
+	static bool mouseDown[5] = { false, false, false, false, false }; //left, right, middle, 4, 5
+	static float mouseX = 0.0f;
+	static float mouseY = 0.0f;
 
 	void Init() {
 		RAWINPUTDEVICE dev[3];
@@ -81,7 +82,7 @@ namespace WindowsRawInput {
 		dev[2].dwFlags = 0;
 
 		if (!RegisterRawInputDevices(dev, 3, sizeof(RAWINPUTDEVICE))) {
-			WARN_LOG(COMMON, "Unable to register raw input devices: %s", GetLastErrorMsg());
+			WARN_LOG(SYSTEM, "Unable to register raw input devices: %s", GetLastErrorMsg());
 		}
 	}
 
@@ -117,6 +118,7 @@ namespace WindowsRawInput {
 				vKey = VK_RMENU;  // Right Alt / AltGr
 			else
 				vKey = VK_LMENU;  // Left Alt
+			break;
 
 		//case VK_RETURN:
 			// if (kb.Flags & RI_KEY_E0)
@@ -196,44 +198,67 @@ namespace WindowsRawInput {
 		TouchInput touch;
 		touch.id = 0;
 		touch.flags = TOUCH_MOVE;
-		touch.x = input_state.pointer_x[0];
-		touch.y = input_state.pointer_y[0];
+		touch.x = mouseX;
+		touch.y = mouseY;
 
 		KeyInput key;
 		key.deviceId = DEVICE_ID_MOUSE;
 
-		mouseDeltaX += raw->data.mouse.lLastX;
-		mouseDeltaY += raw->data.mouse.lLastY;
+		g_mouseDeltaX += raw->data.mouse.lLastX;
+		g_mouseDeltaY += raw->data.mouse.lLastY;
 
-		if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN) {
-			key.flags = KEY_DOWN;
-			key.keyCode = windowsTransTable[VK_RBUTTON];
-			NativeTouch(touch);
-			if (MouseInWindow(hWnd)) {
-				NativeKey(key);
-			}
-			mouseRightDown = true;
-		} else if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP) {
-			key.flags = KEY_UP;
-			key.keyCode = windowsTransTable[VK_RBUTTON];
-			NativeTouch(touch);
-			if (MouseInWindow(hWnd)) {
-				if (!mouseRightDown) {
-					// This means they were focused outside, and right clicked inside.
-					// Seems intentional, so send a down first.
+		const int rawInputDownID[5] = {
+			RI_MOUSE_LEFT_BUTTON_DOWN,
+			RI_MOUSE_RIGHT_BUTTON_DOWN,
+			RI_MOUSE_BUTTON_3_DOWN,
+			RI_MOUSE_BUTTON_4_DOWN,
+			RI_MOUSE_BUTTON_5_DOWN
+		};
+		const int rawInputUpID[5] = {
+			RI_MOUSE_LEFT_BUTTON_UP,
+			RI_MOUSE_RIGHT_BUTTON_UP,
+			RI_MOUSE_BUTTON_3_UP,
+			RI_MOUSE_BUTTON_4_UP,
+			RI_MOUSE_BUTTON_5_UP
+		};
+		const int vkInputID[5] = {
+			VK_LBUTTON,
+			VK_RBUTTON,
+			VK_MBUTTON,
+			VK_XBUTTON1,
+			VK_XBUTTON2
+		};
+
+		for (int i = 0; i < 5; i++) {
+			if (i > 0 || (g_Config.bMouseControl && (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse))) {
+				if (raw->data.mouse.usButtonFlags & rawInputDownID[i]) {
 					key.flags = KEY_DOWN;
-					NativeKey(key);
+					key.keyCode = windowsTransTable[vkInputID[i]];
+					NativeTouch(touch);
+					if (MouseInWindow(hWnd)) {
+						NativeKey(key);
+					}
+					mouseDown[i] = true;
+				} else if (raw->data.mouse.usButtonFlags & rawInputUpID[i]) {
 					key.flags = KEY_UP;
-					NativeKey(key);
-				} else {
-					NativeKey(key);
+					key.keyCode = windowsTransTable[vkInputID[i]];
+					NativeTouch(touch);
+					if (MouseInWindow(hWnd)) {
+						if (!mouseDown[i]) {
+							// This means they were focused outside, and clicked inside.
+							// Seems intentional, so send a down first.
+							key.flags = KEY_DOWN;
+							NativeKey(key);
+							key.flags = KEY_UP;
+							NativeKey(key);
+						} else {
+							NativeKey(key);
+						}
+					}
+					mouseDown[i] = false;
 				}
 			}
-			mouseRightDown = false;
 		}
-
-		// TODO : Smooth and translate to an axis every frame.
-		// NativeAxis()
 	}
 
 	void ProcessHID(RAWINPUT *raw, bool foreground) {
@@ -245,10 +270,12 @@ namespace WindowsRawInput {
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
 		if (!rawInputBuffer) {
 			rawInputBuffer = malloc(dwSize);
+			memset(rawInputBuffer, 0, dwSize);
 			rawInputBufferSize = dwSize;
 		}
 		if (dwSize > rawInputBufferSize) {
 			rawInputBuffer = realloc(rawInputBuffer, dwSize);
+			memset(rawInputBuffer, 0, dwSize);
 		}
 		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer, &dwSize, sizeof(RAWINPUTHEADER));
 		RAWINPUT *raw = (RAWINPUT *)rawInputBuffer;
@@ -270,6 +297,11 @@ namespace WindowsRawInput {
 
 		// Docs say to call DefWindowProc to perform necessary cleanup.
 		return DefWindowProc(hWnd, WM_INPUT, wParam, lParam);
+	}
+
+	void SetMousePos(float x, float y) {
+		mouseX = x;
+		mouseY = y;
 	}
 
 	void GainFocus() {

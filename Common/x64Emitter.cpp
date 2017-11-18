@@ -269,7 +269,7 @@ void OpArg::WriteRest(XEmitter *emit, int extraBytes, X64Reg _operandReg,
 			{
 				mod = 0;
 			}
-			else if (ioff<-128 || ioff>127)
+			else if (ioff < -128 || ioff > 127)
 			{
 				mod = 2; //32-bit displacement
 			}
@@ -1497,8 +1497,8 @@ void XEmitter::MOVQ_xmm(OpArg arg, X64Reg src)
 	else
 	{
 		arg.operandReg = src;
-		arg.WriteRex(this, 0, 0);
 		Write8(0x66);
+		arg.WriteRex(this, 0, 0);
 		Write8(0x0f);
 		Write8(0xD6);
 		arg.WriteRest(this, 0);
@@ -1673,6 +1673,11 @@ void XEmitter::PUNPCKLWD(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x61, 
 void XEmitter::PUNPCKLDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x62, dest, arg);}
 void XEmitter::PUNPCKLQDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x6C, dest, arg);}
 
+void XEmitter::PUNPCKHBW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x68, dest, arg);}
+void XEmitter::PUNPCKHWD(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x69, dest, arg);}
+void XEmitter::PUNPCKHDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x6A, dest, arg);}
+void XEmitter::PUNPCKHQDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x6D, dest, arg);}
+
 void XEmitter::PSRLW(X64Reg reg, int shift)
 {
 	WriteSSEOp(0x66, 0x71, (X64Reg)2, R(reg));
@@ -1735,6 +1740,11 @@ void XEmitter::PSRAD(X64Reg reg, int shift)
 	WriteSSEOp(0x66, 0x72, (X64Reg)4, R(reg));
 	Write8(shift);
 }
+
+void XEmitter::PMULLW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xD5, dest, arg);}
+void XEmitter::PMULHW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xE5, dest, arg);}
+void XEmitter::PMULHUW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xE4, dest, arg);}
+void XEmitter::PMULUDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xF4, dest, arg);}
 
 void XEmitter::WriteSSSE3Op(u8 opPrefix, u16 op, X64Reg regOp, OpArg arg, int extrabytes)
 {
@@ -1980,9 +1990,9 @@ void XEmitter::FNSTSW_AX() { Write8(0xDF); Write8(0xE0); }
 
 void XEmitter::RDTSC() { Write8(0x0F); Write8(0x31); }
 
-void XCodeBlock::PoisonMemory() {
+void XCodeBlock::PoisonMemory(int offset) {
 	// x86/64: 0xCC = breakpoint
-	memset(region, 0xCC, region_size);
+	memset(region + offset, 0xCC, region_size - offset);
 }
 
 }

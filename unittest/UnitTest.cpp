@@ -49,7 +49,12 @@
 #include "unittest/UnitTest.h"
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
-int System_GetPropertyInt(SystemProperty prop) { return -1; }
+int System_GetPropertyInt(SystemProperty prop) {
+	return -1;
+}
+bool System_GetPropertyBool(SystemProperty prop) {
+	return false;
+}
 
 #ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923

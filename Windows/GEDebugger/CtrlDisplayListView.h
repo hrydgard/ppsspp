@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Common/CommonWindows.h"
-#include "Globals.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include <algorithm>
 
@@ -20,7 +19,6 @@ class CtrlDisplayListView
 	u32 selectRangeEnd;
 
 	int visibleRows;
-	int charWidth;
 	int rowHeight;
 	int instructionSize;
 	bool hasFocus;

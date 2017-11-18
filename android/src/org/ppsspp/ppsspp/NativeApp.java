@@ -44,9 +44,6 @@ public class NativeApp {
 
 	public static native boolean mouseWheelEvent(float x, float y);
 
-	// will only be called between init() and shutdown()
-	public static native int audioRender(short[] buffer);
-
 	// Sensor/input data. These are asynchronous, beware!
 	public static native boolean touch(float x, float y, int data, int pointerId);
 
@@ -55,5 +52,9 @@ public class NativeApp {
 	public static native void sendMessage(String msg, String arg);
 
 	public static native String queryConfig(String queryName);
+
+	public static native void pushNewGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long time);
+
+	public static native void pushCameraImage(byte[] image);
 }
 

@@ -23,16 +23,16 @@
 
 #include "Common/CommonWindows.h"
 #include "Common/KeyMap.h"
-#include <Windowsx.h>
+#include "Common/OSVersion.h"
 
+#include <Windowsx.h>
+#include <shellapi.h>
+#include <commctrl.h>
 #include <map>
 #include <string>
 
+#include "base/display.h"
 #include "base/NativeApp.h"
-#include "Globals.h"
-
-#include "shellapi.h"
-#include "commctrl.h"
 #include "base/timeutil.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
@@ -40,25 +40,23 @@
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
+#include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Windows/InputBox.h"
+#include "Windows/InputDevice.h"
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/GEDebugger/GEDebugger.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 
-#include "main.h"
-
-#include "Core/Core.h"
+#include "Windows/main.h"
 #include "Windows/EmuThread.h"
-
-#include "resource.h"
+#include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"
-#include "Windows/WindowsHost.h"
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
 #include "Windows/W32Util/DialogManager.h"
@@ -66,9 +64,9 @@
 #include "Windows/W32Util/Misc.h"
 #include "Windows/RawInput.h"
 #include "Windows/TouchInputHandler.h"
+#include "Windows/MainWindowMenu.h"
 #include "GPU/GPUInterface.h"
 #include "UI/OnScreenDisplay.h"
-#include "Windows/MainWindowMenu.h"
 #include "UI/GameSettingsScreen.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
@@ -91,9 +89,7 @@ struct VerySleepy_AddrInfo {
 	wchar_t name[256];
 };
 
-static RECT g_normalRC = {0};
 static std::wstring windowTitle;
-extern InputState input_state;
 extern ScreenManager *screenManager;
 
 #define TIMER_CURSORUPDATE 1
@@ -118,13 +114,14 @@ namespace MainWindow
 	static bool hideCursor = false;
 	static int g_WindowState;
 	static bool g_IgnoreWM_SIZE = false;
+	static bool inFullscreenResize = false;
 	static bool inResizeMove = false;
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
+	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
 
 #define MAX_LOADSTRING 100
-	const TCHAR *szTitle = TEXT("PPSSPP");
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
 	const TCHAR *szDisplayClass = TEXT("PPSSPPDisplay");
 
@@ -173,7 +170,7 @@ namespace MainWindow
 	}
 
 	void SavePosition() {
-		if (g_Config.bFullScreen)
+		if (g_Config.bFullScreen || inFullscreenResize)
 			return;
 
 		WINDOWPLACEMENT placement;
@@ -188,41 +185,27 @@ namespace MainWindow
 		}
 	}
 
-	static void GetWindowRectAtResolution(int xres, int yres, RECT &rcInner, RECT &rcOuter) {
-		rcInner.left = 0;
-		rcInner.top = 0;
-
-		rcInner.right = xres;
-		rcInner.bottom = yres;
-
-		rcOuter = rcInner;
-		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
-		rcOuter.right += g_Config.iWindowX - rcOuter.left;
-		rcOuter.bottom += g_Config.iWindowY - rcOuter.top;
-		rcOuter.left = g_Config.iWindowX;
-		rcOuter.top = g_Config.iWindowY;
+	static void GetWindowSizeAtResolution(int xres, int yres, int *windowWidth, int *windowHeight) {
+		RECT rc{};
+		rc.right = xres;
+		rc.bottom = yres;
+		AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
+		*windowWidth = rc.right - rc.left;
+		*windowHeight = rc.bottom - rc.top;
 	}
-
-	static bool IsWindowSmall() {
-		// Can't take this from config as it will not be set if windows is maximized.
-		RECT rc;
-		GetWindowRect(hwndMain, &rc);
-		int width = rc.right - rc.left;
-		int height = rc.bottom - rc.top;
-		return g_Config.IsPortrait() ? (height < 480 + 80) : (width < 480 + 80);
-	} 
 
 	void SetWindowSize(int zoom) {
 		AssertCurrentThreadName("Main");
-		RECT rc, rcOuter;
-
 		// Actually, auto mode should be more granular...
+		int width, height;
 		if (g_Config.IsPortrait()) {
-			GetWindowRectAtResolution(272 * (int)zoom, 480 * (int)zoom, rc, rcOuter);
+			GetWindowSizeAtResolution(272 * (int)zoom, 480 * (int)zoom, &width, &height);
 		} else {
-			GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
+			GetWindowSizeAtResolution(480 * (int)zoom, 272 * (int)zoom, &width, &height);
 		}
-		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
+		g_Config.iWindowWidth = width;
+		g_Config.iWindowHeight = height;
+		MoveWindow(hwndMain, g_Config.iWindowX, g_Config.iWindowY, width, height, TRUE);
 	}
 
 	void SetInternalResolution(int res) {
@@ -237,21 +220,28 @@ namespace MainWindow
 		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO)
 			setTexScalingMultiplier(0);
 
-		if (gpu)
-			gpu->Resized();
+		NativeMessageReceived("gpu_resized", "");
 	}
 
 	void CorrectCursor() {
-		bool autoHide = g_Config.bFullScreen && !mouseButtonDown && GetUIState() == UISTATE_INGAME;
-		if (autoHide && hideCursor) {
+		bool autoHide = ((g_Config.bFullScreen && !mouseButtonDown) || (g_Config.bMouseControl && trapMouse)) && GetUIState() == UISTATE_INGAME;
+		if (autoHide && (hideCursor || g_Config.bMouseControl)) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
+			}
+			if (g_Config.bMouseConfine) {
+				RECT rc;
+				GetClientRect(hwndDisplay, &rc);
+				ClientToScreen(hwndDisplay, reinterpret_cast<POINT*>(&rc.left));
+				ClientToScreen(hwndDisplay, reinterpret_cast<POINT*>(&rc.right));
+				ClipCursor(&rc);
 			}
 		} else {
 			hideCursor = !autoHide;
 			if (cursorCounter < 0) {
 				cursorCounter = ShowCursor(TRUE);
 				SetCursor(LoadCursor(NULL, IDC_ARROW));
+				ClipCursor(NULL);
 			}
 		}
 	}
@@ -272,6 +262,8 @@ namespace MainWindow
 		// Moves the internal display window to match the inner size of the main window.
 		MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
 
+		INFO_LOG(SYSTEM, "New width/height: %dx%d", width, height);
+
 		// Setting pixelWidth to be too small could have odd consequences.
 		if (width >= 4 && height >= 4) {
 			// The framebuffer manager reads these once per frame, hopefully safe enough.. should really use a mutex or some
@@ -280,8 +272,10 @@ namespace MainWindow
 			PSP_CoreParameter().pixelHeight = height;
 		}
 
-		if (UpdateScreenScale(width, height, IsWindowSmall())) {
-			NativeMessageReceived("gpu resized", "");
+		INFO_LOG(SYSTEM, "Pixel width/height: %dx%d", PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+
+		if (UpdateScreenScale(width, height)) {
+			NativeMessageReceived("gpu_resized", "");
 		}
 
 		if (screenManager) {
@@ -301,7 +295,11 @@ namespace MainWindow
 			graphicsContext->Pause();
 		}
 
+		WINDOWPLACEMENT placement = { sizeof(WINDOWPLACEMENT) };
+		GetWindowPlacement(hwndMain, &placement);
+
 		int oldWindowState = g_WindowState;
+		inFullscreenResize = true;
 		g_IgnoreWM_SIZE = true;
 
 		DWORD dwStyle;
@@ -319,11 +317,9 @@ namespace MainWindow
 		} else {
 			// If the window was maximized before going fullscreen, make sure to restore first
 			// in order not to have the taskbar show up on top of PPSSPP.
-			if (oldWindowState == SIZE_MAXIMIZED) {
+			if (oldWindowState == SIZE_MAXIMIZED || placement.showCmd == SW_SHOWMAXIMIZED) {
 				ShowWindow(hwndMain, SW_RESTORE);
 			}
-			// Remember the normal window rectangle.
-			::GetWindowRect(hWnd, &g_normalRC);
 
 			// Remove caption and border styles.
 			dwStyle = ::GetWindowLong(hWnd, GWL_STYLE);
@@ -344,15 +340,31 @@ namespace MainWindow
 		// Resize to the appropriate view.
 		// If we're returning to window mode, re-apply the appropriate size setting.
 		if (goingFullscreen) {
-			ShowWindow(hwndMain, SW_MAXIMIZE);
+			if (g_Config.bFullScreenMulti) {
+				// Maximize isn't enough to display on all monitors.
+				// Remember that negative coordinates may be valid.
+				int totalX = GetSystemMetrics(SM_XVIRTUALSCREEN);
+				int totalY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+				int totalWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+				int totalHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+				MoveWindow(hwndMain, totalX, totalY, totalWidth, totalHeight, TRUE);
+				HandleSizeChange(oldWindowState);
+			} else {
+				ShowWindow(hwndMain, SW_MAXIMIZE);
+			}
 		} else {
 			ShowWindow(hwndMain, oldWindowState == SIZE_MAXIMIZED ? SW_MAXIMIZE : SW_RESTORE);
+			if (g_Config.bFullScreenMulti && oldWindowState != SIZE_MAXIMIZED) {
+				// Return the screen to where it was.
+				MoveWindow(hwndMain, g_Config.iWindowX, g_Config.iWindowY, g_Config.iWindowWidth, g_Config.iWindowHeight, TRUE);
+			}
 			if (oldWindowState == SIZE_MAXIMIZED) {
 				// WM_SIZE wasn't sent, since the size didn't change (it was full screen before and after.)
 				HandleSizeChange(oldWindowState);
 			}
 		}
 
+		inFullscreenResize = false;
 		CorrectCursor();
 
 		ShowOwnedPopups(hwndMain, goingFullscreen ? FALSE : TRUE);
@@ -370,57 +382,65 @@ namespace MainWindow
 	}
 
 	RECT DetermineWindowRectangle() {
-		RECT rc;
+		const int virtualScreenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+		const int virtualScreenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+		const int virtualScreenX = GetSystemMetrics(SM_XVIRTUALSCREEN);
+		const int virtualScreenY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+		const int currentScreenWidth = GetSystemMetrics(SM_CXSCREEN);
+		const int currentScreenHeight = GetSystemMetrics(SM_CYSCREEN);
 
-		const int screenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-		const int screenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-		const int screenX = GetSystemMetrics(SM_XVIRTUALSCREEN);
-		const int screenY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+		bool resetPositionX = true;
+		bool resetPositionY = true;
 
-		if (!g_Config.bFullScreen) {
-			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= screenX) &&
-				((g_Config.iWindowX + g_Config.iWindowWidth) < (screenWidth + g_Config.iWindowWidth));
+		if (g_Config.iWindowWidth > 0 && g_Config.iWindowHeight > 0 && !g_Config.bFullScreen) {
+			bool visibleHorizontally = ((g_Config.iWindowX + g_Config.iWindowWidth) >= virtualScreenX) &&
+				((g_Config.iWindowX + g_Config.iWindowWidth) < (virtualScreenWidth + g_Config.iWindowWidth));
 
-			bool visibleVertically = ((g_Config.iWindowY + g_Config.iWindowHeight) >= screenY) &&
-				((g_Config.iWindowY + g_Config.iWindowHeight) < (screenHeight + g_Config.iWindowHeight));
+			bool visibleVertically = ((g_Config.iWindowY + g_Config.iWindowHeight) >= virtualScreenY) &&
+				((g_Config.iWindowY + g_Config.iWindowHeight) < (virtualScreenHeight + g_Config.iWindowHeight));
 
-			if (!visibleHorizontally)
-				g_Config.iWindowX = -1;
-
-			if (!visibleVertically)
-				g_Config.iWindowY = -1;
+			if (visibleHorizontally)
+				resetPositionX = false;
+			if (visibleVertically)
+				resetPositionY = false;
 		}
 
-		rc.left = g_Config.iWindowX;
-		rc.top = g_Config.iWindowY;
+		// Try to workaround #9563.
+		if (!resetPositionY && g_Config.iWindowY < 0) {
+			g_Config.iWindowY = 0;
+		}
+
+		int windowWidth = g_Config.iWindowWidth;
+		int windowHeight = g_Config.iWindowHeight;
 
 		// First, get the w/h right.
-		if (g_Config.iWindowWidth <= 0 || g_Config.iWindowHeight <= 0) {
-			RECT rcInner = rc, rcOuter;
+		if (windowWidth <= 0 || windowHeight <= 0) {
 			bool portrait = g_Config.IsPortrait();
-			GetWindowRectAtResolution(2 * (portrait ? 272 : 480), 2 * (portrait ? 480 : 272), rcInner, rcOuter);
-			rc.right = rc.left + (rcOuter.right - rcOuter.left);
-			rc.bottom = rc.top + (rcOuter.bottom - rcOuter.top);
-			g_Config.iWindowWidth = rc.right - rc.left;
-			g_Config.iWindowHeight = rc.bottom - rc.top;
-		} else {
-			rc.right = rc.left + g_Config.iWindowWidth;
-			rc.bottom = rc.top + g_Config.iWindowHeight;
+
+			// We want to adjust for DPI but still get an integer pixel scaling ratio.
+			double dpi_scale = 96.0 / System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
+			int scale = (int)ceil(2.0 / dpi_scale);
+
+			GetWindowSizeAtResolution(scale * (portrait ? 272 : 480), scale * (portrait ? 480 : 272), &windowWidth, &windowHeight);
 		}
 
-		// Then center if necessary.
-		if (g_Config.iWindowX == -1 && g_Config.iWindowY == -1) {
-			// Center the window.
-			const int primaryScreenWidth = GetSystemMetrics(SM_CXSCREEN);
-			const int primaryScreenHeight = GetSystemMetrics(SM_CYSCREEN);
-			g_Config.iWindowX = (primaryScreenWidth - g_Config.iWindowWidth) / 2;
-			g_Config.iWindowY = (primaryScreenHeight - g_Config.iWindowHeight) / 2;
-			rc.left = g_Config.iWindowX;
-			rc.top = g_Config.iWindowY;
-			rc.right = rc.left + g_Config.iWindowWidth;
-			rc.bottom = rc.top + g_Config.iWindowHeight;
+		// Then center if necessary. One dimension at a time.
+		// Max is to make sure that if we end up making the window bigger than the screen (which is not ideal), the top left
+		// corner, and thus the menu etc, will be visible. Also potential workaround for #9563.
+		int x = g_Config.iWindowX;
+		int y = g_Config.iWindowY;
+		if (resetPositionX) {
+			x = std::max(0, (currentScreenWidth - windowWidth) / 2);
+		}
+		if (resetPositionY) {
+			y = std::max(0, (currentScreenHeight - windowHeight) / 2);
 		}
 
+		RECT rc;
+		rc.left = x;
+		rc.right = rc.left + windowWidth;
+		rc.top = y;
+		rc.bottom = rc.top + windowHeight;
 		return rc;
 	}
 
@@ -436,6 +456,7 @@ namespace MainWindow
 	BOOL Show(HINSTANCE hInstance) {
 		hInst = hInstance; // Store instance handle in our global variable.
 		RECT rc = DetermineWindowRectangle();
+		SavePosition();
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 
@@ -465,6 +486,9 @@ namespace MainWindow
 		for (int i = 0; i < GetMenuItemCount(menu); i++) {
 			SetMenuInfo(GetSubMenu(menu,i), &info);
 		}
+
+		// Always translate first: translating resets the menu.
+		TranslateMenus(hwndMain, menu);
 		UpdateMenus();
 
 		// Accept dragged files.
@@ -516,8 +540,6 @@ namespace MainWindow
 	}
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-		// Only apply a factor > 1 in windowed mode.
-		int factor = !IsZoomed(GetHWND()) && !g_Config.bFullScreen && IsWindowSmall() ? 2 : 1;
 		static bool firstErase = true;
 
 		switch (message) {
@@ -542,28 +564,23 @@ namespace MainWindow
 			// Then never erase, let the OpenGL drawing take care of everything.
 			return 1;
 
-		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
-		// and as asynchronous touch events for minimal latency.
+		// Poor man's touch - mouse input. We send the data  asynchronous touch events for minimal latency.
 		case WM_LBUTTONDOWN:
 			if (!touchHandler.hasTouch() ||
 				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
 			{
 				// Hack: Take the opportunity to show the cursor.
 				mouseButtonDown = true;
-				{
-					lock_guard guard(input_state.lock);
-					input_state.mouse_valid = true;
-					input_state.pointer_down[0] = true;
 
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
-				}
+				float x = GET_X_LPARAM(lParam) * g_dpi_scale_x;
+				float y = GET_Y_LPARAM(lParam) * g_dpi_scale_y;
+				WindowsRawInput::SetMousePos(x, y);
 
 				TouchInput touch;
 				touch.id = 0;
 				touch.flags = TOUCH_DOWN;
-				touch.x = input_state.pointer_x[0];
-				touch.y = input_state.pointer_y[0];
+				touch.x = x;
+				touch.y = y;
 				NativeTouch(touch);
 				SetCapture(hWnd);
 
@@ -571,7 +588,7 @@ namespace MainWindow
 				static double lastMouseDown;
 				double now = real_time_now();
 				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
-					if (!g_Config.bShowTouchControls && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
+					if (!g_Config.bShowTouchControls && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
 						SendToggleFullscreen(!g_Config.bFullScreen);
 					}
 					lastMouseDown = 0.0;
@@ -596,18 +613,16 @@ namespace MainWindow
 				prevCursorX = cursorX;
 				prevCursorY = cursorY;
 
-				{
-					lock_guard guard(input_state.lock);
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
-				}
+				float x = (float)cursorX * g_dpi_scale_x;
+				float y = (float)cursorY * g_dpi_scale_y;
+				WindowsRawInput::SetMousePos(x, y);
 
 				if (wParam & MK_LBUTTON) {
 					TouchInput touch;
 					touch.id = 0;
 					touch.flags = TOUCH_MOVE;
-					touch.x = input_state.pointer_x[0];
-					touch.y = input_state.pointer_y[0];
+					touch.x = x;
+					touch.y = y;
 					NativeTouch(touch);
 				}
 			}
@@ -619,17 +634,16 @@ namespace MainWindow
 			{
 				// Hack: Take the opportunity to hide the cursor.
 				mouseButtonDown = false;
-				{
-					lock_guard guard(input_state.lock);
-					input_state.pointer_down[0] = false;
-					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
-					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
-				}
+
+				float x = (float)GET_X_LPARAM(lParam) * g_dpi_scale_x;
+				float y = (float)GET_Y_LPARAM(lParam) * g_dpi_scale_y;
+				WindowsRawInput::SetMousePos(x, y);
+
 				TouchInput touch;
 				touch.id = 0;
 				touch.flags = TOUCH_UP;
-				touch.x = input_state.pointer_x[0];
-				touch.y = input_state.pointer_y[0];
+				touch.x = x;
+				touch.y = y;
 				NativeTouch(touch);
 				ReleaseCapture();
 			}
@@ -650,6 +664,10 @@ namespace MainWindow
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
 		switch (message) {
 		case WM_CREATE:
+			if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
+				// Remove the D3D11 choice on versions below XP
+				RemoveMenu(GetMenu(hWnd), ID_OPTIONS_DIRECT3D11, MF_BYCOMMAND);
+			}
 			break;
 			
 		case WM_GETMINMAXINFO:
@@ -685,11 +703,13 @@ namespace MainWindow
 
 				if (wParam == WA_ACTIVE) {
 					NativeMessageReceived("got_focus", "");
+					trapMouse = true;
 				}
 				if (wParam == WA_INACTIVE) {
 					NativeMessageReceived("lost_focus", "");
 					WindowsRawInput::LoseFocus();
 					InputDevice::LoseFocus();
+					trapMouse = false;
 				}
 			}
 			break;
@@ -869,6 +889,8 @@ namespace MainWindow
 
 		case WM_USER_UPDATE_UI:
 			TranslateMenus(hwndMain, menu);
+			// Update checked status immediately for accelerators.
+			UpdateMenus();
 			break;
 
 		case WM_USER_WINDOW_TITLE_CHANGED:
@@ -879,11 +901,30 @@ namespace MainWindow
 			BrowseAndBootDone();
 			break;
 
+		case WM_USER_BROWSE_BG_DONE:
+			BrowseBackgroundDone();
+			break;
+
+		case WM_USER_RESTART_EMUTHREAD:
+			NativeSetRestarting();
+			InputDevice::StopPolling();
+			EmuThread_Stop();
+			coreState = CORE_POWERUP;
+			ResetUIState();
+			EmuThread_Start();
+			InputDevice::BeginPolling();
+			break;
+
 		case WM_MENUSELECT:
-			// Unfortunately, accelerate keys (hotkeys) shares the same enabled/disabled states
-			// with corresponding menu items.
-			UpdateMenus();
+			// Called when a menu is opened. Also when an item is selected, but meh.
+			UpdateMenus(true);
 			WindowsRawInput::NotifyMenu();
+			trapMouse = false;
+			break;
+
+		case WM_EXITMENULOOP:
+			// Called when menu is closed.
+			trapMouse = true;
 			break;
 
 		// Turn off the screensaver.

@@ -17,30 +17,26 @@
 
 #pragma once
 
-#include <functional>
+#include <thread>
+#include <mutex>
 
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
 
-namespace std {
-	class thread;
-}
-
-class recursive_mutex;
-
 class RemoteISOScreen : public UIScreenWithBackground {
 public:
 	RemoteISOScreen();
 
 protected:
-	void update(InputState &input) override;
+	void update() override;
 	void CreateViews() override;
 
 	UI::EventReturn HandleStartServer(UI::EventParams &e);
 	UI::EventReturn HandleStopServer(UI::EventParams &e);
 	UI::EventReturn HandleBrowse(UI::EventParams &e);
+	UI::EventReturn HandleSettings(UI::EventParams &e);
 
 	bool serverRunning_;
 	bool serverStopping_;
@@ -61,7 +57,7 @@ public:
 	~RemoteISOConnectScreen() override;
 
 protected:
-	void update(InputState &input) override;
+	void update() override;
 	void CreateViews() override;
 
 	ScanStatus GetStatus();
@@ -73,7 +69,7 @@ protected:
 	ScanStatus status_;
 	double nextRetry_;
 	std::thread *scanThread_;
-	recursive_mutex *statusLock_;
+	std::mutex statusLock_;
 	std::string host_;
 	int port_;
 	std::vector<std::string> games_;
@@ -87,4 +83,17 @@ protected:
 	void CreateViews() override;
 
 	std::vector<std::string> games_;
+};
+
+class RemoteISOSettingsScreen : public UIDialogScreenWithBackground {
+public:
+	RemoteISOSettingsScreen();
+
+protected:
+	void update() override;
+	void CreateViews() override;
+
+	UI::EventReturn OnChangeRemoteISOSubdir(UI::EventParams &e);
+
+	bool serverRunning_ = false;
 };

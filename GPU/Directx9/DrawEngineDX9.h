@@ -17,10 +17,9 @@
 
 #pragma once
 
-#include <unordered_map>
-
 #include <d3d9.h>
 
+#include "Common/Hashmaps.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
@@ -54,13 +53,6 @@ enum {
 	VAI_FLAG_VERTEXFULLALPHA = 1,
 };
 
-// Avoiding the full include of TextureDecoder.h.
-#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
-typedef u64 ReliableHashType;
-#else
-typedef u32 ReliableHashType;
-#endif
-
 // Try to keep this POD.
 class VertexArrayInfoDX9 {
 public:
@@ -78,7 +70,7 @@ public:
 	}
 	~VertexArrayInfoDX9();
 
-	enum Status {
+	enum Status : uint8_t {
 		VAI_NEW,
 		VAI_HASHING,
 		VAI_RELIABLE,  // cache, don't hash
@@ -88,8 +80,6 @@ public:
 	ReliableHashType hash;
 	u32 minihash;
 
-	Status status;
-
 	LPDIRECT3DVERTEXBUFFER9 vbo;
 	LPDIRECT3DINDEXBUFFER9 ebo;
 
@@ -97,6 +87,7 @@ public:
 	u16 numVerts;
 	u16 maxIndex;
 	s8 prim;
+	Status status;
 
 	// ID information
 	int numDraws;
@@ -109,7 +100,7 @@ public:
 // Handles transform, lighting and drawing.
 class DrawEngineDX9 : public DrawEngineCommon {
 public:
-	DrawEngineDX9();
+	DrawEngineDX9(Draw::DrawContext *draw);
 	virtual ~DrawEngineDX9();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
@@ -125,45 +116,9 @@ public:
 	}
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
-	void GLLost() {};
 
-	void Resized();  // TODO: Call
-
+	void ClearTrackedVertexArrays() override;
 	void DecimateTrackedVertexArrays();
-	void ClearTrackedVertexArrays();
-
-	void SetupVertexDecoder(u32 vertType);
-	void SetupVertexDecoderInternal(u32 vertType);
-
-	// This requires a SetupVertexDecoder call first.
-	int EstimatePerVertexCost() {
-		// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
-		// runs in parallel with transform.
-
-		// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
-
-		// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
-		// went too fast and starts doing all the work over again).
-
-		int cost = 20;
-		if (gstate.isLightingEnabled()) {
-			cost += 10;
-
-			for (int i = 0; i < 4; i++) {
-				if (gstate.isLightChanEnabled(i))
-					cost += 10;
-			}
-		}
-
-		if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
-			cost += 20;
-		}
-		if (dec_ && dec_->morphcount > 1) {
-			cost += 5 * dec_->morphcount;
-		}
-
-		return cost;
-	}
 
 	// So that this can be inlined
 	void Flush() {
@@ -178,8 +133,6 @@ public:
 		DecodeVerts();
 	}
 
-	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
-
 	void DispatchFlush() override { Flush(); }
 	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
 		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
@@ -187,65 +140,40 @@ public:
 
 private:
 	void DecodeVerts();
-	void DecodeVertsStep();
 	void DoFlush();
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
-	bool ApplyShaderBlending();
 	void ResetShaderBlending();
 
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
-	u32 ComputeMiniHash();
-	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfoDX9 *vai);
 
-	// Defer all vertex decoding to a Flush, so that we can hash and cache the
-	// generated buffers without having to redecode them every time.
-	struct DeferredDrawCall {
-		void *verts;
-		void *inds;
-		u32 vertType;
-		u8 indexType;
-		s8 prim;
-		u32 vertexCount;
-		u16 indexLowerBound;
-		u16 indexUpperBound;
-	};
+	LPDIRECT3DDEVICE9 device_ = nullptr;
 
-	// Vertex collector state
-	IndexGenerator indexGen;
-	int decodedVerts_;
-	GEPrimitiveType prevPrim_;
+	PrehashMap<VertexArrayInfoDX9 *, nullptr> vai_;
+	DenseHashMap<u32, IDirect3DVertexDeclaration9 *, nullptr> vertexDeclMap_;
 
-	u32 lastVType_;
-	
-	TransformedVertex *transformed;
-	TransformedVertex *transformedExpanded;
+	// SimpleVertex
+	IDirect3DVertexDeclaration9* transformedVertexDecl_ = nullptr;
 
-	std::unordered_map<u32, VertexArrayInfoDX9 *> vai_;
-	std::unordered_map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
-	
 	// Other
-	ShaderManagerDX9 *shaderManager_;
-	TextureCacheDX9 *textureCache_;
-	FramebufferManagerDX9 *framebufferManager_;
+	ShaderManagerDX9 *shaderManager_ = nullptr;
+	TextureCacheDX9 *textureCache_ = nullptr;
+	FramebufferManagerDX9 *framebufferManager_ = nullptr;
 
-	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-
-	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls;
-	int vertexCountInDrawCalls;
-
-	int decimationCounter_;
-	int decodeCounter_;
-	u32 dcid_;
-
-	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
-
-	bool fboTexNeedBind_;
-	bool fboTexBound_;
+	// Hardware tessellation
+	class TessellationDataTransferDX9 : public TessellationDataTransfer {
+	private:
+		int data_tex[3];
+	public:
+		TessellationDataTransferDX9() : TessellationDataTransfer(), data_tex() {
+		}
+		~TessellationDataTransferDX9() {
+		}
+		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+	};
 };
 
 }  // namespace

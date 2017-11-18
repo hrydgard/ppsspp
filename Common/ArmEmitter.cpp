@@ -15,6 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include "ppsspp_config.h"
+
 #include "base/logging.h"
 
 #include <assert.h>
@@ -32,6 +34,10 @@
 #include "MemoryUtil.h"
 #include "ArmEmitter.h"
 #include "CPUDetect.h"
+
+#ifdef _WIN32
+#include "CommonWindows.h"
+#endif
 
 // Want it in release builds too
 #ifdef __ANDROID__
@@ -626,14 +632,18 @@ void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 #if defined(IOS)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
-#elif !defined(_WIN32)
-#if defined(ARM)
+#elif PPSSPP_PLATFORM(WINDOWS)
+#if !PPSSPP_PLATFORM(UWP)  // Not available on UWP, which is very bad!
+	FlushInstructionCache(GetCurrentProcess(), start, end - start);
+#endif
+#elif PPSSPP_ARCH(ARM)
+
 #if defined(__clang__) || defined(__ANDROID__)
 	__clear_cache(start, end);
 #else
 	__builtin___clear_cache(start, end);
 #endif
-#endif
+
 #endif
 }
 
@@ -754,6 +764,7 @@ void ARMXEmitter::BL(ARMReg src)
 {
 	Write32(condition | 0x012FFF30 | src);
 }
+
 void ARMXEmitter::PUSH(const int num, ...)
 {
 	u16 RegList = 0;
@@ -761,14 +772,14 @@ void ARMXEmitter::PUSH(const int num, ...)
 	int i;
 	va_list vl;
 	va_start(vl, num);
-	for (i=0;i<num;i++)
-	{
+	for (i = 0; i < num; i++) {
 		Reg = va_arg(vl, u32);
 		RegList |= (1 << Reg);
 	}
 	va_end(vl);
 	Write32(condition | (2349 << 16) | RegList);
 }
+
 void ARMXEmitter::POP(const int num, ...)
 {
 	u16 RegList = 0;
@@ -3200,10 +3211,10 @@ void ARMXEmitter::VCVTF16F32(ARMReg Dest, ARMReg Src) {
 
 // Always clear code space with breakpoints, so that if someone accidentally executes
 // uninitialized, it just breaks into the debugger.
-void ARMXCodeBlock::PoisonMemory() {
+void ARMXCodeBlock::PoisonMemory(int offset) {
 	// TODO: this isn't right for ARM!
-	memset(region, 0xCC, region_size);
-	ResetCodePtr();
+	memset(region + offset, 0xCC, region_size - offset);
+	ResetCodePtr(offset);
 }
 
 }

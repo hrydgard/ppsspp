@@ -116,9 +116,6 @@
     <ClInclude Include="ui\ui.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="base\mutex.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="data\listable.h">
       <Filter>data</Filter>
     </ClInclude>
@@ -149,9 +146,6 @@
     <ClInclude Include="util\random\rng.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="ui\virtual_input.h">
-      <Filter>ui</Filter>
-    </ClInclude>
     <ClInclude Include="math\curves.h">
       <Filter>math</Filter>
     </ClInclude>
@@ -174,9 +168,6 @@
       <Filter>ext</Filter>
     </ClInclude>
     <ClInclude Include="thread\prioritizedworkqueue.h">
-      <Filter>thread</Filter>
-    </ClInclude>
-    <ClInclude Include="thread\thread.h">
       <Filter>thread</Filter>
     </ClInclude>
     <ClInclude Include="thread\threadutil.h">
@@ -290,9 +281,6 @@
     <ClInclude Include="thread\executor.h">
       <Filter>thread</Filter>
     </ClInclude>
-    <ClInclude Include="base\compat.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\gl_common.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -310,6 +298,36 @@
     </ClInclude>
     <ClInclude Include="util\text\wrap_text.h">
       <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\d3d9_shader.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\d3d9_state.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\GLStateCache.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="thin3d\d3d11_loader.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx_es2\draw_text_win.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx_es2\draw_text_qt.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx_es2\draw_text_android.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="thin3d\VulkanQueueRunner.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
+    <ClInclude Include="thin3d\VulkanRenderManager.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
+    <ClInclude Include="thin3d\DataFormat.h">
+      <Filter>thin3d</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -408,9 +426,6 @@
     </ClCompile>
     <ClCompile Include="math\lin\plane.cpp">
       <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\virtual_input.cpp">
-      <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="math\curves.cpp">
       <Filter>math</Filter>
@@ -727,9 +742,6 @@
     <ClCompile Include="thread\executor.cpp">
       <Filter>thread</Filter>
     </ClCompile>
-    <ClCompile Include="base\compat.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="base\PCMain.cpp">
       <Filter>base</Filter>
     </ClCompile>
@@ -749,6 +761,39 @@
       <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="thin3d\thin3d_d3d11.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\d3d9_shader.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\d3d9_state.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\GLStateCache.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\d3d11_loader.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="base\logging.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\draw_text_win.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\draw_text_qt.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\draw_text_android.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="math\dataconv.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\VulkanQueueRunner.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\VulkanRenderManager.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
   </ItemGroup>

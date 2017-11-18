@@ -159,11 +159,15 @@ static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *inst
 		// Add/subtract immediate value
 		int op = (w >> 30) & 1;
 		int imm = ((w >> 10) & 0xFFF);
-		int shift = ((w >> 22) & 0x3) * 16;
+		int shift = ((w >> 22) & 0x1) * 12;
 		int s = ((w >> 29) & 1);
 		imm <<= shift;
 		if (s && Rd == 31) {
 			snprintf(instr->text, sizeof(instr->text), "cmp %c%d, #%d", r, Rn, imm);
+		} else if (!shift && Rn == 31 && imm == 0) {
+			snprintf(instr->text, sizeof(instr->text), "mov %c%d, sp", r, Rd);
+		} else if (!shift && Rd == 31 && imm == 0) {
+			snprintf(instr->text, sizeof(instr->text), "mov sp, %c%d", r, Rn);
 		} else {
 			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, #%d", op == 0 ? "add" : "sub", s ? "s" : "", r, Rd, r, Rn, imm);
 		}

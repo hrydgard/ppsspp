@@ -1,0 +1,115 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>0d070030-beb5-4f48-99a0-b1777297a468</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>a5564d79-b131-4b27-9f5f-d80671731d94</UniqueIdentifier>
+      <Extensions>bmp;fbx;gif;jpg;jpeg;tga;tiff;tif;png</Extensions>
+    </Filter>
+    <ClInclude Include="Common\DirectXHelper.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\DeviceResources.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClCompile Include="Common\DeviceResources.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <Image Include="Assets\LockScreenLogo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\SplashScreen.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square150x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Wide310x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Filter Include="Content">
+      <UniqueIdentifier>{ef87b390-608f-4c6d-a0ad-88963875ed11}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="App.cpp" />
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="..\git-version.cpp" />
+    <ClCompile Include="XAudioSoundStream.cpp" />
+    <ClCompile Include="PPSSPP_UWPMain.cpp" />
+    <ClCompile Include="NKCodeFromWindowsSystem.cpp" />
+    <ClCompile Include="StorageFileLoader.cpp" />
+    <ClCompile Include="UWPHost.cpp" />
+    <ClCompile Include="..\Windows\XinputDevice.cpp" />
+    <ClCompile Include="StorageFolderBrowser.cpp" />
+    <ClCompile Include="..\Windows\InputDevice.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="App.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="..\ppsspp_config.h" />
+    <ClInclude Include="XAudioSoundStream.h" />
+    <ClInclude Include="PPSSPP_UWPMain.h" />
+    <ClInclude Include="NKCodeFromWindowsSystem.h" />
+    <ClInclude Include="StorageFileLoader.h" />
+    <ClInclude Include="UWPHost.h" />
+    <ClInclude Include="..\Windows\XinputDevice.h" />
+    <ClInclude Include="UWPUtil.h" />
+    <ClInclude Include="StorageFolderBrowser.h" />
+    <ClInclude Include="..\Windows\InputDevice.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Assets\StoreLogo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Content\7z.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\rargray.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\unknown.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\zip.png">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\ui_atlas.zim">
+      <Filter>Content</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="UWP_TemporaryKey.pfx" />
+    <None Include="Content\compat.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\knownfuncs.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\langregion.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\ppge_atlas.zim">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\ui_atlas_lowmem.zim">
+      <Filter>Content</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Content\gamecontrollerdb.txt">
+      <Filter>Content</Filter>
+    </Text>
+  </ItemGroup>
+</Project>

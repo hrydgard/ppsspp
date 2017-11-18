@@ -25,6 +25,7 @@
 #include "file/fd_util.h"
 #include "net/resolve.h"
 #include "net/url.h"
+#include "thread/threadutil.h"
 
 namespace net {
 
@@ -72,7 +73,7 @@ bool Connection::Resolve(const char *host, int port) {
 	return true;
 }
 
-bool Connection::Connect(int maxTries, double timeout) {
+bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 	if (port_ <= 0) {
 		ELOG("Bad port");
 		return false;
@@ -105,10 +106,26 @@ bool Connection::Connect(int maxTries, double timeout) {
 			}
 		}
 
-		struct timeval tv;
-		tv.tv_sec = floor(timeout);
-		tv.tv_usec = (timeout - floor(timeout)) * 1000000.0;
-		if (select(maxfd, NULL, &fds, NULL, &tv) > 0) {
+		int selectResult = 0;
+		long timeoutHalfSeconds = floor(2 * timeout);
+		while (timeoutHalfSeconds >= 0 && selectResult == 0) {
+			struct timeval tv;
+			tv.tv_sec = 0;
+			if (timeoutHalfSeconds > 0) {
+				// Wait up to 0.5 seconds between cancel checks.
+				tv.tv_usec = 500000;
+			} else {
+				// Wait the remaining <= 0.5 seconds.  Possibly 0, but that's okay.
+				tv.tv_usec = (timeout - floor(2 * timeout) / 2) * 1000000.0;
+			}
+			--timeoutHalfSeconds;
+
+			selectResult = select(maxfd, nullptr, &fds, nullptr, &tv);
+			if (cancelConnect && *cancelConnect) {
+				break;
+			}
+		}
+		if (selectResult > 0) {
 			// Something connected.  Pick the first one that did (if multiple.)
 			for (int sock : sockets) {
 				if ((intptr_t)sock_ == -1 && FD_ISSET(sock, &fds)) {
@@ -122,6 +139,11 @@ bool Connection::Connect(int maxTries, double timeout) {
 			// Great, now we're good to go.
 			return true;
 		}
+
+		if (cancelConnect && *cancelConnect) {
+			break;
+		}
+
 		sleep_ms(1);
 	}
 
@@ -179,7 +201,7 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *prog
 	}
 }
 
-int Client::GET(const char *resource, Buffer *output, float *progress) {
+int Client::GET(const char *resource, Buffer *output, std::vector<std::string> &responseHeaders, float *progress, bool *cancelled) {
 	const char *otherHeaders =
 		"Accept: */*\r\n"
 		"Accept-Encoding: gzip\r\n";
@@ -189,16 +211,21 @@ int Client::GET(const char *resource, Buffer *output, float *progress) {
 	}
 
 	Buffer readbuf;
-	std::vector<std::string> responseHeaders;
 	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress);
 	if (code < 0) {
 		return code;
 	}
 
-	err = ReadResponseEntity(&readbuf, responseHeaders, output, progress);
+	err = ReadResponseEntity(&readbuf, responseHeaders, output, progress, cancelled);
 	if (err < 0) {
 		return err;
 	}
+	return code;
+}
+
+int Client::GET(const char *resource, Buffer *output, float *progress, bool *cancelled) {
+	std::vector<std::string> responseHeaders;
+	int code = GET(resource, output, responseHeaders, progress,  cancelled);
 	return code;
 }
 
@@ -301,7 +328,7 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 	return code;
 }
 
-int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress) {
+int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress, bool *cancelled) {
 	bool gzip = false;
 	bool chunked = false;
 	int contentLength = 0;
@@ -340,7 +367,7 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 			return -1;
 	} else {
 		// Let's read in chunks, updating progress between each.
-		if (!readbuf->ReadAllWithProgress(sock(), contentLength, progress))
+		if (!readbuf->ReadAllWithProgress(sock(), contentLength, progress, cancelled))
 			return -1;
 	}
 
@@ -391,6 +418,7 @@ void Download::SetFailed(int code) {
 }
 
 void Download::Do(std::shared_ptr<Download> self) {
+	setCurrentThreadName("Downloader::Do");
 	// as long as this is in scope, we won't get destructed.
 	// yeah this is ugly, I need to think about how life time should be managed for these...
 	std::shared_ptr<Download> self_ = self;
@@ -401,7 +429,6 @@ void Download::Do(std::shared_ptr<Download> self) {
 		SetFailed(-1);
 		return;
 	}
-	net::AutoInit netInit;
 
 	http::Client client;
 	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
@@ -427,7 +454,7 @@ void Download::Do(std::shared_ptr<Download> self) {
 	}
 
 	// TODO: Allow cancelling during a GET somehow...
-	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_, &progress_);
+	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_, &progress_, &cancelled_);
 	if (resultCode == 200) {
 		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
 		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {

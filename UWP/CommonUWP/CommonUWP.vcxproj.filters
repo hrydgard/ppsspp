@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Crypto">
+      <UniqueIdentifier>{da855697-f7aa-49bf-b969-7a90c5b4d259}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="..\..\Common\ABI.cpp" />
+    <ClCompile Include="..\..\Common\Arm64Emitter.cpp" />
+    <ClCompile Include="..\..\Common\ArmCPUDetect.cpp" />
+    <ClCompile Include="..\..\Common\ArmEmitter.cpp" />
+    <ClCompile Include="..\..\Common\ChunkFile.cpp" />
+    <ClCompile Include="..\..\Common\ColorConv.cpp" />
+    <ClCompile Include="..\..\Common\ColorConvNEON.cpp" />
+    <ClCompile Include="..\..\Common\ConsoleListener.cpp" />
+    <ClCompile Include="..\..\Common\CPUDetect.cpp" />
+    <ClCompile Include="..\..\Common\FileUtil.cpp" />
+    <ClCompile Include="..\..\Common\KeyMap.cpp" />
+    <ClCompile Include="..\..\Common\LogManager.cpp" />
+    <ClCompile Include="..\..\Common\MemArenaAndroid.cpp" />
+    <ClCompile Include="..\..\Common\MemArenaDarwin.cpp" />
+    <ClCompile Include="..\..\Common\MemArenaPosix.cpp" />
+    <ClCompile Include="..\..\Common\MemArenaWin32.cpp" />
+    <ClCompile Include="..\..\Common\MemoryUtil.cpp" />
+    <ClCompile Include="..\..\Common\MipsCPUDetect.cpp" />
+    <ClCompile Include="..\..\Common\MipsEmitter.cpp" />
+    <ClCompile Include="..\..\Common\Misc.cpp" />
+    <ClCompile Include="..\..\Common\MsgHandler.cpp" />
+    <ClCompile Include="..\..\Common\OSVersion.cpp" />
+    <ClCompile Include="..\..\Common\stdafx.cpp" />
+    <ClCompile Include="..\..\Common\StringUtils.cpp" />
+    <ClCompile Include="..\..\Common\ThreadPools.cpp" />
+    <ClCompile Include="..\..\Common\Thunk.cpp" />
+    <ClCompile Include="..\..\Common\Timer.cpp" />
+    <ClCompile Include="..\..\Common\x64Analyzer.cpp" />
+    <ClCompile Include="..\..\Common\x64Emitter.cpp" />
+    <ClCompile Include="..\..\Common\Crypto\md5.cpp">
+      <Filter>Crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Crypto\sha1.cpp">
+      <Filter>Crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Crypto\sha256.cpp">
+      <Filter>Crypto</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="..\..\Common\ABI.h" />
+    <ClInclude Include="..\..\Common\Arm64Emitter.h" />
+    <ClInclude Include="..\..\Common\ArmCommon.h" />
+    <ClInclude Include="..\..\Common\ArmEmitter.h" />
+    <ClInclude Include="..\..\Common\Atomic_GCC.h" />
+    <ClInclude Include="..\..\Common\Atomic_Win32.h" />
+    <ClInclude Include="..\..\Common\Atomics.h" />
+    <ClInclude Include="..\..\Common\BitSet.h" />
+    <ClInclude Include="..\..\Common\ChunkFile.h" />
+    <ClInclude Include="..\..\Common\CodeBlock.h" />
+    <ClInclude Include="..\..\Common\ColorConv.h" />
+    <ClInclude Include="..\..\Common\ColorConvNEON.h" />
+    <ClInclude Include="..\..\Common\Common.h" />
+    <ClInclude Include="..\..\Common\CommonFuncs.h" />
+    <ClInclude Include="..\..\Common\CommonTypes.h" />
+    <ClInclude Include="..\..\Common\CommonWindows.h" />
+    <ClInclude Include="..\..\Common\ConsoleListener.h" />
+    <ClInclude Include="..\..\Common\CPUDetect.h" />
+    <ClInclude Include="..\..\Common\DbgNew.h" />
+    <ClInclude Include="..\..\Common\FileUtil.h" />
+    <ClInclude Include="..\..\Common\FixedSizeQueue.h" />
+    <ClInclude Include="..\..\Common\GraphicsContext.h" />
+    <ClInclude Include="..\..\Common\KeyMap.h" />
+    <ClInclude Include="..\..\Common\Log.h" />
+    <ClInclude Include="..\..\Common\LogManager.h" />
+    <ClInclude Include="..\..\Common\MathUtil.h" />
+    <ClInclude Include="..\..\Common\MemArena.h" />
+    <ClInclude Include="..\..\Common\MemoryUtil.h" />
+    <ClInclude Include="..\..\Common\MipsEmitter.h" />
+    <ClInclude Include="..\..\Common\MsgHandler.h" />
+    <ClInclude Include="..\..\Common\OSVersion.h" />
+    <ClInclude Include="..\..\Common\stdafx.h" />
+    <ClInclude Include="..\..\Common\StringUtils.h" />
+    <ClInclude Include="..\..\Common\Swap.h" />
+    <ClInclude Include="..\..\Common\ThreadPools.h" />
+    <ClInclude Include="..\..\Common\ThreadSafeList.h" />
+    <ClInclude Include="..\..\Common\Thunk.h" />
+    <ClInclude Include="..\..\Common\Timer.h" />
+    <ClInclude Include="..\..\Common\x64Analyzer.h" />
+    <ClInclude Include="..\..\Common\x64Emitter.h" />
+    <ClInclude Include="..\..\Common\Crypto\md5.h">
+      <Filter>Crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Crypto\sha1.h">
+      <Filter>Crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Crypto\sha256.h">
+      <Filter>Crypto</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

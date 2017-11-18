@@ -375,7 +375,11 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			};
 			if (value < (u32)ARRAY_SIZE(texformats)) {
 				swprintf(dest, L"%S", texformats[value]);
-			} else {
+			}
+			else if ((value & 0xF) < (u32)ARRAY_SIZE(texformats)) {
+				swprintf(dest, L"%S (extra bits %06x)", texformats[value & 0xF], value);
+			}
+			else {
 				swprintf(dest, L"%06x", value);
 			}
 		}
@@ -653,7 +657,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 	case CMD_FMT_TEXLEVEL:
 		{
 			const char *mipLevelModes[] = {
-				"auto",
+				"auto + bias",
 				"bias",
 				"slope + bias",
 			};
@@ -661,9 +665,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			const int biasFixed = (s8)(value >> 16);
 			const float bias = (float)biasFixed / 16.0f;
 
-			if (mipLevel == 0 && bias == 0) {
-				swprintf(dest, L"%S", mipLevelModes[mipLevel]);
-			} else if (mipLevel == 1 || mipLevel == 2) {
+			if (mipLevel == 0 || mipLevel == 1 || mipLevel == 2) {
 				swprintf(dest, L"%S: %f", mipLevelModes[mipLevel], bias);
 			} else {
 				swprintf(dest, L"%06x", value);

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -22,47 +22,53 @@
     <ProjectGuid>{C4DF647E-80EA-4111-A0A8-218B1B711E18}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>native</RootNamespace>
+    <WindowsTargetPlatformVersion>
+    </WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\..\VC-LTL\ltlvcrt.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\..\VC-LTL\ltlvcrt.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\..\VC-LTL\ltlvcrt.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\..\VC-LTL\ltlvcrt.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
@@ -79,7 +85,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -101,7 +107,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -120,19 +126,19 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <PrecompiledHeader>
       </PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -146,19 +152,19 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <PrecompiledHeader>
       </PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\ext;..\..;..\..\dx9sdk\Include;..\..\dx9sdk\Include\DX11;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <StringPooling>true</StringPooling>
     </ClCompile>
@@ -194,10 +200,8 @@
     <ClInclude Include="base\basictypes.h" />
     <ClInclude Include="base\buffer.h" />
     <ClInclude Include="base\colorutil.h" />
-    <ClInclude Include="base\compat.h" />
     <ClInclude Include="base\display.h" />
     <ClInclude Include="base\logging.h" />
-    <ClInclude Include="base\mutex.h" />
     <ClInclude Include="base\NativeApp.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
@@ -229,10 +233,20 @@
     <ClInclude Include="file\vfs.h" />
     <ClInclude Include="file\zip_read.h" />
     <ClInclude Include="file\free.h" />
+    <ClInclude Include="gfx\d3d9_shader.h" />
+    <ClInclude Include="gfx\d3d9_state.h" />
+    <ClInclude Include="gfx\GLStateCache.h" />
     <ClInclude Include="gfx\gl_common.h" />
     <ClInclude Include="gfx\gl_debug_log.h" />
     <ClInclude Include="gfx\gl_lost_manager.h" />
     <ClInclude Include="gfx\texture_atlas.h" />
+    <ClInclude Include="gfx_es2\draw_text_android.h" />
+    <ClInclude Include="gfx_es2\draw_text_qt.h" />
+    <ClInclude Include="gfx_es2\draw_text_win.h" />
+    <ClInclude Include="thin3d\d3d11_loader.h" />
+    <ClInclude Include="thin3d\DataFormat.h" />
+    <ClInclude Include="thin3d\VulkanQueueRunner.h" />
+    <ClInclude Include="thin3d\VulkanRenderManager.h" />
     <ClInclude Include="util\text\wrap_text.h" />
     <ClInclude Include="gfx_es2\draw_buffer.h" />
     <ClInclude Include="gfx_es2\draw_text.h" />
@@ -269,7 +283,6 @@
     <ClInclude Include="thin3d\thin3d.h" />
     <ClInclude Include="thread\executor.h" />
     <ClInclude Include="thread\prioritizedworkqueue.h" />
-    <ClInclude Include="thread\thread.h" />
     <ClInclude Include="thread\threadpool.h" />
     <ClInclude Include="thread\threadutil.h" />
     <ClInclude Include="ui\screen.h" />
@@ -278,7 +291,6 @@
     <ClInclude Include="ui\ui_screen.h" />
     <ClInclude Include="ui\view.h" />
     <ClInclude Include="ui\viewgroup.h" />
-    <ClInclude Include="ui\virtual_input.h" />
     <ClInclude Include="util\random\rng.h" />
     <ClInclude Include="util\text\parsers.h" />
     <ClInclude Include="util\text\shiftjis.h" />
@@ -289,8 +301,8 @@
     <ClCompile Include="base\backtrace.cpp" />
     <ClCompile Include="base\buffer.cpp" />
     <ClCompile Include="base\colorutil.cpp" />
-    <ClCompile Include="base\compat.cpp" />
     <ClCompile Include="base\display.cpp" />
+    <ClCompile Include="base\logging.cpp" />
     <ClCompile Include="base\PCMain.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -680,10 +692,20 @@
     <ClCompile Include="file\ini_file.cpp" />
     <ClCompile Include="file\zip_read.cpp" />
     <ClCompile Include="file\free.cpp" />
+    <ClCompile Include="gfx\d3d9_shader.cpp" />
+    <ClCompile Include="gfx\d3d9_state.cpp" />
+    <ClCompile Include="gfx\GLStateCache.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
     <ClCompile Include="gfx\gl_lost_manager.cpp" />
     <ClCompile Include="gfx\texture_atlas.cpp" />
+    <ClCompile Include="gfx_es2\draw_text_android.cpp" />
+    <ClCompile Include="gfx_es2\draw_text_qt.cpp" />
+    <ClCompile Include="gfx_es2\draw_text_win.cpp" />
+    <ClCompile Include="math\dataconv.cpp" />
+    <ClCompile Include="thin3d\d3d11_loader.cpp" />
     <ClCompile Include="thin3d\thin3d_d3d11.cpp" />
+    <ClCompile Include="thin3d\VulkanQueueRunner.cpp" />
+    <ClCompile Include="thin3d\VulkanRenderManager.cpp" />
     <ClCompile Include="util\text\wrap_text.cpp" />
     <ClCompile Include="gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="gfx_es2\draw_text.cpp" />
@@ -736,7 +758,6 @@
     <ClCompile Include="ui\ui_screen.cpp" />
     <ClCompile Include="ui\view.cpp" />
     <ClCompile Include="ui\viewgroup.cpp" />
-    <ClCompile Include="ui\virtual_input.cpp" />
     <ClCompile Include="util\hash\hash.cpp" />
     <ClCompile Include="util\text\parsers.cpp" />
     <ClCompile Include="util\text\utf8.cpp" />

@@ -22,7 +22,7 @@
 
 namespace DX9 {
 
-class TextureScalerDX9 : public TextureScaler {
+class TextureScalerDX9 : public TextureScalerCommon {
 private:
 	void ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) override;
 	int BytesPerPixel(u32 format) override;

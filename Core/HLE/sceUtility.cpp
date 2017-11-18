@@ -690,6 +690,25 @@ static u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
 	return 0;
 }
 
+static u32 sceUtilitySetSystemParamInt(u32 id, u32 value)
+{
+	switch (id) {
+	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
+		if (value != 0 && value != 1 && value != 6 && value != 11) {
+			return ERROR_UTILITY_INVALID_ADHOC_CHANNEL;
+		}
+		//Settings.getInstance().writeInt(SYSTEMPARAM_SETTINGS_OPTION_ADHOC_CHANNEL, value);
+		break;
+	case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
+		// Settings.getInstance().writeInt(SYSTEMPARAM_SETTINGS_OPTION_WLAN_POWER_SAVE, value);
+		break;
+	default:
+		// PSP can only set above int parameters
+		return ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID;
+	}
+	return 0;
+}
+
 static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 {
 	DEBUG_LOG(SCEUTILITY,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
@@ -875,7 +894,7 @@ const HLEFunction sceUtility[] =
 	{0XF3F76017, &WrapI_V<sceUtilityOskGetStatus>,                 "sceUtilityOskGetStatus",                 'i', ""   },
 
 	{0X41E30674, &WrapU_UU<sceUtilitySetSystemParamString>,        "sceUtilitySetSystemParamString",         'x', "xx" },
-	{0X45C18506, nullptr,                                          "sceUtilitySetSystemParamInt",            '?', ""   },
+	{0X45C18506, &WrapU_UU<sceUtilitySetSystemParamInt>,           "sceUtilitySetSystemParamInt",            'x', "xx"   },
 	{0X34B78343, &WrapU_UUI<sceUtilityGetSystemParamString>,       "sceUtilityGetSystemParamString",         'x', "xxi"},
 	{0XA5DA2406, &WrapU_UU<sceUtilityGetSystemParamInt>,           "sceUtilityGetSystemParamInt",            'x', "xx" },
 

@@ -69,10 +69,6 @@ void IRJit::ClearCache() {
 	blocks_.Clear();
 }
 
-void IRJit::InvalidateCache() {
-	blocks_.Clear();
-}
-
 void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 	blocks_.InvalidateICache(em_address, length);
 }

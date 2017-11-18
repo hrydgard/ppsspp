@@ -36,6 +36,7 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Breakpoints.h"
+#include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
 #include "Core/Config.h"
 #include <windowsx.h>
@@ -60,8 +61,7 @@ void CGEDebugger::Init() {
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), primaryWindow(nullptr), secondWindow(nullptr),
-	  textureLevel_(0), showClut_(false), primaryBuffer_(nullptr), secondBuffer_(nullptr) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent) {
 	GPUBreakpoints::Init();
 	Core_ListenShutdown(ForceUnpause);
 
@@ -169,7 +169,7 @@ void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, wchar_t desc[25
 		return;
 	}
 
-	_assert_msg_(MASTER_LOG, primaryBuffer_ != nullptr, "Must have a valid primaryBuffer_");
+	_assert_msg_(G3D, primaryBuffer_ != nullptr, "Must have a valid primaryBuffer_");
 
 	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
 	case PRIMARY_FRAMEBUF:
@@ -706,6 +706,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			breakNext = BREAK_NONE;
 			break;
 
+		case IDC_GEDBG_RECORD:
+			GPURecord::Activate();
+			break;
+
 		case IDC_GEDBG_FORCEOPAQUE:
 			if (attached && gpuDebug != nullptr) {
 				forceOpaque_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_FORCEOPAQUE), BM_GETCHECK, 0, 0) != 0;
@@ -727,14 +731,14 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			u32 pc = (u32)wParam;
 			ClearTempBreakpoints();
 			auto info = gpuDebug->DissassembleOp(pc);
-			NOTICE_LOG(COMMON, "Waiting at %08x, %s", pc, info.desc.c_str());
+			NOTICE_LOG(G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
 			UpdatePreviews();
 		}
 		break;
 
 	case WM_GEDBG_BREAK_DRAW:
 		{
-			NOTICE_LOG(COMMON, "Waiting at a draw");
+			NOTICE_LOG(G3D, "Waiting at a draw");
 			UpdatePreviews();
 		}
 		break;

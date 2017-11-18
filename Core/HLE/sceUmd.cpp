@@ -23,6 +23,7 @@
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
+#include "Core/Host.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
@@ -47,10 +48,12 @@ static u32 umdErrorStat = 0;
 static int driveCBId = 0;
 static int umdStatTimeoutEvent = -1;
 static int umdStatChangeEvent = -1;
+static int umdInsertChangeEvent = -1;
 static std::vector<SceUID> umdWaitingThreads;
 static std::map<SceUID, u64> umdPausedWaits;
 
 bool UMDReplacePermit = false;
+bool UMDInserted = true;
 
 struct PspUmdInfo {
 	u32_le size;
@@ -59,6 +62,7 @@ struct PspUmdInfo {
 
 void __UmdStatTimeout(u64 userdata, int cyclesLate);
 void __UmdStatChange(u64 userdata, int cyclesLate);
+void __UmdInsertChange(u64 userdata, int cyclesLate);
 void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId);
 
@@ -66,6 +70,7 @@ void __UmdInit()
 {
 	umdStatTimeoutEvent = CoreTiming::RegisterEvent("UmdTimeout", __UmdStatTimeout);
 	umdStatChangeEvent = CoreTiming::RegisterEvent("UmdChange", __UmdStatChange);
+	umdInsertChangeEvent = CoreTiming::RegisterEvent("UmdInsertChange", __UmdInsertChange);
 	umdActivated = 1;
 	umdStatus = 0;
 	umdErrorStat = 0;
@@ -78,7 +83,7 @@ void __UmdInit()
 
 void __UmdDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceUmd", 1, 2);
+	auto s = p.Section("sceUmd", 1, 3);
 	if (!s)
 		return;
 
@@ -93,8 +98,18 @@ void __UmdDoState(PointerWrap &p)
 	p.Do(umdWaitingThreads);
 	p.Do(umdPausedWaits);
 
-	if (s > 1)
+	if (s > 1) {
 		p.Do(UMDReplacePermit);
+		if (UMDReplacePermit)
+			host->UpdateUI();
+	}
+	if (s > 2) {
+		p.Do(umdInsertChangeEvent);
+		CoreTiming::RestoreRegisterEvent(umdInsertChangeEvent, "UmdInsertChange", __UmdInsertChange);
+		p.Do(UMDInserted);
+	}
+	else
+		UMDInserted = true;
 }
 
 static u8 __KernelUmdGetState()
@@ -106,6 +121,11 @@ static u8 __KernelUmdGetState()
 		state |= PSP_UMD_READABLE;
 	}
 	return state;
+}
+
+void __UmdInsertChange(u64 userdata, int cyclesLate)
+{
+	UMDInserted = true;
 }
 
 void __UmdStatChange(u64 userdata, int cyclesLate)
@@ -225,8 +245,12 @@ void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 
 static int sceUmdCheckMedium()
 {
-	DEBUG_LOG(SCEIO, "1=sceUmdCheckMedium()");
-	return 1; //non-zero: disc in drive
+	if (UMDInserted) {
+		DEBUG_LOG(SCEIO, "1=sceUmdCheckMedium()");
+		return 1; //non-zero: disc in drive
+	}
+	DEBUG_LOG(SCEIO, "0=sceUmdCheckMedium()");
+	return 0;
 }
 	
 static u32 sceUmdGetDiscInfo(u32 infoAddr)
@@ -312,6 +336,10 @@ static int sceUmdUnRegisterUMDCallBack(int cbId)
 
 static u32 sceUmdGetDriveStat()
 {
+	if (!UMDInserted) {
+		WARN_LOG(SCEIO, "sceUmdGetDriveStat: UMD is taking out for switch UMD");
+		return PSP_UMD_NOT_PRESENT;
+	}
 	//u32 retVal = PSP_UMD_INITED | PSP_UMD_READY | PSP_UMD_PRESENT;
 	u32 retVal = __KernelUmdGetState();
 	DEBUG_LOG(SCEIO,"0x%02x=sceUmdGetDriveStat()", retVal);
@@ -408,6 +436,11 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 
 static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 {
+	if (!UMDInserted) {
+		WARN_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): UMD is taking out for switch UMD", stat, timeout);
+		return PSP_UMD_NOT_PRESENT;
+	}
+
 	if (stat == 0) {
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): bad status", stat, timeout);
 		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
@@ -495,7 +528,8 @@ void __UmdReplace(std::string filepath) {
 		}
 	}
 	delete currentUMD;
-
+	UMDInserted = false;
+	CoreTiming::ScheduleEvent(usToCycles(200*1000), umdInsertChangeEvent, 0); // Wait sceUmdCheckMedium call
 	// TODO Is this always correct if UMD was not activated?
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != -1)
@@ -510,6 +544,7 @@ static u32 sceUmdReplaceProhibit()
 {
 	UMDReplacePermit = false;
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
+	host->UpdateUI();
 	return 0;
 }
 
@@ -517,6 +552,7 @@ static u32 sceUmdReplacePermit()
 {
 	UMDReplacePermit = true;
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
+	host->UpdateUI();
 	return 0;
 }
 

@@ -9,6 +9,10 @@ I18NRepo::~I18NRepo() {
 	Clear();
 }
 
+std::string I18NRepo::LanguageID() {
+	return languageID_;
+}
+
 void I18NRepo::Clear() {
 	for (auto iter = cats_.begin(); iter != cats_.end(); ++iter) {
 		delete iter->second;
@@ -95,6 +99,8 @@ bool I18NRepo::LoadIni(const std::string &languageID, const std::string &overrid
 			cats_[iter->name()] = LoadSection(&(*iter), iter->name().c_str());
 		}
 	}
+
+	languageID_ = languageID;
 	return true;
 }
 

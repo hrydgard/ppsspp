@@ -162,7 +162,6 @@ namespace MIPSComp {
 
 		{
 			JitSafeMem safe(this, rs, offset, ~3);
-			safe.SetFar();
 			OpArg src;
 			if (safe.PrepareRead(src, 4))
 			{

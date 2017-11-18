@@ -1,4 +1,6 @@
-#include <limits.h>
+#include "ppsspp_config.h"
+
+#include <climits>
 #include <algorithm>
 
 #include "base/NativeApp.h"
@@ -11,13 +13,15 @@
 
 // Utilities to dynamically load XInput. Adapted from SDL.
 
+#if !PPSSPP_PLATFORM(UWP)
+
 typedef DWORD (WINAPI *XInputGetState_t) (DWORD dwUserIndex, XINPUT_STATE* pState);
 typedef DWORD (WINAPI *XInputSetState_t) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
 typedef DWORD (WINAPI *XInputGetCapabilities_t) (DWORD dwUserIndex, DWORD dwFlags, XINPUT_CAPABILITIES* pCapabilities);
 
-XInputGetState_t PPSSPP_XInputGetState = NULL;
-XInputSetState_t PPSSPP_XInputSetState = NULL;
-XInputGetCapabilities_t PPSSPP_XInputGetCapabilities = NULL;
+static XInputGetState_t PPSSPP_XInputGetState = NULL;
+static XInputSetState_t PPSSPP_XInputSetState = NULL;
+static XInputGetCapabilities_t PPSSPP_XInputGetCapabilities = NULL;
 static DWORD PPSSPP_XInputVersion = 0;
 static HMODULE s_pXInputDLL = 0;
 static int s_XInputDLLRefCount = 0;
@@ -66,6 +70,14 @@ static void UnloadXInputDLL() {
 	}
 }
 
+#else
+static int LoadXInputDLL() { return 0; }
+static void UnloadXInputDLL() {}
+#define PPSSPP_XInputGetState XInputGetState
+#define PPSSPP_XInputSetState XInputSetState
+#define PPSSPP_XInputGetCapabilities XInputGetCapabilities
+#endif
+
 #ifndef XUSER_MAX_COUNT
 #define XUSER_MAX_COUNT 4
 #endif
@@ -97,11 +109,12 @@ static const unsigned int xinput_ctrl_map_size = sizeof(xinput_ctrl_map) / sizeo
 
 XinputDevice::XinputDevice() {
 	if (LoadXInputDLL() != 0) {
-		ERROR_LOG(SCECTRL, "Failed to load XInput! DLL missing");
+		WARN_LOG(SCECTRL, "Failed to load XInput! DLL missing");
 	}
-	ZeroMemory( &this->prevState, sizeof(this->prevState) );
-	this->check_delay = 0;
-	this->gamepad_idx = -1;
+
+	for (size_t i = 0; i < ARRAY_SIZE(check_delay); ++i) {
+		check_delay[i] = (int)i;
+	}
 }
 
 XinputDevice::~XinputDevice() {
@@ -129,7 +142,7 @@ inline float LinearMapf(float val, float a0, float a1, float b0, float b1) {
 }
 
 static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, float idz, float st) {
-	Stick s(x, y, 1.0 / 32767.0f);
+	Stick s(x, y, 1.0f / 32767.0f);
 
 	float magnitude = sqrtf(s.x * s.x + s.y * s.y);
 	if (magnitude > dz) {
@@ -185,8 +198,8 @@ static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, floa
 }
 
 bool NormalizedDeadzoneDiffers(short x1, short y1, short x2, short y2, const float dz) {
-	Stick s1(x1, y1, 1.0 / 32767.0f);
-	Stick s2(x2, y2, 1.0 / 32767.0f);
+	Stick s1(x1, y1, 1.0f / 32767.0f);
+	Stick s2(x2, y2, 1.0f / 32767.0f);
 
 	float magnitude1 = sqrtf(s1.x * s1.x + s1.y * s1.y);
 	float magnitude2 = sqrtf(s2.x * s2.x + s2.y * s2.y);
@@ -203,125 +216,117 @@ bool NormalizedDeadzoneDiffers(u8 x1, u8 x2, const u8 thresh) {
 	return false;
 }
 
-int XinputDevice::UpdateState(InputState &input_state) {
+int XinputDevice::UpdateState() {
+#if !PPSSPP_PLATFORM(UWP)
 	if (!s_pXInputDLL)
 		return 0;
+#endif
 
-	if (this->check_delay-- > 0)
-		return -1;
-
-	XINPUT_STATE state;
-	ZeroMemory( &state, sizeof(XINPUT_STATE) );
-
-	DWORD dwResult;
-	if (this->gamepad_idx >= 0) {
-		dwResult = PPSSPP_XInputGetState( this->gamepad_idx, &state );
-	} else {
-		// use the first gamepad that responds
-		for (int i = 0; i < XUSER_MAX_COUNT; i++) {
-			dwResult = PPSSPP_XInputGetState( i, &state );
-			if (dwResult == ERROR_SUCCESS) {
-				this->gamepad_idx = i;
-				break;
-			}
+	bool anySuccess = false;
+	for (int i = 0; i < XUSER_MAX_COUNT; i++) {
+		XINPUT_STATE state;
+		ZeroMemory(&state, sizeof(XINPUT_STATE));
+		if (check_delay[i]-- > 0)
+			continue;
+		DWORD dwResult = PPSSPP_XInputGetState(i, &state);
+		if (dwResult == ERROR_SUCCESS) {
+			UpdatePad(i, state);
+			anySuccess = true;
+		} else {
+			check_delay[i] = 30;
 		}
 	}
-	
-	if ( dwResult == ERROR_SUCCESS ) {
-		static bool notified = false;
-		if (!notified) {
-			notified = true;
-			KeyMap::NotifyPadConnected("Xbox 360 Pad");
-		}
-		ApplyButtons(state, input_state);
 
-		const float STICK_DEADZONE = g_Config.fXInputAnalogDeadzone;
-		const int STICK_INV_MODE = g_Config.iXInputAnalogInverseMode;
-		const float STICK_INV_DEADZONE = g_Config.fXInputAnalogInverseDeadzone;
-		const float STICK_SENSITIVITY = g_Config.fXInputAnalogSensitivity;
-
-		if (NormalizedDeadzoneDiffers(prevState.Gamepad.sThumbLX, prevState.Gamepad.sThumbLY, state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, STICK_DEADZONE)) {
-			Stick left = NormalizedDeadzoneFilter(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, STICK_DEADZONE, STICK_INV_MODE, STICK_INV_DEADZONE, STICK_SENSITIVITY);
-
-			AxisInput axis;
-			axis.deviceId = DEVICE_ID_X360_0;
-			axis.axisId = JOYSTICK_AXIS_X;
-			axis.value = left.x;
-			if (prevState.Gamepad.sThumbLX != state.Gamepad.sThumbLX) {
-				NativeAxis(axis);
-			}
-			axis.axisId = JOYSTICK_AXIS_Y;
-			axis.value = left.y;
-			if (prevState.Gamepad.sThumbLY != state.Gamepad.sThumbLY) {
-				NativeAxis(axis);
-			}
-		}
-
-		if (NormalizedDeadzoneDiffers(prevState.Gamepad.sThumbRX, prevState.Gamepad.sThumbRY, state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, STICK_DEADZONE)) {
-			Stick right = NormalizedDeadzoneFilter(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, STICK_DEADZONE, STICK_INV_MODE, STICK_INV_DEADZONE, STICK_SENSITIVITY);
-
-			AxisInput axis;
-			axis.deviceId = DEVICE_ID_X360_0;
-			axis.axisId = JOYSTICK_AXIS_Z;
-			axis.value = right.x;
-			if (prevState.Gamepad.sThumbRX != state.Gamepad.sThumbRX) {
-				NativeAxis(axis);
-			}
-			axis.axisId = JOYSTICK_AXIS_RZ;
-			axis.value = right.y;
-			if (prevState.Gamepad.sThumbRY != state.Gamepad.sThumbRY) {
-				NativeAxis(axis);
-			}
-		}
-
-		if (NormalizedDeadzoneDiffers(prevState.Gamepad.bLeftTrigger, state.Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
-			AxisInput axis;
-			axis.deviceId = DEVICE_ID_X360_0;
-			axis.axisId = JOYSTICK_AXIS_LTRIGGER;
-			axis.value = (float)state.Gamepad.bLeftTrigger / 255.0f;
-			NativeAxis(axis);
-		}
-
-		if (NormalizedDeadzoneDiffers(prevState.Gamepad.bRightTrigger, state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
-			AxisInput axis;
-			axis.deviceId = DEVICE_ID_X360_0;
-			axis.axisId = JOYSTICK_AXIS_RTRIGGER;
-			axis.value = (float)state.Gamepad.bRightTrigger / 255.0f;
-			NativeAxis(axis);
-		}
-
-		this->prevState = state;
-		this->check_delay = 0;
-
-		// If there's an XInput pad, skip following pads. This prevents DInput and XInput
-		// from colliding.
-		return UPDATESTATE_SKIP_PAD;
-	} else {
-		// wait check_delay frames before polling the controller again
-		this->gamepad_idx = -1;
-		this->check_delay = 100;
-		return -1;
-	}
+	// If we get XInput, skip the others. This might not actually be a good idea,
+	// and was done to avoid conflicts between DirectInput and XInput.
+	return anySuccess ? UPDATESTATE_SKIP_PAD : 0;
 }
 
-void XinputDevice::ApplyButtons(XINPUT_STATE &state, InputState &input_state) {
+void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state) {
+	static bool notified = false;
+	if (!notified) {
+		notified = true;
+		KeyMap::NotifyPadConnected("Xbox 360 Pad");
+	}
+	ApplyButtons(pad, state);
+
+	const float STICK_DEADZONE = g_Config.fXInputAnalogDeadzone;
+	const int STICK_INV_MODE = g_Config.iXInputAnalogInverseMode;
+	const float STICK_INV_DEADZONE = g_Config.fXInputAnalogInverseDeadzone;
+	const float STICK_SENSITIVITY = g_Config.fXInputAnalogSensitivity;
+
+	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.sThumbLX, prevState[pad].Gamepad.sThumbLY, state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, STICK_DEADZONE)) {
+		Stick left = NormalizedDeadzoneFilter(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, STICK_DEADZONE, STICK_INV_MODE, STICK_INV_DEADZONE, STICK_SENSITIVITY);
+
+		AxisInput axis;
+		axis.deviceId = DEVICE_ID_X360_0 + pad;
+		axis.axisId = JOYSTICK_AXIS_X;
+		axis.value = left.x;
+		if (prevState[pad].Gamepad.sThumbLX != state.Gamepad.sThumbLX) {
+			NativeAxis(axis);
+		}
+		axis.axisId = JOYSTICK_AXIS_Y;
+		axis.value = left.y;
+		if (prevState[pad].Gamepad.sThumbLY != state.Gamepad.sThumbLY) {
+			NativeAxis(axis);
+		}
+	}
+
+	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.sThumbRX, prevState[pad].Gamepad.sThumbRY, state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, STICK_DEADZONE)) {
+		Stick right = NormalizedDeadzoneFilter(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, STICK_DEADZONE, STICK_INV_MODE, STICK_INV_DEADZONE, STICK_SENSITIVITY);
+
+		AxisInput axis;
+		axis.deviceId = DEVICE_ID_X360_0 + pad;
+		axis.axisId = JOYSTICK_AXIS_Z;
+		axis.value = right.x;
+		if (prevState[pad].Gamepad.sThumbRX != state.Gamepad.sThumbRX) {
+			NativeAxis(axis);
+		}
+		axis.axisId = JOYSTICK_AXIS_RZ;
+		axis.value = right.y;
+		if (prevState[pad].Gamepad.sThumbRY != state.Gamepad.sThumbRY) {
+			NativeAxis(axis);
+		}
+	}
+
+	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bLeftTrigger, state.Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
+		AxisInput axis;
+		axis.deviceId = DEVICE_ID_X360_0 + pad;
+		axis.axisId = JOYSTICK_AXIS_LTRIGGER;
+		axis.value = (float)state.Gamepad.bLeftTrigger / 255.0f;
+		NativeAxis(axis);
+	}
+
+	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bRightTrigger, state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
+		AxisInput axis;
+		axis.deviceId = DEVICE_ID_X360_0 + pad;
+		axis.axisId = JOYSTICK_AXIS_RTRIGGER;
+		axis.value = (float)state.Gamepad.bRightTrigger / 255.0f;
+		NativeAxis(axis);
+	}
+
+	prevState[pad] = state;
+	check_delay[pad] = 0;
+}
+
+void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 	u32 buttons = state.Gamepad.wButtons;
 
-	u32 downMask = buttons & (~prevButtons);
-	u32 upMask = (~buttons) & prevButtons;
-	prevButtons = buttons;
+	u32 downMask = buttons & (~prevButtons[pad]);
+	u32 upMask = (~buttons) & prevButtons[pad];
+	prevButtons[pad] = buttons;
 	
 	for (int i = 0; i < xinput_ctrl_map_size; i++) {
 		if (downMask & xinput_ctrl_map[i].from) {
 			KeyInput key;
-			key.deviceId = DEVICE_ID_X360_0;
+			key.deviceId = DEVICE_ID_X360_0 + pad;
 			key.flags = KEY_DOWN;
 			key.keyCode = xinput_ctrl_map[i].to;
 			NativeKey(key);
 		}
 		if (upMask & xinput_ctrl_map[i].from) {
 			KeyInput key;
-			key.deviceId = DEVICE_ID_X360_0;
+			key.deviceId = DEVICE_ID_X360_0 + pad;
 			key.flags = KEY_UP;
 			key.keyCode = xinput_ctrl_map[i].to;
 			NativeKey(key);

@@ -23,40 +23,51 @@
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
 
-class ReportScreen : public UIScreenWithGameBackground {
+enum class ReportingOverallScore : int {
+	PERFECT = 0,
+	PLAYABLE = 1,
+	INGAME = 2,
+	MENU = 3,
+	NONE = 4,
+	INVALID = -1,
+};
+
+class ReportScreen : public UIDialogScreenWithGameBackground {
 public:
 	ReportScreen(const std::string &gamePath);
 
 protected:
-	void update(InputState &input) override;
+	void update() override;
 	void CreateViews() override;
 	void UpdateSubmit();
+	void UpdateOverallDescription();
 
 	UI::EventReturn HandleChoice(UI::EventParams &e);
 	UI::EventReturn HandleSubmit(UI::EventParams &e);
 	UI::EventReturn HandleBrowser(UI::EventParams &e);
 	UI::EventReturn HandleReportingChange(UI::EventParams &e);
 
-	UI::Choice *submit_;
-	UI::View *screenshot_;
-	UI::TextView *reportingNotice_;
+	UI::Choice *submit_ = nullptr;
+	UI::View *screenshot_ = nullptr;
+	UI::TextView *reportingNotice_ = nullptr;
+	UI::TextView *overallDescription_ = nullptr;
 	std::string screenshotFilename_;
 
-	int overall_;
-	int graphics_;
-	int speed_;
-	int gameplay_;
+	ReportingOverallScore overall_ = ReportingOverallScore::INVALID;
+	int graphics_ = -1;
+	int speed_ = -1;
+	int gameplay_ = -1;
 	bool enableReporting_;
 	bool ratingEnabled_;
-	bool includeScreenshot_;
+	bool includeScreenshot_ = true;
 };
 
-class ReportFinishScreen : public UIScreenWithGameBackground {
+class ReportFinishScreen : public UIDialogScreenWithGameBackground {
 public:
 	ReportFinishScreen(const std::string &gamePath);
 
 protected:
-	void update(InputState &input) override;
+	void update() override;
 	void CreateViews() override;
 
 	UI::EventReturn HandleViewFeedback(UI::EventParams &e);

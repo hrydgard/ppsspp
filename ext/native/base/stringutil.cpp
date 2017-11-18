@@ -39,6 +39,19 @@ void OutputDebugStringUTF8(const char *p) {
 
 #endif
 
+std::string LineNumberString(const std::string &str) {
+	std::stringstream input(str);
+	std::stringstream output;
+	std::string line;
+
+	int lineNumber = 1;
+	while (std::getline(input, line)) {
+		output << std::setw(4) << lineNumber++ << ":  " << line << std::endl;
+	}
+
+	return output.str();
+}
+
 void StringTrimEndNonAlphaNum(char *str) {
 	ssize_t n = strlen(str);
 	while (!isalnum(str[n]) && n >= 0) {
@@ -263,6 +276,26 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 		output.push_back(str);
 	} else if (next < str.length()) {
 		output.push_back(str.substr(next));
+	}
+}
+
+void GetQuotedStrings(const std::string& str, std::vector<std::string>& output)
+{
+	size_t next = 0;
+	bool even = 0;
+	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
+		if (str[pos] == '\"' || str[pos] == '\'') {
+			if (even) {
+				//quoted text
+				output.push_back(str.substr(next, pos - next));
+				even = 0;
+			} else {
+				//non quoted text
+				even = 1;
+			}
+			// Skip the delimiter itself.
+			next = pos + 1;
+		}
 	}
 }
 

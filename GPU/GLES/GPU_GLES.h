@@ -21,39 +21,34 @@
 #include <deque>
 
 #include "GPU/GPUCommon.h"
-#include "GPU/GLES/FBO.h"
-#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/TextureCache.h"
-#include "GPU/GLES/DepalettizeShader.h"
-#include "GPU/GLES/FragmentTestCache.h"
+#include "GPU/GLES/TextureCacheGLES.h"
+#include "GPU/GLES/DepalettizeShaderGLES.h"
+#include "GPU/GLES/FragmentTestCacheGLES.h"
 
-class ShaderManager;
+class ShaderManagerGLES;
 class LinkedShader;
-class GraphicsContext;
 
 class GPU_GLES : public GPUCommon {
 public:
-	GPU_GLES(GraphicsContext *gfxCtx);
+	GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_GLES();
 
 	// This gets called on startup and when we get back from settings.
 	void CheckGPUFeatures();
 
 	void PreExecuteOp(u32 op, u32 diff) override;
-	void Execute_Generic(u32 op, u32 diff);
 	void ExecuteOp(u32 op, u32 diff) override;
 
-	void ReapplyGfxStateInternal() override;
+	void ReapplyGfxState() override;
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
-	void BeginFrame() override;
 	void GetStats(char *buffer, size_t bufsize) override;
 
 	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore() override;
 
-	void DumpNextFrame() override;
 	void DoState(PointerWrap &p) override;
 
 	void ClearShaderCache() override;
@@ -68,88 +63,24 @@ public:
 		primaryInfo = reportingPrimaryInfo_;
 		fullInfo = reportingFullInfo_;
 	}
-	std::vector<FramebufferInfo> GetFramebufferList() override;
-
-	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) override;
-	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
-	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
-	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
-	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
-	static bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
-
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 	typedef void (GPU_GLES::*CmdFunc)(u32 op, u32 diff);
 	struct CommandInfo {
-		u8 flags;
+		uint64_t flags;
 		GPU_GLES::CmdFunc func;
 	};
 
-	void Execute_Vaddr(u32 op, u32 diff);
-	void Execute_Iaddr(u32 op, u32 diff);
 	void Execute_Prim(u32 op, u32 diff);
-	void Execute_Bezier(u32 op, u32 diff);
-	void Execute_Spline(u32 op, u32 diff);
-	void Execute_BoundingBox(u32 op, u32 diff);
-	void Execute_VertexType(u32 op, u32 diff);
-	void Execute_VertexTypeSkinning(u32 op, u32 diff);
-	void Execute_Region(u32 op, u32 diff);
-	void Execute_Scissor(u32 op, u32 diff);
-	void Execute_FramebufType(u32 op, u32 diff);
-	void Execute_ViewportType(u32 op, u32 diff);
-	void Execute_ViewportZType(u32 op, u32 diff);
-	void Execute_TexScaleU(u32 op, u32 diff);
-	void Execute_TexScaleV(u32 op, u32 diff);
-	void Execute_TexOffsetU(u32 op, u32 diff);
-	void Execute_TexOffsetV(u32 op, u32 diff);
-	void Execute_TexAddr0(u32 op, u32 diff);
-	void Execute_TexAddrN(u32 op, u32 diff);
-	void Execute_TexBufw0(u32 op, u32 diff);
-	void Execute_TexBufwN(u32 op, u32 diff);
-	void Execute_TexSize0(u32 op, u32 diff);
-	void Execute_TexSizeN(u32 op, u32 diff);
-	void Execute_TexFormat(u32 op, u32 diff);
-	void Execute_TexMapMode(u32 op, u32 diff);
-	void Execute_TexParamType(u32 op, u32 diff);
-	void Execute_TexEnvColor(u32 op, u32 diff);
-	void Execute_TexLevel(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
-	void Execute_ClutFormat(u32 op, u32 diff);
-	void Execute_Ambient(u32 op, u32 diff);
-	void Execute_MaterialDiffuse(u32 op, u32 diff);
-	void Execute_MaterialEmissive(u32 op, u32 diff);
-	void Execute_MaterialAmbient(u32 op, u32 diff);
-	void Execute_MaterialSpecular(u32 op, u32 diff);
-	void Execute_Light0Param(u32 op, u32 diff);
-	void Execute_Light1Param(u32 op, u32 diff);
-	void Execute_Light2Param(u32 op, u32 diff);
-	void Execute_Light3Param(u32 op, u32 diff);
-	void Execute_FogColor(u32 op, u32 diff);
-	void Execute_FogCoef(u32 op, u32 diff);
-	void Execute_ColorTestMask(u32 op, u32 diff);
-	void Execute_AlphaTest(u32 op, u32 diff);
-	void Execute_StencilTest(u32 op, u32 diff);
-	void Execute_ColorRef(u32 op, u32 diff);
-	void Execute_WorldMtxNum(u32 op, u32 diff);
-	void Execute_WorldMtxData(u32 op, u32 diff);
-	void Execute_ViewMtxNum(u32 op, u32 diff);
-	void Execute_ViewMtxData(u32 op, u32 diff);
-	void Execute_ProjMtxNum(u32 op, u32 diff);
-	void Execute_ProjMtxData(u32 op, u32 diff);
-	void Execute_TgenMtxNum(u32 op, u32 diff);
-	void Execute_TgenMtxData(u32 op, u32 diff);
-	void Execute_BoneMtxNum(u32 op, u32 diff);
-	void Execute_BoneMtxData(u32 op, u32 diff);
-	void Execute_BlockTransferStart(u32 op, u32 diff);
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
 
+	void BeginHostFrame() override;
+
 protected:
 	void FastRunLoop(DisplayList &list) override;
-	void FastLoadBoneMatrix(u32 target) override;
 	void FinishDeferred() override;
 
 private:
@@ -159,28 +90,27 @@ private:
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 
-	void InitClearInternal() override;
-	void BeginFrameInternal() override;
-	void CopyDisplayToOutputInternal() override;
-	void ReinitializeInternal() override;
+	void InitClear() override;
+	void BeginFrame() override;
+	void CopyDisplayToOutput() override;
+	void Reinitialize() override;
 
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
 
 	static CommandInfo cmdInfo_[256];
 
-	FramebufferManager *framebufferManagerGL_;
-	TextureCache *textureCacheGL_;
-	DepalShaderCache depalShaderCache_;
+	FramebufferManagerGLES *framebufferManagerGL_;
+	TextureCacheGLES *textureCacheGL_;
+	DepalShaderCacheGLES depalShaderCache_;
 	DrawEngineGLES drawEngine_;
-	FragmentTestCache fragmentTestCache_;
-	ShaderManager *shaderManager_;
+	FragmentTestCacheGLES fragmentTestCache_;
+	ShaderManagerGLES *shaderManagerGL_;
 
 	int lastVsync_;
+	int vertexCost_ = 0;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
-
-	GraphicsContext *gfxCtx_;
 	std::string shaderCachePath_;
 };

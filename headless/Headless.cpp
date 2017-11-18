@@ -9,6 +9,7 @@
 #include "file/zip_read.h"
 #include "profiler/profiler.h"
 #include "Common/FileUtil.h"
+#include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -19,13 +20,14 @@
 #include "Log.h"
 #include "LogManager.h"
 #include "base/NativeApp.h"
-#include "input/input_state.h"
 #include "base/timeutil.h"
 
 #include "Compare.h"
 #include "StubHost.h"
-#ifdef _WIN32
+#if defined(_WIN32)
 #include "WindowsHeadlessHost.h"
+#elif defined(SDL)
+#include "SDLHeadlessHost.h"
 #endif
 
 // https://github.com/richq/android-ndk-profiler
@@ -34,44 +36,45 @@
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-class PrintfLogger : public LogListener
-{
+class PrintfLogger : public LogListener {
 public:
-	void Log(LogTypes::LOG_LEVELS level, const char *msg)
-	{
-		switch (level)
-		{
+	void Log(const LogMessage &message) {
+		switch (message.level) {
 		case LogTypes::LVERBOSE:
-			fprintf(stderr, "V %s", msg);
+			fprintf(stderr, "V %s", message.msg.c_str());
 			break;
 		case LogTypes::LDEBUG:
-			fprintf(stderr, "D %s", msg);
+			fprintf(stderr, "D %s", message.msg.c_str());
 			break;
 		case LogTypes::LINFO:
-			fprintf(stderr, "I %s", msg);
+			fprintf(stderr, "I %s", message.msg.c_str());
 			break;
 		case LogTypes::LERROR:
-			fprintf(stderr, "E %s", msg);
+			fprintf(stderr, "E %s", message.msg.c_str());
 			break;
 		case LogTypes::LWARNING:
-			fprintf(stderr, "W %s", msg);
+			fprintf(stderr, "W %s", message.msg.c_str());
 			break;
 		case LogTypes::LNOTICE:
 		default:
-			fprintf(stderr, "N %s", msg);
+			fprintf(stderr, "N %s", message.msg.c_str());
 			break;
 		}
 	}
 };
 
-struct InputState;
 // Temporary hacks around annoying linking errors.
-void NativeUpdate(InputState &input_state) { }
+void NativeUpdate() { }
 void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
-int System_GetPropertyInt(SystemProperty prop) { return -1; }
+int System_GetPropertyInt(SystemProperty prop) {
+	return -1;
+}
+bool System_GetPropertyBool(SystemProperty prop) {
+	return false;
+}
 void System_SendMessage(const char *command, const char *parameter) {}
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
 void System_AskForPermission(SystemPermission permission) {}
@@ -92,7 +95,7 @@ int printUsage(const char *progname, const char *reason)
 #if defined(HEADLESSHOST_CLASS)
 	{
 		fprintf(stderr, "  --graphics=BACKEND    use the full gpu backend (slower)\n");
-		fprintf(stderr, "                        options: gles, software, directx9\n");
+		fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
 		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	}
 #endif
@@ -155,6 +158,12 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	static double deadline;
 	deadline = time_now() + timeout;
 
+	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
+
+	PSP_BeginHostFrame();
+	if (coreParameter.thin3d)
+		coreParameter.thin3d->BeginFrame();
+
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
 	{
@@ -177,6 +186,10 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 			Core_Stop();
 		}
 	}
+	PSP_EndHostFrame();
+
+	if (coreParameter.thin3d)
+		coreParameter.thin3d->EndFrame();
 
 	PSP_Shutdown();
 
@@ -194,6 +207,10 @@ int main(int argc, const char* argv[])
 {
 	PROFILE_INIT();
 
+#if defined(_DEBUG) && defined(_MSC_VER)
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
@@ -205,7 +222,7 @@ int main(int argc, const char* argv[])
 	bool verbose = false;
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_NULL;
-	CPUCore cpuCore = CPU_CORE_JIT;
+	CPUCore cpuCore = CPUCore::JIT;
 	
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
@@ -230,11 +247,11 @@ int main(int argc, const char* argv[])
 		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
 		else if (!strcmp(argv[i], "-i"))
-			cpuCore = CPU_CORE_INTERPRETER;
+			cpuCore = CPUCore::INTERPRETER;
 		else if (!strcmp(argv[i], "-j"))
-			cpuCore = CPU_CORE_JIT;
+			cpuCore = CPUCore::JIT;
 		else if (!strcmp(argv[i], "--ir"))
-			cpuCore = CPU_CORE_IRJIT;
+			cpuCore = CPUCore::IR_JIT;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
@@ -248,12 +265,14 @@ int main(int argc, const char* argv[])
 				gpuCore = GPUCORE_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
 				gpuCore = GPUCORE_DIRECTX9;
+			else if (!strcasecmp(gpuName, "directx11"))
+				gpuCore = GPUCORE_DIRECTX11;
 			else if (!strcasecmp(gpuName, "vulkan"))
 				gpuCore = GPUCORE_VULKAN;
 			else if (!strcasecmp(gpuName, "null"))
 				gpuCore = GPUCORE_NULL;
 			else
-				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=");
+				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=. Allowed: software, directx9, directx11, vulkan, gles, null.");
 		}
 		// Default to GLES if no value selected.
 		else if (!strcmp(argv[i], "--graphics"))
@@ -291,7 +310,7 @@ int main(int argc, const char* argv[])
 	host = headlessHost;
 
 	std::string error_string;
-	GraphicsContext *graphicsContext;
+	GraphicsContext *graphicsContext = nullptr;
 	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
 	LogManager::Init();
@@ -301,15 +320,16 @@ int main(int argc, const char* argv[])
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		logman->SetEnable(type, fullLog);
+		logman->SetEnabled(type, fullLog);
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
-		logman->AddListener(type, printfLogger);
 	}
+	logman->AddListener(printfLogger);
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
 	coreParameter.graphicsContext = graphicsContext;
+	coreParameter.thin3d = graphicsContext ? graphicsContext->GetDrawContext() : nullptr;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.mountRoot = mountRoot ? mountRoot : "";
@@ -370,7 +390,7 @@ int main(int argc, const char* argv[])
 	}
 	// Or else, maybe in the executable's dir.
 	if (!File::Exists(g_Config.flash0Directory))
-		g_Config.flash0Directory = File::GetExeDirectory() + "flash0/";
+		g_Config.flash0Directory = File::GetExeDirectory() + "assets/flash0/";
 
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
@@ -423,8 +443,12 @@ int main(int argc, const char* argv[])
 
 	host->ShutdownGraphics();
 	delete host;
-	host = NULL;
-	headlessHost = NULL;
+	host = nullptr;
+	headlessHost = nullptr;
+
+	VFSShutdown();
+	LogManager::Shutdown();
+	delete printfLogger;
 
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();

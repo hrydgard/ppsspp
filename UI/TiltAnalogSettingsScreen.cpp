@@ -55,14 +55,18 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
-void TiltAnalogSettingsScreen::update(InputState &input) {
-	UIScreen::update(input);
-	//I'm not sure why y is x and x is y. i's probably because of the orientation
-	//of the screen (the x and y are in portrait coordinates). once portrait and 
-	//reverse-landscape is enabled, this will probably have to change.
-	//If needed, we can add a "swap x and y" option. 
-	currentTiltX_ = input.acc.y;
-	currentTiltY_ = input.acc.x;
+bool TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
+	if (axis.deviceId == DEVICE_ID_ACCELEROMETER) {
+		// Historically, we've had X and Y swapped, likely due to portrait vs landscape.
+		// TODO: We may want to configure this based on screen orientation.
+		if (axis.axisId == JOYSTICK_AXIS_ACCELEROMETER_X) {
+			currentTiltY_ = axis.value;
+		}
+		if (axis.axisId == JOYSTICK_AXIS_ACCELEROMETER_Y) {
+			currentTiltX_ = axis.value;
+		}
+	}
+	return false;
 }
 
 UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {

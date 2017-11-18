@@ -26,7 +26,7 @@ public:
 	explicit ThreadSafeList(std::size_t n, const T &v = T(), const Alloc &a = Alloc()) : list(n, v, a) {}
 	ThreadSafeList(const std::list<T, Alloc> &other) : list(other) {}
 	ThreadSafeList(const ThreadSafeList &other) {
-		lock_guard guard(other.lock);
+		std::lock_guard<std::mutex> guard(other.lock);
 		list.assign(other.list);
 	}
 
@@ -34,52 +34,52 @@ public:
 	ThreadSafeList(Iter first, Iter last, const Alloc &a = Alloc()) : list(first, last, a) {}
 
 	inline T front() const {
-		lock_guard guard(lock);
+		std::lock_guard<std::mutex> guard(lock);
 		return list.front();
 	}
 
 	inline void pop_front() {
-		lock_guard guard(lock);
+		std::lock_guard<std::mutex> guard(lock);
 		return list.pop_front();
 	}
 
 	inline void push_front(const T &v) {
-		lock_guard guard(lock);
+		std::lock_guard<std::mutex> guard(lock);
 		return list.push_front(v);
 	}
 
 	inline T back() const {
-		lock_guard guard(lock);
+		std::lock_guard<std::mutex> guard(lock);
 		return list.back();
 	}
 
 	inline void pop_back() {
-		lock_guard guard(lock);
+		std::lock_guard<std::mutex> guard(lock);
 		return list.pop_back();
 	}
 
 	inline void push_back(const T &v) {
-		lock_guard guard(lock);
+		std::lock_guard<std::mutex> guard(lock);
 		return list.push_back(v);
 	}
 
 	bool empty() const {
-		lock_guard guard(lock);
+		std::lock_guard<std::mutex> guard(lock);
 		return list.empty();
 	}
 
 	inline void clear() {
-		lock_guard guard(lock);
+		std::lock_guard<std::mutex> guard(lock);
 		return list.clear();
 	}
 
 	void DoState(PointerWrap &p) {
-		lock_guard guard(lock);
+		std::lock_guard<std::mutex> guard(lock);
 		p.Do(list);
 	}
 
 private:
-	mutable recursive_mutex lock;
+	mutable std::mutex lock;
 	std::list<T, Alloc> list;
 };
 

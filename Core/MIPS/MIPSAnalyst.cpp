@@ -16,10 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
-#include <unordered_map>
 #include <set>
+#include <unordered_map>
 #include <unordered_set>
-#include "base/mutex.h"
+#include <mutex>
+
 #include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
@@ -40,7 +41,7 @@ using namespace MIPSCodeUtils;
 // Not in a namespace because MSVC's debugger doesn't like it
 typedef std::vector<MIPSAnalyst::AnalyzedFunction> FunctionsVector;
 static FunctionsVector functions;
-recursive_mutex functions_lock;
+std::recursive_mutex functions_lock;
 
 // One function can appear in multiple copies in memory, and they will all have 
 // the same hash and should all be replaced if possible.
@@ -344,6 +345,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc (US)
 	{ 0x9f269daa6f0da803, 128, "dl_write_scissor_region", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
+	{ 0xa1c9b0a2c71235bf, 1752, "marvelalliance1_copy" }, // Marvel Ultimate Alliance 1 (EU)
 	{ 0xa1ca0640f11182e7, 72, "strcspn", },
 	{ 0xa243486be51ce224, 272, "cosf", },
 	{ 0xa2bcef60a550a3ef, 92, "matrix_rot_z", },
@@ -741,13 +743,13 @@ namespace MIPSAnalyst {
 	}
 	
 	void Reset() {
-		lock_guard guard(functions_lock);
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		functions.clear();
 		hashToFunction.clear();
 	}
 
 	void UpdateHashToFunctionMap() {
-		lock_guard guard(functions_lock);
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		hashToFunction.clear();
 		// Really need to detect C++11 features with better defines.
 #if !defined(IOS)
@@ -869,7 +871,7 @@ namespace MIPSAnalyst {
 	}
 
 	void HashFunctions() {
-		lock_guard guard(functions_lock);
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		std::vector<u32> buffer;
 
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
@@ -986,7 +988,7 @@ skip:
 	}
 
 	void ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
-		lock_guard guard(functions_lock);
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		AnalyzedFunction currentFunction = {startAddr};
 
@@ -1151,7 +1153,7 @@ skip:
 	}
 
 	void RegisterFunction(u32 startAddr, u32 size, const char *name) {
-		lock_guard guard(functions_lock);
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		// Check if we have this already
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
@@ -1184,7 +1186,7 @@ skip:
 	}
 
 	void ForgetFunctions(u32 startAddr, u32 endAddr) {
-		lock_guard guard(functions_lock);
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		// It makes sense to forget functions as modules are unloaded but it breaks
 		// the easy way of saving a hashmap by unloading and loading a game. I added
@@ -1221,7 +1223,7 @@ skip:
 	}
 
 	void ReplaceFunctions() {
-		lock_guard guard(functions_lock);
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		for (size_t i = 0; i < functions.size(); i++) {
 			WriteReplaceInstructions(functions[i].start, functions[i].hash, functions[i].size);
@@ -1229,7 +1231,7 @@ skip:
 	}
 
 	void UpdateHashMap() {
-		lock_guard guard(functions_lock);
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 			const AnalyzedFunction &f = *it;

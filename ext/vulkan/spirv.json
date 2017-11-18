@@ -6,7 +6,7 @@
             "Comment":
             [
                 [
-                    "Copyright (c) 2014-2016 The Khronos Group Inc.",
+                    "Copyright (c) 2014-2017 The Khronos Group Inc.",
                     "",
                     "Permission is hereby granted, free of charge, to any person obtaining a copy",
                     "of this software and/or associated documentation files (the \"Materials\"),",
@@ -52,7 +52,7 @@
             ],
             "MagicNumber": 119734787,
             "Version": 65792,
-            "Revision": 4,
+            "Revision": 5,
             "OpCodeMask": 65535,
             "WordCountShift": 16
         },
@@ -640,7 +640,8 @@
                     "NamedBarrier": 59,
                     "PipeStorage": 60,
                     "SubgroupBallotKHR": 4423,
-                    "DrawParameters": 4427
+                    "DrawParameters": 4427,
+                    "SubgroupVoteKHR": 4431
                 }
             },
             {
@@ -953,7 +954,11 @@
                     "OpMemoryNamedBarrier": 329,
                     "OpModuleProcessed": 330,
                     "OpSubgroupBallotKHR": 4421,
-                    "OpSubgroupFirstInvocationKHR": 4422
+                    "OpSubgroupFirstInvocationKHR": 4422,
+                    "OpSubgroupAllKHR": 4428,
+                    "OpSubgroupAnyKHR": 4429,
+                    "OpSubgroupAllEqualKHR": 4430,
+                    "OpSubgroupReadInvocationKHR": 4432
                 }
             }
         ]

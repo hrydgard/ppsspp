@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#include <stdio.h>
+#include <cstdio>
 
 #include "base/basictypes.h"
 #include "base/logging.h"
@@ -28,6 +28,7 @@
 #include "Core/HDRemaster.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -42,7 +43,7 @@ static const u8 wtsize[4] = { 0, 1, 2, 4 }, wtalign[4] = { 0, 1, 2, 4 };
 
 // When software skinning. This array is only used when non-jitted - when jitted, the matrix
 // is kept in registers.
-static float MEMORY_ALIGNED16(skinMatrix[12]);
+alignas(16) static float skinMatrix[12];
 
 inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
@@ -72,11 +73,13 @@ int DecFmtSize(u8 fmt) {
 	case DEC_U16_2: return 4;
 	case DEC_U16_3: return 8;
 	case DEC_U16_4: return 8;
-	case DEC_U8A_2: return 4;
-	case DEC_U16A_2: return 4;
 	default:
 		return 0;
 	}
+}
+
+void DecVtxFormat::ComputeID() {
+	id = w0fmt | (w1fmt << 4) | (uvfmt << 8) | (c0fmt << 12) | (c1fmt << 16) | (nrmfmt << 20) | (posfmt << 24);
 }
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
@@ -281,35 +284,6 @@ void VertexDecoder::Step_TcU16ToFloat() const
 	uv[1] = uvdata[1] * (1.0f / 32768.0f);
 }
 
-void VertexDecoder::Step_TcU16Double() const
-{
-	u16 *uv = (u16*)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * 2;
-	uv[1] = uvdata[1] * 2;
-}
-
-void VertexDecoder::Step_TcU16Through() const
-{
-	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
-	uv[0] = uvdata[0];
-	uv[1] = uvdata[1];
-
-	gstate_c.vertBounds.minU = std::min(gstate_c.vertBounds.minU, uvdata[0]);
-	gstate_c.vertBounds.maxU = std::max(gstate_c.vertBounds.maxU, uvdata[0]);
-	gstate_c.vertBounds.minV = std::min(gstate_c.vertBounds.minV, uvdata[1]);
-	gstate_c.vertBounds.maxV = std::max(gstate_c.vertBounds.maxV, uvdata[1]);
-}
-
-void VertexDecoder::Step_TcU16ThroughDouble() const
-{
-	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * 2;
-	uv[1] = uvdata[1] * 2;
-}
-
 void VertexDecoder::Step_TcU16DoubleToFloat() const
 {
 	float *uv = (float*)(decoded_ + decFmt.uvoff);
@@ -386,51 +360,6 @@ void VertexDecoder::Step_TcFloatPrescale() const {
 	const float *uvdata = (const float*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
 	uv[1] = uvdata[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
-}
-
-void VertexDecoder::Step_TcU8Morph() const {
-	float uv[2] = { 0, 0 };
-	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
-		const u8 *uvdata = (const u8 *)(ptr_ + onesize_*n + tcoff);
-
-		uv[0] += (float)uvdata[0] * w;
-		uv[1] += (float)uvdata[1] * w;
-	}
-
-	u8 *out = decoded_ + decFmt.uvoff;
-	out[0] = (int)uv[0];
-	out[1] = (int)uv[1];
-}
-
-void VertexDecoder::Step_TcU16Morph() const {
-	float uv[2] = { 0, 0 };
-	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
-		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
-
-		uv[0] += (float)uvdata[0] * w;
-		uv[1] += (float)uvdata[1] * w;
-	}
-
-	u16_le *out = (u16_le *)(decoded_ + decFmt.uvoff);
-	out[0] = (int)uv[0];
-	out[1] = (int)uv[1];
-}
-
-void VertexDecoder::Step_TcU16DoubleMorph() const {
-	float uv[2] = { 0, 0 };
-	for (int n = 0; n < morphcount; n++) {
-		float w = gstate_c.morphWeights[n];
-		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
-
-		uv[0] += (float)uvdata[0] * w;
-		uv[1] += (float)uvdata[1] * w;
-	}
-
-	u16_le *out = (u16_le *)(decoded_ + decFmt.uvoff);
-	out[0] = (int)(uv[0] * 2.0f);
-	out[1] = (int)(uv[1] * 2.0f);
 }
 
 void VertexDecoder::Step_TcU8MorphToFloat() const {
@@ -922,20 +851,6 @@ static const StepFunction tcstep_prescale_morph_remaster[4] = {
 	&VertexDecoder::Step_TcFloatPrescaleMorph,
 };
 
-static const StepFunction tcstep_morph[4] = {
-	0,
-	&VertexDecoder::Step_TcU8Morph,
-	&VertexDecoder::Step_TcU16Morph,
-	&VertexDecoder::Step_TcFloatMorph,
-};
-
-static const StepFunction tcstep_morph_remaster[4] = {
-	0,
-	&VertexDecoder::Step_TcU8Morph,
-	&VertexDecoder::Step_TcU16DoubleMorph,
-	&VertexDecoder::Step_TcFloatMorph,
-};
-
 static const StepFunction tcstep_morphToFloat[4] = {
 	0,
 	&VertexDecoder::Step_TcU8MorphToFloat,
@@ -1128,6 +1043,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			biggest = tcalign[tc];
 
 		// NOTE: That we check getUVGenMode here means that we must include it in the decoder ID!
+		// throughmode is automatically included though, because it's part of the vertType.
 		if (!throughmode && (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN)) {
 			if (g_DoubleTextureCoordinates)
 				steps_[numSteps_++] = morphcount == 1 ? tcstep_prescale_remaster[tc] : tcstep_prescale_morph_remaster[tc];
@@ -1238,16 +1154,19 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 	decFmt.stride = decOff;
 
+	decFmt.ComputeID();
+
 	size = align(size, biggest);
 	onesize_ = size;
 	size *= morphcount;
 	DEBUG_LOG(G3D, "SVT : size = %i, aligned to biggest %i", size, biggest);
 
-	// Attempt to JIT as well
-	if (jitCache && g_Config.bVertexDecoderJit) {
+	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
+	// debugging attempts - if the main JIT doesn't work, this one won't do any better, probably.
+	if (jitCache && g_Config.bVertexDecoderJit && g_Config.iCpuCore == (int)CPUCore::JIT) {
 		jitted_ = jitCache->Compile(*this, &jittedSize_);
 		if (!jitted_) {
-			WARN_LOG(G3D, "Vertex decoder JIT failed! fmt = %08x", fmt_);
+			WARN_LOG(G3D, "Vertex decoder JIT failed! fmt = %08x (%s)", fmt_, GetString(SHADER_STRING_SHORT_DESC).c_str());
 		}
 	}
 }
@@ -1260,24 +1179,17 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowe
 
 	int count = indexUpperBound - indexLowerBound + 1;
 	int stride = decFmt.stride;
-	if (jitted_) {
-		// Check alignment before running the decoder, as we may crash if it's bad (as should the real PSP but doesn't always)
-		bool bad = false;
-		if (biggest == 4) {
-			if (((uintptr_t)verts & 3) != 0)
-				bad = true;
-		} else if (biggest == 2) {
-			if (((uintptr_t)verts & 1) != 0)
-				bad = true;
-		}
 
+	// Check alignment before running the decoder, as we may crash if it's bad (as should the real PSP but doesn't always)
+	if (((uintptr_t)verts & (biggest - 1)) != 0) {
+		// Bad alignment. Not really sure what to do here... zero the verts to be safe?
+		memset(decodedptr, 0, count * stride);
+		return;
+	}
+
+	if (jitted_) {
 		// We've compiled the steps into optimized machine code, so just jump!
-		if (!bad) {
-			jitted_(ptr_, decoded_, count);
-		} else {
-			// Not really sure what to do here... zero the verts to be safe?
-			memset(decodedptr, 0, count * stride);
-		}
+		jitted_(ptr_, decoded_, count);
 	} else {
 		// Interpret the decode steps
 		for (; count; count--) {
@@ -1374,5 +1286,5 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 }
 
 void VertexDecoderJitCache::Clear() {
-	ClearCodeSpace();
+	ClearCodeSpace(0);
 }

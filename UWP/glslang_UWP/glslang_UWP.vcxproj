@@ -1,0 +1,406 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM">
+      <Configuration>Release</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="UWP Gold|ARM">
+      <Configuration>UWP Gold</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="UWP Gold|Win32">
+      <Configuration>UWP Gold</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="UWP Gold|x64">
+      <Configuration>UWP Gold</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{d326891e-ece4-4b94-b5e7-8aa0a8e8ecbc}</ProjectGuid>
+    <Keyword>StaticLibrary</Keyword>
+    <RootNamespace>glslang_UWP</RootNamespace>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
+    <AppContainerApplication>true</AppContainerApplication>
+    <ApplicationType>Windows Store</ApplicationType>
+    <WindowsTargetPlatformMinVersion>10.0.10240.0</WindowsTargetPlatformMinVersion>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|arm'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|arm'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|arm'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\arrays.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\BaseTypes.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\Common.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\ConstantUnion.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\InfoSink.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\InitializeGlobals.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\intermediate.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\PoolAlloc.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\ResourceLimits.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\revision.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\ShHandle.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\Types.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\glslang_tab.cpp.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\gl_types.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\Initialize.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\iomapper.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\LiveTraverser.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\localintermediate.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\ParseHelper.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\parseVersions.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpContext.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpTokens.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\propagateNoContraction.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\reflection.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\RemoveTree.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\Scan.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\ScanContext.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\SymbolTable.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\Versions.h" />
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslAttributes.h" />
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslGrammar.h" />
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslOpMap.h" />
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslParseables.h" />
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslScanContext.h" />
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslTokens.h" />
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslTokenStream.h" />
+    <ClInclude Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\bitutils.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\disassemble.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\doc.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.AMD.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.KHR.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.NV.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.std.450.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GlslangToSpv.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\hex_float.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\Logger.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\spirv.hpp" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\SpvBuilder.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\spvIR.h" />
+    <ClInclude Include="..\..\ext\glslang\SPIRV\SPVRemapper.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="targetver.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\ext\glslang\glslang\GenericCodeGen\CodeGen.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\GenericCodeGen\Link.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Constant.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\glslang_tab.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\InfoSink.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Initialize.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Intermediate.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\intermOut.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\IntermTraverse.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\iomapper.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\limits.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\linkValidate.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\parseConst.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\ParseContextBase.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\ParseHelper.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\PoolAlloc.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\Pp.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpAtom.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpContext.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpScanner.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpTokens.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\propagateNoContraction.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\reflection.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\RemoveTree.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Scan.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\ShaderLang.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\SymbolTable.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Versions.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\OSDependent\Windows\ossource.cpp" />
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslAttributes.cpp" />
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslGrammar.cpp" />
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslOpMap.cpp" />
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslParseables.cpp" />
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslScanContext.cpp" />
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslTokenStream.cpp" />
+    <ClCompile Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.cpp" />
+    <ClCompile Include="..\..\ext\glslang\SPIRV\disassemble.cpp" />
+    <ClCompile Include="..\..\ext\glslang\SPIRV\doc.cpp" />
+    <ClCompile Include="..\..\ext\glslang\SPIRV\GlslangToSpv.cpp" />
+    <ClCompile Include="..\..\ext\glslang\SPIRV\InReadableOrder.cpp" />
+    <ClCompile Include="..\..\ext\glslang\SPIRV\Logger.cpp" />
+    <ClCompile Include="..\..\ext\glslang\SPIRV\SpvBuilder.cpp" />
+    <ClCompile Include="..\..\ext\glslang\SPIRV\SPVRemapper.cpp" />
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

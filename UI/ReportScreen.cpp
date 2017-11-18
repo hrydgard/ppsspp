@@ -41,7 +41,7 @@ public:
 	Event OnChoice;
 
 protected:
-	void Update(const InputState &input_state) override;
+	void Update() override;
 
 	virtual void SetupChoices();
 	virtual int TotalChoices() {
@@ -73,8 +73,8 @@ RatingChoice::RatingChoice(const char *captionKey, int *value, LayoutParams *lay
 	SetupChoices();
 }
 
-void RatingChoice::Update(const InputState &input_state) {
-	LinearLayout::Update(input_state);
+void RatingChoice::Update() {
+	LinearLayout::Update();
 
 	for (int i = 0; i < TotalChoices(); i++) {
 		StickyChoice *chosen = GetChoice(i);
@@ -119,7 +119,7 @@ EventReturn RatingChoice::OnChoiceClick(EventParams &e) {
 		}
 	}
 
-	EventParams e2;
+	EventParams e2{};
 	e2.v = e.v;
 	e2.a = *value_;
 	// Dispatch immediately (we're already on the UI thread as we're in an event handler).
@@ -154,13 +154,12 @@ void CompatRatingChoice::SetupChoices() {
 }
 
 ReportScreen::ReportScreen(const std::string &gamePath)
-	: UIScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1),
-	includeScreenshot_(true) {
+	: UIDialogScreenWithGameBackground(gamePath) {
 	enableReporting_ = Reporting::IsEnabled();
 	ratingEnabled_ = enableReporting_;
 }
 
-void ReportScreen::update(InputState &input) {
+void ReportScreen::update() {
 	if (screenshot_) {
 		if (includeScreenshot_) {
 			screenshot_->SetVisibility(V_VISIBLE);
@@ -168,11 +167,11 @@ void ReportScreen::update(InputState &input) {
 			screenshot_->SetVisibility(V_GONE);
 		}
 	}
-	UIScreenWithGameBackground::update(input);
+	UIDialogScreenWithGameBackground::update();
 }
 
 EventReturn ReportScreen::HandleChoice(EventParams &e) {
-	if (overall_ == 4) {
+	if (overall_ == ReportingOverallScore::NONE) {
 		graphics_ = 0;
 		speed_ = 0;
 		gameplay_ = 0;
@@ -183,12 +182,24 @@ EventReturn ReportScreen::HandleChoice(EventParams &e) {
 		gameplay_ = -1;
 		ratingEnabled_ = true;
 	}
+
+	// Whether enabled before or not, move to Great when Perfect is selected.
+	if (overall_ == ReportingOverallScore::PERFECT) {
+		if (graphics_ == -1)
+			graphics_ = 2;
+		if (speed_ == -1)
+			speed_ = 2;
+		if (gameplay_ == -1)
+			gameplay_ = 2;
+	}
+
 	UpdateSubmit();
+	UpdateOverallDescription();
 	return EVENT_DONE;
 }
 
 EventReturn ReportScreen::HandleReportingChange(EventParams &e) {
-	if (overall_ == 4) {
+	if (overall_ == ReportingOverallScore::NONE) {
 		ratingEnabled_ = false;
 	} else {
 		ratingEnabled_ = enableReporting_;
@@ -237,7 +248,7 @@ void ReportScreen::CreateViews() {
 	screenshotFilename_ = path + ".reporting.jpg";
 	int shotWidth = 0, shotHeight = 0;
 	if (TakeGameScreenshot(screenshotFilename_.c_str(), SCREENSHOT_JPG, SCREENSHOT_DISPLAY, &shotWidth, &shotHeight, 4)) {
-		float scale = 340.0f * (1.0f / g_dpi_scale) * (1.0f / shotHeight);
+		float scale = 340.0f * (1.0f / g_dpi_scale_y) * (1.0f / shotHeight);
 		leftColumnItems->Add(new CheckBox(&includeScreenshot_, rp->T("FeedbackIncludeScreen", "Include a screenshot")))->SetEnabledPtr(&enableReporting_);
 		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, nullptr, new LinearLayoutParams(shotWidth * scale, shotHeight * scale, Margins(12, 0))));
 	} else {
@@ -245,7 +256,8 @@ void ReportScreen::CreateViews() {
 		screenshot_ = nullptr;
 	}
 
-	leftColumnItems->Add(new CompatRatingChoice("Overall", &overall_))->SetEnabledPtr(&enableReporting_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+	leftColumnItems->Add(new CompatRatingChoice("Overall", (int *)&overall_))->SetEnabledPtr(&enableReporting_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+	overallDescription_ = leftColumnItems->Add(new TextView("", new LinearLayoutParams(Margins(10, 0))));
 	leftColumnItems->Add(new RatingChoice("Graphics", &graphics_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Speed", &speed_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Gameplay", &gameplay_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
@@ -255,6 +267,7 @@ void ReportScreen::CreateViews() {
 	submit_ = new Choice(rp->T("Submit Feedback"));
 	rightColumnItems->Add(submit_)->OnClick.Handle(this, &ReportScreen::HandleSubmit);
 	UpdateSubmit();
+	UpdateOverallDescription();
 
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -268,17 +281,32 @@ void ReportScreen::CreateViews() {
 }
 
 void ReportScreen::UpdateSubmit() {
-	submit_->SetEnabled(enableReporting_ && overall_ >= 0 && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
+	submit_->SetEnabled(enableReporting_ && overall_ != ReportingOverallScore::INVALID && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
+}
+
+void ReportScreen::UpdateOverallDescription() {
+	I18NCategory *rp = GetI18NCategory("Reporting");
+	const char *desc;
+	switch (overall_) {
+	case ReportingOverallScore::PERFECT: desc = rp->T("Perfect Description", "Flawless emulation for the entire game - great!"); break;
+	case ReportingOverallScore::PLAYABLE: desc = rp->T("Plays Description", "Fully playable but might be with glitches"); break;
+	case ReportingOverallScore::INGAME: desc = rp->T("In-game Description", "Gets into gameplay, but too buggy too complete"); break;
+	case ReportingOverallScore::MENU: desc = rp->T("Menu/Intro Description", "Can't get into the game itself"); break;
+	case ReportingOverallScore::NONE: desc = rp->T("Nothing Description", "Completely broken"); break;
+	default: desc = rp->T("Unselected Overall Description", "How well does this game emulate?"); break;
+	}
+
+	overallDescription_->SetText(desc);
 }
 
 EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 	const char *compat;
 	switch (overall_) {
-	case 0: compat = "perfect"; break;
-	case 1: compat = "playable"; break;
-	case 2: compat = "ingame"; break;
-	case 3: compat = "menu"; break;
-	case 4: compat = "none"; break;
+	case ReportingOverallScore::PERFECT: compat = "perfect"; break;
+	case ReportingOverallScore::PLAYABLE: compat = "playable"; break;
+	case ReportingOverallScore::INGAME: compat = "ingame"; break;
+	case ReportingOverallScore::MENU: compat = "menu"; break;
+	case ReportingOverallScore::NONE: compat = "none"; break;
 	default: compat = "unknown"; break;
 	}
 
@@ -289,7 +317,7 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 
 	std::string filename = includeScreenshot_ ? screenshotFilename_ : "";
 	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	screenManager()->push(new ReportFinishScreen(gamePath_));
 	return EVENT_DONE;
 }
@@ -301,7 +329,7 @@ EventReturn ReportScreen::HandleBrowser(EventParams &e) {
 }
 
 ReportFinishScreen::ReportFinishScreen(const std::string &gamePath)
-	: UIScreenWithGameBackground(gamePath), resultNotice_(nullptr), setStatus_(false) {
+	: UIDialogScreenWithGameBackground(gamePath), resultNotice_(nullptr), setStatus_(false) {
 }
 
 void ReportFinishScreen::CreateViews() {
@@ -332,7 +360,7 @@ void ReportFinishScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 }
 
-void ReportFinishScreen::update(InputState &input) {
+void ReportFinishScreen::update() {
 	I18NCategory *rp = GetI18NCategory("Reporting");
 
 	if (!setStatus_) {
@@ -353,7 +381,7 @@ void ReportFinishScreen::update(InputState &input) {
 		}
 	}
 
-	UIScreenWithGameBackground::update(input);
+	UIDialogScreenWithGameBackground::update();
 }
 
 UI::EventReturn ReportFinishScreen::HandleViewFeedback(UI::EventParams &e) {

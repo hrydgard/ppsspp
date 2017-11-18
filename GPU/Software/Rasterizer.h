@@ -27,6 +27,7 @@ namespace Rasterizer {
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2);
 void DrawPoint(const VertexData &v0);
 void DrawLine(const VertexData &v0, const VertexData &v1);
+void ClearRectangle(const VertexData &v0, const VertexData &v1);
 
 bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);

@@ -3,8 +3,6 @@
 #include <tchar.h>
 #include <math.h>
 
-#include "../../globals.h"
-
 #include "Core/Config.h"
 #include "../resource.h"
 #include "../../Core/MemMap.h"

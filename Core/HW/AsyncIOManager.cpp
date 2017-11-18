@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <condition_variable>
+#include <mutex>
+
 #include "Common/ChunkFile.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
@@ -34,7 +37,7 @@ bool AsyncIOManager::HasOperation(u32 handle) {
 
 void AsyncIOManager::ScheduleOperation(AsyncIOEvent ev) {
 	{
-		lock_guard guard(resultsLock_);
+		std::lock_guard<std::mutex> guard(resultsLock_);
 		if (!resultsPending_.insert(ev.handle).second) {
 			ERROR_LOG_REPORT(SCEIO, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
 		}
@@ -43,18 +46,17 @@ void AsyncIOManager::ScheduleOperation(AsyncIOEvent ev) {
 }
 
 void AsyncIOManager::Shutdown() {
-	lock_guard guard(resultsLock_);
+	std::lock_guard<std::mutex> guard(resultsLock_);
 	resultsPending_.clear();
 	results_.clear();
 }
 
 bool AsyncIOManager::HasResult(u32 handle) {
-	lock_guard guard(resultsLock_);
+	std::lock_guard<std::mutex> guard(resultsLock_);
 	return results_.find(handle) != results_.end();
 }
 
 bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
-	lock_guard guard(resultsLock_);
 	if (results_.find(handle) != results_.end()) {
 		result = results_[handle];
 		results_.erase(handle);
@@ -70,7 +72,6 @@ bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
 }
 
 bool AsyncIOManager::ReadResult(u32 handle, AsyncIOResult &result) {
-	lock_guard guard(resultsLock_);
 	if (results_.find(handle) != results_.end()) {
 		result = results_[handle];
 		return true;
@@ -80,31 +81,27 @@ bool AsyncIOManager::ReadResult(u32 handle, AsyncIOResult &result) {
 }
 
 bool AsyncIOManager::WaitResult(u32 handle, AsyncIOResult &result) {
-	lock_guard guard(resultsLock_);
+	std::unique_lock<std::mutex> guard(resultsLock_);
 	ScheduleEvent(IO_EVENT_SYNC);
 	while (HasEvents() && ThreadEnabled() && resultsPending_.find(handle) != resultsPending_.end()) {
 		if (PopResult(handle, result)) {
 			return true;
 		}
-		resultsWait_.wait_for(resultsLock_, 16);
+		resultsWait_.wait_for(guard, std::chrono::milliseconds(16));
 	}
-	if (PopResult(handle, result)) {
-		return true;
-	}
-
-	return false;
+	return PopResult(handle, result);
 }
 
 u64 AsyncIOManager::ResultFinishTicks(u32 handle) {
 	AsyncIOResult result;
 
-	lock_guard guard(resultsLock_);
+	std::unique_lock<std::mutex> guard(resultsLock_);
 	ScheduleEvent(IO_EVENT_SYNC);
 	while (HasEvents() && ThreadEnabled() && resultsPending_.find(handle) != resultsPending_.end()) {
 		if (ReadResult(handle, result)) {
 			return result.finishTicks;
 		}
-		resultsWait_.wait_for(resultsLock_, 16);
+		resultsWait_.wait_for(guard, std::chrono::milliseconds(16));
 	}
 	if (ReadResult(handle, result)) {
 		return result.finishTicks;
@@ -141,7 +138,7 @@ void AsyncIOManager::Write(u32 handle, u8 *buf, size_t bytes) {
 }
 
 void AsyncIOManager::EventResult(u32 handle, AsyncIOResult result) {
-	lock_guard guard(resultsLock_);
+	std::lock_guard<std::mutex> guard(resultsLock_);
 	if (results_.find(handle) != results_.end()) {
 		ERROR_LOG_REPORT(SCEIO, "Overwriting previous result for file action on handle %d", handle);
 	}
@@ -155,7 +152,7 @@ void AsyncIOManager::DoState(PointerWrap &p) {
 		return;
 
 	SyncThread();
-	lock_guard guard(resultsLock_);
+	std::lock_guard<std::mutex> guard(resultsLock_);
 	p.Do(resultsPending_);
 	if (s >= 2) {
 		p.Do(results_);

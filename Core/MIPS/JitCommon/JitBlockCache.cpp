@@ -60,7 +60,7 @@ op_agent_t agent;
 const u32 INVALID_EXIT = 0xFFFFFFFF;
 
 JitBlockCache::JitBlockCache(MIPSState *mips, CodeBlockCommon *codeBlock) :
-	mips_(mips), codeBlock_(codeBlock), blocks_(0), num_blocks_(0) {
+	codeBlock_(codeBlock), blocks_(nullptr), num_blocks_(0) {
 }
 
 JitBlockCache::~JitBlockCache() {
@@ -534,7 +534,11 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 		return;
 	}
 
-	MIPSComp::jit->UnlinkBlock(b->checkedEntry, b->originalAddress);
+	if (b->checkedEntry) {
+		MIPSComp::jit->UnlinkBlock(b->checkedEntry, b->originalAddress);
+	} else {
+		ERROR_LOG(JIT, "Unlinking block with no entry: %08x (%d)", b->originalAddress, block_num);
+	}
 }
 
 void JitBlockCache::InvalidateICache(u32 address, const u32 length) {

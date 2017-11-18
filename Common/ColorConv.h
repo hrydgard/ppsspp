@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
 #include "CommonTypes.h"
 #include "ColorConvNEON.h"
 
@@ -138,25 +139,25 @@ void ConvertRGBA4444ToABGR4444Basic(u16 *dst, const u16 *src, u32 numPixels);
 void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, u32 numPixels);
 void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, u32 numPixels);
 
-#if defined(ARM64)
+#if PPSSPP_ARCH(ARM64)
 #define ConvertRGBA4444ToABGR4444 ConvertRGBA4444ToABGR4444NEON
-#elif !defined(ARM)
+#elif !PPSSPP_ARCH(ARM)
 #define ConvertRGBA4444ToABGR4444 ConvertRGBA4444ToABGR4444Basic
 #else
 extern Convert16bppTo16bppFunc ConvertRGBA4444ToABGR4444;
 #endif
 
-#if defined(ARM64)
+#if PPSSPP_ARCH(ARM64)
 #define ConvertRGBA5551ToABGR1555 ConvertRGBA5551ToABGR1555NEON
-#elif !defined(ARM)
+#elif !PPSSPP_ARCH(ARM)
 #define ConvertRGBA5551ToABGR1555 ConvertRGBA5551ToABGR1555Basic
 #else
 extern Convert16bppTo16bppFunc ConvertRGBA5551ToABGR1555;
 #endif
 
-#if defined(ARM64)
+#if PPSSPP_ARCH(ARM64)
 #define ConvertRGB565ToBGR565 ConvertRGB565ToBGR565NEON
-#elif !defined(ARM)
+#elif !PPSSPP_ARCH(ARM)
 #define ConvertRGB565ToBGR565 ConvertRGB565ToBGR565Basic
 #else
 extern Convert16bppTo16bppFunc ConvertRGB565ToBGR565;

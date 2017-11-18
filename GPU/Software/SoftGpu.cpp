@@ -28,61 +28,70 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
+#include "Core/Core.h"
 #include "profiler/profiler.h"
 #include "thin3d/thin3d.h"
 
+#include "GPU/Software/Rasterizer.h"
+#include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
-#include "GPU/Software/Rasterizer.h"
+#include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Debugger/Record.h"
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
+
+struct Vertex {
+	float x, y, z;
+	float u, v;
+	uint32_t rgba;
+};
+
+u32 clut[4096];
 FormatBuffer fb;
 FormatBuffer depthbuf;
-u32 clut[4096];
 
-static Draw::SamplerState *samplerNearest = nullptr;
-static Draw::SamplerState *samplerLinear = nullptr;
-static Draw::Buffer *vdata = nullptr;
-static Draw::Buffer *idata = nullptr;
-
-SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
-	: gfxCtx_(gfxCtx), thin3d(_thin3D)
+SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
+	: GPUCommon(gfxCtx, draw)
 {
 	using namespace Draw;
-	fbTex = thin3d->CreateTexture(LINEAR2D, DataFormat::R8G8B8A8_UNORM, 480, 272, 1, 1);
-
-	InputLayoutDesc desc = {
+	fbTex = nullptr;
+	InputLayoutDesc inputDesc = {
 		{
-			{ 24, false },
+			{ sizeof(Vertex), false },
 		},
 		{
 			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
 			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
-			{ 0, SEM_COLOR0, DataFormat::R32G32B32_FLOAT, 20 },
+			{ 0, SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
 		},
 	};
 
-	ShaderModule *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
+	ShaderModule *vshader = draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 
-	vdata = thin3d->CreateBuffer(24 * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
-	idata = thin3d->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
+	vdata = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	idata = draw_->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
-	InputLayout *inputLayout = thin3d->CreateInputLayout(desc);
-	DepthStencilState *depth = thin3d->CreateDepthStencilState({ false, false, Comparison::LESS });
-	BlendState *blendstateOff = thin3d->CreateBlendState({ false, 0xF });
-	RasterState *rasterNoCull = thin3d->CreateRasterState({});
+	InputLayout *inputLayout = draw_->CreateInputLayout(inputDesc);
+	DepthStencilState *depth = draw_->CreateDepthStencilState({ false, false, Comparison::LESS });
+	BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
+	RasterState *rasterNoCull = draw_->CreateRasterState({});
 
-	samplerNearest = thin3d->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
-	samplerLinear = thin3d->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
+	samplerNearest = draw_->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
+	samplerLinear = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
 
 	PipelineDesc pipelineDesc{
 		Primitive::TRIANGLE_LIST,
-		{ thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D), thin3d->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
-		inputLayout, depth, blendstateOff, rasterNoCull
+		{ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
+		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
 	};
-	texColor = thin3d->CreateGraphicsPipeline(pipelineDesc);
+	texColor = draw_->CreateGraphicsPipeline(pipelineDesc);
+	inputLayout->Release();
+	depth->Release();
+	blendstateOff->Release();
+	rasterNoCull->Release();
 
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
@@ -92,6 +101,10 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 	displayFramebuf_ = 0;
 	displayStride_ = 512;
 	displayFormat_ = GE_FORMAT_8888;
+
+	Sampler::Init();
+	drawEngine_ = new SoftwareDrawEngine();
+	drawEngineCommon_ = drawEngine_;
 }
 
 void SoftGPU::DeviceLost() {
@@ -106,9 +119,10 @@ SoftGPU::~SoftGPU() {
 	texColor->Release();
 	texColor = nullptr;
 
-	fbTex->Release();
-	fbTex = nullptr;
-
+	if (fbTex) {
+		fbTex->Release();
+		fbTex = nullptr;
+	}
 	vdata->Release();
 	vdata = nullptr;
 	idata->Release();
@@ -117,6 +131,8 @@ SoftGPU::~SoftGPU() {
 	samplerNearest = nullptr;
 	samplerLinear->Release();
 	samplerLinear = nullptr;
+
+	Sampler::Shutdown();
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -129,34 +145,41 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
-	using namespace Draw;
-
-	if (!thin3d)
+	if (!draw_)
 		return;
-	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
-	float dstheight = (float)PSP_CoreParameter().pixelHeight;
-
-	Viewport viewport = {0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f};
-	thin3d->SetViewports(1, &viewport);
-	SamplerState *sampler;
-	if (g_Config.iBufFilter == SCALE_NEAREST) {
-		sampler = samplerNearest;
-	} else {
-		sampler = samplerLinear;
-	}
-	thin3d->BindSamplerStates(0, 1, &sampler);
-	thin3d->SetScissorRect(0, 0, dstwidth, dstheight);
-
 	float u0 = 0.0f;
 	float u1;
-	if (!Memory::IsValidAddress(displayFramebuf_)) {
-		u8 data[] = {0, 0, 0, 0};
-		fbTex->SetImageData(0, 0, 0, 1, 1, 1, 0, 4, data);
+
+	if (fbTex) {
+		fbTex->Release();
+		fbTex = nullptr;
+	}
+
+	// For accuracy, try to handle 0 stride - sometimes used.
+	if (displayStride_ == 0) {
+		srcheight = 1;
+	}
+
+	Draw::TextureDesc desc{};
+	desc.type = Draw::TextureType::LINEAR2D;
+	desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+	desc.depth = 1;
+	desc.mipLevels = 1;
+	bool hasImage = true;
+	if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
+		hasImage = false;
 		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
 		u8 *data = Memory::GetPointer(displayFramebuf_);
-		fbTex->SetImageData(0, 0, 0, displayStride_, srcheight, 1, 0, displayStride_ * 4, data);
-		u1 = (float)srcwidth / displayStride_;
+		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
+		desc.height = srcheight;
+		desc.initData.push_back(data);
+		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+		if (displayStride_ != 0) {
+			u1 = (float)srcwidth / displayStride_;
+		} else {
+			u1 = 1.0f;
+		}
 	} else {
 		// TODO: This should probably be converted in a shader instead..
 		fbTexBuffer.resize(srcwidth * srcheight);
@@ -184,10 +207,20 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			}
 		}
 
-		fbTex->SetImageData(0, 0, 0, srcwidth, srcheight, 1, 0, srcwidth * 4, (const uint8_t *)&fbTexBuffer[0]);
+		desc.width = srcwidth;
+		desc.height = srcheight;
+		desc.initData.push_back((uint8_t *)fbTexBuffer.data());
 		u1 = 1.0f;
 	}
-	fbTex->Finalize(0);
+	if (!hasImage) {
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE });
+		return;
+	}
+
+	fbTex = draw_->CreateTexture(desc);
+
+	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
+	float dstheight = (float)PSP_CoreParameter().pixelHeight;
 
 	float x, y, w, h;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
@@ -208,31 +241,37 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	x2 -= 1.0f;
 	y2 -= 1.0f;
 
-	struct Vertex {
-		float x, y, z;
-		float u, v;
-		uint32_t rgba;
-	};
-
 	float v0 = 1.0f;
 	float v1 = 0.0f;
 
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		std::swap(v0, v1);
 	}
+	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE });
+	Draw::Viewport viewport = { 0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f };
+	draw_->SetViewports(1, &viewport);
+	draw_->SetScissorRect(0, 0, dstwidth, dstheight);
+
+	Draw::SamplerState *sampler;
+	if (g_Config.iBufFilter == SCALE_NEAREST) {
+		sampler = samplerNearest;
+	} else {
+		sampler = samplerLinear;
+	}
+	draw_->BindSamplerStates(0, 1, &sampler);
 
 	const Vertex verts[4] = {
-		{x, y, 0,    u0, v0,  0xFFFFFFFF}, // TL
-		{x, y2, 0,   u0, v1,  0xFFFFFFFF}, // BL
-		{x2, y2, 0,  u1, v1,  0xFFFFFFFF}, // BR
-		{x2, y, 0,   u1, v0,  0xFFFFFFFF}, // TR
+		{ x, y, 0,    u0, v0,  0xFFFFFFFF }, // TL
+		{ x, y2, 0,   u0, v1,  0xFFFFFFFF }, // BL
+		{ x2, y2, 0,  u1, v1,  0xFFFFFFFF }, // BR
+		{ x2, y, 0,   u1, v0,  0xFFFFFFFF }, // TR
 	};
-	vdata->SetData((const uint8_t *)verts, sizeof(verts));
+	draw_->UpdateBuffer(vdata, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
 
-	int indexes[] = {0, 1, 2, 0, 2, 3};
-	idata->SetData((const uint8_t *)indexes, sizeof(indexes));
+	int indexes[] = { 0, 1, 2, 0, 2, 3 };
+	draw_->UpdateBuffer(idata, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
 
-	thin3d->BindTexture(0, fbTex);
+	draw_->BindTexture(0, fbTex);
 
 	static const float identity4x4[16] = {
 		1.0f, 0.0f, 0.0f, 0.0f,
@@ -241,31 +280,28 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		0.0f, 0.0f, 0.0f, 1.0f,
 	};
 
-	texColor->SetMatrix4x4("WorldViewProj", identity4x4);
-	thin3d->BindPipeline(texColor);
-	thin3d->DrawIndexed(vdata, idata, 6, 0);
+	Draw::VsTexColUB ub{};
+	memcpy(ub.WorldViewProj, identity4x4, sizeof(float) * 16);
+	draw_->BindPipeline(texColor);
+	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
+	draw_->BindVertexBuffers(0, 1, &vdata, nullptr);
+	draw_->BindIndexBuffer(idata, 0);
+	draw_->DrawIndexed(6, 0);
+	draw_->BindIndexBuffer(nullptr, 0);
 }
 
-void SoftGPU::CopyDisplayToOutput()
-{
-	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
-}
-
-void SoftGPU::CopyDisplayToOutputInternal()
-{
+void SoftGPU::CopyDisplayToOutput() {
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	framebufferDirty_ = false;
-}
 
-void SoftGPU::ProcessEvent(GPUEvent ev) {
-	switch (ev.type) {
-	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
-		CopyDisplayToOutputInternal();
-		break;
-
-	default:
-		GPUCommon::ProcessEvent(ev);
+	// Force the render params to 480x272 so other things work.
+	if (g_Config.IsPortrait()) {
+		PSP_CoreParameter().renderWidth = 272;
+		PSP_CoreParameter().renderHeight = 480;
+	} else {
+		PSP_CoreParameter().renderWidth = 480;
+		PSP_CoreParameter().renderHeight = 272;
 	}
 }
 
@@ -283,40 +319,12 @@ void SoftGPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
-int EstimatePerVertexCost() {
-	// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
-	// runs in parallel with transform.
-
-	// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
-
-	// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
-	// went too fast and starts doing all the work over again).
-
-	int cost = 20;
-	if (gstate.isLightingEnabled()) {
-		cost += 10;
-	}
-
-	for (int i = 0; i < 4; i++) {
-		if (gstate.isLightChanEnabled(i))
-			cost += 10;
-	}
-	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
-		cost += 20;
-	}
-	// TODO: morphcount
-
-	return cost;
-}
-
-void SoftGPU::ExecuteOp(u32 op, u32 diff)
-{
+void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
 	// Handle control and drawing commands here directly. The others we delegate.
-	switch (cmd)
-	{
+	switch (cmd) {
 	case GE_CMD_BASE:
 		break;
 
@@ -331,7 +339,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_PRIM:
 		{
 			u32 count = data & 0xFFFF;
-			u32 type = data >> 16;
+			// Upper bits are ignored.
+			GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
 
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 				ERROR_LOG_REPORT(G3D, "Software: Bad vertex address %08x!", gstate_c.vertexAddr);
@@ -350,7 +359,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 			cyclesExecuted += EstimatePerVertexCost() * count;
 			int bytesRead;
-			TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType, &bytesRead);
+			drawEngine_->transformUnit.SubmitPrimitive(verts, indices, prim, count, gstate.vertType, &bytesRead, drawEngine_);
 			framebufferDirty_ = true;
 
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
@@ -362,44 +371,105 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_BEZIER:
 		{
-			int bz_ucount = data & 0xFF;
-			int bz_vcount = (data >> 8) & 0xFF;
-			DEBUG_LOG(G3D,"DL DRAW BEZIER: %i x %i", bz_ucount, bz_vcount);
+			// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+
+			// This also make skipping drawing very effective.
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+				return;
+			}
+
+			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				return;
+			}
+
+			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+			void *indices = NULL;
+			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					return;
+				}
+				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+			}
+
+			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+				DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+			}
+			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+			}
+
+			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+			SetDrawType(DRAW_BEZIER, PatchPrimToPrim(patchPrim));
+
+			int bz_ucount = op & 0xFF;
+			int bz_vcount = (op >> 8) & 0xFF;
+			bool computeNormals = gstate.isLightingEnabled();
+			bool patchFacing = gstate.patchfacing & 1;
+
+			int bytesRead = 0;
+			drawEngineCommon_->SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+			framebufferDirty_ = true;
+
+			// After drawing, we advance pointers - see SubmitPrim which does the same.
+			int count = bz_ucount * bz_vcount;
+			AdvanceVerts(gstate.vertType, count, bytesRead);
 		}
 		break;
 
 	case GE_CMD_SPLINE:
 		{
-			int sp_ucount = data & 0xFF;
-			int sp_vcount = (data >> 8) & 0xFF;
-			int sp_utype = (data >> 16) & 0x3;
-			int sp_vtype = (data >> 18) & 0x3;
+			// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
+			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+
+			// This also make skipping drawing very effective.
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+				return;
+			}
 
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Software: Bad vertex address %08x!", gstate_c.vertexAddr);
-				break;
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				return;
 			}
 
-			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-			// void *indices = NULL;
+			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Software: Bad index address %08x!", gstate_c.indexAddr);
-					break;
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					return;
 				}
-				// indices = Memory::GetPointer(gstate_c.indexAddr);
+				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
-			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG_REPORT(G3D, "Software: Unsupported patch primitive %x", gstate.patchprimitive&3);
-				break;
+			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+				DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+			}
+			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
 			}
 
-			if (!(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)) {
-				//TransformUnit::SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, gstate.getPatchPrimitiveType(), gstate.vertType);
-			}
+			int sp_ucount = op & 0xFF;
+			int sp_vcount = (op >> 8) & 0xFF;
+			int sp_utype = (op >> 16) & 0x3;
+			int sp_vtype = (op >> 18) & 0x3;
+			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+			SetDrawType(DRAW_SPLINE, PatchPrimToPrim(patchPrim));
+			bool computeNormals = gstate.isLightingEnabled();
+			bool patchFacing = gstate.patchfacing & 1;
+			u32 vertType = gstate.vertType;
+
+			int bytesRead = 0;
+			drawEngineCommon_->SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
 			framebufferDirty_ = true;
-			DEBUG_LOG(G3D,"DL DRAW SPLINE: %i x %i, %i x %i", sp_ucount, sp_vcount, sp_utype, sp_vtype);
+
+			// After drawing, we advance pointers - see SubmitPrim which does the same.
+			int count = sp_ucount * sp_vcount;
+			AdvanceVerts(gstate.vertType, count, bytesRead);
 		}
 		break;
 
@@ -735,14 +805,15 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_PROJMATRIXNUMBER:
-		gstate.projmtxnum = data & 0xF;
+		gstate.projmtxnum = data & 0x1F;
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
 		{
-			int num = gstate.projmtxnum & 0xF;
+			int num = gstate.projmtxnum & 0x1F; // NOTE: Changed from 0xF to catch overflows
 			gstate.projMatrix[num] = getFloat24(data);
-			gstate.projmtxnum = (++num) & 0xF;
+			if (num <= 16)
+				gstate.projmtxnum = (++num) & 0x1F;
 		}
 		break;
 
@@ -798,6 +869,7 @@ bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	GPURecord::NotifyMemcpy(dest, src, size);
 	// Let's just be safe.
 	framebufferDirty_ = true;
 	return false;
@@ -807,6 +879,7 @@ bool SoftGPU::PerformMemorySet(u32 dest, u8 v, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	GPURecord::NotifyMemset(dest, v, size);
 	// Let's just be safe.
 	framebufferDirty_ = true;
 	return false;
@@ -823,6 +896,7 @@ bool SoftGPU::PerformMemoryUpload(u32 dest, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	GPURecord::NotifyUpload(dest, size);
 	return false;
 }
 
@@ -832,11 +906,6 @@ bool SoftGPU::PerformStencilUpload(u32 dest, int size)
 }
 
 bool SoftGPU::FramebufferDirty() {
-	if (g_Config.bSeparateCPUThread) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
 	if (g_Config.iFrameSkip != 0) {
 		bool dirty = framebufferDirty_;
 		framebufferDirty_ = false;
@@ -845,8 +914,7 @@ bool SoftGPU::FramebufferDirty() {
 	return true;
 }
 
-bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes)
-{
+bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
 	int x1 = gstate.getRegionX1();
 	int y1 = gstate.getRegionY1();
 	int x2 = gstate.getRegionX2() + 1;
@@ -875,6 +943,10 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferT
 		src += stride * depth;
 	}
 	return true;
+}
+
+bool SoftGPU::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
+	return GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY, 1);
 }
 
 bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer)
@@ -916,5 +988,14 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer)
 
 bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices)
 {
-	return TransformUnit::GetCurrentSimpleVertices(count, vertices, indices);
+	return drawEngine_->transformUnit.GetCurrentSimpleVertices(count, vertices, indices);
+}
+
+bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
+	std::string subname;
+	if (Sampler::DescribeCodePtr(ptr, subname)) {
+		name = "SamplerJit:" + subname;
+		return true;
+	}
+	return false;
 }

@@ -2,7 +2,10 @@
 
 #ifdef _WIN32
 
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <io.h>
@@ -83,7 +86,7 @@ void Request::WriteHttpResponseHeader(int status, int64_t size, const char *mime
 
 	net::OutputSink *buffer = Out();
 	buffer->Printf("HTTP/1.0 %03d %s\r\n", status, statusStr);
-	buffer->Push("Server: SuperDuperServer v0.1\r\n");
+	buffer->Push("Server: PPSSPPServer v0.1\r\n");
 	buffer->Printf("Content-Type: %s\r\n", mimeType ? mimeType : DEFAULT_MIME_TYPE);
 	buffer->Push("Connection: close\r\n");
 	if (size >= 0) {
@@ -174,16 +177,17 @@ bool Server::RunSlice(double timeout) {
 		return false;
 	}
 
-    sockaddr client_addr;
-    socklen_t client_addr_size = sizeof(client_addr);
-    int conn_fd = accept(listener_, &client_addr, &client_addr_size);
-    if (conn_fd >= 0) {
+	sockaddr client_addr;
+	socklen_t client_addr_size = sizeof(client_addr);
+	int conn_fd = accept(listener_, &client_addr, &client_addr_size);
+	if (conn_fd >= 0) {
 		executor_->Run(std::bind(&Server::HandleConnection, this, conn_fd));
 		return true;
-    } else {
-		FLOG("socket accept failed: %i", conn_fd);
+	}
+	else {
+		ELOG("socket accept failed: %i", conn_fd);
 		return false;
-    }
+	}
 }
 
 bool Server::Run(int port) {

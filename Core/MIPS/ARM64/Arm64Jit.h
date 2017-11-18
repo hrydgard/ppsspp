@@ -175,7 +175,6 @@ public:
 	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks.RestoreSavedEmuHackOps(saved); }
 
 	void ClearCache() override;
-	void InvalidateCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 
 	void EatPrefix() override { js.EatPrefix(); }
@@ -280,6 +279,8 @@ public:
 	const u8 *restoreRoundingMode;
 	const u8 *applyRoundingMode;
 	const u8 *updateRoundingMode;
+
+	int jitStartOffset;
 
 	// Indexed by FPCR FZ:RN bits for convenience.  Uses SCRATCH2.
 	const u8 *convertS0ToSCRATCH1[8];

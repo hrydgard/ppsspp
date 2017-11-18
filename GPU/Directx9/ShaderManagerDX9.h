@@ -18,9 +18,9 @@
 #pragma once
 
 #include <map>
+#include <cstdint>
 
 #include "base/basictypes.h"
-#include "Globals.h"
 #include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/Common/ShaderCommon.h"
@@ -33,53 +33,11 @@ namespace DX9 {
 class PSShader;
 class VSShader;
 
-// Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
-enum {
-	DIRTY_PROJMATRIX = (1 << 0),
-	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
-	DIRTY_FOGCOLOR = (1 << 2),
-	DIRTY_FOGCOEF = (1 << 3),
-	DIRTY_TEXENV = (1 << 4),
-	DIRTY_ALPHACOLORREF = (1 << 5),
-	DIRTY_STENCILREPLACEVALUE = (1 << 6),
-
-	DIRTY_ALPHACOLORMASK = (1 << 7),
-	DIRTY_LIGHT0 = (1 << 8),
-	DIRTY_LIGHT1 = (1 << 9),
-	DIRTY_LIGHT2 = (1 << 10),
-	DIRTY_LIGHT3 = (1 << 11),
-
-	DIRTY_MATDIFFUSE = (1 << 12),
-	DIRTY_MATSPECULAR = (1 << 13),
-	DIRTY_MATEMISSIVE = (1 << 14),
-	DIRTY_AMBIENT = (1 << 15),
-	DIRTY_MATAMBIENTALPHA = (1 << 16),
-	DIRTY_SHADERBLEND = (1 << 17),  // Used only for in-shader blending.
-	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
-	DIRTY_TEXCLAMP = (1 << 19),
-
-	DIRTY_DEPTHRANGE = (1 << 20),
-
-	DIRTY_WORLDMATRIX = (1 << 21),
-	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
-	DIRTY_TEXMATRIX = (1 << 23),
-	DIRTY_BONEMATRIX0 = (1 << 24),
-	DIRTY_BONEMATRIX1 = (1 << 25),
-	DIRTY_BONEMATRIX2 = (1 << 26),
-	DIRTY_BONEMATRIX3 = (1 << 27),
-	DIRTY_BONEMATRIX4 = (1 << 28),
-	DIRTY_BONEMATRIX5 = (1 << 29),
-	DIRTY_BONEMATRIX6 = (1 << 30),
-	DIRTY_BONEMATRIX7 = (1 << 31),
-
-	DIRTY_ALL = 0xFFFFFFFF
-};
-
 // Real public interface
 
 class PSShader {
 public:
-	PSShader(ShaderID id, const char *code);
+	PSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code);
 	~PSShader();
 
 	const std::string &source() const { return source_; }
@@ -98,7 +56,7 @@ protected:
 
 class VSShader {
 public:
-	VSShader(ShaderID id, const char *code, bool useHWTransform);
+	VSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code, bool useHWTransform);
 	~VSShader();
 
 	const std::string &source() const { return source_; }
@@ -117,38 +75,35 @@ protected:
 	ShaderID id_;
 };
 
-class ShaderManagerDX9 {
+class ShaderManagerDX9 : public ShaderManagerCommon {
 public:
-	ShaderManagerDX9();
+	ShaderManagerDX9(LPDIRECT3DDEVICE9 device);
 	~ShaderManagerDX9();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
 	VSShader *ApplyShader(int prim, u32 vertType);
 	void DirtyShader();
-	void DirtyUniform(u32 what) {
-		globalDirty_ |= what;
-	}
-	void DirtyLastShader();
+	void DirtyLastShader() override;
 
-	int NumVertexShaders() const { return (int)vsCache_.size(); }
-	int NumFragmentShaders() const { return (int)fsCache_.size(); }
+	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
+	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 private:
-	void PSUpdateUniforms(int dirtyUniforms);
-	void VSUpdateUniforms(int dirtyUniforms);
-	void PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
-	void PSSetColorUniform3(int creg, u32 color);
-	void PSSetFloat(int creg, float value);
-	void PSSetFloatArray(int creg, const float *value, int count);
+	void PSUpdateUniforms(u64 dirtyUniforms);
+	void VSUpdateUniforms(u64 dirtyUniforms);
+	inline void PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
+	inline void PSSetColorUniform3(int creg, u32 color);
+	inline void PSSetFloat(int creg, float value);
+	inline void PSSetFloatArray(int creg, const float *value, int count);
 
 	void VSSetMatrix4x3(int creg, const float *m4x3);
 	void VSSetMatrix4x3_3(int creg, const float *m4x3);
-	void VSSetColorUniform3(int creg, u32 color);
-	void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
-	void VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha);
+	inline void VSSetColorUniform3(int creg, u32 color);
+	inline void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
+	inline void VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha);
 	void VSSetMatrix(int creg, const float* pMatrix);
 	void VSSetFloat(int creg, float value);
 	void VSSetFloatArray(int creg, const float *value, int count);
@@ -157,10 +112,11 @@ private:
 
 	void Clear();
 
+	LPDIRECT3DDEVICE9 device_;
+
 	ShaderID lastFSID_;
 	ShaderID lastVSID_;
 
-	u32 globalDirty_;
 	char *codeBuffer_;
 
 	VSShader *lastVShader_;

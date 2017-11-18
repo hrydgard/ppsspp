@@ -507,7 +507,7 @@ namespace MIPSComp {
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	static const float MEMORY_ALIGNED16(vavg_table[4]) = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
+	alignas(16) static const float vavg_table[4] = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
 
 	void Arm64Jit::Comp_Vhoriz(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
@@ -1301,10 +1301,6 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vi2x(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
-		if (!cpu_info.bNEON) {
-			DISABLE;
-		}
 
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
 		bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)

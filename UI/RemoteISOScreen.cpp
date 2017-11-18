@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <thread>
+
 #include "base/timeutil.h"
 #include "ext/vjson/json.h"
 #include "file/fd_util.h"
@@ -23,7 +26,6 @@
 #include "net/http_server.h"
 #include "net/resolve.h"
 #include "net/sinks.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 #include "Common/Common.h"
 #include "Common/FileUtil.h"
@@ -44,19 +46,20 @@ enum class ServerStatus {
 
 static std::thread *serverThread = nullptr;
 static ServerStatus serverStatus;
-static recursive_mutex serverStatusLock;
-static condition_variable serverStatusCond;
+static std::mutex serverStatusLock;
+static std::condition_variable serverStatusCond;
 
 static bool scanCancelled = false;
+static bool scanAborted = false;
 
 static void UpdateStatus(ServerStatus s) {
-	lock_guard guard(serverStatusLock);
+	std::lock_guard<std::mutex> guard(serverStatusLock);
 	serverStatus = s;
 	serverStatusCond.notify_one();
 }
 
 static ServerStatus RetrieveStatus() {
-	lock_guard guard(serverStatusLock);
+	std::lock_guard<std::mutex> guard(serverStatusLock);
 	return serverStatus;
 }
 
@@ -67,7 +70,7 @@ static void RegisterServer(int port) {
 	Buffer theVoid;
 
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
-		if (http.Connect()) {
+		if (http.Connect(2, 20.0, &scanCancelled)) {
 			char resource[1024] = {};
 			std::string ip = fd_util::GetLocalIP(http.sock());
 			snprintf(resource, sizeof(resource) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
@@ -81,7 +84,6 @@ static void RegisterServer(int port) {
 static void ExecuteServer() {
 	setCurrentThreadName("HTTPServer");
 
-	net::AutoInit netInit;
 	auto http = new http::Server(new threading::SameThreadExecutor());
 
 	std::map<std::string, std::string> paths;
@@ -159,7 +161,7 @@ static void ExecuteServer() {
 
 	if (!http->Listen(g_Config.iRemoteISOPort)) {
 		if (!http->Listen(0)) {
-			ERROR_LOG(COMMON, "Unable to listen on any port");
+			ERROR_LOG(FILESYS, "Unable to listen on any port");
 			UpdateStatus(ServerStatus::STOPPED);
 			return;
 		}
@@ -189,9 +191,34 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	Buffer result;
 	int code = 500;
 
+	auto TryServer = [&](const std::string &host, int port) {
+		// Don't wait as long for a connect - we need a good connection for smooth streaming anyway.
+		// This way if it's down, we'll find the right one faster.
+		if (http.Resolve(host.c_str(), port) && http.Connect(1, 10.0, &scanCancelled)) {
+			http.Disconnect();
+			resultHost = host;
+			resultPort = port;
+			return true;
+		}
+
+		return false;
+	};
+
+	// Try last server first, if it is set
+	if (g_Config.iLastRemoteISOPort && g_Config.sLastRemoteISOServer != "") {
+		if (TryServer(g_Config.sLastRemoteISOServer.c_str(), g_Config.iLastRemoteISOPort)) {
+			return true;
+		}
+	}
+
+	// Don't scan if in manual mode.
+	if (g_Config.bRemoteISOManual || scanCancelled) {
+		return false;
+	}
+
 	// Start by requesting a list of recent local ips for this network.
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
-		if (http.Connect()) {
+		if (http.Connect(2, 20.0, &scanCancelled)) {
 			code = http.GET("/match/list", &result);
 			http.Disconnect();
 		}
@@ -216,7 +243,7 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 
 	std::vector<std::string> servers;
 	const json_value *entry = entries->first_child;
-	while (entry) {
+	while (entry && !scanCancelled) {
 		const char *host = entry->getString("ip", "");
 		int port = entry->getInt("p", 0);
 
@@ -224,10 +251,7 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		snprintf(url, sizeof(url), "http://%s:%d", host, port);
 		servers.push_back(url);
 
-		if (http.Resolve(host, port) && http.Connect()) {
-			http.Disconnect();
-			resultHost = host;
-			resultPort = port;
+		if (TryServer(host, port)) {
 			return true;
 		}
 
@@ -242,11 +266,23 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	http::Client http;
 	Buffer result;
 	int code = 500;
+	std::vector<std::string> responseHeaders;
+	std::string subdir ="/";
+	size_t offset;
 
-	// Start by requesting a list of recent local ips for this network.
+	if (g_Config.bRemoteISOManual) {
+		subdir = g_Config.sRemoteISOSubdir;
+		offset=subdir.find_last_of("/");
+		if (offset != subdir.length() - 1 && offset != subdir.npos) {
+			//truncate everything after last / 
+			subdir.erase(offset + 1);
+		}
+	}
+
+	// Start by requesting the list of games from the server.
 	if (http.Resolve(host.c_str(), port)) {
-		if (http.Connect()) {
-			code = http.GET("/", &result);
+		if (http.Connect(2, 20.0, &scanCancelled)) {
+			code = http.GET(subdir.c_str(), &result,responseHeaders);
 			http.Disconnect();
 		}
 	}
@@ -259,15 +295,55 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	std::vector<std::string> items;
 	result.TakeAll(&listing);
 
-	SplitString(listing, '\n', items);
-	for (const std::string &item : items) {
-		if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
-			continue;
+	std::string contentType;
+	for (const std::string &header : responseHeaders) {
+		if (startsWithNoCase(header, "Content-Type:")) {
+			contentType = header.substr(strlen("Content-Type:"));
+			// Strip any whitespace (TODO: maybe move this to stringutil?)
+			contentType.erase(0, contentType.find_first_not_of(" \t\r\n"));
+			contentType.erase(contentType.find_last_not_of(" \t\r\n") + 1);
 		}
+	}
 
-		char temp[1024] = {};
-		snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
-		games.push_back(temp);
+	// TODO: Technically, "TExt/hTml    ; chaRSet    =    Utf8" should pass, but "text/htmlese" should not.
+	// But unlikely that'll be an issue.
+	bool parseHtml = startsWithNoCase(contentType, "text/html");
+	bool parseText = startsWithNoCase(contentType, "text/plain");
+
+	if (parseText) {
+		//ppsspp server
+		SplitString(listing, '\n', items);
+		for (const std::string &item : items) {
+			if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
+				continue;
+			}
+
+			char temp[1024] = {};
+			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
+			games.push_back(temp);
+		}
+	} else if (parseHtml) {
+		//other webserver
+		GetQuotedStrings(listing, items);
+		for (const std::string &item : items) {
+			
+			if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
+				continue;
+			}
+
+			char temp[1024] = {};
+			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s%s", host.c_str(), port, subdir.c_str(),item.c_str());
+			games.push_back(temp);
+		}
+	} else {
+		ERROR_LOG(FILESYS, "Unsupported Content-Type: %s", contentType.c_str());
+		return false;
+	}
+
+	//save for next time unless manual is true
+	if (!games.empty() && !g_Config.bRemoteISOManual){
+		g_Config.sLastRemoteISOServer = host;
+		g_Config.iLastRemoteISOPort = port;
 	}
 
 	return !games.empty();
@@ -276,8 +352,8 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 RemoteISOScreen::RemoteISOScreen() : serverRunning_(false), serverStopping_(false) {
 }
 
-void RemoteISOScreen::update(InputState &input) {
-	UIScreenWithBackground::update(input);
+void RemoteISOScreen::update() {
+	UIScreenWithBackground::update();
 
 	bool nowRunning = RetrieveStatus() != ServerStatus::STOPPED;
 	if (serverStopping_ && !nowRunning) {
@@ -295,48 +371,48 @@ void RemoteISOScreen::update(InputState &input) {
 
 void RemoteISOScreen::CreateViews() {
 	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *sy = GetI18NCategory("System");
+	I18NCategory *ri = GetI18NCategory("RemoteISO");
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f, contentMargins));
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 0.4f, contentMargins));
 	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(WRAP_CONTENT, FILL_PARENT));
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
-	leftColumnItems->Add(new TextView(sy->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
-	leftColumnItems->Add(new TextView(sy->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
-
-	// TODO: Could display server address for manual entry.
+	leftColumnItems->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	leftColumnItems->Add(new TextView(ri->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 
 	rightColumnItems->SetSpacing(0.0f);
-	Choice *browseChoice = new Choice(sy->T("Browse Games"));
+	Choice *browseChoice = new Choice(ri->T("Browse Games"));
 	rightColumnItems->Add(browseChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleBrowse);
 	ServerStatus status = RetrieveStatus();
 	if (status == ServerStatus::STOPPING) {
-		rightColumnItems->Add(new Choice(sy->T("Stopping..")))->SetDisabledPtr(&serverStopping_);
+		rightColumnItems->Add(new Choice(ri->T("Stopping..")))->SetDisabledPtr(&serverStopping_);
 		browseChoice->SetEnabled(false);
 	} else if (status != ServerStatus::STOPPED) {
-		rightColumnItems->Add(new Choice(sy->T("Stop Sharing")))->OnClick.Handle(this, &RemoteISOScreen::HandleStopServer);
+		rightColumnItems->Add(new Choice(ri->T("Stop Sharing")))->OnClick.Handle(this, &RemoteISOScreen::HandleStopServer);
 		browseChoice->SetEnabled(false);
 	} else {
-		rightColumnItems->Add(new Choice(sy->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
+		rightColumnItems->Add(new Choice(ri->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
 		browseChoice->SetEnabled(true);
 	}
+	Choice *settingsChoice = new Choice(ri->T("Settings"));
+	rightColumnItems->Add(settingsChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleSettings);
 
-	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-	root_->Add(leftColumn);
-	root_->Add(rightColumn);
+	LinearLayout *beforeBack = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+	beforeBack->Add(leftColumn);
+	beforeBack->Add(rightColumn);
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_->Add(beforeBack);
+	root_->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	leftColumn->Add(leftColumnItems);
 	rightColumn->Add(rightColumnItems);
 }
 
 UI::EventReturn RemoteISOScreen::HandleStartServer(UI::EventParams &e) {
-	lock_guard guard(serverStatusLock);
+	std::lock_guard<std::mutex> guard(serverStatusLock);
 
 	if (serverStatus != ServerStatus::STOPPED) {
 		return EVENT_SKIPPED;
@@ -350,7 +426,7 @@ UI::EventReturn RemoteISOScreen::HandleStartServer(UI::EventParams &e) {
 }
 
 UI::EventReturn RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
-	lock_guard guard(serverStatusLock);
+	std::lock_guard<std::mutex> guard(serverStatusLock);
 
 	if (serverStatus != ServerStatus::RUNNING) {
 		return EVENT_SKIPPED;
@@ -368,9 +444,14 @@ UI::EventReturn RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
 	return EVENT_DONE;
 }
 
+UI::EventReturn RemoteISOScreen::HandleSettings(UI::EventParams &e) {
+	screenManager()->push(new RemoteISOSettingsScreen());
+	return EVENT_DONE;
+}
+
 RemoteISOConnectScreen::RemoteISOConnectScreen() : status_(ScanStatus::SCANNING), nextRetry_(0.0) {
 	scanCancelled = false;
-	statusLock_ = new recursive_mutex();
+	scanAborted = false;
 
 	scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 		thiz->ExecuteScan();
@@ -385,15 +466,16 @@ RemoteISOConnectScreen::~RemoteISOConnectScreen() {
 		sleep_ms(1);
 		if (--maxWait < 0) {
 			// If it does ever wake up, it may crash... but better than hanging?
+			scanAborted = true;
 			break;
 		}
 	}
 	delete scanThread_;
-	delete statusLock_;
 }
 
 void RemoteISOConnectScreen::CreateViews() {
-	I18NCategory *sy = GetI18NCategory("System");
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *ri = GetI18NCategory("RemoteISO");
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -402,12 +484,10 @@ void RemoteISOConnectScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
-	statusView_ = leftColumnItems->Add(new TextView(sy->T("RemoteISOScanning", "Scanning... click Share Games on your desktop"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
-
-	// TODO: Here would be a good place for manual entry.
+	statusView_ = leftColumnItems->Add(new TextView(ri->T("RemoteISOScanning", "Scanning... click Share Games on your desktop"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 
 	rightColumnItems->SetSpacing(0.0f);
-	rightColumnItems->Add(new Choice(sy->T("Cancel"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	rightColumnItems->Add(new Choice(di->T("Cancel"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	root_->Add(leftColumn);
@@ -417,10 +497,10 @@ void RemoteISOConnectScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 }
 
-void RemoteISOConnectScreen::update(InputState &input) {
-	I18NCategory *sy = GetI18NCategory("System");
+void RemoteISOConnectScreen::update() {
+	I18NCategory *ri = GetI18NCategory("RemoteISO");
 
-	UIScreenWithBackground::update(input);
+	UIScreenWithBackground::update();
 
 	ScanStatus s = GetStatus();
 	switch (s) {
@@ -429,7 +509,7 @@ void RemoteISOConnectScreen::update(InputState &input) {
 		break;
 
 	case ScanStatus::FOUND:
-		statusView_->SetText(sy->T("RemoteISOLoading", "Connected - loading game list"));
+		statusView_->SetText(ri->T("RemoteISOLoading", "Connected - loading game list"));
 		status_ = ScanStatus::LOADING;
 
 		// Let's reuse scanThread_.
@@ -459,7 +539,7 @@ void RemoteISOConnectScreen::update(InputState &input) {
 		break;
 
 	case ScanStatus::LOADED:
-		screenManager()->finishDialog(this, DR_OK);
+		TriggerFinish(DR_OK);
 		screenManager()->push(new RemoteISOBrowseScreen(games_));
 		break;
 	}
@@ -467,26 +547,26 @@ void RemoteISOConnectScreen::update(InputState &input) {
 
 void RemoteISOConnectScreen::ExecuteScan() {
 	FindServer(host_, port_);
-	if (scanCancelled) {
+	if (scanAborted) {
 		return;
 	}
 
-	lock_guard guard(*statusLock_);
+	std::lock_guard<std::mutex> guard(statusLock_);
 	status_ = host_.empty() ? ScanStatus::FAILED : ScanStatus::FOUND;
 }
 
 ScanStatus RemoteISOConnectScreen::GetStatus() {
-	lock_guard guard(*statusLock_);
+	std::lock_guard<std::mutex> guard(statusLock_);
 	return status_;
 }
 
 void RemoteISOConnectScreen::ExecuteLoad() {
 	bool result = LoadGameList(host_, port_, games_);
-	if (scanCancelled) {
+	if (scanAborted) {
 		return;
 	}
 
-	lock_guard guard(*statusLock_);
+	std::lock_guard<std::mutex> guard(statusLock_);
 	status_ = result ? ScanStatus::LOADED : ScanStatus::FAILED;
 }
 
@@ -519,8 +599,8 @@ RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::vector<std::string> &gam
 void RemoteISOBrowseScreen::CreateViews() {
 	bool vertical = UseVerticalLayout();
 
-	I18NCategory *mm = GetI18NCategory("MainMenu");
 	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *ri = GetI18NCategory("RemoteISO");
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 
@@ -539,7 +619,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 	scrollRecentGames->Add(tabRemoteGames);
 	gameBrowsers_.push_back(tabRemoteGames);
 
-	leftColumn->AddTab(mm->T("Remote Server"), scrollRecentGames);
+	leftColumn->AddTab(ri->T("Remote Server"), scrollRecentGames);
 	tabRemoteGames->OnChoice.Handle<MainScreen>(this, &MainScreen::OnGameSelectedInstant);
 	tabRemoteGames->OnHoldChoice.Handle<MainScreen>(this, &MainScreen::OnGameSelected);
 	tabRemoteGames->OnHighlight.Handle<MainScreen>(this, &MainScreen::OnGameHighlight);
@@ -568,4 +648,58 @@ void RemoteISOBrowseScreen::CreateViews() {
 	root_->SetDefaultFocusView(tabHolder_);
 
 	upgradeBar_ = 0;
+}
+
+RemoteISOSettingsScreen::RemoteISOSettingsScreen() {
+	serverRunning_ = RetrieveStatus() != ServerStatus::STOPPED;;
+}
+
+void RemoteISOSettingsScreen::update() {
+	UIDialogScreenWithBackground::update();
+
+	bool nowRunning = RetrieveStatus() != ServerStatus::STOPPED;
+	if (serverRunning_ != nowRunning) {
+		RecreateViews();
+	}
+	serverRunning_ = nowRunning;
+}
+
+void RemoteISOSettingsScreen::CreateViews() {
+	I18NCategory *ri = GetI18NCategory("RemoteISO");
+	
+	ViewGroup *remoteisoSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	remoteisoSettingsScroll->SetTag("RemoteISOSettings");
+	LinearLayout *remoteisoSettings = new LinearLayout(ORIENT_VERTICAL);
+	remoteisoSettings->SetSpacing(0);
+	remoteisoSettingsScroll->Add(remoteisoSettings);
+
+	remoteisoSettings->Add(new ItemHeader(ri->T("Remote disc streaming")));
+	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, ri->T("Manual Mode Client", "Manual Mode Client")));
+	PopupTextInputChoice *remoteServer = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager()));
+	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
+	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, ri->T("Remote Port", "Remote Port"), 100, screenManager()));
+	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
+	PopupTextInputChoice *remoteSubdir = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), "", 255, screenManager()));
+	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
+	remoteSubdir->OnChange.Handle(this, &RemoteISOSettingsScreen::OnChangeRemoteISOSubdir);
+
+	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, ri->T("Local Server Port", "Local Server Port"), 100, screenManager());
+	remoteisoSettings->Add(portChoice);
+	portChoice->SetDisabledPtr(&serverRunning_);
+	remoteisoSettings->Add(new Spacer(25.0));
+	
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_->Add(remoteisoSettingsScroll);
+	AddStandardBack(root_);
+}
+
+UI::EventReturn RemoteISOSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
+	//Conform to HTTP standards
+	ReplaceAll(g_Config.sRemoteISOSubdir, " ", "%20");
+	ReplaceAll(g_Config.sRemoteISOSubdir, "\\", "/");
+	//Make sure it begins with /
+	if (g_Config.sRemoteISOSubdir[0] != '/')
+		g_Config.sRemoteISOSubdir = "/" + g_Config.sRemoteISOSubdir;
+	
+	return UI::EVENT_DONE;
 }

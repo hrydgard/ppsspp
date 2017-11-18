@@ -22,16 +22,16 @@
 #endif
 #endif
 
+#include "ppsspp_config.h"
+
 #include "FileUtil.h"
 #include "StringUtils.h"
 
 #ifdef _WIN32
 #include "CommonWindows.h"
-#ifndef _XBOX
 #include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
 #include <commdlg.h>	// for GetSaveFileName
-#endif
 #include <io.h>
 #include <direct.h>		// getcwd
 #else
@@ -93,7 +93,7 @@ FILE *OpenCFile(const std::string &filename, const char *mode)
 
 bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::openmode mode)
 {
-#if defined(_WIN32) && defined(UNICODE)
+#if defined(_WIN32) && defined(UNICODE) && !defined(__MINGW32__)
 	stream.open(ConvertUTF8ToWString(filename), mode);
 #else
 	stream.open(filename.c_str(), mode);
@@ -126,13 +126,20 @@ bool Exists(const std::string &filename) {
 	std::wstring copy = ConvertUTF8ToWString(fn);
 
 	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
+#if !PPSSPP_PLATFORM(UWP)
 	int OldMode = SetErrorMode(SEM_FAILCRITICALERRORS);
-	bool success = GetFileAttributes(copy.c_str()) != INVALID_FILE_ATTRIBUTES;
+#endif
+	WIN32_FILE_ATTRIBUTE_DATA data{};
+	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+		return false;
+	}
+#if !PPSSPP_PLATFORM(UWP)
 	SetErrorMode(OldMode);
-	return success;
+#endif
+	return true;
 #else
-	struct stat64 file_info;
-	return stat64(fn.c_str(), &file_info) == 0;
+	struct stat file_info;
+	return stat(fn.c_str(), &file_info) == 0;
 #endif
 }
 
@@ -144,16 +151,17 @@ bool IsDirectory(const std::string &filename)
 
 #if defined(_WIN32)
 	std::wstring copy = ConvertUTF8ToWString(fn);
-	DWORD result = GetFileAttributes(copy.c_str());
-	if (result == INVALID_FILE_ATTRIBUTES) {
+	WIN32_FILE_ATTRIBUTE_DATA data{};
+	if (!GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x", fn.c_str(), GetLastError());
 		return false;
 	}
+	DWORD result = data.dwFileAttributes;
 	return (result & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
 #else
 	std::string copy(fn);
-	struct stat64 file_info;
-	int result = stat64(copy.c_str(), &file_info);
+	struct stat file_info;
+	int result = stat(copy.c_str(), &file_info);
 	if (result < 0) {
 		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", 
 				 fn.c_str(), GetLastErrorMsg());
@@ -165,28 +173,24 @@ bool IsDirectory(const std::string &filename)
 
 // Deletes a given filename, return true on success
 // Doesn't supports deleting a directory
-bool Delete(const std::string &filename)
-{
+bool Delete(const std::string &filename) {
 	INFO_LOG(COMMON, "Delete: file %s", filename.c_str());
 
 	// Return true because we care about the file no 
 	// being there, not the actual delete.
-	if (!Exists(filename))
-	{
+	if (!Exists(filename)) {
 		WARN_LOG(COMMON, "Delete: %s does not exists", filename.c_str());
 		return true;
 	}
 
 	// We can't delete a directory
-	if (IsDirectory(filename))
-	{
+	if (IsDirectory(filename)) {
 		WARN_LOG(COMMON, "Delete failed: %s is a directory", filename.c_str());
 		return false;
 	}
 
 #ifdef _WIN32
-	if (!DeleteFile(ConvertUTF8ToWString(filename).c_str()))
-	{
+	if (!DeleteFile(ConvertUTF8ToWString(filename).c_str())) {
 		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", 
 				 filename.c_str(), GetLastErrorMsg());
 		return false;
@@ -330,9 +334,14 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	INFO_LOG(COMMON, "Copy: %s --> %s", 
 			srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+	if (CopyFile2(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), nullptr))
+		return true;
+	return false;
+#else
 	if (CopyFile(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), FALSE))
 		return true;
-
+#endif
 	ERROR_LOG(COMMON, "Copy: failed %s --> %s: %s", 
 			srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
 	return false;
@@ -434,8 +443,13 @@ bool GetFileDetails(const std::string &filename, FileDetails *details) {
 	if (!Exists(filename)) {
 		return false;
 	}
+#if __ANDROID__ && __ANDROID_API__ < 21
+	struct stat buf;
+	if (stat(filename.c_str(), &buf) == 0) {
+#else
 	struct stat64 buf;
 	if (stat64(filename.c_str(), &buf) == 0) {
+#endif
 		details->size = buf.st_size;
 		details->isDirectory = S_ISDIR(buf.st_mode);
 		details->atime = buf.st_atime;
@@ -498,8 +512,13 @@ u64 GetFileSize(const std::string &filename) {
 		return 0;
 	return ((u64)attr.nFileSizeHigh << 32) | (u64)attr.nFileSizeLow;
 #else
+#if __ANDROID__ && __ANDROID_API__ < 21
+	struct stat file_info;
+	int result = stat(filename.c_str(), &file_info);
+#else
 	struct stat64 file_info;
 	int result = stat64(filename.c_str(), &file_info);
+#endif
 	if (result != 0) {
 		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.c_str());
 		return 0;
@@ -549,8 +568,13 @@ bool CreateEmptyFile(const std::string &filename)
 // Deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const std::string &directory)
 {
+#if PPSSPP_PLATFORM(UWP)
+	return false;
+#else
 	INFO_LOG(COMMON, "DeleteDirRecursively: %s", directory.c_str());
+
 #ifdef _WIN32
+
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
 	HANDLE hFind = FindFirstFile(ConvertUTF8ToWString(directory + "\\*").c_str(), &ffd);
@@ -615,9 +639,10 @@ bool DeleteDirRecursively(const std::string &directory)
 	closedir(dirp);
 #endif
 	File::DeleteDir(directory);
-		
 	return true;
+#endif
 }
+
 
 // Create directory and copy contents (does not overwrite existing files)
 void CopyDir(const std::string &source_path, const std::string &dest_path)
@@ -655,12 +680,17 @@ void CopyDir(const std::string &source_path, const std::string &dest_path)
 		else if (!File::Exists(dest)) File::Copy(source, dest);
 	}
 	closedir(dirp);
+#else
+	ERROR_LOG(COMMON, "CopyDir not supported on this platform");
 #endif
 }
 
 void openIniFile(const std::string fileName) {
 	std::string iniFile;
 #if defined(_WIN32)
+#if PPSSPP_PLATFORM(UWP)
+	// Do nothing.
+#else
 	iniFile = fileName;
 	// Can't rely on a .txt file extension to auto-open in the right editor,
 	// so let's find notepad
@@ -692,6 +722,7 @@ void openIniFile(const std::string fileName) {
 	}
 	CloseHandle(pi.hThread);
 	CloseHandle(pi.hProcess);
+#endif
 #elif !defined(MOBILE_DEVICE)
 #if defined(__APPLE__)
 	iniFile = "open ";
@@ -707,43 +738,11 @@ void openIniFile(const std::string fileName) {
 #endif
 }
 
-// Returns the current directory
-std::string GetCurrentDir()
-{
-	char *dir;
-#ifndef _XBOX
-	// Get the current working directory (getcwd uses malloc) 
-	if (!(dir = __getcwd(NULL, 0))) {
-
-		ERROR_LOG(COMMON, "GetCurrentDirectory failed: %s",
-				  GetLastErrorMsg());
-		return NULL;
-	}
-	std::string strDir = dir;
-	free(dir);
-	return strDir;
-#else
-	return "game:\\";
-#endif
-}
-
-// Sets the current directory to the given directory
-bool SetCurrentDir(const std::string &directory)
-{
-#ifndef _XBOX
-	return __chdir(directory.c_str()) == 0;
-#else
-	return false;
-#endif
-}
-
 const std::string &GetExeDirectory()
 {
 	static std::string ExePath;
 
-	if (ExePath.empty())
-#ifndef _XBOX
-	{
+	if (ExePath.empty()) {
 #ifdef _WIN32
 		TCHAR program_path[4096] = {0};
 		GetModuleFileName(NULL, program_path, ARRAY_SIZE(program_path) - 1);
@@ -789,10 +788,6 @@ const std::string &GetExeDirectory()
 	}
 
 	return ExePath;
-#else
-	static std::wstring ExePath = L"game:\\";
-	return ExePath;
-#endif
 }
 
 
@@ -880,7 +875,6 @@ bool IOFile::Flush()
 
 bool IOFile::Resize(u64 size)
 {
-#ifndef _XBOX
 	if (!IsOpen() || 0 !=
 #ifdef _WIN32
 		// ector: _chsize sucks, not 64-bit safe
@@ -894,10 +888,6 @@ bool IOFile::Resize(u64 size)
 		m_good = false;
 
 	return m_good;
-#else
-	// TODO: Implement.
-	return false;
-#endif
 }
 
 } // namespace

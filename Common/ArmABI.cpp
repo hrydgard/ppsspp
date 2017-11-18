@@ -15,6 +15,10 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include "ppsspp_config.h"
+
+#if PPSSPP_ARCH(ARM)
+
 #include "ArmEmitter.h"
 #include "ArmABI.h"
 
@@ -108,15 +112,17 @@ void ARMXEmitter::UpdateAPSR(bool NZCVQ, u8 Flags, bool GE, u8 GEval)
 		ARMABI_MOVI2R(R14, Imm);
 		_MSR(true, true, R14);
 	}
-	else
-		if(NZCVQ)
+	else {
+		if (NZCVQ)
 		{
 			Operand2 value(Flags << 1, 3);
 			_MSR(true, false, value);
-		}
-		else if(GE)
+		} else if (GE)
 		{
 			Operand2 value(GEval << 2, 9);
 			_MSR(false, true, value);
 		}
+	}
 }
+
+#endif

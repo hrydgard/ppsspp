@@ -4,27 +4,19 @@
 
 #include <algorithm>
 
+#include "base/display.h"
 #include "Common/CommonWindows.h"
-#include "input/input_state.h"
+#include "Common/CommonFuncs.h"
 #include "base/NativeApp.h"
 #include "Windows/MainWindow.h"
 
-extern InputState input_state;
-
-TouchInputHandler::TouchInputHandler() : 
-		touchInfo(nullptr),
-		closeTouch(nullptr),
-		registerTouch(nullptr)
-{
-
+TouchInputHandler::TouchInputHandler() {
 	touchInfo = (getTouchInputProc) GetProcAddress(
 		GetModuleHandle(TEXT("User32.dll")),
 		"GetTouchInputInfo");
-
 	closeTouch = (closeTouchInputProc) GetProcAddress(
 		GetModuleHandle(TEXT("User32.dll")),
 		"CloseTouchInputHandle");
-
 	registerTouch = (registerTouchProc) GetProcAddress(
 		GetModuleHandle(TEXT("User32.dll")),
 		"RegisterTouchWindow");
@@ -35,66 +27,74 @@ TouchInputHandler::~TouchInputHandler()
 {
 }
 
+int TouchInputHandler::ToTouchID(int windowsID, bool allowAllocate) {
+	// Find the id for the touch.  Avoid 0 (mouse.)
+	for (int localId = 1; localId < (int)ARRAY_SIZE(touchIds); ++localId) {
+		if (touchIds[localId] == windowsID) {
+			return localId;
+		}
+	}
+
+	// Allocate a new one, perhaps?
+	if (allowAllocate) {
+		for (int localId = 1; localId < (int)ARRAY_SIZE(touchIds); ++localId) {
+			if (touchIds[localId] == 0) {
+				touchIds[localId] = windowsID;
+				return localId;
+			}
+		}
+
+		// None were free.
+		// TODO: Better to just ignore this touch instead?
+		touchUp(0, 0, 0);
+		return 0;
+	}
+
+	return -1;
+}
+
+bool TouchInputHandler::GetTouchPoint(HWND hWnd, const TOUCHINPUT &input, float &x, float &y) {
+	POINT point;
+	point.x = (LONG)(TOUCH_COORD_TO_PIXEL(input.x));
+	point.y = (LONG)(TOUCH_COORD_TO_PIXEL(input.y));
+	if (ScreenToClient(hWnd, &point)) {
+		x = point.x * g_dpi_scale_x;
+		y = point.y * g_dpi_scale_y;
+		return true;
+	}
+
+	return false;
+}
+
 void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	if (hasTouch()){
+	if (hasTouch()) {
 		UINT inputCount = LOWORD(wParam);
+		HTOUCHINPUT touchInputData = (HTOUCHINPUT)lParam;
 		TOUCHINPUT *inputs = new TOUCHINPUT[inputCount];
-		if (touchInfo((HTOUCHINPUT) lParam,
-			inputCount,
-			inputs,
-			sizeof(TOUCHINPUT)))
-		{
+		if (touchInfo(touchInputData, inputCount, inputs, sizeof(TOUCHINPUT))) {
 			for (UINT i = 0; i < inputCount; i++) {
-				int id = 0;
+				float x, y;
+				if (!GetTouchPoint(hWnd, inputs[i], x, y))
+					continue;
 
-				//here we map the windows touch id to the ppsspp internal touch id
-				//currently we ignore the fact that the mouse uses  touch id 0, so that 
-				//the mouse could possibly interfere with the mapping so for safety 
-				//the maximum amount of touch points is MAX_POINTERS-1 
-				std::map<int, int>::const_iterator it = touchTranslate.find(inputs[i].dwID);
-				if (it != touchTranslate.end()) //check if we already mapped this touch id
-				{
-					id = it->second;
+				if (inputs[i].dwFlags & TOUCHEVENTF_DOWN) {
+					touchDown(ToTouchID(inputs[i].dwID), x, y);
 				}
-				else
-				{
-					if (touchTranslate.size() + 1 >= MAX_POINTERS) //check if we're tracking too many points
-					{
-						touchUp(touchTranslate.begin()->second, 0, 0);
-						touchTranslate.erase(touchTranslate.begin());
-					}
-					//finding first free internal touch id and map this windows id to an internal id
-					bool *first_free = std::find(input_state.pointer_down, input_state.pointer_down + MAX_POINTERS, false);
-					id = (int)(first_free - input_state.pointer_down) / (int)sizeof(bool);
-					touchTranslate[inputs[i].dwID] = id;
+				if (inputs[i].dwFlags & TOUCHEVENTF_MOVE) {
+					touchMove(ToTouchID(inputs[i].dwID), x, y);
 				}
-
-				POINT point;
-				point.x = TOUCH_COORD_TO_PIXEL(inputs[i].x);
-				point.y = TOUCH_COORD_TO_PIXEL(inputs[i].y);
-
-				if (ScreenToClient(hWnd, &point)){
-					if (inputs[i].dwFlags & TOUCHEVENTF_DOWN)
-					{
-						touchDown(id, point.x, point.y);
-					}
-					if (inputs[i].dwFlags & TOUCHEVENTF_MOVE)
-					{
-						touchMove(id, point.x, point.y);
-					}
-					if (inputs[i].dwFlags & TOUCHEVENTF_UP)
-					{
-						touchUp(id, point.x, point.y);
-						touchTranslate.erase(touchTranslate.find(inputs[i].dwID));
+				if (inputs[i].dwFlags & TOUCHEVENTF_UP) {
+					int id = ToTouchID(inputs[i].dwID, false);
+					if (id >= 0) {
+						touchUp(id, x, y);
+						touchIds[id] = 0;
 					}
 				}
 			}
-			closeTouch((HTOUCHINPUT) lParam);
-		}
-		else
-		{
-			// GetLastError() and error handling.
+			closeTouch(touchInputData);
+		} else {
+			WARN_LOG(SYSTEM, "Failed to read input data: %s", GetLastErrorMsg());
 		}
 		delete [] inputs;
 	}
@@ -128,11 +128,6 @@ void TouchInputHandler::touchUp(int id, float x, float y){
 	touchevent.x = x;
 	touchevent.y = y;
 	touchevent.flags = TOUCH_UP;
-	input_state.lock.lock();
-	input_state.pointer_down[id] = false;
-	input_state.pointer_x[id] = x;
-	input_state.pointer_y[id] = y;
-	input_state.lock.unlock();
 	NativeTouch(touchevent);
 }
 
@@ -142,11 +137,6 @@ void TouchInputHandler::touchDown(int id, float x, float y){
 	touchevent.x = x;
 	touchevent.y = y;
 	touchevent.flags = TOUCH_DOWN;
-	input_state.lock.lock();
-	input_state.pointer_down[id] = true;
-	input_state.pointer_x[id] = x;
-	input_state.pointer_y[id] = y;
-	input_state.lock.unlock();
 	NativeTouch(touchevent);
 }
 
@@ -156,10 +146,6 @@ void TouchInputHandler::touchMove(int id, float x, float y){
 	touchevent.x = x;
 	touchevent.y = y;
 	touchevent.flags = TOUCH_MOVE;
-	input_state.lock.lock();
-	input_state.pointer_x[id] = x;
-	input_state.pointer_y[id] = y;
-	input_state.lock.unlock();
 	NativeTouch(touchevent);
 }
 

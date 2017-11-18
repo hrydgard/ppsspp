@@ -35,12 +35,15 @@ public:
 	EmuScreen(const std::string &filename);
 	~EmuScreen();
 
-	void update(InputState &input) override;
+	void update() override;
 	void render() override;
+	void preRender() override;
+	void postRender() override;
 	void deviceLost() override;
 	void deviceRestore() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void sendMessage(const char *msg, const char *value) override;
+	void resized() override;
 
 	bool touch(const TouchInput &touch) override;
 	bool key(const KeyInput &key) override;
@@ -66,12 +69,15 @@ private:
 	void autoLoad();
 	void checkPowerDown();
 
+	UI::Event OnDevMenu;
+
 	bool bootPending_;
 	std::string gamePath_;
 
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
 	bool quit_;
+	bool stopRender_ = false;
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.

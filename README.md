@@ -8,15 +8,54 @@ Additional code by many contributors, see the Credits screen
 Originally released under the GPL 2.0 (and later) in November 2012
 
 Official website:
-http://www.ppsspp.org/
+https://www.ppsspp.org/
 
 No BIOS file required to play, PPSSPP is in many ways a "HLE" emulator.
 
-To contribute, see [the development page](http://www.ppsspp.org/development.html).
+To contribute, see [the development page](https://www.ppsspp.org/development.html).
 
 For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
+
+What's new in 1.4.2
+-------------------
+* Fixed longstanding bug causing games to crash on ARM64
+* Software rendering crashfix, plus hide it for Android users
+* D3D9 pixel offset bug fix (blurriness)
+* Fixes for homebrew: Timing, MEMSIZE
+
+What's new in 1.4.1
+-------------------
+* Fixes for some common hangs and crashes (#9698, ...)
+* Vertex decoder optimizations (#9674)
+* Corrections to mipmap bias and selection function (#9633)
+* Major improvements and fixes to software renderer, including mipmap support (#9635, ...)
+* UI background image support
+* Basic mouse input support on Windows
+* Windows desktop touch fixes (#9560)
+* D3D11 "depal" color fixes, fixing Sonic Rivals
+* Fix crash in framebuffer blits affecting Persona 3 (#9566)
+
+What's new in 1.4-2
+-------------------
+* Bugfix release - build system didn't copy the flash0 directory to the APK on Android.
+
+What's new in 1.4
+-----------------
+* Support D3D11 (performs better than OpenGL or D3D9 on most hardware)
+* Audio quality improvement (linear interpolation) (#8950)
+* Hardware spline/bezier tesselation in OpenGL, D3D11 and Vulkan (...)
+* Post-processing shaders in D3D11
+* Prescale UV setting removed, now the default (improves perf) (#9176)
+* High DPI display fixes
+* Various fixes for UMD switching for multi-UMD games (#9245, #9256)
+* New audio setting to improve compatibility with Bluetooth headsets
+* Various desktop gamepad compatibility fixes
+* Workaround for mipmap issue, fixing fonts in Tactics Ogre Japanese
+* Assorted minor compatibility fixes, code cleanup and performance improvements
+
+Support for Symbian, Maemo and Blackberry has been removed.
 
 What's new in 1.3.0
 -------------------
@@ -135,7 +174,7 @@ What's new in 1.0
 
 ADHOC SUPPORT (by Igor Calabria)
 ================================
-This is based on coldbird's code: http://code.google.com/p/aemu/
+This is based on coldbird's code: https://code.google.com/archive/p/aemu/
 All credit goes to him!
 
 Status

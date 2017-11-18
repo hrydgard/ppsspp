@@ -30,7 +30,6 @@
 
 #include <string.h>
 
-InputState input_state;
 MainUI *emugl = NULL;
 
 #ifdef SDL
@@ -61,9 +60,9 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 int System_GetPropertyInt(SystemProperty prop) {
-  switch (prop) {
-  case SYSPROP_AUDIO_SAMPLE_RATE:
-    return 44100;
+	switch (prop) {
+	case SYSPROP_AUDIO_SAMPLE_RATE:
+		return 44100;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
@@ -78,9 +77,24 @@ int System_GetPropertyInt(SystemProperty prop) {
 #else
 		return DEVICE_TYPE_DESKTOP;
 #endif
-  default:
-    return -1;
-  }
+	default:
+		return -1;
+	}
+}
+
+bool System_GetPropertyBool(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_HAS_BACK_BUTTON:
+		return true;
+	case SYSPROP_APP_GOLD:
+#ifdef GOLD
+		return true;
+#else
+		return false;
+#endif
+	default:
+		return false;
+	}
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
@@ -139,7 +153,7 @@ static int mainInternal(QApplication &a)
 
 #ifdef SDL
 	SDLJoystick joy(true);
-	joy.startEventLoop();
+	joy.registerEventHandler();
 	SDL_Init(SDL_INIT_AUDIO);
 	SDL_AudioSpec fmt, ret_fmt;
 	memset(&fmt, 0, sizeof(fmt));
@@ -210,9 +224,8 @@ QString MainUI::InputBoxGetQString(QString title, QString defaultValue)
 
 void MainUI::resizeGL(int w, int h)
 {
-    bool smallWindow = g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
-    if (UpdateScreenScale(w, h, smallWindow)) {
-        NativeMessageReceived("gpu resized", "");
+    if (UpdateScreenScale(w, h)) {
+        NativeMessageReceived("gpu_resized", "");
     }
     xscale = w / this->width();
     yscale = h / this->height();
@@ -250,22 +263,15 @@ bool MainUI::event(QEvent *e)
                 break;
             case Qt::TouchPointPressed:
             case Qt::TouchPointReleased:
-                input_state.pointer_down[touchPoint.id()] = (touchPoint.state() == Qt::TouchPointPressed);
-                input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * g_dpi_scale * xscale;
-                input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * g_dpi_scale * yscale;
-
-                input.x = touchPoint.pos().x() * g_dpi_scale * xscale;
-                input.y = touchPoint.pos().y() * g_dpi_scale * yscale;
+                input.x = touchPoint.pos().x() * g_dpi_scale_x * xscale;
+                input.y = touchPoint.pos().y() * g_dpi_scale_y * yscale;
                 input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
                 input.id = touchPoint.id();
                 NativeTouch(input);
                 break;
             case Qt::TouchPointMoved:
-                input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * g_dpi_scale * xscale;
-                input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * g_dpi_scale * yscale;
-
-                input.x = touchPoint.pos().x() * g_dpi_scale * xscale;
-                input.y = touchPoint.pos().y() * g_dpi_scale * yscale;
+                input.x = touchPoint.pos().x() * g_dpi_scale_x * xscale;
+                input.y = touchPoint.pos().y() * g_dpi_scale_y * yscale;
                 input.flags = TOUCH_MOVE;
                 input.id = touchPoint.id();
                 NativeTouch(input);
@@ -281,22 +287,15 @@ bool MainUI::event(QEvent *e)
         break;
     case QEvent::MouseButtonPress:
     case QEvent::MouseButtonRelease:
-        input_state.pointer_down[0] = (e->type() == QEvent::MouseButtonPress);
-        input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
-        input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
-
-        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
-        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
+        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
+        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
         input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
         input.id = 0;
         NativeTouch(input);
         break;
     case QEvent::MouseMove:
-        input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
-        input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
-
-        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
-        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
+        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
+        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
         input.flags = TOUCH_MOVE;
         input.id = 0;
         NativeTouch(input);
@@ -335,10 +334,12 @@ void MainUI::initializeGL()
 
 void MainUI::paintGL()
 {
+#ifdef SDL
+    SDL_PumpEvents();
+#endif
     updateAccelerometer();
-    UpdateInputState(&input_state);
     time_update();
-    UpdateRunLoop(&input_state);
+    UpdateRunLoop();
 }
 
 void MainUI::updateAccelerometer()
@@ -347,23 +348,20 @@ void MainUI::updateAccelerometer()
         // TODO: Toggle it depending on whether it is enabled
         QAccelerometerReading *reading = acc->reading();
         if (reading) {
-            input_state.acc.x = reading->x();
-            input_state.acc.y = reading->y();
-            input_state.acc.z = reading->z();
             AxisInput axis;
             axis.deviceId = DEVICE_ID_ACCELEROMETER;
             axis.flags = 0;
 
             axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
-            axis.value = input_state.acc.x;
+            axis.value = reading->x();
             NativeAxis(axis);
 
             axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
-            axis.value = input_state.acc.y;
+            axis.value = reading->y();
             NativeAxis(axis);
 
             axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
-            axis.value = input_state.acc.z;
+            axis.value = reading->z();
             NativeAxis(axis);
         }
 #endif
@@ -439,25 +437,27 @@ int main(int argc, char *argv[])
 		res.transpose();
 	pixel_xres = res.width();
 	pixel_yres = res.height();
-	g_dpi_scale = CalculateDPIScale();
-	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
-	net::Init();
+	g_dpi_scale_x = CalculateDPIScale();
+	g_dpi_scale_y = CalculateDPIScale();
+	g_dpi_scale_real_x = g_dpi_scale_x;
+	g_dpi_scale_real_y = g_dpi_scale_y;
+	dp_xres = (int)(pixel_xres * g_dpi_scale_x);
+	dp_yres = (int)(pixel_yres * g_dpi_scale_y);
 	std::string savegame_dir = ".";
-	std::string assets_dir = ".";
+	std::string external_dir = ".";
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
 	savegame_dir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation).toStdString();
-	assets_dir = QStandardPaths::writableLocation(QStandardPaths::DataLocation).toStdString();
+	external_dir = QStandardPaths::writableLocation(QStandardPaths::DataLocation).toStdString();
 #endif
 	savegame_dir += "/";
-	assets_dir += "/";
+	external_dir += "/";
 	
 	bool fullscreenCLI=false;
-	for (int i = 1; i < argc; i++) 
-	{
+	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			fullscreenCLI=true;
 	}
-	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), assets_dir.c_str(), nullptr, fullscreenCLI);
+	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr, fullscreenCLI);
 	
 	int ret = mainInternal(a);
 
@@ -467,7 +467,6 @@ int main(int argc, char *argv[])
 	SDL_CloseAudio();
 #endif
 	NativeShutdown();
-	net::Shutdown();
 	return ret;
 }
 

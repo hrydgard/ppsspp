@@ -1,35 +1,42 @@
 #include "SDL/SDLJoystick.h"
 #include "Core/Config.h"
 #include "Common/FileUtil.h"
+#include "file/vfs.h"
 
 #include <iostream>
 #include <string>
 
 using namespace std;
 
-extern "C" {
-	int SDLJoystickThreadWrapper(void *SDLJoy){
-		SDLJoystick *stick = static_cast<SDLJoystick *>(SDLJoy);
-		stick->runLoop();
-		return 0;
-	}
+static int SDLJoystickEventHandlerWrapper(void* userdata, SDL_Event* event)
+{
+	static_cast<SDLJoystick *>(userdata)->ProcessInput(*event);
+	return 0;
 }
 
-SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
+SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
+	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 	if (init_SDL) {
-		SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
 	}
-	
-	auto dbPath = File::GetExeDirectory() + "assets/gamecontrollerdb.txt";
+
+	const char *dbPath = "gamecontrollerdb.txt";
 	cout << "loading control pad mappings from " << dbPath << ": ";
- 	
-	if (SDL_GameControllerAddMappingsFromFile(dbPath.c_str()) == -1) {
-		cout << "FAILED! Please place gamecontrollerdb.txt in your assets directory." << endl;
+
+	size_t size;
+	u8 *mappingData = VFSReadFile(dbPath, &size);
+	if (mappingData) {
+		SDL_RWops *rw = SDL_RWFromConstMem(mappingData, size);
+		// 1 to free the rw after use
+		if (SDL_GameControllerAddMappingsFromRW(rw, 1) == -1) {
+			cout << "Failed to read mapping data - corrupt?" << endl;
+		}
+		delete[] mappingData;
 	} else {
- 		cout << "SUCCESS!" << endl;
-		setUpControllers();
+		cout << "gamecontrollerdb.txt missing" << endl;
 	}
+	cout << "SUCCESS!" << endl;
+	setUpControllers();
 }
 
 void SDLJoystick::setUpControllers() {
@@ -43,41 +50,52 @@ void SDLJoystick::setUpControllers() {
 }
 
 void SDLJoystick::setUpController(int deviceIndex) {
-	if (SDL_IsGameController(deviceIndex)) {
-		SDL_GameController *controller = SDL_GameControllerOpen(deviceIndex);
-		if (controller) {
-			if (SDL_GameControllerGetAttached(controller)) {
-				controllers.push_back(controller);
-				controllerDeviceMap[SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller))] = deviceIndex;
-				cout << "found control pad: " << SDL_GameControllerName(controller) << ", loading mapping: ";
-				auto mapping = SDL_GameControllerMapping(controller);
-				if (mapping == NULL) {
-					cout << "FAILED" << endl;
-				} else {
-					cout << "SUCCESS, mapping is:" << endl << mapping << endl;
-				}
+	if (!SDL_IsGameController(deviceIndex)) {
+		cout << "Control pad device " << deviceIndex << " not supported by SDL game controller database, attempting to create default mapping..." << endl;
+		int cbGUID = 33;
+		char pszGUID[cbGUID];
+		SDL_Joystick* joystick = SDL_JoystickOpen(deviceIndex);
+		SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(joystick), pszGUID, cbGUID);
+		// create default mapping - this is the PS3 dual shock mapping
+		std::string mapping = string(pszGUID) + "," + string(SDL_JoystickName(joystick)) + ",x:b3,a:b0,b:b1,y:b2,back:b8,guide:b10,start:b9,dpleft:b15,dpdown:b14,dpright:b16,dpup:b13,leftshoulder:b4,lefttrigger:a2,rightshoulder:b6,rightshoulder:b5,righttrigger:a5,leftstick:b7,leftstick:b11,rightstick:b12,leftx:a0,lefty:a1,rightx:a3,righty:a4";
+		if (SDL_GameControllerAddMapping(mapping.c_str()) == 1){
+			cout << "Added default mapping ok" << endl;
+		} else {
+			cout << "Failed to add default mapping" << endl;
+		}
+		SDL_JoystickClose(joystick);
+	}
+	SDL_GameController *controller = SDL_GameControllerOpen(deviceIndex);
+	if (controller) {
+		if (SDL_GameControllerGetAttached(controller)) {
+			controllers.push_back(controller);
+			controllerDeviceMap[SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller))] = deviceIndex;
+			cout << "found control pad: " << SDL_GameControllerName(controller) << ", loading mapping: ";
+			auto mapping = SDL_GameControllerMapping(controller);
+			if (mapping == NULL) {
+				//cout << "FAILED" << endl;
+				cout << "Could not find mapping in SDL2 controller database" << endl;
 			} else {
-				SDL_GameControllerClose(controller);
+				cout << "SUCCESS, mapping is:" << endl << mapping << endl;
 			}
+		} else {
+			SDL_GameControllerClose(controller);
 		}
 	}
 }
 
 SDLJoystick::~SDLJoystick() {
-	if (thread) {
-		running = false;
-		SDL_Event evt;
-		evt.type = SDL_USEREVENT;
-		SDL_PushEvent(&evt);
-		SDL_WaitThread(thread,0);
+	if (registeredAsEventHandler) {
+		SDL_DelEventWatch(SDLJoystickEventHandlerWrapper, this);
 	}
 	for (auto & controller : controllers) {
 		SDL_GameControllerClose(controller);
 	}
 }
 
-void SDLJoystick::startEventLoop() {
-	thread = SDL_CreateThread(SDLJoystickThreadWrapper, "joystick",static_cast<void *>(this));
+void SDLJoystick::registerEventHandler() {
+	SDL_AddEventWatch(SDLJoystickEventHandlerWrapper, this);
+	registeredAsEventHandler = true;
 }
 
 keycode_t SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
@@ -112,8 +130,10 @@ keycode_t SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
 		return NKCODE_BUTTON_THUMBL;
 	case SDL_CONTROLLER_BUTTON_RIGHTSTICK:
 		return NKCODE_BUTTON_THUMBR;
+	case SDL_CONTROLLER_BUTTON_INVALID:
+	default:
+		return NKCODE_UNKNOWN;
 	}
-	return NKCODE_UNKNOWN;
 }
 
 void SDLJoystick::ProcessInput(SDL_Event &event){
@@ -146,7 +166,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		AxisInput axis;
 		axis.axisId = event.caxis.axis;
 		// 1.2 to try to approximate the PSP's clamped rectangular range.
-		axis.value = 1.2 * event.caxis.value / 32767.0f;
+		axis.value = 1.2 * event.caxis.value * g_Config.fXInputAnalogSensitivity / 32767.0f;
 		if (axis.value > 1.0f) axis.value = 1.0f;
 		if (axis.value < -1.0f) axis.value = -1.0f;
 		axis.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.caxis.which);
@@ -181,14 +201,4 @@ int SDLJoystick::getDeviceIndex(int instanceId) {
 			return -1;
 	}
 	return it->second;
-}
-
-void SDLJoystick::runLoop() {
-	while (running) {
-		SDL_Event evt;
-		int res = SDL_WaitEvent(&evt);
-		if (res) {
-			ProcessInput(evt);
-		}
-	}
 }

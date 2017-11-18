@@ -36,6 +36,10 @@ public:
 		cache_ = new VertexDecoderJitCache();
 
 		g_Config.bVertexDecoderJit = true;
+		// Required for jit to be enabled.
+		g_Config.iCpuCore = (int)CPUCore::JIT;
+		gstate_c.uv.uScale = 1.0f;
+		gstate_c.uv.vScale = 1.0f;
 	}
 	~VertexDecoderTestHarness() {
 		delete src_;
@@ -297,8 +301,7 @@ static bool TestVertex8() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		dec.Execute(vtype, 0, jit == 1);
-		dec.Assert8("TestVertex8-TC", 127, 128);
-		dec.Skip(2);
+		dec.AssertFloat("TestVertex8-TC", 127.0f / 128.0f, 1.0f);
 		dec.Assert8("TestVertex8-Nrm", 127, 0, 128);
 		dec.Skip(1);
 		dec.AssertFloat("TestVertex8-Pos", 127.0f / 128.0f, 0.0f, -1.0f);
@@ -317,7 +320,7 @@ static bool TestVertex16() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		dec.Execute(vtype, 0, jit == 1);
-		dec.Assert16("TestVertex16-TC", 32767, 32768);
+		dec.AssertFloat("TestVertex16-TC", 32767.0f / 32768.0f, 1.0f);
 		dec.Assert16("TestVertex16-Nrm", 32767, 0, 32768);
 		dec.Skip(2);
 		dec.AssertFloat("TestVertex16-Pos", 32767.0f / 32768.0f, 0.0f, -1.0f);
@@ -354,8 +357,8 @@ static bool TestVertex8Through() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		dec.Execute(vtype, 0, jit == 1);
-		dec.Assert8("TestVertex8Through-TC", 127, 128);
-		dec.Skip(2);
+		// Note: this is correct, even in through.
+		dec.AssertFloat("TestVertex8Through-TC", 127.0f / 128.0f, 1.0f);
 		dec.Assert8("TestVertex8Through-Nrm", 127, 0, 128);
 		// Ignoring Pos since s8 through isn't really an option.
 	}
@@ -373,7 +376,7 @@ static bool TestVertex16Through() {
 
 	for (int jit = 0; jit <= 1; ++jit) {
 		dec.Execute(vtype, 0, jit == 1);
-		dec.Assert16("TestVertex16Through-TC", 32767, 32768);
+		dec.AssertFloat("TestVertex16Through-TC", 32767.0f, 32768.0f);
 		dec.Assert16("TestVertex16Through-Nrm", 32767, 0, 32768);
 		dec.Skip(2);
 		dec.AssertFloat("TestVertex16Through-Pos", 32767.0f, 0.0f, 32768.0f);

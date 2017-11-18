@@ -8,6 +8,12 @@
 #include "Common/CommonTypes.h"
 
 #if defined(_WIN32) || defined(__ANDROID__)
+// Temporarily turned off on Android
+#define USE_ARMIPS
+#endif
+
+
+#ifdef USE_ARMIPS
 // This has to be before basictypes to avoid a define conflict.
 #include "ext/armips/Core/Assembler.h"
 #endif
@@ -27,7 +33,7 @@ std::wstring GetAssembleError()
 	return errorText;
 }
 
-#if defined(_WIN32) || defined(__ANDROID__)
+#ifdef USE_ARMIPS
 class PspAssemblerFile: public AssemblerFile
 {
 public:
@@ -38,8 +44,7 @@ public:
 	bool open(bool onlyCheck) override{ return true; };
 	void close() override { };
 	bool isOpen() override { return true; };
-	bool write(void* data, size_t length) override
-	{
+	bool write(void* data, size_t length) override {
 		if (!Memory::IsValidAddress((u32)(address+length-1)))
 			return false;
 
@@ -52,16 +57,16 @@ public:
 		address += length;
 		return true;
 	}
-	u64 getVirtualAddress() override { return address; };
-	u64 getPhysicalAddress() override { return getVirtualAddress(); };
-	bool seekVirtual(u64 virtualAddress) override
-	{
+	int64_t getVirtualAddress() override { return address; };
+	int64_t getPhysicalAddress() override { return getVirtualAddress(); };
+	int64_t getHeaderSize() override { return 0; }
+	bool seekVirtual(int64_t virtualAddress) override {
 		if (!Memory::IsValidAddress(virtualAddress))
 			return false;
 		address = virtualAddress;
 		return true;
 	}
-	bool seekPhysical(u64 physicalAddress) override { return seekVirtual(physicalAddress); }
+	bool seekPhysical(int64_t physicalAddress) override { return seekVirtual(physicalAddress); }
 	const std::wstring &getFileName() override { return dummyWFilename_; }
 private:
 	u64 address;
@@ -71,7 +76,7 @@ private:
 
 bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 {
-#if defined(_WIN32) || defined(__ANDROID__)
+#ifdef USE_ARMIPS
 	PspAssemblerFile file;
 	StringList errors;
 
@@ -84,8 +89,10 @@ bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 	args.silent = true;
 	args.memoryFile = &file;
 	args.errorsResult = &errors;
-	
-	g_symbolMap->GetLabels(args.labels);
+
+	if (g_symbolMap) {
+		g_symbolMap->GetLabels(args.labels);
+	}
 
 	errorText = L"";
 	if (!runArmips(args))
@@ -107,4 +114,4 @@ bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 #endif
 }
 
-}
+}  // namespace

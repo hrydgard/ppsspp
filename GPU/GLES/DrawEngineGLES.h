@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <Common/Hashmaps.h>
 #include <unordered_map>
 
 #include "GPU/GPUState.h"
@@ -25,17 +26,17 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/GLES/FragmentShaderGenerator.h"
+#include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
 class LinkedShader;
-class ShaderManager;
-class TextureCache;
-class FramebufferManager;
+class ShaderManagerGLES;
+class TextureCacheGLES;
+class FramebufferManagerGLES;
 class FramebufferManagerCommon;
 class TextureCacheCommon;
-class FragmentTestCache;
+class FragmentTestCacheGLES;
 struct TransformedVertex;
 
 struct DecVtxFormat;
@@ -55,13 +56,6 @@ enum {
 	VAI_FLAG_VERTEXFULLALPHA = 1,
 };
 
-// Avoiding the full include of TextureDecoder.h.
-#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
-typedef u64 ReliableHashType;
-#else
-typedef u32 ReliableHashType;
-#endif
-
 // Try to keep this POD.
 class VertexArrayInfo {
 public:
@@ -78,7 +72,7 @@ public:
 		flags = 0;
 	}
 
-	enum Status {
+	enum Status : uint8_t {
 		VAI_NEW,
 		VAI_HASHING,
 		VAI_RELIABLE,  // cache, don't hash
@@ -88,8 +82,6 @@ public:
 	ReliableHashType hash;
 	u32 minihash;
 
-	Status status;
-
 	u32 vbo;
 	u32 ebo;
 
@@ -97,6 +89,7 @@ public:
 	u16 numVerts;
 	u16 maxIndex;
 	s8 prim;
+	Status status;
 
 	// ID information
 	int numDraws;
@@ -114,16 +107,16 @@ public:
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 
-	void SetShaderManager(ShaderManager *shaderManager) {
+	void SetShaderManager(ShaderManagerGLES *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
-	void SetTextureCache(TextureCache *textureCache) {
+	void SetTextureCache(TextureCacheGLES *textureCache) {
 		textureCache_ = textureCache;
 	}
-	void SetFramebufferManager(FramebufferManager *fbManager) {
+	void SetFramebufferManager(FramebufferManagerGLES *fbManager) {
 		framebufferManager_ = fbManager;
 	}
-	void SetFragmentTestCache(FragmentTestCache *testCache) {
+	void SetFragmentTestCache(FragmentTestCacheGLES *testCache) {
 		fragmentTestCache_ = testCache;
 	}
 	void RestoreVAO();
@@ -131,43 +124,9 @@ public:
 	void DestroyDeviceObjects();
 	void GLLost() override;
 	void GLRestore() override;
-	void Resized();
 
+	void ClearTrackedVertexArrays() override;
 	void DecimateTrackedVertexArrays();
-	void ClearTrackedVertexArrays();
-
-	void SetupVertexDecoder(u32 vertType);
-	inline void SetupVertexDecoderInternal(u32 vertType);
-
-	// This requires a SetupVertexDecoder call first.
-	int EstimatePerVertexCost() {
-		// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
-		// runs in parallel with transform.
-
-		// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
-
-		// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
-		// went too fast and starts doing all the work over again).
-
-		int cost = 20;
-		if (gstate.isLightingEnabled()) {
-			cost += 10;
-
-			for (int i = 0; i < 4; i++) {
-				if (gstate.isLightChanEnabled(i))
-					cost += 10;
-			}
-		}
-
-		if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
-			cost += 20;
-		}
-		if (dec_ && dec_->morphcount > 1) {
-			cost += 5 * dec_->morphcount;
-		}
-
-		return cost;
-	}
 
 	// So that this can be inlined
 	void Flush() {
@@ -196,45 +155,18 @@ public:
 
 private:
 	void DecodeVerts();
-	void DecodeVertsStep();
 	void DoFlush();
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
-	bool ApplyShaderBlending();
 	void ResetShaderBlending();
 
 	GLuint AllocateBuffer(size_t sz);
 	void FreeBuffer(GLuint buf);
 	void FreeVertexArray(VertexArrayInfo *vai);
 
-	u32 ComputeMiniHash();
-	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfo *vai);
 
-	// Defer all vertex decoding to a Flush, so that we can hash and cache the
-	// generated buffers without having to redecode them every time.
-	struct DeferredDrawCall {
-		void *verts;
-		void *inds;
-		u32 vertType;
-		u8 indexType;
-		s8 prim;
-		u32 vertexCount;
-		u16 indexLowerBound;
-		u16 indexUpperBound;
-	};
-
-	// Vertex collector state
-	IndexGenerator indexGen;
-	int decodedVerts_;
-	GEPrimitiveType prevPrim_;
-
-	u32 lastVType_;
-
-	TransformedVertex *transformed;
-	TransformedVertex *transformedExpanded;
-
-	std::unordered_map<u32, VertexArrayInfo *> vai_;
+	PrehashMap<VertexArrayInfo *, nullptr> vai_;
 
 	// Vertex buffer objects
 	// Element buffer objects
@@ -249,27 +181,29 @@ private:
 	std::multimap<size_t, GLuint> freeSizedBuffers_;
 	std::unordered_map<GLuint, BufferNameInfo> bufferNameInfo_;
 	std::vector<GLuint> buffersThisFrame_;
-	size_t bufferNameCacheSize_;
-	GLuint sharedVao_;
+	size_t bufferNameCacheSize_ = 0;
+	GLuint sharedVao_ = 0;
 
 	// Other
-	ShaderManager *shaderManager_;
-	TextureCache *textureCache_;
-	FramebufferManager *framebufferManager_;
-	FragmentTestCache *fragmentTestCache_;
+	ShaderManagerGLES *shaderManager_ = nullptr;
+	TextureCacheGLES *textureCache_ = nullptr;
+	FramebufferManagerGLES *framebufferManager_ = nullptr;
+	FragmentTestCacheGLES *fragmentTestCache_ = nullptr;
 
-	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls;
-	int vertexCountInDrawCalls;
+	int bufferDecimationCounter_ = 0;
 
-	int decimationCounter_;
-	int bufferDecimationCounter_;
-	int decodeCounter_;
-	u32 dcid_;
-
-	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
-
-	bool fboTexNeedBind_;
-	bool fboTexBound_;
+	// Hardware tessellation
+	class TessellationDataTransferGLES : public TessellationDataTransfer {
+	private:
+		int data_tex[3];
+		bool isAllowTexture1D_;
+	public:
+		TessellationDataTransferGLES(bool isAllowTexture1D) : TessellationDataTransfer(), data_tex(), isAllowTexture1D_(isAllowTexture1D) {
+			glGenTextures(3, (GLuint*)data_tex);
+		}
+		~TessellationDataTransferGLES() {
+			glDeleteTextures(3, (GLuint*)data_tex); 
+		}
+		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+	};
 };

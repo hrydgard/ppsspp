@@ -20,7 +20,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
 
-class ShaderManager;
+class ShaderManagerGLES;
 
 class NullGPU : public GPUCommon {
 public:
@@ -29,7 +29,6 @@ public:
 	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
 
-	void BeginFrame() override {}
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override {}
 	void CopyDisplayToOutput() override {}
 	void GetStats(char *buffer, size_t bufsize) override;
@@ -41,6 +40,7 @@ public:
 	bool PerformMemoryUpload(u32 dest, int size) override;
 	bool PerformStencilUpload(u32 dest, int size) override;
 	void ClearCacheNextFrame() override {}
+	bool FramebufferDirty() override { return true; }
 
 	void DeviceLost() override {}
 	void DeviceRestore() override {}

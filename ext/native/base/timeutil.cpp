@@ -1,18 +1,17 @@
+#include <cstdio>
+
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
 
-// For NV time functions. Ugly!
-#include "gfx/gl_common.h"
-#include "gfx_es2/gpu_features.h"
-
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 #include <sys/time.h>
 #include <unistd.h>
 #endif
-#include <stdio.h>
 
 static double curtime = 0;
 static float curtime_f = 0;
@@ -112,9 +111,7 @@ int time_now_ms() {
 
 void sleep_ms(int ms) {
 #ifdef _WIN32
-#ifndef METRO
 	Sleep(ms);
-#endif
 #else
 	usleep(ms * 1000);
 #endif

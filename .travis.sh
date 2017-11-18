@@ -2,7 +2,7 @@
 
 export USE_CCACHE=1
 export NDK_CCACHE=ccache
-NDK_VER=android-ndk-r12b
+NDK_VER=android-ndk-r13b
 
 download_extract() {
     aria2c -x 16 $1 -o $2
@@ -119,6 +119,10 @@ travis_script() {
         pushd android
         ./ab.sh -j2 APP_ABI=$APP_ABI
         popd
+
+#        When we can get this to work...
+#        chmod +x gradlew
+#        ./gradlew assembleRelease
     fi
     if [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
         ./b.sh --ios

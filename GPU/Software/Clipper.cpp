@@ -128,10 +128,10 @@ static inline int CalcClipMask(const ClipCoords& v)
 }
 
 static void RotateUVThrough(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
-	const fixed16 x1 = tl.screenpos.x;
-	const fixed16 x2 = br.screenpos.x;
-	const fixed16 y1 = tl.screenpos.y;
-	const fixed16 y2 = br.screenpos.y;
+	const int x1 = tl.screenpos.x;
+	const int x2 = br.screenpos.x;
+	const int y1 = tl.screenpos.y;
+	const int y2 = br.screenpos.y;
 
 	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2)) {
 		std::swap(bl.texturecoords, tr.texturecoords);
@@ -156,6 +156,7 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		// Color and depth values of second vertex are used for the whole rectangle
 		buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;
 		buf[0].color1 = buf[1].color1 = buf[2].color1 = buf[3].color1;
+		buf[0].fogdepth = buf[1].fogdepth = buf[2].fogdepth = buf[3].fogdepth = 1.0f;
 
 		VertexData* topleft = &buf[0];
 		VertexData* topright = &buf[1];
@@ -217,11 +218,15 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 
 		RotateUVThrough(v0, v1, *topright, *bottomleft);
 
-		// Four triangles to do backfaces as well. Two of them will get backface culled.
-		Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);
-		Rasterizer::DrawTriangle(*bottomright, *topright, *topleft);
-		Rasterizer::DrawTriangle(*bottomright, *bottomleft, *topleft);
-		Rasterizer::DrawTriangle(*topleft, *bottomleft, *bottomright);
+		if (gstate.isModeClear()) {
+			Rasterizer::ClearRectangle(v0, v1);
+		} else {
+			// Four triangles to do backfaces as well. Two of them will get backface culled.
+			Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);
+			Rasterizer::DrawTriangle(*bottomright, *topright, *topleft);
+			Rasterizer::DrawTriangle(*bottomright, *bottomleft, *topleft);
+			Rasterizer::DrawTriangle(*topleft, *bottomleft, *bottomright);
+		}
 	}
 }
 
@@ -239,7 +244,34 @@ void ProcessLine(VertexData& v0, VertexData& v1)
 		return;
 	}
 
-	// TODO: 3D lines
+	VertexData *Vertices[2] = {&v0, &v1};
+
+	int mask0 = CalcClipMask(v0.clippos);
+	int mask1 = CalcClipMask(v1.clippos);
+	int mask = mask0 | mask1;
+
+	if (mask0 & mask1) {
+		// Even if clipping is disabled, we can discard if the line is entirely outside.
+		return;
+	}
+
+	if (mask && (gstate.clipEnable & 0x1)) {
+		// discard if any vertex is outside the near clipping plane
+		if (mask & CLIP_NEG_Z_BIT)
+			return;
+
+		CLIP_LINE(CLIP_POS_X_BIT, -1,  0,  0, 1);
+		CLIP_LINE(CLIP_NEG_X_BIT,  1,  0,  0, 1);
+		CLIP_LINE(CLIP_POS_Y_BIT,  0, -1,  0, 1);
+		CLIP_LINE(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
+		CLIP_LINE(CLIP_POS_Z_BIT,  0,  0,  0, 1);
+		CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
+	}
+
+	VertexData data[2] = { *Vertices[0], *Vertices[1] };
+	data[0].screenpos = TransformUnit::ClipToScreen(data[0].clippos);
+	data[1].screenpos = TransformUnit::ClipToScreen(data[1].clippos);
+	Rasterizer::DrawLine(data[0], data[1]);
 }
 
 void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)

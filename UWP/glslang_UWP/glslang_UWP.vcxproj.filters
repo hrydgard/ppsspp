@@ -1,0 +1,321 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="glslang">
+      <UniqueIdentifier>{bc1f9d62-48dc-424b-aae9-238ea7e9797a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="glslang\Include">
+      <UniqueIdentifier>{da2d19d2-ae8e-4073-8fdc-edbb89f56938}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="glslang\MachineIndependent">
+      <UniqueIdentifier>{b6bf83f2-1717-4cc4-88db-27b4a11d839b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="glslang\MachineIndependent\Preprocessor">
+      <UniqueIdentifier>{352266d8-ae41-428f-bf18-c5a2398e40f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="glslang\GenericCodegen">
+      <UniqueIdentifier>{682c51df-54f0-4589-af43-7fd4ee2b94f2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SPIRV">
+      <UniqueIdentifier>{cdd1b028-654a-444d-aa4a-8833277a6cc9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="hlsl">
+      <UniqueIdentifier>{d3ab5902-2265-45b3-98b2-125c3ca2b3d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="glslang\OSDependent">
+      <UniqueIdentifier>{d8291bf6-2377-4155-8649-42d850d0f925}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OGLCompilersDLL">
+      <UniqueIdentifier>{0e44acc8-78b5-4d5b-88e3-4a68435e3aec}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Constant.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\glslang_tab.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\InfoSink.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Initialize.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Intermediate.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\intermOut.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\IntermTraverse.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\iomapper.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\limits.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\linkValidate.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\parseConst.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\ParseContextBase.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\ParseHelper.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\PoolAlloc.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\propagateNoContraction.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\reflection.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\RemoveTree.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Scan.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\ShaderLang.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\SymbolTable.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\Versions.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\Pp.cpp">
+      <Filter>glslang\MachineIndependent\Preprocessor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpAtom.cpp">
+      <Filter>glslang\MachineIndependent\Preprocessor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpContext.cpp">
+      <Filter>glslang\MachineIndependent\Preprocessor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpScanner.cpp">
+      <Filter>glslang\MachineIndependent\Preprocessor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpTokens.cpp">
+      <Filter>glslang\MachineIndependent\Preprocessor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\GenericCodeGen\CodeGen.cpp">
+      <Filter>glslang\GenericCodegen</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\GenericCodeGen\Link.cpp">
+      <Filter>glslang\GenericCodegen</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\SPIRV\disassemble.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\SPIRV\doc.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\SPIRV\GlslangToSpv.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\SPIRV\InReadableOrder.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\SPIRV\Logger.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\SPIRV\SpvBuilder.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\SPIRV\SPVRemapper.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslAttributes.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslGrammar.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslOpMap.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslParseables.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslScanContext.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\hlsl\hlslTokenStream.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\glslang\OSDependent\Windows\ossource.cpp">
+      <Filter>glslang\OSDependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.cpp">
+      <Filter>OGLCompilersDLL</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\arrays.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\BaseTypes.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\Common.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\ConstantUnion.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\InfoSink.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\InitializeGlobals.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\intermediate.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\PoolAlloc.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\ResourceLimits.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\revision.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\ShHandle.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\Include\Types.h">
+      <Filter>glslang\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\gl_types.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\glslang_tab.cpp.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\Initialize.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\iomapper.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\LiveTraverser.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\localintermediate.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\ParseHelper.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\parseVersions.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\propagateNoContraction.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\reflection.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\RemoveTree.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\Scan.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\ScanContext.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\SymbolTable.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\Versions.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpContext.h">
+      <Filter>glslang\MachineIndependent\Preprocessor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\glslang\MachineIndependent\preprocessor\PpTokens.h">
+      <Filter>glslang\MachineIndependent\Preprocessor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\bitutils.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\disassemble.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\doc.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.AMD.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.KHR.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.ext.NV.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GLSL.std.450.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\GlslangToSpv.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\hex_float.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\Logger.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\spirv.hpp">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\SpvBuilder.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\spvIR.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\SPIRV\SPVRemapper.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslAttributes.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslGrammar.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslOpMap.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslParseables.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslScanContext.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslTokens.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\hlsl\hlslTokenStream.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.h">
+      <Filter>OGLCompilersDLL</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

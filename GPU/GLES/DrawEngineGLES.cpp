@@ -72,6 +72,7 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
+#include "gfx/gl_debug_log.h"
 #include "profiler/profiler.h"
 
 #include "GPU/Math3D.h"
@@ -82,12 +83,12 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
-#include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/FragmentTestCache.h"
-#include "GPU/GLES/StateMapping.h"
-#include "GPU/GLES/TextureCache.h"
+#include "ext/native/gfx/GLStateCache.h"
+#include "GPU/GLES/FragmentTestCacheGLES.h"
+#include "GPU/GLES/StateMappingGLES.h"
+#include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
 
 extern const GLuint glprim[8] = {
@@ -114,20 +115,11 @@ enum {
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
+DrawEngineGLES::DrawEngineGLES() : vai_(256) {
 
-DrawEngineGLES::DrawEngineGLES()
-	: decodedVerts_(0),
-		prevPrim_(GE_PRIM_INVALID),
-		lastVType_(-1),
-		shaderManager_(nullptr),
-		textureCache_(nullptr),
-		framebufferManager_(nullptr),
-		numDrawCalls(0),
-		vertexCountInDrawCalls(0),
-		decodeCounter_(0),
-		dcid_(0),
-		fboTexNeedBind_(false),
-		fboTexBound_(false) {
+	decOptions_.expandAllWeightsToFloat = false;
+	decOptions_.expand8BitNormalsToFloat = false;
+
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	bufferDecimationCounter_ = VERTEXCACHE_NAME_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
@@ -136,13 +128,13 @@ DrawEngineGLES::DrawEngineGLES()
 	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	splineBuffer = (u8 *)AllocateMemoryPages(SPLINE_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
-	register_gl_resource_holder(this);
+	register_gl_resource_holder(this, "drawengine_gles", 1);
+
+	tessDataTransfer = new TessellationDataTransferGLES(gl_extensions.VersionGEThan(3, 0, 0));
 }
 
 DrawEngineGLES::~DrawEngineGLES() {
@@ -150,10 +142,10 @@ DrawEngineGLES::~DrawEngineGLES() {
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
-	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
 	unregister_gl_resource_holder(this);
+
+	delete tessDataTransfer;
 }
 
 void DrawEngineGLES::RestoreVAO() {
@@ -193,7 +185,6 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 		bufferNameInfo_.clear();
 		freeSizedBuffers_.clear();
 		bufferNameCacheSize_ = 0;
-
 		if (sharedVao_ != 0) {
 			glDeleteVertexArrays(1, &sharedVao_);
 		}
@@ -202,7 +193,7 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 
 void DrawEngineGLES::GLLost() {
 	ILOG("TransformDrawEngine::GLLost()");
-	// The objects have already been deleted.
+	// The objects have already been deleted by losing the context, so we don't call DestroyDeviceObjects.
 	bufferNameCache_.clear();
 	bufferNameInfo_.clear();
 	freeSizedBuffers_.clear();
@@ -237,8 +228,6 @@ static const GlTypeInfo GLComp[] = {
 	{GL_UNSIGNED_SHORT, 2, GL_TRUE},// 	DEC_U16_2,
 	{GL_UNSIGNED_SHORT, 3, GL_TRUE},// 	DEC_U16_3,
 	{GL_UNSIGNED_SHORT, 4, GL_TRUE},// 	DEC_U16_4,
-	{GL_UNSIGNED_BYTE,  2, GL_FALSE},// 	DEC_U8A_2,
-	{GL_UNSIGNED_SHORT, 2, GL_FALSE},// 	DEC_U16A_2,
 };
 
 static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
@@ -250,6 +239,7 @@ static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
 
 // TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
 static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u8 *vertexData) {
+	CHECK_GL_ERROR_IF_DEBUG();
 	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
 	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
 	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
@@ -257,26 +247,11 @@ static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt
 	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
 	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
 	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
-}
-
-void DrawEngineGLES::SetupVertexDecoder(u32 vertType) {
-	SetupVertexDecoderInternal(vertType);
-}
-
-inline void DrawEngineGLES::SetupVertexDecoderInternal(u32 vertType) {
-	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
-	// into the top of the verttype where there are unused bits.
-	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
-
-	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVType_) {
-		dec_ = GetVertexDecoder(vertTypeID);
-		lastVType_ = vertTypeID;
-	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
 
 	// TODO: Is this the right thing to do?
@@ -286,7 +261,7 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 		prevPrim_ = prim;
 	}
 
-	SetupVertexDecoderInternal(vertType);
+	SetupVertexDecoder(vertType);
 
 	*bytesRead = vertexCount * dec_->VertexSize();
 
@@ -323,17 +298,17 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 	uvScale[numDrawCalls] = gstate_c.uv;
 
 	numDrawCalls++;
-	vertexCountInDrawCalls += vertexCount;
+	vertexCountInDrawCalls_ += vertexCount;
 
 	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
-		DecodeVertsStep();
+		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
 		decodeCounter_++;
 	}
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
 		// Rendertarget == texture?
 		if (!g_Config.bDisableSlowFramebufEffects) {
-			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 			Flush();
 		}
 	}
@@ -343,7 +318,7 @@ void DrawEngineGLES::DecodeVerts() {
 	const UVScale origUV = gstate_c.uv;
 	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
 		gstate_c.uv = uvScale[decodeCounter_];
-		DecodeVertsStep();
+		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
 	}
 	gstate_c.uv = origUV;
 	// Sanity check
@@ -352,125 +327,6 @@ void DrawEngineGLES::DecodeVerts() {
 		// Force to points (0)
 		indexGen.AddPrim(GE_PRIM_POINTS, 0);
 	}
-}
-
-void DrawEngineGLES::DecodeVertsStep() {
-	PROFILE_THIS_SCOPE("vertdec");
-
-	const int i = decodeCounter_;
-
-	const DeferredDrawCall &dc = drawCalls[i];
-
-	indexGen.SetIndex(decodedVerts_);
-	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
-
-	u32 indexType = dc.indexType;
-	if (indexType == (GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT)) {
-		// Decode the verts and apply morphing. Simple.
-		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
-			dc.verts, indexLowerBound, indexUpperBound);
-		decodedVerts_ += indexUpperBound - indexLowerBound + 1;
-		indexGen.AddPrim(dc.prim, dc.vertexCount);
-	} else {
-		// It's fairly common that games issue long sequences of PRIM calls, with differing
-		// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
-		// these as much as possible, so we make sure here to combine as many as possible
-		// into one nice big drawcall, sharing data.
-
-		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
-		//    Expand the lower and upper bounds as we go.
-		int lastMatch = i;
-		const int total = numDrawCalls;
-		for (int j = i + 1; j < total; ++j) {
-			if (drawCalls[j].verts != dc.verts)
-				break;
-			if (memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
-				break;
-
-			indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-			indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-			lastMatch = j;
-		}
-
-		// 2. Loop through the drawcalls, translating indices as we go.
-		switch (indexType) {
-		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-			for (int j = i; j <= lastMatch; j++) {
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
-			}
-			break;
-		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-			for (int j = i; j <= lastMatch; j++) {
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16_le *)drawCalls[j].inds, indexLowerBound);
-			}
-			break;
-		case GE_VTYPE_IDX_32BIT >> GE_VTYPE_IDX_SHIFT:
-			for (int j = i; j <= lastMatch; j++) {
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u32_le *)drawCalls[j].inds, indexLowerBound);
-			}
-			break;
-		}
-
-		const int vertexCount = indexUpperBound - indexLowerBound + 1;
-
-		// This check is a workaround for Pangya Fantasy Golf, which sends bogus index data when switching items in "My Room" sometimes.
-		if (decodedVerts_ + vertexCount > VERTEX_BUFFER_MAX) {
-			return;
-		}
-
-		// 3. Decode that range of vertex data.
-		int stride = (int)dec_->GetDecVtxFmt().stride;
-		dec_->DecodeVerts(decoded + decodedVerts_ * stride, dc.verts, indexLowerBound, indexUpperBound);
-		decodedVerts_ += vertexCount;
-
-		// 4. Advance indexgen vertex counter.
-		indexGen.Advance(vertexCount);
-		decodeCounter_ = lastMatch;
-	}
-}
-
-inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
-	// Switch to u32 units.
-	const u32 *p = (const u32 *)ptr;
-	sz >>= 2;
-
-	if (sz > 100) {
-		size_t step = sz / 4;
-		u32 hash = 0;
-		for (size_t i = 0; i < sz; i += step) {
-			hash += DoReliableHash32(p + i, 100, 0x3A44B9C4);
-		}
-		return hash;
-	} else {
-		return p[0] + p[sz - 1];
-	}
-}
-
-u32 DrawEngineGLES::ComputeMiniHash() {
-	u32 fullhash = 0;
-	const int vertexSize = dec_->GetDecVtxFmt().stride;
-	const int indexSize = IndexSize(dec_->VertexType());
-
-	int step;
-	if (numDrawCalls < 3) {
-		step = 1;
-	} else if (numDrawCalls < 8) {
-		step = 4;
-	} else {
-		step = numDrawCalls / 8;
-	}
-	for (int i = 0; i < numDrawCalls; i += step) {
-		const DeferredDrawCall &dc = drawCalls[i];
-		if (!dc.inds) {
-			fullhash += ComputeMiniHashRange(dc.verts, vertexSize * dc.vertexCount);
-		} else {
-			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
-			fullhash += ComputeMiniHashRange((const u8 *)dc.verts + vertexSize * indexLowerBound, vertexSize * (indexUpperBound - indexLowerBound));
-			fullhash += ComputeMiniHashRange(dc.inds, indexSize * dc.vertexCount);
-		}
-	}
-
-	return fullhash;
 }
 
 void DrawEngineGLES::MarkUnreliable(VertexArrayInfo *vai) {
@@ -485,49 +341,12 @@ void DrawEngineGLES::MarkUnreliable(VertexArrayInfo *vai) {
 	}
 }
 
-ReliableHashType DrawEngineGLES::ComputeHash() {
-	ReliableHashType fullhash = 0;
-	const int vertexSize = dec_->GetDecVtxFmt().stride;
-	const int indexSize = IndexSize(dec_->VertexType());
-
-	// TODO: Add some caps both for numDrawCalls and num verts to check?
-	// It is really very expensive to check all the vertex data so often.
-	for (int i = 0; i < numDrawCalls; i++) {
-		const DeferredDrawCall &dc = drawCalls[i];
-		if (!dc.inds) {
-			fullhash += DoReliableHash((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
-		} else {
-			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
-			int j = i + 1;
-			int lastMatch = i;
-			while (j < numDrawCalls) {
-				if (drawCalls[j].verts != dc.verts)
-					break;
-				indexLowerBound = std::min(indexLowerBound, (int)dc.indexLowerBound);
-				indexUpperBound = std::max(indexUpperBound, (int)dc.indexUpperBound);
-				lastMatch = j;
-				j++;
-			}
-			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
-			// we do when drawing.
-			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
-				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
-			// Hm, we will miss some indices when combining above, but meh, it should be fine.
-			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
-			i = lastMatch;
-		}
-	}
-	fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
-
-	return fullhash;
-}
-
 void DrawEngineGLES::ClearTrackedVertexArrays() {
-	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
-		FreeVertexArray(vai->second);
-		delete vai->second;
-	}
-	vai_.clear();
+	vai_.Iterate([&](uint32_t hash, VertexArrayInfo *vai){
+		FreeVertexArray(vai);
+		delete vai;
+	});
+	vai_.Clear();
 }
 
 void DrawEngineGLES::DecimateTrackedVertexArrays() {
@@ -540,22 +359,21 @@ void DrawEngineGLES::DecimateTrackedVertexArrays() {
 	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
 	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
 	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
-	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
+	vai_.Iterate([&](uint32_t hash, VertexArrayInfo *vai) {
 		bool kill;
-		if (iter->second->status == VertexArrayInfo::VAI_UNRELIABLE) {
+		if (vai->status == VertexArrayInfo::VAI_UNRELIABLE) {
 			// We limit killing unreliable so we don't rehash too often.
-			kill = iter->second->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
+			kill = vai->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
 		} else {
-			kill = iter->second->lastFrame < threshold;
+			kill = vai->lastFrame < threshold;
 		}
 		if (kill) {
-			FreeVertexArray(iter->second);
-			delete iter->second;
-			vai_.erase(iter++);
-		} else {
-			++iter;
+			FreeVertexArray(vai);
+			delete vai;
+			vai_.Remove(hash);
 		}
-	}
+	});
+	vai_.Maintain();
 }
 
 GLuint DrawEngineGLES::AllocateBuffer(size_t sz) {
@@ -637,14 +455,14 @@ void DrawEngineGLES::FreeVertexArray(VertexArrayInfo *vai) {
 
 void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
+	CHECK_GL_ERROR_IF_DEBUG();
+
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
-	// This is not done on every drawcall, we should collect vertex data
-	// until critical state changes. That's when we draw (flush).
-
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
+	CHECK_GL_ERROR_IF_DEBUG();
 
 	ShaderID vsid;
 	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_, &vsid);
@@ -661,15 +479,11 @@ void DrawEngineGLES::DoFlush() {
 			useCache = false;
 
 		if (useCache) {
-			u32 id = dcid_;
-			auto iter = vai_.find(id);
-			VertexArrayInfo *vai;
-			if (iter != vai_.end()) {
-				// We've seen this before. Could have been a cached draw.
-				vai = iter->second;
-			} else {
+			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
+			VertexArrayInfo *vai = vai_.Get(id);
+			if (!vai) {
 				vai = new VertexArrayInfo();
-				vai_[id] = vai;
+				vai_.Insert(id, vai);
 			}
 
 			switch (vai->status) {
@@ -844,7 +658,11 @@ rotateVBO:
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 
 		if (useElements) {
-			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
+			if (gstate_c.bezier || gstate_c.spline)
+				// Instanced rendering for instanced tessellation
+				glDrawElementsInstanced(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex, numPatches);
+			else
+				glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
 		} else {
 			glDrawArrays(glprim[prim], 0, vertexCount);
 		}
@@ -881,8 +699,15 @@ rotateVBO:
 		params.allowSeparateAlphaClear = true;
 
 		int maxIndex = indexGen.MaxIndex();
+		int vertexCount = indexGen.VertexCount();
+
+		// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
+#if defined(MOBILE_DEVICE)
+		if (vertexCount > 0x10000 / 3)
+			vertexCount = 0x10000 / 3;
+#endif
 		SoftwareTransform(
-			prim, indexGen.VertexCount(),
+			prim, vertexCount,
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
 		ApplyDrawStateLate();
@@ -965,19 +790,19 @@ rotateVBO:
 			int scissorY2 = gstate.getScissorY2() + 1;
 			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
 
-			if (g_Config.bBlockTransferGPU && colorMask && (alphaMask || gstate.FrameBufFormat() == GE_FORMAT_565)) {
-				ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
+			if (g_Config.bBlockTransferGPU && (gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate.FrameBufFormat() == GE_FORMAT_565)) {
+				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
 		}
 	}
 
 	gpuStats.numDrawCalls += numDrawCalls;
-	gpuStats.numVertsSubmitted += vertexCountInDrawCalls;
+	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;
 	numDrawCalls = 0;
-	vertexCountInDrawCalls = 0;
+	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
@@ -993,16 +818,7 @@ rotateVBO:
 #ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();
 #endif
-}
-
-void DrawEngineGLES::Resized() {
-	decJitCache_->Clear();
-	lastVType_ = -1;
-	dec_ = NULL;
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
-		delete iter->second;
-	}
-	decoderMap_.clear();
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 GLuint DrawEngineGLES::BindBuffer(const void *p, size_t sz) {
@@ -1104,4 +920,103 @@ void DrawEngineGLES::DecimateBuffers() {
 
 bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
+}
+
+void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
+#ifndef USING_GLES2
+	if (isAllowTexture1D_) {
+		// Position
+		glActiveTexture(GL_TEXTURE4);
+		glBindTexture(GL_TEXTURE_1D, data_tex[0]);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		if (prevSize < size) {
+			glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA32F, size, 0, GL_RGBA, GL_FLOAT, (GLfloat*)pos);
+			prevSize = size;
+		} else {
+			glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RGBA, GL_FLOAT, (GLfloat*)pos);
+		}
+
+		// Texcoords
+		if (hasTexCoords) {
+			glActiveTexture(GL_TEXTURE5);
+			glBindTexture(GL_TEXTURE_1D, data_tex[1]);
+			glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			if (prevSizeTex < size) {
+				glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA32F, size, 0, GL_RGBA, GL_FLOAT, (GLfloat*)tex);
+				prevSizeTex = size;
+			} else {
+				glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RGBA, GL_FLOAT, (GLfloat*)tex);
+			}
+		}
+
+		// Color
+		glActiveTexture(GL_TEXTURE6);
+		glBindTexture(GL_TEXTURE_1D, data_tex[2]);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		int sizeColor = hasColor ? size : 1;
+		if (prevSizeCol < sizeColor) {
+			glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA32F, sizeColor, 0, GL_RGBA, GL_FLOAT, (GLfloat*)col);
+			prevSizeCol = sizeColor;
+		} else {
+			glTexSubImage1D(GL_TEXTURE_1D, 0, 0, sizeColor, GL_RGBA, GL_FLOAT, (GLfloat*)col);
+		}
+	} else 
+#endif
+	{
+		// Position
+		glActiveTexture(GL_TEXTURE4);
+		glBindTexture(GL_TEXTURE_2D, data_tex[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		if (prevSize < size) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, size, 1, 0, GL_RGBA, GL_FLOAT, (GLfloat*)pos);
+			prevSize = size;
+		} else {
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, 1, GL_RGBA, GL_FLOAT, (GLfloat*)pos);
+		}
+
+		// Texcoords
+		if (hasTexCoords) {
+			glActiveTexture(GL_TEXTURE5);
+			glBindTexture(GL_TEXTURE_2D, data_tex[1]);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			if (prevSizeTex < size) {
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, size, 1, 0, GL_RGBA, GL_FLOAT, (GLfloat*)tex);
+				prevSizeTex = size;
+			} else {
+				glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, 1, GL_RGBA, GL_FLOAT, (GLfloat*)tex);
+			}
+		}
+
+		// Color
+		glActiveTexture(GL_TEXTURE6);
+		glBindTexture(GL_TEXTURE_2D, data_tex[2]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		int sizeColor = hasColor ? size : 1;
+		if (prevSizeCol < sizeColor) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, sizeColor, 1, 0, GL_RGBA, GL_FLOAT, (GLfloat*)col);
+			prevSizeCol = sizeColor;
+		} else {
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sizeColor, 1, GL_RGBA, GL_FLOAT, (GLfloat*)col);
+		}
+	}
+	glActiveTexture(GL_TEXTURE0);
+	CHECK_GL_ERROR_IF_DEBUG();
 }

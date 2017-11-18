@@ -151,7 +151,6 @@ private:
 
 	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
 
-	MIPSState *mips_;
 	CodeBlockCommon *codeBlock_;
 	JitBlock *blocks_;
 	std::unordered_multimap<u32, int> proxyBlockMap_;

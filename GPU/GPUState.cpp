@@ -17,7 +17,7 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/ShaderManagerGLES.h"
 
 #include "Common/ChunkFile.h"
 #include "Core/CoreParameter.h"
@@ -28,11 +28,14 @@
 #ifdef _M_SSE
 #include <emmintrin.h>
 #endif
+#if PPSSPP_ARCH(ARM_NEON)
+#include <arm_neon.h>
+#endif
 
 // This must be aligned so that the matrices within are aligned.
-GPUgstate MEMORY_ALIGNED16(gstate);
+alignas(16) GPUgstate gstate;
 // Let's align this one too for good measure.
-GPUStateCache MEMORY_ALIGNED16(gstate_c);
+alignas(16) GPUStateCache gstate_c;
 
 struct CmdRange {
 	u8 start;
@@ -138,6 +141,13 @@ void GPUgstate::FastLoadBoneMatrix(u32 addr) {
 		_mm_storeu_si128((__m128i *)(dst + 4), row2);
 		_mm_storeu_si128((__m128i *)(dst + 8), row3);
 	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	const uint32x4_t row1 = vshlq_n_u32(vld1q_u32(src), 8);
+	const uint32x4_t row2 = vshlq_n_u32(vld1q_u32(src + 4), 8);
+	const uint32x4_t row3 = vshlq_n_u32(vld1q_u32(src + 8), 8);
+	vst1q_u32(dst, row1);
+	vst1q_u32(dst + 4, row2);
+	vst1q_u32(dst + 8, row3);
 #else
 	for (int i = 0; i < 12; i++) {
 		dst[i] = src[i] << 8;
@@ -216,10 +226,9 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		vertexAddr = old.vertexAddr;
 		indexAddr = old.indexAddr;
 		offsetAddr = old.offsetAddr;
-		textureChanged = TEXCHANGE_UPDATED;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureFullAlpha = old.textureFullAlpha;
 		vertexFullAlpha = old.vertexFullAlpha;
-		framebufChanged = old.framebufChanged;
 		skipDrawReason = old.skipDrawReason;
 		uv = old.uv;
 	} else {
@@ -227,26 +236,27 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		p.Do(indexAddr);
 		p.Do(offsetAddr);
 
-		p.Do(textureChanged);
+		uint8_t textureChanged = 0;
+		p.Do(textureChanged);  // legacy
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		p.Do(textureFullAlpha);
 		p.Do(vertexFullAlpha);
+		bool framebufChanged = false;  // legacy
 		p.Do(framebufChanged);
 
 		p.Do(skipDrawReason);
 
 		p.Do(uv);
 
-		// No longer relevant. Remove when creating the next version.
-		bool oldFlipTexture;
-		p.Do(oldFlipTexture);
+		bool oldFlipTexture = false;
+		p.Do(oldFlipTexture);  // legacy
 	}
 
 	// needShaderTexClamp and bgraTexture don't need to be saved.
 
 	if (s >= 3) {
-		p.Do(textureSimpleAlpha);
-	} else {
-		textureSimpleAlpha = false;
+		bool oldTextureSimpleAlpha = false;
+		p.Do(oldTextureSimpleAlpha);
 	}
 
 	if (s < 2) {

@@ -15,28 +15,36 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <stdio.h>
+#include <cstdio>
 
+#include "gfx_es2/gpu_features.h"
+
+#include "GPU/Common/ShaderId.h"
+#include "GPU/Common/ShaderCommon.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/GLStateCache.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
-
 #define WRITE p+=sprintf
+
+// TODO: Add a compute shader path. Complete waste of time to set up a graphics state.
 
 // Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
 void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language) {
 	char *p = buffer;
-	if (language == GLSL_VULKAN) {
+	if (language == HLSL_D3D11) {
+		WRITE(p, "SamplerState texSamp : register(s0);\n");
+		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
+		WRITE(p, "Texture2D<float4> pal : register(t1);\n");
+	} else if (language == GLSL_VULKAN) {
 		WRITE(p, "#version 140\n");
 		WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
 		WRITE(p, "#extension GL_ARB_shading_language_420pack : enable\n");
 		WRITE(p, "layout(set = 0, binding = 0) uniform sampler2D tex;\n");
 		WRITE(p, "layout(set = 0, binding = 1) uniform sampler2D pal;\n");
 		WRITE(p, "layout(location = 0) in vec2 v_texcoord0;\n");
-		WRITE(p, "layout(location = 0) out vec4 fragColor0\n;");
+		WRITE(p, "layout(location = 0) out vec4 fragColor0;\n");
 	} else {
 		if (gl_extensions.IsGLES) {
 			WRITE(p, "#version 300 es\n");
@@ -50,9 +58,14 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "uniform sampler2D pal;\n");
 	}
 
-	// TODO: Add support for integer textures. Though it hardly matters.
-	WRITE(p, "void main() {\n");
-	WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
+	if (language == HLSL_D3D11) {
+		WRITE(p, "float4 main(in float2 v_texcoord0 : TEXCOORD0) : SV_Target {\n");
+		WRITE(p, "  float4 color = tex.Sample(texSamp, v_texcoord0);\n");
+	} else {
+		// TODO: Add support for integer textures. Though it hardly matters.
+		WRITE(p, "void main() {\n");
+		WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
+	}
 
 	int mask = gstate.getClutIndexMask();
 	int shift = gstate.getClutIndexShift();
@@ -110,7 +123,11 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, ";\n");
 	}
 
-	WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+	if (language == HLSL_D3D11) {
+		WRITE(p, "  return pal.Load(int3(index, 0, 0)).bgra;\n");
+	} else {
+		WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+	}
 	WRITE(p, "}\n");
 }
 
@@ -262,12 +279,22 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguag
 		break;
 	case GLSL_300:
 	case GLSL_VULKAN:
+	case HLSL_D3D11:
 		GenerateDepalShader300(buffer, pixelFormat, language);
 		break;
 	case HLSL_DX9:
 		GenerateDepalShaderFloat(buffer, pixelFormat, language);
 		break;
 	}
+}
+
+uint32_t DepalShaderCacheCommon::GenerateShaderID(uint32_t clutMode, GEBufferFormat pixelFormat) const {
+	return (clutMode & 0xFFFFFF) | (pixelFormat << 24);
+}
+
+uint32_t DepalShaderCacheCommon::GetClutID(GEPaletteFormat clutFormat, uint32_t clutHash) const {
+	// Simplistic.
+	return clutHash ^ (uint32_t)clutFormat;
 }
 
 #undef WRITE

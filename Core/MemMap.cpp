@@ -15,10 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
-
 #include "ppsspp_config.h"
-#include "base/mutex.h"
+
+#if PPSSPP_PLATFORM(UWP)
+#include "Common/CommonWindows.h"
+#endif
+
+#include <algorithm>
+#include <mutex>
+
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
 #include "Common/MemArena.h"
@@ -44,14 +49,6 @@ u8* base = NULL;
 // The MemArena class
 MemArena g_arena;
 // ==============
-
-// 64-bit: Pointers to low-mem (sub-0x10000000) mirror
-// 32-bit: Same as the corresponding physical/virtual pointers.
-u8 *m_pRAM;
-u8 *m_pRAM2;
-u8 *m_pRAM3;
-u8 *m_pScratchPad;
-u8 *m_pVRAM;
 
 u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
@@ -85,32 +82,32 @@ u32 g_MemorySize;
 // Used to store the PSP model on game startup.
 u32 g_PSPModel;
 
-recursive_mutex g_shutdownLock;
+std::recursive_mutex g_shutdownLock;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] =
 {
-	{&m_pScratchPad, &m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
-	{NULL,           &m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
-	{&m_pVRAM,       &m_pPhysicalVRAM1,       0x04000000, 0x00200000, 0},
-	{NULL,           &m_pPhysicalVRAM2,       0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pPhysicalVRAM3,       0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pPhysicalVRAM4,       0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pUncachedVRAM1,       0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pUncachedVRAM2,       0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pUncachedVRAM3,       0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pUncachedVRAM4,       0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pRAM,        &m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
-	{NULL,           &m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
-	{NULL,           &m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
+	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM1,       0x04000000, 0x00200000, 0},
+	{&m_pPhysicalVRAM2,       0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM3,       0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalVRAM4,       0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM1,       0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM2,       0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM3,       0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pUncachedVRAM4,       0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
+	{&m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	{&m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
 	// Starts at memory + 31 MB.
-	{&m_pRAM2,       &m_pPhysicalRAM2,        0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
-	{NULL,           &m_pUncachedRAM2,        0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
-	{NULL,           &m_pKernelRAM2,          0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
+	{&m_pPhysicalRAM2,        0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
+	{&m_pUncachedRAM2,        0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
+	{&m_pKernelRAM2,          0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
 	// Starts at memory + 31 * 2 MB.
-	{&m_pRAM3,       &m_pPhysicalRAM3,        0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
-	{NULL,           &m_pUncachedRAM3,        0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
-	{NULL,           &m_pKernelRAM3,          0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
+	{&m_pPhysicalRAM3,        0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
+	{&m_pUncachedRAM3,        0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
+	{&m_pKernelRAM3,          0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
@@ -127,90 +124,70 @@ inline static bool CanIgnoreView(const MemoryView &view) {
 #endif
 }
 
-// yeah, this could also be done in like two bitwise ops...
-#define SKIP(a_flags, b_flags) 
-//	if (!(a_flags & MV_WII_ONLY) && (b_flags & MV_WII_ONLY)) 
-//		continue; 
-//	if (!(a_flags & MV_FAKE_VMEM) && (b_flags & MV_FAKE_VMEM)) 
-//		continue; 
+#if defined(IOS) && PPSSPP_ARCH(64BIT)
+#define SKIP(a_flags, b_flags) \
+	if ((b_flags) & MV_KERNEL) \
+		continue;
+#else
+#define SKIP(a_flags, b_flags) \
+	;
+#endif
 
 static bool Memory_TryBase(u32 flags) {
 	// OK, we know where to find free space. Now grab it!
 	// We just mimic the popular BAT setup.
 
-#if defined(_XBOX)
-	void *ptr;
-#else
 	size_t position = 0;
 	size_t last_position = 0;
-#endif
 
 	// Zero all the pointers to be sure.
-	for (int i = 0; i < num_views; i++)
-	{
-		if (views[i].out_ptr_low)
-			*views[i].out_ptr_low = 0;
+	for (int i = 0; i < num_views; i++) {
 		if (views[i].out_ptr)
 			*views[i].out_ptr = 0;
 	}
 
 	int i;
-	for (i = 0; i < num_views; i++)
-	{
+	for (i = 0; i < num_views; i++) {
 		const MemoryView &view = views[i];
 		if (view.size == 0)
 			continue;
 		SKIP(flags, view.flags);
 		
-#if defined(_XBOX)
-		if (!CanIgnoreView(view)) {
-			*(view.out_ptr_low) = (u8*)(base + view.virtual_address);
-			ptr = VirtualAlloc(base + (view.virtual_address & MEMVIEW32_MASK), view.size, MEM_COMMIT, PAGE_READWRITE);
-		}
-		*(view.out_ptr) = (u8*)base + (view.virtual_address & MEMVIEW32_MASK);
-#else
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
-		} else {
-			*(view.out_ptr_low) = (u8*)g_arena.CreateView(position, view.size);
-			if (!*view.out_ptr_low)
-				goto bail;
 		}
-#if PPSSPP_ARCH(64BIT)
+#ifndef MASKED_PSP_MEMORY
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
+		if (!*view.out_ptr) {
+			goto bail;
+			DEBUG_LOG(MEMMAP, "Failed at view %d", i);
+		}
 #else
 		if (CanIgnoreView(view)) {
-			// No need to create multiple identical views.
+			// This is handled by address masking in 32-bit, no view needs to be created.
 			*view.out_ptr = *views[i - 1].out_ptr;
 		} else {
 			*view.out_ptr = (u8*)g_arena.CreateView(
 				position, view.size, base + (view.virtual_address & MEMVIEW32_MASK));
-			if (!*view.out_ptr)
+			if (!*view.out_ptr) {
+				DEBUG_LOG(MEMMAP, "Failed at view %d", i);
 				goto bail;
+			}
 		}
 #endif
 		last_position = position;
 		position += g_arena.roundup(view.size);
-#endif
 	}
 
 	return true;
-
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
-	for (int j = 0; j <= i; j++)
-	{
+	for (int j = 0; j <= i; j++) {
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
-		if (views[j].out_ptr_low && *views[j].out_ptr_low)
-		{
-			g_arena.ReleaseView(*views[j].out_ptr_low, views[j].size);
-			*views[j].out_ptr_low = NULL;
-		}
-		if (*views[j].out_ptr)
-		{
+		if (*views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
 				g_arena.ReleaseView(*views[j].out_ptr, views[j].size);
 			}
@@ -220,87 +197,83 @@ bail:
 	return false;
 }
 
-void MemoryMap_Setup(u32 flags)
-{
-	// Find a base to reserve 256MB
-#if defined(_XBOX)
-	base = (u8*)VirtualAlloc(0, 0x10000000, MEM_RESERVE|MEM_LARGE_PAGES, PAGE_READWRITE);
+bool MemoryMap_Setup(u32 flags) {
+#if PPSSPP_PLATFORM(UWP)
+	// We reserve the memory, then simply commit in TryBase.
+	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);
 #else
-	size_t total_mem = 0;
 
-	for (int i = 0; i < num_views; i++)
-	{
+	// Figure out how much memory we need to allocate in total.
+	size_t total_mem = 0;
+	for (int i = 0; i < num_views; i++) {
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
 		if (!CanIgnoreView(views[i]))
 			total_mem += g_arena.roundup(views[i].size);
 	}
+
 	// Grab some pagefile backed memory out of the void ...
 	g_arena.GrabLowMemSpace(total_mem);
-	// 32-bit Windows retrieves base a different way
-#if defined(_M_X64) || !defined(_WIN32)
-	// This really shouldn't fail - in 64-bit, there will always be enough address space.
-	// Linux32 is fine with the x64 method, although limited to 32-bit with no automirrors.
-	base = MemArena::Find4GBBase();
-#endif
 #endif
 
-
-	// Now, create views in high memory where there's plenty of space.
-#if defined(_WIN32) && !defined(_M_X64)
-	// Try a whole range of possible bases. Return once we got a valid one.
-	int base_attempts = 0;
-	u32 max_base_addr = 0x7FFF0000 - 0x10000000;
-
-	for (u32 base_addr = 0x01000000; base_addr < max_base_addr; base_addr += 0x400000)
-	{
-		base_attempts++;
-		base = (u8 *)base_addr;
-		if (Memory_TryBase(flags)) 
-		{
-			INFO_LOG(MEMMAP, "Found valid memory base at %p after %i tries.", base, base_attempts);
-			base_attempts = 0;
-			break;
-		}
-	}
-
-	if (base_attempts)
-		PanicAlert("No possible memory base pointer found!");
+#if !PPSSPP_PLATFORM(ANDROID)
+	if (g_arena.NeedsProbing()) {
+		int base_attempts = 0;
+#if defined(_WIN32) && PPSSPP_ARCH(32BIT)
+		// Try a whole range of possible bases. Return once we got a valid one.
+		uintptr_t max_base_addr = 0x7FFF0000 - 0x10000000;
+		uintptr_t min_base_addr = 0x01000000;
+		uintptr_t stride = 0x400000;
 #else
-	// Try base we retrieved earlier
-	if (!Memory_TryBase(flags))
-	{
+		// iOS
+		uintptr_t max_base_addr = 0x1FFFF0000ULL - 0x80000000ULL;
+		uintptr_t min_base_addr = 0x100000000ULL;
+		uintptr_t stride = 0x800000;
+#endif
+		for (uintptr_t base_addr = min_base_addr; base_addr < max_base_addr; base_addr += stride) {
+			base_attempts++;
+			base = (u8 *)base_addr;
+			if (Memory_TryBase(flags)) {
+				INFO_LOG(MEMMAP, "Found valid memory base at %p after %i tries.", base, base_attempts);
+				return true;
+			}
+		}
 		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Failed finding a memory base.");
 		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
+		return false;
 	}
+	else
 #endif
-	return;
+	{
+#if !PPSSPP_PLATFORM(UWP)
+		base = g_arena.Find4GBBase();
+#endif
+	}
+
+	// Should return true...
+	return Memory_TryBase(flags);
 }
 
-void MemoryMap_Shutdown(u32 flags)
-{
-	for (int i = 0; i < num_views; i++)
-	{
+void MemoryMap_Shutdown(u32 flags) {
+	for (int i = 0; i < num_views; i++) {
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
-		if (views[i].out_ptr_low && *views[i].out_ptr_low)
-			g_arena.ReleaseView(*views[i].out_ptr_low, views[i].size);
-		if (*views[i].out_ptr && (!views[i].out_ptr_low || *views[i].out_ptr != *views[i].out_ptr_low))
+		if (*views[i].out_ptr)
 			g_arena.ReleaseView(*views[i].out_ptr, views[i].size);
-		*views[i].out_ptr = NULL;
-		if (views[i].out_ptr_low)
-			*views[i].out_ptr_low = NULL;
+		*views[i].out_ptr = nullptr;
 	}
 	g_arena.ReleaseSpace();
+
+#if PPSSPP_PLATFORM(UWP)
+	VirtualFree(base, 0, MEM_RELEASE);
+#endif
 }
 
-void Init()
-{
-	int flags = 0;
-
+void Init() {
 	// On some 32 bit platforms, you can only map < 32 megs at a time.
+	// TODO: Wait, wtf? What platforms are those? This seems bad.
 	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
 	_dbg_assert_msg_(MEMMAP, g_MemorySize < MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
 	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
@@ -311,14 +284,14 @@ void Init()
 		if (views[i].flags & MV_IS_EXTRA2_RAM)
 			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE * 2, 0), MAX_MMAP_SIZE);
 	}
+	int flags = 0;
 	MemoryMap_Setup(flags);
 
-	INFO_LOG(MEMMAP, "Memory system initialized. RAM at %p (mirror at 0 @ %p, uncached @ %p)",
-		m_pRAM, m_pPhysicalRAM, m_pUncachedRAM);
+	INFO_LOG(MEMMAP, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
+		base, m_pPhysicalRAM, m_pUncachedRAM);
 }
 
-void DoState(PointerWrap &p)
-{
+void DoState(PointerWrap &p) {
 	auto s = p.Section("Memory", 1, 3);
 	if (!s)
 		return;
@@ -355,14 +328,14 @@ void DoState(PointerWrap &p)
 	p.DoArray(GetPointer(PSP_GetKernelMemoryBase()), g_MemorySize);
 	p.DoMarker("RAM");
 
-	p.DoArray(m_pVRAM, VRAM_SIZE);
+	p.DoArray(m_pPhysicalVRAM1, VRAM_SIZE);
 	p.DoMarker("VRAM");
-	p.DoArray(m_pScratchPad, SCRATCHPAD_SIZE);
+	p.DoArray(m_pPhysicalScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
 }
 
 void Shutdown() {
-	lock_guard guard(g_shutdownLock);
+	std::lock_guard<std::recursive_mutex> guard(g_shutdownLock);
 	u32 flags = 0;
 	MemoryMap_Shutdown(flags);
 	base = nullptr;
@@ -370,12 +343,12 @@ void Shutdown() {
 }
 
 void Clear() {
-	if (m_pRAM)
+	if (m_pPhysicalRAM)
 		memset(GetPointerUnchecked(PSP_GetKernelMemoryBase()), 0, g_MemorySize);
-	if (m_pScratchPad)
-		memset(m_pScratchPad, 0, SCRATCHPAD_SIZE);
-	if (m_pVRAM)
-		memset(m_pVRAM, 0, VRAM_SIZE);
+	if (m_pPhysicalScratchPad)
+		memset(m_pPhysicalScratchPad, 0, SCRATCHPAD_SIZE);
+	if (m_pPhysicalVRAM1)
+		memset(m_pPhysicalVRAM1, 0, VRAM_SIZE);
 }
 
 bool IsActive() {
@@ -409,13 +382,13 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 			u32 op;
 			if (GetReplacedOpAt(address, &op)) {
 				if (MIPS_IS_EMUHACK(op)) {
-					ERROR_LOG(HLE,"WTF 1");
+					ERROR_LOG(MEMMAP, "WTF 1");
 					return Opcode(op);
 				} else {
 					return Opcode(op);
 				}
 			} else {
-				ERROR_LOG(HLE, "Replacement, but no replacement op? %08x", inst.encoding);
+				ERROR_LOG(MEMMAP, "Replacement, but no replacement op? %08x", inst.encoding);
 			}
 		}
 		return inst;
@@ -423,7 +396,7 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 		u32 op;
 		if (GetReplacedOpAt(address, &op)) {
 			if (MIPS_IS_EMUHACK(op)) {
-				ERROR_LOG(HLE,"WTF 2");
+				ERROR_LOG(MEMMAP, "WTF 2");
 				return Opcode(op);
 			} else {
 				return Opcode(op);

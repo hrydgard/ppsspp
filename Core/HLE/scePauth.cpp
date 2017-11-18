@@ -71,7 +71,9 @@ static int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 w
 	fwrite(key, 1, 16, fp);
 	fclose(fp);
 
-	return -1;
+	// We failed decrypting and dumped encrypted files, some games like Idolmaster
+	// use this to check for firmware version, so let's still return no problem.
+	return 0;
 }
 
 static int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)

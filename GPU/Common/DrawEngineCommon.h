@@ -21,8 +21,11 @@
 #include <unordered_map>
 
 #include "Common/CommonTypes.h"
+#include "Common/Hashmaps.h"
 
+#include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 class VertexDecoder;
@@ -31,8 +34,15 @@ enum {
 	VERTEX_BUFFER_MAX = 65536,
 	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 64,
 	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 16,
-	SPLINE_BUFFER_SIZE = VERTEX_BUFFER_MAX * 20,
+	SPLINE_BUFFER_SIZE = VERTEX_BUFFER_MAX * 26, // At least, this buffer needs greater than 1679616 bytes for Mist Dragon morphing in FF4CC.
 };
+
+// Avoiding the full include of TextureDecoder.h.
+#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
+typedef u64 ReliableHashType;
+#else
+typedef u32 ReliableHashType;
+#endif
 
 class DrawEngineCommon {
 public:
@@ -56,11 +66,29 @@ public:
 
 	std::vector<std::string> DebugGetVertexLoaderIDs();
 	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
+
+	virtual void Resized();
+
+	void SetupVertexDecoder(u32 vertType);
+
+	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
+		return decJitCache_->IsInSpace(ptr);
+	}
+
 protected:
+	virtual void ClearTrackedVertexArrays() {}
+
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
 
-	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
+	// Utility for vertex caching
+	u32 ComputeMiniHash();
+	ReliableHashType ComputeHash();
+
+	// Vertex decoding
+	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
+
+	bool ApplyShaderBlending();
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
@@ -75,16 +103,71 @@ protected:
 	}
 
 	// Vertex collector buffers
-	u8 *decoded;
-	u16 *decIndex;
-	u8 *splineBuffer;
+	u8 *decoded = nullptr;
+	u16 *decIndex = nullptr;
+	u8 *splineBuffer = nullptr;
 
 	// Cached vertex decoders
-	std::unordered_map<u32, VertexDecoder *> decoderMap_;
-	VertexDecoder *dec_;
-	VertexDecoderJitCache *decJitCache_;
-	VertexDecoderOptions decOptions_;
+	u32 lastVType_ = -1;
+	DenseHashMap<u32, VertexDecoder *, nullptr> decoderMap_;
+	VertexDecoder *dec_ = nullptr;
+	VertexDecoderJitCache *decJitCache_ = nullptr;
+	VertexDecoderOptions decOptions_{};
+
+	TransformedVertex *transformed = nullptr;
+	TransformedVertex *transformedExpanded = nullptr;
+
+	// Defer all vertex decoding to a "Flush" (except when software skinning)
+	struct DeferredDrawCall {
+		void *verts;
+		void *inds;
+		u32 vertType;
+		u8 indexType;
+		s8 prim;
+		u32 vertexCount;
+		u16 indexLowerBound;
+		u16 indexUpperBound;
+	};
+
+	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
+	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
+	int numDrawCalls = 0;
+	int vertexCountInDrawCalls_ = 0;
+	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
+
+	int decimationCounter_ = 0;
+	int decodeCounter_ = 0;
+	u32 dcid_ = 0;
+
+	// Vertex collector state
+	IndexGenerator indexGen;
+	int decodedVerts_ = 0;
+	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
 
 	// Fixed index buffer for easy quad generation from spline/bezier
-	u16 *quadIndices_;
+	u16 *quadIndices_ = nullptr;
+
+	// Shader blending state
+	bool fboTexNeedBind_ = false;
+	bool fboTexBound_ = false;
+
+	// Hardware tessellation
+	int numPatches;
+	class TessellationDataTransfer {
+	protected:
+		// TODO: These aren't used by all backends.
+		int prevSize;
+		int prevSizeTex;
+		int prevSizeCol;
+	public:
+		virtual ~TessellationDataTransfer() {}
+		// Send spline/bezier's control points to vertex shader through floating point texture.
+		virtual void PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) {
+			posStride = 4;
+			texStride = 4;
+			colStride = 4;
+		}
+		virtual void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) = 0;
+	};
+	TessellationDataTransfer *tessDataTransfer;
 };

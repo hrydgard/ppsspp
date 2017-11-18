@@ -17,8 +17,12 @@
 
 #pragma once
 
+#include <cstdint>
+
 #ifdef _WIN32
 #include "CommonWindows.h"
+#elif defined(__APPLE__)
+#include <mach/mach.h>
 #endif
 
 #include "Common.h"
@@ -27,20 +31,27 @@
 // Multiple views can mirror the same section of the block, which makes it very convient for emulating
 // memory mirrors.
 
-class MemArena
-{
+struct MemArenaData;
+
+class MemArena {
 public:
 	size_t roundup(size_t x);
 	void GrabLowMemSpace(size_t size);
 	void ReleaseSpace();
 	void *CreateView(s64 offset, size_t size, void *base = 0);
 	void ReleaseView(void *view, size_t size);
-	// This only finds 1 GB in 32-bit
-	static u8 *Find4GBBase();
-private:
 
+	// This only finds 1 GB in 32-bit
+	u8 *Find4GBBase();
+	bool NeedsProbing();
+
+private:
 #ifdef _WIN32
 	HANDLE hMemoryMapping;
+	SYSTEM_INFO sysInfo;
+#elif defined(__APPLE__)
+	size_t vm_size;
+	vm_address_t vm_mem;  // same type as vm_address_t
 #else
 	int fd;
 #endif

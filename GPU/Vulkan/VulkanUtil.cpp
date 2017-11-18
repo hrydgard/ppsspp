@@ -20,33 +20,6 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-VulkanFBO::VulkanFBO() : color_(nullptr), depthStencil_(nullptr) {}
-
-VulkanFBO::~VulkanFBO() {
-	delete color_;
-	delete depthStencil_;
-}
-
-void VulkanFBO::Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int width, int height, VkFormat color_Format) {
-	color_ = new VulkanTexture(vulkan);
-	VkImageCreateFlags flags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	color_->CreateDirect(width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, nullptr);
-	depthStencil_->CreateDirect(width, height, 1, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, nullptr);
-
-	VkImageView views[2] = { color_->GetImageView(), depthStencil_->GetImageView() };
-
-	VkFramebufferCreateInfo fb = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-	fb.pAttachments = views;
-	fb.attachmentCount = 2;
-	fb.flags = 0;
-	fb.renderPass = rp_compatible;
-	fb.width = width;
-	fb.height = height;
-	fb.layers = 1;
-
-	vkCreateFramebuffer(vulkan->GetDevice(), &fb, nullptr, &framebuffer_);
-}
-
 Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
 	InitDeviceObjects();
 }
@@ -60,9 +33,10 @@ void Vulkan2D::Shutdown() {
 }
 
 void Vulkan2D::DestroyDeviceObjects() {
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		if (frameData_[i].descPool != VK_NULL_HANDLE) {
 			vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
+			frameData_[i].descPool = VK_NULL_HANDLE;
 		}
 	}
 	for (auto it : pipelines_) {
@@ -72,22 +46,30 @@ void Vulkan2D::DestroyDeviceObjects() {
 
 	VkDevice device = vulkan_->GetDevice();
 	if (descriptorSetLayout_ != VK_NULL_HANDLE) {
-		vkDestroyDescriptorSetLayout(device, descriptorSetLayout_, nullptr);
+		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
 		descriptorSetLayout_ = VK_NULL_HANDLE;
 	}
 	if (pipelineLayout_ != VK_NULL_HANDLE) {
-		vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
+		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 		pipelineLayout_ = VK_NULL_HANDLE;
+	}
+
+	// pipelineBasicTex_ and pipelineBasicTex_ come from vulkan2D_.
+	if (pipelineCache_ != VK_NULL_HANDLE) {
+		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
+		pipelineCache_ = VK_NULL_HANDLE;
 	}
 }
 
 void Vulkan2D::InitDeviceObjects() {
-	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
+	pipelineCache_ = vulkan_->CreatePipelineCache();
 	VkDescriptorSetLayoutBinding bindings[2] = {};
+	// Texture.
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[0].binding = 0;
+	// In depal, this second texture is used for the palette.
 	bindings[1].descriptorCount = 1;
 	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -102,23 +84,23 @@ void Vulkan2D::InitDeviceObjects() {
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[1];
-	dpTypes[0].descriptorCount = 200;
+	dpTypes[0].descriptorCount = 3000;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
-	dp.maxSets = 200;
+	dp.maxSets = 3000;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frameData_[i].descPool);
 		assert(VK_SUCCESS == res);
 	}
 
 	VkPushConstantRange push = {};
 	push.offset = 0;
-	push.size = 32;
-	push.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	push.size = 48;
+	push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT;
 
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = &push;
@@ -140,13 +122,13 @@ void Vulkan2D::DeviceRestore(VulkanContext *vulkan) {
 }
 
 void Vulkan2D::BeginFrame() {
-	FrameData &frame = frameData_[curFrame_];
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData &frame = frameData_[curFrame];
 	frame.descSets.clear();
 	vkResetDescriptorPool(vulkan_->GetDevice(), frame.descPool, 0);
 }
 
 void Vulkan2D::EndFrame() {
-	curFrame_ = (curFrame_ + 1) & 1;
 }
 
 VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1, VkImageView tex2, VkSampler sampler2) {
@@ -156,7 +138,8 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	key.sampler[0] = sampler1;
 	key.sampler[1] = sampler2;
 
-	FrameData *frame = &frameData_[curFrame_ & 1];
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData *frame = &frameData_[curFrame];
 	auto iter = frame->descSets.find(key);
 	if (iter != frame->descSets.end()) {
 		return iter->second;
@@ -213,10 +196,13 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	return desc;
 }
 
-VkPipeline Vulkan2D::GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShaderModule vs, VkShaderModule fs) {
+VkPipeline Vulkan2D::GetPipeline(VkRenderPass rp, VkShaderModule vs, VkShaderModule fs, bool readVertices, VK2DDepthStencilMode depthStencilMode) {
 	PipelineKey key;
 	key.vs = vs;
 	key.fs = fs;
+	key.rp = rp;
+	key.depthStencilMode = depthStencilMode;
+	key.readVertices = readVertices;
 
 	auto iter = pipelines_.find(key);
 	if (iter != pipelines_.end()) {
@@ -225,7 +211,7 @@ VkPipeline Vulkan2D::GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShade
 
 	VkPipelineColorBlendAttachmentState blend0 = {};
 	blend0.blendEnable = false;
-	blend0.colorWriteMask = 0xF;
+	blend0.colorWriteMask = depthStencilMode == VK2DDepthStencilMode::STENCIL_REPLACE_ALWAYS ? VK_COLOR_COMPONENT_A_BIT : 0xF;
 
 	VkPipelineColorBlendStateCreateInfo cbs = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
 	cbs.pAttachments = &blend0;
@@ -234,13 +220,32 @@ VkPipeline Vulkan2D::GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShade
 
 	VkPipelineDepthStencilStateCreateInfo dss = { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
 	dss.depthBoundsTestEnable = false;
-	dss.stencilTestEnable = false;
 	dss.depthTestEnable = false;
+	dss.stencilTestEnable = false;
+	switch (depthStencilMode) {
+	case VK2DDepthStencilMode::NONE:
+		break;
+	case VK2DDepthStencilMode::STENCIL_REPLACE_ALWAYS:
+		dss.stencilTestEnable = true;
+		dss.front.reference = 0xFF;
+		dss.front.compareMask = 0xFF;
+		dss.front.compareOp = VK_COMPARE_OP_ALWAYS;
+		dss.front.depthFailOp = VK_STENCIL_OP_REPLACE;
+		dss.front.failOp = VK_STENCIL_OP_REPLACE;
+		dss.front.passOp = VK_STENCIL_OP_REPLACE;
+		dss.back = dss.front;
+		break;
+	}
 
-	VkDynamicState dynamicStates[2];
+	VkDynamicState dynamicStates[5];
 	int numDyn = 0;
 	dynamicStates[numDyn++] = VK_DYNAMIC_STATE_SCISSOR;
 	dynamicStates[numDyn++] = VK_DYNAMIC_STATE_VIEWPORT;
+	if (depthStencilMode == VK2DDepthStencilMode::STENCIL_REPLACE_ALWAYS) {
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_WRITE_MASK;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_REFERENCE;
+	}
 
 	VkPipelineDynamicStateCreateInfo ds = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	ds.pDynamicStates = dynamicStates;
@@ -287,10 +292,10 @@ VkPipeline Vulkan2D::GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShade
 	ibd.stride = vertexStride;
 
 	VkPipelineVertexInputStateCreateInfo vis = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
-	vis.vertexBindingDescriptionCount = 1;
-	vis.pVertexBindingDescriptions = &ibd;
-	vis.vertexAttributeDescriptionCount = attributeCount;
-	vis.pVertexAttributeDescriptions = attrs;
+	vis.vertexBindingDescriptionCount = readVertices ? 1 : 0;
+	vis.pVertexBindingDescriptions = readVertices ? &ibd : nullptr;
+	vis.vertexAttributeDescriptionCount = readVertices ? attributeCount : 0;
+	vis.pVertexAttributeDescriptions = readVertices ? attrs : nullptr;
 
 	VkPipelineViewportStateCreateInfo views = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
 	views.viewportCount = 1;
@@ -308,7 +313,6 @@ VkPipeline Vulkan2D::GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShade
 	pipe.pDepthStencilState = &dss;
 	pipe.pRasterizationState = &rs;
 
-	// We will use dynamic viewport state.
 	pipe.pVertexInputState = &vis;
 	pipe.pViewportState = &views;
 	pipe.pTessellationState = nullptr;
@@ -322,18 +326,13 @@ VkPipeline Vulkan2D::GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShade
 	pipe.subpass = 0;
 
 	VkPipeline pipeline;
-	VkResult result = vkCreateGraphicsPipelines(vulkan_->GetDevice(), cache, 1, &pipe, nullptr, &pipeline);
+	VkResult result = vkCreateGraphicsPipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pipe, nullptr, &pipeline);
 	if (result == VK_SUCCESS) {
 		pipelines_[key] = pipeline;
 		return pipeline;
 	} else {
 		return VK_NULL_HANDLE;
 	}
-}
-
-void Vulkan2D::BindDescriptorSet(VkCommandBuffer cmd, VkImageView tex1, VkSampler sampler1) {
-	VkDescriptorSet descSet = GetDescriptorSet(tex1, sampler1, VK_NULL_HANDLE, VK_NULL_HANDLE);
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 0, nullptr);
 }
 
 VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *error) {

@@ -77,11 +77,7 @@ namespace MIPSComp
 {
 using namespace Gen;
 
-static u32 intBranchExit;
-static u32 jitBranchExit;
-
-static void JitBranchLog(MIPSOpcode op, u32 pc)
-{
+static void JitBranchLog(MIPSOpcode op, u32 pc) {
 	currentMIPS->pc = pc;
 	currentMIPS->inDelaySlot = false;
 
@@ -91,15 +87,15 @@ static void JitBranchLog(MIPSOpcode op, u32 pc)
 
 	// Branch taken, use nextPC.
 	if (currentMIPS->inDelaySlot)
-		intBranchExit = currentMIPS->nextPC;
+		currentMIPS->intBranchExit = currentMIPS->nextPC;
 	else
 	{
 		// Branch not taken, likely delay slot skipped.
 		if (info & LIKELY)
-			intBranchExit = currentMIPS->pc;
+			currentMIPS->intBranchExit = currentMIPS->pc;
 		// Branch not taken, so increment over delay slot.
 		else
-			intBranchExit = currentMIPS->pc + 4;
+			currentMIPS->intBranchExit = currentMIPS->pc + 4;
 	}
 
 	currentMIPS->pc = pc;
@@ -110,7 +106,7 @@ static void JitBranchLogMismatch(MIPSOpcode op, u32 pc)
 {
 	char temp[256];
 	MIPSDisAsm(op, pc, temp, true);
-	ERROR_LOG(JIT, "Bad jump: %s - int:%08x jit:%08x", temp, intBranchExit, jitBranchExit);
+	ERROR_LOG(JIT, "Bad jump: %s - int:%08x jit:%08x", temp, currentMIPS->intBranchExit, currentMIPS->jitBranchExit);
 	host->SetDebugMode(true);
 }
 
@@ -124,14 +120,14 @@ void Jit::BranchLogExit(MIPSOpcode op, u32 dest, bool useEAX)
 {
 	OpArg destArg = useEAX ? R(EAX) : Imm32(dest);
 
-	CMP(32, M(&intBranchExit), destArg);
+	CMP(32, MIPSSTATE_VAR(intBranchExit), destArg);
 	FixupBranch skip = J_CC(CC_E);
 
-	MOV(32, M(&jitBranchExit), destArg);
+	MOV(32, MIPSSTATE_VAR(jitBranchExit), destArg);
 	ABI_CallFunctionCC(thunks.ProtectFunction(&JitBranchLogMismatch), op.encoding, GetCompilerPC());
 	// Restore EAX, we probably ruined it.
 	if (useEAX)
-		MOV(32, R(EAX), M(&jitBranchExit));
+		MOV(32, R(EAX), MIPSSTATE_VAR(jitBranchExit));
 
 	SetJumpTarget(skip);
 }
@@ -549,7 +545,9 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		// I think we can safely just warn-log this without reporting, it's pretty clear that this type
+		// of branch is ignored.
+		WARN_LOG(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = _IMM16 << 2;
@@ -662,8 +660,6 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	js.compiling = false;
 }
 
-static u32 savedPC;
-
 void Jit::Comp_JumpReg(MIPSOpcode op)
 {
 	CONDITIONAL_LOG;
@@ -686,7 +682,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	{
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
 		gpr.MapReg(rs, true, false);
-		MOV(32, M(&mips_->pc), gpr.R(rs));
+		MOV(32, MIPSSTATE_VAR(pc), gpr.R(rs));
 		if (andLink)
 			gpr.SetImm(rd, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
@@ -729,21 +725,18 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			MOV(32, R(EAX), gpr.R(rs));
 		}
 		FlushAll();
-	}
-	else
-	{
+	} else {
 		// Latch destination now - save it in memory.
 		gpr.MapReg(rs, true, false);
-		MOV(32, M(&savedPC), gpr.R(rs));
+		MOV(32, MIPSSTATE_VAR(savedPC), gpr.R(rs));
 		if (andLink)
 			gpr.SetImm(rd, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
-		MOV(32, R(EAX), M(&savedPC));
+		MOV(32, R(EAX), MIPSSTATE_VAR(savedPC));
 		FlushAll();
 	}
 
-	switch (op & 0x3f)
-	{
+	switch (op & 0x3f) {
 	case 8: //jr
 		break;
 	case 9: //jalr
@@ -760,6 +753,10 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 void Jit::Comp_Syscall(MIPSOpcode op)
 {
+	if (op.encoding == 0x03FFFFcc) {
+		WARN_LOG(JIT, "Encountered bad syscall instruction at %08x (%08x)", js.compilerPC, op.encoding);
+	}
+
 	if (!g_Config.bSkipDeadbeefFilling)
 	{
 		// All of these will be overwritten with DEADBEEF anyway.
@@ -783,6 +780,10 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	RestoreRoundingMode();
 	js.downcountAmount = -offset;
 
+	if (!js.inDelaySlot) {
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 4));
+	}
+
 #ifdef USE_PROFILER
 	// When profiling, we can't skip CallSyscall, since it times syscalls.
 	ABI_CallFunctionC(&CallSyscall, op.encoding);
@@ -790,7 +791,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	// Skip the CallSyscall where possible.
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc)
-		ABI_CallFunctionP(quickFunc, (void *)GetSyscallInfo(op));
+		ABI_CallFunctionP(quickFunc, (void *)GetSyscallFuncPointer(op));
 	else
 		ABI_CallFunctionC(&CallSyscall, op.encoding);
 #endif

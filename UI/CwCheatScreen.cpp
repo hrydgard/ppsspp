@@ -49,23 +49,15 @@ CwCheatScreen::CwCheatScreen(std::string gamePath)
 }
 
 void CwCheatScreen::CreateCodeList() {
-	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (info && info->paramSFOLoaded) {
 		gameTitle = info->paramSFO.GetValueString("DISC_ID");
 	}
-	std::size_t lslash = gamePath_.find_last_of("/");
-	std::size_t lastdot = gamePath_.find_last_of(".");
-	std::string extension = gamePath_.substr(lastdot + 1);
-	for (size_t i = 0; i < extension.size(); i++) {
-		extension[i] = tolower(extension[i]);
+	if ((info->id.empty() || !info->disc_total)
+		&& gamePath_.find("/PSP/GAME/") != std::string::npos) {
+		gameTitle = g_paramSFO.GenerateFakeID(gamePath_);
 	}
-	if ((extension != "iso" && extension != "cso" && extension != "pbp") || gameTitle == "") {
-		if (extension == "elf") {
-			gameTitle = "ELF000000";
-		} else {
-			gameTitle = gamePath_.substr(lslash + 1);
-		}
-	}
+
 	cheatEngine2 = new CWCheatEngine();
 	cheatEngine2->CreateCheatFile();
 	cheatList = cheatEngine2->GetCodesList();
@@ -73,13 +65,13 @@ void CwCheatScreen::CreateCodeList() {
 	bEnableCheat.clear();
 	formattedList_.clear();
 	for (size_t i = 0; i < cheatList.size(); i++) {
-		if (cheatList[i].substr(0, 3) == "_C1") {
+		if (cheatList[i].substr(0, 2) == "_C") {
 			formattedList_.push_back(cheatList[i].substr(4));
-			bEnableCheat.push_back(true);
-		}
-		if (cheatList[i].substr(0, 3) == "_C0") {
-			formattedList_.push_back(cheatList[i].substr(4));
-			bEnableCheat.push_back(false);
+			if (cheatList[i].substr(2, 1) == "0") {
+				bEnableCheat.push_back(false);
+			} else {
+				bEnableCheat.push_back(true);
+			}
 		}
 	}
 	delete cheatEngine2;
@@ -144,11 +136,12 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
 	enableAll = !enableAll;
 	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
 	for (int j = 0; j < (int)cheatList.size(); j++) {
-		if (enableAll == 1 && cheatList[j].substr(0, 3) == "_C0"){
-			cheatList[j].replace(0, 3, "_C1");
-		}
-		else if (enableAll == 0 && cheatList[j].substr(0, 3) == "_C1") {
-			cheatList[j].replace(0, 3, "_C0");
+		if (cheatList[j].substr(0, 2) == "_C") {
+			if (cheatList[j].substr(2, 1) == "0" && enableAll) {
+				cheatList[j].replace(2, 1, "1");
+			} else if (cheatList[j].substr(2, 1) != "0" && !enableAll) {
+				cheatList[j].replace(2, 1, "0");
+			}
 		}
 	}
 	for (size_t y = 0; y < bEnableCheat.size(); y++) {
@@ -162,11 +155,12 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
 	}
 	fs.close();
 
+	g_Config.bReloadCheats = true;
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params) {
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	g_Config.bReloadCheats = true;
 	return UI::EVENT_DONE;
 }
@@ -176,8 +170,12 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
+#if PPSSPP_PLATFORM(UWP)
+	LaunchBrowser(activeCheatFile.c_str());
+#else
 	File::openIniFile(activeCheatFile);
+#endif
 	return UI::EVENT_DONE;
 }
 
@@ -206,12 +204,11 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 			title.push_back(line);
 			getline(fs, line);
 			title.push_back(line);
-			getline(fs, line);
 			do {
 				if (finished == false){
 					getline(fs, line);
 				}
-				if (line.substr(0, 3) == "_C0" || line.substr(0, 3) == "_C1") {
+				if (line.substr(0, 2) == "_C") {
 					//Test if cheat already exists in cheatList
 					for (size_t j = 0; j < formattedList_.size(); j++) {
 						if (line.substr(4) == formattedList_[j]) {
@@ -263,7 +260,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	fs.close();
 	g_Config.bReloadCheats = true;
 	//Need a better way to refresh the screen, rather than exiting and having to re-enter.
-	screenManager()->finishDialog(this, DR_OK);
+	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 

@@ -17,11 +17,11 @@
 
 #include <algorithm>
 #include <vector>
+#include <thread>
+#include <mutex>
 
-#include "base/mutex.h"
 #include "base/timeutil.h"
 #include "i18n/i18n.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 
 #include "Common/FileUtil.h"
@@ -45,6 +45,11 @@
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "HW/MemoryStick.h"
 #include "GPU/GPUState.h"
+
+#ifndef MOBILE_DEVICE
+#include "Core/AVIDump.h"
+#include "Core/HLE/__sceAudio.h"
+#endif
 
 namespace SaveState
 {
@@ -98,7 +103,7 @@ namespace SaveState
 
 		CChunkFileReader::Error Save()
 		{
-			lock_guard guard(lock_);
+			std::lock_guard<std::mutex> guard(lock_);
 
 			int n = next_++ % size_;
 			if ((next_ % size_) == first_)
@@ -129,7 +134,7 @@ namespace SaveState
 
 		CChunkFileReader::Error Restore()
 		{
-			lock_guard guard(lock_);
+			std::lock_guard<std::mutex> guard(lock_);
 
 			// No valid states left.
 			if (Empty())
@@ -140,7 +145,7 @@ namespace SaveState
 				return CChunkFileReader::ERROR_BAD_FILE;
 
 			static std::vector<u8> buffer;
-			Decompress(buffer, states_[n], bases_[baseMapping_[n]]);
+			LockedDecompress(buffer, states_[n], bases_[baseMapping_[n]]);
 			return LoadFromRam(buffer);
 		}
 
@@ -155,7 +160,7 @@ namespace SaveState
 
 		void Compress(std::vector<u8> &result, const std::vector<u8> &state, const std::vector<u8> &base)
 		{
-			lock_guard guard(lock_);
+			std::lock_guard<std::mutex> guard(lock_);
 			// Bail if we were cleared before locking.
 			if (first_ == 0 && next_ == 0)
 				return;
@@ -174,9 +179,8 @@ namespace SaveState
 			}
 		}
 
-		void Decompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base)
+		void LockedDecompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base)
 		{
-			lock_guard guard(lock_);
 			result.clear();
 			result.reserve(base.size());
 			auto basePos = base.begin();
@@ -203,7 +207,7 @@ namespace SaveState
 		void Clear()
 		{
 			// This lock is mainly for shutdown.
-			lock_guard guard(lock_);
+			std::lock_guard<std::mutex> guard(lock_);
 			first_ = 0;
 			next_ = 0;
 		}
@@ -226,7 +230,7 @@ namespace SaveState
 		std::vector<StateBuffer> states_;
 		StateBuffer bases_[2];
 		std::vector<int> baseMapping_;
-		recursive_mutex lock_;
+		std::mutex lock_;
 
 		int base_;
 		int baseUsage_;
@@ -234,7 +238,7 @@ namespace SaveState
 
 	static bool needsProcess = false;
 	static std::vector<Operation> pending;
-	static recursive_mutex mutex;
+	static std::mutex mutex;
 	static bool hasLoadedState = false;
 
 	// TODO: Should this be configurable?
@@ -278,7 +282,7 @@ namespace SaveState
 
 	void Enqueue(SaveState::Operation op)
 	{
-		lock_guard guard(mutex);
+		std::lock_guard<std::mutex> guard(mutex);
 		pending.push_back(op);
 
 		// Don't actually run it until next frame.
@@ -364,33 +368,15 @@ namespace SaveState
 	std::string GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension)
 	{
 		std::string discId = g_paramSFO.GetValueString("DISC_ID");
+		std::string discVer = g_paramSFO.GetValueString("DISC_VERSION");
 		std::string fullDiscId;
-		if (discId.size()) {
-			fullDiscId = StringFromFormat("%s_%s",
-				g_paramSFO.GetValueString("DISC_ID").c_str(),
-				g_paramSFO.GetValueString("DISC_VERSION").c_str());
-		} else {
-			// Okay, no discId. Probably homebrew, let's use the last part of the path name.
-			if (File::IsDirectory(gameFilename)) {
-				// EBOOT.PBP directory, most likely.
-				std::string path = gameFilename;
-				size_t slash = path.rfind('/');  // Always '/', not '\\', as we're in a virtual directory
-				if (slash != std::string::npos && slash < path.size() - 1)
-					path = path.substr(slash + 1);
-				fullDiscId = path;
-			} else {
-				// Probably a loose elf.
-				std::string fn = File::GetFilename(gameFilename);
-				size_t dot = fn.rfind('.');
-				if (dot != std::string::npos) {
-					fullDiscId = fn.substr(0, dot);
-				} else {
-					fullDiscId = "elf";  // Fallback
-				}
-			}
+		if (discId.empty()) {
+			discId = g_paramSFO.GenerateFakeID();
+			discVer = "1.00";
 		}
+		fullDiscId = StringFromFormat("%s_%s", discId.c_str(), discVer.c_str());
 
-		std::string temp = StringFromFormat("ms0:/PSP/PPSSPP_STATE/%s_%i.%s", fullDiscId.c_str(), slot, extension);
+		std::string temp = StringFromFormat("ms0:/PSP/PPSSPP_STATE/%s_%d.%s", fullDiscId.c_str(), slot, extension);
 		std::string hostPath;
 		if (pspFileSystem.GetHostPath(temp, hostPath)) {
 			return hostPath;
@@ -508,7 +494,7 @@ namespace SaveState
 
 	std::vector<Operation> Flush()
 	{
-		lock_guard guard(mutex);
+		std::lock_guard<std::mutex> guard(mutex);
 		std::vector<Operation> copy = pending;
 		pending.clear();
 
@@ -577,7 +563,7 @@ namespace SaveState
 
 		if (!__KernelIsRunning())
 		{
-			ERROR_LOG(COMMON, "Savestate failure: Unable to load without kernel, this should never happen.");
+			ERROR_LOG(SAVESTATE, "Savestate failure: Unable to load without kernel, this should never happen.");
 			return;
 		}
 
@@ -591,6 +577,7 @@ namespace SaveState
 			bool callbackResult;
 			std::string callbackMessage;
 			std::string reason;
+			std::string title;
 
 			I18NCategory *sc = GetI18NCategory("Screen");
 			const char *i18nLoadFailure = sc->T("Load savestate failed", "");
@@ -603,16 +590,27 @@ namespace SaveState
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
-				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
+				INFO_LOG(SAVESTATE, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, PPSSPP_GIT_VERSION, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
 					callbackResult = true;
 					hasLoadedState = true;
+#ifndef MOBILE_DEVICE
+					if (g_Config.bSaveLoadResetsAVdumping) {
+						if (g_Config.bDumpFrames) {
+							AVIDump::Stop();
+							AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+						}
+						if (g_Config.bDumpAudio) {
+							WAVDump::Reset();
+						}
+					}
+#endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
 					callbackMessage = i18nLoadFailure;
-					ERROR_LOG(COMMON, "Load state failure: %s", reason.c_str());
+					ERROR_LOG(SAVESTATE, "Load state failure: %s", reason.c_str());
 					callbackResult = false;
 				} else {
 					callbackMessage = sc->T(reason.c_str(), i18nLoadFailure);
@@ -621,15 +619,33 @@ namespace SaveState
 				break;
 
 			case SAVESTATE_SAVE:
-				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
-				result = CChunkFileReader::Save(op.filename, g_paramSFO.GetValueString("TITLE"), PPSSPP_GIT_VERSION, state);
+				INFO_LOG(SAVESTATE, "Saving state to %s", op.filename.c_str());
+				title = g_paramSFO.GetValueString("TITLE");
+				if (title.empty()) {
+					// Homebrew title
+					title = PSP_CoreParameter().fileToStart;
+					std::size_t lslash = title.find_last_of("/");
+					title = title.substr(lslash + 1);
+				}
+				result = CChunkFileReader::Save(op.filename, title, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Saved State");
 					callbackResult = true;
+#ifndef MOBILE_DEVICE
+					if (g_Config.bSaveLoadResetsAVdumping) {
+						if (g_Config.bDumpFrames) {
+							AVIDump::Stop();
+							AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+						}
+						if (g_Config.bDumpAudio) {
+							WAVDump::Reset();
+						}
+					}
+#endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
 					callbackMessage = i18nSaveFailure;
-					ERROR_LOG(COMMON, "Save state failure: %s", reason.c_str());
+					ERROR_LOG(SAVESTATE, "Save state failure: %s", reason.c_str());
 					callbackResult = false;
 				} else {
 					callbackMessage = i18nSaveFailure;
@@ -640,14 +656,14 @@ namespace SaveState
 			case SAVESTATE_VERIFY:
 				callbackResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
 				if (callbackResult) {
-					INFO_LOG(COMMON, "Verified save state system");
+					INFO_LOG(SAVESTATE, "Verified save state system");
 				} else {
-					ERROR_LOG(COMMON, "Save state system verification failed");
+					ERROR_LOG(SAVESTATE, "Save state system verification failed");
 				}
 				break;
 
 			case SAVESTATE_REWIND:
-				INFO_LOG(COMMON, "Rewinding to recent savestate snapshot");
+				INFO_LOG(SAVESTATE, "Rewinding to recent savestate snapshot");
 				result = rewindStates.Restore();
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
@@ -673,12 +689,12 @@ namespace SaveState
 			case SAVESTATE_SAVE_SCREENSHOT:
 				callbackResult = TakeGameScreenshot(op.filename.c_str(), SCREENSHOT_JPG, SCREENSHOT_DISPLAY);
 				if (!callbackResult) {
-					ERROR_LOG(COMMON, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
+					ERROR_LOG(SAVESTATE, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
 				}
 				break;
 
 			default:
-				ERROR_LOG(COMMON, "Savestate failure: unknown operation type %d", op.type);
+				ERROR_LOG(SAVESTATE, "Savestate failure: unknown operation type %d", op.type);
 				callbackResult = false;
 				break;
 			}
@@ -697,7 +713,7 @@ namespace SaveState
 		// Make sure there's a directory for save slots
 		pspFileSystem.MkDir("ms0:/PSP/PPSSPP_STATE");
 
-		lock_guard guard(mutex);
+		std::lock_guard<std::mutex> guard(mutex);
 		rewindStates.Clear();
 
 		hasLoadedState = false;
@@ -705,7 +721,7 @@ namespace SaveState
 
 	void Shutdown()
 	{
-		lock_guard guard(mutex);
+		std::lock_guard<std::mutex> guard(mutex);
 		rewindStates.Clear();
 	}
 }

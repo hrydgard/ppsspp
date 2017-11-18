@@ -15,8 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <thread>
+
 #include "i18n/i18n.h"
-#include "thread/thread.h"
 #include "thread/threadutil.h"
 
 #include "Common/ChunkFile.h"
@@ -298,9 +299,8 @@ void PSPSaveDialog::DisplayBanner(int which)
 	PPGeDrawText(title, 30, 11, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 }
 
-void PSPSaveDialog::DisplaySaveList(bool canMove)
-{
-	lock_guard guard(paramLock);
+void PSPSaveDialog::DisplaySaveList(bool canMove) {
+	std::lock_guard<std::mutex> guard(paramLock);
 	static int upFramesHeld = 0;
 	static int downFramesHeld = 0;
 
@@ -323,7 +323,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 			w = 144;
 			h = 80;
 			x = 27;
-			b = 1.2;
+			b = 1.2f;
 			PPGeDrawRect(x-b, y-b, x+w+b, y, CalcFadedColor(0xD0FFFFFF)); // top border
 			PPGeDrawRect(x-b, y, x, y+h, CalcFadedColor(0xD0FFFFFF)); // left border
 			PPGeDrawRect(x-b, y+h, x+w+b, y+h+b, CalcFadedColor(0xD0FFFFFF)); //bottom border
@@ -360,7 +360,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 
 void PSPSaveDialog::DisplaySaveIcon()
 {
-	lock_guard guard(paramLock);
+	std::lock_guard<std::mutex> guard(paramLock);
 	int textureColor = CalcFadedColor(0xFFFFFFFF);
 	auto curSave = param.GetFileInfo(currentSelectedSave);
 
@@ -383,13 +383,12 @@ void PSPSaveDialog::DisplaySaveIcon()
 		PPGeDisableTexture();
 	}
 	PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, textureColor);
-	if (curSave.texture != NULL)
-		PPGeSetDefaultTexture();
+	PPGeSetDefaultTexture();
 }
 
 void PSPSaveDialog::DisplaySaveDataInfo1()
 {
-	lock_guard guard(paramLock);
+	std::lock_guard<std::mutex> guard(paramLock);
 	if (param.GetFileInfo(currentSelectedSave).size == 0) {
 		I18NCategory *di = GetI18NCategory("Dialog");
 		PPGeDrawText(di->T("NEW DATA"), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
@@ -462,7 +461,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 
 void PSPSaveDialog::DisplaySaveDataInfo2()
 {
-	lock_guard guard(paramLock);
+	std::lock_guard<std::mutex> guard(paramLock);
 	if (param.GetFileInfo(currentSelectedSave).size == 0) {		
 	} else {
 		char txt[1024];
@@ -588,7 +587,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		memset(&request, 0, sizeof(request));
 		Memory::Memcpy(&request, requestAddr, size);
 		Memory::Memcpy(&originalRequest, requestAddr, size);
-		lock_guard guard(paramLock);
+		std::lock_guard<std::mutex> guard(paramLock);
 		param.SetPspParam(&request);
 	}
 
@@ -1001,7 +1000,7 @@ int PSPSaveDialog::Update(int animSpeed)
 }
 
 void PSPSaveDialog::ExecuteIOAction() {
-	lock_guard guard(paramLock);
+	std::lock_guard<std::mutex> guard(paramLock);
 	switch (display) {
 	case DS_LOAD_LOADING:
 		if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave)) {

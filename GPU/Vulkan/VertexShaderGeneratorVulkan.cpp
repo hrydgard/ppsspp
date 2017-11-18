@@ -37,7 +37,7 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 
 static const char *vulkan_glsl_preamble =
-"#version 400\n"
+"#version 430\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n\n";
 
@@ -108,7 +108,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE) && !isModeThrough;  // TODO: Different expression than in shaderIDgen
 	bool doTexture = id.Bit(VS_BIT_DO_TEXTURE);
-	bool doTextureProjection = id.Bit(VS_BIT_DO_TEXTURE_PROJ);
+	bool doTextureTransform = id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM);
 
 	GETexMapMode uvGenMode = static_cast<GETexMapMode>(id.Bits(VS_BIT_UVGEN_MODE, 2));
 
@@ -129,6 +129,12 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES);
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
+
+	bool doBezier = id.Bit(VS_BIT_BEZIER);
+	bool doSpline = id.Bit(VS_BIT_SPLINE);
+	bool hasColorTess = id.Bit(VS_BIT_HAS_COLOR_TESS);
+	bool hasTexcoordTess = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
+	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
 	// The uniforms are passed in as three "clumps" that may or may not be present.
 	// We will memcpy the parts into place in a big buffer so we can be quite dynamic about what parts
@@ -171,9 +177,12 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 	if (useHWTransform && hasNormal)
 		WRITE(p, "layout (location = %d) in vec3 normal;\n", PspAttributeLocation::NORMAL);
 
+	bool texcoordInVec3 = false;
 	if (doTexture && hasTexcoord) {
-		if (!useHWTransform && doTextureProjection && !throughmode)
+		if (!useHWTransform && doTextureTransform && !throughmode) {
 			WRITE(p, "layout (location = %d) in vec3 texcoord;\n", PspAttributeLocation::TEXCOORD);
+			texcoordInVec3 = true;
+		}
 		else
 			WRITE(p, "layout (location = %d) in vec2 texcoord;\n", PspAttributeLocation::TEXCOORD);
 	}
@@ -189,11 +198,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 	}
 
 	if (doTexture) {
-		if (doTextureProjection) {
-			WRITE(p, "layout (location = 0) out vec3 v_texcoord;\n");
-		} else {
-			WRITE(p, "layout (location = 0) out vec2 v_texcoord;\n");
-		}
+		WRITE(p, "layout (location = 0) out vec3 v_texcoord;\n");
 	}
 
 	if (enableFog) {
@@ -213,15 +218,95 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 		WRITE(p, "}\n\n");
 	}
 	WRITE(p, "out gl_PerVertex { vec4 gl_Position; };\n");
+
+	if (doBezier || doSpline) {
+		WRITE(p, "layout (std430) struct TessData {\n");
+		WRITE(p, "  vec4 pos;\n");
+		WRITE(p, "  vec4 uv;\n");
+		WRITE(p, "  vec4 color;\n");
+		WRITE(p, "};");
+		WRITE(p, "layout (std430, set = 0, binding = 5) buffer s_tess_data {\n");
+		WRITE(p, "  TessData data[];");
+		WRITE(p, "} tess_data;");
+
+		for (int i = 2; i <= 4; i++) {
+			// Define 3 types vec2, vec3, vec4
+			WRITE(p, "vec%d tess_sample(in vec%d points[16], in vec2 weights[4]) {\n", i, i);
+			WRITE(p, "  vec%d pos = vec%d(0);\n", i, i);
+			WRITE(p, "  for (int i = 0; i < 4; ++i) {\n");
+			WRITE(p, "    for (int j = 0; j < 4; ++j) {\n");
+			WRITE(p, "      float f = weights[j].x * weights[i].y;\n");
+			WRITE(p, "      if (f != 0)\n");
+			WRITE(p, "        pos = pos + f * points[i * 4 + j];\n");
+			WRITE(p, "    }\n");
+			WRITE(p, "  }\n");
+			WRITE(p, "  return pos;\n");
+			WRITE(p, "}\n");
+		}
+		if (doSpline) {
+			WRITE(p, "void spline_knot(ivec2 num_patches, ivec2 type, out vec2 knot[6], ivec2 patch_pos) {\n");
+			WRITE(p, "  for (int i = 0; i < 6; ++i) {\n");
+			WRITE(p, "    knot[i] = vec2(i + patch_pos.x - 2, i + patch_pos.y - 2);\n");
+			WRITE(p, "  }\n");
+			WRITE(p, "  if ((type.x & 1) != 0) {\n");
+			WRITE(p, "    if (patch_pos.x <= 2)\n");
+			WRITE(p, "      knot[0].x = 0;\n");
+			WRITE(p, "    if (patch_pos.x <= 1)\n");
+			WRITE(p, "      knot[1].x = 0;\n");
+			WRITE(p, "  }\n");
+			WRITE(p, "  if ((type.x & 2) != 0) {\n");
+			WRITE(p, "    if (patch_pos.x >= (num_patches.x - 2))\n");
+			WRITE(p, "      knot[5].x = num_patches.x;\n");
+			WRITE(p, "    if (patch_pos.x == (num_patches.x - 1))\n");
+			WRITE(p, "      knot[4].x = num_patches.x;\n");
+			WRITE(p, "  }\n");
+			WRITE(p, "  if ((type.y & 1) != 0) {\n");
+			WRITE(p, "    if (patch_pos.y <= 2)\n");
+			WRITE(p, "      knot[0].y = 0;\n");
+			WRITE(p, "    if (patch_pos.y <= 1)\n");
+			WRITE(p, "      knot[1].y = 0;\n");
+			WRITE(p, "  }\n");
+			WRITE(p, "  if ((type.y & 2) != 0) {\n");
+			WRITE(p, "    if (patch_pos.y >= (num_patches.y - 2))\n");
+			WRITE(p, "      knot[5].y = num_patches.y;\n");
+			WRITE(p, "    if (patch_pos.y == (num_patches.y - 1))\n");
+			WRITE(p, "      knot[4].y = num_patches.y;\n");
+			WRITE(p, "  }\n");
+			WRITE(p, "}\n");
+
+			WRITE(p, "void spline_weight(vec2 t, in vec2 knot[6], out vec2 weights[4]) {\n");
+			// TODO: Maybe compilers could be coaxed into vectorizing this code without the above explicitly...
+			WRITE(p, "  vec2 t0 = (t - knot[0]);\n");
+			WRITE(p, "  vec2 t1 = (t - knot[1]);\n");
+			WRITE(p, "  vec2 t2 = (t - knot[2]);\n");
+			// TODO: All our knots are integers so we should be able to get rid of these divisions (How?)
+			WRITE(p, "  vec2 f30 = t0 / (knot[3] - knot[0]);\n");
+			WRITE(p, "  vec2 f41 = t1 / (knot[4] - knot[1]);\n");
+			WRITE(p, "  vec2 f52 = t2 / (knot[5] - knot[2]);\n");
+			WRITE(p, "  vec2 f31 = t1 / (knot[3] - knot[1]);\n");
+			WRITE(p, "  vec2 f42 = t2 / (knot[4] - knot[2]);\n");
+			WRITE(p, "  vec2 f32 = t2 / (knot[3] - knot[2]);\n");
+			WRITE(p, "  vec2 a = (1 - f30)*(1 - f31);\n");
+			WRITE(p, "  vec2 b = (f31*f41);\n");
+			WRITE(p, "  vec2 c = (1 - f41)*(1 - f42);\n");
+			WRITE(p, "  vec2 d = (f42*f52);\n");
+			WRITE(p, "  weights[0] = a - (a*f32);\n");
+			WRITE(p, "  weights[1] = 1 - a - b + ((a + b + c - 1)*f32);\n");
+			WRITE(p, "  weights[2] = b + ((1 - b - c - d)*f32);\n");
+			WRITE(p, "  weights[3] = d*f32;\n");
+			WRITE(p, "}\n");
+		}
+	}
+
 	WRITE(p, "void main() {\n");
 
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
-			if (throughmode && doTextureProjection) {
-				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
-			} else {
+			if (texcoordInVec3) {
 				WRITE(p, "  v_texcoord = texcoord;\n");
+			} else {
+				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
 			}
 		}
 		if (hasColor) {
@@ -249,12 +334,111 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 	} else {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
-			// No skinning, just standard T&L.
-			WRITE(p, "  vec3 worldpos = (base.world_mtx * vec4(position.xyz, 1.0)).xyz;\n");
-			if (hasNormal)
-				WRITE(p, "  mediump vec3 worldnormal = normalize((base.world_mtx * vec4(%snormal, 0.0)).xyz);\n", flipNormal ? "-" : "");
-			else
-				WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
+			if (doBezier || doSpline) {
+				WRITE(p, "  vec3 _pos[16];\n");
+				WRITE(p, "  vec2 _tex[16];\n");
+				WRITE(p, "  vec4 _col[16];\n");
+				WRITE(p, "  int num_patches_u = %s;\n", doBezier ? "(base.spline_count_u - 1) / 3" : "base.spline_count_u - 3");
+				WRITE(p, "  int u = int(mod(gl_InstanceIndex, num_patches_u));\n");
+				WRITE(p, "  int v = gl_InstanceIndex / num_patches_u;\n");
+				WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
+				WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
+				WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
+				WRITE(p, "      int idx = (i + v%s) * base.spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
+				WRITE(p, "      _pos[i * 4 + j] = tess_data.data[idx].pos.xyz;\n");
+				if (doTexture && hasTexcoord && hasTexcoordTess)
+					WRITE(p, "      _tex[i * 4 + j] = tess_data.data[idx].uv.xy;\n");
+				if (hasColor && hasColorTess)
+					WRITE(p, "      _col[i * 4 + j] = tess_data.data[idx].color;\n");
+				WRITE(p, "    }\n");
+				WRITE(p, "  }\n");
+				WRITE(p, "  vec2 tess_pos = position.xy;\n");
+				WRITE(p, "  vec2 weights[4];\n");
+				if (doBezier) {
+					// Bernstein 3D
+					WRITE(p, "  weights[0] = (1 - tess_pos) * (1 - tess_pos) * (1 - tess_pos);\n");
+					WRITE(p, "  weights[1] = 3 * tess_pos * (1 - tess_pos) * (1 - tess_pos);\n");
+					WRITE(p, "  weights[2] = 3 * tess_pos * tess_pos * (1 - tess_pos);\n");
+					WRITE(p, "  weights[3] = tess_pos * tess_pos * tess_pos;\n");
+				} else { // Spline
+					WRITE(p, "  ivec2 spline_num_patches = ivec2(base.spline_count_u - 3, base.spline_count_v - 3);\n");
+					WRITE(p, "  ivec2 spline_type = ivec2(base.spline_type_u, base.spline_type_v);\n");
+					WRITE(p, "  vec2 knots[6];\n");
+					WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
+					WRITE(p, "  spline_weight(tess_pos + patch_pos, knots, weights);\n");
+				}
+				WRITE(p, "  vec3 pos = tess_sample(_pos, weights);\n");
+				if (doTexture && hasTexcoord) {
+					if (hasTexcoordTess)
+						WRITE(p, "  vec2 tex = tess_sample(_tex, weights);\n");
+					else
+						WRITE(p, "  vec2 tex = tess_pos + patch_pos;\n");
+				}
+				if (hasColor) {
+					if (hasColorTess)
+						WRITE(p, "  vec4 col = tess_sample(_col, weights);\n");
+					else
+						WRITE(p, "  vec4 col = tess_data.data[0].color;\n");
+				}
+				if (hasNormal) {
+					// Curved surface is probably always need to compute normal(not sampling from control points)
+					if (doBezier) {
+						// Bernstein derivative
+						WRITE(p, "  vec2 bernderiv[4];\n");
+						WRITE(p, "  bernderiv[0] = -3 * (tess_pos - 1) * (tess_pos - 1); \n");
+						WRITE(p, "  bernderiv[1] = 9 * tess_pos * tess_pos - 12 * tess_pos + 3; \n");
+						WRITE(p, "  bernderiv[2] = 3 * (2 - 3 * tess_pos) * tess_pos; \n");
+						WRITE(p, "  bernderiv[3] = 3 * tess_pos * tess_pos; \n");
+
+						WRITE(p, "  vec2 bernderiv_u[4];\n");
+						WRITE(p, "  vec2 bernderiv_v[4];\n");
+						WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
+						WRITE(p, "    bernderiv_u[i] = vec2(bernderiv[i].x, weights[i].y);\n");
+						WRITE(p, "    bernderiv_v[i] = vec2(weights[i].x, bernderiv[i].y);\n");
+						WRITE(p, "  }\n");
+
+						WRITE(p, "  vec3 du = tess_sample(_pos, bernderiv_u);\n");
+						WRITE(p, "  vec3 dv = tess_sample(_pos, bernderiv_v);\n");
+					} else { // Spline
+						WRITE(p, "  vec2 tess_next_u = vec2(normal.x, 0);\n");
+						WRITE(p, "  vec2 tess_next_v = vec2(0, normal.y);\n");
+						// Right
+						WRITE(p, "  vec2 tess_pos_r = tess_pos + tess_next_u;\n");
+						WRITE(p, "  spline_weight(tess_pos_r + patch_pos, knots, weights);\n");
+						WRITE(p, "  vec3 pos_r = tess_sample(_pos, weights);\n");
+						// Left
+						WRITE(p, "  vec2 tess_pos_l = tess_pos - tess_next_u;\n");
+						WRITE(p, "  spline_weight(tess_pos_l + patch_pos, knots, weights);\n");
+						WRITE(p, "  vec3 pos_l = tess_sample(_pos, weights);\n");
+						// Down
+						WRITE(p, "  vec2 tess_pos_d = tess_pos + tess_next_v;\n");
+						WRITE(p, "  spline_weight(tess_pos_d + patch_pos, knots, weights);\n");
+						WRITE(p, "  vec3 pos_d = tess_sample(_pos, weights);\n");
+						// Up
+						WRITE(p, "  vec2 tess_pos_u = tess_pos - tess_next_v;\n");
+						WRITE(p, "  spline_weight(tess_pos_u + patch_pos, knots, weights);\n");
+						WRITE(p, "  vec3 pos_u = tess_sample(_pos, weights);\n");
+
+						WRITE(p, "  vec3 du = pos_r - pos_l;\n");
+						WRITE(p, "  vec3 dv = pos_d - pos_u;\n");
+					}
+					WRITE(p, "  vec3 nrm = cross(du, dv);\n");
+					WRITE(p, "  nrm = normalize(nrm);\n");
+				}
+				WRITE(p, "  vec3 worldpos = vec4(pos.xyz, 1.0) * base.world_mtx;\n");
+				if (hasNormal) {
+					WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(%snrm, 0.0) * base.world_mtx);\n", flipNormalTess ? "-" : "");
+				} else {
+					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
+				}
+			} else {
+				// No skinning, just standard T&L.
+				WRITE(p, "  vec3 worldpos = vec4(position.xyz, 1.0) * base.world_mtx;\n");
+				if (hasNormal)
+					WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(%snormal, 0.0) * base.world_mtx);\n", flipNormal ? "-" : "");
+				else
+					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
+			}
 		} else {
 			static const char *rescale[4] = { "", " * 1.9921875", " * 1.999969482421875", "" }; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
 			const char *factor = rescale[boneWeightScale];
@@ -264,7 +448,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 				"w2.x", "w2.y", "w2.z", "w2.w",
 			};
 
-			WRITE(p, "  mat4 skinMatrix = w1.x * bone.m[0];\n");
+			WRITE(p, "  mat3x4 skinMatrix = w1.x * bone.m[0];\n");
 			if (numBoneWeights > 1) {
 				for (int i = 1; i < numBoneWeights; i++) {
 					WRITE(p, "    skinMatrix += %s * bone.m[%i];\n", boneWeightAttr[i], i);
@@ -274,18 +458,18 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(position, 1.0)).xyz %s;\n", factor);
-			WRITE(p, "  vec3 worldpos = (base.world_mtx * vec4(skinnedpos, 1.0)).xyz;\n");
+			WRITE(p, "  vec3 skinnedpos = (vec4(position, 1.0) * skinMatrix) %s;\n", factor);
+			WRITE(p, "  vec3 worldpos = vec4(skinnedpos, 1.0) * base.world_mtx;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(%snormal, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = vec4(%snormal, 0.0) * skinMatrix %s;\n", flipNormal ? "-" : "", factor);
 			} else {
-				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(0.0, 0.0, %s1.0, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  mediump vec3 skinnednormal = vec4(0.0, 0.0, %s1.0, 0.0) * skinMatrix %s;\n", flipNormal ? "-" : "", factor);
 			}
-			WRITE(p, "  mediump vec3 worldnormal = normalize((base.world_mtx * vec4(skinnednormal, 0.0)).xyz);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(skinnednormal, 0.0) * base.world_mtx);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = base.view_mtx * vec4(worldpos, 1.0);\n");
+		WRITE(p, "  vec4 viewPos = vec4(vec4(worldpos, 1.0) * base.view_mtx, 1.0);\n");
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -299,13 +483,18 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 		const char *ambientStr = ((matUpdate & 1) && hasColor) ? "color0" : "base.matambientalpha";
 		const char *diffuseStr = ((matUpdate & 2) && hasColor) ? "color0.rgb" : "light.matdiffuse";
 		const char *specularStr = ((matUpdate & 4) && hasColor) ? "color0.rgb" : "light.matspecular.rgb";
+		if (doBezier || doSpline) {
+			ambientStr = (matUpdate & 1) && hasColor ? "col" : "base.matambientalpha";
+			diffuseStr = (matUpdate & 2) && hasColor ? "col.rgb" : "light.matdiffuse";
+			specularStr = (matUpdate & 4) && hasColor ? "col.rgb" : "light.matspecular.rgb";
+		}
 
 		bool diffuseIsZero = true;
 		bool specularIsZero = true;
 		bool distanceNeeded = false;
 
 		if (enableLighting) {
-			WRITE(p, "  vec4 lightSum0 = light.globalAmbient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
+			WRITE(p, "  vec4 lightSum0 = light.u_ambient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
 
 			for (int i = 0; i < 4; i++) {
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
@@ -417,7 +606,10 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 		} else {
 			// Lighting doesn't affect color.
 			if (hasColor) {
-				WRITE(p, "  v_color0 = color0;\n");
+				if (doBezier || doSpline)
+					WRITE(p, "  v_color0 = col;\n");
+				else
+					WRITE(p, "  v_color0 = color0;\n");
 			} else {
 				WRITE(p, "  v_color0 = base.matambientalpha;\n");
 			}
@@ -435,15 +627,21 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
 				if (scaleUV) {
 					if (hasTexcoord) {
-						WRITE(p, "  v_texcoord = texcoord;\n");
+						if (doBezier || doSpline)
+							WRITE(p, "  v_texcoord = vec3(tex.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
+						else
+							WRITE(p, "  v_texcoord = vec3(texcoord.xy * base.uvscaleoffset.xy, 0.0);\n");
 					} else {
-						WRITE(p, "  v_texcoord = vec2(0.0);\n");
+						WRITE(p, "  v_texcoord = vec3(0.0);\n");
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  v_texcoord = texcoord * base.uvscaleoffset.xy + base.uvscaleoffset.zw;\n");
+						if (doBezier || doSpline)
+							WRITE(p, "  v_texcoord = vec3(tex.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
+						else
+							WRITE(p, "  v_texcoord = vec3(texcoord.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
 					} else {
-						WRITE(p, "  v_texcoord = base.uvscaleoffset.zw;\n");
+						WRITE(p, "  v_texcoord = vec3(base.uvscaleoffset.zw, 0.0);\n");
 					}
 				}
 				break;
@@ -479,12 +677,12 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 					break;
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
-				WRITE(p, "  v_texcoord = (base.tex_mtx * %s).xyz * vec3(base.uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+				WRITE(p, "  v_texcoord = (%s * base.tex_mtx).xyz * vec3(base.uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 			}
 			break;
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  v_texcoord = base.uvscaleoffset.xy * vec2(1.0 + dot(normalize(light.pos[%i]), worldnormal), 1.0 + dot(normalize(light.pos[%i]), worldnormal)) * 0.5;\n", ls0, ls1);
+				WRITE(p, "  v_texcoord = vec3(base.uvscaleoffset.xy * vec2(1.0 + dot(normalize(light.pos[%i]), worldnormal), 1.0 + dot(normalize(light.pos[%i]), worldnormal)) * 0.5, 1.0);\n", ls0, ls1);
 				break;
 
 			default:

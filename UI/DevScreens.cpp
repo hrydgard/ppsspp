@@ -17,7 +17,6 @@
 
 #include <algorithm>
 
-#include "base/compat.h"
 #include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
@@ -61,7 +60,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	I18NCategory *dev = GetI18NCategory("Developer");
 	I18NCategory *sy = GetI18NCategory("System");
 
-	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
 
 #if !defined(MOBILE_DEVICE)
@@ -83,7 +82,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 
 	RingbufferLogListener *ring = LogManager::GetInstance()->GetRingbufferListener();
 	if (ring) {
-		ring->SetEnable(true);
+		ring->SetEnabled(true);
 	}
 }
 
@@ -143,7 +142,7 @@ void DevMenu::dialogFinished(const Screen *dialog, DialogResult result) {
 	UpdateUIState(UISTATE_INGAME);
 	// Close when a subscreen got closed.
 	// TODO: a bug in screenmanager causes this not to work here.
-	// screenManager()->finishDialog(this, DR_OK);
+	// TriggerFinish(DR_OK);
 }
 
 void LogScreen::UpdateLog() {
@@ -168,8 +167,8 @@ void LogScreen::UpdateLog() {
 	toBottom_ = true;
 }
 
-void LogScreen::update(InputState &input) {
-	UIDialogScreenWithBackground::update(input);
+void LogScreen::update() {
+	UIDialogScreenWithBackground::update();
 	if (toBottom_) {
 		toBottom_ = false;
 		scroll_->ScrollToBottom();
@@ -201,7 +200,7 @@ UI::EventReturn LogScreen::OnSubmit(UI::EventParams &e) {
 
 	// TODO: Can add all sorts of fun stuff here that we can't be bothered writing proper UI for, like various memdumps etc.
 
-	NOTICE_LOG(HLE, "Submitted: %s", cmd.c_str());
+	NOTICE_LOG(SYSTEM, "Submitted: %s", cmd.c_str());
 
 	UpdateLog();
 	cmdLine_->SetText("");
@@ -223,6 +222,8 @@ void LogConfigScreen::CreateViews() {
 	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
 	topbar->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topbar->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
+	topbar->Add(new Choice(di->T("Enable All")))->OnClick.Handle(this, &LogConfigScreen::OnEnableAll);
+	topbar->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &LogConfigScreen::OnDisableAll);
 	topbar->Add(new Choice(dev->T("Log Level")))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
 
 	vert->Add(topbar);
@@ -242,21 +243,36 @@ void LogConfigScreen::CreateViews() {
 		LogChannel *chan = logMan->GetLogChannel(type);
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(cellSize - 50, WRAP_CONTENT));
 		row->SetSpacing(0);
-		row->Add(new CheckBox(&chan->enable_, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
-		row->Add(new PopupMultiChoice(&chan->level_, chan->GetFullName(), logLevelList, 1, 6, 0, screenManager(), new LinearLayoutParams(1.0)));
+		row->Add(new CheckBox(&chan->enabled, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
+		row->Add(new PopupMultiChoice((int *)&chan->level, chan->m_shortName, logLevelList, 1, 6, 0, screenManager(), new LinearLayoutParams(1.0)));
 		grid->Add(row);
 	}
 }
 
 UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
-	
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		LogChannel *chan = logMan->GetLogChannel(type);
-		chan->enable_ = !chan->enable_;
+		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		chan->enabled = !chan->enabled;
 	}
+	return UI::EVENT_DONE;
+}
 
+UI::EventReturn LogConfigScreen::OnEnableAll(UI::EventParams &e) {
+	LogManager *logMan = LogManager::GetInstance();
+	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
+		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		chan->enabled = true;
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn LogConfigScreen::OnDisableAll(UI::EventParams &e) {
+	LogManager *logMan = LogManager::GetInstance();
+	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
+		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		chan->enabled = false;
+	}
 	return UI::EVENT_DONE;
 }
 
@@ -270,6 +286,8 @@ UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 
 	auto logLevelScreen = new LogLevelScreen(dev->T("Log Level"));
 	logLevelScreen->OnChoice.Handle(this, &LogConfigScreen::OnLogLevelChange);
+	if (e.v)
+		logLevelScreen->SetPopupOrigin(e.v);
 	screenManager()->push(logLevelScreen);
 	return UI::EVENT_DONE;
 }
@@ -277,7 +295,7 @@ UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 LogLevelScreen::LogLevelScreen(const std::string &title) : ListPopupScreen(title) {
 	int NUMLOGLEVEL = 6;    
 	std::vector<std::string> list;
-	for(int i = 0; i < NUMLOGLEVEL; ++i) {
+	for (int i = 0; i < NUMLOGLEVEL; ++i) {
 		list.push_back(logLevelList[i]);
 	}
 	adaptor_ = UI::StringVectorListAdaptor(list, -1);
@@ -292,8 +310,8 @@ void LogLevelScreen::OnCompleted(DialogResult result) {
 	for (int i = 0; i < LogManager::GetNumChannels(); ++i) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		LogChannel *chan = logMan->GetLogChannel(type);
-		if(chan->enable_ )
-			chan->level_ = selected + 1;
+		if (chan->enabled)
+			chan->level = (LogTypes::LOG_LEVELS)(selected + 1);
 	}
 }
 
@@ -340,7 +358,16 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new ItemHeader("System Information"));
 	deviceSpecs->Add(new InfoItem("Name", System_GetProperty(SYSPROP_NAME)));
 	deviceSpecs->Add(new InfoItem("Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
+	std::string board = System_GetProperty(SYSPROP_BOARDNAME);
+	if (!board.empty())
+		deviceSpecs->Add(new InfoItem("Board", board));
 	deviceSpecs->Add(new InfoItem("ABI", GetCompilerABI()));
+#ifdef _WIN32
+	if (IsDebuggerPresent()) {
+		deviceSpecs->Add(new InfoItem("Debugger Present", "Yes"));
+	}
+#endif
+
 	deviceSpecs->Add(new ItemHeader("CPU Information"));
 	deviceSpecs->Add(new InfoItem("Name", cpu_info.brand_string));
 #if defined(ARM) || defined(ARM64) || defined(MIPS)
@@ -352,17 +379,35 @@ void SystemInfoScreen::CreateViews() {
 #endif
 	deviceSpecs->Add(new ItemHeader("GPU Information"));
 
-	DrawContext *thin3d = screenManager()->getThin3DContext();
+	DrawContext *draw = screenManager()->getDrawContext();
 
-	deviceSpecs->Add(new InfoItem("3D API", thin3d->GetInfoString(InfoField::APINAME)));
-	deviceSpecs->Add(new InfoItem("Vendor", std::string(thin3d->GetInfoString(InfoField::VENDORSTRING)) + " (" + thin3d->GetInfoString(InfoField::VENDOR) + ")"));
-	deviceSpecs->Add(new InfoItem("Model", thin3d->GetInfoString(InfoField::RENDERER)));
+	deviceSpecs->Add(new InfoItem("3D API", std::string(draw->GetInfoString(InfoField::APINAME))));
+	deviceSpecs->Add(new InfoItem("Vendor", std::string(draw->GetInfoString(InfoField::VENDORSTRING))));
+	std::string vendor = draw->GetInfoString(InfoField::VENDOR);
+	if (vendor.size())
+		deviceSpecs->Add(new InfoItem("Vendor (detected)", vendor));
+	deviceSpecs->Add(new InfoItem("Driver Version", draw->GetInfoString(InfoField::DRIVER)));
 #ifdef _WIN32
-	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
+	if (g_Config.iGPUBackend != GPU_BACKEND_VULKAN)
+		deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
+#if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		deviceSpecs->Add(new InfoItem("D3DX Version", StringFromFormat("%d", GetD3DXVersion())));
 	}
 #endif
+#endif
+	deviceSpecs->Add(new ItemHeader("OS Information"));
+	deviceSpecs->Add(new InfoItem("Memory Page Size", StringFromFormat("%d bytes", GetMemoryProtectPageSize())));
+	deviceSpecs->Add(new InfoItem("RW/RX exclusive: ", PlatformIsWXExclusive() ? "Yes" : "No"));
+#ifdef ANDROID
+	deviceSpecs->Add(new InfoItem("Sustained perf mode: ", System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? "Yes" : "No"));
+#endif
+
+	const char *build = "Release";
+#ifdef _DEBUG
+	build = "Debug";
+#endif
+	deviceSpecs->Add(new InfoItem("PPSSPP build: ", build));
 
 #ifdef __ANDROID__
 	deviceSpecs->Add(new ItemHeader("Audio Information"));
@@ -388,12 +433,12 @@ void SystemInfoScreen::CreateViews() {
 			apiVersion = StringFromFormat("v%d.%d.%d", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
 		}
 	} else {
-		apiVersion = thin3d->GetInfoString(InfoField::APIVERSION);
+		apiVersion = draw->GetInfoString(InfoField::APIVERSION);
 		if (apiVersion.size() > 30)
 			apiVersion.resize(30);
 	}
 	deviceSpecs->Add(new InfoItem("API Version", apiVersion));
-	deviceSpecs->Add(new InfoItem("Shading Language", thin3d->GetInfoString(InfoField::SHADELANGVERSION)));
+	deviceSpecs->Add(new InfoItem("Shading Language", draw->GetInfoString(InfoField::SHADELANGVERSION)));
 
 #ifdef __ANDROID__
 	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);
@@ -408,6 +453,32 @@ void SystemInfoScreen::CreateViews() {
 	sprintf(temp, "%dx%d", System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
 	deviceSpecs->Add(new InfoItem("Display resolution", temp));
 #endif
+
+	ViewGroup *buildConfigScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	buildConfigScroll->SetTag("DevSystemInfoBuildConfig");
+	LinearLayout *buildConfig = new LinearLayout(ORIENT_VERTICAL);
+	buildConfig->SetSpacing(0);
+	buildConfigScroll->Add(buildConfig);
+	tabHolder->AddTab("Build Config", buildConfigScroll);
+
+	buildConfig->Add(new ItemHeader("Build Configuration"));
+#ifdef JENKINS
+	buildConfig->Add(new InfoItem("Built by", "Jenkins"));
+#endif
+#ifdef _DEBUG
+	buildConfig->Add(new InfoItem("_DEBUG", ""));
+#else
+	buildConfig->Add(new InfoItem("NDEBUG", ""));
+#endif
+#ifdef USING_GLES2
+	buildConfig->Add(new InfoItem("USING_GLES2", ""));
+#endif
+#ifdef MOBILE_DEVICE
+	buildConfig->Add(new InfoItem("MOBILE_DEVICE", ""));
+#endif
+	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
+		buildConfig->Add(new InfoItem("GOLD", ""));
+	}
 
 	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	cpuExtensionsScroll->SetTag("DevSystemInfoCPUExt");
@@ -424,27 +495,27 @@ void SystemInfoScreen::CreateViews() {
 		cpuExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
 	}
 
-	ViewGroup *oglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	oglExtensionsScroll->SetTag("DevSystemInfoOGLExt");
-	LinearLayout *oglExtensions = new LinearLayout(ORIENT_VERTICAL);
-	oglExtensions->SetSpacing(0);
-	oglExtensionsScroll->Add(oglExtensions);
+	ViewGroup *gpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	gpuExtensionsScroll->SetTag("DevSystemInfoOGLExt");
+	LinearLayout *gpuExtensions = new LinearLayout(ORIENT_VERTICAL);
+	gpuExtensions->SetSpacing(0);
+	gpuExtensionsScroll->Add(gpuExtensions);
 
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
-		tabHolder->AddTab("OGL Extensions", oglExtensionsScroll);
+		tabHolder->AddTab("OGL Extensions", gpuExtensionsScroll);
 
 		if (!gl_extensions.IsGLES) {
-			oglExtensions->Add(new ItemHeader("OpenGL Extensions"));
+			gpuExtensions->Add(new ItemHeader("OpenGL Extensions"));
 		} else if (gl_extensions.GLES3) {
-			oglExtensions->Add(new ItemHeader("OpenGL ES 3.0 Extensions"));
+			gpuExtensions->Add(new ItemHeader("OpenGL ES 3.0 Extensions"));
 		} else {
-			oglExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
+			gpuExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
 		}
 		exts.clear();
 		SplitString(g_all_gl_extensions, ' ', exts);
 		std::sort(exts.begin(), exts.end());
 		for (size_t i = 0; i < exts.size(); i++) {
-			oglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+			gpuExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
 		}
 
 		exts.clear();
@@ -468,12 +539,17 @@ void SystemInfoScreen::CreateViews() {
 			}
 		}
 	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
-		tabHolder->AddTab("Vulkan Features", oglExtensionsScroll);
+		tabHolder->AddTab("Vulkan Features", gpuExtensionsScroll);
 
-		oglExtensions->Add(new ItemHeader("Vulkan Features"));
-		std::vector<std::string> features = thin3d->GetFeatureList();
+		gpuExtensions->Add(new ItemHeader("Vulkan Features"));
+		std::vector<std::string> features = draw->GetFeatureList();
 		for (auto &feature : features) {
-			oglExtensions->Add(new TextView(feature))->SetFocusable(true);
+			gpuExtensions->Add(new TextView(feature))->SetFocusable(true);
+		}
+		gpuExtensions->Add(new ItemHeader("Vulkan Extensions"));
+		std::vector<std::string> extensions = draw->GetExtensionList();
+		for (auto &extension : extensions) {
+			gpuExtensions->Add(new TextView(extension))->SetFocusable(true);
 		}
 	}
 }
@@ -501,7 +577,7 @@ void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 void AddressPromptScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
-		UI::EventParams e;
+		UI::EventParams e{};
 		e.v = root_;
 		e.a = addr_;
 		OnChoice.Trigger(e);
@@ -556,8 +632,7 @@ bool AddressPromptScreen::key(const KeyInput &key) {
 		} else if (key.keyCode == NKCODE_DEL) {
 			BackspaceDigit();
 		} else if (key.keyCode == NKCODE_ENTER) {
-			OnCompleted(DR_OK);
-			screenManager()->finishDialog(this, DR_OK);
+			TriggerFinish(DR_OK);
 		} else {
 			return UIDialogScreen::key(key);
 		}
@@ -605,7 +680,7 @@ void JitCompareScreen::CreateViews() {
 	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
 	blockStats_ = leftColumn->Add(new TextView(""));
 
-	EventParams ignore = {0};
+	EventParams ignore{};
 	OnCurrentBlock(ignore);
 }
 
@@ -685,6 +760,10 @@ UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
+
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	BlockCacheStats bcStats;
 	blockCache->ComputeStats(bcStats);
@@ -822,14 +901,17 @@ UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *view) {
+int ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *view) {
 	using namespace UI;
 	std::vector<std::string> shaderIds_ = gpu->DebugGetShaderIDs(shaderType);
+	int count = 0;
 	for (auto id : shaderIds_) {
 		Choice *choice = view->Add(new Choice(gpu->DebugGetShaderString(id, shaderType, SHADER_STRING_SHORT_DESC)));
 		choice->SetTag(id);
 		choice->OnClick.Handle(this, &ShaderListScreen::OnShaderClick);
+		count++;
 	}
+	return count;
 }
 
 struct { DebugShaderType type; const char *name; } shaderTypes[] = {
@@ -837,6 +919,8 @@ struct { DebugShaderType type; const char *name; } shaderTypes[] = {
 	{ SHADER_TYPE_FRAGMENT, "Fragment" },
 	// { SHADER_TYPE_GEOMETRY, "Geometry" },
 	{ SHADER_TYPE_VERTEXLOADER, "VertexLoader" },
+	{ SHADER_TYPE_PIPELINE, "Pipeline" },
+	{ SHADER_TYPE_DEPAL, "Depal" },
 };
 
 void ShaderListScreen::CreateViews() {
@@ -851,13 +935,12 @@ void ShaderListScreen::CreateViews() {
 	tabs_->SetTag("DevShaderList");
 	layout->Add(tabs_);
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-
 	for (size_t i = 0; i < ARRAY_SIZE(shaderTypes); i++) {
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 		LinearLayout *shaderList = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-		ListShaders(shaderTypes[i].type, shaderList);
+		int count = ListShaders(shaderTypes[i].type, shaderList);
 		scroll->Add(shaderList);
-		tabs_->AddTab(shaderTypes[i].name, scroll);
+		tabs_->AddTab(StringFromFormat("%s (%d)", shaderTypes[i].name, count), scroll);
 	}
 }
 

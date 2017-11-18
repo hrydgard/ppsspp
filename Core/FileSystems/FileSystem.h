@@ -30,6 +30,7 @@ enum FileAccess {
 	FILEACCESS_APPEND   = 4,
 	FILEACCESS_CREATE   = 8,
 	FILEACCESS_TRUNCATE = 16,
+	FILEACCESS_EXCL     = 32,
 };
 
 enum FileMove {

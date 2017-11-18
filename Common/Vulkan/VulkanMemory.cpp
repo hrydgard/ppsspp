@@ -27,13 +27,17 @@ VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size) : device_
 	assert(res);
 }
 
+VulkanPushBuffer::~VulkanPushBuffer() {
+	assert(buffers_.empty());
+}
+
 bool VulkanPushBuffer::AddBuffer() {
 	BufInfo info;
 
 	VkBufferCreateInfo b = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 	b.size = size_;
 	b.flags = 0;
-	b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	b.queueFamilyIndexCount = 0;
 	b.pQueueFamilyIndices = nullptr;
@@ -43,10 +47,16 @@ bool VulkanPushBuffer::AddBuffer() {
 		return false;
 	}
 
+	// Make validation happy.
+	VkMemoryRequirements reqs;
+	vkGetBufferMemoryRequirements(device_, info.buffer, &reqs);
+	// TODO: We really should use memoryTypeIndex here..
+
 	// Okay, that's the buffer. Now let's allocate some memory for it.
 	VkMemoryAllocateInfo alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	// TODO: Should check here that memoryTypeIndex_ matches reqs.memoryTypeBits.
 	alloc.memoryTypeIndex = memoryTypeIndex_;
-	alloc.allocationSize = size_;
+	alloc.allocationSize = reqs.size;
 
 	res = vkAllocateMemory(device_, &alloc, nullptr, &info.deviceMemory);
 	if (VK_SUCCESS != res) {
@@ -61,6 +71,14 @@ bool VulkanPushBuffer::AddBuffer() {
 	buffers_.resize(buf_ + 1);
 	buffers_[buf_] = info;
 	return true;
+}
+
+void VulkanPushBuffer::Destroy(VulkanContext *vulkan) {
+	for (BufInfo &info : buffers_) {
+		vulkan->Delete().QueueDeleteBuffer(info.buffer);
+		vulkan->Delete().QueueDeleteDeviceMemory(info.deviceMemory);
+	}
+	buffers_.clear();
 }
 
 void VulkanPushBuffer::NextBuffer(size_t minSize) {
@@ -101,6 +119,14 @@ void VulkanPushBuffer::Defragment(VulkanContext *vulkan) {
 	assert(res);
 }
 
+size_t VulkanPushBuffer::GetTotalSize() const {
+	size_t sum = 0;
+	if (buffers_.size() > 1)
+		sum += size_ * (buffers_.size() - 1);
+	sum += offset_;
+	return sum;
+}
+
 VulkanDeviceAllocator::VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize)
 	: vulkan_(vulkan), lastSlab_(0), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE), destroyed_(false) {
 	assert((minSlabSize_ & (SLAB_GRAIN_SIZE - 1)) == 0);
@@ -122,6 +148,7 @@ void VulkanDeviceAllocator::Destroy() {
 			}
 		}
 
+		assert(slab.deviceMemory);
 		vulkan_->Delete().QueueDeleteDeviceMemory(slab.deviceMemory);
 	}
 	slabs_.clear();
@@ -143,8 +170,8 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 		return ALLOCATE_FAILED;
 	}
 
-	size_t align = reqs.alignment <= SLAB_GRAIN_SIZE ? 1 : (reqs.alignment >> SLAB_GRAIN_SHIFT);
-	size_t blocks = (reqs.size + SLAB_GRAIN_SIZE - 1) >> SLAB_GRAIN_SHIFT;
+	size_t align = reqs.alignment <= SLAB_GRAIN_SIZE ? 1 : (size_t)(reqs.alignment >> SLAB_GRAIN_SHIFT);
+	size_t blocks = (size_t)((reqs.size + SLAB_GRAIN_SIZE - 1) >> SLAB_GRAIN_SHIFT);
 
 	const size_t numSlabs = slabs_.size();
 	for (size_t i = 0; i < numSlabs; ++i) {
@@ -254,6 +281,7 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 
 	// Okay, now enqueue.  It's valid.
 	FreeInfo *info = new FreeInfo(this, deviceMemory, offset);
+	// Dispatches a call to ExecuteFree on the next delete round.
 	vulkan_->Delete().QueueCallback(&DispatchFree, info);
 }
 
@@ -298,7 +326,7 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 	delete userdata;
 }
 
-bool VulkanDeviceAllocator::AllocateSlab(size_t minBytes) {
+bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes) {
 	assert(!destroyed_);
 	if (!slabs_.empty() && minSlabSize_ < maxSlabSize_) {
 		// We're allocating an additional slab, so rachet up its size.
@@ -325,7 +353,7 @@ bool VulkanDeviceAllocator::AllocateSlab(size_t minBytes) {
 	slabs_.resize(slabs_.size() + 1);
 	Slab &slab = slabs_[slabs_.size() - 1];
 	slab.deviceMemory = deviceMemory;
-	slab.usage.resize(alloc.allocationSize >> SLAB_GRAIN_SHIFT);
+	slab.usage.resize((size_t)(alloc.allocationSize >> SLAB_GRAIN_SHIFT));
 
 	return true;
 }

@@ -5,7 +5,7 @@
 #include "Common/Common.h"
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 #endif
 
 #include "Core/Core.h"

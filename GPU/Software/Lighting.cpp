@@ -23,21 +23,22 @@ namespace Lighting {
 
 void Process(VertexData& vertex, bool hasColor)
 {
-	Vec3<int> mec = Vec3<int>(gstate.getMaterialEmissiveR(), gstate.getMaterialEmissiveG(), gstate.getMaterialEmissiveB());
+	const int materialupdate = gstate.materialupdate & (hasColor ? 7 : 0);
 
-	Vec3<int> mac = hasColor && (gstate.materialupdate&1)
-						? vertex.color0.rgb()
-						: Vec3<int>(gstate.getMaterialAmbientR(), gstate.getMaterialAmbientG(), gstate.getMaterialAmbientB());
-	Vec3<int> final_color = mec + mac * Vec3<int>(gstate.getAmbientR(), gstate.getAmbientG(), gstate.getAmbientB()) / 255;
-	Vec3<int> specular_color(0, 0, 0);
+	Vec3<float> vcol0 = vertex.color0.rgb().Cast<float>() * Vec3<float>::AssignToAll(1.0f / 255.0f);
+	Vec3<float> mec = Vec3<float>::FromRGB(gstate.getMaterialEmissive());
+
+	Vec3<float> mac = (materialupdate & 1) ? vcol0 : Vec3<float>::FromRGB(gstate.getMaterialAmbientRGBA());
+	Vec3<float> final_color = mec + mac * Vec3<float>::FromRGB(gstate.getAmbientRGBA());
+	Vec3<float> specular_color(0.0f, 0.0f, 0.0f);
 
 	for (unsigned int light = 0; light < 4; ++light) {
 		// Always calculate texture coords from lighting results if environment mapping is active
-		// TODO: specular lighting should affect this, too!
+		// TODO: Should specular lighting should affect this, too?  Doesn't in GLES.
 		// TODO: Not sure if this really should be done even if lighting is disabled altogether
 		if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
-			Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3*light]&0xFFFFFF), getFloat24(gstate.lpos[3*light+1]&0xFFFFFF),getFloat24(gstate.lpos[3*light+2]&0xFFFFFF));
-			float diffuse_factor = Dot(L,vertex.worldnormal) / L.Length() / vertex.worldnormal.Length();
+			Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3 * light]), getFloat24(gstate.lpos[3 * light + 1]),getFloat24(gstate.lpos[3 * light + 2]));
+			float diffuse_factor = Dot(L.Normalized(), vertex.worldnormal);
 
 			if (gstate.getUVLS0() == (int)light)
 				vertex.texturecoords.s() = (diffuse_factor + 1.f) / 2.f;
@@ -55,14 +56,16 @@ void Process(VertexData& vertex, bool hasColor)
 			continue;
 
 		// L =  vector from vertex to light source
-		// TODO: Should transfer the light positions to world/view space for these calculations
-		Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3*light]&0xFFFFFF), getFloat24(gstate.lpos[3*light+1]&0xFFFFFF),getFloat24(gstate.lpos[3*light+2]&0xFFFFFF));
-		L -= vertex.worldpos;
-		float d = L.Length();
+		// TODO: Should transfer the light positions to world/view space for these calculations?
+		Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3 * light]), getFloat24(gstate.lpos[3 * light + 1]),getFloat24(gstate.lpos[3 * light + 2]));
+		if (!gstate.isDirectionalLight(light)) {
+			L -= vertex.worldpos;
+		}
+		float d = L.Normalize();
 
-		float lka = getFloat24(gstate.latt[3*light]&0xFFFFFF);
-		float lkb = getFloat24(gstate.latt[3*light+1]&0xFFFFFF);
-		float lkc = getFloat24(gstate.latt[3*light+2]&0xFFFFFF);
+		float lka = getFloat24(gstate.latt[3 * light]);
+		float lkb = getFloat24(gstate.latt[3 * light + 1]);
+		float lkc = getFloat24(gstate.latt[3 * light + 2]);
 		float att = 1.f;
 		if (!gstate.isDirectionalLight(light)) {
 			att = 1.f / (lka + lkb * d + lkc * d * d);
@@ -72,11 +75,11 @@ void Process(VertexData& vertex, bool hasColor)
 
 		float spot = 1.f;
 		if (gstate.isSpotLight(light)) {
-			Vec3<float> dir = Vec3<float>(getFloat24(gstate.ldir[3*light]&0xFFFFFF), getFloat24(gstate.ldir[3*light+1]&0xFFFFFF),getFloat24(gstate.ldir[3*light+2]&0xFFFFFF));
-			float _spot = Dot(-L,dir) / d / dir.Length();
-			float cutoff = getFloat24(gstate.lcutoff[light]&0xFFFFFF);
-			if (_spot > cutoff) {
-				float conv = getFloat24(gstate.lconv[light]&0xFFFFFF);
+			Vec3<float> dir = Vec3<float>(getFloat24(gstate.ldir[3 * light]), getFloat24(gstate.ldir[3 * light + 1]),getFloat24(gstate.ldir[3 * light + 2]));
+			float _spot = Dot(dir.Normalized(), L);
+			float cutoff = getFloat24(gstate.lcutoff[light]);
+			if (_spot >= cutoff) {
+				float conv = getFloat24(gstate.lconv[light]);
 				spot = pow(_spot, conv);
 			} else {
 				spot = 0.f;
@@ -84,69 +87,56 @@ void Process(VertexData& vertex, bool hasColor)
 		}
 
 		// ambient lighting
-		Vec3<int> lac = Vec3<int>(gstate.getLightAmbientColorR(light), gstate.getLightAmbientColorG(light), gstate.getLightAmbientColorB(light));
-		final_color.r() += (int)(att * spot * lac.r() * mac.r() / 255);
-		final_color.g() += (int)(att * spot * lac.g() * mac.g() / 255);
-		final_color.b() += (int)(att * spot * lac.b() * mac.b() / 255);
+		Vec3<float> lac = Vec3<float>::FromRGB(gstate.getLightAmbientColor(light));
+		final_color += lac * mac * att * spot;
 
 		// diffuse lighting
-		Vec3<int> ldc = Vec3<int>(gstate.getDiffuseColorR(light), gstate.getDiffuseColorG(light), gstate.getDiffuseColorB(light));
-		Vec3<int> mdc = hasColor && (gstate.materialupdate&2)
-							? vertex.color0.rgb()
-							: Vec3<int>(gstate.getMaterialDiffuseR(), gstate.getMaterialDiffuseG(), gstate.getMaterialDiffuseB());
+		Vec3<float> ldc = Vec3<float>::FromRGB(gstate.getDiffuseColor(light));
+		Vec3<float> mdc = (materialupdate & 2) ? vcol0 : Vec3<float>::FromRGB(gstate.getMaterialDiffuse());
 
-		float diffuse_factor = Dot(L,vertex.worldnormal) / d / vertex.worldnormal.Length();
+		float diffuse_factor = Dot(L, vertex.worldnormal);
 		if (gstate.isUsingPoweredDiffuseLight(light)) {
-			float k = getFloat24(gstate.materialspecularcoef&0xFFFFFF);
-			diffuse_factor = pow(diffuse_factor, k);
+			float k = gstate.getMaterialSpecularCoef();
+			// TODO: Validate Tales of the World: Radiant Mythology (#2424.)
+			// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
+			if (diffuse_factor <= 0.0f && k == 0.0f) {
+				diffuse_factor = 1.0f;
+			} else {
+				diffuse_factor = pow(diffuse_factor, k);
+			}
 		}
 
 		if (diffuse_factor > 0.f) {
-			final_color.r() += (int)(att * spot * ldc.r() * mdc.r() * diffuse_factor / 255);
-			final_color.g() += (int)(att * spot * ldc.g() * mdc.g() * diffuse_factor / 255);
-			final_color.b() += (int)(att * spot * ldc.b() * mdc.b() * diffuse_factor / 255);
+			final_color += ldc * mdc * diffuse_factor * att * spot;
 		}
 
 		if (gstate.isUsingSpecularLight(light)) {
-			Vec3<float> E(0.f, 0.f, 1.f);
-			Mat3x3<float> view_matrix(gstate.viewMatrix);
-			Vec3<float> worldE = view_matrix.Inverse() * (E - Vec3<float>(gstate.viewMatrix[9], gstate.viewMatrix[10], gstate.viewMatrix[11]));
-			Vec3<float> H = worldE / worldE.Length() + L / L.Length();
+			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
 
-			Vec3<int> lsc = Vec3<int>(gstate.getSpecularColorR(light), gstate.getSpecularColorG(light), gstate.getSpecularColorB(light));
-			Vec3<int> msc = hasColor && (gstate.materialupdate&4)
-								? vertex.color0.rgb()
-								: Vec3<int>(gstate.getMaterialSpecularR(), gstate.getMaterialSpecularG(), gstate.getMaterialSpecularB());
+			Vec3<float> lsc = Vec3<float>::FromRGB(gstate.getSpecularColor(light));
+			Vec3<float> msc = (materialupdate & 4) ? vcol0 : Vec3<float>::FromRGB(gstate.getMaterialSpecular());
 
-			float specular_factor = Dot(H,vertex.worldnormal) / H.Length() / vertex.worldnormal.Length();
-			float k = getFloat24(gstate.materialspecularcoef&0xFFFFFF);
+			float specular_factor = Dot(H.Normalized(), vertex.worldnormal);
+			float k = gstate.getMaterialSpecularCoef();
 			specular_factor = pow(specular_factor, k);
 
 			if (specular_factor > 0.f) {
-				specular_color.r() += (int)(att * spot * lsc.r() * msc.r() * specular_factor / 255);
-				specular_color.g() += (int)(att * spot * lsc.g() * msc.g() * specular_factor / 255);
-				specular_color.b() += (int)(att * spot * lsc.b() * msc.b() * specular_factor / 255);
+				specular_color += lsc * msc * specular_factor * att * spot;
 			}
 		}
 	}
 
-	vertex.color0.r() = final_color.r();
-	vertex.color0.g() = final_color.g();
-	vertex.color0.b() = final_color.b();
+	int maa = (materialupdate & 1) ? vertex.color0.a() : gstate.getMaterialAmbientA();
+	int final_alpha = (gstate.getAmbientA() * maa) / 255;
 
 	if (gstate.isUsingSecondaryColor()) {
-		vertex.color1 = specular_color.Clamp(0, 255);
+		Vec3<int> final_color_int = (final_color.Clamp(0.0f, 1.0f) * 255.0f).Cast<int>();
+		vertex.color0 = Vec4<int>(final_color_int, final_alpha);
+		vertex.color1 = (specular_color.Clamp(0.0f, 1.0f) * 255.0f).Cast<int>();
 	} else {
-		vertex.color0.r() += specular_color.r();
-		vertex.color0.g() += specular_color.g();
-		vertex.color0.b() += specular_color.b();
-		vertex.color1 = Vec3<int>(0, 0, 0);
+		Vec3<int> final_color_int = ((final_color + specular_color).Clamp(0.0f, 1.0f) * 255.0f).Cast<int>();
+		vertex.color0 = Vec4<int>(final_color_int, final_alpha);
 	}
-
-	int maa = hasColor && (gstate.materialupdate&1) ? vertex.color0.a() : gstate.getMaterialAmbientA();
-	vertex.color0.a() = gstate.getAmbientA() * maa / 255;
-
-	vertex.color0 = vertex.color0.Clamp(0, 255);
 }
 
 } // namespace

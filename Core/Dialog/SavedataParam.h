@@ -323,7 +323,7 @@ public:
 	std::string GetKey(const SceUtilitySavedataParam *param) const;
 	bool HasKey(const SceUtilitySavedataParam *param) const;
 
-	static std::string GetSpaceText(u64 size);
+	static std::string GetSpaceText(u64 size, bool roundUp);
 
 	int SetPspParam(SceUtilitySavedataParam* param);
 	SceUtilitySavedataParam *GetPspParam();

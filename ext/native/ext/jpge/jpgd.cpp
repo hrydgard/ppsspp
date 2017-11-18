@@ -3088,7 +3088,7 @@ unsigned char *decompress_jpeg_image_from_stream(jpeg_decoder_stream *pStream, i
 
   for (int y = 0; y < image_height; y++)
   {
-    const uint8* pScan_line;
+    const uint8* pScan_line = nullptr;
     uint scan_line_len;
     if (decoder.decode((const void**)&pScan_line, &scan_line_len) != JPGD_SUCCESS)
     {

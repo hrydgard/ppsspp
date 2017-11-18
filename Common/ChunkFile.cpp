@@ -15,10 +15,12 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include <cstdlib>
 #include <cstring>
 #include <snappy-c.h>
 
 #include "ChunkFile.h"
+#include "StringUtils.h"
 
 PointerWrapSection PointerWrap::Section(const char *title, int ver) {
 	return Section(title, ver, ver);
@@ -28,6 +30,8 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 	char marker[16] = {0};
 	int foundVersion = ver;
 
+	// This is strncpy because we rely on its weird non-null-terminating truncation behaviour.
+	// Can't replace it with the more sensible truncate_cpy because that would break savestates.
 	strncpy(marker, title, sizeof(marker));
 	if (!ExpectVoid(marker, sizeof(marker)))
 	{
@@ -42,7 +46,7 @@ PointerWrapSection PointerWrap::Section(const char *title, int minVer, int ver) 
 		Do(foundVersion);
 
 	if (error == ERROR_FAILURE || foundVersion < minVer || foundVersion > ver) {
-		WARN_LOG(COMMON, "Savestate failure: wrong version %d found for %s", foundVersion, title);
+		WARN_LOG(SAVESTATE, "Savestate failure: wrong version %d found for %s", foundVersion, title);
 		SetError(ERROR_FAILURE);
 		return PointerWrapSection(*this, -1, title);
 	}
@@ -164,31 +168,31 @@ PointerWrapSection::~PointerWrapSection() {
 
 CChunkFileReader::Error CChunkFileReader::LoadFileHeader(File::IOFile &pFile, SChunkHeader &header, std::string *title) {
 	if (!pFile) {
-		ERROR_LOG(COMMON, "ChunkReader: Can't open file for reading");
+		ERROR_LOG(SAVESTATE, "ChunkReader: Can't open file for reading");
 		return ERROR_BAD_FILE;
 	}
 
 	const u64 fileSize = pFile.GetSize();
 	u64 headerSize = sizeof(SChunkHeader);
 	if (fileSize < headerSize) {
-		ERROR_LOG(COMMON, "ChunkReader: File too small");
+		ERROR_LOG(SAVESTATE, "ChunkReader: File too small");
 		return ERROR_BAD_FILE;
 	}
 
 	if (!pFile.ReadArray(&header, 1)) {
-		ERROR_LOG(COMMON, "ChunkReader: Bad header size");
+		ERROR_LOG(SAVESTATE, "ChunkReader: Bad header size");
 		return ERROR_BAD_FILE;
 	}
 
 	if (header.Revision < REVISION_MIN) {
-		ERROR_LOG(COMMON, "ChunkReader: Wrong file revision, got %d expected >= %d", header.Revision, REVISION_MIN);
+		ERROR_LOG(SAVESTATE, "ChunkReader: Wrong file revision, got %d expected >= %d", header.Revision, REVISION_MIN);
 		return ERROR_BAD_FILE;
 	}
 
 	if (header.Revision >= REVISION_TITLE) {
 		char titleFixed[128];
 		if (!pFile.ReadArray(titleFixed, sizeof(titleFixed))) {
-			ERROR_LOG(COMMON, "ChunkReader: Unable to read title");
+			ERROR_LOG(SAVESTATE, "ChunkReader: Unable to read title");
 			return ERROR_BAD_FILE;
 		}
 
@@ -203,7 +207,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFileHeader(File::IOFile &pFile, SC
 
 	u32 sz = (u32)(fileSize - headerSize);
 	if (header.ExpectedSize != sz) {
-		ERROR_LOG(COMMON, "ChunkReader: Bad file size, got %u expected %u", sz, header.ExpectedSize);
+		ERROR_LOG(SAVESTATE, "ChunkReader: Bad file size, got %u expected %u", sz, header.ExpectedSize);
 		return ERROR_BAD_FILE;
 	}
 
@@ -212,7 +216,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFileHeader(File::IOFile &pFile, SC
 
 CChunkFileReader::Error CChunkFileReader::GetFileTitle(const std::string &filename, std::string *title) {
 	if (!File::Exists(filename)) {
-		ERROR_LOG(COMMON, "ChunkReader: File doesn't exist");
+		ERROR_LOG(SAVESTATE, "ChunkReader: File doesn't exist");
 		return ERROR_BAD_FILE;
 	}
 
@@ -224,7 +228,7 @@ CChunkFileReader::Error CChunkFileReader::GetFileTitle(const std::string &filena
 CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, const char *gitVersion, u8 *&_buffer, size_t &sz, std::string *failureReason) {
 	if (!File::Exists(filename)) {
 		*failureReason = "LoadStateDoesntExist";
-		ERROR_LOG(COMMON, "ChunkReader: File doesn't exist");
+		ERROR_LOG(SAVESTATE, "ChunkReader: File doesn't exist");
 		return ERROR_BAD_FILE;
 	}
 
@@ -240,7 +244,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, 
 	u8 *buffer = new u8[sz];
 	if (!pFile.ReadBytes(buffer, sz))
 	{
-		ERROR_LOG(COMMON, "ChunkReader: Error reading file");
+		ERROR_LOG(SAVESTATE, "ChunkReader: Error reading file");
 		delete [] buffer;
 		return ERROR_BAD_FILE;
 	}
@@ -251,7 +255,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, 
 		size_t uncomp_size = header.UncompressedSize;
 		snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
 		if ((u32)uncomp_size != header.UncompressedSize) {
-			ERROR_LOG(COMMON, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
+			ERROR_LOG(SAVESTATE, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
 			delete [] uncomp_buffer;
 			return ERROR_BAD_FILE;
 		}
@@ -265,70 +269,63 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, 
 
 // Takes ownership of buffer.
 CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz) {
-	INFO_LOG(COMMON, "ChunkReader: Writing %s", filename.c_str());
+	INFO_LOG(SAVESTATE, "ChunkReader: Writing %s", filename.c_str());
 
 	File::IOFile pFile(filename, "wb");
-	if (!pFile)
-	{
-		ERROR_LOG(COMMON, "ChunkReader: Error opening file for write");
-		delete[] buffer;
+	if (!pFile) {
+		ERROR_LOG(SAVESTATE, "ChunkReader: Error opening file for write");
+		free(buffer);
 		return ERROR_BAD_FILE;
 	}
 
-	bool compress = true;
+	// Make sure we can allocate a buffer to compress before compressing.
+	size_t write_len = snappy_max_compressed_length(sz);
+	u8 *compressed_buffer = (u8 *)malloc(write_len);
+	u8 *write_buffer = buffer;
+	if (!compressed_buffer) {
+		ERROR_LOG(SAVESTATE, "ChunkReader: Unable to allocate compressed buffer");
+		// We'll save uncompressed.  Better than not saving...
+		write_len = sz;
+	} else {
+		snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &write_len);
+		free(buffer);
+
+		write_buffer = compressed_buffer;
+	}
 
 	// Create header
 	SChunkHeader header;
-	header.Compress = compress ? 1 : 0;
+	header.Compress = compressed_buffer ? 1 : 0;
 	header.Revision = REVISION_CURRENT;
-	header.ExpectedSize = (u32)sz;
+	header.ExpectedSize = (u32)write_len;
 	header.UncompressedSize = (u32)sz;
-	strncpy(header.GitVersion, gitVersion, 32);
-	header.GitVersion[31] = '\0';
+	truncate_cpy(header.GitVersion, gitVersion);
 
 	// Setup the fixed-length title.
 	char titleFixed[128];
-	strncpy(titleFixed, title.c_str(), sizeof(titleFixed));
-	titleFixed[sizeof(titleFixed) - 1] = '\0';
+	truncate_cpy(titleFixed, title.c_str());
 
-	// Write to file
-	if (compress) {
-		size_t comp_len = snappy_max_compressed_length(sz);
-		u8 *compressed_buffer = new u8[comp_len];
-		snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &comp_len);
-		delete [] buffer;
-		header.ExpectedSize = (u32)comp_len;
-		if (!pFile.WriteArray(&header, 1)) {
-			ERROR_LOG(COMMON, "ChunkReader: Failed writing header");
-			return ERROR_BAD_FILE;
-		}
-		if (!pFile.WriteArray(titleFixed, sizeof(titleFixed))) {
-			ERROR_LOG(COMMON, "ChunkReader: Failed writing title");
-			return ERROR_BAD_FILE;
-		}
-		if (!pFile.WriteBytes(&compressed_buffer[0], comp_len)) {
-			ERROR_LOG(COMMON, "ChunkReader: Failed writing compressed data");
-			return ERROR_BAD_FILE;
-		}	else {
-			INFO_LOG(COMMON, "Savestate: Compressed %i bytes into %i", (int)sz, (int)comp_len);
-		}
-		delete [] compressed_buffer;
-	} else {
-		if (!pFile.WriteArray(&header, 1))
-		{
-			ERROR_LOG(COMMON, "ChunkReader: Failed writing header");
-			delete[] buffer;
-			return ERROR_BAD_FILE;
-		}
-		if (!pFile.WriteBytes(&buffer[0], sz))
-		{
-			ERROR_LOG(COMMON, "ChunkReader: Failed writing data");
-			delete[] buffer;
-			return ERROR_BAD_FILE;
-		}
-		delete [] buffer;
+	// Now let's start writing out the file...
+	if (!pFile.WriteArray(&header, 1)) {
+		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing header");
+		free(write_buffer);
+		return ERROR_BAD_FILE;
+	}
+	if (!pFile.WriteArray(titleFixed, sizeof(titleFixed))) {
+		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing title");
+		free(write_buffer);
+		return ERROR_BAD_FILE;
 	}
 
-	INFO_LOG(COMMON, "ChunkReader: Done writing %s", filename.c_str());
+	if (!pFile.WriteBytes(write_buffer, write_len)) {
+		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing compressed data");
+		free(write_buffer);
+		return ERROR_BAD_FILE;
+	} else if (sz != write_len) {
+		INFO_LOG(SAVESTATE, "Savestate: Compressed %i bytes into %i", (int)sz, (int)write_len);
+	}
+	free(write_buffer);
+
+	INFO_LOG(SAVESTATE, "ChunkReader: Done writing %s", filename.c_str());
 	return ERROR_NONE;
 }

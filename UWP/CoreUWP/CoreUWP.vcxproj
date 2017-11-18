@@ -1,0 +1,794 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM">
+      <Configuration>Release</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="UWP Gold|ARM">
+      <Configuration>UWP Gold</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="UWP Gold|Win32">
+      <Configuration>UWP Gold</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="UWP Gold|x64">
+      <Configuration>UWP Gold</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{40b76674-02de-40ef-889b-fad1489685e7}</ProjectGuid>
+    <Keyword>StaticLibrary</Keyword>
+    <RootNamespace>CoreUWP</RootNamespace>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
+    <AppContainerApplication>true</AppContainerApplication>
+    <ApplicationType>Windows Store</ApplicationType>
+    <WindowsTargetPlatformMinVersion>10.0.10240.0</WindowsTargetPlatformMinVersion>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../ffmpeg/Windows10/x86/include;../..;../../ext/native;../../ext/snappy;../../Common;../../ext/zlib;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>USE_FFMPEG;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../ffmpeg/Windows10/x86/include;../..;../../ext/native;../../ext/snappy;../../Common;../../ext/zlib;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>USE_FFMPEG;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../ffmpeg/Windows10/x86/include;../..;../../ext/native;../../ext/snappy;../../Common;../../ext/zlib;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>USE_FFMPEG;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|arm'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../ffmpeg/Windows10/ARM/include;../../ffmpeg/WindowsInclude;../..;../../ext/native;../../ext/snappy;../../Common;../../ext/zlib;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>USE_FFMPEG;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|arm'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../ffmpeg/Windows10/ARM/include;../../ffmpeg/WindowsInclude;../..;../../ext/native;../../ext/snappy;../../Common;../../ext/zlib;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>USE_FFMPEG;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|arm'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../ffmpeg/Windows10/ARM/include;../../ffmpeg/WindowsInclude;../..;../../ext/native;../../ext/snappy;../../Common;../../ext/zlib;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>USE_FFMPEG;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../ffmpeg/Windows10/x64/include;../../ffmpeg/WindowsInclude;../..;../../ext/native;../../ext/snappy;../../Common;../../ext/zlib;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>USE_FFMPEG;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../ffmpeg/Windows10/x64/include;../../ffmpeg/WindowsInclude;../..;../../ext/native;../../ext/snappy;../../Common;../../ext/zlib;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>USE_FFMPEG;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../ffmpeg/Windows10/x64/include;../../ffmpeg/WindowsInclude;../..;../../ext/native;../../ext/snappy;../../Common;../../ext/zlib;../../ext/native/ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>USE_FFMPEG;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Core\AVIDump.h" />
+    <ClInclude Include="..\..\Core\Compatibility.h" />
+    <ClInclude Include="..\..\Core\Config.h" />
+    <ClInclude Include="..\..\Core\Core.h" />
+    <ClInclude Include="..\..\Core\CoreParameter.h" />
+    <ClInclude Include="..\..\Core\CoreTiming.h" />
+    <ClInclude Include="..\..\Core\CwCheat.h" />
+    <ClInclude Include="..\..\Core\Debugger\Breakpoints.h" />
+    <ClInclude Include="..\..\Core\Debugger\DebugInterface.h" />
+    <ClInclude Include="..\..\Core\Debugger\DisassemblyManager.h" />
+    <ClInclude Include="..\..\Core\Debugger\SymbolMap.h" />
+    <ClInclude Include="..\..\Core\Dialog\PSPDialog.h" />
+    <ClInclude Include="..\..\Core\Dialog\PSPGamedataInstallDialog.h" />
+    <ClInclude Include="..\..\Core\Dialog\PSPMsgDialog.h" />
+    <ClInclude Include="..\..\Core\Dialog\PSPNetconfDialog.h" />
+    <ClInclude Include="..\..\Core\Dialog\PSPOskDialog.h" />
+    <ClInclude Include="..\..\Core\Dialog\PSPPlaceholderDialog.h" />
+    <ClInclude Include="..\..\Core\Dialog\PSPSaveDialog.h" />
+    <ClInclude Include="..\..\Core\Dialog\PSPScreenshotDialog.h" />
+    <ClInclude Include="..\..\Core\Dialog\SavedataParam.h" />
+    <ClInclude Include="..\..\Core\ELF\ElfReader.h" />
+    <ClInclude Include="..\..\Core\ELF\ElfTypes.h" />
+    <ClInclude Include="..\..\Core\ELF\ParamSFO.h" />
+    <ClInclude Include="..\..\Core\ELF\PBPReader.h" />
+    <ClInclude Include="..\..\Core\ELF\PrxDecrypter.h" />
+    <ClInclude Include="..\..\Core\FileLoaders\CachingFileLoader.h" />
+    <ClInclude Include="..\..\Core\FileLoaders\DiskCachingFileLoader.h" />
+    <ClInclude Include="..\..\Core\FileLoaders\HTTPFileLoader.h" />
+    <ClInclude Include="..\..\Core\FileLoaders\LocalFileLoader.h" />
+    <ClInclude Include="..\..\Core\FileLoaders\RamCachingFileLoader.h" />
+    <ClInclude Include="..\..\Core\FileLoaders\RetryingFileLoader.h" />
+    <ClInclude Include="..\..\Core\FileSystems\BlobFileSystem.h" />
+    <ClInclude Include="..\..\Core\FileSystems\BlockDevices.h" />
+    <ClInclude Include="..\..\Core\FileSystems\DirectoryFileSystem.h" />
+    <ClInclude Include="..\..\Core\FileSystems\FileSystem.h" />
+    <ClInclude Include="..\..\Core\FileSystems\ISOFileSystem.h" />
+    <ClInclude Include="..\..\Core\FileSystems\MetaFileSystem.h" />
+    <ClInclude Include="..\..\Core\FileSystems\VirtualDiscFileSystem.h" />
+    <ClInclude Include="..\..\Core\Font\PGF.h" />
+    <ClInclude Include="..\..\Core\HDRemaster.h" />
+    <ClInclude Include="..\..\Core\HLE\FunctionWrappers.h" />
+    <ClInclude Include="..\..\Core\HLE\HLE.h" />
+    <ClInclude Include="..\..\Core\HLE\HLEHelperThread.h" />
+    <ClInclude Include="..\..\Core\HLE\HLETables.h" />
+    <ClInclude Include="..\..\Core\HLE\KernelWaitHelpers.h" />
+    <ClInclude Include="..\..\Core\HLE\KUBridge.h" />
+    <ClInclude Include="..\..\Core\HLE\proAdhoc.h" />
+    <ClInclude Include="..\..\Core\HLE\proAdhocServer.h" />
+    <ClInclude Include="..\..\Core\HLE\ReplaceTables.h" />
+    <ClInclude Include="..\..\Core\HLE\sceAdler.h" />
+    <ClInclude Include="..\..\Core\HLE\sceAtrac.h" />
+    <ClInclude Include="..\..\Core\HLE\sceAudio.h" />
+    <ClInclude Include="..\..\Core\HLE\sceAudiocodec.h" />
+    <ClInclude Include="..\..\Core\HLE\sceAudioRouting.h" />
+    <ClInclude Include="..\..\Core\HLE\sceCcc.h" />
+    <ClInclude Include="..\..\Core\HLE\sceChnnlsv.h" />
+    <ClInclude Include="..\..\Core\HLE\sceCtrl.h" />
+    <ClInclude Include="..\..\Core\HLE\sceDeflt.h" />
+    <ClInclude Include="..\..\Core\HLE\sceDisplay.h" />
+    <ClInclude Include="..\..\Core\HLE\sceDmac.h" />
+    <ClInclude Include="..\..\Core\HLE\sceFont.h" />
+    <ClInclude Include="..\..\Core\HLE\sceG729.h" />
+    <ClInclude Include="..\..\Core\HLE\sceGameUpdate.h" />
+    <ClInclude Include="..\..\Core\HLE\sceGe.h" />
+    <ClInclude Include="..\..\Core\HLE\sceHeap.h" />
+    <ClInclude Include="..\..\Core\HLE\sceHprm.h" />
+    <ClInclude Include="..\..\Core\HLE\sceHttp.h" />
+    <ClInclude Include="..\..\Core\HLE\sceImpose.h" />
+    <ClInclude Include="..\..\Core\HLE\sceIo.h" />
+    <ClInclude Include="..\..\Core\HLE\sceJpeg.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernel.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelAlarm.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelEventFlag.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelInterrupt.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelMbx.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelMemory.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelModule.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelMsgPipe.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelMutex.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelSemaphore.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelThread.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelTime.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelVTimer.h" />
+    <ClInclude Include="..\..\Core\HLE\sceMd5.h" />
+    <ClInclude Include="..\..\Core\HLE\sceMp3.h" />
+    <ClInclude Include="..\..\Core\HLE\sceMp4.h" />
+    <ClInclude Include="..\..\Core\HLE\sceMpeg.h" />
+    <ClInclude Include="..\..\Core\HLE\sceMt19937.h" />
+    <ClInclude Include="..\..\Core\HLE\sceNet.h" />
+    <ClInclude Include="..\..\Core\HLE\sceNetAdhoc.h" />
+    <ClInclude Include="..\..\Core\HLE\sceNp.h" />
+    <ClInclude Include="..\..\Core\HLE\sceOpenPSID.h" />
+    <ClInclude Include="..\..\Core\HLE\sceP3da.h" />
+    <ClInclude Include="..\..\Core\HLE\sceParseHttp.h" />
+    <ClInclude Include="..\..\Core\HLE\sceParseUri.h" />
+    <ClInclude Include="..\..\Core\HLE\scePauth.h" />
+    <ClInclude Include="..\..\Core\HLE\scePower.h" />
+    <ClInclude Include="..\..\Core\HLE\scePsmf.h" />
+    <ClInclude Include="..\..\Core\HLE\scePspNpDrm_user.h" />
+    <ClInclude Include="..\..\Core\HLE\sceRtc.h" />
+    <ClInclude Include="..\..\Core\HLE\sceSas.h" />
+    <ClInclude Include="..\..\Core\HLE\sceSfmt19937.h" />
+    <ClInclude Include="..\..\Core\HLE\sceSha256.h" />
+    <ClInclude Include="..\..\Core\HLE\sceSsl.h" />
+    <ClInclude Include="..\..\Core\HLE\sceUmd.h" />
+    <ClInclude Include="..\..\Core\HLE\sceUsb.h" />
+    <ClInclude Include="..\..\Core\HLE\sceUsbCam.h" />
+    <ClInclude Include="..\..\Core\HLE\sceUsbGps.h" />
+    <ClInclude Include="..\..\Core\HLE\sceUtility.h" />
+    <ClInclude Include="..\..\Core\HLE\sceVaudio.h" />
+    <ClInclude Include="..\..\Core\HLE\ThreadQueueList.h" />
+    <ClInclude Include="..\..\Core\HLE\__sceAudio.h" />
+    <ClInclude Include="..\..\Core\Host.h" />
+    <ClInclude Include="..\..\Core\HW\AsyncIOManager.h" />
+    <ClInclude Include="..\..\Core\HW\BufferQueue.h" />
+    <ClInclude Include="..\..\Core\HW\MediaEngine.h" />
+    <ClInclude Include="..\..\Core\HW\MemoryStick.h" />
+    <ClInclude Include="..\..\Core\HW\MpegDemux.h" />
+    <ClInclude Include="..\..\Core\HW\SasAudio.h" />
+    <ClInclude Include="..\..\Core\HW\SasReverb.h" />
+    <ClInclude Include="..\..\Core\HW\SimpleAudioDec.h" />
+    <ClInclude Include="..\..\Core\HW\StereoResampler.h" />
+    <ClInclude Include="..\..\Core\Loaders.h" />
+    <ClInclude Include="..\..\Core\MemMap.h" />
+    <ClInclude Include="..\..\Core\MemMapHelpers.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEONUtil.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM\ArmJit.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM\ArmRegCache.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM\ArmRegCacheFPU.h" />
+    <ClInclude Include="..\..\Core\MIPS\IR\IRFrontend.h" />
+    <ClInclude Include="..\..\Core\MIPS\IR\IRInst.h" />
+    <ClInclude Include="..\..\Core\MIPS\IR\IRInterpreter.h" />
+    <ClInclude Include="..\..\Core\MIPS\IR\IRJit.h" />
+    <ClInclude Include="..\..\Core\MIPS\IR\IRPassSimplify.h" />
+    <ClInclude Include="..\..\Core\MIPS\IR\IRRegCache.h" />
+    <ClInclude Include="..\..\Core\MIPS\JitCommon\JitBlockCache.h" />
+    <ClInclude Include="..\..\Core\MIPS\JitCommon\JitCommon.h" />
+    <ClInclude Include="..\..\Core\MIPS\JitCommon\JitState.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPS.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSAnalyst.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSAsm.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSCodeUtils.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSDebugInterface.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSDis.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSDisVFPU.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSInt.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSIntVFPU.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSStackWalk.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSTables.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSVFPUUtils.h" />
+    <ClInclude Include="..\..\Core\MIPS\x86\IRToX86.h" />
+    <ClInclude Include="..\..\Core\MIPS\x86\Jit.h" />
+    <ClInclude Include="..\..\Core\MIPS\x86\JitSafeMem.h" />
+    <ClInclude Include="..\..\Core\MIPS\x86\RegCache.h" />
+    <ClInclude Include="..\..\Core\MIPS\x86\RegCacheFPU.h" />
+    <ClInclude Include="..\..\Core\Opcode.h" />
+    <ClInclude Include="..\..\Core\PSPLoaders.h" />
+    <ClInclude Include="..\..\Core\Reporting.h" />
+    <ClInclude Include="..\..\Core\SaveState.h" />
+    <ClInclude Include="..\..\Core\Screenshot.h" />
+    <ClInclude Include="..\..\Core\System.h" />
+    <ClInclude Include="..\..\Core\TextureReplacer.h" />
+    <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
+    <ClInclude Include="..\..\Core\Util\AudioFormat.h" />
+    <ClInclude Include="..\..\Core\Util\AudioFormatNEON.h" />
+    <ClInclude Include="..\..\Core\Util\BlockAllocator.h" />
+    <ClInclude Include="..\..\Core\Util\DisArm64.h" />
+    <ClInclude Include="..\..\Core\Util\GameManager.h" />
+    <ClInclude Include="..\..\Core\Util\PPGeDraw.h" />
+    <ClInclude Include="..\..\Core\Util\ppge_atlas.h" />
+    <ClInclude Include="..\..\Core\WaveFile.h" />
+    <ClInclude Include="..\..\ext\disarm.h" />
+    <ClInclude Include="..\..\ext\sfmt19937\SFMT-common.h" />
+    <ClInclude Include="..\..\ext\sfmt19937\SFMT-params.h" />
+    <ClInclude Include="..\..\ext\sfmt19937\SFMT-params19937.h" />
+    <ClInclude Include="..\..\ext\sfmt19937\SFMT.h" />
+    <ClInclude Include="..\..\ext\snappy\snappy-c.h" />
+    <ClInclude Include="..\..\ext\snappy\snappy-internal.h" />
+    <ClInclude Include="..\..\ext\snappy\snappy-sinksource.h" />
+    <ClInclude Include="..\..\ext\snappy\snappy-stubs-internal.h" />
+    <ClInclude Include="..\..\ext\snappy\snappy-stubs-public.h" />
+    <ClInclude Include="..\..\ext\snappy\snappy.h" />
+    <ClInclude Include="..\..\ext\udis86\decode.h" />
+    <ClInclude Include="..\..\ext\udis86\extern.h" />
+    <ClInclude Include="..\..\ext\udis86\itab.h" />
+    <ClInclude Include="..\..\ext\udis86\syn.h" />
+    <ClInclude Include="..\..\ext\udis86\types.h" />
+    <ClInclude Include="..\..\ext\udis86\udint.h" />
+    <ClInclude Include="..\..\ext\udis86\udis86.h" />
+    <ClInclude Include="..\..\ext\xbrz\config.h" />
+    <ClInclude Include="..\..\ext\xbrz\xbrz.h" />
+    <ClInclude Include="..\..\ext\xxhash.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="targetver.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Core\AVIDump.cpp" />
+    <ClCompile Include="..\..\Core\Compatibility.cpp" />
+    <ClCompile Include="..\..\Core\Config.cpp" />
+    <ClCompile Include="..\..\Core\Core.cpp" />
+    <ClCompile Include="..\..\Core\CoreTiming.cpp" />
+    <ClCompile Include="..\..\Core\CwCheat.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\Breakpoints.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\DisassemblyManager.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\SymbolMap.cpp" />
+    <ClCompile Include="..\..\Core\Dialog\PSPDialog.cpp" />
+    <ClCompile Include="..\..\Core\Dialog\PSPGamedataInstallDialog.cpp" />
+    <ClCompile Include="..\..\Core\Dialog\PSPMsgDialog.cpp" />
+    <ClCompile Include="..\..\Core\Dialog\PSPNetconfDialog.cpp" />
+    <ClCompile Include="..\..\Core\Dialog\PSPOskDialog.cpp" />
+    <ClCompile Include="..\..\Core\Dialog\PSPPlaceholderDialog.cpp" />
+    <ClCompile Include="..\..\Core\Dialog\PSPSaveDialog.cpp" />
+    <ClCompile Include="..\..\Core\Dialog\PSPScreenshotDialog.cpp" />
+    <ClCompile Include="..\..\Core\Dialog\SavedataParam.cpp" />
+    <ClCompile Include="..\..\Core\ELF\ElfReader.cpp" />
+    <ClCompile Include="..\..\Core\ELF\ParamSFO.cpp" />
+    <ClCompile Include="..\..\Core\ELF\PBPReader.cpp" />
+    <ClCompile Include="..\..\Core\ELF\PrxDecrypter.cpp" />
+    <ClCompile Include="..\..\Core\FileLoaders\CachingFileLoader.cpp" />
+    <ClCompile Include="..\..\Core\FileLoaders\DiskCachingFileLoader.cpp" />
+    <ClCompile Include="..\..\Core\FileLoaders\HTTPFileLoader.cpp" />
+    <ClCompile Include="..\..\Core\FileLoaders\LocalFileLoader.cpp" />
+    <ClCompile Include="..\..\Core\FileLoaders\RamCachingFileLoader.cpp" />
+    <ClCompile Include="..\..\Core\FileLoaders\RetryingFileLoader.cpp" />
+    <ClCompile Include="..\..\Core\FileSystems\BlobFileSystem.cpp" />
+    <ClCompile Include="..\..\Core\FileSystems\BlockDevices.cpp" />
+    <ClCompile Include="..\..\Core\FileSystems\DirectoryFileSystem.cpp" />
+    <ClCompile Include="..\..\Core\FileSystems\FileSystem.cpp" />
+    <ClCompile Include="..\..\Core\FileSystems\ISOFileSystem.cpp" />
+    <ClCompile Include="..\..\Core\FileSystems\MetaFileSystem.cpp" />
+    <ClCompile Include="..\..\Core\FileSystems\tlzrc.cpp" />
+    <ClCompile Include="..\..\Core\FileSystems\VirtualDiscFileSystem.cpp" />
+    <ClCompile Include="..\..\Core\Font\PGF.cpp" />
+    <ClCompile Include="..\..\Core\HDRemaster.cpp" />
+    <ClCompile Include="..\..\Core\HLE\HLE.cpp" />
+    <ClCompile Include="..\..\Core\HLE\HLEHelperThread.cpp" />
+    <ClCompile Include="..\..\Core\HLE\HLETables.cpp" />
+    <ClCompile Include="..\..\Core\HLE\KUBridge.cpp" />
+    <ClCompile Include="..\..\Core\HLE\proAdhoc.cpp" />
+    <ClCompile Include="..\..\Core\HLE\proAdhocServer.cpp" />
+    <ClCompile Include="..\..\Core\HLE\ReplaceTables.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceAdler.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceAtrac.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceAudio.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceAudiocodec.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceAudioRouting.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceCcc.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceChnnlsv.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceCtrl.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceDeflt.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceDisplay.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceDmac.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceFont.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceG729.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceGameUpdate.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceGe.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceHeap.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceHprm.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceHttp.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceImpose.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceIo.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceJpeg.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernel.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelAlarm.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelEventFlag.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelInterrupt.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelMbx.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelMemory.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelModule.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelMsgPipe.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelMutex.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelSemaphore.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelThread.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelTime.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelVTimer.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceMd5.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceMp3.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceMp4.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceMpeg.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceMt19937.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceNet.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceNetAdhoc.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceNp.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceOpenPSID.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceP3da.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceParseHttp.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceParseUri.cpp" />
+    <ClCompile Include="..\..\Core\HLE\scePauth.cpp" />
+    <ClCompile Include="..\..\Core\HLE\scePower.cpp" />
+    <ClCompile Include="..\..\Core\HLE\scePsmf.cpp" />
+    <ClCompile Include="..\..\Core\HLE\scePspNpDrm_user.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceRtc.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceSas.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceSfmt19937.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceSha256.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceSsl.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceUmd.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceUsb.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceUsbCam.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceUsbGps.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceUtility.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceVaudio.cpp" />
+    <ClCompile Include="..\..\Core\HLE\__sceAudio.cpp" />
+    <ClCompile Include="..\..\Core\Host.cpp" />
+    <ClCompile Include="..\..\Core\HW\AsyncIOManager.cpp" />
+    <ClCompile Include="..\..\Core\HW\MediaEngine.cpp" />
+    <ClCompile Include="..\..\Core\HW\MemoryStick.cpp" />
+    <ClCompile Include="..\..\Core\HW\MpegDemux.cpp" />
+    <ClCompile Include="..\..\Core\HW\SasAudio.cpp" />
+    <ClCompile Include="..\..\Core\HW\SasReverb.cpp" />
+    <ClCompile Include="..\..\Core\HW\SimpleAudioDec.cpp" />
+    <ClCompile Include="..\..\Core\HW\StereoResampler.cpp" />
+    <ClCompile Include="..\..\Core\Loaders.cpp" />
+    <ClCompile Include="..\..\Core\MemMap.cpp" />
+    <ClCompile Include="..\..\Core\MemMapFunctions.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmAsm.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompALU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompBranch.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompLoadStore.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompReplace.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompVFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEON.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEONUtil.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmJit.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmRegCache.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmRegCacheFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRAsm.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRCompALU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRCompBranch.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRCompFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRCompLoadStore.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRCompVFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRFrontend.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRInst.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRInterpreter.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRJit.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRPassSimplify.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRRegCache.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\JitCommon\JitBlockCache.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\JitCommon\JitCommon.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\JitCommon\JitState.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPS.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSAnalyst.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSAsm.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSCodeUtils.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSDebugInterface.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSDis.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSDisVFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSInt.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSIntVFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSStackWalk.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSTables.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSVFPUUtils.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\Asm.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\CompALU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\CompBranch.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\CompFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\CompLoadStore.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\CompReplace.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\CompVFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\IRToX86.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\Jit.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\JitSafeMem.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\RegCache.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\x86\RegCacheFPU.cpp" />
+    <ClCompile Include="..\..\Core\PSPLoaders.cpp" />
+    <ClCompile Include="..\..\Core\Reporting.cpp" />
+    <ClCompile Include="..\..\Core\SaveState.cpp" />
+    <ClCompile Include="..\..\Core\Screenshot.cpp" />
+    <ClCompile Include="..\..\Core\System.cpp" />
+    <ClCompile Include="..\..\Core\TextureReplacer.cpp" />
+    <ClCompile Include="..\..\Core\Util\AudioFormat.cpp" />
+    <ClCompile Include="..\..\Core\Util\AudioFormatNEON.cpp" />
+    <ClCompile Include="..\..\Core\Util\BlockAllocator.cpp" />
+    <ClCompile Include="..\..\Core\Util\DisArm64.cpp" />
+    <ClCompile Include="..\..\Core\Util\GameManager.cpp" />
+    <ClCompile Include="..\..\Core\Util\PPGeDraw.cpp" />
+    <ClCompile Include="..\..\Core\Util\ppge_atlas.cpp" />
+    <ClCompile Include="..\..\Core\WaveFile.cpp" />
+    <ClCompile Include="..\..\ext\disarm.cpp" />
+    <ClCompile Include="..\..\ext\sfmt19937\SFMT.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\snappy\snappy-c.cpp" />
+    <ClCompile Include="..\..\ext\snappy\snappy.cpp" />
+    <ClCompile Include="..\..\ext\udis86\decode.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\udis86\itab.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\udis86\syn-att.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\udis86\syn-intel.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\udis86\syn.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\udis86\udis86.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\xbrz\xbrz.cpp" />
+    <ClCompile Include="..\..\ext\xxhash.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CommonUWP\CommonUWP.vcxproj">
+      <Project>{acb316ca-3ecb-48e5-be0a-91e72d5b0f12}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

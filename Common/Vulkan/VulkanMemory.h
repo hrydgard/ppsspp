@@ -23,19 +23,9 @@ class VulkanPushBuffer {
 
 public:
 	VulkanPushBuffer(VulkanContext *vulkan, size_t size);
+	~VulkanPushBuffer();
 
-	~VulkanPushBuffer() {
-		assert(buffers_.empty());
-	}
-
-	void Destroy(VulkanContext *vulkan) {
-		for (BufInfo &info : buffers_) {
-			vulkan->Delete().QueueDeleteBuffer(info.buffer);
-			vulkan->Delete().QueueDeleteDeviceMemory(info.deviceMemory);
-		}
-
-		buffers_.clear();
-	}
+	void Destroy(VulkanContext *vulkan);
 
 	void Reset() { offset_ = 0; }
 
@@ -48,19 +38,25 @@ public:
 		Map();
 	}
 
+	void BeginNoReset() {
+		Map();
+	}
+
 	void End() {
 		Unmap();
 	}
 
 	void Map() {
 		assert(!writePtr_);
-		VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, offset_, size_, 0, (void **)(&writePtr_));
+		VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
+		assert(writePtr_);
 		assert(VK_SUCCESS == res);
 	}
 
 	void Unmap() {
 		assert(writePtr_);
 		/*
+		// Should not need this since we use coherent memory.
 		VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
 		range.offset = 0;
 		range.size = offset_;
@@ -107,12 +103,22 @@ public:
 	}
 
 	// "Zero-copy" variant - you can write the data directly as you compute it.
+	// Recommended.
 	void *Push(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf) {
 		assert(writePtr_);
 		size_t off = Allocate(size, vkbuf);
 		*bindOffset = (uint32_t)off;
 		return writePtr_ + off;
 	}
+	void *PushAligned(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf, int align) {
+		assert(writePtr_);
+		offset_ = (offset_ + align - 1) & ~(align - 1);
+		size_t off = Allocate(size, vkbuf);
+		*bindOffset = (uint32_t)off;
+		return writePtr_ + off;
+	}
+
+	size_t GetTotalSize() const;
 
 private:
 	bool AddBuffer();
@@ -188,7 +194,7 @@ private:
 		freeInfo->allocator->ExecuteFree(freeInfo);
 	}
 
-	bool AllocateSlab(size_t minBytes);
+	bool AllocateSlab(VkDeviceSize minBytes);
 	bool AllocateFromSlab(Slab &slab, size_t &start, size_t blocks);
 	void Decimate();
 	void ExecuteFree(FreeInfo *userdata);

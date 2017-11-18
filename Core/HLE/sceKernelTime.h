@@ -27,6 +27,7 @@ int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr);
 int sceKernelSysClock2USecWide(u32 lowClock, u32 highClock, u32 lowPtr, u32 highPtr);
 u64 sceKernelUSec2SysClockWide(u32 usec);
 u32 sceKernelLibcClock();
+std::string KernelTimeNowFormatted();
 
 void __KernelTimeInit();
 void __KernelTimeDoState(PointerWrap &p);

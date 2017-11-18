@@ -88,7 +88,6 @@
     <ClCompile Include="InputDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
-    <ClCompile Include="Globals.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="..\android\jni\ArmEmitterTest.cpp">
@@ -192,6 +191,15 @@
     <ClCompile Include="GPU\D3D11Context.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
+    <ClCompile Include="..\android\jni\app-android.cpp">
+      <Filter>Other Platforms</Filter>
+    </ClCompile>
+    <ClCompile Include="..\android\jni\native_audio.cpp">
+      <Filter>Other Platforms</Filter>
+    </ClCompile>
+    <ClCompile Include="..\android\jni\native-audio-so.cpp">
+      <Filter>Other Platforms</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -230,7 +238,6 @@
     <ClInclude Include="WindowsHost.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
-    <ClInclude Include="..\Globals.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Debugger\Debugger_Disasm.h">
@@ -352,6 +359,15 @@
     <ClInclude Include="GPU\D3D11Context.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
+    <ClInclude Include="..\android\jni\app-android.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\native_audio.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\native-audio-so.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -451,5 +467,10 @@
     <ResourceCompile Include="ppsspp.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="ppsspp_gold.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

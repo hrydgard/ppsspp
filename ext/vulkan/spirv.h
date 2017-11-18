@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2014-2016 The Khronos Group Inc.
+** Copyright (c) 2014-2017 The Khronos Group Inc.
 ** 
 ** Permission is hereby granted, free of charge, to any person obtaining a copy
 ** of this software and/or associated documentation files (the "Materials"),
@@ -51,11 +51,11 @@
 typedef unsigned int SpvId;
 
 #define SPV_VERSION 0x10100
-#define SPV_REVISION 4
+#define SPV_REVISION 5
 
 static const unsigned int SpvMagicNumber = 0x07230203;
 static const unsigned int SpvVersion = 0x00010100;
-static const unsigned int SpvRevision = 4;
+static const unsigned int SpvRevision = 5;
 static const unsigned int SpvOpCodeMask = 0xffff;
 static const unsigned int SpvWordCountShift = 16;
 
@@ -620,6 +620,7 @@ typedef enum SpvCapability_ {
     SpvCapabilityPipeStorage = 60,
     SpvCapabilitySubgroupBallotKHR = 4423,
     SpvCapabilityDrawParameters = 4427,
+    SpvCapabilitySubgroupVoteKHR = 4431,
     SpvCapabilityMax = 0x7fffffff,
 } SpvCapability;
 
@@ -930,6 +931,10 @@ typedef enum SpvOp_ {
     SpvOpModuleProcessed = 330,
     SpvOpSubgroupBallotKHR = 4421,
     SpvOpSubgroupFirstInvocationKHR = 4422,
+    SpvOpSubgroupAllKHR = 4428,
+    SpvOpSubgroupAnyKHR = 4429,
+    SpvOpSubgroupAllEqualKHR = 4430,
+    SpvOpSubgroupReadInvocationKHR = 4432,
     SpvOpMax = 0x7fffffff,
 } SpvOp;
 

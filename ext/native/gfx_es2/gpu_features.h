@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <string>
 #include "base/NativeApp.h"
 
 enum {
@@ -47,6 +48,7 @@ struct GLExtensions {
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
 	bool OES_copy_image;
+	bool OES_texture_float;
 
 	// ARB
 	bool ARB_framebuffer_object;
@@ -57,6 +59,8 @@ struct GLExtensions {
 	bool ARB_conservative_depth;
 	bool ARB_copy_image;
 	bool ARB_vertex_array_object;
+	bool ARB_texture_float;
+	bool ARB_draw_instanced;
 
 	// EXT
 	bool EXT_swap_control_tear;
@@ -68,7 +72,9 @@ struct GLExtensions {
 	bool EXT_blend_minmax;
 	bool EXT_framebuffer_object;
 	bool EXT_copy_image;
+	bool EXT_texture_filter_anisotropic;
 	bool PBO_EXT;
+	bool EXT_draw_instanced;
 
 	// NV
 	bool NV_shader_framebuffer_fetch;
@@ -105,3 +111,5 @@ extern std::string g_all_egl_extensions;
 
 void CheckGLExtensions();
 void SetGLCoreContext(bool flag);
+
+std::string ApplyGLSLPrelude(const std::string &source, uint32_t stage);

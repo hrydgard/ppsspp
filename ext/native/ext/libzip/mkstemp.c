@@ -45,7 +45,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__)
 typedef int pid_t;
 #define getpid rand
 #endif

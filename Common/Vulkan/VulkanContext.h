@@ -43,11 +43,16 @@ enum {
 	VULKAN_FLAG_PRESENT_FIFO_RELAXED = 8,
 };
 
-// A layer can expose extensions, keep track of those extensions here.
-struct layer_properties {
-	VkLayerProperties properties;
-	std::vector<VkExtensionProperties> extensions;
+enum {
+	VULKAN_VENDOR_NVIDIA = 0x000010de,
+	VULKAN_VENDOR_INTEL = 0x00008086,   // Haha!
+	VULKAN_VENDOR_AMD = 0x00001002,
+	VULKAN_VENDOR_ARM = 0x000013B5,  // Mali
+	VULKAN_VENDOR_QUALCOMM = 0x00005143,
+	VULKAN_VENDOR_IMGTEC = 0x00001010,  // PowerVR
 };
+
+std::string VulkanVendorString(uint32_t vendorId);
 
 
 struct VulkanPhysicalDeviceInfo {
@@ -66,6 +71,8 @@ class VulkanDeleteList {
 	};
 
 public:
+	// NOTE: These all take reference handles so they can zero the input value.
+	void QueueDeleteCommandPool(VkCommandPool &pool) { cmdPools_.push_back(pool); pool = VK_NULL_HANDLE; }
 	void QueueDeleteDescriptorPool(VkDescriptorPool &pool) { descPools_.push_back(pool); pool = VK_NULL_HANDLE; }
 	void QueueDeleteShaderModule(VkShaderModule &module) { modules_.push_back(module); module = VK_NULL_HANDLE; }
 	void QueueDeleteBuffer(VkBuffer &buffer) { buffers_.push_back(buffer); buffer = VK_NULL_HANDLE; }
@@ -78,93 +85,15 @@ public:
 	void QueueDeletePipelineCache(VkPipelineCache &pipelineCache) { pipelineCaches_.push_back(pipelineCache); pipelineCache = VK_NULL_HANDLE; }
 	void QueueDeleteRenderPass(VkRenderPass &renderPass) { renderPasses_.push_back(renderPass); renderPass = VK_NULL_HANDLE; }
 	void QueueDeleteFramebuffer(VkFramebuffer &framebuffer) { framebuffers_.push_back(framebuffer); framebuffer = VK_NULL_HANDLE; }
+	void QueueDeletePipelineLayout(VkPipelineLayout &pipelineLayout) { pipelineLayouts_.push_back(pipelineLayout); pipelineLayout = VK_NULL_HANDLE; }
+	void QueueDeleteDescriptorSetLayout(VkDescriptorSetLayout &descSetLayout) { descSetLayouts_.push_back(descSetLayout); descSetLayout = VK_NULL_HANDLE; }
 	void QueueCallback(void(*func)(void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
 
-	void Take(VulkanDeleteList &del) {
-		assert(descPools_.size() == 0);
-		assert(modules_.size() == 0);
-		assert(buffers_.size() == 0);
-		assert(bufferViews_.size() == 0);
-		assert(images_.size() == 0);
-		assert(imageViews_.size() == 0);
-		assert(deviceMemory_.size() == 0);
-		assert(samplers_.size() == 0);
-		assert(pipelines_.size() == 0);
-		assert(pipelineCaches_.size() == 0);
-		assert(renderPasses_.size() == 0);
-		assert(framebuffers_.size() == 0);
-		assert(callbacks_.size() == 0);
-		descPools_ = std::move(del.descPools_);
-		modules_ = std::move(del.modules_);
-		buffers_ = std::move(del.buffers_);
-		bufferViews_ = std::move(del.bufferViews_);
-		images_ = std::move(del.images_);
-		imageViews_ = std::move(del.imageViews_);
-		deviceMemory_ = std::move(del.deviceMemory_);
-		samplers_ = std::move(del.samplers_);
-		pipelines_ = std::move(del.pipelines_);
-		pipelineCaches_ = std::move(del.pipelineCaches_);
-		renderPasses_ = std::move(del.renderPasses_);
-		framebuffers_ = std::move(del.framebuffers_);
-		callbacks_ = std::move(del.callbacks_);
-	}
-
-	void PerformDeletes(VkDevice device) {
-		for (auto &descPool : descPools_) {
-			vkDestroyDescriptorPool(device, descPool, nullptr);
-		}
-		descPools_.clear();
-		for (auto &module : modules_) {
-			vkDestroyShaderModule(device, module, nullptr);
-		}
-		modules_.clear();
-		for (auto &buf : buffers_) {
-			vkDestroyBuffer(device, buf, nullptr);
-		}
-		buffers_.clear();
-		for (auto &bufView : bufferViews_) {
-			vkDestroyBufferView(device, bufView, nullptr);
-		}
-		bufferViews_.clear();
-		for (auto &image : images_) {
-			vkDestroyImage(device, image, nullptr);
-		}
-		images_.clear();
-		for (auto &imageView : imageViews_) {
-			vkDestroyImageView(device, imageView, nullptr);
-		}
-		imageViews_.clear();
-		for (auto &mem : deviceMemory_) {
-			vkFreeMemory(device, mem, nullptr);
-		}
-		deviceMemory_.clear();
-		for (auto &sampler : samplers_) {
-			vkDestroySampler(device, sampler, nullptr);
-		}
-		samplers_.clear();
-		for (auto &pipeline : pipelines_) {
-			vkDestroyPipeline(device, pipeline, nullptr);
-		}
-		pipelines_.clear();
-		for (auto &pcache : pipelineCaches_) {
-			vkDestroyPipelineCache(device, pcache, nullptr);
-		}
-		pipelineCaches_.clear();
-		for (auto &renderPass : renderPasses_) {
-			vkDestroyRenderPass(device, renderPass, nullptr);
-		}
-		renderPasses_.clear();
-		for (auto &framebuffer : framebuffers_) {
-			vkDestroyFramebuffer(device, framebuffer, nullptr);
-		}
-		framebuffers_.clear();
-		for (auto &callback : callbacks_) {
-			callback.func(callback.userdata);
-		}
-		callbacks_.clear();
-	}
+	void Take(VulkanDeleteList &del);
+	void PerformDeletes(VkDevice device);
 
 private:
+	std::vector<VkCommandPool> cmdPools_;
 	std::vector<VkDescriptorPool> descPools_;
 	std::vector<VkShaderModule> modules_;
 	std::vector<VkBuffer> buffers_;
@@ -177,17 +106,24 @@ private:
 	std::vector<VkPipelineCache> pipelineCaches_;
 	std::vector<VkRenderPass> renderPasses_;
 	std::vector<VkFramebuffer> framebuffers_;
+	std::vector<VkPipelineLayout> pipelineLayouts_;
+	std::vector<VkDescriptorSetLayout> descSetLayouts_;
 	std::vector<Callback> callbacks_;
 };
 
-// VulkanContext sets up the basics necessary for rendering to a window, including framebuffers etc.
-// Optionally, it can create a depth buffer for you as well.
+// VulkanContext manages the device and swapchain, and deferred deletion of objects.
 class VulkanContext {
 public:
-	VulkanContext(const char *app_name, int app_ver, uint32_t flags);
+	VulkanContext();
 	~VulkanContext();
 
-	VkResult CreateDevice(int physical_device);
+	VkResult CreateInstance(const char *app_name, int app_ver, uint32_t flags);
+	void DestroyInstance();
+
+	int GetBestPhysicalDevice();
+	void ChooseDevice(int physical_device);
+	bool EnableDeviceExtension(const char *extension);
+	VkResult CreateDevice();
 
 	const std::string &InitError() { return init_error_; }
 
@@ -205,22 +141,13 @@ public:
 	void InitSurfaceAndroid(ANativeWindow *native_window, int width, int height);
 	void ReinitSurfaceAndroid(int width, int height);
 #endif
-	void InitQueue();
-	void InitObjects(bool depthPresent);
-	void InitSwapchain(VkCommandBuffer cmd);
-	void InitSurfaceRenderPass(bool include_depth, bool clear);
-	void InitFramebuffers(bool include_depth);
-	void InitDepthStencilBuffer(VkCommandBuffer cmd);
-	void InitCommandPool();
+	bool InitQueue();
+	bool InitObjects();
+	bool InitSwapchain();
 
 	// Also destroys the surface.
 	void DestroyObjects();
 
-	void DestroySurfaceRenderPass();
-	void DestroyFramebuffers();
-	void DestroySwapChain();
-	void DestroyDepthStencilBuffer();
-	void DestroyCommandPool();
 	void DestroyDevice();
 
 	void WaitUntilQueueIdle();
@@ -229,35 +156,16 @@ public:
 	VkFence CreateFence(bool presignalled);
 	bool CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule);
 
-	void WaitAndResetFence(VkFence fence);
+	int GetBackbufferWidth() { return width_; }
+	int GetBackbufferHeight() { return height_; }
 
-	int GetWidth() { return width_; }
-	int GetHeight() { return height_; }
-
-	VkCommandBuffer GetInitCommandBuffer();
-
-	// This must only be accessed between BeginSurfaceRenderPass and EndSurfaceRenderPass.
-	VkCommandBuffer GetSurfaceCommandBuffer() {
-		return frame_[curFrame_ & 1].cmdBuf;
-	}
-
-	// The surface render pass is special because it has to acquire the backbuffer, and may thus "block".
-	// Use the returned command buffer to enqueue commands that render to the backbuffer.
-	// To render to other buffers first, you can submit additional commandbuffers using QueueBeforeSurfaceRender(cmd).
-	VkCommandBuffer BeginSurfaceRenderPass(VkClearValue clear_values[2]);
-	// May eventually need the ability to break and resume the backbuffer render pass in a few rare cases.
-	void EndSurfaceRenderPass();
-
-	void QueueBeforeSurfaceRender(VkCommandBuffer cmd);
+	void BeginFrame();
+	void EndFrame();
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
 	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata = nullptr);
 	void DestroyDebugMsgCallback();
-
-	VkRenderPass GetSurfaceRenderPass() const {
-		return surface_render_pass_;
-	}
 
 	VkPhysicalDevice GetPhysicalDevice(int n = 0) const {
 		return physical_devices_[n];
@@ -275,87 +183,111 @@ public:
 		return gpu_props;
 	}
 
-	VkResult InitGlobalExtensionProperties();
-	VkResult InitLayerExtensionProperties(layer_properties &layer_props);
+	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
+	VkResult GetInstanceLayerProperties();
 
-	VkResult InitGlobalLayerProperties();
+	VkResult GetDeviceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
+	VkResult GetDeviceLayerProperties();
 
-	VkResult InitDeviceExtensionProperties(layer_properties &layer_props);
-	VkResult InitDeviceLayerProperties();
-
+	const std::vector<VkExtensionProperties> &GetDeviceExtensionsAvailable() const {
+		return device_extension_properties_;
+	}
+	const std::vector<const char *> &GetDeviceExtensionsEnabled() const {
+		return device_extensions_enabled_;
+	}
 	const VkPhysicalDeviceFeatures &GetFeaturesAvailable() const { return featuresAvailable_; }
 	const VkPhysicalDeviceFeatures &GetFeaturesEnabled() const { return featuresEnabled_; }
 	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
+	const VkSurfaceCapabilitiesKHR &GetSurfaceCapabilities() const { return surfCapabilities_; }
 
+	bool IsDeviceExtensionAvailable(const char *name) const {
+		for (auto &iter : device_extension_properties_) {
+			if (!strcmp(name, iter.extensionName))
+				return true;
+		}
+		return false;
+	}
+
+	int GetInflightFrames() const {
+		return inflightFrames_;
+	}
+
+	int GetCurFrame() const {
+		return curFrame_;
+	}
+
+	VkSwapchainKHR GetSwapchain() const {
+		return swapchain_;
+	}
+	VkFormat GetSwapchainFormat() const {
+		return swapchainFormat_;
+	}
+
+	// 1 for no frame overlap and thus minimal latency but worst performance.
+	// 2 is an OK compromise, while 3 performs best but risks slightly higher latency.
+	enum {
+		MAX_INFLIGHT_FRAMES = 3,
+	};
 
 private:
-	VkSemaphore acquireSemaphore;
+	// A layer can expose extensions, keep track of those extensions here.
+	struct LayerProperties {
+		VkLayerProperties properties;
+		std::vector<VkExtensionProperties> extensions;
+	};
+
+	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
 
 #ifdef _WIN32
-	HINSTANCE connection;        // hInstance - Windows Instance
-	HWND window;          // hWnd - window handle
+	HINSTANCE connection = nullptr;        // hInstance - Windows Instance
+	HWND window = nullptr;          // hWnd - window handle
 #elif __ANDROID__  // _WIN32
-	ANativeWindow *native_window;
+	ANativeWindow *native_window = nullptr;
 #endif // _WIN32
 
-	// TODO: Move to frame data
-	VkCommandPool cmd_pool_;
-
-	VkInstance instance_;
-	VkDevice device_;
-	VkQueue gfx_queue_;
-
-	VkSurfaceKHR surface_;
+	VkInstance instance_ = VK_NULL_HANDLE;
+	VkDevice device_ = VK_NULL_HANDLE;
+	VkQueue gfx_queue_ = VK_NULL_HANDLE;
+	VkSurfaceKHR surface_ = VK_NULL_HANDLE;
 
 	std::string init_error_;
-	std::vector<const char *> instance_layer_names;
-	std::vector<const char *> instance_extension_names;
-	std::vector<layer_properties> instance_layer_properties;
-	std::vector<VkExtensionProperties> instance_extension_properties;
+	std::vector<const char *> instance_layer_names_;
+	std::vector<LayerProperties> instance_layer_properties_;
+	
+	std::vector<const char *> instance_extensions_enabled_;
+	std::vector<VkExtensionProperties> instance_extension_properties_;
 
-	std::vector<const char *> device_layer_names;
-	std::vector<const char *> device_extension_names;
-	std::vector<layer_properties> device_layer_properties;
-	std::vector<VkExtensionProperties> device_extension_properties;
+	std::vector<const char *> device_layer_names_;
+	std::vector<LayerProperties> device_layer_properties_;
+	
+	std::vector<const char *> device_extensions_enabled_;
+	std::vector<VkExtensionProperties> device_extension_properties_;
+	
 	std::vector<VkPhysicalDevice> physical_devices_;
 
-	uint32_t graphics_queue_family_index_;
-	VkPhysicalDeviceProperties gpu_props;
+	int physical_device_ = -1;
+
+	uint32_t graphics_queue_family_index_ = -1;
+	VkPhysicalDeviceProperties gpu_props{};
 	std::vector<VkQueueFamilyProperties> queue_props;
-	VkPhysicalDeviceMemoryProperties memory_properties;
+	VkPhysicalDeviceMemoryProperties memory_properties{};
 
 	// Custom collection of things that are good to know
-	VulkanPhysicalDeviceInfo deviceInfo_;
-
-	struct swap_chain_buffer {
-		VkImage image;
-		VkImageView view;
-	};
+	VulkanPhysicalDeviceInfo deviceInfo_{};
 
 	// Swap chain
-	int width_, height_;
-	int flags_;
-	VkFormat swapchain_format;
-	std::vector<VkFramebuffer> framebuffers_;
-	uint32_t swapchainImageCount;
-	VkSwapchainKHR swap_chain_;
-	std::vector<swap_chain_buffer> swapChainBuffers;
+	int width_ = 0;
+	int height_ = 0;
+	int flags_ = 0;
 
-	// Manages flipping command buffers for the backbuffer render pass.
-	// It is recommended to do the same for other rendering passes.
+	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
+
 	struct FrameData {
-		FrameData() : hasInitCommands(false), cmdInit(nullptr), cmdBuf(nullptr) {}
-
-		VkFence fence;
-		bool hasInitCommands;
-		VkCommandBuffer cmdInit;
-		VkCommandBuffer cmdBuf;
-
+		FrameData() {}
 		VulkanDeleteList deleteList;
 	};
-
-	FrameData frame_[2];
-	int curFrame_;
+	FrameData frame_[MAX_INFLIGHT_FRAMES];
+	int curFrame_ = 0;
 
 	// At the end of the frame, this is copied into the frame's delete list, so it can be processed
 	// the next time the frame comes around again.
@@ -363,36 +295,31 @@ private:
 
 	std::vector<VkDebugReportCallbackEXT> msg_callbacks;
 
-	struct {
-		VkFormat format;
-		VkImage image;
-		VkDeviceMemory mem;
-		VkImageView view;
-	} depth;
+	VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
+	VkFormat swapchainFormat_;
 
-	VkRenderPass surface_render_pass_;
-	uint32_t current_buffer;
-	uint32_t queue_count;
+	uint32_t queue_count = 0;
 
-	VkPhysicalDeviceFeatures featuresAvailable_;
-	VkPhysicalDeviceFeatures featuresEnabled_;
+	VkPhysicalDeviceFeatures featuresAvailable_{};
+	VkPhysicalDeviceFeatures featuresEnabled_{};
+
+	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 
 	std::vector<VkCommandBuffer> cmdQueue_;
 };
 
-// Stand-alone utility functions
-void VulkanBeginCommandBuffer(VkCommandBuffer cmd);
-void TransitionImageLayout(
-	VkCommandBuffer cmd,
-	VkImage image,
-	VkImageAspectFlags aspectMask,
-	VkImageLayout old_image_layout,
-	VkImageLayout new_image_layout);
+// Detailed control.
+void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask,
+	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
+	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
+	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, int mipLevels = VK_REMAINING_MIP_LEVELS);
 
 // GLSL compiler
 void init_glslang();
 void finalize_glslang();
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<uint32_t> &spirv, std::string *errorMessage = nullptr);
+
+const char *VulkanResultToString(VkResult res);
 
 #endif // UTIL_INIT
 

@@ -8,6 +8,7 @@
 #include <QMessageBox>
 
 #include "base/display.h"
+#include "base/NativeApp.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/SaveState.h"
@@ -94,8 +95,7 @@ void MainWindow::updateMenus()
 	foreach(QAction * action, displayLayoutGroup->actions()) {
 		if (g_Config.iSmallDisplayZoomType == action->data().toInt()) {
 
-			if (gpu)
-				gpu->Resized();
+			NativeMessageReceived("gpu_resized", "");
 
 			action->setChecked(true);
 			break;
@@ -140,7 +140,7 @@ void MainWindow::Boot()
 
 	memoryWindow = new Debugger_Memory(currentDebugMIPS, this, this);
 	memoryTexWindow = new Debugger_MemoryTex(this);
-	displaylistWindow = new Debugger_DisplayList(currentDebugMIPS, this, this);
+	displaylistWindow = new Debugger_DisplayList(currentDebugMIPS, gpu->GetDrawContext(), this, this);
 
 	notifyMapsLoaded();
 
@@ -379,8 +379,7 @@ void MainWindow::fullscrAct()
 
 		showFullScreen();
 
-		if (gpu)
-			gpu->Resized();
+		NativeMessageReceived("gpu_resized", "");
 		InitPadLayout(dp_xres, dp_yres);
 		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
@@ -392,12 +391,17 @@ void MainWindow::fullscrAct()
 
 void MainWindow::websiteAct()
 {
-	QDesktopServices::openUrl(QUrl("http://www.ppsspp.org/"));
+	QDesktopServices::openUrl(QUrl("https://www.ppsspp.org/"));
 }
 
 void MainWindow::forumAct()
 {
-	QDesktopServices::openUrl(QUrl("http://forums.ppsspp.org/"));
+	QDesktopServices::openUrl(QUrl("https://forums.ppsspp.org/"));
+}
+
+void MainWindow::gitAct() 
+{
+	QDesktopServices::openUrl(QUrl("https://github.com/hrydgard/ppsspp/"));
 }
 
 void MainWindow::aboutAct()
@@ -645,6 +649,7 @@ void MainWindow::createMenus()
 	MenuTree* helpMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&Help"));
 	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("Official &website"), QKeySequence::HelpContents));
 	helpMenu->add(new MenuAction(this, SLOT(forumAct()),      QT_TR_NOOP("Official &forum")));
+	helpMenu->add(new MenuAction(this, SLOT(gitAct()),        QT_TR_NOOP("&GitHub")));
 	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP..."), QKeySequence::WhatsThis));
 
 	retranslate();

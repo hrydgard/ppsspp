@@ -94,11 +94,6 @@ void FakeJit::ClearCache()
 	//GenerateFixedCode();
 }
 
-void FakeJit::InvalidateCache()
-{
-	blocks.Clear();
-}
-
 void FakeJit::InvalidateCacheAt(u32 em_address, int length)
 {
 	blocks.InvalidateICache(em_address, length);

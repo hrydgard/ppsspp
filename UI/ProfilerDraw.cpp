@@ -53,6 +53,7 @@ enum ProfileCatStatus {
 
 void DrawProfile(UIContext &ui) {
 #ifdef USE_PROFILER
+	PROFILE_THIS_SCOPE("timing");
 	int numCategories = Profiler_GetNumCategories();
 	int historyLength = Profiler_GetHistoryLength();
 
@@ -61,10 +62,8 @@ void DrawProfile(UIContext &ui) {
 	static float lastMaxVal = 1.0f / 60.0f;
 	float legendMinVal = lastMaxVal * (1.0f / 120.0f);
 
-	std::vector<float> history;
-	std::vector<ProfileCatStatus> catStatus;
-	history.resize(historyLength);
-	catStatus.resize(numCategories);
+	std::vector<float> history(historyLength);
+	std::vector<ProfileCatStatus> catStatus(numCategories);
 
 	float rowH = 30.0f;
 	float legendHeight = 0.0f;
@@ -159,11 +158,12 @@ void DrawProfile(UIContext &ui) {
 		UI::Drawable color(col);
 		UI::Drawable outline((opacity >> 1) | 0xFFFFFF);
 
+		float bottom = ui.GetBounds().y2();
 		if (area) {
 			for (int n = 0; n < historyLength; n++) {
 				float val = history[n];
-				float valY1 = ui.GetBounds().y2() - 10 - (val + total[n]) * scale;
-				float valY2 = ui.GetBounds().y2() - 10 - total[n] * scale;
+				float valY1 = bottom - 10 - (val + total[n]) * scale;
+				float valY2 = bottom - 10 - total[n] * scale;
 				ui.FillRect(outline, Bounds(x, valY2, dx, 1.0f));
 				ui.FillRect(color, Bounds(x, valY1, dx, valY2 - valY1));
 				x += dx;
@@ -174,7 +174,7 @@ void DrawProfile(UIContext &ui) {
 				float val = history[n];
 				if (val > maxVal)
 					maxVal = val;
-				float valY = ui.GetBounds().y2() - 10 - history[n] * scale;
+				float valY = bottom - 10 - history[n] * scale;
 				ui.FillRect(color, Bounds(x, valY, dx, 5));
 				x += dx;
 			}

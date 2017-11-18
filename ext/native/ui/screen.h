@@ -14,17 +14,16 @@
 #pragma once
 
 #include <vector>
+#include <mutex>
 
 #include "base/basictypes.h"
 #include "base/logging.h"
-#include "base/mutex.h"
 #include "base/NativeApp.h"
+#include "input/input_state.h"
 
 namespace UI {
 	class View;
 }
-
-struct InputState;
 
 enum DialogResult {
 	DR_OK,
@@ -49,7 +48,7 @@ public:
 	}
 
 	virtual void onFinish(DialogResult reason) {}
-	virtual void update(InputState &input) {}
+	virtual void update() {}
 	virtual void preRender() {}
 	virtual void render() {}
 	virtual void postRender() {}
@@ -76,6 +75,8 @@ public:
 	virtual bool isTransparent() const { return false; }
 	virtual bool isTopLevel() const { return false; }
 
+	virtual TouchInput transformTouch(const TouchInput &touch) { return touch; }
+
 private:
 	ScreenManager *screenManager_;
 	DISALLOW_COPY_AND_ASSIGN(Screen);
@@ -91,19 +92,26 @@ enum {
 	LAYER_TRANSPARENT = 2,
 };
 
+typedef void(*PostRenderCallback)(UIContext *ui, void *userdata);
+
 class ScreenManager {
 public:
 	ScreenManager();
 	virtual ~ScreenManager();
 
 	void switchScreen(Screen *screen);
-	void update(InputState &input);
+	void update();
 
 	void setUIContext(UIContext *context) { uiContext_ = context; }
 	UIContext *getUIContext() { return uiContext_; }
 
-	void setThin3DContext(Draw::DrawContext *context) { thin3DContext_ = context; }
-	Draw::DrawContext *getThin3DContext() { return thin3DContext_; }
+	void setDrawContext(Draw::DrawContext *context) { thin3DContext_ = context; }
+	Draw::DrawContext *getDrawContext() { return thin3DContext_; }
+
+	void setPostRenderCallback(PostRenderCallback cb, void *userdata) {
+		postRenderCb_ = cb;
+		postRenderUserdata_ = userdata;
+	}
 
 	void render();
 	void resized();
@@ -130,7 +138,7 @@ public:
 
 	Screen *topScreen() const;
 
-	recursive_mutex inputLock_;
+	std::recursive_mutex inputLock_;
 
 private:
 	void pop();
@@ -140,6 +148,9 @@ private:
 	Screen *nextScreen_;
 	UIContext *uiContext_;
 	Draw::DrawContext *thin3DContext_;
+
+	PostRenderCallback postRenderCb_ = nullptr;
+	void *postRenderUserdata_ = nullptr;
 
 	const Screen *dialogFinished_;
 	DialogResult dialogResult_;

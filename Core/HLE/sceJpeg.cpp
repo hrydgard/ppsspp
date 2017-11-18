@@ -50,6 +50,10 @@ void __JpegDoState(PointerWrap &p) {
 	p.Do(mjpegHeight);
 }
 
+static int getWidthHeight(int width, int height) {
+	return (width << 16) | height;
+}
+
 static u32 convertYCbCrToABGR (int y, int cb, int cr) {
 	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for more information.
 	cb = cb - 128;
@@ -104,34 +108,83 @@ static void __JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferW
 		imageBuffer += skipEndOfLine;
 	}
 }
-static int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth)
-{
+
+static int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth) {
 	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	
 	DEBUG_LOG(ME, "sceJpegMJpegCsc(%i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	return 0;
 }
 
-static int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode)
-{
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpeg(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
-	return 0;
+static u32 convertARGBtoABGR(u32 argb) {
+	return ((argb & 0xFF00FF00)) | ((argb & 0x000000FF) << 16) | ((argb & 0x00FF0000) >> 16);
 }
 
-static int sceJpegDeleteMJpeg()
-{
+static int __DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr) {
+	u8 *buf = Memory::GetPointer(jpegAddr);
+	int width, height, actual_components;
+	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
+
+	if (actual_components != 3) {
+		// The assumption that the image was RGB was wrong...
+		// Try again.
+		int components = actual_components;
+		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
+	}
+
+	if (jpegBuf == NULL) {
+		return getWidthHeight(0, 0);
+	}
+
+	if (actual_components == 3) {
+			u24_be *imageBuffer = (u24_be*)jpegBuf;
+			u32 *abgr = (u32*)Memory::GetPointer(imageAddr);
+			int pspWidth = 0;
+			for (int w = 2; w <= 4096; w *= 2) {
+				if (w >= width && w >= height) {
+					pspWidth = w;
+					break;
+				}
+			}
+			for (int y = 0; y < height; ++y) {
+				for (int x = 0; x < width; x++)	{
+					abgr[x] = convertARGBtoABGR(imageBuffer[x]);
+				}
+				imageBuffer += width;
+				abgr += pspWidth; // Smallest value power of 2 fitting width and height(needs to be square!)
+			}
+	}
+
+	free(jpegBuf);
+	return getWidthHeight(width, height);
+}
+
+static int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode) {
+	if (!Memory::IsValidAddress(jpegAddr)) {
+		ERROR_LOG(ME, "sceJpegDecodeMJpeg: Bad JPEG address 0x%08x", jpegAddr);
+		return 0;
+	}
+
+	DEBUG_LOG(ME, "sceJpegDecodeMJpeg(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
+	return __DecodeJpeg(jpegAddr, jpegSize, imageAddr);
+}
+
+static int sceJpegDeleteMJpeg() {
 	WARN_LOG(ME, "sceJpegDeleteMJpeg()");
 	return 0;
 }
 
-static int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode)
-{
-	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpegSuccessively(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
-	return 0;
+static int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode) {
+	if (!Memory::IsValidAddress(jpegAddr)) {
+		ERROR_LOG(ME, "sceJpegDecodeMJpegSuccessively: Bad JPEG address 0x%08x", jpegAddr);
+		return 0;
+	}
+
+	DEBUG_LOG(ME, "sceJpegDecodeMJpegSuccessively(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
+	return __DecodeJpeg(jpegAddr, jpegSize, imageAddr);
 }
 
-static int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int colourInfo)
-{
+static int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int colourInfo) {
 	if (bufferWidth < 0 || widthHeight < 0){
 		WARN_LOG(ME, "sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
 		return ERROR_JPEG_INVALID_VALUE;
@@ -143,8 +196,7 @@ static int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferW
 	return 0;
 }
 
-static int sceJpegFinishMJpeg()
-{
+static int sceJpegFinishMJpeg() {
 	WARN_LOG(ME, "sceJpegFinishMJpeg()");
 	return 0;
 }
@@ -184,23 +236,22 @@ static int __JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 
 #ifdef JPEG_DEBUG
 		char jpeg_fname[256];
-		u8 *jpegBuf = Memory::GetPointer(jpegAddr);
-		uint32 jpeg_xxhash = XXH32((const char *)jpegBuf, jpegSize, 0xC0108888);
+		u8 *jpegDumpBuf = Memory::GetPointer(jpegAddr);
+		u32 jpeg_xxhash = XXH32((const char *)jpegDumpBuf, jpegSize, 0xC0108888);
 		sprintf(jpeg_fname, "Jpeg\\%X.jpg", jpeg_xxhash);
 		FILE *wfp = fopen(jpeg_fname, "wb");
 		if (!wfp) {
 			_wmkdir(L"Jpeg\\");
 			wfp = fopen(jpeg_fname, "wb");
 		}
-		fwrite(jpegBuf, 1, jpegSize, wfp);
+		fwrite(jpegDumpBuf, 1, jpegSize, wfp);
 		fclose(wfp);
 #endif //JPEG_DEBUG
 
 	return getYCbCrBufferSize(width, height);
 }
 
-static int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode)
-{
+static int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode) {
 	if (!Memory::IsValidAddress(jpegAddr)) {
 		ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG address 0x%08x", jpegAddr);
 		return getYCbCrBufferSize(0, 0);
@@ -208,10 +259,6 @@ static int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, 
 
 	DEBUG_LOG(ME, "sceJpegGetOutputInfo(%i, %i, %i, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
 	return __JpegGetOutputInfo(jpegAddr, jpegSize, colourInfoAddr);
-}
-
-static int getWidthHeight(int width, int height) {
-	return (width << 16) | height;
 }
 
 static u32 convertRGBToYCbCr(u32 rgb) {
@@ -262,7 +309,7 @@ static int __JpegConvertRGBToYCbCr (const void *data, u32 bufferOutputAddr, int 
 		imageBuffer += width;
 		Y += width ;
 	}
-	return (width << 16) | height;
+	return getWidthHeight(width, height);
 }
 
 static int __JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr) {
@@ -292,8 +339,7 @@ static int __JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr) {
 	return getWidthHeight(width, height);
 }
 
-static int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
-{
+static int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode) {
 	if (!Memory::IsValidAddress(jpegAddr)) {
 		ERROR_LOG(ME, "sceJpegDecodeMJpegYCbCr: Bad JPEG address 0x%08x", jpegAddr);
 		return getWidthHeight(0, 0);
@@ -303,8 +349,7 @@ static int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, in
 	return __JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr);
 }
 
-static int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
-{
+static int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode) {
 	if (!Memory::IsValidAddress(jpegAddr)) {
 		ERROR_LOG(ME, "sceJpegDecodeMJpegYCbCrSuccessively: Bad JPEG address 0x%08x", jpegAddr);
 		return getWidthHeight(0, 0);
@@ -315,14 +360,12 @@ static int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 y
 	return __JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr);
 }
 
-static int sceJpeg_9B36444C()
-{
+static int sceJpeg_9B36444C() {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceJpeg_9B36444C()");
 	return 0;
 }
 
-static int sceJpegCreateMJpeg(int width, int height)
-{
+static int sceJpegCreateMJpeg(int width, int height) {
 	mjpegWidth = width;
 	mjpegHeight = height;
 
@@ -330,20 +373,17 @@ static int sceJpegCreateMJpeg(int width, int height)
 	return 0;
 }
 
-static int sceJpegInitMJpeg()
-{
+static int sceJpegInitMJpeg() {
 	WARN_LOG(ME, "sceJpegInitMJpeg()");
 	return 0;
 }
 
-static int sceJpegMJpegCscWithColorOption()
-{
+static int sceJpegMJpegCscWithColorOption() {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegMJpegCscWithColorOption()");
 	return 0;
 }
 
-static int sceJpegDecompressAllImage()
-{
+static int sceJpegDecompressAllImage() {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecompressAllImage()");
 	return 0;
 }
@@ -366,7 +406,6 @@ const HLEFunction sceJpeg[] =
 	{0XA06A75C4, &WrapI_V<sceJpegMJpegCscWithColorOption>,          "sceJpegMJpegCscWithColorOption",      'i', ""     },
 };
 
-void Register_sceJpeg()
-{
+void Register_sceJpeg() {
 	RegisterModule("sceJpeg", ARRAY_SIZE(sceJpeg), sceJpeg);
 }

@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "base/logging.h"
-#include "base/mutex.h"
 #include "base/basictypes.h"
 #include "gfx/texture_atlas.h"
 #include "math/lin/matrix4x4.h"
@@ -28,7 +27,6 @@
 struct KeyInput;
 struct TouchInput;
 struct AxisInput;
-struct InputState;
 
 class DrawBuffer;
 class Texture;
@@ -119,8 +117,10 @@ struct Theme {
 	Style itemHighlightedStyle;
 
 	Style headerStyle;
+	Style infoStyle;
 
 	Style popupTitle;
+	Style popupStyle;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
@@ -363,7 +363,7 @@ public:
 	virtual bool Key(const KeyInput &input) { return false; }
 	virtual void Touch(const TouchInput &input) {}
 	virtual void Axis(const AxisInput &input) {}
-	virtual void Update(const InputState &input_state) {}
+	virtual void Update() {}
 
 	// If this view covers these coordinates, it should add itself and its children to the list.
 	virtual void Query(float x, float y, std::vector<View *> &list);
@@ -438,8 +438,6 @@ protected:
 	// Outputs of layout. X/Y are absolute screen coordinates, hierarchy is "gone" here.
 	Bounds bounds_;
 
-	std::unique_ptr<Matrix4x4> transform_;
-
 private:
 	bool *enabledPtr_;
 	bool enabled_;
@@ -457,7 +455,7 @@ public:
 	bool Key(const KeyInput &input) override { return false; }
 	void Touch(const TouchInput &input) override {}
 	bool CanBeFocused() const override { return false; }
-	void Update(const InputState &input_state) override {}
+	void Update() override {}
 };
 
 
@@ -516,7 +514,7 @@ public:
 	void Draw(UIContext &dc) override;
 	bool Key(const KeyInput &input) override;
 	void Touch(const TouchInput &input) override;
-	void Update(const InputState &input_state) override;
+	void Update() override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void SetShowPercent(bool s) { showPercent_ = s; }
 
@@ -546,7 +544,7 @@ public:
 	void Draw(UIContext &dc) override;
 	bool Key(const KeyInput &input) override;
 	void Touch(const TouchInput &input) override;
-	void Update(const InputState &input_state) override;
+	void Update() override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 	// OK to call this from the outside after having modified *value_
@@ -761,7 +759,7 @@ public:
 	void SetText(const std::string &text) { text_ = text; }
 	const std::string &GetText() const { return text_; }
 	void SetSmall(bool small) { small_ = small; }
-	void SetTextColor(uint32_t color) { textColor_ = color; }
+	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	void SetShadow(bool shadow) { shadow_ = shadow; }
 	void SetFocusable(bool focusable) { focusable_ = focusable; }
 	void SetClip(bool clip) { clip_ = clip; }
@@ -772,6 +770,7 @@ private:
 	std::string text_;
 	int textAlign_;
 	uint32_t textColor_;
+	bool hasTextColor_ = false;
 	bool small_;
 	bool shadow_;
 	bool focusable_;
@@ -781,7 +780,8 @@ private:
 class TextEdit : public View {
 public:
 	TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams = 0);
-	void SetText(const std::string &text) { text_ = text; caret_ = (int)text_.size(); }
+	void SetText(const std::string &text) { text_ = text; scrollPos_ = 0; caret_ = (int)text_.size(); }
+	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	const std::string &GetText() const { return text_; }
 	void SetMaxLen(size_t maxLen) { maxLen_ = maxLen; }
 
@@ -799,9 +799,12 @@ private:
 	std::string text_;
 	std::string undo_;
 	std::string placeholderText_;
+	uint32_t textColor_;
+	bool hasTextColor_ = false;
 	int caret_;
+	int scrollPos_ = 0;
 	size_t maxLen_;
-	bool ctrlDown_;  // TODO: Make some global mechanism for this.
+	bool ctrlDown_ = false;  // TODO: Make some global mechanism for this.
 	// TODO: Selections
 };
 
@@ -825,9 +828,9 @@ private:
 
 // TextureView takes a texture that is assumed to be alive during the lifetime
 // of the view.
-class Thin3DTextureView : public InertView {
+class TextureView : public InertView {
 public:
-	Thin3DTextureView(Draw::Texture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
+	TextureView(Draw::Texture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), texture_(texture), color_(0xFFFFFFFF), sizeMode_(sizeMode) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;

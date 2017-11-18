@@ -69,6 +69,7 @@
     <ClCompile Include="RemoteISOScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="TextureUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -139,6 +140,7 @@
     <ClInclude Include="RemoteISOScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="TextureUtil.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

@@ -19,7 +19,7 @@
 
 // Takes ownership of backend.
 RetryingFileLoader::RetryingFileLoader(FileLoader *backend)
-	: filepos_(0), backend_(backend) {
+	: backend_(backend) {
 }
 
 RetryingFileLoader::~RetryingFileLoader() {
@@ -60,10 +60,6 @@ std::string RetryingFileLoader::Path() const {
 	return backend_->Path();
 }
 
-void RetryingFileLoader::Seek(s64 absolutePos) {
-	filepos_ = absolutePos;
-}
-
 size_t RetryingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
 	size_t readSize = backend_->ReadAt(absolutePos, bytes, data, flags);
 
@@ -74,6 +70,5 @@ size_t RetryingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Fla
 		++retries;
 	}
 
-	filepos_ = absolutePos + readSize;
 	return readSize;
 }

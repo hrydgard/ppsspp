@@ -1,7 +1,8 @@
 #include <string>
+#include <mutex>
+
 #include "base/logging.h"
 #include "base/timeutil.h"
-#include "base/mutex.h"
 #include "file/chunk_file.h"
 
 #include "Common/CommonTypes.h"
@@ -43,7 +44,7 @@ public:
 					codec = PSP_CODEC_AT3;
 					break;
 				default:
-					ERROR_LOG(HLE, "Unexpected SND0.AT3 format %04x", format);
+					ERROR_LOG(SCEAUDIO, "Unexpected SND0.AT3 format %04x", format);
 					return;
 				}
 
@@ -162,46 +163,60 @@ private:
 	SimpleAudio *decoder_;
 };
 
-static recursive_mutex bgMutex;
+static std::mutex bgMutex;
 static std::string bgGamePath;
 static int playbackOffset;
 static AT3PlusReader *at3Reader;
 static double gameLastChanged;
 static double lastPlaybackTime;
 static int buffer[44100];
+static bool fadingOut = true;
+static float volume;
+static float delta = -0.0001f;
 
-static void ClearBackgroundAudio() {
+static void ClearBackgroundAudio(bool hard) {
+	if (!hard) {
+		fadingOut = true;
+		volume = 1.0f;
+		return;
+	}
 	if (at3Reader) {
 		at3Reader->Shutdown();
 		delete at3Reader;
-		at3Reader = 0;
+		at3Reader = nullptr;
 	}
 	playbackOffset = 0;
-	gameLastChanged = 0;
 }
 
 void SetBackgroundAudioGame(const std::string &path) {
 	time_update();
 
-	lock_guard lock(bgMutex);
+	std::lock_guard<std::mutex> lock(bgMutex);
 	if (path == bgGamePath) {
 		// Do nothing
 		return;
 	}
 
-	ClearBackgroundAudio();
-	gameLastChanged = time_now_d();
+	if (path.size() == 0) {
+		ClearBackgroundAudio(false);
+		fadingOut = true;
+	} else {
+		ClearBackgroundAudio(true);
+		gameLastChanged = time_now_d();
+		fadingOut = false;
+	}
+	volume = 1.0f;
 	bgGamePath = path;
 }
 
 int PlayBackgroundAudio() {
 	time_update();
 
-	lock_guard lock(bgMutex);
+	std::lock_guard<std::mutex> lock(bgMutex);
 
 	// Immediately stop the sound if it is turned off while playing.
 	if (!g_Config.bEnableSound) {
-		ClearBackgroundAudio();
+		ClearBackgroundAudio(true);
 		__PushExternalAudio(0, 0);
 		return 0;
 	}
@@ -213,7 +228,7 @@ int PlayBackgroundAudio() {
 		if (!g_gameInfoCache)
 			return 0;  // race condition?
 
-		GameInfo *gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
+		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
 		if (!gameInfo)
 			return 0;
 
@@ -234,8 +249,23 @@ int PlayBackgroundAudio() {
 		int sz = lastPlaybackTime <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime) * 44100);
 		sz = std::min((int)ARRAY_SIZE(buffer) / 2, sz);
 		if (sz >= 16) {
-			if (at3Reader->Read(buffer, sz))
-				__PushExternalAudio(buffer, sz);
+			if (at3Reader->Read(buffer, sz)) {
+				if (!fadingOut) {
+					__PushExternalAudio(buffer, sz);
+				} else {
+					for (int i = 0; i < sz*2; i += 2) {
+						buffer[i] *= volume;
+						buffer[i + 1] *= volume;
+						volume += delta;
+					}
+					__PushExternalAudio(buffer, sz);
+					if (volume <= 0.0f) {
+						ClearBackgroundAudio(true);
+						fadingOut = false;
+						gameLastChanged = 0;
+					}
+				}
+			}
 			lastPlaybackTime = now;
 		}
 	} else {

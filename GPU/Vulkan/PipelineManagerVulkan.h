@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <map>
+#include "Common/Hashmaps.h"
 
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderId.h"
@@ -39,19 +39,12 @@ enum class PspAttributeLocation {
 
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
-	bool useHWTransform;
-	const VertexDecoder *vtxDec;
+	VkRenderPass renderPass;
 	VkShaderModule vShader;
 	VkShaderModule fShader;
+	uint32_t vtxDecId;
+	bool useHWTransform;
 
-	bool operator < (const VulkanPipelineKey &other) const {
-		if (raster < other.raster) return true; else if (other.raster < raster) return false;
-		if (useHWTransform < other.useHWTransform) return true; else if (other.useHWTransform < useHWTransform) return false;
-		if (vtxDec < other.vtxDec) return true; else if (other.vtxDec < vtxDec) return false;
-		if (vShader < other.vShader) return true; else if (other.vShader < vShader) return false;
-		if (fShader < other.fShader) return true; else if (other.fShader < fShader) return false;
-		return false;
-	}
 	void ToString(std::string *str) const {
 		str->resize(sizeof(*this));
 		memcpy(&(*str)[0], this, sizeof(*this));
@@ -71,6 +64,8 @@ enum {
 struct VulkanPipeline {
 	VkPipeline pipeline;
 	int uniformBlocks;  // UB_ enum above.
+	bool useBlendConstant;
+	bool usesLines;
 };
 
 class VulkanContext;
@@ -82,10 +77,12 @@ public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
-	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
+	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();
+
+	void SetLineWidth(float lw);
 
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
@@ -94,7 +91,8 @@ public:
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);
 
 private:
-	std::map<VulkanPipelineKey, VulkanPipeline *> pipelines_;
+	DenseHashMap<VulkanPipelineKey, VulkanPipeline *, nullptr> pipelines_;
 	VkPipelineCache pipelineCache_;
 	VulkanContext *vulkan_;
+	float lineWidth_ = 1.0f;
 };

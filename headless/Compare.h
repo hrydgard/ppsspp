@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include "Globals.h"
+#include "Common/CommonTypes.h"
 
 struct GPUDebugBuffer;
 

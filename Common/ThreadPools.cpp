@@ -16,4 +16,3 @@ void GlobalThreadPool::Inititialize() {
 		initialized = true;
 	}
 }
-

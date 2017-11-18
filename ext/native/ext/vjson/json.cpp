@@ -286,6 +286,8 @@ void json_append(json_value *lhs, json_value *rhs)
 	}
 }
 
+#undef ERROR
+
 #define ERROR(it, desc)\
 	*error_pos = it;\
 	*error_desc = (char *)desc;\

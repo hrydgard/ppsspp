@@ -35,6 +35,7 @@
 #include "Common/FileUtil.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
+#include "Core/Loaders.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 
@@ -66,7 +67,10 @@ public:
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;
-		GameInfo *ginfo = g_gameInfoCache->GetInfo(screenManager()->getThin3DContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+		UIContext &dc = *screenManager()->getUIContext();
+		const Style &textStyle = dc.theme->popupStyle;
+
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
 		parent->Add(content);
 		if (!ginfo)
@@ -75,21 +79,21 @@ public:
 		content->Add(toprow);
 
 		I18NCategory *sa = GetI18NCategory("Savedata");
-		if (ginfo->fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY) {
+		if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 			std::string savedata_detail = ginfo->paramSFO.GetValueString("SAVEDATA_DETAIL");
 			std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
 
-			if (ginfo->iconTexture) {
-				toprow->Add(new Thin3DTextureView(ginfo->iconTexture, IS_FIXED, new LinearLayoutParams(Margins(10, 5))));
+			if (ginfo->icon.texture) {
+				toprow->Add(new TextureView(ginfo->icon.texture->GetTexture(), IS_FIXED, new LinearLayoutParams(Margins(10, 5))));
 			}
 			LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 			topright->SetSpacing(1.0f);
-			topright->Add(new TextView(savedata_title, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
-			topright->Add(new TextView(StringFromFormat("%d kB", ginfo->gameSize / 1024), 0, true));
-			topright->Add(new TextView(GetFileDateAsString(savePath_ + "/PARAM.SFO"), 0, true));
+			topright->Add(new TextView(savedata_title, ALIGN_LEFT | FLAG_WRAP_TEXT, false))->SetTextColor(textStyle.fgColor);
+			topright->Add(new TextView(StringFromFormat("%d kB", ginfo->gameSize / 1024), 0, true))->SetTextColor(textStyle.fgColor);
+			topright->Add(new TextView(GetFileDateAsString(savePath_ + "/PARAM.SFO"), 0, true))->SetTextColor(textStyle.fgColor);
 			toprow->Add(topright);
 			content->Add(new Spacer(3.0));
-			content->Add(new TextView(ReplaceAll(savedata_detail, "\r", ""), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))));
+			content->Add(new TextView(ReplaceAll(savedata_detail, "\r", ""), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))))->SetTextColor(textStyle.fgColor);
 			content->Add(new Spacer(3.0));
 		} else {
 			std::string image_path = ReplaceAll(savePath_, ".ppst", ".jpg");
@@ -97,9 +101,9 @@ public:
 				PrioritizedWorkQueue *wq = g_gameInfoCache->WorkQueue();
 				toprow->Add(new AsyncImageFileView(image_path, IS_DEFAULT, wq, new LinearLayoutParams(480, 272, Margins(10, 0))));
 			} else {
-				toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))));
+				toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
 			}
-			content->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))));
+			content->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
 		}
 
 		I18NCategory *di = GetI18NCategory("Dialog");
@@ -139,9 +143,9 @@ private:
 };
 
 UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
-	GameInfo *ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
 	ginfo->Delete();
-	screenManager()->finishDialog(this, DR_NO);
+	TriggerFinish(DR_NO);
 	return UI::EVENT_DONE;
 }
 
@@ -153,13 +157,13 @@ static std::string CleanSaveString(std::string str) {
 }
 
 void SavedataButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache->GetInfo(dc.GetThin3DContext(), savePath_, GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), savePath_, GAMEINFO_WANTSIZE);
 	Draw::Texture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 
-	if (ginfo->iconTexture) {
-		texture = ginfo->iconTexture;
+	if (ginfo->icon.texture) {
+		texture = ginfo->icon.texture->GetTexture();
 	}
 
 	int x = bounds_.x;
@@ -183,8 +187,8 @@ void SavedataButton::Draw(UIContext &dc) {
 	dc.Draw()->Flush();
 
 	if (texture) {
-		color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
-		shadowColor = blackAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
+		color = whiteAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
+		shadowColor = blackAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
 		float tw = texture->Width();
 		float th = texture->Height();
 
@@ -193,11 +197,6 @@ void SavedataButton::Draw(UIContext &dc) {
 		float nw = h * tw / th;
 		x += (w - nw) / 2.0f;
 		w = nw;
-
-		if (texture->Width() >= w * 2 || texture->Height() >= h * 2) {
-			// Better to use mipmaps, then.  This is probably a large savestate screenshot.
-			texture->AutoGenMipmaps();
-		}
 	}
 
 	int txOffset = down_ ? 4 : 0;
@@ -229,7 +228,7 @@ void SavedataButton::Draw(UIContext &dc) {
 
 	if (texture) {
 		dc.Draw()->Flush();
-		dc.GetThin3DContext()->BindTexture(0, texture);
+		dc.GetDrawContext()->BindTexture(0, texture);
 		dc.Draw()->DrawTexRect(x, y, x + w, y + h, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
 	}
@@ -334,7 +333,8 @@ void SavedataBrowser::Refresh() {
 
 UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 	SavedataButton *button = static_cast<SavedataButton *>(e.v);
-	UI::EventParams e2;
+	UI::EventParams e2{};
+	e2.v = e.v;
 	e2.s = button->GamePath();
 	// Insta-update - here we know we are already on the right thread.
 	OnChoice.Trigger(e2);
@@ -346,8 +346,8 @@ SavedataScreen::SavedataScreen(std::string gamePath) : UIDialogScreenWithGameBac
 
 SavedataScreen::~SavedataScreen() {
 	if (g_gameInfoCache) {
-		g_gameInfoCache->PurgeType(FILETYPE_PPSSPP_SAVESTATE);
-		g_gameInfoCache->PurgeType(FILETYPE_PSP_SAVEDATA_DIRECTORY);
+		g_gameInfoCache->PurgeType(IdentifiedFileType::PPSSPP_SAVESTATE);
+		g_gameInfoCache->PurgeType(IdentifiedFileType::PSP_SAVEDATA_DIRECTORY);
 	}
 }
 
@@ -381,8 +381,12 @@ void SavedataScreen::CreateViews() {
 }
 
 UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
-	GameInfo *ginfo = g_gameInfoCache->GetInfo(screenManager()->getThin3DContext(), e.s, 0);
-	screenManager()->push(new SavedataPopupScreen(e.s, ginfo->GetTitle()));
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), e.s, 0);
+	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(e.s, ginfo->GetTitle());
+	if (e.v) {
+		popupScreen->SetPopupOrigin(e.v);
+	}
+	screenManager()->push(popupScreen);
 	// the game path: e.s;
 	return UI::EVENT_DONE;
 }

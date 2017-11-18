@@ -22,8 +22,14 @@
 
 #pragma once
 
-#include "thread/thread.h"
+#include <thread>
 #include "net/http_client.h"
+
+enum class GameManagerState {
+	IDLE,
+	DOWNLOADING,
+	INSTALLING,
+};
 
 class GameManager {
 public:
@@ -35,18 +41,22 @@ public:
 	bool DownloadAndInstall(std::string storeZipUrl);
 	bool Uninstall(std::string name);
 
+	// Cancels the download in progress, if any.
+	bool CancelDownload();
+
 	// Call from time to time to check on completed downloads from the
 	// main UI thread.
 	void Update();
 
-	// Returns false if no install is in progress.
-	bool IsInstallInProgress() const {
-		return installInProgress_ || IsDownloadInProgress();
+	GameManagerState GetState() {
+		if (installInProgress_)
+			return GameManagerState::INSTALLING;
+		if (curDownload_)
+			return GameManagerState::DOWNLOADING;
+		return GameManagerState::IDLE;
 	}
-	bool IsDownloadInProgress() const {
-		return curDownload_.get() != nullptr;
-	}
-	float GetCurrentInstallProgress() const {
+
+	float GetCurrentInstallProgressPercentage() const {
 		return installProgress_;
 	}
 	std::string GetInstallError() const {

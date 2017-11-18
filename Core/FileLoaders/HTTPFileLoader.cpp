@@ -16,75 +16,73 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "base/stringutil.h"
 #include "Common/Common.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
 
 HTTPFileLoader::HTTPFileLoader(const std::string &filename)
-	: filesize_(0), filepos_(0), url_(filename), filename_(filename), connected_(false), prepared_(false) {
+	: filesize_(0), filepos_(0), url_(filename), filename_(filename), connected_(false) {
 }
 
 void HTTPFileLoader::Prepare() {
-	if (prepared_) {
-		return;
-	}
-	prepared_ = true;
+	std::call_once(preparedFlag_, [this](){
+		if (!client_.Resolve(url_.Host().c_str(), url_.Port())) {
+			// TODO: Should probably set some flag?
+			return;
+		}
 
-	if (!client_.Resolve(url_.Host().c_str(), url_.Port())) {
-		// TODO: Should probably set some flag?
-		return;
-	}
+		Connect();
+		int err = client_.SendRequest("HEAD", url_.Resource().c_str());
+		if (err < 0) {
+			Disconnect();
+			return;
+		}
 
-	Connect();
-	int err = client_.SendRequest("HEAD", url_.Resource().c_str());
-	if (err < 0) {
-		Disconnect();
-		return;
-	}
+		Buffer readbuf;
+		std::vector<std::string> responseHeaders;
+		int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
+		if (code != 200) {
+			// Leave size at 0, invalid.
+			ERROR_LOG(LOADER, "HTTP request failed, got %03d for %s", code, filename_.c_str());
+			Disconnect();
+			return;
+		}
 
-	Buffer readbuf;
-	std::vector<std::string> responseHeaders;
-	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
-	if (code != 200) {
-		// Leave size at 0, invalid.
-		ERROR_LOG(LOADER, "HTTP request failed, got %03d for %s", code, filename_.c_str());
-		Disconnect();
-		return;
-	}
-
-	// TODO: Expire cache via ETag, etc.
-	bool acceptsRange = false;
-	for (std::string header : responseHeaders) {
-		if (startsWithNoCase(header, "Content-Length:")) {
-			size_t size_pos = header.find_first_of(' ');
-			if (size_pos != header.npos) {
-				size_pos = header.find_first_not_of(' ', size_pos);
+		// TODO: Expire cache via ETag, etc.
+		bool acceptsRange = false;
+		for (std::string header : responseHeaders) {
+			if (startsWithNoCase(header, "Content-Length:")) {
+				size_t size_pos = header.find_first_of(' ');
+				if (size_pos != header.npos) {
+					size_pos = header.find_first_not_of(' ', size_pos);
+				}
+				if (size_pos != header.npos) {
+					filesize_ = atoll(&header[size_pos]);
+				}
 			}
-			if (size_pos != header.npos) {
-				filesize_ = atoll(&header[size_pos]);
+			if (startsWithNoCase(header, "Accept-Ranges:")) {
+				std::string lowerHeader = header;
+				std::transform(lowerHeader.begin(), lowerHeader.end(), lowerHeader.begin(), tolower);
+				// TODO: Delimited.
+				if (lowerHeader.find("bytes") != lowerHeader.npos) {
+					acceptsRange = true;
+				}
 			}
 		}
-		if (startsWithNoCase(header, "Accept-Ranges:")) {
-			std::string lowerHeader = header;
-			std::transform(lowerHeader.begin(), lowerHeader.end(), lowerHeader.begin(), tolower);
-			// TODO: Delimited.
-			if (lowerHeader.find("bytes") != lowerHeader.npos) {
-				acceptsRange = true;
-			}
+
+		// TODO: Keepalive instead.
+		Disconnect();
+
+		if (!acceptsRange) {
+			WARN_LOG(LOADER, "HTTP server did not advertise support for range requests.");
 		}
-	}
+		if (filesize_ == 0) {
+			ERROR_LOG(LOADER, "Could not determine file size for %s", filename_.c_str());
+		}
 
-	// TODO: Keepalive instead.
-	Disconnect();
-
-	if (!acceptsRange) {
-		WARN_LOG(LOADER, "HTTP server did not advertise support for range requests.");
-	}
-	if (filesize_ == 0) {
-		ERROR_LOG(LOADER, "Could not determine file size for %s", filename_.c_str());
-	}
-
-	// If we didn't end up with a filesize_ (e.g. chunked response), give up.  File invalid.
+		// If we didn't end up with a filesize_ (e.g. chunked response), give up.  File invalid.
+	});
 }
 
 HTTPFileLoader::~HTTPFileLoader() {
@@ -114,12 +112,10 @@ std::string HTTPFileLoader::Path() const {
 	return filename_;
 }
 
-void HTTPFileLoader::Seek(s64 absolutePos) {
-	filepos_ = absolutePos;
-}
-
 size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
 	Prepare();
+	std::lock_guard<std::mutex> guard(readAtMutex_);
+
 	s64 absoluteEnd = std::min(absolutePos + (s64)bytes, filesize_);
 	if (absolutePos >= filesize_ || bytes == 0) {
 		// Read outside of the file or no read at all, just fail immediately.

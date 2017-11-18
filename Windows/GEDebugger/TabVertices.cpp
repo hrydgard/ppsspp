@@ -26,13 +26,16 @@
 #include "GPU/Common/GPUDebugInterface.h"
 
 static const GenericListViewColumn vertexListCols[] = {
-	{ L"X", 0.17f },
-	{ L"Y", 0.17f },
-	{ L"Z", 0.17f },
-	{ L"U", 0.16f },
-	{ L"V", 0.16f },
-	{ L"Color", 0.17f },
-	// TODO: Normal, weight, morph?
+	{ L"X", 0.1f },
+	{ L"Y", 0.1f },
+	{ L"Z", 0.1f },
+	{ L"U", 0.1f },
+	{ L"V", 0.1f },
+	{ L"Color", 0.1f },
+	{ L"NX", 0.1f },
+	{ L"NY", 0.1f },
+	{ L"NZ", 0.1f },
+	// TODO: weight, morph?
 };
 
 GenericListViewDef vertexListDef = {
@@ -46,6 +49,9 @@ enum VertexListCols {
 	VERTEXLIST_COL_U,
 	VERTEXLIST_COL_V,
 	VERTEXLIST_COL_COLOR,
+	VERTEXLIST_COL_NX,
+	VERTEXLIST_COL_NY,
+	VERTEXLIST_COL_NZ,
 };
 
 static const GenericListViewColumn matrixListCols[] = {
@@ -150,24 +156,17 @@ void CtrlVertexList::GetColumnText(wchar_t *dest, int row, int col) {
 
 void CtrlVertexList::FormatVertCol(wchar_t *dest, const GPUDebugVertex &vert, int col) {
 	switch (col) {
-	case VERTEXLIST_COL_X:
-		swprintf(dest, L"%f", vert.x);
-		break;
-	case VERTEXLIST_COL_Y:
-		swprintf(dest, L"%f", vert.y);
-		break;
-	case VERTEXLIST_COL_Z:
-		swprintf(dest, L"%f", vert.z);
-		break;
-	case VERTEXLIST_COL_U:
-		swprintf(dest, L"%f", vert.u);
-		break;
-	case VERTEXLIST_COL_V:
-		swprintf(dest, L"%f", vert.v);
-		break;
+	case VERTEXLIST_COL_X: swprintf(dest, L"%f", vert.x); break;
+	case VERTEXLIST_COL_Y: swprintf(dest, L"%f", vert.y); break;
+	case VERTEXLIST_COL_Z: swprintf(dest, L"%f", vert.z); break;
+	case VERTEXLIST_COL_U: swprintf(dest, L"%f", vert.u); break;
+	case VERTEXLIST_COL_V: swprintf(dest, L"%f", vert.v); break;
 	case VERTEXLIST_COL_COLOR:
 		swprintf(dest, L"%02x%02x%02x%02x", vert.c[0], vert.c[1], vert.c[2], vert.c[3]);
 		break;
+	case VERTEXLIST_COL_NX: swprintf(dest, L"%f", vert.nx); break;
+	case VERTEXLIST_COL_NY: swprintf(dest, L"%f", vert.ny); break;
+	case VERTEXLIST_COL_NZ: swprintf(dest, L"%f", vert.nz); break;
 
 	default:
 		wcscpy(dest, L"Invalid");

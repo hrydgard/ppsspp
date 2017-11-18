@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <vector>
 
 #include "base/colorutil.h"
@@ -47,7 +48,7 @@ public:
 		scale_ = theScale_;
 	}
 
-	virtual bool IsDown() {
+	bool IsDown() override {
 		// Don't want the button to enlarge and throw the user's perspective
 		// of button size off whack.
 		return false;
@@ -64,6 +65,12 @@ public:
 
 	virtual float GetSpacing() const { return 1.0f; }
 	virtual void SetSpacing(float s) { }
+
+protected:
+	float GetButtonOpacity() override {
+		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+		return std::max(0.5f, opacity);
+	}
 
 private:
 	// convert from screen coordinates (leftColumnWidth to dp_xres) to actual fullscreen coordinates (0 to 1.0)
@@ -111,7 +118,7 @@ public:
 		squareVisible_ = visible;
 	}
 
-	void Draw(UIContext &dc) {
+	void Draw(UIContext &dc) override {
 		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
 		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
@@ -144,19 +151,15 @@ public:
 		}
 	};
 
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const{
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		const AtlasImage &image = dc.Draw()->GetAtlas()->images[roundId_];
 
 		w = (2 * baseActionButtonSpacing * spacing_) + image.w * scale_;
 		h = (2 * baseActionButtonSpacing * spacing_) + image.h * scale_;
 	}
 
-	virtual float GetSpacing() const { return spacing_; }
-	virtual void SetSpacing(float s) { spacing_ = s; }
-	
-	virtual void SavePosition() {
-		DragDropButton::SavePosition();
-	}
+	float GetSpacing() const override { return spacing_; }
+	void SetSpacing(float s) override { spacing_ = s; }
 
 private:
 	bool circleVisible_, crossVisible_, triangleVisible_, squareVisible_;
@@ -173,7 +176,7 @@ public:
 		: DragDropButton(x, y, -1, -1, scale), spacing_(spacing) {
 	}
 
-	void Draw(UIContext &dc) {
+	void Draw(UIContext &dc) override {
 		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
 		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
@@ -197,14 +200,14 @@ public:
 		}
 	}
 
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const{
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		const AtlasImage &image = dc.Draw()->GetAtlas()->images[I_DIR];
 		w = 2 * D_pad_Radius * spacing_ + image.w * scale_;
 		h = 2 * D_pad_Radius * spacing_ + image.h * scale_;
 	};
 
-	float GetSpacing() const { return spacing_; }
-	virtual void SetSpacing(float s) { spacing_ = s; }
+	float GetSpacing() const override { return spacing_; }
+	void SetSpacing(float s) override { spacing_ = s; }
 
 private:
 	float &spacing_;

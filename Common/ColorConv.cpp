@@ -22,7 +22,7 @@
 #include "CPUDetect.h"
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <emmintrin.h>
 #endif
 
 #if _M_SSE >= 0x401

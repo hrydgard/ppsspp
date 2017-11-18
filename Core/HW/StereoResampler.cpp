@@ -39,11 +39,14 @@
 #include "Core/Config.h"
 #include "Core/HW/StereoResampler.h"
 #include "Core/HLE/__sceAudio.h"
+#include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "Core/System.h"
-#include "Globals.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
+#endif
+#if PPSSPP_ARCH(ARM_NEON)
+#include <arm_neon.h>
 #endif
 
 StereoResampler::StereoResampler()
@@ -103,8 +106,25 @@ inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, s8 volShift) 
 		in += 8;
 		size -= 8;
 	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	int16x4_t signedVolShift = vdup_n_s16 (-volShift); // Can only dynamic-shift right, but by a signed integer
+	while (size >= 8) {
+		int32x4_t in1 = vld1q_s32(in);
+		int32x4_t in2 = vld1q_s32(in + 4);
+		int16x4_t packed1 = vqmovn_s32(in1);
+		int16x4_t packed2 = vqmovn_s32(in2);
+		if (useShift) {
+			packed1 = vshl_s16(packed1, signedVolShift);
+			packed2 = vshl_s16(packed2, signedVolShift);
+		}
+		vst1_s16(out, packed1);
+		vst1_s16(out + 4, packed2);
+		out += 8;
+		in += 8;
+		size -= 8;
+	}
 #endif
-	// This does the remainder if SSE was used, otherwise it does it all.
+	// This does the remainder if SIMD was used, otherwise it does it all.
 	for (size_t i = 0; i < size; i++) {
 		out[i] = clamp_s16(useShift ? (in[i] >> volShift) : in[i]);
 	}
@@ -152,7 +172,7 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 			samples[currentSample + 1] = r1;
 			indexR += 2;
 		}
-		sample_rate_ = sample_rate;
+		sample_rate_ = (float)sample_rate;
 	} else {
 		// Drift prevention mechanism
 		float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);
@@ -161,7 +181,7 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 		if (offset > MAX_FREQ_SHIFT) offset = MAX_FREQ_SHIFT;
 		if (offset < -MAX_FREQ_SHIFT) offset = -MAX_FREQ_SHIFT;
 
-		sample_rate_ = m_input_sample_rate + offset;
+		sample_rate_ = (float)(m_input_sample_rate + offset);
 		const u32 ratio = (u32)(65536.0 * sample_rate_ / (double)sample_rate);
 
 		// TODO: consider a higher-quality resampling algorithm.
@@ -248,7 +268,7 @@ void StereoResampler::GetAudioDebugStats(AudioDebugStats *stats) {
 	overrunCount_ = 0;
 	stats->watermark = m_lowwatermark;
 	stats->bufsize = m_bufsize * 2;
-	stats->instantSampleRate = sample_rate_;
+	stats->instantSampleRate = (int)sample_rate_;
 	stats->lastPushSize = lastPushSize_;
 }
 

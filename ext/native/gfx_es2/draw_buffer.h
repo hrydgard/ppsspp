@@ -2,6 +2,8 @@
 
 // "Immediate mode"-lookalike buffered drawing. Very fast way to draw 2D.
 
+#include <vector>
+
 #include "base/basictypes.h"
 #include "base/colorutil.h"
 #include "gfx/gl_lost_manager.h"
@@ -115,7 +117,7 @@ public:
 	void MeasureImage(ImageID atlas_image, float *w, float *h);
 	void DrawImage(ImageID atlas_image, float x, float y, float scale, Color color = COLOR(0xFFFFFF), int align = ALIGN_TOPLEFT);
 	void DrawImageStretch(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF));
-	void DrawImageStretch(int atlas_image, const Bounds &bounds, Color color = COLOR(0xFFFFFF)) {
+	void DrawImageStretch(ImageID atlas_image, const Bounds &bounds, Color color = COLOR(0xFFFFFF)) {
 		DrawImageStretch(atlas_image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), color);
 	}
 	void DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, Color color = COLOR(0xFFFFFF), bool mirror_h = false);	// Always centers
@@ -138,8 +140,6 @@ public:
 	void DrawText(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawTextShadow(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 
-	void RotateSprite(ImageID atlas_image, float x, float y, float angle, float scale, Color color);
-
 	void SetFontScale(float xs, float ys) {
 		fontscalex = xs;
 		fontscaley = ys;
@@ -147,8 +147,28 @@ public:
 
 	static void DoAlign(int flags, float *x, float *y, float *w, float *h);
 
-	void SetDrawMatrix(const Matrix4x4 &m) {
+	void PushDrawMatrix(const Matrix4x4 &m) {
+		drawMatrixStack_.push_back(drawMatrix_);
 		drawMatrix_ = m;
+	}
+
+	void PopDrawMatrix() {
+		drawMatrix_ = drawMatrixStack_.back();
+		drawMatrixStack_.pop_back();
+	}
+
+	Matrix4x4 GetDrawMatrix() {
+		return drawMatrix_;
+	}
+
+	void PushAlpha(float a) {
+		alphaStack_.push_back(alpha_);
+		alpha_ *= a;
+	}
+
+	void PopAlpha() {
+		alpha_ = alphaStack_.back();
+		alphaStack_.pop_back();
 	}
 
 private:
@@ -159,8 +179,12 @@ private:
 	};
 
 	Matrix4x4 drawMatrix_;
+	std::vector<Matrix4x4> drawMatrixStack_;
 
-	Draw::DrawContext *t3d_;
+	float alpha_ = 1.0f;
+	std::vector<float> alphaStack_;
+
+	Draw::DrawContext *draw_;
 	Draw::Buffer *vbuf_;
 	Draw::Pipeline *pipeline_;
 

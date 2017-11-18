@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="..\..\UI\BackgroundAudio.cpp" />
+    <ClCompile Include="..\..\UI\ComboKeyMappingScreen.cpp" />
+    <ClCompile Include="..\..\UI\ControlMappingScreen.cpp" />
+    <ClCompile Include="..\..\UI\CwCheatScreen.cpp" />
+    <ClCompile Include="..\..\UI\DevScreens.cpp" />
+    <ClCompile Include="..\..\UI\DisplayLayoutEditor.cpp" />
+    <ClCompile Include="..\..\UI\DisplayLayoutScreen.cpp" />
+    <ClCompile Include="..\..\UI\EmuScreen.cpp" />
+    <ClCompile Include="..\..\UI\GameInfoCache.cpp" />
+    <ClCompile Include="..\..\UI\GamepadEmu.cpp" />
+    <ClCompile Include="..\..\UI\GameScreen.cpp" />
+    <ClCompile Include="..\..\UI\GameSettingsScreen.cpp" />
+    <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
+    <ClCompile Include="..\..\UI\MainScreen.cpp" />
+    <ClCompile Include="..\..\UI\MiscScreens.cpp" />
+    <ClCompile Include="..\..\UI\NativeApp.cpp" />
+    <ClCompile Include="..\..\UI\OnScreenDisplay.cpp" />
+    <ClCompile Include="..\..\UI\PauseScreen.cpp" />
+    <ClCompile Include="..\..\UI\ProfilerDraw.cpp" />
+    <ClCompile Include="..\..\UI\RemoteISOScreen.cpp" />
+    <ClCompile Include="..\..\UI\ReportScreen.cpp" />
+    <ClCompile Include="..\..\UI\SavedataScreen.cpp" />
+    <ClCompile Include="..\..\UI\Store.cpp" />
+    <ClCompile Include="..\..\UI\TextureUtil.cpp" />
+    <ClCompile Include="..\..\UI\TiltAnalogSettingsScreen.cpp" />
+    <ClCompile Include="..\..\UI\TiltEventProcessor.cpp" />
+    <ClCompile Include="..\..\UI\TouchControlLayoutScreen.cpp" />
+    <ClCompile Include="..\..\UI\TouchControlVisibilityScreen.cpp" />
+    <ClCompile Include="..\..\UI\ui_atlas.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="..\..\UI\BackgroundAudio.h" />
+    <ClInclude Include="..\..\UI\ComboKeyMappingScreen.h" />
+    <ClInclude Include="..\..\UI\ControlMappingScreen.h" />
+    <ClInclude Include="..\..\UI\CwCheatScreen.h" />
+    <ClInclude Include="..\..\UI\DevScreens.h" />
+    <ClInclude Include="..\..\UI\DisplayLayoutEditor.h" />
+    <ClInclude Include="..\..\UI\DisplayLayoutScreen.h" />
+    <ClInclude Include="..\..\UI\EmuScreen.h" />
+    <ClInclude Include="..\..\UI\GameInfoCache.h" />
+    <ClInclude Include="..\..\UI\GamepadEmu.h" />
+    <ClInclude Include="..\..\UI\GameScreen.h" />
+    <ClInclude Include="..\..\UI\GameSettingsScreen.h" />
+    <ClInclude Include="..\..\UI\HostTypes.h" />
+    <ClInclude Include="..\..\UI\InstallZipScreen.h" />
+    <ClInclude Include="..\..\UI\MainScreen.h" />
+    <ClInclude Include="..\..\UI\MiscScreens.h" />
+    <ClInclude Include="..\..\UI\OnScreenDisplay.h" />
+    <ClInclude Include="..\..\UI\PauseScreen.h" />
+    <ClInclude Include="..\..\UI\ProfilerDraw.h" />
+    <ClInclude Include="..\..\UI\RemoteISOScreen.h" />
+    <ClInclude Include="..\..\UI\ReportScreen.h" />
+    <ClInclude Include="..\..\UI\SavedataScreen.h" />
+    <ClInclude Include="..\..\UI\Store.h" />
+    <ClInclude Include="..\..\UI\TextureUtil.h" />
+    <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h" />
+    <ClInclude Include="..\..\UI\TiltEventProcessor.h" />
+    <ClInclude Include="..\..\UI\TouchControlLayoutScreen.h" />
+    <ClInclude Include="..\..\UI\TouchControlVisibilityScreen.h" />
+    <ClInclude Include="..\..\UI\ui_atlas.h" />
+  </ItemGroup>
+</Project>

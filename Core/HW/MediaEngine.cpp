@@ -458,14 +458,19 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 
 		// Find the decoder for the video stream
 		AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
-		if (pCodec == NULL) {
+		if (pCodec == nullptr) {
 			return false;
 		}
 
-		// Open codec
-		if (avcodec_open2(m_pCodecCtx, pCodec, nullptr) < 0) {
-			return false; // Could not open codec
+		AVDictionary *opt = nullptr;
+		// Allow ffmpeg to use any number of threads it wants.  Without this, it doesn't use threads.
+		av_dict_set(&opt, "threads", "0", 0);
+		int openResult = avcodec_open2(m_pCodecCtx, pCodec, &opt);
+		av_dict_free(&opt);
+		if (openResult < 0) {
+			return false;
 		}
+
 		m_pCodecCtxs[streamNum] = m_pCodecCtx;
 	}
 #endif

@@ -21,8 +21,6 @@
 
 #include <string>
 
-#include "base/mutex.h"
-
 #include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
 

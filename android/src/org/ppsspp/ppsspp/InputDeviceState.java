@@ -48,23 +48,7 @@ public class InputDeviceState {
 	     }
 	     NativeApp.sendMessage("inputDeviceConnected", device.getName());
 	}
-	
-	public static float ProcessAxis(InputDevice.MotionRange range, float axisvalue) {
-		float absaxisvalue = Math.abs(axisvalue);
-		float deadzone = range.getFlat();
-		if (absaxisvalue <= deadzone) {
-			return 0.0f;
-		}
-		float normalizedvalue;
-		if (axisvalue < 0.0f) {
-			normalizedvalue = absaxisvalue / range.getMin();
-		} else {
-			normalizedvalue = absaxisvalue / range.getMax();
-		}
 
-		return normalizedvalue;
-	}
-	
 	public boolean onKeyDown(KeyEvent event) {
 		int keyCode = event.getKeyCode();
 		boolean repeat = event.getRepeatCount() > 0;
@@ -84,7 +68,6 @@ public class InputDeviceState {
 		for (int i = 0; i < mAxes.length; i++) {
 			int axisId = mAxes[i];
 			float value = event.getAxisValue(axisId);
-			// TODO: Use processAxis or move that to the C++ code
 			NativeApp.joystickAxis(deviceId, axisId, value);
 		}
 		NativeApp.endJoystickEvent();

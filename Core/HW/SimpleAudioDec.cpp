@@ -134,6 +134,7 @@ void SimpleAudio::SetChannels(int channels) {
 		// Do nothing, already set.
 		return;
 	}
+#ifdef USE_FFMPEG
 
 	if (codecOpen_) {
 		ERROR_LOG(ME, "Codec already open, cannot change channels");
@@ -142,6 +143,7 @@ void SimpleAudio::SetChannels(int channels) {
 		codecCtx_->channels = channels_;
 		codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
 	}
+#endif
 }
 
 SimpleAudio::~SimpleAudio() {
