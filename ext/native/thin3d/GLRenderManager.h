@@ -141,6 +141,8 @@ public:
 	void Take(GLDeleter &other) {
 		shaders = std::move(other.shaders);
 		programs = std::move(other.programs);
+		buffers = std::move(other.buffers);
+		textures = std::move(other.textures);
 	}
 
 	std::vector<GLRShader *> shaders;
@@ -149,6 +151,19 @@ public:
 	std::vector<GLRTexture *> textures;
 };
 
+class GLRInputLayout {
+public:
+	struct Entry {
+		int location;
+		int count;
+		GLenum type;
+		GLboolean normalized;
+		int stride;
+		intptr_t offset;
+	};
+	std::vector<Entry> entries;
+	int semanticsMask_ = 0;
+};
 
 class GLRenderManager {
 public:
@@ -206,6 +221,18 @@ public:
 		return step.create_program.program;
 	}
 
+	GLRInputLayout *CreateInputLayout(std::vector<GLRInputLayout::Entry> &entries) {
+		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
+		assert(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
+		step.create_input_layout.inputLayout = new GLRInputLayout();
+		step.create_input_layout.inputLayout->entries = std::move(entries);
+		for (auto &iter : entries) {
+			step.create_input_layout.inputLayout->semanticsMask_ |= 1 << iter.location;
+		}
+		initSteps_.push_back(step);
+		return step.create_input_layout.inputLayout;
+	}
+
 	void DeleteShader(GLRShader *shader) {
 		deleter_.shaders.push_back(shader);
 	}
@@ -217,6 +244,9 @@ public:
 	}
 	void DeleteTexture(GLRTexture *texture) {
 		deleter_.textures.push_back(texture);
+	}
+	void DeleteInputLayout(GLRInputLayout *inputLayout) {
+
 	}
 
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
@@ -263,6 +293,21 @@ public:
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BINDPROGRAM };
 		data.program.program = program;
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void BindInputLayout(GLRInputLayout *inputLayout, const void *offset) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::BIND_INPUT_LAYOUT };
+		data.inputLayout.inputLayout = inputLayout;
+		data.inputLayout.offset = (intptr_t)offset;
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void UnbindInputLayout(GLRInputLayout *inputLayout) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::UNBIND_INPUT_LAYOUT };
+		data.inputLayout.inputLayout = inputLayout;
 		curRenderStep_->commands.push_back(data);
 	}
 

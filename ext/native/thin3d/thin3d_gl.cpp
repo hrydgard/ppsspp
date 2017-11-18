@@ -294,22 +294,19 @@ bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage languag
 
 class OpenGLInputLayout : public InputLayout {
 public:
+	OpenGLInputLayout(GLRenderManager *render) : render_(render) {}
 	~OpenGLInputLayout();
 
 	void Apply(const void *base = nullptr);
 	void Unapply();
-	void Compile();
+	void Compile(const InputLayoutDesc &desc);
 	bool RequiresBuffer() {
-		return id_ != 0;
+		return false;
 	}
 
-	InputLayoutDesc desc;
-
-	int semanticsMask_;  // Fast way to check what semantics to enable/disable.
-	int stride_;
-	GLuint id_;
-	bool needsEnable_;
-	intptr_t lastBase_;
+	GLRInputLayout *inputLayout_;
+private:
+	GLRenderManager *render_;
 };
 
 class OpenGLPipeline : public Pipeline {
@@ -328,8 +325,6 @@ public:
 	}
 
 	bool LinkShaders();
-
-	int GetUniformLoc(const char *name);
 
 	bool RequiresBuffer() override {
 		return inputLayout->RequiresBuffer();
@@ -382,6 +377,9 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
+	void BeginFrame() override;
+	void EndFrame() override;
+
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
@@ -411,7 +409,7 @@ public:
 			// We render "upside down" to the backbuffer since GL is silly.
 			y = targetHeight_ - (top + height);
 		}
-		glstate.scissorRect.set(left, y, width, height);
+		renderManager_.SetScissor({ left, y, width, height });
 	}
 
 	void SetViewports(int count, Viewport *viewports) override {
@@ -542,10 +540,17 @@ OpenGLContext::~OpenGLContext() {
 	boundSamplers_.clear();
 }
 
+void OpenGLContext::BeginFrame() {
+	renderManager_.BeginFrame();
+}
+
+void OpenGLContext::EndFrame() {
+	renderManager_.Finish();
+}
+
 InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
-	OpenGLInputLayout *fmt = new OpenGLInputLayout();
-	fmt->desc = desc;
-	fmt->Compile();
+	OpenGLInputLayout *fmt = new OpenGLInputLayout(&renderManager_);
+	fmt->Compile(desc);
 	return fmt;
 }
 
@@ -869,28 +874,6 @@ Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
 	return new OpenGLTexture(&renderManager_, desc);
 }
 
-OpenGLInputLayout::~OpenGLInputLayout() {
-	if (id_) {
-		glDeleteVertexArrays(1, &id_);
-	}
-}
-
-void OpenGLInputLayout::Compile() {
-	int semMask = 0;
-	for (int i = 0; i < (int)desc.attributes.size(); i++) {
-		semMask |= 1 << desc.attributes[i].location;
-	}
-	semanticsMask_ = semMask;
-
-	if (gl_extensions.ARB_vertex_array_object && gl_extensions.IsCoreContext) {
-		glGenVertexArrays(1, &id_);
-	} else {
-		id_ = 0;
-	}
-	needsEnable_ = true;
-	lastBase_ = -1;
-}
-
 DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
 	OpenGLDepthStencilState *ds = new OpenGLDepthStencilState();
 	ds->depthTestEnabled = desc.depthTestEnabled;
@@ -1138,10 +1121,9 @@ void OpenGLContext::Draw(int vertexCount, int offset) {
 	curPipeline_->inputLayout->Apply();
 	ApplySamplers();
 
-	glDrawArrays(curPipeline_->prim, offset, vertexCount);
+	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
 
 	curPipeline_->inputLayout->Unapply();
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
@@ -1154,16 +1136,12 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	glDrawElements(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	
 	curPipeline_->inputLayout->Unapply();
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	curPipeline_->inputLayout->Apply(vdata);
 	ApplySamplers();
 
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glDrawArrays(curPipeline_->prim, 0, vertexCount);
 
 	curPipeline_->inputLayout->Unapply();
@@ -1174,83 +1152,70 @@ void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stenc
 	Uint8x4ToFloat4(col, colorval);
 	GLuint glMask = 0;
 	if (mask & FBChannel::FB_COLOR_BIT) {
-		glClearColor(col[0], col[1], col[2], col[3]);
 		glMask |= GL_COLOR_BUFFER_BIT;
 	}
 	if (mask & FBChannel::FB_DEPTH_BIT) {
-#if defined(USING_GLES2)
-		glClearDepthf(depthVal);
-#else
-		glClearDepth(depthVal);
-#endif
 		glMask |= GL_DEPTH_BUFFER_BIT;
 	}
 	if (mask & FBChannel::FB_STENCIL_BIT) {
-		glClearStencil(stencilVal);
 		glMask |= GL_STENCIL_BUFFER_BIT;
 	}
-	glClear(glMask);
+	renderManager_.Clear(colorval, depthVal, stencilVal, glMask);
 }
 
 DrawContext *T3DCreateGLContext() {
 	return new OpenGLContext();
 }
 
+OpenGLInputLayout::~OpenGLInputLayout() {
+}
+
+void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
+	int semMask = 0;
+	std::vector<GLRInputLayout::Entry> entries;
+	for (auto &attr : desc.attributes) {
+		GLRInputLayout::Entry entry;
+		entry.location = attr.location;
+		entry.stride = (GLsizei)desc.bindings[attr.binding].stride;
+		entry.offset = attr.offset;
+		switch (attr.format) {
+		case DataFormat::R32G32_FLOAT:
+			entry.count = 2;
+			entry.type = GL_FLOAT;
+			entry.normalized = GL_FALSE;
+			break;
+		case DataFormat::R32G32B32_FLOAT:
+			entry.count = 3;
+			entry.type = GL_FLOAT;
+			entry.normalized = GL_FALSE;
+			break;
+		case DataFormat::R32G32B32A32_FLOAT:
+			entry.count = 4;
+			entry.type = GL_FLOAT;
+			entry.normalized = GL_FALSE;
+			break;
+		case DataFormat::R8G8B8A8_UNORM:
+			entry.count = 4;
+			entry.type = GL_UNSIGNED_BYTE;
+			entry.normalized = GL_TRUE;
+			break;
+		case DataFormat::UNDEFINED:
+		default:
+			ELOG("Thin3DGLVertexFormat: Invalid or unknown component type applied.");
+			break;
+		}
+
+		entries.push_back(entry);
+	}
+	inputLayout_ = render_->CreateInputLayout(entries);
+}
+
 void OpenGLInputLayout::Apply(const void *base) {
-	if (id_ != 0) {
-		glBindVertexArray(id_);
-	}
-
-	if (needsEnable_ || id_ == 0) {
-		for (int i = 0; i < SEM_MAX; i++) {
-			if (semanticsMask_ & (1 << i)) {
-				glEnableVertexAttribArray(i);
-			}
-		}
-		if (id_ != 0) {
-			needsEnable_ = false;
-		}
-	}
-
-	intptr_t b = (intptr_t)base;
-	if (b != lastBase_) {
-		for (size_t i = 0; i < desc.attributes.size(); i++) {
-			GLsizei stride = (GLsizei)desc.bindings[desc.attributes[i].binding].stride;
-			switch (desc.attributes[i].format) {
-			case DataFormat::R32G32_FLOAT:
-				glVertexAttribPointer(desc.attributes[i].location, 2, GL_FLOAT, GL_FALSE, stride, (void *)(b + (intptr_t)desc.attributes[i].offset));
-				break;
-			case DataFormat::R32G32B32_FLOAT:
-				glVertexAttribPointer(desc.attributes[i].location, 3, GL_FLOAT, GL_FALSE, stride, (void *)(b + (intptr_t)desc.attributes[i].offset));
-				break;
-			case DataFormat::R32G32B32A32_FLOAT:
-				glVertexAttribPointer(desc.attributes[i].location, 4, GL_FLOAT, GL_FALSE, stride, (void *)(b + (intptr_t)desc.attributes[i].offset));
-				break;
-			case DataFormat::R8G8B8A8_UNORM:
-				glVertexAttribPointer(desc.attributes[i].location, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, (void *)(b + (intptr_t)desc.attributes[i].offset));
-				break;
-			case DataFormat::UNDEFINED:
-			default:
-				ELOG("Thin3DGLVertexFormat: Invalid or unknown component type applied.");
-				break;
-			}
-		}
-		if (id_ != 0) {
-			lastBase_ = b;
-		}
-	}
+	render_->BindInputLayout(inputLayout_, base);
 }
 
 void OpenGLInputLayout::Unapply() {
-	if (id_ == 0) {
-		for (int i = 0; i < (int)SEM_MAX; i++) {
-			if (semanticsMask_ & (1 << i)) {
-				glDisableVertexAttribArray(i);
-			}
-		}
-	} else {
-		glBindVertexArray(0);
-	}
+	render_->UnbindInputLayout(inputLayout_);
 }
 
 // On PC, we always use GL_DEPTH24_STENCIL8. 
@@ -1579,12 +1544,12 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 
 	int aspect = 0;
 	if (channelBits & FB_COLOR_BIT) {
-		aspect |= GLR_ASPECT_COLOR;
+		aspect |= GL_COLOR_BUFFER_BIT;
 	} else if (channelBits & (FB_STENCIL_BIT | FB_DEPTH_BIT)) {
 		if (channelBits & FB_STENCIL_BIT)
-			aspect |= GLR_ASPECT_STENCIL;
+			aspect |= GL_STENCIL_BUFFER_BIT;
 		if (channelBits & FB_DEPTH_BIT)
-			aspect |= GLR_ASPECT_DEPTH;
+			aspect |= GL_DEPTH_BUFFER_BIT;
 	}
 	renderManager_.CopyFramebuffer(src->framebuffer, GLRect2D{ srcX, srcY, width, height }, dst->framebuffer, GLOffset2D{ dstX, dstY }, aspect);
 }

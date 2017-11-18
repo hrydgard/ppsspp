@@ -107,6 +107,12 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			break;
 		}
 
+		case GLRInitStepType::CREATE_INPUT_LAYOUT:
+		{
+			GLRInputLayout *layout = step.create_input_layout.inputLayout;
+			// TODO
+			break;
+		}
 		case GLRInitStepType::TEXTURE_SUBDATA:
 			break;
 		case GLRInitStepType::TEXTURE_IMAGE:
@@ -195,17 +201,22 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			break;
 		case GLRRenderCommand::CLEAR:
-			if (c.clear.clearMask & GLR_ASPECT_COLOR) {
+			if (c.clear.clearMask & GL_COLOR_BUFFER_BIT) {
 				float color[4];
 				Uint8x4ToFloat4(color, c.clear.clearColor);
 				glClearColor(color[0], color[1], color[2], color[3]);
 			}
-			if (c.clear.clearMask & GLR_ASPECT_DEPTH) {
+			if (c.clear.clearMask & GL_DEPTH_BUFFER_BIT) {
+#if defined(USING_GLES2)
+				glClearDepthf(c.clear.clearZ);
+#else
 				glClearDepth(c.clear.clearZ);
+#endif
 			}
-			if (c.clear.clearMask & GLR_ASPECT_STENCIL) {
+			if (c.clear.clearMask & GL_STENCIL) {
 				glClearStencil(c.clear.clearStencil);
 			}
+			glClear(c.clear.clearMask);
 			break;
 		case GLRRenderCommand::BLENDCOLOR:
 			glBlendColor(c.blendColor.color[0], c.blendColor.color[1], c.blendColor.color[2], c.blendColor.color[3]);
@@ -274,6 +285,29 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			curProgram = c.program.program;
 			break;
 		}
+		case GLRRenderCommand::BIND_INPUT_LAYOUT:
+		{
+			GLRInputLayout *layout = c.inputLayout.inputLayout;
+			for (int i = 0; i < 7; i++) {  // SEM_MAX
+				if (layout->semanticsMask_ & (1 << i)) {
+					glEnableVertexAttribArray(i);
+				}
+			}
+			for (auto &entry: layout->entries) {
+				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.inputLayout.offset + entry.offset));
+			}
+			break;
+		}
+		case GLRRenderCommand::UNBIND_INPUT_LAYOUT:
+		{
+			GLRInputLayout *layout = c.inputLayout.inputLayout;
+			for (int i = 0; i < 7; i++) {  // SEM_MAX
+				if (layout->semanticsMask_ & (1 << i)) {
+					glDisableVertexAttribArray(i);
+				}
+			}
+			break;
+		}
 		case GLRRenderCommand::GENMIPS:
 			glGenerateMipmap(GL_TEXTURE_2D);
 			break;
@@ -295,6 +329,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	}
 	if (activeTexture != GL_TEXTURE0)
 		glActiveTexture(GL_TEXTURE0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void GLQueueRunner::PerformCopy(const GLRStep &step) {
@@ -315,11 +351,11 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 	int depth = 1;
 
 	switch (step.copy.aspectMask) {
-	case GLR_ASPECT_COLOR:
+	case GL_COLOR_BUFFER_BIT:
 		srcTex = src->color.texture;
 		dstTex = dst->color.texture;
 		break;
-	case GLR_ASPECT_DEPTH:
+	case GL_DEPTH_BUFFER_BIT:
 		target = GL_RENDERBUFFER;
 		srcTex = src->depth.texture;
 		dstTex = src->depth.texture;
