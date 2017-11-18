@@ -874,8 +874,12 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		std::string setString = inputboxValue.size() > 1 ? inputboxValue[1] : "";
 		if (inputboxValue[0] == "IP")
 			g_Config.proAdhocServer = setString;
-		if (inputboxValue[0] == "nickname")
+		else if (inputboxValue[0] == "nickname")
 			g_Config.sNickName = setString;
+		else if (inputboxValue[0] == "remoteiso_subdir")
+			g_Config.sRemoteISOSubdir = setString;
+		else if (inputboxValue[0] == "remoteiso_server")
+			g_Config.sLastRemoteISOServer = setString;
 		inputboxValue.clear();
 	}
 	if (msg == "bgImage_updated") {

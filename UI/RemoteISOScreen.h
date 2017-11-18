@@ -89,7 +89,14 @@ class RemoteISOSettingsScreen : public UIDialogScreenWithBackground {
 public:
 	RemoteISOSettingsScreen();
 
+<<<<<<< HEAD
 protected:
+=======
+	UI::EventReturn OnClickRemoteISOSubdir(UI::EventParams &e);
+	UI::EventReturn OnClickRemoteServer(UI::EventParams &e);
+protected:
+
+>>>>>>> 3f4d84dc2e55b02a0da49f84834b49700b966a4f
 	void update() override;
 	void CreateViews() override;
 

@@ -302,6 +302,7 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 			// Strip any whitespace (TODO: maybe move this to stringutil?)
 			contentType.erase(0, contentType.find_first_not_of(" \t\r\n"));
 			contentType.erase(contentType.find_last_not_of(" \t\r\n") + 1);
+<<<<<<< HEAD
 		}
 	}
 
@@ -335,6 +336,41 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s%s", host.c_str(), port, subdir.c_str(),item.c_str());
 			games.push_back(temp);
 		}
+=======
+		}
+	}
+
+	// TODO: Technically, "TExt/hTml    ; chaRSet    =    Utf8" should pass, but "text/htmlese" should not.
+	// But unlikely that'll be an issue.
+	bool parseHtml = startsWithNoCase(contentType, "text/html");
+	bool parseText = startsWithNoCase(contentType, "text/plain");
+
+	if (parseText) {
+		//ppsspp server
+		SplitString(listing, '\n', items);
+		for (const std::string &item : items) {
+			if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
+				continue;
+			}
+
+			char temp[1024] = {};
+			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
+			games.push_back(temp);
+		}
+	} else if (parseHtml) {
+		//other webserver
+		GetQuotedStrings(listing, items);
+		for (const std::string &item : items) {
+			
+			if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
+				continue;
+			}
+
+			char temp[1024] = {};
+			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s%s", host.c_str(), port, subdir.c_str(),item.c_str());
+			games.push_back(temp);
+		}
+>>>>>>> 3f4d84dc2e55b02a0da49f84834b49700b966a4f
 	} else {
 		ERROR_LOG(FILESYS, "Unsupported Content-Type: %s", contentType.c_str());
 		return false;
@@ -675,6 +711,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 
 	remoteisoSettings->Add(new ItemHeader(ri->T("Remote disc streaming")));
 	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, ri->T("Manual Mode Client", "Manual Mode Client")));
+<<<<<<< HEAD
 	PopupTextInputChoice *remoteServer = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager()));
 	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
 	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, ri->T("Remote Port", "Remote Port"), 100, screenManager()));
@@ -682,6 +719,27 @@ void RemoteISOSettingsScreen::CreateViews() {
 	PopupTextInputChoice *remoteSubdir = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), "", 255, screenManager()));
 	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
 	remoteSubdir->OnChange.Handle(this, &RemoteISOSettingsScreen::OnChangeRemoteISOSubdir);
+=======
+#if !defined(MOBILE_DEVICE)
+	PopupTextInputChoice *remoteServer = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager()));
+#else
+	ChoiceWithValueDisplay *remoteServer = new ChoiceWithValueDisplay(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), nullptr);
+	remoteisoSettings->Add(remoteServer);
+	remoteServer->OnClick.Handle(this, &RemoteISOSettingsScreen::OnClickRemoteServer);
+#endif
+	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
+	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, ri->T("Remote Port", "Remote Port"), 100, screenManager()));
+	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
+#if !defined(MOBILE_DEVICE)
+	PopupTextInputChoice *remoteSubdir = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), "", 255, screenManager()));
+	remoteSubdir->OnChange.Handle(this, &RemoteISOSettingsScreen::OnChangeRemoteISOSubdir);
+#else
+	ChoiceWithValueDisplay *remoteSubdir = remoteisoSettings->Add(
+			new ChoiceWithValueDisplay(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), nullptr));
+	remoteSubdir->OnClick.Handle(this, &RemoteISOSettingsScreen::OnClickRemoteISOSubdir);
+#endif
+	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
+>>>>>>> 3f4d84dc2e55b02a0da49f84834b49700b966a4f
 
 	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, ri->T("Local Server Port", "Local Server Port"), 100, screenManager());
 	remoteisoSettings->Add(portChoice);
@@ -693,6 +751,19 @@ void RemoteISOSettingsScreen::CreateViews() {
 	AddStandardBack(root_);
 }
 
+<<<<<<< HEAD
+=======
+UI::EventReturn RemoteISOSettingsScreen::OnClickRemoteServer(UI::EventParams &e) {
+	System_SendMessage("inputbox", ("remoteiso_server:" + g_Config.sLastRemoteISOServer).c_str());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn RemoteISOSettingsScreen::OnClickRemoteISOSubdir(UI::EventParams &e) {
+	System_SendMessage("inputbox", ("remoteiso_subdir:" + g_Config.sRemoteISOSubdir).c_str());
+	return UI::EVENT_DONE;
+}
+
+>>>>>>> 3f4d84dc2e55b02a0da49f84834b49700b966a4f
 UI::EventReturn RemoteISOSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {
 	//Conform to HTTP standards
 	ReplaceAll(g_Config.sRemoteISOSubdir, " ", "%20");
