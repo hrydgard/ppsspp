@@ -2,6 +2,7 @@
 #include "base/logging.h"
 
 #include "Common/Vulkan/VulkanContext.h"
+#include "Core/Config.h"
 #include "thin3d/VulkanRenderManager.h"
 #include "thread/threadutil.h"
 
@@ -126,7 +127,7 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	queueRunner_.CreateDeviceObjects();
 
 	// Temporary AMD hack for issue #10097
-	if (vulkan_->GetPhysicalDeviceProperties().vendorID == VULKAN_VENDOR_AMD) {
+	if (!g_Config.bVulkanMultithreading) {
 		useThread_ = false;
 	}
 }

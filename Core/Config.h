@@ -134,6 +134,7 @@ public:
 	bool bFuncReplacements;
 	bool bHideSlowWarnings;
 
+	bool bVulkanMultithreading;
 	bool bSeparateSASThread;
 	bool bSeparateIOThread;
 	int iIOTimingMethod;
