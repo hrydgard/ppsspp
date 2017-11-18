@@ -176,14 +176,7 @@ public:
 	// uint32_t fixedColor;
 
 	void Apply(GLRenderManager *render) {
-		if (enabled) {
-			glEnable(GL_BLEND);
-			glBlendEquationSeparate(eqCol, eqAlpha);
-			glBlendFuncSeparate(srcCol, dstCol, srcAlpha, dstAlpha);
-		} else {
-			glDisable(GL_BLEND);
-		}
-		glColorMask(colorMask & 1, (colorMask >> 1) & 1, (colorMask >> 2) & 1, (colorMask >> 3) & 1);
+		render->SetBlendAndMask(colorMask, enabled, srcCol, dstCol, srcAlpha, dstAlpha, eqCol, eqAlpha);
 	}
 };
 
@@ -297,14 +290,13 @@ public:
 	OpenGLInputLayout(GLRenderManager *render) : render_(render) {}
 	~OpenGLInputLayout();
 
-	void Apply(const void *base = nullptr);
-	void Unapply();
 	void Compile(const InputLayoutDesc &desc);
 	bool RequiresBuffer() {
 		return false;
 	}
 
 	GLRInputLayout *inputLayout_;
+	int stride;
 private:
 	GLRenderManager *render_;
 };
@@ -510,6 +502,13 @@ private:
 	// Framebuffer state
 	GLuint currentDrawHandle_ = 0;
 	GLuint currentReadHandle_ = 0;
+
+	// Frames in flight is not such a strict concept as with Vulkan until we start using glBufferStorage and fences.
+	// But might as well have the structure ready, and can't hurt to rotate buffers.
+	struct FrameData {
+		GLPushBuffer *push;
+	};
+	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES];
 };
 
 OpenGLContext::OpenGLContext() {
@@ -538,18 +537,29 @@ OpenGLContext::OpenGLContext() {
 	default:
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 		break;
+  }
+	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
+		frameData_[i].push = new GLPushBuffer(&renderManager_, 64 * 1024);
 	}
 }
 
 OpenGLContext::~OpenGLContext() {
+	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
+		frameData_[i].push->Destroy();
+		delete frameData_[i].push;
+	}
 	boundSamplers_.clear();
 }
 
 void OpenGLContext::BeginFrame() {
 	renderManager_.BeginFrame();
+	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
+	frameData.push->Begin();
 }
 
 void OpenGLContext::EndFrame() {
+	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
+	frameData.push->End();  // upload the data!
 	renderManager_.Finish();
 }
 
@@ -1120,33 +1130,50 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 
 void OpenGLContext::Draw(int vertexCount, int offset) {
 	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
-	curPipeline_->inputLayout->Apply();
+	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, 0);
 	ApplySamplers();
 
 	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
 
-	curPipeline_->inputLayout->Unapply();
+	renderManager_.UnbindInputLayout(curPipeline_->inputLayout->inputLayout_);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
-	curPipeline_->inputLayout->Apply();
+	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, 0);
 	ApplySamplers();
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
 	curIBuffer_->Bind(curIBufferOffset_);
 
 	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (void *)(intptr_t)offset);
-
-	curPipeline_->inputLayout->Unapply();
+	renderManager_.UnbindInputLayout(curPipeline_->inputLayout->inputLayout_);
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
-	curPipeline_->inputLayout->Apply(vdata);
+#if 1
+	int stride = curPipeline_->inputLayout->stride;
+	size_t dataSize = stride * vertexCount;
+
+	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
+
+	GLRBuffer *buf;
+	size_t offset = frameData.push->Push(vdata, dataSize, &buf);
+
 	ApplySamplers();
 
-	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
+	renderManager_.BindVertexBuffer(buf);
+	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, (void *)offset);
 
-	curPipeline_->inputLayout->Unapply();
+	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
+	renderManager_.UnbindInputLayout(curPipeline_->inputLayout->inputLayout_);
+	renderManager_.BindVertexBuffer(nullptr);
+#else
+	ApplySamplers();
+	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, (void *)vdata);
+	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
+	renderManager_.UnbindInputLayout(curPipeline_->inputLayout->inputLayout_);
+
+#endif
 }
 
 void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
@@ -1174,6 +1201,10 @@ OpenGLInputLayout::~OpenGLInputLayout() {
 
 void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 	int semMask = 0;
+
+	// This is only accurate if there's only one stream. But whatever, for now.
+	stride = (GLsizei)desc.bindings[0].stride;
+
 	std::vector<GLRInputLayout::Entry> entries;
 	for (auto &attr : desc.attributes) {
 		GLRInputLayout::Entry entry;
@@ -1210,14 +1241,6 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 		entries.push_back(entry);
 	}
 	inputLayout_ = render_->CreateInputLayout(entries);
-}
-
-void OpenGLInputLayout::Apply(const void *base) {
-	render_->BindInputLayout(inputLayout_, base);
-}
-
-void OpenGLInputLayout::Unapply() {
-	render_->UnbindInputLayout(inputLayout_);
 }
 
 // On PC, we always use GL_DEPTH24_STENCIL8. 
