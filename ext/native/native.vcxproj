@@ -241,6 +241,8 @@
     <ClInclude Include="gfx_es2\draw_text_win.h" />
     <ClInclude Include="thin3d\d3d11_loader.h" />
     <ClInclude Include="thin3d\DataFormat.h" />
+    <ClInclude Include="thin3d\GLQueueRunner.h" />
+    <ClInclude Include="thin3d\GLRenderManager.h" />
     <ClInclude Include="thin3d\VulkanQueueRunner.h" />
     <ClInclude Include="thin3d\VulkanRenderManager.h" />
     <ClInclude Include="util\text\wrap_text.h" />
@@ -699,6 +701,8 @@
     <ClCompile Include="gfx_es2\draw_text_win.cpp" />
     <ClCompile Include="math\dataconv.cpp" />
     <ClCompile Include="thin3d\d3d11_loader.cpp" />
+    <ClCompile Include="thin3d\GLQueueRunner.cpp" />
+    <ClCompile Include="thin3d\GLRenderManager.cpp" />
     <ClCompile Include="thin3d\thin3d_d3d11.cpp" />
     <ClCompile Include="thin3d\VulkanQueueRunner.cpp" />
     <ClCompile Include="thin3d\VulkanRenderManager.cpp" />
