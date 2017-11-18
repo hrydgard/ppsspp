@@ -42,6 +42,7 @@ enum class GLRRenderCommand : uint8_t {
 	BINDTEXTURE,
 	BIND_FB_TEXTURE,
 	BIND_INPUT_LAYOUT,
+	BIND_VERTEX_BUFFER,
 	UNBIND_INPUT_LAYOUT,
 	GENMIPS,
 	DRAW,
@@ -120,6 +121,9 @@ struct GLRRenderData {
 			int aspect;
 		} bind_fb_texture;
 		struct {
+			GLRBuffer *buffer;
+		} bind_buffer;
+		struct {
 			GLRProgram *program;
 		} program;
 		struct {
@@ -195,6 +199,7 @@ struct GLRInitStep {
 			int offset;
 			int size;
 			uint8_t *data;  // owned, delete[]-d
+			bool deleteData;
 		} buffer_subdata;
 		struct {
 			GLRTexture *texture;

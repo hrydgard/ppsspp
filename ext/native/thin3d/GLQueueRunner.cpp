@@ -36,8 +36,10 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		case GLRInitStepType::BUFFER_SUBDATA:
 		{
 			GLRBuffer *buffer = step.buffer_subdata.buffer;
-			glBufferSubData(buffer->buffer, step.buffer_subdata.offset, step.buffer_subdata.size, step.buffer_subdata.data);
-			delete[] step.buffer_subdata.data;
+			glBindBuffer(GL_ARRAY_BUFFER, buffer->buffer);
+			glBufferSubData(GL_ARRAY_BUFFER, step.buffer_subdata.offset, step.buffer_subdata.size, step.buffer_subdata.data);
+			if (step.buffer_subdata.deleteData)
+				delete[] step.buffer_subdata.data;
 			break;
 		}
 		case GLRInitStepType::CREATE_PROGRAM:
@@ -184,6 +186,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	PerformBindFramebufferAsRenderTarget(step);
 
 	glEnable(GL_SCISSOR_TEST);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	GLRFramebuffer *fb = step.render.framebuffer;
 	GLRProgram *curProgram = nullptr;
@@ -307,6 +311,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				auto &entry = layout->entries[i];
 				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.inputLayout.offset + entry.offset));
 			}
+			break;
+		}
+		case GLRRenderCommand::BIND_VERTEX_BUFFER:
+		{
+			GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
+			glBindBuffer(GL_ARRAY_BUFFER, buf);
 			break;
 		}
 		case GLRRenderCommand::UNBIND_INPUT_LAYOUT:
