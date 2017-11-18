@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <mutex>
+#include <cassert>
 
 #include "gfx/gl_common.h"
 #include "math/dataconv.h"
@@ -74,7 +75,12 @@ public:
 			glDeleteProgram(program);
 		}
 	}
+	struct Semantic {
+		int location;
+		const char *attrib;
+	};
 	GLuint program = 0;
+	std::vector<Semantic> semantics_;
 };
 
 class GLRTexture {
@@ -90,11 +96,11 @@ public:
 class GLRBuffer {
 public:
 	~GLRBuffer() {
-		if (texture) {
-			glDeleteTextures(1, &texture);
+		if (buffer) {
+			glDeleteBuffers(1, &buffer);
 		}
 	}
-	GLuint texture;
+	GLuint buffer;
 };
 
 enum class GLRRunType {
@@ -142,21 +148,33 @@ public:
 		return step.create_texture.texture;
 	}
 
-	GLRShader *CreateShader(const char *code) {
+	GLRShader *CreateShader(GLuint stage, std::string &code) {
 		GLRInitStep step{ GLRInitStepType::CREATE_SHADER };
 		step.create_shader.shader = new GLRShader();
-		step.create_shader.code = code;
+		step.create_shader.stage = stage;
+		step.create_shader.code = new char[code.size() + 1];
+		memcpy(step.create_shader.code, code.data(), code.size() + 1);
 		initSteps_.push_back(step);
 		return step.create_shader.shader;
 	}
 
-	GLRProgram *CreateProgram(GLRShader *vshader, GLRShader *fshader) {
+	GLRProgram *CreateProgram(std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics) {
 		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
+		assert(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
 		step.create_program.program = new GLRProgram();
-		step.create_program.vshader = vshader;
-		step.create_program.fshader = fshader;
+		step.create_program.program->semantics_ = semantics;
+		for (int i = 0; i < shaders.size(); i++) {
+			step.create_program.shaders[i] = shaders[i];
+		}
 		initSteps_.push_back(step);
 		return step.create_program.program;
+	}
+
+	void DeleteShader(GLRShader *shader) {
+		deleter_.shaders.push_back(shader);
+	}
+	void DeleteProgram(GLRProgram *program) {
+		deleter_.programs.push_back(program);
 	}
 
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
@@ -166,6 +184,22 @@ public:
 
 	void CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask);
 	void BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter);
+
+	void BindProgram(GLRProgram *program) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::BINDPROGRAM };
+		data.program.program = program;
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetDepth(bool enabled, bool write, GLenum func) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::DEPTH };
+		data.depth.enabled = enabled;
+		data.depth.write = write;
+		data.depth.func = func;
+		curRenderStep_->commands.push_back(data);
+	}
 
 	void SetViewport(const GLRViewport &vp) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
@@ -181,12 +215,16 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetStencil(bool enabled, uint8_t writeMask, uint8_t compareMask, uint8_t refValue) {
+	void SetStencil(bool enabled, GLenum func, GLenum sFail, GLenum zFail, GLenum pass, uint8_t writeMask, uint8_t compareMask, uint8_t refValue) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::STENCIL };
-		data.stencil.stencilWriteMask = writeMask;
-		data.stencil.stencilCompareMask = compareMask;
-		data.stencil.stencilRef = refValue;
+		data.stencil.func = func;
+		data.stencil.sFail = sFail;
+		data.stencil.zFail = zFail;
+		data.stencil.pass = pass;
+		data.stencil.writeMask = writeMask;
+		data.stencil.compareMask = compareMask;
+		data.stencil.ref = refValue;
 		curRenderStep_->commands.push_back(data);
 	}
 
@@ -194,6 +232,15 @@ public:
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BLENDCOLOR };
 		CopyFloat4(data.blendColor.color, color);
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetRaster(GLboolean cullEnable, GLenum frontFace, GLenum cullFace) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::RASTER };
+		data.raster.cullEnable = cullEnable;
+		data.raster.frontFace = frontFace;
+		data.raster.cullFace = cullFace;
 		curRenderStep_->commands.push_back(data);
 	}
 

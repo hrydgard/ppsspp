@@ -18,6 +18,9 @@ struct GLOffset2D {
 	int x, y;
 };
 
+class GLRProgram;
+class GLRTexture;
+
 enum class GLRRenderCommand : uint8_t {
 	DEPTH,
 	STENCIL,
@@ -28,7 +31,9 @@ enum class GLRRenderCommand : uint8_t {
 	TEXTURESAMPLER,
 	VIEWPORT,
 	SCISSOR,
+	RASTER,
 	CLEAR,
+	BINDPROGRAM,
 	BINDTEXTURE,
 	DRAW,
 	DRAW_INDEXED,
@@ -40,19 +45,31 @@ struct GLRRenderData {
 	union {
 		struct {
 			GLboolean enabled;
+			GLenum srcColor;
+			GLenum dstColor;
+			GLenum srcAlpha;
+			GLenum dstAlpha;
+			GLenum funcColor;
+			GLenum funcAlpha;
+			int mask;
+		} blend;
+		struct {
+			float color[4];
+		} blendColor;
+		struct {
+			GLboolean enabled;
 			GLboolean write;
 			GLenum func;
 		} depth;
 		struct {
 			GLboolean enabled;
-			GLenum stencilOp;
-			GLenum stencilFunc;
-			uint8_t stencilWriteMask;
-			uint8_t stencilCompareMask;
-			uint8_t stencilRef;
-			GLenum stencilSFail;
-			GLenum stencilZFail;
-			GLenum stencilPass;
+			GLenum func;
+			uint8_t writeMask;
+			uint8_t compareMask;
+			uint8_t ref;
+			GLenum sFail;
+			GLenum zFail;
+			GLenum pass;
 		} stencil;
 		struct {
 			GLenum mode;  // primitive
@@ -84,8 +101,11 @@ struct GLRRenderData {
 		} clear;
 		struct {
 			int slot;
-			GLint texture;
+			GLRTexture *texture;
 		} texture;
+		struct {
+			GLRProgram *program;
+		} program;
 		struct {
 			GLuint wrapU;
 			GLuint wrapV;
@@ -100,17 +120,10 @@ struct GLRRenderData {
 			GLRect2D rc;
 		} scissor;
 		struct {
-			GLboolean enabled;
-			GLenum srcColor;
-			GLenum dstColor;
-			GLenum srcAlpha;
-			GLenum dstAlpha;
-			GLenum funcColor;
-			GLenum funcAlpha;
-		} blend;
-		struct {
-			float color[4];
-		} blendColor;
+			GLboolean cullEnable;
+			GLenum frontFace;
+			GLenum cullFace;
+		} raster;
 	};
 };
 
@@ -130,6 +143,7 @@ enum class GLRInitStepType : uint8_t {
 class GLRShader;
 class GLRTexture;
 class GLRProgram;
+class GLRBuffer;
 
 struct GLRInitStep {
 	GLRInitStep(GLRInitStepType _type) : stepType(_type) {}
@@ -143,13 +157,17 @@ struct GLRInitStep {
 		} create_texture;
 		struct {
 			GLRShader *shader;
-			const char *code;
+			char *code;
+			GLuint stage;
 		} create_shader;
 		struct {
 			GLRProgram *program;
-			GLRShader *vshader;
-			GLRShader *fshader;
+			GLRShader *shaders[3];
+			int num_shaders;
 		} create_program;
+		struct {
+			GLRBuffer *buffer;
+		} create_buffer;
 	};
 };
 
