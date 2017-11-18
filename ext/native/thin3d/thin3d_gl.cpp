@@ -14,6 +14,8 @@
 #include "gfx/GLStateCache.h"
 #include "gfx_es2/gpu_features.h"
 
+#include "thin3d/GLRenderManager.h"
+
 #ifdef IOS
 extern void bindDefaultFBO();
 #endif
@@ -545,6 +547,8 @@ private:
 	GLenum fbo_get_fb_target(bool read, GLuint **cached);
 	void fbo_unbind();
 	void ApplySamplers();
+
+	GLRenderManager renderManager_;
 
 	std::vector<OpenGLSamplerState *> boundSamplers_;
 	OpenGLTexture *boundTextures_[8]{};
