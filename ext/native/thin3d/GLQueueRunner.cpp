@@ -2,6 +2,7 @@
 #include "GLRenderManager.h"
 #include "base/logging.h"
 #include "gfx/gl_common.h"
+#include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
 #include "math/dataconv.h"
 
@@ -19,6 +20,21 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		switch (step.stepType) {
 		case GLRInitStepType::CREATE_TEXTURE:
 			break;
+		case GLRInitStepType::CREATE_BUFFER:
+		{
+			GLRBuffer *buffer = step.create_buffer.buffer;
+			glGenBuffers(1, &buffer->buffer);
+			glBindBuffer(buffer->target_, buffer->buffer);
+			glBufferData(buffer->target_, step.create_buffer.size, nullptr, step.create_buffer.usage);
+			break;
+		}
+		case GLRInitStepType::BUFFER_SUBDATA:
+		{
+			GLRBuffer *buffer = step.buffer_subdata.buffer;
+			glBufferSubData(buffer->buffer, step.buffer_subdata.offset, step.buffer_subdata.size, step.buffer_subdata.data);
+			delete[] step.buffer_subdata.data;
+			break;
+		}
 		case GLRInitStepType::CREATE_PROGRAM:
 		{
 			GLRProgram *program = step.create_program.program;
@@ -90,12 +106,18 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			}
 			break;
 		}
-		case GLRInitStepType::CREATE_BUFFER:
-			glGenBuffers(1, &step.create_buffer.buffer->buffer);
-			break;
 
 		case GLRInitStepType::TEXTURE_SUBDATA:
 			break;
+		case GLRInitStepType::TEXTURE_IMAGE:
+		{
+			GLRTexture *tex = step.texture_image.texture;
+			CHECK_GL_ERROR_IF_DEBUG();
+			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
+			delete[] step.texture_image.data;
+			CHECK_GL_ERROR_IF_DEBUG();
+			break;
+		}
 		}
 	}
 }
@@ -148,7 +170,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	int curHeight = step.render.framebuffer ? step.render.framebuffer->height : 0; // vulkan_->GetBackbufferHeight();
 	
 	GLRFramebuffer *fb = step.render.framebuffer;
-
+	GLRProgram *curProgram = nullptr;
 	GLint activeTexture = GL_TEXTURE0;
 
 	auto &commands = step.commands;
@@ -197,24 +219,40 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			glScissor(c.scissor.rc.x, c.scissor.rc.y, c.scissor.rc.w, c.scissor.rc.h);
 			break;
 		case GLRRenderCommand::UNIFORM4F:
-			switch (c.uniform4.count) {
-			case 1:
-				glUniform1f(c.uniform4.loc, c.uniform4.v[0]);
-				break;
-			case 2:
-				glUniform2fv(c.uniform4.loc, 1, c.uniform4.v);
-				break;
-			case 3:
-				glUniform3fv(c.uniform4.loc, 1, c.uniform4.v);
-				break;
-			case 4:
-				glUniform4fv(c.uniform4.loc, 1, c.uniform4.v);
-				break;
+		{
+			int loc = c.uniform4.loc;
+			if (c.uniform4.name) {
+				loc = curProgram->GetUniformLoc(c.uniform4.name);
+			}
+			if (loc >= 0) {
+				switch (c.uniform4.count) {
+				case 1:
+					glUniform1f(loc, c.uniform4.v[0]);
+					break;
+				case 2:
+					glUniform2fv(loc, 1, c.uniform4.v);
+					break;
+				case 3:
+					glUniform3fv(loc, 1, c.uniform4.v);
+					break;
+				case 4:
+					glUniform4fv(loc, 1, c.uniform4.v);
+					break;
+				}
 			}
 			break;
+		}
 		case GLRRenderCommand::UNIFORMMATRIX:
-			glUniformMatrix4fv(c.uniformMatrix4.loc, 1, false, c.uniformMatrix4.m);
+		{
+			int loc = c.uniform4.loc;
+			if (c.uniform4.name) {
+				loc = curProgram->GetUniformLoc(c.uniform4.name);
+			}
+			if (loc >= 0) {
+				glUniformMatrix4fv(loc, 1, false, c.uniformMatrix4.m);
+			}
 			break;
+		}
 		case GLRRenderCommand::STENCIL:
 			glStencilFunc(c.stencil.func, c.stencil.ref, c.stencil.compareMask);
 			glStencilOp(c.stencil.sFail, c.stencil.zFail, c.stencil.pass);
@@ -227,14 +265,18 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				glActiveTexture(target);
 				activeTexture = target;
 			}
-			glBindTexture(GL_TEXTURE_2D, c.texture.texture->texture);
+			glBindTexture(c.texture.texture->target, c.texture.texture->texture);
 			break;
 		}
 		case GLRRenderCommand::BINDPROGRAM:
 		{
 			glUseProgram(c.program.program->program);
+			curProgram = c.program.program;
 			break;
 		}
+		case GLRRenderCommand::GENMIPS:
+			glGenerateMipmap(GL_TEXTURE_2D);
+			break;
 		case GLRRenderCommand::DRAW:
 			glDrawArrays(c.draw.mode, c.draw.first, c.draw.count);
 			break;
@@ -242,6 +284,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			if (c.drawIndexed.instances == 1) {
 				glDrawElements(c.drawIndexed.mode, c.drawIndexed.count, c.drawIndexed.indexType, c.drawIndexed.indices);
 			}
+			break;
+		case GLRRenderCommand::TEXTURESAMPLER:
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, c.textureSampler.minFilter);
 			break;
 		}
 	}
