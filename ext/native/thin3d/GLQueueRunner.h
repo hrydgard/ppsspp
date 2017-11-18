@@ -18,8 +18,12 @@ struct GLOffset2D {
 	int x, y;
 };
 
-class GLRProgram;
+
+class GLRShader;
 class GLRTexture;
+class GLRBuffer;
+class GLRProgram;
+class GLRInputLayout;
 
 enum class GLRRenderCommand : uint8_t {
 	DEPTH,
@@ -35,6 +39,8 @@ enum class GLRRenderCommand : uint8_t {
 	CLEAR,
 	BINDPROGRAM,
 	BINDTEXTURE,
+	BIND_INPUT_LAYOUT,
+	UNBIND_INPUT_LAYOUT,
 	GENMIPS,
 	DRAW,
 	DRAW_INDEXED,
@@ -110,6 +116,10 @@ struct GLRRenderData {
 			GLRProgram *program;
 		} program;
 		struct {
+			GLRInputLayout *inputLayout;
+			intptr_t offset;
+		} inputLayout;
+		struct {
 			GLenum wrapS;
 			GLenum wrapT;
 			GLenum magFilter;
@@ -137,16 +147,12 @@ enum class GLRInitStepType : uint8_t {
 	CREATE_SHADER,
 	CREATE_PROGRAM,
 	CREATE_BUFFER,
+	CREATE_INPUT_LAYOUT,
 
 	TEXTURE_IMAGE,
 	TEXTURE_SUBDATA,
 	BUFFER_SUBDATA,
 };
-
-class GLRShader;
-class GLRTexture;
-class GLRProgram;
-class GLRBuffer;
 
 struct GLRInitStep {
 	GLRInitStep(GLRInitStepType _type) : stepType(_type) {}
@@ -174,6 +180,9 @@ struct GLRInitStep {
 			int size;
 			GLuint usage;
 		} create_buffer;
+		struct {
+			GLRInputLayout *inputLayout;
+		} create_input_layout;
 		struct {
 			GLRBuffer *buffer;
 			int offset;
