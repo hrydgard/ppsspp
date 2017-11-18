@@ -224,12 +224,14 @@ void GLRenderManager::Finish() {
 	FrameData &frameData = frameData_[curFrame];
 	if (!useThread_) {
 		frameData.steps = std::move(steps_);
+		frameData.initSteps = std::move(initSteps_);
 		frameData.type = GLRRunType::END;
 		Run(curFrame);
 	} else {
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 		VLOG("PUSH: Frame[%d].readyForRun = true", curFrame);
 		frameData.steps = std::move(steps_);
+		frameData.initSteps = std::move(initSteps_);
 		frameData.readyForRun = true;
 		frameData.type = GLRRunType::END;
 		frameData.pull_condVar.notify_all();
@@ -239,6 +241,8 @@ void GLRenderManager::Finish() {
 	frameData_[curFrame_].deleter.Take(deleter_);
 
 	curFrame_++;
+	if (curFrame_ >= MAX_INFLIGHT_FRAMES)
+		curFrame_ = 0;
 
 	insideFrame_ = false;
 }
