@@ -19,7 +19,12 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		const GLRInitStep &step = steps[i];
 		switch (step.stepType) {
 		case GLRInitStepType::CREATE_TEXTURE:
+		{
+			GLRTexture *tex = step.create_texture.texture;
+			glGenTextures(1, &tex->texture);
+			glBindTexture(tex->target, tex->texture);
 			break;
+		}
 		case GLRInitStepType::CREATE_BUFFER:
 		{
 			GLRBuffer *buffer = step.create_buffer.buffer;
@@ -122,8 +127,14 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
 			delete[] step.texture_image.data;
 			CHECK_GL_ERROR_IF_DEBUG();
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			break;
 		}
+		default:
+			Crash();
 		}
 	}
 }
@@ -146,6 +157,9 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps) {
 			break;
 		case GLRStepType::READBACK_IMAGE:
 			PerformReadbackImage(step);
+			break;
+		default:
+			Crash();
 			break;
 		}
 		delete steps[i];
@@ -172,9 +186,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	// This is supposed to bind a vulkan render pass to the command buffer.
 	PerformBindFramebufferAsRenderTarget(step);
 
-	int curWidth = step.render.framebuffer ? step.render.framebuffer->width : 0; // vulkan_->GetBackbufferWidth();
-	int curHeight = step.render.framebuffer ? step.render.framebuffer->height : 0; // vulkan_->GetBackbufferHeight();
-	
 	GLRFramebuffer *fb = step.render.framebuffer;
 	GLRProgram *curProgram = nullptr;
 	GLint activeTexture = GL_TEXTURE0;
@@ -293,7 +304,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 					glEnableVertexAttribArray(i);
 				}
 			}
-			for (auto &entry: layout->entries) {
+			for (int i = 0; i < layout->entries.size(); i++) {
+				auto &entry = layout->entries[i];
 				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.inputLayout.offset + entry.offset));
 			}
 			break;
@@ -325,12 +337,26 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, c.textureSampler.minFilter);
 			break;
+		case GLRRenderCommand::RASTER:
+			if (c.raster.cullEnable) {
+				glEnable(GL_CULL_FACE);
+				glFrontFace(c.raster.frontFace);
+				glCullFace(c.raster.cullFace);
+			} else {
+				glDisable(GL_CULL_FACE);
+			}
+			break;
+		default:
+			Crash();
+			break;
 		}
 	}
+
 	if (activeTexture != GL_TEXTURE0)
 		glActiveTexture(GL_TEXTURE0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glDisable(GL_SCISSOR_TEST);
 }
 
 void GLQueueRunner::PerformCopy(const GLRStep &step) {

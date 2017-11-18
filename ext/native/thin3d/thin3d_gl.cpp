@@ -626,8 +626,6 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	GLenum target = TypeToTarget(desc.type);
 	tex_ = render->CreateTexture(target, width_, height_);
 
-	render->BindTexture(0, tex_);
-
 	canWrap_ = isPowerOf2(width_) && isPowerOf2(height_);
 	mipLevels_ = desc.mipLevels;
 	if (!desc.initData.size())
@@ -642,7 +640,6 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	}
 	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
 
-	render->SetTextureSampler(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_LINEAR, mipLevels_ > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
 	/*
 #ifdef USING_GLES2
 	if (gl_extensions.GLES3) {
@@ -658,8 +655,6 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 		AutoGenMipmaps();
 	}
 
-	// Unbind.
-	render->BindTexture(0, nullptr);
 }
 
 OpenGLTexture::~OpenGLTexture() {
@@ -672,7 +667,7 @@ OpenGLTexture::~OpenGLTexture() {
 
 void OpenGLTexture::AutoGenMipmaps() {
 	if (!generatedMips_) {
-		render_->BindTexture(0, tex_);
+		// Assumes the texture is bound for editing
 		render_->GenerateMipmap();
 		generatedMips_ = true;
 	}
@@ -1168,8 +1163,8 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
 	curIBuffer_->Bind(curIBufferOffset_);
 
-	glDrawElements(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
-	
+	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (void *)(intptr_t)offset);
+
 	curPipeline_->inputLayout->Unapply();
 }
 
@@ -1177,7 +1172,7 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	curPipeline_->inputLayout->Apply(vdata);
 	ApplySamplers();
 
-	glDrawArrays(curPipeline_->prim, 0, vertexCount);
+	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
 
 	curPipeline_->inputLayout->Unapply();
 }
@@ -1518,6 +1513,14 @@ void OpenGLContext::fbo_unbind() {
 }
 
 void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
+	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
+	GLRRenderPassAction color = (GLRRenderPassAction)rp.color;
+	GLRRenderPassAction depth = (GLRRenderPassAction)rp.depth;
+
+	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->framebuffer : nullptr, color, depth, rp.clearColor, rp.clearDepth, rp.clearStencil);
+
+#if 0
+
 	CHECK_GL_ERROR_IF_DEBUG();
 	if (fbo) {
 		OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
@@ -1565,6 +1568,7 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 		glstate.stencilMask.restore();
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
+#endif
 }
 
 void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
