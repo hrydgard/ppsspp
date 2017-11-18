@@ -475,7 +475,12 @@ public:
 	}
 
 	uintptr_t GetNativeObject(NativeObject obj) override {
-		return 0;
+		switch (obj) {
+		case NativeObject::RENDER_MANAGER:
+			return (uintptr_t)&renderManager_;
+		default:
+			return 0;
+		}
 	}
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override {}
@@ -783,6 +788,9 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		return;
 	}
 
+	if (stride == 0)
+		stride = width;
+
 	// Make a copy of data with stride eliminated.
 	uint8_t *texData = new uint8_t[width * height * alignment];
 	for (int y = 0; y < height; y++) {
@@ -790,7 +798,6 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	}
 	render_->TextureImage(tex_, level, width, height, internalFormat, format, type, texData);
 }
-
 
 #ifdef DEBUG_READ_PIXELS
 // TODO: Make more generic.
@@ -1589,19 +1596,9 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 
 void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
-	if (!fb)
-		return;
-	if (binding != 0)
-		glActiveTexture(GL_TEXTURE0 + binding);
-	switch (channelBit) {
-	case FB_DEPTH_BIT:
-		glBindTexture(GL_TEXTURE_2D, fb->z_buffer ? fb->z_buffer : fb->z_stencil_buffer);
-	case FB_COLOR_BIT:
-	default:
-		glBindTexture(GL_TEXTURE_2D, fb->color_texture);
-		break;
-	}
-	glActiveTexture(GL_TEXTURE0);
+
+	GLuint aspect = 0;
+	renderManager_.BindFramebufferAsTexture(fb->framebuffer, binding, (int)channelBit, color);
 }
 
 OpenGLFramebuffer::~OpenGLFramebuffer() {

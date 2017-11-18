@@ -250,7 +250,7 @@ public:
 	}
 
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
-	GLuint BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment);
+	void BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment);
 	bool CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride);
 	void CopyImageToMemorySync(GLuint texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride);
 
@@ -492,8 +492,6 @@ private:
 	FrameData frameData_[MAX_INFLIGHT_FRAMES];
 
 	// Submission time state
-	int curWidth_;
-	int curHeight_;
 	bool insideFrame_ = false;
 	GLRStep *curRenderStep_ = nullptr;
 	std::vector<GLRStep *> steps_;

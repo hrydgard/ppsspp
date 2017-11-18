@@ -176,15 +176,14 @@ void GLQueueRunner::PerformBlit(const GLRStep &step) {
 
 void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	// Don't execute empty renderpasses.
-	if (step.commands.empty() && step.render.color == GLRRenderPassAction::KEEP && step.render.depthStencil == GLRRenderPassAction::KEEP) {
+	if (step.commands.empty()) {
 		// Nothing to do.
 		return;
 	}
 
-	glEnable(GL_SCISSOR_TEST);
-
-	// This is supposed to bind a vulkan render pass to the command buffer.
 	PerformBindFramebufferAsRenderTarget(step);
+
+	glEnable(GL_SCISSOR_TEST);
 
 	GLRFramebuffer *fb = step.render.framebuffer;
 	GLRProgram *curProgram = nullptr;
@@ -224,7 +223,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				glClearDepth(c.clear.clearZ);
 #endif
 			}
-			if (c.clear.clearMask & GL_STENCIL) {
+			if (c.clear.clearMask & GL_STENCIL_BUFFER_BIT) {
 				glClearStencil(c.clear.clearStencil);
 			}
 			glClear(c.clear.clearMask);
