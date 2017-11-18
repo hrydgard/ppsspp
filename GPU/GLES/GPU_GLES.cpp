@@ -79,11 +79,13 @@ static const GLESCommandTableEntry commandTable[] = {
 GPU_GLES::CommandInfo GPU_GLES::cmdInfo_[256];
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-: GPUCommon(gfxCtx, draw) {
+: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
-	shaderManagerGL_ = new ShaderManagerGLES();
+	GLRenderManager *render = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
+	shaderManagerGL_ = new ShaderManagerGLES(render);
 	framebufferManagerGL_ = new FramebufferManagerGLES(draw);
 	framebufferManager_ = framebufferManagerGL_;
 	textureCacheGL_ = new TextureCacheGLES(draw);

@@ -53,6 +53,24 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			for (auto iter : program->semantics_) {
 				glBindAttribLocation(program->program, iter.location, iter.attrib);
 			}
+
+#if !defined(USING_GLES2)
+			if (step.create_program.support_dual_source) {
+				// Dual source alpha
+				glBindFragDataLocationIndexed(program->program, 0, 0, "fragColor0");
+				glBindFragDataLocationIndexed(program->program, 0, 1, "fragColor1");
+			} else if (gl_extensions.VersionGEThan(3, 3, 0)) {
+				glBindFragDataLocation(program->program, 0, "fragColor0");
+			}
+#elif !defined(IOS)
+			if (gl_extensions.GLES3) {
+				if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
+					glBindFragDataLocationIndexedEXT(program->program, 0, 0, "fragColor0");
+					glBindFragDataLocationIndexedEXT(program->program, 0, 1, "fragColor1");
+				}
+			}
+#endif
+
 			glLinkProgram(program->program);
 
 			GLint linkStatus = GL_FALSE;
@@ -84,6 +102,13 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				if (samplerLoc != -1) {
 					glUniform1i(samplerLoc, i);
 				}
+			}
+
+			// Query all the uniforms.
+			for (int i = 0; i < program->queries_.size(); i++) {
+				auto &x = program->queries_[i];
+				assert(x.name);
+				*x.dest = glGetUniformLocation(program->program, x.name);
 			}
 
 			// Here we could (using glGetAttribLocation) save a bitmask about which pieces of vertex data are used in the shader
@@ -193,6 +218,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	GLRProgram *curProgram = nullptr;
 	GLint activeTexture = GL_TEXTURE0;
 
+	int attrMask = 0;
+
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
 		switch (c.cmd) {
@@ -245,7 +272,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			break;
 		case GLRRenderCommand::UNIFORM4F:
 		{
-			int loc = c.uniform4.loc;
+			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
 			if (c.uniform4.name) {
 				loc = curProgram->GetUniformLoc(c.uniform4.name);
 			}
@@ -267,9 +294,33 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			break;
 		}
+		case GLRRenderCommand::UNIFORM4I:
+		{
+			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
+			if (c.uniform4.name) {
+				loc = curProgram->GetUniformLoc(c.uniform4.name);
+			}
+			if (loc >= 0) {
+				switch (c.uniform4.count) {
+				case 1:
+					glUniform1iv(loc, 1, (GLint *)&c.uniform4.v[0]);
+					break;
+				case 2:
+					glUniform2iv(loc, 1, (GLint *)c.uniform4.v);
+					break;
+				case 3:
+					glUniform3iv(loc, 1, (GLint *)c.uniform4.v);
+					break;
+				case 4:
+					glUniform4iv(loc, 1, (GLint *)c.uniform4.v);
+					break;
+				}
+			}
+			break;
+		}
 		case GLRRenderCommand::UNIFORMMATRIX:
 		{
-			int loc = c.uniform4.loc;
+			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
 			if (c.uniform4.name) {
 				loc = curProgram->GetUniformLoc(c.uniform4.name);
 			}
@@ -302,9 +353,15 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		case GLRRenderCommand::BIND_INPUT_LAYOUT:
 		{
 			GLRInputLayout *layout = c.inputLayout.inputLayout;
+			int enable, disable;
+				enable = layout->semanticsMask_ & ~attrMask;
+				disable = (~layout->semanticsMask_) & attrMask;
 			for (int i = 0; i < 7; i++) {  // SEM_MAX
-				if (layout->semanticsMask_ & (1 << i)) {
+				if (enable & (1 << i)) {
 					glEnableVertexAttribArray(i);
+				}
+				if (disable & (1 << i)) {
+					glDisableVertexAttribArray(i);
 				}
 			}
 			for (int i = 0; i < layout->entries.size(); i++) {
@@ -317,16 +374,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		{
 			GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
 			glBindBuffer(GL_ARRAY_BUFFER, buf);
-			break;
-		}
-		case GLRRenderCommand::UNBIND_INPUT_LAYOUT:
-		{
-			GLRInputLayout *layout = c.inputLayout.inputLayout;
-			for (int i = 0; i < 7; i++) {  // SEM_MAX
-				if (layout->semanticsMask_ & (1 << i)) {
-					glDisableVertexAttribArray(i);
-				}
-			}
 			break;
 		}
 		case GLRRenderCommand::GENMIPS:
@@ -354,10 +401,21 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			} else {
 				glDisable(GL_CULL_FACE);
 			}
+			if (c.raster.ditherEnable) {
+				glEnable(GL_DITHER);
+			} else {
+				glDisable(GL_DITHER);
+			}
 			break;
 		default:
 			Crash();
 			break;
+		}
+	}
+
+	for (int i = 0; i < 7; i++) {
+		if (attrMask & (1 << i)) {
+			glDisableVertexAttribArray(i);
 		}
 	}
 

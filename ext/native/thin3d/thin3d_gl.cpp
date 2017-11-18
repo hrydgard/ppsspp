@@ -214,7 +214,7 @@ public:
 class OpenGLRasterState : public RasterState {
 public:
 	void Apply(GLRenderManager *render) {
-		render->SetRaster(cullEnable, frontFace, cullMode);
+		render->SetRaster(cullEnable, frontFace, cullMode, false);
 	}
 
 	GLboolean cullEnable;
@@ -1098,7 +1098,8 @@ bool OpenGLPipeline::LinkShaders() {
 	semantics.push_back({ SEM_NORMAL, "Normal" });
 	semantics.push_back({ SEM_TANGENT, "Tangent" });
 	semantics.push_back({ SEM_BINORMAL, "Binormal" });
-	program_ = render_->CreateProgram(linkShaders, semantics);
+	std::vector<GLRProgram::UniformLocQuery> queries;
+	program_ = render_->CreateProgram(linkShaders, semantics, queries, false);
 	return true;
 }
 
@@ -1134,8 +1135,6 @@ void OpenGLContext::Draw(int vertexCount, int offset) {
 	ApplySamplers();
 
 	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
-
-	renderManager_.UnbindInputLayout(curPipeline_->inputLayout->inputLayout_);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
@@ -1146,7 +1145,6 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	curIBuffer_->Bind(curIBufferOffset_);
 
 	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (void *)(intptr_t)offset);
-	renderManager_.UnbindInputLayout(curPipeline_->inputLayout->inputLayout_);
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1165,7 +1163,6 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, (void *)offset);
 
 	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
-	renderManager_.UnbindInputLayout(curPipeline_->inputLayout->inputLayout_);
 	renderManager_.BindVertexBuffer(nullptr);
 #else
 	ApplySamplers();

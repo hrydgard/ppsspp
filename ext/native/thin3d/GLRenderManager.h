@@ -83,8 +83,15 @@ public:
 		int location;
 		const char *attrib;
 	};
+
+	struct UniformLocQuery {
+		GLint *dest;
+		const char *name;
+	};
+
 	GLuint program = 0;
 	std::vector<Semantic> semantics_;
+	std::vector<UniformLocQuery> queries_;
 
 	struct UniformInfo {
 		int loc_;
@@ -196,10 +203,10 @@ public:
 		return step.create_texture.texture;
 	}
 
-	GLRBuffer *CreateBuffer(GLuint target, int size, GLuint usage) {
+	GLRBuffer *CreateBuffer(GLuint target, size_t size, GLuint usage) {
 		GLRInitStep step{ GLRInitStepType::CREATE_BUFFER };
 		step.create_buffer.buffer = new GLRBuffer(target);
-		step.create_buffer.size = size;
+		step.create_buffer.size = (int)size;
 		step.create_buffer.usage = usage;
 		initSteps_.push_back(step);
 		return step.create_buffer.buffer;
@@ -215,14 +222,23 @@ public:
 		return step.create_shader.shader;
 	}
 
-	GLRProgram *CreateProgram(std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics) {
+	GLRProgram *CreateProgram(std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries, bool supportDualSource) {
 		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
 		assert(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
 		step.create_program.program = new GLRProgram();
 		step.create_program.program->semantics_ = semantics;
+		step.create_program.program->queries_ = queries;
 		for (int i = 0; i < shaders.size(); i++) {
 			step.create_program.shaders[i] = shaders[i];
 		}
+#ifdef _DEBUG
+		for (auto &iter : queries) {
+			assert(iter.name);
+		}
+		for (auto &sem : semantics) {
+			assert(sem.attrib);
+		}
+#endif
 		step.create_program.num_shaders = (int)shaders.size();
 		initSteps_.push_back(step);
 		return step.create_program.program;
@@ -320,14 +336,6 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void UnbindInputLayout(GLRInputLayout *inputLayout) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		assert(inputLayout);
-		GLRRenderData data{ GLRRenderCommand::UNBIND_INPUT_LAYOUT };
-		data.inputLayout.inputLayout = inputLayout;
-		curRenderStep_->commands.push_back(data);
-	}
-
 	void GenerateMipmap() {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::GENMIPS };
@@ -357,7 +365,25 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetUniformF(int loc, int count, const float *udata) {
+	void SetUniformI(GLint *loc, int count, const int *udata) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4I };
+		data.uniform4.loc = loc;
+		data.uniform4.count = count;
+		memcpy(data.uniform4.v, udata, sizeof(int) * count);
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformI1(GLint *loc, int udata) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4I };
+		data.uniform4.loc = loc;
+		data.uniform4.count = 1;
+		memcpy(data.uniform4.v, &udata, sizeof(udata));
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformF(GLint *loc, int count, const float *udata) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
 		data.uniform4.loc = loc;
@@ -375,7 +401,7 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetUniformM4x4(int loc, const float *udata) {
+	void SetUniformM4x4(GLint *loc, const float *udata) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
 		data.uniformMatrix4.loc = loc;
@@ -405,6 +431,14 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
+	void SetNoBlendAndMask(int colorMask) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::BLEND };
+		data.blend.mask = colorMask;
+		data.blend.enabled = false;
+		curRenderStep_->commands.push_back(data);
+	}
+
 	void SetStencil(bool enabled, GLenum func, GLenum sFail, GLenum zFail, GLenum pass, uint8_t writeMask, uint8_t compareMask, uint8_t refValue) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::STENCIL };
@@ -418,19 +452,20 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetBlendFactor(float color[4]) {
+	void SetBlendFactor(const float color[4]) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BLENDCOLOR };
 		CopyFloat4(data.blendColor.color, color);
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetRaster(GLboolean cullEnable, GLenum frontFace, GLenum cullFace) {
+	void SetRaster(GLboolean cullEnable, GLenum frontFace, GLenum cullFace, GLboolean ditherEnable) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::RASTER };
 		data.raster.cullEnable = cullEnable;
 		data.raster.frontFace = frontFace;
 		data.raster.cullFace = cullFace;
+		data.raster.ditherEnable = ditherEnable;
 		curRenderStep_->commands.push_back(data);
 	}
 	

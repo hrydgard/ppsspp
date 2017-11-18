@@ -164,25 +164,14 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		}
 	}
 
-	if (force || entry.minFilt != minFilt) {
+	if (force || entry.minFilt != minFilt || entry.magFilt != magFilt || entry.sClamp != sClamp || entry.tClamp != tClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
-		entry.minFilt = minFilt;
-	}
-	if (force || entry.magFilt != magFilt) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
-		entry.magFilt = magFilt;
-	}
-
-	if (entry.framebuffer) {
-		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
-	}
-
-	if (force || entry.sClamp != sClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-		entry.sClamp = sClamp;
-	}
-	if (force || entry.tClamp != tClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+		entry.minFilt = minFilt;
+		entry.magFilt = magFilt;
+		entry.sClamp = sClamp;
 		entry.tClamp = tClamp;
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
@@ -201,6 +190,8 @@ void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferH
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 
 	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
 	// This happens whether we have OES_texture_npot or not.
@@ -209,9 +200,6 @@ void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferH
 	if (w != bufferWidth || h != bufferHeight) {
 		return;
 	}
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 }
 
 static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int numPixels) {
@@ -336,14 +324,11 @@ bool SetDebugTexture() {
 #endif
 
 void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
-	CHECK_GL_ERROR_IF_DEBUG();
 	if (entry->textureName != lastBoundTexture) {
 		glBindTexture(GL_TEXTURE_2D, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
-	CHECK_GL_ERROR_IF_DEBUG();
 	UpdateSamplingParams(*entry, false);
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void TextureCacheGLES::Unbind() {
