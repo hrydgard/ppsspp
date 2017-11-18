@@ -1,5 +1,7 @@
 #include "GLQueueRunner.h"
 #include "GLRenderManager.h"
+#include "base/logging.h"
+#include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 #include "math/dataconv.h"
 
@@ -12,7 +14,90 @@ void GLQueueRunner::DestroyDeviceObjects() {
 }
 
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
+	for (int i = 0; i < steps.size(); i++) {
+		const GLRInitStep &step = steps[i];
+		switch (step.stepType) {
+		case GLRInitStepType::CREATE_TEXTURE:
+			break;
+		case GLRInitStepType::CREATE_PROGRAM:
+		{
+			GLRProgram *program = step.create_program.program;
+			program->program = glCreateProgram();
+			for (int i = 0; i < step.create_program.num_shaders; i++) {
+				glAttachShader(program->program, step.create_program.shaders[i]->shader);
+			}
 
+			for (auto iter : program->semantics_) {
+				glBindAttribLocation(program->program, iter.location, iter.attrib);
+			}
+			glLinkProgram(program->program);
+
+			GLint linkStatus = GL_FALSE;
+			glGetProgramiv(program->program, GL_LINK_STATUS, &linkStatus);
+			if (linkStatus != GL_TRUE) {
+				GLint bufLength = 0;
+				glGetProgramiv(program->program, GL_INFO_LOG_LENGTH, &bufLength);
+				if (bufLength) {
+					char* buf = new char[bufLength];
+					glGetProgramInfoLog(program->program, bufLength, NULL, buf);
+					ELOG("Could not link program:\n %s", buf);
+					// We've thrown out the source at this point. Might want to do something about that.
+#ifdef _WIN32
+					OutputDebugStringUTF8(buf);
+#endif
+					delete[] buf;
+				} else {
+					ELOG("Could not link program with %d shaders for unknown reason:", step.create_program.num_shaders);
+				}
+				break;
+			}
+
+			// Auto-initialize samplers.
+			glUseProgram(program->program);
+			for (int i = 0; i < 4; i++) {
+				char temp[256];
+				sprintf(temp, "Sampler%i", i);
+				int samplerLoc = glGetUniformLocation(program->program, temp);
+				if (samplerLoc != -1) {
+					glUniform1i(samplerLoc, i);
+				}
+			}
+
+			// Here we could (using glGetAttribLocation) save a bitmask about which pieces of vertex data are used in the shader
+			// and then AND it with the vertex format bitmask later...
+		}
+			break;
+		case GLRInitStepType::CREATE_SHADER:
+		{
+			GLuint shader = glCreateShader(step.create_shader.stage);
+			step.create_shader.shader->shader = shader;
+			// language_ = language;
+			const char *code = step.create_shader.code;
+			glShaderSource(shader, 1, &code, nullptr);
+			delete[] code;
+			glCompileShader(shader);
+			GLint success = 0;
+			glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+			if (!success) {
+#define MAX_INFO_LOG_SIZE 2048
+				GLchar infoLog[MAX_INFO_LOG_SIZE];
+				GLsizei len = 0;
+				glGetShaderInfoLog(shader, MAX_INFO_LOG_SIZE, &len, infoLog);
+				infoLog[len] = '\0';
+				glDeleteShader(shader);
+				shader = 0;
+				ILOG("%s Shader compile error:\n%s", step.create_shader.stage == GL_FRAGMENT_SHADER ? "Fragment" : "Vertex", infoLog);
+			}
+			break;
+		}
+		case GLRInitStepType::CREATE_BUFFER:
+			glGenBuffers(1, &step.create_buffer.buffer->buffer);
+			break;
+
+		case GLRInitStepType::TEXTURE_SUBDATA:
+			break;
+		}
+	}
 }
 
 void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps) {
@@ -53,6 +138,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		// Nothing to do.
 		return;
 	}
+
+	glEnable(GL_SCISSOR_TEST);
 
 	// This is supposed to bind a vulkan render pass to the command buffer.
 	PerformBindFramebufferAsRenderTarget(step);
@@ -129,9 +216,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			glUniformMatrix4fv(c.uniformMatrix4.loc, 1, false, c.uniformMatrix4.m);
 			break;
 		case GLRRenderCommand::STENCIL:
-			glStencilFunc(c.stencil.stencilFunc, c.stencil.stencilRef, c.stencil.stencilCompareMask);
-			glStencilOp(c.stencil.stencilSFail, c.stencil.stencilZFail, c.stencil.stencilPass);
-			glStencilMask(c.stencil.stencilWriteMask);
+			glStencilFunc(c.stencil.func, c.stencil.ref, c.stencil.compareMask);
+			glStencilOp(c.stencil.sFail, c.stencil.zFail, c.stencil.pass);
+			glStencilMask(c.stencil.writeMask);
 			break;
 		case GLRRenderCommand::BINDTEXTURE:
 		{
@@ -140,7 +227,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				glActiveTexture(target);
 				activeTexture = target;
 			}
-			glBindTexture(GL_TEXTURE_2D, c.texture.texture);
+			glBindTexture(GL_TEXTURE_2D, c.texture.texture->texture);
+			break;
+		}
+		case GLRRenderCommand::BINDPROGRAM:
+		{
+			glUseProgram(c.program.program->program);
 			break;
 		}
 		case GLRRenderCommand::DRAW:
@@ -206,6 +298,14 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 			srcRect.w, srcRect.h, depth);
 	}
 #endif
+}
+
+void GLQueueRunner::PerformReadback(const GLRStep &pass) {
+
+}
+
+void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
+
 }
 
 void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
