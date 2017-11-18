@@ -138,13 +138,6 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 			return;
 		}
 	}
-	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color == GLRRenderPassAction::KEEP && curRenderStep_->render.depthStencil == GLRRenderPassAction::KEEP) {
-		// Can trivially kill the last empty render step.
-		assert(steps_.back() == curRenderStep_);
-		delete steps_.back();
-		steps_.pop_back();
-		curRenderStep_ = nullptr;
-	}
 	if (curRenderStep_ && curRenderStep_->commands.size() == 0) {
 		VLOG("Empty render step. Usually happens after uploading pixels..");
 	}
@@ -152,22 +145,36 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	GLRStep *step = new GLRStep{ GLRStepType::RENDER };
 	// This is what queues up new passes, and can end previous ones.
 	step->render.framebuffer = fb;
-	step->render.color = color;
-	step->render.depthStencil = depth;
-	step->render.clearColor = clearColor;
-	step->render.clearDepth = clearDepth;
-	step->render.clearStencil = clearStencil;
 	step->render.numDraws = 0;
 	steps_.push_back(step);
 
+	GLuint clearMask = 0;
+	GLRRenderData data;
+	data.cmd = GLRRenderCommand::CLEAR;
+	if (color == GLRRenderPassAction::CLEAR) {
+		clearMask |= GL_COLOR_BUFFER_BIT;
+		data.clear.clearColor = clearColor;
+	}
+	if (depth == GLRRenderPassAction::CLEAR) {
+		clearMask |= GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+		data.clear.clearZ = clearDepth;
+		data.clear.clearStencil = clearStencil;
+	}
+	if (clearMask) {
+		data.clear.clearMask = clearMask;
+		step->commands.push_back(data);
+	}
+
 	curRenderStep_ = step;
-	curWidth_ = fb ? fb->width : 0; // vulkan_->GetBackbufferWidth();
-	curHeight_ = fb ? fb->height : 0; // vulkan_->GetBackbufferHeight();
 }
 
-GLuint GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment) {
-	// Easy in GL.
-	return fb->color.texture;
+void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment) {
+	_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+	GLRRenderData data{ GLRRenderCommand::BIND_FB_TEXTURE };
+	data.bind_fb_texture.slot = binding;
+	data.bind_fb_texture.framebuffer = fb;
+	data.bind_fb_texture.aspect = aspectBit;
+	curRenderStep_->commands.push_back(data);
 }
 
 void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask) {
@@ -182,7 +189,7 @@ void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 }
 
 void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter) {
-
+	Crash();
 }
 
 void GLRenderManager::BeginFrame() {
