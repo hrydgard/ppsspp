@@ -22,6 +22,7 @@ struct GLOffset2D {
 class GLRShader;
 class GLRTexture;
 class GLRBuffer;
+class GLRFramebuffer;
 class GLRProgram;
 class GLRInputLayout;
 
@@ -39,6 +40,7 @@ enum class GLRRenderCommand : uint8_t {
 	CLEAR,
 	BINDPROGRAM,
 	BINDTEXTURE,
+	BIND_FB_TEXTURE,
 	BIND_INPUT_LAYOUT,
 	UNBIND_INPUT_LAYOUT,
 	GENMIPS,
@@ -112,6 +114,11 @@ struct GLRRenderData {
 			int slot;
 			GLRTexture *texture;
 		} texture;
+		struct {
+			int slot;
+			GLRFramebuffer *framebuffer;
+			int aspect;
+		} bind_fb_texture;
 		struct {
 			GLRProgram *program;
 		} program;
@@ -231,11 +238,6 @@ struct GLRStep {
 	union {
 		struct {
 			GLRFramebuffer *framebuffer;
-			GLRRenderPassAction color;
-			GLRRenderPassAction depthStencil;
-			uint32_t clearColor;
-			float clearDepth;
-			int clearStencil;
 			int numDraws;
 		} render;
 		struct {
