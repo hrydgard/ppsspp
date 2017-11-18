@@ -173,12 +173,10 @@ public:
 	bool enabled;
 	GLuint eqCol, eqAlpha;
 	GLuint srcCol, srcAlpha, dstCol, dstAlpha;
-	bool logicEnabled;
-	GLuint logicOp;
 	int colorMask;
 	// uint32_t fixedColor;
 
-	void Apply() {
+	void Apply(GLRenderManager *render) {
 		if (enabled) {
 			glEnable(GL_BLEND);
 			glBlendEquationSeparate(eqCol, eqAlpha);
@@ -187,15 +185,6 @@ public:
 			glDisable(GL_BLEND);
 		}
 		glColorMask(colorMask & 1, (colorMask >> 1) & 1, (colorMask >> 2) & 1, (colorMask >> 3) & 1);
-
-#if !defined(USING_GLES2)
-		if (logicEnabled) {
-			glEnable(GL_COLOR_LOGIC_OP);
-			glLogicOp(logicOp);
-		} else {
-			glDisable(GL_COLOR_LOGIC_OP);
-		}
-#endif
 	}
 };
 
@@ -224,36 +213,16 @@ public:
 	uint8_t stencilCompareMask;
 	uint8_t stencilWriteMask;
 
-	void Apply() {
-		if (depthTestEnabled) {
-			glEnable(GL_DEPTH_TEST);
-			glDepthFunc(depthComp);
-			glDepthMask(depthWriteEnabled);
-		} else {
-			glDisable(GL_DEPTH_TEST);
-		}
-		if (stencilEnabled) {
-			glEnable(GL_STENCIL_TEST);
-			glStencilOpSeparate(GL_FRONT_AND_BACK, stencilFail, stencilZFail, stencilPass);
-			glStencilFuncSeparate(GL_FRONT_AND_BACK, stencilCompareOp, stencilReference, stencilCompareMask);
-			glStencilMaskSeparate(GL_FRONT_AND_BACK, stencilWriteMask);
-		} else {
-			glDisable(GL_STENCIL_TEST);
-		}
+	void Apply(GLRenderManager *render) {
+		render->SetDepth(depthTestEnabled, depthWriteEnabled, depthComp);
+		render->SetStencil(stencilEnabled, stencilCompareOp, stencilFail, stencilZFail, stencilPass, stencilWriteMask, stencilCompareMask, stencilReference);
 	}
 };
 
 class OpenGLRasterState : public RasterState {
 public:
-	void Apply() {
-		glEnable(GL_SCISSOR_TEST);
-		if (!cullEnable) {
-			glDisable(GL_CULL_FACE);
-			return;
-		}
-		glEnable(GL_CULL_FACE);
-		glFrontFace(frontFace);
-		glCullFace(cullMode);
+	void Apply(GLRenderManager *render) {
+		render->SetRaster(cullEnable, frontFace, cullMode);
 	}
 
 	GLboolean cullEnable;
@@ -278,7 +247,7 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 
 class OpenGLShaderModule : public ShaderModule, public GfxResourceHolder {
 public:
-	OpenGLShaderModule(ShaderStage stage) : stage_(stage) {
+	OpenGLShaderModule(GLRenderManager *render, ShaderStage stage) : render_(render), stage_(stage), shader_(nullptr) {
 		ILOG("Shader module created (%p)", this);
 		register_gl_resource_holder(this, "drawcontext_shader_module", 0);
 		glstage_ = ShaderStageToOpenGL(stage);
@@ -286,13 +255,12 @@ public:
 
 	~OpenGLShaderModule() {
 		ILOG("Shader module destroyed (%p)", this);
-		if (shader_)
-			glDeleteShader(shader_);
+		render_->DeleteShader(shader_);
 		unregister_gl_resource_holder(this);
 	}
 
-	bool Compile(ShaderLanguage language, const uint8_t *data, size_t dataSize);
-	GLuint GetShader() const {
+	bool Compile(GLRenderManager *render, ShaderLanguage language, const uint8_t *data, size_t dataSize);
+	GLRShader *GetShader() const {
 		return shader_;
 	}
 	const std::string &GetSource() const { return source_; }
@@ -312,25 +280,23 @@ public:
 
 	void GLRestore() override {
 		ILOG("Shader module being restored");
-		if (!Compile(language_, (const uint8_t *)source_.data(), source_.size())) {
+		if (!Compile(render_, language_, (const uint8_t *)source_.data(), source_.size())) {
 			ELOG("Shader restore compilation failed: %s", source_.c_str());
 		}
 	}
 
 private:
+	GLRenderManager *render_;
 	ShaderStage stage_;
 	ShaderLanguage language_;
-	GLuint shader_ = 0;
+	GLRShader *shader_;
 	GLuint glstage_ = 0;
 	bool ok_ = false;
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool OpenGLShaderModule::Compile(ShaderLanguage language, const uint8_t *data, size_t dataSize) {
+bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
 	source_ = std::string((const char *)data);
-	shader_ = glCreateShader(glstage_);
-	language_ = language;
-
 	std::string temp;
 	// Add the prelude on automatically.
 	if (glstage_ == GL_FRAGMENT_SHADER || glstage_ == GL_VERTEX_SHADER) {
@@ -338,23 +304,8 @@ bool OpenGLShaderModule::Compile(ShaderLanguage language, const uint8_t *data, s
 		source_ = temp.c_str();
 	}
 
-	const char *code = source_.c_str();
-	glShaderSource(shader_, 1, &code, nullptr);
-	glCompileShader(shader_);
-	GLint success = 0;
-	glGetShaderiv(shader_, GL_COMPILE_STATUS, &success);
-	if (!success) {
-#define MAX_INFO_LOG_SIZE 2048
-		GLchar infoLog[MAX_INFO_LOG_SIZE];
-		GLsizei len = 0;
-		glGetShaderInfoLog(shader_, MAX_INFO_LOG_SIZE, &len, infoLog);
-		infoLog[len] = '\0';
-		glDeleteShader(shader_);
-		shader_ = 0;
-		ILOG("%s Shader compile error:\n%s", glstage_ == GL_FRAGMENT_SHADER ? "Fragment" : "Vertex", infoLog);
-	}
-	ok_ = success != 0;
-	return ok_;
+	shader_ = render->CreateShader(glstage_, source_);
+	return true;
 }
 
 class OpenGLInputLayout : public InputLayout, GfxResourceHolder {
@@ -385,8 +336,7 @@ struct UniformInfo {
 
 class OpenGLPipeline : public Pipeline, GfxResourceHolder {
 public:
-	OpenGLPipeline() {
-		program_ = 0;
+	OpenGLPipeline(GLRenderManager *render) : render_(render) {
 		// Priority 1 so this gets restored after the shaders.
 		register_gl_resource_holder(this, "drawcontext_pipeline", 1);
 	}
@@ -395,7 +345,7 @@ public:
 		for (auto &iter : shaders) {
 			iter->Release();
 		}
-		glDeleteProgram(program_);
+		render_->DeleteProgram(program_);
 		if (depthStencil) depthStencil->Release();
 		if (blend) blend->Release();
 		if (raster) raster->Release();
@@ -407,7 +357,7 @@ public:
 	int GetUniformLoc(const char *name);
 
 	void GLLost() override {
-		program_ = 0;
+		delete program_;
 	}
 
 	void GLRestore() override {
@@ -429,8 +379,9 @@ public:
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
 
-	GLuint program_;
+	GLRProgram *program_ = nullptr;
 private:
+	GLRenderManager *render_;
 	std::map<std::string, UniformInfo> uniformCache_;
 };
 
@@ -1010,10 +961,6 @@ BlendState *OpenGLContext::CreateBlendState(const BlendStateDesc &desc) {
 	bs->eqAlpha = blendEqToGL[(int)desc.eqAlpha];
 	bs->srcAlpha = blendFactorToGL[(int)desc.srcAlpha];
 	bs->dstAlpha = blendFactorToGL[(int)desc.dstAlpha];
-#ifndef USING_GLES2
-	bs->logicEnabled = desc.logicEnabled;
-	bs->logicOp = logicOpToGL[(int)desc.logicOp];
-#endif
 	bs->colorMask = desc.colorMask;
 	return bs;
 }
@@ -1123,7 +1070,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		ELOG("Pipeline requires at least one shader");
 		return NULL;
 	}
-	OpenGLPipeline *pipeline = new OpenGLPipeline();
+	OpenGLPipeline *pipeline = new OpenGLPipeline(&renderManager_);
 	for (auto iter : desc.shaders) {
 		iter->AddRef();
 		pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
@@ -1195,8 +1142,8 @@ void OpenGLContext::ApplySamplers() {
 }
 
 ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
-	OpenGLShaderModule *shader = new OpenGLShaderModule(stage);
-	if (shader->Compile(language, data, dataSize)) {
+	OpenGLShaderModule *shader = new OpenGLShaderModule(&renderManager_, stage);
+	if (shader->Compile(&renderManager_, language, data, dataSize)) {
 		return shader;
 	} else {
 		shader->Release();
@@ -1205,53 +1152,20 @@ ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguag
 }
 
 bool OpenGLPipeline::LinkShaders() {
-	program_ = glCreateProgram();
+	std::vector<GLRShader *> linkShaders;
 	for (auto iter : shaders) {
-		glAttachShader(program_, iter->GetShader());
+		linkShaders.push_back(iter->GetShader());
 	}
-
+	std::vector<GLRProgram::Semantic> semantics;
+	semantics.push_back({ SEM_POSITION, "Position" });
 	// Bind all the common vertex data points. Mismatching ones will be ignored.
-	glBindAttribLocation(program_, SEM_POSITION, "Position");
-	glBindAttribLocation(program_, SEM_COLOR0, "Color0");
-	glBindAttribLocation(program_, SEM_TEXCOORD0, "TexCoord0");
-	glBindAttribLocation(program_, SEM_NORMAL, "Normal");
-	glBindAttribLocation(program_, SEM_TANGENT, "Tangent");
-	glBindAttribLocation(program_, SEM_BINORMAL, "Binormal");
-	glLinkProgram(program_);
-
-	GLint linkStatus = GL_FALSE;
-	glGetProgramiv(program_, GL_LINK_STATUS, &linkStatus);
-	if (linkStatus != GL_TRUE) {
-		GLint bufLength = 0;
-		glGetProgramiv(program_, GL_INFO_LOG_LENGTH, &bufLength);
-		if (bufLength) {
-			char* buf = new char[bufLength];
-			glGetProgramInfoLog(program_, bufLength, NULL, buf);
-			ELOG("Could not link program:\n %s", buf);
-			// We've thrown out the source at this point. Might want to do something about that.
-#ifdef _WIN32
-			OutputDebugStringUTF8(buf);
-#endif
-			delete[] buf;
-		} else {
-			ELOG("Could not link program with %d shaders for unknown reason:", (int)shaders.size());
-		}
-		return false;
-	}
-
-	// Auto-initialize samplers.
-	glUseProgram(program_);
-	for (int i = 0; i < 4; i++) {
-		char temp[256];
-		sprintf(temp, "Sampler%i", i);
-		int samplerLoc = GetUniformLoc(temp);
-		if (samplerLoc != -1) {
-			glUniform1i(samplerLoc, i);
-		}
-	}
-
-	// Here we could (using glGetAttribLocation) save a bitmask about which pieces of vertex data are used in the shader
-	// and then AND it with the vertex format bitmask later...
+	semantics.push_back({ SEM_POSITION, "Position" });
+	semantics.push_back({ SEM_COLOR0, "Color0" });
+	semantics.push_back({ SEM_TEXCOORD0, "TexCoord0" });
+	semantics.push_back({ SEM_NORMAL, "Normal" });
+	semantics.push_back({ SEM_TANGENT, "Tangent" });
+	semantics.push_back({ SEM_BINORMAL, "Binormal" });
+	program_ = render_->CreateProgram(linkShaders, semantics);
 	return true;
 }
 
@@ -1261,7 +1175,8 @@ int OpenGLPipeline::GetUniformLoc(const char *name) {
 	if (iter != uniformCache_.end()) {
 		loc = iter->second.loc_;
 	} else {
-		loc = glGetUniformLocation(program_, name);
+		Crash();
+		// loc = glGetUniformLocation(program_, name);
 		UniformInfo info;
 		info.loc_ = loc;
 		uniformCache_[name] = info;
@@ -1271,10 +1186,10 @@ int OpenGLPipeline::GetUniformLoc(const char *name) {
 
 void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_ = (OpenGLPipeline *)pipeline;
-	curPipeline_->blend->Apply();
-	curPipeline_->depthStencil->Apply();
-	curPipeline_->raster->Apply();
-	glUseProgram(curPipeline_->program_);
+	curPipeline_->blend->Apply(&renderManager_);
+	curPipeline_->depthStencil->Apply(&renderManager_);
+	curPipeline_->raster->Apply(&renderManager_);
+	renderManager_.BindProgram(curPipeline_->program_);
 }
 
 void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
