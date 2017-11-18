@@ -171,7 +171,14 @@ GLuint GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding
 }
 
 void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask) {
-
+	GLRStep * step = new GLRStep{ GLRStepType::COPY };
+	step->copy.srcRect = srcRect;
+	step->copy.dstPos = dstPos;
+	step->copy.src = src;
+	step->copy.dst = dst;
+	step->copy.dstPos = dstPos;
+	step->copy.aspectMask = aspectMask;
+	steps_.push_back(step);
 }
 
 void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter) {
