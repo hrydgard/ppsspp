@@ -587,7 +587,10 @@ public:
 	// color must be 0, for now.
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
 
-	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) = 0;
+	// deprecated
+	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
+		return 0;
+	}
 
 	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
 

@@ -35,6 +35,7 @@ enum class GLRRenderCommand : uint8_t {
 	CLEAR,
 	BINDPROGRAM,
 	BINDTEXTURE,
+	GENMIPS,
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
@@ -85,11 +86,13 @@ struct GLRRenderData {
 			void *indices;
 		} drawIndexed;
 		struct {
+			const char *name;  // if null, use loc
 			GLint loc;
 			GLint count;
 			float v[4];
 		} uniform4;
 		struct {
+			const char *name;  // if null, use loc
 			GLint loc;
 			float m[16];
 		} uniformMatrix4;
@@ -107,11 +110,10 @@ struct GLRRenderData {
 			GLRProgram *program;
 		} program;
 		struct {
-			GLuint wrapU;
-			GLuint wrapV;
-			bool maxFilter;
-			bool minFilter;
-			bool mipFilter;
+			GLenum wrapS;
+			GLenum wrapT;
+			GLenum magFilter;
+			GLenum minFilter;  // also includes mip. GL...
 		} textureSampler;
 		struct {
 			GLRViewport vp;
@@ -136,6 +138,7 @@ enum class GLRInitStepType : uint8_t {
 	CREATE_PROGRAM,
 	CREATE_BUFFER,
 
+	TEXTURE_IMAGE,
 	TEXTURE_SUBDATA,
 	BUFFER_SUBDATA,
 };
@@ -151,6 +154,7 @@ struct GLRInitStep {
 	union {
 		struct {
 			GLRTexture *texture;
+			GLenum target;
 			int width;
 			int height;
 			// ...
@@ -167,7 +171,25 @@ struct GLRInitStep {
 		} create_program;
 		struct {
 			GLRBuffer *buffer;
+			int size;
+			GLuint usage;
 		} create_buffer;
+		struct {
+			GLRBuffer *buffer;
+			int offset;
+			int size;
+			uint8_t *data;  // owned, delete[]-d
+		} buffer_subdata;
+		struct {
+			GLRTexture *texture;
+			GLenum internalFormat;
+			GLenum format;
+			GLenum type;
+			int level;
+			int width;
+			int height;
+			uint8_t *data;  // owned, delete[]-d
+		} texture_image;
 	};
 };
 

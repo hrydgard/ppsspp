@@ -312,10 +312,6 @@ public:
 	intptr_t lastBase_;
 };
 
-struct UniformInfo {
-	int loc_;
-};
-
 class OpenGLPipeline : public Pipeline {
 public:
 	OpenGLPipeline(GLRenderManager *render) : render_(render) {
@@ -352,7 +348,6 @@ public:
 	GLRProgram *program_ = nullptr;
 private:
 	GLRenderManager *render_;
-	std::map<std::string, UniformInfo> uniformCache_;
 };
 
 class OpenGLFramebuffer;
@@ -398,8 +393,6 @@ public:
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 
-	uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) override;
-
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
@@ -422,17 +415,12 @@ public:
 	}
 
 	void SetViewports(int count, Viewport *viewports) override {
-		// TODO: Use glViewportArrayv.
-		glViewport((GLint)viewports[0].TopLeftX, (GLint)viewports[0].TopLeftY, (GLsizei)viewports[0].Width, (GLsizei)viewports[0].Height);
-#if defined(USING_GLES2)
-		glDepthRangef(viewports[0].MinDepth, viewports[0].MaxDepth);
-#else
-		glDepthRange(viewports[0].MinDepth, viewports[0].MaxDepth);
-#endif
+		// Same structure, different name.
+		renderManager_.SetViewport((GLRViewport &)*viewports);
 	}
 
 	void SetBlendFactor(float color[4]) override {
-		glBlendColor(color[0], color[1], color[2], color[3]);
+		renderManager_.SetBlendFactor(color);
 	}
 
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -585,7 +573,7 @@ inline bool isPowerOf2(int n) {
 
 class OpenGLTexture : public Texture {
 public:
-	OpenGLTexture(const TextureDesc &desc);
+	OpenGLTexture(GLRenderManager *render, const TextureDesc &desc);
 	~OpenGLTexture();
 
 	bool HasMips() const {
@@ -595,8 +583,8 @@ public:
 		return canWrap_;
 	}
 	TextureType GetType() const { return type_; }
-	void Bind() {
-		glBindTexture(target_, tex_);
+	void Bind(int stage) {
+		render_->BindTexture(stage, tex_);
 	}
 
 	void AutoGenMipmaps();
@@ -604,8 +592,8 @@ public:
 private:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
 
-	GLuint tex_ = 0;
-	GLuint target_ = 0;
+	GLRenderManager *render_;
+	GLRTexture *tex_;
 
 	DataFormat format_;
 	TextureType type_;
@@ -614,7 +602,7 @@ private:
 	bool canWrap_;
 };
 
-OpenGLTexture::OpenGLTexture(const TextureDesc &desc) {
+OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) : render_(render) {
 	generatedMips_ = false;
 	canWrap_ = true;
 	width_ = desc.width;
@@ -622,15 +610,15 @@ OpenGLTexture::OpenGLTexture(const TextureDesc &desc) {
 	depth_ = desc.depth;
 	format_ = desc.format;
 	type_ = desc.type;
-	target_ = TypeToTarget(desc.type);
+	GLenum target = TypeToTarget(desc.type);
+	tex_ = render->CreateTexture(target, width_, height_);
+
+	render->BindTexture(0, tex_);
+
 	canWrap_ = isPowerOf2(width_) && isPowerOf2(height_);
 	mipLevels_ = desc.mipLevels;
 	if (!desc.initData.size())
 		return;
-
-	glActiveTexture(GL_TEXTURE0 + 0);
-	glGenTextures(1, &tex_);
-	glBindTexture(target_, tex_);
 
 	int level = 0;
 	for (auto data : desc.initData) {
@@ -641,6 +629,8 @@ OpenGLTexture::OpenGLTexture(const TextureDesc &desc) {
 	}
 	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
 
+	render->SetTextureSampler(GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_LINEAR, mipLevels_ > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+	/*
 #ifdef USING_GLES2
 	if (gl_extensions.GLES3) {
 		glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, mipLevels_ - 1);
@@ -648,8 +638,7 @@ OpenGLTexture::OpenGLTexture(const TextureDesc &desc) {
 #else
 	glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, mipLevels_ - 1);
 #endif
-	glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, mipLevels_ > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
-	glTexParameteri(target_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+*/
 
 	if ((int)desc.initData.size() < desc.mipLevels && desc.generateMips) {
 		ILOG("Generating mipmaps");
@@ -657,12 +646,12 @@ OpenGLTexture::OpenGLTexture(const TextureDesc &desc) {
 	}
 
 	// Unbind.
-	glBindTexture(target_, 0);
+	render->BindTexture(0, nullptr);
 }
 
 OpenGLTexture::~OpenGLTexture() {
 	if (tex_) {
-		glDeleteTextures(1, &tex_);
+		render_->DeleteTexture(tex_);
 		tex_ = 0;
 		generatedMips_ = false;
 	}
@@ -670,8 +659,8 @@ OpenGLTexture::~OpenGLTexture() {
 
 void OpenGLTexture::AutoGenMipmaps() {
 	if (!generatedMips_) {
-		glBindTexture(target_, tex_);
-		glGenerateMipmap(target_);
+		render_->BindTexture(0, tex_);
+		render_->GenerateMipmap();
 		generatedMips_ = true;
 	}
 }
@@ -680,6 +669,8 @@ class OpenGLFramebuffer : public Framebuffer {
 public:
 	OpenGLFramebuffer() {}
 	~OpenGLFramebuffer();
+
+	GLRFramebuffer *framebuffer;
 
 	GLuint handle = 0;
 	GLuint color_texture = 0;
@@ -792,16 +783,12 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		return;
 	}
 
-	CHECK_GL_ERROR_IF_DEBUG();
-	switch (target_) {
-	case GL_TEXTURE_2D:
-		glTexImage2D(GL_TEXTURE_2D, level, internalFormat, width_, height_, 0, format, type, data);
-		break;
-	default:
-		ELOG("Thin3D GL: Targets other than GL_TEXTURE_2D not yet supported");
-		break;
+	// Make a copy of data with stride eliminated.
+	uint8_t *texData = new uint8_t[width * height * alignment];
+	for (int y = 0; y < height; y++) {
+		memcpy(texData + y * width * alignment, data + y * stride * alignment, width * alignment);
 	}
-	CHECK_GL_ERROR_IF_DEBUG();
+	render_->TextureImage(tex_, level, width, height, internalFormat, format, type, texData);
 }
 
 
@@ -879,7 +866,7 @@ bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBit
 
 
 Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
-	return new OpenGLTexture(desc);
+	return new OpenGLTexture(&renderManager_, desc);
 }
 
 OpenGLInputLayout::~OpenGLInputLayout() {
@@ -978,28 +965,29 @@ RasterState *OpenGLContext::CreateRasterState(const RasterStateDesc &desc) {
 
 class OpenGLBuffer : public Buffer {
 public:
-	OpenGLBuffer(size_t size, uint32_t flags) {
-		glGenBuffers(1, &buffer_);
+	OpenGLBuffer(GLRenderManager *render, size_t size, uint32_t flags) : render_(render) {
 		target_ = (flags & BufferUsageFlag::INDEXDATA) ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
 		usage_ = 0;
 		if (flags & BufferUsageFlag::DYNAMIC)
 			usage_ = GL_STREAM_DRAW;
 		else
 			usage_ = GL_STATIC_DRAW;
+		buffer_ = render->CreateBuffer(target_, size, usage_);
 		totalSize_ = size;
-		glBindBuffer(target_, buffer_);
-		glBufferData(target_, size, NULL, usage_);
 	}
 	~OpenGLBuffer() override {
-		glDeleteBuffers(1, &buffer_);
+		render_->DeleteBuffer(buffer_);
 	}
 
 	void Bind(int offset) {
+		Crash();
+		// render_->BindBuffer(buffer_);
 		// TODO: Can't support offset using ES 2.0
-		glBindBuffer(target_, buffer_);
+		// glBindBuffer(target_, buffer_);
 	}
 
-	GLuint buffer_;
+	GLRenderManager *render_;
+	GLRBuffer *buffer_;
 	GLuint target_;
 	GLuint usage_;
 
@@ -1007,7 +995,7 @@ public:
 };
 
 Buffer *OpenGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
-	return new OpenGLBuffer(size, usageFlags);
+	return new OpenGLBuffer(&renderManager_, size, usageFlags);
 }
 
 void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) {
@@ -1017,14 +1005,17 @@ void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t off
 	if (size + offset > buf->totalSize_) {
 		Crash();
 	}
+
+	uint8_t *dataCopy = new uint8_t[size];
+	memcpy(dataCopy, data, size);
 	// if (flags & UPDATE_DISCARD) we could try to orphan the buffer using glBufferData.
-	glBufferSubData(buf->target_, offset, size, data);
+	renderManager_.BufferSubdata(buf->buffer_, offset, size, dataCopy);
 }
 
 Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	if (!desc.shaders.size()) {
 		ELOG("Pipeline requires at least one shader");
-		return NULL;
+		return nullptr;
 	}
 	OpenGLPipeline *pipeline = new OpenGLPipeline(&renderManager_);
 	for (auto iter : desc.shaders) {
@@ -1056,16 +1047,14 @@ void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 	maxTextures_ = std::max(maxTextures_, start + count);
 	for (int i = start; i < start + count; i++) {
 		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i]);
-		glActiveTexture(GL_TEXTURE0 + i);
 		if (!glTex) {
 			boundTextures_[i] = 0;
-			glBindTexture(GL_TEXTURE_2D, 0);
+			renderManager_.BindTexture(i, nullptr);
 			continue;
 		}
-		glTex->Bind();
+		glTex->Bind(i);
 		boundTextures_[i] = glTex;
 	}
-	glActiveTexture(GL_TEXTURE0);
 }
 
 void OpenGLContext::ApplySamplers() {
@@ -1075,24 +1064,18 @@ void OpenGLContext::ApplySamplers() {
 			const OpenGLTexture *tex = boundTextures_[i];
 			if (!tex)
 				continue;
+			GLenum wrapS;
+			GLenum wrapT;
 			if (tex->CanWrap()) {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, samp->wrapU);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, samp->wrapV);
-#ifndef USING_GLES2
-				if (tex->GetType() == TextureType::LINEAR3D)
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, samp->wrapW);
-#endif
+				wrapS = samp->wrapU;
+				wrapT = samp->wrapV;
 			} else {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+				wrapS = GL_CLAMP_TO_EDGE;
+				wrapT = GL_CLAMP_TO_EDGE;
 			}
-
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, samp->magFilt);
-			if (tex->HasMips()) {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, samp->mipMinFilt);
-			} else {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, samp->minFilt);
-			}
+			GLenum magFilt = samp->magFilt;
+			GLenum minFilt = tex->HasMips() ? samp->mipMinFilt : samp->minFilt;
+			renderManager_.SetTextureSampler(wrapS, wrapT, magFilt, minFilt);
 		}
 	}
 }
@@ -1113,7 +1096,6 @@ bool OpenGLPipeline::LinkShaders() {
 		linkShaders.push_back(iter->GetShader());
 	}
 	std::vector<GLRProgram::Semantic> semantics;
-	semantics.push_back({ SEM_POSITION, "Position" });
 	// Bind all the common vertex data points. Mismatching ones will be ignored.
 	semantics.push_back({ SEM_POSITION, "Position" });
 	semantics.push_back({ SEM_COLOR0, "Color0" });
@@ -1123,21 +1105,6 @@ bool OpenGLPipeline::LinkShaders() {
 	semantics.push_back({ SEM_BINORMAL, "Binormal" });
 	program_ = render_->CreateProgram(linkShaders, semantics);
 	return true;
-}
-
-int OpenGLPipeline::GetUniformLoc(const char *name) {
-	auto iter = uniformCache_.find(name);
-	int loc = -1;
-	if (iter != uniformCache_.end()) {
-		loc = iter->second.loc_;
-	} else {
-		Crash();
-		// loc = glGetUniformLocation(program_, name);
-		UniformInfo info;
-		info.loc_ = loc;
-		uniformCache_[name] = info;
-	}
-	return loc;
 }
 
 void OpenGLContext::BindPipeline(Pipeline *pipeline) {
@@ -1154,16 +1121,13 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 	}
 
 	for (auto &uniform : curPipeline_->dynamicUniforms.uniforms) {
-		GLuint loc = curPipeline_->GetUniformLoc(uniform.name);
-		if (loc == -1)
-			Crash();
 		const float *data = (const float *)((uint8_t *)ub + uniform.offset);
 		switch (uniform.type) {
 		case UniformType::FLOAT4:
-			glUniform1fv(loc, 4, data);
+			renderManager_.SetUniformF(uniform.name, 4, data);
 			break;
 		case UniformType::MATRIX4X4:
-			glUniformMatrix4fv(loc, 1, false, data);
+			renderManager_.SetUniformM4x4(uniform.name, data);
 			break;
 		}
 	}
@@ -1612,42 +1576,17 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
-	GLuint srcTex = 0;
-	GLuint dstTex = 0;
-	GLuint target = GL_TEXTURE_2D;
-	switch (channelBits) {
-	case FB_COLOR_BIT:
-		srcTex = src->color_texture;
-		dstTex = dst->color_texture;
-		break;
-	case FB_DEPTH_BIT:
-		target = GL_RENDERBUFFER;
-		srcTex = src->z_buffer ? src->z_buffer : src->z_stencil_buffer;
-		dstTex = dst->z_buffer ? dst->z_buffer : dst->z_stencil_buffer;
-		break;
+
+	int aspect = 0;
+	if (channelBits & FB_COLOR_BIT) {
+		aspect |= GLR_ASPECT_COLOR;
+	} else if (channelBits & (FB_STENCIL_BIT | FB_DEPTH_BIT)) {
+		if (channelBits & FB_STENCIL_BIT)
+			aspect |= GLR_ASPECT_STENCIL;
+		if (channelBits & FB_DEPTH_BIT)
+			aspect |= GLR_ASPECT_DEPTH;
 	}
-#if defined(USING_GLES2)
-#ifndef IOS
-	glCopyImageSubDataOES(
-		srcTex, target, srcLevel, srcX, srcY, srcZ,
-		dstTex, target, dstLevel, dstX, dstY, dstZ,
-		width, height, depth);
-#endif
-#else
-	if (gl_extensions.ARB_copy_image) {
-		glCopyImageSubData(
-			srcTex, target, srcLevel, srcX, srcY, srcZ,
-			dstTex, target, dstLevel, dstX, dstY, dstZ,
-			width, height, depth);
-	} else if (gl_extensions.NV_copy_image) {
-		// Older, pre GL 4.x NVIDIA cards.
-		glCopyImageSubDataNV(
-			srcTex, target, srcLevel, srcX, srcY, srcZ,
-			dstTex, target, dstLevel, dstX, dstY, dstZ,
-			width, height, depth);
-	}
-#endif
-	CHECK_GL_ERROR_IF_DEBUG();
+	renderManager_.CopyFramebuffer(src->framebuffer, GLRect2D{ srcX, srcY, width, height }, dst->framebuffer, GLOffset2D{ dstX, dstY }, aspect);
 }
 
 bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter) {
@@ -1676,16 +1615,6 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 		return true;
 	} else {
 		return false;
-	}
-}
-
-uintptr_t OpenGLContext::GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
-	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
-	switch (channelBits) {
-	case FB_COLOR_BIT: return (uintptr_t)fb->color_texture;
-	case FB_DEPTH_BIT: return (uintptr_t)(fb->z_buffer ? fb->z_buffer : fb->z_stencil_buffer);
-	default:
-		return 0;
 	}
 }
 

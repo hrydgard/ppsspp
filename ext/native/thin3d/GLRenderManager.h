@@ -1,6 +1,8 @@
 #pragma once
 
 #include <thread>
+#include <map>
+#include <vector>
 #include <mutex>
 #include <cassert>
 
@@ -81,6 +83,26 @@ public:
 	};
 	GLuint program = 0;
 	std::vector<Semantic> semantics_;
+
+	struct UniformInfo {
+		int loc_;
+	};
+
+	// Must ONLY be called from GLQueueRunner!
+	int GetUniformLoc(const char *name) {
+		auto iter = uniformCache_.find(name);
+		int loc = -1;
+		if (iter != uniformCache_.end()) {
+			loc = iter->second.loc_;
+		} else {
+			loc = glGetUniformLocation(program, name);
+			UniformInfo info;
+			info.loc_ = loc;
+			uniformCache_[name] = info;
+		}
+		return loc;
+	}
+	std::map<std::string, UniformInfo> uniformCache_;
 };
 
 class GLRTexture {
@@ -91,16 +113,20 @@ public:
 		}
 	}
 	GLuint texture;
+	GLenum target;
 };
 
 class GLRBuffer {
 public:
+	GLRBuffer(GLuint target) : target_(target) {}
 	~GLRBuffer() {
 		if (buffer) {
 			glDeleteBuffers(1, &buffer);
 		}
 	}
 	GLuint buffer;
+	GLuint target_;
+private:
 };
 
 enum class GLRRunType {
@@ -119,6 +145,8 @@ public:
 
 	std::vector<GLRShader *> shaders;
 	std::vector<GLRProgram *> programs;
+	std::vector<GLRBuffer *> buffers;
+	std::vector<GLRTexture *> textures;
 };
 
 
@@ -139,13 +167,21 @@ public:
 	void Wipe();
 
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
-	GLRTexture *CreateTexture(int w, int h) {
+	GLRTexture *CreateTexture(GLenum target, int w, int h) {
 		GLRInitStep step{ GLRInitStepType::CREATE_TEXTURE };
 		step.create_texture.texture = new GLRTexture();
+		step.create_texture.texture->target = target;
 		step.create_texture.width = w;
 		step.create_texture.height = h;
 		initSteps_.push_back(step);
 		return step.create_texture.texture;
+	}
+
+	GLRBuffer *CreateBuffer(GLuint target, int size, GLuint usage) {
+		GLRInitStep step{ GLRInitStepType::CREATE_BUFFER };
+		step.create_buffer.buffer = new GLRBuffer(target);
+		initSteps_.push_back(step);
+		return step.create_buffer.buffer;
 	}
 
 	GLRShader *CreateShader(GLuint stage, std::string &code) {
@@ -176,6 +212,12 @@ public:
 	void DeleteProgram(GLRProgram *program) {
 		deleter_.programs.push_back(program);
 	}
+	void DeleteBuffer(GLRBuffer *buffer) {
+		deleter_.buffers.push_back(buffer);
+	}
+	void DeleteTexture(GLRTexture *texture) {
+		deleter_.textures.push_back(texture);
+	}
 
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
 	GLuint BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment);
@@ -185,10 +227,48 @@ public:
 	void CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask);
 	void BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter);
 
+	// Takes ownership of data.
+	void BufferSubdata(GLRBuffer *buffer, int offset, int size, uint8_t *data) {
+		// TODO: Maybe should be a render command instead of an init command? When possible it's better as
+		// an init command, that's for sure.
+		GLRInitStep step{ GLRInitStepType::BUFFER_SUBDATA };
+		step.buffer_subdata.buffer = buffer;
+		step.buffer_subdata.offset = offset;
+		step.buffer_subdata.size = size;
+		step.buffer_subdata.data = data;
+		initSteps_.push_back(step);
+	}
+
+	void TextureImage(GLRTexture *texture, int level, int width, int height, GLenum internalFormat, GLenum format, GLenum type, uint8_t *data) {
+		GLRInitStep step{ GLRInitStepType::TEXTURE_IMAGE };
+		step.texture_image.data = data;
+		step.texture_image.internalFormat = internalFormat;
+		step.texture_image.format = format;
+		step.texture_image.type = type;
+		step.texture_image.level = level;
+		step.texture_image.width = width;
+		step.texture_image.height = height;
+		initSteps_.push_back(step);
+	}
+
+	void BindTexture(int slot, GLRTexture *tex) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::BINDTEXTURE };
+		data.texture.slot = slot;
+		data.texture.texture = tex;
+		curRenderStep_->commands.push_back(data);
+	}
+
 	void BindProgram(GLRProgram *program) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BINDPROGRAM };
 		data.program.program = program;
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void GenerateMipmap() {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::GENMIPS };
 		curRenderStep_->commands.push_back(data);
 	}
 
@@ -212,6 +292,40 @@ public:
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::SCISSOR };
 		data.scissor.rc = rc;
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformF(int loc, int count, const float *udata) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		data.uniform4.loc = loc;
+		data.uniform4.count = count;
+		memcpy(data.uniform4.v, udata, sizeof(float) * count);
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformF(const char *name, int count, const float *udata) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		data.uniform4.name = name;
+		data.uniform4.count = count;
+		memcpy(data.uniform4.v, udata, sizeof(float) * count);
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformM4x4(int loc, const float *udata) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		data.uniformMatrix4.loc = loc;
+		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformM4x4(const char *name, const float *udata) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		data.uniformMatrix4.name = name;
+		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
 		curRenderStep_->commands.push_back(data);
 	}
 
@@ -241,6 +355,17 @@ public:
 		data.raster.cullEnable = cullEnable;
 		data.raster.frontFace = frontFace;
 		data.raster.cullFace = cullFace;
+		curRenderStep_->commands.push_back(data);
+	}
+	
+	// Modifies the current texture as per GL specs, not global state.
+	void SetTextureSampler(GLenum wrapS, GLenum wrapT, GLenum magFilter, GLenum minFilter) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::TEXTURESAMPLER };
+		data.textureSampler.wrapS = wrapS;
+		data.textureSampler.wrapT = wrapT;
+		data.textureSampler.magFilter = magFilter;
+		data.textureSampler.minFilter = minFilter;
 		curRenderStep_->commands.push_back(data);
 	}
 
