@@ -217,16 +217,16 @@ public:
 		for (int i = 0; i < shaders.size(); i++) {
 			step.create_program.shaders[i] = shaders[i];
 		}
+		step.create_program.num_shaders = (int)shaders.size();
 		initSteps_.push_back(step);
 		return step.create_program.program;
 	}
 
 	GLRInputLayout *CreateInputLayout(std::vector<GLRInputLayout::Entry> &entries) {
-		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
-		assert(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
+		GLRInitStep step{ GLRInitStepType::CREATE_INPUT_LAYOUT };
 		step.create_input_layout.inputLayout = new GLRInputLayout();
-		step.create_input_layout.inputLayout->entries = std::move(entries);
-		for (auto &iter : entries) {
+		step.create_input_layout.inputLayout->entries = entries;
+		for (auto &iter : step.create_input_layout.inputLayout->entries) {
 			step.create_input_layout.inputLayout->semanticsMask_ |= 1 << iter.location;
 		}
 		initSteps_.push_back(step);
@@ -271,6 +271,7 @@ public:
 
 	void TextureImage(GLRTexture *texture, int level, int width, int height, GLenum internalFormat, GLenum format, GLenum type, uint8_t *data) {
 		GLRInitStep step{ GLRInitStepType::TEXTURE_IMAGE };
+		step.texture_image.texture = texture;
 		step.texture_image.data = data;
 		step.texture_image.internalFormat = internalFormat;
 		step.texture_image.format = format;
@@ -368,7 +369,7 @@ public:
 
 	void SetUniformM4x4(const char *name, const float *udata) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		GLRRenderData data{ GLRRenderCommand::UNIFORMMATRIX };
 		data.uniformMatrix4.name = name;
 		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
 		curRenderStep_->commands.push_back(data);
