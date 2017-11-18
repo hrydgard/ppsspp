@@ -115,7 +115,7 @@ enum {
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
-DrawEngineGLES::DrawEngineGLES() : vai_(256) {
+DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : vai_(256), draw_(draw) {
 
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;

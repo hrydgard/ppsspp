@@ -21,6 +21,7 @@
 
 #include "base/basictypes.h"
 #include "Common/Hashmaps.h"
+#include "thin3d/GLRenderManager.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
@@ -43,18 +44,18 @@ enum {
 
 class LinkedShader {
 public:
-	LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform);
+	LinkedShader(GLRenderManager *render, ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform);
 	~LinkedShader();
 
-	void use(const ShaderID &VSID, LinkedShader *previous);
-	void stop();
+	void use(const ShaderID &VSID);
 	void UpdateUniforms(u32 vertType, const ShaderID &VSID);
 
+	GLRenderManager *render_;
 	Shader *vs_;
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
 	bool useHWTransform_;
 
-	uint32_t program;
+	GLRProgram *program;
 	uint64_t availableUniforms;
 	uint64_t dirtyUniforms;
 
@@ -124,9 +125,9 @@ public:
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
+	Shader(GLRenderManager *render, const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
 	~Shader();
-	uint32_t shader;
+	GLRShader *shader;
 
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; } // only relevant for vtx shaders
@@ -137,6 +138,7 @@ public:
 	uint64_t GetUniformMask() const { return uniformMask_; }
 
 private:
+	GLRenderManager *render_;
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
@@ -147,7 +149,7 @@ private:
 
 class ShaderManagerGLES : public ShaderManagerCommon {
 public:
-	ShaderManagerGLES();
+	ShaderManagerGLES(GLRenderManager *render);
 	~ShaderManagerGLES();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
@@ -185,6 +187,7 @@ private:
 	};
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
+	GLRenderManager *render_;
 	LinkedShaderCache linkedShaderCache_;
 
 	bool lastVShaderSame_;

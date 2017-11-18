@@ -102,7 +102,7 @@ public:
 // Handles transform, lighting and drawing.
 class DrawEngineGLES : public DrawEngineCommon, public GfxResourceHolder {
 public:
-	DrawEngineGLES();
+	DrawEngineGLES(Draw::DrawContext *draw);
 	virtual ~DrawEngineGLES();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
@@ -188,6 +188,7 @@ private:
 	TextureCacheGLES *textureCache_ = nullptr;
 	FramebufferManagerGLES *framebufferManager_ = nullptr;
 	FragmentTestCacheGLES *fragmentTestCache_ = nullptr;
+	Draw::DrawContext *draw_;
 
 	int bufferDecimationCounter_ = 0;
 

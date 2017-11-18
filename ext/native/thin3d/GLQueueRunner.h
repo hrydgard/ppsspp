@@ -31,6 +31,7 @@ enum class GLRRenderCommand : uint8_t {
 	STENCIL,
 	BLEND,
 	BLENDCOLOR,
+	UNIFORM4I,
 	UNIFORM4F,
 	UNIFORMMATRIX,
 	TEXTURESAMPLER,
@@ -43,13 +44,14 @@ enum class GLRRenderCommand : uint8_t {
 	BIND_FB_TEXTURE,
 	BIND_INPUT_LAYOUT,
 	BIND_VERTEX_BUFFER,
-	UNBIND_INPUT_LAYOUT,
 	GENMIPS,
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
 };
 
+// TODO: Bloated since the biggest struct decides the size. Will need something more efficient (separate structs with shared
+// type field, smashed right after each other?)
 struct GLRRenderData {
 	GLRRenderCommand cmd;
 	union {
@@ -96,13 +98,13 @@ struct GLRRenderData {
 		} drawIndexed;
 		struct {
 			const char *name;  // if null, use loc
-			GLint loc;
+			GLint *loc; // NOTE: This is a pointer so we can immediately use things that are "queried" during program creation.
 			GLint count;
 			float v[4];
 		} uniform4;
 		struct {
 			const char *name;  // if null, use loc
-			GLint loc;
+			GLint *loc;
 			float m[16];
 		} uniformMatrix4;
 		struct {
@@ -146,6 +148,7 @@ struct GLRRenderData {
 			GLboolean cullEnable;
 			GLenum frontFace;
 			GLenum cullFace;
+			GLboolean ditherEnable;
 		} raster;
 	};
 };
@@ -185,6 +188,7 @@ struct GLRInitStep {
 			GLRProgram *program;
 			GLRShader *shaders[3];
 			int num_shaders;
+			bool support_dual_source;
 		} create_program;
 		struct {
 			GLRBuffer *buffer;

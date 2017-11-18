@@ -26,6 +26,7 @@
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "gfx/gl_debug_log.h"
+#include "thin3d/GLRenderManager.h"
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
@@ -43,8 +44,8 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "FramebufferManagerGLES.h"
 
-Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
-	  : failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask), uniformMask_(uniformMask) {
+Shader::Shader(GLRenderManager *render, const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
+	  : render_(render), failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask), uniformMask_(uniformMask) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	isFragment_ = glShaderType == GL_FRAGMENT_SHADER;
 	source_ = code;
@@ -55,208 +56,131 @@ Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uin
 	printf("%s\n", code);
 #endif
 #endif
-	shader = glCreateShader(glShaderType);
-	glShaderSource(shader, 1, &code, 0);
-	glCompileShader(shader);
-	GLint success = 0;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-	if (!success) {
-#define MAX_INFO_LOG_SIZE 2048
-		GLchar infoLog[MAX_INFO_LOG_SIZE];
-		GLsizei len;
-		glGetShaderInfoLog(shader, MAX_INFO_LOG_SIZE, &len, infoLog);
-		infoLog[len] = '\0';
-#ifdef __ANDROID__
-		ELOG("Error in shader compilation! %s\n", infoLog);
-		ELOG("Shader source:\n%s\n", (const char *)code);
-#endif
-		ERROR_LOG(G3D, "Error in shader compilation!\n");
-		ERROR_LOG(G3D, "Info log: %s\n", infoLog);
-		ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
-		Reporting::ReportMessage("Error in shader compilation: info: %s / code: %s", infoLog, (const char *)code);
-#ifdef SHADERLOG
-		OutputDebugStringUTF8(infoLog);
-#endif
-		failed_ = true;
-		shader = 0;
-	} else {
-		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
-	}
-	CHECK_GL_ERROR_IF_DEBUG();
+	shader = render->CreateShader(glShaderType, source_);
 }
 
 Shader::~Shader() {
-	if (shader)
-		glDeleteShader(shader);
+	render_->DeleteShader(shader);
 }
 
-LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform)
-		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
+LinkedShader::LinkedShader(GLRenderManager *render, ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform)
+		: render_(render), useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
 	PROFILE_THIS_SCOPE("shaderlink");
 
-	program = glCreateProgram();
 	vs_ = vs;
-	glAttachShader(program, vs->shader);
-	glAttachShader(program, fs->shader);
 
-	// Bind attribute locations to fixed locations so that they're
-	// the same in all shaders. We use this later to minimize the calls to
-	// glEnableVertexAttribArray and glDisableVertexAttribArray.
-	glBindAttribLocation(program, ATTR_POSITION, "position");
-	glBindAttribLocation(program, ATTR_TEXCOORD, "texcoord");
-	glBindAttribLocation(program, ATTR_NORMAL, "normal");
-	glBindAttribLocation(program, ATTR_W1, "w1");
-	glBindAttribLocation(program, ATTR_W2, "w2");
-	glBindAttribLocation(program, ATTR_COLOR0, "color0");
-	glBindAttribLocation(program, ATTR_COLOR1, "color1");
+	std::vector<GLRShader *> shaders;
+	shaders.push_back(vs->shader);
+	shaders.push_back(fs->shader);
 
-#if !defined(USING_GLES2)
-	if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
-		// Dual source alpha
-		glBindFragDataLocationIndexed(program, 0, 0, "fragColor0");
-		glBindFragDataLocationIndexed(program, 0, 1, "fragColor1");
-	} else if (gl_extensions.VersionGEThan(3, 3, 0)) {
-		glBindFragDataLocation(program, 0, "fragColor0");
-	}
-#elif !defined(IOS)
-	if (gl_extensions.GLES3) {
-		if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
-			glBindFragDataLocationIndexedEXT(program, 0, 0, "fragColor0");
-			glBindFragDataLocationIndexedEXT(program, 0, 1, "fragColor1");
-		}
-	}
-#endif
 
-	glLinkProgram(program);
+	std::vector<GLRProgram::Semantic> semantics;
+	semantics.push_back({ ATTR_POSITION, "position" });
+	semantics.push_back({ ATTR_TEXCOORD, "texcoord" });
+	semantics.push_back({ ATTR_NORMAL, "normal" });
+	semantics.push_back({ ATTR_W1, "w1" });
+	semantics.push_back({ ATTR_W2, "w2" });
+	semantics.push_back({ ATTR_COLOR0, "color0" });
+	semantics.push_back({ ATTR_COLOR1, "color1" });
 
-	GLint linkStatus = GL_FALSE;
-	glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
-	if (linkStatus != GL_TRUE) {
-		GLint bufLength = 0;
-		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &bufLength);
-		if (bufLength) {
-			char* buf = new char[bufLength];
-			glGetProgramInfoLog(program, bufLength, NULL, buf);
-#ifdef __ANDROID__
-			ELOG("Could not link program:\n %s", buf);
-#endif
-			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
-			ERROR_LOG(G3D, "VS desc:\n%s\n", vs->GetShaderString(SHADER_STRING_SHORT_DESC, VSID).c_str());
-			ERROR_LOG(G3D, "FS desc:\n%s\n", fs->GetShaderString(SHADER_STRING_SHORT_DESC, FSID).c_str());
-			std::string vs_source = vs->GetShaderString(SHADER_STRING_SOURCE_CODE, VSID);
-			std::string fs_source = fs->GetShaderString(SHADER_STRING_SOURCE_CODE, FSID);
-			ERROR_LOG(G3D, "VS:\n%s\n", vs_source.c_str());
-			ERROR_LOG(G3D, "FS:\n%s\n", fs_source.c_str());
-			Reporting::ReportMessage("Error in shader program link: info: %s / fs: %s / vs: %s", buf, fs_source.c_str(), vs_source.c_str());
-#ifdef SHADERLOG
-			OutputDebugStringUTF8(buf);
-			OutputDebugStringUTF8(vs_source.c_str());
-			OutputDebugStringUTF8(fs_source.c_str());
-#endif
-			delete [] buf;	// we're dead!
-		}
-		// Prevent a buffer overflow.
-		numBones = 0;
-		// Avoid weird attribute enables.
-		attrMask = 0;
-		availableUniforms = 0;
-		return;
-	}
+	std::vector<GLRProgram::UniformLocQuery> queries;
+	queries.push_back({ &u_tex, "tex" });
+	queries.push_back({ &u_proj, "u_proj" });
+	queries.push_back({ &u_proj_through, "u_proj_through" });
 
-	INFO_LOG(G3D, "Linked shader: vs %i fs %i", (int)vs->shader, (int)fs->shader);
+	queries.push_back({ &u_proj, "u_proj" });
+	queries.push_back({ &u_proj_through, "u_proj_through" });
+	queries.push_back({ &u_texenv, "u_texenv" });
+	queries.push_back({ &u_fogcolor, "u_fogcolor" });
+	queries.push_back({ &u_fogcoef, "u_fogcoef" });
+	queries.push_back({ &u_alphacolorref, "u_alphacolorref" });
+	queries.push_back({ &u_alphacolormask, "u_alphacolormask" });
+	queries.push_back({ &u_stencilReplaceValue, "u_stencilReplaceValue" });
+	queries.push_back({ &u_testtex, "testtex" });
 
-	u_tex = glGetUniformLocation(program, "tex");
-	u_proj = glGetUniformLocation(program, "u_proj");
-	u_proj_through = glGetUniformLocation(program, "u_proj_through");
-	u_texenv = glGetUniformLocation(program, "u_texenv");
-	u_fogcolor = glGetUniformLocation(program, "u_fogcolor");
-	u_fogcoef = glGetUniformLocation(program, "u_fogcoef");
-	u_alphacolorref = glGetUniformLocation(program, "u_alphacolorref");
-	u_alphacolormask = glGetUniformLocation(program, "u_alphacolormask");
-	u_stencilReplaceValue = glGetUniformLocation(program, "u_stencilReplaceValue");
-	u_testtex = glGetUniformLocation(program, "testtex");
-
-	u_fbotex = glGetUniformLocation(program, "fbotex");
-	u_blendFixA = glGetUniformLocation(program, "u_blendFixA");
-	u_blendFixB = glGetUniformLocation(program, "u_blendFixB");
-	u_fbotexSize = glGetUniformLocation(program, "u_fbotexSize");
+	queries.push_back({ &u_fbotex, "fbotex" });
+	queries.push_back({ &u_blendFixA, "u_blendFixA" });
+	queries.push_back({ &u_blendFixB, "u_blendFixB" });
+	queries.push_back({ &u_fbotexSize, "u_fbotexSize" });
 
 	// Transform
-	u_view = glGetUniformLocation(program, "u_view");
-	u_world = glGetUniformLocation(program, "u_world");
-	u_texmtx = glGetUniformLocation(program, "u_texmtx");
+	queries.push_back({ &u_view, "u_view" });
+	queries.push_back({ &u_world, "u_world" });
+	queries.push_back({ &u_texmtx, "u_texmtx" });
+
 	if (VSID.Bit(VS_BIT_ENABLE_BONES))
 		numBones = TranslateNumBones(VSID.Bits(VS_BIT_BONES, 3) + 1);
 	else
 		numBones = 0;
-	u_depthRange = glGetUniformLocation(program, "u_depthRange");
+	queries.push_back({ &u_depthRange, "u_depthRange" });
 
 #ifdef USE_BONE_ARRAY
-	u_bone = glGetUniformLocation(program, "u_bone");
+	queries.push_back({ &u_bone, "u_bone" });
 #else
+	static const char * const boneNames[8] = { "u_bone0", "u_bone1", "u_bone2", "u_bone3", "u_bone4", "u_bone5", "u_bone6", "u_bone7", };
 	for (int i = 0; i < 8; i++) {
-		char name[10];
-		sprintf(name, "u_bone%i", i);
-		u_bone[i] = glGetUniformLocation(program, name);
+		queries.push_back({ &u_bone[i], boneNames[i] });
 	}
 #endif
 
 	// Lighting, texturing
-	u_ambient = glGetUniformLocation(program, "u_ambient");
-	u_matambientalpha = glGetUniformLocation(program, "u_matambientalpha");
-	u_matdiffuse = glGetUniformLocation(program, "u_matdiffuse");
-	u_matspecular = glGetUniformLocation(program, "u_matspecular");
-	u_matemissive = glGetUniformLocation(program, "u_matemissive");
-	u_uvscaleoffset = glGetUniformLocation(program, "u_uvscaleoffset");
-	u_texclamp = glGetUniformLocation(program, "u_texclamp");
-	u_texclampoff = glGetUniformLocation(program, "u_texclampoff");
+	queries.push_back({ &u_ambient, "u_ambient" });
+	queries.push_back({ &u_matambientalpha, "u_matambientalpha" });
+	queries.push_back({ &u_matdiffuse, "u_matdiffuse" });
+	queries.push_back({ &u_matspecular, "u_matspecular" });
+	queries.push_back({ &u_matemissive, "u_matemissive" });
+	queries.push_back({ &u_uvscaleoffset, "u_uvscaleoffset" });
+	queries.push_back({ &u_texclamp, "u_texclamp" });
+	queries.push_back({ &u_texclampoff, "u_texclampoff" });
 
 	for (int i = 0; i < 4; i++) {
-		char temp[64];
-		sprintf(temp, "u_lightpos%i", i);
-		u_lightpos[i] = glGetUniformLocation(program, temp);
-		sprintf(temp, "u_lightdir%i", i);
-		u_lightdir[i] = glGetUniformLocation(program, temp);
-		sprintf(temp, "u_lightatt%i", i);
-		u_lightatt[i] = glGetUniformLocation(program, temp);
-		sprintf(temp, "u_lightangle%i", i);
-		u_lightangle[i] = glGetUniformLocation(program, temp);
-		sprintf(temp, "u_lightspotCoef%i", i);
-		u_lightspotCoef[i] = glGetUniformLocation(program, temp);
-		sprintf(temp, "u_lightambient%i", i);
-		u_lightambient[i] = glGetUniformLocation(program, temp);
-		sprintf(temp, "u_lightdiffuse%i", i);
-		u_lightdiffuse[i] = glGetUniformLocation(program, temp);
-		sprintf(temp, "u_lightspecular%i", i);
-		u_lightspecular[i] = glGetUniformLocation(program, temp);
+		static const char * const lightPosNames[4] = { "u_lightpos0", "u_lightpos1", "u_lightpos2", "u_lightpos3", };
+		queries.push_back({ &u_lightpos[i], lightPosNames[i] });
+		static const char * const lightdir_names[4] = { "u_lightdir0", "u_lightdir1", "u_lightdir2", "u_lightdir3", };
+		queries.push_back({ &u_lightdir[i], lightdir_names[i] });
+		static const char * const lightatt_names[4] = { "u_lightatt0", "u_lightatt1", "u_lightatt2", "u_lightatt3", };
+		queries.push_back({ &u_lightatt[i], lightatt_names[i] });
+		static const char * const lightangle_names[4] = { "u_lightangle0", "u_lightangle1", "u_lightangle2", "u_lightangle3", };
+		queries.push_back({ &u_lightangle[i], lightangle_names[i] });
+
+		static const char * const lightspotCoef_names[4] = { "u_lightspotCoef0", "u_lightspotCoef1", "u_lightspotCoef2", "u_lightspotCoef3", };
+		queries.push_back({ &u_lightspotCoef[i], lightspotCoef_names[i] });
+		static const char * const lightambient_names[4] = { "u_lightambient0", "u_lightambient1", "u_lightambient2", "u_lightambient3", };
+		queries.push_back({ &u_lightambient[i], lightambient_names[i] });
+		static const char * const lightdiffuse_names[4] = { "u_lightdiffuse0", "u_lightdiffuse1", "u_lightdiffuse2", "u_lightdiffuse3", };
+		queries.push_back({ &u_lightdiffuse[i], lightdiffuse_names[i] });
+		static const char * const lightspecular_names[4] = { "u_lightspecular0", "u_lightspecular1", "u_lightspecular2", "u_lightspecular3", };
+		queries.push_back({ &u_lightspecular[i], lightspecular_names[i] });
 	}
 
 	// We need to fetch these unconditionally, gstate_c.spline or bezier will not be set if we
 	// create this shader at load time from the shader cache.
-	u_tess_pos_tex = glGetUniformLocation(program, "u_tess_pos_tex");
-	u_tess_tex_tex = glGetUniformLocation(program, "u_tess_tex_tex");
-	u_tess_col_tex = glGetUniformLocation(program, "u_tess_col_tex");
-	u_spline_count_u = glGetUniformLocation(program, "u_spline_count_u");
-	u_spline_count_v = glGetUniformLocation(program, "u_spline_count_v");
-	u_spline_type_u = glGetUniformLocation(program, "u_spline_type_u");
-	u_spline_type_v = glGetUniformLocation(program, "u_spline_type_v");
+	queries.push_back({ &u_tess_pos_tex, "u_tess_pos_tex" });
+	queries.push_back({ &u_tess_tex_tex, "u_tess_tex_tex" });
+	queries.push_back({ &u_tess_col_tex, "u_tess_col_tex" });
+	queries.push_back({ &u_spline_count_u, "u_spline_count_u" });
+	queries.push_back({ &u_spline_count_v, "u_spline_count_v" });
+	queries.push_back({ &u_spline_type_u, "u_spline_type_u" });
+	queries.push_back({ &u_spline_type_v, "u_spline_type_v" });
 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
 
-	glUseProgram(program);
+	program = render->CreateProgram(shaders, semantics, queries, gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND);
+
+	render->BindProgram(program);
 
 	// Default uniform values
-	glUniform1i(u_tex, 0);
-	glUniform1i(u_fbotex, 1);
-	glUniform1i(u_testtex, 2);
+	render->SetUniformI1(&u_tex, 0);
+	render->SetUniformI1(&u_fbotex, 1);
+	render->SetUniformI1(&u_fbotex, 2);
 	
 	if (u_tess_pos_tex != -1)
-		glUniform1i(u_tess_pos_tex, 4); // Texture unit 4
+		render->SetUniformI1(&u_tess_pos_tex, 4); // Texture unit 4
 	if (u_tess_tex_tex != -1)
-		glUniform1i(u_tess_tex_tex, 5); // Texture unit 5
+		render->SetUniformI1(&u_tess_tex_tex, 5); // Texture unit 5
 	if (u_tess_col_tex != -1)
-		glUniform1i(u_tess_col_tex, 6); // Texture unit 6
+		render->SetUniformI1(&u_tess_col_tex, 6); // Texture unit 6
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
@@ -264,21 +188,20 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 }
 
 LinkedShader::~LinkedShader() {
-	// Shaders are automatically detached by glDeleteProgram.
-	glDeleteProgram(program);
+	render_->DeleteProgram(program);
 }
 
 // Utility
-static void SetColorUniform3(int uniform, u32 color) {
+static void SetColorUniform3(GLRenderManager *render, GLint *uniform, u32 color) {
 	float f[4];
 	Uint8x4ToFloat4(f, color);
-	glUniform3fv(uniform, 1, f);
+	render->SetUniformF(uniform, 3, f);
 }
 
-static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha) {
+static void SetColorUniform3Alpha(GLRenderManager *render, GLint *uniform, u32 color, u8 alpha) {
 	float f[4];
 	Uint8x3ToFloat4_AlphaUint8(f, color, alpha);
-	glUniform4fv(uniform, 1, f);
+	render->SetUniformF(uniform, 4, f);
 }
 
 // This passes colors unscaled (e.g. 0 - 255 not 0 - 1.)
@@ -332,10 +255,10 @@ static void SetFloatUniform4(int uniform, float data[4]) {
 	glUniform4fv(uniform, 1, data);
 }
 
-static void SetMatrix4x3(int uniform, const float *m4x3) {
+static void SetMatrix4x3(GLRenderManager *render, GLint *uniform, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4(m4x4, m4x3);
-	glUniformMatrix4fv(uniform, 1, GL_FALSE, m4x4);
+	render->SetUniformM4x4(uniform, m4x4);
 }
 
 static inline void ScaleProjMatrix(Matrix4x4 &in) {
@@ -349,34 +272,12 @@ static inline void ScaleProjMatrix(Matrix4x4 &in) {
 	in.translateAndScale(trans, scale);
 }
 
-void LinkedShader::use(const ShaderID &VSID, LinkedShader *previous) {
-	glUseProgram(program);
-	int enable, disable;
-	if (previous) {
-		enable = attrMask & ~previous->attrMask;
-		disable = (~attrMask) & previous->attrMask;
-	} else {
-		enable = attrMask;
-		disable = ~attrMask;
-	}
-	for (int i = 0; i < ATTR_COUNT; i++) {
-		if (enable & (1 << i))
-			glEnableVertexAttribArray(i);
-		else if (disable & (1 << i))
-			glDisableVertexAttribArray(i);
-	}
-}
-
-void LinkedShader::stop() {
-	for (int i = 0; i < ATTR_COUNT; i++) {
-		if (attrMask & (1 << i))
-			glDisableVertexAttribArray(i);
-	}
+void LinkedShader::use(const ShaderID &VSID) {
+	render_->BindProgram(program);
+	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
 
 void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
-	CHECK_GL_ERROR_IF_DEBUG();
-
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 	if (!dirty)
@@ -438,7 +339,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 
 		ScaleProjMatrix(flippedMatrix);
 
-		glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix.m);
+		render_->SetUniformM4x4(&u_proj, flippedMatrix.m);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{
@@ -449,10 +350,10 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		} else {
 			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0.0f, 0.0f, 1.0f);
 		}
-		glUniformMatrix4fv(u_proj_through, 1, GL_FALSE, proj_through.getReadPtr());
+		render_->SetUniformM4x4(&u_proj_through, proj_through.getReadPtr());
 	}
 	if (dirty & DIRTY_TEXENV) {
-		SetColorUniform3(u_texenv, gstate.texenvcolor);
+		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {
 		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
@@ -461,7 +362,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		SetColorUniform3iAlpha(u_alphacolormask, gstate.colortestmask, gstate.getAlphaTestMask());
 	}
 	if (dirty & DIRTY_FOGCOLOR) {
-		SetColorUniform3(u_fogcolor, gstate.fogcolor);
+		SetColorUniform3(render_, &u_fogcolor, gstate.fogcolor);
 	}
 	if (dirty & DIRTY_FOGCOEF) {
 		float fogcoef[2] = {
@@ -508,7 +409,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 			uvscaleoff[2] = 0.0f;
 			uvscaleoff[3] = 0.0f;
 		}
-		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
+		render_->SetUniformF(&u_uvscaleoffset, 4, uvscaleoff);
 	}
 
 	if ((dirty & DIRTY_TEXCLAMP) && u_texclamp != -1) {
@@ -530,21 +431,21 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 			gstate_c.curTextureXOffset * invW,
 			gstate_c.curTextureYOffset * invH,
 		};
-		glUniform4fv(u_texclamp, 1, texclamp);
+		render_->SetUniformF(&u_texclamp, 4, texclamp);
 		if (u_texclampoff != -1) {
-			glUniform2fv(u_texclampoff, 1, texclampoff);
+			render_->SetUniformF(&u_texclampoff, 2, texclampoff);
 		}
 	}
 
 	// Transform
 	if (dirty & DIRTY_WORLDMATRIX) {
-		SetMatrix4x3(u_world, gstate.worldMatrix);
+		SetMatrix4x3(render_, &u_world, gstate.worldMatrix);
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
-		SetMatrix4x3(u_view, gstate.viewMatrix);
+		SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
 	}
 	if (dirty & DIRTY_TEXMATRIX) {
-		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
+		SetMatrix4x3(render_, &u_texmtx, gstate.tgenMatrix);
 	}
 	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
 		// Since depth is [-1, 1] mapping to [minz, maxz], this is easyish.
@@ -574,7 +475,8 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	}
 
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {
-		glUniform1f(u_stencilReplaceValue, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
+		float f = (float)gstate.getStencilTestRef() * (1.0f / 255.0f);
+		render_->SetUniformF(&u_stencilReplaceValue, 1, &f);
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
@@ -613,10 +515,10 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 
 	if (dirty & DIRTY_SHADERBLEND) {
 		if (u_blendFixA != -1) {
-			SetColorUniform3(u_blendFixA, gstate.getFixA());
+			SetColorUniform3(render_, &u_blendFixA, gstate.getFixA());
 		}
 		if (u_blendFixB != -1) {
-			SetColorUniform3(u_blendFixB, gstate.getFixB());
+			SetColorUniform3(render_, &u_blendFixB, gstate.getFixB());
 		}
 
 		const float fbotexSize[2] = {
@@ -630,16 +532,16 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 
 	// Lighting
 	if (dirty & DIRTY_AMBIENT) {
-		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.getAmbientA());
+		SetColorUniform3Alpha(render_, &u_ambient, gstate.ambientcolor, gstate.getAmbientA());
 	}
 	if (dirty & DIRTY_MATAMBIENTALPHA) {
-		SetColorUniform3Alpha(u_matambientalpha, gstate.materialambient, gstate.getMaterialAmbientA());
+		SetColorUniform3Alpha(render_, &u_matambientalpha, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
 	if (dirty & DIRTY_MATDIFFUSE) {
-		SetColorUniform3(u_matdiffuse, gstate.materialdiffuse);
+		SetColorUniform3(render_, &u_matdiffuse, gstate.materialdiffuse);
 	}
 	if (dirty & DIRTY_MATEMISSIVE) {
-		SetColorUniform3(u_matemissive, gstate.materialemissive);
+		SetColorUniform3(render_, &u_matemissive, gstate.materialemissive);
 	}
 	if (dirty & DIRTY_MATSPECULAR) {
 		SetColorUniform3ExtraFloat(u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
@@ -666,26 +568,25 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 			if (u_lightatt[i] != -1) SetFloat24Uniform3(u_lightatt[i], &gstate.latt[i * 3]);
 			if (u_lightangle[i] != -1) glUniform1f(u_lightangle[i], getFloat24(gstate.lcutoff[i]));
 			if (u_lightspotCoef[i] != -1) glUniform1f(u_lightspotCoef[i], getFloat24(gstate.lconv[i]));
-			if (u_lightambient[i] != -1) SetColorUniform3(u_lightambient[i], gstate.lcolor[i * 3]);
-			if (u_lightdiffuse[i] != -1) SetColorUniform3(u_lightdiffuse[i], gstate.lcolor[i * 3 + 1]);
-			if (u_lightspecular[i] != -1) SetColorUniform3(u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
+			if (u_lightambient[i] != -1) SetColorUniform3(render_, &u_lightambient[i], gstate.lcolor[i * 3]);
+			if (u_lightdiffuse[i] != -1) SetColorUniform3(render_, &u_lightdiffuse[i], gstate.lcolor[i * 3 + 1]);
+			if (u_lightspecular[i] != -1) SetColorUniform3(render_, &u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
 		}
 	}
 
 	if (dirty & DIRTY_BEZIERSPLINE) {
-		glUniform1i(u_spline_count_u, gstate_c.spline_count_u);
+		render_->SetUniformI1(&u_spline_count_u, gstate_c.spline_count_u);
 		if (u_spline_count_v != -1)
-			glUniform1i(u_spline_count_v, gstate_c.spline_count_v);
+			render_->SetUniformI1(&u_spline_count_v, gstate_c.spline_count_v);
 		if (u_spline_type_u != -1)
-			glUniform1i(u_spline_type_u, gstate_c.spline_type_u);
+			render_->SetUniformI1(&u_spline_type_u, gstate_c.spline_type_u);
 		if (u_spline_type_v != -1)
-			glUniform1i(u_spline_type_v, gstate_c.spline_type_v);
+			render_->SetUniformI1(&u_spline_type_v, gstate_c.spline_type_v);
 	}
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-ShaderManagerGLES::ShaderManagerGLES()
-		: lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
+ShaderManagerGLES::ShaderManagerGLES(GLRenderManager *render)
+		: render_(render), lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
@@ -727,8 +628,6 @@ void ShaderManagerGLES::DirtyShader() {
 }
 
 void ShaderManagerGLES::DirtyLastShader() { // disables vertex arrays
-	if (lastShader_)
-		lastShader_->stop();
 	lastShader_ = nullptr;
 	lastVShaderSame_ = false;
 }
@@ -738,7 +637,7 @@ Shader *ShaderManagerGLES::CompileFragmentShader(ShaderID FSID) {
 	if (!GenerateFragmentShader(FSID, codeBuffer_, &uniformMask)) {
 		return nullptr;
 	}
-	return new Shader(codeBuffer_, GL_FRAGMENT_SHADER, false, 0, uniformMask);
+	return new Shader(render_, codeBuffer_, GL_FRAGMENT_SHADER, false, 0, uniformMask);
 }
 
 Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
@@ -746,7 +645,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
 	uint32_t attrMask;
 	uint64_t uniformMask;
 	GenerateVertexShader(VSID, codeBuffer_, &attrMask, &uniformMask);
-	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
+	return new Shader(render_, codeBuffer_, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
 }
 
 Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
@@ -797,7 +696,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 			uint32_t attrMask;
 			uint64_t uniformMask;
 			GenerateVertexShader(vsidTemp, codeBuffer_, &attrMask, &uniformMask);
-			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false, attrMask, uniformMask);
+			vs = new Shader(render_, codeBuffer_, GL_VERTEX_SHADER, false, attrMask, uniformMask);
 		}
 
 		vsCache_.Insert(*VSID, vs);
@@ -846,12 +745,12 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(ShaderID VSID, Shader *vs, 
 
 	if (ls == nullptr) {
 		// Check if we can link these.
-		ls = new LinkedShader(VSID, vs, FSID, fs, vs->UseHWTransform());
-		ls->use(VSID, lastShader_);
+		ls = new LinkedShader(render_, VSID, vs, FSID, fs, vs->UseHWTransform());
+		ls->use(VSID);
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {
-		ls->use(VSID, lastShader_);
+		ls->use(VSID);
 	}
 	ls->UpdateUniforms(vertType, VSID);
 
@@ -1005,7 +904,7 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 		Shader *vs = vsCache_.Get(vsid);
 		Shader *fs = fsCache_.Get(fsid);
 		if (vs && fs) {
-			LinkedShader *ls = new LinkedShader(vsid, vs, fsid, fs, vs->UseHWTransform());
+			LinkedShader *ls = new LinkedShader(render_, vsid, vs, fsid, fs, vs->UseHWTransform());
 			LinkedShaderCacheEntry entry(vs, fs, ls);
 			linkedShaderCache_.push_back(entry);
 		}
