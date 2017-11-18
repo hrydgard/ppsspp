@@ -18,6 +18,8 @@ struct GLRImage {
 
 void GLCreateImage(GLRImage &img, int width, int height, GLint format, bool color);
 
+class GLRInputLayout;
+
 class GLRFramebuffer {
 public:
 	GLRFramebuffer(int _width, int _height) {
@@ -143,12 +145,14 @@ public:
 		programs = std::move(other.programs);
 		buffers = std::move(other.buffers);
 		textures = std::move(other.textures);
+		inputLayouts = std::move(other.inputLayouts);
 	}
 
 	std::vector<GLRShader *> shaders;
 	std::vector<GLRProgram *> programs;
 	std::vector<GLRBuffer *> buffers;
 	std::vector<GLRTexture *> textures;
+	std::vector<GLRInputLayout *> inputLayouts;
 };
 
 class GLRInputLayout {
@@ -195,6 +199,8 @@ public:
 	GLRBuffer *CreateBuffer(GLuint target, int size, GLuint usage) {
 		GLRInitStep step{ GLRInitStepType::CREATE_BUFFER };
 		step.create_buffer.buffer = new GLRBuffer(target);
+		step.create_buffer.size = size;
+		step.create_buffer.usage = usage;
 		initSteps_.push_back(step);
 		return step.create_buffer.buffer;
 	}
@@ -246,7 +252,7 @@ public:
 		deleter_.textures.push_back(texture);
 	}
 	void DeleteInputLayout(GLRInputLayout *inputLayout) {
-
+		deleter_.inputLayouts.push_back(inputLayout);
 	}
 
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
@@ -257,8 +263,8 @@ public:
 	void CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask);
 	void BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter);
 
-	// Takes ownership of data.
-	void BufferSubdata(GLRBuffer *buffer, int offset, int size, uint8_t *data) {
+	// Takes ownership of data if deleteData = true.
+	void BufferSubdata(GLRBuffer *buffer, int offset, int size, uint8_t *data, bool deleteData = true) {
 		// TODO: Maybe should be a render command instead of an init command? When possible it's better as
 		// an init command, that's for sure.
 		GLRInitStep step{ GLRInitStepType::BUFFER_SUBDATA };
@@ -266,6 +272,7 @@ public:
 		step.buffer_subdata.offset = offset;
 		step.buffer_subdata.size = size;
 		step.buffer_subdata.data = data;
+		step.buffer_subdata.deleteData = deleteData;
 		initSteps_.push_back(step);
 	}
 
@@ -297,8 +304,16 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
+	void BindVertexBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::BIND_VERTEX_BUFFER };
+		data.bind_buffer.buffer = buffer;
+		curRenderStep_->commands.push_back(data);
+	}
+
 	void BindInputLayout(GLRInputLayout *inputLayout, const void *offset) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		assert(inputLayout);
 		GLRRenderData data{ GLRRenderCommand::BIND_INPUT_LAYOUT };
 		data.inputLayout.inputLayout = inputLayout;
 		data.inputLayout.offset = (intptr_t)offset;
@@ -307,6 +322,7 @@ public:
 
 	void UnbindInputLayout(GLRInputLayout *inputLayout) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		assert(inputLayout);
 		GLRRenderData data{ GLRRenderCommand::UNBIND_INPUT_LAYOUT };
 		data.inputLayout.inputLayout = inputLayout;
 		curRenderStep_->commands.push_back(data);
@@ -372,6 +388,20 @@ public:
 		GLRRenderData data{ GLRRenderCommand::UNIFORMMATRIX };
 		data.uniformMatrix4.name = name;
 		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetBlendAndMask(int colorMask, bool blendEnabled, GLenum srcColor, GLenum dstColor, GLenum srcAlpha, GLenum dstAlpha, GLenum funcColor, GLenum funcAlpha) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::BLEND };
+		data.blend.mask = colorMask;
+		data.blend.enabled = blendEnabled;
+		data.blend.srcColor = srcColor;
+		data.blend.dstColor = dstColor;
+		data.blend.srcAlpha = srcAlpha;
+		data.blend.dstAlpha = dstAlpha;
+		data.blend.funcColor = funcColor;
+		data.blend.funcAlpha = funcAlpha;
 		curRenderStep_->commands.push_back(data);
 	}
 
@@ -450,6 +480,10 @@ public:
 
 	enum { MAX_INFLIGHT_FRAMES = 3 };
 
+	int GetCurFrame() const {
+		return curFrame_;
+	}
+
 private:
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
@@ -460,10 +494,6 @@ private:
 	void EndSyncFrame(int frame);
 
 	void StopThread();
-
-	int GetCurFrame() const {
-		return curFrame_;
-	}
 
 	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 	struct FrameData {
@@ -511,3 +541,114 @@ private:
 	int curFrame_ = 0;
 };
 
+
+// Similar to VulkanPushBuffer but uses really stupid tactics - collect all the data in RAM then do a big
+// memcpy/buffer upload at the end. This can however be optimized with glBufferStorage on chips that support that
+// for massive boosts.
+class GLPushBuffer {
+public:
+	struct BufInfo {
+		GLRBuffer *buffer;
+		uint8_t *deviceMemory;
+	};
+
+public:
+	GLPushBuffer(GLRenderManager *render, size_t size);
+	~GLPushBuffer();
+
+	void Destroy();
+
+	void Reset() { offset_ = 0; }
+
+	// Needs context in case of defragment.
+	void Begin() {
+		buf_ = 0;
+		offset_ = 0;
+		// Note: we must defrag because some buffers may be smaller than size_.
+		Defragment();
+		Map();
+		assert(writePtr_);
+	}
+
+	void BeginNoReset() {
+		Map();
+	}
+
+	void End() {
+		Unmap();
+	}
+
+	void Map() {
+		assert(!writePtr_);
+		// VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
+		writePtr_ = buffers_[buf_].deviceMemory;
+		assert(writePtr_);
+	}
+
+	void Unmap();
+
+	// When using the returned memory, make sure to bind the returned vkbuf.
+	// This will later allow for handling overflow correctly.
+	size_t Allocate(size_t numBytes, GLRBuffer **vkbuf) {
+		size_t out = offset_;
+		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
+
+		if (offset_ >= size_) {
+			NextBuffer(numBytes);
+			out = offset_;
+			offset_ += (numBytes + 3) & ~3;
+		}
+		*vkbuf = buffers_[buf_].buffer;
+		return out;
+	}
+
+	// Returns the offset that should be used when binding this buffer to get this data.
+	size_t Push(const void *data, size_t size, GLRBuffer **vkbuf) {
+		assert(writePtr_);
+		size_t off = Allocate(size, vkbuf);
+		memcpy(writePtr_ + off, data, size);
+		return off;
+	}
+
+	uint32_t PushAligned(const void *data, size_t size, int align, GLRBuffer **vkbuf) {
+		assert(writePtr_);
+		offset_ = (offset_ + align - 1) & ~(align - 1);
+		size_t off = Allocate(size, vkbuf);
+		memcpy(writePtr_ + off, data, size);
+		return (uint32_t)off;
+	}
+
+	size_t GetOffset() const {
+		return offset_;
+	}
+
+	// "Zero-copy" variant - you can write the data directly as you compute it.
+	// Recommended.
+	void *Push(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf) {
+		assert(writePtr_);
+		size_t off = Allocate(size, vkbuf);
+		*bindOffset = (uint32_t)off;
+		return writePtr_ + off;
+	}
+	void *PushAligned(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf, int align) {
+		assert(writePtr_);
+		offset_ = (offset_ + align - 1) & ~(align - 1);
+		size_t off = Allocate(size, vkbuf);
+		*bindOffset = (uint32_t)off;
+		return writePtr_ + off;
+	}
+
+	size_t GetTotalSize() const;
+
+private:
+	bool AddBuffer();
+	void NextBuffer(size_t minSize);
+	void Defragment();
+
+	GLRenderManager *render_;
+	std::vector<BufInfo> buffers_;
+	size_t buf_;
+	size_t offset_;
+	size_t size_;
+	uint8_t *writePtr_;
+};

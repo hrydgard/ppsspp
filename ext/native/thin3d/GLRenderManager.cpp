@@ -342,3 +342,85 @@ void GLRenderManager::Wipe() {
 	}
 	steps_.clear();
 }
+
+GLPushBuffer::GLPushBuffer(GLRenderManager *render, size_t size) : render_(render), buf_(0), offset_(0), size_(size), writePtr_(nullptr) {
+	bool res = AddBuffer();
+	assert(res);
+}
+
+GLPushBuffer::~GLPushBuffer() {
+	assert(buffers_.empty());
+}
+
+void GLPushBuffer::Unmap() {
+	assert(writePtr_);
+	// Here we should simply upload everything to the buffers.
+	// Might be worth trying with size_ instead of offset_, so the driver can replace the whole buffer.
+	// At least if it's close.
+	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].deviceMemory, false);
+	writePtr_ = nullptr;
+}
+
+bool GLPushBuffer::AddBuffer() {
+	BufInfo info;
+	info.deviceMemory = new uint8_t[size_];
+	info.buffer = render_->CreateBuffer(GL_ARRAY_BUFFER, size_, GL_DYNAMIC_DRAW);
+	buf_ = buffers_.size();
+	buffers_.resize(buf_ + 1);
+	buffers_[buf_] = info;
+	return true;
+}
+
+void GLPushBuffer::Destroy() {
+	for (BufInfo &info : buffers_) {
+		render_->DeleteBuffer(info.buffer);
+		delete[] info.deviceMemory;
+	}
+	buffers_.clear();
+}
+
+void GLPushBuffer::NextBuffer(size_t minSize) {
+	// First, unmap the current memory.
+	Unmap();
+
+	buf_++;
+	if (buf_ >= buffers_.size() || minSize > size_) {
+		// Before creating the buffer, adjust to the new size_ if necessary.
+		while (size_ < minSize) {
+			size_ <<= 1;
+		}
+
+		bool res = AddBuffer();
+		assert(res);
+		if (!res) {
+			// Let's try not to crash at least?
+			buf_ = 0;
+		}
+	}
+
+	// Now, move to the next buffer and map it.
+	offset_ = 0;
+	Map();
+}
+
+void GLPushBuffer::Defragment() {
+	if (buffers_.size() <= 1) {
+		return;
+	}
+
+	// Okay, we have more than one.  Destroy them all and start over with a larger one.
+	size_t newSize = size_ * buffers_.size();
+	Destroy();
+
+	size_ = newSize;
+	bool res = AddBuffer();
+	assert(res);
+}
+
+size_t GLPushBuffer::GetTotalSize() const {
+	size_t sum = 0;
+	if (buffers_.size() > 1)
+		sum += size_ * (buffers_.size() - 1);
+	sum += offset_;
+	return sum;
+}
