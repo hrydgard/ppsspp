@@ -141,7 +141,7 @@ public:
 	void FinishDeferred() {
 		if (!numDrawCalls)
 			return;
-		DecodeVerts(decoded);
+		DoFlush();
 	}
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;

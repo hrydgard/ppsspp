@@ -21,6 +21,7 @@
 
 #include "gfx_es2/gpu_features.h"
 #include "gfx/gl_common.h"
+#include "thin3d/GLRenderManager.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureScalerGLES.h"
@@ -31,6 +32,7 @@ class FramebufferManagerGLES;
 class DepalShaderCacheGLES;
 class ShaderManagerGLES;
 class DrawEngineGLES;
+class GLRTexture;
 
 class TextureCacheGLES : public TextureCacheCommon {
 public:
@@ -52,16 +54,14 @@ public:
 	}
 
 	void ForgetLastTexture() override {
-		lastBoundTexture = INVALID_TEX;
+		lastBoundTexture = nullptr;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
 	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override {
 		if (!entry || entry->textureName == lastBoundTexture) {
-			lastBoundTexture = INVALID_TEX;
+			lastBoundTexture = nullptr;
 		}
 	}
-
-	u32 AllocTextureName();
 
 	// Only used by Qt UI?
 	bool DecodeTexture(u8 *output, const GPUgstate &state);
@@ -87,12 +87,11 @@ private:
 
 	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
 
-	std::vector<u32> nameCache_;
+	GLRenderManager *render_;
 
 	TextureScalerGLES scaler;
 
-	u32 lastBoundTexture;
-	float maxAnisotropyLevel;
+	GLRTexture *lastBoundTexture;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	DepalShaderCacheGLES *depalShaderCache_;

@@ -79,7 +79,7 @@ static const GLESCommandTableEntry commandTable[] = {
 GPU_GLES::CommandInfo GPU_GLES::cmdInfo_[256];
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-: GPUCommon(gfxCtx, draw), drawEngine_(draw) {
+: GPUCommon(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw), depalShaderCache_(draw) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 

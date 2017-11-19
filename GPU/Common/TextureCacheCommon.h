@@ -87,6 +87,8 @@ struct SamplerCacheKey {
 	}
 };
 
+class GLRTexture;
+
 // TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
 	~TexCacheEntry() {
@@ -132,7 +134,7 @@ struct TexCacheEntry {
 	u16 dim;
 	u16 bufw;
 	union {
-		u32 textureName;
+		GLRTexture *textureName;
 		void *texturePtr;
 		CachedTextureVulkan *vkTex;
 	};

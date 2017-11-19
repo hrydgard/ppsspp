@@ -89,7 +89,8 @@ static bool CheckShaderCompileSuccess(GLuint shader, const char *code) {
 	}
 }
 
-DepalShaderCacheGLES::DepalShaderCacheGLES() {
+DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {
+	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	// Pre-build the vertex program
 	useGL3_ = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
 
@@ -102,25 +103,12 @@ DepalShaderCacheGLES::~DepalShaderCacheGLES() {
 }
 
 bool DepalShaderCacheGLES::CreateVertexShader() {
-	if (vertexShaderFailed_) {
-		return false;
-	}
-
-	vertexShader_ = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader_, 1, useGL3_ ? &depalVShader300 : &depalVShader100, 0);
-	glCompileShader(vertexShader_);
-
-	if (!CheckShaderCompileSuccess(vertexShader_, useGL3_ ? depalVShader300 : depalVShader100)) {
-		glDeleteShader(vertexShader_);
-		vertexShader_ = 0;
-		// Don't try to recompile.
-		vertexShaderFailed_ = true;
-	}
-
-	return !vertexShaderFailed_;
+	std::string src(useGL3_ ? depalVShader300 : depalVShader100);
+	vertexShader_ = render_->CreateShader(GL_VERTEX_SHADER, src);
+	return true;
 }
 
-GLuint DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
+GLRTexture *DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut) {
 	u32 clutId = GetClutID(clutFormat, clutHash);
 
 	auto oldtex = texCache_.find(clutId);
@@ -133,18 +121,11 @@ GLuint DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, const u3
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
 	DepalTexture *tex = new DepalTexture();
-	glGenTextures(1, &tex->texture);
-	glBindTexture(GL_TEXTURE_2D, tex->texture);
+	tex->texture = render_->CreateTexture(GL_TEXTURE_2D);
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-
 	GLuint components2 = components;
 
-	glTexImage2D(GL_TEXTURE_2D, 0, components, texturePixels, 1, 0, components2, dstFmt, (void *)rawClut);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	render_->TextureImage(tex->texture, 0, texturePixels, 1, components, components2, dstFmt, (uint8_t *)rawClut, false);
 
 	tex->lastFrame = gpuStats.numFlips;
 	texCache_[clutId] = tex;
@@ -153,20 +134,20 @@ GLuint DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, const u3
 
 void DepalShaderCacheGLES::Clear() {
 	for (auto shader = cache_.begin(); shader != cache_.end(); ++shader) {
-		glDeleteShader(shader->second->fragShader);
+		render_->DeleteShader(shader->second->fragShader);
 		if (shader->second->program) {
-			glDeleteProgram(shader->second->program);
+			render_->DeleteProgram(shader->second->program);
 		}
 		delete shader->second;
 	}
 	cache_.clear();
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ++tex) {
-		glDeleteTextures(1, &tex->second->texture);
+		render_->DeleteTexture(tex->second->texture);
 		delete tex->second;
 	}
 	texCache_.clear();
 	if (vertexShader_) {
-		glDeleteShader(vertexShader_);
+		render_->DeleteShader(vertexShader_);
 		vertexShader_ = 0;
 	}
 }
@@ -174,7 +155,7 @@ void DepalShaderCacheGLES::Clear() {
 void DepalShaderCacheGLES::Decimate() {
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ) {
 		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.numFlips) {
-			glDeleteTextures(1, &tex->second->texture);
+			render_->DeleteTexture(tex->second->texture);
 			delete tex->second;
 			texCache_.erase(tex++);
 		} else {
@@ -201,63 +182,34 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 	char *buffer = new char[2048];
 
 	GenerateDepalShader(buffer, pixelFormat, useGL3_ ? GLSL_300 : GLSL_140);
-
-	GLuint fragShader = glCreateShader(GL_FRAGMENT_SHADER);
-
-	const char *buf = buffer;
-	glShaderSource(fragShader, 1, &buf, 0);
-	glCompileShader(fragShader);
-
-	CheckShaderCompileSuccess(fragShader, buffer);
-
-	GLuint program = glCreateProgram();
-	glAttachShader(program, vertexShader_);
-	glAttachShader(program, fragShader);
 	
-	glBindAttribLocation(program, 0, "a_position");
-	glBindAttribLocation(program, 1, "a_texcoord0");
-
-	glLinkProgram(program);
-	glUseProgram(program);
-
-	GLint u_tex = glGetUniformLocation(program, "tex");
-	GLint u_pal = glGetUniformLocation(program, "pal");
-
-	glUniform1i(u_tex, 0);
-	glUniform1i(u_pal, 3);
+	std::string src(buffer);
+	GLRShader *fragShader = render_->CreateShader(GL_FRAGMENT_SHADER, src);
 
 	DepalShader *depal = new DepalShader();
+
+	std::vector<GLRProgram::Semantic> semantics;
+	semantics.push_back({ 0, "a_position" });
+	semantics.push_back({ 1, "a_texcoord0" });
+
+	std::vector<GLRProgram::UniformLocQuery> queries;
+	queries.push_back({ &depal->u_tex, "tex" });
+	queries.push_back({ &depal->u_pal, "pal" });
+
+	std::vector<GLRProgram::Initializer> initializer;
+	initializer.push_back({ &depal->u_tex, 0 });
+	initializer.push_back({ &depal->u_pal, 3 });
+
+	std::vector<GLRShader *> shaders{ vertexShader_, fragShader };
+
+	GLRProgram *program = render_->CreateProgram(shaders, semantics, queries, initializer, false);
+
 	depal->program = program;
 	depal->fragShader = fragShader;
 	depal->code = buffer;
+	depal->a_position = 0;
+	depal->a_texcoord0 = 1;
 	cache_[id] = depal;
-
-	GLint linkStatus = GL_FALSE;
-	glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
-	if (linkStatus != GL_TRUE) {
-		GLint bufLength = 0;
-		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &bufLength);
-		if (bufLength) {
-			char* errorbuf = new char[bufLength];
-			glGetProgramInfoLog(program, bufLength, NULL, errorbuf);
-#ifdef SHADERLOG
-			OutputDebugStringUTF8(buffer);
-			OutputDebugStringUTF8(errorbuf);
-#endif
-			ERROR_LOG(G3D, "Could not link program:\n %s  \n\n %s", errorbuf, buf);
-			delete[] errorbuf;	// we're dead!
-		}
-
-		// Since it failed, let's mark it in the cache so we don't keep retrying.
-		// That will only make it slower.
-		depal->program = 0;
-
-		// We will delete the shader later in Clear().
-		glDeleteProgram(program);
-	} else {
-		depal->a_position = glGetAttribLocation(program, "a_position");
-		depal->a_texcoord0 = glGetAttribLocation(program, "a_texcoord0");
-	}
 
 	delete[] buffer;
 	return depal->program ? depal : nullptr;

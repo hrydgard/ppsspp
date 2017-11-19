@@ -631,7 +631,7 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	format_ = desc.format;
 	type_ = desc.type;
 	GLenum target = TypeToTarget(desc.type);
-	tex_ = render->CreateTexture(target, width_, height_);
+	tex_ = render->CreateTexture(target);
 
 	canWrap_ = isPowerOf2(width_) && isPowerOf2(height_);
 	mipLevels_ = desc.mipLevels;
@@ -1070,7 +1070,7 @@ void OpenGLContext::ApplySamplers() {
 			}
 			GLenum magFilt = samp->magFilt;
 			GLenum minFilt = tex->HasMips() ? samp->mipMinFilt : samp->minFilt;
-			renderManager_.SetTextureSampler(wrapS, wrapT, magFilt, minFilt);
+			renderManager_.SetTextureSampler(wrapS, wrapT, magFilt, minFilt, 0.0f);
 		}
 	}
 }
@@ -1325,6 +1325,9 @@ OpenGLFramebuffer *OpenGLContext::fbo_ext_create(const FramebufferDesc &desc) {
 Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	CheckGLExtensions();
 
+	OpenGLFramebuffer *fbo = new OpenGLFramebuffer();
+	// fbo->framebuffer = renderManager_.CreateFramebuffer()
+
 #ifndef USING_GLES2
 	if (!gl_extensions.ARB_framebuffer_object && gl_extensions.EXT_framebuffer_object) {
 		return fbo_ext_create(desc);
@@ -1335,7 +1338,6 @@ Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 #endif
 	CHECK_GL_ERROR_IF_DEBUG();
 
-	OpenGLFramebuffer *fbo = new OpenGLFramebuffer();
 	fbo->width = desc.width;
 	fbo->height = desc.height;
 	fbo->colorDepth = desc.colorDepth;
@@ -1578,10 +1580,10 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 	if (channelBits & FB_COLOR_BIT) {
 		aspect |= GL_COLOR_BUFFER_BIT;
 	} else if (channelBits & (FB_STENCIL_BIT | FB_DEPTH_BIT)) {
-		if (channelBits & FB_STENCIL_BIT)
-			aspect |= GL_STENCIL_BUFFER_BIT;
 		if (channelBits & FB_DEPTH_BIT)
 			aspect |= GL_DEPTH_BUFFER_BIT;
+		if (channelBits & FB_STENCIL_BIT)
+			aspect |= GL_STENCIL_BUFFER_BIT;
 	}
 	renderManager_.CopyFramebuffer(src->framebuffer, GLRect2D{ srcX, srcY, width, height }, dst->framebuffer, GLOffset2D{ dstX, dstY }, aspect);
 }
@@ -1589,30 +1591,34 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
-	GLuint bits = 0;
+	GLuint aspect = 0;
 	if (channels & FB_COLOR_BIT)
-		bits |= GL_COLOR_BUFFER_BIT;
+		aspect |= GL_COLOR_BUFFER_BIT;
 	if (channels & FB_DEPTH_BIT)
-		bits |= GL_DEPTH_BUFFER_BIT;
+		aspect |= GL_DEPTH_BUFFER_BIT;
 	if (channels & FB_STENCIL_BIT)
-		bits |= GL_STENCIL_BUFFER_BIT;
+		aspect |= GL_STENCIL_BUFFER_BIT;
+
+	renderManager_.BlitFramebuffer(src->framebuffer, GLRect2D{ srcX1, srcY1, srcX2 - srcX1, srcY2 - srcY1 }, dst->framebuffer, GLRect2D{ dstX1, dstY1, dstX2 - dstX1, dstY2 - dstY1 }, aspect, linearFilter == FB_BLIT_LINEAR);
+	/*
 	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
 	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
 	fbo_bind_fb_target(false, dst->handle);
 	fbo_bind_fb_target(true, src->handle);
 	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
-		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
+		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, aspect, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
 		CHECK_GL_ERROR_IF_DEBUG();
 #if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
 		return true;
 	} else if (gl_extensions.NV_framebuffer_blit) {
-		glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, bits, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
+		glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, aspect, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
 		CHECK_GL_ERROR_IF_DEBUG();
 #endif // defined(USING_GLES2) && defined(__ANDROID__)
 		return true;
 	} else {
 		return false;
-	}
+	}*/
+	return true;
 }
 
 void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {

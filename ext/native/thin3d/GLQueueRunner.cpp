@@ -6,12 +6,19 @@
 #include "gfx_es2/gpu_features.h"
 #include "math/dataconv.h"
 
-void GLQueueRunner::CreateDeviceObjects() {
+#define TEXCACHE_NAME_CACHE_SIZE 16
 
+void GLQueueRunner::CreateDeviceObjects() {
+	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel_);
+	glGenVertexArrays(1, &globalVAO_);
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
-
+	if (!nameCache_.empty()) {
+		glDeleteTextures((GLsizei)nameCache_.size(), &nameCache_[0]);
+		nameCache_.clear();
+	}
+	glDeleteVertexArrays(1, &globalVAO_);
 }
 
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
@@ -146,10 +153,14 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			}
 			break;
 		}
-
 		case GLRInitStepType::CREATE_INPUT_LAYOUT:
 		{
 			GLRInputLayout *layout = step.create_input_layout.inputLayout;
+			// Nothing to do unless we want to create vertexbuffer objects (GL 4.5)
+			break;
+		}
+		case GLRInitStepType::CREATE_FRAMEBUFFER:
+		{
 			// TODO
 			break;
 		}
@@ -164,8 +175,8 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			CHECK_GL_ERROR_IF_DEBUG();
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST);
 			break;
 		}
 		default:
@@ -219,6 +230,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	PerformBindFramebufferAsRenderTarget(step);
 
 	glEnable(GL_SCISSOR_TEST);
+
+	glBindVertexArray(globalVAO_);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
@@ -342,15 +355,20 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			break;
 		}
 		case GLRRenderCommand::STENCIL:
-			glStencilFunc(c.stencil.func, c.stencil.ref, c.stencil.compareMask);
-			glStencilOp(c.stencil.sFail, c.stencil.zFail, c.stencil.pass);
-			glStencilMask(c.stencil.writeMask);
+			if (c.stencil.enabled) {
+				glEnable(GL_STENCIL_TEST);
+				glStencilFunc(c.stencil.func, c.stencil.ref, c.stencil.compareMask);
+				glStencilOp(c.stencil.sFail, c.stencil.zFail, c.stencil.pass);
+				glStencilMask(c.stencil.writeMask);
+			} else {
+				glDisable(GL_STENCIL_TEST);
+			}
 			break;
 		case GLRRenderCommand::BINDTEXTURE:
 		{
 			GLint target = c.texture.slot;
 			if (target != activeTexture) {
-				glActiveTexture(target);
+				glActiveTexture(GL_TEXTURE0 + target);
 				activeTexture = target;
 			}
 			glBindTexture(c.texture.texture->target, c.texture.texture->texture);
@@ -376,6 +394,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 					glDisableVertexAttribArray(i);
 				}
 			}
+			attrMask = layout->semanticsMask_;
 			for (int i = 0; i < layout->entries.size(); i++) {
 				auto &entry = layout->entries[i];
 				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.inputLayout.offset + entry.offset));
@@ -410,6 +429,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, c.textureSampler.minFilter);
+			if (c.textureSampler.anisotropy != 0.0f) {
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, c.textureSampler.anisotropy);
+			}
 			break;
 		case GLRRenderCommand::RASTER:
 			if (c.raster.cullEnable) {
@@ -441,6 +463,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		glActiveTexture(GL_TEXTURE0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
 	glDisable(GL_SCISSOR_TEST);
 }
 
@@ -510,3 +533,14 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 void GLQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 
 }
+
+GLuint GLQueueRunner::AllocTextureName() {
+	if (nameCache_.empty()) {
+		nameCache_.resize(TEXCACHE_NAME_CACHE_SIZE);
+		glGenTextures(TEXCACHE_NAME_CACHE_SIZE, &nameCache_[0]);
+	}
+	u32 name = nameCache_.back();
+	nameCache_.pop_back();
+	return name;
+}
+

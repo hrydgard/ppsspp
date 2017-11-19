@@ -114,7 +114,7 @@ private:
 	GLRenderManager *render_;
 
 	// Used by DrawPixels
-	unsigned int drawPixelsTex_;
+	GLRTexture *drawPixelsTex_;
 	GEBufferFormat drawPixelsTexFormat_;
 	int drawPixelsTexW_;
 	int drawPixelsTexH_;

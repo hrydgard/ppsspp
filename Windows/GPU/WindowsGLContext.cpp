@@ -121,7 +121,7 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 
 	_snprintf(severityStr, 32, severityFmt, severity);
 
-	_snprintf(outStr, outStrSize, "OpenGL: %s [source=%s type=%s severity=%s id=%d]", msg, sourceStr, typeStr, severityStr, id);
+	_snprintf(outStr, outStrSize, "OpenGL: %s [source=%s type=%s severity=%s id=%d]\n", msg, sourceStr, typeStr, severityStr, id);
 }
 
 void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
