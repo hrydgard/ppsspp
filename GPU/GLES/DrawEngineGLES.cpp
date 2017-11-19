@@ -314,21 +314,6 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 	}
 }
 
-void DrawEngineGLES::DecodeVerts() {
-	const UVScale origUV = gstate_c.uv;
-	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-		gstate_c.uv = uvScale[decodeCounter_];
-		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
-	}
-	gstate_c.uv = origUV;
-	// Sanity check
-	if (indexGen.Prim() < 0) {
-		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
-		// Force to points (0)
-		indexGen.AddPrim(GE_PRIM_POINTS, 0);
-	}
-}
-
 void DrawEngineGLES::MarkUnreliable(VertexArrayInfo *vai) {
 	vai->status = VertexArrayInfo::VAI_UNRELIABLE;
 	if (vai->vbo) {
@@ -495,7 +480,7 @@ void DrawEngineGLES::DoFlush() {
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfo::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
-					DecodeVerts(); // writes to indexGen
+					DecodeVerts(decoded); // writes to indexGen
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
@@ -521,7 +506,7 @@ void DrawEngineGLES::DoFlush() {
 						}
 						if (newMiniHash != vai->minihash || newHash != vai->hash) {
 							MarkUnreliable(vai);
-							DecodeVerts();
+							DecodeVerts(decoded);
 							goto rotateVBO;
 						}
 						if (vai->numVerts > 64) {
@@ -540,13 +525,13 @@ void DrawEngineGLES::DoFlush() {
 						u32 newMiniHash = ComputeMiniHash();
 						if (newMiniHash != vai->minihash) {
 							MarkUnreliable(vai);
-							DecodeVerts();
+							DecodeVerts(decoded);
 							goto rotateVBO;
 						}
 					}
 
 					if (vai->vbo == 0) {
-						DecodeVerts();
+						DecodeVerts(decoded);
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
 						vai->maxIndex = indexGen.MaxIndex();
@@ -615,14 +600,14 @@ void DrawEngineGLES::DoFlush() {
 					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
 					}
-					DecodeVerts();
+					DecodeVerts(decoded);
 					goto rotateVBO;
 				}
 			}
 
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
-			DecodeVerts();
+			DecodeVerts(decoded);
 
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
@@ -667,7 +652,7 @@ rotateVBO:
 			glDrawArrays(glprim[prim], 0, vertexCount);
 		}
 	} else {
-		DecodeVerts();
+		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);

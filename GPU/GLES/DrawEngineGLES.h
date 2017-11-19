@@ -138,7 +138,7 @@ public:
 	void FinishDeferred() {
 		if (!numDrawCalls)
 			return;
-		DecodeVerts();
+		DecodeVerts(decoded);
 	}
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
@@ -154,7 +154,6 @@ public:
 	void DecimateBuffers();
 
 private:
-	void DecodeVerts();
 	void DoFlush();
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
