@@ -53,13 +53,13 @@ struct FragmentTestID {
 };
 
 struct FragmentTestTexture {
-	GLuint texture;
+	GLRTexture *texture;
 	int lastFrame;
 };
 
 class FragmentTestCacheGLES {
 public:
-	FragmentTestCacheGLES();
+	FragmentTestCacheGLES(Draw::DrawContext *draw);
 	~FragmentTestCacheGLES();
 
 	void SetTextureCache(TextureCacheGLES *tc) {
@@ -73,13 +73,14 @@ public:
 
 private:
 
-	GLuint CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]);
+	GLRTexture *CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]);
 	FragmentTestID GenerateTestID() const;
 
+	GLRenderManager *render_;
 	TextureCacheGLES *textureCache_;
 
 	std::map<FragmentTestID, FragmentTestTexture> cache_;
-	u8 *scratchpad_;
-	GLuint lastTexture_;
-	int decimationCounter_;
+	u8 *scratchpad_ = nullptr;
+	GLRTexture *lastTexture_ = nullptr;
+	int decimationCounter_ = 0;
 };

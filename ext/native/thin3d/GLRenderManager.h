@@ -22,27 +22,8 @@ class GLRInputLayout;
 
 class GLRFramebuffer {
 public:
-	GLRFramebuffer(int _width, int _height) {
-		width = _width;
-		height = _height;
-
-		/*
-		CreateImage(vulkan_, initCmd, color, width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
-		CreateImage(vulkan_, initCmd, depth, width, height, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false);
-
-		VkFramebufferCreateInfo fbci{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-		VkImageView views[2]{};
-
-		fbci.renderPass = renderPass;
-		fbci.attachmentCount = 2;
-		fbci.pAttachments = views;
-		views[0] = color.imageView;
-		views[1] = depth.imageView;
-		fbci.width = width;
-		fbci.height = height;
-		fbci.layers = 1;
-
-		vkCreateFramebuffer(vulkan_->GetDevice(), &fbci, nullptr, &framebuf);*/
+	GLRFramebuffer(int _width, int _height, bool z_stencil)
+		: width(_width), height(_height), z_stencil_(z_stencil) {
 	}
 
 	~GLRFramebuffer() {
@@ -57,6 +38,7 @@ public:
 	GLRImage depth{};
 	int width = 0;
 	int height = 0;
+	bool z_stencil_;
 };
 
 // We need to create some custom heap-allocated types so we can forward things that need to be created on the GL thread, before
@@ -200,12 +182,10 @@ public:
 	void Wipe();
 
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
-	GLRTexture *CreateTexture(GLenum target, int w, int h) {
+	GLRTexture *CreateTexture(GLenum target) {
 		GLRInitStep step{ GLRInitStepType::CREATE_TEXTURE };
 		step.create_texture.texture = new GLRTexture();
 		step.create_texture.texture->target = target;
-		step.create_texture.width = w;
-		step.create_texture.height = h;
 		initSteps_.push_back(step);
 		return step.create_texture.texture;
 	}
@@ -227,6 +207,13 @@ public:
 		memcpy(step.create_shader.code, code.data(), code.size() + 1);
 		initSteps_.push_back(step);
 		return step.create_shader.shader;
+	}
+
+	GLRFramebuffer *CreateFramebuffer(int width, int height, bool z_stencil) {
+		GLRInitStep step{ GLRInitStepType::CREATE_FRAMEBUFFER };
+		step.create_framebuffer.framebuffer = new GLRFramebuffer(width, height, z_stencil);
+		initSteps_.push_back(step);
+		return step.create_framebuffer.framebuffer;
 	}
 
 	GLRProgram *CreateProgram(
@@ -302,7 +289,7 @@ public:
 		initSteps_.push_back(step);
 	}
 
-	void TextureImage(GLRTexture *texture, int level, int width, int height, GLenum internalFormat, GLenum format, GLenum type, uint8_t *data) {
+	void TextureImage(GLRTexture *texture, int level, int width, int height, GLenum internalFormat, GLenum format, GLenum type, uint8_t *data, bool linearFilter = false) {
 		GLRInitStep step{ GLRInitStepType::TEXTURE_IMAGE };
 		step.texture_image.texture = texture;
 		step.texture_image.data = data;
@@ -312,6 +299,7 @@ public:
 		step.texture_image.level = level;
 		step.texture_image.width = width;
 		step.texture_image.height = height;
+		step.texture_image.linearFilter = linearFilter;
 		initSteps_.push_back(step);
 	}
 
@@ -496,13 +484,14 @@ public:
 	}
 	
 	// Modifies the current texture as per GL specs, not global state.
-	void SetTextureSampler(GLenum wrapS, GLenum wrapT, GLenum magFilter, GLenum minFilter) {
+	void SetTextureSampler(GLenum wrapS, GLenum wrapT, GLenum magFilter, GLenum minFilter, float anisotropy) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::TEXTURESAMPLER };
 		data.textureSampler.wrapS = wrapS;
 		data.textureSampler.wrapT = wrapT;
 		data.textureSampler.magFilter = magFilter;
 		data.textureSampler.minFilter = minFilter;
+		data.textureSampler.anisotropy = anisotropy;
 		curRenderStep_->commands.push_back(data);
 	}
 

@@ -247,7 +247,7 @@ void FramebufferManagerGLES::SetDrawEngine(DrawEngineGLES *td) {
 
 FramebufferManagerGLES::~FramebufferManagerGLES() {
 	if (drawPixelsTex_)
-		glDeleteTextures(1, &drawPixelsTex_);
+		render_->DeleteTexture(drawPixelsTex_);
 	DestroyDraw2DProgram();
 	if (stencilUploadProgram_) {
 		glsl_destroy(stencilUploadProgram_);
@@ -274,15 +274,16 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 	}
 
 	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTexW_ != texWidth || drawPixelsTexH_ != height)) {
-		glDeleteTextures(1, &drawPixelsTex_);
-		drawPixelsTex_ = 0;
+		render_->DeleteTexture(drawPixelsTex_);
+		drawPixelsTex_ = nullptr;
 	}
 
 	if (!drawPixelsTex_) {
-		drawPixelsTex_ = textureCacheGL_->AllocTextureName();
+		drawPixelsTex_ = render_->CreateTexture(GL_TEXTURE_2D);
 		drawPixelsTexW_ = texWidth;
 		drawPixelsTexH_ = height;
 
+		/*
 		// Initialize backbuffer texture for DrawPixels
 		glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -292,9 +293,10 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+		*/
 		drawPixelsTexFormat_ = srcPixelFormat;
 	} else {
-		glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
+		render_->BindTexture(0, drawPixelsTex_);
 	}
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.

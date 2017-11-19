@@ -120,7 +120,7 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 
 	_snprintf(severityStr, 32, severityFmt, severity);
 
-	_snprintf(outStr, outStrSize, "OpenGL: %s [source=%s type=%s severity=%s id=%d]", msg, sourceStr, typeStr, severityStr, id);
+	_snprintf(outStr, outStrSize, "OpenGL: %s [source=%s type=%s severity=%s id=%d]\n", msg, sourceStr, typeStr, severityStr, id);
 }
 
 void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
@@ -253,23 +253,22 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 
 	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
 	// glewExperimental allows us to force GLEW to search for the pointers anyway.
-	if (gl_extensions.IsCoreContext)
-		glewExperimental = true;
+	glewExperimental = true;
 	if (GLEW_OK != glewInit()) {
 		*error_message = "Failed to initialize GLEW.";
 		return false;
 	}
 	// Unfortunately, glew will generate an invalid enum error, ignore.
-	if (gl_extensions.IsCoreContext)
-		glGetError();
+	glGetError();
 
 	int contextFlags = g_Config.bGfxDebugOutput ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
 
 	HGLRC m_hrc = NULL;
-	// Alright, now for the modernity. First try a 4.4, then 4.3, context, if that fails try 3.3.
+	// Alright, now for the modernity. First try a 4.6, then down to 4.0 context, if that fails try 3.3.
 	// I can't seem to find a way that lets you simply request the newest version available.
 	if (wglewIsSupported("WGL_ARB_create_context") == 1) {
-		for (int minor = 5; minor >= 0 && m_hrc == NULL; --minor) {
+		SetGLCoreContext(true);
+		for (int minor = 6; minor >= 0 && m_hrc == NULL; --minor) {
 			const int attribs4x[] = {
 				WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
 				WGL_CONTEXT_MINOR_VERSION_ARB, minor,
