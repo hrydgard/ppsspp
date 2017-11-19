@@ -230,10 +230,14 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			}
 #endif
 			int mask = (int)rmask | ((int)gmask << 1) | ((int)bmask << 2) | ((int)amask << 3);
-			renderManager->SetBlendAndMask(mask, blendState.enabled,
-				glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
-				glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha],
-				glBlendEqLookup[(size_t)blendState.eqColor], glBlendEqLookup[(size_t)blendState.eqAlpha]);
+			if (blendState.enabled) {
+				renderManager->SetBlendAndMask(mask, blendState.enabled,
+					glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
+					glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha],
+					glBlendEqLookup[(size_t)blendState.eqColor], glBlendEqLookup[(size_t)blendState.eqAlpha]);
+			} else {
+				renderManager->SetNoBlendAndMask(mask);
+			}
 
 #ifndef USING_GLES2
 			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
@@ -288,9 +292,13 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			GenericStencilFuncState stencilState;
 			ConvertStencilFuncState(stencilState);
 			// Stencil Test
-			renderManager->SetStencil(stencilState.enabled, compareOps[stencilState.testFunc],
-				stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass],
-				stencilState.writeMask, stencilState.testMask, stencilState.testRef);
+			if (stencilState.enabled) {
+				renderManager->SetStencil(stencilState.enabled, compareOps[stencilState.testFunc],
+					stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass],
+					stencilState.writeMask, stencilState.testMask, stencilState.testRef);
+			} else {
+				renderManager->SetStencilDisabled();
+			}
 		}
 	}
 

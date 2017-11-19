@@ -115,7 +115,8 @@ enum {
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
-DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : vai_(256), draw_(draw) {
+DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : vai_(256), draw_(draw), inputLayoutMap_(16) {
+	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
@@ -178,9 +179,29 @@ void DrawEngineGLES::InitDeviceObjects() {
 	} else {
 		ERROR_LOG(G3D, "Device objects already initialized!");
 	}
+
+	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
+		frameData_[i].pushVertex = new GLPushBuffer(render_, 1024 * 1024);
+		frameData_[i].pushIndex = new GLPushBuffer(render_, 512 * 1024);
+	}
+
+	int vertexSize = sizeof(TransformedVertex);
+	std::vector<GLRInputLayout::Entry> entries;
+	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, 0 });
+	entries.push_back({ ATTR_TEXCOORD, 3, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, u) });
+	entries.push_back({ ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, offsetof(TransformedVertex, color0) });
+	entries.push_back({ ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, offsetof(TransformedVertex, color1) });
+	softwareInputLayout_ = render_->CreateInputLayout(entries);
 }
 
 void DrawEngineGLES::DestroyDeviceObjects() {
+	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
+		frameData_[i].pushVertex->Destroy();
+		frameData_[i].pushIndex->Destroy();
+		delete frameData_[i].pushVertex;
+		delete frameData_[i].pushIndex;
+	}
+
 	ClearTrackedVertexArrays();
 	if (!bufferNameCache_.empty()) {
 		glstate.arrayBuffer.unbind();
@@ -194,6 +215,27 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 			glDeleteVertexArrays(1, &sharedVao_);
 		}
 	}
+
+	render_->DeleteInputLayout(softwareInputLayout_);
+}
+
+void DrawEngineGLES::ClearInputLayoutMap() {
+	inputLayoutMap_.Iterate([&](const uint32_t &key, GLRInputLayout *il) {
+		render_->DeleteInputLayout(il);
+	});
+	inputLayoutMap_.Clear();
+}
+
+void DrawEngineGLES::BeginFrame() {
+	FrameData &frameData = frameData_[render_->GetCurFrame()];
+	frameData.pushIndex->Begin();
+	frameData.pushVertex->Begin();
+}
+
+void DrawEngineGLES::EndFrame() {
+	FrameData &frameData = frameData_[render_->GetCurFrame()];
+	frameData.pushIndex->End();
+	frameData.pushVertex->End();
 }
 
 struct GlTypeInfo {
@@ -220,24 +262,40 @@ static const GlTypeInfo GLComp[] = {
 	{GL_UNSIGNED_SHORT, 4, GL_TRUE},// 	DEC_U16_4,
 };
 
-static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
+static inline void VertexAttribSetup(int attrib, int fmt, int stride, int offset, std::vector<GLRInputLayout::Entry> &entries) {
 	if (fmt) {
 		const GlTypeInfo &type = GLComp[fmt];
-		glVertexAttribPointer(attrib, type.count, type.type, type.normalized, stride, ptr);
+		GLRInputLayout::Entry entry;
+		entry.offset = offset;
+		entry.location = attrib;
+		entry.normalized = type.normalized;
+		entry.type = type.type;
+		entry.stride = stride;
+		entry.count = type.count;
+		entries.push_back(entry);
 	}
 }
 
 // TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
-static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u8 *vertexData) {
-	CHECK_GL_ERROR_IF_DEBUG();
-	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
-	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
-	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
-	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.stride, vertexData + decFmt.c0off);
-	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
-	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
-	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
-	CHECK_GL_ERROR_IF_DEBUG();
+GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt) {
+	uint32_t key = decFmt.id;
+	GLRInputLayout *inputLayout = inputLayoutMap_.Get(key);
+	if (inputLayout) {
+		return inputLayout;
+	}
+
+	std::vector<GLRInputLayout::Entry> entries;
+	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.stride, decFmt.w0off, entries);
+	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.stride, decFmt.w1off, entries);
+	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.stride, decFmt.uvoff, entries);
+	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.stride, decFmt.c0off, entries);
+	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, decFmt.c1off, entries);
+	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, decFmt.nrmoff, entries);
+	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, decFmt.posoff, entries);
+
+	inputLayout = render_->CreateInputLayout(entries);
+	inputLayoutMap_.Insert(key, inputLayout);
+	return inputLayout;
 }
 
 void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
@@ -302,6 +360,17 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 			Flush();
 		}
 	}
+}
+
+void DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf) {
+	u8 *dest = decoded;
+
+	// Figure out how much pushbuffer space we need to allocate.
+	if (push) {
+		int vertsToDecode = ComputeNumVertsToDecode();
+		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, buf);
+	}
+	DecodeVerts(dest);
 }
 
 void DrawEngineGLES::MarkUnreliable(VertexArrayInfo *vai) {
@@ -430,17 +499,22 @@ void DrawEngineGLES::FreeVertexArray(VertexArrayInfo *vai) {
 
 void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
-	CHECK_GL_ERROR_IF_DEBUG();
 
+	FrameData &frameData = frameData_[render_->GetCurFrame()];
+	
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
-	CHECK_GL_ERROR_IF_DEBUG();
 
 	VShaderID vsid;
 	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_, &vsid);
+
+	GLRBuffer *vertexBuffer = nullptr;
+	GLRBuffer *indexBuffer = nullptr;
+	uint32_t vertexBufferOffset = 0;
+	uint32_t indexBufferOffset = 0;
 
 	if (vshader->UseHWTransform()) {
 		GLuint vbo = 0, ebo = 0;
@@ -452,6 +526,9 @@ void DrawEngineGLES::DoFlush() {
 		// Also avoid caching when software skinning.
 		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
 			useCache = false;
+
+		// TEMPORARY
+		useCache = false;
 
 		if (useCache) {
 			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
@@ -597,7 +674,7 @@ void DrawEngineGLES::DoFlush() {
 
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
-			DecodeVerts(decoded);
+			DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
 
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
@@ -606,9 +683,6 @@ rotateVBO:
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}
-			glstate.arrayBuffer.unbind();
-			glstate.elementArrayBuffer.unbind();
-
 			prim = indexGen.Prim();
 		}
 
@@ -630,16 +704,21 @@ rotateVBO:
 		}
 
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
-		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
-
+		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
+		render_->BindVertexBuffer(vertexBuffer);
+		render_->BindInputLayout(inputLayout, (void *)(uintptr_t)vertexBufferOffset);
 		if (useElements) {
+			if (!indexBuffer) {
+				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &indexBuffer);
+				render_->BindIndexBuffer(indexBuffer);
+			}
 			if (gstate_c.bezier || gstate_c.spline)
 				// Instanced rendering for instanced tessellation
-				glDrawElementsInstanced(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex, numPatches);
+				; // glDrawElementsInstanced(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset, numPatches);
 			else
-				glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
+				render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
 		} else {
-			glDrawArrays(glprim[prim], 0, vertexCount);
+			render_->Draw(glprim[prim], 0, vertexCount);
 		}
 	} else {
 		DecodeVerts(decoded);
@@ -695,28 +774,18 @@ rotateVBO:
 
 			bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 
-			const uint8_t *bufferStart = (const uint8_t *)drawBuffer;
-			if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-				bufferStart = 0;
-				BindBuffer(drawBuffer, vertexSize * maxIndex);
-				if (drawIndexed) {
-					BindElementBuffer(inds, sizeof(short) * numTrans);
-					inds = 0;
-				}
-			} else {
-				glstate.arrayBuffer.unbind();
-				glstate.elementArrayBuffer.unbind();
-			}
-
-			glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, bufferStart);
-			int attrMask = program->attrMask;
-			if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, bufferStart + offsetof(TransformedVertex, u));
-			if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, bufferStart + offsetof(TransformedVertex, color0));
-			if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, bufferStart + offsetof(TransformedVertex, color1));
 			if (drawIndexed) {
-				glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
+				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, maxIndex * sizeof(TransformedVertex), &vertexBuffer);
+				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &indexBuffer);
+				render_->BindIndexBuffer(indexBuffer);
+				render_->BindVertexBuffer(vertexBuffer);
+				render_->BindInputLayout(softwareInputLayout_, (void *)(intptr_t)vertexBufferOffset);
+				render_->DrawIndexed(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
 			} else {
-				glDrawArrays(glprim[prim], 0, numTrans);
+				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, numTrans * sizeof(TransformedVertex), &vertexBuffer);
+				render_->BindVertexBuffer(vertexBuffer);
+				render_->BindInputLayout(softwareInputLayout_, (void *)(intptr_t)vertexBufferOffset);
+				render_->Draw(glprim[prim], 0, numTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
@@ -735,26 +804,12 @@ rotateVBO:
 				framebufferManager_->SetDepthUpdated();
 			}
 
-			// Note that scissor may still apply while clearing.  Turn off other tests for the clear.
-			glstate.stencilTest.disable();
-			glstate.stencilMask.set(0xFF);
-			glstate.depthTest.disable();
-
 			GLbitfield target = 0;
 			if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT;
 			if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
 			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
-			glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
-			glClearColor(col[0], col[1], col[2], col[3]);
-#ifdef USING_GLES2
-			glClearDepthf(clearDepth);
-#else
-			glClearDepth(clearDepth);
-#endif
-			// Stencil takes alpha.
-			glClearStencil(clearColor >> 24);
-			glClear(target);
+			render_->Clear(clearColor, clearDepth, clearColor >> 24, target);
 			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 			int scissorX1 = gstate.getScissorX1();
@@ -766,6 +821,7 @@ rotateVBO:
 			if (g_Config.bBlockTransferGPU && (gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate.FrameBufFormat() == GE_FORMAT_565)) {
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
+			gstate_c.Dirty(DIRTY_BLEND_STATE);  // Make sure the color mask gets re-applied.
 		}
 	}
 

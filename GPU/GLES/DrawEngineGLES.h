@@ -28,6 +28,7 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 #include "gfx/gl_common.h"
+#include "thin3d/GLRenderManager.h"
 
 class LinkedShader;
 class ShaderManagerGLES;
@@ -126,6 +127,10 @@ public:
 	void ClearTrackedVertexArrays() override;
 	void DecimateTrackedVertexArrays();
 
+	void BeginFrame();
+	void EndFrame();
+
+
 	// So that this can be inlined
 	void Flush() {
 		if (!numDrawCalls)
@@ -151,6 +156,8 @@ public:
 	GLuint BindElementBuffer(const void *p, size_t sz);
 	void DecimateBuffers();
 
+	void ClearInputLayoutMap();
+
 private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -160,13 +167,27 @@ private:
 	void ApplyDrawStateLate();
 	void ResetShaderBlending();
 
+	GLRInputLayout *SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt);
+
+	void DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf);
+
 	GLuint AllocateBuffer(size_t sz);
 	void FreeBuffer(GLuint buf);
 	void FreeVertexArray(VertexArrayInfo *vai);
 
 	void MarkUnreliable(VertexArrayInfo *vai);
 
+	struct FrameData {
+		GLPushBuffer *pushVertex;
+		GLPushBuffer *pushIndex;
+	};
+	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES];
+
 	PrehashMap<VertexArrayInfo *, nullptr> vai_;
+
+	DenseHashMap<uint32_t, GLRInputLayout *, nullptr> inputLayoutMap_;
+
+	GLRInputLayout *softwareInputLayout_ = nullptr;
 
 	// Vertex buffer objects
 	// Element buffer objects
@@ -177,6 +198,7 @@ private:
 		bool used;
 		int lastFrame;
 	};
+	GLRenderManager *render_;
 	std::vector<GLuint> bufferNameCache_;
 	std::multimap<size_t, GLuint> freeSizedBuffers_;
 	std::unordered_map<GLuint, BufferNameInfo> bufferNameInfo_;

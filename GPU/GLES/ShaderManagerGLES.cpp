@@ -166,21 +166,15 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
 
-	program = render->CreateProgram(shaders, semantics, queries, gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND);
+	std::vector<GLRProgram::Initializer> initialize;
+	initialize.push_back({ &u_tex, 0, 0 });
+	initialize.push_back({ &u_fbotex, 0, 1 });
+	initialize.push_back({ &u_testtex, 0, 2 });
+	initialize.push_back({ &u_tess_pos_tex, 4 }); // Texture unit 4
+	initialize.push_back({ &u_tess_tex_tex, 5 }); // Texture unit 5
+	initialize.push_back({ &u_tess_col_tex, 6 }); // Texture unit 6
 
-	render->BindProgram(program);
-
-	// Default uniform values
-	render->SetUniformI1(&u_tex, 0);
-	render->SetUniformI1(&u_fbotex, 1);
-	render->SetUniformI1(&u_fbotex, 2);
-	
-	if (u_tess_pos_tex != -1)
-		render->SetUniformI1(&u_tess_pos_tex, 4); // Texture unit 4
-	if (u_tess_tex_tex != -1)
-		render->SetUniformI1(&u_tess_tex_tex, 5); // Texture unit 5
-	if (u_tess_col_tex != -1)
-		render->SetUniformI1(&u_tess_col_tex, 6); // Texture unit 6
+	program = render->CreateProgram(shaders, semantics, queries, initialize, gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND);
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;

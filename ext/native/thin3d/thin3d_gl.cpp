@@ -1099,7 +1099,8 @@ bool OpenGLPipeline::LinkShaders() {
 	semantics.push_back({ SEM_TANGENT, "Tangent" });
 	semantics.push_back({ SEM_BINORMAL, "Binormal" });
 	std::vector<GLRProgram::UniformLocQuery> queries;
-	program_ = render_->CreateProgram(linkShaders, semantics, queries, false);
+	std::vector<GLRProgram::Initializer> initialize;
+	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false);
 	return true;
 }
 

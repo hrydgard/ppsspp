@@ -403,6 +403,10 @@ void GPU_GLES::BuildReportingInfo() {
 void GPU_GLES::DeviceLost() {
 	ILOG("GPU_GLES: DeviceLost");
 
+	// Simply drop all caches and textures.
+	// FBOs appear to survive? Or no?
+	// TransformDraw has registered as a GfxResourceHolder.
+	drawEngine_.ClearInputLayoutMap();
 	shaderManagerGL_->ClearCache(false);
 	textureCacheGL_->Clear(false);
 	fragmentTestCache_.Clear(false);
@@ -451,6 +455,12 @@ void GPU_GLES::BeginHostFrame() {
 		shaderManagerGL_->DirtyShader();
 		textureCacheGL_->NotifyConfigChanged();
 	}
+
+	drawEngine_.BeginFrame();
+}
+
+void GPU_GLES::EndHostFrame() {
+	drawEngine_.EndFrame();
 }
 
 inline void GPU_GLES::UpdateVsyncInterval(bool force) {

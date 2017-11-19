@@ -80,6 +80,7 @@ public:
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
 
 	void BeginHostFrame() override;
+	void EndHostFrame() override;
 
 protected:
 	void FastRunLoop(DisplayList &list) override;

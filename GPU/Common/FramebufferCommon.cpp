@@ -208,6 +208,7 @@ void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
 		extraFBOs_.push_back(fbo);
 	}
 	currentRenderVfb_ = 0;
+	// TODO: Should probably not do this bind.
 	if (num != 0)
 		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 }

@@ -352,6 +352,14 @@ GLPushBuffer::~GLPushBuffer() {
 	assert(buffers_.empty());
 }
 
+void GLPushBuffer::Map() {
+	assert(!writePtr_);
+	// TODO: Even a good old glMapBuffer could actually work well here.
+	// VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
+	writePtr_ = buffers_[buf_].deviceMemory;
+	assert(writePtr_);
+}
+
 void GLPushBuffer::Unmap() {
 	assert(writePtr_);
 	// Here we should simply upload everything to the buffers.
