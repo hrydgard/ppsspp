@@ -70,7 +70,6 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				}
 			}
 #endif
-
 			glLinkProgram(program->program);
 
 			GLint linkStatus = GL_FALSE;
@@ -111,8 +110,17 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				*x.dest = glGetUniformLocation(program->program, x.name);
 			}
 
-			// Here we could (using glGetAttribLocation) save a bitmask about which pieces of vertex data are used in the shader
-			// and then AND it with the vertex format bitmask later...
+			// Run initializers.
+			for (int i = 0; i < program->initialize_.size(); i++) {
+				auto &init = program->initialize_[i];
+				GLint uniform = *init.uniform;
+				if (uniform != -1) {
+					switch (init.type) {
+					case 0:
+						glUniform1i(uniform, init.value);
+					}
+				}
+			}
 		}
 			break;
 		case GLRInitStepType::CREATE_SHADER:
@@ -240,8 +248,11 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			} else {
 				glDisable(GL_BLEND);
 			}
+			glColorMask(c.blend.mask & 1, (c.blend.mask >> 1) & 1, (c.blend.mask >> 2) & 1, (c.blend.mask >> 3) & 1);
 			break;
 		case GLRRenderCommand::CLEAR:
+			glDisable(GL_SCISSOR_TEST);
+			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 			if (c.clear.clearMask & GL_COLOR_BUFFER_BIT) {
 				float color[4];
 				Uint8x4ToFloat4(color, c.clear.clearColor);
@@ -258,6 +269,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				glClearStencil(c.clear.clearStencil);
 			}
 			glClear(c.clear.clearMask);
+			glEnable(GL_SCISSOR_TEST);
 			break;
 		case GLRRenderCommand::BLENDCOLOR:
 			glBlendColor(c.blendColor.color[0], c.blendColor.color[1], c.blendColor.color[2], c.blendColor.color[3]);
@@ -374,6 +386,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		{
 			GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
 			glBindBuffer(GL_ARRAY_BUFFER, buf);
+			break;
+		}
+		case GLRRenderCommand::BIND_INDEX_BUFFER:
+		{
+			GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf);
 			break;
 		}
 		case GLRRenderCommand::GENMIPS:

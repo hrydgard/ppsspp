@@ -82,6 +82,7 @@ const int MAX_PBO = 2;
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
 void FramebufferManagerGLES::DisableState() {
+	/*
 	glstate.blend.disable();
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
@@ -92,7 +93,7 @@ void FramebufferManagerGLES::DisableState() {
 #endif
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glstate.stencilMask.set(0xFF);
-
+	*/
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
@@ -247,6 +248,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	needBackBufferYSwap_ = true;
 	needGLESRebinds_ = true;
 	CreateDeviceObjects();
+	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 }
 
 void FramebufferManagerGLES::Init() {

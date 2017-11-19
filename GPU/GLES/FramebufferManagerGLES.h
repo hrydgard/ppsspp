@@ -29,6 +29,7 @@
 #include "Core/Config.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "thin3d/GLRenderManager.h"
 
 struct GLSLProgram;
 class TextureCacheGLES;
@@ -109,6 +110,8 @@ private:
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+
+	GLRenderManager *render_;
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;
