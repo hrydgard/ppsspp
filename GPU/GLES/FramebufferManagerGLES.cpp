@@ -347,65 +347,48 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
-	bool useConvBuf = false;
-	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != texWidth) {
-		useConvBuf = true;
-		u32 neededSize = texWidth * height * 4;
-		if (!convBuf_ || convBufSize_ < neededSize) {
-			delete [] convBuf_;
-			convBuf_ = new u8[neededSize];
-			convBufSize_ = neededSize;
-		}
-		for (int y = 0; y < height; y++) {
-			switch (srcPixelFormat) {
-			case GE_FORMAT_565:
-				{
-					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf_ + 4 * texWidth * y;
-					ConvertRGBA565ToRGBA8888((u32 *)dst, src, width);
-				}
-				break;
-
-			case GE_FORMAT_5551:
-				{
-					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf_ + 4 * texWidth * y;
-					ConvertRGBA5551ToRGBA8888((u32 *)dst, src, width);
-				}
-				break;
-
-			case GE_FORMAT_4444:
-				{
-					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf_ + 4 * texWidth * y;
-					ConvertRGBA4444ToRGBA8888((u32 *)dst, src, width);
-				}
-				break;
-
-			case GE_FORMAT_8888:
-				{
-					const u8 *src = srcPixels + srcStride * 4 * y;
-					u8 *dst = convBuf_ + 4 * texWidth * y;
-					memcpy(dst, src, 4 * width);
-				}
-				break;
-
-			case GE_FORMAT_INVALID:
-				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
-				break;
+	u32 neededSize = texWidth * height * 4;
+	u8 *convBuf = new u8[neededSize];
+	for (int y = 0; y < height; y++) {
+		switch (srcPixelFormat) {
+		case GE_FORMAT_565:
+			{
+				const u16 *src = (const u16 *)srcPixels + srcStride * y;
+				u8 *dst = convBuf + 4 * texWidth * y;
+				ConvertRGBA565ToRGBA8888((u32 *)dst, src, width);
 			}
+			break;
+
+		case GE_FORMAT_5551:
+			{
+				const u16 *src = (const u16 *)srcPixels + srcStride * y;
+				u8 *dst = convBuf + 4 * texWidth * y;
+				ConvertRGBA5551ToRGBA8888((u32 *)dst, src, width);
+			}
+			break;
+
+		case GE_FORMAT_4444:
+			{
+				const u16 *src = (const u16 *)srcPixels + srcStride * y;
+				u8 *dst = convBuf + 4 * texWidth * y;
+				ConvertRGBA4444ToRGBA8888((u32 *)dst, src, width);
+			}
+			break;
+
+		case GE_FORMAT_8888:
+			{
+				const u8 *src = srcPixels + srcStride * 4 * y;
+				u8 *dst = convBuf + 4 * texWidth * y;
+				memcpy(dst, src, 4 * width);
+			}
+			break;
+
+		case GE_FORMAT_INVALID:
+			_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
+			break;
 		}
 	}
-
-	// Try to skip uploading the unnecessary parts.
-	if (gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE) && width != texWidth) {
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, texWidth);
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf_ : srcPixels);
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-	} else {
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, texWidth, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf_ : srcPixels);
-	}
-	CHECK_GL_ERROR_IF_DEBUG();
+	render_->TextureImage(drawPixelsTex_, 0, texWidth, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, convBuf);
 }
 
 void FramebufferManagerGLES::SetViewport2D(int x, int y, int w, int h) {
@@ -979,20 +962,6 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, packStride, packWidth, h, vfb->format);
 		}
 	}
-
-	// TODO: Move this into Thin3d.
-	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-#ifdef USING_GLES2
-		// GLES3 doesn't support using GL_READ_FRAMEBUFFER here.
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
-		const GLenum target = GL_FRAMEBUFFER;
-#else
-		const GLenum target = GL_READ_FRAMEBUFFER;
-#endif
-		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
-		glInvalidateFramebuffer(target, 3, attachments);
-	}
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {

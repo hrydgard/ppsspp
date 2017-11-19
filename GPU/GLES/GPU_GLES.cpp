@@ -300,9 +300,6 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (gl_extensions.OES_texture_npot)
 		features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 
-	if (gl_extensions.EXT_unpack_subimage)
-		features |= GPU_SUPPORTS_UNPACK_SUBIMAGE;
-
 	if (gl_extensions.EXT_blend_minmax)
 		features |= GPU_SUPPORTS_BLEND_MINMAX;
 

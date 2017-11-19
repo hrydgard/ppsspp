@@ -181,8 +181,8 @@ void DrawEngineGLES::InitDeviceObjects() {
 	}
 
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].pushVertex = new GLPushBuffer(render_, 1024 * 1024);
-		frameData_[i].pushIndex = new GLPushBuffer(render_, 512 * 1024);
+		frameData_[i].pushVertex = new GLPushBuffer(render_, GL_ARRAY_BUFFER, 1024 * 1024);
+		frameData_[i].pushIndex = new GLPushBuffer(render_, GL_ELEMENT_ARRAY_BUFFER, 512 * 1024);
 	}
 
 	int vertexSize = sizeof(TransformedVertex);
@@ -695,14 +695,7 @@ rotateVBO:
 		}
 
 		ApplyDrawStateLate();
-
-		if (gstate_c.Supports(GPU_SUPPORTS_VAO) && vbo == 0) {
-			vbo = BindBuffer(decoded, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex());
-			if (useElements) {
-				ebo = BindElementBuffer(decIndex, sizeof(short) * indexGen.VertexCount());
-			}
-		}
-
+		
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
 		render_->BindVertexBuffer(vertexBuffer);
@@ -777,10 +770,10 @@ rotateVBO:
 			if (drawIndexed) {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, maxIndex * sizeof(TransformedVertex), &vertexBuffer);
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &indexBuffer);
-				render_->BindIndexBuffer(indexBuffer);
 				render_->BindVertexBuffer(vertexBuffer);
 				render_->BindInputLayout(softwareInputLayout_, (void *)(intptr_t)vertexBufferOffset);
-				render_->DrawIndexed(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
+				render_->BindIndexBuffer(indexBuffer);
+				render_->DrawIndexed(glprim[prim], numTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
 			} else {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, numTrans * sizeof(TransformedVertex), &vertexBuffer);
 				render_->BindVertexBuffer(vertexBuffer);
