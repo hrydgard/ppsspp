@@ -1,0 +1,12 @@
+# Build and run the unit tests on windows with MSVC.
+#
+# To use, open a visual studio command prompt and type
+#
+#   nmake -f Makefile.nmake
+
+test: tinyformat_test_cxx98
+	@echo running tests...
+	@tinyformat_test_cxx98 && echo "No errors"
+
+tinyformat_test_cxx98: tinyformat.h tinyformat_test.cpp
+	cl -W3 -EHsc -DTINYFORMAT_NO_VARIADIC_TEMPLATES tinyformat_test.cpp -Fetinyformat_test_cxx98

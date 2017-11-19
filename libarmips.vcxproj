@@ -1,0 +1,321 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Tests|Win32">
+      <Configuration>Tests</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Tests|x64">
+      <Configuration>Tests</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{129E5E2B-39C1-4D84-96FE-DFD22DBB4A25}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>libarmips</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)d</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <TargetName>$(ProjectName)d64</TargetName>
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'">
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)tests</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'">
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <TargetName>$(ProjectName)tests64</TargetName>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>$(ProjectName)64</TargetName>
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>ARMIPS_REGEXP;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>ARMIPS_REGEXP;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>ARMIPS_REGEXP;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>ARMIPS_REGEXP;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>ARMIPS_REGEXP;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>ARMIPS_REGEXP;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Archs\Architecture.cpp" />
+    <ClCompile Include="Archs\ARM\Arm.cpp" />
+    <ClCompile Include="Archs\ARM\ArmOpcodes.cpp" />
+    <ClCompile Include="Archs\ARM\ArmParser.cpp" />
+    <ClCompile Include="Archs\ARM\ArmRelocator.cpp" />
+    <ClCompile Include="Archs\ARM\CArmInstruction.cpp" />
+    <ClCompile Include="Archs\ARM\CThumbInstruction.cpp" />
+    <ClCompile Include="Archs\ARM\Pool.cpp" />
+    <ClCompile Include="Archs\ARM\ThumbOpcodes.cpp" />
+    <ClCompile Include="Archs\MIPS\CMipsInstruction.cpp" />
+    <ClCompile Include="Archs\MIPS\Mips.cpp" />
+    <ClCompile Include="Archs\MIPS\MipsElfFile.cpp" />
+    <ClCompile Include="Archs\MIPS\MipsMacros.cpp" />
+    <ClCompile Include="Archs\MIPS\MipsOpcodes.cpp" />
+    <ClCompile Include="Archs\MIPS\MipsParser.cpp" />
+    <ClCompile Include="Archs\MIPS\PsxRelocator.cpp" />
+    <ClCompile Include="Commands\CAssemblerCommand.cpp" />
+    <ClCompile Include="Commands\CAssemblerLabel.cpp" />
+    <ClCompile Include="Commands\CDirectiveArea.cpp" />
+    <ClCompile Include="Commands\CDirectiveConditional.cpp" />
+    <ClCompile Include="Commands\CDirectiveData.cpp" />
+    <ClCompile Include="Commands\CDirectiveFile.cpp" />
+    <ClCompile Include="Commands\CDirectiveMessage.cpp" />
+    <ClCompile Include="Commands\CommandSequence.cpp" />
+    <ClCompile Include="Core\Assembler.cpp" />
+    <ClCompile Include="Core\Common.cpp" />
+    <ClCompile Include="Core\ELF\ElfFile.cpp" />
+    <ClCompile Include="Core\ELF\ElfRelocator.cpp" />
+    <ClCompile Include="Core\Expression.cpp" />
+    <ClCompile Include="Core\ExpressionFunctions.cpp" />
+    <ClCompile Include="Core\FileManager.cpp" />
+    <ClCompile Include="Core\Misc.cpp" />
+    <ClCompile Include="Core\SymbolData.cpp" />
+    <ClCompile Include="Core\SymbolTable.cpp" />
+    <ClCompile Include="Parser\DirectivesParser.cpp" />
+    <ClCompile Include="Parser\ExpressionParser.cpp" />
+    <ClCompile Include="Parser\Parser.cpp" />
+    <ClCompile Include="Parser\Tokenizer.cpp" />
+    <ClCompile Include="stdafx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Tests|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Util\ByteArray.cpp" />
+    <ClCompile Include="Util\CRC.cpp" />
+    <ClCompile Include="Util\EncodingTable.cpp" />
+    <ClCompile Include="Util\FileClasses.cpp" />
+    <ClCompile Include="Util\Util.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Archs\Architecture.h" />
+    <ClInclude Include="Archs\ARM\Arm.h" />
+    <ClInclude Include="Archs\ARM\ArmOpcodes.h" />
+    <ClInclude Include="Archs\ARM\ArmParser.h" />
+    <ClInclude Include="Archs\ARM\ArmRelocator.h" />
+    <ClInclude Include="Archs\ARM\CArmInstruction.h" />
+    <ClInclude Include="Archs\ARM\CThumbInstruction.h" />
+    <ClInclude Include="Archs\ARM\Pool.h" />
+    <ClInclude Include="Archs\ARM\ThumbOpcodes.h" />
+    <ClInclude Include="Archs\MIPS\CMipsInstruction.h" />
+    <ClInclude Include="Archs\MIPS\Mips.h" />
+    <ClInclude Include="Archs\MIPS\MipsElfFile.h" />
+    <ClInclude Include="Archs\MIPS\MipsMacros.h" />
+    <ClInclude Include="Archs\MIPS\MipsOpcodes.h" />
+    <ClInclude Include="Archs\MIPS\MipsParser.h" />
+    <ClInclude Include="Archs\MIPS\PsxRelocator.h" />
+    <ClInclude Include="Commands\CAssemblerCommand.h" />
+    <ClInclude Include="Commands\CAssemblerLabel.h" />
+    <ClInclude Include="Commands\CDirectiveArea.h" />
+    <ClInclude Include="Commands\CDirectiveConditional.h" />
+    <ClInclude Include="Commands\CDirectiveData.h" />
+    <ClInclude Include="Commands\CDirectiveFile.h" />
+    <ClInclude Include="Commands\CDirectiveMessage.h" />
+    <ClInclude Include="Commands\CommandSequence.h" />
+    <ClInclude Include="Core\Assembler.h" />
+    <ClInclude Include="Core\Common.h" />
+    <ClInclude Include="Core\ELF\ElfFile.h" />
+    <ClInclude Include="Core\ELF\ElfRelocator.h" />
+    <ClInclude Include="Core\ELF\ElfTypes.h" />
+    <ClInclude Include="Core\Expression.h" />
+    <ClInclude Include="Core\ExpressionFunctions.h" />
+    <ClInclude Include="Core\FileManager.h" />
+    <ClInclude Include="Core\Misc.h" />
+    <ClInclude Include="Core\SymbolData.h" />
+    <ClInclude Include="Core\SymbolTable.h" />
+    <ClInclude Include="ext\tinyformat\tinyformat.h" />
+    <ClInclude Include="Parser\DirectivesParser.h" />
+    <ClInclude Include="Parser\ExpressionParser.h" />
+    <ClInclude Include="Parser\Parser.h" />
+    <ClInclude Include="Parser\Tokenizer.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="Util\ByteArray.h" />
+    <ClInclude Include="Util\CRC.h" />
+    <ClInclude Include="Util\EncodingTable.h" />
+    <ClInclude Include="Util\FileClasses.h" />
+    <ClInclude Include="Util\Util.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

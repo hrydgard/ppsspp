@@ -1,0 +1,10 @@
+/_Output/
+
+# Visual Studio working files.
+*.opensdf
+*.sdf
+*.suo
+*.vcxproj.user
+
+# Temporary dir for compiled headers.
+/ipch/
