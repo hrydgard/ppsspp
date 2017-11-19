@@ -138,6 +138,7 @@ struct GLRRenderData {
 			GLenum wrapT;
 			GLenum magFilter;
 			GLenum minFilter;  // also includes mip. GL...
+			float anisotropy;
 		} textureSampler;
 		struct {
 			GLRViewport vp;
@@ -163,6 +164,7 @@ enum class GLRInitStepType : uint8_t {
 	CREATE_PROGRAM,
 	CREATE_BUFFER,
 	CREATE_INPUT_LAYOUT,
+	CREATE_FRAMEBUFFER,
 
 	TEXTURE_IMAGE,
 	TEXTURE_SUBDATA,
@@ -176,9 +178,6 @@ struct GLRInitStep {
 		struct {
 			GLRTexture *texture;
 			GLenum target;
-			int width;
-			int height;
-			// ...
 		} create_texture;
 		struct {
 			GLRShader *shader;
@@ -200,6 +199,9 @@ struct GLRInitStep {
 			GLRInputLayout *inputLayout;
 		} create_input_layout;
 		struct {
+			GLRFramebuffer *framebuffer;
+		} create_framebuffer;
+		struct {
 			GLRBuffer *buffer;
 			int offset;
 			int size;
@@ -214,6 +216,7 @@ struct GLRInitStep {
 			int level;
 			int width;
 			int height;
+			bool linearFilter;
 			uint8_t *data;  // owned, delete[]-d
 		} texture_image;
 	};
@@ -312,10 +315,18 @@ private:
 
 	void ResizeReadbackBuffer(size_t requiredSize);
 
+	GLuint globalVAO_;
+
 	GLint curFramebuffer_ = 0;
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.
 	GLint readbackBuffer_ = 0;
 	int readbackBufferSize_ = 0;
+
+	float maxAnisotropyLevel_;
+
+	GLuint AllocTextureName();
+	// Texture name cache. Ripped straight from TextureCacheGLES.
+	std::vector<GLuint> nameCache_;
 };

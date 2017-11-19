@@ -28,11 +28,18 @@ GLRenderManager::GLRenderManager() {
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 
 	}
+
+	if (!useThread_) {
+		queueRunner_.CreateDeviceObjects();
+	}
 }
 
 GLRenderManager::~GLRenderManager() {
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 
+	}
+	if (!useThread_) {
+		queueRunner_.DestroyDeviceObjects();
 	}
 }
 
@@ -41,6 +48,7 @@ void GLRenderManager::ThreadFunc() {
 	int threadFrame = threadInitFrame_;
 	bool nextFrame = false;
 	bool firstFrame = true;
+	queueRunner_.CreateDeviceObjects();
 	while (true) {
 		{
 			if (nextFrame) {
@@ -75,6 +83,7 @@ void GLRenderManager::ThreadFunc() {
 		Run(threadFrame);
 		VLOG("PULL: Finished frame %d", threadFrame);
 	}
+	queueRunner_.DestroyDeviceObjects();
 
 	VLOG("PULL: Quitting");
 }
@@ -365,6 +374,8 @@ void GLPushBuffer::Unmap() {
 	// Here we should simply upload everything to the buffers.
 	// Might be worth trying with size_ instead of offset_, so the driver can replace the whole buffer.
 	// At least if it's close.
+	if (offset_ > 0 && buffers_[buf_].deviceMemory[0] == 0xCD)
+		Crash();
 	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].deviceMemory, false);
 	writePtr_ = nullptr;
 }

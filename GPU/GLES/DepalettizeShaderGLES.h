@@ -19,34 +19,38 @@
 
 #include "Common/CommonTypes.h"
 #include "gfx/gl_common.h"
+#include "thin3d/thin3d.h"
+#include "thin3d/GLRenderManager.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
 class DepalShader {
 public:
-	GLuint program;
-	GLuint fragShader;
+	GLRProgram *program;
+	GLRShader *fragShader;
 	GLint a_position;
 	GLint a_texcoord0;
+	GLint u_tex;
+	GLint u_pal;
 	std::string code;
 };
 
 class DepalTexture {
 public:
-	GLuint texture;
+	GLRTexture *texture;
 	int lastFrame;
 };
 
 // Caches both shaders and palette textures.
 class DepalShaderCacheGLES : public DepalShaderCacheCommon {
 public:
-	DepalShaderCacheGLES();
+	DepalShaderCacheGLES(Draw::DrawContext *draw);
 	~DepalShaderCacheGLES();
 
 	// This also uploads the palette and binds the correct texture.
 	DepalShader *GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat);
-	GLuint GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	GLRTexture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 	void Clear();
 	void Decimate();
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
@@ -55,9 +59,10 @@ public:
 private:
 	bool CreateVertexShader();
 
+	GLRenderManager *render_;
 	bool useGL3_;
 	bool vertexShaderFailed_;
-	GLuint vertexShader_;
+	GLRShader *vertexShader_;
 	std::map<u32, DepalShader *> cache_;
 	std::map<u32, DepalTexture *> texCache_;
 };

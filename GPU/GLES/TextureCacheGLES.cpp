@@ -23,6 +23,7 @@
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "profiler/profiler.h"
+#include "thin3d/GLRenderManager.h"
 
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
@@ -48,14 +49,12 @@
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
-#define TEXCACHE_NAME_CACHE_SIZE 16
-
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw) {
 	timesInvalidatedAllThisFrame_ = 0;
-	lastBoundTexture = INVALID_TEX;
+	lastBoundTexture = nullptr;
+	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 	SetupTextureDecoder();
 
 	nextTexture_ = nullptr;
@@ -73,21 +72,15 @@ void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) 
 void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	DEBUG_LOG(G3D, "Deleting texture %i", entry->textureName);
 	if (delete_them) {
-		if (entry->textureName != 0) {
-			glDeleteTextures(1, &entry->textureName);
+		if (entry->textureName) {
+			render_->DeleteTexture(entry->textureName);
 		}
 	}
-	entry->textureName = 0;
+	entry->textureName = nullptr;
 }
 
 void TextureCacheGLES::Clear(bool delete_them) {
 	TextureCacheCommon::Clear(delete_them);
-	if (delete_them) {
-		if (!nameCache_.empty()) {
-			glDeleteTextures((GLsizei)nameCache_.size(), &nameCache_[0]);
-			nameCache_.clear();
-		}
-	}
 }
 
 GLenum getClutDestFormat(GEPaletteFormat format) {
@@ -165,10 +158,8 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	}
 
 	if (force || entry.minFilt != minFilt || entry.magFilt != magFilt || entry.sClamp != sClamp || entry.tClamp != tClamp) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+		float aniso = 0.0f;
+		render_->SetTextureSampler(sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
 		entry.minFilt = minFilt;
 		entry.magFilt = magFilt;
 		entry.sClamp = sClamp;
@@ -188,10 +179,8 @@ void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferH
 
 	minFilt &= 1;  // framebuffers can't mipmap.
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+	float aniso = 0.0f;
+	render_->SetTextureSampler(sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
 
 	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
 	// This happens whether we have OES_texture_npot or not.
@@ -325,14 +314,14 @@ bool SetDebugTexture() {
 
 void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	if (entry->textureName != lastBoundTexture) {
-		glBindTexture(GL_TEXTURE_2D, entry->textureName);
+		render_->BindTexture(0, entry->textureName);
 		lastBoundTexture = entry->textureName;
 	}
 	UpdateSamplingParams(*entry, false);
 }
 
 void TextureCacheGLES::Unbind() {
-	glBindTexture(GL_TEXTURE_2D, 0);
+	render_->BindTexture(0, nullptr);
 	InvalidateLastTexture();
 }
 
@@ -413,8 +402,8 @@ public:
 		}
 	}
 
-	void Use(DrawEngineGLES *transformDraw) {
-		glUseProgram(shader_->program);
+	void Use(GLRenderManager *render, DrawEngineGLES *transformDraw) {
+		render->BindProgram(shader_->program);
 
 		// Restore will rebind all of the state below.
 		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
@@ -476,18 +465,16 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	}
 	if (depal) {
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		GLRTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 		Draw::Framebuffer *depalFBO = framebufferManagerGL_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 		shaderManager_->DirtyLastShader();
 
 		TextureShaderApplier shaderApply(depal, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight);
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
-		shaderApply.Use(drawEngine_);
+		shaderApply.Use(render_, drawEngine_);
 
-		glActiveTexture(GL_TEXTURE3);
-		glBindTexture(GL_TEXTURE_2D, clutTexture);
-		glActiveTexture(GL_TEXTURE0);
+		render_->BindTexture(3, clutTexture);
 
 		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -551,7 +538,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	// Always generate a texture name unless it's a framebuffer, we might need it if the texture is replaced later.
 	if (!replaceImages) {
 		if (!entry->textureName) {
-			entry->textureName = AllocTextureName();
+			entry->textureName = render_->CreateTexture(GL_TEXTURE_2D);
 		}
 	}
 
@@ -615,8 +602,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	if (replaced.GetSize(0, w, h)) {
 		if (replaceImages) {
 			// Since we're replacing the texture, we can't replace the image inside.
-			glDeleteTextures(1, &entry->textureName);
-			entry->textureName = AllocTextureName();
+			render_->DeleteTexture(entry->textureName);
+			entry->textureName = render_->CreateTexture(GL_TEXTURE_2D);
 			replaceImages = false;
 		}
 
@@ -648,7 +635,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 		}
 	}
 
-	glBindTexture(GL_TEXTURE_2D, entry->textureName);
+	// glBindTexture(GL_TEXTURE_2D, entry->textureName);
 	lastBoundTexture = entry->textureName;
 
 	// Disabled this due to issue #6075: https://github.com/hrydgard/ppsspp/issues/6075
@@ -727,7 +714,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 
 	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY)) {
 		int aniso = 1 << g_Config.iAnisotropyLevel;
-		float anisotropyLevel = (float) aniso > maxAnisotropyLevel ? maxAnisotropyLevel : (float) aniso;
+		float anisotropyLevel = aniso; //(float) aniso > maxAnisotropyLevel ? maxAnisotropyLevel : (float) aniso;
 		if (anisotropyLevel > 1.0f) {
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
 		}
@@ -741,16 +728,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	CHECK_GL_ERROR_IF_DEBUG();
-}
-
-u32 TextureCacheGLES::AllocTextureName() {
-	if (nameCache_.empty()) {
-		nameCache_.resize(TEXCACHE_NAME_CACHE_SIZE);
-		glGenTextures(TEXCACHE_NAME_CACHE_SIZE, &nameCache_[0]);
-	}
-	u32 name = nameCache_.back();
-	nameCache_.pop_back();
-	return name;
 }
 
 GLenum TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
