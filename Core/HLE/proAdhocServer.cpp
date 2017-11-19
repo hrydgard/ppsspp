@@ -567,6 +567,29 @@ void login_user_data(SceNetAdhocctlUserNode * user, SceNetAdhocctlLoginPacketC2S
 	// Valid Packet Data
 	if(valid_product_code == 1 && memcmp(&data->mac, "\xFF\xFF\xFF\xFF\xFF\xFF", sizeof(data->mac)) != 0 && memcmp(&data->mac, "\x00\x00\x00\x00\x00\x00", sizeof(data->mac)) != 0 && data->name.data[0] != 0)
 	{
+		// Check for duplicated MAC as most games identify Players by MAC
+		SceNetAdhocctlUserNode * u = _db_user;
+		while (u != NULL && !IsMatch(u->resolver.mac, data->mac)) u = u->next;
+			if (u != NULL) { // MAC Already existed
+						/*
+						+			u32_le sip = user->resolver.ip;
+						+			// 127.0.0.1 should be replaced with LAN/WAN IP whenever available to make sure remote players can communicate with current (local) player
+						+			// It might be better if the client connects to AdhocServer using the correct interface instead of automatically changing the IP which might not be accurate on multihomed computer.
+						+			if (sip == 0x0100007f) {
+						+				char str[256];
+						+				gethostname(str, 256);
+						+				u8 *pip = (u8*)&sip;
+						+				struct hostent *pHost = 0;
+						+				pHost = gethostbyname(str);
+						+				if (pHost->h_addrtype == AF_INET && pHost->h_addr_list[0] != NULL) pip = (u8*)pHost->h_addr_list[0];
+						+				user->resolver.ip = *(u32_le*)pip;
+						+				WARN_LOG(SCENET, "AdhocServer: Replacing IP %u.%u.%u.%u with %u.%u.%u.%u", ((u8*)&sip)[0], ((u8*)&sip)[1], ((u8*)&sip)[2], ((u8*)&sip)[3], pip[0], pip[1], pip[2], pip[3]);
+						+			}
+						+			*/
+			uint8_t * ip4 = (uint8_t *)&u->resolver.ip;
+			WARN_LOG(SCENET, "AdhocServer: Already Existing MAC: %02X:%02X:%02X:%02X:%02X:%02X [%u.%u.%u.%u]\n", data->mac.data[0], data->mac.data[1], data->mac.data[2], data->mac.data[3], data->mac.data[4], data->mac.data[5], ip4[0], ip4[1], ip4[2], ip4[3]);
+		}
+
 		// Game Product Override
 		game_product_override(&data->game);
 
@@ -687,11 +710,7 @@ void logout_user(SceNetAdhocctlUserNode * user)
 			// Free Game Node Memory
 			free(user->game);
 		}
-	}
-
-	// Unidentified User
-	else
-	{
+	} else { // Unidentified User	
 		// Notify User
 		uint8_t * ip = (uint8_t *)&user->resolver.ip;
 		INFO_LOG(SCENET, "AdhocServer: Dropped Connection to %u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
@@ -1857,6 +1876,7 @@ int server_loop(int server)
 				// Login User (Stream)
 				if (loginresult != -1) {
 					u32_le sip = addr.sin_addr.s_addr;
+					/*
 					if (sip == 0x0100007f) { //127.0.0.1 should be replaced with LAN/WAN IP whenever available
 						char str[100];
 						gethostname(str, 100);
@@ -1865,6 +1885,7 @@ int server_loop(int server)
 						sip = *(u32_le*)pip;
 						WARN_LOG(SCENET, "AdhocServer: Replacing IP %s with %u.%u.%u.%u", inet_ntoa(addr.sin_addr), pip[0], pip[1], pip[2], pip[3]);
 					}
+					*/
 					login_user_stream(loginresult, sip);
 				}
 			} while(loginresult != -1);

@@ -798,6 +798,10 @@ extern SceNetAdhocPdpStat * pdp[255];
 extern SceNetAdhocPtpStat * ptp[255];
 extern std::map<int, AdhocctlHandler> adhocctlHandlers;
 
+extern bool isLocalServer;
+extern uint8_t PPSSPP_ID;
+extern sockaddr localIP;
+
 extern uint16_t portOffset;
 extern uint32_t fakePoolSize;
 extern SceNetAdhocMatchingContext * contexts;

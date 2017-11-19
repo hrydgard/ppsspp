@@ -21,6 +21,11 @@
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 
+#if !defined(_MSC_VER)
+//#include <netdb.h>
+#include <unistd.h>
+#endif
+
 #include <cstring>
 #include "util/text/parsers.h"
 #include "Core/Core.h"
@@ -33,6 +38,9 @@
 
 uint16_t portOffset = g_Config.iPortOffset;
 uint32_t fakePoolSize                 = 0;
+bool isLocalServer = false;
+uint8_t PPSSPP_ID = 0;
+sockaddr localIP;
 SceNetAdhocMatchingContext * contexts = NULL;
 int one                               = 1;
 bool friendFinderRunning              = false;
@@ -897,7 +905,7 @@ void clearPeerList(SceNetAdhocMatchingContext * context)
 
 bool IsMatchingInCallback(SceNetAdhocMatchingContext * context) {
 	bool inCB = false;
-	if (context == NULL) return inCB; 
+	if (context == NULL || context->eventlock == NULL) return inCB;
 	context->eventlock->lock(); //peerlock.lock();
 	inCB = (/*context != NULL &&*/ context->IsMatchingInCB);
 	context->eventlock->unlock(); //peerlock.unlock();
@@ -905,7 +913,8 @@ bool IsMatchingInCallback(SceNetAdhocMatchingContext * context) {
 }
 
 void AfterMatchingMipsCall::run(MipsCall &call) {
-	if (context == NULL) return;
+	if (context == NULL || context->eventlock == NULL) return;
+	context->eventlock->lock(); // There are times where context or the locks inside it has been freed at this point, thus accessing the lock causing an exception and crashes PPSSPP
 	DEBUG_LOG(SCENET, "Entering AfterMatchingMipsCall::run [ID=%i][Event=%d] [cbId: %u]", context->id, EventID, call.cbId);
 	//u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", context->id, EventID);
@@ -914,11 +923,15 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 	//SceNetAdhocMatchingContext * context = findMatchingContext(ID);
 	//if (context != NULL) 
 	{
+		if (!context->IsMatchingInCB) {
+			WARN_LOG(SCENET, "AfterMatchingMipsCall::run was Forced to End! [ID=%i][Event=%d] [retV0: %08x]", context->id, EventID, currentMIPS->r[MIPS_REG_V0]);
+			if (Memory::IsValidAddress(call.args[2])) userMemory.Free(call.args[2]); // This might failed if it's freed from a different thread than the one allocating it.
+		}
 		context->IsMatchingInCB = false;
 	}
-	context->eventlock->unlock();  //peerlock.unlock();
 	//call.setReturnValue(v0);
 	DEBUG_LOG(SCENET, "Leaving AfterMatchingMipsCall::run [ID=%i][Event=%d] [retV0: %08x]", context->id, EventID, currentMIPS->r[MIPS_REG_V0]);
+	context->eventlock->unlock();  //peerlock.unlock();
 }
 
 void AfterMatchingMipsCall::SetContextID(u32 ContextID, u32 eventId) {
@@ -940,6 +953,7 @@ void notifyAdhocctlHandlers(u32 flag, u32 error) {
 // Note: Must not lock peerlock within this function to prevent race-condition with other thread whos owning peerlock and trying to lock context->eventlock owned by this thread
 void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen, u32_le * args) {
 	//u32_le args[5] = { 0, 0, 0, 0, 0 };
+	/*
 	if ((s32)bufLen < (msg->optlen + 8)) {
 		bufLen = msg->optlen + 8;
 		if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
@@ -947,16 +961,25 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 		INFO_LOG(SCENET, "MatchingHandler: Alloc(%i -> %i) = %08x", msg->optlen + 8, bufLen, bufAddr);
 	}
 	u8 * optPtr = Memory::GetPointer(bufAddr);
+	*/
+
+	u32_le dataLen = msg->optlen + 8;
+	u32_le dataAddr = userMemory.Alloc(dataLen);
+	VERBOSE_LOG(SCENET, "MatchingHandler: Alloc(%i -> %i) = %08x", msg->optlen + 8, dataLen, dataAddr);
+	u8 * optPtr = Memory::GetPointer(dataAddr);
+
 	memcpy(optPtr, &msg->mac, sizeof(msg->mac));
 	if (msg->optlen > 0) memcpy(optPtr + 8, opt, msg->optlen);
 	args[0] = context->id;
 	args[1] = msg->opcode;
-	args[2] = bufAddr; // PSP_GetScratchpadMemoryBase() + 0x6000; 
+	args[2] = dataAddr; //bufAddr; // PSP_GetScratchpadMemoryBase() + 0x6000; 
 	args[3] = msg->optlen;
 	args[4] = args[2] + 8;
 	args[5] = context->handler.entryPoint; //not part of callback argument, just borrowing a space to store callback address so i don't need to search the context first later
 	
+	context->eventlock->lock();
 	context->IsMatchingInCB = true;
+	context->eventlock->unlock();
 	// ScheduleEvent_Threadsafe_Immediate seems to get mixed up with interrupt (returning from mipscall inside an interrupt) and getting invalid address before returning from interrupt
 	__UpdateMatchingHandler((u64) args);
 
@@ -966,7 +989,14 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 		sleep_ms(1);
 		count++;
 	}
-	if (count >= 250) ERROR_LOG(SCENET, "MatchingHandler: Callback Failed to Return within %dms!", count);
+	if (count >= 250) {
+		ERROR_LOG(SCENET, "MatchingHandler: Callback Failed to Return within %dms!", count);
+		context->eventlock->lock();
+		context->IsMatchingInCB = false;
+		context->eventlock->unlock();
+	} else {
+		if (Memory::IsValidAddress(dataAddr)) userMemory.Free(dataAddr);
+	}
 	//sleep_ms(20); // Wait a little more (for context switching may be?) to prevent DBZ Tag Team from getting connection lost, but this will cause lags on Lord of Arcana
 }
 
@@ -1286,22 +1316,40 @@ int getActivePeerCount(void) {
 int getLocalIp(sockaddr_in * SocketAddress){
 #if defined(_WIN32)
 	// Get local host name
-	char szHostName[128] = "";
+	char szHostName[256] = ""; //128
 
 	if(::gethostname(szHostName, sizeof(szHostName))) {
 		// Error handling 
 	}
 	// Get local IP addresses
-	struct hostent     *pHost        = 0;
+	struct hostent *pHost = 0;
 	pHost = ::gethostbyname(szHostName);
 	if(pHost) {
 		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
+		if (/*PPSSPP_ID > 1 && SocketAddress->sin_addr.S_un.S_un_b.s_b1 == 0x7f*/isLocalServer) {
+			//SocketAddress->sin_addr.S_un.S_un_b.s_b4 = PPSSPP_ID;
+			SocketAddress->sin_addr = ((sockaddr_in *)&localIP)->sin_addr;
+		}
 		return 0;
 	}
 	return -1;
 #else
-	memcpy(&SocketAddress->sin_addr, &localip, sizeof(uint32_t));
-	return 0;
+	//memcpy(&SocketAddress->sin_addr, &localip, sizeof(uint32_t));
+	//return 0;
+	char szHostName[256] = "";
+	gethostname(szHostName, sizeof(szHostName));
+	struct hostent *pHost = 0;
+	pHost = gethostbyname(szHostName);
+	if (pHost) {
+		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
+		if (/*PPSSPP_ID > 1 && SocketAddress->sin_addr.S_un.S_un_b.s_b1 == 0x7f*/isLocalServer) {
+			//SocketAddress->sin_addr.S_un.S_un_b.s_b4 = PPSSPP_ID;
+			SocketAddress->sin_addr = ((sockaddr_in *)&localIP)->sin_addr;
+		}
+		return 0;
+	}
+	//SocketAddress->sin_addr.s_addr = inet_addr("127.0.0.1"); //192.168.12.1
+	return -1;
 #endif
 }
 
@@ -1310,13 +1358,19 @@ uint32_t getLocalIp(int sock) {
 	localAddr.sin_addr.s_addr = INADDR_ANY;
 	socklen_t addrLen = sizeof(localAddr);
 	getsockname(sock, (struct sockaddr*)&localAddr, &addrLen);
+	if (/*PPSSPP_ID > 1 && localAddr.sin_addr.S_un.S_un_b.s_b1 == 0x7f*/isLocalServer) {
+		//localAddr.sin_addr.S_un.S_un_b.s_b4 = PPSSPP_ID;
+		localAddr.sin_addr = ((sockaddr_in *)&localIP)->sin_addr;
+	}
 	return localAddr.sin_addr.s_addr;
 }
 
 void getLocalMac(SceNetEtherAddr * addr){
 	// Read MAC Address from config
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
-	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
+	if (PPSSPP_ID > 1) {
+		memset(&mac, PPSSPP_ID, sizeof(mac));
+	} else if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
 		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
 	}
 	memcpy(addr, mac, ETHER_ADDR_LEN);
@@ -1427,6 +1481,32 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 			break;
 		}
 	}
+
+	freeaddrinfo(resultAddr);
+
+	// If Server is at localhost Try to Bind socket to specific adapter before connecting 
+	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
+	if ((serverIp.s_addr & 0xff) == 0x7f) { //serverIp.S_un.S_un_b.s_b1 == 0x7f
+		int on = 1;
+		setsockopt(metasocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
+		setsockopt(metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
+		// Prepare Local Address Information
+					/*
+					+		struct sockaddr_in local;
+					+		memset(&local, 0, sizeof(local));
+					+		local.sin_family = AF_INET;
+					+		local.sin_addr = serverIp;
+					+		local.sin_addr.S_un.S_un_b.s_b4 = PPSSPP_ID;
+					+		//local.sin_port = 0;
+					+		*/
+		((struct sockaddr_in *)&localIP)->sin_port = 0;
+		// Bind Local Address to Socket
+		iResult = bind(metasocket, (struct sockaddr *)&localIP, sizeof(sockaddr));
+		if (iResult == SOCKET_ERROR) {
+			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", inet_ntoa(((struct sockaddr_in *)&localIP)->sin_addr), iResult);
+		}
+		//serverIp = local.sin_addr;
+	}
 	
 	memset(&parameter, 0, sizeof(parameter));
 	strcpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str());
@@ -1478,7 +1558,7 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 	getLocalIp(&addr);
 	uint32_t localIp = addr.sin_addr.s_addr;
 
-	if (ip == localIp){
+	if (ip == localIp || ip == ((sockaddr_in *)&localIP)->sin_addr.s_addr) {
 		getLocalMac(mac);
 		return true;
 	}
