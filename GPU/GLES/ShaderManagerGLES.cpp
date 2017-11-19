@@ -192,7 +192,11 @@ LinkedShader::~LinkedShader() {
 }
 
 // Utility
-static void SetColorUniform3(GLRenderManager *render, GLint *uniform, u32 color) {
+static inline void SetFloatUniform(GLRenderManager *render, GLint *uniform, float value) {
+	render->SetUniformF(uniform, 1, &value);
+}
+
+static inline void SetColorUniform3(GLRenderManager *render, GLint *uniform, u32 color) {
 	float f[4];
 	Uint8x4ToFloat4(f, color);
 	render->SetUniformF(uniform, 3, f);
@@ -205,7 +209,7 @@ static void SetColorUniform3Alpha(GLRenderManager *render, GLint *uniform, u32 c
 }
 
 // This passes colors unscaled (e.g. 0 - 255 not 0 - 1.)
-static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
+static void SetColorUniform3Alpha255(GLRenderManager *render, GLint *uniform, u32 color, u8 alpha) {
 	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 		const float col[4] = {
 			(float)((color & 0xFF) >> 0) * (1.0f / 255.0f),
@@ -213,7 +217,7 @@ static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 			(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
 			(float)alpha * (1.0f / 255.0f)
 		};
-		glUniform4fv(uniform, 1, col);
+		render->SetUniformF(uniform, 4, col);
 	} else {
 		const float col[4] = {
 			(float)((color & 0xFF) >> 0),
@@ -221,38 +225,38 @@ static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 			(float)((color & 0xFF0000) >> 16),
 			(float)alpha 
 		};
-		glUniform4fv(uniform, 1, col);
+		render->SetUniformF(uniform, 4, col);
 	}
 }
 
-static void SetColorUniform3iAlpha(int uniform, u32 color, u8 alpha) {
+static void SetColorUniform3iAlpha(GLRenderManager *render, GLint *uniform, u32 color, u8 alpha) {
 	const int col[4] = {
 		(int)((color & 0xFF) >> 0),
 		(int)((color & 0xFF00) >> 8),
 		(int)((color & 0xFF0000) >> 16),
 		(int)alpha,
 	};
-	glUniform4iv(uniform, 1, col);
+	render->SetUniformI(uniform, 4, col);
 }
 
-static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra) {
+static void SetColorUniform3ExtraFloat(GLRenderManager *render, GLint *uniform, u32 color, float extra) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
 		((color & 0xFF0000) >> 16) / 255.0f,
 		extra
 	};
-	glUniform4fv(uniform, 1, col);
+	render->SetUniformF(uniform, 4, col);
 }
 
-static void SetFloat24Uniform3(int uniform, const uint32_t data[3]) {
+static void SetFloat24Uniform3(GLRenderManager *render, GLint *uniform, const uint32_t data[3]) {
 	float f[4];
 	ExpandFloat24x3ToFloat4(f, data);
-	glUniform3fv(uniform, 1, f);
+	render->SetUniformF(uniform, 3, f);
 }
 
-static void SetFloatUniform4(int uniform, float data[4]) {
-	glUniform4fv(uniform, 1, data);
+static void SetFloatUniform4(GLRenderManager *render, GLint *uniform, float data[4]) {
+	render->SetUniformF(uniform, 4, data);
 }
 
 static void SetMatrix4x3(GLRenderManager *render, GLint *uniform, const float *m4x3) {
@@ -356,10 +360,10 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		SetColorUniform3(render_, &u_texenv, gstate.texenvcolor);
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {
-		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
+		SetColorUniform3Alpha255(render_, &u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
 	}
 	if (dirty & DIRTY_ALPHACOLORMASK) {
-		SetColorUniform3iAlpha(u_alphacolormask, gstate.colortestmask, gstate.getAlphaTestMask());
+		SetColorUniform3iAlpha(render_, &u_alphacolormask, gstate.colortestmask, gstate.getAlphaTestMask());
 	}
 	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(render_, &u_fogcolor, gstate.fogcolor);
@@ -385,7 +389,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 			ERROR_LOG_REPORT_ONCE(fognan, G3D, "Unhandled fog NaN/INF combo: %f %f", fogcoef[0], fogcoef[1]);
 		}
 #endif
-		glUniform2fv(u_fogcoef, 1, fogcoef);
+		render_->SetUniformF(&u_fogcoef, 2, fogcoef);
 	}
 
 	if (dirty & DIRTY_UVSCALEOFFSET) {
@@ -471,47 +475,20 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		}
 
 		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
-		SetFloatUniform4(u_depthRange, data);
+		SetFloatUniform4(render_, &u_depthRange, data);
 	}
 
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {
 		float f = (float)gstate.getStencilTestRef() * (1.0f / 255.0f);
 		render_->SetUniformF(&u_stencilReplaceValue, 1, &f);
 	}
-	// TODO: Could even set all bones in one go if they're all dirty.
-#ifdef USE_BONE_ARRAY
-	if (u_bone != -1) {
-		float allBones[8 * 16];
-
-		bool allDirty = true;
-		for (int i = 0; i < numBones; i++) {
-			if (dirty & (DIRTY_BONEMATRIX0 << i)) {
-				ConvertMatrix4x3To4x4(allBones + 16 * i, gstate.boneMatrix + 12 * i);
-			} else {
-				allDirty = false;
-			}
-		}
-		if (allDirty) {
-			// Set them all with one call
-			glUniformMatrix4fv(u_bone, numBones, GL_FALSE, allBones);
-		} else {
-			// Set them one by one. Could try to coalesce two in a row etc but too lazy.
-			for (int i = 0; i < numBones; i++) {
-				if (dirty & (DIRTY_BONEMATRIX0 << i)) {
-					glUniformMatrix4fv(u_bone + i, 1, GL_FALSE, allBones + 16 * i);
-				}
-			}
-		}
-	}
-#else
 	float bonetemp[16];
 	for (int i = 0; i < numBones; i++) {
 		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
 			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
-			glUniformMatrix4fv(u_bone[i], 1, GL_FALSE, bonetemp);
+			render_->SetUniformM4x4(&u_bone[i], bonetemp);
 		}
 	}
-#endif
 
 	if (dirty & DIRTY_SHADERBLEND) {
 		if (u_blendFixA != -1) {
@@ -526,7 +503,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 			1.0f / (float)gstate_c.curRTRenderHeight,
 		};
 		if (u_fbotexSize != -1) {
-			glUniform2fv(u_fbotexSize, 1, fbotexSize);
+			render_->SetUniformF(&u_fbotexSize, 2, fbotexSize);
 		}
 	}
 
@@ -544,7 +521,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		SetColorUniform3(render_, &u_matemissive, gstate.materialemissive);
 	}
 	if (dirty & DIRTY_MATSPECULAR) {
-		SetColorUniform3ExtraFloat(u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
+		SetColorUniform3ExtraFloat(render_, &u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 
 	for (int i = 0; i < 4; i++) {
@@ -560,14 +537,14 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 				else
 					len = 1.0f / len;
 				float vec[3] = { x * len, y * len, z * len };
-				glUniform3fv(u_lightpos[i], 1, vec);
+				render_->SetUniformF(&u_lightpos[i], 3, vec);
 			} else {
-				SetFloat24Uniform3(u_lightpos[i], &gstate.lpos[i * 3]);
+				SetFloat24Uniform3(render_, &u_lightpos[i], &gstate.lpos[i * 3]);
 			}
-			if (u_lightdir[i] != -1) SetFloat24Uniform3(u_lightdir[i], &gstate.ldir[i * 3]);
-			if (u_lightatt[i] != -1) SetFloat24Uniform3(u_lightatt[i], &gstate.latt[i * 3]);
-			if (u_lightangle[i] != -1) glUniform1f(u_lightangle[i], getFloat24(gstate.lcutoff[i]));
-			if (u_lightspotCoef[i] != -1) glUniform1f(u_lightspotCoef[i], getFloat24(gstate.lconv[i]));
+			if (u_lightdir[i] != -1) SetFloat24Uniform3(render_, &u_lightdir[i], &gstate.ldir[i * 3]);
+			if (u_lightatt[i] != -1) SetFloat24Uniform3(render_, &u_lightatt[i], &gstate.latt[i * 3]);
+			if (u_lightangle[i] != -1) SetFloatUniform(render_, &u_lightangle[i], getFloat24(gstate.lcutoff[i]));
+			if (u_lightspotCoef[i] != -1) SetFloatUniform(render_, &u_lightspotCoef[i], getFloat24(gstate.lconv[i]));
 			if (u_lightambient[i] != -1) SetColorUniform3(render_, &u_lightambient[i], gstate.lcolor[i * 3]);
 			if (u_lightdiffuse[i] != -1) SetColorUniform3(render_, &u_lightdiffuse[i], gstate.lcolor[i * 3 + 1]);
 			if (u_lightspecular[i] != -1) SetColorUniform3(render_, &u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
