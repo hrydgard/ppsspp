@@ -1,0 +1,2 @@
+Size.asm(13) error: Area overflowed
+Size.asm(20) error: Area overflowed
