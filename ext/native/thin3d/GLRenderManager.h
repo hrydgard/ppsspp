@@ -289,6 +289,7 @@ public:
 		initSteps_.push_back(step);
 	}
 
+	// Takes ownership over the data pointer and delete[]-s it.
 	void TextureImage(GLRTexture *texture, int level, int width, int height, GLenum internalFormat, GLenum format, GLenum type, uint8_t *data, bool linearFilter = false) {
 		GLRInitStep step{ GLRInitStepType::TEXTURE_IMAGE };
 		step.texture_image.texture = texture;
@@ -603,7 +604,7 @@ public:
 	};
 
 public:
-	GLPushBuffer(GLRenderManager *render, size_t size);
+	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size);
 	~GLPushBuffer();
 
 	void Destroy();
@@ -691,8 +692,9 @@ private:
 
 	GLRenderManager *render_;
 	std::vector<BufInfo> buffers_;
-	size_t buf_;
-	size_t offset_;
-	size_t size_;
-	uint8_t *writePtr_;
+	size_t buf_ = 0;
+	size_t offset_ = 0;
+	size_t size_ = 0;
+	uint8_t *writePtr_ = nullptr;
+	GLuint target_;
 };
