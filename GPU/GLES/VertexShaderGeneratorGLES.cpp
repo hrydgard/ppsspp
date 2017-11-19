@@ -95,9 +95,10 @@ enum DoLightComputation {
 // is a bit of a rare configuration, although quite common on mobile.
 
 
-void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask) {
+void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask) {
 	char *p = buffer;
 	*attrMask = 0;
+	*uniformMask = 0;
 	// #define USE_FOR_LOOP
 
 	// In GLSL ES 3.0, you use "out" variables instead.
@@ -250,10 +251,12 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask) 
 		}
 	}
 
-	if (isModeThrough)	{
+	if (isModeThrough) {
 		WRITE(p, "uniform mat4 u_proj_through;\n");
+		*uniformMask |= DIRTY_PROJTHROUGHMATRIX;
 	} else {
 		WRITE(p, "uniform mat4 u_proj;\n");
+		*uniformMask |= DIRTY_PROJMATRIX;
 		// Add all the uniforms we'll need to transform properly.
 	}
 
@@ -263,28 +266,36 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask) 
 		// When transforming by hardware, we need a great deal more uniforms...
 		WRITE(p, "uniform mat4 u_world;\n");
 		WRITE(p, "uniform mat4 u_view;\n");
-		if (doTextureProjection)
+		*uniformMask |= DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX;
+		if (doTextureProjection) {
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
+			*uniformMask |= DIRTY_TEXMATRIX;
+		}
 		if (enableBones) {
 #ifdef USE_BONE_ARRAY
 			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBoneWeights);
+			*uniformMask |= DIRTY_BONE_UNIFORMS;
 #else
 			for (int i = 0; i < numBoneWeights; i++) {
 				WRITE(p, "uniform mat4 u_bone%i;\n", i);
+				*uniformMask |= DIRTY_BONEMATRIX0 << i;
 			}
 #endif
 		}
 		if (doTexture) {
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
+			*uniformMask |= DIRTY_UVSCALEOFFSET;
 		}
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_OFF) {
 				// This is needed for shade mapping
 				WRITE(p, "uniform vec3 u_lightpos%i;\n", i);
+				*uniformMask |= DIRTY_LIGHT0 << i;
 			}
 			if (doLight[i] == LIGHT_FULL) {
-				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4*i, 2));
-				GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4*i, 2));
+				*uniformMask |= DIRTY_LIGHT0 << i;
+				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
+				GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
 
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					WRITE(p, "uniform mediump vec3 u_lightatt%i;\n", i);
@@ -304,22 +315,29 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask) 
 		}
 		if (enableLighting) {
 			WRITE(p, "uniform lowp vec4 u_ambient;\n");
-			if ((matUpdate & 2) == 0 || !hasColor)
+			*uniformMask |= DIRTY_AMBIENT;
+			if ((matUpdate & 2) == 0 || !hasColor) {
 				WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
+				*uniformMask |= DIRTY_MATDIFFUSE;
+			}
 			WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
 			WRITE(p, "uniform lowp vec3 u_matemissive;\n");
+			*uniformMask |= DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE;
 		}
 	}
 
-	if (useHWTransform || !hasColor)
+	if (useHWTransform || !hasColor) {
 		WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
-
+		*uniformMask |= DIRTY_MATAMBIENTALPHA;
+	}
 	if (enableFog) {
 		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
+		*uniformMask |= DIRTY_FOGCOEF;
 	}
 
 	if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 		WRITE(p, "uniform highp vec4 u_depthRange;\n");
+		*uniformMask |= DIRTY_DEPTHRANGE;
 	}
 
 	WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, varying);
@@ -354,6 +372,8 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask) 
 
 	// Hardware tessellation
 	if (doBezier || doSpline) {
+		*uniformMask |= DIRTY_BEZIERSPLINE;
+
 		const char *sampler = !isAllowTexture1D ? "sampler2D" : "sampler1D";
 		WRITE(p, "uniform %s u_tess_pos_tex;\n", sampler);
 		WRITE(p, "uniform %s u_tess_tex_tex;\n", sampler);

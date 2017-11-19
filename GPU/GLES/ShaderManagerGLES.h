@@ -124,7 +124,7 @@ public:
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask = 0);
+	Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
 	~Shader();
 	uint32_t shader;
 
@@ -134,6 +134,7 @@ public:
 	std::string GetShaderString(DebugShaderStringType type, ShaderID id) const;
 
 	uint32_t GetAttrMask() const { return attrMask_; }
+	uint64_t GetUniformMask() const { return uniformMask_; }
 
 private:
 	std::string source_;
@@ -141,6 +142,7 @@ private:
 	bool useHWTransform_;
 	bool isFragment_;
 	uint32_t attrMask_; // only used in vertex shaders
+	uint64_t uniformMask_;
 };
 
 class ShaderManagerGLES : public ShaderManagerCommon {
