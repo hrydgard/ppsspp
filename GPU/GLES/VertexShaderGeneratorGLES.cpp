@@ -268,6 +268,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, 
 		// Add all the uniforms we'll need to transform properly.
 	}
 	WRITE(p, "uniform vec4 u_guardband;\n");
+	*uniformMask |= DIRTY_GUARDBAND;
 
 	bool scaleUV = !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
