@@ -45,10 +45,6 @@
 #include <emmintrin.h>
 #endif
 
-#ifndef GL_UNPACK_ROW_LENGTH
-#define GL_UNPACK_ROW_LENGTH 0x0CF2
-#endif
-
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	: TextureCacheCommon(draw) {
 	timesInvalidatedAllThisFrame_ = 0;
@@ -487,7 +483,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-		TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
+		TexCacheEntry::TexStatus alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
@@ -674,34 +670,37 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 		LoadTextureLevel(*entry, replaced, 0, replaceImages, scaleFactor, dstFmt);
 
 	// Mipmapping only enable when texture scaling disable
+	int texMaxLevel = 0;
 	if (maxLevel > 0 && scaleFactor == 1) {
 		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 			if (badMipSizes) {
 				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
 				if (canAutoGen) {
-					glGenerateMipmap(GL_TEXTURE_2D);
+					render_->GenerateMipmap();
 				} else {
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+					texMaxLevel = 0;
 					maxLevel = 0;
 				}
 			} else {
 				for (int i = 1; i <= maxLevel; i++) {
 					LoadTextureLevel(*entry, replaced, i, replaceImages, scaleFactor, dstFmt);
 				}
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
+				texMaxLevel = maxLevel;
 			}
 		} else {
 			// Avoid PowerVR driver bug
 			if (canAutoGen && w > 1 && h > 1 && !(h > w && (gl_extensions.bugs & BUG_PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
 				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
-				glGenerateMipmap(GL_TEXTURE_2D);
+				render_->GenerateMipmap();
 			} else {
 				maxLevel = 0;
 			}
 		}
 	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+		texMaxLevel = 0;
 	}
+
+	// TODO: glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, texMaxLevel);
 
 	if (maxLevel == 0) {
 		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
@@ -712,22 +711,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 	}
 
-	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY)) {
-		int aniso = 1 << g_Config.iAnisotropyLevel;
-		float anisotropyLevel = aniso; //(float) aniso > maxAnisotropyLevel ? maxAnisotropyLevel : (float) aniso;
-		if (anisotropyLevel > 1.0f) {
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
-		}
-	}
-
 	// This will rebind it, but that's okay.
 	UpdateSamplingParams(*entry, true);
-
-	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 GLenum TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
@@ -752,7 +737,7 @@ GLenum TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat c
 	}
 }
 
-void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, GLenum dstFmt, int scaleFactor, int *bufwout) {
+u8 *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, GLenum dstFmt, int scaleFactor, int *bufwout) {
 	void *finalBuf = nullptr;
 	u32 texaddr = gstate.getTextureAddress(level);
 	int bufw = GetTextureBufw(level, texaddr, format);
@@ -770,26 +755,26 @@ void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteF
 		decPitch = bufw * pixelSize;
 	}
 
-	tmpTexBufRearrange_.resize(std::max(w, bufw) * h);
-	DecodeTextureLevel((u8 *)tmpTexBufRearrange_.data(), decPitch, format, clutformat, texaddr, level, bufw, true, false, false);
-	return tmpTexBufRearrange_.data();
+	uint8_t *texBuf = new uint8_t[std::max(w, bufw) * h * pixelSize];
+	DecodeTextureLevel(texBuf, decPitch, format, clutformat, texaddr, level, bufw, true, false, false);
+	return texBuf;
 }
 
-TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
+TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
-		res = CheckAlphaABGR4444Basic(pixelData, stride, w, h);
+		res = CheckAlphaABGR4444Basic((const uint32_t *)pixelData, stride, w, h);
 		break;
 	case GL_UNSIGNED_SHORT_5_5_5_1:
-		res = CheckAlphaABGR1555Basic(pixelData, stride, w, h);
+		res = CheckAlphaABGR1555Basic((const uint32_t *)pixelData, stride, w, h);
 		break;
 	case GL_UNSIGNED_SHORT_5_6_5:
 		// Never has any alpha.
 		res = CHECKALPHA_FULL;
 		break;
 	default:
-		res = CheckAlphaRGBA8888Basic(pixelData, stride, w, h);
+		res = CheckAlphaRGBA8888Basic((const uint32_t *)pixelData, stride, w, h);
 		break;
 	}
 
@@ -800,7 +785,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	bool useUnpack = false;
-	u32 *pixelData;
+	uint8_t *pixelData;
 
 	CHECK_GL_ERROR_IF_DEBUG();
 
@@ -812,10 +797,10 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	if (replaced.GetSize(level, w, h)) {
 		PROFILE_THIS_SCOPE("replacetex");
 
-		tmpTexBufRearrange_.resize(w * h);
 		int bpp = replaced.Format(level) == ReplacedTextureFormat::F_8888 ? 4 : 2;
-		replaced.Load(level, tmpTexBufRearrange_.data(), bpp * w);
-		pixelData = tmpTexBufRearrange_.data();
+		uint8_t *rearrange = new uint8_t[w * h * bpp];
+		replaced.Load(level, rearrange, bpp * w);
+		pixelData = rearrange;
 
 		dstFmt = ToGLESFormat(replaced.Format(level));
 
@@ -825,20 +810,14 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		int bufw;
-		void *finalBuf = DecodeTextureLevelOld(GETextureFormat(entry.format), clutformat, level, dstFmt, scaleFactor, &bufw);
-		if (finalBuf == NULL) {
+		uint8_t *finalBuf = DecodeTextureLevelOld(GETextureFormat(entry.format), clutformat, level, dstFmt, scaleFactor, &bufw);
+		if (!finalBuf) {
 			return;
-		}
-
-		// Can restore these and remove the fixup at the end of DecodeTextureLevel on desktop GL and GLES 3.
-		if (scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE) && w != bufw) {
-			glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
-			useUnpack = true;
 		}
 
 		// Textures are always aligned to 16 bytes bufw, so this could safely be 4 always.
 		texByteAlign = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-		pixelData = (u32 *)finalBuf;
+		pixelData = finalBuf;
 
 		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
@@ -848,8 +827,9 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 		}
 
-		if (scaleFactor > 1)
-			scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
+		// TODO: Scale's buffer management doesn't work.
+		//if (scaleFactor > 1)
+		//	scaler.Scale((uint32_t *)pixelData, dstFmt, w, h, scaleFactor);
 
 		if (replacer_.Enabled()) {
 			ReplacedTextureDecodeInfo replacedInfo;
@@ -866,8 +846,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		}
 	}
 
-	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
-
 	CHECK_GL_ERROR_IF_DEBUG();
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
@@ -876,7 +854,8 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 	if (replaceImages) {
 		PROFILE_THIS_SCOPE("repltex");
-		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
+		Crash();
+		// glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
 	} else {
 		PROFILE_THIS_SCOPE("loadtex");
 		// Avoid misleading errors in texture upload, these are common.
@@ -885,37 +864,9 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			WARN_LOG(G3D, "Got an error BEFORE texture upload: %08x (%s)", err, GLEnumToString(err).c_str());
 		}
 		if (IsFakeMipmapChange())
-			glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components2, dstFmt, pixelData);
+			render_->TextureImage(entry.textureName, 0, w, h, components, components2, dstFmt, pixelData);
 		else
-			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
-		if (!lowMemoryMode_) {
-			// TODO: We really, really should avoid calling glGetError.
-			GLenum err = glGetError();
-			if (err == GL_OUT_OF_MEMORY) {
-				WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
-				lowMemoryMode_ = true;
-				decimationCounter_ = 0;
-				Decimate();
-				// Try again, now that we've cleared out textures in lowMemoryMode_.
-				glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
-
-				I18NCategory *err = GetI18NCategory("Error");
-				if (scaleFactor > 1) {
-					host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
-				} else {
-					host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
-				}
-			} else if (err != GL_NO_ERROR) {
-				// We checked the err anyway, might as well log if there is one.
-				WARN_LOG(G3D, "Got an error in texture upload: %08x (%s) (components=%s components2=%s dstFmt=%s w=%d h=%d level=%d)",
-					err, GLEnumToString(err).c_str(), GLEnumToString(components).c_str(), GLEnumToString(components2).c_str(), GLEnumToString(dstFmt).c_str(),
-					w, h, level);
-			}
-		}
-	}
-
-	if (useUnpack) {
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+			render_->TextureImage(entry.textureName, level, w, h, components, components2, dstFmt, pixelData);
 	}
 }
 

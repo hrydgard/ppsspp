@@ -352,7 +352,7 @@ void GLRenderManager::Wipe() {
 	steps_.clear();
 }
 
-GLPushBuffer::GLPushBuffer(GLRenderManager *render, size_t size) : render_(render), buf_(0), offset_(0), size_(size), writePtr_(nullptr) {
+GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) : render_(render), target_(target), size_(size) {
 	bool res = AddBuffer();
 	assert(res);
 }
@@ -383,7 +383,7 @@ void GLPushBuffer::Unmap() {
 bool GLPushBuffer::AddBuffer() {
 	BufInfo info;
 	info.deviceMemory = new uint8_t[size_];
-	info.buffer = render_->CreateBuffer(GL_ARRAY_BUFFER, size_, GL_DYNAMIC_DRAW);
+	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
 	buf_ = buffers_.size();
 	buffers_.resize(buf_ + 1);
 	buffers_[buf_] = info;
