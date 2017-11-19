@@ -43,8 +43,8 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "FramebufferManagerGLES.h"
 
-Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform)
-	  : failed_(false), useHWTransform_(useHWTransform) {
+Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask)
+	  : failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	isFragment_ = glShaderType == GL_FRAGMENT_SHADER;
 	source_ = code;
@@ -241,14 +241,7 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 	u_spline_type_u = glGetUniformLocation(program, "u_spline_type_u");
 	u_spline_type_v = glGetUniformLocation(program, "u_spline_type_v");
 
-	attrMask = 0;
-	if (-1 != glGetAttribLocation(program, "position")) attrMask |= 1 << ATTR_POSITION;
-	if (-1 != glGetAttribLocation(program, "texcoord")) attrMask |= 1 << ATTR_TEXCOORD;
-	if (-1 != glGetAttribLocation(program, "normal")) attrMask |= 1 << ATTR_NORMAL;
-	if (-1 != glGetAttribLocation(program, "w1")) attrMask |= 1 << ATTR_W1;
-	if (-1 != glGetAttribLocation(program, "w2")) attrMask |= 1 << ATTR_W2;
-	if (-1 != glGetAttribLocation(program, "color0")) attrMask |= 1 << ATTR_COLOR0;
-	if (-1 != glGetAttribLocation(program, "color1")) attrMask |= 1 << ATTR_COLOR1;
+	attrMask = vs->GetAttrMask();
 
 	availableUniforms = 0;
 	if (u_proj != -1) availableUniforms |= DIRTY_PROJMATRIX;
@@ -797,8 +790,9 @@ Shader *ShaderManagerGLES::CompileFragmentShader(ShaderID FSID) {
 
 Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
 	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
-	GenerateVertexShader(VSID, codeBuffer_);
-	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
+	uint32_t attrMask;
+	GenerateVertexShader(VSID, codeBuffer_, &attrMask);
+	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, attrMask);
 }
 
 Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
@@ -846,8 +840,9 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 			// Can still work with software transform.
 			ShaderID vsidTemp;
 			ComputeVertexShaderID(&vsidTemp, vertType, false);
-			GenerateVertexShader(vsidTemp, codeBuffer_);
-			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false);
+			uint32_t attrMask;
+			GenerateVertexShader(vsidTemp, codeBuffer_, &attrMask);
+			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false, attrMask);
 		}
 
 		vsCache_.Insert(*VSID, vs);

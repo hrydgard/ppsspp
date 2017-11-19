@@ -95,9 +95,9 @@ enum DoLightComputation {
 // is a bit of a rare configuration, although quite common on mobile.
 
 
-void GenerateVertexShader(const ShaderID &id, char *buffer) {
+void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask) {
 	char *p = buffer;
-
+	*attrMask = 0;
 	// #define USE_FOR_LOOP
 
 	// In GLSL ES 3.0, you use "out" variables instead.
@@ -198,7 +198,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 	if (glslES30)
 		shading = doFlatShading ? "flat " : "";
 
-	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
+	DoLightComputation doLight[4] = { LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF };
 	if (useHWTransform) {
 		int shadeLight0 = doShadeMapping ? ls0 : -1;
 		int shadeLight1 = doShadeMapping ? ls1 : -1;
@@ -215,15 +215,21 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 	if (enableBones) {
 		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 		WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
+		*attrMask |= 1 << ATTR_W1;
+		if (numBoneWeights >= 5)
+			*attrMask |= 1 << ATTR_W2;
 	}
 
 	if (useHWTransform)
 		WRITE(p, "%s vec3 position;\n", attribute);
 	else
 		WRITE(p, "%s vec4 position;\n", attribute);  // need to pass the fog coord in w
+	*attrMask |= 1 << ATTR_POSITION;
 
-	if (useHWTransform && hasNormal)
+	if (useHWTransform && hasNormal) {
 		WRITE(p, "%s mediump vec3 normal;\n", attribute);
+		*attrMask |= 1 << ATTR_NORMAL;
+	}
 
 	bool texcoordVec3In = false;
 	if (doTexture && hasTexcoord) {
@@ -233,11 +239,15 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 		} else {
 			WRITE(p, "%s vec2 texcoord;\n", attribute);
 		}
+		*attrMask |= 1 << ATTR_TEXCOORD;
 	}
 	if (hasColor) {
 		WRITE(p, "%s lowp vec4 color0;\n", attribute);
-		if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
+		*attrMask |= 1 << ATTR_COLOR0;
+		if (lmode && !useHWTransform) { // only software transform supplies color1 as vertex data
 			WRITE(p, "%s lowp vec3 color1;\n", attribute);
+			*attrMask |= 1 << ATTR_COLOR1;
+		}
 	}
 
 	if (isModeThrough)	{

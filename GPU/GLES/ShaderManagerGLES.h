@@ -124,7 +124,7 @@ public:
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t glShaderType, bool useHWTransform);
+	Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask = 0);
 	~Shader();
 	uint32_t shader;
 
@@ -133,11 +133,14 @@ public:
 
 	std::string GetShaderString(DebugShaderStringType type, ShaderID id) const;
 
+	uint32_t GetAttrMask() const { return attrMask_; }
+
 private:
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
 	bool isFragment_;
+	uint32_t attrMask_; // only used in vertex shaders
 };
 
 class ShaderManagerGLES : public ShaderManagerCommon {
