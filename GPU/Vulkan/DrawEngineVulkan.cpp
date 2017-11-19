@@ -427,36 +427,6 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	}
 }
 
-int DrawEngineVulkan::ComputeNumVertsToDecode() const {
-	int vertsToDecode = 0;
-	if (drawCalls[0].indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
-		for (int i = 0; i < numDrawCalls; i++) {
-			const DeferredDrawCall &dc = drawCalls[i];
-			vertsToDecode += dc.vertexCount;
-		}
-	} else {
-		// TODO: Share this computation with DecodeVertsStep?
-		for (int i = 0; i < numDrawCalls; i++) {
-			const DeferredDrawCall &dc = drawCalls[i];
-			int lastMatch = i;
-			const int total = numDrawCalls;
-			int indexLowerBound = dc.indexLowerBound;
-			int indexUpperBound = dc.indexUpperBound;
-			for (int j = i + 1; j < total; ++j) {
-				if (drawCalls[j].verts != dc.verts)
-					break;
-
-				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-				lastMatch = j;
-			}
-			vertsToDecode += indexUpperBound - indexLowerBound + 1;
-			i = lastMatch;
-		}
-	}
-	return vertsToDecode;
-}
-
 void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
 	u8 *dest = decoded;
 
@@ -466,22 +436,6 @@ void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t 
 		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, vkbuf);
 	}
 	DecodeVerts(dest);
-}
-
-void DrawEngineVulkan::DecodeVerts(u8 *dest) {
-	const UVScale origUV = gstate_c.uv;
-	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-		gstate_c.uv = uvScale[decodeCounter_];
-		DecodeVertsStep(dest, decodeCounter_, decodedVerts_);  // NOTE! DecodeVertsStep can modify decodeCounter_!
-	}
-	gstate_c.uv = origUV;
-
-	// Sanity check
-	if (indexGen.Prim() < 0) {
-		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
-		// Force to points (0)
-		indexGen.AddPrim(GE_PRIM_POINTS, 0);
-	}
 }
 
 void DrawEngineVulkan::SetLineWidth(float lineWidth) {

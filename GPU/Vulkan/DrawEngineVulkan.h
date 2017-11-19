@@ -194,9 +194,6 @@ private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
-	int ComputeNumVertsToDecode() const;
-	void DecodeVerts(u8 *dest);
-
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 
 	void DoFlush();
