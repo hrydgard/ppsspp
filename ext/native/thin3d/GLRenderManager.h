@@ -89,9 +89,16 @@ public:
 		const char *name;
 	};
 
+	struct Initializer {
+		GLint *uniform;
+		int type;
+		int value;
+	};
+
 	GLuint program = 0;
 	std::vector<Semantic> semantics_;
 	std::vector<UniformLocQuery> queries_;
+	std::vector<Initializer> initialize_;
 
 	struct UniformInfo {
 		int loc_;
@@ -222,12 +229,15 @@ public:
 		return step.create_shader.shader;
 	}
 
-	GLRProgram *CreateProgram(std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries, bool supportDualSource) {
+	GLRProgram *CreateProgram(
+		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
+		std::vector<GLRProgram::Initializer> initalizers, bool supportDualSource) {
 		GLRInitStep step{ GLRInitStepType::CREATE_PROGRAM };
 		assert(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
 		step.create_program.program = new GLRProgram();
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
+		step.create_program.program->initialize_ = initalizers;
 		for (int i = 0; i < shaders.size(); i++) {
 			step.create_program.shaders[i] = shaders[i];
 		}
@@ -327,6 +337,13 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
+	void BindIndexBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::BIND_INDEX_BUFFER};
+		data.bind_buffer.buffer = buffer;
+		curRenderStep_->commands.push_back(data);
+	}
+
 	void BindInputLayout(GLRInputLayout *inputLayout, const void *offset) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		assert(inputLayout);
@@ -403,7 +420,7 @@ public:
 
 	void SetUniformM4x4(GLint *loc, const float *udata) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		GLRRenderData data{ GLRRenderCommand::UNIFORMMATRIX };
 		data.uniformMatrix4.loc = loc;
 		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
 		curRenderStep_->commands.push_back(data);
@@ -442,6 +459,7 @@ public:
 	void SetStencil(bool enabled, GLenum func, GLenum sFail, GLenum zFail, GLenum pass, uint8_t writeMask, uint8_t compareMask, uint8_t refValue) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::STENCIL };
+		data.stencil.enabled = enabled;
 		data.stencil.func = func;
 		data.stencil.sFail = sFail;
 		data.stencil.zFail = zFail;
@@ -449,6 +467,14 @@ public:
 		data.stencil.writeMask = writeMask;
 		data.stencil.compareMask = compareMask;
 		data.stencil.ref = refValue;
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetStencilDisabled() {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data;
+		data.cmd = GLRRenderCommand::STENCIL;
+		data.stencil.enabled = false;
 		curRenderStep_->commands.push_back(data);
 	}
 
@@ -613,13 +639,7 @@ public:
 		Unmap();
 	}
 
-	void Map() {
-		assert(!writePtr_);
-		// VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
-		writePtr_ = buffers_[buf_].deviceMemory;
-		assert(writePtr_);
-	}
-
+	void Map();
 	void Unmap();
 
 	// When using the returned memory, make sure to bind the returned vkbuf.
