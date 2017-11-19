@@ -457,7 +457,7 @@ int DrawEngineVulkan::ComputeNumVertsToDecode() const {
 	return vertsToDecode;
 }
 
-void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
+void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
 	u8 *dest = decoded;
 
 	// Figure out how much pushbuffer space we need to allocate.
@@ -465,7 +465,10 @@ void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset,
 		int vertsToDecode = ComputeNumVertsToDecode();
 		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, vkbuf);
 	}
+	DecodeVerts(dest);
+}
 
+void DrawEngineVulkan::DecodeVerts(u8 *dest) {
 	const UVScale origUV = gstate_c.uv;
 	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
 		gstate_c.uv = uvScale[decodeCounter_];
@@ -706,7 +709,7 @@ void DrawEngineVulkan::DoFlush() {
 				vai->minihash = ComputeMiniHash();
 				vai->status = VertexArrayInfoVulkan::VAI_HASHING;
 				vai->drawsUntilNextFullHash = 0;
-				DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);  // writes to indexGen
+				DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);  // writes to indexGen
 				vai->numVerts = indexGen.VertexCount();
 				vai->prim = indexGen.Prim();
 				vai->maxIndex = indexGen.MaxIndex();
@@ -732,7 +735,7 @@ void DrawEngineVulkan::DoFlush() {
 					}
 					if (newMiniHash != vai->minihash || newHash != vai->hash) {
 						MarkUnreliable(vai);
-						DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
+						DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);
 						goto rotateVBO;
 					}
 					if (vai->numVerts > 64) {
@@ -751,14 +754,14 @@ void DrawEngineVulkan::DoFlush() {
 					u32 newMiniHash = ComputeMiniHash();
 					if (newMiniHash != vai->minihash) {
 						MarkUnreliable(vai);
-						DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
+						DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);
 						goto rotateVBO;
 					}
 				}
 
 				if (!vai->vb) {
 					// Directly push to the vertex cache.
-					DecodeVerts(vertexCache_, &vai->vbOffset, &vai->vb);
+					DecodeVertsToPushBuffer(vertexCache_, &vai->vbOffset, &vai->vb);
 					_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
@@ -819,7 +822,7 @@ void DrawEngineVulkan::DoFlush() {
 				if (vai->lastFrame != gpuStats.numFlips) {
 					vai->numFrames++;
 				}
-				DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
+				DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);
 				goto rotateVBO;
 			}
 			default:
@@ -833,7 +836,7 @@ void DrawEngineVulkan::DoFlush() {
 				memcpy(dest, decoded, size);
 			} else {
 				// Decode directly into the pushbuffer
-				DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
+				DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);
 			}
 
 	rotateVBO:
@@ -916,7 +919,7 @@ void DrawEngineVulkan::DoFlush() {
 	} else {
 		PROFILE_THIS_SCOPE("soft");
 		// Decode to "decoded"
-		DecodeVerts(nullptr, nullptr, nullptr);
+		DecodeVertsToPushBuffer(nullptr, nullptr, nullptr);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
