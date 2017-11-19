@@ -1037,7 +1037,7 @@ int friendFinder(){
 		//_acquireNetworkLock();
 
 		// Ping Server
-		now = real_time_now()*1000000.0; // should be in microseconds, but it seems real_time_now() returns in seconds
+		now = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; // should be in microseconds, but it seems real_time_now() returns in seconds
 		if (now - lastping >= PSP_ADHOCCTL_PING_TIMEOUT) { //100 // We need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
 			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
 			// Update Ping Time
@@ -1083,6 +1083,8 @@ int friendFinder(){
 			if (rx[0] == OPCODE_CONNECT_BSSID) {
 				INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT_BSSID");
 				// Enough Data available
+				if(g_Config.bMOHH2hack) // Really bad, but works around MOHH2 timing issue
+					sleep_ms(666*10); // Don't hurry, be happy, 5s wasn't enough, let's use a safe number
 				if (rxpos >= (int)sizeof(SceNetAdhocctlConnectBSSIDPacketS2C)) {
 					// Cast Packet
 					SceNetAdhocctlConnectBSSIDPacketS2C * packet = (SceNetAdhocctlConnectBSSIDPacketS2C *)rx;

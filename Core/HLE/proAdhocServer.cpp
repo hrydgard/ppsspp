@@ -148,6 +148,20 @@ static const db_crosslink default_crosslinks[] = {
 	{ "ULES00566", "ULUS10180" },
 	{ "ULJM05202", "ULUS10180" },
 
+	// Medal of Honor Heroes // untested
+	{ "ULES00557", "ULUS10141" },
+	{ "ULJM05213", "ULUS10141" },
+	{ "NPJH50306", "ULUS10141" },
+
+	// Medal of Honor Heroes 2 // untested
+	{ "ULES00988", "ULUS10310" },
+	{ "ULAS42120", "ULUS10310" },
+	{ "ULJM05301", "ULUS10310" },
+	{ "ULES00955", "ULUS10310" },
+	{ "ULES00956", "ULUS10310" },
+	{ "ULJM05430", "ULUS10310" },
+	{ "NPJH50307", "ULUS10310" },
+
 	// Metal Gear Solid - Peace Walker
 	{ "ULES01372", "NPJH50045" },
 	{ "ULUS10509", "NPJH50045" },
@@ -368,6 +382,7 @@ static const db_productid default_productids[] = {
 	{ "ULJS00385", "Mahou Shoujo Nanoha A's Portable - The Gears of Destiny" },
 	{ "ULUS10408", "Mana Khemia Student Alliance" },
 	{ "ULUS10141", "Medal Of Honor Heroes" },
+	{ "ULUS10310", "Medal Of Honor Heroes 2" },
 	{ "NPJH50045", "Metal Gear Solid - Peace Walker" },
 	{ "ULUS10202", "Metal Gear Solid - Portable Ops" },
 	{ "ULUS10290", "Metal Gear Solid - Portable Ops +" },

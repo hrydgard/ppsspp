@@ -1796,10 +1796,10 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 					// Blocking Behaviour
 					if (!flag && newsocket == -1) {
 						// Get Start Time
-						uint32_t starttime = (uint32_t)(real_time_now()*1000000.0);
+						uint32_t starttime = (uint32_t)(CoreTiming::GetGlobalTimeUsScaled());
 						
 						// Retry until Timeout hits
-						while ((timeout == 0 ||((uint32_t)(real_time_now()*1000000.0) - starttime) < (uint32_t)timeout) && newsocket == -1) {
+						while ((timeout == 0 ||((uint32_t)(CoreTiming::GetGlobalTimeUsScaled()) - starttime) < (uint32_t)timeout) && newsocket == -1) {
 							// Accept Connection
 							newsocket = accept(socket->id, (sockaddr *)&peeraddr, &peeraddrlen);
 							
@@ -1995,14 +1995,14 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						// Blocking Mode
 						else {
 							// Grab Connection Start Time
-							uint32_t starttime = (uint32_t)(real_time_now()*1000000.0);
+							uint32_t starttime = (uint32_t)(CoreTiming::GetGlobalTimeUsScaled());
 							
 							// Peer Information (for Connection-Polling)
 							sockaddr_in peer;
 							memset(&peer, 0, sizeof(peer));
 							socklen_t peerlen = sizeof(peer);
 							// Wait for Connection
-							while ((timeout == 0 || ( (uint32_t)(real_time_now()*1000000.0) - starttime) < (uint32_t)timeout) && getpeername(socket->id, (sockaddr *)&peer, &peerlen) != 0) {
+							while ((timeout == 0 || ( (uint32_t)(CoreTiming::GetGlobalTimeUsScaled()) - starttime) < (uint32_t)timeout) && getpeername(socket->id, (sockaddr *)&peer, &peerlen) != 0) {
 								// Wait 1ms
 								sleep_ms(1);
 							}
