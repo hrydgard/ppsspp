@@ -127,8 +127,10 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	queueRunner_.CreateDeviceObjects();
 
 	// Temporary AMD hack for issue #10097
-	if (!g_Config.bVulkanMultithreading) {
-		useThread_ = false;
+	if (vulkan_->GetPhysicalDeviceProperties().vendorID == VULKAN_VENDOR_AMD) {
+		if (!g_Config.bVulkanMultithreading) {
+			useThread_ = false;
+		}
 	}
 }
 

@@ -408,7 +408,7 @@ static bool DefaultSasThread() {
 
 static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("CPUCore", &g_Config.iCpuCore, &DefaultCpuCore, true, true),
-	ConfigSetting("VulkanMultithreading", &g_Config.bVulkanMultithreading, true, true, true),
+	ConfigSetting("VulkanMultithreading", &g_Config.bVulkanMultithreading, false, true, true),
 	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, true, true),
 	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true, true, true),
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_REALISTIC, true, true),
@@ -742,7 +742,7 @@ static ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("PSPModel", &g_Config.iPSPModel, &DefaultPSPModel, true, true),
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, true, true),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", true, true),
-	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "", true, true),
+	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost", true, true),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, "", true, true),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, true, true),
@@ -931,12 +931,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	LogManager::GetInstance()->LoadConfig(log, debugDefaults);
 
 	IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
-	recent->Get("MaxRecent", &iMaxRecent, 30);
+	recent->Get("MaxRecent", &iMaxRecent, 1000);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	// -1 is okay, though. We'll just ignore recent stuff if it is.
 	if (iMaxRecent == 0)
-		iMaxRecent = 30;
+		iMaxRecent = 1000;
 
 	if (iMaxRecent > 0) {
 		recentIsos.clear();

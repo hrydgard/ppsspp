@@ -675,15 +675,10 @@ void GameSettingsScreen::CreateViews() {
 
 		systemSettings->Add(new CheckBox(&g_Config.bFastMemory, sy->T("Fast Memory", "Fast Memory (Unstable)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
-		if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN)
-			systemSettings->Add(new CheckBox(&g_Config.bVulkanMultithreading, sy->T("Vulkan Multithreading", "Vulkan Multithreading")));
-
 		systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, sy->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
 		static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays" };
 		View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));
 		ioTimingMethod->SetEnabledPtr(&g_Config.bSeparateIOThread);
-		PopupSliderChoice *manualUMDDelay = systemSettings->Add(new PopupSliderChoice(&g_Config.iIOManualDelay, 1, 20, sy->T("Slow down simulated UMD delays", "Slow down simulated UMD delays"), screenManager(), sy->T("Multiplier")));
-		manualUMDDelay->SetEnabledPtr(&g_Config.bSeparateIOThread);
 		systemSettings->Add(new CheckBox(&g_Config.bForceLagSync, sy->T("Force real clock sync (slower, less lag)")));
 		PopupSliderChoice *lockedMhz = systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, sy->T("Change CPU Clock", "Change CPU Clock (unstable)"), screenManager(), sy->T("MHz, 0:default")));
 		lockedMhz->SetZeroLabel(sy->T("Auto"));
@@ -705,7 +700,6 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 #endif
-	systemSettings->Add(new CheckBox(&g_Config.bSimpleUI, sy->T("SimpleUI", "Hide advanced/rarely used settings")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguageChange);
 	if (!g_Config.bSimpleUI) {
 		systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
 		if (g_Config.iMaxRecent > 0)
@@ -804,8 +798,10 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Change Nickname"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
 #if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
-	// Screenshot functionality is not yet available on non-Windows/non-Qt
-	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
+	if (!g_Config.bSimpleUI) {
+		// Screenshot functionality is not yet available on non-Windows/non-Qt
+		systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
+	}
 	systemSettings->Add(new CheckBox(&g_Config.bDumpFrames, sy->T("Record Display")));
 	systemSettings->Add(new CheckBox(&g_Config.bUseFFV1, sy->T("Use Lossless Video Codec (FFV1)")));
 	systemSettings->Add(new CheckBox(&g_Config.bDumpAudio, sy->T("Record Audio")));

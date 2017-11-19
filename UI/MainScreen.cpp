@@ -853,6 +853,7 @@ void MainScreen::CreateViews() {
 #endif
 	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	rightColumnItems->Add(new CheckBox(&g_Config.bSimpleUI, mm->T("SimpleUI", "Simple UI")))->OnClick.Handle(this, &MainScreen::OnRecentChange);
 	if (!g_Config.bSimpleUI) {
 		rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 		if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
