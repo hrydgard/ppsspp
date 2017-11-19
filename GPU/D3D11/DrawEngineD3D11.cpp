@@ -315,22 +315,6 @@ void DrawEngineD3D11::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, 
 	}
 }
 
-void DrawEngineD3D11::DecodeVerts() {
-	const UVScale origUV = gstate_c.uv;
-	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-		gstate_c.uv = uvScale[decodeCounter_];
-		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
-	}
-	gstate_c.uv = origUV;
-
-	// Sanity check
-	if (indexGen.Prim() < 0) {
-		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
-		// Force to points (0)
-		indexGen.AddPrim(GE_PRIM_POINTS, 0);
-	}
-}
-
 void DrawEngineD3D11::MarkUnreliable(VertexArrayInfoD3D11 *vai) {
 	vai->status = VertexArrayInfoD3D11::VAI_UNRELIABLE;
 	if (vai->vbo) {
@@ -438,7 +422,7 @@ void DrawEngineD3D11::DoFlush() {
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfoD3D11::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
-					DecodeVerts(); // writes to indexGen
+					DecodeVerts(decoded); // writes to indexGen
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
@@ -463,7 +447,7 @@ void DrawEngineD3D11::DoFlush() {
 						}
 						if (newMiniHash != vai->minihash || newHash != vai->hash) {
 							MarkUnreliable(vai);
-							DecodeVerts();
+							DecodeVerts(decoded);
 							goto rotateVBO;
 						}
 						if (vai->numVerts > 64) {
@@ -482,13 +466,13 @@ void DrawEngineD3D11::DoFlush() {
 						u32 newMiniHash = ComputeMiniHash();
 						if (newMiniHash != vai->minihash) {
 							MarkUnreliable(vai);
-							DecodeVerts();
+							DecodeVerts(decoded);
 							goto rotateVBO;
 						}
 					}
 
 					if (vai->vbo == 0) {
-						DecodeVerts();
+						DecodeVerts(decoded);
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
 						vai->maxIndex = indexGen.MaxIndex();
@@ -554,14 +538,14 @@ void DrawEngineD3D11::DoFlush() {
 					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
 					}
-					DecodeVerts();
+					DecodeVerts(decoded);
 					goto rotateVBO;
 				}
 			}
 
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
-			DecodeVerts();
+			DecodeVerts(decoded);
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
@@ -632,7 +616,7 @@ rotateVBO:
 			}
 		}
 	} else {
-		DecodeVerts();
+		DecodeVerts(decoded);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);

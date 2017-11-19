@@ -427,37 +427,7 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	}
 }
 
-int DrawEngineVulkan::ComputeNumVertsToDecode() const {
-	int vertsToDecode = 0;
-	if (drawCalls[0].indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
-		for (int i = 0; i < numDrawCalls; i++) {
-			const DeferredDrawCall &dc = drawCalls[i];
-			vertsToDecode += dc.vertexCount;
-		}
-	} else {
-		// TODO: Share this computation with DecodeVertsStep?
-		for (int i = 0; i < numDrawCalls; i++) {
-			const DeferredDrawCall &dc = drawCalls[i];
-			int lastMatch = i;
-			const int total = numDrawCalls;
-			int indexLowerBound = dc.indexLowerBound;
-			int indexUpperBound = dc.indexUpperBound;
-			for (int j = i + 1; j < total; ++j) {
-				if (drawCalls[j].verts != dc.verts)
-					break;
-
-				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-				lastMatch = j;
-			}
-			vertsToDecode += indexUpperBound - indexLowerBound + 1;
-			i = lastMatch;
-		}
-	}
-	return vertsToDecode;
-}
-
-void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
+void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
 	u8 *dest = decoded;
 
 	// Figure out how much pushbuffer space we need to allocate.
@@ -465,20 +435,7 @@ void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset,
 		int vertsToDecode = ComputeNumVertsToDecode();
 		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, vkbuf);
 	}
-
-	const UVScale origUV = gstate_c.uv;
-	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-		gstate_c.uv = uvScale[decodeCounter_];
-		DecodeVertsStep(dest, decodeCounter_, decodedVerts_);  // NOTE! DecodeVertsStep can modify decodeCounter_!
-	}
-	gstate_c.uv = origUV;
-
-	// Sanity check
-	if (indexGen.Prim() < 0) {
-		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
-		// Force to points (0)
-		indexGen.AddPrim(GE_PRIM_POINTS, 0);
-	}
+	DecodeVerts(dest);
 }
 
 void DrawEngineVulkan::SetLineWidth(float lineWidth) {
@@ -706,7 +663,7 @@ void DrawEngineVulkan::DoFlush() {
 				vai->minihash = ComputeMiniHash();
 				vai->status = VertexArrayInfoVulkan::VAI_HASHING;
 				vai->drawsUntilNextFullHash = 0;
-				DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);  // writes to indexGen
+				DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);  // writes to indexGen
 				vai->numVerts = indexGen.VertexCount();
 				vai->prim = indexGen.Prim();
 				vai->maxIndex = indexGen.MaxIndex();
@@ -732,7 +689,7 @@ void DrawEngineVulkan::DoFlush() {
 					}
 					if (newMiniHash != vai->minihash || newHash != vai->hash) {
 						MarkUnreliable(vai);
-						DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
+						DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);
 						goto rotateVBO;
 					}
 					if (vai->numVerts > 64) {
@@ -751,14 +708,14 @@ void DrawEngineVulkan::DoFlush() {
 					u32 newMiniHash = ComputeMiniHash();
 					if (newMiniHash != vai->minihash) {
 						MarkUnreliable(vai);
-						DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
+						DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);
 						goto rotateVBO;
 					}
 				}
 
 				if (!vai->vb) {
 					// Directly push to the vertex cache.
-					DecodeVerts(vertexCache_, &vai->vbOffset, &vai->vb);
+					DecodeVertsToPushBuffer(vertexCache_, &vai->vbOffset, &vai->vb);
 					_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
@@ -819,7 +776,7 @@ void DrawEngineVulkan::DoFlush() {
 				if (vai->lastFrame != gpuStats.numFlips) {
 					vai->numFrames++;
 				}
-				DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
+				DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);
 				goto rotateVBO;
 			}
 			default:
@@ -833,7 +790,7 @@ void DrawEngineVulkan::DoFlush() {
 				memcpy(dest, decoded, size);
 			} else {
 				// Decode directly into the pushbuffer
-				DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
+				DecodeVertsToPushBuffer(frame->pushVertex, &vbOffset, &vbuf);
 			}
 
 	rotateVBO:
@@ -916,7 +873,7 @@ void DrawEngineVulkan::DoFlush() {
 	} else {
 		PROFILE_THIS_SCOPE("soft");
 		// Decode to "decoded"
-		DecodeVerts(nullptr, nullptr, nullptr);
+		DecodeVertsToPushBuffer(nullptr, nullptr, nullptr);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);

@@ -130,7 +130,7 @@ public:
 	void FinishDeferred() {
 		if (!numDrawCalls)
 			return;
-		DecodeVerts();
+		DecodeVerts(decoded);
 	}
 
 	void DispatchFlush() override { Flush(); }
@@ -139,7 +139,6 @@ public:
 	}
 
 private:
-	void DecodeVerts();
 	void DoFlush();
 
 	void ApplyDrawState(int prim);

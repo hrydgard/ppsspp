@@ -77,6 +77,9 @@ public:
 protected:
 	virtual void ClearTrackedVertexArrays() {}
 
+	int ComputeNumVertsToDecode() const;
+	void DecodeVerts(u8 *dest);
+
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
 

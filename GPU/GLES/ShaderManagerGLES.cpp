@@ -44,8 +44,8 @@
 #include "GPU/Common/ShaderUniforms.h"
 #include "FramebufferManagerGLES.h"
 
-Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform)
-	  : failed_(false), useHWTransform_(useHWTransform) {
+Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
+	  : failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask), uniformMask_(uniformMask) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	isFragment_ = glShaderType == GL_FRAGMENT_SHADER;
 	source_ = code;
@@ -243,63 +243,8 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 	u_spline_type_u = glGetUniformLocation(program, "u_spline_type_u");
 	u_spline_type_v = glGetUniformLocation(program, "u_spline_type_v");
 
-	attrMask = 0;
-	if (-1 != glGetAttribLocation(program, "position")) attrMask |= 1 << ATTR_POSITION;
-	if (-1 != glGetAttribLocation(program, "texcoord")) attrMask |= 1 << ATTR_TEXCOORD;
-	if (-1 != glGetAttribLocation(program, "normal")) attrMask |= 1 << ATTR_NORMAL;
-	if (-1 != glGetAttribLocation(program, "w1")) attrMask |= 1 << ATTR_W1;
-	if (-1 != glGetAttribLocation(program, "w2")) attrMask |= 1 << ATTR_W2;
-	if (-1 != glGetAttribLocation(program, "color0")) attrMask |= 1 << ATTR_COLOR0;
-	if (-1 != glGetAttribLocation(program, "color1")) attrMask |= 1 << ATTR_COLOR1;
-
-	availableUniforms = 0;
-	if (u_proj != -1) availableUniforms |= DIRTY_PROJMATRIX;
-	if (u_proj_through != -1) availableUniforms |= DIRTY_PROJTHROUGHMATRIX;
-	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
-	if (u_alphacolorref != -1) availableUniforms |= DIRTY_ALPHACOLORREF;
-	if (u_alphacolormask != -1) availableUniforms |= DIRTY_ALPHACOLORMASK;
-	if (u_fogcolor != -1) availableUniforms |= DIRTY_FOGCOLOR;
-	if (u_fogcoef != -1) availableUniforms |= DIRTY_FOGCOEF;
-	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
-	if (u_uvscaleoffset != -1) availableUniforms |= DIRTY_UVSCALEOFFSET;
-	if (u_texclamp != -1) availableUniforms |= DIRTY_TEXCLAMP;
-	if (u_world != -1) availableUniforms |= DIRTY_WORLDMATRIX;
-	if (u_view != -1) availableUniforms |= DIRTY_VIEWMATRIX;
-	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
-	if (u_stencilReplaceValue != -1) availableUniforms |= DIRTY_STENCILREPLACEVALUE;
-	if (u_blendFixA != -1 || u_blendFixB != -1 || u_fbotexSize != -1) availableUniforms |= DIRTY_SHADERBLEND;
-	if (u_depthRange != -1)
-		availableUniforms |= DIRTY_DEPTHRANGE;
-	if (u_guardband != -1)
-		availableUniforms |= DIRTY_GUARDBAND;
-	// Looping up to numBones lets us avoid checking u_bone[i]
-#ifdef USE_BONE_ARRAY
-	if (u_bone != -1) {
-		for (int i = 0; i < numBones; i++) {
-			availableUniforms |= DIRTY_BONEMATRIX0 << i;
-		}
-	}
-#else
-	for (int i = 0; i < numBones; i++) {
-		if (u_bone[i] != -1)
-			availableUniforms |= DIRTY_BONEMATRIX0 << i;
-	}
-#endif
-	if (u_ambient != -1) availableUniforms |= DIRTY_AMBIENT;
-	if (u_matambientalpha != -1) availableUniforms |= DIRTY_MATAMBIENTALPHA;
-	if (u_matdiffuse != -1) availableUniforms |= DIRTY_MATDIFFUSE;
-	if (u_matemissive != -1) availableUniforms |= DIRTY_MATEMISSIVE;
-	if (u_matspecular != -1) availableUniforms |= DIRTY_MATSPECULAR;
-	for (int i = 0; i < 4; i++) {
-		if (u_lightdir[i] != -1 ||
-				u_lightspecular[i] != -1 ||
-				u_lightpos[i] != -1)
-			availableUniforms |= DIRTY_LIGHT0 << i;
-	}
-	if (u_spline_count_u != -1) availableUniforms |= DIRTY_BEZIERSPLINE;
-	if (u_spline_count_v != -1) availableUniforms |= DIRTY_BEZIERSPLINE;
-	if (u_spline_type_u != -1) availableUniforms |= DIRTY_BEZIERSPLINE;
-	if (u_spline_type_v != -1) availableUniforms |= DIRTY_BEZIERSPLINE;
+	attrMask = vs->GetAttrMask();
+	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
 
 	glUseProgram(program);
 
@@ -307,7 +252,6 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 	glUniform1i(u_tex, 0);
 	glUniform1i(u_fbotex, 1);
 	glUniform1i(u_testtex, 2);
-
 	
 	if (u_tess_pos_tex != -1)
 		glUniform1i(u_tess_pos_tex, 4); // Texture unit 4
@@ -799,16 +743,19 @@ void ShaderManagerGLES::DirtyLastShader() { // disables vertex arrays
 }
 
 Shader *ShaderManagerGLES::CompileFragmentShader(ShaderID FSID) {
-	if (!GenerateFragmentShader(FSID, codeBuffer_)) {
+	uint64_t uniformMask;
+	if (!GenerateFragmentShader(FSID, codeBuffer_, &uniformMask)) {
 		return nullptr;
 	}
-	return new Shader(codeBuffer_, GL_FRAGMENT_SHADER, false);
+	return new Shader(codeBuffer_, GL_FRAGMENT_SHADER, false, 0, uniformMask);
 }
 
 Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
 	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
-	GenerateVertexShader(VSID, codeBuffer_);
-	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
+	uint32_t attrMask;
+	uint64_t uniformMask;
+	GenerateVertexShader(VSID, codeBuffer_, &attrMask, &uniformMask);
+	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
 }
 
 Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
@@ -856,8 +803,10 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 			// Can still work with software transform.
 			ShaderID vsidTemp;
 			ComputeVertexShaderID(&vsidTemp, vertType, false);
-			GenerateVertexShader(vsidTemp, codeBuffer_);
-			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false);
+			uint32_t attrMask;
+			uint64_t uniformMask;
+			GenerateVertexShader(vsidTemp, codeBuffer_, &attrMask, &uniformMask);
+			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false, attrMask, uniformMask);
 		}
 
 		vsCache_.Insert(*VSID, vs);

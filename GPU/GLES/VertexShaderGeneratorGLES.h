@@ -23,4 +23,4 @@
 
 struct ShaderID;
 
-void GenerateVertexShader(const ShaderID &id, char *buffer);
+void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask);

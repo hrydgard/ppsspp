@@ -19,4 +19,4 @@
 
 struct ShaderID;
 
-bool GenerateFragmentShader(const ShaderID &id, char *buffer);
+bool GenerateFragmentShader(const ShaderID &id, char *buffer, uint64_t *uniformMask);
