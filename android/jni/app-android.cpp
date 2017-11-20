@@ -44,6 +44,7 @@
 #include "Core/System.h"
 #include "Common/CPUDetect.h"
 #include "Common/GraphicsContext.h"
+#include "Common/Log.h"
 #include "Common/GL/GLInterfaceBase.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Common/Vulkan/VulkanContext.h"

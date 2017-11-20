@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <cassert>
+#include <cstdio>
+
 #include "MsgHandler.h"
 
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
@@ -26,11 +29,6 @@
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
 #define	VERBOSE_LEVEL 6  // Noisy debugging - sometimes needed but usually unimportant.
 
-#if !defined(_WIN32)
-#include <signal.h>
-#endif
-
-#include <cstdio>
 
 namespace LogTypes {
 
@@ -113,13 +111,13 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 	if (!(_a_)) {\
 		ERROR_LOG(_t_, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
 					   __LINE__, __FILE__); \
-		if (!PanicYesNo("*** Assertion (see log)***\n")) {Crash();} \
+		if (!PanicYesNo("*** Assertion ***\n")) { assert(false); } \
 	}
 #define _dbg_assert_msg_(_t_, _a_, ...)\
 	if (!(_a_)) {\
 		printf(__VA_ARGS__); \
 		ERROR_LOG(_t_, __VA_ARGS__); \
-		if (!PanicYesNo(__VA_ARGS__)) {Crash();} \
+		if (!PanicYesNo(__VA_ARGS__)) { assert(false);} \
 	}
 #define _dbg_update_() ; //Host_UpdateLogDisplay();
 
@@ -132,16 +130,10 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 #endif // dbg_assert
 #endif // MAX_LOGLEVEL DEBUG
 
-#define _assert_(_a_) _dbg_assert_(SYSTEM, _a_)
+#define _assert_(_a_) \
+	_dbg_assert_(SYSTEM, _a_)
 
-#ifdef _MSC_VER
-#define _assert_msg_(_t_, _a_, _fmt_, ...)		\
-	if (!(_a_)) {\
-		if (!PanicYesNo(_fmt_, __VA_ARGS__)) {Crash();} \
+#define _assert_msg_(_t_, _a_, ...)		\
+	if (!(_a_) && !PanicYesNo(__VA_ARGS__)) { \
+    assert(false); \
 	}
-#else // not win32
-#define _assert_msg_(_t_, _a_, _fmt_, ...)		\
-	if (!(_a_)) {\
-		if (!PanicYesNo(_fmt_, ##__VA_ARGS__)) {Crash();} \
-	}
-#endif // WIN32

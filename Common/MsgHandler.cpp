@@ -15,31 +15,20 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include <string>
+
 #include "ppsspp_config.h"
 
-#include "Common.h" // Local
+#include "Common.h"
 #include "StringUtils.h"
 #include "base/logging.h"
 #include "util/text/utf8.h"
-#include <string>
 
-bool MsgHandler(const char* caption, const char* text, bool yes_no, int Style);
+bool MsgHandler(const char *caption, const char *text, bool yes_no, int Style);
 
-static bool AlertEnabled = true;
-
-// enable/disable the alert handler
-void SetEnableAlert(bool enable)
-{
-	AlertEnabled = enable;
-}
-
-// This is the first stop for gui alerts where the log is updated and the
-// correct window is shown
-bool MsgAlert(bool yes_no, int Style, const char* format, ...)
-{
+bool MsgAlert(bool yes_no, int Style, const char* format, ...) {
 	// Read message and write it to the log
 	char buffer[2048];
-
 	static const char *captions[] = {
 		"Information",
 		"Question",
@@ -48,22 +37,15 @@ bool MsgAlert(bool yes_no, int Style, const char* format, ...)
 	};
 
 	const char *caption = captions[Style];
-
 	va_list args;
 	va_start(args, format);
 	CharArrayFromFormatV(buffer, sizeof(buffer)-1, format, args);
 	va_end(args);
-	// Safe android logging
-#if PPSSPP_PLATFORM(ANDROID)
-	ELOG("%s: %s", caption, buffer);
-#endif
-	// Normal logging
+	// Normal logging (will also log to Android log)
 	ERROR_LOG(SYSTEM, "%s: %s", caption, buffer);
-
 	// Don't ignore questions, especially AskYesNo, PanicYesNo could be ignored
-	if (AlertEnabled || Style == QUESTION || Style == CRITICAL)
+	if (Style == QUESTION || Style == CRITICAL)
 		return MsgHandler(caption, buffer, yes_no, Style);
-
 	return true;
 }
 
@@ -72,22 +54,22 @@ bool MsgAlert(bool yes_no, int Style, const char* format, ...)
 #endif
 
 // Default non library dependent panic alert
-bool MsgHandler(const char* caption, const char* text, bool yes_no, int Style)
-{
+bool MsgHandler(const char* caption, const char* text, bool yes_no, int Style) {
 #if defined(USING_WIN_UI)
-	int STYLE = MB_ICONINFORMATION;
-	if (Style == QUESTION) STYLE = MB_ICONQUESTION;
-	if (Style == WARNING) STYLE = MB_ICONWARNING;
+	int msgBoxStyle = MB_ICONINFORMATION;
+	if (Style == QUESTION) msgBoxStyle = MB_ICONQUESTION;
+	if (Style == WARNING) msgBoxStyle = MB_ICONWARNING;
 
-	std::wstring wtext = ConvertUTF8ToWString(text);
+	std::wstring wtext = ConvertUTF8ToWString(text) + L"\n\nTry to continue?";
 	std::wstring wcaption = ConvertUTF8ToWString(caption);
-
-	return IDYES == MessageBox(0, wtext.c_str(), wcaption.c_str(), STYLE | (yes_no ? MB_YESNO : MB_OK));
+	OutputDebugString(wtext.c_str());
+	return IDYES == MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle | (yes_no ? MB_YESNO : MB_OK));
 #elif PPSSPP_PLATFORM(UWP)
 	OutputDebugStringUTF8(text);
-	return true;
+	return false;
 #else
-	printf("%s\n", text);
-	return true;
+	// Will use android-log if available, printf if not.
+	ELOG("%s", text);
+	return false;
 #endif
 }
