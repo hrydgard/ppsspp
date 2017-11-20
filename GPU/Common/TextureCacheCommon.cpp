@@ -142,14 +142,15 @@ static int TexLog2(float delta) {
 	return useful - 127 * 256;
 }
 
-void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr, bool &autoMip) {
+void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel, u32 addr, GETexLevelMode &mode) {
 	minFilt = gstate.texfilter & 0x7;
 	magFilt = gstate.isMagnifyFilteringEnabled();
 	sClamp = gstate.isTexCoordClampedS();
 	tClamp = gstate.isTexCoordClampedT();
 
 	GETexLevelMode mipMode = gstate.getTexLevelMode();
-	autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
+	mode = mipMode;
+	bool autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
 	lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
 	if (mipMode == GE_TEXLEVEL_MODE_SLOPE) {
 		lodBias += 1.0f + TexLog2(gstate.getTextureLodSlope()) * (1.0f / 256.0f);
@@ -191,6 +192,60 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	if (forceNearest) {
 		magFilt &= ~1;
 		minFilt &= ~1;
+	}
+}
+
+void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key) {
+	// TODO: Make GetSamplingParams write SamplerCacheKey directly
+	int minFilt;
+	int magFilt;
+	bool sClamp;
+	bool tClamp;
+	float lodBias;
+	int maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
+	GETexLevelMode mode;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
+	key.minFilt = minFilt & 1;
+	key.mipEnable = (minFilt >> 2) & 1;
+	key.mipFilt = (minFilt >> 1) & 1;
+	key.magFilt = magFilt & 1;
+	key.sClamp = sClamp;
+	key.tClamp = tClamp;
+	key.aniso = false;
+
+	if (!key.mipEnable) {
+		key.maxLevel = 0;
+		key.minLevel = 0;
+		key.lodBias = 0;
+	} else {
+		switch (mode) {
+		case GE_TEXLEVEL_MODE_AUTO:
+			key.maxLevel = entry.maxLevel * 256;
+			key.minLevel = 0;
+			key.lodBias = (int)(lodBias * 256.0f);
+			if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+				key.aniso = true;
+				break;
+			}
+		case GE_TEXLEVEL_MODE_CONST:
+		case GE_TEXLEVEL_MODE_UNKNOWN:
+			key.maxLevel = (int)(lodBias * 256.0f);
+			key.minLevel = (int)(lodBias * 256.0f);
+			key.lodBias = 0;
+			break;
+		case GE_TEXLEVEL_MODE_SLOPE:
+			// It's incorrect to use the slope as a bias. Instead it should be passed
+			// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
+			// lodBias in this mode, working around #9772.
+			key.maxLevel = entry.maxLevel * 256;
+			key.minLevel = 0;
+			key.lodBias = 0;
+			break;
+		}
+	}
+
+	if (entry.framebuffer) {
+		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
 	}
 }
 

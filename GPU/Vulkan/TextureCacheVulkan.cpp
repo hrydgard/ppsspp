@@ -86,14 +86,12 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.addressModeV = key.tClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.addressModeW = samp.addressModeU;  // irrelevant, but Mali recommends that all clamp modes are the same if possible.
-	samp.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 	samp.compareOp = VK_COMPARE_OP_ALWAYS;
 	samp.flags = 0;
 	samp.magFilter = key.magFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.mipmapMode = key.mipFilt ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
-
-	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+	if (key.aniso) {
 		// Docs say the min of this value and the supported max are used.
 		samp.maxAnisotropy = 1 << g_Config.iAnisotropyLevel;
 		samp.anisotropyEnable = true;
@@ -101,10 +99,9 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 		samp.maxAnisotropy = 1.0f;
 		samp.anisotropyEnable = false;
 	}
-
-	samp.maxLod = key.maxLevel;
-	samp.minLod = 0.0f;
-	samp.mipLodBias = 0.0f;
+	samp.maxLod = (float)(int32_t)key.maxLevel * (1.0f / 256.0f);
+	samp.minLod = (float)(int32_t)key.minLevel * (1.0f / 256.0f);
+	samp.mipLodBias = (float)(int32_t)key.lodBias * (1.0f / 256.0f);
 
 	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &sampler);
 	assert(res == VK_SUCCESS);
@@ -210,51 +207,14 @@ static const VkFilter MagFiltVK[2] = {
 	VK_FILTER_LINEAR
 };
 
-void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key) {
-	// TODO: Make GetSamplingParams write SamplerCacheKey directly
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	bool autoMip;
-	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
-	key.minFilt = minFilt & 1;
-	key.mipEnable = (minFilt >> 2) & 1;
-	key.mipFilt = (minFilt >> 1) & 1;
-	key.magFilt = magFilt & 1;
-	key.sClamp = sClamp;
-	key.tClamp = tClamp;
-	key.maxLevel = entry.vkTex->texture_->GetNumMips() - 1;
-	/*
-	if (entry.maxLevel != 0) {
-		if (force || entry.lodBias != lodBias) {
-			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-				if (autoMip) {
-					// TODO
-				} else {
-					// TODO
-				}
-			}
-			entry.lodBias = lodBias;
-		}
-	}
-	*/
-
-	if (entry.framebuffer) {
-		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
-	}
-}
-
 void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
 	int minFilt;
 	int magFilt;
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, autoMip);
+	GETexLevelMode mode;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
 
 	key.minFilt = minFilt & 1;
 	key.mipFilt = 0;
@@ -338,7 +298,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	}
 
 	imageView_ = entry->vkTex->texture_->GetImageView();
-	SamplerCacheKey key;
+	SamplerCacheKey key{};
 	UpdateSamplingParams(*entry, key);
 	curSampler_ = samplerCache_.GetOrCreateSampler(key);
 }
@@ -449,7 +409,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
-	SamplerCacheKey samplerKey;
+	SamplerCacheKey samplerKey{};
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	InvalidateLastTexture(entry);

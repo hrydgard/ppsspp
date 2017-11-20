@@ -128,24 +128,33 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
 	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
+	GETexLevelMode mode;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
 
 	if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 		if (maxLevel != 0) {
 			// TODO: What about a swap of autoMip mode?
 			if (force || entry.lodBias != lodBias) {
-				if (autoMip) {
+				if (mode == GE_TEXLEVEL_MODE_AUTO) {
 #ifndef USING_GLES2
 					// Sigh, LOD_BIAS is not even in ES 3.0.. but we could do it in the shader via texture()...
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
 #endif
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
-				} else {
+				} else if (mode == GE_TEXLEVEL_MODE_CONST) {
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
+				} else {  // mode == GE_TEXLEVEL_MODE_SLOPE) {
+					// It's incorrect to use the slope as a bias. Instead it should be passed
+					// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
+					// lodBias in this mode, working around #9772.
+#ifndef USING_GLES2
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, 0.0f);
+#endif
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 				}
 				entry.lodBias = lodBias;
 			}
@@ -185,8 +194,8 @@ void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferH
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, autoMip);
+	GETexLevelMode mode;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
 
 	minFilt &= 1;  // framebuffers can't mipmap.
 

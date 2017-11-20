@@ -58,25 +58,23 @@ class DrawContext;
 
 // Used by D3D11 and Vulkan, could be used by modern GL
 struct SamplerCacheKey {
-	SamplerCacheKey() : fullKey(0) {}
-
 	union {
-		u32 fullKey;
+		uint64_t fullKey;
 		struct {
+			// These are 8.8 fixed point.
+			int16_t maxLevel;
+			int16_t minLevel;
+			int16_t lodBias;
+
 			bool mipEnable : 1;
 			bool minFilt : 1;
 			bool mipFilt : 1;
 			bool magFilt : 1;
 			bool sClamp : 1;
 			bool tClamp : 1;
-			bool lodAuto : 1;
-			bool : 1;
-			int8_t maxLevel : 4;
-			int8_t : 4;
-			int16_t lodBias : 16;
+			bool aniso : 1;
 		};
 	};
-
 	bool operator < (const SamplerCacheKey &other) const {
 		return fullKey < other.fullKey;
 	}
@@ -247,7 +245,8 @@ protected:
 	}
 
 	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
-	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr, bool &autoMip);
+	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel, u32 addr, GETexLevelMode &mode);
+	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);  // Used by D3D11 and Vulkan.
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
 	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);

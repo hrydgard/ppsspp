@@ -64,7 +64,7 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 	samp.AddressU = key.sClamp ? D3D11_TEXTURE_ADDRESS_CLAMP : D3D11_TEXTURE_ADDRESS_WRAP;
 	samp.AddressV = key.tClamp ? D3D11_TEXTURE_ADDRESS_CLAMP : D3D11_TEXTURE_ADDRESS_WRAP;
 	samp.AddressW = samp.AddressU;  // Mali benefits from all clamps being the same, and this one is irrelevant.
-	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+	if (key.aniso) {
 		samp.MaxAnisotropy = (float)(1 << g_Config.iAnisotropyLevel);
 	} else {
 		samp.MaxAnisotropy = 1.0f;
@@ -81,7 +81,7 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 		D3D11_FILTER_MIN_MAG_MIP_LINEAR,
 	};
 	// Only switch to aniso if linear min and mag are set.
-	if (samp.MaxAnisotropy > 1.0f && key.magFilt != 0 && key.minFilt != 0)
+	if (key.aniso && key.magFilt != 0 && key.minFilt != 0)
 		samp.Filter = D3D11_FILTER_ANISOTROPIC;
 	else
 		samp.Filter = filters[filterKey];
@@ -91,21 +91,9 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 	samp.MinLOD = -FLT_MAX;
 	samp.MipLODBias = 0.0f;
 #else
-	if (!key.mipEnable) {
-		samp.MaxLOD = 0.0f;
-		samp.MinLOD = 0.0f;
-		samp.MipLODBias = 0.0f;
-	} else if (key.lodAuto) {
-		// Auto selected mip + bias.
-		samp.MaxLOD = key.maxLevel;
-		samp.MinLOD = 0.0f;
-		samp.MipLODBias = (float)key.lodBias / 256.0f;
-	} else {
-		// Constant mip at bias.
-		samp.MaxLOD = std::max(0.0f, std::min((float)key.maxLevel, (float)key.lodBias / 256.0f));
-		samp.MinLOD = std::max(0.0f, std::min((float)key.maxLevel, (float)key.lodBias / 256.0f));
-		samp.MipLODBias = 0.0f;
-	}
+	samp.MaxLOD = key.maxLevel / 256.0f;
+	samp.MinLOD = key.minLevel / 256.0f;
+	samp.MipLODBias = key.lodBias / 256.0f;
 #endif
 	samp.ComparisonFunc = D3D11_COMPARISON_NEVER;
 	for (int i = 0; i < 4; i++) {
@@ -169,40 +157,14 @@ void TextureCacheD3D11::InvalidateLastTexture(TexCacheEntry *entry) {
 	}
 }
 
-void TextureCacheD3D11::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key) {
-	// TODO: Make GetSamplingParams write SamplerCacheKey directly
-	int minFilt;
-	int magFilt;
-	bool sClamp;
-	bool tClamp;
-	float lodBias;
-	bool autoMip;
-	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, autoMip);
-	key.minFilt = minFilt & 1;
-	key.mipEnable = (minFilt >> 2) & 1;
-	key.mipFilt = (minFilt >> 1) & 1;
-	key.magFilt = magFilt & 1;
-	key.sClamp = sClamp;
-	key.tClamp = tClamp;
-	// Don't clamp to maxLevel - this may bias magnify levels.
-	key.lodBias = (int)(lodBias * 256.0f);
-	key.maxLevel = maxLevel;
-	key.lodAuto = autoMip;
-
-	if (entry.framebuffer) {
-		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
-	}
-}
-
 void TextureCacheD3D11::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key) {
 	int minFilt;
 	int magFilt;
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	bool autoMip;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, autoMip);
+	GETexLevelMode mode;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
 
 	key.minFilt = minFilt & 1;
 	key.mipFilt = 0;
@@ -275,7 +237,7 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 		context_->PSSetShaderResources(0, 1, &textureView);
 		lastBoundTexture = textureView;
 	}
-	SamplerCacheKey key;
+	SamplerCacheKey key{};
 	UpdateSamplingParams(*entry, key);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, key);
 	context_->PSSetSamplers(0, 1, &state);
@@ -455,7 +417,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 		framebufferManagerD3D11_->RebindFramebuffer();  // Probably not necessary.
 	}
-	SamplerCacheKey samplerKey;
+	SamplerCacheKey samplerKey{};
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
 	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
 	context_->PSSetSamplers(0, 1, &state);
