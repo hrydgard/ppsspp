@@ -225,6 +225,7 @@ bool VulkanContext::InitObjects() {
 	}
 
 	if (!InitSwapchain()) {
+		// Destroy queue?
 		return false;
 	}
 	return true;
@@ -821,8 +822,8 @@ bool VulkanContext::InitSwapchain() {
 	}
 
 	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swapchain_);
-	assert(res == VK_SUCCESS);
 	if (res != VK_SUCCESS) {
+		ELOG("vkCreateSwapchainKHR failed!");
 		return false;
 	}
 

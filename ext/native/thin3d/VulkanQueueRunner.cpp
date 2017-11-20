@@ -938,7 +938,10 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 	const size_t srcPixelSize = DataFormatSizeInBytes(srcFormat);
 
 	VkResult res = vkMapMemory(vulkan_->GetDevice(), readbackMemory_, 0, width * height * srcPixelSize, 0, &mappedData);
-	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS) {
+		ELOG("CopyReadbackBuffer: vkMapMemory failed! result=%d", (int)res);
+		return;
+	}
 	if (srcFormat == Draw::DataFormat::R8G8B8A8_UNORM) {
 		ConvertFromRGBA8888(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, destFormat);
 	} else if (srcFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
@@ -955,6 +958,7 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 		ConvertToD32F(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, srcFormat);
 	} else {
 		// TODO: Maybe a depth conversion or something?
+		ELOG("CopyReadbackBuffer: Unknown format");
 		assert(false);
 	}
 	vkUnmapMemory(vulkan_->GetDevice(), readbackMemory_);
