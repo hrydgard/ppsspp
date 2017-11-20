@@ -228,6 +228,7 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 				break;
 			}
 		case GE_TEXLEVEL_MODE_CONST:
+		case GE_TEXLEVEL_MODE_UNKNOWN:
 			key.maxLevel = (int)(lodBias * 256.0f);
 			key.minLevel = (int)(lodBias * 256.0f);
 			key.lodBias = 0;
