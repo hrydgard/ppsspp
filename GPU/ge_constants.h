@@ -417,6 +417,7 @@ enum GETexLevelMode {
 	GE_TEXLEVEL_MODE_AUTO = 0,
 	GE_TEXLEVEL_MODE_CONST = 1,
 	GE_TEXLEVEL_MODE_SLOPE = 2,
+	GE_TEXLEVEL_MODE_UNKNOWN = 3,  // Behaves like CONST.
 };
 
 enum GEMaterialColorSetting

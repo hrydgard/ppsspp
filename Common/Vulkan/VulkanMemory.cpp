@@ -44,6 +44,7 @@ bool VulkanPushBuffer::AddBuffer() {
 
 	VkResult res = vkCreateBuffer(device_, &b, nullptr, &info.buffer);
 	if (VK_SUCCESS != res) {
+		ELOG("vkCreateBuffer failed! result=%d", (int)res);
 		return false;
 	}
 
@@ -60,10 +61,15 @@ bool VulkanPushBuffer::AddBuffer() {
 
 	res = vkAllocateMemory(device_, &alloc, nullptr, &info.deviceMemory);
 	if (VK_SUCCESS != res) {
+		ELOG("vkAllocateMemory failed! result=%d", (int)res);
+		vkDestroyBuffer(device_, info.buffer, nullptr);
 		return false;
 	}
 	res = vkBindBufferMemory(device_, info.buffer, info.deviceMemory, 0);
 	if (VK_SUCCESS != res) {
+		ELOG("vkBindBufferMemory failed! result=%d", (int)res);
+		vkFreeMemory(device_, info.deviceMemory, nullptr);
+		vkDestroyBuffer(device_, info.buffer, nullptr);
 		return false;
 	}
 

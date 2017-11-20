@@ -154,28 +154,22 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
+	GETexLevelMode mode;
 	u8 maxLevel = (entry.status & TexCacheEntry::STATUS_BAD_MIPS) ? 0 : entry.maxLevel;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
 
 	if (maxLevel != 0) {
-		GETexLevelMode mode = gstate.getTexLevelMode();
-		switch (mode) {
-		case GE_TEXLEVEL_MODE_AUTO:
+		if (mode == GE_TEXLEVEL_MODE_AUTO) {
 			dxstate.texMaxMipLevel.set(0);
 			dxstate.texMipLodBias.set(lodBias);
-			break;
-		case GE_TEXLEVEL_MODE_CONST:
+		} else if (mode == GE_TEXLEVEL_MODE_CONST) {
 			// TODO: This is just an approximation - texMaxMipLevel sets the lowest numbered mip to use.
 			// Unfortunately, this doesn't support a const 1.5 or etc.
-			dxstate.texMaxMipLevel.set((int)lodBias);
+			dxstate.texMaxMipLevel.set(std::max(0, std::min((int)maxLevel, (int)lodBias)));
 			dxstate.texMipLodBias.set(-1000.0f);
-			break;
-		case GE_TEXLEVEL_MODE_SLOPE:
-			WARN_LOG_REPORT_ONCE(texSlope, G3D, "Unsupported texture lod slope: %f + %f", gstate.getTextureLodSlope(), lodBias);
-			// TODO: This behavior isn't correct.
+		} else {  // if (mode == GE_TEXLEVEL_MODE_SLOPE{
 			dxstate.texMaxMipLevel.set(0);
-			dxstate.texMipLodBias.set(lodBias);
-			break;
+			dxstate.texMipLodBias.set(0.0f);
 		}
 		entry.lodBias = lodBias;
 	} else {
@@ -204,7 +198,8 @@ void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHe
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0);
+	GETexLevelMode mode;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
 
 	dxstate.texMinFilter.set(MinFilt[minFilt]);
 	dxstate.texMipFilter.set(MipFilt[minFilt]);

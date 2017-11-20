@@ -353,7 +353,7 @@ int main(int argc, const char* argv[])
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
 #else
-	g_Config.iAnisotropyLevel = 4;
+	g_Config.iAnisotropyLevel = 0;  // When testing mipmapping we really don't want this.
 #endif
 	g_Config.bVertexCache = true;
 	g_Config.bTrueColor = true;
