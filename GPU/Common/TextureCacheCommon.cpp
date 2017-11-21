@@ -225,8 +225,8 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 			key.lodBias = (int)(lodBias * 256.0f);
 			if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
 				key.aniso = true;
-				break;
 			}
+			break;
 		case GE_TEXLEVEL_MODE_CONST:
 		case GE_TEXLEVEL_MODE_UNKNOWN:
 			key.maxLevel = (int)(lodBias * 256.0f);
