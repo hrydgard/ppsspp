@@ -177,7 +177,7 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	// Accurate depth is required on AMD so we ignore the compat flag to disable it on those.
+	// Accurate depth is required on AMD so we ignore the compat flag to disable it on those. See #9545
 	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vulkan_->GetPhysicalDeviceProperties().vendorID == VULKAN_VENDOR_AMD) {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	}

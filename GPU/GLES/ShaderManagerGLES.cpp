@@ -283,7 +283,7 @@ static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha) {
 
 // This passes colors unscaled (e.g. 0 - 255 not 0 - 1.)
 static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
-	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+	if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 		const float col[4] = {
 			(float)((color & 0xFF) >> 0) * (1.0f / 255.0f),
 			(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
