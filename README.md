@@ -18,6 +18,20 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+
+What's new in 1.5.0
+-------------------
+* Multithreaded Vulkan support, now fully featured and FAST.
+* Vulkan support for Android. Very fast compared to OpenGL.
+* Smarter graphics state management, reduced CPU consumption on all backends
+* Geometry problems fixed in Medal of Honor
+* Android: Support for Arabic and other scripts we couldn't support before
+* Fix Android widgets, screen scaling
+* Fixes to video dumping
+* Software rendering improvements, speed and accuracy
+* Hardware tesselation of PSP Beziers and Splines (used by a few games)
+* Partial sceUsbGps and sceUsbCam support (Android)
+
 What's new in 1.4.2
 -------------------
 * Fixed longstanding bug causing games to crash on ARM64
