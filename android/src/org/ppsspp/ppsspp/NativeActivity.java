@@ -197,6 +197,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			// Let's start out granted if it was granted already.
 			if (this.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
 				NativeApp.sendMessage("permission_granted", "storage");
+			} else {
+				NativeApp.sendMessage("permission_denied", "storage");
 			}
 		}
 	}

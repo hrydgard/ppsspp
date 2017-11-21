@@ -600,6 +600,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	setCurrentThreadName("androidInit");
 
+	// Makes sure we get early permission grants.
+	ProcessFrameCommands(env);
+
 	ILOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
