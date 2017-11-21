@@ -177,10 +177,12 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	// Mandatory features on Vulkan, which may be checked in "centralized" code
-	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
+	// Accurate depth is required on AMD so we ignore the compat flag to disable it on those.
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vulkan_->GetPhysicalDeviceProperties().vendorID == VULKAN_VENDOR_AMD) {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	}
+
+	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_SUPPORTS_FBO;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
