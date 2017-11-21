@@ -43,6 +43,7 @@
 #endif
 
 #include "base/display.h"
+#include "base/timeutil.h"
 #include "base/logging.h"
 #include "base/NativeApp.h"
 #include "file/vfs.h"
@@ -394,6 +395,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	const char *fileToLog = 0;
 	const char *stateToLoad = 0;
 
+	bool gotBootFilename = false;
+
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
 	for (int i = 1; i < argc; i++) {
@@ -435,18 +438,34 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				break;
 			}
 		} else {
-			if (boot_filename.empty()) {
-				ILOG("Boot filename found in args: %s", argv[i]);
-				boot_filename = argv[i];
-#ifdef _WIN32
-				boot_filename = ReplaceAll(boot_filename, "\\", "/");
-#endif
-				skipLogo = true;
+			// This parameter should be a boot filename. Only accept it if we
+			// don't already have one.
+			if (!gotBootFilename) {
+				gotBootFilename = true;
+				ILOG("Boot filename found in args: '%s'", argv[i]);
 
-				std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
-				if (!fileLoader->Exists()) {
-					fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
-					exit(1);
+				bool okToLoad = true;
+				if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+					PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
+					if (status != PERMISSION_STATUS_GRANTED) {
+						ELOG("Storage permission not granted. Launching without argument.");
+						okToLoad = false;
+					} else {
+						ILOG("Storage permission granted.");
+					}
+				}
+				if (okToLoad) {
+					boot_filename = argv[i];
+#ifdef _WIN32
+					boot_filename = ReplaceAll(boot_filename, "\\", "/");
+#endif
+					skipLogo = true;
+
+					std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
+					if (!fileLoader->Exists()) {
+						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
+						exit(1);
+					}
 				}
 			} else {
 				fprintf(stderr, "Can only boot one file");
