@@ -20,6 +20,7 @@
 #include <cassert>
 #include <cstdio>
 
+#include "CommonFuncs.h"
 #include "Common/MsgHandler.h"
 
 #if defined(__ANDROID__)
@@ -123,7 +124,7 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 	if (!(_a_)) {\
 		ERROR_LOG(_t_, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
 					   __LINE__, __FILE__); \
-		if (!PanicYesNo("*** Assertion ***\n")) { assert(false); } \
+		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
 	}
 
 #if defined(__ANDROID__)
@@ -141,7 +142,7 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 	if (!(_a_)) {\
 		printf(__VA_ARGS__); \
 		ERROR_LOG(_t_, __VA_ARGS__); \
-		if (!PanicYesNo(__VA_ARGS__)) { assert(false);} \
+		if (!PanicYesNo(__VA_ARGS__)) { Crash();} \
 	}
 
 #endif  // __ANDROID__
@@ -161,7 +162,7 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 	if (!(_a_)) {\
 		ERROR_LOG(SYSTEM, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
 					   __LINE__, __FILE__); \
-		if (!PanicYesNo("*** Assertion ***\n")) { assert(false); } \
+		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
 	}
 
 #if defined(__ANDROID__)
@@ -175,7 +176,7 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 
 #define _assert_msg_(_t_, _a_, ...)		\
 	if (!(_a_) && !PanicYesNo(__VA_ARGS__)) { \
-    assert(false); \
+    Crash(); \
 	}
 
 #endif  // __ANDROID__
