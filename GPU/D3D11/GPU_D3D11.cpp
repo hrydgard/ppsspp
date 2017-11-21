@@ -206,7 +206,9 @@ void GPU_D3D11::CheckGPUFeatures() {
 
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
-	features |= GPU_SUPPORTS_ACCURATE_DEPTH;  // Breaks text in PaRappa for some reason.
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
+		features |= GPU_SUPPORTS_ACCURATE_DEPTH;  // Breaks text in PaRappa for some reason.
+	}
 
 #ifndef _M_ARM
 	// TODO: Do proper feature detection

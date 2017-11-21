@@ -55,6 +55,7 @@ struct CompatFlags {
 	bool RequireBufferedRendering;
 	bool RequireBlockTransfer;
 	bool DisableReadbacks;
+	bool DisableAccurateDepth;
 };
 
 class IniFile;

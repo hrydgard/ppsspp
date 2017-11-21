@@ -187,7 +187,9 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
-	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
+		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	}
 
 	D3DCAPS9 caps;
 	ZeroMemory(&caps, sizeof(caps));

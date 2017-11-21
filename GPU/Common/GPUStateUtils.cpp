@@ -696,7 +696,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 				maxz += fullDepthRange;
 			}
 		}
-
 		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
 		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
 		float zScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;
