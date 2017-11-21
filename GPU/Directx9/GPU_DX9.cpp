@@ -187,7 +187,9 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
-	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
+
+	// Accurate depth is required on AMD so we ignore the compat flag to disable it on those. See #9545
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || draw_->GetDeviceCaps().vendor == Draw::GPUVendor::AMD) {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	}
 

@@ -250,6 +250,17 @@ enum InfoField {
 	DRIVER,
 };
 
+enum class GPUVendor {
+	UNKNOWN,
+	NVIDIA,
+	INTEL,
+	AMD,
+	ARM,  // Mali
+	QUALCOMM,
+	IMGTEC,  // PowerVR
+	BROADCOM,  // Raspberry
+};
+
 enum class NativeObject {
 	CONTEXT,
 	CONTEXT_EX,
@@ -483,6 +494,7 @@ struct PipelineDesc {
 };
 
 struct DeviceCaps {
+	GPUVendor vendor;
 	DataFormat preferredDepthBufferFormat;
 	DataFormat preferredShadowMapFormatLow;
 	DataFormat preferredShadowMapFormatHigh;

@@ -545,15 +545,15 @@ public:
 				}
 			case VENDORSTRING: return (const char *)glGetString(GL_VENDOR);
 			case VENDOR:
-				switch (gl_extensions.gpuVendor) {
-				case GPU_VENDOR_AMD: return "VENDOR_AMD";
-				case GPU_VENDOR_POWERVR: return "VENDOR_POWERVR";
-				case GPU_VENDOR_NVIDIA: return "VENDOR_NVIDIA";
-				case GPU_VENDOR_INTEL: return "VENDOR_INTEL";
-				case GPU_VENDOR_ADRENO: return "VENDOR_ADRENO";
-				case GPU_VENDOR_ARM: return "VENDOR_ARM";
-				case GPU_VENDOR_BROADCOM: return "VENDOR_BROADCOM";
-				case GPU_VENDOR_UNKNOWN:
+				switch (caps_.vendor) {
+				case GPUVendor::AMD: return "VENDOR_AMD";
+				case GPUVendor::IMGTEC: return "VENDOR_POWERVR";
+				case GPUVendor::NVIDIA: return "VENDOR_NVIDIA";
+				case GPUVendor::INTEL: return "VENDOR_INTEL";
+				case GPUVendor::QUALCOMM: return "VENDOR_ADRENO";
+				case GPUVendor::ARM: return "VENDOR_ARM";
+				case GPUVendor::BROADCOM: return "VENDOR_BROADCOM";
+				case GPUVendor::UNKNOWN:
 				default:
 					return "VENDOR_UNKNOWN";
 				}
@@ -609,6 +609,20 @@ OpenGLContext::OpenGLContext() {
 	}
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
+
+	switch (gl_extensions.gpuVendor) {
+	case GPU_VENDOR_AMD: caps_.vendor = GPUVendor::AMD; break;
+	case GPU_VENDOR_NVIDIA: caps_.vendor = GPUVendor::NVIDIA; break;
+	case GPU_VENDOR_ARM: caps_.vendor = GPUVendor::ARM; break;
+	case GPU_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::QUALCOMM; break;
+	case GPU_VENDOR_BROADCOM: caps_.vendor = GPUVendor::BROADCOM; break;
+	case GPU_VENDOR_INTEL: caps_.vendor = GPUVendor::INTEL; break;
+	case GPU_VENDOR_IMGTEC: caps_.vendor = GPUVendor::IMGTEC; break;
+	case GPU_VENDOR_UNKNOWN:
+	default:
+		caps_.vendor = GPUVendor::UNKNOWN;
+		break;
+	}
 }
 
 OpenGLContext::~OpenGLContext() {
@@ -935,7 +949,7 @@ bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBit
 	}
 	// Apply the correct alignment.
 	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
-	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA)) {
+	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && caps_.vendor != GPUVendor::NVIDIA)) {
 		// Some drivers seem to require we specify this.  See #8254.
 		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
 	}

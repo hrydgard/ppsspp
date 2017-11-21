@@ -64,7 +64,7 @@ void ProcessGPUFeatures() {
 		gl_extensions.bugs |= BUG_FBO_UNUSABLE;
 	}
 
-	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+	if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 		if (!strcmp(gl_extensions.model, "PowerVR SGX 543") ||
 			  !strcmp(gl_extensions.model, "PowerVR SGX 540") ||
 			  !strcmp(gl_extensions.model, "PowerVR SGX 530") ||
@@ -120,9 +120,9 @@ void CheckGLExtensions() {
 		} else if (vendor == "ARM") {
 			gl_extensions.gpuVendor = GPU_VENDOR_ARM;
 		} else if (vendor == "Imagination Technologies") {
-			gl_extensions.gpuVendor = GPU_VENDOR_POWERVR;
+			gl_extensions.gpuVendor = GPU_VENDOR_IMGTEC;
 		} else if (vendor == "Qualcomm") {
-			gl_extensions.gpuVendor = GPU_VENDOR_ADRENO;
+			gl_extensions.gpuVendor = GPU_VENDOR_QUALCOMM;
 		} else if (vendor == "Broadcom") {
 			gl_extensions.gpuVendor = GPU_VENDOR_BROADCOM;
 			// Just for reference: Galaxy Y has renderer == "VideoCore IV HW"

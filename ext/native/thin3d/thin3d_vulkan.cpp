@@ -687,6 +687,17 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
 
+	switch (vulkan->GetPhysicalDeviceProperties().vendorID) {
+	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::AMD; break;
+	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::ARM; break;
+	case VULKAN_VENDOR_IMGTEC: caps_.vendor = GPUVendor::IMGTEC; break;
+	case VULKAN_VENDOR_NVIDIA: caps_.vendor = GPUVendor::NVIDIA; break;
+	case VULKAN_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::QUALCOMM; break;
+	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::INTEL; break;
+	default:
+		caps_.vendor = GPUVendor::UNKNOWN;
+	}
+
 	device_ = vulkan->GetDevice();
 
 	queue_ = vulkan->GetGraphicsQueue();
