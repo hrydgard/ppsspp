@@ -490,7 +490,12 @@ public:
 	}
 
 	void SetScissorRect(int left, int top, int width, int height) override {
-		glScissor(left, targetHeight_ - (top + height), width, height);
+		int y = top;
+		if (!curFB_) {
+			// We render "upside down" to the backbuffer since GL is silly.
+			y = targetHeight_ - (top + height);
+		}
+		glstate.scissorRect.set(left, y, width, height);
 	}
 
 	void SetViewports(int count, Viewport *viewports) override {
@@ -584,6 +589,7 @@ private:
 	int curVBufferOffsets_[4]{};
 	OpenGLBuffer *curIBuffer_ = nullptr;
 	int curIBufferOffset_ = 0;
+	OpenGLFramebuffer *curFB_;
 
 	// Framebuffer state
 	GLuint currentDrawHandle_ = 0;
@@ -1680,6 +1686,7 @@ void OpenGLContext::fbo_unbind() {
 
 void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	CHECK_GL_ERROR_IF_DEBUG();
+	curFB_ = (OpenGLFramebuffer *)fbo;
 	if (fbo) {
 		OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 		// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
