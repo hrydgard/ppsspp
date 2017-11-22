@@ -74,6 +74,18 @@ protected:
 	virtual void ClearCache() = 0;
 	void WrapString(std::string &out, const char *str, float maxWidth);
 
+	struct CacheKey {
+		bool operator < (const CacheKey &other) const {
+			if (fontHash < other.fontHash)
+				return true;
+			if (fontHash > other.fontHash)
+				return false;
+			return text < other.text;
+		}
+		std::string text;
+		uint32_t fontHash;
+	};
+
 	int frameCount_;
 	float fontScaleX_;
 	float fontScaleY_;
