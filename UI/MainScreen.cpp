@@ -527,7 +527,7 @@ void GameBrowser::Refresh() {
 		}
 	} else {
 		std::vector<FileInfo> fileInfo;
-		path_.GetListing(fileInfo, "iso:cso:pbp:elf:prx:");
+		path_.GetListing(fileInfo, "iso:cso:pbp:elf:prx:ppdmp:");
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			bool isGame = !fileInfo[i].isDirectory;
 			bool isSaveData = false;
@@ -971,7 +971,7 @@ bool MainScreen::UseVerticalLayout() const {
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 #if defined(USING_QT_UI)
-	QString fileName = QFileDialog::getOpenFileName(NULL, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip)");
+	QString fileName = QFileDialog::getOpenFileName(NULL, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)");
 	if (QFile::exists(fileName)) {
 		QDir newPath;
 		g_Config.currentDirectory = newPath.filePath(fileName).toStdString();
