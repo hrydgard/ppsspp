@@ -558,8 +558,9 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 	DepalShaderVulkan *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
-	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer;
 	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
+	bool depth = (entry->status & TexCacheEntry::STATUS_DEPTH) != 0;
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && !depth;
 
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
@@ -584,7 +585,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 			return;
 		} else {
-			depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, framebuffer->drawnFormat);
+			depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, depth ? GE_FORMAT_DEPTH16 : framebuffer->drawnFormat);
 			drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 			gstate_c.SetUseShaderDepal(false);
 		}
@@ -652,12 +653,24 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		VkBuffer pushed;
 		uint32_t offset = push_->PushAligned(verts, sizeof(verts), 4, &pushed);
 
-		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, Draw::FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, depth ? Draw::FB_DEPTH_BIT : Draw::FB_COLOR_BIT, 0);
 		VkImageView fbo = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 
 		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, samplerNearest_, clutTexture->GetImageView(), samplerNearest_);
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager->BindPipeline(depalShader->pipeline);
+
+		if (depth) {
+			DepthScaleFactors scaleFactors = GetDepthScaleFactors();
+			struct DepthPushConstants {
+				float z_scale;
+				float z_offset;
+			};
+			DepthPushConstants push;
+			push.z_scale = scaleFactors.scale;
+			push.z_offset = scaleFactors.offset;
+			renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(DepthPushConstants), &push);
+		}
 		renderManager->SetScissor(VkRect2D{ {0, 0}, { framebuffer->renderWidth, framebuffer->renderHeight} });
 		renderManager->SetViewport(VkViewport{ 0.f, 0.f, (float)framebuffer->renderWidth, (float)framebuffer->renderHeight, 0.f, 1.f });
 		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, pushed, offset, 4);

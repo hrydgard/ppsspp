@@ -41,6 +41,11 @@ enum FramebufferNotification {
 	NOTIFY_FB_DESTROYED,
 };
 
+enum FramebufferNotificationChannel {
+	NOTIFY_FB_COLOR = 0,
+	NOTIFY_FB_DEPTH = 1,
+};
+
 // Changes more frequent than this will be considered "frequent" and prevent texture scaling.
 #define TEXCACHE_FRAME_CHANGE_FREQUENT 6
 // Note: only used when hash backoff is disabled.
@@ -200,7 +205,7 @@ public:
 	virtual void Clear(bool delete_them);
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
-	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
+	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg, FramebufferNotificationChannel channel);
 	virtual void NotifyConfigChanged();
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 
@@ -251,10 +256,10 @@ protected:
 	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);  // Used by D3D11 and Vulkan.
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
-	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);
-	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
-	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
-	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
+	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset, FramebufferNotificationChannel channel);
+	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo, FramebufferNotificationChannel channel);
+	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo, FramebufferNotificationChannel channel);
+	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, FramebufferNotificationChannel channel);
 
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 

@@ -63,6 +63,8 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	res = vkBindImageMemory(vulkan->GetDevice(), img.image, img.memory, 0);
 	_dbg_assert_(res == VK_SUCCESS);
 
+	// Note that we don't view or at
+	VkImageAspectFlags viewAspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : VK_IMAGE_ASPECT_DEPTH_BIT;
 	VkImageAspectFlags aspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 	VkImageViewCreateInfo ivci{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
@@ -70,7 +72,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	ivci.format = ici.format;
 	ivci.image = img.image;
 	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	ivci.subresourceRange.aspectMask = aspects;
+	ivci.subresourceRange.aspectMask = viewAspects;
 	ivci.subresourceRange.layerCount = 1;
 	ivci.subresourceRange.levelCount = 1;
 	res = vkCreateImageView(vulkan->GetDevice(), &ivci, nullptr, &img.imageView);
@@ -548,6 +550,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.numDraws = 0;
 	step->render.numReads = 0;
 	step->render.finalColorLayout = !fb ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+	step->render.finalDepthStencilLayout = !fb ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
 	step->tag = tag;
 	steps_.push_back(step);
 
@@ -1016,10 +1019,10 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 			curRenderStep_->preTransitions.back().fb == fb &&
 			curRenderStep_->preTransitions.back().targetLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
 		// We're done.
-		return fb->color.imageView;
+		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.imageView;
 	} else {
 		curRenderStep_->preTransitions.push_back({ aspectBit, fb, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
-		return fb->color.imageView;
+		return aspectBit == VK_IMAGE_ASPECT_COLOR_BIT ? fb->color.imageView : fb->depth.imageView;
 	}
 }
 

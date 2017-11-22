@@ -282,6 +282,7 @@ enum GEBufferFormat
 	GE_FORMAT_5551 = 1,
 	GE_FORMAT_4444 = 2,
 	GE_FORMAT_8888 = 3,
+	GE_FORMAT_DEPTH16 = 4,  // Virtual format, just used to pass into Depal
 	GE_FORMAT_INVALID = 0xFF,
 };
 

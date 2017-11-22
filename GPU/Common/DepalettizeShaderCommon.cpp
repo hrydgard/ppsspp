@@ -45,6 +45,14 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "layout(set = 0, binding = 1) uniform sampler2D pal;\n");
 		WRITE(p, "layout(location = 0) in vec2 v_texcoord0;\n");
 		WRITE(p, "layout(location = 0) out vec4 fragColor0;\n");
+
+		// Support for depth.
+		if (pixelFormat == GE_FORMAT_DEPTH16) {
+			WRITE(p, "layout (push_constant) uniform params {\n");
+			WRITE(p, "  float z_scale; float z_offset;\n");
+			WRITE(p, "};\n");
+		}
+
 	} else {
 		if (gl_extensions.IsGLES) {
 			WRITE(p, "#version 300 es\n");
@@ -63,9 +71,12 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "float4 main(in float2 v_texcoord0 : TEXCOORD0) : SV_Target {\n");
 		WRITE(p, "  float4 color = tex.Sample(texSamp, v_texcoord0);\n");
 	} else {
-		// TODO: Add support for integer textures. Though it hardly matters.
 		WRITE(p, "void main() {\n");
-		WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
+		if (pixelFormat == GE_FORMAT_DEPTH16) {
+			WRITE(p, "  float color = texture(tex, v_texcoord0).r;\n");
+		} else {
+			WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
+		}
 	}
 
 	int mask = gstate.getClutIndexMask();
@@ -104,6 +115,11 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		if (shiftedMask & 0x7C00) WRITE(p, "  int b = int(color.b * 31.99);\n"); else WRITE(p, "  int b = 0;\n");
 		if (shiftedMask & 0x8000) WRITE(p, "  int a = int(color.a);\n"); else WRITE(p, "  int a = 0;\n");
 		WRITE(p, "  int index = (a << 15) | (b << 10) | (g << 5) | (r);\n");
+		break;
+	case GE_FORMAT_DEPTH16:
+		// Remap depth buffer.
+		WRITE(p, "  float depth = (color - z_offset) * z_scale;\n");
+		WRITE(p, "  int index = int(clamp(depth, 0.0, 65535.0));\n");
 		break;
 	default:
 		break;
@@ -224,6 +240,9 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 		} else {
 			formatOK = false;
 		}
+		break;
+	case GE_FORMAT_DEPTH16:
+		sprintf(lookupMethod, "index.r * (1.0 / 256.0)");
 		break;
 	default:
 		break;
