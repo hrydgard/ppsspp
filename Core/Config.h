@@ -218,6 +218,7 @@ public:
 	bool bHardwareTessellation;
 	std::string sPostShaderName;  // Off for off.
 	bool bGfxDebugOutput;
+	bool bGfxDebugSplitSubmit;
 
 	// Sound
 	bool bEnableSound;

@@ -762,19 +762,19 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	if (frameData.hasInitCommands) {
 		cmdBufs[numCmdBufs++] = frameData.initCmd;
 		frameData.hasInitCommands = false;
-	}
-	if (false) {
-		// Send the init commands off separately. Used this once to confirm that the cause of a device loss was in the init cmdbuf.
-		VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
-		submit_info.commandBufferCount = (uint32_t)numCmdBufs;
-		submit_info.pCommandBuffers = cmdBufs;
-		res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
-		if (res == VK_ERROR_DEVICE_LOST) {
-			_assert_msg_(G3D, false, "Lost the Vulkan device!");
-		} else {
-			_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed! result=%d", (int)res);
+		if (splitSubmit_) {
+			// Send the init commands off separately. Used this once to confirm that the cause of a device loss was in the init cmdbuf.
+			VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+			submit_info.commandBufferCount = (uint32_t)numCmdBufs;
+			submit_info.pCommandBuffers = cmdBufs;
+			res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
+			if (res == VK_ERROR_DEVICE_LOST) {
+				_assert_msg_(G3D, false, "Lost the Vulkan device!");
+			} else {
+				_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%d", (int)res);
+			}
+			numCmdBufs = 0;
 		}
-		numCmdBufs = 0;
 	}
 	cmdBufs[numCmdBufs++] = frameData.mainCmd;
 
@@ -795,7 +795,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	if (res == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(G3D, false, "Lost the Vulkan device!");
 	} else {
-		_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed! result=%d", (int)res);
+		_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (main, split=%d)! result=%d", (int)splitSubmit_, (int)res);
 	}
 
 	// When !triggerFence, we notify after syncing with Vulkan.
@@ -823,8 +823,8 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 		present.waitSemaphoreCount = 1;
 
 		VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
-		// TODO: Deal with VK_SUBOPTIMAL_WSI ?
-		if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+		// TODO: Deal with VK_SUBOPTIMAL_KHR ?
+		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR) {
 			// ignore, it'll be fine. this happens sometimes during resizes, and we do make sure to recreate the swap chain.
 		} else {
 			_assert_msg_(G3D, res == VK_SUCCESS, "vkQueuePresentKHR failed! result=%d", (int)res);

@@ -22,6 +22,7 @@
 #include <assert.h>
 
 #include "Common/Vulkan/SPIRVDisasm.h"
+#include "Core/Config.h"
 
 #include "base/logging.h"
 #include "base/display.h"
@@ -348,7 +349,7 @@ class VKFramebuffer;
 
 class VKContext : public DrawContext {
 public:
-	VKContext(VulkanContext *vulkan);
+	VKContext(VulkanContext *vulkan, bool splitSubmit);
 	virtual ~VKContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -674,7 +675,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, const TextureDesc &desc) {
 	return true;
 }
 
-VKContext::VKContext(VulkanContext *vulkan)
+VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	: vulkan_(vulkan), caps_{}, renderManager_(vulkan) {
 	caps_.anisoSupported = vulkan->GetFeaturesAvailable().samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetFeaturesAvailable().geometryShader != 0;
@@ -755,6 +756,8 @@ VKContext::VKContext(VulkanContext *vulkan)
 	assert(VK_SUCCESS == res);
 
 	pipelineCache_ = vulkan_->CreatePipelineCache();
+
+	renderManager_.SetSplitSubmit(splitSubmit);
 }
 
 VKContext::~VKContext() {
@@ -1188,8 +1191,8 @@ void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int sten
 	renderManager_.Clear(colorval, depthVal, stencilVal, mask);
 }
 
-DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan) {
-	return new VKContext(vulkan);
+DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan, bool split) {
+	return new VKContext(vulkan, split);
 }
 
 void AddFeature(std::vector<std::string> &features, const char *name, VkBool32 available, VkBool32 enabled) {

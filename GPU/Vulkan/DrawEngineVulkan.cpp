@@ -473,7 +473,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
 	// Even in release mode, this is bad.
-	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d", (int)frame->descSets.size());
+	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d res=%d", (int)frame->descSets.size(), (int)result);
 
 	// We just don't write to the slots we don't care about.
 	// We need 8 now that we support secondary texture bindings.
@@ -1041,8 +1041,6 @@ DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulka
 void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) {
 	colStride = 4;
 
-	assert(size > 0);
-
 	// TODO: This SHOULD work without padding but I can't get it to work on nvidia, so had
 	// to expand to vec4. Driver bug?
 	struct TessData {
@@ -1064,6 +1062,5 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 }
 
 void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
-	assert(pos);
 	// Nothing to do here!
 }
