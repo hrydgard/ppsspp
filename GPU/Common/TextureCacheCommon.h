@@ -119,6 +119,8 @@ struct TexCacheEntry {
 		STATUS_FREE_CHANGE = 0x200,    // Allow one change before marking "frequent".
 
 		STATUS_BAD_MIPS = 0x400,       // Has bad or unusable mipmap levels.
+
+		STATUS_DEPTH = 0x800,
 	};
 
 	// Status, but int so we can zero initialize.

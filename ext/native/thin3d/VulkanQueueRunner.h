@@ -107,6 +107,7 @@ enum class VKRRenderPassAction : uint8_t {
 };
 
 struct TransitionRequest {
+	VkImageAspectFlags aspect;  // COLOR or DEPTH
 	VKRFramebuffer *fb;
 	VkImageLayout targetLayout;
 };
@@ -141,6 +142,7 @@ struct VKRStep {
 			// Downloads and textures from this pass.
 			int numReads;
 			VkImageLayout finalColorLayout;
+			VkImageLayout finalDepthStencilLayout;
 		} render;
 		struct {
 			VKRFramebuffer *src;
