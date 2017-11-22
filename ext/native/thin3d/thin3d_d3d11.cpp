@@ -243,14 +243,14 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 			adapter->GetDesc(&desc);
 			adapterDesc_ = ConvertWStringToUTF8(desc.Description);
 			switch (desc.VendorId) {
-			case 0x10DE: caps_.vendor = GPUVendor::NVIDIA; break;
+			case 0x10DE: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
 			case 0x1002:
-			case 0x1022: caps_.vendor = GPUVendor::AMD; break;
+			case 0x1022: caps_.vendor = GPUVendor::VENDOR_AMD; break;
 			case 0x163C:
 			case 0x8086:
-			case 0x8087: caps_.vendor = GPUVendor::INTEL; break;
+			case 0x8087: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
 			default:
-				caps_.vendor = GPUVendor::UNKNOWN;
+				caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 			}
 			adapter->Release();
 		}

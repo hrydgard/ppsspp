@@ -251,14 +251,14 @@ enum InfoField {
 };
 
 enum class GPUVendor {
-	UNKNOWN,
-	NVIDIA,
-	INTEL,
-	AMD,
-	ARM,  // Mali
-	QUALCOMM,
-	IMGTEC,  // PowerVR
-	BROADCOM,  // Raspberry
+	VENDOR_UNKNOWN,
+	VENDOR_NVIDIA,
+	VENDOR_INTEL,
+	VENDOR_AMD,
+	VENDOR_ARM,  // Mali
+	VENDOR_QUALCOMM,
+	VENDOR_IMGTEC,  // PowerVR
+	VENDOR_BROADCOM,  // Raspberry
 };
 
 enum class NativeObject {

@@ -189,7 +189,7 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 
 	// Accurate depth is required on AMD so we ignore the compat flag to disable it on those. See #9545
-	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || draw_->GetDeviceCaps().vendor == Draw::GPUVendor::AMD) {
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || draw_->GetDeviceCaps().vendor == Draw::GPUVendor::VENDOR_AMD) {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	}
 

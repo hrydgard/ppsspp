@@ -546,14 +546,14 @@ public:
 			case VENDORSTRING: return (const char *)glGetString(GL_VENDOR);
 			case VENDOR:
 				switch (caps_.vendor) {
-				case GPUVendor::AMD: return "VENDOR_AMD";
-				case GPUVendor::IMGTEC: return "VENDOR_POWERVR";
-				case GPUVendor::NVIDIA: return "VENDOR_NVIDIA";
-				case GPUVendor::INTEL: return "VENDOR_INTEL";
-				case GPUVendor::QUALCOMM: return "VENDOR_ADRENO";
-				case GPUVendor::ARM: return "VENDOR_ARM";
-				case GPUVendor::BROADCOM: return "VENDOR_BROADCOM";
-				case GPUVendor::UNKNOWN:
+				case GPUVendor::VENDOR_AMD: return "VENDOR_AMD";
+				case GPUVendor::VENDOR_IMGTEC: return "VENDOR_POWERVR";
+				case GPUVendor::VENDOR_NVIDIA: return "VENDOR_NVIDIA";
+				case GPUVendor::VENDOR_INTEL: return "VENDOR_INTEL";
+				case GPUVendor::VENDOR_QUALCOMM: return "VENDOR_ADRENO";
+				case GPUVendor::VENDOR_ARM: return "VENDOR_ARM";
+				case GPUVendor::VENDOR_BROADCOM: return "VENDOR_BROADCOM";
+				case GPUVendor::VENDOR_UNKNOWN:
 				default:
 					return "VENDOR_UNKNOWN";
 				}
@@ -611,16 +611,16 @@ OpenGLContext::OpenGLContext() {
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
 
 	switch (gl_extensions.gpuVendor) {
-	case GPU_VENDOR_AMD: caps_.vendor = GPUVendor::AMD; break;
-	case GPU_VENDOR_NVIDIA: caps_.vendor = GPUVendor::NVIDIA; break;
-	case GPU_VENDOR_ARM: caps_.vendor = GPUVendor::ARM; break;
-	case GPU_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::QUALCOMM; break;
-	case GPU_VENDOR_BROADCOM: caps_.vendor = GPUVendor::BROADCOM; break;
-	case GPU_VENDOR_INTEL: caps_.vendor = GPUVendor::INTEL; break;
-	case GPU_VENDOR_IMGTEC: caps_.vendor = GPUVendor::IMGTEC; break;
+	case GPU_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
+	case GPU_VENDOR_NVIDIA: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
+	case GPU_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
+	case GPU_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::VENDOR_QUALCOMM; break;
+	case GPU_VENDOR_BROADCOM: caps_.vendor = GPUVendor::VENDOR_BROADCOM; break;
+	case GPU_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
+	case GPU_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
 	case GPU_VENDOR_UNKNOWN:
 	default:
-		caps_.vendor = GPUVendor::UNKNOWN;
+		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 		break;
 	}
 }
@@ -949,7 +949,7 @@ bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBit
 	}
 	// Apply the correct alignment.
 	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
-	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && caps_.vendor != GPUVendor::NVIDIA)) {
+	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && caps_.vendor != GPUVendor::VENDOR_NVIDIA)) {
 		// Some drivers seem to require we specify this.  See #8254.
 		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
 	}

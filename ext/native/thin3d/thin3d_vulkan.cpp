@@ -689,14 +689,14 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
 
 	switch (vulkan->GetPhysicalDeviceProperties().vendorID) {
-	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::AMD; break;
-	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::ARM; break;
-	case VULKAN_VENDOR_IMGTEC: caps_.vendor = GPUVendor::IMGTEC; break;
-	case VULKAN_VENDOR_NVIDIA: caps_.vendor = GPUVendor::NVIDIA; break;
-	case VULKAN_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::QUALCOMM; break;
-	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::INTEL; break;
+	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
+	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
+	case VULKAN_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
+	case VULKAN_VENDOR_NVIDIA: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
+	case VULKAN_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::VENDOR_QUALCOMM; break;
+	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
 	default:
-		caps_.vendor = GPUVendor::UNKNOWN;
+		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 	}
 
 	device_ = vulkan->GetDevice();

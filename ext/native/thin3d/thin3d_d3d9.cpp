@@ -589,14 +589,14 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 		ELOG("Failed to get adapter identifier: %d", adapterId);
 	}
 	switch (identifier_.VendorId) {
-	case 0x10DE: caps_.vendor = GPUVendor::NVIDIA; break;
+	case 0x10DE: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
 	case 0x1002:
-	case 0x1022: caps_.vendor = GPUVendor::AMD; break;
+	case 0x1022: caps_.vendor = GPUVendor::VENDOR_AMD; break;
 	case 0x163C:
 	case 0x8086:
-	case 0x8087: caps_.vendor = GPUVendor::INTEL; break;
+	case 0x8087: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
 	default:
-		caps_.vendor = GPUVendor::UNKNOWN;
+		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 	}
 
 	if (!FAILED(device->GetDeviceCaps(&d3dCaps_))) {
