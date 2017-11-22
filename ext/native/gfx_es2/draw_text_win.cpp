@@ -119,11 +119,10 @@ void TextDrawerWin32::SetFont(uint32_t fontHandle) {
 }
 
 void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float *h) {
-	uint32_t stringHash = hash::Adler32((const uint8_t *)str, len);
-	uint32_t entryHash = stringHash ^ fontHash_;
-
+	CacheKey key{ std::string(str, len), fontHash_ };
+	
 	TextMeasureEntry *entry;
-	auto iter = sizeCache_.find(entryHash);
+	auto iter = sizeCache_.find(key);
 	if (iter != sizeCache_.end()) {
 		entry = iter->second.get();
 	} else {
@@ -139,7 +138,7 @@ void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float
 		entry = new TextMeasureEntry();
 		entry->width = size.cx;
 		entry->height = size.cy;
-		sizeCache_[entryHash] = std::unique_ptr<TextMeasureEntry>(entry);
+		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
 	}
 
 	entry->lastUsedFrame = frameCount_;
@@ -164,11 +163,10 @@ void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bound
 	float total_w = 0.0f;
 	float total_h = 0.0f;
 	for (size_t i = 0; i < lines.size(); i++) {
-		uint32_t stringHash = hash::Adler32((const uint8_t *)&lines[i][0], lines[i].length());
-		uint32_t entryHash = stringHash ^ fontHash_;
+		CacheKey key{ lines[i], fontHash_ };
 
 		TextMeasureEntry *entry;
-		auto iter = sizeCache_.find(entryHash);
+		auto iter = sizeCache_.find(key);
 		if (iter != sizeCache_.end()) {
 			entry = iter->second.get();
 		} else {
@@ -179,7 +177,7 @@ void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bound
 			entry = new TextMeasureEntry();
 			entry->width = size.cx;
 			entry->height = size.cy;
-			sizeCache_[entryHash] = std::unique_ptr<TextMeasureEntry>(entry);
+			sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
 		}
 		entry->lastUsedFrame = frameCount_;
 
@@ -197,14 +195,13 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 	if (!strlen(str))
 		return;
 
-	uint32_t stringHash = hash::Adler32((const uint8_t *)str, strlen(str));
-	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
+	CacheKey key{ std::string(str), fontHash_ };
 
 	target.Flush(true);
 
 	TextStringEntry *entry;
 
-	auto iter = cache_.find(entryHash);
+	auto iter = cache_.find(key);
 	if (iter != cache_.end()) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
@@ -304,7 +301,7 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 			delete[] bitmapData16;
 		if (bitmapData32)
 			delete[] bitmapData32;
-		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);
+		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
 	}
 
 	draw_->BindTexture(0, entry->texture);
