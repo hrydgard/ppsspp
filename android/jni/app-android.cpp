@@ -332,7 +332,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 
 	bool success = true;
 	if (g_Vulkan->InitObjects()) {
-		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
+		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, g_Config.bGfxDebugSplitSubmit);
 		success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
 		assert(success);
 		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
