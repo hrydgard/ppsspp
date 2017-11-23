@@ -305,10 +305,12 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 	draw_->BindTexture(0, entry->texture);
 
 	// Okay, the texture is bound, let's draw.
-	float w = entry->bmWidth * fontScaleX_ * dpiScale_;
-	float h = entry->bmHeight * fontScaleY_ * dpiScale_;
+	float w = entry->width * fontScaleX_ * dpiScale_;
+	float h = entry->height * fontScaleY_ * dpiScale_;
+	float u = entry->width / (float)entry->bmWidth;
+	float v = entry->height / (float)entry->bmHeight;
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
+	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);
 	target.Flush(true);
 }
 
