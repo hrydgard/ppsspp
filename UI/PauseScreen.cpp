@@ -172,8 +172,8 @@ private:
 	UI::EventReturn OnSaveState(UI::EventParams &e);
 	UI::EventReturn OnLoadState(UI::EventParams &e);
 
-	UI::Button *saveStateButton_;
-	UI::Button *loadStateButton_;
+	UI::Button *saveStateButton_ = nullptr;
+	UI::Button *loadStateButton_ = nullptr;
 
 	int slot_;
 	std::string gamePath_;

@@ -27,7 +27,7 @@
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
-	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename), finishNextFrame_(false), gamePath_(filename) {}
+	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename), gamePath_(filename) {}
 	virtual ~GamePauseScreen();
 
 	virtual void dialogFinished(const Screen *dialog, DialogResult dr) override;
@@ -39,7 +39,6 @@ protected:
 	void CallbackDeleteConfig(bool yes);
 
 private:
-	UI::EventReturn OnMainSettings(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);
 	UI::EventReturn OnReportFeedback(UI::EventParams &e);
@@ -55,11 +54,8 @@ private:
 	UI::EventReturn OnSwitchUMD(UI::EventParams &e);
 	UI::EventReturn OnState(UI::EventParams &e);
 
-	UI::Choice *saveStateButton_;
-	UI::Choice *loadStateButton_;
-
 	// hack
-	bool finishNextFrame_;
+	bool finishNextFrame_ = false;
 	std::string gamePath_;
 };
 
