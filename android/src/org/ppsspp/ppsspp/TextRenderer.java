@@ -26,10 +26,8 @@ public class TextRenderer {
 		}
 	}
 	private static Point measure(String string, double textSize) {
-		Rect bound = new Rect();
 		p.setTextSize((float)textSize);
-		p.getTextBounds(string, 0, string.length(), bound);
-		int w = bound.width();
+		int w = (int)p.measureText(string);
 		int h = (int)(p.descent() - p.ascent() + 2.0f);
 		// Round width up to even already here to avoid annoyances from odd-width 16-bit textures which
 		// OpenGL does not like - each line must be 4-byte aligned

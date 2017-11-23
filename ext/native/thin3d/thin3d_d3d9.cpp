@@ -588,11 +588,23 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	if (FAILED(d3d->GetAdapterIdentifier(adapterId, 0, &identifier_))) {
 		ELOG("Failed to get adapter identifier: %d", adapterId);
 	}
+	switch (identifier_.VendorId) {
+	case 0x10DE: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
+	case 0x1002:
+	case 0x1022: caps_.vendor = GPUVendor::VENDOR_AMD; break;
+	case 0x163C:
+	case 0x8086:
+	case 0x8087: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
+	default:
+		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
+	}
+
 	if (!FAILED(device->GetDeviceCaps(&d3dCaps_))) {
 		sprintf(shadeLangVersion_, "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
 	} else {
 		strcpy(shadeLangVersion_, "N/A");
 	}
+
 	caps_.multiViewport = false;
 	caps_.anisoSupported = true;
 	caps_.depthRangeMinusOneToOne = false;

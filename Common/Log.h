@@ -20,7 +20,12 @@
 #include <cassert>
 #include <cstdio>
 
-#include "MsgHandler.h"
+#include "CommonFuncs.h"
+#include "Common/MsgHandler.h"
+
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
 
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
 #define	ERROR_LEVEL   2  // Important errors.
@@ -106,19 +111,42 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 #define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) } while (false)
 #define VERBOSE_LOG(t,...) do { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) } while (false)
 
+#if defined(__ANDROID__)
+
+// Tricky macro to get the basename, that also works if *built* on Win32.
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : (__builtin_strrchr(__FILE__, '\\') ? __builtin_strrchr(__FILE__, '\\') + 1 : __FILE__))
+void AndroidAssertLog(const char *func, const char *file, int line, const char *condition, const char *fmt, ...);
+
+#endif
+
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
 #define _dbg_assert_(_t_, _a_) \
 	if (!(_a_)) {\
 		ERROR_LOG(_t_, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
 					   __LINE__, __FILE__); \
-		if (!PanicYesNo("*** Assertion ***\n")) { assert(false); } \
+		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
 	}
+
+#if defined(__ANDROID__)
+
 #define _dbg_assert_msg_(_t_, _a_, ...)\
 	if (!(_a_)) {\
 		printf(__VA_ARGS__); \
 		ERROR_LOG(_t_, __VA_ARGS__); \
-		if (!PanicYesNo(__VA_ARGS__)) { assert(false);} \
+		if (!PanicYesNo(__VA_ARGS__)) AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
 	}
+
+#else  // __ANDROID__
+
+#define _dbg_assert_msg_(_t_, _a_, ...)\
+	if (!(_a_)) {\
+		printf(__VA_ARGS__); \
+		ERROR_LOG(_t_, __VA_ARGS__); \
+		if (!PanicYesNo(__VA_ARGS__)) { Crash();} \
+	}
+
+#endif  // __ANDROID__
+
 #define _dbg_update_() ; //Host_UpdateLogDisplay();
 
 #else // not debug
@@ -131,9 +159,24 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 #endif // MAX_LOGLEVEL DEBUG
 
 #define _assert_(_a_) \
-	_dbg_assert_(SYSTEM, _a_)
+	if (!(_a_)) {\
+		ERROR_LOG(SYSTEM, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
+					   __LINE__, __FILE__); \
+		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
+	}
+
+#if defined(__ANDROID__)
 
 #define _assert_msg_(_t_, _a_, ...)		\
 	if (!(_a_) && !PanicYesNo(__VA_ARGS__)) { \
-    assert(false); \
+		AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
 	}
+
+#else  // __ANDROID__
+
+#define _assert_msg_(_t_, _a_, ...)		\
+	if (!(_a_) && !PanicYesNo(__VA_ARGS__)) { \
+    Crash(); \
+	}
+
+#endif  // __ANDROID__

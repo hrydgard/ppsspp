@@ -65,6 +65,7 @@ struct CompatFlags {
 	bool FlushAtStall;
 	bool Force04Download;
 	bool GuardBand;
+	bool DisableAccurateDepth;
 };
 
 class IniFile;

@@ -25,7 +25,7 @@ enum MSG_TYPE {
 	CRITICAL
 };
 
-extern bool MsgAlert(bool yes_no, int Style, const char* format, ...)
+bool MsgAlert(bool yes_no, int Style, const char* format, ...)
 #ifdef __GNUC__
 	__attribute__((format(printf, 3, 4)))
 #endif

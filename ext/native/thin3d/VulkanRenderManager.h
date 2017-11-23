@@ -208,6 +208,10 @@ public:
 		return !framebuffers_.empty();
 	}
 
+	void SetSplitSubmit(bool split) {
+		splitSubmit_ = split;
+	}
+
 private:
 	bool InitBackbufferFramebuffers(int width, int height);
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
@@ -259,6 +263,7 @@ private:
 	bool insideFrame_ = false;
 	VKRStep *curRenderStep_ = nullptr;
 	std::vector<VKRStep *> steps_;
+	bool splitSubmit_ = false;
 
 	// Execution time state
 	bool run_ = true;

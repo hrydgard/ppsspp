@@ -490,7 +490,12 @@ public:
 	}
 
 	void SetScissorRect(int left, int top, int width, int height) override {
-		glScissor(left, targetHeight_ - (top + height), width, height);
+		int y = top;
+		if (!curFB_) {
+			// We render "upside down" to the backbuffer since GL is silly.
+			y = targetHeight_ - (top + height);
+		}
+		glstate.scissorRect.set(left, y, width, height);
 	}
 
 	void SetViewports(int count, Viewport *viewports) override {
@@ -540,15 +545,15 @@ public:
 				}
 			case VENDORSTRING: return (const char *)glGetString(GL_VENDOR);
 			case VENDOR:
-				switch (gl_extensions.gpuVendor) {
-				case GPU_VENDOR_AMD: return "VENDOR_AMD";
-				case GPU_VENDOR_POWERVR: return "VENDOR_POWERVR";
-				case GPU_VENDOR_NVIDIA: return "VENDOR_NVIDIA";
-				case GPU_VENDOR_INTEL: return "VENDOR_INTEL";
-				case GPU_VENDOR_ADRENO: return "VENDOR_ADRENO";
-				case GPU_VENDOR_ARM: return "VENDOR_ARM";
-				case GPU_VENDOR_BROADCOM: return "VENDOR_BROADCOM";
-				case GPU_VENDOR_UNKNOWN:
+				switch (caps_.vendor) {
+				case GPUVendor::VENDOR_AMD: return "VENDOR_AMD";
+				case GPUVendor::VENDOR_IMGTEC: return "VENDOR_POWERVR";
+				case GPUVendor::VENDOR_NVIDIA: return "VENDOR_NVIDIA";
+				case GPUVendor::VENDOR_INTEL: return "VENDOR_INTEL";
+				case GPUVendor::VENDOR_QUALCOMM: return "VENDOR_ADRENO";
+				case GPUVendor::VENDOR_ARM: return "VENDOR_ARM";
+				case GPUVendor::VENDOR_BROADCOM: return "VENDOR_BROADCOM";
+				case GPUVendor::VENDOR_UNKNOWN:
 				default:
 					return "VENDOR_UNKNOWN";
 				}
@@ -584,6 +589,7 @@ private:
 	int curVBufferOffsets_[4]{};
 	OpenGLBuffer *curIBuffer_ = nullptr;
 	int curIBufferOffset_ = 0;
+	OpenGLFramebuffer *curFB_;
 
 	// Framebuffer state
 	GLuint currentDrawHandle_ = 0;
@@ -603,6 +609,20 @@ OpenGLContext::OpenGLContext() {
 	}
 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object;
 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
+
+	switch (gl_extensions.gpuVendor) {
+	case GPU_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
+	case GPU_VENDOR_NVIDIA: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
+	case GPU_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
+	case GPU_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::VENDOR_QUALCOMM; break;
+	case GPU_VENDOR_BROADCOM: caps_.vendor = GPUVendor::VENDOR_BROADCOM; break;
+	case GPU_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
+	case GPU_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
+	case GPU_VENDOR_UNKNOWN:
+	default:
+		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
+		break;
+	}
 }
 
 OpenGLContext::~OpenGLContext() {
@@ -929,7 +949,7 @@ bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBit
 	}
 	// Apply the correct alignment.
 	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
-	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA)) {
+	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && caps_.vendor != GPUVendor::VENDOR_NVIDIA)) {
 		// Some drivers seem to require we specify this.  See #8254.
 		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
 	}
@@ -1680,6 +1700,7 @@ void OpenGLContext::fbo_unbind() {
 
 void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
 	CHECK_GL_ERROR_IF_DEBUG();
+	curFB_ = (OpenGLFramebuffer *)fbo;
 	if (fbo) {
 		OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 		// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing

@@ -176,6 +176,24 @@ GPU_Vulkan::~GPU_Vulkan() {
 
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
+
+	// Accurate depth is required on AMD so we ignore the compat flag to disable it on those. See #9545
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vulkan_->GetPhysicalDeviceProperties().vendorID == VULKAN_VENDOR_AMD) {
+		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	}
+
+	// Mandatory features on Vulkan, which may be checked in "centralized" code
+	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	features |= GPU_SUPPORTS_FBO;
+	features |= GPU_SUPPORTS_BLEND_MINMAX;
+	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
+	features |= GPU_SUPPORTS_16BIT_FORMATS;
+	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
+	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
+	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
+
 	if (vulkan_->GetFeaturesEnabled().wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;
 	}
@@ -220,19 +238,6 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
-
-	// Mandatory features on Vulkan, which may be checked in "centralized" code
-	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
-	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	features |= GPU_SUPPORTS_FBO;
-	features |= GPU_SUPPORTS_BLEND_MINMAX;
-	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
-	features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
-	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
-	features |= GPU_SUPPORTS_16BIT_FORMATS;
-	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
-	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
-	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	gstate_c.featureFlags = features;
 }
 

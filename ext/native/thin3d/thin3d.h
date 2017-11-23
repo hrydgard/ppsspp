@@ -250,6 +250,17 @@ enum InfoField {
 	DRIVER,
 };
 
+enum class GPUVendor {
+	VENDOR_UNKNOWN,
+	VENDOR_NVIDIA,
+	VENDOR_INTEL,
+	VENDOR_AMD,
+	VENDOR_ARM,  // Mali
+	VENDOR_QUALCOMM,
+	VENDOR_IMGTEC,  // PowerVR
+	VENDOR_BROADCOM,  // Raspberry
+};
+
 enum class NativeObject {
 	CONTEXT,
 	CONTEXT_EX,
@@ -483,6 +494,7 @@ struct PipelineDesc {
 };
 
 struct DeviceCaps {
+	GPUVendor vendor;
 	DataFormat preferredDepthBufferFormat;
 	DataFormat preferredShadowMapFormatLow;
 	DataFormat preferredShadowMapFormatHigh;
@@ -653,7 +665,7 @@ DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapt
 DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd);
 #endif
 
-DrawContext *T3DCreateVulkanContext(VulkanContext *context);
+DrawContext *T3DCreateVulkanContext(VulkanContext *context, bool split);
 
 // UBs for the preset shaders
 

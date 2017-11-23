@@ -221,6 +221,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.framebufferDepthBlitSupported = false;
 	caps_.framebufferDepthCopySupported = true;
 
+
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
 	if (SUCCEEDED(result)) {
@@ -241,6 +242,16 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 			DXGI_ADAPTER_DESC desc;
 			adapter->GetDesc(&desc);
 			adapterDesc_ = ConvertWStringToUTF8(desc.Description);
+			switch (desc.VendorId) {
+			case 0x10DE: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
+			case 0x1002:
+			case 0x1022: caps_.vendor = GPUVendor::VENDOR_AMD; break;
+			case 0x163C:
+			case 0x8086:
+			case 0x8087: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
+			default:
+				caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
+			}
 			adapter->Release();
 		}
 		dxgiDevice->Release();

@@ -80,11 +80,9 @@ std::string TextDrawerAndroid::NormalizeString(std::string str) {
 }
 
 void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, float *h) {
-	uint32_t stringHash = hash::Adler32((const uint8_t *)str, len);
-	uint32_t entryHash = stringHash ^ fontHash_;
-
+	CacheKey key{ std::string(str, len), fontHash_ };
 	TextMeasureEntry *entry;
-	auto iter = sizeCache_.find(entryHash);
+	auto iter = sizeCache_.find(key);
 	if (iter != sizeCache_.end()) {
 		entry = iter->second.get();
 	} else {
@@ -103,7 +101,7 @@ void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, flo
 		entry = new TextMeasureEntry();
 		entry->width = (size >> 16);
 		entry->height = (size & 0xFFFF);
-		sizeCache_[entryHash] = std::unique_ptr<TextMeasureEntry>(entry);
+		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
 	}
 	entry->lastUsedFrame = frameCount_;
 	*w = entry->width * fontScaleX_ * dpiScale_;
@@ -130,11 +128,10 @@ void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bou
 	float total_w = 0.0f;
 	float total_h = 0.0f;
 	for (size_t i = 0; i < lines.size(); i++) {
-		uint32_t stringHash = hash::Adler32((const uint8_t *)&lines[i][0], lines[i].length());
-		uint32_t entryHash = stringHash ^ fontHash_;
+		CacheKey key{ lines[i], fontHash_ };
 
 		TextMeasureEntry *entry;
-		auto iter = sizeCache_.find(entryHash);
+		auto iter = sizeCache_.find(key);
 		if (iter != sizeCache_.end()) {
 			entry = iter->second.get();
 		} else {
@@ -147,7 +144,7 @@ void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bou
 			entry = new TextMeasureEntry();
 			entry->width = sizecx;
 			entry->height = sizecy;
-			sizeCache_[entryHash] = std::unique_ptr<TextMeasureEntry>(entry);
+			sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
 		}
 		entry->lastUsedFrame = frameCount_;
 
@@ -166,14 +163,12 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 	if (text.empty())
 		return;
 
-	uint32_t stringHash = hash::Adler32((const uint8_t *)text.data(), text.size());
-	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
-
+	CacheKey key{ std::string(str), fontHash_ };
 	target.Flush(true);
 
 	TextStringEntry *entry;
 
-	auto iter = cache_.find(entryHash);
+	auto iter = cache_.find(key);
 	if (iter != cache_.end()) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
@@ -223,7 +218,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		desc.initData.push_back((uint8_t *)bitmapData);
 		entry->texture = draw_->CreateTexture(desc);
 		delete[] bitmapData;
-		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);
+		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
 		draw_->BindTexture(0, entry->texture);
 	}
 	float w = entry->bmWidth * fontScaleX_ * dpiScale_;

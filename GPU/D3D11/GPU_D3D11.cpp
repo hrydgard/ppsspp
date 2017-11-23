@@ -206,7 +206,11 @@ void GPU_D3D11::CheckGPUFeatures() {
 
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
-	features |= GPU_SUPPORTS_ACCURATE_DEPTH;  // Breaks text in PaRappa for some reason.
+
+	// Accurate depth is required on AMD so we ignore the compat flag to disable it on those. See #9545
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || draw_->GetDeviceCaps().vendor == Draw::GPUVendor::VENDOR_AMD) {
+		features |= GPU_SUPPORTS_ACCURATE_DEPTH;  // Breaks text in PaRappa for some reason.
+	}
 
 #ifndef _M_ARM
 	// TODO: Do proper feature detection

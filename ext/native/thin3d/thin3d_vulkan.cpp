@@ -22,6 +22,7 @@
 #include <assert.h>
 
 #include "Common/Vulkan/SPIRVDisasm.h"
+#include "Core/Config.h"
 
 #include "base/logging.h"
 #include "base/display.h"
@@ -348,7 +349,7 @@ class VKFramebuffer;
 
 class VKContext : public DrawContext {
 public:
-	VKContext(VulkanContext *vulkan);
+	VKContext(VulkanContext *vulkan, bool splitSubmit);
 	virtual ~VKContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -674,7 +675,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, const TextureDesc &desc) {
 	return true;
 }
 
-VKContext::VKContext(VulkanContext *vulkan)
+VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	: vulkan_(vulkan), caps_{}, renderManager_(vulkan) {
 	caps_.anisoSupported = vulkan->GetFeaturesAvailable().samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetFeaturesAvailable().geometryShader != 0;
@@ -686,6 +687,17 @@ VKContext::VKContext(VulkanContext *vulkan)
 	caps_.framebufferDepthBlitSupported = false;  // Can be checked for.
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
+
+	switch (vulkan->GetPhysicalDeviceProperties().vendorID) {
+	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
+	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
+	case VULKAN_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
+	case VULKAN_VENDOR_NVIDIA: caps_.vendor = GPUVendor::VENDOR_NVIDIA; break;
+	case VULKAN_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::VENDOR_QUALCOMM; break;
+	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
+	default:
+		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
+	}
 
 	device_ = vulkan->GetDevice();
 
@@ -744,6 +756,8 @@ VKContext::VKContext(VulkanContext *vulkan)
 	assert(VK_SUCCESS == res);
 
 	pipelineCache_ = vulkan_->CreatePipelineCache();
+
+	renderManager_.SetSplitSubmit(splitSubmit);
 }
 
 VKContext::~VKContext() {
@@ -1177,8 +1191,8 @@ void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int sten
 	renderManager_.Clear(colorval, depthVal, stencilVal, mask);
 }
 
-DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan) {
-	return new VKContext(vulkan);
+DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan, bool split) {
+	return new VKContext(vulkan, split);
 }
 
 void AddFeature(std::vector<std::string> &features, const char *name, VkBool32 available, VkBool32 enabled) {

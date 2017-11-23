@@ -18,6 +18,7 @@
 // Additionally, Common/Vulkan/* , including this file, are also licensed
 // under the public domain.
 
+#include "Common/Log.h"
 #include "Common/Vulkan/VulkanMemory.h"
 
 VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size) : device_(vulkan->GetDevice()), buf_(0), offset_(0), size_(size), writePtr_(nullptr) {
@@ -44,7 +45,7 @@ bool VulkanPushBuffer::AddBuffer() {
 
 	VkResult res = vkCreateBuffer(device_, &b, nullptr, &info.buffer);
 	if (VK_SUCCESS != res) {
-		ELOG("vkCreateBuffer failed! result=%d", (int)res);
+		_assert_msg_(G3D, false, "vkCreateBuffer failed! result=%d", (int)res);
 		return false;
 	}
 
@@ -61,7 +62,7 @@ bool VulkanPushBuffer::AddBuffer() {
 
 	res = vkAllocateMemory(device_, &alloc, nullptr, &info.deviceMemory);
 	if (VK_SUCCESS != res) {
-		ELOG("vkAllocateMemory failed! result=%d", (int)res);
+		_assert_msg_(G3D, false, "vkAllocateMemory failed! size=%d result=%d", (int)reqs.size, (int)res);
 		vkDestroyBuffer(device_, info.buffer, nullptr);
 		return false;
 	}
