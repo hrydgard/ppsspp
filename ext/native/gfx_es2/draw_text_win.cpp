@@ -227,14 +227,6 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 		size.cx = textRect.right;
 		size.cy = textRect.bottom;
 
-		// GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
-		RECT rc = { 0 };
-		rc.right = size.cx + 4;
-		rc.bottom = size.cy + 4;
-		FillRect(ctx_->hDC, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
-		//ExtTextOut(ctx_->hDC, 0, 0, ETO_OPAQUE | ETO_CLIPPED, NULL, wstr.c_str(), (int)wstr.size(), NULL);
-		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_HIDEPREFIX | DT_TOP | dtAlign, 0);
-
 		if (size.cx > MAX_TEXT_WIDTH)
 			size.cx = MAX_TEXT_WIDTH;
 		if (size.cy > MAX_TEXT_HEIGHT)
@@ -246,6 +238,12 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 		entry->bmWidth = (size.cx + 3) & ~3;
 		entry->bmHeight = (size.cy + 3) & ~3;
 		entry->lastUsedFrame = frameCount_;
+
+		RECT rc = { 0 };
+		rc.right = entry->bmWidth;
+		rc.bottom = entry->bmHeight;
+		FillRect(ctx_->hDC, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
+		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_HIDEPREFIX | DT_TOP | dtAlign, 0);
 
 		DataFormat texFormat;
 		// For our purposes these are equivalent, so just choose the supported one. D3D can emulate them.
