@@ -1832,6 +1832,8 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	if (prim != 7) {
 		immPrim_ = (GEPrimitiveType)prim;
 	} else if (prim == 7 && immCount_ == 2) {
+		// Instead of finding a proper point to flush, we just emit a full rectangle every time one
+		// is finished.
 		FlushImm();
 	}
 }
@@ -1844,10 +1846,10 @@ void GPUCommon::FlushImm() {
 		return;
 	}
 	UpdateUVScaleOffset();
-	// Instead of finding a proper point to flush, we just emit a full rectangle every time one
-	// is finished.
 
-	// And instead of plumbing through, we'll cheat and just turn these into through vertices.
+	// Instead of plumbing through properly (we'd need to inject these pretransformed vertices in the middle
+	// of SoftwareTransform(), which would take a lot of refactoring), we'll cheat and just turn these into
+	// through vertices.
 	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
 	struct ImmVertex {
 		uint32_t color;
