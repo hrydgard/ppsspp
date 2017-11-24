@@ -794,6 +794,8 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFence ? frameData.fence : VK_NULL_HANDLE);
 	if (res == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(G3D, false, "Lost the Vulkan device!");
+	} else if (res == VK_ERROR_INITIALIZATION_FAILED) {
+		ERROR_LOG(G3D, "Unexpected error submitting main command buffer: VK_ERROR_INITIALIZATION_FAILED");
 	} else {
 		_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (main, split=%d)! result=%d", (int)splitSubmit_, (int)res);
 	}
