@@ -22,7 +22,7 @@
 
 class PushBufferD3D11 {
 public:
-	PushBufferD3D11(ID3D11Device *device, size_t size, D3D11_BIND_FLAG bindFlags) {
+	PushBufferD3D11(ID3D11Device *device, size_t size, D3D11_BIND_FLAG bindFlags) : size_(size) {
 		D3D11_BUFFER_DESC desc{};
 		desc.BindFlags = bindFlags;
 		desc.ByteWidth = (UINT)size;
@@ -47,6 +47,12 @@ public:
 	uint8_t *BeginPush(ID3D11DeviceContext *context, UINT *offset, size_t size, int align = 16) {
 		D3D11_MAPPED_SUBRESOURCE map;
 		pos_ = (pos_ + align - 1) & ~(align - 1);
+		if (pos_ + size > size_) {
+			// Wrap! Note that with this method, since we return the same buffer as before, you have to do the draw immediately after,
+			// can't defer like in Vulkan. We instead let the driver handle the invalidation etc.
+			pos_ = 0;
+			nextMapDiscard_ = true;
+		}
 		context->Map(buffer_, 0, nextMapDiscard_ ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE_NO_OVERWRITE, 0, &map);
 		nextMapDiscard_ = false;
 		*offset = (UINT)pos_;
@@ -61,6 +67,7 @@ public:
 private:
 	ID3D11Buffer *buffer_ = nullptr;
 	size_t pos_ = 0;
+	size_t size_;
 	bool nextMapDiscard_ = false;
 };
 
