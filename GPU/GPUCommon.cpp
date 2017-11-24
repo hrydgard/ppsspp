@@ -303,16 +303,16 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_BoneMtxData },
 
 	// Vertex Screen/Texture/Color
-	{ GE_CMD_VSCX, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VSCY, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VSCZ, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VTCS, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VTCT, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VTCQ, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VCV, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VAP, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VFC, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VSCV, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VSCX },
+	{ GE_CMD_VSCY },
+	{ GE_CMD_VSCZ },
+	{ GE_CMD_VTCS },
+	{ GE_CMD_VTCT },
+	{ GE_CMD_VTCQ },
+	{ GE_CMD_VCV },
+	{ GE_CMD_VAP, FLAG_EXECUTE, 0, &GPUCommon::Execute_ImmVertexAlphaPrim },
+	{ GE_CMD_VFC },
+	{ GE_CMD_VSCV },
 
 	// "Missing" commands (gaps in the sequence)
 	{ GE_CMD_UNKNOWN_03, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
@@ -1806,6 +1806,32 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 
 void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {
 	gstate_c.morphWeights[(op >> 24) - GE_CMD_MORPHWEIGHT0] = getFloat24(op);
+}
+
+void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
+	uint32_t data = op & 0xFFFFFF;
+	TransformedVertex &v = immBuffer_[immCount_++];
+
+	// Formula deduced from ThrillVille's clear.
+	int offsetX = gstate.getOffsetX16();
+	int offsetY = gstate.getOffsetY16();
+	v.x = ((gstate.imm_vscx & 0xFFFFFF) - offsetX) / 16.0f;
+	v.y = ((gstate.imm_vscy & 0xFFFFFF) - offsetY) / 16.0f;
+	v.z = gstate.imm_vscz & 0xFFFF;
+	v.u = 0.0f;  // we have no information about the scale here
+	v.v = 0.0f;  // we have no information about the scale here
+	v.w = 0.0f;  // we have no information about the scale here
+	v.color0_32 = (gstate.imm_cv & 0xFFFFFF) | (gstate.imm_ap << 24);
+	v.fog = 0.0f; // we have no information about the scale here
+	v.color1_32 = gstate.imm_scv & 0xFFFFFF;
+	int prim = (op >> 8) & 0xF;
+	if (prim != 7) {
+		immPrim_ = prim;
+	} else {
+		// Time to submit! This can go through the software transform path but skipping the actual transform...
+		// drawEngineCommon_->SubmitImm(immBuffer_, immCount_);
+		immCount_ = 0;
+	}
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {

@@ -185,8 +185,18 @@ struct GPUgstate {
 				transfersrcpos,
 				transferdstpos,
 				pad99,
-				transfersize;  // 0xEE
-
+				transfersize,  // 0xEE
+				pad100,         // 0xEF
+				imm_vscx,        // 0xF0
+				imm_vscy,
+				imm_vscz,
+				imm_vtcs,
+				imm_vtct,
+				imm_vtcq,
+				imm_cv,
+				imm_ap,
+				imm_fc,
+				imm_scv;
 			u32 pad05[0xFF- 0xEE];
 		};
 	};
