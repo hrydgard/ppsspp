@@ -1826,12 +1826,44 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	v.color1_32 = gstate.imm_scv & 0xFFFFFF;
 	int prim = (op >> 8) & 0xF;
 	if (prim != 7) {
-		immPrim_ = prim;
-	} else {
-		// Time to submit! This can go through the software transform path but skipping the actual transform...
-		// drawEngineCommon_->SubmitImm(immBuffer_, immCount_);
-		immCount_ = 0;
+		immPrim_ = (GEPrimitiveType)prim;
+	} else if (prim == 7 && immCount_ == 2) {
+		FlushImm();
 	}
+}
+
+void GPUCommon::FlushImm() {
+	SetDrawType(DRAW_PRIM, immPrim_);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		// No idea how many cycles to skip, heh.
+		return;
+	}
+	UpdateUVScaleOffset();
+	// Instead of finding a proper point to flush, we just emit a full rectangle every time one
+	// is finished.
+
+	// And instead of plumbing through, we'll cheat and just turn these into through vertices.
+	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
+	struct ImmVertex {
+		uint32_t color;
+		float xyz[3];
+	};
+	ImmVertex temp[MAX_IMMBUFFER_SIZE];
+	for (int i = 0; i < immCount_; i++) {
+		temp[i].color = immBuffer_[i].color0_32;
+		temp[i].xyz[0] = immBuffer_[i].pos[0];
+		temp[i].xyz[1] = immBuffer_[i].pos[1];
+		temp[i].xyz[2] = immBuffer_[i].pos[2];
+	}
+	int vtype = GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
+
+	int bytesRead;
+	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vtype, &bytesRead);
+	drawEngineCommon_->DispatchFlush();
+	// TOOD: In the future, make a special path for these.
+	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
+	immCount_ = 0;
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {

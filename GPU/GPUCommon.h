@@ -323,9 +323,10 @@ protected:
 
 	TransformedVertex immBuffer_[MAX_IMMBUFFER_SIZE];
 	int immCount_ = 0;
-	int immPrim_ = 0;
+	GEPrimitiveType immPrim_;
 
 private:
+	void FlushImm();
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
