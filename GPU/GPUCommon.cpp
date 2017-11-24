@@ -1809,6 +1809,10 @@ void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
+	// Safety check.
+	if (immCount_ >= MAX_IMMBUFFER_SIZE)
+		return;
+
 	uint32_t data = op & 0xFFFFFF;
 	TransformedVertex &v = immBuffer_[immCount_++];
 
