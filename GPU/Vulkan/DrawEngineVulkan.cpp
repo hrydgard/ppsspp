@@ -250,7 +250,11 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	vertexCache_->Destroy(vulkan_);
 	delete vertexCache_;
 	vertexCache_ = nullptr;
-	vai_.Clear();  // Need to clear this to get rid of all remaining references to the dead buffers.
+	// Need to clear this to get rid of all remaining references to the dead buffers.
+	vai_.Iterate([](uint32_t hash, VertexArrayInfoVulkan *vai) {
+		delete vai;
+	});
+	vai_.Clear();
 }
 
 void DrawEngineVulkan::DeviceLost() {
