@@ -1648,18 +1648,21 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 		}
 
 		t->Cleanup();
-	}
 
-	// Before triggering, set v0.  It'll be restored if one is called.
-	RETURN(error);
-	t->nt.status = THREADSTATUS_DEAD;
+		// Before triggering, set v0.  It'll be restored if one is called.
+		RETURN(error);
+		t->nt.status = THREADSTATUS_DEAD;
 
-	if (__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, threadID, THREADEVENT_DELETE)) {
-		// Don't delete it yet.  We'll delete later.
-		pendingDeleteThreads.push_back(threadID);
-		return 0;
+		if (__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, threadID, THREADEVENT_DELETE)) {
+			// Don't delete it yet.  We'll delete later.
+			pendingDeleteThreads.push_back(threadID);
+			return 0;
+		} else {
+			return kernelObjects.Destroy<Thread>(threadID);
+		}
 	} else {
-		return kernelObjects.Destroy<Thread>(threadID);
+		RETURN(error);
+		return error;
 	}
 }
 
