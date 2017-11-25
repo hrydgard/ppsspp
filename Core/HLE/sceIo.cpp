@@ -2330,7 +2330,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 	case 0x01020004:
 		// TODO: Should not work for umd0:/, ms0:/, etc.
 		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
-		INFO_LOG(SCEIO, "sceIoIoctl: Asked for file offset of file %i", id);
+		DEBUG_LOG(SCEIO, "sceIoIoctl: Asked for file offset of file %d", id);
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
 			u32 offset = (u32)pspFileSystem.GetSeekPos(f->handle);
 			Memory::Write_U32(offset, outdataPtr);
