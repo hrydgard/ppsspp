@@ -176,7 +176,7 @@ u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
 std::string KernelTimeNowFormatted() {
 	time_t emulatedTime = (time_t)start_time + (u32)(CoreTiming::GetGlobalTimeUs() / 1000000ULL);
 	tm* timePtr = localtime(&emulatedTime);
-	bool DST = timePtr->tm_isdst;
+	bool DST = timePtr->tm_isdst != 0;
 	u8 seconds = timePtr->tm_sec;
 	u8 minutes = timePtr->tm_min;
 	u8 hours = timePtr->tm_hour;

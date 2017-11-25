@@ -174,7 +174,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		entry->lastUsedFrame = frameCount_;
 		draw_->BindTexture(0, entry->texture);
 	} else {
-		double size;
+		double size = 0.0;
 		auto iter = fontMap_.find(fontHash_);
 		if (iter != fontMap_.end()) {
 			size = iter->second.size;
