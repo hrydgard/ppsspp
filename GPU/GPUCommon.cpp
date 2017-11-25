@@ -1810,8 +1810,15 @@ void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {
 
 void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	// Safety check.
-	if (immCount_ >= MAX_IMMBUFFER_SIZE)
+	if (immCount_ >= MAX_IMMBUFFER_SIZE) {
+		// Only print once for each overrun.
+		if (immCount_ == MAX_IMMBUFFER_SIZE) {
+			ERROR_LOG_REPORT_ONCE(exceed_imm_buffer, G3D, "Exceeded immediate draw buffer size");
+		}
+		if (immCount_ < 0x7fffffff)  // Paranoia :)
+			immCount_++;
 		return;
+	}
 
 	uint32_t data = op & 0xFFFFFF;
 	TransformedVertex &v = immBuffer_[immCount_++];
@@ -1822,19 +1829,21 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	v.x = ((gstate.imm_vscx & 0xFFFFFF) - offsetX) / 16.0f;
 	v.y = ((gstate.imm_vscy & 0xFFFFFF) - offsetY) / 16.0f;
 	v.z = gstate.imm_vscz & 0xFFFF;
-	v.u = 0.0f;  // we have no information about the scale here
-	v.v = 0.0f;  // we have no information about the scale here
-	v.w = 0.0f;  // we have no information about the scale here
+	v.u = getFloat24(gstate.imm_vtcs);
+	v.v = getFloat24(gstate.imm_vtct);
+	v.w = getFloat24(gstate.imm_vtcq);
 	v.color0_32 = (gstate.imm_cv & 0xFFFFFF) | (gstate.imm_ap << 24);
 	v.fog = 0.0f; // we have no information about the scale here
 	v.color1_32 = gstate.imm_scv & 0xFFFFFF;
-	int prim = (op >> 8) & 0xF;
-	if (prim != 7) {
+	int prim = (op >> 8) & 0x7;
+	if (prim != GE_PRIM_KEEP_PREVIOUS) {
 		immPrim_ = (GEPrimitiveType)prim;
-	} else if (prim == 7 && immCount_ == 2) {
+	} else if (prim == GE_PRIM_KEEP_PREVIOUS && immCount_ == 2) {
 		// Instead of finding a proper point to flush, we just emit a full rectangle every time one
 		// is finished.
 		FlushImm();
+	} else {
+		ERROR_LOG_REPORT_ONCE(imm_draw_prim, G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
 	}
 }
 

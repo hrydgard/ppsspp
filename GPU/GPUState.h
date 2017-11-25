@@ -196,8 +196,9 @@ struct GPUgstate {
 				imm_cv,
 				imm_ap,
 				imm_fc,
-				imm_scv;
-			u32 pad05[0xFF- 0xEE];
+				imm_scv;   // 0xF9
+				// In the unlikely case we ever add anything else here, don't forget to update the padding on the next line!
+			u32 pad05[0xFF- 0xF9];
 		};
 	};
 
