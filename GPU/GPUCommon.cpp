@@ -303,16 +303,16 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &GPUCommon::Execute_BoneMtxData },
 
 	// Vertex Screen/Texture/Color
-	{ GE_CMD_VSCX, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VSCY, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VSCZ, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VTCS, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VTCT, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VTCQ, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VCV, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VAP, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VFC, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
-	{ GE_CMD_VSCV, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
+	{ GE_CMD_VSCX },
+	{ GE_CMD_VSCY },
+	{ GE_CMD_VSCZ },
+	{ GE_CMD_VTCS },
+	{ GE_CMD_VTCT },
+	{ GE_CMD_VTCQ },
+	{ GE_CMD_VCV },
+	{ GE_CMD_VAP, FLAG_EXECUTE, 0, &GPUCommon::Execute_ImmVertexAlphaPrim },
+	{ GE_CMD_VFC },
+	{ GE_CMD_VSCV },
 
 	// "Missing" commands (gaps in the sequence)
 	{ GE_CMD_UNKNOWN_03, FLAG_EXECUTE, 0, &GPUCommon::Execute_Unknown },
@@ -1806,6 +1806,79 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 
 void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {
 	gstate_c.morphWeights[(op >> 24) - GE_CMD_MORPHWEIGHT0] = getFloat24(op);
+}
+
+void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
+	// Safety check.
+	if (immCount_ >= MAX_IMMBUFFER_SIZE) {
+		// Only print once for each overrun.
+		if (immCount_ == MAX_IMMBUFFER_SIZE) {
+			ERROR_LOG_REPORT_ONCE(exceed_imm_buffer, G3D, "Exceeded immediate draw buffer size");
+		}
+		if (immCount_ < 0x7fffffff)  // Paranoia :)
+			immCount_++;
+		return;
+	}
+
+	uint32_t data = op & 0xFFFFFF;
+	TransformedVertex &v = immBuffer_[immCount_++];
+
+	// Formula deduced from ThrillVille's clear.
+	int offsetX = gstate.getOffsetX16();
+	int offsetY = gstate.getOffsetY16();
+	v.x = ((gstate.imm_vscx & 0xFFFFFF) - offsetX) / 16.0f;
+	v.y = ((gstate.imm_vscy & 0xFFFFFF) - offsetY) / 16.0f;
+	v.z = gstate.imm_vscz & 0xFFFF;
+	v.u = getFloat24(gstate.imm_vtcs);
+	v.v = getFloat24(gstate.imm_vtct);
+	v.w = getFloat24(gstate.imm_vtcq);
+	v.color0_32 = (gstate.imm_cv & 0xFFFFFF) | (gstate.imm_ap << 24);
+	v.fog = 0.0f; // we have no information about the scale here
+	v.color1_32 = gstate.imm_scv & 0xFFFFFF;
+	int prim = (op >> 8) & 0x7;
+	if (prim != GE_PRIM_KEEP_PREVIOUS) {
+		immPrim_ = (GEPrimitiveType)prim;
+	} else if (prim == GE_PRIM_KEEP_PREVIOUS && immCount_ == 2) {
+		// Instead of finding a proper point to flush, we just emit a full rectangle every time one
+		// is finished.
+		FlushImm();
+	} else {
+		ERROR_LOG_REPORT_ONCE(imm_draw_prim, G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
+	}
+}
+
+void GPUCommon::FlushImm() {
+	SetDrawType(DRAW_PRIM, immPrim_);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		// No idea how many cycles to skip, heh.
+		return;
+	}
+	UpdateUVScaleOffset();
+
+	// Instead of plumbing through properly (we'd need to inject these pretransformed vertices in the middle
+	// of SoftwareTransform(), which would take a lot of refactoring), we'll cheat and just turn these into
+	// through vertices.
+	// Since the only known use is Thrillville and it only uses it to clear, we just use color and pos.
+	struct ImmVertex {
+		uint32_t color;
+		float xyz[3];
+	};
+	ImmVertex temp[MAX_IMMBUFFER_SIZE];
+	for (int i = 0; i < immCount_; i++) {
+		temp[i].color = immBuffer_[i].color0_32;
+		temp[i].xyz[0] = immBuffer_[i].pos[0];
+		temp[i].xyz[1] = immBuffer_[i].pos[1];
+		temp[i].xyz[2] = immBuffer_[i].pos[2];
+	}
+	int vtype = GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
+
+	int bytesRead;
+	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vtype, &bytesRead);
+	drawEngineCommon_->DispatchFlush();
+	// TOOD: In the future, make a special path for these.
+	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
+	immCount_ = 0;
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {

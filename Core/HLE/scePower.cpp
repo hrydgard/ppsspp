@@ -431,7 +431,7 @@ static u32 scePowerSetBusClockFrequency(u32 busfreq) {
 
 static u32 scePowerGetCpuClockFrequencyInt() {
 	int cpuFreq = CoreTiming::GetClockFrequencyMHz();
-	INFO_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", cpuFreq);
+	DEBUG_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", cpuFreq);
 	return cpuFreq;
 }
 
@@ -447,7 +447,7 @@ static u32 scePowerGetBusClockFrequencyInt() {
 
 static float scePowerGetCpuClockFrequencyFloat() {
 	int cpuFreq = CoreTiming::GetClockFrequencyMHz(); 
-	INFO_LOG(HLE, "%f=scePowerGetCpuClockFrequencyFloat()", (float)cpuFreq);
+	DEBUG_LOG(HLE, "%f=scePowerGetCpuClockFrequencyFloat()", (float)cpuFreq);
 	return (float) cpuFreq;
 }
 

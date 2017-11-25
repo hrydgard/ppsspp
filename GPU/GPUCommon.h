@@ -39,6 +39,29 @@ enum {
 	FLAG_DIRTYONCHANGE = 64,  // NOTE: Either this or FLAG_EXECUTE*, not both!
 };
 
+struct TransformedVertex {
+	union {
+		struct {
+			float x, y, z, fog;     // in case of morph, preblend during decode
+		};
+		float pos[4];
+	};
+	union {
+		struct {
+			float u; float v; float w;   // scaled by uscale, vscale, if there
+		};
+		float uv[3];
+	};
+	union {
+		u8 color0[4];   // prelit
+		u32 color0_32;
+	};
+	union {
+		u8 color1[4];   // prelit
+		u32 color1_32;
+	};
+};
+
 class GPUCommon : public GPUInterface, public GPUDebugInterface {
 public:
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
@@ -123,6 +146,8 @@ public:
 	void Execute_BoneMtxData(u32 op, u32 diff);
 
 	void Execute_MorphWeight(u32 op, u32 diff);
+
+	void Execute_ImmVertexAlphaPrim(u32 op, u32 diff);
 
 	void Execute_Unknown(u32 op, u32 diff);
 
@@ -291,7 +316,17 @@ protected:
 	DrawType lastDraw_;
 	GEPrimitiveType lastPrim_;
 
+	// No idea how big this buffer needs to be.
+	enum {
+		MAX_IMMBUFFER_SIZE = 32,
+	};
+
+	TransformedVertex immBuffer_[MAX_IMMBUFFER_SIZE];
+	int immCount_ = 0;
+	GEPrimitiveType immPrim_;
+
 private:
+	void FlushImm();
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;

@@ -185,9 +185,20 @@ struct GPUgstate {
 				transfersrcpos,
 				transferdstpos,
 				pad99,
-				transfersize;  // 0xEE
-
-			u32 pad05[0xFF- 0xEE];
+				transfersize,  // 0xEE
+				pad100,         // 0xEF
+				imm_vscx,        // 0xF0
+				imm_vscy,
+				imm_vscz,
+				imm_vtcs,
+				imm_vtct,
+				imm_vtcq,
+				imm_cv,
+				imm_ap,
+				imm_fc,
+				imm_scv;   // 0xF9
+				// In the unlikely case we ever add anything else here, don't forget to update the padding on the next line!
+			u32 pad05[0xFF- 0xF9];
 		};
 	};
 
