@@ -50,7 +50,7 @@ const char *GetStringErrorMsg(int errCode) {
 		err_strw, buff_size, NULL);
 
 	static __declspec(thread) char err_str[buff_size] = {};
-	snprintf(err_str, buff_size, ConvertWStringToUTF8(err_strw).c_str());
+	snprintf(err_str, buff_size, "%s", ConvertWStringToUTF8(err_strw).c_str());
 #else
 	static __thread char err_str[buff_size] = {};
 
