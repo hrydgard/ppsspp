@@ -10,6 +10,10 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "Common/StringUtils.h"
 
+// Change this to 1, 2, and 3 to fake failures in a few places, so that
+// we can test our fallback-to-GL code.
+#define SIMULATE_VULKAN_FAILURE 0
+
 #ifdef USE_CRT_DBG
 #undef new
 #endif
@@ -76,6 +80,9 @@ const char *PresentModeString(VkPresentModeKHR presentMode) {
 }
 
 VulkanContext::VulkanContext() {
+#if SIMULATE_VULKAN_FAILURE == 1
+	return;
+#endif
 	if (!VulkanLoad()) {
 		init_error_ = "Failed to load Vulkan driver library";
 		// No DLL?
@@ -89,6 +96,11 @@ VulkanContext::VulkanContext() {
 }
 
 VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32_t flags) {
+	if (!vkCreateInstance) {
+		init_error_ = "Vulkan not loaded - can't create instance";
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+
 	flags_ = flags;
 
 	// List extensions to try to enable.
@@ -123,7 +135,11 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 	inst_info.enabledExtensionCount = (uint32_t)instance_extensions_enabled_.size();
 	inst_info.ppEnabledExtensionNames = instance_extensions_enabled_.size() ? instance_extensions_enabled_.data() : nullptr;
 
+#if SIMULATE_VULKAN_FAILURE == 2
+	VkResult res = VK_ERROR_INCOMPATIBLE_DRIVER;
+#else
 	VkResult res = vkCreateInstance(&inst_info, nullptr, &instance_);
+#endif
 	if (res != VK_SUCCESS) {
 		if (res == VK_ERROR_LAYER_NOT_PRESENT) {
 			WLOG("Validation on but layers not available - dropping layers");
@@ -152,7 +168,11 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 	}
 
 	uint32_t gpu_count = 1;
+#if SIMULATE_VULKAN_FAILURE == 3
+	gpu_count = 0;
+#else
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, nullptr);
+#endif
 	if (gpu_count <= 0) {
 		ELOG("Vulkan driver found but no supported GPU is available");
 		init_error_ = "No Vulkan physical devices found";
