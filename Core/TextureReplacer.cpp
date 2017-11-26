@@ -171,7 +171,7 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 		return;
 	}
 
-	const u64 rangeKey = ((u64)addr << 32) | (fromW << 16) | fromH;
+	const u64 rangeKey = ((u64)addr << 32) | ((u64)fromW << 16) | fromH;
 	hashranges_[rangeKey] = WidthHeightPair(toW, toH);
 }
 
@@ -511,7 +511,7 @@ std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
 }
 
 bool TextureReplacer::LookupHashRange(u32 addr, int &w, int &h) {
-	const u64 rangeKey = ((u64)addr << 32) | (w << 16) | h;
+	const u64 rangeKey = ((u64)addr << 32) | ((u64)w << 16) | h;
 	auto range = hashranges_.find(rangeKey);
 	if (range != hashranges_.end()) {
 		const WidthHeightPair &wh = range->second;

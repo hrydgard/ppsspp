@@ -26,6 +26,8 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
+#include "GPU/GPUCommon.h"
+
 #if PPSSPP_ARCH(ARM)
 #include "Common/ArmEmitter.h"
 #elif PPSSPP_ARCH(ARM64)
@@ -76,30 +78,6 @@ struct DecVtxFormat {
 
 	uint32_t id;
 	void ComputeID();
-};
-
-struct TransformedVertex
-{
-	union {
-		struct {
-			float x, y, z, fog;     // in case of morph, preblend during decode
-		};
-		float pos[4];
-	};
-	union {
-		struct {
-			float u; float v; float w;   // scaled by uscale, vscale, if there
-		};
-		float uv[3];
-	};
-	union {
-		u8 color0[4];   // prelit
-		u32 color0_32;
-	};
-	union {
-		u8 color1[4];   // prelit
-		u32 color1_32;
-	};
 };
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);

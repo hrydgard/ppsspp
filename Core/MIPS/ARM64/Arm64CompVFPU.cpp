@@ -170,7 +170,7 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
-		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
+		_assert_msg_(JIT, js.prefixDFlag & JitState::PREFIX_KNOWN, "Unexpected unknown prefix!");
 		if (!js.prefixD)
 			return;
 
@@ -1301,6 +1301,8 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vi2x(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix())
+			DISABLE;
 
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
 		bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)
@@ -1367,6 +1369,10 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vx2i(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
 		bool unsignedOp = ((op >> 16) & 1) == 0; // vuc2i (0), vus2i (2)
 
@@ -1766,6 +1772,9 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Viim(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
 
 		u8 dreg;
 		GetVectorRegs(&dreg, V_Single, _VT);

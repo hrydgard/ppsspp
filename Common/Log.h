@@ -136,7 +136,7 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 		if (!PanicYesNo(__VA_ARGS__)) AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, __VA_ARGS__); \
 	}
 
-#else  // __ANDROID__
+#else  // !defined(__ANDROID__)
 
 #define _dbg_assert_msg_(_t_, _a_, ...)\
 	if (!(_a_)) {\
@@ -158,14 +158,12 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 #endif // dbg_assert
 #endif // MAX_LOGLEVEL DEBUG
 
+#if defined(__ANDROID__)
+
 #define _assert_(_a_) \
 	if (!(_a_)) {\
-		ERROR_LOG(SYSTEM, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
-					   __LINE__, __FILE__); \
-		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
+		AndroidAssertLog(__FUNCTION__, __FILENAME__, __LINE__, #_a_, "Assertion failed!"); \
 	}
-
-#if defined(__ANDROID__)
 
 #define _assert_msg_(_t_, _a_, ...)		\
 	if (!(_a_) && !PanicYesNo(__VA_ARGS__)) { \
@@ -173,6 +171,13 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 	}
 
 #else  // __ANDROID__
+
+#define _assert_(_a_) \
+	if (!(_a_)) {\
+		ERROR_LOG(SYSTEM, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
+					   __LINE__, __FILE__); \
+		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
+	}
 
 #define _assert_msg_(_t_, _a_, ...)		\
 	if (!(_a_) && !PanicYesNo(__VA_ARGS__)) { \
