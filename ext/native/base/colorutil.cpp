@@ -22,10 +22,10 @@ uint32_t colorAlpha(uint32_t rgb, float alpha) {
 
 uint32_t alphaMul(uint32_t color, float alphaMul) {
 	uint32_t rgb = color & 0xFFFFFF;
-	uint32_t alpha = color >> 24;
+	int32_t alpha = color >> 24;
 	alpha *= alphaMul;
-	if (alpha < 0) alpha = 0.0f;
-	if (alpha > 255) alpha = 255.0f;
+	if (alpha < 0) alpha = 0;
+	if (alpha > 255) alpha = 255;
 	return (alpha << 24) | (rgb & 0xFFFFFF);
 }
 

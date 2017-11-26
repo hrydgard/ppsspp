@@ -468,7 +468,8 @@ bool DisassembleSPIRV(std::vector<uint32_t> spirv, std::string *output) {
 		uint32_t d = spirv[i];
 		int wordCount = d >> 16;
 		int opcode = d & 0xFFFF;
-		const OpInfo &op = opInfo[opcode];
+		// Force to a valid index in the array.
+		const OpInfo &op = opInfo[opcode >= (int)ARRAY_SIZE(opInfo) ? 0 : opcode];
 		int target = (i < (int)spirv.size() - 1) ? spirv[(i + 1)] : 0;  // Not always, but used often enough that we get it here.
 		int source, source2, resType;
 		std::string name;

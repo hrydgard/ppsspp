@@ -156,7 +156,6 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 	std::string line;
 	std::stringstream instream(src);
 	while (std::getline(instream, line)) {
-		char buffer[256];
 		int vecSize, num;
 		if (line.find("uniform bool") != std::string::npos) {
 			continue;
