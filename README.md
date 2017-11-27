@@ -22,18 +22,19 @@ For build instructions and other development tutorials, see the [wiki](https://g
 What's new in 1.5.0
 -------------------
 * Multithreaded Vulkan support, now fully featured and FAST on supported devices. (#10033, #10049)
-* Vulkan support now enabled for Android.
+* Vulkan support now enabled for Android. Recommended if available!
 * Smarter graphics state management, reduced CPU consumption on all backends (#9899)
-* Geometry problems fixed in Medal of Honor
 * Android: Support for Arabic and other scripts we couldn't support before
 * Fix Android widgets, screen scaling (#10145)
 * Fixes to video dumping
+* Geometry problems fixed in Medal of Honor
+* Implement immediate draws, fixing Thrillville (#7459)
 * Software rendering improvements, speed and accuracy
 * Hardware tesselation of PSP Beziers and Splines (used by a few games)
 * Partial sceUsbGps and sceUsbCam support (Android)
 * Android "Sustained performance mode" to avoid thermal throttling (#9901)
-* Assorted bugfixes and compatibility improvements
 * Linux controller mapping fixes (#9997)
+* Assorted bugfixes and compatibility improvements
 
 What's new in 1.4.2
 -------------------
