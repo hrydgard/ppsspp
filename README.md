@@ -21,8 +21,7 @@ For build instructions and other development tutorials, see the [wiki](https://g
 
 What's new in 1.5.0
 -------------------
-* Multithreaded Vulkan support, now fully featured and FAST on supported devices. (#10033, #10049)
-* Vulkan support now enabled for Android. Recommended if available!
+* Full Vulkan support, also for Android now. Very fast on supported devices. (#10033, #10049)
 * Smarter graphics state management, reduced CPU consumption on all backends (#9899)
 * Android: Support for Arabic and other scripts we couldn't support before
 * Fix Android widgets, screen scaling (#10145)
