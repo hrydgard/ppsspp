@@ -507,14 +507,13 @@ void LogoScreen::render() {
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, textColor, ALIGN_CENTER);
 	dc.DrawText(cr->T("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, textColor, ALIGN_CENTER);
-	dc.DrawText("www.ppsspp.org", bounds.centerX(), yres / 2 + 130, textColor, ALIGN_CENTER);
-	if (boot_filename.size()) {
-		dc.DrawTextShadow(boot_filename.c_str(), bounds.centerX(), bounds.centerY() + 180, textColor, ALIGN_CENTER);
-	}
+
+	int ppsspp_org_y = yres / 2 + 130;
+	dc.DrawText("www.ppsspp.org", bounds.centerX(), ppsspp_org_y, textColor, ALIGN_CENTER);
 
 #if (defined(_WIN32) && !PPSSPP_PLATFORM(UWP)) || PPSSPP_PLATFORM(ANDROID)
 	// Draw the graphics API, except on UWP where it's always D3D11
-	dc.DrawText(screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME).c_str(), bounds.centerX(), bounds.y2() - 100, textColor, ALIGN_CENTER);
+	dc.DrawText(screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME).c_str(), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
 #endif
 
 	dc.End();

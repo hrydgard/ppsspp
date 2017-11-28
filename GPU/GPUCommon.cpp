@@ -1848,6 +1848,8 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		// Instead of finding a proper point to flush, we just emit a full rectangle every time one
 		// is finished.
 		FlushImm();
+		// Need to reset immCount_ here. If we do it in FlushImm it could get skipped by gstate_c.skipDrawReason.
+		immCount_ = 0;
 	} else {
 		ERROR_LOG_REPORT_ONCE(imm_draw_prim, G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
 	}
@@ -1884,7 +1886,6 @@ void GPUCommon::FlushImm() {
 	drawEngineCommon_->DispatchFlush();
 	// TOOD: In the future, make a special path for these.
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
-	immCount_ = 0;
 }
 
 void GPUCommon::ExecuteOp(u32 op, u32 diff) {

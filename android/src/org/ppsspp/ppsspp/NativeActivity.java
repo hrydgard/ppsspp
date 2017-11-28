@@ -288,6 +288,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		// All other device types are treated the same.
 		}
 
+
+
 	    isXperiaPlay = IsXperiaPlay();
 
 		String libraryDir = getApplicationLibraryDir(appInfo);
@@ -453,16 +455,20 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		shuttingDown = false;
 		registerCallbacks();
 
-		if (!initialized) {
-			Initialize();
-			initialized = true;
-		}
-
 		Display display = getWindowManager().getDefaultDisplay();
 		DisplayMetrics metrics = new DisplayMetrics();
 		display.getMetrics(metrics);
 		densityDpi = metrics.densityDpi;
 		refreshRate = display.getRefreshRate();
+
+		// Set early to be able to set defaults when loading config for the first time. Like figuring out
+		// whether to start at 1x or 2x.
+		NativeApp.setDisplayParameters(metrics.widthPixels, metrics.heightPixels, (int)densityDpi, refreshRate);
+
+		if (!initialized) {
+			Initialize();
+			initialized = true;
+		}
 
 		// OK, config should be initialized, we can query for screen rotation.
 		updateScreenRotation("onCreate");

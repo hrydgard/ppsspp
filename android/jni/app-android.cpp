@@ -301,6 +301,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	int physicalDevice = g_Vulkan->GetBestPhysicalDevice();
 	if (physicalDevice < 0) {
 		ELOG("No usable Vulkan device found.");
+		g_Vulkan->DestroyInstance();
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
 		return false;
@@ -313,6 +314,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
 		ILOG("Failed to create vulkan device: %s", g_Vulkan->InitError().c_str());
 		System_SendMessage("toast", "No Vulkan driver found. Using OpenGL instead.");
+		g_Vulkan->DestroyInstance();
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
 		return false;
