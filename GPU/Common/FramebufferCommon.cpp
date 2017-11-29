@@ -200,7 +200,7 @@ bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffe
 
 void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
 	for (size_t i = 0; i < extraFBOs_.size(); i++) {
-		extraFBOs_[i]->Release();
+		extraFBOs_[i]->ReleaseAssertLast();
 	}
 	extraFBOs_.clear();
 	for (int i = 0; i < num; i++) {

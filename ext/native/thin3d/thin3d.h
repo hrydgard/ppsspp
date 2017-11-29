@@ -346,6 +346,7 @@ public:
 
 	void AddRef() { refcount_++; }
 	bool Release();
+	bool ReleaseAssertLast();
 
 private:
 	int refcount_;
