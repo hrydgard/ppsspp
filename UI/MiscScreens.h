@@ -142,8 +142,8 @@ private:
 
 	UI::EventReturn OnSupport(UI::EventParams &e);
 	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
+	UI::EventReturn OnPrivacy(UI::EventParams &e);
 	UI::EventReturn OnForums(UI::EventParams &e);
-	UI::EventReturn OnChineseForum(UI::EventParams &e);
 	UI::EventReturn OnShare(UI::EventParams &e);
 	UI::EventReturn OnTwitter(UI::EventParams &e);
 

@@ -534,6 +534,7 @@ void CreditsScreen::CreateViews() {
 	}
 	root_->Add(new Button(cr->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
 	root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
+	root_->Add(new Button(cr->T("Privacy Policy"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 232, false)))->OnClick.Handle(this, &CreditsScreen::OnPrivacy);
 #ifdef __ANDROID__
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
@@ -565,6 +566,11 @@ UI::EventReturn CreditsScreen::OnTwitter(UI::EventParams &e) {
 
 UI::EventReturn CreditsScreen::OnPPSSPPOrg(UI::EventParams &e) {
 	LaunchBrowser("https://www.ppsspp.org");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn CreditsScreen::OnPrivacy(UI::EventParams &e) {
+	LaunchBrowser("https://www.ppsspp.org/privacy.html");
 	return UI::EVENT_DONE;
 }
 
