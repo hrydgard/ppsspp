@@ -49,7 +49,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 // Runs after NativeInit() at some point. May (and probably should) call OpenGL.
 // Should not initialize anything screen-size-dependent - do that in NativeResized.
-void NativeInitGraphics(GraphicsContext *graphicsContext);
+bool NativeInitGraphics(GraphicsContext *graphicsContext);
 
 // Signals that you need to forget all buffered OpenGL resources,
 // like textures, vbo etc.

@@ -635,7 +635,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 		// TODO: Double?  Does it ever happen?
 
 		default:
-			_assert_msg_(HLE, false, "Invalid argmask character: %c", argmask[i]);
+			_dbg_assert_msg_(HLE, false, "Invalid argmask character: %c", argmask[i]);
 			APPEND_FMT(" -- invalid arg format: %c -- %08x", argmask[i], regval);
 			break;
 		}
@@ -673,7 +673,7 @@ void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res,
 		// TODO: For now, floats are just shown as bits.
 		fmt = "%s%08x=%s(%s)%s";
 	} else {
-		_assert_msg_(HLE, false, "Invalid return format: %c", retmask);
+		_dbg_assert_msg_(HLE, false, "Invalid return format: %c", retmask);
 		fmt = "%s%08llx=%s(%s)%s";
 	}
 

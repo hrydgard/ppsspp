@@ -742,6 +742,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 
 	if (javaGL && !graphicsContext) {
 		graphicsContext = new AndroidJavaEGLGraphicsContext();
+	} else if (!graphicsContext) {
+		_assert_msg_(G3D, false, "No graphics context in displayInit?");
 	}
 
 	if (renderer_inited) {
@@ -750,7 +752,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		NativeShutdownGraphics();
 		NativeDeviceRestore();
 		NativeInitGraphics(graphicsContext);
-
 		ILOG("Restored.");
 	} else {
 		ILOG("NativeApp.displayInit() first time");
@@ -1139,6 +1140,7 @@ retry:
 		}
 
 		delete graphicsContext;
+		graphicsContext = nullptr;
 		return false;
 	}
 

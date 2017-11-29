@@ -46,26 +46,9 @@ public:
 		Unmap();
 	}
 
-	void Map() {
-		assert(!writePtr_);
-		VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
-		assert(writePtr_);
-		assert(VK_SUCCESS == res);
-	}
+	void Map();
 
-	void Unmap() {
-		assert(writePtr_);
-		/*
-		// Should not need this since we use coherent memory.
-		VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
-		range.offset = 0;
-		range.size = offset_;
-		range.memory = buffers_[buf_].deviceMemory;
-		vkFlushMappedMemoryRanges(device_, 1, &range);
-		*/
-		vkUnmapMemory(device_, buffers_[buf_].deviceMemory);
-		writePtr_ = nullptr;
-	}
+	void Unmap();
 
 	// When using the returned memory, make sure to bind the returned vkbuf.
 	// This will later allow for handling overflow correctly.

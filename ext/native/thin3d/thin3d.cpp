@@ -4,6 +4,7 @@
 
 #include "base/logging.h"
 #include "thin3d/thin3d.h"
+#include "Common/Log.h"
 #include "Common/ColorConv.h"
 
 namespace Draw {
@@ -75,10 +76,25 @@ bool RefCountedObject::Release() {
 		}
 	}
 	else {
+		_dbg_assert_msg_(G3D, false, "Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
+	}
+	return false;
+}
+
+bool RefCountedObject::ReleaseAssertLast() {
+	_dbg_assert_msg_(G3D, refcount_ == 1, "RefCountedObject: Expected to be the last reference, but isn't!");
+	if (refcount_ > 0 && refcount_ < 10000) {
+		refcount_--;
+		if (refcount_ == 0) {
+			delete this;
+			return true;
+		}
+	} else {
 		ELOG("Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
 	}
 	return false;
 }
+
 
 // ================================== PIXEL/FRAGMENT SHADERS
 
