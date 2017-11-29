@@ -1139,6 +1139,7 @@ retry:
 		}
 
 		delete graphicsContext;
+		graphicsContext = nullptr;
 		return false;
 	}
 

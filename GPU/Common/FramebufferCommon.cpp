@@ -136,6 +136,8 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 		DestroyFramebuf(vfb);
 	}
 	bvfbs_.clear();
+
+	SetNumExtraFBOs(0);
 }
 
 void FramebufferManagerCommon::Init() {
@@ -207,7 +209,8 @@ void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
 		extraFBOs_.push_back(fbo);
 	}
 	currentRenderVfb_ = 0;
-	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+	if (num != 0)
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 }
 
 // Heuristics to figure out the size of FBO to create.

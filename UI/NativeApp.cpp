@@ -613,12 +613,14 @@ static void UIThemeInit() {
 
 void RenderOverlays(UIContext *dc, void *userdata);
 
-void NativeInitGraphics(GraphicsContext *graphicsContext) {
+bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ILOG("NativeInitGraphics");
+	_assert_msg_(G3D, graphicsContext, "No graphics context!");
 
 	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
+	_assert_msg_(G3D, g_draw, "No draw context available!");
 
 	ui_draw2d.SetAtlas(&ui_atlas);
 	ui_draw2d_front.SetAtlas(&ui_atlas);
@@ -694,6 +696,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	g_graphicsInited = true;
 	ILOG("NativeInitGraphics completed");
+	return true;
 }
 
 void NativeShutdownGraphics() {
