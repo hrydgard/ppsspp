@@ -1298,7 +1298,6 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
-	// Inherits ownership so no AddRef.
 	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {}
 	~VKFramebuffer() {
 		buf_->vulkan_->Delete().QueueCallback([](void *fb) {
