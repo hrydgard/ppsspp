@@ -173,6 +173,8 @@ int __DisplayGetFlipCount() { return actualFlips; }
 int __DisplayGetVCount() { return vCount; }
 int __DisplayGetNumVblanks() { return numVBlanks; }
 
+void __DisplayFlip(int cyclesLate);
+
 static void ScheduleLagSync(int over = 0) {
 	lagSyncScheduled = g_Config.bForceLagSync;
 	if (lagSyncScheduled) {
@@ -655,7 +657,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		framebuf = latchedFramebuf;
 		framebufIsLatched = false;
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
+		__DisplayFlip(cyclesLate);
 	}
+}
+
+void __DisplayFlip(int cyclesLate) {
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
@@ -725,6 +731,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
 		// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
 		// place to do housekeeping.
+
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 		numVBlanksSinceFlip = 0;
 	} else {
@@ -835,9 +842,11 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) 
 	fbstate.stride = linesize;
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
-		// Write immediately to the current framebuffer parameters
+		// Write immediately to the current framebuffer parameters.
 		framebuf = fbstate;
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
+		// IMMEDIATE means that the buffer is fine. We can just flip immediately.
+		__DisplayFlip(0);
 	} else {
 		// Delay the write until vblank
 		latchedFramebuf = fbstate;
