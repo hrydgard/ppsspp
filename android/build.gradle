@@ -1,5 +1,5 @@
 plugins {
-	id 'com.gladed.androidgitversion' version '0.3.4'
+	id 'com.gladed.androidgitversion' version '0.4.3'
 }
 apply plugin: 'com.android.application'
 
@@ -7,6 +7,7 @@ androidGitVersion {
 	codeFormat = "MNPPBBBB"
 	format = "%tag%%-count%%-branch%%-dirty%"
 	prefix = "v"  // Only tags beginning with v are considered.
+	untrackedIsDirty = false
 }
 
 android {
