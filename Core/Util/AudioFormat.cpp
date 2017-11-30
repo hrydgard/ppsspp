@@ -26,7 +26,7 @@
 
 void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {
 #ifdef _M_SSE
-	if (leftVol <= 0x7fff && rightVol <= 0x7fff) {
+	if (leftVol <= 0x7fff && -leftVol <= 0x8000 && rightVol <= 0x7fff && -rightVol <= 0x8000) {
 		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
 		while (size >= 16) {
 			__m128i indata1 = _mm_loadu_si128((__m128i *)in);
@@ -37,25 +37,46 @@ void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int 
 			out += 16;
 			size -= 16;
 		}
-	} else {
-		// We have to shift inside the loop to avoid the signed multiply issue.
-		leftVol >>= 1;
-		rightVol >>= 1;
-		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
+	}
+#if 0
+	// This path wraps instead of clamps in _mm_slli_epi16. Needs fixing.
+	else {
+		// We have to shift inside the loop to avoid the signed 16-bit multiply issue.
+		int leftShift = 0;
+		int leftVol16 = leftVol;
+		while (leftVol16 > 0x7fff || -leftVol16 > 0x8000) {
+			++leftShift;
+			leftVol16 >>= 1;
+		}
+		int rightShift = 0;
+		int rightVol16 = rightVol;
+		while (rightVol16 > 0x7fff || -rightVol16 > 0x8000) {
+			++rightShift;
+			rightVol16 >>= 1;
+		}
+		__m128i volume = _mm_set_epi16(leftVol16, rightVol16, leftVol16, rightVol16, leftVol16, rightVol16, leftVol16, rightVol16);
 		while (size >= 16) {
 			__m128i indata1 = _mm_loadu_si128((__m128i *)in);
 			__m128i indata2 = _mm_loadu_si128((__m128i *)(in + 8));
-			_mm_storeu_si128((__m128i *)out, _mm_slli_epi16(_mm_mulhi_epi16(indata1, volume), 1));
-			_mm_storeu_si128((__m128i *)(out + 8), _mm_slli_epi16(_mm_mulhi_epi16(indata2, volume), 1));
+			_mm_storeu_si128((__m128i *)out, _mm_slli_epi16(_mm_mulhi_epi16(indata1, volume), leftShift));
+			_mm_storeu_si128((__m128i *)(out + 8), _mm_slli_epi16(_mm_mulhi_epi16(indata2, volume), rightShift));
 			in += 16;
 			out += 16;
 			size -= 16;
 		}
 	}
 #endif
-	for (size_t i = 0; i < size; i += 2) {
-		out[i] = ApplySampleVolume(in[i], leftVol);
-		out[i + 1] = ApplySampleVolume(in[i + 1], rightVol);
+#endif
+	if (leftVol <= 0x7fff && -leftVol <= 0x8000 && rightVol <= 0x7fff && -rightVol <= 0x8000) {
+		for (size_t i = 0; i < size; i += 2) {
+			out[i] = ApplySampleVolume(in[i], leftVol);
+			out[i + 1] = ApplySampleVolume(in[i + 1], rightVol);
+		}
+	} else {
+		for (size_t i = 0; i < size; i += 2) {
+			out[i] = ApplySampleVolume20Bit(in[i], leftVol);
+			out[i + 1] = ApplySampleVolume20Bit(in[i + 1], rightVol);
+		}
 	}
 }
 

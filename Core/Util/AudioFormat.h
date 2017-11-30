@@ -59,6 +59,12 @@ static inline s16 ApplySampleVolume(s16 sample, int vol) {
 #endif
 }
 
+// We sacrifice a little volume precision to fit in 32 bits, for speed.
+// Probably not worth it to make a special path for 64-bit CPUs.
+static inline s16 ApplySampleVolume20Bit(s16 sample, int vol20) {
+	return clamp_s16((sample * (vol20 >> 4)) >> 12);
+}
+
 void SetupAudioFormats();
 void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int rightVol);
 void ConvertS16ToF32(float *ou, const s16 *in, size_t size);

@@ -125,7 +125,6 @@ namespace MIPSComp {
 		virtual JitBlockCache *GetBlockCache() = 0;
 		virtual void InvalidateCacheAt(u32 em_address, int length = 4) = 0;
 		virtual void DoState(PointerWrap &p) = 0;
-		virtual void DoDummyState(PointerWrap &p) = 0;
 		virtual void RunLoopUntil(u64 globalticks) = 0;
 		virtual void Compile(u32 em_address) = 0;
 		virtual void ClearCache() = 0;
@@ -146,6 +145,8 @@ namespace MIPSComp {
 	typedef int (MIPSFrontendInterface::*MIPSReplaceFunc)();
 
 	extern JitInterface *jit;
+
+	void DoDummyJitState(PointerWrap &p);
 
 	JitInterface *CreateNativeJit(MIPSState *mips);
 }

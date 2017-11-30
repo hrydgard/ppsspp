@@ -134,6 +134,27 @@ size_t VulkanPushBuffer::GetTotalSize() const {
 	return sum;
 }
 
+void VulkanPushBuffer::Map() {
+	assert(!writePtr_);
+	VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
+	assert(writePtr_);
+	assert(VK_SUCCESS == res);
+}
+
+void VulkanPushBuffer::Unmap() {
+	assert(writePtr_);
+	/*
+	// Should not need this since we use coherent memory.
+	VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+	range.offset = 0;
+	range.size = offset_;
+	range.memory = buffers_[buf_].deviceMemory;
+	vkFlushMappedMemoryRanges(device_, 1, &range);
+	*/
+	vkUnmapMemory(device_, buffers_[buf_].deviceMemory);
+	writePtr_ = nullptr;
+}
+
 VulkanDeviceAllocator::VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize)
 	: vulkan_(vulkan), lastSlab_(0), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE), destroyed_(false) {
 	assert((minSlabSize_ & (SLAB_GRAIN_SIZE - 1)) == 0);

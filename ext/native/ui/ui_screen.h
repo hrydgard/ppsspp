@@ -264,7 +264,7 @@ private:
 	const char *category_;
 	ScreenManager *screenManager_;
 	std::string valueText_;
-	bool restoreFocus_;
+	bool restoreFocus_ = false;
 	std::set<int> hidden_;
 };
 

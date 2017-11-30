@@ -250,7 +250,6 @@ FramebufferManagerGLES::~FramebufferManagerGLES() {
 	if (stencilUploadProgram_) {
 		glsl_destroy(stencilUploadProgram_);
 	}
-	SetNumExtraFBOs(0);
 
 	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
 		it->second.fbo->Release();

@@ -87,7 +87,12 @@ bool CheatFileParser::Parse() {
 		getline(file_, line, '\n');
 		line = TrimString(line);
 
-		if (line.length() > 2 && line[0] == '_') {
+		// Minimum length is set to 5 just to match GetCodesList() function
+		// which discards anything shorter when called anyway.
+		// It's decided from shortest possible _ lines name of the game "_G N+"
+		// and a minimum of 1 displayable character in cheat name string "_C0 1"
+		// which both equal to 5 characters.
+		if (line.length() >= 5 && line[0] == '_') {
 			ParseLine(line);
 		} else if (line.length() >= 2 && line[0] == '/' && line[1] == '/') {
 			// Comment, ignore.
@@ -340,7 +345,21 @@ std::vector<std::string> CWCheatEngine::GetCodesList() {
 		std::string line;
 		getline(list, line, '\n');
 
-		if (line.length() > 3 && (line.substr(0, 1) == "_" || line.substr(0, 2) == "//")) {
+		bool validCheatLine = false;
+		// This function is called by cheat menu(UI) which doesn't support empty names
+		// minimum 1 non space character is required starting from 5 position.
+		// It also goes through other "_" lines, but they all have to meet this requirement anyway
+		// so we don't have to specify any syntax checks here that are made by cheat engine.
+		if (line.length() >= 5 && line[0] == '_') {
+			for (int i = 4; i < line.length(); i++) {
+				if (line[i] != ' ') {
+					validCheatLine = true;
+					break;
+				}
+			}
+		}
+		// Any lines not passing this check are discarded when we save changes to the cheat ini file
+		if (validCheatLine || (line.length() >= 2 && line[0] == '/' && line[1] == '/') || (line.length() >= 1 && line[0] == '#')) {
 			codesList.push_back(TrimString(line));
 		}
 	}

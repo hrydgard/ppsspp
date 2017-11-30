@@ -301,8 +301,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 
 VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
 	VulkanPipelineKey key{};
-	if (!renderPass)
-		Crash();
+	_assert_msg_(G3D, renderPass, "Can't create a pipeline with a null renderpass");
 
 	key.raster = rasterKey;
 	key.renderPass = renderPass;

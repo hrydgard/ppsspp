@@ -148,9 +148,13 @@ void ShaderManagerDX9::PSSetColorUniform3(int creg, u32 color) {
 }
 
 void ShaderManagerDX9::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
-	float f[4];
-	Uint8x3ToFloat4_AlphaUint8(f, color, alpha);
-	device_->SetPixelShaderConstantF(creg, f, 1);
+	const float col[4] = {
+		(float)((color & 0xFF)),
+		(float)((color & 0xFF00) >> 8),
+		(float)((color & 0xFF0000) >> 16),
+		(float)alpha,
+	};
+	device_->SetPixelShaderConstantF(creg, col, 1);
 }
 
 void ShaderManagerDX9::PSSetFloat(int creg, float value) {
