@@ -58,9 +58,16 @@ void AdjustVolumeBlockNEON(s16 *out, s16 *in, size_t size, int leftVol, int righ
 		}
 	}
 
-	for (size_t i = 0; i < size; i += 2) {
-		out[i] = ApplySampleVolume(in[i], leftVol);
-		out[i + 1] = ApplySampleVolume(in[i + 1], rightVol);
+	if (leftVol <= 0x7fff && -leftVol <= 0x8000 && rightVol <= 0x7fff && -rightVol <= 0x8000) {
+		for (size_t i = 0; i < size; i += 2) {
+			out[i] = ApplySampleVolume(in[i], leftVol);
+			out[i + 1] = ApplySampleVolume(in[i + 1], rightVol);
+		}
+	} else {
+		for (size_t i = 0; i < size; i += 2) {
+			out[i] = ApplySampleVolume20Bit(in[i], leftVol);
+			out[i + 1] = ApplySampleVolume20Bit(in[i + 1], rightVol);
+		}
 	}
 }
 
