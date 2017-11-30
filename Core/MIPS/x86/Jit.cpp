@@ -142,21 +142,6 @@ void Jit::DoState(PointerWrap &p) {
 	CBreakPoints::SetSkipFirst(0);
 }
 
-// This is here so the savestate matches between jit and non-jit.
-void Jit::DoDummyState(PointerWrap &p) {
-	auto s = p.Section("Jit", 1, 2);
-	if (!s)
-		return;
-
-	bool dummy = false;
-	p.Do(dummy);
-	if (s >= 2) {
-		dummy = true;
-		p.Do(dummy);
-	}
-}
-
-
 void Jit::GetStateAndFlushAll(RegCacheState &state) {
 	gpr.GetState(state.gpr);
 	fpr.GetState(state.fpr);

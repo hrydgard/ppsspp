@@ -50,20 +50,6 @@ void IRJit::DoState(PointerWrap &p) {
 	frontend_.DoState(p);
 }
 
-// This is here so the savestate matches between jit and non-jit.
-void IRJit::DoDummyState(PointerWrap &p) {
-	auto s = p.Section("Jit", 1, 2);
-	if (!s)
-		return;
-
-	bool dummy = false;
-	p.Do(dummy);
-	if (s >= 2) {
-		dummy = true;
-		p.Do(dummy);
-	}
-}
-
 void IRJit::ClearCache() {
 	ILOG("IRJit: Clearing the cache!");
 	blocks_.Clear();
