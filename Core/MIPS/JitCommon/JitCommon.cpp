@@ -21,6 +21,8 @@
 #include "ext/udis86/udis86.h"
 
 #include "Common/StringUtils.h"
+#include "Common/ChunkFile.h"
+
 #include "Core/Util/DisArm64.h"
 #include "Core/Config.h"
 
@@ -44,6 +46,20 @@ namespace MIPSComp {
 	JitInterface *jit;
 	void JitAt() {
 		jit->Compile(currentMIPS->pc);
+	}
+
+	void DoDummyJitState(PointerWrap &p) {
+		// This is here so the savestate matches between jit and non-jit.
+		auto s = p.Section("Jit", 1, 2);
+		if (!s)
+			return;
+
+		bool dummy = false;
+		p.Do(dummy);
+		if (s >= 2) {
+			dummy = true;
+			p.Do(dummy);
+		}
 	}
 
 	JitInterface *CreateNativeJit(MIPSState *mips) {

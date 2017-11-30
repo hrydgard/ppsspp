@@ -39,7 +39,6 @@ public:
 	virtual ~Arm64Jit();
 
 	void DoState(PointerWrap &p) override;
-	void DoDummyState(PointerWrap &p) override;
 
 	const JitOptions &GetJitOptions() { return jo; }
 

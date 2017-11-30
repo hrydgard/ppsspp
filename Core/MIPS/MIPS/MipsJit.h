@@ -38,7 +38,6 @@ public:
 	MipsJit(MIPSState *mips);
 
 	void DoState(PointerWrap &p) override;
-	void DoDummyState(PointerWrap &p) override;
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself

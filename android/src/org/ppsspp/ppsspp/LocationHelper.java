@@ -20,17 +20,18 @@ class LocationHelper implements LocationListener {
 	void startLocationUpdates() {
 		Log.d(TAG, "startLocationUpdates");
 		if (!mLocationEnable) {
-			boolean isGPSEnabled = mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-			boolean isNetworkEnabled = mLocationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-
+			boolean isGPSEnabled = false;
+			boolean isNetworkEnabled = false;
 			try {
+				isGPSEnabled = mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+				isNetworkEnabled = mLocationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
 				mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, this);
 				mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0, this);
 				mLocationEnable = true;
 			} catch (SecurityException e) {
 				Log.e(TAG, "Cannot start location updates: " + e.toString());
 			}
-			if(!isGPSEnabled && !isNetworkEnabled) {
+			if (!isGPSEnabled && !isNetworkEnabled) {
 				Log.i(TAG, "No location provider found");
 				// TODO: notify user
 			}
