@@ -37,7 +37,10 @@ void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int 
 			out += 16;
 			size -= 16;
 		}
-	} else {
+	}
+#if 0
+	// This path wraps instead of clamps in _mm_slli_epi16. Needs fixing.
+	else {
 		// We have to shift inside the loop to avoid the signed 16-bit multiply issue.
 		int leftShift = 0;
 		int leftVol16 = leftVol;
@@ -63,9 +66,17 @@ void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int 
 		}
 	}
 #endif
-	for (size_t i = 0; i < size; i += 2) {
-		out[i] = ApplySampleVolume(in[i], leftVol);
-		out[i + 1] = ApplySampleVolume(in[i + 1], rightVol);
+#endif
+	if (leftVol <= 0x7fff && -leftVol <= 0x8000 && rightVol <= 0x7fff && -rightVol <= 0x8000) {
+		for (size_t i = 0; i < size; i += 2) {
+			out[i] = ApplySampleVolume(in[i], leftVol);
+			out[i + 1] = ApplySampleVolume(in[i + 1], rightVol);
+		}
+	} else {
+		for (size_t i = 0; i < size; i += 2) {
+			out[i] = ApplySampleVolume20Bit(in[i], leftVol);
+			out[i + 1] = ApplySampleVolume20Bit(in[i + 1], rightVol);
+		}
 	}
 }
 
