@@ -124,7 +124,7 @@ public:
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
+	Shader(const ShaderID &id, const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
 	~Shader();
 	uint32_t shader;
 
