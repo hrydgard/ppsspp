@@ -190,7 +190,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	std::vector<std::string> newList;
 
 	std::string cheatFile = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
-	std::string gameID = StringFromFormat("_S %s-%s", gameTitle.substr(0, 4), gameTitle.substr(4));
+	std::string gameID = StringFromFormat("_S %s-%s", gameTitle.substr(0, 4).c_str(), gameTitle.substr(4).c_str());
 
 	std::fstream fs;
 	File::OpenCPPFile(fs, cheatFile, std::ios::in);
