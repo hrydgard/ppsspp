@@ -439,8 +439,8 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value)
 }
 
 void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength) {
-	u8 *ptr = GetPointer(_Address);
-	if (ptr && IsValidAddress(_Address + _iLength - 1)) {
+	if (IsValidRange(_Address, _iLength)) {
+		uint8_t *ptr = GetPointerUnchecked(_Address);
 		memset(ptr, _iValue, _iLength);
 	} else {
 		for (size_t i = 0; i < _iLength; i++)
