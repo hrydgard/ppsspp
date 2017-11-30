@@ -106,6 +106,7 @@ static int mode;
 static int width;
 static int height;
 static bool wasPaused;
+static bool flippedThisFrame;
 
 // 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
 static const double timePerVblank = 1.001f / 60.0f;
@@ -194,6 +195,7 @@ void __DisplayInit() {
 	numSkippedFrames = 0;
 	numVBlanks = 0;
 	numVBlanksSinceFlip = 0;
+	flippedThisFrame = false;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
 	framebuf.fmt = GE_FORMAT_8888;
@@ -658,10 +660,14 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		framebufIsLatched = false;
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
 		__DisplayFlip(cyclesLate);
+	} else if (!flippedThisFrame) {
+		// Gotta flip even if sceDisplaySetFramebuf was not called.
+		__DisplayFlip(cyclesLate);
 	}
 }
 
 void __DisplayFlip(int cyclesLate) {
+	flippedThisFrame = true;
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
@@ -751,6 +757,7 @@ void hleAfterFlip(u64 userdata, int cyclesLate) {
 
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
+	flippedThisFrame = false;
 	VERBOSE_LOG(SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 
