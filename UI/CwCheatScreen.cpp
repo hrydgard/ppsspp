@@ -65,9 +65,9 @@ void CwCheatScreen::CreateCodeList() {
 	bEnableCheat.clear();
 	formattedList_.clear();
 	for (size_t i = 0; i < cheatList.size(); i++) {
-		if (cheatList[i].substr(0, 2) == "_C") {
+		if (cheatList[i][0] == '_' && cheatList[i][1] == 'C') {
 			formattedList_.push_back(cheatList[i].substr(4));
-			if (cheatList[i].substr(2, 1) == "0") {
+			if (cheatList[i][2] == '0') {
 				bEnableCheat.push_back(false);
 			} else {
 				bEnableCheat.push_back(true);
@@ -136,11 +136,11 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
 	enableAll = !enableAll;
 	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
 	for (int j = 0; j < (int)cheatList.size(); j++) {
-		if (cheatList[j].substr(0, 2) == "_C") {
-			if (cheatList[j].substr(2, 1) == "0" && enableAll) {
-				cheatList[j].replace(2, 1, "1");
-			} else if (cheatList[j].substr(2, 1) != "0" && !enableAll) {
-				cheatList[j].replace(2, 1, "0");
+		if (cheatList[j][0] == '_' && cheatList[j][1] == 'C') {
+			if (cheatList[j][2] == '0' && enableAll) {
+				cheatList[j][2] = '1';
+			} else if (cheatList[j][2] != '0' && !enableAll) {
+				cheatList[j][2] = '0';
 			}
 		}
 	}
@@ -190,6 +190,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	std::vector<std::string> newList;
 
 	std::string cheatFile = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
+	std::string gameID = StringFromFormat("_S %s-%s", gameTitle.substr(0, 4).c_str(), gameTitle.substr(4).c_str());
 
 	std::fstream fs;
 	File::OpenCPPFile(fs, cheatFile, std::ios::in);
@@ -200,7 +201,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 
 	while (fs.good()) {
 		getline(fs, line); // get line from file
-		if (line == "_S " + gameTitle.substr(0, 4) + "-" + gameTitle.substr(4)) {
+		if (line == gameID) {
 			title.push_back(line);
 			getline(fs, line);
 			title.push_back(line);
@@ -208,7 +209,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 				if (finished == false){
 					getline(fs, line);
 				}
-				if (line.substr(0, 2) == "_C") {
+				if (line[0] == '_' && line[1] == 'C') {
 					//Test if cheat already exists in cheatList
 					for (size_t j = 0; j < formattedList_.size(); j++) {
 						if (line.substr(4) == formattedList_[j]) {
@@ -222,13 +223,13 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 					do {
 						newList.push_back(line);
 						getline(fs, line);
-					} while (line.substr(0, 2) == "_L");
+					} while (line[0] == '_' && line[1] == 'L');
 					finished = true;
 				} else {
 					continue;
 				}
 			loop:;
-			} while (line.substr(0, 2) != "_S");
+			} while (fs.good() && line[0] != '_' && line[1] != 'S');
 			finished = true;
 		}
 		if (finished == true)
@@ -242,7 +243,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	File::OpenCPPFile(fs, activeCheatFile, std::ios::out | std::ios::app);
 
 	auto it = title.begin();
-	if (title2.substr(0, 2) != "_S" && it != title.end() && (++it) != title.end()) {
+	if (title2[0] != '_' && title2[1] != 'S' && it != title.end() && (++it) != title.end()) {
 		fs << title[0] << "\n" << title[1];
 	}
 
