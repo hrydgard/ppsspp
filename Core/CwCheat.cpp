@@ -87,7 +87,7 @@ bool CheatFileParser::Parse() {
 		getline(file_, line, '\n');
 		line = TrimString(line);
 
-		if (line.length() > 2 && line[0] == '_') {
+		if (line.length() >= 5 && line[0] == '_') {
 			ParseLine(line);
 		} else if (line.length() >= 2 && line[0] == '/' && line[1] == '/') {
 			// Comment, ignore.
@@ -340,7 +340,17 @@ std::vector<std::string> CWCheatEngine::GetCodesList() {
 		std::string line;
 		getline(list, line, '\n');
 
-		if (line.length() > 3 && (line.substr(0, 1) == "_" || line.substr(0, 2) == "//")) {
+		bool validCheatLine = false;
+		// This code is used by cheat menu which doesn't support empty names
+		if (line.length() >= 5 && line.substr(0, 1) == "_") {
+			for (int i = 4; i < line.length(); i++) {
+				if (line.substr(i, 1) != " ") {
+					validCheatLine = true;
+					break;
+				}
+			}
+		}
+		if (validCheatLine || (line.length() >= 2 && line.substr(0, 2) == "//") || (line.length() >= 1 && line.substr(0, 1) == "#")) {
 			codesList.push_back(TrimString(line));
 		}
 	}
