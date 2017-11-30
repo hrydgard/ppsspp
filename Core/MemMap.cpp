@@ -438,14 +438,11 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value)
 	Memory::WriteUnchecked_U32(_Value.encoding, _Address);
 }
 
-void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
-{
-	u8 *ptr = GetPointer(_Address);
-	if (ptr != NULL) {
+void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength) {
+	if (IsValidRange(_Address, _iLength)) {
+		uint8_t *ptr = GetPointerUnchecked(_Address);
 		memset(ptr, _iValue, _iLength);
-	}
-	else
-	{
+	} else {
 		for (size_t i = 0; i < _iLength; i++)
 			Write_U8(_iValue, (u32)(_Address + i));
 	}
