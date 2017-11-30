@@ -342,15 +342,15 @@ std::vector<std::string> CWCheatEngine::GetCodesList() {
 
 		bool validCheatLine = false;
 		// This code is used by cheat menu which doesn't support empty names
-		if (line.length() >= 5 && line.substr(0, 1) == "_") {
+		if (line.length() >= 5 && line[0] == '_') {
 			for (int i = 4; i < line.length(); i++) {
-				if (line.substr(i, 1) != " ") {
+				if (line[i] != ' ') {
 					validCheatLine = true;
 					break;
 				}
 			}
 		}
-		if (validCheatLine || (line.length() >= 2 && line.substr(0, 2) == "//") || (line.length() >= 1 && line.substr(0, 1) == "#")) {
+		if (validCheatLine || (line.length() >= 2 && line[0] == '/' && line[1] == '/') || (line.length() >= 1 && line[0] == '#')) {
 			codesList.push_back(TrimString(line));
 		}
 	}
