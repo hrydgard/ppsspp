@@ -51,13 +51,20 @@ public:
 	}
 
 	~VKRFramebuffer() {
-		vulkan_->Delete().QueueDeleteImage(color.image);
-		vulkan_->Delete().QueueDeleteImage(depth.image);
-		vulkan_->Delete().QueueDeleteImageView(color.imageView);
-		vulkan_->Delete().QueueDeleteImageView(depth.imageView);
-		vulkan_->Delete().QueueDeleteDeviceMemory(color.memory);
-		vulkan_->Delete().QueueDeleteDeviceMemory(depth.memory);
-		vulkan_->Delete().QueueDeleteFramebuffer(framebuf);
+		if (color.image)
+			vulkan_->Delete().QueueDeleteImage(color.image);
+		if (depth.image)
+			vulkan_->Delete().QueueDeleteImage(depth.image);
+		if (color.imageView)
+			vulkan_->Delete().QueueDeleteImageView(color.imageView);
+		if (depth.imageView)
+			vulkan_->Delete().QueueDeleteImageView(depth.imageView);
+		if (color.memory)
+			vulkan_->Delete().QueueDeleteDeviceMemory(color.memory);
+		if (depth.memory)
+			vulkan_->Delete().QueueDeleteDeviceMemory(depth.memory);
+		if (framebuf)
+			vulkan_->Delete().QueueDeleteFramebuffer(framebuf);
 	}
 
 	int numShadows = 1;  // TODO: Support this.
