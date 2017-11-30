@@ -60,7 +60,7 @@ struct GPUgstate {
 				lightEnable[4],
 				clipEnable,
 				cullfaceEnable,
-				textureMapEnable,
+				textureMapEnable,  // 0x1E GE_CMD_TEXTUREMAPENABLE
 				fogEnable,
 				ditherEnable,
 				alphaBlendEnable,
@@ -116,8 +116,8 @@ struct GPUgstate {
 				materialspecularcoef, // 0x5B
 				ambientcolor,         // 0x5C
 				ambientalpha,         // 0x5D
-				lmode,                // 0x5E
-				ltype[4],             // 0x5F-0x62
+				lmode,                // 0x5E      GE_CMD_LIGHTMODE
+				ltype[4],             // 0x5F-0x62 GE_CMD_LIGHTTYPEx
 				lpos[12],             // 0x63-0x6E
 				ldir[12],             // 0x6F-0x7A
 				latt[12],             // 0x7B-0x86
@@ -141,7 +141,7 @@ struct GPUgstate {
 				texsize[8],           // 0xB8-BF
 				texmapmode,           // 0xC0
 				texshade,             // 0xC1
-				texmode,              // 0xC2
+				texmode,              // 0xC2 GE_CMD_TEXMODE
 				texformat,            // 0xC3
 				loadclut,             // 0xC4
 				clutformat,           // 0xC5
@@ -158,7 +158,7 @@ struct GPUgstate {
 				texlodslope,          // 0xD0
 				padxxxxxx,            // 0xD1
 				framebufpixformat,    // 0xD2
-				clearmode,            // 0xD3
+				clearmode,            // 0xD3 GE_CMD_CLEARMODE
 				scissor1,
 				scissor2,
 				minz,
