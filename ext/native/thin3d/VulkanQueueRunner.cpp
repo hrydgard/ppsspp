@@ -594,8 +594,8 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		w = vulkan_->GetBackbufferWidth();
 		h = vulkan_->GetBackbufferHeight();
 		renderPass = GetBackbufferRenderPass();
-		assert(step.render.color == VKRRenderPassAction::CLEAR || step.render.color == VKRRenderPassAction::DONT_CARE);
-		assert(step.render.depthStencil == VKRRenderPassAction::CLEAR || step.render.depthStencil == VKRRenderPassAction::DONT_CARE);
+		_dbg_assert_msg_(G3D, step.render.color == VKRRenderPassAction::CLEAR || step.render.color == VKRRenderPassAction::DONT_CARE, "Backbuffer pass should only be CLEAR or DONT_CARE");
+		_dbg_assert_msg_(G3D, step.render.depthStencil == VKRRenderPassAction::CLEAR || step.render.depthStencil == VKRRenderPassAction::DONT_CARE, "Backbuffer pass should only be CLEAR or DONT_CARE");
 		Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 		numClearVals = 2;  // We don't bother with a depth buffer here.
 		clearVal[1].depthStencil.depth = 0.0f;
