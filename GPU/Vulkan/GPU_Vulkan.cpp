@@ -609,8 +609,8 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 
 void GPU_Vulkan::DeviceLost() {
 	DestroyDeviceObjects();
-
 	framebufferManagerVulkan_->DeviceLost();
+	vulkan2D_.DeviceLost();
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
 	textureCacheVulkan_->DeviceLost();
@@ -628,6 +628,7 @@ void GPU_Vulkan::DeviceRestore() {
 	UpdateCmdInfo();
 
 	framebufferManagerVulkan_->DeviceRestore(vulkan_, draw_);
+	vulkan2D_.DeviceRestore(vulkan_);
 	drawEngine_.DeviceRestore(vulkan_, draw_);
 	pipelineManager_->DeviceRestore(vulkan_);
 	textureCacheVulkan_->DeviceRestore(vulkan_, draw_);
