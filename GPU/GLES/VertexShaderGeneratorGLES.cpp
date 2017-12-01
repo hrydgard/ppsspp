@@ -120,7 +120,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, 
 	bool highpTexcoord = false;
 
 	if (gl_extensions.IsGLES) {
-		if (gstate_c.featureFlags & GPU_SUPPORTS_GLSL_ES_300) {
+		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
 			WRITE(p, "#version 300 es\n");
 			glslES30 = true;
 			texelFetch = "texelFetch";

@@ -2046,7 +2046,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 	if (x + w >= vfb->bufferWidth) {
 		w = vfb->bufferWidth - x;
 	}
-	if (vfb) {
+	if (vfb && vfb->fbo) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 		OptimizeDownloadRange(vfb, x, y, w, h);
 		if (vfb->renderWidth == vfb->width && vfb->renderHeight == vfb->height) {

@@ -1314,10 +1314,6 @@ EventReturn ListView::OnItemCallback(int num, EventParams &e) {
 	View *focused = GetFocusedView();
 	OnChoice.Trigger(ev);
 	CreateAllItems();
-	// TODO: At this point, focused may no longer exist, depending on what OnChoice.Trigger does.
-	// Disable the refocus feature for now.
-	// if (focused)
-	//	SetFocusedView(e.v);
 	return EVENT_DONE;
 }
 

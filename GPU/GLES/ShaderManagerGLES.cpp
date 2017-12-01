@@ -44,7 +44,7 @@
 #include "GPU/Common/ShaderUniforms.h"
 #include "FramebufferManagerGLES.h"
 
-Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
+Shader::Shader(const ShaderID &id, const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
 	  : failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask), uniformMask_(uniformMask) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	isFragment_ = glShaderType == GL_FRAGMENT_SHADER;
@@ -71,10 +71,12 @@ Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform, uin
 		ELOG("Error in shader compilation! %s\n", infoLog);
 		ELOG("Shader source:\n%s\n", (const char *)code);
 #endif
-		ERROR_LOG(G3D, "Error in shader compilation!\n");
-		ERROR_LOG(G3D, "Info log: %s\n", infoLog);
+
+		std::string desc = GetShaderString(SHADER_STRING_SHORT_DESC, id);
+		ERROR_LOG(G3D, "Error in shader compilation for: %s", desc.c_str());
+		ERROR_LOG(G3D, "Info log: %s", infoLog);
 		ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
-		Reporting::ReportMessage("Error in shader compilation: info: %s / code: %s", infoLog, (const char *)code);
+		Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog, desc.c_str(), (const char *)code);
 #ifdef SHADERLOG
 		OutputDebugStringUTF8(infoLog);
 #endif
@@ -142,13 +144,17 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 			ELOG("Could not link program:\n %s", buf);
 #endif
 			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
-			ERROR_LOG(G3D, "VS desc:\n%s\n", vs->GetShaderString(SHADER_STRING_SHORT_DESC, VSID).c_str());
-			ERROR_LOG(G3D, "FS desc:\n%s\n", fs->GetShaderString(SHADER_STRING_SHORT_DESC, FSID).c_str());
+
+			std::string vs_desc = vs->GetShaderString(SHADER_STRING_SHORT_DESC, VSID);
+			std::string fs_desc = fs->GetShaderString(SHADER_STRING_SHORT_DESC, FSID);
 			std::string vs_source = vs->GetShaderString(SHADER_STRING_SOURCE_CODE, VSID);
 			std::string fs_source = fs->GetShaderString(SHADER_STRING_SOURCE_CODE, FSID);
+
+			ERROR_LOG(G3D, "VS desc:\n%s", vs_desc.c_str());
+			ERROR_LOG(G3D, "FS desc:\n%s", fs_desc.c_str());
 			ERROR_LOG(G3D, "VS:\n%s\n", vs_source.c_str());
 			ERROR_LOG(G3D, "FS:\n%s\n", fs_source.c_str());
-			Reporting::ReportMessage("Error in shader program link: info: %s / fs: %s / vs: %s", buf, fs_source.c_str(), vs_source.c_str());
+			Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", buf, fs_desc.c_str(), fs_source.c_str(), vs_desc.c_str(), vs_source.c_str());
 #ifdef SHADERLOG
 			OutputDebugStringUTF8(buf);
 			OutputDebugStringUTF8(vs_source.c_str());
@@ -747,7 +753,7 @@ Shader *ShaderManagerGLES::CompileFragmentShader(ShaderID FSID) {
 	if (!GenerateFragmentShader(FSID, codeBuffer_, &uniformMask)) {
 		return nullptr;
 	}
-	return new Shader(codeBuffer_, GL_FRAGMENT_SHADER, false, 0, uniformMask);
+	return new Shader(FSID, codeBuffer_, GL_FRAGMENT_SHADER, false, 0, uniformMask);
 }
 
 Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
@@ -755,7 +761,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
 	uint32_t attrMask;
 	uint64_t uniformMask;
 	GenerateVertexShader(VSID, codeBuffer_, &attrMask, &uniformMask);
-	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
+	return new Shader(VSID, codeBuffer_, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
 }
 
 Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
@@ -806,7 +812,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 			uint32_t attrMask;
 			uint64_t uniformMask;
 			GenerateVertexShader(vsidTemp, codeBuffer_, &attrMask, &uniformMask);
-			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false, attrMask, uniformMask);
+			vs = new Shader(vsidTemp, codeBuffer_, GL_VERTEX_SHADER, false, attrMask, uniformMask);
 		}
 
 		vsCache_.Insert(*VSID, vs);
@@ -854,6 +860,11 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(ShaderID VSID, Shader *vs, 
 	shaderSwitchDirtyUniforms_ = 0;
 
 	if (ls == nullptr) {
+		_dbg_assert_(G3D, FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
+		_dbg_assert_(G3D, FSID.Bit(FS_BIT_DO_TEXTURE) == VSID.Bit(VS_BIT_DO_TEXTURE));
+		_dbg_assert_(G3D, FSID.Bit(FS_BIT_ENABLE_FOG) == VSID.Bit(VS_BIT_ENABLE_FOG));
+		_dbg_assert_(G3D, FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
+
 		// Check if we can link these.
 		ls = new LinkedShader(VSID, vs, FSID, fs, vs->UseHWTransform());
 		ls->use(VSID, lastShader_);

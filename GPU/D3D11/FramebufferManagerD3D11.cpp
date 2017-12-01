@@ -574,7 +574,7 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 	} else if (framebuffer != currentRenderVfb_) {
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 	} else {
-		ERROR_LOG_REPORT_ONCE(d3d11SelfTexture, G3D, "Attempting to texture to target");
+		ERROR_LOG_REPORT_ONCE(d3d11SelfTexture, G3D, "Attempting to texture from target (src=%08x / target=%08x / flags=%d)", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// Badness on D3D11 to bind the currently rendered-to framebuffer as a texture.
 		ID3D11ShaderResourceView *view = nullptr;
 		context_->PSSetShaderResources(stage, 1, &view);

@@ -207,7 +207,6 @@ void SoftwareTransform(
 			float uv[3] = {0, 0, 1};
 			float fogCoef = 1.0f;
 
-			// We do software T&L for now
 			float out[3];
 			float pos[3];
 			Vec3f normal(0, 0, 1);
