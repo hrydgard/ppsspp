@@ -612,6 +612,13 @@ void FramebufferManagerVulkan::DestroyAllFBOs() {
 		DestroyFramebuf(vfb);
 	}
 	bvfbs_.clear();
+
+	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
+		it->second.fbo->Release();
+	}
+	tempFBOs_.clear();
+
+	SetNumExtraFBOs(0);
 }
 
 void FramebufferManagerVulkan::Resized() {

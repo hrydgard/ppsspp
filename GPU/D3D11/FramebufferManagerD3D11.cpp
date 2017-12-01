@@ -740,6 +740,8 @@ void FramebufferManagerD3D11::DestroyAllFBOs() {
 	}
 	tempFBOs_.clear();
 
+	SetNumExtraFBOs(0);
+
 	DisableState();
 }
 
