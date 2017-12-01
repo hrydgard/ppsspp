@@ -689,10 +689,10 @@ void FramebufferManagerVulkan::CompilePostShader() {
 
 	if (postVs_ && postFs_) {
 		pipelinePostShader_ = vulkan2D_->GetPipeline(backbufferRP, postVs_, postFs_, true, Vulkan2D::VK2DDepthStencilMode::NONE);
+		usePostShader_ = true;
 	} else {
 		ELOG("Failed to compile.");
+		pipelinePostShader_ = nullptr;
+		usePostShader_ = false;
 	}
-
-
-	usePostShader_ = true;
 }
