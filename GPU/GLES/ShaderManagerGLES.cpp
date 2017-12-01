@@ -773,10 +773,9 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 		gstate_c.CleanUniforms();
 	}
 
-	bool useHWTransform = CanUseHardwareTransform(prim);
-
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
+		bool useHWTransform = CanUseHardwareTransform(prim);
 		ComputeVertexShaderID(VSID, vertType, useHWTransform);
 	} else {
 		*VSID = lastVSID_;
@@ -987,6 +986,12 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 			return;
 		}
 		if (!vsCache_.Get(id)) {
+			if (id.Bit(VS_BIT_IS_THROUGH) && id.Bit(VS_BIT_USE_HW_TRANSFORM)) {
+				// Clearly corrupt, bailing.
+				ERROR_LOG_REPORT(G3D, "Corrupt shader cache: Both IS_THROUGH and USE_HW_TRANSFORM set.");
+				return;
+			}
+
 			Shader *vs = CompileVertexShader(id);
 			if (vs->Failed()) {
 				// Give up on using the cache, just bail. We can't safely create the fallback shaders here

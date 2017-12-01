@@ -583,8 +583,6 @@ void FramebufferManagerVulkan::EndFrame() {
 }
 
 void FramebufferManagerVulkan::DeviceLost() {
-	vulkan2D_->DeviceLost();
-
 	DestroyAllFBOs();
 	DestroyDeviceObjects();
 }
@@ -593,7 +591,6 @@ void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawCo
 	vulkan_ = vulkan;
 	draw_ = draw;
 
-	vulkan2D_->DeviceRestore(vulkan_);
 	InitDeviceObjects();
 }
 
