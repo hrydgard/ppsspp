@@ -77,7 +77,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 	ShaderID id;
 	id.SetBit(VS_BIT_LMODE, lmode);
-	id.SetBit(VS_BIT_IS_THROUGH, gstate.isModeThrough());
+	id.SetBit(VS_BIT_IS_THROUGH, isModeThrough);
 	id.SetBit(VS_BIT_ENABLE_FOG, enableFog);
 	id.SetBit(VS_BIT_HAS_COLOR, hasColor);
 
