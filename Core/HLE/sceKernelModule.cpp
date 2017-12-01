@@ -1070,9 +1070,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 
 		if (IsHLEVersionedModule(head->modname)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
-			char temp[256];
-			snprintf(temp, sizeof(temp), "Loading module %s with version %%04x, devkit %%08x", head->modname);
-			INFO_LOG_REPORT(SCEMODULE, temp, ver, head->devkitversion);
+			INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x", head->modname, ver, head->devkitversion);
 			reportedModule = true;
 
 			if (!strcmp(head->modname, "sceMpeg_library")) {
@@ -1434,9 +1432,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		delete [] newptr;
 
 	if (!reportedModule && IsHLEVersionedModule(modinfo->name)) {
-		char temp[256];
-		snprintf(temp, sizeof(temp), "Loading module %s with version %%04x, devkit %%08x", modinfo->name);
-		INFO_LOG_REPORT(SCEMODULE, temp, modinfo->moduleVersion, devkitVersion);
+		INFO_LOG_REPORT(SCEMODULE, "Loading module %s with version %04x, devkit %08x", modinfo->name, modinfo->moduleVersion, devkitVersion);
 
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
 			__MpegLoadModule(modinfo->moduleVersion);
