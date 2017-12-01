@@ -229,7 +229,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 					continue;
 				}
 			loop:;
-			} while (fs.good() && line[0] != '_' && line[1] != 'S');
+			} while (fs.good() && line[0] == '_' && line[1] != 'S');
 			finished = true;
 		}
 		if (finished == true)
@@ -243,7 +243,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	File::OpenCPPFile(fs, activeCheatFile, std::ios::out | std::ios::app);
 
 	auto it = title.begin();
-	if (title2[0] != '_' && title2[1] != 'S' && it != title.end() && (++it) != title.end()) {
+	if (title2[0] == '_' && title2[1] != 'S' && it != title.end() && (++it) != title.end()) {
 		fs << title[0] << "\n" << title[1];
 	}
 
