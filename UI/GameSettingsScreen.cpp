@@ -256,11 +256,14 @@ void GameSettingsScreen::CreateViews() {
 	altSpeed->SetZeroLabel(gr->T("Unlimited"));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
-	I18NCategory *ps = GetI18NCategory("PostShaders");
-	postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), ps->GetName()));
-	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
-	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	postProcChoice_->SetEnabledPtr(&postProcEnable_);
+	// Hide postprocess option on unsupported backends to avoid confusion.
+	if (g_Config.iGPUBackend != GPU_BACKEND_DIRECT3D9) {
+		I18NCategory *ps = GetI18NCategory("PostShaders");
+		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), ps->GetName()));
+		postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
+		postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+		postProcChoice_->SetEnabledPtr(&postProcEnable_);
+	}
 
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
