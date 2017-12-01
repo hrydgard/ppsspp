@@ -917,6 +917,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 }
 
 void GPUCommon::BeginFrame() {
+	immCount_ = 0;
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
 		dumpThisFrame_ = true;
@@ -1810,7 +1811,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	if (immCount_ >= MAX_IMMBUFFER_SIZE) {
 		// Only print once for each overrun.
 		if (immCount_ == MAX_IMMBUFFER_SIZE) {
-			ERROR_LOG_REPORT_ONCE(exceed_imm_buffer, G3D, "Exceeded immediate draw buffer size");
+			ERROR_LOG_REPORT_ONCE(exceed_imm_buffer, G3D, "Exceeded immediate draw buffer size. gstate.imm_ap=%06x , prim=%d", gstate.imm_ap & 0xFFFFFF, (int)immPrim_);
 		}
 		if (immCount_ < 0x7fffffff)  // Paranoia :)
 			immCount_++;
