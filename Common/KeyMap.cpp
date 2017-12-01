@@ -649,6 +649,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 #ifndef MOBILE_DEVICE
 	{VIRTKEY_FRAME_ADVANCE, "Frame Advance"},
 	{VIRTKEY_REWIND, "Rewind"},
+	{VIRTKEY_RECORD, "Audio/Video Recording" },
 #endif
 	{VIRTKEY_SAVE_STATE, "Save State"},
 	{VIRTKEY_LOAD_STATE, "Load State"},
