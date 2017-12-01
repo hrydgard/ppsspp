@@ -1808,7 +1808,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	u32 magic;
 	u32 error;
 	std::string error_string;
-	module = __KernelLoadELFFromPtr(temp, (size_t)size, 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(temp, (size_t)size, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, error);
 	delete [] temp;
 	pspFileSystem.CloseFile(handle);
 
@@ -2254,7 +2254,7 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	u8 *temp = new u8[size - pos];
 	pspFileSystem.ReadFile(handle, temp, size - pos);
 	u32 magic;
-	module = __KernelLoadELFFromPtr(temp, size - pos, 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(temp, size - pos, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, error);
 	delete [] temp;
 
 	if (!module) {
@@ -2311,7 +2311,7 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 	Module *module = 0;
 	u32 magic;
 	u32 error;
-	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), size, 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), size, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, error);
 
 	if (!module) {
 		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.
