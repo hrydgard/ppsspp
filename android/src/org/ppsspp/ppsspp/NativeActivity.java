@@ -651,6 +651,17 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	protected void onDestroy() {
 		super.onDestroy();
 		if (javaGL) {
+			if (nativeRenderer.isRenderingFrame()) {
+				Log.i(TAG, "Waiting for renderer to finish.");
+				int tries = 200;
+				do {
+					try {
+						Thread.sleep(10);
+					} catch (InterruptedException e) {
+					}
+					tries--;
+				} while (nativeRenderer.isRenderingFrame() && tries > 0);
+			}
 			Log.i(TAG, "onDestroy");
 			mGLSurfaceView.onDestroy();
 			// Probably vain attempt to help the garbage collector...

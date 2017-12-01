@@ -2,7 +2,7 @@
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
 
-// Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP
+// Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
 
 void VulkanQueueRunner::CreateDeviceObjects() {
 	ILOG("VulkanQueueRunner::CreateDeviceObjects");
