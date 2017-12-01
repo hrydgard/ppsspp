@@ -165,7 +165,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, 
 	}
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
-	bool lmode = id.Bit(VS_BIT_LMODE) && !isModeThrough;  // TODO: Different expression than in shaderIDgen
+	bool lmode = id.Bit(VS_BIT_LMODE);
 	bool doTexture = id.Bit(VS_BIT_DO_TEXTURE);
 	bool doTextureProjection = id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM);
 
