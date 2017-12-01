@@ -697,7 +697,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, 
 		bool diffuseIsZero = true;
 		bool specularIsZero = true;
 		bool distanceNeeded = false;
-
+		bool anySpots = false;
 		if (enableLighting) {
 			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
 
@@ -711,6 +711,8 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, 
 					specularIsZero = false;
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					distanceNeeded = true;
+				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN)
+					anySpots = true;
 			}
 
 			if (!specularIsZero) {
@@ -723,6 +725,10 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, 
 			if (distanceNeeded) {
 				WRITE(p, "  float distance;\n");
 				WRITE(p, "  lowp float lightScale;\n");
+			}
+			WRITE(p, "  mediump float ldot;\n");
+			if (anySpots) {
+				WRITE(p, "  lowp float angle;\n");
 			}
 		}
 
@@ -747,14 +753,14 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, 
 			bool doSpecular = comp != GE_LIGHTCOMP_ONLYDIFFUSE;
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
-			WRITE(p, "  mediump float dot%i = max(dot(toLight, worldnormal), 0.0);\n", i);
+			WRITE(p, "  ldot = max(dot(toLight, worldnormal), 0.0);\n");
 			if (poweredDiffuse) {
 				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (dot%i == 0.0 && u_matspecular.a == 0.0) {\n", i);
-				WRITE(p, "    dot%i = 1.0;\n", i);
+				WRITE(p, "  if (ldot == 0.0 && u_matspecular.a == 0.0) {\n");
+				WRITE(p, "    ldot = 1.0;\n");
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
+				WRITE(p, "    ldot = pow(ldot, u_matspecular.a);\n");
 				WRITE(p, "  }\n");
 			}
 
@@ -770,9 +776,9 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, 
 				break;
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  lowp float angle%i = dot(normalize(u_lightdir%i), toLight);\n", i, i);
-				WRITE(p, "  if (angle%i >= u_lightangle%i) {\n", i, i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i);\n", i, i, i);
+				WRITE(p, "  angle = dot(normalize(u_lightdir%i), toLight);\n", i);
+				WRITE(p, "  if (angle >= u_lightangle%i) {\n", i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle, u_lightspotCoef%i);\n", i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");
@@ -782,11 +788,11 @@ void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, 
 				break;
 			}
 
-			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * dot%i;\n", i, diffuseStr, i);
+			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * ldot;\n", i, diffuseStr);
 			if (doSpecular) {
-				WRITE(p, "  dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
-				WRITE(p, "  if (dot%i > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
+				WRITE(p, "  ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
+				WRITE(p, "  if (ldot > 0.0)\n");
+				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(ldot, u_matspecular.a) %s);\n", i, specularStr, timesLightScale);
 			}
 			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
