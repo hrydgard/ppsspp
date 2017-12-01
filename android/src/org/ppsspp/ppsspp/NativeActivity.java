@@ -661,6 +661,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			mSurfaceView.onDestroy();
 			mSurfaceView = null;
 		}
+		// TODO: Can we ensure that the GL thread has stopped rendering here?
+		// I've seen crashes that seem to indicate that sometimes it hasn't...
 		NativeApp.audioShutdown();
 		if (shuttingDown || isFinishing()) {
 			unregisterCallbacks();
