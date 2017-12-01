@@ -366,11 +366,11 @@ uniform vec2 u_texelDelta;
 uniform vec2 u_pixelDelta;
 varying vec2 v_texcoord0;
 
-varying vec4 v_texcoordNC0;
-varying vec4 v_texcoordNC1;
-varying vec4 v_texcoordNC2;
-varying vec4 v_texcoordNC3;
-varying vec2 omega;
+varying vec4 v_texcoord1;
+varying vec4 v_texcoord2;
+varying vec4 v_texcoord3;
+varying vec4 v_texcoord4;
+varying vec2 v_texcoord5;
 
 
 //===========
@@ -892,25 +892,25 @@ const vec3 val00 = vec3( 1.2, 1.2, 1.2);
 vec3 processNATURALC(vec3 color){
 	vec3 c0,c1;
 
-	c0 = texture2D(sampler0,v_texcoordNC0.xy).xyz;
-	c0+=(texture2D(sampler0,v_texcoordNC0.zy).xyz)*0.25;
-	c0+=(texture2D(sampler0,v_texcoordNC0.xw).xyz)*0.25;
-	c0+=(texture2D(sampler0,v_texcoordNC0.zw).xyz)*0.125;
+	c0 = texture2D(sampler0,v_texcoord1.xy).xyz;
+	c0+=(texture2D(sampler0,v_texcoord1.zy).xyz)*0.25;
+	c0+=(texture2D(sampler0,v_texcoord1.xw).xyz)*0.25;
+	c0+=(texture2D(sampler0,v_texcoord1.zw).xyz)*0.125;
 
-	c0+= texture2D(sampler0,v_texcoordNC1.xy).xyz;
-	c0+=(texture2D(sampler0,v_texcoordNC1.zy).xyz)*0.25;
-	c0+=(texture2D(sampler0,v_texcoordNC1.xw).xyz)*0.25;
-	c0+=(texture2D(sampler0,v_texcoordNC1.zw).xyz)*0.125;
+	c0+= texture2D(sampler0,v_texcoord2.xy).xyz;
+	c0+=(texture2D(sampler0,v_texcoord2.zy).xyz)*0.25;
+	c0+=(texture2D(sampler0,v_texcoord2.xw).xyz)*0.25;
+	c0+=(texture2D(sampler0,v_texcoord2.zw).xyz)*0.125;
 
-	c0+= texture2D(sampler0,v_texcoordNC2.xy).xyz;
-	c0+=(texture2D(sampler0,v_texcoordNC2.zy).xyz)*0.25;
-	c0+=(texture2D(sampler0,v_texcoordNC2.xw).xyz)*0.25;
-	c0+=(texture2D(sampler0,v_texcoordNC2.zw).xyz)*0.125;
+	c0+= texture2D(sampler0,v_texcoord3.xy).xyz;
+	c0+=(texture2D(sampler0,v_texcoord3.zy).xyz)*0.25;
+	c0+=(texture2D(sampler0,v_texcoord3.xw).xyz)*0.25;
+	c0+=(texture2D(sampler0,v_texcoord3.zw).xyz)*0.125;
 
-	c0+= texture2D(sampler0,v_texcoordNC3.xy).xyz;
-	c0+=(texture2D(sampler0,v_texcoordNC3.zy).xyz)*0.25;
-	c0+=(texture2D(sampler0,v_texcoordNC3.xw).xyz)*0.25;
-	c0+=(texture2D(sampler0,v_texcoordNC3.zw).xyz)*0.125;
+	c0+= texture2D(sampler0,v_texcoord4.xy).xyz;
+	c0+=(texture2D(sampler0,v_texcoord4.zy).xyz)*0.25;
+	c0+=(texture2D(sampler0,v_texcoord4.xw).xyz)*0.25;
+	c0+=(texture2D(sampler0,v_texcoord4.zw).xyz)*0.125;
 	c0*=0.153846153846;
 
 	c1=RGBtoYIQ*c0;
@@ -1337,7 +1337,7 @@ vec3 processLCD3x(vec3 color){
 		sl_sizeLCD3x = sl_sizev;
 	}
 
-	vec2 angle = v_texcoord0.xy * omega / sl_sizeLCD3x;
+	vec2 angle = v_texcoord0.xy * v_texcoord5 / sl_sizeLCD3x;
 
 	float yfactor = (b_slLCD3x + sin(angle.y)) / (b_slLCD3x + 1.0);
 	vec3 xfactors = (b_lcdLCD3x + sin(angle.x + offsets)) / (b_lcdLCD3x + 1.0);
