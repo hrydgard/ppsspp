@@ -106,6 +106,7 @@ static int mode;
 static int width;
 static int height;
 static bool wasPaused;
+static bool flippedThisFrame;
 
 // 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
 static const double timePerVblank = 1.001f / 60.0f;
@@ -172,6 +173,8 @@ int __DisplayGetFlipCount() { return actualFlips; }
 int __DisplayGetVCount() { return vCount; }
 int __DisplayGetNumVblanks() { return numVBlanks; }
 
+void __DisplayFlip(int cyclesLate);
+
 static void ScheduleLagSync(int over = 0) {
 	lagSyncScheduled = g_Config.bForceLagSync;
 	if (lagSyncScheduled) {
@@ -191,6 +194,7 @@ void __DisplayInit() {
 	numSkippedFrames = 0;
 	numVBlanks = 0;
 	numVBlanksSinceFlip = 0;
+	flippedThisFrame = false;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
 	framebuf.fmt = GE_FORMAT_8888;
@@ -653,7 +657,15 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		framebuf = latchedFramebuf;
 		framebufIsLatched = false;
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
+		__DisplayFlip(cyclesLate);
+	} else if (!flippedThisFrame) {
+		// Gotta flip even if sceDisplaySetFramebuf was not called.
+		__DisplayFlip(cyclesLate);
 	}
+}
+
+void __DisplayFlip(int cyclesLate) {
+	flippedThisFrame = true;
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
@@ -723,6 +735,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
 		// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
 		// place to do housekeeping.
+
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 		numVBlanksSinceFlip = 0;
 	} else {
@@ -742,6 +755,7 @@ void hleAfterFlip(u64 userdata, int cyclesLate) {
 
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
+	flippedThisFrame = false;
 	VERBOSE_LOG(SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 
@@ -833,9 +847,11 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) 
 	fbstate.stride = linesize;
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
-		// Write immediately to the current framebuffer parameters
+		// Write immediately to the current framebuffer parameters.
 		framebuf = fbstate;
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
+		// IMMEDIATE means that the buffer is fine. We can just flip immediately.
+		__DisplayFlip(0);
 	} else {
 		// Delay the write until vblank
 		latchedFramebuf = fbstate;
