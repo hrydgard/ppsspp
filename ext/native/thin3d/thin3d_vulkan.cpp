@@ -1298,12 +1298,14 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
-	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) {}
+	VKFramebuffer(VKRFramebuffer *fb) : buf_(fb) { _assert_msg_(G3D, fb, "Null fb in VKFramebuffer constructor"); }
 	~VKFramebuffer() {
+		_assert_msg_(G3D, buf_, "Null buf_ in VKFramebuffer - double delete?");
 		buf_->vulkan_->Delete().QueueCallback([](void *fb) {
 			VKRFramebuffer *vfb = static_cast<VKRFramebuffer *>(fb);
 			delete vfb;
 		}, buf_);
+		buf_ = nullptr;
 	}
 	VKRFramebuffer *GetFB() const { return buf_; }
 private:
@@ -1313,8 +1315,7 @@ private:
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
 	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetRenderPass(0), desc.width, desc.height);
-	VKFramebuffer *fb = new VKFramebuffer(vkrfb);
-	return fb;
+	return new VKFramebuffer(vkrfb);
 }
 
 void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {

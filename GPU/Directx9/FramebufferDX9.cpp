@@ -725,6 +725,9 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			it->second.surface->Release();
 		}
 		offscreenSurfaces_.clear();
+
+		SetNumExtraFBOs(0);
+
 		DisableState();
 	}
 

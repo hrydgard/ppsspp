@@ -1060,6 +1060,8 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 	}
 	tempFBOs_.clear();
 
+	SetNumExtraFBOs(0);
+
 	DisableState();
 	CHECK_GL_ERROR_IF_DEBUG();
 }
