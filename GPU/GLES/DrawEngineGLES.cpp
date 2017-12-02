@@ -670,17 +670,15 @@ rotateVBO:
 		int numTrans;
 		bool drawIndexed = false;
 		u16 *inds = decIndex;
-		SoftwareTransformResult result;
-		memset(&result, 0, sizeof(result));
-
+		SoftwareTransformResult result{};
 		// TODO: Keep this static?  Faster than repopulating?
-		SoftwareTransformParams params;
-		memset(&params, 0, sizeof(params));
+		SoftwareTransformParams params{};
 		params.decoded = decoded;
 		params.transformed = transformed;
 		params.transformedExpanded = transformedExpanded;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
+		params.allowClear = true;
 		params.allowSeparateAlphaClear = true;
 
 		int maxIndex = indexGen.MaxIndex();
