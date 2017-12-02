@@ -31,6 +31,7 @@ public:
 	virtual bool touch(const TouchInput &touch) override;
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
 	virtual void onFinish(DialogResult reason) override;
+	std::string tag() const override { return "display layout screen"; }
 	
 protected:
 	virtual UI::EventReturn OnCenter(UI::EventParams &e);

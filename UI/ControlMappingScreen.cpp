@@ -252,16 +252,6 @@ void ControlMappingScreen::CreateViews() {
 	}
 }
 
-void ControlMappingScreen::sendMessage(const char *message, const char *value) {
-	// Always call the base class method first to handle the most common messages.
-	UIDialogScreenWithBackground::sendMessage(message, value);
-
-	if (!strcmp(message, "settings")) {
-		UpdateUIState(UISTATE_MENU);
-		screenManager()->push(new GameSettingsScreen(""));
-	}
-}
-
 UI::EventReturn ControlMappingScreen::OnClearMapping(UI::EventParams &params) {
 	KeyMap::g_controllerMap.clear();
 	RecreateViews();

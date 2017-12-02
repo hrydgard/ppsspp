@@ -33,9 +33,10 @@ class ControlMappingScreen : public UIDialogScreenWithBackground {
 public:
 	ControlMappingScreen() {}
 	void KeyMapped(int pspkey);  // Notification to let us refocus the same one after recreating views.
+	std::string tag() const override { return "control mapping"; }
+
 protected:
 	virtual void CreateViews() override;
-	virtual void sendMessage(const char *message, const char *value) override;
 private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
 	UI::EventReturn OnClearMapping(UI::EventParams &params);

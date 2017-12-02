@@ -30,12 +30,12 @@ public:
 
 	virtual void update();
 	virtual void onFinish(DialogResult result);
+	std::string tag() const override { return "settings"; }
 
 	UI::Event OnRecentChanged;
 
 protected:
 	virtual void CreateViews();
-	virtual void sendMessage(const char *message, const char *value);
 	void CallbackRestoreDefaults(bool yes);
 	void CallbackRenderingBackend(bool yes);
 	bool UseVerticalLayout() const;
@@ -63,7 +63,6 @@ private:
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
 	UI::EventReturn OnTouchControlLayout(UI::EventParams &e);
 	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
-	UI::EventReturn OnReloadCheats(UI::EventParams &e);
 	UI::EventReturn OnTiltTypeChange(UI::EventParams &e);
 	UI::EventReturn OnTiltCustomize(UI::EventParams &e);
 	UI::EventReturn OnComboKey(UI::EventParams &e);
@@ -85,7 +84,6 @@ private:
 	UI::EventReturn OnDisplayLayoutEditor(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
 	UI::EventReturn OnHwScaleChange(UI::EventParams &e);
-	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
@@ -119,7 +117,6 @@ private:
 	bool postProcEnable_;
 	bool resolutionEnable_;
 	bool bloomHackEnable_;
-	bool bezierChoiceDisable_;
 	bool tessHWEnable_;
 };
 
