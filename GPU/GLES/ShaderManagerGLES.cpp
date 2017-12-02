@@ -957,6 +957,7 @@ struct CacheHeader {
 
 void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 	File::IOFile f(filename, "rb");
+	u64 sz = f.GetSize();
 	if (!f.IsOpen()) {
 		return;
 	}
@@ -971,8 +972,20 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 	double start = time_now_d();
 
 	// Sanity check the file contents
-	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000)
+	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000) {
+		ERROR_LOG(G3D, "Corrupt shader cache file header, aborting.");
 		return;
+	}
+
+	// Also make sure the size makes sense, in case there's corruption.
+	u64 expectedSize = sizeof(header);
+	expectedSize += header.numVertexShaders * sizeof(VShaderID);
+	expectedSize += header.numFragmentShaders * sizeof(FShaderID);
+	expectedSize += header.numLinkedPrograms * (sizeof(VShaderID) + sizeof(FShaderID));
+	if (sz != expectedSize) {
+		ERROR_LOG(G3D, "Shader cache file is too large, aborting.");
+		return;
+	}
 
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		VShaderID id;
