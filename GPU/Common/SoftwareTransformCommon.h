@@ -44,6 +44,7 @@ struct SoftwareTransformParams {
 	TransformedVertex *transformedExpanded;
 	FramebufferManagerCommon *fbman;
 	TextureCacheCommon *texCache;
+	bool allowClear;
 	bool allowSeparateAlphaClear;
 };
 

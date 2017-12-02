@@ -897,17 +897,17 @@ void DrawEngineVulkan::DoFlush() {
 		int numTrans = 0;
 		bool drawIndexed = false;
 		u16 *inds = decIndex;
-		TransformedVertex *drawBuffer = NULL;
-		SoftwareTransformResult result;
-		memset(&result, 0, sizeof(result));
-
-		SoftwareTransformParams params;
-		memset(&params, 0, sizeof(params));
+		TransformedVertex *drawBuffer = nullptr;
+		SoftwareTransformResult result{};
+		SoftwareTransformParams params{};
 		params.decoded = decoded;
 		params.transformed = transformed;
 		params.transformedExpanded = transformedExpanded;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
+		// We have to force drawing of primitives if g_Config.iRenderingMode == 0 (non-buffered) because Vulkan clears
+		// do not respect scissor rects.
+		params.allowClear = g_Config.iRenderingMode != 0;
 		params.allowSeparateAlphaClear = false;
 
 		int maxIndex = indexGen.MaxIndex();
