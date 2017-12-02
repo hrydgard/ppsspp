@@ -162,6 +162,13 @@ bool UIDialogScreen::key(const KeyInput &key) {
 	return retval;
 }
 
+void UIDialogScreen::sendMessage(const char *msg, const char *value) {
+	Screen *screen = screenManager()->dialogParent(this);
+	if (screen) {
+		screen->sendMessage(msg, value);
+	}
+}
+
 bool UIScreen::axis(const AxisInput &axis) {
 	// Simple translation of hat to keys for Shield and other modern pads.
 	// TODO: Use some variant of keymap?
