@@ -41,7 +41,7 @@
 
 namespace DX9 {
 
-PSShader::PSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code) : id_(id), shader(nullptr), failed_(false) {
+PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : id_(id), shader(nullptr), failed_(false) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -91,7 +91,7 @@ std::string PSShader::GetShaderString(DebugShaderStringType type) const {
 	}
 }
 
-VSShader::VSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
+VSShader::VSShader(LPDIRECT3DDEVICE9 device, VShaderID id, const char *code, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -539,7 +539,7 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
-	ShaderID VSID;
+	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
 		ComputeVertexShaderID(&VSID, vertType, useHWTransform);
@@ -547,7 +547,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 		VSID = lastVSID_;
 	}
 
-	ShaderID FSID;
+	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
 		ComputeFragmentShaderID(&FSID);
@@ -660,7 +660,7 @@ std::string ShaderManagerDX9::DebugGetShaderString(std::string id, DebugShaderTy
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 	{
-		auto iter = vsCache_.find(shaderId);
+		auto iter = vsCache_.find(VShaderID(shaderId));
 		if (iter == vsCache_.end()) {
 			return "";
 		}
@@ -669,7 +669,7 @@ std::string ShaderManagerDX9::DebugGetShaderString(std::string id, DebugShaderTy
 
 	case SHADER_TYPE_FRAGMENT:
 	{
-		auto iter = fsCache_.find(shaderId);
+		auto iter = fsCache_.find(FShaderID(shaderId));
 		if (iter == fsCache_.end()) {
 			return "";
 		}

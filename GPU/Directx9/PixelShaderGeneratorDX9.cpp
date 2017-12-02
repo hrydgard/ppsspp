@@ -33,7 +33,7 @@ namespace DX9 {
 
 // Missing: Z depth range
 // Also, logic ops etc, of course, as they are not supported in DX9.
-bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang) {
+bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 
 	bool lmode = id.Bit(FS_BIT_LMODE);

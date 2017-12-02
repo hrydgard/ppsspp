@@ -449,7 +449,7 @@ void DrawEngineGLES::DoFlush() {
 	ApplyDrawState(prim);
 	CHECK_GL_ERROR_IF_DEBUG();
 
-	ShaderID vsid;
+	VShaderID vsid;
 	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_, &vsid);
 
 	if (vshader->UseHWTransform()) {

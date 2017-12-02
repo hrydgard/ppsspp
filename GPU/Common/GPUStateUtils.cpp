@@ -1323,7 +1323,7 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 		return;
 
 	// The PSP's mask is reversed (bits not to write.)
-	state.writeMask = (~(gstate.pmska >> 0)) & 0xFF;
+	state.writeMask = (~gstate.pmska) & 0xFF;
 
 	state.sFail = gstate.getStencilOpSFail();
 	state.zFail = gstate.getStencilOpZFail();

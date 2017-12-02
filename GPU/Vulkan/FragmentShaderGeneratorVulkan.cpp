@@ -41,7 +41,7 @@ static const char *vulkan_glsl_preamble =
 #define WRITE p+=sprintf
 
 // Missing: Z depth range
-bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
+bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 	char *p = buffer;
 
 	const char *lastFragData = nullptr;
