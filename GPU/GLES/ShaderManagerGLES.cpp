@@ -983,14 +983,13 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 	expectedSize += header.numFragmentShaders * sizeof(FShaderID);
 	expectedSize += header.numLinkedPrograms * (sizeof(VShaderID) + sizeof(FShaderID));
 	if (sz != expectedSize) {
-		ERROR_LOG(G3D, "Shader cache file is too large, aborting.");
+		ERROR_LOG(G3D, "Shader cache file is wrong size: %lld instead of %lld", sz, expectedSize);
 		return;
 	}
 
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		VShaderID id;
 		if (!f.ReadArray(&id, 1)) {
-			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
 		if (!vsCache_.Get(id)) {
@@ -1016,7 +1015,6 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		FShaderID id;
 		if (!f.ReadArray(&id, 1)) {
-			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
 		if (!fsCache_.Get(id)) {
@@ -1029,11 +1027,9 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 		VShaderID vsid;
 		FShaderID fsid;
 		if (!f.ReadArray(&vsid, 1)) {
-			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
 		if (!f.ReadArray(&fsid, 1)) {
-			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
 		Shader *vs = vsCache_.Get(vsid);
