@@ -132,6 +132,7 @@ public:
 	void Clear() {
 		memset(state.data(), (int)BucketState::FREE, state.size());
 		count_ = 0;
+		removedCount_ = 0;
 	}
 
 	void Rebuild() {
@@ -277,6 +278,7 @@ public:
 	void Clear() {
 		memset(state.data(), (int)BucketState::FREE, state.size());
 		count_ = 0;
+		removedCount_ = 0;
 	}
 
 	// Gets rid of REMOVED tombstones, making lookups somewhat more efficient.
