@@ -5,6 +5,7 @@
 
 #include "ext/xxhash.h"
 #include "Common/CommonFuncs.h"
+#include "Common/Log.h"
 
 // Whatever random value.
 const uint32_t hashmapSeed = 0x23B58532;
@@ -50,8 +51,9 @@ public:
 			else if (state[p] == BucketState::FREE)
 				return NullValue;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
-			if (p == pos)
-				Crash();
+			if (p == pos) {
+				_assert_msg_(SYSTEM, false, "DenseHashMap: Hit full on Get()");
+			}
 		}
 		return NullValue;
 	}
@@ -68,7 +70,8 @@ public:
 		while (true) {
 			if (state[p] == BucketState::TAKEN) {
 				if (KeyEquals(key, map[p].key)) {
-					Crash();  // Bad! We already got this one. Let's avoid this case.
+					// Bad! We already got this one. Let's avoid this case.
+					_assert_msg_(SYSTEM, false, "DenseHashMap: Duplicate key inserted");
 					return false;
 				}
 				// continue looking....
@@ -79,7 +82,7 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen thanks to Grow().
-				Crash();
+				_assert_msg_(SYSTEM, false, "DenseHashMap: Hit full on Insert()");
 			}
 		}
 		if (state[p] == BucketState::REMOVED) {
@@ -107,7 +110,7 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen.
-				Crash();
+				_assert_msg_(SYSTEM, false, "DenseHashMap: Hit full on Remove()");
 			}
 		}
 		return false;
@@ -191,8 +194,9 @@ public:
 			else if (state[p] == BucketState::FREE)
 				return NullValue;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
-			if (p == pos)
-				Crash();
+			if (p == pos) {
+				_assert_msg_(SYSTEM, false, "PrehashMap: Hit full on Get()");
+			}
 		}
 		return NullValue;
 	}
@@ -217,7 +221,7 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen thanks to Grow().
-				Crash();
+				_assert_msg_(SYSTEM, false, "PrehashMap: Hit full on Insert()");
 			}
 		}
 		if (state[p] == BucketState::REMOVED) {
@@ -244,7 +248,7 @@ public:
 			}
 			p = (p + 1) & mask;
 			if (p == pos) {
-				Crash();
+				_assert_msg_(SYSTEM, false, "PrehashMap: Hit full on Remove()");
 			}
 		}
 		return false;
