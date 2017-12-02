@@ -1125,8 +1125,9 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
 
+	bool reportNoPos = false;
 	if (!pos) {
-		ERROR_LOG_REPORT(G3D, "Vertices without position found");
+		reportNoPos = true;
 		pos = 1;
 	}
 	if (pos) { // there's always a position
@@ -1160,6 +1161,12 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	onesize_ = size;
 	size *= morphcount;
 	DEBUG_LOG(G3D, "SVT : size = %i, aligned to biggest %i", size, biggest);
+
+	if (reportNoPos) {
+		char temp[256]{};
+		ToString(temp);
+		ERROR_LOG_REPORT(G3D, "Vertices without position found: (%08x) %s", fmt_, temp);
+	}
 
 	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
 	// debugging attempts - if the main JIT doesn't work, this one won't do any better, probably.

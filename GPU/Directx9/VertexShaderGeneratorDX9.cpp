@@ -88,7 +88,7 @@ void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage l
 	const u32 vertType = gstate.vertType;
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
-	bool lmode = id.Bit(VS_BIT_LMODE) && !isModeThrough;  // TODO: Different expression than in shaderIDgen
+	bool lmode = id.Bit(VS_BIT_LMODE);
 	bool doTexture = id.Bit(VS_BIT_DO_TEXTURE);
 	bool doTextureTransform = id.Bit(VS_BIT_DO_TEXTURE_TRANSFORM);
 

@@ -42,9 +42,9 @@ namespace Draw {
 
 class Screen {
 public:
-	Screen() : screenManager_(0) { }
+	Screen() : screenManager_(nullptr) { }
 	virtual ~Screen() {
-		screenManager_ = 0;
+		screenManager_ = nullptr;
 	}
 
 	virtual void onFinish(DialogResult reason) {}

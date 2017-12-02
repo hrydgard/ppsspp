@@ -692,7 +692,7 @@ void FramebufferManagerVulkan::CompilePostShader() {
 		usePostShader_ = true;
 	} else {
 		ELOG("Failed to compile.");
-		pipelinePostShader_ = nullptr;
+		pipelinePostShader_ = VK_NULL_HANDLE;
 		usePostShader_ = false;
 	}
 }

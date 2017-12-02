@@ -43,7 +43,7 @@ enum {
 
 class LinkedShader {
 public:
-	LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform);
+	LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform, bool preloading = false);
 	~LinkedShader();
 
 	void use(const ShaderID &VSID, LinkedShader *previous);
@@ -54,9 +54,9 @@ public:
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
 	bool useHWTransform_;
 
-	uint32_t program;
+	uint32_t program = 0;
 	uint64_t availableUniforms;
-	uint64_t dirtyUniforms;
+	uint64_t dirtyUniforms = 0;
 
 	// Present attributes in the shader.
 	int attrMask;  // 1 << ATTR_ ... or-ed together.

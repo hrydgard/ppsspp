@@ -13,13 +13,20 @@ import android.view.Display;
 public class NativeRenderer implements GLSurfaceView.Renderer {
 	private static String TAG = "NativeRenderer";
 	private NativeActivity mActivity;
+	private boolean inFrame;
 
 	NativeRenderer(NativeActivity act) {
 		mActivity = act;
 	}
 
+	public boolean isRenderingFrame() {
+		return inFrame;
+	}
+
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
+		inFrame = true;
 		displayRender();
+		inFrame = false;
 	}
 
 	public void onSurfaceCreated(GL10 unused, EGLConfig config) {

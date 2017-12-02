@@ -93,8 +93,8 @@ Shader::~Shader() {
 		glDeleteShader(shader);
 }
 
-LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform)
-		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
+LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform, bool preloading)
+		: useHWTransform_(useHWTransform) {
 	PROFILE_THIS_SCOPE("shaderlink");
 
 	program = glCreateProgram();
@@ -154,7 +154,11 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 			ERROR_LOG(G3D, "FS desc:\n%s", fs_desc.c_str());
 			ERROR_LOG(G3D, "VS:\n%s\n", vs_source.c_str());
 			ERROR_LOG(G3D, "FS:\n%s\n", fs_source.c_str());
-			Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", buf, fs_desc.c_str(), fs_source.c_str(), vs_desc.c_str(), vs_source.c_str());
+			if (preloading) {
+				Reporting::ReportMessage("Error in shader program link during preload: info: %s\nfs: %s\n%s\nvs: %s\n%s", buf, fs_desc.c_str(), fs_source.c_str(), vs_desc.c_str(), vs_source.c_str());
+			} else {
+				Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", buf, fs_desc.c_str(), fs_source.c_str(), vs_desc.c_str(), vs_source.c_str());
+			}
 #ifdef SHADERLOG
 			OutputDebugStringUTF8(buf);
 			OutputDebugStringUTF8(vs_source.c_str());
@@ -1030,7 +1034,7 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 		Shader *vs = vsCache_.Get(vsid);
 		Shader *fs = fsCache_.Get(fsid);
 		if (vs && fs) {
-			LinkedShader *ls = new LinkedShader(vsid, vs, fsid, fs, vs->UseHWTransform());
+			LinkedShader *ls = new LinkedShader(vsid, vs, fsid, fs, vs->UseHWTransform(), true);
 			LinkedShaderCacheEntry entry(vs, fs, ls);
 			linkedShaderCache_.push_back(entry);
 		}

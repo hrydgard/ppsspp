@@ -457,8 +457,7 @@ namespace Reporting
 			return false;
 		if (CheatsInEffect())
 			return false;
-		// Not sure if we should support locked cpu at all, but definitely not far out values.
-		if (g_Config.iLockedCPUSpeed != 0 && (g_Config.iLockedCPUSpeed < 111 || g_Config.iLockedCPUSpeed > 333))
+		if (g_Config.iLockedCPUSpeed != 0)
 			return false;
 		// Don't allow builds without version info from git.  They're useless for reporting.
 		if (strcmp(PPSSPP_GIT_VERSION, "unknown") == 0)
