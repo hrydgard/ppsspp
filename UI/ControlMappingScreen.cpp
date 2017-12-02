@@ -256,7 +256,7 @@ void ControlMappingScreen::sendMessage(const char *message, const char *value) {
 	// Always call the base class method first to handle the most common messages.
 	UIDialogScreenWithBackground::sendMessage(message, value);
 
-	if (!strcmp(message, "settings")) {
+	if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new GameSettingsScreen(""));
 	}

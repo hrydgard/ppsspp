@@ -311,7 +311,7 @@ static void AfterStateBoot(bool success, const std::string &message, void *ignor
 
 void EmuScreen::sendMessage(const char *message, const char *value) {
 	// External commands, like from the Windows UI.
-	if (!strcmp(message, "pause")) {
+	if (!strcmp(message, "pause") && screenManager()->topScreen() == this) {
 		releaseButtons();
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	} else if (!strcmp(message, "lost_focus")) {
@@ -346,15 +346,15 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			bootPending_ = true;
 			bootGame(value);
 		}
-	} else if (!strcmp(message, "control mapping")) {
+	} else if (!strcmp(message, "control mapping") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();
 		screenManager()->push(new ControlMappingScreen());
-	} else if (!strcmp(message, "display layout editor")) {
+	} else if (!strcmp(message, "display layout editor") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();
 		screenManager()->push(new DisplayLayoutScreen());
-	} else if (!strcmp(message, "settings")) {
+	} else if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();
 		screenManager()->push(new GameSettingsScreen(gamePath_));

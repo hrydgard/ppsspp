@@ -935,18 +935,10 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	// Always call the base class method first to handle the most common messages.
 	UIScreenWithBackground::sendMessage(message, value);
 
-	if (!strcmp(message, "boot")) {
+	if (!strcmp(message, "boot") && screenManager()->topScreen() == this) {
 		screenManager()->switchScreen(new EmuScreen(value));
 	}
-	if (!strcmp(message, "control mapping")) {
-		UpdateUIState(UISTATE_MENU);
-		screenManager()->push(new ControlMappingScreen());
-	}
-	if (!strcmp(message, "display layout editor")) {
-		UpdateUIState(UISTATE_MENU);
-		screenManager()->push(new DisplayLayoutScreen());
-	}
-	if (!strcmp(message, "settings")) {
+	if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new GameSettingsScreen(""));
 	}
