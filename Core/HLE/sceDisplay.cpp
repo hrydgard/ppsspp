@@ -157,9 +157,10 @@ static float flips = 0.0f;
 static int actualFlips = 0;  // taking frameskip into account
 static int lastActualFlips = 0;
 static float actualFps = 0;
-static u64 lastFlipCycles = 0;
 // For the "max 60 fps" setting.
 static int lastFlipsTooFrequent = 0;
+static u64 lastFlipCycles = 0;
+static u64 nextFlipCycles = 0;
 
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
@@ -196,8 +197,9 @@ void __DisplayInit() {
 	framebuf.fmt = GE_FORMAT_8888;
 	framebuf.stride = 512;
 	memcpy(&latchedFramebuf, &framebuf, sizeof(latchedFramebuf));
-	lastFlipCycles = 0;
 	lastFlipsTooFrequent = 0;
+	lastFlipCycles = 0;
+	nextFlipCycles = 0;
 	wasPaused = false;
 
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
@@ -876,27 +878,32 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 	s64 delayCycles = 0;
 	// Don't count transitions between display off and display on.
 	if (topaddr != 0 && topaddr != framebuf.topaddr && framebuf.topaddr != 0 && g_Config.iForceMaxEmulatedFPS > 0) {
-		// Sometimes we get a small number, there's probably no need to delay the thread for this.
 		// sceDisplaySetFramebuf() isn't supposed to delay threads at all.  This is a hack.
-		const int FLIP_DELAY_CYCLES_MIN = 10;
+		// So let's only delay when it's more than 1ms.
+		const s64 FLIP_DELAY_CYCLES_MIN = usToCycles(1000);
 		// Some games (like Final Fantasy 4) only call this too much in spurts.
 		// The goal is to fix games where this would result in a consistent overhead.
 		const int FLIP_DELAY_MIN_FLIPS = 30;
+		// Since we move nextFlipCycles forward a whole frame each time, we allow it to be a little ahead.
+		// Otherwise it'll always be ahead if the game messes up even once.
+		const s64 LEEWAY_CYCLES_PER_FLIP = usToCycles(10);
 
 		u64 now = CoreTiming::GetTicks();
-		// 1001 to account for NTSC timing (59.94 fps.)
-		u64 expected = msToCycles(1001) / g_Config.iForceMaxEmulatedFPS;
-		u64 actual = now - lastFlipCycles;
-		if (actual < expected - FLIP_DELAY_CYCLES_MIN) {
+		s64 cyclesAhead = nextFlipCycles - now;
+		if (cyclesAhead > FLIP_DELAY_CYCLES_MIN) {
 			if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS) {
-				delayCycles = expected - actual;
+				delayCycles = cyclesAhead;
 			} else {
 				++lastFlipsTooFrequent;
 			}
-		} else {
+		} else if (-lastFlipsTooFrequent < FLIP_DELAY_MIN_FLIPS) {
 			--lastFlipsTooFrequent;
 		}
-		lastFlipCycles = CoreTiming::GetTicks();
+
+		// 1001 to account for NTSC timing (59.94 fps.)
+		u64 expected = msToCycles(1001) / g_Config.iForceMaxEmulatedFPS - LEEWAY_CYCLES_PER_FLIP;
+		lastFlipCycles = now;
+		nextFlipCycles = std::max(lastFlipCycles, nextFlipCycles) + expected;
 	}
 
 	__DisplaySetFramebuf(topaddr, linesize, pixelformat, sync);
