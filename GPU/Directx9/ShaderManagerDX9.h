@@ -37,7 +37,7 @@ class VSShader;
 
 class PSShader {
 public:
-	PSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code);
+	PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code);
 	~PSShader();
 
 	const std::string &source() const { return source_; }
@@ -51,12 +51,12 @@ public:
 protected:	
 	std::string source_;
 	bool failed_;
-	ShaderID id_;
+	FShaderID id_;
 };
 
 class VSShader {
 public:
-	VSShader(LPDIRECT3DDEVICE9 device, ShaderID id, const char *code, bool useHWTransform);
+	VSShader(LPDIRECT3DDEVICE9 device, VShaderID id, const char *code, bool useHWTransform);
 	~VSShader();
 
 	const std::string &source() const { return source_; }
@@ -72,7 +72,7 @@ protected:
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
-	ShaderID id_;
+	VShaderID id_;
 };
 
 class ShaderManagerDX9 : public ShaderManagerCommon {
@@ -114,18 +114,18 @@ private:
 
 	LPDIRECT3DDEVICE9 device_;
 
-	ShaderID lastFSID_;
-	ShaderID lastVSID_;
+	FShaderID lastFSID_;
+	VShaderID lastVSID_;
 
 	char *codeBuffer_;
 
 	VSShader *lastVShader_;
 	PSShader *lastPShader_;
 
-	typedef std::map<ShaderID, PSShader *> FSCache;
+	typedef std::map<FShaderID, PSShader *> FSCache;
 	FSCache fsCache_;
 
-	typedef std::map<ShaderID, VSShader *> VSCache;
+	typedef std::map<VShaderID, VSShader *> VSCache;
 	VSCache vsCache_;
 };
 

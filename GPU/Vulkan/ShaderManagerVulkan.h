@@ -33,7 +33,7 @@ class VulkanPushBuffer;
 
 class VulkanFragmentShader {
 public:
-	VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, const char *code, bool useHWTransform);
+	VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code, bool useHWTransform);
 	~VulkanFragmentShader();
 
 	const std::string &source() const { return source_; }
@@ -51,12 +51,12 @@ protected:
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
-	ShaderID id_;
+	FShaderID id_;
 };
 
 class VulkanVertexShader {
 public:
-	VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting);
+	VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting);
 	~VulkanVertexShader();
 
 	const std::string &source() const { return source_; }
@@ -81,7 +81,7 @@ protected:
 	bool failed_;
 	bool useHWTransform_;
 	bool usesLighting_;
-	ShaderID id_;
+	VShaderID id_;
 };
 
 class VulkanPushBuffer;
@@ -128,10 +128,10 @@ private:
 
 	VulkanContext *vulkan_;
 
-	typedef DenseHashMap<ShaderID, VulkanFragmentShader *, nullptr> FSCache;
+	typedef DenseHashMap<FShaderID, VulkanFragmentShader *, nullptr> FSCache;
 	FSCache fsCache_;
 
-	typedef DenseHashMap<ShaderID, VulkanVertexShader *, nullptr> VSCache;
+	typedef DenseHashMap<VShaderID, VulkanVertexShader *, nullptr> VSCache;
 	VSCache vsCache_;
 
 	char *codeBuffer_;
@@ -145,6 +145,6 @@ private:
 	VulkanFragmentShader *lastFShader_;
 	VulkanVertexShader *lastVShader_;
 
-	ShaderID lastFSID_;
-	ShaderID lastVSID_;
+	FShaderID lastFSID_;
+	VShaderID lastVSID_;
 };

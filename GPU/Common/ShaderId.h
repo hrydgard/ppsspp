@@ -156,6 +156,24 @@ struct ShaderID {
 	}
 };
 
+struct VShaderID : ShaderID {
+	VShaderID() : ShaderID() {
+	}
+
+	explicit VShaderID(ShaderID &src) {
+		memcpy(d, src.d, sizeof(d));
+	}
+};
+
+struct FShaderID : ShaderID {
+	FShaderID() : ShaderID() {
+	}
+
+	explicit FShaderID(ShaderID &src) {
+		memcpy(d, src.d, sizeof(d));
+	}
+};
+
 
 bool CanUseHardwareTransform(int prim);
 void ComputeVertexShaderID(ShaderID *id, uint32_t vertexType, bool useHWTransform);

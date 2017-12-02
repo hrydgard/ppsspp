@@ -17,6 +17,6 @@
 
 #pragma once
 
-struct ShaderID;
+struct FShaderID;
 
-bool GenerateFragmentShader(const ShaderID &id, char *buffer, uint64_t *uniformMask);
+bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniformMask);

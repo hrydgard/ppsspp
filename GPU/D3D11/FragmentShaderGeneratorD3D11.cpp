@@ -19,6 +19,6 @@
 #include "GPU/D3D11/FragmentShaderGeneratorD3D11.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
-void GenerateFragmentShaderD3D11(const ShaderID &id, char *buffer, ShaderLanguage lang) {
+void GenerateFragmentShaderD3D11(const FShaderID &id, char *buffer, ShaderLanguage lang) {
 	DX9::GenerateFragmentShaderHLSL(id, buffer, lang);
 }

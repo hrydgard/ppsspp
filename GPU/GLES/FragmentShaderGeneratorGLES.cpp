@@ -36,7 +36,7 @@
 // #define DEBUG_SHADER
 
 // Missing: Z depth range
-bool GenerateFragmentShader(const ShaderID &id, char *buffer, uint64_t *uniformMask) {
+bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniformMask) {
 	char *p = buffer;
 
 	*uniformMask = 0;

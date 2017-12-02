@@ -22,7 +22,7 @@
 
 namespace DX9 {
 
-bool GenerateFragmentShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
+bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
 
 #define CONST_PS_TEXENV 0
 #define CONST_PS_ALPHACOLORREF 1

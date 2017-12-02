@@ -55,7 +55,7 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang) {
+void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 	const u32 vertType = gstate.vertType;
 

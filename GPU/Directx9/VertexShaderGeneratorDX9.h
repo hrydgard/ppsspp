@@ -23,7 +23,7 @@ namespace DX9 {
 
 // #define USE_BONE_ARRAY
 
-	void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
+	void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
 
 #define CONST_VS_PROJ 0
 #define CONST_VS_PROJ_THROUGH 4

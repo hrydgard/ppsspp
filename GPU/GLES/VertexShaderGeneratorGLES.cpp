@@ -95,7 +95,7 @@ enum DoLightComputation {
 // is a bit of a rare configuration, although quite common on mobile.
 
 
-void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask) {
+void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask) {
 	char *p = buffer;
 	*attrMask = 0;
 	*uniformMask = 0;
