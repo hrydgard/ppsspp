@@ -1456,8 +1456,7 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName
 	saveDataList[idx].idx = idx;
 }
 
-void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
-{
+void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, const std::string &saveName) {
 	saveInfo.size = 0;
 	saveInfo.saveName = saveName;
 	saveInfo.idx = 0;
@@ -1468,16 +1467,17 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
 		saveInfo.texture = NULL;
 	}
 
-	if (GetPspParam()->newData.IsValid() && GetPspParam()->newData->buf.IsValid())
-	{
+	if (GetPspParam()->newData.IsValid() && GetPspParam()->newData->buf.IsValid()) {
 		// We have a png to show
-		if (!noSaveIcon)
-		{
+		if (!noSaveIcon) {
 			noSaveIcon = new SaveFileInfo();
 			PspUtilitySavedataFileData *newData = GetPspParam()->newData;
 			noSaveIcon->texture = new PPGeImage(newData->buf.ptr, (SceSize)newData->size);
 		}
 		saveInfo.texture = noSaveIcon->texture;
+	} else if ((u32)GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_SAVE && GetPspParam()->icon0FileData.buf.IsValid()) {
+		const PspUtilitySavedataFileData &icon0FileData = GetPspParam()->icon0FileData;
+		saveInfo.texture = new PPGeImage(icon0FileData.buf.ptr, (SceSize)icon0FileData.size);
 	}
 }
 

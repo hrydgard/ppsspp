@@ -459,59 +459,71 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 	}
 }
 
-void PSPSaveDialog::DisplaySaveDataInfo2()
-{
+void PSPSaveDialog::DisplaySaveDataInfo2(bool showNewData) {
 	std::lock_guard<std::mutex> guard(paramLock);
-	if (param.GetFileInfo(currentSelectedSave).size == 0) {		
-	} else {
-		char txt[1024];
-		char date[256];
-		char am_pm[] = "AM";
-		char hour_time[10] ;
-		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour;
-		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min;
-		switch (g_Config.iTimeFormat) {
-		case 1:
-			if (hour > 12) {
-				strcpy(am_pm, "PM");
-				hour -= 12;
-			}
-			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
-			break;
-		case 2:
-			snprintf(hour_time,10,"%02d:%02d", hour, min); 
-			break;
-		default:
-			if (hour > 12) {
-				strcpy(am_pm, "PM");
-				hour -= 12;
-			}
-			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
-		}
 
-		const char *saveTitle = param.GetFileInfo(currentSelectedSave).saveTitle;
-		int day   = param.GetFileInfo(currentSelectedSave).modif_time.tm_mday;
-		int month = param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1;
-		int year  = param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900;
-		s64 sizeK = param.GetFileInfo(currentSelectedSave).size / 1024;
-		switch (g_Config.iDateFormat) {
-		case 1:
-			snprintf(date, 256, "%d/%02d/%02d", year, month, day);
-			break;
-		case 2:
-			snprintf(date, 256, "%02d/%02d/%d", month, day, year);
-			break;
-		case 3:
-			snprintf(date, 256, "%02d/%02d/%d", day, month, year);
-			break;
-		default:
-			snprintf(date, 256, "%d/%02d/%02d", year, month, day);
-		}
-		snprintf(txt, 1024, "%s\n%s  %s\n%lld KB", saveTitle, date, hour_time, sizeK);
-		std::string saveinfoTxt = txt;
-		PPGeDrawText(saveinfoTxt.c_str(), 9, 202, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-		PPGeDrawText(saveinfoTxt.c_str(), 8, 200, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	tm modif_time;
+	const char *save_title;
+	u32 data_size;
+
+	if (showNewData || param.GetFileInfo(currentSelectedSave).size == 0) {
+		time_t t;
+		time(&t);
+		localtime_r(&t, &modif_time);
+		save_title = param.GetPspParam()->sfoParam.savedataTitle;
+		// TODO: Account for icon, etc., etc.
+		data_size = param.GetPspParam()->dataSize;
+	} else {
+		modif_time = param.GetFileInfo(currentSelectedSave).modif_time;
+		save_title = param.GetFileInfo(currentSelectedSave).saveTitle;
+		data_size = param.GetFileInfo(currentSelectedSave).size;
 	}
+
+	char date[256];
+	char am_pm[] = "AM";
+	char hour_time[10] ;
+	int hour = modif_time.tm_hour;
+	int min  = modif_time.tm_min;
+	switch (g_Config.iTimeFormat) {
+	case 1:
+		if (hour > 12) {
+			strcpy(am_pm, "PM");
+			hour -= 12;
+		}
+		snprintf(hour_time, 10, "%02d:%02d %s", hour, min, am_pm);
+		break;
+	case 2:
+		snprintf(hour_time, 10, "%02d:%02d", hour, min);
+		break;
+	default:
+		if (hour > 12) {
+			strcpy(am_pm, "PM");
+			hour -= 12;
+		}
+		snprintf(hour_time, 10, "%02d:%02d %s", hour, min, am_pm);
+	}
+
+	int day   = modif_time.tm_mday;
+	int month = modif_time.tm_mon + 1;
+	int year  = modif_time.tm_year + 1900;
+	s64 sizeK = data_size / 1024;
+	switch (g_Config.iDateFormat) {
+	case 1:
+		snprintf(date, 256, "%d/%02d/%02d", year, month, day);
+		break;
+	case 2:
+		snprintf(date, 256, "%02d/%02d/%d", month, day, year);
+		break;
+	case 3:
+		snprintf(date, 256, "%02d/%02d/%d", day, month, year);
+		break;
+	default:
+		snprintf(date, 256, "%d/%02d/%02d", year, month, day);
+	}
+
+	std::string saveinfoTxt = StringFromFormat("%.128s\n%s  %s\n%lld KB", save_title, date, hour_time, sizeK);
+	PPGeDrawText(saveinfoTxt.c_str(), 9, 202, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
+	PPGeDrawText(saveinfoTxt.c_str(), 8, 200, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
@@ -637,7 +649,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			StartDraw();
 
 			DisplaySaveIcon();
-			DisplaySaveDataInfo2();
+			DisplaySaveDataInfo2(true);
 
 			DisplayMessage(di->T("Confirm Save", "Do you want to save this data?"), true);
 
@@ -687,7 +699,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			StartDraw();
 
 			DisplaySaveIcon();
-			DisplaySaveDataInfo2();
+			DisplaySaveDataInfo2(true);
 
 			DisplayMessage(di->T("Saving","Saving\nPlease Wait..."));
 
@@ -700,7 +712,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			StartDraw();
 
 			DisplaySaveIcon();
-			DisplaySaveDataInfo2();
+			DisplaySaveDataInfo2(true);
 
 			DisplayMessage(di->T("SavingFailed", "Unable to save data."));
 
@@ -727,7 +739,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			StartDraw();
 
 			DisplaySaveIcon();
-			DisplaySaveDataInfo2();
+			DisplaySaveDataInfo2(true);
 
 			DisplayMessage(di->T("Save completed"));
 
