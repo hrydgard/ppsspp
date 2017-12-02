@@ -35,7 +35,7 @@ public:
 
 	virtual void update();
 
-	virtual std::string tag() const { return "game"; }
+	std::string tag() const override { return "game"; }
 
 protected:
 	virtual void CreateViews();

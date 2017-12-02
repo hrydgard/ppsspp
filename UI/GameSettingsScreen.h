@@ -30,6 +30,7 @@ public:
 
 	virtual void update();
 	virtual void onFinish(DialogResult result);
+	std::string tag() const override { return "settings"; }
 
 	UI::Event OnRecentChanged;
 

@@ -165,13 +165,13 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		if (PSP_IsInited()) {
 			currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 		}
-	} else if (!strcmp(message, "control mapping") && isActiveScreen) {
+	} else if (!strcmp(message, "control mapping") && isActiveScreen && activeScreen->tag() != "control mapping") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new ControlMappingScreen());
-	} else if (!strcmp(message, "display layout editor") && isActiveScreen) {
+	} else if (!strcmp(message, "display layout editor") && isActiveScreen && activeScreen->tag() != "display layout screen") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new DisplayLayoutScreen());
-	} else if (!strcmp(message, "settings") && isActiveScreen) {
+	} else if (!strcmp(message, "settings") && isActiveScreen && activeScreen->tag() != "settings") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new GameSettingsScreen(""));
 	} else if (!strcmp(message, "language screen") && isActiveScreen) {
