@@ -39,7 +39,6 @@ public:
 protected:
 	void DrawBackground(UIContext &dc) override;
 	void sendMessage(const char *message, const char *value) override;
-	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 };
 
 class UIScreenWithGameBackground : public UIScreenWithBackground {
@@ -58,7 +57,6 @@ public:
 protected:
 	void DrawBackground(UIContext &dc) override;
 	void sendMessage(const char *message, const char *value) override;
-	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 
 	void AddStandardBack(UI::ViewGroup *parent);
 };

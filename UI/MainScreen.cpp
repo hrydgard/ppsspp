@@ -938,10 +938,6 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "boot") && screenManager()->topScreen() == this) {
 		screenManager()->switchScreen(new EmuScreen(value));
 	}
-	if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
-		UpdateUIState(UISTATE_MENU);
-		screenManager()->push(new GameSettingsScreen(""));
-	}
 	if (!strcmp(message, "permission_granted") && !strcmp(value, "storage")) {
 		RecreateViews();
 	}

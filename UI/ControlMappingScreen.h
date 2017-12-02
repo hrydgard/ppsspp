@@ -35,7 +35,6 @@ public:
 	void KeyMapped(int pspkey);  // Notification to let us refocus the same one after recreating views.
 protected:
 	virtual void CreateViews() override;
-	virtual void sendMessage(const char *message, const char *value) override;
 private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
 	UI::EventReturn OnClearMapping(UI::EventParams &params);

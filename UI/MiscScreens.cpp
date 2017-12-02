@@ -156,6 +156,8 @@ void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
 }
 
 void HandleCommonMessages(const char *message, const char *value, ScreenManager *manager, Screen *activeScreen) {
+	bool isActiveScreen = manager->topScreen() == activeScreen;
+
 	if (!strcmp(message, "clear jit")) {
 		if (MIPSComp::jit && PSP_IsInited()) {
 			MIPSComp::jit->ClearCache();
@@ -163,12 +165,26 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		if (PSP_IsInited()) {
 			currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 		}
-	} else if (!strcmp(message, "control mapping") && manager->topScreen() == activeScreen) {
+	} else if (!strcmp(message, "control mapping") && isActiveScreen) {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new ControlMappingScreen());
-	} else if (!strcmp(message, "display layout editor") && manager->topScreen() == activeScreen) {
+	} else if (!strcmp(message, "display layout editor") && isActiveScreen) {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new DisplayLayoutScreen());
+	} else if (!strcmp(message, "settings") && isActiveScreen) {
+		UpdateUIState(UISTATE_MENU);
+		manager->push(new GameSettingsScreen(""));
+	} else if (!strcmp(message, "language screen") && isActiveScreen) {
+		I18NCategory *dev = GetI18NCategory("Developer");
+		auto langScreen = new NewLanguageScreen(dev->T("Language"));
+		langScreen->OnChoice.Add([](UI::EventParams &) {
+			NativeMessageReceived("recreateviews", "");
+			if (host) {
+				host->UpdateUI();
+			}
+			return UI::EVENT_DONE;
+		});
+		manager->push(langScreen);
 	} else if (!strcmp(message, "window minimized")) {
 		if (!strcmp(value, "true")) {
 			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
@@ -214,32 +230,6 @@ void UIDialogScreenWithGameBackground::sendMessage(const char *message, const ch
 
 void UIScreenWithBackground::sendMessage(const char *message, const char *value) {
 	HandleCommonMessages(message, value, screenManager(), this);
-	I18NCategory *dev = GetI18NCategory("Developer");
-	if (!strcmp(message, "language screen") && screenManager()->topScreen() == this) {
-		auto langScreen = new NewLanguageScreen(dev->T("Language"));
-		langScreen->OnChoice.Handle(this, &UIScreenWithBackground::OnLanguageChange);
-		screenManager()->push(langScreen);
-	} else if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
-		screenManager()->push(new GameSettingsScreen("", ""));
-	}
-}
-
-UI::EventReturn UIScreenWithBackground::OnLanguageChange(UI::EventParams &e) {
-	screenManager()->RecreateAllViews();
-	if (host) {
-		host->UpdateUI();
-	}
-
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn UIDialogScreenWithBackground::OnLanguageChange(UI::EventParams &e) {
-	screenManager()->RecreateAllViews();
-	if (host) {
-		host->UpdateUI();
-	}
-
-	return UI::EVENT_DONE;
 }
 
 void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
@@ -255,14 +245,6 @@ void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {
 
 void UIDialogScreenWithBackground::sendMessage(const char *message, const char *value) {
 	HandleCommonMessages(message, value, screenManager(), this);
-	I18NCategory *dev = GetI18NCategory("Developer");
-	if (!strcmp(message, "language screen") && screenManager()->topScreen() == this) {
-		auto langScreen = new NewLanguageScreen(dev->T("Language"));
-		langScreen->OnChoice.Handle(this, &UIDialogScreenWithBackground::OnLanguageChange);
-		screenManager()->push(langScreen);
-	} else if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
-		screenManager()->push(new GameSettingsScreen("", ""));
-	}
 }
 
 PromptScreen::PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
