@@ -150,6 +150,11 @@ private:
 		// This is extremely non-atomic and will need synchronization.
 		std::vector<Pair> old = std::move(map);
 		std::vector<BucketState> oldState = std::move(state);
+		// Can't assume move will clear, it just may clear.
+		map.clear();
+		state.clear();
+
+		int oldCount = count_;
 		capacity_ *= factor;
 		map.resize(capacity_);
 		state.resize(capacity_);
@@ -160,6 +165,7 @@ private:
 				Insert(old[i].key, old[i].value);
 			}
 		}
+		_assert_msg_(SYSTEM, oldCount == count_, "DenseHashMap: count should not change in Grow()");
 	}
 	struct Pair {
 		Key key;
@@ -289,6 +295,11 @@ private:
 		// This is extremely non-atomic and will need synchronization.
 		std::vector<Pair> old = std::move(map);
 		std::vector<BucketState> oldState = std::move(state);
+		// Can't assume move will clear, it just may clear.
+		map.clear();
+		state.clear();
+
+		int oldCount = count_;
 		capacity_ *= factor;
 		map.resize(capacity_);
 		state.resize(capacity_);
@@ -299,6 +310,7 @@ private:
 				Insert(old[i].hash, old[i].value);
 			}
 		}
+		_assert_msg_(SYSTEM, oldCount == count_, "PrehashMap: count should not change in Grow()");
 	}
 	struct Pair {
 		uint32_t hash;
