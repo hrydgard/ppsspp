@@ -814,7 +814,8 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	case GPUBackend::DIRECT3D9:
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		Matrix4x4 translation;
-		translation.setTranslation(Vec3(-0.5f, -0.5f, 0.0f));
+		// Account for the small window adjustment.
+		translation.setTranslation(Vec3(-0.5f * g_dpi_scale_x / g_dpi_scale_real_x, -0.5f * g_dpi_scale_y / g_dpi_scale_real_y, 0.0f));
 		ortho = translation * ortho;
 		break;
 	case GPUBackend::DIRECT3D11:
