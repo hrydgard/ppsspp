@@ -359,10 +359,10 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 void AndroidVulkanContext::Shutdown() {
 	ILOG("AndroidVulkanContext::Shutdown");
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	delete draw_;
-	draw_ = nullptr;
 	ILOG("Calling NativeShutdownGraphics");
 	NativeShutdownGraphics();
+	delete draw_;
+	draw_ = nullptr;
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDevice();

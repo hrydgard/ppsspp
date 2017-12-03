@@ -541,7 +541,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait) {
 			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
 			badOrientationCount++;
-			recreate();;
+			recreate();
 			return;
 		} else if (requestedPortrait == detectedPortrait) {
 			badOrientationCount = 0;
