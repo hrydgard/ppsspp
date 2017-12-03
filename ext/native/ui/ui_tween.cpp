@@ -4,23 +4,30 @@
 
 namespace UI {
 
-uint32_t ColorTween::Current() {
-	return colorBlend(to_, from_, Position());
+void Tween::Apply(View *view) {
+	if (time_now() >= start_ + duration_)
+		finishApplied_ = true;
+
+	float pos = Position();
+	DoApply(view, pos);
 }
 
-void TextColorTween::Apply(View *view) {
+uint32_t ColorTween::Current(float pos) {
+	return colorBlend(to_, from_, pos);
+}
+
+void TextColorTween::DoApply(View *view, float pos) {
 	// TODO: No validation without RTTI?
 	TextView *tv = (TextView *)view;
-	tv->SetTextColor(Current());
+	tv->SetTextColor(Current(pos));
 }
 
-void VisibilityTween::Apply(View *view) {
-	view->SetVisibility(Current());
+void VisibilityTween::DoApply(View *view, float pos) {
+	view->SetVisibility(Current(pos));
 }
 
-Visibility VisibilityTween::Current() {
+Visibility VisibilityTween::Current(float p) {
 	// Prefer V_VISIBLE over V_GONE/V_INVISIBLE.
-	float p = Position();
 	if (from_ == V_VISIBLE && p < 1.0f)
 		return from_;
 	if (to_ == V_VISIBLE && p > 0.0f)

@@ -17,10 +17,10 @@ public:
 	}
 
 	// Actually apply the tween to a view.
-	virtual void Apply(View *view) = 0;
+	void Apply(View *view);
 
 	bool Finished() {
-		return time_now() >= start_ + duration_;
+		return finishApplied_ && time_now() >= start_ + duration_;
 	}
 
 protected:
@@ -32,8 +32,11 @@ protected:
 		return curve_(std::min(1.0f, DurationOffset() / duration_));
 	}
 
+	virtual void DoApply(View *view, float pos) = 0;
+
 	float start_;
 	float duration_;
+	bool finishApplied_ = false;
 	float (*curve_)(float);
 };
 
@@ -47,8 +50,8 @@ public:
 
 	// Use this to change the destination value.
 	// Useful when a state flips while the tween is half-way through.
-	void Divert(const Value &newTo) {
-		const Value newFrom = Current();
+	void Divert(const Value &newTo, float newDuration = -1.0f) {
+		const Value newFrom = Current(Position());
 
 		// Are we already part way through another transition?
 		if (!Finished()) {
@@ -57,6 +60,9 @@ public:
 			} else if (newTo == from_) {
 				// Reversing, adjust start_ to be smooth from the current value.
 				float newOffset = duration_ - DurationOffset();
+				if (newDuration >= 0.0f && duration_ > 0.0f) {
+					newOffset *= newDuration / duration_;
+				}
 				start_ = time_now() - newOffset;
 			} else {
 				// Otherwise, start over.
@@ -65,15 +71,19 @@ public:
 		} else {
 			// Already finished, so restart.
 			start_ = time_now();
+			finishApplied_ = false;
 		}
 
 		from_ = newFrom;
 		to_ = newTo;
+		if (newDuration >= 0.0f) {
+			duration_ = newDuration;
+		}
 	}
 
 	// Stop animating the value.
 	void Stop() {
-		Reset(Current());
+		Reset(Current(Position()));
 	}
 
 	// Use when the value is explicitly reset.  Implicitly stops the tween.
@@ -83,7 +93,7 @@ public:
 	}
 
 protected:
-	virtual Value Current() = 0;
+	virtual Value Current(float pos) = 0;
 
 	Value from_;
 	Value to_;
@@ -95,24 +105,25 @@ public:
 	using TweenBase::TweenBase;
 
 protected:
-	uint32_t Current() override;
+	uint32_t Current(float pos) override;
 };
 
 class TextColorTween : public ColorTween {
 public:
 	using ColorTween::ColorTween;
 
-	void Apply(View *view) override;
+protected:
+	void DoApply(View *view, float pos) override;
 };
 
 class VisibilityTween : public TweenBase<Visibility> {
 public:
 	using TweenBase::TweenBase;
 
-	void Apply(View *view) override;
-
 protected:
-	Visibility Current() override;
+	void DoApply(View *view, float pos) override;
+
+	Visibility Current(float pos) override;
 };
 
 }  // namespace
