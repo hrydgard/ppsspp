@@ -224,9 +224,6 @@ struct MeasureSpec {
 	float size;
 };
 
-class View;
-
-
 // Should cover all bases.
 struct EventParams {
 	View *v;
@@ -349,6 +346,8 @@ private:
 
 View *GetFocusedView();
 
+class Tween;
+
 class View {
 public:
 	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), visibility_(V_VISIBLE), measuredWidth_(0), measuredHeight_(0), enabledPtr_(0), enabled_(true), enabledMeansDisabled_(false) {
@@ -363,7 +362,7 @@ public:
 	virtual bool Key(const KeyInput &input) { return false; }
 	virtual void Touch(const TouchInput &input) {}
 	virtual void Axis(const AxisInput &input) {}
-	virtual void Update() {}
+	virtual void Update();
 
 	// If this view covers these coordinates, it should add itself and its children to the list.
 	virtual void Query(float x, float y, std::vector<View *> &list);
@@ -424,6 +423,12 @@ public:
 
 	Point GetFocusPosition(FocusDirection dir);
 
+	template <class T>
+	T *AddTween(T *t) {
+		tweens_.push_back(t);
+		return t;
+	}
+
 protected:
 	// Inputs to layout
 	std::unique_ptr<LayoutParams> layoutParams_;
@@ -437,6 +442,8 @@ protected:
 
 	// Outputs of layout. X/Y are absolute screen coordinates, hierarchy is "gone" here.
 	Bounds bounds_;
+
+	std::vector<Tween *> tweens_;
 
 private:
 	bool *enabledPtr_;
@@ -455,7 +462,6 @@ public:
 	bool Key(const KeyInput &input) override { return false; }
 	void Touch(const TouchInput &input) override {}
 	bool CanBeFocused() const override { return false; }
-	void Update() override {}
 };
 
 
