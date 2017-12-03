@@ -20,6 +20,7 @@
 
 #include "Common/Log.h"
 #include "Common/Vulkan/VulkanMemory.h"
+#include "math/math_util.h"
 
 VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size) : device_(vulkan->GetDevice()), buf_(0), offset_(0), size_(size), writePtr_(nullptr) {
 	vulkan->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memoryTypeIndex_);
@@ -197,8 +198,10 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 		return ALLOCATE_FAILED;
 	}
 
+	size_t size = reqs.size;
+
 	size_t align = reqs.alignment <= SLAB_GRAIN_SIZE ? 1 : (size_t)(reqs.alignment >> SLAB_GRAIN_SHIFT);
-	size_t blocks = (size_t)((reqs.size + SLAB_GRAIN_SIZE - 1) >> SLAB_GRAIN_SHIFT);
+	size_t blocks = (size_t)((size + SLAB_GRAIN_SIZE - 1) >> SLAB_GRAIN_SHIFT);
 
 	const size_t numSlabs = slabs_.size();
 	for (size_t i = 0; i < numSlabs; ++i) {
@@ -220,7 +223,7 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 	}
 
 	// Okay, we couldn't fit it into any existing slabs.  We need a new one.
-	if (!AllocateSlab(reqs.size)) {
+	if (!AllocateSlab(size)) {
 		return ALLOCATE_FAILED;
 	}
 
@@ -272,6 +275,18 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 	// Remember the size so we can free.
 	slab.allocSizes[start] = blocks;
 	return true;
+}
+
+int VulkanDeviceAllocator::ComputeUsagePercent() const {
+	int blockSum = 0;
+	int blocksUsed = 0;
+	for (int i = 0; i < slabs_.size(); i++) {
+		blockSum += (int)slabs_[i].usage.size();
+		for (int j = 0; j < slabs_[i].usage.size(); j++) {
+			blocksUsed += slabs_[i].usage[j] != 0 ? 1 : 0;
+		}
+	}
+	return 100 * blocksUsed / blockSum;
 }
 
 void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {

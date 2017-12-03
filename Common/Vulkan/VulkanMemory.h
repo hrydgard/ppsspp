@@ -150,6 +150,8 @@ public:
 	int GetMinSlabSize() const { return (int)minSlabSize_; }
 	int GetMaxSlabSize() const { return (int)maxSlabSize_; }
 
+	int ComputeUsagePercent() const;
+
 private:
 	static const size_t SLAB_GRAIN_SIZE = 1024;
 	static const uint8_t SLAB_GRAIN_SHIFT = 10;

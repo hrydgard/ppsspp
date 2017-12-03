@@ -482,6 +482,17 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		return;
 	}
 
+	// Perform a little bit of clipping first.
+	// Block transfer coords are unsigned so I don't think we need to clip on the left side..
+	if (dstX + w > dst->bufferWidth) {
+		w -= dstX + w - dst->bufferWidth;
+	}
+	if (dstY + h > dst->bufferHeight) {
+		h -= dstY + h - dst->bufferHeight;
+	}
+	if (w == 0 || h == 0)
+		return;
+
 	float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
 	float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
 	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
