@@ -589,6 +589,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 		}
 
 		if (!allocSuccess) {
+			ERROR_LOG(G3D, "Failed to create texture (%dx%d)", w, h);
 			delete entry->vkTex;
 			entry->vkTex = nullptr;
 		}
@@ -650,9 +651,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 		if (replaced.Valid()) {
 			entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 		}
+		entry->vkTex->texture_->EndCreate(cmdInit);
 	}
-
-	entry->vkTex->texture_->EndCreate(cmdInit);
 
 	gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 }
