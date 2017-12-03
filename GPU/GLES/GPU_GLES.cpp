@@ -171,7 +171,8 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + discID + ".glshadercache";
-		shaderManagerGL_->LoadAndPrecompile(shaderCachePath_);
+		// Actually precompiled by IsReady() since we're single-threaded.
+		shaderManagerGL_->Load(shaderCachePath_);
 	}
 
 	if (g_Config.bHardwareTessellation) {
@@ -348,6 +349,10 @@ void GPU_GLES::CheckGPUFeatures() {
 #endif
 
 	gstate_c.featureFlags = features;
+}
+
+bool GPU_GLES::IsReady() {
+	return shaderManagerGL_->ContinuePrecompile();
 }
 
 // Let's avoid passing nulls into snprintf().
