@@ -765,6 +765,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 }
 
 VKContext::~VKContext() {
+	allocator_->Destroy();
 	delete allocator_;
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
