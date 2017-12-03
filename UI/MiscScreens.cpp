@@ -275,20 +275,23 @@ void PromptScreen::CreateViews() {
 	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_));
 	yesButton->OnClick.Handle(this, &PromptScreen::OnYes);
 	root_->SetDefaultFocusView(yesButton);
-	if (noButtonText_ != "")
+	if (!noButtonText_.empty())
 		rightColumnItems->Add(new Choice(noButtonText_))->OnClick.Handle(this, &PromptScreen::OnNo);
 }
 
 UI::EventReturn PromptScreen::OnYes(UI::EventParams &e) {
-	callback_(true);
 	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
-	callback_(false);
 	TriggerFinish(DR_CANCEL);
 	return UI::EVENT_DONE;
+}
+
+void PromptScreen::TriggerFinish(DialogResult result) {
+	callback_(result == DR_OK || result == DR_YES);
+	UIDialogScreenWithBackground::TriggerFinish(result);
 }
 
 PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title) {

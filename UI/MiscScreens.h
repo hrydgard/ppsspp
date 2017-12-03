@@ -78,6 +78,8 @@ public:
 
 	void CreateViews() override;
 
+	void TriggerFinish(DialogResult result) override;
+
 private:
 	UI::EventReturn OnYes(UI::EventParams &e);
 	UI::EventReturn OnNo(UI::EventParams &e);
