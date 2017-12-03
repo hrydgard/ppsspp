@@ -91,6 +91,7 @@ LOCAL_SRC_FILES :=\
     ui/viewgroup.cpp \
     ui/ui.cpp \
     ui/ui_screen.cpp \
+    ui/ui_tween.cpp \
     ui/ui_context.cpp \
     ui/screen.cpp \
     util/text/utf8.cpp \

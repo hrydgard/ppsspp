@@ -329,6 +329,9 @@
     <ClInclude Include="thin3d\DataFormat.h">
       <Filter>thin3d</Filter>
     </ClInclude>
+    <ClInclude Include="ui\ui_tween.h">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -795,6 +798,9 @@
     </ClCompile>
     <ClCompile Include="thin3d\VulkanRenderManager.cpp">
       <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ui_tween.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

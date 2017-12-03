@@ -285,6 +285,7 @@
     <ClInclude Include="ui\ui.h" />
     <ClInclude Include="ui\ui_context.h" />
     <ClInclude Include="ui\ui_screen.h" />
+    <ClInclude Include="ui\ui_tween.h" />
     <ClInclude Include="ui\view.h" />
     <ClInclude Include="ui\viewgroup.h" />
     <ClInclude Include="util\random\rng.h" />
@@ -752,6 +753,7 @@
     <ClCompile Include="ui\ui.cpp" />
     <ClCompile Include="ui\ui_context.cpp" />
     <ClCompile Include="ui\ui_screen.cpp" />
+    <ClCompile Include="ui\ui_tween.cpp" />
     <ClCompile Include="ui\view.cpp" />
     <ClCompile Include="ui\viewgroup.cpp" />
     <ClCompile Include="util\hash\hash.cpp" />
