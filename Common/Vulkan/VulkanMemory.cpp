@@ -278,6 +278,8 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 	assert(!destroyed_);
 
+	_assert_msg_(G3D, !slabs_.empty(), "No slabs - can't be anything to free! double-freed?");
+
 	// First, let's validate.  This will allow stack traces to tell us when frees are bad.
 	size_t start = offset >> SLAB_GRAIN_SHIFT;
 	bool found = false;
