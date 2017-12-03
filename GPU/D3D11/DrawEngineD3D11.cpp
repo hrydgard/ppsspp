@@ -353,6 +353,7 @@ void DrawEngineD3D11::BeginFrame() {
 			vai_.Remove(hash);
 		}
 	});
+	vai_.Maintain();
 
 	// Enable if you want to see vertex decoders in the log output. Need a better way.
 #if 0

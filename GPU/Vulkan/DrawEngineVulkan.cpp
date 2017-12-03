@@ -354,6 +354,7 @@ void DrawEngineVulkan::BeginFrame() {
 			}
 		});
 	}
+	vai_.Maintain();
 }
 
 void DrawEngineVulkan::EndFrame() {
