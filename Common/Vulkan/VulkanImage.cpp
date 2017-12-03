@@ -1,5 +1,6 @@
 #include "Common/Vulkan/VulkanImage.h"
 #include "Common/Vulkan/VulkanMemory.h"
+#include "Common/Log.h"
 
 VkResult VulkanTexture::Create(int w, int h, VkFormat format) {
 	tex_width = w;
@@ -294,6 +295,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 
 		res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem);
 		if (res != VK_SUCCESS) {
+			_assert_msg_(G3D, res != VK_ERROR_TOO_MANY_OBJECTS, "Too many Vulkan memory objects!");
 			assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 			return false;
 		}

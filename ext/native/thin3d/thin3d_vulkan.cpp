@@ -312,9 +312,9 @@ struct DescriptorSetKey {
 
 class VKTexture : public Texture {
 public:
-	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, const TextureDesc &desc)
+	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, const TextureDesc &desc, VulkanDeviceAllocator *alloc)
 		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {
-		bool result = Create(cmd, desc);
+		bool result = Create(cmd, desc, alloc);
 		assert(result);
 	}
 
@@ -327,7 +327,7 @@ public:
 private:
 	void SetImageData(VkCommandBuffer cmd, int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
 
-	bool Create(VkCommandBuffer cmd, const TextureDesc &desc);
+	bool Create(VkCommandBuffer cmd, const TextureDesc &desc, VulkanDeviceAllocator *alloc);
 
 	void Destroy() {
 		if (vkTex_) {
@@ -497,6 +497,8 @@ private:
 
 	VulkanRenderManager renderManager_;
 
+	VulkanDeviceAllocator *allocator_ = nullptr;
+
 	VKPipeline *curPipeline_ = nullptr;
 	VKBuffer *curVBuffers_[4]{};
 	int curVBufferOffsets_[4]{};
@@ -657,7 +659,7 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-bool VKTexture::Create(VkCommandBuffer cmd, const TextureDesc &desc) {
+bool VKTexture::Create(VkCommandBuffer cmd, const TextureDesc &desc, VulkanDeviceAllocator *alloc) {
 	// Zero-sized textures not allowed.
 	if (desc.width * desc.height * desc.depth == 0)
 		return false;
@@ -666,7 +668,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, const TextureDesc &desc) {
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
-	vkTex_ = new VulkanTexture(vulkan_);
+	vkTex_ = new VulkanTexture(vulkan_, alloc);
 	if (desc.initData.size()) {
 		for (int i = 0; i < (int)desc.initData.size(); i++) {
 			this->SetImageData(cmd, 0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
@@ -758,9 +760,12 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	pipelineCache_ = vulkan_->CreatePipelineCache();
 
 	renderManager_.SetSplitSubmit(splitSubmit);
+
+	allocator_ = new VulkanDeviceAllocator(vulkan_, 256 * 1024, 2048 * 1024);
 }
 
 VKContext::~VKContext() {
+	delete allocator_;
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].descSets_.clear();
@@ -996,7 +1001,7 @@ InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
 }
 
 Texture *VKContext::CreateTexture(const TextureDesc &desc) {
-	return new VKTexture(vulkan_, renderManager_.GetInitCmd(), desc);
+	return new VKTexture(vulkan_, renderManager_.GetInitCmd(), desc, allocator_);
 }
 
 void VKTexture::SetImageData(VkCommandBuffer cmd, int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {

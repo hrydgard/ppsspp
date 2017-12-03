@@ -296,7 +296,7 @@ void DrawEngineVulkan::BeginFrame() {
 	if (!nullTexture_) {
 		ILOG("INIT : Creating null texture");
 		VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-		nullTexture_ = new VulkanTexture(vulkan_);
+		nullTexture_ = new VulkanTexture(vulkan_, textureCache_->GetAllocator());
 		int w = 8;
 		int h = 8;
 		nullTexture_->CreateDirect(cmdInit, w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
