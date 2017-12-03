@@ -2276,6 +2276,8 @@ int sceKernelTerminateDeleteThread(int threadID)
 	if (t)
 	{
 		bool wasStopped = t->isStopped();
+		uint32_t attr = t->nt.attr;
+		uint32_t uid = t->GetUID();
 
 		INFO_LOG(SCEKERNEL, "sceKernelTerminateDeleteThread(%i)", threadID);
 		error = __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete");
@@ -2283,7 +2285,7 @@ int sceKernelTerminateDeleteThread(int threadID)
 		if (!wasStopped) {
 			// Set v0 before calling the handler, or it'll get lost.
 			RETURN(error);
-			__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, t->GetUID(), THREADEVENT_EXIT);
+			__KernelThreadTriggerEvent((attr & PSP_THREAD_ATTR_KERNEL) != 0, uid, THREADEVENT_EXIT);
 		}
 
 		return error;
