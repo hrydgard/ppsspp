@@ -107,6 +107,10 @@ public:
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
 
+	void GetStats(char *ptr, size_t size);
+
+	VulkanDeviceAllocator *GetAllocator() { return allocator_; }
+
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;

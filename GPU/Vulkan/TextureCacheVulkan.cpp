@@ -816,6 +816,10 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 	// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 	framebufferManager_->RebindFramebuffer();
-
 	return true;
+}
+
+void TextureCacheVulkan::GetStats(char *ptr, size_t size) {
+	snprintf(ptr, size, "Alloc: %d blocks\nSlab min/max: %d/%d\n",
+		allocator_->GetBlockCount(), allocator_->GetMinSlabSize(), allocator_->GetMaxSlabSize());
 }

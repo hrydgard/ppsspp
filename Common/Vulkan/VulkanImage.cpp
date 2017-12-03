@@ -1,5 +1,6 @@
 #include "Common/Vulkan/VulkanImage.h"
 #include "Common/Vulkan/VulkanMemory.h"
+#include "Common/Log.h"
 
 VkResult VulkanTexture::Create(int w, int h, VkFormat format) {
 	tex_width = w;
@@ -118,14 +119,18 @@ void VulkanTexture::Unlock(VkCommandBuffer cmd) {
 		mem_alloc.memoryTypeIndex = 0;
 		mem_alloc.allocationSize = mem_reqs.size;
 
-		// Find memory type - don't specify any mapping requirements
-		bool pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &mem_alloc.memoryTypeIndex);
-		assert(pass);
+		if (allocator_) {
+			offset_ = allocator_->Allocate(mem_reqs, &mem);
+		} else {
+			offset_ = 0;
+			// Find memory type - don't specify any mapping requirements
+			bool pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &mem_alloc.memoryTypeIndex);
+			assert(pass);
+			res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem);
+			assert(res == VK_SUCCESS);
+		}
 
-		res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem);
-		assert(res == VK_SUCCESS);
-
-		res = vkBindImageMemory(vulkan_->GetDevice(), image, mem, 0);
+		res = vkBindImageMemory(vulkan_->GetDevice(), image, mem, offset_);
 		assert(res == VK_SUCCESS);
 
 		// Since we're going to blit from the mappable image, set its layout to SOURCE_OPTIMAL
@@ -294,6 +299,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 
 		res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem);
 		if (res != VK_SUCCESS) {
+			_assert_msg_(G3D, res != VK_ERROR_TOO_MANY_OBJECTS, "Too many Vulkan memory objects!");
 			assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 			return false;
 		}

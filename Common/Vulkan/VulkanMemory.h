@@ -146,6 +146,10 @@ public:
 
 	static const size_t ALLOCATE_FAILED = -1;
 
+	int GetBlockCount() const { return (int)slabs_.size(); }
+	int GetMinSlabSize() const { return (int)minSlabSize_; }
+	int GetMaxSlabSize() const { return (int)maxSlabSize_; }
+
 private:
 	static const size_t SLAB_GRAIN_SIZE = 1024;
 	static const uint8_t SLAB_GRAIN_SHIFT = 10;

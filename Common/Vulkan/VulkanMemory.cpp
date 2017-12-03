@@ -169,11 +169,10 @@ void VulkanDeviceAllocator::Destroy() {
 	for (Slab &slab : slabs_) {
 		// Did anyone forget to free?
 		for (auto pair : slab.allocSizes) {
-			if (slab.usage[pair.first] != 2) {
-				// If it's not 2 (queued), there's a problem.
-				// If it's zero, it means allocSizes is somehow out of sync.
-				Crash();
-			}
+			int slabUsage = slab.usage[pair.first];
+			// If it's not 2 (queued), there's a problem.
+			// If it's zero, it means allocSizes is somehow out of sync.
+			_assert_msg_(G3D, slabUsage == 2, "Destroy: slabUsage has unexpected value %d", slabUsage);
 		}
 
 		assert(slab.deviceMemory);
@@ -278,6 +277,8 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 	assert(!destroyed_);
 
+	_assert_msg_(G3D, !slabs_.empty(), "No slabs - can't be anything to free! double-freed?");
+
 	// First, let's validate.  This will allow stack traces to tell us when frees are bad.
 	size_t start = offset >> SLAB_GRAIN_SHIFT;
 	bool found = false;
@@ -287,14 +288,9 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 		}
 
 		auto it = slab.allocSizes.find(start);
-		if (it == slab.allocSizes.end()) {
-			// Ack, a double free?
-			Crash();
-		}
-		if (slab.usage[start] != 1) {
-			// This means a double free, while queued to actually free.
-			Crash();
-		}
+		_assert_msg_(G3D, it != slab.allocSizes.end(), "Double free?");
+		// This means a double free, while queued to actually free.
+		_assert_msg_(G3D, slab.usage[start] == 1, "Double free when queued to free!");
 
 		// Mark it as "free in progress".
 		slab.usage[start] = 2;
@@ -303,9 +299,7 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 	}
 
 	// Wrong deviceMemory even?  Maybe it was already decimated, but that means a double-free.
-	if (!found) {
-		Crash();
-	}
+	_assert_msg_(G3D, found, "Failed to find allocation to free! Double-freed?");
 
 	// Okay, now enqueue.  It's valid.
 	FreeInfo *info = new FreeInfo(this, deviceMemory, offset);
