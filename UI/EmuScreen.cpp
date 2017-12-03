@@ -794,11 +794,14 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 
 void EmuScreen::CreateViews() {
 	using namespace UI;
+
+	I18NCategory *dev = GetI18NCategory("Developer");
+
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
 	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_);
 	if (g_Config.bShowDeveloperMenu) {
-		root_->Add(new Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
+		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
 	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
 	saveStatePreview_->SetFixedSize(160, 90);
@@ -1026,6 +1029,7 @@ void EmuScreen::render() {
 		// In this case, we need to double check it here.
 		checkPowerDown();
 		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR });
+		renderUI();
 		return;
 	}
 
@@ -1075,44 +1079,7 @@ void EmuScreen::render() {
 	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls;
 	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler;
 	if (hasVisibleUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
-		// This sets up some important states but not the viewport.
-		screenManager()->getUIContext()->Begin();
-
-		Viewport viewport;
-		viewport.TopLeftX = 0;
-		viewport.TopLeftY = 0;
-		viewport.Width = pixel_xres;
-		viewport.Height = pixel_yres;
-		viewport.MaxDepth = 1.0;
-		viewport.MinDepth = 0.0;
-		thin3d->SetViewports(1, &viewport);
-
-		DrawBuffer *draw2d = screenManager()->getUIContext()->Draw();
-
-		if (root_) {
-			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
-			root_->Draw(*screenManager()->getUIContext());
-		}
-
-		if (g_Config.bShowDebugStats) {
-			DrawDebugStats(draw2d);
-		}
-
-		if (g_Config.bShowAudioDebug) {
-			DrawAudioDebugStats(draw2d);
-		}
-
-		if (g_Config.iShowFPSCounter) {
-			DrawFPS(draw2d, screenManager()->getUIContext()->GetBounds());
-		}
-
-#ifdef USE_PROFILER
-		if (g_Config.bShowFrameProfiler) {
-			DrawProfile(*screenManager()->getUIContext());
-		}
-#endif
-
-		screenManager()->getUIContext()->End();
+		renderUI();
 	}
 
 	// We have no use for backbuffer depth or stencil, so let tiled renderers discard them after tiling.
@@ -1131,6 +1098,51 @@ void EmuScreen::render() {
 #endif
 	}
 	*/
+}
+
+void EmuScreen::renderUI() {
+	using namespace Draw;
+
+	DrawContext *thin3d = screenManager()->getDrawContext();
+
+	// This sets up some important states but not the viewport.
+	screenManager()->getUIContext()->Begin();
+
+	Viewport viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = pixel_xres;
+	viewport.Height = pixel_yres;
+	viewport.MaxDepth = 1.0;
+	viewport.MinDepth = 0.0;
+	thin3d->SetViewports(1, &viewport);
+
+	DrawBuffer *draw2d = screenManager()->getUIContext()->Draw();
+
+	if (root_) {
+		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+		root_->Draw(*screenManager()->getUIContext());
+	}
+
+	if (g_Config.bShowDebugStats && !invalid_) {
+		DrawDebugStats(draw2d);
+	}
+
+	if (g_Config.bShowAudioDebug && !invalid_) {
+		DrawAudioDebugStats(draw2d);
+	}
+
+	if (g_Config.iShowFPSCounter && !invalid_) {
+		DrawFPS(draw2d, screenManager()->getUIContext()->GetBounds());
+	}
+
+#ifdef USE_PROFILER
+	if (g_Config.bShowFrameProfiler && !invalid_) {
+		DrawProfile(*screenManager()->getUIContext());
+	}
+#endif
+
+	screenManager()->getUIContext()->End();
 }
 
 void EmuScreen::deviceLost() {
