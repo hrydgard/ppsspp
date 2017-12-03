@@ -25,7 +25,7 @@ public class TextRenderer {
 			Log.e(TAG, "Failed to load Roboto Condensed");
 		}
 	}
-	private static Point measure(String string, double textSize) {
+	private static Point measureLine(String string, double textSize) {
 		p.setTextSize((float)textSize);
 		int w = (int)p.measureText(string);
 		int h = (int)(p.descent() - p.ascent() + 2.0f);
@@ -36,6 +36,17 @@ public class TextRenderer {
 		p.x = w;
 		p.y = h;
 		return p;
+	}
+	private static Point measure(String string, double textSize) {
+		String lines[] = string.replaceAll("\\r", "").split("\n");
+		Point total = new Point();
+		total.x = 0;
+		for (String line : lines) {
+			Point sz = measureLine(line, textSize);
+			total.x = Math.max(sz.x, total.x);
+		}
+		total.y = (int)(p.descent() - p.ascent()) * lines.length + 2;
+		return total;
 	}
 	public static int measureText(String string, double textSize) {
 		Point s = measure(string, textSize);
@@ -50,8 +61,13 @@ public class TextRenderer {
 		Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
 		Canvas canvas = new Canvas(bmp);
 		canvas.drawRect(0.0f, 0.0f, w, h, bg);
-		p.setColor(Color.WHITE);
-		canvas.drawText(string, 1, -p.ascent() + 1, p);
+
+		String lines[] = string.replaceAll("\\r", "").split("\n");
+		float y = 1.0f;
+		for (String line : lines) {
+			canvas.drawText(line, 1, -p.ascent() + y, p);
+			y += p.descent() - p.ascent();
+		}
 
 		int [] pixels = new int[w * h];
 		bmp.getPixels(pixels, 0, w, 0, 0, w, h);
