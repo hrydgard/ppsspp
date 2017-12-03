@@ -54,7 +54,7 @@ public:
 		const Value newFrom = Current(Position());
 
 		// Are we already part way through another transition?
-		if (!Finished()) {
+		if (time_now() < start_ + duration_) {
 			if (newTo == to_) {
 				// Already on course.  Don't change.
 			} else if (newTo == from_) {
@@ -90,6 +90,16 @@ public:
 	void Reset(const Value &newFrom) {
 		from_ = newFrom;
 		to_ = newFrom;
+	}
+
+	const Value &FromValue() const {
+		return from_;
+	}
+	const Value &ToValue() const {
+		return to_;
+	}
+	Value CurrentValue() {
+		return Current(Position());
 	}
 
 protected:
