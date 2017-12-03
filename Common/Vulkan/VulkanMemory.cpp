@@ -246,15 +246,16 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 		return false;
 	}
 
+	// Slow linear scan.
 	for (size_t i = 0; i < blocks; ++i) {
 		if (slab.usage[start + i]) {
 			// If we just ran into one, there's probably an allocation size.
 			auto it = slab.allocSizes.find(start + i);
 			if (it != slab.allocSizes.end()) {
-				start += i + it->second;
+				start += it->second;
 			} else {
 				// We don't know how big it is, so just skip to the next one.
-				start += i + 1;
+				start += 1;
 			}
 			return false;
 		}
