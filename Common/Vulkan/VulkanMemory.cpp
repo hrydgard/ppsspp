@@ -287,14 +287,9 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 		}
 
 		auto it = slab.allocSizes.find(start);
-		if (it == slab.allocSizes.end()) {
-			// Ack, a double free?
-			Crash();
-		}
-		if (slab.usage[start] != 1) {
-			// This means a double free, while queued to actually free.
-			Crash();
-		}
+		_assert_msg_(G3D, it != slab.allocSizes.end(), "Double free?");
+		// This means a double free, while queued to actually free.
+		_assert_msg_(G3D, slab.usage[start] == 1, "Double free when queued to free!");
 
 		// Mark it as "free in progress".
 		slab.usage[start] = 2;
@@ -303,9 +298,7 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 	}
 
 	// Wrong deviceMemory even?  Maybe it was already decimated, but that means a double-free.
-	if (!found) {
-		Crash();
-	}
+	_assert_msg_(G3D, found, "Failed to find allocation to free! Double-freed?");
 
 	// Okay, now enqueue.  It's valid.
 	FreeInfo *info = new FreeInfo(this, deviceMemory, offset);
