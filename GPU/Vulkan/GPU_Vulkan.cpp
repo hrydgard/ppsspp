@@ -168,6 +168,7 @@ GPU_Vulkan::~GPU_Vulkan() {
 	framebufferManagerVulkan_->DestroyAllFBOs();
 	vulkan2D_.Shutdown();
 	depalShaderCache_.Clear();
+	drawEngine_.DeviceLost();
 	delete textureCacheVulkan_;
 	delete pipelineManager_;
 	delete shaderManagerVulkan_;

@@ -169,11 +169,10 @@ void VulkanDeviceAllocator::Destroy() {
 	for (Slab &slab : slabs_) {
 		// Did anyone forget to free?
 		for (auto pair : slab.allocSizes) {
-			if (slab.usage[pair.first] != 2) {
-				// If it's not 2 (queued), there's a problem.
-				// If it's zero, it means allocSizes is somehow out of sync.
-				Crash();
-			}
+			int slabUsage = slab.usage[pair.first];
+			// If it's not 2 (queued), there's a problem.
+			// If it's zero, it means allocSizes is somehow out of sync.
+			_assert_msg_(G3D, slabUsage == 2, "Destroy: slabUsage has unexpected value %d", slabUsage);
 		}
 
 		assert(slab.deviceMemory);
