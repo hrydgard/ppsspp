@@ -28,8 +28,11 @@
 #include "gfx_es2/draw_text.h"
 
 #include "input/input_state.h"
+#include "math/curves.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
+#include "ui/ui_tween.h"
+#include "ui/view.h"
 #include "i18n/i18n.h"
 
 #include "Common/KeyMap.h"
@@ -220,6 +223,9 @@ void EmuScreen::bootGame(const std::string &filename) {
 		I18NCategory *gr = GetI18NCategory("Graphics");
 		host->NotifyUserMessage(gr->T("BlockTransferRequired", "Warning: This game requires Simulate Block Transfer Mode to be set to On."), 15.0f);
 	}
+
+	loadingViewColor_->Divert(0xFFFFFFFF, 0.15f);
+	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.15f);
 }
 
 void EmuScreen::bootComplete() {
@@ -268,6 +274,9 @@ void EmuScreen::bootComplete() {
 	System_SendMessage("event", "startgame");
 
 	saveStateSlot_ = SaveState::GetCurrentSlot();
+
+	loadingViewColor_->Divert(0x00FFFFFF, 0.2f);
+	loadingViewVisible_->Divert(UI::V_INVISIBLE, 0.2f);
 }
 
 EmuScreen::~EmuScreen() {
@@ -344,7 +353,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		} else {
 			PSP_Shutdown();
 			bootPending_ = true;
-			bootGame(value);
+			gamePath_ = value;
 		}
 	} else if (!strcmp(message, "control mapping") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
@@ -795,6 +804,7 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 void EmuScreen::CreateViews() {
 	using namespace UI;
 
+	I18NCategory *sc = GetI18NCategory("Screen");
 	I18NCategory *dev = GetI18NCategory("Developer");
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
@@ -810,6 +820,13 @@ void EmuScreen::CreateViews() {
 	saveStatePreview_->SetCanBeFocused(false);
 	root_->Add(saveStatePreview_);
 	root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
+
+	loadingView_ = new TextView(sc->T("Loading game..."), new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true));
+	root_->Add(loadingView_);
+
+	// We start invisible here, in case of recreated views.
+	loadingViewColor_ = loadingView_->AddTween(new TextColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
+	loadingViewVisible_ = loadingView_->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
@@ -823,10 +840,10 @@ UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 }
 
 void EmuScreen::update() {
+	UIScreen::update();
+
 	if (bootPending_)
 		bootGame(gamePath_);
-
-	UIScreen::update();
 
 	// Simply forcibly update to the current screen size every frame. Doesn't cost much.
 	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
@@ -1076,7 +1093,7 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls;
+	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls || loadingView_->GetVisibility() == UI::V_VISIBLE;
 	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler;
 	if (hasVisibleUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
 		renderUI();
