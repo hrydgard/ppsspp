@@ -11,24 +11,20 @@
 
 #include <string>
 #include <cstdio>
-
-#include "base/basictypes.h"
+#include <cstdint>
 
 class RIFFReader {
 public:
 	RIFFReader(const uint8_t *data, int dataSize);
 	~RIFFReader();
 
-	bool descend(uint32_t id);
-	void ascend();
+	bool Descend(uint32_t id);
+	void Ascend();
 
-	int	readInt();
-	void readInt(int &i) {i = readInt();}
-	void readData(void *data, int count);
-	// String readWString();
-	std::string readWString();
+	int ReadInt();
+	void ReadData(void *data, int count);
 
-	int getCurrentChunkSize();
+	int GetCurrentChunkSize();
 	bool failed() const { return didFail_; }
 
 private:
@@ -36,17 +32,13 @@ private:
 		int startLocation;
 		int parentStartLocation;
 		int parentEOF;
-		unsigned int ID;
+		uint32_t ID;
 		int length;
 	};
 	ChunkInfo stack[32];
-	int depth_ = 0;
-
 	uint8_t *data_;
 	int pos_ = 0;
 	int eof_ = 0;
+	int depth_ = 0;
 	bool didFail_ = false;
-
-	void seekTo(int _pos);
-	int getPos() const {return pos_;}
 };
