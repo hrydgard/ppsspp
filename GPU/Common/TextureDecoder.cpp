@@ -151,6 +151,7 @@ u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
 	return check;
 }
 
+#if !PPSSPP_ARCH(ARM64) && !defined(_M_SSE)
 static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 #if PPSSPP_ARCH(ARM) && defined(__GNUC__)
 	__builtin_prefetch(checkp, 0, 0);
@@ -196,6 +197,7 @@ static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 
 	return check;
 }
+#endif
 
 void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch) {
 	// ysrcp is in 32-bits, so this is convenient.
@@ -302,14 +304,12 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 	}
 }
 
-#ifndef _M_SSE
-#if !PPSSPP_ARCH(ARM64)
+#if !PPSSPP_ARCH(ARM64) && !defined(_M_SSE)
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
 QuickTexHashFunc StableQuickTexHash = &QuickTexHashNonSSE;
 UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
 ReliableHash32Func DoReliableHash32 = &XXH32;
 ReliableHash64Func DoReliableHash64 = &XXH64;
-#endif
 #endif
 
 // This has to be done after CPUDetect has done its magic.

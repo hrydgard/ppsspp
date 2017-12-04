@@ -45,6 +45,7 @@
 
 extern void init_resources(TBuiltInResource &Resources);
 
+#if !defined(ANDROID)
 static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
 	switch (stage) {
 	case Draw::ShaderStage::VERTEX: return EShLangVertex;
@@ -56,6 +57,7 @@ static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
 	default: return EShLangVertex;
 	}
 }
+#endif
 
 void ShaderTranslationInit() {
 	// TODO: We have TLS issues on UWP
