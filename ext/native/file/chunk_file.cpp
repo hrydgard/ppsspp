@@ -9,40 +9,9 @@ inline uint32_t flipID(uint32_t id) {
 	return ((id >> 24) & 0xFF) | ((id >> 8) & 0xFF00) | ((id << 8) & 0xFF0000) | ((id << 24) & 0xFF000000);
 }
 
-RIFFReader::RIFFReader(const char *filename) {
-	data_ = 0;
-	filename_ = filename;
-	depth_ = 0;
-	pos_ = 0;
-	didFail_ = false;
-
-	fastMode = true;
-
-	if (fastMode) {
-		size_t size;
-		data_ = (uint8_t *)VFSReadFile(filename, &size);
-		if (!data_) {
-			ELOG("Chunkfile fail: %s", filename);
-			didFail_ = true;
-			return;
-		}
-		eof_ = (int)size;
-		return;
-	}
-
-	file = openCFile(filename, "wb");
-	if (file) {
-		didFail_ = false;
-		eof_ = 0;
-	} else {
-		didFail_ = true;
-	}
-}
-
 RIFFReader::RIFFReader(const uint8_t *data, int dataSize) {
 	data_ = new uint8_t[dataSize];
 	memcpy(data_, data, dataSize);
-	fastMode = true;
 	depth_ = 0;
 	pos_ = 0;
 	didFail_ = false;
@@ -50,24 +19,13 @@ RIFFReader::RIFFReader(const uint8_t *data, int dataSize) {
 }
 
 RIFFReader::~RIFFReader() {
-	if (fastMode) {
-		delete[] data_;
-	} else {
-		fclose(file);
-	}
+	delete[] data_;
 }
 
 int RIFFReader::readInt() {
 	if (data_ && pos_ < eof_) {
 		pos_ += 4;
-		if (fastMode)
-			return *(int *)(data_ + pos_ - 4);
-		else {
-			int i;
-			if (fread(&i, 1, 4, file) == 4) {
-				return i;
-			}
-		}
+		return *(int *)(data_ + pos_ - 4);
 	}
 	return 0;
 }
@@ -123,9 +81,6 @@ bool RIFFReader::descend(uint32_t id) {
 }
 
 void RIFFReader::seekTo(int _pos) {
-	if (!fastMode) {
-		fseek(file, 0, SEEK_SET);
-	}
 	pos_ = _pos;
 }
 
@@ -143,23 +98,12 @@ void RIFFReader::ascend() {
 
 // read a block
 void RIFFReader::readData(void *what, int count) {
-	if (fastMode) {
-		memcpy(what, data_ + pos_, count);
-	} else {
-		if (fread(what, 1, count, file) != (size_t)count) {
-			ELOG("Failed to read complete %d bytes", count);
-		}
-	}
+	memcpy(what, data_ + pos_, count);
 
 	pos_ += count;
 	count &= 3;
 	if (count) {
 		count = 4 - count;
-		if (!fastMode) {
-			if (fseek(file, count, SEEK_CUR) != 0) {
-				ELOG("Missing padding");
-			}
-		}
 		pos_ += count;
 	}
 }

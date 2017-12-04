@@ -16,9 +16,7 @@
 
 class RIFFReader {
 public:
-	RIFFReader(const char *filename);
 	RIFFReader(const uint8_t *data, int dataSize);
-
 	~RIFFReader();
 
 	bool descend(uint32_t id);
@@ -32,7 +30,6 @@ public:
 
 	int getCurrentChunkSize();
 	bool failed() const { return didFail_; }
-	std::string filename() const { return filename_; }
 
 private:
 	struct ChunkInfo {
@@ -48,11 +45,7 @@ private:
 	uint8_t *data_;
 	int pos_ = 0;
 	int eof_ = 0;
-	bool fastMode;
 	bool didFail_ = false;
-
-	std::string filename_;
-	FILE *file = nullptr;
 
 	void seekTo(int _pos);
 	int getPos() const {return pos_;}
