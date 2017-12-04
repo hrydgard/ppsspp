@@ -10,18 +10,14 @@
 // otherwise the scheme breaks.
 
 #include <string>
-#include <stdio.h>
+#include <cstdio>
 
 #include "base/basictypes.h"
 
-inline uint32_t flipID(uint32_t id) {
-	return ((id>>24)&0xFF) | ((id>>8)&0xFF00) | ((id<<8)&0xFF0000) | ((id<<24)&0xFF000000);
-}
-
 class ChunkFile {
 public:
-	ChunkFile(const char *filename, bool _read);
-	ChunkFile(const uint8_t *read_data, int data_size);
+	ChunkFile(const char *filename, bool readMode);
+	ChunkFile(const uint8_t *data, int dataSize);
 
 	~ChunkFile();
 
@@ -43,12 +39,10 @@ public:
 	void writeData(const void *data, int count);
 
 	int getCurrentChunkSize();
-	bool failed() const { return didFail; }
-	std::string filename() const { return fn; }
+	bool failed() const { return didFail_; }
+	std::string filename() const { return filename_; }
 
 private:
-	std::string fn;
-	FILE *file;
 	struct ChunkInfo {
 		int startLocation;
 		int parentStartLocation;
@@ -57,15 +51,18 @@ private:
 		int length;
 	};
 	ChunkInfo stack[32];
-	int numLevels;
+	int depth_ = 0;
 
-	uint8_t *data;
-	int pos;
-	int eof;
+	uint8_t *data_;
+	int pos_ = 0;
+	int eof_ = 0;
 	bool fastMode;
-	bool read;
-	bool didFail;
+	bool readMode_;
+	bool didFail_ = false;
+
+	std::string filename_;
+	FILE *file = nullptr;
 
 	void seekTo(int _pos);
-	int getPos() const {return pos;}
+	int getPos() const {return pos_;}
 };
