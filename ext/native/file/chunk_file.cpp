@@ -15,6 +15,7 @@ RIFFReader::RIFFReader(const uint8_t *data, int dataSize) {
 	depth_ = 0;
 	pos_ = 0;
 	eof_ = dataSize;
+	fileSize_ = dataSize;
 }
 
 RIFFReader::~RIFFReader() {
@@ -30,36 +31,40 @@ int RIFFReader::ReadInt() {
 }
 
 // let's get into the business
-bool RIFFReader::Descend(uint32_t id) {
+bool RIFFReader::Descend(uint32_t intoId) {
 	if (depth_ > 30)
 		return false;
 
-	id = flipID(id);
+	intoId = flipID(intoId);
 	bool found = false;
 
 	// save information to restore after the next Ascend
 	stack[depth_].parentStartLocation = pos_;
 	stack[depth_].parentEOF = eof_;
 
-	ChunkInfo temp = stack[depth_];
-
-	int firstID = 0;
 	// let's search through children..
 	while (pos_ < eof_) {
-		stack[depth_].ID = ReadInt();
-		if (firstID == 0) firstID = stack[depth_].ID | 1;
-		stack[depth_].length = ReadInt();
-		stack[depth_].startLocation = pos_;
+		int id = ReadInt();
+		int length = ReadInt();
+		int startLocation = pos_;
 
-		if (stack[depth_].ID == id) {
+		if (pos_ + length > fileSize_) {
+			ERROR_LOG(SYSTEM, "Block extends outside of RIFF file - failing descend");
+			pos_ = stack[depth_].parentStartLocation;
+			return false;
+		}
+
+		if (id == intoId) {
+			stack[depth_].ID = intoId;
+			stack[depth_].length = length;
+			stack[depth_].startLocation = startLocation;
 			found = true;
 			break;
 		} else {
-			if (stack[depth_].length > 0) {
-				pos_ += stack[depth_].length; // try next block
+			if (length > 0) {
+				pos_ += length; // try next block
 			} else {
-				ERROR_LOG(SYSTEM, "Bad data in RIFF file : block length %d. Not descending.", stack[depth_].length);
-				stack[depth_] = temp;
+				ERROR_LOG(SYSTEM, "Bad data in RIFF file : block length %d. Not descending.", length);
 				pos_ = stack[depth_].parentStartLocation;
 				return false;
 			}
@@ -68,7 +73,6 @@ bool RIFFReader::Descend(uint32_t id) {
 
 	// if we found nothing, return false so the caller can skip this
 	if (!found) {
-		stack[depth_] = temp;
 		pos_ = stack[depth_].parentStartLocation;
 		return false;
 	}

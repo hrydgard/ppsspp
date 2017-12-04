@@ -37,6 +37,7 @@ private:
 	ChunkInfo stack[32];
 	uint8_t *data_;
 	int pos_ = 0;
-	int eof_ = 0;
+	int eof_ = 0;  // really end of current block
 	int depth_ = 0;
+	int fileSize_ = 0;
 };
