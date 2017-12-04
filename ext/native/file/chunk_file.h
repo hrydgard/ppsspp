@@ -10,62 +10,34 @@
 // otherwise the scheme breaks.
 
 #include <string>
-#include <stdio.h>
+#include <cstdio>
+#include <cstdint>
 
-#include "base/basictypes.h"
-
-inline uint32_t flipID(uint32_t id) {
-	return ((id>>24)&0xFF) | ((id>>8)&0xFF00) | ((id<<8)&0xFF0000) | ((id<<24)&0xFF000000);
-}
-
-class ChunkFile {
+class RIFFReader {
 public:
-	ChunkFile(const char *filename, bool _read);
-	ChunkFile(const uint8_t *read_data, int data_size);
+	RIFFReader(const uint8_t *data, int dataSize);
+	~RIFFReader();
 
-	~ChunkFile();
+	bool Descend(uint32_t id);
+	void Ascend();
 
-	bool descend(uint32_t id);
-	void ascend();
+	int ReadInt();
+	void ReadData(void *data, int count);
 
-	int	readInt();
-	void readInt(int &i) {i = readInt();}
-	void readData(void *data, int count);
-	// String readWString();
-	std::string readWString();
-
-	void writeString(const std::string &str);
-	std::string readString();
-
-	void writeInt(int i);
-	//void writeWString(String str);
-	void writeWString(const std::string &str);
-	void writeData(const void *data, int count);
-
-	int getCurrentChunkSize();
-	bool failed() const { return didFail; }
-	std::string filename() const { return fn; }
+	int GetCurrentChunkSize();
 
 private:
-	std::string fn;
-	FILE *file;
 	struct ChunkInfo {
 		int startLocation;
 		int parentStartLocation;
 		int parentEOF;
-		unsigned int ID;
+		uint32_t ID;
 		int length;
 	};
 	ChunkInfo stack[32];
-	int numLevels;
-
-	uint8_t *data;
-	int pos;
-	int eof;
-	bool fastMode;
-	bool read;
-	bool didFail;
-
-	void seekTo(int _pos);
-	int getPos() const {return pos;}
+	uint8_t *data_;
+	int pos_ = 0;
+	int eof_ = 0;  // really end of current block
+	int depth_ = 0;
+	int fileSize_ = 0;
 };
