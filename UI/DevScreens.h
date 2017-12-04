@@ -87,7 +87,7 @@ private:
 class SystemInfoScreen : public UIDialogScreenWithBackground {
 public:
 	SystemInfoScreen() {}
-	virtual void CreateViews();
+	void CreateViews() override;
 };
 
 class AddressPromptScreen : public PopupScreen {
