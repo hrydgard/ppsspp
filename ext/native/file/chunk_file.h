@@ -25,7 +25,6 @@ public:
 	void ReadData(void *data, int count);
 
 	int GetCurrentChunkSize();
-	bool failed() const { return didFail_; }
 
 private:
 	struct ChunkInfo {
@@ -40,5 +39,4 @@ private:
 	int pos_ = 0;
 	int eof_ = 0;
 	int depth_ = 0;
-	bool didFail_ = false;
 };

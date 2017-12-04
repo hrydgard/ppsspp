@@ -3,6 +3,8 @@
 #include "file/zip_read.h"
 #include "file/file_util.h"
 
+#include "Common/Log.h"
+
 inline uint32_t flipID(uint32_t id) {
 	return ((id >> 24) & 0xFF) | ((id >> 8) & 0xFF00) | ((id << 8) & 0xFF0000) | ((id << 24) & 0xFF000000);
 }
@@ -12,7 +14,6 @@ RIFFReader::RIFFReader(const uint8_t *data, int dataSize) {
 	memcpy(data_, data, dataSize);
 	depth_ = 0;
 	pos_ = 0;
-	didFail_ = false;
 	eof_ = dataSize;
 }
 
@@ -21,7 +22,7 @@ RIFFReader::~RIFFReader() {
 }
 
 int RIFFReader::ReadInt() {
-	if (data_ && pos_ < eof_) {
+	if (data_ && pos_ < eof_ - 3) {
 		pos_ += 4;
 		return *(int *)(data_ + pos_ - 4);
 	}
@@ -54,7 +55,14 @@ bool RIFFReader::Descend(uint32_t id) {
 			found = true;
 			break;
 		} else {
-			pos_ += stack[depth_].length; // try next block
+			if (stack[depth_].length > 0) {
+				pos_ += stack[depth_].length; // try next block
+			} else {
+				ERROR_LOG(SYSTEM, "Bad data in RIFF file : block length %d. Not descending.", stack[depth_].length);
+				stack[depth_] = temp;
+				pos_ = stack[depth_].parentStartLocation;
+				return false;
+			}
 		}
 	}
 
