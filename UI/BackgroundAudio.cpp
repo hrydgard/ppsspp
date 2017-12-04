@@ -153,7 +153,7 @@ public:
 	}
 
 private:
-	ChunkFile file_;
+	RIFFReader file_;
 	uint8_t *raw_data_;
 	int raw_data_size_;
 	int raw_offset_;

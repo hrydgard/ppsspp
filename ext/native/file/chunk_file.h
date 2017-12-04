@@ -14,12 +14,12 @@
 
 #include "base/basictypes.h"
 
-class ChunkFile {
+class RIFFReader {
 public:
-	ChunkFile(const char *filename, bool readMode);
-	ChunkFile(const uint8_t *data, int dataSize);
+	RIFFReader(const char *filename);
+	RIFFReader(const uint8_t *data, int dataSize);
 
-	~ChunkFile();
+	~RIFFReader();
 
 	bool descend(uint32_t id);
 	void ascend();
@@ -29,14 +29,6 @@ public:
 	void readData(void *data, int count);
 	// String readWString();
 	std::string readWString();
-
-	void writeString(const std::string &str);
-	std::string readString();
-
-	void writeInt(int i);
-	//void writeWString(String str);
-	void writeWString(const std::string &str);
-	void writeData(const void *data, int count);
 
 	int getCurrentChunkSize();
 	bool failed() const { return didFail_; }
@@ -57,7 +49,6 @@ private:
 	int pos_ = 0;
 	int eof_ = 0;
 	bool fastMode;
-	bool readMode_;
 	bool didFail_ = false;
 
 	std::string filename_;
