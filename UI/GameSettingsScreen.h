@@ -28,14 +28,14 @@ class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
 	GameSettingsScreen(std::string gamePath, std::string gameID = "", bool editThenRestore = false);
 
-	virtual void update();
-	virtual void onFinish(DialogResult result);
+	void update() override;
+	void onFinish(DialogResult result) override;
 	std::string tag() const override { return "settings"; }
 
 	UI::Event OnRecentChanged;
 
 protected:
-	virtual void CreateViews();
+	void CreateViews() override;
 	void CallbackRestoreDefaults(bool yes);
 	void CallbackRenderingBackend(bool yes);
 	bool UseVerticalLayout() const;
@@ -140,10 +140,10 @@ private:
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
 public:
 	DeveloperToolsScreen() {}
-	virtual void onFinish(DialogResult result);
+	void onFinish(DialogResult result) override;
 
 protected:
-	virtual void CreateViews();
+	void CreateViews() override;
 
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);
@@ -161,7 +161,7 @@ public:
 	ProAdhocServerScreen() {}	
 
 protected:
-	virtual void CreateViews();
+	void CreateViews() override;
 
 private:	
 	std::string tempProAdhocServer;

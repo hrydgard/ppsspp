@@ -204,8 +204,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
 		jint* jimage = env_->GetIntArrayElements(imageData, nullptr);
-		int arraySize = env_->GetArrayLength(imageData);
-		assert(arraySize == imageWidth * imageHeight);
+		assert(env_->GetArrayLength(imageData) == imageWidth * imageHeight);
 		for (int x = 0; x < entry->bmWidth; x++) {
 			for (int y = 0; y < entry->bmHeight; y++) {
 				uint32_t v = jimage[imageWidth * y + x];

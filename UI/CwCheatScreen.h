@@ -39,9 +39,9 @@ public:
 	UI::EventReturn OnEditCheatFile(UI::EventParams &params);
 	UI::EventReturn OnEnableAll(UI::EventParams &params);
 
-	virtual void onFinish(DialogResult result);
+	void onFinish(DialogResult result) override;
 protected:
-	virtual void CreateViews();
+	void CreateViews() override;
 
 private:
 	UI::EventReturn OnCheckBox(UI::EventParams &params);

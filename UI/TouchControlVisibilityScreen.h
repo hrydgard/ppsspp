@@ -29,14 +29,14 @@ class TouchControlVisibilityScreen : public UIDialogScreenWithBackground {
 public:
 	TouchControlVisibilityScreen() : toggleSwitch(true){ }
 
-	virtual void CreateViews();
-	virtual void onFinish(DialogResult result);
+	void CreateViews() override;
+	void onFinish(DialogResult result) override;
 
 protected:
-	virtual UI::EventReturn OnToggleAll(UI::EventParams &e);
+	UI::EventReturn OnToggleAll(UI::EventParams &e);
 
 private:
-	std::map<std::string, bool*> keyToggles;
+	std::map<std::string, bool *> keyToggles;
 	bool toggleSwitch;
 
 	class ChoiceEventHandler{
