@@ -1108,6 +1108,7 @@ void Config::Save() {
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
+			System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
 			return;
 		}
 		INFO_LOG(LOADER, "Config saved: %s", iniFilename_.c_str());
