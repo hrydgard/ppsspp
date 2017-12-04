@@ -432,7 +432,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			// Start emulation using the provided Surface.
 			if (!runEGLRenderLoop(mSurface)) {
 				// Shouldn't happen.
-				Log.e(TAG, "Failed to start up OpenGL");
+				Log.e(TAG, "Failed to start up OpenGL/Vulkan");
 			}
 			Log.i(TAG, "Left the render loop: " + mSurface);
 		}

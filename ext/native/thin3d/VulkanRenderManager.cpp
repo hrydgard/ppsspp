@@ -225,8 +225,12 @@ void VulkanRenderManager::StopThread() {
 		// when we restart...
 		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 			auto &frameData = frameData_[i];
-			if (frameData.readyForRun || frameData.hasInitCommands || frameData.steps.size() != 0) {
-				Crash();
+			_assert_(!frameData.readyForRun);
+			_assert_(frameData.steps.empty());
+			if (frameData.hasInitCommands) {
+				// Clear 'em out.  This can happen on restart sometimes.
+				vkEndCommandBuffer(frameData.initCmd);
+				frameData.hasInitCommands = false;
 			}
 			frameData.readyForRun = false;
 			for (size_t i = 0; i < frameData.steps.size(); i++) {
