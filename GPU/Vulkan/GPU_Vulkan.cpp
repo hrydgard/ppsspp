@@ -201,8 +201,9 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
 		switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
 		case VULKAN_VENDOR_NVIDIA:
-			// Workaround for Shield TV driver bug.
-			if (strcmp(vulkan_->GetPhysicalDeviceProperties().deviceName, "NVIDIA Tegra X1") != 0)
+			// Workaround for Shield TV and Shield Tablet driver bug.
+			if (strcmp(vulkan_->GetPhysicalDeviceProperties().deviceName, "NVIDIA Tegra X1") != 0 &&
+				  strcmp(vulkan_->GetPhysicalDeviceProperties().deviceName, "NVIDIA Tegra K1") != 0)
 				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 			break;
 		case VULKAN_VENDOR_INTEL:
