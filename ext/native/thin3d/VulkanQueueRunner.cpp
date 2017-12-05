@@ -8,6 +8,20 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 	ILOG("VulkanQueueRunner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
 	InitRenderpasses();
+
+#if 0
+	// Just to check whether it makes sense to split some of these. drawidx is way bigger than the others...
+	// We should probably just move to variable-size data in a raw buffer anyway...
+	VkRenderData rd;
+	ILOG("sizeof(pipeline): %d", (int)sizeof(rd.pipeline));
+	ILOG("sizeof(draw): %d", (int)sizeof(rd.draw));
+	ILOG("sizeof(drawidx): %d", (int)sizeof(rd.drawIndexed));
+	ILOG("sizeof(clear): %d", (int)sizeof(rd.clear));
+	ILOG("sizeof(viewport): %d", (int)sizeof(rd.viewport));
+	ILOG("sizeof(scissor): %d", (int)sizeof(rd.scissor));
+	ILOG("sizeof(blendColor): %d", (int)sizeof(rd.blendColor));
+	ILOG("sizeof(push): %d", (int)sizeof(rd.push));
+#endif
 }
 
 void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
