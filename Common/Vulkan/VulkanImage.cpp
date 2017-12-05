@@ -134,13 +134,13 @@ void VulkanTexture::Unlock(VkCommandBuffer cmd) {
 		assert(res == VK_SUCCESS);
 
 		// Since we're going to blit from the mappable image, set its layout to SOURCE_OPTIMAL
-		TransitionImageLayout2(cmd, mappableImage,
+		TransitionImageLayout2(cmd, mappableImage, 0, 1,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
-		TransitionImageLayout2(cmd, image,
+		TransitionImageLayout2(cmd, image, 0, 1,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -174,7 +174,7 @@ void VulkanTexture::Unlock(VkCommandBuffer cmd) {
 		assert(res == VK_SUCCESS);
 
 		// Set the layout for the texture image from DESTINATION_OPTIMAL to SHADER_READ_ONLY
-		TransitionImageLayout2(cmd, image,
+		TransitionImageLayout2(cmd, image, 0, 1,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
@@ -268,7 +268,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
 		switch (initialLayout) {
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-			TransitionImageLayout2(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT,
+			TransitionImageLayout2(cmd, image, 0, numMips, VK_IMAGE_ASPECT_COLOR_BIT,
 				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				0, VK_ACCESS_TRANSFER_WRITE_BIT);
@@ -356,8 +356,40 @@ void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mi
 	vkCmdCopyBufferToImage(cmd, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
 }
 
+void VulkanTexture::GenerateMip(VkCommandBuffer cmd, int mip) {
+	_assert_msg_(G3D, mip != 0, "Cannot generate the first level");
+	_assert_msg_(G3D, mip < numMips_, "Cannot generate mipmaps past the maximum created (%d vs %d)", mip, numMips_);
+	VkImageBlit blit{};
+	blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	blit.srcSubresource.layerCount = 1;
+	blit.srcSubresource.mipLevel = mip - 1;
+	blit.srcOffsets[1].x = tex_width >> (mip - 1);
+	blit.srcOffsets[1].y = tex_height >> (mip - 1);
+	blit.srcOffsets[1].z = 1;
+
+	blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	blit.dstSubresource.layerCount = 1;
+	blit.dstSubresource.mipLevel = mip;
+	blit.dstOffsets[1].x = tex_width >> mip;
+	blit.dstOffsets[1].y = tex_height >> mip;
+	blit.dstOffsets[1].z = 1;
+
+	TransitionImageLayout2(cmd, image, mip - 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+
+	// Low-quality mipmap generation, but works okay.
+	vkCmdBlitImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+
+	TransitionImageLayout2(cmd, image, mip - 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+}
+
 void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture) {
-	TransitionImageLayout2(cmd, image,
+	TransitionImageLayout2(cmd, image, 0, 1,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,

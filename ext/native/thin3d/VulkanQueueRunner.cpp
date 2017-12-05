@@ -223,6 +223,12 @@ void VulkanQueueRunner::InitRenderpasses() {
 
 void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
+	// Planned optimizations: 
+	//  * Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
+	//    (These happen in Wipeout)
+	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
+	//    as early as possible in the frame (Wipeout billboards).
+
 	for (int i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
 		switch (step.stepType) {
@@ -556,10 +562,10 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			}
 
 			// Due to a known bug in the Mali driver, pass the level count explicitly.
-			TransitionImageLayout2(cmd, fb->color.image, VK_IMAGE_ASPECT_COLOR_BIT,
+			TransitionImageLayout2(cmd, fb->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 				fb->color.layout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				srcAccessMask, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, 1);
+				srcAccessMask, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
 			fb->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
 		if (fb->depth.layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
@@ -585,11 +591,10 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			}
 
 			// Due to a known bug in the Mali driver, pass the level count explicitly (last param).
-			TransitionImageLayout2(cmd, fb->depth.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+			TransitionImageLayout2(cmd, fb->depth.image, 0, 1, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
 				fb->depth.layout, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 				srcStage, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-				srcAccessMask, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
-				1);
+				srcAccessMask, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
 			fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		}
 
@@ -872,7 +877,7 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 	if (step.readback.src == nullptr) {
 		// We only take screenshots after the main render pass (anything else would be stupid) so we need to transition out of PRESENT,
 		// and then back into it.
-		TransitionImageLayout2(cmd, backbufferImage_, VK_IMAGE_ASPECT_COLOR_BIT,
+		TransitionImageLayout2(cmd, backbufferImage_, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1,
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 			0, VK_ACCESS_TRANSFER_READ_BIT);
@@ -909,7 +914,7 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 	if (step.readback.src == nullptr) {
 		// We only take screenshots after the main render pass (anything else would be stupid) so we need to transition out of PRESENT,
 		// and then back into it.
-		TransitionImageLayout2(cmd, backbufferImage_, VK_IMAGE_ASPECT_COLOR_BIT,
+		TransitionImageLayout2(cmd, backbufferImage_, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1,
 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 			VK_ACCESS_TRANSFER_READ_BIT, 0);
@@ -942,7 +947,7 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 	vkCmdCopyImageToBuffer(cmd, step.readback_image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readbackBuffer_, 1, &region);
 
 	// Now transfer it back to a texture.
-	TransitionImageLayout2(cmd, step.readback_image.image,
+	TransitionImageLayout2(cmd, step.readback_image.image, 0, 1,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
