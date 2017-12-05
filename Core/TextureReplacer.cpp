@@ -289,19 +289,15 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
 		FILE *fp = File::OpenCFile(filename, "rb");
+		bool bad = false;
 		if (png_image_begin_read_from_stdio(&png, fp)) {
 			// We pad files that have been hashrange'd so they are the same texture size.
 			level.w = (png.width * w) / newW;
 			level.h = (png.height * h) / newH;
-			bool bad = false;
 			if (i != 0) {
 				// Check that the mipmap size is correct. Can't load mips of the wrong size.
-				if (level.w != (result->levels_[0].w >> i)) {
-					WARN_LOG(G3D, "Replacement mipmap invalid: width=%d, expected=%d (level %d, '%s')", level.w, result->levels_[0].w >> i, i, filename.c_str());
-					bad = true;
-				}
-				if (level.h != (result->levels_[0].h >> i)) {
-					WARN_LOG(G3D, "Replacement mipmap invalid: height=%d, expected=%d (level %d, '%s')", level.h, result->levels_[0].h >> i, i, filename.c_str());
+				if (level.w != (result->levels_[0].w >> i) || level.h != (result->levels_[0].h >> i)) {
+					WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d, '%s')", level.w, level.h, result->levels_[0].w >> i, result->levels_[0].h >> i, i, filename.c_str());
 					bad = true;
 				}
 			}
@@ -313,6 +309,8 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		fclose(fp);
 
 		png_image_free(&png);
+		if (bad)
+			break;  // Don't try to load any more mips.
 #endif
 	}
 
