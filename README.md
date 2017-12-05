@@ -19,6 +19,10 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
 
+What's new in 1.5.4
+-------------------
+* Bugfixes and crashfixes!
+
 What's new in 1.5.0
 -------------------
 * Full Vulkan support, also for Android now. Very fast on supported devices. (#10033, #10049)
