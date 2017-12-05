@@ -56,7 +56,7 @@ include(ccache)
 # Remove soon?
 set(USE_FFMPEG ON)
 
-if(NOT ANDROID)
+if(NOT ANDROID AND NOT IOS)
 	if(ARM OR SIMULATOR)
 		set(USING_EGL ON)
 	endif()
