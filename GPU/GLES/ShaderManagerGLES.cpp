@@ -955,7 +955,7 @@ struct CacheHeader {
 	int numLinkedPrograms;
 };
 
-void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
+void ShaderManagerGLES::Load(const std::string &filename) {
 	File::IOFile f(filename, "rb");
 	u64 sz = f.GetSize();
 	if (!f.IsOpen()) {
@@ -969,7 +969,8 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 		return;
 	}
 	time_update();
-	double start = time_now_d();
+	diskCachePending_.start = time_now_d();
+	diskCachePending_.Clear();
 
 	// Sanity check the file contents
 	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000) {
@@ -987,42 +988,19 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 		return;
 	}
 
-	for (int i = 0; i < header.numVertexShaders; i++) {
-		VShaderID id;
-		if (!f.ReadArray(&id, 1)) {
-			return;
-		}
-		if (!vsCache_.Get(id)) {
-			if (id.Bit(VS_BIT_IS_THROUGH) && id.Bit(VS_BIT_USE_HW_TRANSFORM)) {
-				// Clearly corrupt, bailing.
-				ERROR_LOG_REPORT(G3D, "Corrupt shader cache: Both IS_THROUGH and USE_HW_TRANSFORM set.");
-				return;
-			}
+	diskCachePending_.vert.resize(header.numVertexShaders);
+	if (!f.ReadArray(&diskCachePending_.vert[0], header.numVertexShaders)) {
+		diskCachePending_.vert.clear();
+		return;
+	}
 
-			Shader *vs = CompileVertexShader(id);
-			if (vs->Failed()) {
-				// Give up on using the cache, just bail. We can't safely create the fallback shaders here
-				// without trying to deduce the vertType from the VSID.
-				ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
-				delete vs;
-				return;
-			}
-			vsCache_.Insert(id, vs);
-		} else {
-			WARN_LOG(G3D, "Duplicate vertex shader found in GL shader cache, ignoring");
-		}
+	diskCachePending_.frag.resize(header.numFragmentShaders);
+	if (!f.ReadArray(&diskCachePending_.frag[0], header.numFragmentShaders)) {
+		diskCachePending_.vert.clear();
+		diskCachePending_.frag.clear();
+		return;
 	}
-	for (int i = 0; i < header.numFragmentShaders; i++) {
-		FShaderID id;
-		if (!f.ReadArray(&id, 1)) {
-			return;
-		}
-		if (!fsCache_.Get(id)) {
-			fsCache_.Insert(id, CompileFragmentShader(id));
-		} else {
-			WARN_LOG(G3D, "Duplicate fragment shader found in GL shader cache, ignoring");
-		}
-	}
+
 	for (int i = 0; i < header.numLinkedPrograms; i++) {
 		VShaderID vsid;
 		FShaderID fsid;
@@ -1032,6 +1010,76 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 		if (!f.ReadArray(&fsid, 1)) {
 			return;
 		}
+		diskCachePending_.link.push_back(std::make_pair(vsid, fsid));
+	}
+
+	// Actual compilation happens in ContinuePrecompile(), called by GPU_GLES's IsReady.
+	NOTICE_LOG(G3D, "Precompiling the shader cache from '%s'", filename.c_str());
+	diskCacheDirty_ = false;
+}
+
+bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
+	auto &pending = diskCachePending_;
+	if (pending.Done()) {
+		return true;
+	}
+
+	double start = real_time_now();
+	// Let's try to keep it under sliceTime if possible.
+	double end = start + sliceTime;
+
+	for (size_t &i = pending.vertPos; i < pending.vert.size(); i++) {
+		if (real_time_now() >= end) {
+			// We'll finish later.
+			return false;
+		}
+
+		const VShaderID &id = pending.vert[i];
+		if (!vsCache_.Get(id)) {
+			if (id.Bit(VS_BIT_IS_THROUGH) && id.Bit(VS_BIT_USE_HW_TRANSFORM)) {
+				// Clearly corrupt, bailing.
+				ERROR_LOG_REPORT(G3D, "Corrupt shader cache: Both IS_THROUGH and USE_HW_TRANSFORM set.");
+				pending.Clear();
+				return false;
+			}
+
+			Shader *vs = CompileVertexShader(id);
+			if (vs->Failed()) {
+				// Give up on using the cache, just bail. We can't safely create the fallback shaders here
+				// without trying to deduce the vertType from the VSID.
+				ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
+				delete vs;
+				pending.Clear();
+				return false;
+			}
+			vsCache_.Insert(id, vs);
+		} else {
+			WARN_LOG(G3D, "Duplicate vertex shader found in GL shader cache, ignoring");
+		}
+	}
+
+	for (size_t &i = pending.fragPos; i < pending.frag.size(); i++) {
+		if (real_time_now() >= end) {
+			// We'll finish later.
+			return false;
+		}
+
+		const FShaderID &id = pending.frag[i];
+		if (!fsCache_.Get(id)) {
+			fsCache_.Insert(id, CompileFragmentShader(id));
+		} else {
+			WARN_LOG(G3D, "Duplicate fragment shader found in GL shader cache, ignoring");
+		}
+	}
+
+	for (size_t &i = pending.linkPos; i < pending.link.size(); i++) {
+		if (real_time_now() >= end) {
+			// We'll finish later.
+			return false;
+		}
+
+		const VShaderID &vsid = pending.link[i].first;
+		const FShaderID &fsid = pending.link[i].second;
 		Shader *vs = vsCache_.Get(vsid);
 		Shader *fs = fsCache_.Get(fsid);
 		if (vs && fs) {
@@ -1040,12 +1088,15 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 			linkedShaderCache_.push_back(entry);
 		}
 	}
-	time_update();
-	double end = time_now_d();
 
-	NOTICE_LOG(G3D, "Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", header.numLinkedPrograms, header.numVertexShaders, header.numFragmentShaders, 1000 * (end - start));
-	NOTICE_LOG(G3D, "Loaded the shader cache from '%s'", filename.c_str());
-	diskCacheDirty_ = false;
+	// Okay, finally done.  Time to report status.
+	time_update();
+	double finish = time_now_d();
+
+	NOTICE_LOG(G3D, "Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", (int)pending.link.size(), (int)pending.vert.size(), (int)pending.frag.size(), 1000 * (finish - pending.start));
+	pending.Clear();
+
+	return true;
 }
 
 void ShaderManagerGLES::Save(const std::string &filename) {

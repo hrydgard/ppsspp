@@ -168,6 +168,7 @@ public:
 	virtual Draw::DrawContext *GetDrawContext() = 0;
 
 	// Initialization
+	virtual bool IsReady() = 0;
 	virtual void InitClear() = 0;
 	virtual void Reinitialize() = 0;
 

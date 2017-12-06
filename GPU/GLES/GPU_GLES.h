@@ -38,6 +38,8 @@ public:
 	// This gets called on startup and when we get back from settings.
 	void CheckGPUFeatures();
 
+	bool IsReady() override;
+
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 

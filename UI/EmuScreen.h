@@ -24,6 +24,7 @@
 #include "input/keycodes.h"
 #include "ui/screen.h"
 #include "ui/ui_screen.h"
+#include "ui/ui_tween.h"
 #include "Common/KeyMap.h"
 
 struct AxisInput;
@@ -56,6 +57,7 @@ protected:
 private:
 	void bootGame(const std::string &filename);
 	void bootComplete();
+	void renderUI();
 	void processAxis(const AxisInput &axis, int direction);
 
 	void pspKey(int pspKeyCode, int flags);
@@ -97,4 +99,8 @@ private:
 	double saveStatePreviewShownTime_;
 	AsyncImageFileView *saveStatePreview_;
 	int saveStateSlot_;
+
+	UI::View *loadingView_ = nullptr;
+	UI::TextColorTween *loadingViewColor_ = nullptr;
+	UI::VisibilityTween *loadingViewVisible_ = nullptr;
 };

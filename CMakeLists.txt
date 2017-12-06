@@ -959,6 +959,8 @@ add_library(native STATIC
 	ext/native/ui/ui_context.h
 	ext/native/ui/ui_screen.cpp
 	ext/native/ui/ui_screen.h
+	ext/native/ui/ui_tween.cpp
+	ext/native/ui/ui_tween.h
 	ext/native/ui/view.cpp
 	ext/native/ui/view.h
 	ext/native/ui/viewgroup.cpp

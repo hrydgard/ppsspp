@@ -28,8 +28,11 @@
 #include "gfx_es2/draw_text.h"
 
 #include "input/input_state.h"
+#include "math/curves.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
+#include "ui/ui_tween.h"
+#include "ui/view.h"
 #include "i18n/i18n.h"
 
 #include "Common/KeyMap.h"
@@ -220,6 +223,9 @@ void EmuScreen::bootGame(const std::string &filename) {
 		I18NCategory *gr = GetI18NCategory("Graphics");
 		host->NotifyUserMessage(gr->T("BlockTransferRequired", "Warning: This game requires Simulate Block Transfer Mode to be set to On."), 15.0f);
 	}
+
+	loadingViewColor_->Divert(0xFFFFFFFF, 0.15f);
+	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.15f);
 }
 
 void EmuScreen::bootComplete() {
@@ -268,6 +274,9 @@ void EmuScreen::bootComplete() {
 	System_SendMessage("event", "startgame");
 
 	saveStateSlot_ = SaveState::GetCurrentSlot();
+
+	loadingViewColor_->Divert(0x00FFFFFF, 0.2f);
+	loadingViewVisible_->Divert(UI::V_INVISIBLE, 0.2f);
 }
 
 EmuScreen::~EmuScreen() {
@@ -344,7 +353,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		} else {
 			PSP_Shutdown();
 			bootPending_ = true;
-			bootGame(value);
+			gamePath_ = value;
 		}
 	} else if (!strcmp(message, "control mapping") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
@@ -794,11 +803,15 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 
 void EmuScreen::CreateViews() {
 	using namespace UI;
+
+	I18NCategory *sc = GetI18NCategory("Screen");
+	I18NCategory *dev = GetI18NCategory("Developer");
+
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
 	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_);
 	if (g_Config.bShowDeveloperMenu) {
-		root_->Add(new Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
+		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
 	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
 	saveStatePreview_->SetFixedSize(160, 90);
@@ -807,6 +820,13 @@ void EmuScreen::CreateViews() {
 	saveStatePreview_->SetCanBeFocused(false);
 	root_->Add(saveStatePreview_);
 	root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
+
+	loadingView_ = new TextView(sc->T("Loading game..."), new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true));
+	root_->Add(loadingView_);
+
+	// We start invisible here, in case of recreated views.
+	loadingViewColor_ = loadingView_->AddTween(new TextColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
+	loadingViewVisible_ = loadingView_->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
@@ -820,10 +840,10 @@ UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 }
 
 void EmuScreen::update() {
+	UIScreen::update();
+
 	if (bootPending_)
 		bootGame(gamePath_);
-
-	UIScreen::update();
 
 	// Simply forcibly update to the current screen size every frame. Doesn't cost much.
 	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
@@ -1026,6 +1046,7 @@ void EmuScreen::render() {
 		// In this case, we need to double check it here.
 		checkPowerDown();
 		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR });
+		renderUI();
 		return;
 	}
 
@@ -1072,47 +1093,10 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls;
+	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls || loadingView_->GetVisibility() == UI::V_VISIBLE;
 	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler;
 	if (hasVisibleUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
-		// This sets up some important states but not the viewport.
-		screenManager()->getUIContext()->Begin();
-
-		Viewport viewport;
-		viewport.TopLeftX = 0;
-		viewport.TopLeftY = 0;
-		viewport.Width = pixel_xres;
-		viewport.Height = pixel_yres;
-		viewport.MaxDepth = 1.0;
-		viewport.MinDepth = 0.0;
-		thin3d->SetViewports(1, &viewport);
-
-		DrawBuffer *draw2d = screenManager()->getUIContext()->Draw();
-
-		if (root_) {
-			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
-			root_->Draw(*screenManager()->getUIContext());
-		}
-
-		if (g_Config.bShowDebugStats) {
-			DrawDebugStats(draw2d);
-		}
-
-		if (g_Config.bShowAudioDebug) {
-			DrawAudioDebugStats(draw2d);
-		}
-
-		if (g_Config.iShowFPSCounter) {
-			DrawFPS(draw2d, screenManager()->getUIContext()->GetBounds());
-		}
-
-#ifdef USE_PROFILER
-		if (g_Config.bShowFrameProfiler) {
-			DrawProfile(*screenManager()->getUIContext());
-		}
-#endif
-
-		screenManager()->getUIContext()->End();
+		renderUI();
 	}
 
 	// We have no use for backbuffer depth or stencil, so let tiled renderers discard them after tiling.
@@ -1131,6 +1115,51 @@ void EmuScreen::render() {
 #endif
 	}
 	*/
+}
+
+void EmuScreen::renderUI() {
+	using namespace Draw;
+
+	DrawContext *thin3d = screenManager()->getDrawContext();
+
+	// This sets up some important states but not the viewport.
+	screenManager()->getUIContext()->Begin();
+
+	Viewport viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = pixel_xres;
+	viewport.Height = pixel_yres;
+	viewport.MaxDepth = 1.0;
+	viewport.MinDepth = 0.0;
+	thin3d->SetViewports(1, &viewport);
+
+	DrawBuffer *draw2d = screenManager()->getUIContext()->Draw();
+
+	if (root_) {
+		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+		root_->Draw(*screenManager()->getUIContext());
+	}
+
+	if (g_Config.bShowDebugStats && !invalid_) {
+		DrawDebugStats(draw2d);
+	}
+
+	if (g_Config.bShowAudioDebug && !invalid_) {
+		DrawAudioDebugStats(draw2d);
+	}
+
+	if (g_Config.iShowFPSCounter && !invalid_) {
+		DrawFPS(draw2d, screenManager()->getUIContext()->GetBounds());
+	}
+
+#ifdef USE_PROFILER
+	if (g_Config.bShowFrameProfiler && !invalid_) {
+		DrawProfile(*screenManager()->getUIContext());
+	}
+#endif
+
+	screenManager()->getUIContext()->End();
 }
 
 void EmuScreen::deviceLost() {

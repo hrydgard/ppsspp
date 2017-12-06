@@ -436,16 +436,16 @@ bool PSP_InitUpdate(std::string *error_string) {
 
 	bool success = coreParameter.fileToStart != "";
 	*error_string = coreParameter.errorString;
-	if (success) {
+	if (success && gpu == nullptr) {
 		success = GPU_Init(coreParameter.graphicsContext, coreParameter.thin3d);
 		if (!success) {
 			PSP_Shutdown();
 			*error_string = "Unable to initialize rendering engine.";
 		}
 	}
-	pspIsInited = success;
-	pspIsIniting = false;
-	return true;
+	pspIsInited = success && GPU_IsReady();
+	pspIsIniting = success && !pspIsInited;
+	return !success || pspIsInited;
 }
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
