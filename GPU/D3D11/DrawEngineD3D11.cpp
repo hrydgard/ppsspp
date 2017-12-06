@@ -74,7 +74,11 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 		device_(device),
 		context_(context),
 		vai_(256),
-		inputLayoutMap_(32) {
+		inputLayoutMap_(32),
+		blendCache_(32),
+		blendCache1_(32),
+		depthStencilCache_(64),
+		rasterCache_(4) {
 	device1_ = (ID3D11Device1 *)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 	context1_ = (ID3D11DeviceContext1 *)draw->GetNativeObject(Draw::NativeObject::CONTEXT_EX);
 	decOptions_.expandAllWeightsToFloat = true;
@@ -137,18 +141,22 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 	delete tessDataTransfer;
 	delete pushVerts_;
 	delete pushInds_;
-	for (auto &depth : depthStencilCache_) {
-		depth.second->Release();
-	}
-	for (auto &blend : blendCache_) {
-		blend.second->Release();
-	}
-	for (auto &blend1 : blendCache1_) {
-		blend1.second->Release();
-	}
-	for (auto &raster : rasterCache_) {
-		raster.second->Release();
-	}
+	depthStencilCache_.Iterate([&](const uint64_t &key, ID3D11DepthStencilState *ds) {
+		ds->Release();
+	});
+	depthStencilCache_.Clear();
+	blendCache_.Iterate([&](const uint64_t &key, ID3D11BlendState *bs) {
+		bs->Release();
+	});
+	blendCache_.Clear();
+	blendCache1_.Iterate([&](const uint64_t &key, ID3D11BlendState1 *bs) {
+		bs->Release();
+	});
+	blendCache1_.Clear();
+	rasterCache_.Iterate([&](const uint32_t &key, ID3D11RasterizerState *rs) {
+		rs->Release();
+	});
+	rasterCache_.Clear();
 }
 
 struct DeclTypeInfo {
@@ -353,6 +361,7 @@ void DrawEngineD3D11::BeginFrame() {
 			vai_.Remove(hash);
 		}
 	});
+	vai_.Maintain();
 
 	// Enable if you want to see vertex decoders in the log output. Need a better way.
 #if 0

@@ -83,7 +83,7 @@ static void WriteGuardBand(char *&p) {
 }
 #endif
 
-void GenerateVertexShaderHLSL(const ShaderID &id, char *buffer, ShaderLanguage lang) {
+void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 	const u32 vertType = gstate.vertType;
 

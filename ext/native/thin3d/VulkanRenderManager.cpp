@@ -228,8 +228,12 @@ void VulkanRenderManager::StopThread() {
 		// when we restart...
 		for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 			auto &frameData = frameData_[i];
-			if (frameData.readyForRun || frameData.hasInitCommands || frameData.steps.size() != 0) {
-				Crash();
+			_assert_(!frameData.readyForRun);
+			_assert_(frameData.steps.empty());
+			if (frameData.hasInitCommands) {
+				// Clear 'em out.  This can happen on restart sometimes.
+				vkEndCommandBuffer(frameData.initCmd);
+				frameData.hasInitCommands = false;
 			}
 			frameData.readyForRun = false;
 			for (size_t i = 0; i < frameData.steps.size(); i++) {
@@ -435,7 +439,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 		if (src) {
 			switch (src->color.format) {
 			case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
-			default: assert(false);
+			default: _assert_(false);
 			}
 		}
 		else {
@@ -461,10 +465,10 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 		case VK_FORMAT_D24_UNORM_S8_UINT: srcFormat = Draw::DataFormat::D24_S8; break;
 		case VK_FORMAT_D32_SFLOAT_S8_UINT: srcFormat = Draw::DataFormat::D32F; break;
 		case VK_FORMAT_D16_UNORM_S8_UINT: srcFormat = Draw::DataFormat::D16; break;
-		default: assert(false);
+		default: _assert_(false);
 		}
 	} else {
-		assert(false);
+		_assert_(false);
 	}
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
 	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);

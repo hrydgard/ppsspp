@@ -107,7 +107,9 @@ private:
 	FragmentTestCacheGLES fragmentTestCache_;
 	ShaderManagerGLES *shaderManagerGL_;
 
+#ifdef _WIN32
 	int lastVsync_;
+#endif
 	int vertexCost_ = 0;
 
 	std::string reportingPrimaryInfo_;

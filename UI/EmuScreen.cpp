@@ -311,7 +311,7 @@ static void AfterStateBoot(bool success, const std::string &message, void *ignor
 
 void EmuScreen::sendMessage(const char *message, const char *value) {
 	// External commands, like from the Windows UI.
-	if (!strcmp(message, "pause")) {
+	if (!strcmp(message, "pause") && screenManager()->topScreen() == this) {
 		releaseButtons();
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	} else if (!strcmp(message, "lost_focus")) {
@@ -346,15 +346,15 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			bootPending_ = true;
 			bootGame(value);
 		}
-	} else if (!strcmp(message, "control mapping")) {
+	} else if (!strcmp(message, "control mapping") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();
 		screenManager()->push(new ControlMappingScreen());
-	} else if (!strcmp(message, "display layout editor")) {
+	} else if (!strcmp(message, "display layout editor") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();
 		screenManager()->push(new DisplayLayoutScreen());
-	} else if (!strcmp(message, "settings")) {
+	} else if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();
 		screenManager()->push(new GameSettingsScreen(gamePath_));
@@ -1021,7 +1021,7 @@ void EmuScreen::preRender() {
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if ((!useBufferedRendering && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
 		// We need to clear here already so that drawing during the frame is done on a clean slate.
-		if (Core_IsStepping()) {
+		if (Core_IsStepping() && gpuStats.numFlips != 0) {
 			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE });
 		} else {
 			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });

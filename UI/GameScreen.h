@@ -33,12 +33,12 @@ public:
 	GameScreen(const std::string &gamePath);
 	~GameScreen();
 
-	virtual void update();
+	void update() override;
 
-	virtual std::string tag() const { return "game"; }
+	std::string tag() const override { return "game"; }
 
 protected:
-	virtual void CreateViews();
+	void CreateViews() override;
 	void CallbackDeleteConfig(bool yes);
 	void CallbackDeleteSaveData(bool yes);
 	void CallbackDeleteGame(bool yes);

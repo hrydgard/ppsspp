@@ -188,11 +188,10 @@ private:
 	PushBufferD3D11 *pushInds_;
 
 	// D3D11 state object caches.
-	// TODO: Change them to DenseHashMaps.
-	std::map<uint64_t, ID3D11BlendState *> blendCache_;
-	std::map<uint64_t, ID3D11BlendState1 *> blendCache1_;
-	std::map<uint64_t, ID3D11DepthStencilState *> depthStencilCache_;
-	std::map<uint32_t, ID3D11RasterizerState *> rasterCache_;
+	DenseHashMap<uint64_t, ID3D11BlendState *, nullptr> blendCache_;
+	DenseHashMap<uint64_t, ID3D11BlendState1 *, nullptr> blendCache1_;
+	DenseHashMap<uint64_t, ID3D11DepthStencilState *, nullptr> depthStencilCache_;
+	DenseHashMap<uint32_t, ID3D11RasterizerState *, nullptr> rasterCache_;
 
 	// Keep the depth state between ApplyDrawState and ApplyDrawStateLate
 	ID3D11RasterizerState *rasterState_ = nullptr;

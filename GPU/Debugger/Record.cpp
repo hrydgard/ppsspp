@@ -382,6 +382,9 @@ static void WriteRecording() {
 	EmitDisplayBuf();
 
 	const std::string filename = GenRecordingFilename();
+
+	NOTICE_LOG(G3D, "Recording filename: %s", filename.c_str());
+
 	FILE *fp = File::OpenCFile(filename, "wb");
 	fwrite(HEADER, 8, 1, fp);
 	fwrite(&VERSION, sizeof(VERSION), 1, fp);

@@ -93,7 +93,7 @@ Shader::~Shader() {
 		glDeleteShader(shader);
 }
 
-LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform, bool preloading)
+LinkedShader::LinkedShader(VShaderID VSID, Shader *vs, FShaderID FSID, Shader *fs, bool useHWTransform, bool preloading)
 		: useHWTransform_(useHWTransform) {
 	PROFILE_THIS_SCOPE("shaderlink");
 
@@ -361,7 +361,7 @@ static inline void ScaleProjMatrix(Matrix4x4 &in) {
 	in.translateAndScale(trans, scale);
 }
 
-void LinkedShader::use(const ShaderID &VSID, LinkedShader *previous) {
+void LinkedShader::use(const VShaderID &VSID, LinkedShader *previous) {
 	glUseProgram(program);
 	int enable, disable;
 	if (previous) {
@@ -386,7 +386,7 @@ void LinkedShader::stop() {
 	}
 }
 
-void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
+void LinkedShader::UpdateUniforms(u32 vertType, const VShaderID &vsid) {
 	CHECK_GL_ERROR_IF_DEBUG();
 
 	u64 dirty = dirtyUniforms & availableUniforms;
@@ -719,10 +719,10 @@ void ShaderManagerGLES::Clear() {
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		delete iter->ls;
 	}
-	fsCache_.Iterate([&](const ShaderID &key, Shader *shader) {
+	fsCache_.Iterate([&](const FShaderID &key, Shader *shader) {
 		delete shader;
 	});
-	vsCache_.Iterate([&](const ShaderID &key, Shader *shader) {
+	vsCache_.Iterate([&](const VShaderID &key, Shader *shader) {
 		delete shader;
 	});
 	linkedShaderCache_.clear();
@@ -752,7 +752,7 @@ void ShaderManagerGLES::DirtyLastShader() { // disables vertex arrays
 	lastVShaderSame_ = false;
 }
 
-Shader *ShaderManagerGLES::CompileFragmentShader(ShaderID FSID) {
+Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	uint64_t uniformMask;
 	if (!GenerateFragmentShader(FSID, codeBuffer_, &uniformMask)) {
 		return nullptr;
@@ -760,7 +760,7 @@ Shader *ShaderManagerGLES::CompileFragmentShader(ShaderID FSID) {
 	return new Shader(FSID, codeBuffer_, GL_FRAGMENT_SHADER, false, 0, uniformMask);
 }
 
-Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
+Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
 	uint32_t attrMask;
 	uint64_t uniformMask;
@@ -768,7 +768,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(ShaderID VSID) {
 	return new Shader(VSID, codeBuffer_, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
 }
 
-Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
+Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, VShaderID *VSID) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -810,7 +810,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			ShaderID vsidTemp;
+			VShaderID vsidTemp;
 			ComputeVertexShaderID(&vsidTemp, vertType, false);
 			uint32_t attrMask;
 			uint64_t uniformMask;
@@ -824,8 +824,8 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, ShaderID *V
 	return vs;
 }
 
-LinkedShader *ShaderManagerGLES::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim) {
-	ShaderID FSID;
+LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, u32 vertType, int prim) {
+	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
 		ComputeFragmentShaderID(&FSID);
@@ -899,7 +899,7 @@ std::vector<std::string> ShaderManagerGLES::DebugGetShaderIDs(DebugShaderType ty
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 		{
-			vsCache_.Iterate([&](const ShaderID &id, Shader *shader) {
+			vsCache_.Iterate([&](const VShaderID &id, Shader *shader) {
 				std::string idstr;
 				id.ToString(&idstr);
 				ids.push_back(idstr);
@@ -908,7 +908,7 @@ std::vector<std::string> ShaderManagerGLES::DebugGetShaderIDs(DebugShaderType ty
 		break;
 	case SHADER_TYPE_FRAGMENT:
 		{
-			fsCache_.Iterate([&](const ShaderID &id, Shader *shader) {
+			fsCache_.Iterate([&](const FShaderID &id, Shader *shader) {
 				std::string idstr;
 				id.ToString(&idstr);
 				ids.push_back(idstr);
@@ -927,13 +927,13 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 	{
-		Shader *vs = vsCache_.Get(shaderId);
+		Shader *vs = vsCache_.Get(VShaderID(shaderId));
 		return vs ? vs->GetShaderString(stringType, shaderId) : "";
 	}
 
 	case SHADER_TYPE_FRAGMENT:
 	{
-		Shader *fs = fsCache_.Get(shaderId);
+		Shader *fs = fsCache_.Get(FShaderID(shaderId));
 		return fs->GetShaderString(stringType, shaderId);
 	}
 	default:
@@ -966,6 +966,7 @@ struct CacheHeader {
 
 void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 	File::IOFile f(filename, "rb");
+	u64 sz = f.GetSize();
 	if (!f.IsOpen()) {
 		return;
 	}
@@ -980,13 +981,24 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 	double start = time_now_d();
 
 	// Sanity check the file contents
-	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000)
+	if (header.numFragmentShaders > 1000 || header.numVertexShaders > 1000 || header.numLinkedPrograms > 1000) {
+		ERROR_LOG(G3D, "Corrupt shader cache file header, aborting.");
 		return;
+	}
+
+	// Also make sure the size makes sense, in case there's corruption.
+	u64 expectedSize = sizeof(header);
+	expectedSize += header.numVertexShaders * sizeof(VShaderID);
+	expectedSize += header.numFragmentShaders * sizeof(FShaderID);
+	expectedSize += header.numLinkedPrograms * (sizeof(VShaderID) + sizeof(FShaderID));
+	if (sz != expectedSize) {
+		ERROR_LOG(G3D, "Shader cache file is wrong size: %lld instead of %lld", sz, expectedSize);
+		return;
+	}
 
 	for (int i = 0; i < header.numVertexShaders; i++) {
-		ShaderID id;
+		VShaderID id;
 		if (!f.ReadArray(&id, 1)) {
-			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
 		if (!vsCache_.Get(id)) {
@@ -1010,9 +1022,8 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 		}
 	}
 	for (int i = 0; i < header.numFragmentShaders; i++) {
-		ShaderID id;
+		FShaderID id;
 		if (!f.ReadArray(&id, 1)) {
-			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
 		if (!fsCache_.Get(id)) {
@@ -1022,13 +1033,12 @@ void ShaderManagerGLES::LoadAndPrecompile(const std::string &filename) {
 		}
 	}
 	for (int i = 0; i < header.numLinkedPrograms; i++) {
-		ShaderID vsid, fsid;
+		VShaderID vsid;
+		FShaderID fsid;
 		if (!f.ReadArray(&vsid, 1)) {
-			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
 		if (!f.ReadArray(&fsid, 1)) {
-			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
 			return;
 		}
 		Shader *vs = vsCache_.Get(vsid);

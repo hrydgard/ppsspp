@@ -31,10 +31,10 @@ public:
 		u8 at3_extradata[16];
 
 		int num_channels, sample_rate, numFrames, samplesPerSec, avgBytesPerSec, Nothing;
-		if (file_.descend('RIFF')) {
-			file_.readInt(); //get past 'WAVE'
-			if (file_.descend('fmt ')) { //enter the format chunk
-				int temp = file_.readInt();
+		if (file_.Descend('RIFF')) {
+			file_.ReadInt(); //get past 'WAVE'
+			if (file_.Descend('fmt ')) { //enter the format chunk
+				int temp = file_.ReadInt();
 				int format = temp & 0xFFFF;
 				switch (format) {
 				case 0xFFFE:
@@ -50,10 +50,10 @@ public:
 
 				num_channels = temp >> 16;
 
-				samplesPerSec = file_.readInt();
-				avgBytesPerSec = file_.readInt();
+				samplesPerSec = file_.ReadInt();
+				avgBytesPerSec = file_.ReadInt();
 
-				temp = file_.readInt();
+				temp = file_.ReadInt();
 				raw_bytes_per_frame_ = temp & 0xFFFF;
 				Nothing = temp >> 16;
 
@@ -64,41 +64,41 @@ public:
 				if (codec == PSP_CODEC_AT3) {
 					// The first two bytes are actually not a useful part of the extradata.
 					// We already read 16 bytes, so make sure there's enough left.
-					if (file_.getCurrentChunkSize() >= 32) {
-						file_.readData(at3_extradata, 16);
+					if (file_.GetCurrentChunkSize() >= 32) {
+						file_.ReadData(at3_extradata, 16);
 					} else {
 						memset(at3_extradata, 0, sizeof(at3_extradata));
 					}
 				}
-				file_.ascend();
+				file_.Ascend();
 				// ILOG("got fmt data: %i", samplesPerSec);
 			} else {
 				ELOG("Error - no format chunk in wav");
-				file_.ascend();
+				file_.Ascend();
 				return;
 			}
 
-			if (file_.descend('data')) {			//enter the data chunk
-				int numBytes = file_.getCurrentChunkSize();
+			if (file_.Descend('data')) {			//enter the data chunk
+				int numBytes = file_.GetCurrentChunkSize();
 				numFrames = numBytes / raw_bytes_per_frame_;  // numFrames
 
 				raw_data_ = (uint8_t *)malloc(numBytes);
 				raw_data_size_ = numBytes;
 				if (/*raw_bytes_per_frame_ == 280 && */ num_channels == 1 || num_channels == 2) {
-					file_.readData(raw_data_, numBytes);
+					file_.ReadData(raw_data_, numBytes);
 				} else {
 					ELOG("Error - bad blockalign or channels");
 					free(raw_data_);
 					raw_data_ = 0;
 					return;
 				}
-				file_.ascend();
+				file_.Ascend();
 			} else {
 				ELOG("Error - no data chunk in wav");
-				file_.ascend();
+				file_.Ascend();
 				return;
 			}
-			file_.ascend();
+			file_.Ascend();
 		} else {
 			ELOG("Could not descend into RIFF file. Data size=%d", (int32_t)data.size());
 			return;
@@ -153,7 +153,7 @@ public:
 	}
 
 private:
-	ChunkFile file_;
+	RIFFReader file_;
 	uint8_t *raw_data_;
 	int raw_data_size_;
 	int raw_offset_;

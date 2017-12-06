@@ -97,9 +97,9 @@ void WordWrapper::AppendWord(int endIndex, bool addNewline) {
 		lastLineStart_ = (int)out_.size();
 	} else {
 		// We may have appended a newline - check.
-		size_t pos = out_.find_last_of("\n", lastLineStart_);
+		size_t pos = out_.substr(lastLineStart_).find_last_of("\n");
 		if (pos != out_.npos) {
-			lastLineStart_ = (int)pos;
+			lastLineStart_ += (int)pos;
 		}
 	}
 	lastIndex_ = endIndex;
@@ -132,13 +132,8 @@ void WordWrapper::Wrap() {
 			continue;
 		}
 
-		float newWordWidth = 0.0f;
-		if (c == '\n') {
-			newWordWidth = wordWidth_;
-		} else {
-			// Measure the entire word for kerning purposes.  May not be 100% perfect.
-			newWordWidth = MeasureWidth(str_ + lastIndex_, afterIndex - lastIndex_);
-		}
+		// Measure the entire word for kerning purposes.  May not be 100% perfect.
+		float newWordWidth = MeasureWidth(str_ + lastIndex_, afterIndex - lastIndex_);
 
 		// Is this the end of a word (space)?
 		if (wordWidth_ > 0.0f && IsSpace(c)) {

@@ -530,6 +530,7 @@ namespace SaveState
 		return false;
 	}
 
+#ifndef MOBILE_DEVICE
 	static inline void CheckRewindState()
 	{
 		if (gpuStats.numFlips % g_Config.iRewindFlipFrequency != 0)
@@ -545,6 +546,7 @@ namespace SaveState
 		DEBUG_LOG(BOOT, "saving rewind state");
 		rewindStates.Save();
 	}
+#endif
 
 	bool HasLoadedState()
 	{

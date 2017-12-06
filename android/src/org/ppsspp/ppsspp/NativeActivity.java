@@ -432,7 +432,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			// Start emulation using the provided Surface.
 			if (!runEGLRenderLoop(mSurface)) {
 				// Shouldn't happen.
-				Log.e(TAG, "Failed to start up OpenGL");
+				Log.e(TAG, "Failed to start up OpenGL/Vulkan");
 			}
 			Log.i(TAG, "Left the render loop: " + mSurface);
 		}
@@ -541,7 +541,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait) {
 			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
 			badOrientationCount++;
-			recreate();;
+			recreate();
 			return;
 		} else if (requestedPortrait == detectedPortrait) {
 			badOrientationCount = 0;
@@ -1006,18 +1006,38 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	@TargetApi(11)
 	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithTheme() {
-   		return new AlertDialog.Builder(this, AlertDialog.THEME_HOLO_DARK);
+		return new AlertDialog.Builder(this, AlertDialog.THEME_HOLO_DARK);
 	}
 
 	@TargetApi(14)
 	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithDeviceTheme() {
-   		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+	}
+
+	@TargetApi(17)
+	@SuppressWarnings("deprecation")
+	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
+		AlertDialog.Builder bld = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
+			@Override
+			public void onDismiss(DialogInterface dialog) {
+				updateSystemUiVisibility();
+			}
+		});
+		return bld;
 	}
 
 	@TargetApi(23)
 	private AlertDialog.Builder createDialogBuilderNew() {
-		return new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
+		AlertDialog.Builder bld = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
+		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
+			@Override
+			public void onDismiss(DialogInterface dialog) {
+				updateSystemUiVisibility();
+			}
+		});
+		return bld;
 	}
 
 	// The return value is sent elsewhere. TODO in java, in SendMessage in C++.
@@ -1034,16 +1054,18 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
     	input.setText(defaultText);
     	input.selectAll();
 
-    	// Lovely!
-    	AlertDialog.Builder bld;
-    	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
-    		bld = new AlertDialog.Builder(this);
-    	else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-    		bld = createDialogBuilderWithTheme();
-    	else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
-    		bld = createDialogBuilderWithDeviceTheme();
-    	else
-    		bld = createDialogBuilderNew();
+		// Lovely!
+		AlertDialog.Builder bld;
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
+			bld = new AlertDialog.Builder(this);
+		else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH)
+			bld = createDialogBuilderWithTheme();
+		else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1)
+			bld = createDialogBuilderWithDeviceTheme();
+		else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
+			bld = createDialogBuilderWithDeviceThemeAndUiVisibility();
+		else
+			bld = createDialogBuilderNew();
 
     	AlertDialog dlg = bld
     		.setView(fl)

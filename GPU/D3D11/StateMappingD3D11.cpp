@@ -236,9 +236,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		}
 
 		if (!device1_) {
-			ID3D11BlendState *bs = nullptr;
-			auto blendIter = blendCache_.find(keys_.blend.value);
-			if (blendIter == blendCache_.end()) {
+			ID3D11BlendState *bs = blendCache_.Get(keys_.blend.value);
+			if (bs == nullptr) {
 				D3D11_BLEND_DESC desc{};
 				D3D11_RENDER_TARGET_BLEND_DESC &rt = desc.RenderTarget[0];
 				rt.BlendEnable = keys_.blend.blendEnable;
@@ -250,15 +249,12 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				rt.DestBlendAlpha = (D3D11_BLEND)keys_.blend.destAlpha;
 				rt.RenderTargetWriteMask = keys_.blend.colorWriteMask;
 				ASSERT_SUCCESS(device_->CreateBlendState(&desc, &bs));
-				blendCache_.insert(std::pair<uint64_t, ID3D11BlendState *>(keys_.blend.value, bs));
-			} else {
-				bs = blendIter->second;
+				blendCache_.Insert(keys_.blend.value, bs);
 			}
 			blendState_ = bs;
 		} else {
-			ID3D11BlendState1 *bs1 = nullptr;
-			auto blendIter = blendCache1_.find(keys_.blend.value);
-			if (blendIter == blendCache1_.end()) {
+			ID3D11BlendState1 *bs1 = blendCache1_.Get(keys_.blend.value);
+			if (bs1 == nullptr) {
 				D3D11_BLEND_DESC1 desc1{};
 				D3D11_RENDER_TARGET_BLEND_DESC1 &rt = desc1.RenderTarget[0];
 				rt.BlendEnable = keys_.blend.blendEnable;
@@ -272,9 +268,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				rt.LogicOpEnable = keys_.blend.logicOpEnable;
 				rt.LogicOp = (D3D11_LOGIC_OP)keys_.blend.logicOp;
 				ASSERT_SUCCESS(device1_->CreateBlendState1(&desc1, &bs1));
-				blendCache1_.insert(std::pair<uint64_t, ID3D11BlendState1 *>(keys_.blend.value, bs1));
-			} else {
-				bs1 = blendIter->second;
+				blendCache1_.Insert(keys_.blend.value, bs1);
 			}
 			blendState1_ = bs1;
 		}
@@ -289,9 +283,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 			keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
 		}
-		ID3D11RasterizerState *rs = nullptr;
-		auto rasterIter = rasterCache_.find(keys_.raster.value);
-		if (rasterIter == rasterCache_.end()) {
+		ID3D11RasterizerState *rs = rasterCache_.Get(keys_.raster.value);
+		if (rs == nullptr) {
 			D3D11_RASTERIZER_DESC desc{};
 			desc.CullMode = (D3D11_CULL_MODE)(keys_.raster.cullMode);
 			desc.FillMode = D3D11_FILL_SOLID;
@@ -299,9 +292,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			desc.FrontCounterClockwise = TRUE;
 			desc.DepthClipEnable = TRUE;
 			ASSERT_SUCCESS(device_->CreateRasterizerState(&desc, &rs));
-			rasterCache_.insert(std::pair<uint32_t, ID3D11RasterizerState *>(keys_.raster.value, rs));
-		} else {
-			rs = rasterIter->second;
+			rasterCache_.Insert(keys_.raster.value, rs);
 		}
 		rasterState_ = rs;
 	}
@@ -370,9 +361,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				dynState_.useStencil = false;
 			}
 		}
-		ID3D11DepthStencilState *ds = nullptr;
-		auto depthIter = depthStencilCache_.find(keys_.depthStencil.value);
-		if (depthIter == depthStencilCache_.end()) {
+		ID3D11DepthStencilState *ds = depthStencilCache_.Get(keys_.depthStencil.value);
+		if (ds == nullptr) {
 			D3D11_DEPTH_STENCIL_DESC desc{};
 			desc.DepthEnable = keys_.depthStencil.depthTestEnable;
 			desc.DepthWriteMask = keys_.depthStencil.depthWriteEnable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
@@ -386,9 +376,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			desc.FrontFace.StencilFunc = (D3D11_COMPARISON_FUNC)keys_.depthStencil.stencilCompareFunc;
 			desc.BackFace = desc.FrontFace;
 			ASSERT_SUCCESS(device_->CreateDepthStencilState(&desc, &ds));
-			depthStencilCache_.insert(std::pair<uint64_t, ID3D11DepthStencilState *>(keys_.depthStencil.value, ds));
-		} else {
-			ds = depthIter->second;
+			depthStencilCache_.Insert(keys_.depthStencil.value, ds);
 		}
 		depthStencilState_ = ds;
 	}

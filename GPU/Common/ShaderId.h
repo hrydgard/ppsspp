@@ -14,20 +14,25 @@ enum {
 	VS_BIT_ENABLE_FOG = 2,
 	VS_BIT_HAS_COLOR = 3,
 	VS_BIT_DO_TEXTURE = 4,
+	// 5 is free.
 	VS_BIT_DO_TEXTURE_TRANSFORM = 6,
+	// 7 is free.
 	VS_BIT_USE_HW_TRANSFORM = 8,
 	VS_BIT_HAS_NORMAL = 9,  // conditioned on hw transform
 	VS_BIT_NORM_REVERSE = 10,
 	VS_BIT_HAS_TEXCOORD = 11,
 	VS_BIT_HAS_COLOR_TESS = 12,  // 1 bit
 	VS_BIT_HAS_TEXCOORD_TESS = 13,  // 1 bit
-	VS_BIT_NORM_REVERSE_TESS = 14, // 1 bit 1 free after
+	VS_BIT_NORM_REVERSE_TESS = 14, // 1 bit
+	// 15 is free.
 	VS_BIT_UVGEN_MODE = 16,
 	VS_BIT_UVPROJ_MODE = 18,  // 2, can overlap with LS0
 	VS_BIT_LS0 = 18,  // 2
 	VS_BIT_LS1 = 20,  // 2
 	VS_BIT_BONES = 22,  // 3 should be enough, not 8
+	// 25 - 29 are free.
 	VS_BIT_ENABLE_BONES = 30,
+	// 31 is free.
 	VS_BIT_LIGHT0_COMP = 32,  // 2 bits
 	VS_BIT_LIGHT0_TYPE = 34,  // 2 bits
 	VS_BIT_LIGHT1_COMP = 36,  // 2 bits
@@ -43,7 +48,8 @@ enum {
 	VS_BIT_LIGHT2_ENABLE = 54,
 	VS_BIT_LIGHT3_ENABLE = 55,
 	VS_BIT_LIGHTING_ENABLE = 56,
-	VS_BIT_WEIGHT_FMTSCALE = 57,  // only two bits, 1 free after
+	VS_BIT_WEIGHT_FMTSCALE = 57,  // only two bits
+	// 59 - 61 are free.
 	VS_BIT_FLATSHADE = 62, // 1 bit
 	VS_BIT_BEZIER = 63, // 1 bit
 	// No more free
@@ -56,6 +62,7 @@ enum {
 	FS_BIT_DO_TEXTURE = 1,
 	FS_BIT_TEXFUNC = 2,  // 3 bits
 	FS_BIT_TEXALPHA = 5,
+	// 6 is free.
 	FS_BIT_SHADER_TEX_CLAMP = 7,
 	FS_BIT_CLAMP_S = 8,
 	FS_BIT_CLAMP_T = 9,
@@ -76,9 +83,10 @@ enum {
 	FS_BIT_REPLACE_BLEND = 32,  // 3 bits
 	FS_BIT_BLENDEQ = 35,  // 3 bits
 	FS_BIT_BLENDFUNC_A = 38,  // 4 bits
-	FS_BIT_BLENDFUNC_B = 42,
+	FS_BIT_BLENDFUNC_B = 42,  // 4 bits
 	FS_BIT_FLATSHADE = 46,
 	FS_BIT_BGRA_TEXTURE = 47,
+	// 48+ are free.
 };
 
 struct ShaderID {
@@ -145,6 +153,24 @@ struct ShaderID {
 	}
 	void FromString(std::string src) {
 		memcpy(d, &(src)[0], sizeof(d));
+	}
+};
+
+struct VShaderID : ShaderID {
+	VShaderID() : ShaderID() {
+	}
+
+	explicit VShaderID(ShaderID &src) {
+		memcpy(d, src.d, sizeof(d));
+	}
+};
+
+struct FShaderID : ShaderID {
+	FShaderID() : ShaderID() {
+	}
+
+	explicit FShaderID(ShaderID &src) {
+		memcpy(d, src.d, sizeof(d));
 	}
 };
 

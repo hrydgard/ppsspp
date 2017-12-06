@@ -359,10 +359,10 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 void AndroidVulkanContext::Shutdown() {
 	ILOG("AndroidVulkanContext::Shutdown");
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	delete draw_;
-	draw_ = nullptr;
 	ILOG("Calling NativeShutdownGraphics");
 	NativeShutdownGraphics();
+	delete draw_;
+	draw_ = nullptr;
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDevice();
@@ -1101,6 +1101,10 @@ static void ProcessFrameCommands(JNIEnv *env) {
 }
 
 extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+	exitRenderLoop = false;
+	// This is up here to prevent race conditions, in case we pause during init.
+	renderLoopRunning = true;
+
 	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
 
 	// Need to get the local JNI env for the graphics thread. Used later in draw_text_android.
@@ -1113,6 +1117,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	if (wnd == nullptr) {
 		ELOG("Error: Surface is null.");
+		renderLoopRunning = false;
 		return false;
 	}
 
@@ -1131,7 +1136,7 @@ retry:
 	if (!graphicsContext->Init(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 		ELOG("Failed to initialize graphics context.");
 
-		if (vulkan && tries < 2) {
+		if (!exitRenderLoop && (vulkan && tries < 2)) {
 			ILOG("Trying again, this time with OpenGL.");
 			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
 			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);  // Wait, why do we need a separate enum here?
@@ -1141,10 +1146,11 @@ retry:
 
 		delete graphicsContext;
 		graphicsContext = nullptr;
+		renderLoopRunning = false;
 		return false;
 	}
 
-	if (!renderer_inited) {
+	if (!exitRenderLoop && !renderer_inited) {
 		NativeInitGraphics(graphicsContext);
 		if (renderer_ever_inited) {
 			NativeDeviceRestore();
@@ -1152,9 +1158,6 @@ retry:
 		renderer_inited = true;
 		renderer_ever_inited = true;
 	}
-
-	exitRenderLoop = false;
-	renderLoopRunning = true;
 
 	while (!exitRenderLoop) {
 		static bool hasSetThreadName = false;
@@ -1174,9 +1177,11 @@ retry:
 	}
 
 	ILOG("Leaving EGL/Vulkan render loop.");
-	g_gameInfoCache->WorkQueue()->Flush();
+	if (g_gameInfoCache)
+		g_gameInfoCache->WorkQueue()->Flush();
 
-	NativeDeviceLost();
+	if (renderer_inited)
+		NativeDeviceLost();
 	renderer_inited = false;
 
 	ILOG("Shutting down graphics context.");

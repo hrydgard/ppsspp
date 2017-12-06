@@ -56,7 +56,7 @@ include(ccache)
 # Remove soon?
 set(USE_FFMPEG ON)
 
-if(NOT ANDROID)
+if(NOT ANDROID AND NOT IOS)
 	if(ARM OR SIMULATOR)
 		set(USING_EGL ON)
 	endif()
@@ -127,6 +127,10 @@ include_directories(ext/native)
 
 if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2)
+endif()
+
+if(USING_EGL)
+	set(OPENGL_LIBRARIES ${OPENGL_LIBRARIES} EGL)
 endif()
 
 if(NOT OPENGL_LIBRARIES)

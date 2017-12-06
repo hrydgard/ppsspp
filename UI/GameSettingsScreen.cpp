@@ -237,7 +237,6 @@ void GameSettingsScreen::CreateViews() {
 			softwareGPU->OnClick.Add([=](EventParams &e) {
 				if (g_Config.bSoftwareRendering)
 					settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
-				bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
 				return UI::EVENT_CONTINUE;
 			});
 			softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
@@ -363,12 +362,10 @@ void GameSettingsScreen::CreateViews() {
 			}
 			return UI::EVENT_CONTINUE;
 		});
-		bezierChoiceDisable_ = g_Config.bHardwareTessellation;
-		beziersChoice->SetDisabledPtr(&bezierChoiceDisable_);
+		beziersChoice->SetDisabledPtr(&g_Config.bHardwareTessellation);
 
 		CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation", "Hardware tessellation (experimental)")));
 		tessellationHW->OnClick.Add([=](EventParams &e) {
-			bezierChoiceDisable_ = g_Config.bHardwareTessellation;
 			settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves, always uses a fixed quality"), e.v);
 			return UI::EVENT_CONTINUE;
 		});
@@ -836,7 +833,7 @@ UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
 	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	bezierChoiceDisable_ = g_Config.bHardwareTessellation;
+	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
 	tessHWEnable_ = IsBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
@@ -1002,12 +999,6 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
-	// Hmm, strange mechanism.
-	g_Config.bReloadCheats = true;
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
 	System_SendMessage("toggle_fullscreen", g_Config.bFullScreen ? "1" : "0");
 	return UI::EVENT_DONE;
@@ -1022,20 +1013,13 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 	if (g_Config.iAndroidHwScale == 1) {
 		RecreateActivity();
 	}
-	bloomHackEnable_ = g_Config.iInternalResolution != 1;
+	bloomHackEnable_ = !g_Config.bSoftwareRendering && g_Config.iInternalResolution != 1;
 	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnHwScaleChange(UI::EventParams &e) {
 	RecreateActivity();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnShaderChange(UI::EventParams &e) {
-	if (gpu) {
-		gpu->ClearShaderCache();
-	}
 	return UI::EVENT_DONE;
 }
 
@@ -1056,20 +1040,6 @@ void GameSettingsScreen::update() {
 	if (vertical != lastVertical_) {
 		RecreateViews();
 		lastVertical_ = vertical;
-	}
-}
-
-void GameSettingsScreen::sendMessage(const char *message, const char *value) {
-	// Always call the base class method first to handle the most common messages.
-	UIDialogScreenWithBackground::sendMessage(message, value);
-
-	if (!strcmp(message, "control mapping")) {
-		UpdateUIState(UISTATE_MENU);
-		screenManager()->push(new ControlMappingScreen());
-	}
-	if (!strcmp(message, "display layout editor")) {
-		UpdateUIState(UISTATE_MENU);
-		screenManager()->push(new DisplayLayoutScreen());
 	}
 }
 
@@ -1094,14 +1064,6 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	NativeMessageReceived("gpu_resized", "");
 	NativeMessageReceived("gpu_clearCache", "");
 }
-
-/*
-void GlobalSettingsScreen::CreateViews() {
-	using namespace UI;
-	root_ = new ScrollView(ORIENT_VERTICAL);
-
-	enableReports_ = Reporting::IsEnabled();
-}*/
 
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 	// If the user ends up deciding not to restart, set the config back to the current backend

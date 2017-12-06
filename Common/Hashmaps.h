@@ -5,6 +5,7 @@
 
 #include "ext/xxhash.h"
 #include "Common/CommonFuncs.h"
+#include "Common/Log.h"
 
 // Whatever random value.
 const uint32_t hashmapSeed = 0x23B58532;
@@ -50,8 +51,9 @@ public:
 			else if (state[p] == BucketState::FREE)
 				return NullValue;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
-			if (p == pos)
-				Crash();
+			if (p == pos) {
+				_assert_msg_(SYSTEM, false, "DenseHashMap: Hit full on Get()");
+			}
 		}
 		return NullValue;
 	}
@@ -68,7 +70,8 @@ public:
 		while (true) {
 			if (state[p] == BucketState::TAKEN) {
 				if (KeyEquals(key, map[p].key)) {
-					Crash();  // Bad! We already got this one. Let's avoid this case.
+					// Bad! We already got this one. Let's avoid this case.
+					_assert_msg_(SYSTEM, false, "DenseHashMap: Duplicate key inserted");
 					return false;
 				}
 				// continue looking....
@@ -79,7 +82,7 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen thanks to Grow().
-				Crash();
+				_assert_msg_(SYSTEM, false, "DenseHashMap: Hit full on Insert()");
 			}
 		}
 		if (state[p] == BucketState::REMOVED) {
@@ -107,7 +110,7 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen.
-				Crash();
+				_assert_msg_(SYSTEM, false, "DenseHashMap: Hit full on Remove()");
 			}
 		}
 		return false;
@@ -128,6 +131,8 @@ public:
 
 	void Clear() {
 		memset(state.data(), (int)BucketState::FREE, state.size());
+		count_ = 0;
+		removedCount_ = 0;
 	}
 
 	void Rebuild() {
@@ -147,6 +152,11 @@ private:
 		// This is extremely non-atomic and will need synchronization.
 		std::vector<Pair> old = std::move(map);
 		std::vector<BucketState> oldState = std::move(state);
+		// Can't assume move will clear, it just may clear.
+		map.clear();
+		state.clear();
+
+		int oldCount = count_;
 		capacity_ *= factor;
 		map.resize(capacity_);
 		state.resize(capacity_);
@@ -157,6 +167,7 @@ private:
 				Insert(old[i].key, old[i].value);
 			}
 		}
+		_assert_msg_(SYSTEM, oldCount == count_, "DenseHashMap: count should not change in Grow()");
 	}
 	struct Pair {
 		Key key;
@@ -191,8 +202,9 @@ public:
 			else if (state[p] == BucketState::FREE)
 				return NullValue;
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
-			if (p == pos)
-				Crash();
+			if (p == pos) {
+				_assert_msg_(SYSTEM, false, "PrehashMap: Hit full on Get()");
+			}
 		}
 		return NullValue;
 	}
@@ -217,7 +229,7 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				// FULL! Error. Should not happen thanks to Grow().
-				Crash();
+				_assert_msg_(SYSTEM, false, "PrehashMap: Hit full on Insert()");
 			}
 		}
 		if (state[p] == BucketState::REMOVED) {
@@ -244,7 +256,7 @@ public:
 			}
 			p = (p + 1) & mask;
 			if (p == pos) {
-				Crash();
+				_assert_msg_(SYSTEM, false, "PrehashMap: Hit full on Remove()");
 			}
 		}
 		return false;
@@ -265,6 +277,8 @@ public:
 
 	void Clear() {
 		memset(state.data(), (int)BucketState::FREE, state.size());
+		count_ = 0;
+		removedCount_ = 0;
 	}
 
 	// Gets rid of REMOVED tombstones, making lookups somewhat more efficient.
@@ -285,6 +299,11 @@ private:
 		// This is extremely non-atomic and will need synchronization.
 		std::vector<Pair> old = std::move(map);
 		std::vector<BucketState> oldState = std::move(state);
+		// Can't assume move will clear, it just may clear.
+		map.clear();
+		state.clear();
+
+		int oldCount = count_;
 		capacity_ *= factor;
 		map.resize(capacity_);
 		state.resize(capacity_);
@@ -295,6 +314,7 @@ private:
 				Insert(old[i].hash, old[i].value);
 			}
 		}
+		_assert_msg_(SYSTEM, oldCount == count_, "PrehashMap: count should not change in Grow()");
 	}
 	struct Pair {
 		uint32_t hash;

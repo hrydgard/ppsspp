@@ -29,8 +29,8 @@ class Combo_keyScreen : public UIDialogScreenWithBackground {
 public:
 	Combo_keyScreen(int *key): mode(key) {}
 
-	virtual void CreateViews();
-	virtual void onFinish(DialogResult result);
+	void CreateViews() override;
+	void onFinish(DialogResult result) override;
 	UI::EventReturn onCombo(UI::EventParams &e);
 private:
 	std::map<std::string, bool*> keyToggles;

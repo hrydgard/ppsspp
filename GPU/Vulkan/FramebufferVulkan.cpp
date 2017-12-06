@@ -205,7 +205,8 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 
 	VkCommandBuffer initCmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 
-	drawPixelsTex_ = new VulkanTexture(vulkan_);
+	// There's only ever a few of these alive, don't need to stress the allocator with these big ones.
+	drawPixelsTex_ = new VulkanTexture(vulkan_, nullptr);
 	if (!drawPixelsTex_->CreateDirect(initCmd, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)) {
 		// out of memory?
 		delete drawPixelsTex_;
@@ -480,6 +481,17 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		return;
 	}
+
+	// Perform a little bit of clipping first.
+	// Block transfer coords are unsigned so I don't think we need to clip on the left side..
+	if (dstX + w > dst->bufferWidth) {
+		w -= dstX + w - dst->bufferWidth;
+	}
+	if (dstY + h > dst->bufferHeight) {
+		h -= dstY + h - dst->bufferHeight;
+	}
+	if (w == 0 || h == 0)
+		return;
 
 	float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
 	float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;

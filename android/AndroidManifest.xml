@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:installLocation="auto"
-    android:versionCode="15030000"
-    android:versionName="1.5.3.0">
+    android:versionCode="15040000"
+    android:versionName="1.5.4.0">
     <!-- Note that versionCode should be in the format xyzzrrrr -->
 
     <uses-sdk

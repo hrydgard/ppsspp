@@ -103,7 +103,7 @@ static void WriteGuardBand(char *&p) {
 
 // NOTE: We are skipping the bottom check. This fixes TOCA but I am dubious about it...
 
-void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask) {
+void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask) {
 	char *p = buffer;
 	*attrMask = 0;
 	*uniformMask = 0;

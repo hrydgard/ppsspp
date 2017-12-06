@@ -594,6 +594,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 		}
 
 		if (!allocSuccess) {
+			ERROR_LOG(G3D, "Failed to create texture (%dx%d)", w, h);
 			delete entry->vkTex;
 			entry->vkTex = nullptr;
 		}
@@ -655,9 +656,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 		if (replaced.Valid()) {
 			entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 		}
+		entry->vkTex->texture_->EndCreate(cmdInit);
 	}
-
-	entry->vkTex->texture_->EndCreate(cmdInit);
 
 	gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 }
@@ -821,6 +821,10 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 	// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 	framebufferManager_->RebindFramebuffer();
-
 	return true;
+}
+
+void TextureCacheVulkan::GetStats(char *ptr, size_t size) {
+	snprintf(ptr, size, "Alloc: %d slabs\nSlab min/max: %d/%d\nAlloc usage: %d%%",
+		allocator_->GetBlockCount(), allocator_->GetMinSlabSize(), allocator_->GetMaxSlabSize(), allocator_->ComputeUsagePercent());
 }

@@ -21,6 +21,6 @@
 
 // #define USE_BONE_ARRAY
 
-struct ShaderID;
+struct VShaderID;
 
-void GenerateVertexShader(const ShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask);
+void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask);

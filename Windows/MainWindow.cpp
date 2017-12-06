@@ -859,8 +859,8 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
-			EmuThread_Stop();
 			InputDevice::StopPolling();
+			EmuThread_Stop();
 			WindowsRawInput::Shutdown();
 
 			return DefWindowProc(hWnd,message,wParam,lParam);

@@ -33,7 +33,7 @@
 static const std::string INI_FILENAME = "textures.ini";
 static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
-static const int MAX_MIP_LEVELS = 64;
+static const int MAX_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
 
 TextureReplacer::TextureReplacer() : enabled_(false), allowVideo_(false), ignoreAddress_(false), hash_(ReplacedTextureHash::QUICK) {
 	none_.alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
@@ -289,18 +289,28 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
 		FILE *fp = File::OpenCFile(filename, "rb");
+		bool bad = false;
 		if (png_image_begin_read_from_stdio(&png, fp)) {
 			// We pad files that have been hashrange'd so they are the same texture size.
 			level.w = (png.width * w) / newW;
 			level.h = (png.height * h) / newH;
-
-			result->levels_.push_back(level);
+			if (i != 0) {
+				// Check that the mipmap size is correct. Can't load mips of the wrong size.
+				if (level.w != (result->levels_[0].w >> i) || level.h != (result->levels_[0].h >> i)) {
+					WARN_LOG(G3D, "Replacement mipmap invalid: size=%dx%d, expected=%dx%d (level %d, '%s')", level.w, level.h, result->levels_[0].w >> i, result->levels_[0].h >> i, i, filename.c_str());
+					bad = true;
+				}
+			}
+			if (!bad)
+				result->levels_.push_back(level);
 		} else {
 			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", filename.c_str(), png.message);
 		}
 		fclose(fp);
 
 		png_image_free(&png);
+		if (bad)
+			break;  // Don't try to load any more mips.
 #endif
 	}
 

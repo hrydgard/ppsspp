@@ -433,6 +433,7 @@ UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 	screenManager()->topScreen()->RecreateViews();
 	return UI::EVENT_DONE;
 }
+
 UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
 {
 	I18NCategory *di = GetI18NCategory("Dialog");
@@ -442,14 +443,4 @@ UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
 		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
 
 	return UI::EVENT_DONE;
-}
-
-
-void GamePauseScreen::sendMessage(const char *message, const char *value) {
-	UIDialogScreenWithGameBackground::sendMessage(message, value);
-	// Since the language message isn't allowed to be in native, we have to have add this
-	// to every screen which directly inherits from UIScreen(which are few right now, luckily).
-	if (!strcmp(message, "language")) {
-		screenManager()->RecreateAllViews();
-	}
 }
