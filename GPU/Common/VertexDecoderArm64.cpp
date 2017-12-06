@@ -698,12 +698,7 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 }
 
 void VertexDecoderJitCache::Jit_NormalS8() {
-	// nrmoff can be odd in case of byte-only vertices! odd unsigned offsets are not allowed for LDRH.
-	// Switching to LDRB.
-	// Only seen this in a crash log.
-	LDRB(INDEX_UNSIGNED, tempReg1, srcReg, dec_->nrmoff);
-	LDRB(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 1);
-	ORR(tempReg1, tempReg1, tempReg3, ArithOption(tempReg3, ST_LSL, 8));
+	LDURH(tempReg1, srcReg, dec_->nrmoff);
 	LDRB(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 2);
 	ORR(tempReg1, tempReg1, tempReg3, ArithOption(tempReg3, ST_LSL, 16));
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff);
