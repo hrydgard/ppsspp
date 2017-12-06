@@ -92,7 +92,7 @@ private:
 	void DisplaySaveList(bool canMove = true);
 	void DisplaySaveIcon();
 	void DisplaySaveDataInfo1();
-	void DisplaySaveDataInfo2();
+	void DisplaySaveDataInfo2(bool showNewData = false);
 	void DisplayMessage(std::string text, bool hasYesNo = false);
 	const std::string GetSelectedSaveDirName() const;
 
