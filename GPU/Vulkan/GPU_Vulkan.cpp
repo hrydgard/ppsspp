@@ -715,8 +715,12 @@ std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
 	} else if (type == SHADER_TYPE_DEPAL) {
 		///...
 		return std::vector<std::string>();
-	} else {
+	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT) {
 		return shaderManagerVulkan_->DebugGetShaderIDs(type);
+	} else if (type == SHADER_TYPE_SAMPLER) {
+		return textureCacheVulkan_->DebugGetSamplerIDs();
+	} else {
+		return std::vector<std::string>();
 	}
 }
 
@@ -727,7 +731,11 @@ std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType typ
 		return pipelineManager_->DebugGetObjectString(id, type, stringType);
 	} else if (type == SHADER_TYPE_DEPAL) {
 		return "";
-	} else {
+	} else if (type == SHADER_TYPE_SAMPLER) {
+		return textureCacheVulkan_->DebugGetSamplerString(id, stringType);
+	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT) {
 		return shaderManagerVulkan_->DebugGetShaderString(id, type, stringType);
+	} else {
+		return std::string();
 	}
 }

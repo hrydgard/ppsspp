@@ -121,7 +121,7 @@ public:
 	}
 
 	template<class T>
-	inline void Iterate(T func) {
+	inline void Iterate(T func) const {
 		for (size_t i = 0; i < map.size(); i++) {
 			if (state[i] == BucketState::TAKEN) {
 				func(map[i].key, map[i].value);
@@ -267,7 +267,7 @@ public:
 	}
 
 	template<class T>
-	void Iterate(T func) {
+	void Iterate(T func) const {
 		for (size_t i = 0; i < map.size(); i++) {
 			if (state[i] == BucketState::TAKEN) {
 				func(map[i].hash, map[i].value);

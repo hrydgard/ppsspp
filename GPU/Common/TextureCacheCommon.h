@@ -78,6 +78,13 @@ struct SamplerCacheKey {
 	bool operator < (const SamplerCacheKey &other) const {
 		return fullKey < other.fullKey;
 	}
+	void ToString(std::string *str) const {
+		str->resize(sizeof(*this));
+		memcpy(&(*str)[0], this, sizeof(*this));
+	}
+	void FromString(const std::string &str) {
+		memcpy(this, &str[0], sizeof(*this));
+	}
 };
 
 // TODO: Shrink this struct. There is some fluff.

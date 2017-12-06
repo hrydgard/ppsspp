@@ -921,6 +921,7 @@ struct { DebugShaderType type; const char *name; } shaderTypes[] = {
 	{ SHADER_TYPE_VERTEXLOADER, "VertexLoader" },
 	{ SHADER_TYPE_PIPELINE, "Pipeline" },
 	{ SHADER_TYPE_DEPAL, "Depal" },
+	{ SHADER_TYPE_SAMPLER, "Sampler" },
 };
 
 void ShaderListScreen::CreateViews() {
