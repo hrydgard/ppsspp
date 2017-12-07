@@ -83,6 +83,8 @@ public:
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 	virtual void RebindFramebuffer() override;
 
+	void DeviceRestore(Draw::DrawContext *draw);
+
 protected:
 	void SetViewport2D(int x, int y, int w, int h) override;
 	void DisableState() override;
@@ -94,6 +96,9 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
+	void CreateDeviceObjects();
+	void DestroyDeviceObjects();
+
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void Bind2DShader() override;
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
@@ -113,10 +118,9 @@ private:
 
 	u8 *convBuf_;
 	u32 convBufSize_;
-	GLSLProgram *draw2dprogram_;
-	GLSLProgram *plainColorProgram_;
-	GLSLProgram *postShaderProgram_;
-	GLSLProgram *stencilUploadProgram_;
+	GLSLProgram *draw2dprogram_ = nullptr;
+	GLSLProgram *postShaderProgram_ = nullptr;
+	GLSLProgram *stencilUploadProgram_ = nullptr;
 	int plainColorLoc_;
 	int videoLoc_;
 	int timeLoc_;

@@ -74,9 +74,6 @@
     <ClInclude Include="base\basictypes.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="gfx\gl_lost_manager.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\texture_atlas.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -369,9 +366,6 @@
     </ClCompile>
     <ClCompile Include="file\zip_read.cpp">
       <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx\gl_lost_manager.cpp">
-      <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>

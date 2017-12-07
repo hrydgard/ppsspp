@@ -868,8 +868,6 @@ add_library(native STATIC
 	ext/native/gfx/gl_common.h
 	ext/native/gfx/gl_debug_log.cpp
 	ext/native/gfx/gl_debug_log.h
-	ext/native/gfx/gl_lost_manager.cpp
-	ext/native/gfx/gl_lost_manager.h
 	ext/native/gfx/texture_atlas.cpp
 	ext/native/gfx/texture_atlas.h
 	ext/native/gfx/d3d9_shader.cpp
