@@ -28,6 +28,7 @@
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 #include "UI/OnScreenDisplay.h"
+#include "ext/glslang/glslang/Public/ShaderLang.h"
 
 #include "Windows/W32Util/Misc.h"
 #include "Windows/GPU/WindowsGLContext.h"
@@ -151,6 +152,7 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 }
 
 bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_message) {
+	glslang::InitializeProcess();
 	*error_message = "ok";
 	hWnd = window;
 	GLuint PixelFormat;
@@ -398,6 +400,7 @@ void WindowsGLContext::Shutdown() {
 		hDC = NULL;
 	}
 	hWnd = NULL;
+	glslang::FinalizeProcess();
 }
 
 void WindowsGLContext::Resize() {

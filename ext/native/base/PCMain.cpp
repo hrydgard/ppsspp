@@ -32,6 +32,7 @@ SDLJoystick *joystick = NULL;
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 #include "input/input_state.h"
@@ -687,6 +688,8 @@ int main(int argc, char *argv[]) {
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
+	glslang::InitializeProcess();
+
 	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
 	NativeInitGraphics(graphicsContext);
 
@@ -939,6 +942,7 @@ int main(int argc, char *argv[]) {
 	graphicsContext->Shutdown();
 	NativeShutdown();
 	delete graphicsContext;
+	glslang::FinalizeProcess();
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
 #ifndef MOBILE_DEVICE

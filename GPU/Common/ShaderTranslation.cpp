@@ -32,6 +32,7 @@
 #include "ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 #include "thin3d/thin3d.h"
+#include "gfx_es2/gpu_features.h"
 
 #if !defined(ANDROID)
 #include "ext/SPIRV-Cross/spirv.hpp"
@@ -196,6 +197,9 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		bool result = ConvertToVulkanGLSL(dest, destMetadata, src, stage, errorMessage);
 		return result;
 	}
+	if (errorMessage) {
+		*errorMessage = "";
+	}
 
 #if defined(ANDROID)
 	return false;
@@ -303,6 +307,23 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		options.es = true;
 		glsl.set_options(options);
 
+		// Compile to GLSL, ready to give to GL driver.
+		*dest = glsl.compile();
+		return true;
+	}
+	case GLSL_300:
+	{
+		spirv_cross::CompilerGLSL glsl(std::move(spirv));
+		// The SPIR-V is now parsed, and we can perform reflection on it.
+		spirv_cross::ShaderResources resources = glsl.get_shader_resources();
+		// Set some options.
+		spirv_cross::CompilerGLSL::Options options;
+		if (gl_extensions.ver[0] >= 4) {
+			options.version = 400;
+		} else {
+			options.version = 300;
+		}
+		glsl.set_options(options);
 		// Compile to GLSL, ready to give to GL driver.
 		*dest = glsl.compile();
 		return true;
