@@ -34,7 +34,6 @@
 #include "thin3d/thin3d.h"
 #include "gfx_es2/gpu_features.h"
 
-#if !defined(ANDROID)
 #include "ext/SPIRV-Cross/spirv.hpp"
 #include "ext/SPIRV-Cross/spirv_common.hpp"
 #include "ext/SPIRV-Cross/spirv_cross.hpp"
@@ -42,11 +41,9 @@
 #ifdef _WIN32
 #include "ext/SPIRV-Cross/spirv_hlsl.hpp"
 #endif
-#endif
 
 extern void init_resources(TBuiltInResource &Resources);
 
-#if !defined(ANDROID)
 static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
 	switch (stage) {
 	case Draw::ShaderStage::VERTEX: return EShLangVertex;
@@ -58,16 +55,15 @@ static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
 	default: return EShLangVertex;
 	}
 }
-#endif
 
 void ShaderTranslationInit() {
 	// TODO: We have TLS issues on UWP
-#if !PPSSPP_PLATFORM(UWP) && !defined(ANDROID)
+#if !PPSSPP_PLATFORM(UWP)
 	glslang::InitializeProcess();
 #endif
 }
 void ShaderTranslationShutdown() {
-#if !PPSSPP_PLATFORM(UWP) && !defined(ANDROID)
+#if !PPSSPP_PLATFORM(UWP)
 	glslang::FinalizeProcess();
 #endif
 }
@@ -201,10 +197,6 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		*errorMessage = "";
 	}
 
-#if defined(ANDROID)
-	return false;
-#else
-
 #if PPSSPP_PLATFORM(UWP)
 	return false;
 #endif
@@ -331,5 +323,4 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 	default:
 		return false;
 	}
-#endif
 }

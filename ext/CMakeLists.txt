@@ -6,6 +6,7 @@ if(NOT USING_GLES2)
 endif()
 
 set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "let's not build binaries we don't need" FORCE)
+set(SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS ON CACHE BOOL "let's not use exceptions" FORCE)
 
 add_subdirectory(glslang)
 add_subdirectory(snappy)
