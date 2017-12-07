@@ -6,7 +6,6 @@
 
 // Used by the "modern" backends that use uniform buffers. They can share this without issue.
 
-// Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
 enum : uint64_t {
 	DIRTY_BASE_UNIFORMS =
 	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |

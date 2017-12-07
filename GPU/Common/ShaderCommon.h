@@ -71,9 +71,6 @@ enum : uint64_t {
 	DIRTY_SHADERBLEND = 1ULL << 17,  // Used only for in-shader blending.
 
 	DIRTY_UVSCALEOFFSET = 1ULL << 18,
-
-	// Texclamp is fairly rare so let's share it's bit with DIRTY_DEPTHRANGE.
-	DIRTY_TEXCLAMP = 1ULL << 19,
 	DIRTY_DEPTHRANGE = 1ULL << 19,
 
 	DIRTY_WORLDMATRIX = 1ULL << 21,
@@ -90,10 +87,13 @@ enum : uint64_t {
 
 	// These are for hardware tessellation
 	DIRTY_BEZIERSPLINE = 1ULL << 32,
+	DIRTY_TEXCLAMP = 1ULL << 33,
+
+	// space for 7 more uniforms.
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
-	DIRTY_ALL_UNIFORMS = 0x1FFFFFFFFULL,
+	DIRTY_ALL_UNIFORMS = 0x3FFFFFFFFULL,
 	DIRTY_ALL_LIGHTS = DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3,
 
 	// Other dirty elements that aren't uniforms!
