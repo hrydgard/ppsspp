@@ -1163,24 +1163,6 @@ void EmuScreen::renderUI() {
 	screenManager()->getUIContext()->End();
 }
 
-void EmuScreen::deviceLost() {
-	ILOG("EmuScreen::deviceLost()");
-	if (gpu)
-		gpu->DeviceLost();
-	else
-		ILOG("No gpu to deviceLost!");
-}
-
-void EmuScreen::deviceRestore() {
-	ILOG("EmuScreen::deviceRestore()");
-	if (gpu)
-		gpu->DeviceRestore();
-	else
-		ILOG("No gpu to deviceRestore!");
-
-	RecreateViews();
-}
-
 void EmuScreen::autoLoad() {
 	//check if save state has save, if so, load
 	int lastSlot = SaveState::GetNewestSlot(gamePath_);

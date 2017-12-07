@@ -40,8 +40,6 @@ public:
 	void render() override;
 	void preRender() override;
 	void postRender() override;
-	void deviceLost() override;
-	void deviceRestore() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void sendMessage(const char *msg, const char *value) override;
 	void resized() override;

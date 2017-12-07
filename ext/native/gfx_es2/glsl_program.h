@@ -7,13 +7,12 @@
 #include <string>
 #include <time.h>
 
-#include "gfx/gl_lost_manager.h"
 #include "gfx/gl_common.h"
 
 // Represent a compiled and linked vshader/fshader pair.
 // A just-constructed object is valid but cannot be used as a shader program, meaning that
 // yes, you can declare these as globals if you like.
-struct GLSLProgram : public GfxResourceHolder {
+struct GLSLProgram {
 	char name[16];
 	char vshader_filename[256];
 	char fshader_filename[256];
@@ -42,9 +41,6 @@ struct GLSLProgram : public GfxResourceHolder {
 	GLuint vsh_;
 	GLuint fsh_;
 	GLuint program_;
-
-	void GLLost() override;
-	void GLRestore() override;
 };
 
 // C API, old skool. Not much point either...

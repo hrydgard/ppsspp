@@ -917,6 +917,11 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
 	} else {
 		PROFILE_THIS_SCOPE("loadtex");
+		// Avoid misleading errors in texture upload, these are common.
+		GLenum err = glGetError();
+		if (err) {
+			WARN_LOG(G3D, "Got an error BEFORE texture upload: %08x (%s)", err, GLEnumToString(err).c_str());
+		}
 		if (IsFakeMipmapChange())
 			glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components2, dstFmt, pixelData);
 		else
@@ -925,7 +930,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			// TODO: We really, really should avoid calling glGetError.
 			GLenum err = glGetError();
 			if (err == GL_OUT_OF_MEMORY) {
-				WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
+				WARN_LOG(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 				lowMemoryMode_ = true;
 				decimationCounter_ = 0;
 				Decimate();
@@ -939,15 +944,9 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 					host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 				}
 			} else if (err != GL_NO_ERROR) {
-				const char *str = "other";
-				switch (err) {
-				case GL_OUT_OF_MEMORY: str = "out_of_memory"; break;
-				case GL_INVALID_ENUM: str = "invalid_enum"; break;
-				case GL_INVALID_VALUE: str = "invalid_value"; break;
-				}
 				// We checked the err anyway, might as well log if there is one.
 				WARN_LOG(G3D, "Got an error in texture upload: %08x (%s) (components=%s components2=%s dstFmt=%s w=%d h=%d level=%d)",
-					err, str, GLEnumToString(components).c_str(), GLEnumToString(components2).c_str(), GLEnumToString(dstFmt).c_str(),
+					err, GLEnumToString(err).c_str(), GLEnumToString(components).c_str(), GLEnumToString(components2).c_str(), GLEnumToString(dstFmt).c_str(),
 					w, h, level);
 			}
 		}
@@ -1065,4 +1064,8 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 #else
 	return false;
 #endif
+}
+
+void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
 }

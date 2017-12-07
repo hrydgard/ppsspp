@@ -437,7 +437,6 @@ static float dp_xscale = 1.0f;
 static float dp_yscale = 1.0f;
 
 static bool renderer_inited = false;
-static bool renderer_ever_inited = false;
 static bool sustainedPerfSupported = false;
 
 // See NativeQueryConfig("androidJavaGL") to change this value.
@@ -609,7 +608,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	PROFILE_INIT();
 
 	renderer_inited = false;
-	renderer_ever_inited = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
 
@@ -748,16 +746,16 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 
 	if (renderer_inited) {
 		ILOG("NativeApp.displayInit() restoring");
-		NativeDeviceLost();
 		NativeShutdownGraphics();
-		NativeDeviceRestore();
+		delete graphicsContext;
+
+		graphicsContext = new AndroidJavaEGLGraphicsContext();
 		NativeInitGraphics(graphicsContext);
 		ILOG("Restored.");
 	} else {
 		ILOG("NativeApp.displayInit() first time");
 		NativeInitGraphics(graphicsContext);
 		renderer_inited = true;
-		renderer_ever_inited = true;
 	}
 
 	NativeMessageReceived("recreateviews", "");
@@ -1150,13 +1148,9 @@ retry:
 		return false;
 	}
 
-	if (!exitRenderLoop && !renderer_inited) {
+	if (!exitRenderLoop) {
 		NativeInitGraphics(graphicsContext);
-		if (renderer_ever_inited) {
-			NativeDeviceRestore();
-		}
 		renderer_inited = true;
-		renderer_ever_inited = true;
 	}
 
 	while (!exitRenderLoop) {
@@ -1180,8 +1174,7 @@ retry:
 	if (g_gameInfoCache)
 		g_gameInfoCache->WorkQueue()->Flush();
 
-	if (renderer_inited)
-		NativeDeviceLost();
+	NativeShutdownGraphics();
 	renderer_inited = false;
 
 	ILOG("Shutting down graphics context.");

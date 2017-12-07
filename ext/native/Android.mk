@@ -77,7 +77,6 @@ LOCAL_SRC_FILES :=\
     gfx_es2/draw_text_android.cpp.arm \
     gfx/GLStateCache.cpp.arm \
     gfx/gl_debug_log.cpp \
-    gfx/gl_lost_manager.cpp \
     gfx/texture_atlas.cpp \
     image/zim_load.cpp \
     image/zim_save.cpp \

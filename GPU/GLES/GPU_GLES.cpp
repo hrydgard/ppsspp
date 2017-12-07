@@ -387,23 +387,24 @@ void GPU_GLES::BuildReportingInfo() {
 
 void GPU_GLES::DeviceLost() {
 	ILOG("GPU_GLES: DeviceLost");
-	// Should only be executed on the GL thread.
 
-	// Simply drop all caches and textures.
-	// FBOs appear to survive? Or no?
-	// TransformDraw has registered as a GfxResourceHolder.
 	shaderManagerGL_->ClearCache(false);
 	textureCacheGL_->Clear(false);
 	fragmentTestCache_.Clear(false);
 	depalShaderCache_.Clear();
+	drawEngine_.ClearTrackedVertexArrays();
 	framebufferManagerGL_->DeviceLost();
 }
 
 void GPU_GLES::DeviceRestore() {
+	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
 	ILOG("GPU_GLES: DeviceRestore");
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
+
+	textureCacheGL_->DeviceRestore(draw_);
+	framebufferManagerGL_->DeviceRestore(draw_);
 }
 
 void GPU_GLES::Reinitialize() {

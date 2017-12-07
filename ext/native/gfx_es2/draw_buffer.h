@@ -6,7 +6,6 @@
 
 #include "base/basictypes.h"
 #include "base/colorutil.h"
-#include "gfx/gl_lost_manager.h"
 #include "gfx/texture_atlas.h"
 #include "math/geom2d.h"
 #include "math/lin/matrix4x4.h"

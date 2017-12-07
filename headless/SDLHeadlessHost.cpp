@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <SDL.h>
 #include <cassert>
-#include "gfx/gl_lost_manager.h"
 
 #include "headless/SDLHeadlessHost.h"
 
@@ -114,8 +113,6 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 	}
 #endif
 
-	gl_lost_manager_init();
-
 	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
 	*ctx = graphicsContext;
 	gfx_ = graphicsContext;
@@ -134,8 +131,6 @@ void SDLHeadlessHost::ShutdownGraphics() {
 	glContext_ = nullptr;
 	SDL_DestroyWindow(screen_);
 	screen_ = nullptr;
-
-	gl_lost_manager_shutdown();
 }
 
 void SDLHeadlessHost::SwapBuffers() {
