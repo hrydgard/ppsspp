@@ -113,12 +113,10 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ConvertMatrix4x3To3x4Transposed(ub->tex, gstate.tgenMatrix);
 	}
 
-	// Combined two small uniforms
-	if (dirtyUniforms & (DIRTY_FOGCOEF | DIRTY_STENCILREPLACEVALUE)) {
-		float fogcoef_stencil[3] = {
+	if (dirtyUniforms & DIRTY_FOGCOEF) {
+		float fogcoef_stencil[2] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
-			(float)gstate.getStencilTestRef()/255.0f
 		};
 		if (my_isinf(fogcoef_stencil[1])) {
 			// not really sure what a sensible value might be.
@@ -136,7 +134,11 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			ERROR_LOG_REPORT_ONCE(fognan, G3D, "Unhandled fog NaN/INF combo: %f %f", fogcoef_stencil[0], fogcoef_stencil[1]);
 		}
 #endif
-		CopyFloat3(ub->fogCoef_stencil, fogcoef_stencil);
+		CopyFloat2(ub->fogCoef, fogcoef_stencil);
+	}
+
+	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
+		ub->stencil = (float)gstate.getStencilTestRef() / 255.0;
 	}
 
 	// Note - this one is not in lighting but in transformCommon as it has uses beyond lighting

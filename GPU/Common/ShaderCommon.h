@@ -54,7 +54,6 @@ enum : uint64_t {
 	DIRTY_TEXENV = 1ULL << 4,
 	DIRTY_ALPHACOLORREF = 1ULL << 5,
 
-	// 1 << 6 is free! Wait, not anymore...
 	DIRTY_STENCILREPLACEVALUE = 1ULL << 6,
 
 	DIRTY_ALPHACOLORMASK = 1ULL << 7,

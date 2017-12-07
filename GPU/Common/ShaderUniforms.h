@@ -20,6 +20,7 @@ enum : uint64_t {
 
 // TODO: Split into two structs, one for software transform and one for hardware transform, to save space.
 // 512 bytes. Probably can't get to 256 (nVidia's UBO alignment).
+// Every line here is a 4-float.
 struct UB_VS_FS_Base {
 	float proj[16];
 	float proj_through[16];
@@ -28,12 +29,9 @@ struct UB_VS_FS_Base {
 	float tex[12];
 	float uvScaleOffset[4];
 	float depthRange[4];
-	float fogCoef_stencil[4];
+	float fogCoef[2];	float stencil; float pad0;
 	float matAmbient[4];
-	int spline_count_u;
-	int spline_count_v;
-	int spline_type_u;
-	int spline_type_v;
+	int spline_count_u; int spline_count_v; int spline_type_u; int spline_type_v;
 	// Fragment data
 	float fogColor[4];
 	float texEnvColor[4];
