@@ -144,6 +144,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 				return;
 			}
 			bootComplete();
+			RecreateViews();
 		}
 		return;
 	}
