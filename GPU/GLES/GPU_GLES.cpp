@@ -291,8 +291,13 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (!gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_LOGIC_OP;
 
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES) {
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	}
+
+	if (gl_extensions.GLES3) {
+		features |= GPU_SUPPORTS_EXPLICIT_LOD;
+	}
 
 	if (gl_extensions.EXT_texture_filter_anisotropic)
 		features |= GPU_SUPPORTS_ANISOTROPY;

@@ -147,7 +147,7 @@ struct GPUgstate {
 				clutformat,           // 0xC5
 				texfilter,            // 0xC6
 				texwrap,              // 0xC7
-				texlevel,             // 0xC8
+				texlevel,             // 0xC8 GE_CMD_TEXLEVEL
 				texfunc,              // 0xC9
 				texenvcolor,          // 0xCA
 				texflush,             // 0xCB
@@ -291,6 +291,7 @@ struct GPUgstate {
 	u16 getTextureDimension(int level) const { return  texsize[level] & 0xf0f;}
 	GETexLevelMode getTexLevelMode() const { return static_cast<GETexLevelMode>(texlevel & 0x3); }
 	int getTexLevelOffset16() const { return (int)(s8)((texlevel >> 16) & 0xFF); }
+	float getTextureLodSlope() const { return getFloat24(texlodslope); }
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
@@ -320,7 +321,6 @@ struct GPUgstate {
 	bool isMinifyFilteringEnabled() const { return (texfilter & 1) != 0; }
 	bool isMagnifyFilteringEnabled() const { return (texfilter >> 8) & 1; }
 	int getTextureMaxLevel() const { return (texmode >> 16) & 0x7; }
-	float getTextureLodSlope() const { return getFloat24(texlodslope); }
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }
@@ -477,6 +477,8 @@ enum {
 	GPU_SUPPORTS_VERTEX_TEXTURE_FETCH = FLAG_BIT(11),
 	GPU_SUPPORTS_TEXTURE_FLOAT = FLAG_BIT(12),
 	GPU_SUPPORTS_16BIT_FORMATS = FLAG_BIT(13),
+	GPU_SUPPORTS_EXPLICIT_LOD = FLAG_BIT(14),
+	// 2 free bits!
 	GPU_SUPPORTS_LARGE_VIEWPORTS = FLAG_BIT(16),
 	GPU_SUPPORTS_ACCURATE_DEPTH = FLAG_BIT(17),
 	GPU_SUPPORTS_VAO = FLAG_BIT(18),

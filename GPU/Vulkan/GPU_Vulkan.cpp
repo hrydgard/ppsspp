@@ -192,6 +192,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
+	features |= GPU_SUPPORTS_EXPLICIT_LOD;
 
 	if (vulkan_->GetFeaturesEnabled().wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;

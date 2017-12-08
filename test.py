@@ -27,7 +27,7 @@ PPSSPP_EXECUTABLES = [
 PPSSPP_EXE = None
 TEST_ROOT = "pspautotests/tests/"
 teamcity_mode = False
-TIMEOUT = 5
+TIMEOUT = 500
 
 class Command(object):
   def __init__(self, cmd, data = None):

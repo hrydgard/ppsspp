@@ -218,7 +218,11 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				if (doTextureProjection) {
 					WRITE(p, "  float4 t = tex.Sample(samp, In.v_texcoord.xy / In.v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
 				} else {
-					WRITE(p, "  float4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+					if (id.Bit(FS_BIT_TEXLOD)) {
+						WRITE(p, "  float4 t = tex.SampleLevel(samp, %s.xy, u_texLod)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+					} else {
+						WRITE(p, "  float4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+					}
 				}
 			} else {
 				if (doTextureProjection) {

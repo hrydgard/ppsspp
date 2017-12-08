@@ -95,7 +95,7 @@ int printUsage(const char *progname, const char *reason)
 #if defined(HEADLESSHOST_CLASS)
 	{
 		fprintf(stderr, "  --graphics=BACKEND    use the full gpu backend (slower)\n");
-		fprintf(stderr, "                        options: gles, software, directx9, etc.\n");
+		fprintf(stderr, "                        options: software, directx9, directx11, vulkan, gles, null.\n");
 		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	}
 #endif

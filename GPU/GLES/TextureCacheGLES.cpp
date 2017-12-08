@@ -144,17 +144,31 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 				} else if (mode == GE_TEXLEVEL_MODE_CONST) {
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
-				} else {  // mode == GE_TEXLEVEL_MODE_SLOPE) {
-					// It's incorrect to use the slope as a bias. Instead it should be passed
-					// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
-					// lodBias in this mode, working around #9772.
-#ifndef USING_GLES2
 					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, 0.0f);
+					if (gstate_c.Supports(GPU_SUPPORTS_EXPLICIT_LOD)) {
+						// we handle it in the shader.
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0.0f);
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+					} else {
+						// Abuse min/max to fetch a specific lod.
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
+					}
+				} else {  // mode == GE_TEXLEVEL_MODE_SLOPE) {
+					if (gstate_c.Supports(GPU_SUPPORTS_EXPLICIT_LOD)) {
+						// we handle it in the shader.
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0.0f);
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+					} else {
+						// It's incorrect to use the slope as a bias. Instead it should be passed
+						// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
+						// lodBias in this mode, working around #9772.
+#ifndef USING_GLES2
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, 0.0f);
 #endif
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
+						glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+					}
 				}
 				entry.lodBias = lodBias;
 			}

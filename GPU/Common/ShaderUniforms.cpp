@@ -85,7 +85,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		if (g_Config.iRenderingMode == 0 && g_display_rotation != DisplayRotation::ROTATE_0) {
 			flippedMatrix = flippedMatrix * g_display_rot_matrix;
 		}
-
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
 	}
 
@@ -139,6 +138,28 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
 		ub->stencil = (float)gstate.getStencilTestRef() / 255.0;
+	}
+
+	if (dirtyUniforms & DIRTY_TEXLOD) {
+		switch (gstate.getTexLevelMode()) {
+		case GE_TEXLEVEL_MODE_CONST: {
+			float scaleLog = TexLog2F((float)gstate_c.curRTScale);
+			float bias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
+			ub->texLod = bias + scaleLog;
+			break;
+		}
+		case GE_TEXLEVEL_MODE_SLOPE:
+		case GE_TEXLEVEL_MODE_UNKNOWN: {
+			float scaleLog = TexLog2F((float)gstate_c.curRTScale);
+			float slopeLog = TexLog2F(fabsf(gstate.getTextureLodSlope()));
+			float bias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
+			ub->texLod = bias + slopeLog + scaleLog + 1.0f;  // The 1.0f bias is unclear where it's from...
+			break;
+		}
+		default:
+			ub->texLod = 0;
+			break;
+		}
 	}
 
 	// Note - this one is not in lighting but in transformCommon as it has uses beyond lighting

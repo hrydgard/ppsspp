@@ -47,6 +47,35 @@ inline uint32_t log2i(uint32_t val) {
 	return ret;
 }
 
+// Produces a signed 1.23.8 value.
+inline int TexLog2(float delta) {
+	union FloatBits {
+		float f;
+		uint32_t u;
+	};
+	FloatBits f;
+	f.f = delta;
+	// Use the exponent as the tex level, and the top mantissa bits for a frac.
+	// We can't support more than 8 bits of frac, so truncate.
+	int useful = (f.u >> 15) & 0xFFFF;
+	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
+	return useful - 127 * 256;
+}
+
+inline float TexLog2F(float delta) {
+	union FloatBits {
+		float f;
+		uint32_t u;
+	};
+	FloatBits f;
+	f.f = delta;
+	// Use the exponent as the tex level, and the top mantissa bits for a frac.
+	// We can't support more than 8 bits of frac, so truncate.
+	int useful = (f.u >> 15) & 0xFFFF;
+	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
+	return (float)(useful - 127 * 256) * (1.0f / 256.0f);
+}
+
 #define PI 3.141592653589793f
 #ifndef M_PI
 #define M_PI 3.141592653589793f

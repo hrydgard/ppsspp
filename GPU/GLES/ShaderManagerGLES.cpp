@@ -220,6 +220,7 @@ LinkedShader::LinkedShader(VShaderID VSID, Shader *vs, FShaderID FSID, Shader *f
 	u_uvscaleoffset = glGetUniformLocation(program, "u_uvscaleoffset");
 	u_texclamp = glGetUniformLocation(program, "u_texclamp");
 	u_texclampoff = glGetUniformLocation(program, "u_texclampoff");
+	u_texlod = glGetUniformLocation(program, "u_texlod");
 
 	for (int i = 0; i < 4; i++) {
 		char temp[64];
@@ -586,6 +587,31 @@ void LinkedShader::UpdateUniforms(u32 vertType, const VShaderID &vsid) {
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {
 		glUniform1f(u_stencilReplaceValue, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
 	}
+
+	if ((dirty & DIRTY_TEXLOD) && gstate_c.Supports(GPU_SUPPORTS_EXPLICIT_LOD) && u_texlod) {
+		float lod = 0.0;
+		switch (gstate.getTexLevelMode()) {
+		case GE_TEXLEVEL_MODE_CONST: {
+			float scaleLog = TexLog2F((float)gstate_c.curRTScale);
+			float bias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
+			lod = bias + scaleLog;
+			break;
+		}
+		case GE_TEXLEVEL_MODE_SLOPE:
+		case GE_TEXLEVEL_MODE_UNKNOWN: {
+			float scaleLog = TexLog2F((float)gstate_c.curRTScale);
+			float slopeLog = TexLog2F(fabsf(gstate.getTextureLodSlope()));
+			float bias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
+			lod = bias + slopeLog + scaleLog + 1.0f;  // The 1.0f bias is unclear where it's from...
+			break;
+		}
+		default:
+			lod = 0;
+			break;
+		}
+		glUniform1f(u_texlod, lod);
+	}
+
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
 	if (u_bone != -1) {

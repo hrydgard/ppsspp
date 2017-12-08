@@ -20,6 +20,7 @@
 #endif
 
 #include "base/logging.h"
+#include "Common/StringUtils.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
 #include "math/dataconv.h"

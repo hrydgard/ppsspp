@@ -8,13 +8,13 @@
 
 enum : uint64_t {
 	DIRTY_BASE_UNIFORMS =
-	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
-	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_STENCILREPLACEVALUE |
-	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA |
-	DIRTY_BEZIERSPLINE,
+		DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
+		DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_STENCILREPLACEVALUE |
+		DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA |
+		DIRTY_BEZIERSPLINE | DIRTY_TEXLOD,
 	DIRTY_LIGHT_UNIFORMS =
-	DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
-	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
+		DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
+		DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
 };
 
 // TODO: Split into two structs, one for software transform and one for hardware transform, to save space.
@@ -28,7 +28,7 @@ struct UB_VS_FS_Base {
 	float tex[12];
 	float uvScaleOffset[4];
 	float depthRange[4];
-	float fogCoef[2];	float stencil; float pad0;
+	float fogCoef[2];	float stencil; float texLod;
 	float matAmbient[4];
 	int spline_count_u; int spline_count_v; int spline_type_u; int spline_type_v;
 	// Fragment data
@@ -52,6 +52,7 @@ R"(  mat4 proj_mtx;
   vec4 depthRange;
   vec2 fogcoef;
   float stencilReplace;
+  float texLod;
   vec4 matambientalpha;
   int spline_count_u;
   int spline_count_v;
@@ -78,6 +79,7 @@ R"(  float4x4 u_proj;
   float4 u_depthRange;
   float2 u_fogcoef;
   float u_stencilReplaceValue;
+  float u_texLod;
   float4 u_matambientalpha;
   int u_spline_count_u;
   int u_spline_count_v;

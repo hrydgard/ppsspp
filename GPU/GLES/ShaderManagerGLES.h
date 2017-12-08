@@ -95,6 +95,7 @@ public:
 	int u_uvscaleoffset;
 	int u_texclamp;
 	int u_texclampoff;
+	int u_texlod;
 
 	// Lighting
 	int u_ambient;

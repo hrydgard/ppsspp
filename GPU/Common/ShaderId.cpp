@@ -1,3 +1,4 @@
+#include <Windows.h>
 #include <string>
 #include <sstream>
 
@@ -166,6 +167,7 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 	if (id.Bit(FS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
 	if (id.Bit(FS_BIT_TEXALPHA)) desc << "TexAlpha ";
 	if (id.Bit(FS_BIT_TEXTURE_AT_OFFSET)) desc << "TexOffs ";
+	if (id.Bit(FS_BIT_TEXLOD)) desc << "TexLod ";
 	if (id.Bit(FS_BIT_LMODE)) desc << "LM ";
 	if (id.Bit(FS_BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(FS_BIT_COLOR_DOUBLE)) desc << "2x ";
@@ -258,6 +260,9 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 				id.SetBit(FS_BIT_TEXTURE_AT_OFFSET, textureAtOffset);
 			}
 			id.SetBit(FS_BIT_BGRA_TEXTURE, gstate_c.bgraTexture);
+			if (gstate.getTexLevelMode() != GE_TEXLEVEL_MODE_AUTO && gstate_c.Supports(GPU_SUPPORTS_EXPLICIT_LOD)) {
+				id.SetBit(FS_BIT_TEXLOD);
+			}
 		}
 
 		id.SetBit(FS_BIT_LMODE, lmode);

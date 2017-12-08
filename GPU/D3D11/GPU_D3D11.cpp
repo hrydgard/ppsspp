@@ -224,6 +224,7 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_SUPPORTS_FBO;
+	features |= GPU_SUPPORTS_EXPLICIT_LOD;
 
 	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16);
 	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);

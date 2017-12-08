@@ -47,7 +47,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 	const char *fragColor0 = "gl_FragColor";
 	const char *fragColor1 = "fragColor1";
 	const char *texture = "texture2D";
-	const char *texelFetch = NULL;
+	const char *textureLod = nullptr;
+	const char *texelFetch = nullptr;
 	bool highpFog = false;
 	bool highpTexcoord = false;
 	bool bitwiseOps = false;
@@ -61,6 +62,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 			WRITE(p, "#version 300 es\n");  // GLSL ES 3.0
 			fragColor0 = "fragColor0";
 			texture = "texture";
+			textureLod = "textureLod";
 			glslES30 = true;
 			bitwiseOps = true;
 			texelFetch = "texelFetch";
@@ -113,12 +115,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
 				fragColor0 = "fragColor0";
 				texture = "texture";
+				textureLod = "textureLod";
 				glslES30 = true;
 				bitwiseOps = true;
 				texelFetch = "texelFetch";
 				WRITE(p, "#version 330\n");
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 				fragColor0 = "fragColor0";
+				textureLod = "textureLod";
 				bitwiseOps = true;
 				texelFetch = "texelFetch";
 				WRITE(p, "#version 130\n");
@@ -164,6 +168,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 
 	GETexFunc texFunc = (GETexFunc)id.Bits(FS_BIT_TEXFUNC, 3);
 	bool textureAtOffset = id.Bit(FS_BIT_TEXTURE_AT_OFFSET);
+	bool texLod = id.Bit(FS_BIT_TEXLOD);
 
 	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(FS_BIT_REPLACE_BLEND, 3));
 
@@ -234,6 +239,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		*uniformMask |= DIRTY_FOGCOLOR;
 		WRITE(p, "uniform vec3 u_fogcolor;\n");
 		WRITE(p, "%s %s float v_fogdepth;\n", varying, highpFog ? "highp" : "mediump");
+	}
+	if (texLod) {
+		WRITE(p, "uniform float u_texlod;\n");
+		*uniformMask |= DIRTY_TEXLOD;
 	}
 	if (doTexture) {
 		WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
@@ -335,9 +344,17 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 			}
 
 			if (doTextureProjection) {
-				WRITE(p, "  vec4 t = %sProj(tex, %s);\n", texture, texcoord);
+				if (texLod) {
+					WRITE(p, "  vec4 t = %sProj(tex, %s, u_texlod);\n", textureLod, texcoord);
+				} else {
+					WRITE(p, "  vec4 t = %sProj(tex, %s);\n", texture, texcoord);
+				}
 			} else {
-				WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", texture, texcoord);
+				if (texLod) {
+					WRITE(p, "  vec4 t = %s(tex, %s.xy, u_texlod);\n", textureLod, texcoord);
+				} else {
+					WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", texture, texcoord);
+				}
 			}
 			WRITE(p, "  vec4 p = v_color0;\n");
 

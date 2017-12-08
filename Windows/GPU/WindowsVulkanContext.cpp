@@ -61,7 +61,7 @@
 #include "Windows/GPU/WindowsVulkanContext.h"
 
 #ifdef _DEBUG
-static const bool g_validate_ = true;
+static const bool g_validate_ = false;
 #else
 static const bool g_validate_ = false;
 #endif

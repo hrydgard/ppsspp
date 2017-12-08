@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include "math/math_util.h"
 #include "Common/ColorConv.h"
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"
@@ -127,21 +128,6 @@ int TextureCacheCommon::AttachedDrawingHeight() {
 	return 0;
 }
 
-// Produces a signed 1.23.8 value.
-static int TexLog2(float delta) {
-	union FloatBits {
-		float f;
-		u32 u;
-	};
-	FloatBits f;
-	f.f = delta;
-	// Use the exponent as the tex level, and the top mantissa bits for a frac.
-	// We can't support more than 8 bits of frac, so truncate.
-	int useful = (f.u >> 15) & 0xFFFF;
-	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
-	return useful - 127 * 256;
-}
-
 void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel, u32 addr, GETexLevelMode &mode) {
 	minFilt = gstate.texfilter & 0x7;
 	magFilt = gstate.isMagnifyFilteringEnabled();
@@ -151,13 +137,15 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	GETexLevelMode mipMode = gstate.getTexLevelMode();
 	mode = mipMode;
 	bool autoMip = mipMode == GE_TEXLEVEL_MODE_AUTO;
-	lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f);
-	if (mipMode == GE_TEXLEVEL_MODE_SLOPE) {
-		lodBias += 1.0f + TexLog2(gstate.getTextureLodSlope()) * (1.0f / 256.0f);
+	if (autoMip) {
+		float scaleLog = TexLog2F((float)gstate_c.curRTScale);
+		lodBias = (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f) + scaleLog;
+	} else {
+		lodBias = 0;  // We use a uniform instead to look up the level explicitly.
 	}
 
 	// If mip level is forced to zero, disable mipmapping.
-	bool noMip = maxLevel == 0 || (!autoMip && lodBias <= 0.0f);
+	bool noMip = maxLevel == 0;
 	if (IsFakeMipmapChange())
 		noMip = noMip || !autoMip;
 
@@ -229,9 +217,16 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 			break;
 		case GE_TEXLEVEL_MODE_CONST:
 		case GE_TEXLEVEL_MODE_UNKNOWN:
-			key.maxLevel = (int)(lodBias * 256.0f);
-			key.minLevel = (int)(lodBias * 256.0f);
-			key.lodBias = 0;
+			if (gstate_c.Supports(GPU_SUPPORTS_EXPLICIT_LOD)) {
+				// We handle this in the shader, no restrictions.
+				key.maxLevel = entry.maxLevel * 256;
+				key.minLevel = 0;
+				key.lodBias = 0;
+			} else {
+				key.maxLevel = (int)(lodBias * 256.0f);
+				key.minLevel = (int)(lodBias * 256.0f);
+				key.lodBias = 0;
+			}
 			break;
 		case GE_TEXLEVEL_MODE_SLOPE:
 			// It's incorrect to use the slope as a bias. Instead it should be passed

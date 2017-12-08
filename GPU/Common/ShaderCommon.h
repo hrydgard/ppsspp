@@ -85,15 +85,15 @@ enum : uint64_t {
 	DIRTY_BONEMATRIX6 = 1ULL << 30,
 	DIRTY_BONEMATRIX7 = 1ULL << 31,
 
-	// These are for hardware tessellation
-	DIRTY_BEZIERSPLINE = 1ULL << 32,
+	DIRTY_BEZIERSPLINE = 1ULL << 32,  // For hardware tesselation
 	DIRTY_TEXCLAMP = 1ULL << 33,
+	DIRTY_TEXLOD = 1ULL << 34,
 
 	// space for 7 more uniforms.
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 
-	DIRTY_ALL_UNIFORMS = 0x3FFFFFFFFULL,
+	DIRTY_ALL_UNIFORMS = 0x7FFFFFFFFULL,
 	DIRTY_ALL_LIGHTS = DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3,
 
 	// Other dirty elements that aren't uniforms!

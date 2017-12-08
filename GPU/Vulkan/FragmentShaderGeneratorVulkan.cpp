@@ -171,9 +171,17 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 			}
 
 			if (doTextureProjection) {
-				WRITE(p, "  vec4 t = textureProj(tex, %s);\n", texcoord);
+				if (id.Bit(FS_BIT_TEXLOD)) {
+					WRITE(p, "  vec4 t = textureProjLod(tex, %s, base.texLod);\n", texcoord);
+				} else {
+					WRITE(p, "  vec4 t = textureProj(tex, %s);\n", texcoord);
+				}
 			} else {
-				WRITE(p, "  vec4 t = texture(tex, %s.xy);\n", texcoord);
+				if (id.Bit(FS_BIT_TEXLOD)) {
+					WRITE(p, "  vec4 t = textureLod(tex, %s.xy, base.texLod);\n", texcoord);
+				} else {
+					WRITE(p, "  vec4 t = texture(tex, %s.xy);\n", texcoord);
+				}
 			}
 			WRITE(p, "  vec4 p = v_color0;\n");
 
