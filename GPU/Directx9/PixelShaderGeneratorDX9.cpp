@@ -437,7 +437,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
 		switch (replaceAlphaWithStencilType) {
 		case STENCIL_VALUE_UNIFORM:
-			replacedAlpha = (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) ? "u_fogcoef_stencilreplace.z" : "u_stencilReplaceValue";
+			replacedAlpha = "u_stencilReplaceValue";
 			break;
 
 		case STENCIL_VALUE_ZERO:

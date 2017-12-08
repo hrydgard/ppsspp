@@ -693,7 +693,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer, bool *use
 
 		// Compute fogdepth
 		if (enableFog)
-			WRITE(p, "  v_fogdepth = (viewPos.z + base.fogcoef_stencilreplace.x) * base.fogcoef_stencilreplace.y;\n");
+			WRITE(p, "  v_fogdepth = (viewPos.z + base.fogcoef.x) * base.fogcoef.y;\n");
 	}
 	WRITE(p, "}\n");
 	return true;

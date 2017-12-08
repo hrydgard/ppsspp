@@ -114,27 +114,27 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_FOGCOEF) {
-		float fogcoef_stencil[2] = {
+		float fogcoef[2] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
 		};
-		if (my_isinf(fogcoef_stencil[1])) {
+		if (my_isinf(fogcoef[1])) {
 			// not really sure what a sensible value might be.
-			fogcoef_stencil[1] = fogcoef_stencil[1] < 0.0f ? -10000.0f : 10000.0f;
-		} else if (my_isnan(fogcoef_stencil[1])) {
+			fogcoef[1] = fogcoef[1] < 0.0f ? -10000.0f : 10000.0f;
+		} else if (my_isnan(fogcoef[1])) {
 			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
 			// Just put the fog far away at a large finite distance.
 			// Infinities and NaNs are rather unpredictable in shaders on many GPUs
 			// so it's best to just make it a sane calculation.
-			fogcoef_stencil[0] = 100000.0f;
-			fogcoef_stencil[1] = 1.0f;
+			fogcoef[0] = 100000.0f;
+			fogcoef[1] = 1.0f;
 		}
 #ifndef MOBILE_DEVICE
-		else if (my_isnanorinf(fogcoef_stencil[1]) || my_isnanorinf(fogcoef_stencil[0])) {
-			ERROR_LOG_REPORT_ONCE(fognan, G3D, "Unhandled fog NaN/INF combo: %f %f", fogcoef_stencil[0], fogcoef_stencil[1]);
+		else if (my_isnanorinf(fogcoef[1]) || my_isnanorinf(fogcoef[0])) {
+			ERROR_LOG_REPORT_ONCE(fognan, G3D, "Unhandled fog NaN/INF combo: %f %f", fogcoef[0], fogcoef[1]);
 		}
 #endif
-		CopyFloat2(ub->fogCoef, fogcoef_stencil);
+		CopyFloat2(ub->fogCoef, fogcoef);
 	}
 
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
