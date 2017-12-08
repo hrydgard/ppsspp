@@ -289,5 +289,5 @@ void GPUStateCache::DoState(PointerWrap &p) {
 	p.Do(curRTWidth);
 	p.Do(curRTHeight);
 
-	// curRTBufferWidth, curRTBufferHeight, and cutRTOffsetX don't need to be saved.
+	// curRTRenderWidth, curRTRenderHeight, and cutRTOffsetX don't need to be saved. Probably don't even need curRTWidth/height either...
 }

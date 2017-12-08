@@ -585,6 +585,7 @@ struct GPUStateCache {
 	u32 curRTHeight;
 	u32 curRTRenderWidth;
 	u32 curRTRenderHeight;
+	float curRTScale;
 
 	void SetCurRTOffsetX(int off) {
 		if (off != curRTOffsetX) {
