@@ -300,6 +300,7 @@ void GPU_GLES::CheckGPUFeatures() {
 	bool canUseInstanceID = gl_extensions.EXT_draw_instanced || gl_extensions.ARB_draw_instanced;
 	bool canDefInstanceID = gl_extensions.IsGLES || gl_extensions.EXT_gpu_shader4 || gl_extensions.VersionGEThan(3, 1);
 	bool instanceRendering = gl_extensions.GLES3 || (canUseInstanceID && canDefInstanceID);
+	if (instanceRendering)
 		features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 
 	int maxVertexTextureImageUnits;
