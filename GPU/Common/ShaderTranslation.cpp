@@ -32,8 +32,8 @@
 #include "ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
 #include "thin3d/thin3d.h"
+#include "gfx_es2/gpu_features.h"
 
-#if !defined(ANDROID)
 #include "ext/SPIRV-Cross/spirv.hpp"
 #include "ext/SPIRV-Cross/spirv_common.hpp"
 #include "ext/SPIRV-Cross/spirv_cross.hpp"
@@ -41,11 +41,9 @@
 #ifdef _WIN32
 #include "ext/SPIRV-Cross/spirv_hlsl.hpp"
 #endif
-#endif
 
 extern void init_resources(TBuiltInResource &Resources);
 
-#if !defined(ANDROID)
 static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
 	switch (stage) {
 	case Draw::ShaderStage::VERTEX: return EShLangVertex;
@@ -57,16 +55,15 @@ static EShLanguage GetLanguage(const Draw::ShaderStage stage) {
 	default: return EShLangVertex;
 	}
 }
-#endif
 
 void ShaderTranslationInit() {
 	// TODO: We have TLS issues on UWP
-#if !PPSSPP_PLATFORM(UWP) && !defined(ANDROID)
+#if !PPSSPP_PLATFORM(UWP)
 	glslang::InitializeProcess();
 #endif
 }
 void ShaderTranslationShutdown() {
-#if !PPSSPP_PLATFORM(UWP) && !defined(ANDROID)
+#if !PPSSPP_PLATFORM(UWP)
 	glslang::FinalizeProcess();
 #endif
 }
@@ -196,10 +193,9 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		bool result = ConvertToVulkanGLSL(dest, destMetadata, src, stage, errorMessage);
 		return result;
 	}
-
-#if defined(ANDROID)
-	return false;
-#else
+	if (errorMessage) {
+		*errorMessage = "";
+	}
 
 #if PPSSPP_PLATFORM(UWP)
 	return false;
@@ -307,8 +303,24 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		*dest = glsl.compile();
 		return true;
 	}
+	case GLSL_300:
+	{
+		spirv_cross::CompilerGLSL glsl(std::move(spirv));
+		// The SPIR-V is now parsed, and we can perform reflection on it.
+		spirv_cross::ShaderResources resources = glsl.get_shader_resources();
+		// Set some options.
+		spirv_cross::CompilerGLSL::Options options;
+		if (gl_extensions.ver[0] >= 4) {
+			options.version = 400;
+		} else {
+			options.version = 300;
+		}
+		glsl.set_options(options);
+		// Compile to GLSL, ready to give to GL driver.
+		*dest = glsl.compile();
+		return true;
+	}
 	default:
 		return false;
 	}
-#endif
 }

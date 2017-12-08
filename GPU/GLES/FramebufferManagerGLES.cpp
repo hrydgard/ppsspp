@@ -25,6 +25,7 @@
 #include "thin3d/thin3d.h"
 
 #include "base/timeutil.h"
+#include "file/vfs.h"
 #include "math/lin/matrix4x4.h"
 
 #include "Common/ColorConv.h"
@@ -37,6 +38,7 @@
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/PostShader.h"
+#include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Debugger/Stepping.h"
@@ -122,7 +124,44 @@ void FramebufferManagerGLES::CompilePostShader() {
 	if (shaderInfo) {
 		std::string errorString;
 		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
-		postShaderProgram_ = glsl_create(shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), &errorString);
+
+		size_t sz;
+		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
+		if (!vs)
+			return;
+		char *fs = (char *)VFSReadFile(shaderInfo->fragmentShaderFile.c_str(), &sz);
+		if (!fs) {
+			free(vs);
+			return;
+		}
+
+		std::string vshader;
+		std::string fshader;
+		bool translationFailed = false;
+		if (gl_extensions.IsCoreContext) {
+			// Gonna have to upconvert the shaders.
+			std::string errorMessage;
+			if (!TranslateShader(&vshader, GLSL_300, nullptr, vs, GLSL_140, Draw::ShaderStage::VERTEX, &errorMessage)) {
+				translationFailed = true;
+				ELOG("Failed to translate post-vshader: %s", errorMessage.c_str());
+			}
+			if (!TranslateShader(&fshader, GLSL_300, nullptr, fs, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorMessage)) {
+				translationFailed = true;
+				ELOG("Failed to translate post-fshader: %s", errorMessage.c_str());
+			}
+		} else {
+			vshader = vs;
+			fshader = fs;
+		}
+
+		if (!translationFailed) {
+			postShaderProgram_ = glsl_create_source(vshader.c_str(), fshader.c_str(), &errorString);
+		} else {
+			ERROR_LOG(FRAMEBUF, "Failed to translate post shader!");
+		}
+		free(vs);
+		free(fs);
+
 		if (!postShaderProgram_) {
 			// DO NOT turn this into a report, as it will pollute our logs with all kinds of
 			// user shader experiments.

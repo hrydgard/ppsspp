@@ -13,6 +13,8 @@
 #include <QLocale>
 #include <QThread>
 
+#include "ext/glslang/glslang/Public/ShaderLang.h"
+
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
 #include <QStandardPaths>
 #ifdef QT_HAS_SYSTEMINFO
@@ -428,6 +430,7 @@ Q_DECL_EXPORT
 #endif
 int main(int argc, char *argv[])
 {
+	glslang::InitializeProcess();
 #if defined(Q_OS_LINUX)
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
 #endif
@@ -467,6 +470,7 @@ int main(int argc, char *argv[])
 	SDL_CloseAudio();
 #endif
 	NativeShutdown();
+	glslang::FinalizeProcess();
 	return ret;
 }
 

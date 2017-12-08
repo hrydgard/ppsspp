@@ -396,6 +396,9 @@ void SystemInfoScreen::CreateViews() {
 	}
 #endif
 #endif
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		deviceSpecs->Add(new InfoItem("Core Context", gl_extensions.IsCoreContext ? "Yes" : "No"));
+	}
 	deviceSpecs->Add(new ItemHeader("OS Information"));
 	deviceSpecs->Add(new InfoItem("Memory Page Size", StringFromFormat("%d bytes", GetMemoryProtectPageSize())));
 	deviceSpecs->Add(new InfoItem("RW/RX exclusive: ", PlatformIsWXExclusive() ? "Yes" : "No"));

@@ -1638,7 +1638,7 @@ endif()
 
 set(CoreExtraLibs ${CoreExtraLibs} armips)
 
-set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper)
+set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
