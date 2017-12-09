@@ -371,3 +371,7 @@ void WindowsHost::ToggleDebugConsoleVisibility() {
 void WindowsHost::NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {
 	osm.Show(message, duration, color, -1, true, id);
 }
+
+void WindowsHost::SendUIMessage(const std::string &message, const std::string &value) {
+	NativeMessageReceived(message.c_str(), value.c_str());
+}

@@ -144,7 +144,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 				return;
 			}
 			bootComplete();
-			RecreateViews();
 		}
 		return;
 	}
@@ -155,6 +154,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, 0);
 	if (info && !info->id.empty()) {
 		g_Config.loadGameConfig(info->id);
+		// Reset views in case controls are in a different place.
+		RecreateViews();
 	}
 
 	invalid_ = true;
@@ -356,6 +357,9 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			bootPending_ = true;
 			gamePath_ = value;
 		}
+	} else if (!strcmp(message, "config_loaded")) {
+		// In case we need to position touch controls differently.
+		RecreateViews();
 	} else if (!strcmp(message, "control mapping") && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();

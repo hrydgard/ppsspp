@@ -23,6 +23,8 @@ public:
 		return finishApplied_ && time_now() >= start_ + duration_;
 	}
 
+	virtual void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) = 0;
+
 protected:
 	float DurationOffset() {
 		return time_now() - start_;
@@ -41,6 +43,7 @@ protected:
 };
 
 // This is the class all tweens inherit from.  Shouldn't be used directly, see below.
+// Note: Value cannot safely be a pointer (without overriding PersistData.)
 template <typename Value>
 class TweenBase: public Tween {
 public:
@@ -101,6 +104,8 @@ public:
 	Value CurrentValue() {
 		return Current(Position());
 	}
+
+	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 
 protected:
 	virtual Value Current(float pos) = 0;
