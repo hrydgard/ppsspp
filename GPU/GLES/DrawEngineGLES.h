@@ -119,8 +119,9 @@ public:
 		fragmentTestCache_ = testCache;
 	}
 	void RestoreVAO();
-	void InitDeviceObjects();
-	void DestroyDeviceObjects();
+
+	void DeviceLost();
+	void DeviceRestore();
 
 	void ClearTrackedVertexArrays() override;
 	void DecimateTrackedVertexArrays();
@@ -151,6 +152,9 @@ public:
 	void DecimateBuffers();
 
 private:
+	void InitDeviceObjects();
+	void DestroyDeviceObjects();
+
 	void DoFlush();
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
