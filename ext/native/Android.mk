@@ -77,7 +77,6 @@ LOCAL_SRC_FILES :=\
     gfx_es2/draw_text_android.cpp.arm \
     gfx/GLStateCache.cpp.arm \
     gfx/gl_debug_log.cpp \
-    gfx/gl_lost_manager.cpp \
     gfx/texture_atlas.cpp \
     image/zim_load.cpp \
     image/zim_save.cpp \
@@ -91,6 +90,7 @@ LOCAL_SRC_FILES :=\
     ui/viewgroup.cpp \
     ui/ui.cpp \
     ui/ui_screen.cpp \
+    ui/ui_tween.cpp \
     ui/ui_context.cpp \
     ui/screen.cpp \
     util/text/utf8.cpp \

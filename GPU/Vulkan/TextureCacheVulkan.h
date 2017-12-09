@@ -56,6 +56,9 @@ public:
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
 
+	std::vector<std::string> DebugGetSamplerIDs() const;
+	std::string DebugGetSamplerString(std::string id, DebugShaderStringType stringType);
+
 private:
 	VulkanContext *vulkan_;
 	DenseHashMap<SamplerCacheKey, VkSampler, (VkSampler)VK_NULL_HANDLE> cache_;
@@ -110,6 +113,9 @@ public:
 	void GetStats(char *ptr, size_t size);
 
 	VulkanDeviceAllocator *GetAllocator() { return allocator_; }
+
+	std::vector<std::string> DebugGetSamplerIDs() const;
+	std::string DebugGetSamplerString(std::string id, DebugShaderStringType stringType);
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;

@@ -32,6 +32,7 @@ SDLJoystick *joystick = NULL;
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "ext/glslang/glslang/Public/ShaderLang.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 #include "input/input_state.h"
@@ -439,16 +440,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-#ifdef __APPLE__
-	// Make sure to request a somewhat modern GL context at least - the
-	// latest supported by MacOSX (really, really sad...)
-	// Requires SDL 2.0
-	// We really should upgrade to SDL 2.0 soon.
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-#endif
-
 #ifdef USING_EGL
 	if (EGL_Open())
 		return 1;
@@ -590,22 +581,68 @@ int main(int argc, char *argv[]) {
 	if (g_Config.bFullScreen)
 		mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
-	g_Screen = SDL_CreateWindow(app_name_nice.c_str(), SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber()),\
-					SDL_WINDOWPOS_UNDEFINED, pixel_xres, pixel_yres, mode);
+	int x = SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber());
+	int y = SDL_WINDOWPOS_UNDEFINED;
 
-	if (g_Screen == NULL) {
-		NativeShutdown();
-		fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-		SDL_Quit();
-		return 2;
+	struct GLVersionPair {
+		int major;
+		int minor;
+	};
+	GLVersionPair attemptVersions[] = {
+		{4, 6}, {4, 5}, {4, 4}, {4, 3}, {4, 2}, {4, 1}, {4, 0},
+		{3, 3}, {3, 2}, {3, 1}, {3, 0},
+	};
+
+	SDL_GLContext glContext = nullptr;
+	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
+		const auto &ver = attemptVersions[i];
+		// Make sure to request a somewhat modern GL context at least - the
+		// latest supported by MacOS X (really, really sad...)
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, ver.major);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, ver.minor);
+		SetGLCoreContext(true);
+
+		g_Screen = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
+		if (g_Screen == nullptr) {
+			NativeShutdown();
+			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+			SDL_Quit();
+			return 2;
+		}
+
+		glContext = SDL_GL_CreateContext(g_Screen);
+		if (glContext != nullptr) {
+			// Victory, got one.
+			break;
+		}
+
+		// Let's keep trying.  To be safe, destroy the window - docs say needed to change profile.
+		// in practice, it doesn't seem to matter, but maybe it differs by platform.
+		SDL_DestroyWindow(g_Screen);
 	}
 
-	SDL_GLContext glContext = SDL_GL_CreateContext(g_Screen);
-	if (glContext == NULL) {
-		NativeShutdown();
-		fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
-		SDL_Quit();
-		return 2;
+	if (glContext == nullptr) {
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 0);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+		SetGLCoreContext(false);
+
+		g_Screen = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
+		if (g_Screen == nullptr) {
+			NativeShutdown();
+			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+			SDL_Quit();
+			return 2;
+		}
+
+		glContext = SDL_GL_CreateContext(g_Screen);
+		if (glContext == nullptr) {
+			NativeShutdown();
+			fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+			SDL_Quit();
+			return 2;
+		}
 	}
 
 #ifdef USING_EGL
@@ -650,6 +687,8 @@ int main(int argc, char *argv[]) {
 
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
+
+	glslang::InitializeProcess();
 
 	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
 	NativeInitGraphics(graphicsContext);
@@ -903,6 +942,7 @@ int main(int argc, char *argv[]) {
 	graphicsContext->Shutdown();
 	NativeShutdown();
 	delete graphicsContext;
+	glslang::FinalizeProcess();
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
 #ifndef MOBILE_DEVICE

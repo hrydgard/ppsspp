@@ -4,7 +4,6 @@
 
 #include "thin3d/thin3d.h"
 #include "Core/Config.h"
-#include "gfx/gl_lost_manager.h"
 
 enum ImageFileType {
 	PNG,
@@ -14,35 +13,13 @@ enum ImageFileType {
 	TYPE_UNKNOWN,
 };
 
-class ManagedTexture : public GfxResourceHolder {
+class ManagedTexture {
 public:
 	ManagedTexture(Draw::DrawContext *draw) : draw_(draw) {
-		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
-			register_gl_resource_holder(this, "managed_texture", 0);
 	}
 	~ManagedTexture() {
-		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
-			unregister_gl_resource_holder(this);
 		if (texture_)
 			texture_->Release();
-	}
-	void GLLost() override {
-		if (texture_)
-			texture_->Release();
-		texture_ = nullptr;
-	}
-	void GLRestore() override {
-		if (!filename_.empty()) {
-			if (LoadFromFile(filename_.c_str())) {
-				ILOG("Reloaded lost texture %s", filename_.c_str());
-			}
-			else {
-				ELOG("Failed to reload lost texture %s", filename_.c_str());
-			}
-		}
-		else {
-			WLOG("Texture cannot be restored - has no filename");
-		}
 	}
 
 	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT, bool generateMips = false);

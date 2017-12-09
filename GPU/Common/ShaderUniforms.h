@@ -6,7 +6,6 @@
 
 // Used by the "modern" backends that use uniform buffers. They can share this without issue.
 
-// Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
 enum : uint64_t {
 	DIRTY_BASE_UNIFORMS =
 	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
@@ -20,6 +19,7 @@ enum : uint64_t {
 
 // TODO: Split into two structs, one for software transform and one for hardware transform, to save space.
 // 512 bytes. Probably can't get to 256 (nVidia's UBO alignment).
+// Every line here is a 4-float.
 struct UB_VS_FS_Base {
 	float proj[16];
 	float proj_through[16];
@@ -28,12 +28,9 @@ struct UB_VS_FS_Base {
 	float tex[12];
 	float uvScaleOffset[4];
 	float depthRange[4];
-	float fogCoef_stencil[4];
+	float fogCoef[2];	float stencil; float pad0;
 	float matAmbient[4];
-	int spline_count_u;
-	int spline_count_v;
-	int spline_type_u;
-	int spline_type_v;
+	int spline_count_u; int spline_count_v; int spline_type_u; int spline_type_v;
 	float guardband[4];
 	// Fragment data
 	float fogColor[4];
@@ -54,7 +51,8 @@ R"(  mat4 proj_mtx;
   mat3x4 tex_mtx;
   vec4 uvscaleoffset;
   vec4 depthRange;
-  vec3 fogcoef_stencilreplace;
+  vec2 fogcoef;
+  float stencilReplace;
   vec4 matambientalpha;
   int spline_count_u;
   int spline_count_v;
@@ -81,7 +79,8 @@ R"(  float4x4 u_proj;
   float4x3 u_tex;
   float4 u_uvscaleoffset;
   float4 u_depthRange;
-  float3 u_fogcoef_stencilreplace;
+  float2 u_fogcoef;
+  float u_stencilReplaceValue;
   float4 u_matambientalpha;
   int u_spline_count_u;
   int u_spline_count_v;

@@ -109,6 +109,20 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	return sampler;
 }
 
+std::string SamplerCache::DebugGetSamplerString(std::string id, DebugShaderStringType stringType) {
+	SamplerCacheKey key;
+	key.FromString(id);
+	return StringFromFormat("%s/%s mag:%s min:%s mip:%s maxLod:%f minLod:%f bias:%f",
+		key.sClamp ? "Clamp" : "Wrap",
+		key.tClamp ? "Clamp" : "Wrap",
+		key.magFilt ? "Linear" : "Nearest",
+		key.minFilt ? "Linear" : "Nearest",
+		key.mipFilt ? "Linear" : "Nearest",
+		key.maxLevel / 256.0f,
+		key.minLevel / 256.0f,
+		key.lodBias / 256.0f);
+}
+
 void SamplerCache::DeviceLost() {
 	cache_.Iterate([&](const SamplerCacheKey &key, VkSampler sampler) {
 		vulkan_->Delete().QueueDeleteSampler(sampler);
@@ -118,6 +132,16 @@ void SamplerCache::DeviceLost() {
 
 void SamplerCache::DeviceRestore(VulkanContext *vulkan) {
 	vulkan_ = vulkan;
+}
+
+std::vector<std::string> SamplerCache::DebugGetSamplerIDs() const {
+	std::vector<std::string> ids;
+	cache_.Iterate([&](const SamplerCacheKey &id, VkSampler sampler) {
+		std::string idstr;
+		id.ToString(&idstr);
+		ids.push_back(idstr);
+	});
+	return ids;
 }
 
 TextureCacheVulkan::TextureCacheVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
@@ -827,4 +851,12 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 void TextureCacheVulkan::GetStats(char *ptr, size_t size) {
 	snprintf(ptr, size, "Alloc: %d slabs\nSlab min/max: %d/%d\nAlloc usage: %d%%",
 		allocator_->GetBlockCount(), allocator_->GetMinSlabSize(), allocator_->GetMaxSlabSize(), allocator_->ComputeUsagePercent());
+}
+
+std::vector<std::string> TextureCacheVulkan::DebugGetSamplerIDs() const {
+	return samplerCache_.DebugGetSamplerIDs();
+}
+
+std::string TextureCacheVulkan::DebugGetSamplerString(std::string id, DebugShaderStringType stringType) {
+	return samplerCache_.DebugGetSamplerString(id, stringType);
 }

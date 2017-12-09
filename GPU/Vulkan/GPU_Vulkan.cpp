@@ -60,8 +60,6 @@ static const VulkanCommandTableEntry commandTable[] = {
 	// Changes that dirty the current texture.
 	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_TexSize0 },
 
-	{ GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_STENCILREPLACEVALUE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE },
-
 	// Changing the vertex type requires us to flush.
 	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
 
@@ -715,8 +713,12 @@ std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
 	} else if (type == SHADER_TYPE_DEPAL) {
 		///...
 		return std::vector<std::string>();
-	} else {
+	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT) {
 		return shaderManagerVulkan_->DebugGetShaderIDs(type);
+	} else if (type == SHADER_TYPE_SAMPLER) {
+		return textureCacheVulkan_->DebugGetSamplerIDs();
+	} else {
+		return std::vector<std::string>();
 	}
 }
 
@@ -727,7 +729,11 @@ std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType typ
 		return pipelineManager_->DebugGetObjectString(id, type, stringType);
 	} else if (type == SHADER_TYPE_DEPAL) {
 		return "";
-	} else {
+	} else if (type == SHADER_TYPE_SAMPLER) {
+		return textureCacheVulkan_->DebugGetSamplerString(id, stringType);
+	} else if (type == SHADER_TYPE_VERTEX || type == SHADER_TYPE_FRAGMENT) {
 		return shaderManagerVulkan_->DebugGetShaderString(id, type, stringType);
+	} else {
+		return std::string();
 	}
 }

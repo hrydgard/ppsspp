@@ -77,6 +77,8 @@ public:
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
 
+	void DeviceRestore(Draw::DrawContext *draw);
+
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;

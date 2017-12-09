@@ -12,6 +12,7 @@
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/ui_context.h"
+#include "ui/ui_tween.h"
 #include "thin3d/thin3d.h"
 #include "base/NativeApp.h"
 
@@ -160,6 +161,18 @@ View::~View() {
 	if (HasFocus())
 		SetFocusedView(0);
 	RemoveQueuedEvents(this);
+
+	// Could use unique_ptr, but then we have to include tween everywhere.
+	for (auto &tween : tweens_)
+		delete tween;
+	tweens_.clear();
+}
+
+void View::Update() {
+	for (Tween *tween : tweens_) {
+		if (!tween->Finished())
+			tween->Apply(this);
+	}
 }
 
 void View::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -1119,6 +1132,7 @@ void Slider::Draw(UIContext &dc) {
 }
 
 void Slider::Update() {
+	View::Update();
 	if (repeat_ >= 0) {
 		repeat_++;
 	}
@@ -1228,6 +1242,7 @@ void SliderFloat::Draw(UIContext &dc) {
 }
 
 void SliderFloat::Update() {
+	View::Update();
 	if (repeat_ >= 0) {
 		repeat_++;
 	}

@@ -528,6 +528,8 @@ struct GPUStateCache {
 		if (need != needShaderTexClamp) {
 			needShaderTexClamp = need;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			if (need)
+				Dirty(DIRTY_TEXCLAMP);
 		}
 	}
 	void SetAllowShaderBlend(bool allow) {

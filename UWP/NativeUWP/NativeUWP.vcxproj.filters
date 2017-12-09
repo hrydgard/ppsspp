@@ -154,6 +154,9 @@
     <ClCompile Include="..\..\ext\native\ui\ui_screen.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\native\ui\ui_tween.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\ext\native\ui\view.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -588,6 +591,9 @@
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\ui\ui_screen.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\native\ui\ui_tween.h">
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\ui\view.h">

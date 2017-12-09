@@ -70,6 +70,9 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+	bool IsReady() override {
+		return true;
+	}
 	void Reinitialize() override;
 
 	void BeginHostFrame() override;

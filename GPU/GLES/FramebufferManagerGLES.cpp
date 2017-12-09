@@ -25,6 +25,7 @@
 #include "thin3d/thin3d.h"
 
 #include "base/timeutil.h"
+#include "file/vfs.h"
 #include "math/lin/matrix4x4.h"
 
 #include "Common/ColorConv.h"
@@ -37,6 +38,7 @@
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/PostShader.h"
+#include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Debugger/Stepping.h"
@@ -74,6 +76,8 @@ static const char basic_vs[] =
 	"  v_texcoord0 = a_texcoord0;\n"
 	"  gl_Position = a_position;\n"
 	"}\n";
+
+const int MAX_PBO = 2;
 
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
@@ -120,7 +124,44 @@ void FramebufferManagerGLES::CompilePostShader() {
 	if (shaderInfo) {
 		std::string errorString;
 		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
-		postShaderProgram_ = glsl_create(shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), &errorString);
+
+		size_t sz;
+		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
+		if (!vs)
+			return;
+		char *fs = (char *)VFSReadFile(shaderInfo->fragmentShaderFile.c_str(), &sz);
+		if (!fs) {
+			free(vs);
+			return;
+		}
+
+		std::string vshader;
+		std::string fshader;
+		bool translationFailed = false;
+		if (gl_extensions.IsCoreContext) {
+			// Gonna have to upconvert the shaders.
+			std::string errorMessage;
+			if (!TranslateShader(&vshader, GLSL_300, nullptr, vs, GLSL_140, Draw::ShaderStage::VERTEX, &errorMessage)) {
+				translationFailed = true;
+				ELOG("Failed to translate post-vshader: %s", errorMessage.c_str());
+			}
+			if (!TranslateShader(&fshader, GLSL_300, nullptr, fs, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorMessage)) {
+				translationFailed = true;
+				ELOG("Failed to translate post-fshader: %s", errorMessage.c_str());
+			}
+		} else {
+			vshader = vs;
+			fshader = fs;
+		}
+
+		if (!translationFailed) {
+			postShaderProgram_ = glsl_create_source(vshader.c_str(), fshader.c_str(), &errorString);
+		} else {
+			ERROR_LOG(FRAMEBUF, "Failed to translate post shader!");
+		}
+		free(vs);
+		free(fs);
+
 		if (!postShaderProgram_) {
 			// DO NOT turn this into a report, as it will pollute our logs with all kinds of
 			// user shader experiments.
@@ -189,25 +230,11 @@ void FramebufferManagerGLES::BindPostShader(const PostShaderUniforms &uniforms) 
 		glUniform1f(videoLoc_, uniforms.video);
 }
 
-void FramebufferManagerGLES::DestroyDraw2DProgram() {
-	if (draw2dprogram_) {
-		glsl_destroy(draw2dprogram_);
-		draw2dprogram_ = nullptr;
-	}
-	if (postShaderProgram_) {
-		glsl_destroy(postShaderProgram_);
-		postShaderProgram_ = nullptr;
-	}
-}
-
 FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 	FramebufferManagerCommon(draw),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf_(nullptr),
-	draw2dprogram_(nullptr),
-	postShaderProgram_(nullptr),
-	stencilUploadProgram_(nullptr),
 	videoLoc_(-1),
 	timeLoc_(-1),
 	pixelDeltaLoc_(-1),
@@ -219,6 +246,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
 {
 	needBackBufferYSwap_ = true;
 	needGLESRebinds_ = true;
+	CreateDeviceObjects();
 }
 
 void FramebufferManagerGLES::Init() {
@@ -243,19 +271,38 @@ void FramebufferManagerGLES::SetDrawEngine(DrawEngineGLES *td) {
 	drawEngine_ = td;
 }
 
-FramebufferManagerGLES::~FramebufferManagerGLES() {
-	if (drawPixelsTex_)
+void FramebufferManagerGLES::CreateDeviceObjects() {
+	CompileDraw2DProgram();
+}
+
+void FramebufferManagerGLES::DestroyDeviceObjects() {
+	if (draw2dprogram_) {
+		glsl_destroy(draw2dprogram_);
+		draw2dprogram_ = nullptr;
+	}
+	if (postShaderProgram_) {
+		glsl_destroy(postShaderProgram_);
+		postShaderProgram_ = nullptr;
+	}
+	if (drawPixelsTex_) {
 		glDeleteTextures(1, &drawPixelsTex_);
-	DestroyDraw2DProgram();
+		drawPixelsTex_ = 0;
+	}
 	if (stencilUploadProgram_) {
 		glsl_destroy(stencilUploadProgram_);
+		stencilUploadProgram_ = nullptr;
 	}
+}
 
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		it->second.fbo->Release();
+FramebufferManagerGLES::~FramebufferManagerGLES() {
+	DestroyDeviceObjects();
+
+	if (pixelBufObj_) {
+		for (int i = 0; i < MAX_PBO; i++) {
+			glDeleteBuffers(1, &pixelBufObj_[i].handle);
+		}
+		delete[] pixelBufObj_;
 	}
-
-	delete [] pixelBufObj_;
 	delete [] convBuf_;
 }
 
@@ -785,7 +832,6 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 
 void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	CHECK_GL_ERROR_IF_DEBUG();
-	const int MAX_PBO = 2;
 	GLubyte *packed = 0;
 	bool unbind = false;
 	const u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
@@ -1032,7 +1078,12 @@ void FramebufferManagerGLES::EndFrame() {
 
 void FramebufferManagerGLES::DeviceLost() {
 	DestroyAllFBOs();
-	DestroyDraw2DProgram();
+	DestroyDeviceObjects();
+}
+
+void FramebufferManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+	CreateDeviceObjects();
 }
 
 void FramebufferManagerGLES::DestroyAllFBOs() {
@@ -1073,8 +1124,6 @@ void FramebufferManagerGLES::Resized() {
 		DestroyAllFBOs();
 	}
 
-	DestroyDraw2DProgram();
-
 #ifndef USING_GLES2
 	if (g_Config.iInternalResolution == 0) {
 		glLineWidth(std::max(1, (int)(renderWidth_ / 480)));
@@ -1084,10 +1133,6 @@ void FramebufferManagerGLES::Resized() {
 		glPointSize((float)g_Config.iInternalResolution);
 	}
 #endif
-
-	if (!draw2dprogram_) {
-		CompileDraw2DProgram();
-	}
 }
 
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {

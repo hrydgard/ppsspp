@@ -868,8 +868,6 @@ add_library(native STATIC
 	ext/native/gfx/gl_common.h
 	ext/native/gfx/gl_debug_log.cpp
 	ext/native/gfx/gl_debug_log.h
-	ext/native/gfx/gl_lost_manager.cpp
-	ext/native/gfx/gl_lost_manager.h
 	ext/native/gfx/texture_atlas.cpp
 	ext/native/gfx/texture_atlas.h
 	ext/native/gfx/d3d9_shader.cpp
@@ -959,6 +957,8 @@ add_library(native STATIC
 	ext/native/ui/ui_context.h
 	ext/native/ui/ui_screen.cpp
 	ext/native/ui/ui_screen.h
+	ext/native/ui/ui_tween.cpp
+	ext/native/ui/ui_tween.h
 	ext/native/ui/view.cpp
 	ext/native/ui/view.h
 	ext/native/ui/viewgroup.cpp
@@ -1638,7 +1638,7 @@ endif()
 
 set(CoreExtraLibs ${CoreExtraLibs} armips)
 
-set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper)
+set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})

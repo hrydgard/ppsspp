@@ -85,7 +85,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 		break;
 	}
 
-	TransitionImageLayout2(cmd, img.image, aspects,
+	TransitionImageLayout2(cmd, img.image, 0, 1, aspects,
 		VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
 		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, dstStage,
 		0, dstAccessMask);
@@ -169,7 +169,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 
 		// Pre-set them to PRESENT_SRC_KHR, as the first thing we do after acquiring
 		// in image to render to will be to transition them away from that.
-		TransitionImageLayout2(cmdInit, sc_buffer.image,
+		TransitionImageLayout2(cmdInit, sc_buffer.image, 0, 1,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
@@ -576,7 +576,7 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	if (res != VK_SUCCESS)
 		return false;
 
-	TransitionImageLayout2(cmd, depth_.image,
+	TransitionImageLayout2(cmd, depth_.image, 0, 1,
 		aspectMask,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 		VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,

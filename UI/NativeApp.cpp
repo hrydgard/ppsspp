@@ -52,7 +52,6 @@
 #include "net/resolve.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/gpu_features.h"
-#include "gfx/gl_lost_manager.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "math/fast/fast_math.h"
@@ -559,9 +558,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
 	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
-	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		gl_lost_manager_init();
-	}
 
 	// Must be done restarting by now.
 	restarting = false;
@@ -694,12 +690,18 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	g_gameInfoCache = new GameInfoCache();
 
+	if (gpu)
+		gpu->DeviceRestore();
+
 	g_graphicsInited = true;
 	ILOG("NativeInitGraphics completed");
 	return true;
 }
 
 void NativeShutdownGraphics() {
+	if (gpu)
+		gpu->DeviceLost();
+
 	g_graphicsInited = false;
 	ILOG("NativeShutdownGraphics");
 
@@ -860,14 +862,16 @@ void NativeRender(GraphicsContext *graphicsContext) {
 #endif
 		}
 
+		// Test lost/restore on PC
+#if 0
+		if (gpu) {
+			gpu->DeviceLost();
+			gpu->DeviceRestore();
+		}
+#endif
+
 		graphicsContext->Resize();
 		screenManager->resized();
-
-		// Do not enable unless you are testing device-loss on Windows
-#if 0
-		screenManager->deviceLost();
-		screenManager->deviceRestore();
-#endif
 
 		// TODO: Move this to new GraphicsContext objects for each backend.
 #ifndef _WIN32
@@ -949,26 +953,6 @@ void NativeUpdate() {
 
 	g_DownloadManager.Update();
 	screenManager->update();
-}
-
-void NativeDeviceLost() {
-	ILOG("NativeDeviceLost");
-	// We start by calling gl_lost - this lets objects zero their native GL objects
-	// so they then don't try to delete them as well.
-	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		gl_lost();
-	}
-	if (g_gameInfoCache)
-		g_gameInfoCache->Clear();
-	screenManager->deviceLost();
-}
-
-void NativeDeviceRestore() {
-	ILOG("NativeDeviceRestore");
-	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		gl_restore();
-	}
-	screenManager->deviceRestore();
 }
 
 bool NativeIsAtTopLevel() {
@@ -1127,9 +1111,6 @@ void NativeShutdown() {
 	screenManager = nullptr;
 
 	host->ShutdownGraphics();
-	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		gl_lost_manager_shutdown();
-	}
 
 #if !PPSSPP_PLATFORM(UWP)
 	delete host;

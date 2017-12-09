@@ -65,8 +65,6 @@ static const GLESCommandTableEntry commandTable[] = {
 	// Changes that dirty the current texture.
 	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_TexSize0 },
 
-	{ GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_STENCILREPLACEVALUE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE },
-
 	// Changing the vertex type requires us to flush.
 	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
 
@@ -171,7 +169,8 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + discID + ".glshadercache";
-		shaderManagerGL_->LoadAndPrecompile(shaderCachePath_);
+		// Actually precompiled by IsReady() since we're single-threaded.
+		shaderManagerGL_->Load(shaderCachePath_);
 	}
 
 	if (g_Config.bHardwareTessellation) {
@@ -301,6 +300,7 @@ void GPU_GLES::CheckGPUFeatures() {
 	bool canUseInstanceID = gl_extensions.EXT_draw_instanced || gl_extensions.ARB_draw_instanced;
 	bool canDefInstanceID = gl_extensions.IsGLES || gl_extensions.EXT_gpu_shader4 || gl_extensions.VersionGEThan(3, 1);
 	bool instanceRendering = gl_extensions.GLES3 || (canUseInstanceID && canDefInstanceID);
+	if (instanceRendering)
 		features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 
 	int maxVertexTextureImageUnits;
@@ -350,6 +350,10 @@ void GPU_GLES::CheckGPUFeatures() {
 	gstate_c.featureFlags = features;
 }
 
+bool GPU_GLES::IsReady() {
+	return shaderManagerGL_->ContinuePrecompile();
+}
+
 // Let's avoid passing nulls into snprintf().
 static const char *GetGLStringAlways(GLenum name) {
 	const GLubyte *value = glGetString(name);
@@ -382,23 +386,24 @@ void GPU_GLES::BuildReportingInfo() {
 
 void GPU_GLES::DeviceLost() {
 	ILOG("GPU_GLES: DeviceLost");
-	// Should only be executed on the GL thread.
 
-	// Simply drop all caches and textures.
-	// FBOs appear to survive? Or no?
-	// TransformDraw has registered as a GfxResourceHolder.
 	shaderManagerGL_->ClearCache(false);
 	textureCacheGL_->Clear(false);
 	fragmentTestCache_.Clear(false);
 	depalShaderCache_.Clear();
+	drawEngine_.ClearTrackedVertexArrays();
 	framebufferManagerGL_->DeviceLost();
 }
 
 void GPU_GLES::DeviceRestore() {
+	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
 	ILOG("GPU_GLES: DeviceRestore");
 
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
+
+	textureCacheGL_->DeviceRestore(draw_);
+	framebufferManagerGL_->DeviceRestore(draw_);
 }
 
 void GPU_GLES::Reinitialize() {

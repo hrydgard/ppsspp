@@ -144,10 +144,16 @@ VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/VulkanUtil.cpp
 #endif
 
+SPIRV_CROSS_FILES := \
+  $(SRC)/ext/SPIRV-Cross/spirv_cfg.cpp \
+  $(SRC)/ext/SPIRV-Cross/spirv_cross.cpp \
+  $(SRC)/ext/SPIRV-Cross/spirv_glsl.cpp
+
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(EGL_FILES) \
   $(VULKAN_FILES) \
+  $(SPIRV_CROSS_FILES) \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \

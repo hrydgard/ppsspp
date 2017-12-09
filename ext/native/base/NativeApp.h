@@ -51,13 +51,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 // Should not initialize anything screen-size-dependent - do that in NativeResized.
 bool NativeInitGraphics(GraphicsContext *graphicsContext);
 
-// Signals that you need to forget all buffered OpenGL resources,
-// like textures, vbo etc.
-void NativeDeviceLost();
-
-// Signals that it's time to recreate buffered OpenGL resources
-void NativeDeviceRestore();
-
 // If you want to change DPI stuff (such as modifying dp_xres and dp_yres), this is the
 // place to do it. You should only read g_dpi_scale and pixel_xres and pixel_yres in this,
 // and only write dp_xres and dp_yres.

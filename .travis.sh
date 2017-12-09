@@ -2,7 +2,7 @@
 
 export USE_CCACHE=1
 export NDK_CCACHE=ccache
-NDK_VER=android-ndk-r13b
+NDK_VER=android-ndk-r16b
 
 download_extract() {
     aria2c -x 16 $1 -o $2

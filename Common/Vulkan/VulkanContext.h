@@ -309,10 +309,10 @@ private:
 };
 
 // Detailed control.
-void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask,
+void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int mipLevels, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
-	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, int mipLevels = VK_REMAINING_MIP_LEVELS);
+	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);
 
 // GLSL compiler
 void init_glslang();

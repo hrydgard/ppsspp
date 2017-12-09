@@ -388,7 +388,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
 		switch (replaceAlphaWithStencilType) {
 		case STENCIL_VALUE_UNIFORM:
-			replacedAlpha = "base.fogcoef_stencilreplace.z";
+			replacedAlpha = "base.stencilReplace";
 			break;
 
 		case STENCIL_VALUE_ZERO:

@@ -132,7 +132,6 @@ DrawEngineGLES::DrawEngineGLES() : vai_(256) {
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
-	register_gl_resource_holder(this, "drawengine_gles", 1);
 
 	tessDataTransfer = new TessellationDataTransferGLES(gl_extensions.VersionGEThan(3, 0, 0));
 }
@@ -142,8 +141,6 @@ DrawEngineGLES::~DrawEngineGLES() {
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
-
-	unregister_gl_resource_holder(this);
 
 	delete tessDataTransfer;
 }
@@ -189,21 +186,6 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 			glDeleteVertexArrays(1, &sharedVao_);
 		}
 	}
-}
-
-void DrawEngineGLES::GLLost() {
-	ILOG("TransformDrawEngine::GLLost()");
-	// The objects have already been deleted by losing the context, so we don't call DestroyDeviceObjects.
-	bufferNameCache_.clear();
-	bufferNameInfo_.clear();
-	freeSizedBuffers_.clear();
-	bufferNameCacheSize_ = 0;
-	ClearTrackedVertexArrays();
-}
-
-void DrawEngineGLES::GLRestore() {
-	ILOG("TransformDrawEngine::GLRestore()");
-	InitDeviceObjects();
 }
 
 struct GlTypeInfo {

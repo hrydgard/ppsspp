@@ -103,11 +103,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		if (gstate_c.needShaderTexClamp) {
-			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
-			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
-			gstate_c.Dirty(DIRTY_TEXCLAMP);
-		}
 	}
 
 	// Start profiling here to skip SetTexture which is already accounted for

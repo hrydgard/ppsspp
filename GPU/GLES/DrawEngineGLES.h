@@ -28,7 +28,6 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
 #include "gfx/gl_common.h"
-#include "gfx/gl_lost_manager.h"
 
 class LinkedShader;
 class ShaderManagerGLES;
@@ -100,7 +99,7 @@ public:
 };
 
 // Handles transform, lighting and drawing.
-class DrawEngineGLES : public DrawEngineCommon, public GfxResourceHolder {
+class DrawEngineGLES : public DrawEngineCommon {
 public:
 	DrawEngineGLES();
 	virtual ~DrawEngineGLES();
@@ -122,8 +121,6 @@ public:
 	void RestoreVAO();
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
-	void GLLost() override;
-	void GLRestore() override;
 
 	void ClearTrackedVertexArrays() override;
 	void DecimateTrackedVertexArrays();

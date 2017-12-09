@@ -376,6 +376,7 @@
     <ClInclude Include="..\..\ext\native\ui\ui.h" />
     <ClInclude Include="..\..\ext\native\ui\ui_context.h" />
     <ClInclude Include="..\..\ext\native\ui\ui_screen.h" />
+    <ClInclude Include="..\..\ext\native\ui\ui_tween.h" />
     <ClInclude Include="..\..\ext\native\ui\view.h" />
     <ClInclude Include="..\..\ext\native\ui\viewgroup.h" />
     <ClInclude Include="..\..\ext\native\util\const_map.h" />
@@ -1290,6 +1291,7 @@
     <ClCompile Include="..\..\ext\native\ui\ui.cpp" />
     <ClCompile Include="..\..\ext\native\ui\ui_context.cpp" />
     <ClCompile Include="..\..\ext\native\ui\ui_screen.cpp" />
+    <ClCompile Include="..\..\ext\native\ui\ui_tween.cpp" />
     <ClCompile Include="..\..\ext\native\ui\view.cpp" />
     <ClCompile Include="..\..\ext\native\ui\viewgroup.cpp" />
     <ClCompile Include="..\..\ext\native\util\hash\hash.cpp" />
