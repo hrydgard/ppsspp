@@ -278,7 +278,7 @@
 #define ID_OPTIONS_SCREEN7X              40112
 #define ID_OPTIONS_SCREEN8X              40113
 #define ID_OPTIONS_SCREEN9X              40114
-#define ID_OPTIONS_SCREEN10X             40115
+#define ID_OPTIONS_SCREENMAX             40115
 #define ID_DEBUG_GEDEBUGGER              40116
 #define IDC_GEDBG_STEPDRAW               40117
 #define IDC_GEDBG_RESUME                 40118

@@ -102,6 +102,7 @@ public:
 	// General
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
+	bool bScreenshotsAtRenderRes;
 	bool bUseFFV1;
 	bool bDumpFrames;
 	bool bDumpAudio;

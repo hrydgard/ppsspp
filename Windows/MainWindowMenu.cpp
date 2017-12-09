@@ -742,7 +742,7 @@ namespace MainWindow {
 		case ID_OPTIONS_SCREEN7X:   SetInternalResolution(RESOLUTION_7X); break;
 		case ID_OPTIONS_SCREEN8X:   SetInternalResolution(RESOLUTION_8X); break;
 		case ID_OPTIONS_SCREEN9X:   SetInternalResolution(RESOLUTION_9X); break;
-		case ID_OPTIONS_SCREEN10X:   SetInternalResolution(RESOLUTION_MAX); break;
+		case ID_OPTIONS_SCREENMAX:   SetInternalResolution(RESOLUTION_MAX); break;
 
 		case ID_OPTIONS_WINDOW1X:   SetWindowSize(1); break;
 		case ID_OPTIONS_WINDOW2X:   SetWindowSize(2); break;
@@ -1113,7 +1113,7 @@ namespace MainWindow {
 			ID_OPTIONS_SCREEN7X,
 			ID_OPTIONS_SCREEN8X,
 			ID_OPTIONS_SCREEN9X,
-			ID_OPTIONS_SCREEN10X,
+			ID_OPTIONS_SCREENMAX,
 		};
 		if (g_Config.iInternalResolution < RESOLUTION_AUTO)
 			g_Config.iInternalResolution = RESOLUTION_AUTO;

@@ -287,14 +287,14 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
 #ifndef MOBILE_DEVICE
-	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
+	PopupSliderChoice *internalResolutions = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iInternalResolution, 0, 32, gr->T("Rendering Resolution", "Rendering Resolution"), 1, screenManager(), gr->T("* PSP res, 0:Auto")));
 #else
-	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
+	PopupSliderChoice *internalResolutions = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iInternalResolution, 0, 8, gr->T("Rendering Resolution", "Rendering Resolution"), 1, screenManager(), gr->T("* PSP res, 0:Auto")));
 #endif
-	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gr->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gr->GetName(), screenManager()));
-	resolutionChoice_->OnChoice.Handle(this, &GameSettingsScreen::OnResolutionChange);
+	internalResolutions->SetFormat("%ix");
+	internalResolutions->SetZeroLabel(gr->T("Auto (1:1)"));
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	resolutionChoice_->SetEnabledPtr(&resolutionEnable_);
+	internalResolutions->SetEnabledPtr(&resolutionEnable_);
 
 #ifdef __ANDROID__
 	static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
@@ -802,6 +802,7 @@ void GameSettingsScreen::CreateViews() {
 	if (!g_Config.bSimpleUI) {
 		// Screenshot functionality is not yet available on non-Windows/non-Qt
 		systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
+		systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAtRenderRes, sy->T("Screenshots use render resolution and skip OSD/effects")));
 	}
 	systemSettings->Add(new CheckBox(&g_Config.bDumpFrames, sy->T("Record Display")));
 	systemSettings->Add(new CheckBox(&g_Config.bUseFFV1, sy->T("Use Lossless Video Codec (FFV1)")));
