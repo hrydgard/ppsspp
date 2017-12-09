@@ -328,6 +328,9 @@ void TextureCacheCommon::SetTexture(bool force) {
 
 	TexCache::iterator iter = cache_.find(cachekey);
 	TexCacheEntry *entry = nullptr;
+
+	// Note: It's necessary to reset needshadertexclamp, for otherwise DIRTY_TEXCLAMP won't get set later.
+	// Should probably revisit how this works..
 	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 	if (gstate_c.bgraTexture != isBgraBackend_) {
