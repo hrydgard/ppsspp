@@ -1979,7 +1979,7 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 
 	u64 aligned_pc = (u64)GetCodePointer() & ~0xFFF;
 	s64 aligned_offset = (s64)imm - (s64)aligned_pc;
-	if (Count(upload_part) > 1 && abs64(aligned_offset) < 0xFFFFFFFFLL)
+	if (Count(upload_part) > 1 && abs64(aligned_offset) < 0x7FFFFFFFLL)
 	{
 		// Immediate we are loading is within 4GB of our aligned range
 		// Most likely a address that we can load in one or two instructions
