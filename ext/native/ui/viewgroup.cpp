@@ -6,7 +6,9 @@
 #include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "input/keycodes.h"
+#include "math/curves.h"
 #include "ui/ui_context.h"
+#include "ui/ui_tween.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "gfx_es2/draw_buffer.h"
@@ -143,6 +145,7 @@ void ViewGroup::Draw(UIContext &dc) {
 }
 
 void ViewGroup::Update() {
+	View::Update();
 	for (View *view : views_) {
 		if (view->GetVisibility() != V_GONE)
 			view->Update();
@@ -1110,10 +1113,7 @@ void GridLayout::Layout() {
 }
 
 TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams)
-	: LinearLayout(Opposite(orientation), layoutParams),
-		tabStrip_(nullptr), tabScroll_(nullptr),
-		stripSize_(stripSize),
-		currentTab_(0) {
+	: LinearLayout(Opposite(orientation), layoutParams), stripSize_(stripSize) {
 	SetSpacing(0.0f);
 	if (orientation == ORIENT_HORIZONTAL) {
 		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
@@ -1125,9 +1125,23 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(stripSize, WRAP_CONTENT));
 		tabStrip_->SetTopTabs(true);
 		Add(tabStrip_);
-		tabScroll_ = nullptr;
 	}
 	tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
+
+	contents_ = new AnchorLayout(new LinearLayoutParams(1.0f));
+	Add(contents_);
+}
+
+void TabHolder::AddTabContents(const std::string &title, View *tabContents) {
+	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+	tabs_.push_back(tabContents);
+	tabStrip_->AddChoice(title);
+	contents_->Add(tabContents);
+	if (tabs_.size() > 1)
+		tabContents->SetVisibility(V_GONE);
+
+	// Will be filled in later.
+	tabTweens_.push_back(nullptr);
 }
 
 void TabHolder::SetCurrentTab(int tab) {
@@ -1135,10 +1149,44 @@ void TabHolder::SetCurrentTab(int tab) {
 		// Ignore
 		return;
 	}
+
+	auto setupTween = [&](View *view, AnchorTranslateTween *&tween) {
+		if (tween)
+			return;
+
+		tween = new AnchorTranslateTween(0.15f, bezierEaseInOut);
+		tween->Finish.Add([&](EventParams &e) {
+			e.v->SetVisibility(tabs_[currentTab_] == e.v ? V_VISIBLE : V_GONE);
+			return EVENT_DONE;
+		});
+		view->AddTween(tween)->Persist();
+	};
+
 	if (tab != currentTab_) {
-		tabs_[currentTab_]->SetVisibility(V_GONE);
+		Orientation orient = Opposite(orientation_);
+		// Direction from which the new tab will come.
+		float dir = tab < currentTab_ ? -1.0f : 1.0f;
+
+		// First, setup any missing tweens.
+		setupTween(tabs_[currentTab_], tabTweens_[currentTab_]);
+		setupTween(tabs_[tab], tabTweens_[tab]);
+
+		// Currently displayed, so let's reset it.
+		tabTweens_[currentTab_]->Reset(Point(0.0f, 0.0f));
+
+		if (orient == ORIENT_HORIZONTAL) {
+			tabTweens_[tab]->Reset(Point(bounds_.w * dir, 0.0f));
+			tabTweens_[currentTab_]->Divert(Point(bounds_.w * -dir, 0.0f));
+		} else {
+			tabTweens_[tab]->Reset(Point(0.0f, bounds_.h * dir));
+			tabTweens_[currentTab_]->Divert(Point(0.0f, bounds_.h * -dir));
+		}
+		// Actually move it to the initial position now, just to avoid any flicker.
+		tabTweens_[tab]->Apply(tabs_[tab]);
+		tabTweens_[tab]->Divert(Point(0.0f, 0.0f));
+		tabs_[tab]->SetVisibility(V_VISIBLE);
+
 		currentTab_ = tab;
-		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
 	}
 	tabStrip_->SetSelection(tab);
 }
@@ -1146,10 +1194,8 @@ void TabHolder::SetCurrentTab(int tab) {
 EventReturn TabHolder::OnTabClick(EventParams &e) {
 	// We have e.b set when it was an explicit click action.
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
-	if (currentTab_ != (int)e.a || e.b != 0) {
-		tabs_[currentTab_]->SetVisibility(V_GONE);
-		currentTab_ = e.a;
-		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+	if (e.b != 0) {
+		SetCurrentTab((int)e.a);
 	}
 	return EVENT_DONE;
 }
