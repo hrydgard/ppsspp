@@ -19,7 +19,6 @@ void TweenBase<Value>::PersistData(PersistStatus status, std::string anonId, Per
 		float duration;
 		Value from;
 		Value to;
-		bool finishApplied;
 	};
 
 	PersistBuffer &buffer = storage["TweenBase::" + anonId];
@@ -33,7 +32,6 @@ void TweenBase<Value>::PersistData(PersistStatus status, std::string anonId, Per
 			data.duration = duration_;
 			data.from = from_;
 			data.to = to_;
-			data.finishApplied = finishApplied_;
 		}
 		break;
 	case UI::PERSIST_RESTORE:
@@ -43,7 +41,8 @@ void TweenBase<Value>::PersistData(PersistStatus status, std::string anonId, Per
 			duration_ = data.duration;
 			from_ = data.from;
 			to_ = data.to;
-			finishApplied_ = data.finishApplied;
+			// We skip finishApplied_ here so that the tween will reapply.
+			// This does mean it's important to remember to update tweens even after finish.
 		}
 		break;
 	}
