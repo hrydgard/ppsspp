@@ -132,7 +132,7 @@ void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float
 		}
 
 		SIZE size;
-		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(std::string(str, len), "\n", "\r\n"));
+		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(ReplaceAll(std::string(str, len), "\n", "\r\n"), "&&", "&"));
 		GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
 
 		entry = new TextMeasureEntry();
@@ -171,7 +171,7 @@ void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bound
 			entry = iter->second.get();
 		} else {
 			SIZE size;
-			std::wstring wstr = ConvertUTF8ToWString(lines[i].length() == 0 ? " " : lines[i]);
+			std::wstring wstr = ConvertUTF8ToWString(lines[i].length() == 0 ? " " : ReplaceAll(lines[i], "&&", "&"));
 			GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
 
 			entry = new TextMeasureEntry();
