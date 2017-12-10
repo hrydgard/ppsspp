@@ -486,6 +486,7 @@ protected:
 	void DrawBG(UIContext &dc, const Style &style);
 
 	CallbackColorTween *bgColor_ = nullptr;
+	float bgColorLast_ = 0.0f;
 	int downCountDown_ = 0;
 	bool dragging_ = false;
 	bool down_ = false;

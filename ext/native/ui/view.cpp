@@ -270,7 +270,13 @@ Clickable::Clickable(LayoutParams *layoutParams)
 
 void Clickable::DrawBG(UIContext &dc, const Style &style) {
 	if (style.background.type == DRAW_SOLID_COLOR) {
-		bgColor_->Divert(style.background.color, down_ ? 0.05f : 0.1f);
+		if (time_now() - bgColorLast_ >= 0.25f) {
+			bgColor_->Reset(style.background.color);
+		} else {
+			bgColor_->Divert(style.background.color, down_ ? 0.05f : 0.1f);
+		}
+		bgColorLast_ = time_now();
+
 		dc.FillRect(Drawable(bgColor_->CurrentValue()), bounds_);
 	} else {
 		dc.FillRect(style.background, bounds_);
