@@ -428,19 +428,21 @@ public:
 
 	// From Sascha's code
 	static std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props) {
-		uint32_t major = (props.driverVersion >> 22) & 0x3ff;
-		uint32_t minor = (props.driverVersion >> 14) & 0x0ff;
 		if (props.vendorID == 4318) {
 			// 10 bits = major version (up to r1023)
 			// 8 bits = minor version (up to 255)
 			// 8 bits = secondary branch version/build version (up to 255)
 			// 6 bits = tertiary branch/build version (up to 63)
+			uint32_t major = (props.driverVersion >> 22) & 0x3ff;
+			uint32_t minor = (props.driverVersion >> 14) & 0x0ff;
 			uint32_t secondaryBranch = (props.driverVersion >> 6) & 0x0ff;
 			uint32_t tertiaryBranch = (props.driverVersion) & 0x003f;
 			return StringFromFormat("%d.%d.%d.%d (%08x)", major, minor, secondaryBranch, tertiaryBranch, props.driverVersion);
 		} else {
-			uint32_t branch = props.driverVersion & 0xfff;
-			minor = (props.driverVersion >> 12) & 0x0ff;
+			// Standard scheme, use the standard macros.
+			uint32_t major = VK_VERSION_MAJOR(props.driverVersion);
+			uint32_t minor = VK_VERSION_MINOR(props.driverVersion);
+			uint32_t branch = VK_VERSION_PATCH(props.driverVersion);
 			return StringFromFormat("%d.%d.%d (%08x)", major, minor, branch, props.driverVersion);
 		}
 	}
