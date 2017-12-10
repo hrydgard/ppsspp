@@ -289,6 +289,10 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 	th.detach();
 }
 
+bool CachingFileLoader::IsRemote() {
+	return backend_->IsRemote();
+}
+
 void CachingFileLoader::Cancel() {
 	backend_->Cancel();
 }

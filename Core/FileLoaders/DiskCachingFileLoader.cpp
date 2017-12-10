@@ -115,6 +115,10 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, 
 	return readSize;
 }
 
+bool DiskCachingFileLoader::IsRemote() {
+	return backend_->IsRemote();
+}
+
 void DiskCachingFileLoader::Cancel() {
 	backend_->Cancel();
 }

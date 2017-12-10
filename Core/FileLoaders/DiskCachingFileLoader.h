@@ -32,6 +32,7 @@ public:
 	DiskCachingFileLoader(FileLoader *backend);
 	~DiskCachingFileLoader() override;
 
+	bool IsRemote() override;
 	bool Exists() override;
 	bool ExistsFast() override;
 	bool IsDirectory() override;

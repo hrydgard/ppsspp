@@ -30,6 +30,9 @@ public:
 	HTTPFileLoader(const std::string &filename);
 	virtual ~HTTPFileLoader() override;
 
+	bool IsRemote() override {
+		return true;
+	}
 	virtual bool Exists() override;
 	virtual bool ExistsFast() override;
 	virtual bool IsDirectory() override;

@@ -28,6 +28,7 @@ public:
 	RamCachingFileLoader(FileLoader *backend);
 	~RamCachingFileLoader() override;
 
+	bool IsRemote() override;
 	bool Exists() override;
 	bool ExistsFast() override;
 	bool IsDirectory() override;

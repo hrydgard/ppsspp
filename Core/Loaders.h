@@ -66,6 +66,9 @@ public:
 
 	virtual ~FileLoader() {}
 
+	virtual bool IsRemote() {
+		return false;
+	}
 	virtual bool Exists() = 0;
 	virtual bool ExistsFast() {
 		return Exists();

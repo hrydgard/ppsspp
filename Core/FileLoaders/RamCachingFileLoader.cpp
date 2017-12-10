@@ -270,3 +270,7 @@ u32 RamCachingFileLoader::NextAheadBlock() {
 
 	return 0xFFFFFFFF;
 }
+
+bool RamCachingFileLoader::IsRemote() {
+	return backend_->IsRemote();
+}
