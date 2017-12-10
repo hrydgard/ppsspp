@@ -13,6 +13,13 @@ void Tween::Apply(View *view) {
 
 	float pos = Position();
 	DoApply(view, pos);
+
+	if (finishApplied_) {
+		UI::EventParams e{};
+		e.v = view;
+		e.f = DurationOffset() - duration_;
+		Finish.Trigger(e);
+	}
 }
 
 template <typename Value>

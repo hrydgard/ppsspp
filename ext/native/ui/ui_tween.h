@@ -36,6 +36,8 @@ public:
 
 	virtual void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) = 0;
 
+	Event Finish;
+
 protected:
 	float DurationOffset() {
 		return time_now() - start_ - delay_;
