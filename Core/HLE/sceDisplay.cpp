@@ -317,9 +317,10 @@ void __DisplayDoState(PointerWrap &p) {
 	}
 
 	gpu->DoState(p);
-	gpu->ReapplyGfxState();
 
 	if (p.mode == p.MODE_READ) {
+		gpu->ReapplyGfxState();
+
 		if (hasSetMode) {
 			gpu->InitClear();
 		}
