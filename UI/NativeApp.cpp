@@ -942,13 +942,16 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 void NativeUpdate() {
 	PROFILE_END_FRAME();
 
+	std::vector<PendingMessage> toProcess;
 	{
 		std::lock_guard<std::mutex> lock(pendingMutex);
-		for (size_t i = 0; i < pendingMessages.size(); i++) {
-			HandleGlobalMessage(pendingMessages[i].msg, pendingMessages[i].value);
-			screenManager->sendMessage(pendingMessages[i].msg.c_str(), pendingMessages[i].value.c_str());
-		}
+		toProcess = std::move(pendingMessages);
 		pendingMessages.clear();
+	}
+
+	for (size_t i = 0; i < toProcess.size(); i++) {
+		HandleGlobalMessage(toProcess[i].msg, toProcess[i].value);
+		screenManager->sendMessage(toProcess[i].msg.c_str(), toProcess[i].value.c_str());
 	}
 
 	g_DownloadManager.Update();
