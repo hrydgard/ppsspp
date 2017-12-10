@@ -948,7 +948,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			// TODO: We really, really should avoid calling glGetError.
 			GLenum err = glGetError();
 			if (err == GL_OUT_OF_MEMORY) {
-				WARN_LOG(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
+				WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 				lowMemoryMode_ = true;
 				decimationCounter_ = 0;
 				Decimate();

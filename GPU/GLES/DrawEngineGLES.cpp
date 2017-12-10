@@ -156,6 +156,14 @@ void DrawEngineGLES::RestoreVAO() {
 	}
 }
 
+void DrawEngineGLES::DeviceLost() {
+	DestroyDeviceObjects();
+}
+
+void DrawEngineGLES::DeviceRestore() {
+	InitDeviceObjects();
+}
+
 void DrawEngineGLES::InitDeviceObjects() {
 	if (bufferNameCache_.empty()) {
 		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);

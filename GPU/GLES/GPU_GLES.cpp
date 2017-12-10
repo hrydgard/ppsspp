@@ -391,7 +391,7 @@ void GPU_GLES::DeviceLost() {
 	textureCacheGL_->Clear(false);
 	fragmentTestCache_.Clear(false);
 	depalShaderCache_.Clear();
-	drawEngine_.ClearTrackedVertexArrays();
+	drawEngine_.DeviceLost();
 	framebufferManagerGL_->DeviceLost();
 }
 
@@ -404,6 +404,7 @@ void GPU_GLES::DeviceRestore() {
 
 	textureCacheGL_->DeviceRestore(draw_);
 	framebufferManagerGL_->DeviceRestore(draw_);
+	drawEngine_.DeviceRestore();
 }
 
 void GPU_GLES::Reinitialize() {

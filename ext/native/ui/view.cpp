@@ -224,6 +224,11 @@ void View::PersistData(PersistStatus status, std::string anonId, PersistMap &sto
 		}
 		break;
 	}
+
+	ITOA stringify;
+	for (int i = 0; i < (int)tweens_.size(); ++i) {
+		tweens_[i]->PersistData(status, tag + "/" + stringify.p((int)i), storage);
+	}
 }
 
 Point View::GetFocusPosition(FocusDirection dir) {
