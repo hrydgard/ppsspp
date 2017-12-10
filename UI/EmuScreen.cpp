@@ -831,7 +831,9 @@ void EmuScreen::CreateViews() {
 
 	// We start invisible here, in case of recreated views.
 	loadingViewColor_ = loadingView_->AddTween(new TextColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
+	loadingViewColor_->Persist();
 	loadingViewVisible_ = loadingView_->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
+	loadingViewVisible_->Persist();
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {

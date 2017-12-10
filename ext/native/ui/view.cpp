@@ -169,9 +169,15 @@ View::~View() {
 }
 
 void View::Update() {
-	for (Tween *tween : tweens_) {
-		if (!tween->Finished())
+	for (size_t i = 0; i < tweens_.size(); ++i) {
+		Tween *tween = tweens_[i];
+		if (!tween->Finished()) {
 			tween->Apply(this);
+		} else if (!tween->Persists()) {
+			tweens_.erase(tweens_.begin() + i);
+			i--;
+			delete tween;
+		}
 	}
 }
 

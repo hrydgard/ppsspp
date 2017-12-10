@@ -10,7 +10,7 @@ namespace UI {
 // This is the class to use in Update().
 class Tween {
 public:
-	Tween(float duration, float (*curve)(float)) : duration_(duration), curve_(curve) {
+	explicit Tween(float duration, float (*curve)(float)) : duration_(duration), curve_(curve) {
 		start_ = time_now();
 	}
 	virtual ~Tween() {
@@ -20,14 +20,25 @@ public:
 	void Apply(View *view);
 
 	bool Finished() {
-		return finishApplied_ && time_now() >= start_ + duration_;
+		return finishApplied_ && time_now() >= start_ + delay_ + duration_;
+	}
+
+	void Persist() {
+		persists_ = true;
+	}
+	bool Persists() {
+		return persists_;
+	}
+
+	void Delay(float s) {
+		delay_ = s;
 	}
 
 	virtual void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) = 0;
 
 protected:
 	float DurationOffset() {
-		return time_now() - start_;
+		return time_now() - start_ - delay_;
 	}
 
 	float Position() {
@@ -38,7 +49,10 @@ protected:
 
 	float start_;
 	float duration_;
+	float delay_ = 0.0f;
 	bool finishApplied_ = false;
+	bool persists_ = false;
+	bool valid_ = false;
 	float (*curve_)(float);
 };
 
@@ -47,29 +61,37 @@ protected:
 template <typename Value>
 class TweenBase: public Tween {
 public:
+	TweenBase(float duration, float (*curve)(float) = [](float f) { return f; })
+		: Tween(duration, curve) {
+	}
 	TweenBase(Value from, Value to, float duration, float (*curve)(float) = [](float f) { return f; })
 		: Tween(duration, curve), from_(from), to_(to) {
+		valid_ = true;
 	}
 
 	// Use this to change the destination value.
 	// Useful when a state flips while the tween is half-way through.
 	void Divert(const Value &newTo, float newDuration = -1.0f) {
-		const Value newFrom = Current(Position());
+		const Value newFrom = valid_ ? Current(Position()) : newTo;
 
 		// Are we already part way through another transition?
-		if (time_now() < start_ + duration_) {
+		if (time_now() < start_ + delay_ + duration_ && valid_) {
 			if (newTo == to_) {
 				// Already on course.  Don't change.
-			} else if (newTo == from_) {
+				return;
+			} else if (newTo == from_ && duration_ > 0.0f) {
 				// Reversing, adjust start_ to be smooth from the current value.
-				float newOffset = duration_ - DurationOffset();
-				if (newDuration >= 0.0f && duration_ > 0.0f) {
+				float newOffset = duration_ - std::max(0.0f, DurationOffset());
+				if (newDuration >= 0.0f) {
 					newOffset *= newDuration / duration_;
 				}
-				start_ = time_now() - newOffset;
-			} else {
-				// Otherwise, start over.
+				start_ = time_now() - newOffset - delay_;
+			} else if (time_now() <= start_ + delay_) {
+				// Start the delay over again.
 				start_ = time_now();
+			} else {
+				// Since we've partially animated to the other value, skip delay.
+				start_ = time_now() - delay_;
 			}
 		} else {
 			// Already finished, so restart.
@@ -79,6 +101,7 @@ public:
 
 		from_ = newFrom;
 		to_ = newTo;
+		valid_ = true;
 		if (newDuration >= 0.0f) {
 			duration_ = newDuration;
 		}
@@ -93,6 +116,7 @@ public:
 	void Reset(const Value &newFrom) {
 		from_ = newFrom;
 		to_ = newFrom;
+		valid_ = true;
 	}
 
 	const Value &FromValue() const {
