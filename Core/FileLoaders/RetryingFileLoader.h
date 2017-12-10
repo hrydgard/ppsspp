@@ -36,6 +36,8 @@ public:
 	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
 
+	void Cancel() override;
+
 private:
 	enum {
 		MAX_RETRIES = 3,

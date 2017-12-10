@@ -72,3 +72,7 @@ size_t RetryingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Fla
 
 	return readSize;
 }
+
+void RetryingFileLoader::Cancel() {
+	backend_->Cancel();
+}

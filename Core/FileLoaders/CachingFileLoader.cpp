@@ -25,7 +25,7 @@
 
 // Takes ownership of backend.
 CachingFileLoader::CachingFileLoader(FileLoader *backend)
-	: filesize_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false) {
+	: backend_(backend) {
 }
 
 void CachingFileLoader::Prepare() {
@@ -287,4 +287,8 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 		aheadThread_ = false;
 	});
 	th.detach();
+}
+
+void CachingFileLoader::Cancel() {
+	backend_->Cancel();
 }

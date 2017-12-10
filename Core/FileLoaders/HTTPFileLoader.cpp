@@ -22,7 +22,7 @@
 #include "Core/FileLoaders/HTTPFileLoader.h"
 
 HTTPFileLoader::HTTPFileLoader(const std::string &filename)
-	: filesize_(0), filepos_(0), url_(filename), filename_(filename), connected_(false) {
+	: url_(filename), filename_(filename) {
 }
 
 void HTTPFileLoader::Prepare() {
@@ -33,6 +33,10 @@ void HTTPFileLoader::Prepare() {
 		}
 
 		Connect();
+		if (!connected_) {
+			return;
+		}
+
 		int err = client_.SendRequest("HEAD", url_.Resource().c_str());
 		if (err < 0) {
 			Disconnect();
@@ -123,6 +127,9 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 	}
 
 	Connect();
+	if (!connected_) {
+		return 0;
+	}
 
 	char requestHeaders[4096];
 	// Note that the Range header is *inclusive*.
@@ -185,4 +192,12 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 	output.Take(readBytes, (char *)data);
 	filepos_ = absolutePos + readBytes;
 	return readBytes;
+}
+
+void HTTPFileLoader::Connect() {
+	if (!connected_) {
+		cancelConnect_ = false;
+		// Latency is important here, so reduce the timeout.
+		connected_ = client_.Connect(3, 10.0, &cancelConnect_);
+	}
 }

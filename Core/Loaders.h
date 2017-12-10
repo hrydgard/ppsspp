@@ -86,6 +86,10 @@ public:
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) {
 		return ReadAt(absolutePos, 1, bytes, data, flags);
 	}
+
+	// Cancel any operations that might block, if possible.
+	virtual void Cancel() {
+	}
 };
 
 inline u32 operator & (const FileLoader::Flags &a, const FileLoader::Flags &b) {
