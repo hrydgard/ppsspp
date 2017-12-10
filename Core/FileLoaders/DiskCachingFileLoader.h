@@ -32,6 +32,7 @@ public:
 	DiskCachingFileLoader(FileLoader *backend);
 	~DiskCachingFileLoader() override;
 
+	bool IsRemote() override;
 	bool Exists() override;
 	bool ExistsFast() override;
 	bool IsDirectory() override;
@@ -43,6 +44,8 @@ public:
 	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
 
+	void Cancel() override;
+
 	static std::vector<std::string> GetCachedPathsInUse();
 
 private:
@@ -50,10 +53,10 @@ private:
 	void InitCache();
 	void ShutdownCache();
 
-	bool prepared_;
-	s64 filesize_;
+	std::once_flag preparedFlag_;
+	s64 filesize_ = 0;
 	FileLoader *backend_;
-	DiskCachingFileLoaderCache *cache_;
+	DiskCachingFileLoaderCache *cache_ = nullptr;
 
 	// We don't support concurrent disk cache access (we use memory cached indexes.)
 	// So we have to ensure there's only one of these per.
@@ -139,7 +142,7 @@ private:
 		INVALID_INDEX = 0xFFFFFFFF,
 	};
 
-	int refCount_;
+	int refCount_ = 0;
 	s64 filesize_;
 	u32 blockSize_;
 	u16 generation_;
@@ -176,8 +179,8 @@ private:
 	std::vector<BlockInfo> index_;
 	std::vector<u32> blockIndexLookup_;
 
-	FILE *f_;
-	int fd_;
+	FILE *f_ = nullptr;
+	int fd_ = 0;
 
 	static std::string cacheDir_;
 };

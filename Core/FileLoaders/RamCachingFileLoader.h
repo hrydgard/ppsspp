@@ -28,6 +28,7 @@ public:
 	RamCachingFileLoader(FileLoader *backend);
 	~RamCachingFileLoader() override;
 
+	bool IsRemote() override;
 	bool Exists() override;
 	bool ExistsFast() override;
 	bool IsDirectory() override;
@@ -38,6 +39,8 @@ public:
 		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
 	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
+
+	void Cancel() override;
 
 private:
 	void InitCache();
@@ -55,15 +58,16 @@ private:
 		BLOCK_READAHEAD = 4,
 	};
 
-	s64 filesize_;
+	s64 filesize_ = 0;
 	FileLoader *backend_;
-	u8 *cache_;
-	int exists_;
-	int isDirectory_;
+	u8 *cache_ = nullptr;
+	int exists_ = -1;
+	int isDirectory_ = -1;
 
 	std::vector<u8> blocks_;
 	std::mutex blocksMutex_;
 	u32 aheadRemaining_;
 	s64 aheadPos_;
-	bool aheadThread_;
+	bool aheadThread_ = false;
+	bool aheadCancel_ = false;
 };

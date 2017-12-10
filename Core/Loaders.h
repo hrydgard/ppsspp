@@ -66,6 +66,9 @@ public:
 
 	virtual ~FileLoader() {}
 
+	virtual bool IsRemote() {
+		return false;
+	}
 	virtual bool Exists() = 0;
 	virtual bool ExistsFast() {
 		return Exists();
@@ -85,6 +88,10 @@ public:
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) = 0;
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) {
 		return ReadAt(absolutePos, 1, bytes, data, flags);
+	}
+
+	// Cancel any operations that might block, if possible.
+	virtual void Cancel() {
 	}
 };
 

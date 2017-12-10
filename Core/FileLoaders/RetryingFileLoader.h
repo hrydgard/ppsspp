@@ -25,6 +25,7 @@ public:
 	RetryingFileLoader(FileLoader *backend);
 	~RetryingFileLoader() override;
 
+	bool IsRemote() override;
 	bool Exists() override;
 	bool ExistsFast() override;
 	bool IsDirectory() override;
@@ -35,6 +36,8 @@ public:
 		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
 	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
+
+	void Cancel() override;
 
 private:
 	enum {

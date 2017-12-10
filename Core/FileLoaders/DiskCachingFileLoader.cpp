@@ -41,19 +41,16 @@ std::mutex DiskCachingFileLoader::cachesMutex_;
 
 // Takes ownership of backend.
 DiskCachingFileLoader::DiskCachingFileLoader(FileLoader *backend)
-	: prepared_(false), filesize_(0), backend_(backend), cache_(nullptr) {
+	: backend_(backend) {
 }
 
 void DiskCachingFileLoader::Prepare() {
-	if (prepared_) {
-		return;
-	}
-	prepared_ = true;
-
-	filesize_ = backend_->FileSize();
-	if (filesize_ > 0) {
-		InitCache();
-	}
+	std::call_once(preparedFlag_, [this]() {
+		filesize_ = backend_->FileSize();
+		if (filesize_ > 0) {
+			InitCache();
+		}
+	});
 }
 
 DiskCachingFileLoader::~DiskCachingFileLoader() {
@@ -118,6 +115,14 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, 
 	return readSize;
 }
 
+bool DiskCachingFileLoader::IsRemote() {
+	return backend_->IsRemote();
+}
+
+void DiskCachingFileLoader::Cancel() {
+	backend_->Cancel();
+}
+
 std::vector<std::string> DiskCachingFileLoader::GetCachedPathsInUse() {
 	std::lock_guard<std::mutex> guard(cachesMutex_);
 
@@ -156,7 +161,7 @@ void DiskCachingFileLoader::ShutdownCache() {
 }
 
 DiskCachingFileLoaderCache::DiskCachingFileLoaderCache(const std::string &path, u64 filesize)
-	: refCount_(0), filesize_(filesize), origPath_(path), f_(nullptr), fd_(0) {
+	: filesize_(filesize), origPath_(path) {
 	InitCache(path);
 }
 
