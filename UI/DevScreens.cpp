@@ -495,7 +495,7 @@ void SystemInfoScreen::CreateViews() {
 	std::vector<std::string> exts;
 	SplitString(cpu_info.Summarize(), ',', exts);
 	for (size_t i = 2; i < exts.size(); i++) {
-		cpuExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+		cpuExtensions->Add(new TextView(exts[i], new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
 	ViewGroup *gpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -517,8 +517,8 @@ void SystemInfoScreen::CreateViews() {
 		exts.clear();
 		SplitString(g_all_gl_extensions, ' ', exts);
 		std::sort(exts.begin(), exts.end());
-		for (size_t i = 0; i < exts.size(); i++) {
-			gpuExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+		for (auto &extension : exts) {
+			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
 		exts.clear();
@@ -537,8 +537,8 @@ void SystemInfoScreen::CreateViews() {
 
 			eglExtensions->Add(new ItemHeader("EGL Extensions"));
 
-			for (size_t i = 0; i < exts.size(); i++) {
-				eglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+			for (auto &extension : exts) {
+				eglExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 			}
 		}
 	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
@@ -547,12 +547,12 @@ void SystemInfoScreen::CreateViews() {
 		gpuExtensions->Add(new ItemHeader("Vulkan Features"));
 		std::vector<std::string> features = draw->GetFeatureList();
 		for (auto &feature : features) {
-			gpuExtensions->Add(new TextView(feature))->SetFocusable(true);
+			gpuExtensions->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 		gpuExtensions->Add(new ItemHeader("Vulkan Extensions"));
 		std::vector<std::string> extensions = draw->GetExtensionList();
 		for (auto &extension : extensions) {
-			gpuExtensions->Add(new TextView(extension))->SetFocusable(true);
+			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 	}
 }
