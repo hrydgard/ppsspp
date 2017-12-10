@@ -348,6 +348,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("CurrentDirectory", &g_Config.currentDirectory, ""),
 	ConfigSetting("ShowDebuggerOnLoad", &g_Config.bShowDebuggerOnLoad, false),
 	ConfigSetting("SimpleUI", &g_Config.bSimpleUI, true),
+	ConfigSetting("SimpleUIhide", &g_Config.bSimpleUIhide, false),
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, false),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
 	ConfigSetting("ForceLagSync", &g_Config.bForceLagSync, false, true, true),

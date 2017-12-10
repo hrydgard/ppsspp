@@ -74,6 +74,7 @@ private:
 	UI::EventReturn OnPostProcShader(UI::EventParams &e);
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
+	UI::EventReturn OnOtherSettings(UI::EventParams &e);
 	UI::EventReturn OnRemoteISO(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	UI::EventReturn OnChangeproAdhocServerAddress(UI::EventParams &e);
@@ -155,6 +156,18 @@ private:
 	UI::EventReturn OnOpenTexturesIniFile(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
+};
+
+class OtherSettingsScreen : public UIDialogScreenWithBackground {
+public:
+	OtherSettingsScreen() {}
+	void onFinish(DialogResult result) override;
+
+protected:
+	void CreateViews() override;
+
+private:
+	bool QualityDepth_;
 };
 
 class ProAdhocServerScreen : public UIDialogScreenWithBackground {

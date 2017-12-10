@@ -651,6 +651,7 @@ void GameSettingsScreen::CreateViews() {
 	if (!g_Config.bSimpleUI) {
 		tools->Add(new Choice(dev->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
 		tools->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
+		tools->Add(new Choice(sy->T("Other Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnOtherSettings);
 	}
 	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Handle(this, &GameSettingsScreen::OnRemoteISO);
 
@@ -1033,7 +1034,11 @@ UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
 
 void GameSettingsScreen::update() {
 	UIScreen::update();
-	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
+
+	if (g_Config.iForceMaxEmulatedFPS == 60 || g_Config.iForceMaxEmulatedFPS == 0)
+		g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
+	else
+		cap60FPS_ = false;
 
 	g_Config.iFpsLimit = (iAlternateSpeedPercent_ * 60) / 100;
 
@@ -1181,6 +1186,11 @@ UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameSettingsScreen::OnOtherSettings(UI::EventParams &e) {
+	screenManager()->push(new OtherSettingsScreen());
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {
 	screenManager()->push(new RemoteISOScreen());
 	return UI::EVENT_DONE;
@@ -1285,6 +1295,36 @@ void DeveloperToolsScreen::CreateViews() {
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
+	g_Config.Save();
+}
+
+
+void OtherSettingsScreen::CreateViews() {
+	using namespace UI;
+	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	settingsScroll->SetTag("OtherSettings");
+	root_->Add(settingsScroll);
+
+	I18NCategory *gr = GetI18NCategory("Graphics");
+	I18NCategory *sy = GetI18NCategory("System");
+
+	AddStandardBack(root_);
+
+	LinearLayout *list = settingsScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	list->SetSpacing(0);
+
+	list->Add(new ItemHeader(sy->T("Settings that should not be changed by most users")));
+	list->Add(new CheckBox(&g_Config.bEncryptSave, sy->T("Encrypt savedata")));
+	list->Add(new CheckBox(&g_Config.bSavedataUpgrade, sy->T("Allow savedata with wrong encryption(unsafe workaround for outdated PSP savedata)")));
+	list->Add(new CheckBox(&g_Config.bFrameSkipUnthrottle, gr->T("Frameskip unthrottle(good for CPU benchmark)")));
+	list->Add(new CheckBox(&g_Config.bTrueColor, gr->T("True Color(Disable to get PSP colors)")));
+	PopupSliderChoice *emulatedSpeed = list->Add(new PopupSliderChoice(&g_Config.iForceMaxEmulatedFPS, 0, 60, gr->T("Force Max Emulated FPS(affects speed in most games!)"), 1, screenManager(), gr->T("FPS, 0:Disabled")));
+	emulatedSpeed->SetFormat("%i FPS");
+	emulatedSpeed->SetZeroLabel(gr->T("Disabled"));
+}
+
+void OtherSettingsScreen::onFinish(DialogResult result) {
 	g_Config.Save();
 }
 

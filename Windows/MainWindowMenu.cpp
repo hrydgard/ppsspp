@@ -87,6 +87,7 @@ namespace MainWindow {
 		MENU_DEBUG = 2,
 		MENU_OPTIONS = 3,
 		MENU_HELP = 4,
+		MENU_SIMPLEUI = 5,
 
 		// File submenus
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
@@ -157,6 +158,23 @@ namespace MainWindow {
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_GITHUB, gitHub.c_str());
 		AppendMenu(helpMenu, MF_SEPARATOR, 0, 0);
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_ABOUT, aboutPPSSPP.c_str());
+	}
+
+	void CreateSimpleUIMenu(HMENU menu) {
+		I18NCategory *des = GetI18NCategory("DesktopUI");
+
+		const std::wstring simpleUI = ConvertUTF8ToWString(des->T("Simple UI"));
+		const std::wstring enable = ConvertUTF8ToWString(des->T("Enable"));
+		const std::wstring hide = ConvertUTF8ToWString(des->T("Hide from main menu"));
+
+		// Simply remove the old help menu and create a new one.
+		RemoveMenu(menu, MENU_SIMPLEUI, MF_BYPOSITION);
+
+		HMENU simpleUImenu = CreatePopupMenu();
+		InsertMenu(menu, MENU_SIMPLEUI, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)simpleUImenu, simpleUI.c_str());
+
+		AppendMenu(simpleUImenu, MF_STRING | MF_BYCOMMAND, ID_SIMPLEUI_TOGGLE, enable.c_str());
+		AppendMenu(simpleUImenu, MF_STRING | MF_BYCOMMAND, ID_SIMPLEUI_HIDE, hide.c_str());
 	}
 
 	void UpdateDynamicMenuCheckmarks(HMENU menu) {
@@ -250,6 +268,7 @@ namespace MainWindow {
 		TranslateMenu(menu, "Debugging", MENU_DEBUG);
 		TranslateMenu(menu, "Game Settings", MENU_OPTIONS);
 		TranslateMenu(menu, "Help", MENU_HELP);
+		TranslateMenu(menu, "Help", MENU_SIMPLEUI);
 
 		// File menu
 		TranslateMenuItem(menu, ID_FILE_LOAD);
@@ -352,6 +371,7 @@ namespace MainWindow {
 
 		// Help menu: it's translated in CreateHelpMenu.
 		CreateHelpMenu(menu);
+		CreateSimpleUIMenu(menu);
 	}
 
 	void TranslateMenus(HWND hWnd, HMENU menu) {
@@ -1034,6 +1054,15 @@ namespace MainWindow {
 			g_Config.bDumpAudio = !g_Config.bDumpAudio;
 			break;
 
+		case ID_SIMPLEUI_TOGGLE:
+			g_Config.bSimpleUI = !g_Config.bSimpleUI;
+			NativeMessageReceived("recreateviews", "");
+			break;
+		case ID_SIMPLEUI_HIDE:
+			g_Config.bSimpleUIhide = !g_Config.bSimpleUIhide;
+			NativeMessageReceived("recreateviews", "");
+			break;
+
 		default:
 		{
 			// Handle the dynamic shader switching here.
@@ -1078,6 +1107,8 @@ namespace MainWindow {
 		CHECKITEM(ID_FILE_DUMPFRAMES, g_Config.bDumpFrames);
 		CHECKITEM(ID_FILE_USEFFV1, g_Config.bUseFFV1);
 		CHECKITEM(ID_FILE_DUMPAUDIO, g_Config.bDumpAudio);
+		CHECKITEM(ID_SIMPLEUI_TOGGLE, g_Config.bSimpleUI);
+		CHECKITEM(ID_SIMPLEUI_HIDE, g_Config.bSimpleUIhide);
 
 		static const int displayrotationitems[] = {
 			ID_EMULATION_ROTATION_H,

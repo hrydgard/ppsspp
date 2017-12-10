@@ -130,6 +130,7 @@ public:
 	bool bFastMemory;
 	int iCpuCore;
 	bool bSimpleUI;
+	bool bSimpleUIhide;
 	bool bCheckForNewVersion;
 	bool bForceLagSync;
 	bool bFuncReplacements;
