@@ -674,6 +674,8 @@ void GameInfoCache::Init() {
 }
 
 void GameInfoCache::Shutdown() {
+	CancelAll();
+
 	if (gameInfoWQ_) {
 		StopProcessingWorkQueue(gameInfoWQ_);
 		delete gameInfoWQ_;
@@ -682,11 +684,22 @@ void GameInfoCache::Shutdown() {
 }
 
 void GameInfoCache::Clear() {
+	CancelAll();
+
 	if (gameInfoWQ_) {
 		gameInfoWQ_->Flush();
 		gameInfoWQ_->WaitUntilDone();
 	}
 	info_.clear();
+}
+
+void GameInfoCache::CancelAll() {
+	for (auto info : info_) {
+		FileLoader *fl = info.second->GetFileLoader();
+		if (fl) {
+			fl->Cancel();
+		}
+	}
 }
 
 void GameInfoCache::FlushBGs() {

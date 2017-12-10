@@ -173,6 +173,7 @@ public:
 
 	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
 
+	void CancelAll();
 	void WaitUntilDone(std::shared_ptr<GameInfo> &info);
 
 private:
