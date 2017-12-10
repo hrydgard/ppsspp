@@ -152,14 +152,32 @@ void HttpImageFileView::Draw(UIContext &dc) {
 
 	// TODO: involve sizemode
 	if (texture_) {
+		float tw = texture_->Width();
+		float th = texture_->Height();
+
+		float x = bounds_.x;
+		float y = bounds_.y;
+		float w = bounds_.w;
+		float h = bounds_.h;
+
+		if (tw / th < w / h) {
+			float nw = h * tw / th;
+			x += (w - nw) / 2.0f;
+			w = nw;
+		} else {
+			float nh = w * th / tw;
+			y += (h - nh) / 2.0f;
+			h = nh;
+		}
+
 		dc.Flush();
 		dc.GetDrawContext()->BindTexture(0, texture_->GetTexture());
-		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
+		dc.Draw()->Rect(x, y, w, h, color_);
 		dc.Flush();
 		dc.RebindTexture();
 	} else {
 		// draw a black rectangle to represent the missing image.
-		dc.FillRect(UI::Drawable(0xFF000000), GetBounds());
+		dc.FillRect(UI::Drawable(0x7F000000), GetBounds());
 	}
 }
 
