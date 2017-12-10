@@ -707,12 +707,14 @@ void VulkanRenderManager::Finish() {
 	FrameData &frameData = frameData_[curFrame];
 	if (!useThread_) {
 		frameData.steps = std::move(steps_);
+		steps_.clear();
 		frameData.type = VKRRunType::END;
 		Run(curFrame);
 	} else {
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 		VLOG("PUSH: Frame[%d].readyForRun = true", curFrame);
 		frameData.steps = std::move(steps_);
+		steps_.clear();
 		frameData.readyForRun = true;
 		frameData.type = VKRRunType::END;
 		frameData.pull_condVar.notify_all();
@@ -902,12 +904,14 @@ void VulkanRenderManager::FlushSync() {
 	FrameData &frameData = frameData_[curFrame];
 	if (!useThread_) {
 		frameData.steps = std::move(steps_);
+		steps_.clear();
 		frameData.type = VKRRunType::SYNC;
 		Run(curFrame);
 	} else {
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 		VLOG("PUSH: Frame[%d].readyForRun = true (sync)", curFrame);
 		frameData.steps = std::move(steps_);
+		steps_.clear();
 		frameData.readyForRun = true;
 		assert(frameData.readyForFence == false);
 		frameData.type = VKRRunType::SYNC;
