@@ -166,32 +166,21 @@ void HttpImageFileView::Draw(UIContext &dc) {
 
 
 // This is the entry in a list. Does not have install buttons and so on.
-class ProductItemView : public UI::Choice {
+class ProductItemView : public UI::StickyChoice {
 public:
 	ProductItemView(const StoreEntry &entry, UI::LayoutParams *layoutParams = 0)
-		: UI::Choice(entry.name, layoutParams), entry_(entry) {}
+		: UI::StickyChoice(entry.name, "", layoutParams), entry_(entry) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 300;
 		h = 164;
 	}
-	void Update() override;
-	void Draw(UIContext &dc) override;
 
 	StoreEntry GetEntry() const { return entry_; }
 
 private:
 	const StoreEntry &entry_;
 };
-
-void ProductItemView::Draw(UIContext &dc) {
-	UI::Choice::Draw(dc);
-	// dc.DrawText(entry_.name.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
-}
-
-void ProductItemView::Update() {
-	View::Update();
-}
 
 // This is a "details" view of a game. Lets you install it.
 class ProductView : public UI::LinearLayout {
@@ -326,7 +315,7 @@ UI::EventReturn ProductView::OnLaunchClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-StoreScreen::StoreScreen() : loading_(true), connectionError_(false) {
+StoreScreen::StoreScreen() {
 	StoreFilter noFilter;
 	SetFilter(noFilter);
 	lang_ = g_Config.sLanguageIni;
@@ -438,23 +427,37 @@ void StoreScreen::CreateViews() {
 		content->Add(new TextView(loading_ ? st->T("Loading...") : st->T("Connection Error")));
 		content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
 		content->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+		scrollItemView_ = nullptr;
+		productPanel_ = nullptr;
 	} else {
 		content = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 		ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f));
 		leftScroll->SetTag("StoreMainList");
 		content->Add(leftScroll);
-		LinearLayout *scrollItemView = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-		leftScroll->Add(scrollItemView);
+		scrollItemView_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+		leftScroll->Add(scrollItemView_);
 
 		std::vector<StoreEntry> entries = FilterEntries();
 		for (size_t i = 0; i < entries.size(); i++) {
-			scrollItemView->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
+			scrollItemView_->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
 		}
 
 		// TODO: Similar apps, etc etc
 		productPanel_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
 		leftScroll->SetTag("StoreMainProduct");
 		content->Add(productPanel_);
+
+		ProductItemView *selectedItem = GetSelectedItem();
+		if (selectedItem) {
+			ProductView *productView = new ProductView(selectedItem->GetEntry());
+			productView->OnClickLaunch.Handle(this, &StoreScreen::OnGameLaunch);
+			productPanel_->Add(productView);
+
+			selectedItem->Press();
+		} else {
+			lastSelectedName_ = "";
+		}
 	}
 	root_->Add(content);
 }
@@ -469,6 +472,16 @@ std::vector<StoreEntry> StoreScreen::FilterEntries() {
 	return filtered;
 }
 
+ProductItemView *StoreScreen::GetSelectedItem() {
+	for (int i = 0; i < scrollItemView_->GetNumSubviews(); ++i) {
+		ProductItemView *item = static_cast<ProductItemView *>(scrollItemView_->GetViewByIndex(i));
+		if (item->GetEntry().name == lastSelectedName_)
+			return item;
+	}
+
+	return nullptr;
+}
+
 UI::EventReturn StoreScreen::OnGameSelected(UI::EventParams &e) {
 	ProductItemView *item = static_cast<ProductItemView *>(e.v);
 	if (!item)
@@ -478,6 +491,11 @@ UI::EventReturn StoreScreen::OnGameSelected(UI::EventParams &e) {
 	ProductView *productView = new ProductView(item->GetEntry());
 	productView->OnClickLaunch.Handle(this, &StoreScreen::OnGameLaunch);
 	productPanel_->Add(productView);
+
+	ProductItemView *previousItem = GetSelectedItem();
+	if (previousItem && previousItem != item)
+		previousItem->Release();
+	lastSelectedName_ = item->GetEntry().name;
 	return UI::EVENT_DONE;
 }
 
