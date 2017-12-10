@@ -54,7 +54,7 @@ GameInfo::~GameInfo() {
 	icon.Clear();
 	pic0.Clear();
 	pic1.Clear();
-	delete fileLoader;
+	fileLoader.reset();
 }
 
 bool GameInfo::Delete() {
@@ -218,8 +218,7 @@ bool GameInfo::LoadFromPath(const std::string &gamePath) {
 	std::lock_guard<std::mutex> guard(lock);
 	// No need to rebuild if we already have it loaded.
 	if (filePath_ != gamePath) {
-		delete fileLoader;
-		fileLoader = ConstructFileLoader(gamePath);
+		fileLoader.reset(ConstructFileLoader(gamePath));
 		if (!fileLoader)
 			return false;
 		filePath_ = gamePath;
@@ -231,16 +230,15 @@ bool GameInfo::LoadFromPath(const std::string &gamePath) {
 	return fileLoader ? fileLoader->Exists() : true;
 }
 
-FileLoader *GameInfo::GetFileLoader() {
+std::shared_ptr<FileLoader> GameInfo::GetFileLoader() {
 	if (!fileLoader) {
-		fileLoader = ConstructFileLoader(filePath_);
+		fileLoader.reset(ConstructFileLoader(filePath_));
 	}
 	return fileLoader;
 }
 
 void GameInfo::DisposeFileLoader() {
-	delete fileLoader;
-	fileLoader = nullptr;
+	fileLoader.reset();
 }
 
 bool GameInfo::DeleteAllSaveData() {
@@ -373,24 +371,22 @@ public:
 		{
 			std::lock_guard<std::mutex> lock(info_->lock);
 			info_->working = true;
-			info_->fileType = Identify_File(info_->GetFileLoader());
+			info_->fileType = Identify_File(info_->GetFileLoader().get());
 		}
 
 		switch (info_->fileType) {
 		case IdentifiedFileType::PSP_PBP:
 		case IdentifiedFileType::PSP_PBP_DIRECTORY:
 			{
-				FileLoader *pbpLoader = info_->GetFileLoader();
-				std::unique_ptr<FileLoader> altLoader;
+				auto pbpLoader = info_->GetFileLoader();
 				if (info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 					std::string ebootPath = ResolvePBPFile(gamePath_);
 					if (ebootPath != gamePath_) {
-						pbpLoader = ConstructFileLoader(ebootPath);
-						altLoader.reset(pbpLoader);
+						pbpLoader.reset(ConstructFileLoader(ebootPath));
 					}
 				}
 
-				PBPReader pbp(pbpLoader);
+				PBPReader pbp(pbpLoader.get());
 				if (!pbp.IsValid()) {
 					if (pbp.IsELF()) {
 						goto handleELF;
@@ -559,10 +555,10 @@ handleELF:
 				// Let's assume it's an ISO.
 				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
 				// few files.
-				FileLoader *fl = info_->GetFileLoader();
+				auto fl = info_->GetFileLoader();
 				if (!fl)
 					return;  // Happens with UWP currently, TODO...
-				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader());
+				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader().get());
 				if (!bd)
 					return;  // nothing to do here..
 				ISOFileSystem umd(&handles, bd);
@@ -700,7 +696,7 @@ void GameInfoCache::Clear() {
 
 void GameInfoCache::CancelAll() {
 	for (auto info : info_) {
-		FileLoader *fl = info.second->GetFileLoader();
+		auto fl = info.second->GetFileLoader();
 		if (fl) {
 			fl->Cancel();
 		}
