@@ -253,7 +253,7 @@ void ProductView::CreateViews() {
 	cancelButton_->SetVisibility(V_GONE);
 
 	// Add star rating, comments etc?
-	Add(new TextView(entry_.description));
+	Add(new TextView(entry_.description, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 
 	float size = entry_.size / (1024.f * 1024.f);
 	char temp[256];
