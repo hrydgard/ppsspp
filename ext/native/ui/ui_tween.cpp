@@ -77,6 +77,12 @@ void TextColorTween::DoApply(View *view, float pos) {
 	tv->SetTextColor(Current(pos));
 }
 
+void CallbackColorTween::DoApply(View *view, float pos) {
+	if (callback_) {
+		callback_(view, Current(pos));
+	}
+}
+
 void VisibilityTween::DoApply(View *view, float pos) {
 	view->SetVisibility(Current(pos));
 }

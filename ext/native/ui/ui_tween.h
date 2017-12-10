@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 #include "base/timeutil.h"
 #include "ui/view.h"
 
@@ -155,6 +156,20 @@ public:
 
 protected:
 	void DoApply(View *view, float pos) override;
+};
+
+class CallbackColorTween : public ColorTween {
+public:
+	using ColorTween::ColorTween;
+
+	void SetCallback(const std::function<void(View *v, uint32_t c)> &cb) {
+		callback_ = cb;
+	}
+
+protected:
+	void DoApply(View *view, float pos) override;
+
+	std::function<void(View *v, uint32_t c)> callback_;
 };
 
 class VisibilityTween : public TweenBase<Visibility> {
