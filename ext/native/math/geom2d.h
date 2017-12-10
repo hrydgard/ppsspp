@@ -14,6 +14,10 @@ struct Point {
 		return sqrtf(dx*dx + dy*dy);
 	}
 
+	bool operator ==(const Point &other) const {
+		return x == other.x && y == other.y;
+	}
+
 	/*
 	FocusDirection directionTo(const Point &other) const {
 		int angle = atan2f(other.y - y, other.x - x) / (2 * M_PI) - 0.125;

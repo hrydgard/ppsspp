@@ -1,6 +1,7 @@
 ﻿#include "base/colorutil.h"
 #include "ui/ui_tween.h"
 #include "ui/view.h"
+#include "ui/viewgroup.h"
 
 namespace UI {
 
@@ -66,6 +67,7 @@ void TweenBase<Value>::PersistData(PersistStatus status, std::string anonId, Per
 
 template void TweenBase<uint32_t>::PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
 template void TweenBase<Visibility>::PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
+template void TweenBase<Point>::PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
 
 uint32_t ColorTween::Current(float pos) {
 	return colorBlend(to_, from_, pos);
@@ -94,6 +96,21 @@ Visibility VisibilityTween::Current(float p) {
 	if (to_ == V_VISIBLE && p > 0.0f)
 		return to_;
 	return p >= 1.0f ? to_ : from_;
+}
+
+void AnchorTranslateTween::DoApply(View *view, float pos) {
+	Point cur = Current(pos);
+
+	auto prev = view->GetLayoutParams()->As<AnchorLayoutParams>();
+	auto lp = new AnchorLayoutParams(prev ? *prev : AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+	lp->left = cur.x;
+	lp->top = cur.y;
+	view->ReplaceLayoutParams(lp);
+}
+
+Point AnchorTranslateTween::Current(float p) {
+	float inv = 1.0f - p;
+	return Point(from_.x * inv + to_.x * p, from_.y * inv + to_.y * p);
 }
 
 }  // namespace
