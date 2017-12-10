@@ -19,6 +19,7 @@
 
 #include <string>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <atomic>
 
@@ -93,7 +94,7 @@ public:
 	bool DeleteAllSaveData();
 	bool LoadFromPath(const std::string &gamePath);
 
-	FileLoader *GetFileLoader();
+	std::shared_ptr<FileLoader> GetFileLoader();
 	void DisposeFileLoader();
 
 	u64 GetGameSizeInBytes();
@@ -148,7 +149,7 @@ protected:
 	// Note: this can change while loading, use GetTitle().
 	std::string title;
 
-	FileLoader *fileLoader = nullptr;
+	std::shared_ptr<FileLoader> fileLoader;
 	std::string filePath_;
 
 private:
@@ -173,6 +174,7 @@ public:
 
 	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
 
+	void CancelAll();
 	void WaitUntilDone(std::shared_ptr<GameInfo> &info);
 
 private:

@@ -28,7 +28,7 @@
 
 // Takes ownership of backend.
 RamCachingFileLoader::RamCachingFileLoader(FileLoader *backend)
-	: filesize_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false) {
+	: backend_(backend) {
 	filesize_ = backend->FileSize();
 	if (filesize_ > 0) {
 		InitCache();
@@ -107,11 +107,7 @@ void RamCachingFileLoader::InitCache() {
 }
 
 void RamCachingFileLoader::ShutdownCache() {
-	{
-		std::lock_guard<std::mutex> guard(blocksMutex_);
-		// Try to have the thread stop.
-		aheadRemaining_ = 0;
-	}
+	Cancel();
 
 	// We can't delete while the thread is running, so have to wait.
 	// This should only happen from the menu.
@@ -125,6 +121,15 @@ void RamCachingFileLoader::ShutdownCache() {
 		free(cache_);
 		cache_ = nullptr;
 	}
+}
+
+void RamCachingFileLoader::Cancel() {
+	if (aheadThread_) {
+		std::lock_guard<std::mutex> guard(blocksMutex_);
+		aheadCancel_ = true;
+	}
+
+	backend_->Cancel();
 }
 
 size_t RamCachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
@@ -220,10 +225,11 @@ void RamCachingFileLoader::StartReadAhead(s64 pos) {
 	}
 
 	aheadThread_ = true;
+	aheadCancel_ = false;
 	std::thread th([this] {
 		setCurrentThreadName("FileLoaderReadAhead");
 
-		while (aheadRemaining_ != 0) {
+		while (aheadRemaining_ != 0 && !aheadCancel_) {
 			// Where should we look?
 			const u32 cacheStartPos = NextAheadBlock();
 			if (cacheStartPos == 0xFFFFFFFF) {
@@ -263,4 +269,8 @@ u32 RamCachingFileLoader::NextAheadBlock() {
 	}
 
 	return 0xFFFFFFFF;
+}
+
+bool RamCachingFileLoader::IsRemote() {
+	return backend_->IsRemote();
 }

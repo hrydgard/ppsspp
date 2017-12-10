@@ -30,6 +30,9 @@ public:
 	HTTPFileLoader(const std::string &filename);
 	virtual ~HTTPFileLoader() override;
 
+	bool IsRemote() override {
+		return true;
+	}
 	virtual bool Exists() override;
 	virtual bool ExistsFast() override;
 	virtual bool IsDirectory() override;
@@ -41,14 +44,14 @@ public:
 	}
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
 
+	void Cancel() override {
+		cancelConnect_ = true;
+	}
+
 private:
 	void Prepare();
 
-	void Connect() {
-		if (!connected_) {
-			connected_ = client_.Connect();
-		}
-	}
+	void Connect();
 
 	void Disconnect() {
 		if (connected_) {
@@ -57,12 +60,13 @@ private:
 		connected_ = false;
 	}
 
-	s64 filesize_;
-	s64 filepos_;
+	s64 filesize_ = 0;
+	s64 filepos_ = 0;
 	Url url_;
 	http::Client client_;
 	std::string filename_;
-	bool connected_;
+	bool connected_ = false;
+	bool cancelConnect_ = false;
 
 	std::once_flag preparedFlag_;
 	std::mutex readAtMutex_;

@@ -1171,8 +1171,6 @@ retry:
 	}
 
 	ILOG("Leaving EGL/Vulkan render loop.");
-	if (g_gameInfoCache)
-		g_gameInfoCache->WorkQueue()->Flush();
 
 	NativeShutdownGraphics();
 	renderer_inited = false;
