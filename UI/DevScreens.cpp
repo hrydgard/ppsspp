@@ -479,6 +479,15 @@ void SystemInfoScreen::CreateViews() {
 #ifdef MOBILE_DEVICE
 	buildConfig->Add(new InfoItem("MOBILE_DEVICE", ""));
 #endif
+#if PPSSPP_ARCH(ARMV7S)
+	buildConfig->Add(new InfoItem("ARMV7S", ""));
+#endif
+#if PPSSPP_ARCH(ARM_NEON)
+	buildConfig->Add(new InfoItem("ARM_NEON", ""));
+#endif
+#ifdef _M_SSE
+	buildConfig->Add(new InfoItem("_M_SSE", StringFromFormat("0x%x", _M_SSE)));
+#endif
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		buildConfig->Add(new InfoItem("GOLD", ""));
 	}
