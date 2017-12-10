@@ -1039,6 +1039,8 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	assert(pipelineCaches_.size() == 0);
 	assert(renderPasses_.size() == 0);
 	assert(framebuffers_.size() == 0);
+	assert(pipelineLayouts_.size() == 0);
+	assert(descSetLayouts_.size() == 0);
 	assert(callbacks_.size() == 0);
 	cmdPools_ = std::move(del.cmdPools_);
 	descPools_ = std::move(del.descPools_);
@@ -1056,6 +1058,21 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 	pipelineLayouts_ = std::move(del.pipelineLayouts_);
 	descSetLayouts_ = std::move(del.descSetLayouts_);
 	callbacks_ = std::move(del.callbacks_);
+	del.cmdPools_.clear();
+	del.descPools_.clear();
+	del.modules_.clear();
+	del.buffers_.clear();
+	del.images_.clear();
+	del.imageViews_.clear();
+	del.deviceMemory_.clear();
+	del.samplers_.clear();
+	del.pipelines_.clear();
+	del.pipelineCaches_.clear();
+	del.renderPasses_.clear();
+	del.framebuffers_.clear();
+	del.pipelineLayouts_.clear();
+	del.descSetLayouts_.clear();
+	del.callbacks_.clear();
 }
 
 void VulkanDeleteList::PerformDeletes(VkDevice device) {

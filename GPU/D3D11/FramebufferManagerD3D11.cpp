@@ -46,8 +46,6 @@
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
 
-#include "UI/OnScreenDisplay.h"
-
 #include "ext/native/thin3d/thin3d.h"
 
 #include <algorithm>

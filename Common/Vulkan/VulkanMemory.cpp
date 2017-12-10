@@ -171,9 +171,13 @@ void VulkanDeviceAllocator::Destroy() {
 		// Did anyone forget to free?
 		for (auto pair : slab.allocSizes) {
 			int slabUsage = slab.usage[pair.first];
-			// If it's not 2 (queued), there's a problem.
+			// If it's not 2 (queued), there's a leak.
 			// If it's zero, it means allocSizes is somehow out of sync.
-			_assert_msg_(G3D, slabUsage == 2, "Destroy: slabUsage has unexpected value %d", slabUsage);
+			if (slabUsage == 1) {
+				ERROR_LOG(G3D, "VulkanDeviceAllocator detected memory leak of size %d", (int)pair.second);
+			} else {
+				_dbg_assert_msg_(G3D, slabUsage == 2, "Destroy: slabUsage has unexpected value %d", slabUsage);
+			}
 		}
 
 		assert(slab.deviceMemory);
@@ -349,7 +353,7 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 			slab.allocSizes.erase(it);
 		} else {
 			// Ack, a double free?
-			Crash();
+			_assert_msg_(G3D, false, "Double free? Block missing at offset %d", userdata->offset);
 		}
 		found = true;
 		break;

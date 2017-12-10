@@ -180,7 +180,7 @@ private:
 
 	static void DispatchFree(void *userdata) {
 		auto freeInfo = static_cast<FreeInfo *>(userdata);
-		freeInfo->allocator->ExecuteFree(freeInfo);
+		freeInfo->allocator->ExecuteFree(freeInfo);  // this deletes freeInfo
 	}
 
 	bool AllocateSlab(VkDeviceSize minBytes);

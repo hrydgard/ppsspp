@@ -152,46 +152,53 @@ void HttpImageFileView::Draw(UIContext &dc) {
 
 	// TODO: involve sizemode
 	if (texture_) {
+		float tw = texture_->Width();
+		float th = texture_->Height();
+
+		float x = bounds_.x;
+		float y = bounds_.y;
+		float w = bounds_.w;
+		float h = bounds_.h;
+
+		if (tw / th < w / h) {
+			float nw = h * tw / th;
+			x += (w - nw) / 2.0f;
+			w = nw;
+		} else {
+			float nh = w * th / tw;
+			y += (h - nh) / 2.0f;
+			h = nh;
+		}
+
 		dc.Flush();
 		dc.GetDrawContext()->BindTexture(0, texture_->GetTexture());
-		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
+		dc.Draw()->Rect(x, y, w, h, color_);
 		dc.Flush();
 		dc.RebindTexture();
 	} else {
 		// draw a black rectangle to represent the missing image.
-		dc.FillRect(UI::Drawable(0xFF000000), GetBounds());
+		dc.FillRect(UI::Drawable(0x7F000000), GetBounds());
 	}
 }
 
 
 
 // This is the entry in a list. Does not have install buttons and so on.
-class ProductItemView : public UI::Choice {
+class ProductItemView : public UI::StickyChoice {
 public:
 	ProductItemView(const StoreEntry &entry, UI::LayoutParams *layoutParams = 0)
-		: UI::Choice(entry.name, layoutParams), entry_(entry) {}
+		: UI::StickyChoice(entry.name, "", layoutParams), entry_(entry) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 300;
 		h = 164;
 	}
-	void Update() override;
-	void Draw(UIContext &dc) override;
 
 	StoreEntry GetEntry() const { return entry_; }
 
 private:
 	const StoreEntry &entry_;
 };
-
-void ProductItemView::Draw(UIContext &dc) {
-	UI::Choice::Draw(dc);
-	// dc.DrawText(entry_.name.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
-}
-
-void ProductItemView::Update() {
-	View::Update();
-}
 
 // This is a "details" view of a game. Lets you install it.
 class ProductView : public UI::LinearLayout {
@@ -253,7 +260,7 @@ void ProductView::CreateViews() {
 	cancelButton_->SetVisibility(V_GONE);
 
 	// Add star rating, comments etc?
-	Add(new TextView(entry_.description));
+	Add(new TextView(entry_.description, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 
 	float size = entry_.size / (1024.f * 1024.f);
 	char temp[256];
@@ -326,7 +333,7 @@ UI::EventReturn ProductView::OnLaunchClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-StoreScreen::StoreScreen() : loading_(true), connectionError_(false) {
+StoreScreen::StoreScreen() {
 	StoreFilter noFilter;
 	SetFilter(noFilter);
 	lang_ = g_Config.sLanguageIni;
@@ -438,23 +445,37 @@ void StoreScreen::CreateViews() {
 		content->Add(new TextView(loading_ ? st->T("Loading...") : st->T("Connection Error")));
 		content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
 		content->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+		scrollItemView_ = nullptr;
+		productPanel_ = nullptr;
 	} else {
 		content = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 		ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f));
 		leftScroll->SetTag("StoreMainList");
 		content->Add(leftScroll);
-		LinearLayout *scrollItemView = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-		leftScroll->Add(scrollItemView);
+		scrollItemView_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+		leftScroll->Add(scrollItemView_);
 
 		std::vector<StoreEntry> entries = FilterEntries();
 		for (size_t i = 0; i < entries.size(); i++) {
-			scrollItemView->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
+			scrollItemView_->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
 		}
 
 		// TODO: Similar apps, etc etc
 		productPanel_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
 		leftScroll->SetTag("StoreMainProduct");
 		content->Add(productPanel_);
+
+		ProductItemView *selectedItem = GetSelectedItem();
+		if (selectedItem) {
+			ProductView *productView = new ProductView(selectedItem->GetEntry());
+			productView->OnClickLaunch.Handle(this, &StoreScreen::OnGameLaunch);
+			productPanel_->Add(productView);
+
+			selectedItem->Press();
+		} else {
+			lastSelectedName_ = "";
+		}
 	}
 	root_->Add(content);
 }
@@ -469,6 +490,16 @@ std::vector<StoreEntry> StoreScreen::FilterEntries() {
 	return filtered;
 }
 
+ProductItemView *StoreScreen::GetSelectedItem() {
+	for (int i = 0; i < scrollItemView_->GetNumSubviews(); ++i) {
+		ProductItemView *item = static_cast<ProductItemView *>(scrollItemView_->GetViewByIndex(i));
+		if (item->GetEntry().name == lastSelectedName_)
+			return item;
+	}
+
+	return nullptr;
+}
+
 UI::EventReturn StoreScreen::OnGameSelected(UI::EventParams &e) {
 	ProductItemView *item = static_cast<ProductItemView *>(e.v);
 	if (!item)
@@ -478,6 +509,11 @@ UI::EventReturn StoreScreen::OnGameSelected(UI::EventParams &e) {
 	ProductView *productView = new ProductView(item->GetEntry());
 	productView->OnClickLaunch.Handle(this, &StoreScreen::OnGameLaunch);
 	productPanel_->Add(productView);
+
+	ProductItemView *previousItem = GetSelectedItem();
+	if (previousItem && previousItem != item)
+		previousItem->Release();
+	lastSelectedName_ = item->GetEntry().name;
 	return UI::EVENT_DONE;
 }
 

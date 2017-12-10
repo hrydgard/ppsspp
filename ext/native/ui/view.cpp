@@ -169,9 +169,15 @@ View::~View() {
 }
 
 void View::Update() {
-	for (Tween *tween : tweens_) {
-		if (!tween->Finished())
+	for (size_t i = 0; i < tweens_.size(); ++i) {
+		Tween *tween = tweens_[i];
+		if (!tween->Finished()) {
 			tween->Apply(this);
+		} else if (!tween->Persists()) {
+			tweens_.erase(tweens_.begin() + i);
+			i--;
+			delete tween;
+		}
 	}
 }
 
@@ -253,6 +259,28 @@ bool View::SetFocus() {
 		}
 	}
 	return false;
+}
+
+Clickable::Clickable(LayoutParams *layoutParams)
+	: View(layoutParams) {
+	// We set the colors later once we have a UIContext.
+	bgColor_ = AddTween(new CallbackColorTween(0.1f));
+	bgColor_->Persist();
+}
+
+void Clickable::DrawBG(UIContext &dc, const Style &style) {
+	if (style.background.type == DRAW_SOLID_COLOR) {
+		if (time_now() - bgColorLast_ >= 0.25f) {
+			bgColor_->Reset(style.background.color);
+		} else {
+			bgColor_->Divert(style.background.color, down_ ? 0.05f : 0.1f);
+		}
+		bgColorLast_ = time_now();
+
+		dc.FillRect(Drawable(bgColor_->CurrentValue()), bounds_);
+	} else {
+		dc.FillRect(style.background, bounds_);
+	}
 }
 
 void Clickable::Click() {
@@ -445,7 +473,7 @@ ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParam
 }
 
 void ClickableItem::Draw(UIContext &dc) {
-	Style style =	dc.theme->itemStyle;
+	Style style = dc.theme->itemStyle;
 
 	if (HasFocus()) {
 		style = dc.theme->itemFocusedStyle;
@@ -454,7 +482,7 @@ void ClickableItem::Draw(UIContext &dc) {
 		style = dc.theme->itemDownStyle;
 	}
 
-	dc.FillRect(style.background, bounds_);
+	DrawBG(dc, style);
 }
 
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
@@ -496,7 +524,7 @@ void Choice::Draw(UIContext &dc) {
 	if (!IsSticky()) {
 		ClickableItem::Draw(dc);
 	} else {
-		Style style =	dc.theme->itemStyle;
+		Style style = dc.theme->itemStyle;
 		if (highlighted_) {
 			style = dc.theme->itemHighlightedStyle;
 		}
@@ -506,7 +534,8 @@ void Choice::Draw(UIContext &dc) {
 		if (HasFocus()) {
 			style = dc.theme->itemFocusedStyle;
 		}
-		dc.FillRect(style.background, bounds_);
+
+		DrawBG(dc, style);
 	}
 
 	Style style = dc.theme->itemStyle;
@@ -542,11 +571,30 @@ void Choice::Draw(UIContext &dc) {
 	}
 }
 
+InfoItem::InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams)
+	: Item(layoutParams), text_(text), rightText_(rightText) {
+	// We set the colors later once we have a UIContext.
+	bgColor_ = AddTween(new CallbackColorTween(0.1f));
+	bgColor_->Persist();
+	fgColor_ = AddTween(new CallbackColorTween(0.1f));
+	fgColor_->Persist();
+}
+
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
 
 	UI::Style style = HasFocus() ? dc.theme->itemFocusedStyle : dc.theme->infoStyle;
-	style.background.color &= 0x7fffffff;
+
+	if (style.background.type == DRAW_SOLID_COLOR) {
+		// For a smoother fade, using the same color with 0 alpha.
+		if ((style.background.color & 0xFF000000) == 0)
+			style.background.color = dc.theme->itemFocusedStyle.background.color & 0x00FFFFFF;
+		bgColor_->Divert(style.background.color & 0x7fffffff);
+		style.background.color = bgColor_->CurrentValue();
+	}
+	fgColor_->Divert(style.fgColor);
+	style.fgColor = fgColor_->CurrentValue();
+
 	dc.FillRect(style.background, bounds_);
 
 	int paddingX = 12;
@@ -684,7 +732,7 @@ void Button::Draw(UIContext &dc) {
 	if (!IsEnabled()) style = dc.theme->buttonDisabledStyle;
 
 	// dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
-	dc.FillRect(style.background, bounds_);
+	DrawBG(dc, style);
 	float tw, th;
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &tw, &th);
 	if (tw > bounds_.w || imageID_ != -1) {

@@ -176,9 +176,22 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	// Accurate depth is required on AMD so we ignore the compat flag to disable it on those. See #9545
-	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vulkan_->GetPhysicalDeviceProperties().vendorID == VULKAN_VENDOR_AMD) {
+	switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
+	case VULKAN_VENDOR_AMD:
+		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		break;
+	case VULKAN_VENDOR_ARM:
+		// Also required on older ARM Mali drivers, like the one on many Galaxy S7.
+		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth ||
+			  vulkan_->GetPhysicalDeviceProperties().driverVersion <= VK_MAKE_VERSION(428, 811, 2674)) {
+			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		}
+		break;
+	default:
+		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth)
+			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		break;
 	}
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
