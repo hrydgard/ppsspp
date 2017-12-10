@@ -240,7 +240,7 @@ struct GPUStatistics_v0 {
 };
 
 void __DisplayDoState(PointerWrap &p) {
-	auto s = p.Section("sceDisplay", 1, 6);
+	auto s = p.Section("sceDisplay", 1, 7);
 	if (!s)
 		return;
 
@@ -306,11 +306,21 @@ void __DisplayDoState(PointerWrap &p) {
 		GPUStatistics_v0 oldStats;
 		p.Do(oldStats);
 	}
+
+	if (s < 7) {
+		u64 now = CoreTiming::GetTicks();
+		lastFlipCycles = now;
+		nextFlipCycles = now;
+	} else {
+		p.Do(lastFlipCycles);
+		p.Do(nextFlipCycles);
+	}
+
 	gpu->DoState(p);
 
-	gpu->ReapplyGfxState();
-
 	if (p.mode == p.MODE_READ) {
+		gpu->ReapplyGfxState();
+
 		if (hasSetMode) {
 			gpu->InitClear();
 		}
