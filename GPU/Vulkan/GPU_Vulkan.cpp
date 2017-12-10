@@ -184,7 +184,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	case VULKAN_VENDOR_ARM:
 		// Also required on older ARM Mali drivers, like the one on many Galaxy S7.
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth ||
-			  vulkan_->GetPhysicalDeviceProperties().driverVersion <= VK_MAKE_VERSION(212, 387, 1927)) {
+			  vulkan_->GetPhysicalDeviceProperties().driverVersion <= VK_MAKE_VERSION(428, 811, 2674)) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		}
 		break;
