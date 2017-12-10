@@ -1129,7 +1129,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 	tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
 
 	contents_ = new AnchorLayout(new LinearLayoutParams(1.0f));
-	Add(contents_);
+	Add(contents_)->SetClip(true);
 }
 
 void TabHolder::AddTabContents(const std::string &title, View *tabContents) {
