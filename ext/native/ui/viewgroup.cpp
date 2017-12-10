@@ -994,10 +994,10 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			height = params->height;
 
 			if (!params->center) {
-				if (params->left >= 0 && params->right >= 0) {
+				if (params->left > NONE && params->right > NONE) {
 					width = measuredWidth_ - params->left - params->right;
 				}
-				if (params->top >= 0 && params->bottom >= 0) {
+				if (params->top > NONE && params->bottom > NONE) {
 					height = measuredHeight_ - params->top - params->bottom;
 				}
 			}
@@ -1034,22 +1034,22 @@ void AnchorLayout::Layout() {
 			center = params->center;
 		}
 
-		if (left >= 0) {
+		if (left > NONE) {
 			vBounds.x = bounds_.x + left;
 			if (center)
 				vBounds.x -= vBounds.w * 0.5f;
-		} else if (right >= 0) {
+		} else if (right > NONE) {
 			vBounds.x = bounds_.x2() - right - vBounds.w;
 			if (center) {
 				vBounds.x += vBounds.w * 0.5f;
 			}
 		}
 
-		if (top >= 0) {
+		if (top > NONE) {
 			vBounds.y = bounds_.y + top;
 			if (center)
 				vBounds.y -= vBounds.h * 0.5f;
-		} else if (bottom >= 0) {
+		} else if (bottom > NONE) {
 			vBounds.y = bounds_.y2() - bottom - vBounds.h;
 			if (center)
 				vBounds.y += vBounds.h * 0.5f;

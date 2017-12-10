@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cfloat>
 #include <vector>
 #include <set>
 #include <mutex>
@@ -95,9 +96,7 @@ public:
 	void Layout() override;
 };
 
-enum {
-	NONE = -1,
-};
+const float NONE = -FLT_MAX;
 
 class AnchorLayoutParams : public LayoutParams {
 public:
