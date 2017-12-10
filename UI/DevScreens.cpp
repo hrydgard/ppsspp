@@ -476,6 +476,15 @@ void SystemInfoScreen::CreateViews() {
 #ifdef MOBILE_DEVICE
 	buildConfig->Add(new InfoItem("MOBILE_DEVICE", ""));
 #endif
+#if PPSSPP_ARCH(ARMV7S)
+	buildConfig->Add(new InfoItem("ARMV7S", ""));
+#endif
+#if PPSSPP_ARCH(ARM_NEON)
+	buildConfig->Add(new InfoItem("ARM_NEON", ""));
+#endif
+#ifdef _M_SSE
+	buildConfig->Add(new InfoItem("_M_SSE", StringFromFormat("0x%x", _M_SSE)));
+#endif
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		buildConfig->Add(new InfoItem("GOLD", ""));
 	}
@@ -492,7 +501,7 @@ void SystemInfoScreen::CreateViews() {
 	std::vector<std::string> exts;
 	SplitString(cpu_info.Summarize(), ',', exts);
 	for (size_t i = 2; i < exts.size(); i++) {
-		cpuExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+		cpuExtensions->Add(new TextView(exts[i], new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
 	ViewGroup *gpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -514,8 +523,8 @@ void SystemInfoScreen::CreateViews() {
 		exts.clear();
 		SplitString(g_all_gl_extensions, ' ', exts);
 		std::sort(exts.begin(), exts.end());
-		for (size_t i = 0; i < exts.size(); i++) {
-			gpuExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+		for (auto &extension : exts) {
+			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
 		exts.clear();
@@ -534,8 +543,8 @@ void SystemInfoScreen::CreateViews() {
 
 			eglExtensions->Add(new ItemHeader(si->T("EGL Extensions")));
 
-			for (size_t i = 0; i < exts.size(); i++) {
-				eglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+			for (auto &extension : exts) {
+				eglExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 			}
 		}
 	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
@@ -544,12 +553,12 @@ void SystemInfoScreen::CreateViews() {
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Features")));
 		std::vector<std::string> features = draw->GetFeatureList();
 		for (auto &feature : features) {
-			gpuExtensions->Add(new TextView(feature))->SetFocusable(true);
+			gpuExtensions->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Extensions")));
 		std::vector<std::string> extensions = draw->GetExtensionList();
 		for (auto &extension : extensions) {
-			gpuExtensions->Add(new TextView(extension))->SetFocusable(true);
+			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 	}
 }

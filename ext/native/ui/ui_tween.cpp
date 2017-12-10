@@ -5,11 +5,21 @@
 namespace UI {
 
 void Tween::Apply(View *view) {
-	if (time_now() >= start_ + duration_)
+	if (!valid_)
+		return;
+
+	if (DurationOffset() >= duration_)
 		finishApplied_ = true;
 
 	float pos = Position();
 	DoApply(view, pos);
+
+	if (finishApplied_) {
+		UI::EventParams e{};
+		e.v = view;
+		e.f = DurationOffset() - duration_;
+		Finish.Trigger(e);
+	}
 }
 
 template <typename Value>
@@ -17,8 +27,10 @@ void TweenBase<Value>::PersistData(PersistStatus status, std::string anonId, Per
 	struct TweenData {
 		float start;
 		float duration;
+		float delay;
 		Value from;
 		Value to;
+		bool valid;
 	};
 
 	PersistBuffer &buffer = storage["TweenBase::" + anonId];
@@ -30,8 +42,10 @@ void TweenBase<Value>::PersistData(PersistStatus status, std::string anonId, Per
 			TweenData &data = *(TweenData *)&buffer[0];
 			data.start = start_;
 			data.duration = duration_;
+			data.delay = delay_;
 			data.from = from_;
 			data.to = to_;
+			data.valid = valid_;
 		}
 		break;
 	case UI::PERSIST_RESTORE:
@@ -39,8 +53,10 @@ void TweenBase<Value>::PersistData(PersistStatus status, std::string anonId, Per
 			TweenData data = *(TweenData *)&buffer[0];
 			start_ = data.start;
 			duration_ = data.duration;
+			delay_ = data.delay;
 			from_ = data.from;
 			to_ = data.to;
+			valid_ = data.valid;
 			// We skip finishApplied_ here so that the tween will reapply.
 			// This does mean it's important to remember to update tweens even after finish.
 		}
@@ -59,6 +75,12 @@ void TextColorTween::DoApply(View *view, float pos) {
 	// TODO: No validation without RTTI?
 	TextView *tv = (TextView *)view;
 	tv->SetTextColor(Current(pos));
+}
+
+void CallbackColorTween::DoApply(View *view, float pos) {
+	if (callback_) {
+		callback_(view, Current(pos));
+	}
 }
 
 void VisibilityTween::DoApply(View *view, float pos) {
