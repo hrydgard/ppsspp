@@ -480,6 +480,7 @@ void LogoScreen::render() {
 	::DrawBackground(dc, alpha);
 
 	I18NCategory *cr = GetI18NCategory("PSPCredits");
+	I18NCategory *gr = GetI18NCategory("Graphics");
 	char temp[256];
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
@@ -500,7 +501,8 @@ void LogoScreen::render() {
 
 #if (defined(_WIN32) && !PPSSPP_PLATFORM(UWP)) || PPSSPP_PLATFORM(ANDROID)
 	// Draw the graphics API, except on UWP where it's always D3D11
-	dc.DrawText(screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME).c_str(), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
+	const char *apiName = gr->T(screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME));
+	dc.DrawText(apiName, bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
 #endif
 
 	dc.End();
