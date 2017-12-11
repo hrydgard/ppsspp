@@ -83,10 +83,7 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 
 			int limitX = g_Config.fSmallDisplayZoomLevel * 120;
 			int limitY = g_Config.fSmallDisplayZoomLevel * 68;
-			if (g_Config.fSmallDisplayZoomLevel < 1) {
-				limitX = 120;
-				limitY = 68;
-			}
+
 			if (bRotated) {
 				//swap X/Y limit for rotated display
 				int limitTemp = limitX;
@@ -135,7 +132,7 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 			float newScale = startScale_ + diffY * movementScale;
 			// Desired scale * 8.0 since the visualization is tiny size and multiplied by 8.
 			if (newScale > 80.0f) newScale = 80.0f;
-			if (newScale < 1.0f) newScale = 1.0f;
+			if (newScale < 8.0f) newScale = 8.0f;
 			picked_->SetScale(newScale);
 			scaleUpdate_ = picked_->GetScale();
 			g_Config.fSmallDisplayZoomLevel = scaleUpdate_ / 8.0f;
