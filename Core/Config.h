@@ -143,6 +143,7 @@ public:
 	std::string sLastRemoteISOServer;
 	int iLastRemoteISOPort;
 	bool bRemoteISOManual;
+	bool bRemoteShareOnStartup;
 	std::string sRemoteISOSubdir;
 	bool bMemStickInserted;
 

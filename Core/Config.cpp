@@ -379,6 +379,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("LastRemoteISOServer", &g_Config.sLastRemoteISOServer, ""),
 	ConfigSetting("LastRemoteISOPort", &g_Config.iLastRemoteISOPort, 0),
 	ConfigSetting("RemoteISOManualConfig", &g_Config.bRemoteISOManual, false),
+	ConfigSetting("RemoteShareOnStartup", &g_Config.bRemoteShareOnStartup, false),
 	ConfigSetting("RemoteISOSubdir", &g_Config.sRemoteISOSubdir, "/"),
 
 #ifdef __ANDROID__
