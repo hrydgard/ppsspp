@@ -25,6 +25,8 @@
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
 
+bool StartRemoteISOSharing();
+
 class RemoteISOScreen : public UIScreenWithBackground {
 public:
 	RemoteISOScreen();

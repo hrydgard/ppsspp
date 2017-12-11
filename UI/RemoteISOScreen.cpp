@@ -186,6 +186,20 @@ static void ExecuteServer() {
 	UpdateStatus(ServerStatus::STOPPED);
 }
 
+bool StartRemoteISOSharing() {
+	std::lock_guard<std::mutex> guard(serverStatusLock);
+
+	if (serverStatus != ServerStatus::STOPPED) {
+		return false;
+	}
+
+	serverStatus = ServerStatus::STARTING;
+	serverThread = new std::thread(&ExecuteServer);
+	serverThread->detach();
+
+	return true;
+}
+
 static bool FindServer(std::string &resultHost, int &resultPort) {
 	http::Client http;
 	Buffer result;
@@ -412,15 +426,9 @@ void RemoteISOScreen::CreateViews() {
 }
 
 UI::EventReturn RemoteISOScreen::HandleStartServer(UI::EventParams &e) {
-	std::lock_guard<std::mutex> guard(serverStatusLock);
-
-	if (serverStatus != ServerStatus::STOPPED) {
+	if (!StartRemoteISOSharing()) {
 		return EVENT_SKIPPED;
 	}
-
-	serverStatus = ServerStatus::STARTING;
-	serverThread = new std::thread(&ExecuteServer);
-	serverThread->detach();
 
 	return EVENT_DONE;
 }
@@ -651,7 +659,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 }
 
 RemoteISOSettingsScreen::RemoteISOSettingsScreen() {
-	serverRunning_ = RetrieveStatus() != ServerStatus::STOPPED;;
+	serverRunning_ = RetrieveStatus() != ServerStatus::STOPPED;
 }
 
 void RemoteISOSettingsScreen::update() {
@@ -674,7 +682,8 @@ void RemoteISOSettingsScreen::CreateViews() {
 	remoteisoSettingsScroll->Add(remoteisoSettings);
 
 	remoteisoSettings->Add(new ItemHeader(ri->T("Remote disc streaming")));
-	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, ri->T("Manual Mode Client", "Manual Mode Client")));
+	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteShareOnStartup, ri->T("Share on PPSSPP startup")));
+	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, ri->T("Manual Mode Client", "Manually configure client")));
 #if !defined(MOBILE_DEVICE)
 	PopupTextInputChoice *remoteServer = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager()));
 #else

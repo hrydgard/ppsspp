@@ -92,6 +92,7 @@
 #include "UI/HostTypes.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
+#include "UI/RemoteISOScreen.h"
 #include "UI/TiltEventProcessor.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/TextureUtil.h"
@@ -542,6 +543,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
 		screenManager->switchScreen(new LogoScreen());
+	}
+
+	if (g_Config.bRemoteShareOnStartup) {
+		StartRemoteISOSharing();
 	}
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
@@ -1095,6 +1100,10 @@ void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
 	if (g_graphicsInited) {
 		resized = true;
+		if (uiContext) {
+			// Still have to update bounds to avoid problems in display layout and touch controls layout screens
+			uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
+		}
 	} else {
 		ILOG("NativeResized ignored, not initialized");
 	}
