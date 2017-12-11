@@ -94,6 +94,17 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 				limitY = limitTemp;
 			}
 
+			// Check where each edge of the screen is
+			int windowLeftEdge = local_dp_xres / 4;
+			int windowRightEdge = windowLeftEdge * 3;
+			int windowUpperEdge = local_dp_yres / 4;
+			int windowLowerEdge = windowUpperEdge * 3;
+			// And stick display when close to any edge
+			if (touchX > windowLeftEdge - 15 + limitX && touchX < windowLeftEdge + 15 + limitX) touchX = windowLeftEdge + limitX;
+			if (touchX > windowRightEdge - 15 - limitX && touchX < windowRightEdge + 15 - limitX) touchX = windowRightEdge - limitX;
+			if (touchY > windowUpperEdge - 15 + limitY && touchY < windowUpperEdge + 15 + limitY) touchY = windowUpperEdge + limitY;
+			if (touchY > windowLowerEdge - 15 - limitY && touchY < windowLowerEdge + 15 - limitY) touchY = windowLowerEdge - limitY;
+
 			int minX = local_dp_xres / 2;
 			int maxX = local_dp_xres + minX;
 			int minY = local_dp_yres / 2;
@@ -106,10 +117,10 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 
 			int newX = bounds.centerX(), newY = bounds.centerY();
 			// Allow moving zoomed in display freely as long as at least noticeable portion of the screen is occupied
-			if (touchX > (local_dp_xres / 2) - limitX - 10 && touchX < (local_dp_xres / 2) + limitX + 10) {
+			if (touchX > minX - limitX - 10 && touchX < minX + limitX + 10) {
 				newX = touchX;
 			}
-			if (touchY > (local_dp_yres / 2) - limitY - 10 && touchY < (local_dp_yres / 2) + limitY + 10) {
+			if (touchY > minY - limitY - 10 && touchY < minY + limitY + 10) {
 				newY = touchY;
 			}
 			picked_->ReplaceLayoutParams(new UI::AnchorLayoutParams(newX, newY, NONE, NONE, true));
