@@ -44,6 +44,9 @@ private:
 	UI::PopupMultiChoice *zoom_;
 	UI::PopupMultiChoice *rotation_;
 	bool displayRotEnable_;
+	bool bRotated;
+	bool stickToEdgeX;
+	bool stickToEdgeY;
 	// Touch down state for drag to resize etc
 	float startX_;
 	float startY_;

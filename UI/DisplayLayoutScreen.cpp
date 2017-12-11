@@ -81,20 +81,44 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 		if (mode == 0) {
 			const Bounds &bounds = picked_->GetBounds();
 
-			int minTouchX = screen_bounds.w / 4;
-			int maxTouchX = screen_bounds.w - minTouchX;
+			int limitX = g_Config.fSmallDisplayZoomLevel * 120;
+			int limitY = g_Config.fSmallDisplayZoomLevel * 68;
 
-			int minTouchY = screen_bounds.h / 4;
-			int maxTouchY = screen_bounds.h - minTouchY;
+			if (bRotated) {
+				//swap X/Y limit for rotated display
+				int limitTemp = limitX;
+				limitX = limitY;
+				limitY = limitTemp;
+			}
+
+			// Check where each edge of the screen is
+			int windowLeftEdge = local_dp_xres / 4;
+			int windowRightEdge = windowLeftEdge * 3;
+			int windowUpperEdge = local_dp_yres / 4;
+			int windowLowerEdge = windowUpperEdge * 3;
+			// And stick display when close to any edge
+			stickToEdgeX = false; stickToEdgeY = false;
+			if (touchX > windowLeftEdge - 8 + limitX && touchX < windowLeftEdge + 8 + limitX) { touchX = windowLeftEdge + limitX; stickToEdgeX = true; }
+			if (touchX > windowRightEdge - 8 - limitX && touchX < windowRightEdge + 8 - limitX) { touchX = windowRightEdge - limitX; stickToEdgeX = true; }
+			if (touchY > windowUpperEdge - 8 + limitY && touchY < windowUpperEdge + 8 + limitY) { touchY = windowUpperEdge + limitY; stickToEdgeY = true; }
+			if (touchY > windowLowerEdge - 8 - limitY && touchY < windowLowerEdge + 8 - limitY) { touchY = windowLowerEdge - limitY; stickToEdgeY = true; }
+
+			int minX = local_dp_xres / 2;
+			int maxX = local_dp_xres + minX;
+			int minY = local_dp_yres / 2;
+			int maxY = local_dp_yres + minY;
+			// Display visualization disappear outside of those bounds, so we have to limit
+			if (touchX < -minX) touchX = -minX;
+			if (touchX >  maxX) touchX =  maxX;
+			if (touchY < -minY) touchY = -minY;
+			if (touchY >  maxY) touchY =  maxY;
 
 			int newX = bounds.centerX(), newY = bounds.centerY();
-			// we have to handle x and y separately since even if x is blocked, y may not be.
-			if (touchX > minTouchX && touchX < maxTouchX) {
-				// if the leftmost point of the control is ahead of the margin,
-				// move it. Otherwise, don't.
+			// Allow moving zoomed in display freely as long as at least noticeable portion of the screen is occupied
+			if (touchX > minX - limitX - 10 && touchX < minX + limitX + 10) {
 				newX = touchX;
 			}
-			if (touchY > minTouchY && touchY < maxTouchY) {
+			if (touchY > minY - limitY - 10 && touchY < minY + limitY + 10) {
 				newY = touchY;
 			}
 			picked_->ReplaceLayoutParams(new UI::AnchorLayoutParams(newX, newY, NONE, NONE, true));
@@ -106,8 +130,9 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 
 			float movementScale = 0.5f;
 			float newScale = startScale_ + diffY * movementScale;
-			if (newScale > 100.0f) newScale = 100.0f;
-			if (newScale < 1.0f) newScale = 1.0f;
+			// Desired scale * 8.0 since the visualization is tiny size and multiplied by 8.
+			if (newScale > 80.0f) newScale = 80.0f;
+			if (newScale < 8.0f) newScale = 8.0f;
 			picked_->SetScale(newScale);
 			scaleUpdate_ = picked_->GetScale();
 			g_Config.fSmallDisplayZoomLevel = scaleUpdate_ / 8.0f;
@@ -140,8 +165,10 @@ void DisplayLayoutScreen::onFinish(DialogResult reason) {
 }
 
 UI::EventReturn DisplayLayoutScreen::OnCenter(UI::EventParams &e) {
-	g_Config.fSmallDisplayOffsetX = 0.5f;
-	g_Config.fSmallDisplayOffsetY = 0.5f;
+	if (!stickToEdgeX || (stickToEdgeX && stickToEdgeY))
+		g_Config.fSmallDisplayOffsetX = 0.5f;
+	if (!stickToEdgeY || (stickToEdgeX && stickToEdgeY))
+		g_Config.fSmallDisplayOffsetY = 0.5f;
 	RecreateViews();
 	return UI::EVENT_DONE;
 };
@@ -222,7 +249,7 @@ void DisplayLayoutScreen::CreateViews() {
 	rotation_ = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, previewWidth - 200.0f, 10, NONE, local_dp_yres - 64 - 10));
 	rotation_->SetEnabledPtr(&displayRotEnable_);
 	displayRotEnable_ = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	bool bRotated = false;
+	bRotated = false;
 	if (displayRotEnable_ && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
 		bRotated = true;
 	}
