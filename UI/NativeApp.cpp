@@ -1100,6 +1100,10 @@ void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
 	if (g_graphicsInited) {
 		resized = true;
+		if (uiContext) {
+			// Still have to update bounds to avoid problems in display layout and touch controls layout screens
+			uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
+		}
 	} else {
 		ILOG("NativeResized ignored, not initialized");
 	}
