@@ -141,11 +141,7 @@ void main() {
 	// Unpack the color (we could look it up in a CLUT here if we wanted...)
 	// It's a bit silly that we need to unpack to float and then have imageStore repack,
 	// but the alternative is to store to a buffer, and then launch a vkCmdCopyBufferToImage instead.
-	vec4 outColor = vec4(
-		(color & 0xFF) * (1.0 / 255.0), 
-		((color >> 8) & 0xFF) * (1.0 / 255.0), 
-		((color >> 16) & 0xFF) * (1.0 / 255.0), 
-		((color >> 24) & 0xFF) * (1.0 / 255.0));
+	vec4 outColor = unpackUnorm4x8(color);
 	imageStore(img, ivec2(x,y), outColor);
 }
 )";
@@ -730,8 +726,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		// Compute experiment
 		if (actualFmt == VULKAN_8888_FORMAT) {
 			// Enable the experiment you want.
-			computeCopy = true;
-			// computeUpload = true;
+			// computeCopy = true;
+			computeUpload = true;
 		}
 
 		if (computeUpload) {
