@@ -92,6 +92,7 @@
 #include "UI/HostTypes.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
+#include "UI/RemoteISOScreen.h"
 #include "UI/TiltEventProcessor.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/TextureUtil.h"
@@ -542,6 +543,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
 		screenManager->switchScreen(new LogoScreen());
+	}
+
+	if (g_Config.bRemoteShareOnStartup) {
+		StartRemoteISOSharing();
 	}
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
