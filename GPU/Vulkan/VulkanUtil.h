@@ -126,10 +126,10 @@ private:
 };
 
 // Manager for compute shaders that upload things (and those have two bindings: a storage buffer to read from and an image to write to).
-class VulkanComputeUploader {
+class VulkanComputeShaderManager {
 public:
-	VulkanComputeUploader(VulkanContext *vulkan);
-	~VulkanComputeUploader();
+	VulkanComputeShaderManager(VulkanContext *vulkan);
+	~VulkanComputeShaderManager();
 
 	void DeviceLost() {
 		DestroyDeviceObjects();
@@ -140,7 +140,7 @@ public:
 	}
 
 	// Note: This doesn't cache. The descriptor is for immediate use only.
-	VkDescriptorSet GetDescriptorSet(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkImageView image);
+	VkDescriptorSet GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2 = VK_NULL_HANDLE, VkDeviceSize offset2 = 0, VkDeviceSize range2 = 0);
 
 	// This of course caches though.
 	VkPipeline GetPipeline(VkShaderModule cs);

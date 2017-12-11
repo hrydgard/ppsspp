@@ -400,35 +400,39 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 	}
 }
 
-VulkanComputeUploader::VulkanComputeUploader(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(8) {
+VulkanComputeShaderManager::VulkanComputeShaderManager(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(8) {
 }
-VulkanComputeUploader::~VulkanComputeUploader() {}
+VulkanComputeShaderManager::~VulkanComputeShaderManager() {}
 
-void VulkanComputeUploader::InitDeviceObjects() {
+void VulkanComputeShaderManager::InitDeviceObjects() {
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 	assert(VK_SUCCESS == res);
 
-	VkDescriptorSetLayoutBinding bindings[2] = {};
+	VkDescriptorSetLayoutBinding bindings[3] = {};
 	bindings[0].descriptorCount = 1;
-	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	bindings[0].binding = 0;
 	bindings[1].descriptorCount = 1;
-	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	bindings[1].binding = 1;
+	bindings[2].descriptorCount = 1;
+	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[2].binding = 2;
 
 	VkDevice device = vulkan_->GetDevice();
 
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-	dsl.bindingCount = 2;
+	dsl.bindingCount = ARRAY_SIZE(bindings);
 	dsl.pBindings = bindings;
 	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[2];
-	dpTypes[0].descriptorCount = 1024;
+	dpTypes[0].descriptorCount = 2048;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	dpTypes[1].descriptorCount = 1024;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -458,7 +462,7 @@ void VulkanComputeUploader::InitDeviceObjects() {
 	assert(VK_SUCCESS == res);
 }
 
-void VulkanComputeUploader::DestroyDeviceObjects() {
+void VulkanComputeShaderManager::DestroyDeviceObjects() {
 	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
 		vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
 	}
@@ -478,7 +482,7 @@ void VulkanComputeUploader::DestroyDeviceObjects() {
 	}
 }
 
-VkDescriptorSet VulkanComputeUploader::GetDescriptorSet(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkImageView image) {
+VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2, VkDeviceSize offset2, VkDeviceSize range2) {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData *frame = &frameData_[curFrame];
 
@@ -492,34 +496,47 @@ VkDescriptorSet VulkanComputeUploader::GetDescriptorSet(VkBuffer buffer, VkDevic
 
 	VkWriteDescriptorSet writes[2]{};
 	int n = 0;
-	VkDescriptorBufferInfo bufferInfo = {};
 	VkDescriptorImageInfo imageInfo = {};
-	bufferInfo.buffer = buffer;
-	bufferInfo.offset = offset;
-	bufferInfo.range = range;
+	VkDescriptorBufferInfo bufferInfo[2] = {};
+	if (image) {
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imageInfo.imageView = image;
+		imageInfo.sampler = VK_NULL_HANDLE;
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].dstBinding = 0;
+		writes[n].pImageInfo = &imageInfo;
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		writes[n].dstSet = desc;
+		n++;
+	}
+	bufferInfo[0].buffer = buffer;
+	bufferInfo[0].offset = offset;
+	bufferInfo[0].range = range;
 	writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[n].dstBinding = 0;
-	writes[n].pBufferInfo = &bufferInfo;
+	writes[n].dstBinding = 1;
+	writes[n].pBufferInfo = &bufferInfo[0];
 	writes[n].descriptorCount = 1;
 	writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	writes[n].dstSet = desc;
 	n++;
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-	imageInfo.imageView = image;
-	imageInfo.sampler = VK_NULL_HANDLE;
-	writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[n].dstBinding = 1;
-	writes[n].pImageInfo = &imageInfo;
-	writes[n].descriptorCount = 1;
-	writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	writes[n].dstSet = desc;
-	n++;
-
+	if (buffer2) {
+		bufferInfo[1].buffer = buffer2;
+		bufferInfo[1].offset = offset2;
+		bufferInfo[1].range = range2;
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].dstBinding = 2;
+		writes[n].pBufferInfo = &bufferInfo[1];
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		writes[n].dstSet = desc;
+		n++;
+	}
 	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
 	return desc;
 }
 
-VkPipeline VulkanComputeUploader::GetPipeline(VkShaderModule cs) {
+VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs) {
 	PipelineKey key{ cs };
 	VkPipeline pipeline = pipelines_.Get(key);
 	if (pipeline)
@@ -539,11 +556,11 @@ VkPipeline VulkanComputeUploader::GetPipeline(VkShaderModule cs) {
 	return pipeline;
 }
 
-void VulkanComputeUploader::BeginFrame() {
+void VulkanComputeShaderManager::BeginFrame() {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frame = frameData_[curFrame];
 	vkResetDescriptorPool(vulkan_->GetDevice(), frame.descPool, 0);
 }
 
-void VulkanComputeUploader::EndFrame() {
+void VulkanComputeShaderManager::EndFrame() {
 }

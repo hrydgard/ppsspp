@@ -23,8 +23,8 @@
 #include "base/timeutil.h"
 #include "math/math_util.h"
 
-VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage)
-		: vulkan_(vulkan), size_(size), usage_(usage) {
+VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryPropertyMask)
+		: vulkan_(vulkan), memoryPropertyMask_(memoryPropertyMask), size_(size), usage_(usage) {
 	bool res = AddBuffer();
 	assert(res);
 }
@@ -58,7 +58,7 @@ bool VulkanPushBuffer::AddBuffer() {
 	// Okay, that's the buffer. Now let's allocate some memory for it.
 	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	alloc.allocationSize = reqs.size;
-	vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &alloc.memoryTypeIndex);
+	vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, memoryPropertyMask_, &alloc.memoryTypeIndex);
 
 	res = vkAllocateMemory(device, &alloc, nullptr, &info.deviceMemory);
 	if (VK_SUCCESS != res) {
@@ -89,7 +89,8 @@ void VulkanPushBuffer::Destroy(VulkanContext *vulkan) {
 
 void VulkanPushBuffer::NextBuffer(size_t minSize) {
 	// First, unmap the current memory.
-	Unmap();
+	if (memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+		Unmap();
 
 	buf_++;
 	if (buf_ >= buffers_.size() || minSize > size_) {
@@ -108,7 +109,8 @@ void VulkanPushBuffer::NextBuffer(size_t minSize) {
 
 	// Now, move to the next buffer and map it.
 	offset_ = 0;
-	Map();
+	if (memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+		Map();
 }
 
 void VulkanPushBuffer::Defragment(VulkanContext *vulkan) {
