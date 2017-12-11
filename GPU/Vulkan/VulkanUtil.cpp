@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/basictypes.h"
+#include "base/stringutil.h"
 #include "Common/Log.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
@@ -385,7 +386,7 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 			ERROR_LOG(G3D, "Error in shader compilation!");
 		}
 		ERROR_LOG(G3D, "Messages: %s", error->c_str());
-		ERROR_LOG(G3D, "Shader source:\n%s", code);
+		ERROR_LOG(G3D, "Shader source:\n%s", LineNumberString(code).c_str());
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(error->c_str());
 		return VK_NULL_HANDLE;
@@ -404,7 +405,9 @@ VulkanComputeUploader::VulkanComputeUploader(VulkanContext *vulkan) : vulkan_(vu
 VulkanComputeUploader::~VulkanComputeUploader() {}
 
 void VulkanComputeUploader::InitDeviceObjects() {
-	pipelineCache_ = vulkan_->CreatePipelineCache();
+	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+	assert(VK_SUCCESS == res);
 
 	VkDescriptorSetLayoutBinding bindings[2] = {};
 	bindings[0].descriptorCount = 1;
@@ -421,18 +424,18 @@ void VulkanComputeUploader::InitDeviceObjects() {
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = 2;
 	dsl.pBindings = bindings;
-	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
+	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[2];
-	dpTypes[0].descriptorCount = 300;
+	dpTypes[0].descriptorCount = 1024;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	dpTypes[1].descriptorCount = 300;
+	dpTypes[1].descriptorCount = 1024;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
-	dp.maxSets = 300;
+	dp.maxSets = 1024;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
@@ -442,7 +445,7 @@ void VulkanComputeUploader::InitDeviceObjects() {
 
 	VkPushConstantRange push = {};
 	push.offset = 0;
-	push.size = 48;
+	push.size = 16;
 	push.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
@@ -501,7 +504,7 @@ VkDescriptorSet VulkanComputeUploader::GetDescriptorSet(VkBuffer buffer, VkDevic
 	writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	writes[n].dstSet = desc;
 	n++;
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	imageInfo.imageView = image;
 	imageInfo.sampler = VK_NULL_HANDLE;
 	writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -526,6 +529,7 @@ VkPipeline VulkanComputeUploader::GetPipeline(VkShaderModule cs) {
 	pci.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	pci.stage.module = cs;
 	pci.stage.pName = "main";
+	pci.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
 	pci.layout = pipelineLayout_;
 	pci.flags = 0;
 
@@ -533,4 +537,13 @@ VkPipeline VulkanComputeUploader::GetPipeline(VkShaderModule cs) {
 
 	pipelines_.Insert(key, pipeline);
 	return pipeline;
+}
+
+void VulkanComputeUploader::BeginFrame() {
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData &frame = frameData_[curFrame];
+	vkResetDescriptorPool(vulkan_->GetDevice(), frame.descPool, 0);
+}
+
+void VulkanComputeUploader::EndFrame() {
 }

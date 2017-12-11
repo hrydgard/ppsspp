@@ -146,6 +146,9 @@ public:
 	VkPipeline GetPipeline(VkShaderModule cs);
 	VkPipelineLayout GetPipelineLayout() const { return pipelineLayout_; }
 
+	void BeginFrame();
+	void EndFrame();
+
 private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

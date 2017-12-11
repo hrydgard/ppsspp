@@ -121,9 +121,10 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *all
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
 		switch (initialLayout) {
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		case VK_IMAGE_LAYOUT_GENERAL:
 			TransitionImageLayout2(cmd, image_, 0, numMips, VK_IMAGE_ASPECT_COLOR_BIT,
-				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
+				VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				0, VK_ACCESS_TRANSFER_WRITE_BIT);
 			break;
 		default:
@@ -208,10 +209,10 @@ void VulkanTexture::GenerateMip(VkCommandBuffer cmd, int mip) {
 		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
 }
 
-void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture) {
+void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkImageLayout layout) {
 	TransitionImageLayout2(cmd, image_, 0, numMips_,
 		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		layout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
@@ -220,6 +221,27 @@ void VulkanTexture::Touch() {
 	if (allocator_ && mem_ != VK_NULL_HANDLE) {
 		allocator_->Touch(mem_, offset_);
 	}
+}
+
+VkImageView VulkanTexture::CreateViewForMip(int mip) {
+	// Create the view while we're at it.
+	VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+	view_info.image = image_;
+	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	view_info.format = format_;
+	view_info.components.r = VK_COMPONENT_SWIZZLE_R;
+	view_info.components.g = VK_COMPONENT_SWIZZLE_G;
+	view_info.components.b = VK_COMPONENT_SWIZZLE_B;
+	view_info.components.a = VK_COMPONENT_SWIZZLE_A;
+	view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	view_info.subresourceRange.baseMipLevel = mip;
+	view_info.subresourceRange.levelCount = 1;
+	view_info.subresourceRange.baseArrayLayer = 0;
+	view_info.subresourceRange.layerCount = 1;
+	VkImageView view;
+	VkResult res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view);
+	assert(res == VK_SUCCESS);
+	return view;
 }
 
 void VulkanTexture::Destroy() {
