@@ -834,6 +834,14 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 						struct Params { int x; int y; } params{ mipWidth, mipHeight };
 						vkCmdPushConstants(cmdInit, computeShaderManager_.GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(params), &params);
 						vkCmdDispatch(cmdInit, (mipWidth + 15) / 16, (mipHeight + 15) / 16, 1);
+
+						// After the compute, before the copy, we need a memory barrier.
+						VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+						barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+						barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+						vkCmdPipelineBarrier(cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+							0, 1, &barrier, 0, nullptr, 0, nullptr);
+
 						entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, localBuf, localOffset, stride / bpp);
 					} else {
 						entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
