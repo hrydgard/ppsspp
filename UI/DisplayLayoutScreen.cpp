@@ -84,6 +84,9 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 			int limitX = g_Config.fSmallDisplayZoomLevel * 120;
 			int limitY = g_Config.fSmallDisplayZoomLevel * 68;
 
+			const int quarterResX = local_dp_xres / 4;
+			const int quarterResY = local_dp_yres / 4;
+
 			if (bRotated) {
 				//swap X/Y limit for rotated display
 				int limitTemp = limitX;
@@ -92,10 +95,10 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 			}
 
 			// Check where each edge of the screen is
-			int windowLeftEdge = local_dp_xres / 4;
-			int windowRightEdge = windowLeftEdge * 3;
-			int windowUpperEdge = local_dp_yres / 4;
-			int windowLowerEdge = windowUpperEdge * 3;
+			const int windowLeftEdge = quarterResX;
+			const int windowRightEdge = windowLeftEdge * 3;
+			const int windowUpperEdge = quarterResY;
+			const int windowLowerEdge = windowUpperEdge * 3;
 			// And stick display when close to any edge
 			stickToEdgeX = false; stickToEdgeY = false;
 			if (touchX > windowLeftEdge - 8 + limitX && touchX < windowLeftEdge + 8 + limitX) { touchX = windowLeftEdge + limitX; stickToEdgeX = true; }
@@ -103,15 +106,19 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 			if (touchY > windowUpperEdge - 8 + limitY && touchY < windowUpperEdge + 8 + limitY) { touchY = windowUpperEdge + limitY; stickToEdgeY = true; }
 			if (touchY > windowLowerEdge - 8 - limitY && touchY < windowLowerEdge + 8 - limitY) { touchY = windowLowerEdge - limitY; stickToEdgeY = true; }
 
-			int minX = local_dp_xres / 2;
-			int maxX = local_dp_xres + minX;
-			int minY = local_dp_yres / 2;
-			int maxY = local_dp_yres + minY;
+			const int minX = local_dp_xres / 2;
+			const int maxX = local_dp_xres + minX;
+			const int minY = local_dp_yres / 2;
+			const int maxY = local_dp_yres + minY;
 			// Display visualization disappear outside of those bounds, so we have to limit
 			if (touchX < -minX) touchX = -minX;
 			if (touchX >  maxX) touchX =  maxX;
 			if (touchY < -minY) touchY = -minY;
 			if (touchY >  maxY) touchY =  maxY;
+
+			// Limit small display on much larger output a bit differently
+			if (quarterResX > limitX) limitX = quarterResX;
+			if (quarterResY > limitY) limitY = quarterResY;
 
 			int newX = bounds.centerX(), newY = bounds.centerY();
 			// Allow moving zoomed in display freely as long as at least noticeable portion of the screen is occupied
