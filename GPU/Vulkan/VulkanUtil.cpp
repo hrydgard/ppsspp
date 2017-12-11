@@ -51,17 +51,14 @@ void Vulkan2D::DestroyDeviceObjects() {
 	VkDevice device = vulkan_->GetDevice();
 	if (descriptorSetLayout_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
-		descriptorSetLayout_ = VK_NULL_HANDLE;
 	}
 	if (pipelineLayout_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
-		pipelineLayout_ = VK_NULL_HANDLE;
 	}
 
 	// pipelineBasicTex_ and pipelineBasicTex_ come from vulkan2D_.
 	if (pipelineCache_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
-		pipelineCache_ = VK_NULL_HANDLE;
 	}
 }
 
@@ -400,4 +397,140 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 			return VK_NULL_HANDLE;
 		}
 	}
+}
+
+VulkanComputeUploader::VulkanComputeUploader(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(8) {
+}
+VulkanComputeUploader::~VulkanComputeUploader() {}
+
+void VulkanComputeUploader::InitDeviceObjects() {
+	pipelineCache_ = vulkan_->CreatePipelineCache();
+
+	VkDescriptorSetLayoutBinding bindings[2] = {};
+	bindings[0].descriptorCount = 1;
+	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[0].binding = 0;
+	bindings[1].descriptorCount = 1;
+	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[1].binding = 1;
+
+	VkDevice device = vulkan_->GetDevice();
+
+	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+	dsl.bindingCount = 2;
+	dsl.pBindings = bindings;
+	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
+	assert(VK_SUCCESS == res);
+
+	VkDescriptorPoolSize dpTypes[2];
+	dpTypes[0].descriptorCount = 300;
+	dpTypes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	dpTypes[1].descriptorCount = 300;
+	dpTypes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+
+	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
+	dp.maxSets = 300;
+	dp.pPoolSizes = dpTypes;
+	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
+	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
+		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frameData_[i].descPool);
+		assert(VK_SUCCESS == res);
+	}
+
+	VkPushConstantRange push = {};
+	push.offset = 0;
+	push.size = 48;
+	push.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	pl.pPushConstantRanges = &push;
+	pl.pushConstantRangeCount = 1;
+	pl.setLayoutCount = 1;
+	pl.pSetLayouts = &descriptorSetLayout_;
+	pl.flags = 0;
+	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
+	assert(VK_SUCCESS == res);
+}
+
+void VulkanComputeUploader::DestroyDeviceObjects() {
+	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
+		vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
+	}
+	if (descriptorSetLayout_) {
+		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
+	}
+	pipelines_.Iterate([&](const PipelineKey &key, VkPipeline pipeline) {
+		vulkan_->Delete().QueueDeletePipeline(pipeline);
+	});
+	pipelines_.Clear();
+
+	if (pipelineLayout_) {
+		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
+	}
+	if (pipelineCache_ != VK_NULL_HANDLE) {
+		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
+	}
+}
+
+VkDescriptorSet VulkanComputeUploader::GetDescriptorSet(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkImageView image) {
+	int curFrame = vulkan_->GetCurFrame();
+	FrameData *frame = &frameData_[curFrame];
+
+	VkDescriptorSet desc;
+	VkDescriptorSetAllocateInfo descAlloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+	descAlloc.pSetLayouts = &descriptorSetLayout_;
+	descAlloc.descriptorPool = frame->descPool;
+	descAlloc.descriptorSetCount = 1;
+	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+	assert(result == VK_SUCCESS);
+
+	VkWriteDescriptorSet writes[2]{};
+	int n = 0;
+	VkDescriptorBufferInfo bufferInfo = {};
+	VkDescriptorImageInfo imageInfo = {};
+	bufferInfo.buffer = buffer;
+	bufferInfo.offset = offset;
+	bufferInfo.range = range;
+	writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes[n].dstBinding = 0;
+	writes[n].pBufferInfo = &bufferInfo;
+	writes[n].descriptorCount = 1;
+	writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	writes[n].dstSet = desc;
+	n++;
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imageInfo.imageView = image;
+	imageInfo.sampler = VK_NULL_HANDLE;
+	writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes[n].dstBinding = 1;
+	writes[n].pImageInfo = &imageInfo;
+	writes[n].descriptorCount = 1;
+	writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	writes[n].dstSet = desc;
+	n++;
+
+	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
+	return desc;
+}
+
+VkPipeline VulkanComputeUploader::GetPipeline(VkShaderModule cs) {
+	PipelineKey key{ cs };
+	VkPipeline pipeline = pipelines_.Get(key);
+	if (pipeline)
+		return pipeline;
+
+	VkComputePipelineCreateInfo pci{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+	pci.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	pci.stage.module = cs;
+	pci.stage.pName = "main";
+	pci.layout = pipelineLayout_;
+	pci.flags = 0;
+
+	vkCreateComputePipelines(vulkan_->GetDevice(), pipelineCache_, 1, &pci, nullptr, &pipeline);
+
+	pipelines_.Insert(key, pipeline);
+	return pipeline;
 }
