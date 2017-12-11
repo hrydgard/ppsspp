@@ -432,14 +432,14 @@ void VulkanComputeShaderManager::InitDeviceObjects() {
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[2];
-	dpTypes[0].descriptorCount = 2048;
+	dpTypes[0].descriptorCount = 8192;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	dpTypes[1].descriptorCount = 1024;
+	dpTypes[1].descriptorCount = 4096;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
-	dp.maxSets = 1024;
+	dp.maxSets = 4096;  // GTA can end up creating more than 1000 textures in the first frame!
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
@@ -484,12 +484,12 @@ void VulkanComputeShaderManager::DestroyDeviceObjects() {
 
 VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, VkBuffer buffer2, VkDeviceSize offset2, VkDeviceSize range2) {
 	int curFrame = vulkan_->GetCurFrame();
-	FrameData *frame = &frameData_[curFrame];
-
+	FrameData &frameData = frameData_[curFrame];
+	frameData_[curFrame].numDescriptors++;
 	VkDescriptorSet desc;
 	VkDescriptorSetAllocateInfo descAlloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descAlloc.pSetLayouts = &descriptorSetLayout_;
-	descAlloc.descriptorPool = frame->descPool;
+	descAlloc.descriptorPool = frameData.descPool;
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
 	assert(result == VK_SUCCESS);
@@ -559,6 +559,7 @@ VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs) {
 void VulkanComputeShaderManager::BeginFrame() {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frame = frameData_[curFrame];
+	frameData_[curFrame].numDescriptors = 0;
 	vkResetDescriptorPool(vulkan_->GetDevice(), frame.descPool, 0);
 }
 
