@@ -31,14 +31,16 @@
 #include "net/url.h"
 
 #include "Common/CPUDetect.h"
-#include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
-#include "Common/StringUtils.h"
+#include "Common/KeyMap.h"
 #include "Common/LogManager.h"
+#include "Common/OSVersion.h"
+#include "Common/StringUtils.h"
+#include "Common/Vulkan/VulkanLoader.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
+#include "Core/HLE/sceUtility.h"
 #include "GPU/Common/FramebufferCommon.h"
-#include "HLE/sceUtility.h"
 
 // TODO: Find a better place for this.
 http::Downloader g_DownloadManager;
@@ -477,13 +479,33 @@ static int DefaultAndroidHwScale() {
 #endif
 }
 
+static int DefaultGPUBackend() {
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
+	// Where supported, let's use Vulkan.
+	if (VulkanMayBeAvailable()) {
+		return GPU_BACKEND_VULKAN;
+	}
+#endif
+#if PPSSPP_PLATFORM(WINDOWS)
+	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)
+	if (DoesVersionMatchWindows(6, 2, 0, 0, true)) {
+		return GPU_BACKEND_DIRECT3D11;
+	}
+#endif
+	return GPU_BACKEND_OPENGL;
+}
+
+static bool DefaultVertexCache() {
+	return DefaultGPUBackend() == GPU_BACKEND_OPENGL;
+}
+
 static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("EnableCardboard", &g_Config.bEnableCardboard, false, true, true),
 	ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, true, true),
 	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
-	ReportedConfigSetting("GPUBackend", &g_Config.iGPUBackend, 0),
+	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode, true, true),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, true, true),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, true, true),
@@ -508,7 +530,7 @@ static ConfigSetting graphicsSettings[] = {
 #else
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
 #endif
-	ReportedConfigSetting("VertexCache", &g_Config.bVertexCache, true, true, true),
+	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, &DefaultVertexCache, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
 	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
