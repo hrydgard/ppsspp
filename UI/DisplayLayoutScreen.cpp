@@ -100,10 +100,11 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 			int windowUpperEdge = local_dp_yres / 4;
 			int windowLowerEdge = windowUpperEdge * 3;
 			// And stick display when close to any edge
-			if (touchX > windowLeftEdge - 15 + limitX && touchX < windowLeftEdge + 15 + limitX) touchX = windowLeftEdge + limitX;
-			if (touchX > windowRightEdge - 15 - limitX && touchX < windowRightEdge + 15 - limitX) touchX = windowRightEdge - limitX;
-			if (touchY > windowUpperEdge - 15 + limitY && touchY < windowUpperEdge + 15 + limitY) touchY = windowUpperEdge + limitY;
-			if (touchY > windowLowerEdge - 15 - limitY && touchY < windowLowerEdge + 15 - limitY) touchY = windowLowerEdge - limitY;
+			stickToEdgeX = false; stickToEdgeY = false;
+			if (touchX > windowLeftEdge - 8 + limitX && touchX < windowLeftEdge + 8 + limitX) { touchX = windowLeftEdge + limitX; stickToEdgeX = true; }
+			if (touchX > windowRightEdge - 8 - limitX && touchX < windowRightEdge + 8 - limitX) { touchX = windowRightEdge - limitX; stickToEdgeX = true; }
+			if (touchY > windowUpperEdge - 8 + limitY && touchY < windowUpperEdge + 8 + limitY) { touchY = windowUpperEdge + limitY; stickToEdgeY = true; }
+			if (touchY > windowLowerEdge - 8 - limitY && touchY < windowLowerEdge + 8 - limitY) { touchY = windowLowerEdge - limitY; stickToEdgeY = true; }
 
 			int minX = local_dp_xres / 2;
 			int maxX = local_dp_xres + minX;
@@ -167,8 +168,10 @@ void DisplayLayoutScreen::onFinish(DialogResult reason) {
 }
 
 UI::EventReturn DisplayLayoutScreen::OnCenter(UI::EventParams &e) {
-	g_Config.fSmallDisplayOffsetX = 0.5f;
-	g_Config.fSmallDisplayOffsetY = 0.5f;
+	if (!stickToEdgeX || (stickToEdgeX && stickToEdgeY))
+		g_Config.fSmallDisplayOffsetX = 0.5f;
+	if (!stickToEdgeY || (stickToEdgeX && stickToEdgeY))
+		g_Config.fSmallDisplayOffsetY = 0.5f;
 	RecreateViews();
 	return UI::EVENT_DONE;
 };
