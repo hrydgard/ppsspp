@@ -91,7 +91,7 @@
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
 
-extern const GLuint glprim[8] = {
+const GLuint glprim[8] = {
 	GL_POINTS,
 	GL_LINES,
 	GL_LINE_STRIP,
@@ -146,17 +146,6 @@ DrawEngineGLES::~DrawEngineGLES() {
 	delete tessDataTransfer;
 }
 
-void DrawEngineGLES::RestoreVAO() {
-	if (sharedVao_ != 0) {
-		glBindVertexArray(sharedVao_);
-	} else if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-		// Note: this is here because, InitDeviceObjects() is called before GPU_SUPPORTS_VAO is setup.
-		// So, this establishes it if Supports() returns true and there isn't one yet.
-		glGenVertexArrays(1, &sharedVao_);
-		glBindVertexArray(sharedVao_);
-	}
-}
-
 void DrawEngineGLES::DeviceLost() {
 	DestroyDeviceObjects();
 }
@@ -166,20 +155,6 @@ void DrawEngineGLES::DeviceRestore() {
 }
 
 void DrawEngineGLES::InitDeviceObjects() {
-	if (bufferNameCache_.empty()) {
-		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
-		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[0]);
-		bufferNameCacheSize_ = 0;
-
-		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-			glGenVertexArrays(1, &sharedVao_);
-		} else {
-			sharedVao_ = 0;
-		}
-	} else {
-		ERROR_LOG(G3D, "Device objects already initialized!");
-	}
-
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
 		frameData_[i].pushVertex = new GLPushBuffer(render_, GL_ARRAY_BUFFER, 1024 * 1024);
 		frameData_[i].pushIndex = new GLPushBuffer(render_, GL_ELEMENT_ARRAY_BUFFER, 512 * 1024);
@@ -203,18 +178,6 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 	}
 
 	ClearTrackedVertexArrays();
-	if (!bufferNameCache_.empty()) {
-		glstate.arrayBuffer.unbind();
-		glstate.elementArrayBuffer.unbind();
-		glDeleteBuffers((GLsizei)bufferNameCache_.size(), &bufferNameCache_[0]);
-		bufferNameCache_.clear();
-		bufferNameInfo_.clear();
-		freeSizedBuffers_.clear();
-		bufferNameCacheSize_ = 0;
-		if (sharedVao_ != 0) {
-			glDeleteVertexArrays(1, &sharedVao_);
-		}
-	}
 
 	render_->DeleteInputLayout(softwareInputLayout_);
 }
@@ -376,11 +339,11 @@ void DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindO
 void DrawEngineGLES::MarkUnreliable(VertexArrayInfo *vai) {
 	vai->status = VertexArrayInfo::VAI_UNRELIABLE;
 	if (vai->vbo) {
-		FreeBuffer(vai->vbo);
+		render_->DeleteBuffer(vai->vbo);
 		vai->vbo = 0;
 	}
 	if (vai->ebo) {
-		FreeBuffer(vai->ebo);
+		render_->DeleteBuffer(vai->ebo);
 		vai->ebo = 0;
 	}
 }
@@ -420,80 +383,14 @@ void DrawEngineGLES::DecimateTrackedVertexArrays() {
 	vai_.Maintain();
 }
 
-GLuint DrawEngineGLES::AllocateBuffer(size_t sz) {
-	GLuint unused = 0;
-
-	auto freeMatch = freeSizedBuffers_.find(sz);
-	if (freeMatch != freeSizedBuffers_.end()) {
-		unused = freeMatch->second;
-		_assert_(!bufferNameInfo_[unused].used);
-
-		freeSizedBuffers_.erase(freeMatch);
-	} else {
-		for (GLuint buf : bufferNameCache_) {
-			const BufferNameInfo &info = bufferNameInfo_[buf];
-			if (info.used) {
-				continue;
-			}
-
-			// Just pick the first unused one, we'll have to resize it.
-			unused = buf;
-
-			// Let's also remove from the free list, if it's there.
-			if (info.sz != 0) {
-				auto range = freeSizedBuffers_.equal_range(info.sz);
-				for (auto it = range.first; it != range.second; ++it) {
-					if (it->second == buf) {
-						// It will only be once, so remove and bail.
-						freeSizedBuffers_.erase(it);
-						break;
-					}
-				}
-			}
-			break;
-		}
-	}
-
-	if (unused == 0) {
-		size_t oldSize = bufferNameCache_.size();
-		bufferNameCache_.resize(oldSize + VERTEXCACHE_NAME_CACHE_SIZE);
-		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[oldSize]);
-
-		unused = bufferNameCache_[oldSize];
-	}
-
-	BufferNameInfo &info = bufferNameInfo_[unused];
-
-	// Record the change in size.
-	bufferNameCacheSize_ += sz - info.sz;
-	info.sz = sz;
-	info.used = true;
-	return unused;
-}
-
-void DrawEngineGLES::FreeBuffer(GLuint buf) {
-	// We can reuse buffers by setting new data on them, so let's actually keep it.
-	auto it = bufferNameInfo_.find(buf);
-	if (it != bufferNameInfo_.end()) {
-		it->second.used = false;
-		it->second.lastFrame = gpuStats.numFlips;
-
-		if (it->second.sz != 0) {
-			freeSizedBuffers_.insert(std::make_pair(it->second.sz, buf));
-		}
-	} else {
-		ERROR_LOG(G3D, "Unexpected buffer freed (%d) but not tracked", buf);
-	}
-}
-
 void DrawEngineGLES::FreeVertexArray(VertexArrayInfo *vai) {
 	if (vai->vbo) {
-		FreeBuffer(vai->vbo);
-		vai->vbo = 0;
+		render_->DeleteBuffer(vai->vbo);
+		vai->vbo = nullptr;
 	}
 	if (vai->ebo) {
-		FreeBuffer(vai->ebo);
-		vai->ebo = 0;
+		render_->DeleteBuffer(vai->ebo);
+		vai->ebo = nullptr;
 	}
 }
 
@@ -517,7 +414,6 @@ void DrawEngineGLES::DoFlush() {
 	uint32_t indexBufferOffset = 0;
 
 	if (vshader->UseHWTransform()) {
-		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
 		bool useElements = true;
 
@@ -611,31 +507,28 @@ void DrawEngineGLES::DoFlush() {
 						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
 						size_t vsz = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
-						vai->vbo = AllocateBuffer(vsz);
-						glstate.arrayBuffer.bind(vai->vbo);
-						glBufferData(GL_ARRAY_BUFFER, vsz, decoded, GL_STATIC_DRAW);
+						vai->vbo = render_->CreateBuffer(GL_ARRAY_BUFFER, vsz, GL_STATIC_DRAW);
+						render_->BufferSubdata(vai->vbo, 0, vsz, decoded);
+						render_->BindVertexBuffer(vai->vbo);
 						// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 						// there is no need for the index buffer we built. We can then use glDrawArrays instead
 						// for a very minor speed boost.
 						if (useElements) {
 							size_t esz = sizeof(short) * indexGen.VertexCount();
-							vai->ebo = AllocateBuffer(esz);
-							glstate.elementArrayBuffer.bind(vai->ebo);
-							glBufferData(GL_ELEMENT_ARRAY_BUFFER, esz, (GLvoid *)decIndex, GL_STATIC_DRAW);
+							vai->ebo = render_->CreateBuffer(GL_ARRAY_BUFFER, esz, GL_STATIC_DRAW);
+							render_->BufferSubdata(vai->ebo, 0, esz, (uint8_t *)decIndex, false);
 						} else {
 							vai->ebo = 0;
-							glstate.elementArrayBuffer.bind(vai->ebo);
+							render_->BindIndexBuffer(vai->ebo);
 						}
 					} else {
 						gpuStats.numCachedDrawCalls++;
-						glstate.arrayBuffer.bind(vai->vbo);
-						glstate.elementArrayBuffer.bind(vai->ebo);
 						useElements = vai->ebo ? true : false;
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
 						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					}
-					vbo = vai->vbo;
-					ebo = vai->ebo;
+					vertexBuffer = vai->vbo;
+					indexBuffer = vai->ebo;
 					vertexCount = vai->numVerts;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
@@ -650,10 +543,8 @@ void DrawEngineGLES::DoFlush() {
 					}
 					gpuStats.numCachedDrawCalls++;
 					gpuStats.numCachedVertsDrawn += vai->numVerts;
-					vbo = vai->vbo;
-					ebo = vai->ebo;
-					glstate.arrayBuffer.bind(vbo);
-					glstate.elementArrayBuffer.bind(ebo);
+					vertexBuffer = vai->vbo;
+					indexBuffer = vai->ebo;
 					vertexCount = vai->numVerts;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 
@@ -843,108 +734,12 @@ rotateVBO:
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-GLuint DrawEngineGLES::BindBuffer(const void *p, size_t sz) {
-	// Get a new buffer each time we need one.
-	GLuint buf = AllocateBuffer(sz);
-	glstate.arrayBuffer.bind(buf);
-
-	// These aren't used more than once per frame, so let's use GL_STREAM_DRAW.
-	glBufferData(GL_ARRAY_BUFFER, sz, p, GL_STREAM_DRAW);
-	buffersThisFrame_.push_back(buf);
-
-	return buf;
-}
-
-GLuint DrawEngineGLES::BindBuffer(const void *p1, size_t sz1, const void *p2, size_t sz2) {
-	GLuint buf = AllocateBuffer(sz1 + sz2);
-	glstate.arrayBuffer.bind(buf);
-
-	glBufferData(GL_ARRAY_BUFFER, sz1 + sz2, nullptr, GL_STREAM_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sz1, p1);
-	glBufferSubData(GL_ARRAY_BUFFER, sz1, sz2, p2);
-	buffersThisFrame_.push_back(buf);
-
-	return buf;
-}
-
-GLuint DrawEngineGLES::BindElementBuffer(const void *p, size_t sz) {
-	GLuint buf = AllocateBuffer(sz);
-	glstate.elementArrayBuffer.bind(buf);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sz, p, GL_STREAM_DRAW);
-	buffersThisFrame_.push_back(buf);
-
-	return buf;
-}
-
-void DrawEngineGLES::DecimateBuffers() {
-	for (GLuint buf : buffersThisFrame_) {
-		FreeBuffer(buf);
-	}
-	buffersThisFrame_.clear();
-
-	if (--bufferDecimationCounter_ <= 0) {
-		bufferDecimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-	} else {
-		return;
-	}
-
-	// Let's not keep too many around, will eat up memory.
-	// First check if there's any to free, and only check if it seems somewhat full.
-	bool hasOld = false;
-	if (bufferNameCacheSize_ > VERTEXCACHE_NAME_CACHE_FULL_BYTES) {
-		for (GLuint buf : bufferNameCache_) {
-			const BufferNameInfo &info = bufferNameInfo_[buf];
-			const int age = gpuStats.numFlips - info.lastFrame;
-			if (!info.used && age > VERTEXCACHE_NAME_CACHE_MAX_AGE) {
-				hasOld = true;
-				break;
-			}
-		}
-	}
-
-	if (hasOld) {
-		// Okay, it is.  Let's rebuild the array.
-		std::vector<GLuint> toFree;
-		std::vector<GLuint> toKeep;
-
-		toKeep.reserve(bufferNameCache_.size());
-
-		for (size_t i = 0, n = bufferNameCache_.size(); i < n; ++i)  {
-			const GLuint buf = bufferNameCache_[i];
-			const BufferNameInfo &info = bufferNameInfo_[buf];
-			const int age = gpuStats.numFlips - info.lastFrame;
-			if (!info.used && age > VERTEXCACHE_NAME_CACHE_MAX_AGE) {
-				toFree.push_back(buf);
-				bufferNameCacheSize_ -= bufferNameInfo_[buf].sz;
-				bufferNameInfo_.erase(buf);
-
-				// If we've removed all we want to this round, keep the rest and abort.
-				if (toFree.size() >= VERTEXCACHE_NAME_DECIMATION_MAX && i + 1 < bufferNameCache_.size()) {
-					toKeep.insert(toKeep.end(), bufferNameCache_.begin() + i + 1, bufferNameCache_.end());
-					break;
-				}
-			} else {
-				toKeep.push_back(buf);
-			}
-		}
-
-		if (!toFree.empty()) {
-			bufferNameCache_ = toKeep;
-			// TODO: Rebuild?
-			freeSizedBuffers_.clear();
-
-			glstate.arrayBuffer.unbind();
-			glstate.elementArrayBuffer.unbind();
-			glDeleteBuffers((GLsizei)toFree.size(), &toFree[0]);
-		}
-	}
-}
-
 bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
 void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
+	/*
 #ifndef USING_GLES2
 	if (isAllowTexture1D_) {
 		// Position
@@ -1041,4 +836,5 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 	}
 	glActiveTexture(GL_TEXTURE0);
 	CHECK_GL_ERROR_IF_DEBUG();
+	*/
 }

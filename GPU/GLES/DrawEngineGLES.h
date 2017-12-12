@@ -61,8 +61,8 @@ class VertexArrayInfo {
 public:
 	VertexArrayInfo() {
 		status = VAI_NEW;
-		vbo = 0;
-		ebo = 0;
+		vbo = nullptr;
+		ebo = nullptr;
 		prim = GE_PRIM_INVALID;
 		numDraws = 0;
 		numFrames = 0;
@@ -82,8 +82,8 @@ public:
 	ReliableHashType hash;
 	u32 minihash;
 
-	u32 vbo;
-	u32 ebo;
+	GLRBuffer *vbo;
+	GLRBuffer *ebo;
 
 	// Precalculated parameter for drawRangeElements
 	u16 numVerts;
@@ -119,7 +119,6 @@ public:
 	void SetFragmentTestCache(FragmentTestCacheGLES *testCache) {
 		fragmentTestCache_ = testCache;
 	}
-	void RestoreVAO();
 
 	void DeviceLost();
 	void DeviceRestore();
@@ -151,10 +150,12 @@ public:
 		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
 	}
 
-	GLuint BindBuffer(const void *p, size_t sz);
-	GLuint BindBuffer(const void *p1, size_t sz1, const void *p2, size_t sz2);
-	GLuint BindElementBuffer(const void *p, size_t sz);
-	void DecimateBuffers();
+	GLPushBuffer *GetPushVertexBuffer() {
+		return frameData_[render_->GetCurFrame()].pushVertex;
+	}
+	GLPushBuffer *GetPushIndexBuffer() {
+		return frameData_[render_->GetCurFrame()].pushIndex;
+	}
 
 	void ClearInputLayoutMap();
 
@@ -171,8 +172,6 @@ private:
 
 	void DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf);
 
-	GLuint AllocateBuffer(size_t sz);
-	void FreeBuffer(GLuint buf);
 	void FreeVertexArray(VertexArrayInfo *vai);
 
 	void MarkUnreliable(VertexArrayInfo *vai);
@@ -188,23 +187,7 @@ private:
 	DenseHashMap<uint32_t, GLRInputLayout *, nullptr> inputLayoutMap_;
 
 	GLRInputLayout *softwareInputLayout_ = nullptr;
-
-	// Vertex buffer objects
-	// Element buffer objects
-	struct BufferNameInfo {
-		BufferNameInfo() : sz(0), used(false), lastFrame(0) {}
-
-		size_t sz;
-		bool used;
-		int lastFrame;
-	};
 	GLRenderManager *render_;
-	std::vector<GLuint> bufferNameCache_;
-	std::multimap<size_t, GLuint> freeSizedBuffers_;
-	std::unordered_map<GLuint, BufferNameInfo> bufferNameInfo_;
-	std::vector<GLuint> buffersThisFrame_;
-	size_t bufferNameCacheSize_ = 0;
-	GLuint sharedVao_ = 0;
 
 	// Other
 	ShaderManagerGLES *shaderManager_ = nullptr;
@@ -218,15 +201,11 @@ private:
 	// Hardware tessellation
 	class TessellationDataTransferGLES : public TessellationDataTransfer {
 	private:
-		int data_tex[3];
+		GLRTexture *data_tex[3]{};
 		bool isAllowTexture1D_;
 	public:
-		TessellationDataTransferGLES(bool isAllowTexture1D) : TessellationDataTransfer(), data_tex(), isAllowTexture1D_(isAllowTexture1D) {
-			glGenTextures(3, (GLuint*)data_tex);
-		}
-		~TessellationDataTransferGLES() {
-			glDeleteTextures(3, (GLuint*)data_tex); 
-		}
+		TessellationDataTransferGLES(bool isAllowTexture1D) : TessellationDataTransfer(), isAllowTexture1D_(isAllowTexture1D) {	}
+		~TessellationDataTransferGLES() {	}
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
 	};
 };

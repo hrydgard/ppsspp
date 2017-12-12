@@ -42,7 +42,6 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Debugger/Stepping.h"
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
@@ -103,13 +102,14 @@ void FramebufferManagerGLES::CompileDraw2DProgram() {
 		static std::string vs_code, fs_code;
 		vs_code = ApplyGLSLPrelude(basic_vs, GL_VERTEX_SHADER);
 		fs_code = ApplyGLSLPrelude(tex_fs, GL_FRAGMENT_SHADER);
-		draw2dprogram_ = glsl_create_source(vs_code.c_str(), fs_code.c_str(), &errorString);
-		if (!draw2dprogram_) {
-			ERROR_LOG_REPORT(G3D, "Failed to compile draw2dprogram! This shouldn't happen.\n%s", errorString.c_str());
-		} else {
-			glsl_bind(draw2dprogram_);
-			glUniform1i(draw2dprogram_->sampler0, 0);
-		}
+		std::vector<GLRShader *> shaders;
+		GLRShader *vs = render_->CreateShader(GL_VERTEX_SHADER, vs_code);
+		GLRShader *fs = render_->CreateShader(GL_FRAGMENT_SHADER, fs_code);
+		std::vector<GLRProgram::UniformLocQuery> queries;
+		queries.push_back({ &u_draw2d_tex, "u_tex" });
+		std::vector<GLRProgram::Initializer> initializers;
+		initializers.push_back({ &u_draw2d_tex, 0 });
+		draw2dprogram_ = render_->CreateProgram(shaders, {}, queries, initializers, false);
 		CompilePostShader();
 	}
 }
@@ -156,7 +156,26 @@ void FramebufferManagerGLES::CompilePostShader() {
 		}
 
 		if (!translationFailed) {
-			postShaderProgram_ = glsl_create_source(vshader.c_str(), fshader.c_str(), &errorString);
+			SetNumExtraFBOs(1);
+
+			std::vector<GLRShader *> shaders;
+			shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vshader));
+			shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, fshader));
+			std::vector<GLRProgram::UniformLocQuery> queries;
+			queries.push_back({ &u_postShaderTex, "tex" });
+			queries.push_back({ &deltaLoc_, "u_texelDelta" });
+			queries.push_back({ &pixelDeltaLoc_, "u_pixelDelta" });
+			queries.push_back({ &timeLoc_, "u_time" });
+			queries.push_back({ &videoLoc_, "u_video" });
+
+			std::vector<GLRProgram::Initializer> inits;
+			inits.push_back({ &u_postShaderTex, 0, 0 });
+			postShaderProgram_ = render_->CreateProgram(shaders, {}, queries, inits, false);
+			render_->SetUniformI1(&u_postShaderTex, 0);
+
+			for (auto iter : shaders) {
+				render_->DeleteShader(iter);
+			}
 		} else {
 			ERROR_LOG(FRAMEBUF, "Failed to translate post shader!");
 		}
@@ -194,13 +213,6 @@ void FramebufferManagerGLES::CompilePostShader() {
 			}
 			usePostShader_ = false;
 		} else {
-			glsl_bind(postShaderProgram_);
-			glUniform1i(postShaderProgram_->sampler0, 0);
-			SetNumExtraFBOs(1);
-			deltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
-			pixelDeltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
-			timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
-			videoLoc_ = glsl_uniform_loc(postShaderProgram_, "u_video");
 			usePostShader_ = true;
 		}
 	} else {
@@ -211,7 +223,7 @@ void FramebufferManagerGLES::CompilePostShader() {
 }
 
 void FramebufferManagerGLES::Bind2DShader() {
-	glsl_bind(draw2dprogram_);
+	render_->BindProgram(draw2dprogram_);
 }
 
 void FramebufferManagerGLES::BindPostShader(const PostShaderUniforms &uniforms) {
@@ -219,20 +231,20 @@ void FramebufferManagerGLES::BindPostShader(const PostShaderUniforms &uniforms) 
 	if (!postShaderProgram_) {
 		CompileDraw2DProgram();
 	}
-
-	glsl_bind(postShaderProgram_);
+	render_->BindProgram(postShaderProgram_);
 	if (deltaLoc_ != -1)
-		glUniform2f(deltaLoc_, uniforms.texelDelta[0], uniforms.texelDelta[1]);
+		render_->SetUniformF(&deltaLoc_, 2, uniforms.texelDelta);
 	if (pixelDeltaLoc_ != -1)
-		glUniform2f(pixelDeltaLoc_, uniforms.pixelDelta[0], uniforms.pixelDelta[1]);
+		render_->SetUniformF(&pixelDeltaLoc_, 2, uniforms.pixelDelta);
 	if (timeLoc_ != -1)
-		glUniform4fv(timeLoc_, 1, uniforms.time);
+		render_->SetUniformF(&timeLoc_, 4, uniforms.time);
 	if (videoLoc_ != -1)
-		glUniform1f(videoLoc_, uniforms.video);
+		render_->SetUniformF(&videoLoc_, 1, &uniforms.video);
 }
 
-FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw) :
+FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render) :
 	FramebufferManagerCommon(draw),
+	render_(render),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf_(nullptr),
@@ -275,15 +287,25 @@ void FramebufferManagerGLES::SetDrawEngine(DrawEngineGLES *td) {
 
 void FramebufferManagerGLES::CreateDeviceObjects() {
 	CompileDraw2DProgram();
+
+	std::vector<GLRInputLayout::Entry> entries;
+	entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, sizeof(Simple2DVertex), offsetof(Simple2DVertex, pos) });
+	entries.push_back({ 0, 2, GL_FLOAT, GL_FALSE, sizeof(Simple2DVertex), offsetof(Simple2DVertex, uv) });
+	simple2DInputLayout_ = render_->CreateInputLayout(entries);
 }
 
 void FramebufferManagerGLES::DestroyDeviceObjects() {
+	if (simple2DInputLayout_) {
+		render_->DeleteInputLayout(simple2DInputLayout_);
+		simple2DInputLayout_ = nullptr;
+	}
+
 	if (draw2dprogram_) {
-		glsl_destroy(draw2dprogram_);
+		render_->DeleteProgram(draw2dprogram_);
 		draw2dprogram_ = nullptr;
 	}
 	if (postShaderProgram_) {
-		glsl_destroy(postShaderProgram_);
+		render_->DeleteProgram(postShaderProgram_);
 		postShaderProgram_ = nullptr;
 	}
 	if (drawPixelsTex_) {
@@ -291,7 +313,7 @@ void FramebufferManagerGLES::DestroyDeviceObjects() {
     drawPixelsTex_ = 0;
   }
 	if (stencilUploadProgram_) {
-		glsl_destroy(stencilUploadProgram_);
+		render_->DeleteProgram(stencilUploadProgram_);
 		stencilUploadProgram_ = nullptr;
 	}
 }
@@ -329,15 +351,10 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 		drawPixelsTexW_ = texWidth;
 		drawPixelsTexH_ = height;
 
-		/*
-		// Initialize backbuffer texture for DrawPixels
-		glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		render_->BindTexture(0, drawPixelsTex_);
+		render_->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 
+		/*
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		*/
 		drawPixelsTexFormat_ = srcPixelFormat;
@@ -392,7 +409,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 }
 
 void FramebufferManagerGLES::SetViewport2D(int x, int y, int w, int h) {
-	glstate.viewport.set(x, y, w, h);
+	render_->SetViewport({ (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f });
 }
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
@@ -405,7 +422,7 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 		u0,v1,
 	};
 
-	static const GLushort indices[4] = {0,1,3,2};
+	static const GLushort indices[4] = { 0,1,3,2 };
 
 	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
 		float temp[8];
@@ -424,9 +441,9 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 
 	float pos[12] = {
 		x,y,0,
-		x+w,y,0,
-		x+w,y+h,0,
-		x,y+h,0
+		x + w,y,0,
+		x + w,y + h,0,
+		x,y + h,0
 	};
 
 	float invDestW = 1.0f / (destW * 0.5f);
@@ -438,11 +455,9 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 
 	// Upscaling postshaders doesn't look well with linear
 	if (flags & DRAWTEX_LINEAR) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		render_->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
 	} else {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		render_->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 	}
 
 	const GLSLProgram *program = glsl_get_program();
@@ -450,30 +465,23 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 		ERROR_LOG(FRAMEBUF, "Trying to DrawActiveTexture() without a program");
 		return;
 	}
+	Simple2DVertex verts[4];
+	memcpy(verts[0].pos, &pos[0], 12);
+	memcpy(verts[1].pos, &pos[3], 12);
+	memcpy(verts[3].pos, &pos[6], 12);
+	memcpy(verts[2].pos, &pos[9], 12);
+	memcpy(verts[0].uv, &texCoords[0], 8);
+	memcpy(verts[1].uv, &texCoords[2], 8);
+	memcpy(verts[3].uv, &texCoords[4], 8);
+	memcpy(verts[2].uv, &texCoords[6], 8);
 
-	glEnableVertexAttribArray(program->a_position);
-	glEnableVertexAttribArray(program->a_texcoord0);
-	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-		drawEngineGL_->BindBuffer(pos, sizeof(pos), texCoords, sizeof(texCoords));
-		drawEngineGL_->BindElementBuffer(indices, sizeof(indices));
-		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
-		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, 0);
-	} else {
-		glstate.arrayBuffer.unbind();
-		glstate.elementArrayBuffer.unbind();
-		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
-	}
-	glDisableVertexAttribArray(program->a_position);
-	glDisableVertexAttribArray(program->a_texcoord0);
-}
-
-void FramebufferManagerGLES::RebindFramebuffer() {
-	FramebufferManagerCommon::RebindFramebuffer();
-	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE)
-		glstate.viewport.restore();
+	uint32_t bindOffset;
+	GLRBuffer *buffer;
+	void *dest = drawEngineGL_->GetPushVertexBuffer()->Push(sizeof(verts), &bindOffset, &buffer);
+	memcpy(dest, verts, sizeof(verts));
+	render_->BindVertexBuffer(buffer);
+	render_->BindInputLayout(simple2DInputLayout_, (void *)(intptr_t)bindOffset);
+	render_->Draw(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
@@ -514,17 +522,15 @@ void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, Virtu
 
 		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
 			// Let's only do this if not clearing depth.
-			glstate.scissorTest.force(false);
 			draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST);
 			dst->last_frame_depth_updated = gpuStats.numFlips;
-			glstate.scissorTest.restore();
 		}
 	}
 }
 
 void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
-		glBindTexture(GL_TEXTURE_2D, 0);
+		render_->BindTexture(0, nullptr);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		return;
 	}
@@ -691,7 +697,6 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		}
 	}
 
-	glstate.scissorTest.force(false);
 	if (useBlit) {
 		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
 	} else {
@@ -701,38 +706,21 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
 		CompileDraw2DProgram();
 
-		glstate.viewport.force(0, 0, dst->renderWidth, dst->renderHeight);
-		glstate.blend.force(false);
-		glstate.cullFace.force(false);
-		glstate.depthTest.force(false);
-		glstate.stencilTest.force(false);
-#if !defined(USING_GLES2)
-		glstate.colorLogicOp.force(false);
-#endif
-		glstate.colorMask.force(true, true, true, true);
-		glstate.stencilMask.force(0xFF);
+		render_->SetViewport({ 0, 0, (float)dst->renderWidth, (float)dst->renderHeight, 0, 1.0f });
+		render_->SetStencilDisabled();
+		render_->SetDepth(false, false, GL_ALWAYS);
+		render_->SetNoBlendAndMask(0xF);
 
 		// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
 		// Should maybe revamp that interface.
 		float srcW = src->bufferWidth;
 		float srcH = src->bufferHeight;
-		glsl_bind(draw2dprogram_);
+		render_->BindProgram(draw2dprogram_);
 		DrawActiveTexture(dstX1, dstY1, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY1 / srcH, srcX2 / srcW, srcY2 / srcH, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
-		glBindTexture(GL_TEXTURE_2D, 0);
 		textureCacheGL_->ForgetLastTexture();
-		glstate.viewport.restore();
-		glstate.blend.restore();
-		glstate.cullFace.restore();
-		glstate.depthTest.restore();
-		glstate.stencilTest.restore();
-#if !defined(USING_GLES2)
-		glstate.colorLogicOp.restore();
-#endif
-		glstate.colorMask.restore();
-		glstate.stencilMask.restore();
 	}
 
-	glstate.scissorTest.restore();
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 

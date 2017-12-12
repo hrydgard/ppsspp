@@ -122,7 +122,7 @@ public:
 			glDeleteBuffers(1, &buffer);
 		}
 	}
-	GLuint buffer;
+	GLuint buffer = 0;
 	GLuint target_;
 private:
 };
@@ -216,6 +216,8 @@ public:
 		return step.create_framebuffer.framebuffer;
 	}
 
+	// Can't replace uniform initializers with direct calls to SetUniform() etc because there might
+	// not be an active render pass.
 	GLRProgram *CreateProgram(
 		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
 		std::vector<GLRProgram::Initializer> initalizers, bool supportDualSource) {
@@ -395,6 +397,15 @@ public:
 		data.uniform4.loc = loc;
 		data.uniform4.count = count;
 		memcpy(data.uniform4.v, udata, sizeof(float) * count);
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetUniformF1(GLint *loc, const float udata) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		data.uniform4.loc = loc;
+		data.uniform4.count = 1;
+		memcpy(data.uniform4.v, &udata, sizeof(float));
 		curRenderStep_->commands.push_back(data);
 	}
 

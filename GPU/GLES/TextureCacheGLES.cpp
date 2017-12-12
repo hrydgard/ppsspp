@@ -401,6 +401,7 @@ public:
 	void Use(GLRenderManager *render, DrawEngineGLES *transformDraw) {
 		render->BindProgram(shader_->program);
 
+		/*
 		// Restore will rebind all of the state below.
 		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
 			static const GLubyte indices[4] = { 0, 1, 3, 2 };
@@ -412,11 +413,12 @@ public:
 		}
 		glEnableVertexAttribArray(shader_->a_position);
 		glEnableVertexAttribArray(shader_->a_texcoord0);
+		*/
 	}
 
 	void Shade() {
 		static const GLubyte indices[4] = { 0, 1, 3, 2 };
-
+		/*
 		glstate.blend.force(false);
 		glstate.colorMask.force(true, true, true, true);
 		glstate.scissorTest.force(false);
@@ -441,6 +443,7 @@ public:
 		glDisableVertexAttribArray(shader_->a_texcoord0);
 
 		glstate.Restore();
+		*/
 	}
 
 protected:
@@ -473,8 +476,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		render_->BindTexture(3, clutTexture);
 
 		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		render_->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 
 		shaderApply.Shade();
 
@@ -495,8 +497,6 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 
 	framebufferManagerGL_->RebindFramebuffer();
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
-
-	CHECK_GL_ERROR_IF_DEBUG();
 
 	InvalidateLastTexture();
 }
