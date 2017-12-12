@@ -53,7 +53,9 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		{
 			GLRProgram *program = step.create_program.program;
 			program->program = glCreateProgram();
+			_assert_msg_(G3D, step.create_program.num_shaders > 0, "Can't create a program with zero shaders");
 			for (int i = 0; i < step.create_program.num_shaders; i++) {
+				_dbg_assert_msg_(G3D, step.create_program.shaders[i]->shader, "Can't create a program with a null shader");
 				glAttachShader(program->program, step.create_program.shaders[i]->shader);
 			}
 
@@ -141,7 +143,9 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				glDeleteShader(shader);
 				shader = 0;
 				ILOG("%s Shader compile error:\n%s", step.create_shader.stage == GL_FRAGMENT_SHADER ? "Fragment" : "Vertex", infoLog);
+				step.create_shader.shader->valid = false;
 			}
+			step.create_shader.shader->valid = true;
 			break;
 		}
 		case GLRInitStepType::CREATE_INPUT_LAYOUT:
@@ -359,10 +363,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		case GLRRenderCommand::STENCILFUNC:
 			if (c.stencilFunc.enabled) {
 				glEnable(GL_STENCIL_TEST);
+				glStencilFunc(c.stencilFunc.func, c.stencilFunc.ref, c.stencilFunc.compareMask);
 			} else {
 				glDisable(GL_STENCIL_TEST);
 			}
-			glStencilFunc(c.stencilFunc.func, c.stencilFunc.ref, c.stencilFunc.compareMask);
 			break;
 		case GLRRenderCommand::STENCILOP:
 			glStencilOp(c.stencilOp.sFail, c.stencilOp.zFail, c.stencilOp.pass);

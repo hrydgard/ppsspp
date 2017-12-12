@@ -347,7 +347,7 @@ void DrawEngineGLES::ApplyDrawStateLate(bool setStencil, int stencilValue) {
 
 		// Apply last, once we know the alpha params of the texture.
 		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
-			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
+			fragmentTestCache_->BindTestTexture(2);
 		}
 	}
 }
