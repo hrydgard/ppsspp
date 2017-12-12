@@ -636,14 +636,14 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	if (views_.size()) {
 		if (orientation_ == ORIENT_HORIZONTAL) {
 			MeasureSpec v = MeasureSpec(AT_MOST, measuredHeight_ - margins.vert());
-			if (measuredHeight_ == 0.0f && layoutParams_->height == WRAP_CONTENT) {
+			if (measuredHeight_ == 0.0f && (vert.type == UNSPECIFIED || layoutParams_->height == WRAP_CONTENT)) {
 				v.type = UNSPECIFIED;
 			}
 			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v);
 			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
 		} else {
 			MeasureSpec h = MeasureSpec(AT_MOST, measuredWidth_ - margins.horiz());
-			if (measuredWidth_ == 0.0f && layoutParams_->width == WRAP_CONTENT) {
+			if (measuredWidth_ == 0.0f && (horiz.type == UNSPECIFIED || layoutParams_->width == WRAP_CONTENT)) {
 				h.type = UNSPECIFIED;
 			}
 			views_[0]->Measure(dc, h, MeasureSpec(UNSPECIFIED, measuredHeight_));
@@ -975,6 +975,19 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
 
+	MeasureViews(dc, horiz, vert);
+
+	const bool unspecifiedWidth = layoutParams_->width == WRAP_CONTENT && (overflow_ || horiz.type == UNSPECIFIED);
+	const bool unspecifiedHeight = layoutParams_->height == WRAP_CONTENT && (overflow_ || vert.type == UNSPECIFIED);
+	if (unspecifiedWidth || unspecifiedHeight) {
+		// Give everything another chance to size, given the new measurements.
+		MeasureSpec h = unspecifiedWidth ? MeasureSpec(AT_MOST, measuredWidth_) : horiz;
+		MeasureSpec v = unspecifiedHeight ? MeasureSpec(AT_MOST, measuredHeight_) : vert;
+		MeasureViews(dc, h, v);
+	}
+}
+
+void AnchorLayout::MeasureViews(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	for (size_t i = 0; i < views_.size(); i++) {
 		Size width = WRAP_CONTENT;
 		Size height = WRAP_CONTENT;
@@ -1013,6 +1026,11 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		views_[i]->Measure(dc, specW, specH);
+
+		if (layoutParams_->width == WRAP_CONTENT)
+			measuredWidth_ = std::max(measuredWidth_, views_[i]->GetMeasuredWidth());
+		if (layoutParams_->height == WRAP_CONTENT)
+			measuredHeight_ = std::max(measuredHeight_, views_[i]->GetMeasuredHeight());
 	}
 }
 
@@ -1128,7 +1146,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 	}
 	tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
 
-	contents_ = new AnchorLayout(new LinearLayoutParams(1.0f));
+	contents_ = new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	Add(contents_)->SetClip(true);
 }
 

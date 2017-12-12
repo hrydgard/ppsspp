@@ -133,6 +133,7 @@ public:
 	std::string Describe() const override { return "AnchorLayout: " + View::Describe(); }
 
 private:
+	void MeasureViews(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	bool overflow_;
 };
 
