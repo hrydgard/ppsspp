@@ -1128,7 +1128,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 	}
 	tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
 
-	contents_ = new AnchorLayout(new LinearLayoutParams(1.0f));
+	contents_ = new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	Add(contents_)->SetClip(true);
 }
 
