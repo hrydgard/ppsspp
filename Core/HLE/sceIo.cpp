@@ -1875,7 +1875,7 @@ static int sceIoChangeAsyncPriority(int id, int priority)
 		ERROR_LOG(SCEIO, "sceIoChangeAsyncPriority : Illegal Priority %i", priority);
 		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 	}
-	ERROR_LOG(SCEIO, "UNIMPL sceIoChangeAsyncPriority(%d, %d)", id, priority);
+	WARN_LOG(SCEIO, "UNIMPL sceIoChangeAsyncPriority(%d, %d)", id, priority);
 	return 0;
 }
 

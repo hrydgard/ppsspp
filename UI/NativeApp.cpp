@@ -847,7 +847,6 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	}
 
 	if (resized) {
-		ILOG("resized was set to true - resizing");
 		resized = false;
 
 		if (uiContext) {

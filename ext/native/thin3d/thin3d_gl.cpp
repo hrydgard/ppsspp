@@ -276,12 +276,10 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 class OpenGLShaderModule : public ShaderModule {
 public:
 	OpenGLShaderModule(ShaderStage stage) : stage_(stage) {
-		ILOG("Shader module created (%p)", this);
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
 
 	~OpenGLShaderModule() {
-		ILOG("Shader module destroyed (%p)", this);
 		if (shader_)
 			glDeleteShader(shader_);
 	}
