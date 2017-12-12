@@ -1,5 +1,4 @@
 #include "debugger_memorytex.h"
-#include "gfx/GLStateCache.h"
 #include "gfx/gl_common.h"
 #include "ui_debugger_memorytex.h"
 #include "Core/MemMap.h"

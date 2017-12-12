@@ -36,7 +36,6 @@
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/FramebufferCommon.h"
 
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -160,9 +159,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
 
-	// Some of our defaults are different from hw defaults, let's assert them.
-	// We restore each frame anyway, but here is convenient for tests.
-	glstate.Restore();
 	textureCacheGL_->NotifyConfigChanged();
 
 	// Load shader cache.
@@ -431,14 +427,6 @@ void GPU_GLES::Reinitialize() {
 }
 
 void GPU_GLES::InitClear() {
-	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
-	if (useNonBufferedRendering) {
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(0,0,0,1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	}
-	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void GPU_GLES::BeginHostFrame() {
@@ -497,7 +485,6 @@ void GPU_GLES::UpdateCmdInfo() {
 }
 
 void GPU_GLES::ReapplyGfxState() {
-	glstate.Restore();
 	GPUCommon::ReapplyGfxState();
 }
 
@@ -556,9 +543,6 @@ void GPU_GLES::CopyDisplayToOutput() {
 	drawEngine_.Flush();
 
 	shaderManagerGL_->DirtyLastShader();
-
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	framebufferManagerGL_->CopyDisplayToOutput();
 	framebufferManagerGL_->EndFrame();
@@ -768,8 +752,6 @@ void GPU_GLES::ClearShaderCache() {
 void GPU_GLES::CleanupBeforeUI() {
 	// Clear any enabled vertex arrays.
 	shaderManagerGL_->DirtyLastShader();
-	glstate.arrayBuffer.bind(0);
-	glstate.elementArrayBuffer.bind(0);
 }
 
 void GPU_GLES::DoState(PointerWrap &p) {

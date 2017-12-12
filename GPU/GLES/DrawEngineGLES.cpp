@@ -83,7 +83,6 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 #include "GPU/GLES/StateMappingGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
@@ -585,7 +584,7 @@ rotateVBO:
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		ApplyDrawStateLate();
+		ApplyDrawStateLate(false, 0);
 		
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
@@ -646,14 +645,11 @@ rotateVBO:
 			prim, vertexCount,
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
-		ApplyDrawStateLate();
+		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
-			if (result.setStencil) {
-				glstate.stencilFunc.set(GL_ALWAYS, result.stencilValue, 255);
-			}
 			const int vertexSize = sizeof(transformed[0]);
 
 			bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;

@@ -165,7 +165,7 @@ private:
 
 	void DoFlush();
 	void ApplyDrawState(int prim);
-	void ApplyDrawStateLate();
+	void ApplyDrawStateLate(bool setStencil, int stencilValue);
 	void ResetShaderBlending();
 
 	GLRInputLayout *SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt);

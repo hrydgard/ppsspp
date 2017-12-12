@@ -232,7 +232,6 @@
     <ClInclude Include="file\free.h" />
     <ClInclude Include="gfx\d3d9_shader.h" />
     <ClInclude Include="gfx\d3d9_state.h" />
-    <ClInclude Include="gfx\GLStateCache.h" />
     <ClInclude Include="gfx\gl_common.h" />
     <ClInclude Include="gfx\gl_debug_log.h" />
     <ClInclude Include="gfx\texture_atlas.h" />
@@ -693,7 +692,6 @@
     <ClCompile Include="file\free.cpp" />
     <ClCompile Include="gfx\d3d9_shader.cpp" />
     <ClCompile Include="gfx\d3d9_state.cpp" />
-    <ClCompile Include="gfx\GLStateCache.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
     <ClCompile Include="gfx\texture_atlas.cpp" />
     <ClCompile Include="gfx_es2\draw_text_android.cpp" />

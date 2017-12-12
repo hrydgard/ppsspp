@@ -32,7 +32,6 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GLES/GPU_GLES.h"
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -169,12 +168,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			bool colorMask = gstate.isClearModeColorMask();
 			bool alphaMask = gstate.isClearModeAlphaMask();
 			renderManager->SetNoBlendAndMask((colorMask ? 7 : 0) | (alphaMask ? 8 : 0));
-#ifndef USING_GLES2
-			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-				// Logic Ops
-				glstate.colorLogicOp.disable();
-			}
-#endif
 		} else {
 			// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
 			// to avoid recomputing heavy stuff unnecessarily every draw call.
@@ -280,7 +273,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			if (gstate.isClearModeDepthMask()) {
 				framebufferManager_->SetDepthUpdated();
 			}
-			renderManager->SetStencil(gstate.isClearModeAlphaMask() && enableStencilTest, GL_ALWAYS, GL_REPLACE, GL_REPLACE, GL_REPLACE, 0xFF, 0xFF, 0xFF);
+			renderManager->SetStencilFunc(gstate.isClearModeAlphaMask() && enableStencilTest, GL_ALWAYS, 0xFF, 0xFF);
+			renderManager->SetStencilOp(0xFF, GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			renderManager->SetDepth(true, gstate.isClearModeDepthMask() ? true : false, GL_ALWAYS);
 		} else {
 			// Depth Test
@@ -293,9 +287,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			ConvertStencilFuncState(stencilState);
 			// Stencil Test
 			if (stencilState.enabled) {
-				renderManager->SetStencil(stencilState.enabled, compareOps[stencilState.testFunc],
-					stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass],
-					stencilState.writeMask, stencilState.testMask, stencilState.testRef);
+				renderManager->SetStencilFunc(stencilState.enabled, compareOps[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+				renderManager->SetStencilOp(stencilState.writeMask, stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
 			} else {
 				renderManager->SetStencilDisabled();
 			}
@@ -332,7 +325,11 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	}
 }
 
-void DrawEngineGLES::ApplyDrawStateLate() {
+void DrawEngineGLES::ApplyDrawStateLate(bool setStencil, int stencilValue) {
+	if (setStencil) {
+		render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, stencilValue, 255);
+	}
+
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {

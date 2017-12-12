@@ -302,9 +302,6 @@
     <ClInclude Include="gfx\d3d9_state.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="gfx\GLStateCache.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
     <ClInclude Include="thin3d\d3d11_loader.h">
       <Filter>thin3d</Filter>
     </ClInclude>
@@ -773,9 +770,6 @@
       <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="gfx\d3d9_state.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx\GLStateCache.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="thin3d\d3d11_loader.cpp">

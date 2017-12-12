@@ -279,13 +279,24 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			glBlendColor(c.blendColor.color[0], c.blendColor.color[1], c.blendColor.color[2], c.blendColor.color[3]);
 			break;
 		case GLRRenderCommand::VIEWPORT:
+		{
+			float y = c.viewport.vp.y;
+			if (!curFramebuffer_)
+				y = curFBHeight_ - y - c.viewport.vp.h;
+
 			// TODO: Support FP viewports through glViewportArrays
-			glViewport((GLint)c.viewport.vp.x, (GLint)c.viewport.vp.y, (GLsizei)c.viewport.vp.w, (GLsizei)c.viewport.vp.h);
+			glViewport((GLint)c.viewport.vp.x, (GLint)y, (GLsizei)c.viewport.vp.w, (GLsizei)c.viewport.vp.h);
 			glDepthRange(c.viewport.vp.minZ, c.viewport.vp.maxZ);
 			break;
+		}
 		case GLRRenderCommand::SCISSOR:
-			glScissor(c.scissor.rc.x, c.scissor.rc.y, c.scissor.rc.w, c.scissor.rc.h);
+		{
+			int y = c.scissor.rc.y;
+			if (!curFramebuffer_)
+				y = curFBHeight_ - y - c.scissor.rc.h;
+			glScissor(c.scissor.rc.x, y, c.scissor.rc.w, c.scissor.rc.h);
 			break;
+		}
 		case GLRRenderCommand::UNIFORM4F:
 		{
 			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
@@ -345,24 +356,30 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			break;
 		}
-		case GLRRenderCommand::STENCIL:
-			if (c.stencil.enabled) {
+		case GLRRenderCommand::STENCILFUNC:
+			if (c.stencilFunc.enabled) {
 				glEnable(GL_STENCIL_TEST);
-				glStencilFunc(c.stencil.func, c.stencil.ref, c.stencil.compareMask);
-				glStencilOp(c.stencil.sFail, c.stencil.zFail, c.stencil.pass);
-				glStencilMask(c.stencil.writeMask);
 			} else {
 				glDisable(GL_STENCIL_TEST);
 			}
+			glStencilFunc(c.stencilFunc.func, c.stencilFunc.ref, c.stencilFunc.compareMask);
+			break;
+		case GLRRenderCommand::STENCILOP:
+			glStencilOp(c.stencilOp.sFail, c.stencilOp.zFail, c.stencilOp.pass);
+			glStencilMask(c.stencilOp.writeMask);
 			break;
 		case GLRRenderCommand::BINDTEXTURE:
 		{
-			GLint target = c.texture.slot;
-			if (target != activeTexture) {
-				glActiveTexture(GL_TEXTURE0 + target);
-				activeTexture = target;
+			GLint slot = c.texture.slot;
+			if (slot != activeTexture) {
+				glActiveTexture(GL_TEXTURE0 + slot);
+				activeTexture = slot;
 			}
-			glBindTexture(c.texture.texture->target, c.texture.texture->texture);
+			if (c.texture.texture) {
+				glBindTexture(c.texture.texture->target, c.texture.texture->texture);
+			} else {
+				glBindTexture(GL_TEXTURE_2D, 0);  // ?
+			}
 			break;
 		}
 		case GLRRenderCommand::BINDPROGRAM:
@@ -518,7 +535,13 @@ void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
 }
 
 void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
-	
+	if (pass.render.framebuffer) {
+		curFBWidth_ = pass.render.framebuffer->width;
+		curFBHeight_ = pass.render.framebuffer->height;
+	} else {
+		curFBWidth_ = targetWidth_;
+		curFBHeight_ = targetHeight_;
+	}
 }
 
 void GLQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
