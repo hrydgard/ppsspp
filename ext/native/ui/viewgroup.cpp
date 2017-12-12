@@ -975,6 +975,19 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
 
+	MeasureViews(dc, horiz, vert);
+
+	const bool unspecifiedWidth = layoutParams_->width == WRAP_CONTENT && (overflow_ || horiz.type == UNSPECIFIED);
+	const bool unspecifiedHeight = layoutParams_->height == WRAP_CONTENT && (overflow_ || vert.type == UNSPECIFIED);
+	if (unspecifiedWidth || unspecifiedHeight) {
+		// Give everything another chance to size, given the new measurements.
+		MeasureSpec h = unspecifiedWidth ? MeasureSpec(AT_MOST, measuredWidth_) : horiz;
+		MeasureSpec v = unspecifiedHeight ? MeasureSpec(AT_MOST, measuredHeight_) : vert;
+		MeasureViews(dc, h, v);
+	}
+}
+
+void AnchorLayout::MeasureViews(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	for (size_t i = 0; i < views_.size(); i++) {
 		Size width = WRAP_CONTENT;
 		Size height = WRAP_CONTENT;
@@ -1013,6 +1026,11 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		views_[i]->Measure(dc, specW, specH);
+
+		if (layoutParams_->width == WRAP_CONTENT)
+			measuredWidth_ = std::max(measuredWidth_, views_[i]->GetMeasuredWidth());
+		if (layoutParams_->height == WRAP_CONTENT)
+			measuredHeight_ = std::max(measuredHeight_, views_[i]->GetMeasuredHeight());
 	}
 }
 
