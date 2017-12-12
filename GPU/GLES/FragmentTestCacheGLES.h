@@ -65,7 +65,7 @@ public:
 		textureCache_ = tc;
 	}
 
-	void BindTestTexture(GLenum unit);
+	void BindTestTexture(int slot);
 
 	void Clear(bool deleteThem = true);
 	void Decimate();

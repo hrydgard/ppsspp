@@ -52,6 +52,7 @@ public:
 		}
 	}
 	GLuint shader = 0;
+	bool valid = false;
 };
 
 class GLRProgram {
@@ -116,7 +117,7 @@ public:
 
 class GLRBuffer {
 public:
-	GLRBuffer(GLuint target) : target_(target) {}
+	GLRBuffer(GLuint target, size_t size) : target_(target), size_((int)size) {}
 	~GLRBuffer() {
 		if (buffer) {
 			glDeleteBuffers(1, &buffer);
@@ -124,6 +125,7 @@ public:
 	}
 	GLuint buffer = 0;
 	GLuint target_;
+	int size_;
 private:
 };
 
@@ -192,7 +194,7 @@ public:
 
 	GLRBuffer *CreateBuffer(GLuint target, size_t size, GLuint usage) {
 		GLRInitStep step{ GLRInitStepType::CREATE_BUFFER };
-		step.create_buffer.buffer = new GLRBuffer(target);
+		step.create_buffer.buffer = new GLRBuffer(target, size);
 		step.create_buffer.size = (int)size;
 		step.create_buffer.usage = usage;
 		initSteps_.push_back(step);
@@ -227,6 +229,7 @@ public:
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
 		step.create_program.program->initialize_ = initalizers;
+		_assert_msg_(G3D, shaders.size() > 0, "Can't create a program with zero shaders");
 		for (int i = 0; i < shaders.size(); i++) {
 			step.create_program.shaders[i] = shaders[i];
 		}
@@ -283,6 +286,8 @@ public:
 		// TODO: Maybe should be a render command instead of an init command? When possible it's better as
 		// an init command, that's for sure.
 		GLRInitStep step{ GLRInitStepType::BUFFER_SUBDATA };
+		_dbg_assert_(G3D, offset >= 0);
+		_dbg_assert_(G3D, offset <= buffer->size_ - size);
 		step.buffer_subdata.buffer = buffer;
 		step.buffer_subdata.offset = offset;
 		step.buffer_subdata.size = size;
@@ -309,6 +314,7 @@ public:
 	void BindTexture(int slot, GLRTexture *tex) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BINDTEXTURE };
+		_dbg_assert_(G3D, slot < 16);
 		data.texture.slot = slot;
 		data.texture.texture = tex;
 		curRenderStep_->commands.push_back(data);
@@ -662,12 +668,12 @@ public:
 	// This will later allow for handling overflow correctly.
 	size_t Allocate(size_t numBytes, GLRBuffer **vkbuf) {
 		size_t out = offset_;
-		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
-
-		if (offset_ >= size_) {
+		if (offset_ + ((numBytes + 3) & ~3) >= size_) {
 			NextBuffer(numBytes);
 			out = offset_;
 			offset_ += (numBytes + 3) & ~3;
+		} else {
+			offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
 		}
 		*vkbuf = buffers_[buf_].buffer;
 		return out;

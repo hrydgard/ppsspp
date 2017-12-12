@@ -103,13 +103,16 @@ void FramebufferManagerGLES::CompileDraw2DProgram() {
 		vs_code = ApplyGLSLPrelude(basic_vs, GL_VERTEX_SHADER);
 		fs_code = ApplyGLSLPrelude(tex_fs, GL_FRAGMENT_SHADER);
 		std::vector<GLRShader *> shaders;
-		GLRShader *vs = render_->CreateShader(GL_VERTEX_SHADER, vs_code);
-		GLRShader *fs = render_->CreateShader(GL_FRAGMENT_SHADER, fs_code);
+		shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vs_code));
+		shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code));
+
 		std::vector<GLRProgram::UniformLocQuery> queries;
 		queries.push_back({ &u_draw2d_tex, "u_tex" });
 		std::vector<GLRProgram::Initializer> initializers;
 		initializers.push_back({ &u_draw2d_tex, 0 });
 		draw2dprogram_ = render_->CreateProgram(shaders, {}, queries, initializers, false);
+		for (auto shader : shaders)
+			render_->DeleteShader(shader);
 		CompilePostShader();
 	}
 }

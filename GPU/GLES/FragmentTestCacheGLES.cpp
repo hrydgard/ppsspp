@@ -37,7 +37,7 @@ FragmentTestCacheGLES::~FragmentTestCacheGLES() {
 	delete [] scratchpad_;
 }
 
-void FragmentTestCacheGLES::BindTestTexture(GLenum unit) {
+void FragmentTestCacheGLES::BindTestTexture(int slot) {
 	if (!g_Config.bFragmentTestCache) {
 		return;
 	}
@@ -58,7 +58,7 @@ void FragmentTestCacheGLES::BindTestTexture(GLenum unit) {
 			// Already bound, hurray.
 			return;
 		}
-		render_->BindTexture(unit, tex);
+		render_->BindTexture(slot, tex);
 		lastTexture_ = tex;
 		return;
 	}
@@ -78,7 +78,7 @@ void FragmentTestCacheGLES::BindTestTexture(GLenum unit) {
 
 	GLRTexture *tex = CreateTestTexture(funcs, refs, masks, valid);
 	lastTexture_ = tex;
-	render_->BindTexture(unit, tex);
+	render_->BindTexture(slot, tex);
 	FragmentTestTexture item;
 	item.lastFrame = gpuStats.numFlips;
 	item.texture = tex;
