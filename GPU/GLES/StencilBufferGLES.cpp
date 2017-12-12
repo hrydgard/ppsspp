@@ -17,7 +17,6 @@
 
 #include "gfx_es2/glsl_program.h"
 #include "Core/Reporting.h"
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
@@ -111,12 +110,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		}
 
 		// Let's not bother with the shader if it's just zero.
-		glstate.scissorTest.disable();
-		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
-		glClearColor(0, 0, 0, 0);
-		glClearStencil(0);
-		glClear(GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-
+		render_->Clear(0, 0, 0, GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 		return true;
 	}
@@ -150,8 +144,6 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 
 	DisableState();
 	render_->SetNoBlendAndMask(0x8);
-	glstate.stencilTest.enable();
-	glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
 
@@ -178,7 +170,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	textureCacheGL_->ForgetLastTexture();
 
 	render_->Clear(0, 0, 0, GL_STENCIL_BUFFER_BIT);
-	render_->SetStencil(GL_TRUE, GL_ALWAYS, GL_KEEP, GL_KEEP, GL_KEEP, 0xFF, 0xFF, 0xFF);
+	render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, 0xFF, 0xFF);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
@@ -186,18 +178,17 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 			continue;
 		}
 		if (dstBuffer->format == GE_FORMAT_4444) {
-			render_->SetStencil(GL_TRUE, GL_ALWAYS, GL_KEEP, GL_KEEP, GL_KEEP, (i << 4) | i, 0xFF, 0xFF);
+			render_->SetStencilOp((i << 4) | i, GL_KEEP, GL_KEEP, GL_KEEP);
 			render_->SetUniformF1(&u_stencilValue, i * (16.0f / 255.0f));
 		} else if (dstBuffer->format == GE_FORMAT_5551) {
-			glstate.stencilMask.set(0xFF);
+			render_->SetStencilOp(0xFF, GL_KEEP, GL_KEEP, GL_KEEP);
 			render_->SetUniformF1(&u_stencilValue, i * (128.0f / 255.0f));
 		} else {
-			render_->SetStencil(GL_TRUE, GL_ALWAYS, GL_KEEP, GL_KEEP, GL_KEEP, i, 0xFF, 0xFF);
+			render_->SetStencilOp(i, GL_KEEP, GL_KEEP, GL_KEEP);
 			render_->SetUniformF1(&u_stencilValue, i * (1.0f / 255.0f));
 		}
 		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
 	}
-	render_->SetStencil(GL_TRUE, GL_ALWAYS, GL_KEEP, GL_KEEP, GL_KEEP, 0xFF, 0xFF, 0xFF);
 
 	if (useBlit) {
 		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST);

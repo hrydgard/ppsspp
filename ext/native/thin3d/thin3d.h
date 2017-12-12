@@ -633,7 +633,7 @@ public:
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
 
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.
-	void SetTargetSize(int w, int h) {
+	virtual void SetTargetSize(int w, int h) {
 		targetWidth_ = w;
 		targetHeight_ = h;
 	}

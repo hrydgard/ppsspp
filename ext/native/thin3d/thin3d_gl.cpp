@@ -11,7 +11,6 @@
 #include "thin3d/thin3d.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
-#include "gfx/GLStateCache.h"
 #include "gfx_es2/gpu_features.h"
 
 #include "thin3d/GLRenderManager.h"
@@ -207,7 +206,8 @@ public:
 
 	void Apply(GLRenderManager *render) {
 		render->SetDepth(depthTestEnabled, depthWriteEnabled, depthComp);
-		render->SetStencil(stencilEnabled, stencilCompareOp, stencilFail, stencilZFail, stencilPass, stencilWriteMask, stencilCompareMask, stencilReference);
+		render->SetStencilFunc(stencilEnabled, stencilCompareOp, stencilReference, stencilCompareMask);
+		render->SetStencilOp(stencilWriteMask, stencilFail, stencilZFail, stencilPass);
 	}
 };
 
@@ -344,6 +344,11 @@ class OpenGLContext : public DrawContext {
 public:
 	OpenGLContext();
 	virtual ~OpenGLContext();
+
+	void SetTargetSize(int w, int h) override {
+		DrawContext::SetTargetSize(w, h);
+		renderManager_.Resize(w, h);
+	}
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;

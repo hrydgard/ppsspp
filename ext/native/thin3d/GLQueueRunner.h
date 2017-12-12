@@ -28,7 +28,8 @@ class GLRInputLayout;
 
 enum class GLRRenderCommand : uint8_t {
 	DEPTH,
-	STENCIL,
+	STENCILFUNC,
+	STENCILOP,
 	BLEND,
 	BLENDCOLOR,
 	UNIFORM4I,
@@ -77,13 +78,15 @@ struct GLRRenderData {
 		struct {
 			GLboolean enabled;
 			GLenum func;
-			uint8_t writeMask;
-			uint8_t compareMask;
 			uint8_t ref;
+			uint8_t compareMask;
+		} stencilFunc;
+		struct {
 			GLenum sFail;
 			GLenum zFail;
 			GLenum pass;
-		} stencil;
+			uint8_t writeMask;
+		} stencilOp;  // also write mask
 		struct {
 			GLenum mode;  // primitive
 			GLint buffer;
@@ -299,6 +302,10 @@ public:
 
 	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
+	void Resize(int width, int height) {
+		targetWidth_ = width;
+		targetHeight_ = height;
+	}
 private:
 	void PerformBindFramebufferAsRenderTarget(const GLRStep &pass);
 	void PerformRenderPass(const GLRStep &pass);
@@ -318,8 +325,10 @@ private:
 	GLuint globalVAO_;
 
 	GLint curFramebuffer_ = 0;
-	int curFBWidth_;
-	int curFBHeight_;
+	int curFBWidth_ = 0;
+	int curFBHeight_ = 0;
+	int targetWidth_ = 0;
+	int targetHeight_ = 0;
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.

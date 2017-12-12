@@ -23,7 +23,6 @@
 #include "Core/Reporting.h"
 #include "DepalettizeShaderGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
 #ifdef _WIN32

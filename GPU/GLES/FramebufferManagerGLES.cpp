@@ -1058,6 +1058,7 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 void FramebufferManagerGLES::Resized() {
 	FramebufferManagerCommon::Resized();
 
+	render_->Resize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 	if (UpdateSize()) {
 		DestroyAllFBOs();
 	}

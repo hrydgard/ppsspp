@@ -32,7 +32,6 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/FragmentShaderGeneratorGLES.h"
@@ -522,6 +521,10 @@ GLenum ToGLESFormat(ReplacedTextureFormat fmt) {
 
 void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
+
+	// Never replace images in-place - there's no such thing, drivers have to fake it anyway, at least if
+	// the image has been in use within the last frame or two.
+	replaceImages = false;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);

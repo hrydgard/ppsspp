@@ -880,8 +880,6 @@ add_library(native STATIC
 	ext/native/file/vfs.h
 	ext/native/file/zip_read.cpp
 	ext/native/file/zip_read.h
-	ext/native/gfx/GLStateCache.cpp
-	ext/native/gfx/GLStateCache.h
 	ext/native/gfx/gl_common.h
 	ext/native/gfx/gl_debug_log.cpp
 	ext/native/gfx/gl_debug_log.h

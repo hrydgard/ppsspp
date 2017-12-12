@@ -456,25 +456,31 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetStencil(bool enabled, GLenum func, GLenum sFail, GLenum zFail, GLenum pass, uint8_t writeMask, uint8_t compareMask, uint8_t refValue) {
+	void SetStencilFunc(bool enabled, GLenum func, uint8_t refValue, uint8_t compareMask) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::STENCIL };
-		data.stencil.enabled = enabled;
-		data.stencil.func = func;
-		data.stencil.sFail = sFail;
-		data.stencil.zFail = zFail;
-		data.stencil.pass = pass;
-		data.stencil.writeMask = writeMask;
-		data.stencil.compareMask = compareMask;
-		data.stencil.ref = refValue;
+		GLRRenderData data{ GLRRenderCommand::STENCILFUNC };
+		data.stencilFunc.enabled = enabled;
+		data.stencilFunc.func = func;
+		data.stencilFunc.ref = refValue;
+		data.stencilFunc.compareMask = compareMask;
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetStencilOp(uint8_t writeMask, GLenum sFail, GLenum zFail, GLenum pass) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::STENCILOP };
+		data.stencilOp.writeMask = writeMask;
+		data.stencilOp.sFail = sFail;
+		data.stencilOp.zFail = zFail;
+		data.stencilOp.pass = pass;
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetStencilDisabled() {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data;
-		data.cmd = GLRRenderCommand::STENCIL;
-		data.stencil.enabled = false;
+		data.cmd = GLRRenderCommand::STENCILFUNC;
+		data.stencilFunc.enabled = false;
 		curRenderStep_->commands.push_back(data);
 	}
 
@@ -546,6 +552,12 @@ public:
 		return curFrame_;
 	}
 
+	void Resize(int width, int height) {
+		targetWidth_ = width;
+		targetHeight_ = height;
+		queueRunner_.Resize(width, height);
+	}
+
 private:
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
@@ -601,6 +613,9 @@ private:
 	bool useThread_ = false;
 
 	int curFrame_ = 0;
+
+	int targetWidth_ = 0;
+	int targetHeight_ = 0;
 };
 
 
