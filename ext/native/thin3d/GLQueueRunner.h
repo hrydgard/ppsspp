@@ -318,6 +318,8 @@ private:
 	GLuint globalVAO_;
 
 	GLint curFramebuffer_ = 0;
+	int curFBWidth_;
+	int curFBHeight_;
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.

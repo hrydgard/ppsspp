@@ -99,16 +99,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				break;
 			}
 
-			// Auto-initialize samplers.
 			glUseProgram(program->program);
-			for (int i = 0; i < 4; i++) {
-				char temp[256];
-				sprintf(temp, "Sampler%i", i);
-				int samplerLoc = glGetUniformLocation(program->program, temp);
-				if (samplerLoc != -1) {
-					glUniform1i(samplerLoc, i);
-				}
-			}
 
 			// Query all the uniforms.
 			for (int i = 0; i < program->queries_.size(); i++) {

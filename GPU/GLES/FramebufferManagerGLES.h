@@ -51,7 +51,7 @@ struct AsyncPBO {
 
 class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:
-	FramebufferManagerGLES(Draw::DrawContext *draw);
+	FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render);
 	~FramebufferManagerGLES();
 
 	void SetTextureCache(TextureCacheGLES *tc);
@@ -82,7 +82,6 @@ public:
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
-	virtual void RebindFramebuffer() override;
 
 	void DeviceRestore(Draw::DrawContext *draw);
 
@@ -104,7 +103,6 @@ private:
 	void Bind2DShader() override;
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void CompileDraw2DProgram();
-	void DestroyDraw2DProgram();
 	void CompilePostShader();
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
@@ -121,18 +119,33 @@ private:
 
 	u8 *convBuf_;
 	u32 convBufSize_;
-	GLSLProgram *draw2dprogram_ = nullptr;
-	GLSLProgram *postShaderProgram_ = nullptr;
-	GLSLProgram *stencilUploadProgram_ = nullptr;
-	int plainColorLoc_;
-	int videoLoc_;
-	int timeLoc_;
-	int pixelDeltaLoc_;
-	int deltaLoc_;
+	GLRProgram *draw2dprogram_ = nullptr;
+	GLRProgram *postShaderProgram_ = nullptr;
+
+
+	GLRProgram *stencilUploadProgram_ = nullptr;
+	int u_stencilUploadTex = -1;
+	int u_stencilValue = -1;
+	int u_postShaderTex = -1;
+	
+	// Cached uniform locs
+	int u_draw2d_tex = -1;
+
+	int plainColorLoc_ = -1;
+	int videoLoc_ = -1;
+	int timeLoc_ = -1;
+	int pixelDeltaLoc_ = -1;
+	int deltaLoc_ = -1;
 
 	TextureCacheGLES *textureCacheGL_;
 	ShaderManagerGLES *shaderManagerGL_;
 	DrawEngineGLES *drawEngineGL_;
+
+	struct Simple2DVertex {
+		float pos[3];
+		float uv[2];
+	};
+	GLRInputLayout *simple2DInputLayout_;
 
 	// Not used under ES currently.
 	AsyncPBO *pixelBufObj_; //this isn't that large

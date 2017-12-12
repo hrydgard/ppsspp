@@ -206,7 +206,7 @@ public:
 			return vfb;
 		}
 	}
-	virtual void RebindFramebuffer();
+	void RebindFramebuffer();
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 	void CopyDisplayToOutput();

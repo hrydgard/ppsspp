@@ -86,7 +86,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	GLRenderManager *render = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	shaderManagerGL_ = new ShaderManagerGLES(render);
-	framebufferManagerGL_ = new FramebufferManagerGLES(draw);
+	framebufferManagerGL_ = new FramebufferManagerGLES(draw, render);
 	framebufferManager_ = framebufferManagerGL_;
 	textureCacheGL_ = new TextureCacheGLES(draw);
 	textureCache_ = textureCacheGL_;
@@ -163,7 +163,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
 	glstate.Restore();
-	drawEngine_.RestoreVAO();
 	textureCacheGL_->NotifyConfigChanged();
 
 	// Load shader cache.
@@ -498,7 +497,6 @@ void GPU_GLES::UpdateCmdInfo() {
 }
 
 void GPU_GLES::ReapplyGfxState() {
-	drawEngine_.RestoreVAO();
 	glstate.Restore();
 	GPUCommon::ReapplyGfxState();
 }
@@ -509,7 +507,6 @@ void GPU_GLES::BeginFrame() {
 
 	textureCacheGL_->StartFrame();
 	drawEngine_.DecimateTrackedVertexArrays();
-	drawEngine_.DecimateBuffers();
 	depalShaderCache_.Decimate();
 	fragmentTestCache_.Decimate();
 
