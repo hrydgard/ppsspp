@@ -37,6 +37,12 @@ enum WindowSystem {
 #ifdef __ANDROID__
 	WINDOWSYSTEM_ANDROID,
 #endif
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+	WINDOWSYSTEM_XLIB,
+#endif
+#ifdef VK_USE_PLATFORM_XCB_KHR
+	WINDOWSYSTEM_XCB,
+#endif
 };
 
 struct VulkanPhysicalDeviceInfo {
@@ -127,6 +133,7 @@ public:
 	// The parameters are whatever the chosen window system wants.
 	void InitSurface(WindowSystem winsys, void *data1, void *data2, int width = -1, int height = -1);
 	void ReinitSurface(int width = -1, int height = -1);
+
 	bool InitQueue();
 	bool InitObjects();
 	bool InitSwapchain();
@@ -238,16 +245,16 @@ private:
 	std::string init_error_;
 	std::vector<const char *> instance_layer_names_;
 	std::vector<LayerProperties> instance_layer_properties_;
-	
+
 	std::vector<const char *> instance_extensions_enabled_;
 	std::vector<VkExtensionProperties> instance_extension_properties_;
 
 	std::vector<const char *> device_layer_names_;
 	std::vector<LayerProperties> device_layer_properties_;
-	
+
 	std::vector<const char *> device_extensions_enabled_;
 	std::vector<VkExtensionProperties> device_extension_properties_;
-	
+
 	std::vector<VkPhysicalDevice> physical_devices_;
 
 	int physical_device_ = -1;

@@ -171,6 +171,8 @@ extern PFN_vkCmdExecuteCommands vkCmdExecuteCommands;
 extern PFN_vkCreateAndroidSurfaceKHR vkCreateAndroidSurfaceKHR;
 #elif defined(_WIN32)
 extern PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
+#elif defined(VK_USE_PLATFORM_XLIB_KHR)
+extern PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
 #endif
 
 extern PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR;

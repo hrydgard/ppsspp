@@ -165,6 +165,8 @@ PFN_vkCmdExecuteCommands vkCmdExecuteCommands;
 PFN_vkCreateAndroidSurfaceKHR vkCreateAndroidSurfaceKHR;
 #elif defined(_WIN32)
 PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
+#elif defined(VK_USE_PLATFORM_XLIB_KHR)
+PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
 #endif
 
 PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR;
@@ -374,7 +376,7 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 	LOAD_INSTANCE_FUNC(instance, vkCmdNextSubpass);
 	LOAD_INSTANCE_FUNC(instance, vkCmdEndRenderPass);
 	LOAD_INSTANCE_FUNC(instance, vkCmdExecuteCommands);
-	
+
 	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceSurfaceSupportKHR);
 	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
 	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceSurfaceFormatsKHR);
@@ -390,6 +392,8 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 	LOAD_INSTANCE_FUNC(instance, vkCreateWin32SurfaceKHR);
 #elif defined(__ANDROID__)
 	LOAD_INSTANCE_FUNC(instance, vkCreateAndroidSurfaceKHR);
+#elif defined(VK_USE_PLATFORM_XLIB_KHR)
+	LOAD_INSTANCE_FUNC(instance, vkCreateXlibSurfaceKHR);
 #endif
 
 	LOAD_INSTANCE_FUNC(instance, vkDestroySurfaceKHR);

@@ -13,12 +13,6 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 add_definitions(-D__STDC_CONSTANT_MACROS)
 
-# Of the CMake platforms, we only support Vulkan on Android and Windows.
-if(ANDROID OR WIN32)
-  set(VULKAN ON)
-else()
-  add_definitions(-DNO_VULKAN)
-endif()
 
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
   set(CLANG ON)
@@ -72,7 +66,14 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
-  set(ANDROID ON)
+	set(ANDROID ON)
+endif()
+
+# Of the CMake platforms, we only support Vulkan on Android and Windows.
+if(ANDROID OR WIN32 OR LINUX)
+  set(VULKAN ON)
+else()
+  add_definitions(-DNO_VULKAN)
 endif()
 
 if(NOT DEFINED HEADLESS)
@@ -84,6 +85,11 @@ if(GOLD)
 	message("Gold Build")
 else()
 	message("Normal Build")
+endif()
+
+if(LINUX)
+	message("Using direct to display extension...")
+	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
 endif()
 
 # Doesn't link on some platforms
@@ -112,6 +118,10 @@ option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" 
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
+
+# Vulkan on Linux options. If none of these are set, X11 is assumed.
+OPTION(USE_D2D_WSI "Build the project using Direct to Display swapchain" OFF)
+OPTION(USE_WAYLAND_WSI "Build the project using Wayland swapchain" OFF)
 
 if(ANDROID)
 	set(CoreLibName ppsspp_jni)

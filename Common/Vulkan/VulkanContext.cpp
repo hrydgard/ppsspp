@@ -109,6 +109,14 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	instance_extensions_enabled_.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__ANDROID__)
 	instance_extensions_enabled_.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+#elif defined(VK_USE_PLATFORM_XLIB_KHR)
+	instance_extensions_enabled_.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+	instance_extensions_enabled_.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+	instance_extensions.enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+#else
+	//...
 #endif
 
 	if (flags_ & VULKAN_FLAG_VALIDATE) {
@@ -631,6 +639,32 @@ void VulkanContext::ReinitSurface(int width, int height) {
 		break;
 	}
 #endif
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+	case WINDOWSYSTEM_XLIB:
+	{
+		VkXlibSurfaceCreateInfoKHR xlib = { VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR };
+		xlib.flags = 0;
+		xlib.dpy = (Display *)winsysData1_;
+		xlib.window = (Window)winsysData2_;
+		VkResult res = vkCreateXlibSurfaceKHR(instance_, &xlib, nullptr, &surface_);
+		assert(res == VK_SUCCESS);
+		break;
+	}
+
+#endif
+#if defined(VK_USE_PLATFORM_XCB_KHR)
+	case WINDOWSYSTEM_XCB:
+	{
+		VkXCBSurfaceCreateInfoKHR xcb = { VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR };
+		xcb.flags = 0;
+		xcb.connection = (Connection *)winsysData1_;
+		xcb.window = (Window)(uintptr_t)winsysData2_;
+		VkResult res = vkCreateXcbSurfaceKHR(instance_, &xcb, nullptr, &surface_);
+		assert(res == VK_SUCCESS);
+		break;
+	}
+#endif
+
 	default:
 		_assert_msg_(G3D, false, "Vulkan support for chosen window system not implemented");
 		break;

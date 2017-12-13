@@ -41,28 +41,156 @@ SDLJoystick *joystick = NULL;
 #include "base/NKCodeFromSDL.h"
 #include "util/const_map.h"
 #include "util/text/utf8.h"
+#include "util/text/parsers.h"
 #include "math/math_util.h"
+#include "Common/Vulkan/VulkanContext.h"
+#include "Common/Vulkan/VulkanDebug.h"
+
+#if !defined(USING_FBDEV)
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include "SDL_syswm.h"
+#endif
 
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Common/GraphicsContext.h"
 
-class GLDummyGraphicsContext : public DummyGraphicsContext {
+class SDLGLGraphicsContext : public DummyGraphicsContext {
 public:
-	GLDummyGraphicsContext() {
+	SDLGLGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
 		bool success = draw_->CreatePresets();
 		assert(success);
 	}
-	~GLDummyGraphicsContext() { delete draw_; }
+	~SDLGLGraphicsContext() {
+		delete draw_;
+	}
+
+	void Shutdown() override {
+	}
+
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
+
+private:
+	Draw::DrawContext *draw_ = nullptr;
+};
+
+static VulkanLogOptions g_LogOptions;
+
+class SDLVulkanGraphicsContext : public GraphicsContext {
+public:
+	SDLVulkanGraphicsContext() {}
+	~SDLVulkanGraphicsContext() {
+		delete draw_;
+	}
+
+	bool Init(SDL_Window *sdl_window, std::string *error_message) {
+		SDL_SysWMinfo sys_info;
+		SDL_VERSION(&sys_info.version); //Set SDL version
+		SDL_GetWindowWMInfo(sdl_window, &sys_info);
+
+		Display *display = sys_info.info.x11.display;
+		Window window = sys_info.info.x11.window;
+
+		init_glslang();
+
+		g_LogOptions.breakOnError = true;
+		g_LogOptions.breakOnWarning = true;
+		g_LogOptions.msgBoxOnError = false;
+
+		Version gitVer(PPSSPP_GIT_VERSION);
+
+		vulkan_ = new VulkanContext();
+		if (vulkan_->InitError().size()) {
+			*error_message = vulkan_->InitError();
+			delete vulkan_;
+			vulkan_ = nullptr;
+			return false;
+		}
+
+		int vulkanFlags = VULKAN_FLAG_PRESENT_MAILBOX;
+		// vulkanFlags |= VULKAN_FLAG_VALIDATE;
+		VulkanContext::CreateInfo info{};
+		info.app_name = "PPSSPP";
+		info.app_ver = gitVer.ToInteger();
+		info.flags = VULKAN_FLAG_PRESENT_MAILBOX;
+		if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
+			*error_message = vulkan_->InitError();
+			delete vulkan_;
+			vulkan_ = nullptr;
+			return false;
+		}
+		vulkan_->ChooseDevice(vulkan_->GetBestPhysicalDevice());
+		if (vulkan_->CreateDevice() != VK_SUCCESS) {
+			*error_message = vulkan_->InitError();
+			delete vulkan_;
+			vulkan_ = nullptr;
+			return false;
+		}
+
+		vulkan_->InitSurface(WINDOWSYSTEM_XLIB, (void *)display, (void *)(intptr_t)window, pixel_xres, pixel_yres);
+
+		if (!vulkan_->InitObjects()) {
+			*error_message = vulkan_->InitError();
+			Shutdown();
+			return false;
+		}
+
+		draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
+		bool success = draw_->CreatePresets();
+		assert(success);
+		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+
+		return true;
+	}
+
+	void Shutdown() override {
+		if (draw_)
+			draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+		delete draw_;
+		draw_ = nullptr;
+		vulkan_->WaitUntilQueueIdle();
+		vulkan_->DestroyObjects();
+		vulkan_->DestroyDevice();
+		vulkan_->DestroyDebugMsgCallback();
+		vulkan_->DestroyInstance();
+		delete vulkan_;
+		vulkan_ = nullptr;
+		finalize_glslang();
+	}
+
+	void SwapBuffers() override {
+		// We don't do it this way.
+	}
+
+	void Resize() override {
+		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+		vulkan_->DestroyObjects();
+		// TODO: Take from real window dimensions
+		int width = 1024;
+		int height = 768;
+		vulkan_->ReinitSurface(width, height);
+		vulkan_->InitObjects();
+		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+	}
+
+	void SwapInterval(int interval) override {
+	}
+	void *GetAPIContext() override {
+		return vulkan_;
+	}
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
 private:
-	Draw::DrawContext *draw_;
+	Draw::DrawContext *draw_ = nullptr;
+	VulkanContext *vulkan_ = nullptr;
 };
 
 GlobalUIState lastUIState = UISTATE_MENU;
@@ -78,11 +206,6 @@ static int g_DesktopHeight = 0;
 
 #if defined(USING_EGL)
 #include "EGL/egl.h"
-
-#if !defined(USING_FBDEV)
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#endif
 
 #include "SDL_syswm.h"
 #include "math.h"
@@ -419,11 +542,53 @@ void ToggleFullScreenIfFlagSet() {
 #undef main
 #endif
 int main(int argc, char *argv[]) {
+	glslang::InitializeProcess();
+
 #if PPSSPP_PLATFORM(RPI)
 	bcm_host_init();
 #endif
 	putenv((char*)"SDL_VIDEO_CENTERED=1");
 	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+
+	int set_xres = -1;
+	int set_yres = -1;
+	bool portrait = false;
+	bool set_ipad = false;
+	float set_dpi = 1.0f;
+	float set_scale = 1.0f;
+
+	// Produce a new set of arguments with the ones we skip.
+	int remain_argc = 1;
+	const char *remain_argv[256] = { argv[0] };
+
+	Uint32 mode = 0;
+	for (int i = 1; i < argc; i++) {
+		if (!strcmp(argv[i],"--fullscreen"))
+			mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+		else if (set_xres == -2)
+			set_xres = parseInt(argv[i]);
+		else if (set_yres == -2)
+			set_yres = parseInt(argv[i]);
+		else if (set_dpi == -2)
+			set_dpi = parseFloat(argv[i]);
+		else if (set_scale == -2)
+			set_scale = parseFloat(argv[i]);
+		else if (!strcmp(argv[i],"--xres"))
+			set_xres = -2;
+		else if (!strcmp(argv[i],"--yres"))
+			set_yres = -2;
+		else if (!strcmp(argv[i],"--dpi"))
+			set_dpi = -2;
+		else if (!strcmp(argv[i],"--scale"))
+			set_scale = -2;
+		else if (!strcmp(argv[i],"--ipad"))
+			set_ipad = true;
+		else if (!strcmp(argv[i],"--portrait"))
+			portrait = true;
+		else {
+			remain_argv[remain_argc++] = argv[i];
+		}
+	}
 
 	std::string app_name;
 	std::string app_name_nice;
@@ -464,50 +629,11 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetSwapInterval(1);
 
-	Uint32 mode;
 #ifdef USING_GLES2
-	mode = SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN;
+	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN;
 #else
-	mode = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
 #endif
-	int set_xres = -1;
-	int set_yres = -1;
-	bool portrait = false;
-	bool set_ipad = false;
-	float set_dpi = 1.0f;
-	float set_scale = 1.0f;
-
-	// Produce a new set of arguments with the ones we skip.
-	int remain_argc = 1;
-	const char *remain_argv[256] = { argv[0] };
-
-	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i],"--fullscreen"))
-			mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-		else if (set_xres == -2)
-			set_xres = parseInt(argv[i]);
-		else if (set_yres == -2)
-			set_yres = parseInt(argv[i]);
-		else if (set_dpi == -2)
-			set_dpi = parseFloat(argv[i]);
-		else if (set_scale == -2)
-			set_scale = parseFloat(argv[i]);
-		else if (!strcmp(argv[i],"--xres"))
-			set_xres = -2;
-		else if (!strcmp(argv[i],"--yres"))
-			set_yres = -2;
-		else if (!strcmp(argv[i],"--dpi"))
-			set_dpi = -2;
-		else if (!strcmp(argv[i],"--scale"))
-			set_scale = -2;
-		else if (!strcmp(argv[i],"--ipad"))
-			set_ipad = true;
-		else if (!strcmp(argv[i],"--portrait"))
-			portrait = true;
-		else {
-			remain_argv[remain_argc++] = argv[i];
-		}
-	}
 
 	// Is resolution is too low to run windowed
 	if (g_DesktopWidth < 480 * 2 && g_DesktopHeight < 272 * 2) {
@@ -695,9 +821,21 @@ int main(int argc, char *argv[]) {
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
-	glslang::InitializeProcess();
-
-	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
+	GraphicsContext *graphicsContext;
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		graphicsContext = new SDLGLGraphicsContext();
+	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
+		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
+		std::string error_message;
+		if (!ctx->Init(g_Screen, &error_message)) {
+			printf("Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
+			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+			delete ctx;
+			graphicsContext = new SDLGLGraphicsContext();
+		} else {
+			graphicsContext = ctx;
+		}
+	}
 	NativeInitGraphics(graphicsContext);
 
 	NativeResized();
@@ -946,26 +1084,21 @@ int main(int argc, char *argv[]) {
 	delete joystick;
 #endif
 	NativeShutdownGraphics();
+	SDL_GL_DeleteContext(glContext);
 	graphicsContext->Shutdown();
 	NativeShutdown();
 	delete graphicsContext;
-	glslang::FinalizeProcess();
-	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
-	// The speed difference is only really noticable on Linux. On Windows you do notice it though
-#ifndef MOBILE_DEVICE
-	exit(0);
-#endif
+
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
 #ifdef USING_EGL
 	EGL_Close();
 #endif
-	SDL_GL_DeleteContext(glContext);
 	SDL_Quit();
 #if PPSSPP_PLATFORM(RPI)
 	bcm_host_deinit();
 #endif
 
-	exit(0);
+	glslang::FinalizeProcess();
 	return 0;
 }
