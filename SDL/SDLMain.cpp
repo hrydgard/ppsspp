@@ -3,24 +3,12 @@
 // Note: SDL1.2 implementation is deprecated and will soon be replaced by SDL2.0.
 // If your platform is not supported, it is suggested to use Qt instead.
 
-#ifdef _WIN32
-#pragma warning(disable:4091)  // workaround bug in VS2015 headers
-
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#include <shlobj.h>
-#include <shlwapi.h>
-#include <ShellAPI.h>
-#else
 #include <unistd.h>
 #include <pwd.h>
-#endif
 
 #include "SDL.h"
-#ifndef _WIN32
 #include "SDL/SDLJoystick.h"
 SDLJoystick *joystick = NULL;
-#endif
 
 #if PPSSPP_PLATFORM(RPI)
 #include <bcm_host.h>
@@ -28,6 +16,7 @@ SDLJoystick *joystick = NULL;
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -45,8 +34,9 @@ SDLJoystick *joystick = NULL;
 #include "math/math_util.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanDebug.h"
+#include "math.h"
 
-#if !defined(USING_FBDEV)
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include "SDL_syswm.h"
@@ -59,7 +49,7 @@ SDLJoystick *joystick = NULL;
 
 class SDLGLGraphicsContext : public DummyGraphicsContext {
 public:
-	SDLGLGraphicsContext() {
+	SDLGLGraphicsContext(SDL_Window *window) : window_(window) {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
 		bool success = draw_->CreatePresets();
@@ -72,12 +62,21 @@ public:
 	void Shutdown() override {
 	}
 
+	void SwapBuffers() override {
+#ifdef USING_EGL
+		eglSwapBuffers(g_eglDisplay, g_eglSurface);
+#else
+		SDL_GL_SwapWindow(window_);
+#endif
+	}
+
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
+	SDL_Window *window_;
 };
 
 static VulkanLogOptions g_LogOptions;
@@ -196,7 +195,6 @@ private:
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 
-static SDL_Window* g_Screen = NULL;
 static bool g_ToggleFullScreenNextFrame = false;
 static int g_ToggleFullScreenType;
 static int g_QuitRequested = 0;
@@ -206,9 +204,6 @@ static int g_DesktopHeight = 0;
 
 #if defined(USING_EGL)
 #include "EGL/egl.h"
-
-#include "SDL_syswm.h"
-#include "math.h"
 
 static EGLDisplay               g_eglDisplay    = NULL;
 static EGLContext               g_eglContext    = NULL;
@@ -522,11 +517,11 @@ static float parseFloat(const char *str) {
 	}
 }
 
-void ToggleFullScreenIfFlagSet() {
+void ToggleFullScreenIfFlagSet(SDL_Window *window) {
 	if (g_ToggleFullScreenNextFrame) {
 		g_ToggleFullScreenNextFrame = false;
 
-		Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
+		Uint32 window_flags = SDL_GetWindowFlags(window);
 		if (g_ToggleFullScreenType == -1) {
 			window_flags ^= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		} else if (g_ToggleFullScreenType == 1) {
@@ -534,7 +529,7 @@ void ToggleFullScreenIfFlagSet() {
 		} else {
 			window_flags &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
 		}
-		SDL_SetWindowFullscreen(g_Screen, window_flags);
+		SDL_SetWindowFullscreen(window, window_flags);
 	}
 }
 
@@ -678,12 +673,6 @@ int main(int argc, char *argv[]) {
 	dp_xres = (float)pixel_xres * dpi_scale;
 	dp_yres = (float)pixel_yres * dpi_scale;
 
-#ifdef _MSC_VER
-	// VFSRegister("temp/", new DirectoryAssetReader("E:\\Temp\\"));
-	TCHAR path[MAX_PATH];
-	SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, path);
-	PathAppend(path, (app_name + "\\").c_str());
-#else
 	// Mac / Linux
 	char path[2048];
 	const char *the_path = getenv("HOME");
@@ -695,13 +684,8 @@ int main(int argc, char *argv[]) {
 	strcpy(path, the_path);
 	if (path[strlen(path)-1] != '/')
 		strcat(path, "/");
-#endif
 
-#ifdef _WIN32
-	NativeInit(remain_argc, (const char **)remain_argv, path, "D:\\", nullptr);
-#else
 	NativeInit(remain_argc, (const char **)remain_argv, path, "/tmp", nullptr);
-#endif
 
 	// Use the setting from the config when initing the window.
 	if (g_Config.bFullScreen)
@@ -723,6 +707,7 @@ int main(int argc, char *argv[]) {
 #endif
 	};
 
+	SDL_Window *window = nullptr;
 	SDL_GLContext glContext = nullptr;
 	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
 		const auto &ver = attemptVersions[i];
@@ -738,13 +723,14 @@ int main(int argc, char *argv[]) {
 		SetGLCoreContext(true);
 #endif
 
-		g_Screen = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
-		if (g_Screen == nullptr) {
+		window = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
+		if (!window) {
+			NativeShutdown();
 			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 			continue;
 		}
 
-		glContext = SDL_GL_CreateContext(g_Screen);
+		glContext = SDL_GL_CreateContext(window);
 		if (glContext != nullptr) {
 			// Victory, got one.
 			break;
@@ -752,7 +738,7 @@ int main(int argc, char *argv[]) {
 
 		// Let's keep trying.  To be safe, destroy the window - docs say needed to change profile.
 		// in practice, it doesn't seem to matter, but maybe it differs by platform.
-		SDL_DestroyWindow(g_Screen);
+		SDL_DestroyWindow(window);
 	}
 
 	if (glContext == nullptr) {
@@ -761,15 +747,15 @@ int main(int argc, char *argv[]) {
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 		SetGLCoreContext(false);
 
-		g_Screen = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
-		if (g_Screen == nullptr) {
+		window = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
+		if (window == nullptr) {
 			NativeShutdown();
 			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 			SDL_Quit();
 			return 2;
 		}
 
-		glContext = SDL_GL_CreateContext(g_Screen);
+		glContext = SDL_GL_CreateContext(window);
 		if (glContext == nullptr) {
 			NativeShutdown();
 			fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
@@ -782,7 +768,7 @@ int main(int argc, char *argv[]) {
 	EGL_Init();
 #endif
 
-	SDL_SetWindowTitle(g_Screen, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
+	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
 #ifdef MOBILE_DEVICE
 	SDL_ShowCursor(SDL_DISABLE);
@@ -823,15 +809,15 @@ int main(int argc, char *argv[]) {
 
 	GraphicsContext *graphicsContext;
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
-		graphicsContext = new SDLGLGraphicsContext();
+		graphicsContext = new SDLGLGraphicsContext(window);
 	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
 		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
 		std::string error_message;
-		if (!ctx->Init(g_Screen, &error_message)) {
+		if (!ctx->Init(window, &error_message)) {
 			printf("Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
 			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
 			delete ctx;
-			graphicsContext = new SDLGLGraphicsContext();
+			graphicsContext = new SDLGLGraphicsContext(window);
 		} else {
 			graphicsContext = ctx;
 		}
@@ -866,18 +852,14 @@ int main(int argc, char *argv[]) {
 
 	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
-#ifndef _WIN32
 	if (joystick_enabled) {
 		joystick = new SDLJoystick();
 	} else {
 		joystick = nullptr;
 	}
-#endif
 	EnableFZ();
 
 	int framecount = 0;
-	float t = 0;
-	float lastT = 0;
 	bool mouseDown = false;
 
 	while (true) {
@@ -896,7 +878,7 @@ int main(int argc, char *argv[]) {
 				switch (event.window.event) {
 				case SDL_WINDOWEVENT_RESIZED:
 				{
-					Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
+					Uint32 window_flags = SDL_GetWindowFlags(window);
 					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 
 					pixel_xres = event.window.data1;
@@ -1038,11 +1020,9 @@ int main(int argc, char *argv[]) {
 				}
 				break;
 			default:
-#ifndef _WIN32
 				if (joystick) {
 					joystick->ProcessInput(event);
 				}
-#endif
 				break;
 			}
 		}
@@ -1066,23 +1046,13 @@ int main(int argc, char *argv[]) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
 
-#ifdef USING_EGL
-		eglSwapBuffers(g_eglDisplay, g_eglSurface);
-#else
-		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0) {
-			SDL_GL_SwapWindow(g_Screen);
-			lastT = t;
-		}
-#endif
+		graphicsContext->SwapBuffers();
 
-		ToggleFullScreenIfFlagSet();
+		ToggleFullScreenIfFlagSet(window);
 		time_update();
-		t = time_now();
 		framecount++;
 	}
-#ifndef _WIN32
 	delete joystick;
-#endif
 	NativeShutdownGraphics();
 	SDL_GL_DeleteContext(glContext);
 	graphicsContext->Shutdown();
