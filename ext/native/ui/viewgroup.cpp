@@ -1162,7 +1162,7 @@ void TabHolder::AddTabContents(const std::string &title, View *tabContents) {
 	tabTweens_.push_back(nullptr);
 }
 
-void TabHolder::SetCurrentTab(int tab) {
+void TabHolder::SetCurrentTab(int tab, bool skipTween) {
 	if (tab >= (int)tabs_.size()) {
 		// Ignore
 		return;
@@ -1190,18 +1190,24 @@ void TabHolder::SetCurrentTab(int tab) {
 		setupTween(tabs_[tab], tabTweens_[tab]);
 
 		// Currently displayed, so let's reset it.
-		tabTweens_[currentTab_]->Reset(Point(0.0f, 0.0f));
-
-		if (orient == ORIENT_HORIZONTAL) {
-			tabTweens_[tab]->Reset(Point(bounds_.w * dir, 0.0f));
-			tabTweens_[currentTab_]->Divert(Point(bounds_.w * -dir, 0.0f));
+		if (skipTween) {
+			tabs_[currentTab_]->SetVisibility(V_GONE);
+			tabTweens_[tab]->Reset(Point(0.0f, 0.0f));
+			tabTweens_[tab]->Apply(tabs_[tab]);
 		} else {
-			tabTweens_[tab]->Reset(Point(0.0f, bounds_.h * dir));
-			tabTweens_[currentTab_]->Divert(Point(0.0f, bounds_.h * -dir));
+			tabTweens_[currentTab_]->Reset(Point(0.0f, 0.0f));
+
+			if (orient == ORIENT_HORIZONTAL) {
+				tabTweens_[tab]->Reset(Point(bounds_.w * dir, 0.0f));
+				tabTweens_[currentTab_]->Divert(Point(bounds_.w * -dir, 0.0f));
+			} else {
+				tabTweens_[tab]->Reset(Point(0.0f, bounds_.h * dir));
+				tabTweens_[currentTab_]->Divert(Point(0.0f, bounds_.h * -dir));
+			}
+			// Actually move it to the initial position now, just to avoid any flicker.
+			tabTweens_[tab]->Apply(tabs_[tab]);
+			tabTweens_[tab]->Divert(Point(0.0f, 0.0f));
 		}
-		// Actually move it to the initial position now, just to avoid any flicker.
-		tabTweens_[tab]->Apply(tabs_[tab]);
-		tabTweens_[tab]->Divert(Point(0.0f, 0.0f));
 		tabs_[tab]->SetVisibility(V_VISIBLE);
 
 		currentTab_ = tab;
@@ -1235,7 +1241,7 @@ void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap
 
 	case PERSIST_RESTORE:
 		if (buffer.size() == 1) {
-			SetCurrentTab(buffer[0]);
+			SetCurrentTab(buffer[0], true);
 		}
 		break;
 	}

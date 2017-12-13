@@ -1077,7 +1077,7 @@ public:
 		return true;
 #else
 		ptrdiff_t diff = GetCodePtr() - (const uint8_t *)ptr;
-		return diff > -0x7FFFFFFF && diff < 0x7FFFFFFF;
+		return diff > -0x7FFFFFE0 && diff < 0x7FFFFFE0;
 #endif
 	}
 };
