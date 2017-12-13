@@ -1,6 +1,7 @@
 #include <cassert>
 
 #include "GLRenderManager.h"
+#include "gfx_es2/gpu_features.h"
 #include "thread/threadutil.h"
 #include "base/logging.h"
 
@@ -10,10 +11,6 @@
 #define VLOG(...)
 #endif
 
-void GLCreateImage(GLRImage &img, int width, int height, GLuint format, bool color) {
-
-}
-
 void GLDeleter::Perform() {
 	for (auto shader : shaders) {
 		delete shader;
@@ -21,7 +18,18 @@ void GLDeleter::Perform() {
 	for (auto program : programs) {
 		delete program;
 	}
-	// ..
+	for (auto buffer : buffers) {
+		delete buffer;
+	}
+	for (auto texture : textures) {
+		delete texture;
+	}
+	for (auto inputLayout : inputLayouts) {
+		delete inputLayout;
+	}
+	for (auto framebuffer : framebuffers) {
+		delete framebuffer;
+	}
 }
 
 GLRenderManager::GLRenderManager() {
