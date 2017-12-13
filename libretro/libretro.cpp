@@ -1184,11 +1184,17 @@ void retro_run(void)
 	      bool success = libretro_draw->CreatePresets();
 	      assert(success);
 
-	      if(!PSP_Init(coreParam, &error_string))
+	      bool bootPending_ = !PSP_Init(coreParam, &error_string);
+
+	      if(!bootPending_)
 	      {
-		      if (log_cb)
-			      log_cb(RETRO_LOG_ERROR, "PSP_Init() failed: %s.\n", error_string.c_str());
-		      environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
+		      _initialized = !PSP_IsInited();
+		      if (_initialized)
+		      {
+			      if (log_cb)
+				      log_cb(RETRO_LOG_ERROR, "PSP_Init() failed: %s.\n", error_string.c_str());
+			      environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
+		      }
 	      }
 
 	      host->BootDone();
