@@ -310,7 +310,7 @@ public:
 		return tabContents;
 	}
 
-	void SetCurrentTab(int tab);
+	void SetCurrentTab(int tab, bool skipTween = false);
 
 	int GetCurrentTab() const { return currentTab_; }
 	std::string Describe() const override { return "TabHolder: " + View::Describe(); }
