@@ -328,6 +328,8 @@ if(VULKAN)
 		Common/Vulkan/SPIRVDisasm.h
 		Common/Vulkan/VulkanContext.cpp
 		Common/Vulkan/VulkanContext.h
+		Common/Vulkan/VulkanDebug.cpp
+		Common/Vulkan/VulkanDebug.h
 		Common/Vulkan/VulkanImage.cpp
 		Common/Vulkan/VulkanImage.h
 		Common/Vulkan/VulkanLoader.cpp

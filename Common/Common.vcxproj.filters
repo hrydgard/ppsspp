@@ -75,6 +75,7 @@
     </ClInclude>
     <ClInclude Include="OSVersion.h" />
     <ClInclude Include="Hashmaps.h" />
+    <ClInclude Include="Vulkan\VulkanDebug.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -138,6 +139,7 @@
     <ClCompile Include="MemArenaAndroid.cpp" />
     <ClCompile Include="MemArenaDarwin.cpp" />
     <ClCompile Include="OSVersion.cpp" />
+    <ClCompile Include="Vulkan\VulkanDebug.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
