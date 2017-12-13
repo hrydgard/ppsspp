@@ -799,13 +799,13 @@ void MainScreen::CreateViews() {
 		tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 
 		if (g_Config.recentIsos.size() > 0) {
-			leftColumn->SetCurrentTab(0);
+			tabHolder_->SetCurrentTab(0, true);
 		} else if (g_Config.iMaxRecent > 0) {
-			leftColumn->SetCurrentTab(1);
+			tabHolder_->SetCurrentTab(1, true);
 		}
 
 		if (backFromStore_ || showHomebrewTab) {
-			leftColumn->SetCurrentTab(2);
+			tabHolder_->SetCurrentTab(2, true);
 			backFromStore_ = false;
 			showHomebrewTab = false;
 		}
@@ -1224,9 +1224,9 @@ void UmdReplaceScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
 	if (g_Config.recentIsos.size() > 0) {
-		leftColumn->SetCurrentTab(0);
+		leftColumn->SetCurrentTab(0, true);
 	} else if (g_Config.iMaxRecent > 0) {
-		leftColumn->SetCurrentTab(1);
+		leftColumn->SetCurrentTab(1, true);
 	}
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
