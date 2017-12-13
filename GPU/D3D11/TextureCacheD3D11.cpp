@@ -407,7 +407,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-		TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, GetClutDestFormatD3D11(clutFormat), clutTotalColors, clutTotalColors, 1);
+		TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, GetClutDestFormatD3D11(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
@@ -557,7 +557,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry, bool replaceIma
 		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
 	}
 	if (replaced.Valid()) {
-		entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
+		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 	}
 }
 
@@ -602,7 +602,7 @@ DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFo
 	}
 }
 
-TexCacheEntry::Status TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h) {
+TexCacheEntry::TexStatus TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case DXGI_FORMAT_B4G4R4A4_UNORM:
@@ -620,7 +620,7 @@ TexCacheEntry::Status TextureCacheD3D11::CheckAlpha(const u32 *pixelData, u32 ds
 		break;
 	}
 
-	return (TexCacheEntry::Status)res;
+	return (TexCacheEntry::TexStatus)res;
 }
 
 ReplacedTextureFormat FromD3D11Format(u32 fmt) {
@@ -721,7 +721,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 
 		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
+			TexCacheEntry::TexStatus alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
 			entry.SetAlphaStatus(alphaStatus, level);
 		} else {
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);

@@ -77,14 +77,14 @@ namespace Reporting
 	// Returns true if that identifier has not been logged yet.
 	bool ShouldLogOnce(const char *identifier);
 
-	enum class Status {
+	enum class ReportStatus {
 		WORKING,
 		BUSY,
 		FAILING,
 	};
 
 	// Whether server requests appear to be working.
-	Status GetStatus();
+	ReportStatus GetStatus();
 
 	// Return the currently active host (or blank if not active.)
 	std::string ServerHost();
