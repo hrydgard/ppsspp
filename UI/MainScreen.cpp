@@ -734,12 +734,12 @@ void MainScreen::CreateViews() {
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	tabHolder_ = leftColumn;
 	tabHolder_->SetTag("MainScreenGames");
 	gameBrowsers_.clear();
 
-	leftColumn->SetClip(true);
+	tabHolder_->SetClip(true);
 
 	bool showRecent = g_Config.iMaxRecent > 0;
 	bool hasStorageAccess = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED;
@@ -756,7 +756,7 @@ void MainScreen::CreateViews() {
 		scrollRecentGames->Add(tabRecentGames);
 		gameBrowsers_.push_back(tabRecentGames);
 
-		leftColumn->AddTab(mm->T("Recent"), scrollRecentGames);
+		tabHolder_->AddTab(mm->T("Recent"), scrollRecentGames);
 		tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 		tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 		tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
@@ -786,8 +786,8 @@ void MainScreen::CreateViews() {
 		scrollHomebrew->Add(tabHomebrew);
 		gameBrowsers_.push_back(tabHomebrew);
 
-		leftColumn->AddTab(mm->T("Games"), scrollAllGames);
-		leftColumn->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
+		tabHolder_->AddTab(mm->T("Games"), scrollAllGames);
+		tabHolder_->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
 
 		tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 		tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
@@ -815,11 +815,11 @@ void MainScreen::CreateViews() {
 		buttonHolder->Add(new Button(mm->T("Give PPSSPP permission to access storage"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Handle(this, &MainScreen::OnAllowStorage);
 		buttonHolder->Add(new Spacer(new LinearLayoutParams(1.0f)));
 
-		leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
+		leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
 		leftColumn->Add(buttonHolder);
 		leftColumn->Add(new Spacer(10.0f));
 		leftColumn->Add(new TextView(mm->T("PPSSPP can't load games or save right now"), ALIGN_HCENTER, false));
-		leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
+		leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
 	}
 
 /* if (info) {
@@ -869,12 +869,10 @@ void MainScreen::CreateViews() {
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.75));
-		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
 		root_ = new LinearLayout(ORIENT_HORIZONTAL);
-		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 		root_->Add(leftColumn);
 		root_->Add(rightColumn);
