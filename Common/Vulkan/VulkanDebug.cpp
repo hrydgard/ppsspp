@@ -17,7 +17,6 @@
 
 #include <string>
 #include <cassert>
-#include <iostream>
 #include <sstream>
 
 #include "Common/Vulkan/VulkanContext.h"
@@ -95,7 +94,7 @@ VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObje
 		}
 	}
 #else
-	std::cout << message;
+	ILOG("%s", message.str().c_str());
 #endif
 
 	// false indicates that layer should not bail-out of an
