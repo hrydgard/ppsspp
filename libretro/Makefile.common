@@ -1,0 +1,580 @@
+FFMPEGDIR		= $(CORE_DIR)/ffmpeg
+LIBRETRODIR		= $(CORE_DIR)/libretro
+COREDIR			= $(CORE_DIR)/Core
+COMMONDIR		= $(CORE_DIR)/Common
+GPUCOMMONDIR		= $(CORE_DIR)/GPU/Common
+GPUDIR			= $(CORE_DIR)/GPU
+EXTDIR			= $(CORE_DIR)/ext
+NATIVEDIR		= $(EXTDIR)/native
+
+INCFLAGS += \
+	-I$(CORE_DIR) \
+	-I$(COMMONDIR) \
+	-I$(CORE_DIR)/libretro \
+	-I$(EXTDIR)/native \
+	-I$(EXTDIR)/zlib \
+	-I$(EXTDIR)/snappy \
+	-I$(FFMPEGDIR) \
+	$(FFMPEGINCFLAGS) \
+	-I$(EXTDIR)/cityhash \
+	-I$(EXTDIR)/armips \
+	-I$(NATIVEDIR)/ext/libzip \
+	-I$(NATIVEDIR)/ext \
+	-I$(NATIVEDIR) \
+	-I$(EXTDIR)/libkirk \
+	-I$(EXTDIR)/xbrz \
+	-I$(EXTDIR)/xxhash
+
+INCFLAGS  += -I$(NATIVEDIR)/ext/rg_etc1
+#INCFLAGS += -I$(NATIVEDIR)/ext/stb_vorbis
+
+SOURCES_C += $(EXTDIR)/glew/glew_libretro.c
+INCFLAGS += -I$(EXTDIR)/glew
+
+SOURCES_CXX += $(NATIVEDIR)/ext/rg_etc1/rg_etc1.cpp
+SOURCES_CXX += $(EXTDIR)/snappy/snappy-c.cpp
+#SOURCES_C   += $(NATIVEDIR)/ext/stb_vorbis/stb_vorbis.c
+SOURCES_C    += $(NATIVEDIR)/ext/libpng17/png.c
+SOURCES_C   += $(EXTDIR)/sfmt19937/SFMT.c
+SOURCES_CXX += $(NATIVEDIR)/ext/vjson/json.cpp \
+	       $(NATIVEDIR)/ext/vjson/block_allocator.cpp
+SOURCES_CXX += $(EXTDIR)/snappy/snappy.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libpng17/pngerror.c
+SOURCES_C    += $(NATIVEDIR)/ext/libpng17/pngget.c \
+				 $(NATIVEDIR)/ext/libzip/zip_name_locate.c
+SOURCES_C   += $(NATIVEDIR)/ext/libpng17/pngmem.c \
+				$(NATIVEDIR)/ext/libpng17/pngpread.c
+SOURCES_CXX += $(NATIVEDIR)/ext/cityhash/city.cpp
+SOURCES_CXX += $(COMMONDIR)/ChunkFile.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libpng17/pngread.c
+SOURCES_CXX += $(COMMONDIR)/ConsoleListener.cpp \
+				$(COMMONDIR)/Crypto/md5.cpp \
+				$(COMMONDIR)/Crypto/sha1.cpp \
+				$(COMMONDIR)/Crypto/sha256.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libzip/mkstemp.c
+SOURCES_CXX += $(COMMONDIR)/FileUtil.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libzip/zip_add.c \
+				$(EXTDIR)/libkirk/AES.c \
+				$(NATIVEDIR)/ext/libzip/zip_add_dir.c
+SOURCES_CXX += $(COMMONDIR)/KeyMap.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libzip/zip_close.c
+SOURCES_CXX += $(COMMONDIR)/LogManager.cpp
+SOURCES_C   += $(EXTDIR)/libkirk/amctrl.c \
+				$(NATIVEDIR)/ext/libpng17/pngrio.c \
+				$(NATIVEDIR)/ext/libpng17/pngrtran.c \
+				$(NATIVEDIR)/ext/libzip/zip_delete.c \
+				$(NATIVEDIR)/ext/libzip/zip_dirent.c \
+				$(EXTDIR)/libkirk/SHA1.c \
+				$(NATIVEDIR)/ext/libzip/zip_entry_free.c \
+				$(NATIVEDIR)/ext/libzip/zip_entry_new.c
+SOURCES_C   += $(NATIVEDIR)/ext/libzip/zip_err_str.c \
+				$(NATIVEDIR)/ext/libzip/zip_error.c \
+				$(NATIVEDIR)/ext/libzip/zip_error_clear.c \
+				$(NATIVEDIR)/ext/libzip/zip_error_get.c
+SOURCES_CXX += $(COMMONDIR)/MemoryUtil.cpp
+SOURCES_C   += $(EXTDIR)/libkirk/bn.c \
+				$(NATIVEDIR)/ext/libzip/zip_error_get_sys_type.c \
+				$(NATIVEDIR)/ext/libzip/zip_error_strerror.c \
+				$(EXTDIR)/libkirk/ec.c \
+				$(NATIVEDIR)/ext/libzip/zip_error_to_str.c \
+				$(NATIVEDIR)/ext/libzip/zip_fclose.c
+SOURCES_CXX += $(COMMONDIR)/Misc.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libzip/zip_file_error_clear.c
+SOURCES_CXX += $(COMMONDIR)/MsgHandler.cpp
+SOURCES_C   += $(EXTDIR)/libkirk/kirk_engine.c \
+				$(NATIVEDIR)/ext/libzip/zip_file_error_get.c \
+				$(NATIVEDIR)/ext/libzip/zip_file_get_offset.c \
+				$(NATIVEDIR)/ext/libzip/zip_file_strerror.c
+SOURCES_CXX += $(COMMONDIR)/StringUtils.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libzip/zip_filerange_crc.c \
+				$(NATIVEDIR)/ext/libzip/zip_fopen.c
+SOURCES_CXX += $(EXTDIR)/xbrz/xbrz.cpp \
+				$(COMMONDIR)/ThreadPools.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libzip/zip_fopen_index.c \
+				$(NATIVEDIR)/ext/libzip/zip_fread.c \
+				$(NATIVEDIR)/ext/libzip/zip_free.c
+SOURCES_CXX += $(COMMONDIR)/Timer.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libzip/zip_get_archive_comment.c \
+				$(NATIVEDIR)/ext/libzip/zip_get_archive_flag.c \
+				$(NATIVEDIR)/ext/libpng17/pngrutil.c \
+				$(NATIVEDIR)/ext/libzip/zip_get_file_comment.c \
+				$(NATIVEDIR)/ext/libpng17/pngset.c \
+				$(NATIVEDIR)/ext/libzip/zip_get_name.c \
+				$(NATIVEDIR)/ext/libzip/zip_get_num_files.c \
+				$(NATIVEDIR)/ext/libzip/zip_memdup.c \
+				$(NATIVEDIR)/ext/libzip/zip_new.c \
+				$(NATIVEDIR)/ext/libzip/zip_open.c \
+				$(NATIVEDIR)/ext/libzip/zip_rename.c \
+				$(NATIVEDIR)/ext/libpng17/pngtest.c \
+				$(NATIVEDIR)/ext/libzip/zip_replace.c \
+				$(EXTDIR)/xxhash.c \
+				$(NATIVEDIR)/ext/libzip/zip_set_archive_comment.c \
+				$(NATIVEDIR)/ext/libzip/zip_set_archive_flag.c \
+				$(NATIVEDIR)/ext/libzip/zip_set_file_comment.c \
+				$(NATIVEDIR)/ext/libzip/zip_set_name.c \
+				$(NATIVEDIR)/ext/libzip/zip_source_buffer.c \
+				$(NATIVEDIR)/ext/libzip/zip_source_file.c \
+				$(NATIVEDIR)/ext/libzip/zip_source_filep.c \
+				$(NATIVEDIR)/ext/libpng17/pngtrans.c \
+				$(NATIVEDIR)/ext/libzip/zip_source_free.c
+SOURCES_CXX += $(GPUCOMMONDIR)/VertexDecoderCommon.cpp \
+	       $(GPUCOMMONDIR)/GPUStateUtils.cpp \
+	       $(GPUCOMMONDIR)/DrawEngineCommon.cpp \
+	       $(GPUCOMMONDIR)/SplineCommon.cpp \
+	       $(GPUCOMMONDIR)/FramebufferCommon.cpp \
+	       $(GPUCOMMONDIR)/ShaderId.cpp \
+	       $(GPUCOMMONDIR)/ShaderCommon.cpp \
+	       $(GPUCOMMONDIR)/ShaderTranslation.cpp \
+	       $(GPUCOMMONDIR)/GPUDebugInterface.cpp \
+	       $(GPUCOMMONDIR)/DepalettizeShaderCommon.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libzip/zip_source_function.c \
+				$(NATIVEDIR)/ext/libzip/zip_source_zip.c \
+				$(NATIVEDIR)/ext/libzip/zip_stat.c \
+				$(NATIVEDIR)/ext/libzip/zip_stat_index.c \
+				$(NATIVEDIR)/ext/libpng17/pngwio.c \
+				$(NATIVEDIR)/ext/libzip/zip_stat_init.c \
+				$(NATIVEDIR)/ext/libpng17/pngwrite.c \
+				$(NATIVEDIR)/ext/libzip/zip_strerror.c \
+				$(NATIVEDIR)/ext/libzip/zip_unchange.c \
+				$(NATIVEDIR)/ext/libzip/zip_unchange_all.c
+SOURCES_CXX += $(GPUCOMMONDIR)/TransformCommon.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libpng17/pngwtran.c \
+				$(NATIVEDIR)/ext/libzip/zip_unchange_archive.c \
+				$(NATIVEDIR)/ext/libzip/zip_unchange_data.c
+SOURCES_CXX += $(GPUCOMMONDIR)/IndexGenerator.cpp
+SOURCES_C   += $(NATIVEDIR)/ext/libpng17/pngwutil.c
+SOURCES_CXX += $(GPUCOMMONDIR)/TextureDecoder.cpp \
+				$(GPUCOMMONDIR)/PostShader.cpp \
+				$(COMMONDIR)/ColorConv.cpp \
+				$(GPUDIR)/Debugger/Breakpoints.cpp \
+				$(GPUDIR)/Debugger/Stepping.cpp \
+				$(GPUDIR)/Debugger/Record.cpp \
+				$(GPUDIR)/Common/TextureCacheCommon.cpp \
+				$(GPUDIR)/Common/TextureScalerCommon.cpp \
+				$(GPUDIR)/Common/SoftwareTransformCommon.cpp \
+				$(GPUDIR)/Common/StencilCommon.cpp \
+				$(GPUDIR)/Software/TransformUnit.cpp \
+				$(GPUDIR)/Software/SoftGpu.cpp \
+				$(GPUDIR)/Software/Sampler.cpp \
+				$(GPUDIR)/GeDisasm.cpp \
+				$(GPUDIR)/GPUCommon.cpp \
+				$(GPUDIR)/GPU.cpp \
+				$(GPUDIR)/GPUState.cpp \
+				$(GPUDIR)/Math3D.cpp \
+				$(GPUDIR)/Null/NullGpu.cpp \
+				$(GPUDIR)/Software/Clipper.cpp \
+				$(GPUDIR)/Software/Lighting.cpp \
+				$(GPUDIR)/Software/Rasterizer.cpp \
+				$(GPUDIR)/GLES/DepalettizeShaderGLES.cpp \
+				$(GPUDIR)/GLES/VertexShaderGeneratorGLES.cpp \
+				$(GPUDIR)/GLES/DrawEngineGLES.cpp \
+				$(GPUDIR)/GLES/GPU_GLES.cpp \
+				$(GPUDIR)/GLES/FragmentShaderGeneratorGLES.cpp \
+				$(GPUDIR)/GLES/FragmentTestCacheGLES.cpp \
+				$(GPUDIR)/GLES/FramebufferManagerGLES.cpp \
+				$(GPUDIR)/GLES/TextureCacheGLES.cpp \
+				$(GPUDIR)/GLES/TextureScalerGLES.cpp \
+				$(GPUDIR)/GLES/ShaderManagerGLES.cpp \
+				$(GPUDIR)/GLES/StateMappingGLES.cpp \
+				$(GPUDIR)/GLES/StencilBufferGLES.cpp \
+				$(EXTDIR)/native/base/backtrace.cpp \
+				$(EXTDIR)/native/base/buffer.cpp \
+				$(EXTDIR)/native/base/colorutil.cpp \
+				$(EXTDIR)/native/base/display.cpp \
+				$(EXTDIR)/native/base/stringutil.cpp \
+				$(EXTDIR)/native/base/logging.cpp \
+				$(EXTDIR)/native/base/timeutil.cpp \
+				$(EXTDIR)/native/data/compression.cpp \
+				$(EXTDIR)/glslang/OGLCompilersDLL/InitializeDll.cpp \
+				$(EXTDIR)/glslang/glslang/GenericCodeGen/CodeGen.cpp \
+				$(EXTDIR)/glslang/glslang/GenericCodeGen/Link.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/preprocessor/Pp.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/preprocessor/PpAtom.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/preprocessor/PpContext.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/preprocessor/PpScanner.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/preprocessor/PpTokens.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/Constant.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/InfoSink.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/Initialize.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/Intermediate.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/IntermTraverse.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/ParseContextBase.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/ParseHelper.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/PoolAlloc.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/RemoveTree.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/Scan.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/ShaderLang.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/SymbolTable.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/Versions.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/glslang_tab.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/intermOut.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/iomapper.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/limits.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/linkValidate.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/parseConst.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/propagateNoContraction.cpp \
+				$(EXTDIR)/glslang/glslang/MachineIndependent/reflection.cpp \
+				$(EXTDIR)/glslang/SPIRV/InReadableOrder.cpp \
+				$(EXTDIR)/glslang/SPIRV/GlslangToSpv.cpp \
+				$(EXTDIR)/glslang/SPIRV/Logger.cpp \
+				$(EXTDIR)/glslang/SPIRV/SpvBuilder.cpp \
+				$(EXTDIR)/SPIRV-Cross/spirv_cfg.cpp \
+				$(EXTDIR)/SPIRV-Cross/spirv_cross.cpp \
+				$(EXTDIR)/SPIRV-Cross/spirv_glsl.cpp
+
+ifeq ($(PLATFORM_EXT), win32)
+SOURCES_CXX += $(COMMONDIR)/MemArenaWin32.cpp \
+	       $(EXTDIR)/glslang/glslang/OSDependent/Windows/ossource.cpp \
+	       $(NATIVEDIR)/gfx_es2/draw_text_win.cpp
+else ifeq ($(PLATFORM_EXT), darwin)
+SOURCES_CXX += $(COMMONDIR)/MemArenaDarwin.cpp
+else ifeq ($(PLATFORM_EXT), android)
+SOURCES_CXX += $(COMMONDIR)/MemArenaAndroid.cpp
+else
+SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
+	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
+endif
+
+SOURCES_C   += $(NATIVEDIR)/gfx_es2/gl3stub.c \
+				$(NATIVEDIR)/math/fast/fast_math.c \
+				$(NATIVEDIR)/math/fast/fast_matrix.c
+SOURCES_CXX += $(EXTDIR)/native/file/chunk_file.cpp \
+	       $(NATIVEDIR)/math/dataconv.cpp \
+	       $(NATIVEDIR)/file/fd_util.cpp \
+	       $(NATIVEDIR)/file/file_util.cpp \
+	       $(NATIVEDIR)/file/ini_file.cpp \
+	       $(NATIVEDIR)/file/path.cpp \
+	       $(NATIVEDIR)/file/free.cpp \
+	       $(NATIVEDIR)/file/zip_read.cpp \
+	       $(NATIVEDIR)/gfx/gl_debug_log.cpp \
+	       $(NATIVEDIR)/gfx/GLStateCache.cpp \
+	       $(NATIVEDIR)/gfx/texture_atlas.cpp \
+	       $(NATIVEDIR)/gfx_es2/draw_buffer.cpp \
+	       $(NATIVEDIR)/gfx_es2/draw_text.cpp \
+	       $(NATIVEDIR)/gfx_es2/gpu_features.cpp \
+	       $(NATIVEDIR)/gfx_es2/glsl_program.cpp \
+	       $(NATIVEDIR)/i18n/i18n.cpp \
+	       $(NATIVEDIR)/image/zim_load.cpp \
+	       $(NATIVEDIR)/image/zim_save.cpp \
+	       $(NATIVEDIR)/image/png_load.cpp \
+	       $(NATIVEDIR)/input/gesture_detector.cpp \
+	       $(NATIVEDIR)/input/input_state.cpp \
+	       $(NATIVEDIR)/math/curves.cpp \
+	       $(NATIVEDIR)/math/expression_parser.cpp \
+	       $(NATIVEDIR)/math/lin/plane.cpp \
+	       $(NATIVEDIR)/math/lin/quat.cpp \
+	       $(NATIVEDIR)/math/lin/vec3.cpp \
+	       $(NATIVEDIR)/math/lin/matrix4x4.cpp \
+	       $(NATIVEDIR)/math/math_util.cpp \
+	       $(NATIVEDIR)/net/http_client.cpp \
+	       $(NATIVEDIR)/net/resolve.cpp \
+	       $(NATIVEDIR)/net/url.cpp \
+	       $(NATIVEDIR)/profiler/profiler.cpp \
+	       $(NATIVEDIR)/thin3d/thin3d.cpp \
+	       $(NATIVEDIR)/thin3d/thin3d_gl.cpp \
+	       $(NATIVEDIR)/thread/prioritizedworkqueue.cpp \
+	       $(NATIVEDIR)/thread/threadutil.cpp \
+	       $(NATIVEDIR)/ui/screen.cpp \
+	       $(NATIVEDIR)/thread/threadpool.cpp \
+	       $(NATIVEDIR)/ui/ui.cpp \
+	       $(NATIVEDIR)/ui/ui_context.cpp \
+	       $(NATIVEDIR)/ui/ui_screen.cpp \
+	       $(NATIVEDIR)/ui/ui_tween.cpp \
+	       $(NATIVEDIR)/ui/view.cpp \
+	       $(NATIVEDIR)/ui/viewgroup.cpp \
+	       $(NATIVEDIR)/util/hash/hash.cpp \
+	       $(NATIVEDIR)/util/text/utf8.cpp \
+	       $(NATIVEDIR)/util/text/parsers.cpp \
+	       $(NATIVEDIR)/util/text/wrap_text.cpp \
+	       $(NATIVEDIR)/ext/jpge/jpgd.cpp \
+	       $(NATIVEDIR)/ext/jpge/jpge.cpp \
+	       $(COREDIR)/AVIDump.cpp \
+	       $(COREDIR)/Config.cpp \
+	       $(COREDIR)/TextureReplacer.cpp \
+	       $(COREDIR)/Core.cpp \
+	       $(COREDIR)/WaveFile.cpp \
+	       $(COREDIR)/FileLoaders/HTTPFileLoader.cpp \
+	       $(COREDIR)/FileLoaders/CachingFileLoader.cpp \
+	       $(COREDIR)/FileLoaders/DiskCachingFileLoader.cpp \
+	       $(COREDIR)/FileLoaders/RetryingFileLoader.cpp \
+	       $(COREDIR)/FileLoaders/RamCachingFileLoader.cpp \
+	       $(COREDIR)/FileLoaders/LocalFileLoader.cpp \
+	       $(COREDIR)/CoreTiming.cpp \
+	       $(COREDIR)/CwCheat.cpp \
+	       $(COREDIR)/HDRemaster.cpp \
+	       $(COREDIR)/Debugger/Breakpoints.cpp \
+	       $(COREDIR)/Debugger/SymbolMap.cpp \
+	       $(COREDIR)/Debugger/DisassemblyManager.cpp \
+	       $(COREDIR)/Dialog/PSPDialog.cpp \
+	       $(COREDIR)/Dialog/PSPGamedataInstallDialog.cpp \
+	       $(COREDIR)/Dialog/PSPMsgDialog.cpp \
+	       $(COREDIR)/Dialog/PSPNetconfDialog.cpp \
+	       $(COREDIR)/Dialog/PSPOskDialog.cpp \
+	       $(COREDIR)/Dialog/PSPPlaceholderDialog.cpp \
+	       $(COREDIR)/Dialog/PSPSaveDialog.cpp \
+	       $(COREDIR)/Dialog/PSPScreenshotDialog.cpp \
+	       $(COREDIR)/Dialog/SavedataParam.cpp \
+	       $(COREDIR)/ELF/ElfReader.cpp \
+	       $(COREDIR)/ELF/PBPReader.cpp \
+	       $(COREDIR)/ELF/PrxDecrypter.cpp \
+	       $(COREDIR)/ELF/ParamSFO.cpp \
+	       $(COREDIR)/FileSystems/tlzrc.cpp \
+	       $(COREDIR)/FileSystems/BlockDevices.cpp \
+	       $(COREDIR)/FileSystems/BlobFileSystem.cpp \
+	       $(COREDIR)/FileSystems/DirectoryFileSystem.cpp \
+	       $(COREDIR)/FileSystems/FileSystem.cpp \
+	       $(COREDIR)/FileSystems/ISOFileSystem.cpp \
+	       $(COREDIR)/FileSystems/MetaFileSystem.cpp \
+	       $(COREDIR)/FileSystems/VirtualDiscFileSystem.cpp \
+	       $(COREDIR)/Font/PGF.cpp \
+	       $(COREDIR)/HLE/HLE.cpp \
+	       $(COREDIR)/HLE/KUBridge.cpp \
+	       $(COREDIR)/HLE/sceSha256.cpp \
+	       $(COREDIR)/HLE/sceG729.cpp \
+	       $(COREDIR)/HLE/sceSfmt19937.cpp \
+	       $(COREDIR)/HLE/ReplaceTables.cpp \
+	       $(COREDIR)/HLE/HLEHelperThread.cpp \
+	       $(COREDIR)/HLE/HLETables.cpp \
+	       $(COREDIR)/HLE/sceAdler.cpp \
+	       $(COREDIR)/HLE/sceAtrac.cpp \
+	       $(COREDIR)/HLE/sceAudio.cpp \
+	       $(COREDIR)/HLE/sceAudiocodec.cpp \
+	       $(COREDIR)/HLE/sceAudioRouting.cpp \
+	       $(COREDIR)/HLE/sceCcc.cpp \
+	       $(COREDIR)/HLE/sceChnnlsv.cpp \
+	       $(COREDIR)/HLE/sceCtrl.cpp \
+	       $(COREDIR)/HLE/sceDeflt.cpp \
+	       $(COREDIR)/HLE/sceDisplay.cpp \
+	       $(COREDIR)/HLE/sceDmac.cpp \
+	       $(COREDIR)/HLE/sceGameUpdate.cpp \
+	       $(COREDIR)/HLE/sceGe.cpp \
+	       $(COREDIR)/HLE/sceFont.cpp \
+	       $(COREDIR)/HLE/sceHeap.cpp \
+	       $(COREDIR)/HLE/sceHprm.cpp \
+	       $(COREDIR)/HLE/sceHttp.cpp \
+	       $(COREDIR)/HLE/sceImpose.cpp \
+	       $(COREDIR)/HLE/sceIo.cpp \
+	       $(COREDIR)/HLE/sceJpeg.cpp \
+	       $(COREDIR)/HLE/sceKernel.cpp \
+	       $(COREDIR)/HLE/sceKernelAlarm.cpp \
+	       $(COREDIR)/HLE/sceKernelEventFlag.cpp \
+	       $(COREDIR)/HLE/sceKernelInterrupt.cpp \
+	       $(COREDIR)/HLE/sceKernelMbx.cpp \
+	       $(COREDIR)/HLE/sceKernelMemory.cpp \
+	       $(COREDIR)/HLE/sceKernelModule.cpp \
+	       $(COREDIR)/HLE/sceKernelMsgPipe.cpp \
+	       $(COREDIR)/HLE/sceKernelMutex.cpp \
+	       $(COREDIR)/HLE/sceKernelSemaphore.cpp \
+	       $(COREDIR)/HLE/sceKernelThread.cpp \
+	       $(COREDIR)/HLE/sceKernelTime.cpp \
+	       $(COREDIR)/HLE/sceKernelVTimer.cpp \
+	       $(COREDIR)/HLE/sceMpeg.cpp \
+	       $(COREDIR)/HLE/sceNet.cpp \
+	       $(COREDIR)/HLE/sceNetAdhoc.cpp \
+	       $(COREDIR)/HLE/proAdhocServer.cpp \
+	       $(COREDIR)/HLE/proAdhoc.cpp \
+	       $(COREDIR)/HLE/sceOpenPSID.cpp \
+	       $(COREDIR)/HLE/sceP3da.cpp \
+	       $(COREDIR)/HLE/sceMt19937.cpp \
+	       $(COREDIR)/HLE/sceMd5.cpp \
+	       $(COREDIR)/HLE/sceMp4.cpp \
+	       $(COREDIR)/HLE/sceMp3.cpp \
+	       $(COREDIR)/HLE/sceParseHttp.cpp \
+	       $(COREDIR)/HLE/sceParseUri.cpp \
+	       $(COREDIR)/HLE/scePower.cpp \
+	       $(COREDIR)/HLE/scePsmf.cpp \
+	       $(COREDIR)/HLE/sceRtc.cpp \
+	       $(COREDIR)/HLE/sceSas.cpp \
+	       $(COREDIR)/HLE/sceSsl.cpp \
+	       $(COREDIR)/HLE/sceUmd.cpp \
+	       $(COREDIR)/HLE/sceUsb.cpp \
+	       $(COREDIR)/HLE/sceUsbCam.cpp \
+	       $(COREDIR)/HLE/sceUtility.cpp \
+	       $(COREDIR)/HLE/sceVaudio.cpp \
+	       $(COREDIR)/HLE/scePspNpDrm_user.cpp \
+	       $(COREDIR)/HLE/sceNp.cpp \
+	       $(COREDIR)/HLE/scePauth.cpp \
+	       $(COREDIR)/HLE/sceUsbGps.cpp \
+	       $(COREDIR)/HW/SimpleAudioDec.cpp \
+	       $(COREDIR)/HW/AsyncIOManager.cpp \
+	       $(COREDIR)/HW/MediaEngine.cpp \
+	       $(COREDIR)/HW/MpegDemux.cpp \
+	       $(COREDIR)/HW/MemoryStick.cpp \
+	       $(COREDIR)/HW/SasAudio.cpp \
+	       $(COREDIR)/HW/SasReverb.cpp \
+	       $(COREDIR)/HW/StereoResampler.cpp \
+	       $(COREDIR)/Compatibility.cpp \
+	       $(COREDIR)/Host.cpp \
+	       $(COREDIR)/Loaders.cpp \
+	       $(COREDIR)/MIPS/JitCommon/JitCommon.cpp \
+	       $(COREDIR)/MIPS/JitCommon/JitState.cpp \
+	       $(COREDIR)/MIPS/JitCommon/JitBlockCache.cpp \
+	       $(COREDIR)/MIPS/IR/IRAsm.cpp \
+	       $(COREDIR)/MIPS/IR/IRCompALU.cpp \
+	       $(COREDIR)/MIPS/IR/IRCompBranch.cpp \
+	       $(COREDIR)/MIPS/IR/IRCompFPU.cpp \
+	       $(COREDIR)/MIPS/IR/IRCompLoadStore.cpp \
+	       $(COREDIR)/MIPS/IR/IRCompVFPU.cpp \
+	       $(COREDIR)/MIPS/IR/IRInterpreter.cpp \
+	       $(COREDIR)/MIPS/IR/IRJit.cpp \
+	       $(COREDIR)/MIPS/IR/IRInst.cpp \
+	       $(COREDIR)/MIPS/IR/IRPassSimplify.cpp \
+	       $(COREDIR)/MIPS/IR/IRRegCache.cpp \
+	       $(COREDIR)/MIPS/IR/IRFrontend.cpp \
+	       $(COREDIR)/MIPS/MIPS.cpp \
+	       $(COREDIR)/MIPS/MIPSAnalyst.cpp \
+	       $(COREDIR)/MIPS/MIPSCodeUtils.cpp \
+	       $(COREDIR)/MIPS/MIPSDebugInterface.cpp \
+	       $(COREDIR)/MIPS/MIPSDis.cpp \
+	       $(COREDIR)/MIPS/MIPSDisVFPU.cpp \
+	       $(COREDIR)/MIPS/MIPSInt.cpp \
+	       $(COREDIR)/MIPS/MIPSIntVFPU.cpp \
+	       $(COREDIR)/MIPS/MIPSStackWalk.cpp \
+	       $(COREDIR)/MIPS/MIPSTables.cpp \
+	       $(COREDIR)/MIPS/MIPSVFPUUtils.cpp \
+	       $(COREDIR)/MemMap.cpp \
+	       $(COREDIR)/MemMapFunctions.cpp \
+	       $(COREDIR)/PSPLoaders.cpp \
+	       $(COREDIR)/Reporting.cpp \
+	       $(COREDIR)/SaveState.cpp \
+	       $(COREDIR)/Screenshot.cpp \
+	       $(COREDIR)/System.cpp \
+	       $(COREDIR)/Util/GameManager.cpp \
+	       $(COREDIR)/Util/BlockAllocator.cpp \
+	       $(COREDIR)/Util/PPGeDraw.cpp \
+	       $(COREDIR)/Util/ppge_atlas.cpp \
+	       $(COREDIR)/Util/AudioFormat.cpp \
+
+SOURCES_CXX +=			$(LIBRETRODIR)/libretro.cpp
+SOURCES_CXX += 		$(LIBRETRODIR)/libretro_osm.cpp
+SOURCES_CXX  += $(LIBRETRODIR)/libretro_version.cpp
+
+SOURCES_CXX += $(COREDIR)/HLE/__sceAudio.cpp
+
+### DYNAREC ###
+ifdef WITH_DYNAREC
+   DYNAFLAGS += -DDYNAREC
+   ifeq ($(WITH_DYNAREC), arm)
+      DYNAFLAGS += -D_ARCH_32
+		SOURCES_CXX += $(COMMONDIR)/ArmEmitter.cpp \
+			       $(EXTDIR)/disarm.cpp \
+			       $(COMMONDIR)/ArmCPUDetect.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmAsm.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmCompALU.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmCompBranch.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmCompFPU.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmCompLoadStore.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmCompVFPU.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmCompReplace.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmJit.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmRegCache.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmRegCacheFPU.cpp \
+			       $(GPUCOMMONDIR)/VertexDecoderArm.cpp
+
+		ifeq ($(HAVE_NEON),1)
+			SOURCES_CXX   += \
+					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEON.cpp \
+					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
+					 $(COREDIR)/Util/AudioFormatNEON.cpp \
+					 $(COMMONDIR)/ColorConvNEON.cpp \
+					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
+
+			SOURCES_C += $(NATIVEDIR)/ext/libpng17/arm/arm_init.c \
+				     $(NATIVEDIR)/ext/libpng17/arm/filter_neon_intrinsics.c
+			ASMFILES   += $(NATIVEDIR)/math/fast/fast_matrix_neon.S \
+				      $(NATIVEDIR)/ext/libpng17/arm/filter_neon.S
+		endif
+	else ifeq ($(WITH_DYNAREC), arm64)
+      DYNAFLAGS += -D_ARCH_64
+      SOURCES_CXX += $(COMMONDIR)/Arm64Emitter.cpp \
+		     $(COMMONDIR)/ArmCPUDetect.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64Asm.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64CompALU.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64CompBranch.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64CompFPU.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64CompLoadStore.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64CompVFPU.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64CompReplace.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64Jit.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64RegCache.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64RegCacheFPU.cpp \
+		     $(COREDIR)/Util/DisArm64.cpp \
+		     $(GPUCOMMONDIR)/VertexDecoderArm64.cpp
+
+		ifeq ($(HAVE_NEON),1)
+			SOURCES_CXX   += \
+					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEON.cpp \
+					 $(COREDIR)/MIPS/ARM/ArmCompVFPUNEONUtil.cpp \
+					 $(COMMONDIR)/ColorConvNEON.cpp \
+					 $(GPUDIR)/Common/TextureDecoderNEON.cpp
+
+			SOURCES_C += $(NATIVEDIR)/ext/libpng17/arm/arm_init.c \
+				     $(NATIVEDIR)/ext/libpng17/arm/filter_neon_intrinsics.c
+			ASMFILES   += $(NATIVEDIR)/math/fast/fast_matrix_neon.S \
+				      $(NATIVEDIR)/ext/libpng17/arm/filter_neon.S
+		endif
+   else
+	ifneq (,$(findstring msvc,$(platform)))
+	ifeq (,$(findstring x64,$(platform)))
+		CPUFLAGS += /arch:SSE2
+	endif
+		CPUFLAGS += -D_M_IX86_FP
+	else
+		CPUFLAGS += -msse -msse2
+endif
+      ifeq ($(WITH_DYNAREC), x86_64)
+	   CPUFLAGS += -D_M_X64 -D_ARCH_64
+      else
+	   CPUFLAGS += -D_M_IX86 -m32 -D_ARCH_32
+      endif
+	   SOURCES_CXX += $(GPUDIR)/Software/SamplerX86.cpp
+	   SOURCES_CXX += $(COMMONDIR)/x64Analyzer.cpp \
+						$(COMMONDIR)/x64Emitter.cpp \
+						$(COMMONDIR)/ABI.cpp \
+						$(COMMONDIR)/Thunk.cpp \
+						$(COMMONDIR)/CPUDetect.cpp \
+						$(COREDIR)/MIPS/x86/CompReplace.cpp \
+						$(COREDIR)/MIPS/x86/CompBranch.cpp \
+						$(COREDIR)/MIPS/x86/Asm.cpp \
+						$(COREDIR)/MIPS/x86/CompALU.cpp \
+						$(COREDIR)/MIPS/x86/CompVFPU.cpp \
+						$(COREDIR)/MIPS/x86/CompLoadStore.cpp \
+						$(COREDIR)/MIPS/x86/CompFPU.cpp \
+						$(COREDIR)/MIPS/x86/Jit.cpp \
+						$(COREDIR)/MIPS/x86/JitSafeMem.cpp \
+						$(COREDIR)/MIPS/x86/RegCache.cpp \
+						$(COREDIR)/MIPS/x86/RegCacheFPU.cpp \
+						$(GPUDIR)/Common/VertexDecoderX86.cpp
+		SOURCES_C   += $(NATIVEDIR)/math/fast/fast_matrix_sse.c
+   endif
+endif
+
+#UDIS86
+# Compiled and linked even on ARM for now
+
+SOURCES_C += $(EXTDIR)/udis86/decode.c \
+			 $(EXTDIR)/udis86/itab.c \
+			 $(EXTDIR)/udis86/syn-att.c \
+			 $(EXTDIR)/udis86/syn-intel.c \
+			 $(EXTDIR)/udis86/syn.c \
+			 $(EXTDIR)/udis86/udis86.c
+
+SOURCES_C += $(LIBRETRO_SRC)
+
+ifneq ($(STATIC_LINKING), 1)
+SOURCES_C += $(EXTDIR)/zlib/adler32.c \
+				 $(EXTDIR)/zlib/compress.c \
+				 $(EXTDIR)/zlib/crc32.c \
+				 $(EXTDIR)/zlib/deflate.c \
+				 $(EXTDIR)/zlib/gzclose.c \
+				 $(EXTDIR)/zlib/gzlib.c \
+				 $(EXTDIR)/zlib/gzread.c \
+				 $(EXTDIR)/zlib/gzwrite.c \
+				 $(EXTDIR)/zlib/infback.c \
+				 $(EXTDIR)/zlib/inffast.c \
+				 $(EXTDIR)/zlib/inflate.c \
+				 $(EXTDIR)/zlib/inftrees.c \
+				 $(EXTDIR)/zlib/trees.c \
+				 $(EXTDIR)/zlib/uncompr.c \
+				 $(EXTDIR)/zlib/zutil.c
+endif
