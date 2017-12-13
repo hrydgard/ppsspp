@@ -21,12 +21,6 @@ extern void bindDefaultFBO();
 
 // #define DEBUG_READ_PIXELS 1
 
-// Workaround for Retroarch. Simply declare
-//   extern GLuint g_defaultFBO;
-// and set is as appropriate. Can adjust the variables in ext/native/base/display.h as
-// appropriate.
-GLuint g_defaultFBO = 0;
-
 namespace Draw {
 
 static const unsigned short compToGL[] = {
@@ -483,10 +477,6 @@ public:
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override {}
 
 private:
-	OpenGLFramebuffer *fbo_ext_create(const FramebufferDesc &desc);
-	void fbo_bind_fb_target(bool read, GLuint name);
-	GLenum fbo_get_fb_target(bool read, GLuint **cached);
-	void fbo_unbind();
 	void ApplySamplers();
 
 	GLRenderManager renderManager_;
@@ -503,10 +493,6 @@ private:
 	OpenGLBuffer *curIBuffer_ = nullptr;
 	int curIBufferOffset_ = 0;
 	OpenGLFramebuffer *curFB_;
-
-	// Framebuffer state
-	GLuint currentDrawHandle_ = 0;
-	GLuint currentReadHandle_ = 0;
 
 	// Frames in flight is not such a strict concept as with Vulkan until we start using glBufferStorage and fences.
 	// But might as well have the structure ready, and can't hurt to rotate buffers.
@@ -652,16 +638,6 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	}
 	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
 
-	/*
-#ifdef USING_GLES2
-	if (gl_extensions.GLES3) {
-		glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, mipLevels_ - 1);
-	}
-#else
-	glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, mipLevels_ - 1);
-#endif
-*/
-
 	if ((int)desc.initData.size() < desc.mipLevels && desc.generateMips) {
 		ILOG("Generating mipmaps");
 		AutoGenMipmaps();
@@ -687,19 +663,14 @@ void OpenGLTexture::AutoGenMipmaps() {
 
 class OpenGLFramebuffer : public Framebuffer {
 public:
-	OpenGLFramebuffer() {}
-	~OpenGLFramebuffer();
+	OpenGLFramebuffer(GLRenderManager *render) : render_(render) {}
+	~OpenGLFramebuffer() {
+		render_->DeleteFramebuffer(framebuffer);
+	}
 
+	GLRenderManager *render_;
 	GLRFramebuffer *framebuffer;
 
-	GLuint handle = 0;
-	GLuint color_texture = 0;
-	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
-	GLuint z_buffer = 0;
-	GLuint stencil_buffer = 0;
-
-	int width;
-	int height;
 	FBColorDepth colorDepth;
 };
 
@@ -852,6 +823,7 @@ static void LogReadPixelsError(GLenum error) {
 
 bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)src;
+	/*
 	fbo_bind_fb_target(true, fb ? fb->handle : 0);
 
 	// Reads from the "bound for read" framebuffer.
@@ -883,6 +855,7 @@ bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBit
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
+	*/
 	return true;
 }
 
@@ -1245,270 +1218,12 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 	inputLayout_ = render_->CreateInputLayout(entries);
 }
 
-// On PC, we always use GL_DEPTH24_STENCIL8. 
-// On Android, we try to use what's available.
-
-#ifndef USING_GLES2
-OpenGLFramebuffer *OpenGLContext::fbo_ext_create(const FramebufferDesc &desc) {
-	OpenGLFramebuffer *fbo = new OpenGLFramebuffer();
-	fbo->width = desc.width;
-	fbo->height = desc.height;
-	fbo->colorDepth = desc.colorDepth;
-
-	// Color texture is same everywhere
-	glGenFramebuffersEXT(1, &fbo->handle);
-	glGenTextures(1, &fbo->color_texture);
-
-	// Create the surfaces.
-	glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// TODO: We could opt to only create 16-bit render targets on slow devices. For later.
-	switch (fbo->colorDepth) {
-	case FBO_8888:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-		break;
-	case FBO_4444:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-		break;
-	case FBO_5551:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
-		break;
-	case FBO_565:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, fbo->width, fbo->height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, NULL);
-		break;
-	}
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	fbo->stencil_buffer = 0;
-	fbo->z_buffer = 0;
-	// 24-bit Z, 8-bit stencil
-	glGenRenderbuffersEXT(1, &fbo->z_stencil_buffer);
-	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
-	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_STENCIL_EXT, fbo->width, fbo->height);
-	//glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH24_STENCIL8, width, height);
-
-	// Bind it all together
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
-	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo->color_texture, 0);
-	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
-	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
-
-	GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-	switch (status) {
-	case GL_FRAMEBUFFER_COMPLETE_EXT:
-		// ILOG("Framebuffer verified complete.");
-		break;
-	case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
-		ELOG("GL_FRAMEBUFFER_UNSUPPORTED");
-		break;
-	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
-		ELOG("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
-		break;
-	default:
-		FLOG("Other framebuffer error: %i", status);
-		break;
-	}
-	// Unbind state we don't need
-	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	currentDrawHandle_ = fbo->handle;
-	currentReadHandle_ = fbo->handle;
-	return fbo;
-}
-#endif
-
 Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	CheckGLExtensions();
 
-	OpenGLFramebuffer *fbo = new OpenGLFramebuffer();
-	// fbo->framebuffer = renderManager_.CreateFramebuffer()
-
-#ifndef USING_GLES2
-	if (!gl_extensions.ARB_framebuffer_object && gl_extensions.EXT_framebuffer_object) {
-		return fbo_ext_create(desc);
-	} else if (!gl_extensions.ARB_framebuffer_object) {
-		return nullptr;
-	}
-	// If GLES2, we have basic FBO support and can just proceed.
-#endif
-	CHECK_GL_ERROR_IF_DEBUG();
-
-	fbo->width = desc.width;
-	fbo->height = desc.height;
-	fbo->colorDepth = desc.colorDepth;
-
-	// Color texture is same everywhere
-	glGenFramebuffers(1, &fbo->handle);
-	glGenTextures(1, &fbo->color_texture);
-
-	// Create the surfaces.
-	glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// TODO: We could opt to only create 16-bit render targets on slow devices. For later.
-	switch (fbo->colorDepth) {
-	case FBO_8888:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-		break;
-	case FBO_4444:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
-		break;
-	case FBO_5551:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
-		break;
-	case FBO_565:
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, fbo->width, fbo->height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, NULL);
-		break;
-	}
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	if (gl_extensions.IsGLES) {
-		if (gl_extensions.OES_packed_depth_stencil) {
-			ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8", fbo->width, fbo->height);
-			// Standard method
-			fbo->stencil_buffer = 0;
-			fbo->z_buffer = 0;
-			// 24-bit Z, 8-bit stencil combined
-			glGenRenderbuffers(1, &fbo->z_stencil_buffer);
-			glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_stencil_buffer);
-			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, fbo->width, fbo->height);
-
-			// Bind it all together
-			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
-			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-		} else {
-			ILOG("Creating %i x %i FBO using separate stencil", fbo->width, fbo->height);
-			// TEGRA
-			fbo->z_stencil_buffer = 0;
-			// 16/24-bit Z, separate 8-bit stencil
-			glGenRenderbuffers(1, &fbo->z_buffer);
-			glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_buffer);
-			// Don't forget to make sure fbo_standard_z_depth() matches.
-			glRenderbufferStorage(GL_RENDERBUFFER, gl_extensions.OES_depth24 ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT16, fbo->width, fbo->height);
-
-			// 8-bit stencil buffer
-			glGenRenderbuffers(1, &fbo->stencil_buffer);
-			glBindRenderbuffer(GL_RENDERBUFFER, fbo->stencil_buffer);
-			glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, fbo->width, fbo->height);
-
-			// Bind it all together
-			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
-			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_buffer);
-			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
-		}
-	} else {
-		fbo->stencil_buffer = 0;
-		fbo->z_buffer = 0;
-		// 24-bit Z, 8-bit stencil
-		glGenRenderbuffers(1, &fbo->z_stencil_buffer);
-		glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_stencil_buffer);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, fbo->width, fbo->height);
-
-		// Bind it all together
-		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-	}
-
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	switch (status) {
-	case GL_FRAMEBUFFER_COMPLETE:
-		// ILOG("Framebuffer verified complete.");
-		break;
-	case GL_FRAMEBUFFER_UNSUPPORTED:
-		ELOG("GL_FRAMEBUFFER_UNSUPPORTED");
-		break;
-	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
-		ELOG("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
-		break;
-	default:
-		FLOG("Other framebuffer error: %i", status);
-		break;
-	}
-
-	// Unbind state we don't need
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	CHECK_GL_ERROR_IF_DEBUG();
-
-	currentDrawHandle_ = fbo->handle;
-	currentReadHandle_ = fbo->handle;
+	OpenGLFramebuffer *fbo = new OpenGLFramebuffer(&renderManager_);
+	fbo->framebuffer = renderManager_.CreateFramebuffer(desc.width, desc.height, desc.z_stencil);
 	return fbo;
-}
-
-GLenum OpenGLContext::fbo_get_fb_target(bool read, GLuint **cached) {
-	bool supportsBlit = gl_extensions.ARB_framebuffer_object;
-	if (gl_extensions.IsGLES) {
-		supportsBlit = (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit);
-	}
-
-	// Note: GL_FRAMEBUFFER_EXT and GL_FRAMEBUFFER have the same value, same with _NV.
-	if (supportsBlit) {
-		if (read) {
-			*cached = &currentReadHandle_;
-			return GL_READ_FRAMEBUFFER;
-		} else {
-			*cached = &currentDrawHandle_;
-			return GL_DRAW_FRAMEBUFFER;
-		}
-	} else {
-		*cached = &currentDrawHandle_;
-		return GL_FRAMEBUFFER;
-	}
-}
-
-void OpenGLContext::fbo_bind_fb_target(bool read, GLuint name) {
-	GLuint *cached;
-	GLenum target = fbo_get_fb_target(read, &cached);
-	if (*cached != name) {
-		if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
-			glBindFramebuffer(target, name);
-		} else {
-#ifndef USING_GLES2
-			glBindFramebufferEXT(target, name);
-#endif
-		}
-		*cached = name;
-	}
-}
-
-void OpenGLContext::fbo_unbind() {
-#ifndef USING_GLES2
-	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
-		glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
-	} else if (gl_extensions.EXT_framebuffer_object) {
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, g_defaultFBO);
-	}
-#else
-	glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
-#endif
-
-#ifdef IOS
-	bindDefaultFBO();
-#endif
-
-	currentDrawHandle_ = 0;
-	currentReadHandle_ = 0;
 }
 
 void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
@@ -1517,63 +1232,6 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 	GLRRenderPassAction depth = (GLRRenderPassAction)rp.depth;
 
 	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->framebuffer : nullptr, color, depth, rp.clearColor, rp.clearDepth, rp.clearStencil);
-
-#if 0
-
-	CHECK_GL_ERROR_IF_DEBUG();
-	curFB_ = (OpenGLFramebuffer *)fbo;
-	if (fbo) {
-		OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
-		// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
-		// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
-		fbo_bind_fb_target(false, fb->handle);
-		// Always restore viewport after render target binding. Works around driver bugs.
-		glstate.viewport.restore();
-	} else {
-		fbo_unbind();
-	}
-	int clearFlags = 0;
-	if (rp.color == RPAction::CLEAR) {
-		float fc[4]{};
-		if (rp.clearColor) {
-			Uint8x4ToFloat4(fc, rp.clearColor);
-		}
-		glClearColor(fc[0], fc[1], fc[2], fc[3]);
-		clearFlags |= GL_COLOR_BUFFER_BIT;
-		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	}
-	if (rp.depth == RPAction::CLEAR) {
-#ifdef USING_GLES2
-		glClearDepthf(rp.clearDepth);
-#else
-		glClearDepth(rp.clearDepth);
-#endif
-		clearFlags |= GL_DEPTH_BUFFER_BIT;
-		glstate.depthWrite.force(GL_TRUE);
-	}
-	if (rp.stencil == RPAction::CLEAR) {
-		glClearStencil(rp.clearStencil);
-		clearFlags |= GL_STENCIL_BUFFER_BIT;
-		glstate.stencilFunc.force(GL_ALWAYS, 0, 0);
-		glstate.stencilMask.force(0xFF);
-	}
-	if (clearFlags) {
-		glstate.scissorTest.force(false);
-		glClear(clearFlags);
-		glstate.scissorTest.restore();
-	}
-	if (rp.color == RPAction::CLEAR) {
-		glstate.colorMask.restore();
-	}
-	if (rp.depth == RPAction::CLEAR) {
-		glstate.depthWrite.restore();
-	}
-	if (rp.stencil == RPAction::CLEAR) {
-		glstate.stencilFunc.restore();
-		glstate.stencilMask.restore();
-	}
-	CHECK_GL_ERROR_IF_DEBUG();
-#endif
 }
 
 void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
@@ -1604,24 +1262,6 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 		aspect |= GL_STENCIL_BUFFER_BIT;
 
 	renderManager_.BlitFramebuffer(src->framebuffer, GLRect2D{ srcX1, srcY1, srcX2 - srcX1, srcY2 - srcY1 }, dst->framebuffer, GLRect2D{ dstX1, dstY1, dstX2 - dstX1, dstY2 - dstY1 }, aspect, linearFilter == FB_BLIT_LINEAR);
-	/*
-	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
-	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
-	fbo_bind_fb_target(false, dst->handle);
-	fbo_bind_fb_target(true, src->handle);
-	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
-		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, aspect, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
-		CHECK_GL_ERROR_IF_DEBUG();
-#if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
-		return true;
-	} else if (gl_extensions.NV_framebuffer_blit) {
-		glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, aspect, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
-		CHECK_GL_ERROR_IF_DEBUG();
-#endif // defined(USING_GLES2) && defined(__ANDROID__)
-		return true;
-	} else {
-		return false;
-	}*/
 	return true;
 }
 
@@ -1632,48 +1272,11 @@ void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBCh
 	renderManager_.BindFramebufferAsTexture(fb->framebuffer, binding, (int)channelBit, color);
 }
 
-OpenGLFramebuffer::~OpenGLFramebuffer() {
-	CHECK_GL_ERROR_IF_DEBUG();
-	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
-		if (handle) {
-			glBindFramebuffer(GL_FRAMEBUFFER, handle);
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
-			glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
-			glDeleteFramebuffers(1, &handle);
-		}
-		if (z_stencil_buffer)
-			glDeleteRenderbuffers(1, &z_stencil_buffer);
-		if (z_buffer)
-			glDeleteRenderbuffers(1, &z_buffer);
-		if (stencil_buffer)
-			glDeleteRenderbuffers(1, &stencil_buffer);
-	} else if (gl_extensions.EXT_framebuffer_object) {
-#ifndef USING_GLES2
-		if (handle) {
-			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, handle);
-			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
-			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, g_defaultFBO);
-			glDeleteFramebuffersEXT(1, &handle);
-		}
-		if (z_stencil_buffer)
-			glDeleteRenderbuffers(1, &z_stencil_buffer);
-		if (z_buffer)
-			glDeleteRenderbuffers(1, &z_buffer);
-		if (stencil_buffer)
-			glDeleteRenderbuffers(1, &stencil_buffer);
-#endif
-	}
-
-	glDeleteTextures(1, &color_texture);
-}
-
 void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	if (fb) {
-		*w = fb->width;
-		*h = fb->height;
+		*w = fb->framebuffer->width;
+		*h = fb->framebuffer->height;
 	} else {
 		*w = targetWidth_;
 		*h = targetHeight_;

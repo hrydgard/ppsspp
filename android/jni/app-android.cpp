@@ -824,12 +824,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		time_update();
 	} else {
 		ELOG("BAD: Ended up in nativeRender even though app has quit.%s", "");
-		// Shouldn't really get here. Let's draw magenta.
-		// TODO: Should we have GL here?
-		glDepthMask(GL_TRUE);
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(1.0, 0.0, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		// Shouldn't really get here.
 	}
 
 	std::lock_guard<std::mutex> guard(frameCommandLock);

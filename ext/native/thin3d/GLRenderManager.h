@@ -11,13 +11,6 @@
 #include "Common/Log.h"
 #include "GLQueueRunner.h"
 
-struct GLRImage {
-	GLuint texture;
-	GLuint format;
-};
-
-void GLCreateImage(GLRImage &img, int width, int height, GLint format, bool color);
-
 class GLRInputLayout;
 
 class GLRFramebuffer {
@@ -26,18 +19,21 @@ public:
 		: width(_width), height(_height), z_stencil_(z_stencil) {
 	}
 
-	~GLRFramebuffer() {
-		glDeleteTextures(1, &color.texture);
-		glDeleteRenderbuffers(1, &depth.texture);
-	}
+	~GLRFramebuffer();
 
 	int numShadows = 1;  // TODO: Support this.
 
+	GLuint handle = 0;
+	GLuint color_texture = 0;
+	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
+	GLuint z_buffer = 0;
+	GLuint stencil_buffer = 0;
+
+	int width;
+	int height;
+	GLuint colorDepth;
+
 	GLuint framebuf = 0;
-	GLRImage color{};
-	GLRImage depth{};
-	int width = 0;
-	int height = 0;
 	bool z_stencil_;
 };
 
@@ -144,6 +140,13 @@ public:
 		buffers = std::move(other.buffers);
 		textures = std::move(other.textures);
 		inputLayouts = std::move(other.inputLayouts);
+		framebuffers = std::move(other.framebuffers);
+		other.shaders.clear();
+		other.programs.clear();
+		other.buffers.clear();
+		other.textures.clear();
+		other.inputLayouts.clear();
+		other.framebuffers.clear();
 	}
 
 	std::vector<GLRShader *> shaders;
@@ -151,6 +154,7 @@ public:
 	std::vector<GLRBuffer *> buffers;
 	std::vector<GLRTexture *> textures;
 	std::vector<GLRInputLayout *> inputLayouts;
+	std::vector<GLRFramebuffer *> framebuffers;
 };
 
 class GLRInputLayout {
@@ -271,6 +275,9 @@ public:
 	}
 	void DeleteInputLayout(GLRInputLayout *inputLayout) {
 		deleter_.inputLayouts.push_back(inputLayout);
+	}
+	void DeleteFramebuffer(GLRFramebuffer *framebuffer) {
+		deleter_.framebuffers.push_back(framebuffer);
 	}
 
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
@@ -516,6 +523,15 @@ public:
 		data.textureSampler.magFilter = magFilter;
 		data.textureSampler.minFilter = minFilter;
 		data.textureSampler.anisotropy = anisotropy;
+		curRenderStep_->commands.push_back(data);
+	}
+
+	void SetTextureLod(float minLod, float maxLod, float lodBias) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::TEXTURELOD};
+		data.textureLod.minLod = minLod;
+		data.textureLod.maxLod = maxLod;
+		data.textureLod.lodBias = lodBias;
 		curRenderStep_->commands.push_back(data);
 	}
 

@@ -121,35 +121,34 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, maxLevel, entry.addr, mode);
 
 	if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+		float minLod = 0.0f;
+		float maxLod = 0.0f;
 		if (maxLevel != 0) {
 			// TODO: What about a swap of autoMip mode?
 			if (force || entry.lodBias != lodBias) {
 				if (mode == GE_TEXLEVEL_MODE_AUTO) {
-#ifndef USING_GLES2
-					// Sigh, LOD_BIAS is not even in ES 3.0.. but we could do it in the shader via texture()...
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
-#endif
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+					minLod = 0.0f;
+					maxLod = (float)maxLevel;
 				} else if (mode == GE_TEXLEVEL_MODE_CONST) {
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, std::max(0.0f, std::min((float)maxLevel, lodBias)));
+					minLod = std::max(0.0f, std::min((float)maxLevel, lodBias));
+					maxLod = std::max(0.0f, std::min((float)maxLevel, lodBias));
 				} else {  // mode == GE_TEXLEVEL_MODE_SLOPE) {
 					// It's incorrect to use the slope as a bias. Instead it should be passed
 					// into the shader directly as an explicit lod level, with the bias on top. For now, we just kill the
 					// lodBias in this mode, working around #9772.
 #ifndef USING_GLES2
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, 0.0f);
+					lodBias = 0.0f;
 #endif
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
-					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+					minLod = 0.0f;
+					maxLod = (float)maxLevel;
 				}
 				entry.lodBias = lodBias;
 			}
 		} else {
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0.0f);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0.0f);
+			minLod = 0.0f;
+			maxLod = 0.0f;
 		}
+		render_->SetTextureLod(minLod, maxLod, lodBias);
 	}
 
 	if (force || entry.minFilt != minFilt || entry.magFilt != magFilt || entry.sClamp != sClamp || entry.tClamp != tClamp) {
@@ -636,29 +635,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 
 	// glBindTexture(GL_TEXTURE_2D, entry->textureName);
 	lastBoundTexture = entry->textureName;
-
-	// Disabled this due to issue #6075: https://github.com/hrydgard/ppsspp/issues/6075
-	// This breaks Dangan Ronpa 2 with mipmapping enabled. Why? No idea, it shouldn't.
-	// glTexStorage2D probably has few benefits for us anyway.
-	if (false && gl_extensions.GLES3 && maxLevel > 0) {
-		// glTexStorage2D requires the use of sized formats.
-		GLenum actualFmt = replaced.Valid() ? ToGLESFormat(replaced.Format(0)) : dstFmt;
-		GLenum storageFmt = GL_RGBA8;
-		switch (actualFmt) {
-		case GL_UNSIGNED_BYTE: storageFmt = GL_RGBA8; break;
-		case GL_UNSIGNED_SHORT_5_6_5: storageFmt = GL_RGB565; break;
-		case GL_UNSIGNED_SHORT_4_4_4_4: storageFmt = GL_RGBA4; break;
-		case GL_UNSIGNED_SHORT_5_5_5_1: storageFmt = GL_RGB5_A1; break;
-		default:
-			ERROR_LOG(G3D, "Unknown dstfmt %i", (int)actualFmt);
-			break;
-		}
-		// TODO: This may cause bugs, since it hard-sets the texture w/h, and we might try to reuse it later with a different size.
-		glTexStorage2D(GL_TEXTURE_2D, maxLevel + 1, storageFmt, w * scaleFactor, h * scaleFactor);
-		// Make sure we don't use glTexImage2D after glTexStorage2D.
-		replaceImages = true;
-	}
-
+	
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
@@ -702,8 +679,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 		texMaxLevel = 0;
 	}
-
-	// TODO: glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, texMaxLevel);
 
 	if (maxLevel == 0) {
 		entry->status |= TexCacheEntry::STATUS_BAD_MIPS;
