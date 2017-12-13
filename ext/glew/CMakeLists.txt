@@ -1,15 +1,22 @@
-find_package(GLEW)
+if(NOT LIBRETRO)
+  find_package(GLEW)
+endif()
 if(GLEW_FOUND)
   add_library(system_glew INTERFACE)
   add_library(Ext::GLEW ALIAS system_glew)
   target_link_libraries(system_glew INTERFACE GLEW::GLEW)
 else()
+  if(LIBRETRO)
+    set(GLEW_LIBRARY glew_libretro.c)
+  else()
+    set(GLEW_LIBRARY glew.c)
+  endif()
   find_package(OpenGL REQUIRED)
   add_library(glew STATIC
     GL/glew.h
     GL/glxew.h
     GL/wglew.h
-    glew.c
+    ${GLEW_LIBRARY}
   )
   add_library(Ext::GLEW ALIAS glew)
   target_link_libraries(glew PUBLIC ${OPENGL_LIBRARIES})
