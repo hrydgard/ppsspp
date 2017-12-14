@@ -564,7 +564,15 @@ void DrawEngineGLES::DoFlush() {
 
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
-			DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
+			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+				// If software skinning, we've already predecoded into "decoded". So push that content.
+				size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+				u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
+				memcpy(dest, decoded, size);
+			} else {
+				// Decode directly into the pushbuffer
+				DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
+			}
 
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();

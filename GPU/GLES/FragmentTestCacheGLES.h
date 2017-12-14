@@ -79,7 +79,6 @@ private:
 	TextureCacheGLES *textureCache_;
 
 	std::map<FragmentTestID, FragmentTestTexture> cache_;
-	u8 *scratchpad_ = nullptr;
 	GLRTexture *lastTexture_ = nullptr;
 	int decimationCounter_ = 0;
 };
