@@ -651,12 +651,13 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 
 	// Mipmapping only enable when texture scaling disable
 	int texMaxLevel = 0;
+	bool genMips = false;
 	if (maxLevel > 0 && scaleFactor == 1) {
 		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 			if (badMipSizes) {
 				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
 				if (canAutoGen) {
-					render_->GenerateMipmap();
+					genMips = true;
 				} else {
 					texMaxLevel = 0;
 					maxLevel = 0;
@@ -671,7 +672,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 			// Avoid PowerVR driver bug
 			if (canAutoGen && w > 1 && h > 1 && !(h > w && (gl_extensions.bugs & BUG_PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
 				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
-				render_->GenerateMipmap();
+				genMips = true;
 			} else {
 				maxLevel = 0;
 			}
@@ -689,7 +690,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 	}
 
-	render_->FinalizeTexture(entry->textureName, texMaxLevel);
+	render_->FinalizeTexture(entry->textureName, texMaxLevel, genMips);
 
 	// This will rebind it, but that's okay.
 	// Need to actually bind it now - it might only have gotten bound in the init phase.

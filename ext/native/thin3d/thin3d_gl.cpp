@@ -598,8 +598,6 @@ public:
 		render_->BindTexture(stage, tex_);
 	}
 
-	void AutoGenMipmaps();
-
 private:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
 
@@ -638,10 +636,14 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	}
 	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
 
+	bool genMips = false;
 	if ((int)desc.initData.size() < desc.mipLevels && desc.generateMips) {
 		ILOG("Generating mipmaps");
-		AutoGenMipmaps();
+		// Assumes the texture is bound for editing
+		genMips = true;
+		generatedMips_ = true;
 	}
+	render->FinalizeTexture(tex_, mipLevels_, genMips);
 
 }
 
@@ -650,14 +652,6 @@ OpenGLTexture::~OpenGLTexture() {
 		render_->DeleteTexture(tex_);
 		tex_ = 0;
 		generatedMips_ = false;
-	}
-}
-
-void OpenGLTexture::AutoGenMipmaps() {
-	if (!generatedMips_) {
-		// Assumes the texture is bound for editing
-		render_->GenerateMipmap();
-		generatedMips_ = true;
 	}
 }
 

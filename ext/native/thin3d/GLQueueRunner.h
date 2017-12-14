@@ -233,6 +233,7 @@ struct GLRInitStep {
 		struct {
 			GLRTexture *texture;
 			int maxLevel;
+			bool genMips;
 		} texture_finalize;
 	};
 };

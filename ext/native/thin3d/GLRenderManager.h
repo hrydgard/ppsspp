@@ -317,10 +317,11 @@ public:
 		initSteps_.push_back(step);
 	}
 
-	void FinalizeTexture(GLRTexture *texture, int maxLevels) {
+	void FinalizeTexture(GLRTexture *texture, int maxLevels, bool genMips) {
 		GLRInitStep step{ GLRInitStepType::TEXTURE_FINALIZE };
 		step.texture_finalize.texture = texture;
 		step.texture_finalize.maxLevel = maxLevels;
+		step.texture_finalize.genMips = genMips;
 		initSteps_.push_back(step);
 	}
 
@@ -371,12 +372,6 @@ public:
 		GLRRenderData data{ GLRRenderCommand::BIND_INPUT_LAYOUT };
 		data.inputLayout.inputLayout = inputLayout;
 		data.inputLayout.offset = (intptr_t)offset;
-		curRenderStep_->commands.push_back(data);
-	}
-
-	void GenerateMipmap() {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::GENMIPS };
 		curRenderStep_->commands.push_back(data);
 	}
 
