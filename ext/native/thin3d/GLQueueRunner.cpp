@@ -28,6 +28,9 @@ void GLQueueRunner::DestroyDeviceObjects() {
 }
 
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
+	glActiveTexture(GL_TEXTURE0);
+	GLuint boundTexture = (GLuint)-1;
+
 	for (int i = 0; i < steps.size(); i++) {
 		const GLRInitStep &step = steps[i];
 		switch (step.stepType) {
@@ -36,6 +39,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			GLRTexture *tex = step.create_texture.texture;
 			glGenTextures(1, &tex->texture);
 			glBindTexture(tex->target, tex->texture);
+			boundTexture = tex->texture;
 			break;
 		}
 		case GLRInitStepType::CREATE_BUFFER:
@@ -162,6 +166,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		}
 		case GLRInitStepType::CREATE_FRAMEBUFFER:
 		{
+			boundTexture = (GLuint)-1;
 			InitCreateFramebuffer(step);
 			break;
 		}
@@ -171,6 +176,10 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		{
 			GLRTexture *tex = step.texture_image.texture;
 			CHECK_GL_ERROR_IF_DEBUG();
+			if (boundTexture != step.texture_image.texture->texture) {
+				glBindTexture(step.texture_image.texture->target, step.texture_image.texture->texture);
+				boundTexture = step.texture_image.texture->texture;
+			}
 			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
 			delete[] step.texture_image.data;
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -182,6 +191,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		}
 		default:
 			Crash();
+			break;
 		}
 	}
 }
@@ -359,18 +369,30 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 
 	glEnable(GL_SCISSOR_TEST);
 
+	/*
+#ifndef USING_GLES2
+	if (g_Config.iInternalResolution == 0) {
+		glLineWidth(std::max(1, (int)(renderWidth_ / 480)));
+		glPointSize(std::max(1.0f, (float)(renderWidth_ / 480.f)));
+	} else {
+		glLineWidth(g_Config.iInternalResolution);
+		glPointSize((float)g_Config.iInternalResolution);
+	}
+#endif
+	*/
+
 	glBindVertexArray(globalVAO_);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	GLRFramebuffer *fb = step.render.framebuffer;
 	GLRProgram *curProgram = nullptr;
-	GLint activeTexture = GL_TEXTURE0;
+	int activeTexture = 0;
+	glActiveTexture(GL_TEXTURE0 + activeTexture);
 
 	int attrMask = 0;
 
-	// TODO: We can implement state-filtering locally in this function, to mimic the old gl state tracker,
-	// to avoid redundant calls. Might be worth it?
+	// State filtering tracking.
+	GLuint curArrayBuffer = (GLuint)-1;
+	GLuint curElemArrayBuffer = (GLuint)-1;
 
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
@@ -415,6 +437,19 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			glClear(c.clear.clearMask);
 			glEnable(GL_SCISSOR_TEST);
 			break;
+		case GLRRenderCommand::INVALIDATE:
+		{
+			GLenum attachments[3];
+			int count = 0;
+			if (c.clear.clearMask & GL_COLOR_BUFFER_BIT)
+				attachments[count++] = GL_COLOR_ATTACHMENT0;
+			if (c.clear.clearMask & GL_DEPTH_BUFFER_BIT)
+				attachments[count++] = GL_DEPTH_ATTACHMENT;
+			if (c.clear.clearMask & GL_STENCIL_BUFFER_BIT)
+				attachments[count++] = GL_STENCIL_BUFFER_BIT;
+			glInvalidateFramebuffer(GL_FRAMEBUFFER, count, attachments);
+			break;
+		}
 		case GLRRenderCommand::BLENDCOLOR:
 			glBlendColor(c.blendColor.color[0], c.blendColor.color[1], c.blendColor.color[2], c.blendColor.color[3]);
 			break;
@@ -518,7 +553,21 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			if (c.texture.texture) {
 				glBindTexture(c.texture.texture->target, c.texture.texture->texture);
 			} else {
-				glBindTexture(GL_TEXTURE_2D, 0);  // ?
+				glBindTexture(GL_TEXTURE_2D, 0);  // Which target? Well we only use this one anyway...
+			}
+			break;
+		}
+		case GLRRenderCommand::BIND_FB_TEXTURE:
+		{
+			GLint slot = c.bind_fb_texture.slot;
+			if (slot != activeTexture) {
+				glActiveTexture(GL_TEXTURE0 + slot);
+				activeTexture = slot;
+			}
+			if (c.bind_fb_texture.aspect == GL_COLOR_BUFFER_BIT) {
+				glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->color_texture);
+			} else {
+				// TODO: Depth texturing?
 			}
 			break;
 		}
@@ -549,19 +598,28 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			break;
 		}
-		case GLRRenderCommand::BIND_VERTEX_BUFFER:
+		case GLRRenderCommand::BIND_BUFFER:
 		{
-			GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
-			glBindBuffer(GL_ARRAY_BUFFER, buf);
-			break;
-		}
-		case GLRRenderCommand::BIND_INDEX_BUFFER:
-		{
-			GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf);
+			if (c.bind_buffer.target == GL_ARRAY_BUFFER) {
+				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
+				if (buf != curArrayBuffer) {
+					glBindBuffer(GL_ARRAY_BUFFER, buf);
+					curArrayBuffer = buf;
+				}
+			} else if (c.bind_buffer.target == GL_ELEMENT_ARRAY_BUFFER) {
+				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
+				if (buf != curElemArrayBuffer) {
+					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf);
+					curElemArrayBuffer = buf;
+				}
+			} else {
+				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
+				glBindBuffer(c.bind_buffer.target, buf);
+			}
 			break;
 		}
 		case GLRRenderCommand::GENMIPS:
+			// TODO: Should we include the texture handle in the command?
 			glGenerateMipmap(GL_TEXTURE_2D);
 			break;
 		case GLRRenderCommand::DRAW:
@@ -614,12 +672,17 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		}
 	}
 
-	if (activeTexture != GL_TEXTURE0)
+	if (activeTexture != 0)
 		glActiveTexture(GL_TEXTURE0);
+
+	// Wipe out the current state.
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	glDisable(GL_SCISSOR_TEST);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 }
 
 void GLQueueRunner::PerformCopy(const GLRStep &step) {
@@ -693,58 +756,15 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 		curFBHeight_ = targetHeight_;
 	}
 
-#if 0
-
-	CHECK_GL_ERROR_IF_DEBUG();
-	curFB_ = (OpenGLFramebuffer *)fbo;
-	if (fbo) {
-		OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
+	curFB_ = pass.render.framebuffer;
+	if (curFB_) {
 		// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
 		// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
-		fbo_bind_fb_target(false, fb->handle);
-		// Always restore viewport after render target binding. Works around driver bugs.
-		glstate.viewport.restore();
+		fbo_bind_fb_target(false, curFB_->handle);
 	} else {
 		fbo_unbind();
+		// Backbuffer is now bound.
 	}
-	int clearFlags = 0;
-	if (rp.color == RPAction::CLEAR) {
-		float fc[4]{};
-		if (rp.clearColor) {
-			Uint8x4ToFloat4(fc, rp.clearColor);
-		}
-		glClearColor(fc[0], fc[1], fc[2], fc[3]);
-		clearFlags |= GL_COLOR_BUFFER_BIT;
-		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	}
-	if (rp.depth == RPAction::CLEAR) {
-#ifdef USING_GLES2
-		glClearDepthf(rp.clearDepth);
-#else
-		glClearDepth(rp.clearDepth);
-#endif
-		glClearStencil(rp.clearStencil);
-		clearFlags |= GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
-		glstate.depthWrite.force(GL_TRUE);
-		glstate.stencilFunc.force(GL_ALWAYS, 0, 0);
-		glstate.stencilMask.force(0xFF);
-	}
-	if (clearFlags) {
-		glstate.scissorTest.force(false);
-		glClear(clearFlags);
-		glstate.scissorTest.restore();
-	}
-	if (rp.color == RPAction::CLEAR) {
-		glstate.colorMask.restore();
-	}
-	if (rp.depth == RPAction::CLEAR) {
-		glstate.depthWrite.restore();
-		glstate.stencilFunc.restore();
-		glstate.stencilMask.restore();
-	}
-	CHECK_GL_ERROR_IF_DEBUG();
-#endif
-
 }
 
 void GLQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
@@ -760,7 +780,6 @@ GLuint GLQueueRunner::AllocTextureName() {
 	nameCache_.pop_back();
 	return name;
 }
-
 
 // On PC, we always use GL_DEPTH24_STENCIL8. 
 // On Android, we try to use what's available.
@@ -847,6 +866,7 @@ GLenum GLQueueRunner::fbo_get_fb_target(bool read, GLuint **cached) {
 }
 
 void GLQueueRunner::fbo_bind_fb_target(bool read, GLuint name) {
+	CHECK_GL_ERROR_IF_DEBUG();
 	GLuint *cached;
 	GLenum target = fbo_get_fb_target(read, &cached);
 	if (*cached != name) {
@@ -859,9 +879,11 @@ void GLQueueRunner::fbo_bind_fb_target(bool read, GLuint name) {
 		}
 		*cached = name;
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void GLQueueRunner::fbo_unbind() {
+	CHECK_GL_ERROR_IF_DEBUG();
 #ifndef USING_GLES2
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
 		glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
@@ -878,6 +900,7 @@ void GLQueueRunner::fbo_unbind() {
 
 	currentDrawHandle_ = 0;
 	currentReadHandle_ = 0;
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 GLRFramebuffer::~GLRFramebuffer() {

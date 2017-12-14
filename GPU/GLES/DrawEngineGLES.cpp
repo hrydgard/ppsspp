@@ -656,7 +656,7 @@ rotateVBO:
 
 			if (drawIndexed) {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, maxIndex * sizeof(TransformedVertex), &vertexBuffer);
-				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &indexBuffer);
+				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * numTrans, &indexBuffer);
 				render_->BindVertexBuffer(vertexBuffer);
 				render_->BindInputLayout(softwareInputLayout_, (void *)(intptr_t)vertexBufferOffset);
 				render_->BindIndexBuffer(indexBuffer);

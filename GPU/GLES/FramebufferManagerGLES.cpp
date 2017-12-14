@@ -81,18 +81,6 @@ const int MAX_PBO = 2;
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
 void FramebufferManagerGLES::DisableState() {
-	/*
-	glstate.blend.disable();
-	glstate.cullFace.disable();
-	glstate.depthTest.disable();
-	glstate.scissorTest.disable();
-	glstate.stencilTest.disable();
-#if !defined(USING_GLES2)
-	glstate.colorLogicOp.disable();
-#endif
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glstate.stencilMask.set(0xFF);
-	*/
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
@@ -293,7 +281,7 @@ void FramebufferManagerGLES::CreateDeviceObjects() {
 
 	std::vector<GLRInputLayout::Entry> entries;
 	entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, sizeof(Simple2DVertex), offsetof(Simple2DVertex, pos) });
-	entries.push_back({ 0, 2, GL_FLOAT, GL_FALSE, sizeof(Simple2DVertex), offsetof(Simple2DVertex, uv) });
+	entries.push_back({ 1, 2, GL_FLOAT, GL_FALSE, sizeof(Simple2DVertex), offsetof(Simple2DVertex, uv) });
 	simple2DInputLayout_ = render_->CreateInputLayout(entries);
 }
 
@@ -326,7 +314,9 @@ FramebufferManagerGLES::~FramebufferManagerGLES() {
 
 	if (pixelBufObj_) {
 		for (int i = 0; i < MAX_PBO; i++) {
-			glDeleteBuffers(1, &pixelBufObj_[i].handle);
+			if (pixelBufObj_[i].buffer) {
+				render_->DeleteBuffer(pixelBufObj_[i].buffer);
+			}
 		}
 		delete[] pixelBufObj_;
 	}
@@ -357,9 +347,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 		render_->BindTexture(0, drawPixelsTex_);
 		render_->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 
-		/*
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-		*/
+		// render_->TextureImage(drawPixelsTex_, 0, drawPixelsTexW_, drawPixelsTexH_, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		drawPixelsTexFormat_ = srcPixelFormat;
 	} else {
 		render_->BindTexture(0, drawPixelsTex_);
@@ -463,11 +451,6 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 		render_->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 	}
 
-	const GLSLProgram *program = glsl_get_program();
-	if (!program) {
-		ERROR_LOG(FRAMEBUF, "Trying to DrawActiveTexture() without a program");
-		return;
-	}
 	Simple2DVertex verts[4];
 	memcpy(verts[0].pos, &pos[0], 12);
 	memcpy(verts[1].pos, &pos[3], 12);
@@ -642,7 +625,6 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 	} else if (gl_extensions.IsGLES) {
 		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 	}
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
@@ -695,7 +677,6 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 		const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
 		if (sameSize && sameDepth && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
 			draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT);
-			CHECK_GL_ERROR_IF_DEBUG();
 			return;
 		}
 	}
@@ -724,7 +705,6 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	}
 
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 // TODO: SSE/NEON
@@ -785,7 +765,6 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 }
 
 void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
-	CHECK_GL_ERROR_IF_DEBUG();
 	GLubyte *packed = 0;
 	bool unbind = false;
 	const u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
@@ -799,21 +778,13 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			return;
 		}
 
-		GLuint pbos[MAX_PBO];
-		glGenBuffers(MAX_PBO, pbos);
-
-		pixelBufObj_ = new AsyncPBO[MAX_PBO];
-		for (int i = 0; i < MAX_PBO; i++) {
-			pixelBufObj_[i].handle = pbos[i];
-			pixelBufObj_[i].maxSize = 0;
-			pixelBufObj_[i].reading = false;
-		}
+		pixelBufObj_ = new AsyncPBO[MAX_PBO]{};
 	}
 
 	// Receive previously requested data from a PBO
 	AsyncPBO &pbo = pixelBufObj_[nextPBO];
 	if (pbo.reading) {
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo.handle);
+		render_->BindPixelPackBuffer(pbo.buffer);
 #ifdef USING_GLES2
 		// Not on desktop GL 2.x...
 		packed = (GLubyte *)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, pbo.size, GL_MAP_READ_BIT);
@@ -875,14 +846,15 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			return;
 		}
 
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[currentPBO_].handle);
-
 		if (pixelBufObj_[currentPBO_].maxSize < bufSize) {
-			// We reserve a buffer big enough to fit all those pixels
-			glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
+			if (pixelBufObj_[currentPBO_].buffer) {
+				render_->DeleteBuffer(pixelBufObj_[currentPBO_].buffer);
+			}
+			pixelBufObj_[currentPBO_].buffer = render_->CreateBuffer(GL_PIXEL_PACK_BUFFER, bufSize, GL_DYNAMIC_READ);
 			pixelBufObj_[currentPBO_].maxSize = bufSize;
 		}
 
+		render_->BindPixelPackBuffer(pixelBufObj_[currentPBO_].buffer);
 		// TODO: This is a hack since PBOs have not been implemented in Thin3D yet (and maybe shouldn't? maybe should do this internally?)
 		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->fb_stride, vfb->height, dataFmt, nullptr, vfb->fb_stride);
 
@@ -899,9 +871,8 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	currentPBO_ = nextPBO;
 
 	if (unbind) {
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+		render_->BindPixelPackBuffer(0);
 	}
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
@@ -995,26 +966,9 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 			}
 		}
 	}
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::EndFrame() {
-	CHECK_GL_ERROR_IF_DEBUG();
-
-	// Let's explicitly invalidate any temp FBOs used during this frame.
-	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-		for (auto temp : tempFBOs_) {
-			if (temp.second.last_frame_used < gpuStats.numFlips) {
-				continue;
-			}
-
-			draw_->BindFramebufferAsRenderTarget(temp.second.fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
-			GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
-			glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
-		}
-		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP , Draw::RPAction::KEEP, Draw::RPAction::KEEP });
-	}
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::DeviceLost() {
@@ -1028,7 +982,6 @@ void FramebufferManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void FramebufferManagerGLES::DestroyAllFBOs() {
-	CHECK_GL_ERROR_IF_DEBUG();
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
 	prevDisplayFramebuf_ = 0;
@@ -1055,7 +1008,6 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 	SetNumExtraFBOs(0);
 
 	DisableState();
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void FramebufferManagerGLES::Resized() {
@@ -1066,15 +1018,7 @@ void FramebufferManagerGLES::Resized() {
 		DestroyAllFBOs();
 	}
 
-#ifndef USING_GLES2
-	if (g_Config.iInternalResolution == 0) {
-		glLineWidth(std::max(1, (int)(renderWidth_ / 480)));
-		glPointSize(std::max(1.0f, (float)(renderWidth_ / 480.f)));
-	} else {
-		glLineWidth(g_Config.iInternalResolution);
-		glPointSize((float)g_Config.iInternalResolution);
-	}
-#endif
+	// render_->SetLineWidth(renderWidth_ / 480.0f);
 }
 
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {

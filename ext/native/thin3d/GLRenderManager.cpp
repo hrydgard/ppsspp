@@ -382,8 +382,6 @@ void GLPushBuffer::Unmap() {
 	// Here we should simply upload everything to the buffers.
 	// Might be worth trying with size_ instead of offset_, so the driver can replace the whole buffer.
 	// At least if it's close.
-	if (offset_ > 0 && buffers_[buf_].deviceMemory[0] == 0xCD)
-		Crash();
 	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].deviceMemory, false);
 	writePtr_ = nullptr;
 }
