@@ -53,9 +53,14 @@ TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	SetupTextureDecoder();
 
 	nextTexture_ = nullptr;
+	std::vector<GLRInputLayout::Entry> entries;
+	entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, 20, 0 });
+	entries.push_back({ 1, 2, GL_FLOAT, GL_FALSE, 20, 12 });
+	shadeInputLayout_ = render_->CreateInputLayout(entries);
 }
 
 TextureCacheGLES::~TextureCacheGLES() {
+	render_->DeleteInputLayout(shadeInputLayout_);
 	Clear(true);
 }
 
@@ -65,7 +70,7 @@ void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) 
 }
 
 void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
-	DEBUG_LOG(G3D, "Deleting texture %i", entry->textureName);
+	DEBUG_LOG(G3D, "Deleting texture %08x", entry->addr);
 	if (delete_them) {
 		if (entry->textureName) {
 			render_->DeleteTexture(entry->textureName);
@@ -322,21 +327,11 @@ void TextureCacheGLES::Unbind() {
 class TextureShaderApplier {
 public:
 	struct Pos {
-		Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
-		}
-		Pos() {
-		}
-
 		float x;
 		float y;
 		float z;
 	};
 	struct UV {
-		UV(float u_, float v_) : u(u_), v(v_) {
-		}
-		UV() {
-		}
-
 		float u;
 		float v;
 	};
@@ -379,69 +374,45 @@ public:
 			const float top = v1 * invHalfHeight - 1.0f;
 			const float bottom = v2 * invHalfHeight - 1.0f;
 			// Points are: BL, BR, TR, TL.
-			pos_[0] = Pos(left, bottom, -1.0f);
-			pos_[1] = Pos(right, bottom, -1.0f);
-			pos_[2] = Pos(right, top, -1.0f);
-			pos_[3] = Pos(left, top, -1.0f);
+			pos_[0] = Pos{ left, bottom, -1.0f };
+			pos_[1] = Pos{ right, bottom, -1.0f };
+			pos_[2] = Pos{ right, top, -1.0f };
+			pos_[3] = Pos{ left, top, -1.0f };
 
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
 			const float uvright = u2 * invWidth;
 			const float uvtop = v1 * invHeight;
 			const float uvbottom = v2 * invHeight;
-			uv_[0] = UV(uvleft, uvbottom);
-			uv_[1] = UV(uvright, uvbottom);
-			uv_[2] = UV(uvright, uvtop);
-			uv_[3] = UV(uvleft, uvtop);
+			uv_[0] = UV{ uvleft, uvbottom };
+			uv_[1] = UV{ uvright, uvbottom };
+			uv_[2] = UV{ uvright, uvtop };
+			uv_[3] = UV{ uvleft, uvtop };
 		}
 	}
 
-	void Use(GLRenderManager *render, DrawEngineGLES *transformDraw) {
+	void Use(GLRenderManager *render, DrawEngineGLES *transformDraw, GLRInputLayout *inputLayout) {
 		render->BindProgram(shader_->program);
-
-		/*
-		// Restore will rebind all of the state below.
-		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-			static const GLubyte indices[4] = { 0, 1, 3, 2 };
-			transformDraw->BindBuffer(pos_, sizeof(pos_), uv_, sizeof(uv_));
-			transformDraw->BindElementBuffer(indices, sizeof(indices));
-		} else {
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		struct SimpleVertex {
+			float pos[3];
+			float uv[2];
+		};
+		uint32_t bindOffset;
+		GLRBuffer *bindBuffer;
+		SimpleVertex *verts = (SimpleVertex *)transformDraw->GetPushVertexBuffer()->Push(sizeof(SimpleVertex) * 4, &bindOffset, &bindBuffer);
+		int order[4] = { 0 ,1, 3, 2 };
+		for (int i = 0; i < 4; i++) {
+			memcpy(verts[i].pos, &pos_[order[i]], sizeof(Pos));
+			memcpy(verts[i].uv, &uv_[order[i]], sizeof(UV));
 		}
-		glEnableVertexAttribArray(shader_->a_position);
-		glEnableVertexAttribArray(shader_->a_texcoord0);
-		*/
+		render->BindVertexBuffer(bindBuffer);
+		render->BindInputLayout(inputLayout, bindOffset);
 	}
 
-	void Shade() {
+	void Shade(GLRenderManager *render) {
 		static const GLubyte indices[4] = { 0, 1, 3, 2 };
-		/*
-		glstate.blend.force(false);
-		glstate.colorMask.force(true, true, true, true);
-		glstate.scissorTest.force(false);
-		glstate.cullFace.force(false);
-		glstate.depthTest.force(false);
-		glstate.stencilTest.force(false);
-#if !defined(USING_GLES2)
-		glstate.colorLogicOp.force(false);
-#endif
-		glViewport(0, 0, renderW_, renderH_);
-
-		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-			glVertexAttribPointer(shader_->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
-			glVertexAttribPointer(shader_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos_));
-			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
-		} else {
-			glVertexAttribPointer(shader_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos_);
-			glVertexAttribPointer(shader_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv_);
-			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
-		}
-		glDisableVertexAttribArray(shader_->a_position);
-		glDisableVertexAttribArray(shader_->a_texcoord0);
-
-		glstate.Restore();
-		*/
+		render->SetViewport(GLRViewport{ 0, 0, (float)renderW_, (float)renderH_, 0.0f, 1.0f });
+		render->Draw(GL_TRIANGLE_STRIP, 0, 4);
 	}
 
 protected:
@@ -469,14 +440,13 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 
 		TextureShaderApplier shaderApply(depal, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight);
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
-		shaderApply.Use(render_, drawEngine_);
-
-		render_->BindTexture(3, clutTexture);
+		shaderApply.Use(render_, drawEngine_, shadeInputLayout_);
 
 		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
+		render_->BindTexture(3, clutTexture);
 		render_->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 
-		shaderApply.Shade();
+		shaderApply.Shade(render_);
 
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 
@@ -497,6 +467,9 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
 	InvalidateLastTexture();
+
+	// Since we started/ended render passes, might need these.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
 ReplacedTextureFormat FromGLESFormat(GLenum fmt) {

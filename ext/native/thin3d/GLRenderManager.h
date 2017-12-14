@@ -3,7 +3,9 @@
 #include <thread>
 #include <map>
 #include <vector>
+#include <string>
 #include <mutex>
+#include <condition_variable>
 #include <cassert>
 
 #include "gfx/gl_common.h"
@@ -83,8 +85,9 @@ public:
 	};
 
 	// Must ONLY be called from GLQueueRunner!
+	// Also it's pretty slow...
 	int GetUniformLoc(const char *name) {
-		auto iter = uniformCache_.find(name);
+		auto iter = uniformCache_.find(std::string(name));
 		int loc = -1;
 		if (iter != uniformCache_.end()) {
 			loc = iter->second.loc_;
@@ -232,6 +235,7 @@ public:
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
 		step.create_program.program->initialize_ = initalizers;
+		step.create_program.support_dual_source = supportDualSource;
 		_assert_msg_(G3D, shaders.size() > 0, "Can't create a program with zero shaders");
 		for (int i = 0; i < shaders.size(); i++) {
 			step.create_program.shaders[i] = shaders[i];
@@ -288,15 +292,15 @@ public:
 	void BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter);
 
 	// Takes ownership of data if deleteData = true.
-	void BufferSubdata(GLRBuffer *buffer, int offset, int size, uint8_t *data, bool deleteData = true) {
+	void BufferSubdata(GLRBuffer *buffer, size_t offset, size_t size, uint8_t *data, bool deleteData = true) {
 		// TODO: Maybe should be a render command instead of an init command? When possible it's better as
 		// an init command, that's for sure.
 		GLRInitStep step{ GLRInitStepType::BUFFER_SUBDATA };
 		_dbg_assert_(G3D, offset >= 0);
 		_dbg_assert_(G3D, offset <= buffer->size_ - size);
 		step.buffer_subdata.buffer = buffer;
-		step.buffer_subdata.offset = offset;
-		step.buffer_subdata.size = size;
+		step.buffer_subdata.offset = (int)offset;
+		step.buffer_subdata.size = (int)size;
 		step.buffer_subdata.data = data;
 		step.buffer_subdata.deleteData = deleteData;
 		initSteps_.push_back(step);
@@ -366,12 +370,12 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void BindInputLayout(GLRInputLayout *inputLayout, const void *offset) {
+	void BindInputLayout(GLRInputLayout *inputLayout, size_t offset) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		assert(inputLayout);
 		GLRRenderData data{ GLRRenderCommand::BIND_INPUT_LAYOUT };
 		data.inputLayout.inputLayout = inputLayout;
-		data.inputLayout.offset = (intptr_t)offset;
+		data.inputLayout.offset = offset;
 		curRenderStep_->commands.push_back(data);
 	}
 

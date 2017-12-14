@@ -132,11 +132,6 @@ inline void DrawEngineGLES::ResetShaderBlending() {
 void DrawEngineGLES::ApplyDrawState(int prim) {
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
-		textureCache_->SetTexture();
-		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-	}
-
 	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE)) {
 		// Nothing to do, let's early-out
 		return;
@@ -340,10 +335,6 @@ void DrawEngineGLES::ApplyDrawStateLate(bool setStencil, int stencilValue) {
 			fboTexBound_ = true;
 			fboTexNeedBind_ = false;
 		}
-
-		// Apply the texture after the FBO tex, since it might unbind the texture.
-		// TODO: Could use a separate texture unit to be safer?
-		textureCache_->ApplyTexture();
 
 		// Apply last, once we know the alpha params of the texture.
 		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {

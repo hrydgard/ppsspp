@@ -136,7 +136,7 @@ struct GLRRenderData {
 		} program;
 		struct {
 			GLRInputLayout *inputLayout;
-			intptr_t offset;
+			size_t offset;
 		} inputLayout;
 		struct {
 			GLenum wrapS;
