@@ -29,12 +29,10 @@ static const int FRAGTEST_DECIMATION_INTERVAL = 113;
 
 FragmentTestCacheGLES::FragmentTestCacheGLES(Draw::DrawContext *draw) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	scratchpad_ = new u8[256 * 4];
 }
 
 FragmentTestCacheGLES::~FragmentTestCacheGLES() {
 	Clear();
-	delete [] scratchpad_;
 }
 
 void FragmentTestCacheGLES::BindTestTexture(int slot) {
@@ -100,6 +98,7 @@ FragmentTestID FragmentTestCacheGLES::GenerateTestID() const {
 }
 
 GLRTexture *FragmentTestCacheGLES::CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]) {
+	u8 *data = new u8[256 * 4];
 	// TODO: Might it be better to use GL_ALPHA for simple textures?
 	// TODO: Experiment with 4-bit/etc. textures.
 
@@ -135,12 +134,12 @@ GLRTexture *FragmentTestCacheGLES::CreateTestTexture(const GEComparison funcs[4]
 					break;
 				}
 			}
-			scratchpad_[color * 4 + i] = res ? 0xFF : 0;
+			data[color * 4 + i] = res ? 0xFF : 0;
 		}
 	}
 
 	GLRTexture *tex = render_->CreateTexture(GL_TEXTURE_2D);
-	render_->TextureImage(tex, 0, 256, 1, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, scratchpad_);
+	render_->TextureImage(tex, 0, 256, 1, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, data);
 	return tex;
 }
 
