@@ -1032,13 +1032,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
 			}
-
-			/*
-			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-				draw_->BindFramebufferAsRenderTarget(extraFBOs_[0], { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
-				GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
-				glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
-			}*/
 		} else {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);

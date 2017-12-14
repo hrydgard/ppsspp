@@ -38,7 +38,7 @@ class ShaderManagerGLES;
 
 // Simple struct for asynchronous PBO readbacks
 struct AsyncPBO {
-	uint32_t handle;
+	GLRBuffer *buffer;
 	u32 maxSize;
 
 	u32 fb_address;

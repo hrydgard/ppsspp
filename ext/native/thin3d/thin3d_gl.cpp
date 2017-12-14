@@ -1269,7 +1269,13 @@ void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBCh
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 
 	GLuint aspect = 0;
-	renderManager_.BindFramebufferAsTexture(fb->framebuffer, binding, (int)channelBit, color);
+	if (channelBit & FB_COLOR_BIT)
+		aspect |= GL_COLOR_BUFFER_BIT;
+	if (channelBit & FB_DEPTH_BIT)
+		aspect |= GL_DEPTH_BUFFER_BIT;
+	if (channelBit & FB_STENCIL_BIT)
+		aspect |= GL_STENCIL_BUFFER_BIT;
+	renderManager_.BindFramebufferAsTexture(fb->framebuffer, binding, aspect, color);
 }
 
 void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {

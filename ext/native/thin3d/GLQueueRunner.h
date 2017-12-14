@@ -41,12 +41,12 @@ enum class GLRRenderCommand : uint8_t {
 	SCISSOR,
 	RASTER,
 	CLEAR,
+	INVALIDATE,
 	BINDPROGRAM,
 	BINDTEXTURE,
 	BIND_FB_TEXTURE,
 	BIND_INPUT_LAYOUT,
-	BIND_VERTEX_BUFFER,
-	BIND_INDEX_BUFFER,
+	BIND_BUFFER,
 	GENMIPS,
 	DRAW,
 	DRAW_INDEXED,
@@ -129,6 +129,7 @@ struct GLRRenderData {
 		} bind_fb_texture;
 		struct {
 			GLRBuffer *buffer;
+			GLuint target;
 		} bind_buffer;
 		struct {
 			GLRProgram *program;
@@ -335,6 +336,7 @@ private:
 	GLenum fbo_get_fb_target(bool read, GLuint **cached);
 	void fbo_unbind();
 
+	GLRFramebuffer *curFB_ = nullptr;
 
 	GLuint globalVAO_;
 

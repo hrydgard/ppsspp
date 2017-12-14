@@ -57,37 +57,6 @@ static const char *depalVShader300 =
 "  gl_Position = a_position;\n"
 "}\n";
 
-
-static bool CheckShaderCompileSuccess(GLuint shader, const char *code) {
-	GLint success;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-	if (!success) {
-#define MAX_INFO_LOG_SIZE 2048
-		GLchar infoLog[MAX_INFO_LOG_SIZE];
-		GLsizei len;
-		glGetShaderInfoLog(shader, MAX_INFO_LOG_SIZE, &len, infoLog);
-		infoLog[len] = '\0';
-#ifdef __ANDROID__
-		ELOG("Error in shader compilation! %s\n", infoLog);
-		ELOG("Shader source:\n%s\n", (const char *)code);
-#endif
-		ERROR_LOG(G3D, "Error in shader compilation!\n");
-		ERROR_LOG(G3D, "Info log: %s\n", infoLog);
-		ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
-#ifdef SHADERLOG
-		OutputDebugStringUTF8(infoLog);
-#endif
-		shader = 0;
-		return false;
-	} else {
-		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
-#ifdef SHADERLOG
-		OutputDebugStringUTF8(code);
-#endif
-		return true;
-	}
-}
-
 DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	// Pre-build the vertex program
