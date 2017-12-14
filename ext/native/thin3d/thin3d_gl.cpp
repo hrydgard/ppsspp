@@ -395,12 +395,7 @@ public:
 	}
 
 	void SetScissorRect(int left, int top, int width, int height) override {
-		int y = top;
-		if (!curFB_) {
-			// We render "upside down" to the backbuffer since GL is silly.
-			y = targetHeight_ - (top + height);
-		}
-		renderManager_.SetScissor({ left, y, width, height });
+		renderManager_.SetScissor({ left, top, width, height });
 	}
 
 	void SetViewports(int count, Viewport *viewports) override {
@@ -492,7 +487,6 @@ private:
 	int curVBufferOffsets_[4]{};
 	OpenGLBuffer *curIBuffer_ = nullptr;
 	int curIBufferOffset_ = 0;
-	OpenGLFramebuffer *curFB_;
 
 	// Frames in flight is not such a strict concept as with Vulkan until we start using glBufferStorage and fences.
 	// But might as well have the structure ready, and can't hurt to rotate buffers.

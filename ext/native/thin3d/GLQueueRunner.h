@@ -344,7 +344,7 @@ private:
 
 	GLRFramebuffer *curFB_ = nullptr;
 
-	GLuint globalVAO_;
+	GLuint globalVAO_ = 0;
 
 	GLint curFramebuffer_ = 0;
 	int curFBWidth_ = 0;
@@ -357,7 +357,7 @@ private:
 	GLint readbackBuffer_ = 0;
 	int readbackBufferSize_ = 0;
 
-	float maxAnisotropyLevel_;
+	float maxAnisotropyLevel_ = 0.0f;
 
 	// Framebuffer state?
 	GLuint currentDrawHandle_ = 0;
