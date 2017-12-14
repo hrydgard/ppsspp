@@ -101,6 +101,8 @@ private:
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
 
+	GLRInputLayout *shadeInputLayout_;
+
 	enum { INVALID_TEX = -1 };
 };
 

@@ -401,8 +401,14 @@ void DrawEngineGLES::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
+	bool textureNeedsApply = false;
+	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+		textureCache_->SetTexture();
+		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		textureNeedsApply = true;
+	}
+
 	GEPrimitiveType prim = prevPrim_;
-	ApplyDrawState(prim);
 
 	VShaderID vsid;
 	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_, &vsid);
@@ -592,12 +598,17 @@ rotateVBO:
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
+		if (textureNeedsApply)
+			textureCache_->ApplyTexture();
+
+		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
+		ApplyDrawState(prim);
 		ApplyDrawStateLate(false, 0);
 		
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
 		render_->BindVertexBuffer(vertexBuffer);
-		render_->BindInputLayout(inputLayout, (void *)(uintptr_t)vertexBufferOffset);
+		render_->BindInputLayout(inputLayout, vertexBufferOffset);
 		if (useElements) {
 			if (!indexBuffer) {
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &indexBuffer);
@@ -653,6 +664,11 @@ rotateVBO:
 			prim, vertexCount,
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
+
+		if (textureNeedsApply)
+			textureCache_->ApplyTexture();
+
+		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
@@ -666,13 +682,13 @@ rotateVBO:
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, maxIndex * sizeof(TransformedVertex), &vertexBuffer);
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * numTrans, &indexBuffer);
 				render_->BindVertexBuffer(vertexBuffer);
-				render_->BindInputLayout(softwareInputLayout_, (void *)(intptr_t)vertexBufferOffset);
+				render_->BindInputLayout(softwareInputLayout_, vertexBufferOffset);
 				render_->BindIndexBuffer(indexBuffer);
 				render_->DrawIndexed(glprim[prim], numTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
 			} else {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, numTrans * sizeof(TransformedVertex), &vertexBuffer);
 				render_->BindVertexBuffer(vertexBuffer);
-				render_->BindInputLayout(softwareInputLayout_, (void *)(intptr_t)vertexBufferOffset);
+				render_->BindInputLayout(softwareInputLayout_, vertexBufferOffset);
 				render_->Draw(glprim[prim], 0, numTrans);
 			}
 		} else if (result.action == SW_CLEAR) {

@@ -29,8 +29,6 @@ class DepalShader {
 public:
 	GLRProgram *program;
 	GLRShader *fragShader;
-	GLint a_position;
-	GLint a_texcoord0;
 	GLint u_tex;
 	GLint u_pal;
 	std::string code;

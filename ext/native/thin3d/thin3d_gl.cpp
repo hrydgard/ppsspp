@@ -1115,7 +1115,6 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
-#if 1
 	int stride = curPipeline_->inputLayout->stride;
 	size_t dataSize = stride * vertexCount;
 
@@ -1127,16 +1126,9 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	ApplySamplers();
 
 	renderManager_.BindVertexBuffer(buf);
-	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, (void *)offset);
+	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, offset);
 
 	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
-#else
-	ApplySamplers();
-	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, (void *)vdata);
-	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
-	renderManager_.UnbindInputLayout(curPipeline_->inputLayout->inputLayout_);
-
-#endif
 }
 
 void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {

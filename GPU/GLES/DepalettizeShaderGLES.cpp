@@ -167,8 +167,8 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 	queries.push_back({ &depal->u_pal, "pal" });
 
 	std::vector<GLRProgram::Initializer> initializer;
-	initializer.push_back({ &depal->u_tex, 0 });
-	initializer.push_back({ &depal->u_pal, 3 });
+	initializer.push_back({ &depal->u_tex, 0, 0 });
+	initializer.push_back({ &depal->u_pal, 0, 3 });
 
 	std::vector<GLRShader *> shaders{ vertexShader_, fragShader };
 
@@ -177,8 +177,6 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 	depal->program = program;
 	depal->fragShader = fragShader;
 	depal->code = buffer;
-	depal->a_position = 0;
-	depal->a_texcoord0 = 1;
 	cache_[id] = depal;
 
 	delete[] buffer;
