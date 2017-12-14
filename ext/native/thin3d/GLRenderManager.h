@@ -317,6 +317,13 @@ public:
 		initSteps_.push_back(step);
 	}
 
+	void FinalizeTexture(GLRTexture *texture, int maxLevels) {
+		GLRInitStep step{ GLRInitStepType::TEXTURE_FINALIZE };
+		step.texture_finalize.texture = texture;
+		step.texture_finalize.maxLevel = maxLevels;
+		initSteps_.push_back(step);
+	}
+
 	void BindTexture(int slot, GLRTexture *tex) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BINDTEXTURE };

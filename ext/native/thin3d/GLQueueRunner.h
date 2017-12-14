@@ -178,6 +178,7 @@ enum class GLRInitStepType : uint8_t {
 
 	TEXTURE_IMAGE,
 	TEXTURE_SUBDATA,
+	TEXTURE_FINALIZE,
 	BUFFER_SUBDATA,
 };
 
@@ -229,6 +230,10 @@ struct GLRInitStep {
 			bool linearFilter;
 			uint8_t *data;  // owned, delete[]-d
 		} texture_image;
+		struct {
+			GLRTexture *texture;
+			int maxLevel;
+		} texture_finalize;
 	};
 };
 
