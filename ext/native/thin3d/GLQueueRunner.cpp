@@ -176,17 +176,27 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		{
 			GLRTexture *tex = step.texture_image.texture;
 			CHECK_GL_ERROR_IF_DEBUG();
-			if (boundTexture != step.texture_image.texture->texture) {
-				glBindTexture(step.texture_image.texture->target, step.texture_image.texture->texture);
-				boundTexture = step.texture_image.texture->texture;
+			if (boundTexture != tex->texture) {
+				glBindTexture(tex->target, tex->texture);
+				boundTexture = tex->texture;
 			}
 			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
 			delete[] step.texture_image.data;
 			CHECK_GL_ERROR_IF_DEBUG();
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST);
+			glTexParameteri(step.texture_finalize.texture->target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(step.texture_finalize.texture->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTexParameteri(step.texture_finalize.texture->target, GL_TEXTURE_MAG_FILTER, step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST);
+			glTexParameteri(step.texture_finalize.texture->target, GL_TEXTURE_MIN_FILTER, step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST);
+			break;
+		}
+		case GLRInitStepType::TEXTURE_FINALIZE:
+		{
+			GLRTexture *tex = step.texture_finalize.texture;
+			if (boundTexture != tex->texture) {
+				glBindTexture(tex->target, tex->texture);
+				boundTexture = tex->texture;
+			}
+			glTexParameteri(step.texture_finalize.texture->target, GL_TEXTURE_MAX_LEVEL, step.texture_finalize.maxLevel);
 			break;
 		}
 		default:

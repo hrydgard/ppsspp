@@ -689,6 +689,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 	}
 
+	render_->FinalizeTexture(entry->textureName, texMaxLevel);
+
 	// This will rebind it, but that's okay.
 	// Need to actually bind it now - it might only have gotten bound in the init phase.
 	render_->BindTexture(0, entry->textureName);
