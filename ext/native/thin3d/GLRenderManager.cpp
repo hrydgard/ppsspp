@@ -200,13 +200,19 @@ void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	step->copy.dstPos = dstPos;
 	step->copy.src = src;
 	step->copy.dst = dst;
-	step->copy.dstPos = dstPos;
 	step->copy.aspectMask = aspectMask;
 	steps_.push_back(step);
 }
 
 void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter) {
-	Crash();
+	GLRStep * step = new GLRStep{ GLRStepType::BLIT };
+	step->blit.srcRect = srcRect;
+	step->blit.dstRect = dstRect;
+	step->blit.src = src;
+	step->blit.dst = dst;
+	step->blit.aspectMask = aspectMask;
+	step->blit.filter = filter;
+	steps_.push_back(step);
 }
 
 void GLRenderManager::BeginFrame() {
@@ -229,6 +235,7 @@ void GLRenderManager::BeginFrame() {
 
 	// vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX);
 	// vkResetFences(device, 1, &frameData.fence);
+	// glFenceSync(...)
 
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);

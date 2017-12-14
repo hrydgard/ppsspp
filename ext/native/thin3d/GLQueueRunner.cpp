@@ -337,25 +337,31 @@ void GLQueueRunner::LogSteps(const std::vector<GLRStep *> &steps) {
 
 
 void GLQueueRunner::PerformBlit(const GLRStep &step) {
-	/*
 	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
 	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
-	fbo_bind_fb_target(false, dst->handle);
-	fbo_bind_fb_target(true, src->handle);
-	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
-	glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, aspect, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
-	CHECK_GL_ERROR_IF_DEBUG();
-	#if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
-	return true;
-	} else if (gl_extensions.NV_framebuffer_blit) {
-	glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, aspect, linearFilter == FB_BLIT_LINEAR ? GL_LINEAR : GL_NEAREST);
-	CHECK_GL_ERROR_IF_DEBUG();
-	#endif // defined(USING_GLES2) && defined(__ANDROID__)
-	return true;
-	} else {
-	return false;
-	}*/
+	fbo_bind_fb_target(false, step.blit.dst->handle);
+	fbo_bind_fb_target(true, step.blit.src->handle);
 
+	int srcX1 = step.blit.srcRect.x;
+	int srcY1 = step.blit.srcRect.y;
+	int srcX2 = step.blit.srcRect.x + step.blit.srcRect.w;
+	int srcY2 = step.blit.srcRect.y + step.blit.srcRect.h;
+	int dstX1 = step.blit.dstRect.x;
+	int dstY1 = step.blit.dstRect.y;
+	int dstX2 = step.blit.dstRect.x + step.blit.dstRect.w;
+	int dstY2 = step.blit.dstRect.y + step.blit.dstRect.h;
+
+	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
+		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, step.blit.aspectMask, step.blit.filter ? GL_LINEAR : GL_NEAREST);
+		CHECK_GL_ERROR_IF_DEBUG();
+#if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
+	} else if (gl_extensions.NV_framebuffer_blit) {
+		glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, step.blit.aspectMask, step.blit.filter ? GL_LINEAR : GL_NEAREST);
+		CHECK_GL_ERROR_IF_DEBUG();
+#endif // defined(USING_GLES2) && defined(__ANDROID__)
+	} else {
+		ERROR_LOG(G3D, "GLQueueRunner: Tried to blit without the capability");
+	}
 }
 
 void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
@@ -367,6 +373,11 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 
 	PerformBindFramebufferAsRenderTarget(step);
 
+	glDisable(GL_SCISSOR_TEST);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_STENCIL_TEST);
+	glDisable(GL_BLEND);
+	glDisable(GL_CULL_FACE);
 	glEnable(GL_SCISSOR_TEST);
 
 	/*
@@ -681,7 +692,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	glBindVertexArray(0);
 	glDisable(GL_SCISSOR_TEST);
 	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_STENCIL_TEST);
 	glDisable(GL_BLEND);
+	glDisable(GL_CULL_FACE);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 }
 
