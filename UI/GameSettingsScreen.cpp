@@ -191,7 +191,7 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 	bool vulkanAvailable = false;
-#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
+#ifndef IOS
 	vulkanAvailable = VulkanMayBeAvailable();
 #endif
 	if (!vulkanAvailable) {

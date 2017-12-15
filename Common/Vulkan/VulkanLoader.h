@@ -25,10 +25,13 @@
 #define NOMINMAX
 #endif
 
+#ifndef VULKAN_STATIC
 #define VK_NO_PROTOTYPES
+#endif
 
 #include "ext/vulkan/vulkan.h"
 
+#ifndef VULKAN_STATIC
 extern PFN_vkCreateInstance vkCreateInstance;
 extern PFN_vkDestroyInstance vkDestroyInstance;
 extern PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
@@ -189,9 +192,13 @@ extern PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR;
 extern PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR;
 extern PFN_vkQueuePresentKHR vkQueuePresentKHR;
 
-// And the DEBUG_REPORT extension.
-extern PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT;
-extern PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT;
+#endif
+
+// And the DEBUG_REPORT extension. Since we load this dynamically even in static
+// linked mode, we have to rename it :(
+extern PFN_vkCreateDebugReportCallbackEXT dyn_vkCreateDebugReportCallbackEXT;
+extern PFN_vkDestroyDebugReportCallbackEXT dyn_vkDestroyDebugReportCallbackEXT;
+
 
 // Way to do a quick check before even attempting to load.
 bool VulkanMayBeAvailable();
@@ -200,4 +207,3 @@ bool VulkanLoad();
 void VulkanLoadInstanceFunctions(VkInstance instance);
 void VulkanLoadDeviceFunctions(VkDevice device);
 void VulkanFree();
-

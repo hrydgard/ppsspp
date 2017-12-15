@@ -17,11 +17,13 @@
 
 #include "Common/Vulkan/VulkanLoader.h"
 #include "base/logging.h"
+#include "base/basictypes.h"
 
 #ifndef _WIN32
 #include <dlfcn.h>
 #endif
 
+#ifndef VULKAN_STATIC
 
 PFN_vkCreateInstance vkCreateInstance;
 PFN_vkDestroyInstance vkDestroyInstance;
@@ -181,10 +183,12 @@ PFN_vkDestroySwapchainKHR vkDestroySwapchainKHR;
 PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR;
 PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR;
 PFN_vkQueuePresentKHR vkQueuePresentKHR;
+#endif
 
-// And the DEBUG_REPORT extension.
-PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT;
-PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT;
+// And the DEBUG_REPORT extension. We dynamically load this.
+PFN_vkCreateDebugReportCallbackEXT dyn_vkCreateDebugReportCallbackEXT;
+PFN_vkDestroyDebugReportCallbackEXT dyn_vkDestroyDebugReportCallbackEXT;
+
 
 #ifdef _WIN32
 static HINSTANCE vulkanLibrary;
@@ -197,15 +201,26 @@ static void *vulkanLibrary;
 #define LOAD_DEVICE_FUNC(instance, x) x = (PFN_ ## x)vkGetDeviceProcAddr(instance, #x); if (!x) {ILOG("Missing (device): %s", #x);}
 #define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {ILOG("Missing (global): %s", #x);}
 
+static const char *so_names[] = {
+	"libvulkan.so",
+	"libvulkan.so.1",
+};
+
 bool VulkanMayBeAvailable() {
+#ifdef VULKAN_STATIC
+	return true;
+#else
 	if (vulkanLibrary)
 		return true;
 	bool available = false;
 #ifndef _WIN32
-	void *lib = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
-	available = lib != nullptr;
-	if (lib) {
-		dlclose(lib);
+	for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
+		void *lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
+		if (lib) {
+			available = true;
+			dlclose(lib);
+			break;
+		}
 	}
 #else
 	// LoadLibrary etc
@@ -216,12 +231,18 @@ bool VulkanMayBeAvailable() {
 	}
 #endif
 	return available;
+#endif
 }
 
 bool VulkanLoad() {
+#ifndef VULKAN_STATIC
 	if (!vulkanLibrary) {
 #ifndef _WIN32
-		vulkanLibrary = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+		for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
+			vulkanLibrary = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
+			if (vulkanLibrary)
+				break;
+		}
 #else
 		// LoadLibrary etc
 		vulkanLibrary = LoadLibrary(L"vulkan-1.dll");
@@ -239,10 +260,12 @@ bool VulkanLoad() {
 	LOAD_GLOBAL_FUNC(vkEnumerateInstanceLayerProperties);
 
 	WLOG("Vulkan base functions loaded.");
+#endif
 	return true;
 }
 
 void VulkanLoadInstanceFunctions(VkInstance instance) {
+#ifndef VULKAN_STATIC
 	// OK, let's use the above functions to get the rest.
 	LOAD_INSTANCE_FUNC(instance, vkDestroyInstance);
 	LOAD_INSTANCE_FUNC(instance, vkEnumeratePhysicalDevices);
@@ -397,9 +420,11 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 #endif
 
 	LOAD_INSTANCE_FUNC(instance, vkDestroySurfaceKHR);
+#endif
 
-	LOAD_INSTANCE_FUNC(instance, vkCreateDebugReportCallbackEXT);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyDebugReportCallbackEXT);
+	dyn_vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
+	dyn_vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
+
 	WLOG("Vulkan instance functions loaded.");
 }
 
@@ -408,15 +433,18 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 // good for multi-device.
 void VulkanLoadDeviceFunctions(VkDevice device) {
 	WLOG("Vulkan device functions loaded.");
+#ifndef VULKAN_STATIC
 	// TODO: Move more functions VulkanLoadInstanceFunctions to here.
 	LOAD_DEVICE_FUNC(device, vkCreateSwapchainKHR);
 	LOAD_DEVICE_FUNC(device, vkDestroySwapchainKHR);
 	LOAD_DEVICE_FUNC(device, vkGetSwapchainImagesKHR);
 	LOAD_DEVICE_FUNC(device, vkAcquireNextImageKHR);
 	LOAD_DEVICE_FUNC(device, vkQueuePresentKHR);
+#endif
 }
 
 void VulkanFree() {
+#ifndef VULKAN_STATIC
 	if (vulkanLibrary) {
 #ifdef _WIN32
 		FreeLibrary(vulkanLibrary);
@@ -425,4 +453,5 @@ void VulkanFree() {
 #endif
 		vulkanLibrary = nullptr;
 	}
+#endif
 }

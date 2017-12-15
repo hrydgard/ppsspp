@@ -76,6 +76,25 @@ else()
   add_definitions(-DNO_VULKAN)
 endif()
 
+if(NOT ANDROID)
+	# Use FindVulkan module added with CMAKE 3.7
+	if (NOT CMAKE_VERSION VERSION_LESS 3.7.0)
+		message(STATUS "Using module to find Vulkan")
+		find_package(Vulkan)
+	endif()
+endif()
+
+if(NOT WIN32 AND VULKAN)
+	IF (NOT Vulkan_FOUND)
+		find_library(Vulkan_LIBRARY NAMES vulkan HINTS "$ENV{VULKAN_SDK}/lib" "${CMAKE_SOURCE_DIR}/ext/vulkan" REQUIRED)
+		IF (Vulkan_LIBRARY)
+			set(Vulkan_FOUND ON)
+			MESSAGE("Using bundled Vulkan library version")
+			add_definitions(-DVULKAN_STATIC)
+		ENDIF()
+	ENDIF()
+endif()
+
 if(NOT DEFINED HEADLESS)
 	set(HEADLESS OFF)
 endif()
@@ -1653,7 +1672,7 @@ set(CoreExtraLibs ${CoreExtraLibs} armips)
 set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
-	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS} ${Vulkan_LIBRARY})
 
 if(FFmpeg_FOUND)
   target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)

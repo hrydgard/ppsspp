@@ -42,155 +42,14 @@ SDLJoystick *joystick = NULL;
 #include "SDL_syswm.h"
 #endif
 
+#if defined(USING_EGL)
+#include "EGL/egl.h"
+#endif
+
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Common/GraphicsContext.h"
-
-class SDLGLGraphicsContext : public DummyGraphicsContext {
-public:
-	SDLGLGraphicsContext(SDL_Window *window) : window_(window) {
-		CheckGLExtensions();
-		draw_ = Draw::T3DCreateGLContext();
-		bool success = draw_->CreatePresets();
-		assert(success);
-	}
-	~SDLGLGraphicsContext() {
-		delete draw_;
-	}
-
-	void Shutdown() override {
-	}
-
-	void SwapBuffers() override {
-#ifdef USING_EGL
-		eglSwapBuffers(g_eglDisplay, g_eglSurface);
-#else
-		SDL_GL_SwapWindow(window_);
-#endif
-	}
-
-	Draw::DrawContext *GetDrawContext() override {
-		return draw_;
-	}
-
-private:
-	Draw::DrawContext *draw_ = nullptr;
-	SDL_Window *window_;
-};
-
-static VulkanLogOptions g_LogOptions;
-
-class SDLVulkanGraphicsContext : public GraphicsContext {
-public:
-	SDLVulkanGraphicsContext() {}
-	~SDLVulkanGraphicsContext() {
-		delete draw_;
-	}
-
-	bool Init(SDL_Window *sdl_window, std::string *error_message) {
-		SDL_SysWMinfo sys_info;
-		SDL_VERSION(&sys_info.version); //Set SDL version
-		SDL_GetWindowWMInfo(sdl_window, &sys_info);
-
-		Display *display = sys_info.info.x11.display;
-		Window window = sys_info.info.x11.window;
-
-		init_glslang();
-
-		g_LogOptions.breakOnError = true;
-		g_LogOptions.breakOnWarning = true;
-		g_LogOptions.msgBoxOnError = false;
-
-		Version gitVer(PPSSPP_GIT_VERSION);
-
-		vulkan_ = new VulkanContext();
-		if (vulkan_->InitError().size()) {
-			*error_message = vulkan_->InitError();
-			delete vulkan_;
-			vulkan_ = nullptr;
-			return false;
-		}
-
-		int vulkanFlags = VULKAN_FLAG_PRESENT_MAILBOX;
-		// vulkanFlags |= VULKAN_FLAG_VALIDATE;
-		VulkanContext::CreateInfo info{};
-		info.app_name = "PPSSPP";
-		info.app_ver = gitVer.ToInteger();
-		info.flags = VULKAN_FLAG_PRESENT_MAILBOX;
-		if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
-			*error_message = vulkan_->InitError();
-			delete vulkan_;
-			vulkan_ = nullptr;
-			return false;
-		}
-		vulkan_->ChooseDevice(vulkan_->GetBestPhysicalDevice());
-		if (vulkan_->CreateDevice() != VK_SUCCESS) {
-			*error_message = vulkan_->InitError();
-			delete vulkan_;
-			vulkan_ = nullptr;
-			return false;
-		}
-
-		vulkan_->InitSurface(WINDOWSYSTEM_XLIB, (void *)display, (void *)(intptr_t)window, pixel_xres, pixel_yres);
-
-		if (!vulkan_->InitObjects()) {
-			*error_message = vulkan_->InitError();
-			Shutdown();
-			return false;
-		}
-
-		draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
-		bool success = draw_->CreatePresets();
-		assert(success);
-		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-
-		return true;
-	}
-
-	void Shutdown() override {
-		if (draw_)
-			draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-		delete draw_;
-		draw_ = nullptr;
-		vulkan_->WaitUntilQueueIdle();
-		vulkan_->DestroyObjects();
-		vulkan_->DestroyDevice();
-		vulkan_->DestroyDebugMsgCallback();
-		vulkan_->DestroyInstance();
-		delete vulkan_;
-		vulkan_ = nullptr;
-		finalize_glslang();
-	}
-
-	void SwapBuffers() override {
-		// We don't do it this way.
-	}
-
-	void Resize() override {
-		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-		vulkan_->DestroyObjects();
-		// TODO: Take from real window dimensions
-		int width = 1024;
-		int height = 768;
-		vulkan_->ReinitSurface(width, height);
-		vulkan_->InitObjects();
-		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	}
-
-	void SwapInterval(int interval) override {
-	}
-	void *GetAPIContext() override {
-		return vulkan_;
-	}
-
-	Draw::DrawContext *GetDrawContext() override {
-		return draw_;
-	}
-private:
-	Draw::DrawContext *draw_ = nullptr;
-	VulkanContext *vulkan_ = nullptr;
-};
 
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
@@ -202,8 +61,9 @@ static int g_QuitRequested = 0;
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
 
+static VulkanLogOptions g_LogOptions;
+
 #if defined(USING_EGL)
-#include "EGL/egl.h"
 
 static EGLDisplay               g_eglDisplay    = NULL;
 static EGLContext               g_eglContext    = NULL;
@@ -333,6 +193,264 @@ void EGL_Close() {
 	g_eglContext = NULL;
 }
 #endif
+
+class SDLGLGraphicsContext : public DummyGraphicsContext {
+public:
+	SDLGLGraphicsContext() {
+	}
+	~SDLGLGraphicsContext() {
+		delete draw_;
+	}
+
+	bool Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message);
+
+	void Shutdown() override {
+#ifdef USING_EGL
+		EGL_Close();
+#else
+		SDL_GL_DeleteContext(glContext);
+#endif
+	}
+
+	void SwapBuffers() override {
+#ifdef USING_EGL
+		eglSwapBuffers(g_eglDisplay, g_eglSurface);
+#else
+		SDL_GL_SwapWindow(window_);
+#endif
+	}
+
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
+
+private:
+	Draw::DrawContext *draw_ = nullptr;
+	SDL_Window *window_;
+	SDL_GLContext glContext = nullptr;
+};
+
+bool SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
+	struct GLVersionPair {
+		int major;
+		int minor;
+	};
+	GLVersionPair attemptVersions[] = {
+#ifdef USING_GLES2
+		{3, 2}, {3, 1}, {3, 0}, {2, 0},
+#else
+		{4, 6}, {4, 5}, {4, 4}, {4, 3}, {4, 2}, {4, 1}, {4, 0},
+		{3, 3}, {3, 2}, {3, 1}, {3, 0},
+#endif
+	};
+
+	SDL_GLContext glContext = nullptr;
+	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
+		const auto &ver = attemptVersions[i];
+		// Make sure to request a somewhat modern GL context at least - the
+		// latest supported by MacOS X (really, really sad...)
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, ver.major);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, ver.minor);
+#ifdef USING_GLES2
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+		SetGLCoreContext(false);
+#else
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		SetGLCoreContext(true);
+#endif
+
+		window = SDL_CreateWindow("PPSSPP", x,y, pixel_xres, pixel_yres, mode);
+		if (!window) {
+			NativeShutdown();
+			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+			continue;
+		}
+
+		glContext = SDL_GL_CreateContext(window);
+		if (glContext != nullptr) {
+			// Victory, got one.
+			break;
+		}
+
+		// Let's keep trying.  To be safe, destroy the window - docs say needed to change profile.
+		// in practice, it doesn't seem to matter, but maybe it differs by platform.
+		SDL_DestroyWindow(window);
+	}
+
+	if (glContext == nullptr) {
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 0);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+		SetGLCoreContext(false);
+
+		window = SDL_CreateWindow("PPSSPP", x,y, pixel_xres, pixel_yres, mode);
+		if (window == nullptr) {
+			NativeShutdown();
+			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+			SDL_Quit();
+			return 2;
+		}
+
+		glContext = SDL_GL_CreateContext(window);
+		if (glContext == nullptr) {
+			NativeShutdown();
+			fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+			SDL_Quit();
+			return 2;
+		}
+	}
+
+#ifdef USING_EGL
+	EGL_Init();
+#endif
+
+#ifndef USING_GLES2
+	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
+	// glewExperimental allows us to force GLEW to search for the pointers anyway.
+	if (gl_extensions.IsCoreContext) {
+		glewExperimental = true;
+	}
+	if (GLEW_OK != glewInit()) {
+		printf("Failed to initialize glew!\n");
+		return 1;
+	}
+	// Unfortunately, glew will generate an invalid enum error, ignore.
+	if (gl_extensions.IsCoreContext)
+		glGetError();
+
+	if (GLEW_VERSION_2_0) {
+		printf("OpenGL 2.0 or higher.\n");
+	} else {
+		printf("Sorry, this program requires OpenGL 2.0.\n");
+		return 1;
+	}
+#endif
+
+	// Finally we can do the regular initialization.
+	CheckGLExtensions();
+	draw_ = Draw::T3DCreateGLContext();
+	bool success = draw_->CreatePresets();
+	assert(success);
+	window_ = window;
+}
+
+class SDLVulkanGraphicsContext : public GraphicsContext {
+public:
+	SDLVulkanGraphicsContext() {}
+	~SDLVulkanGraphicsContext() {
+		delete draw_;
+	}
+
+	bool Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message);
+
+	void Shutdown() override;
+
+	void SwapBuffers() override {
+		// We don't do it this way.
+	}
+
+	void Resize() override {
+		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+		vulkan_->DestroyObjects();
+		// TODO: Take from real window dimensions
+		int width = 1024;
+		int height = 768;
+		vulkan_->ReinitSurface(width, height);
+		vulkan_->InitObjects();
+		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+	}
+
+	void SwapInterval(int interval) override {
+	}
+	void *GetAPIContext() override {
+		return vulkan_;
+	}
+
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
+private:
+	Draw::DrawContext *draw_ = nullptr;
+	VulkanContext *vulkan_ = nullptr;
+};
+
+bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
+	mode |= SDL_WINDOW_VULKAN;
+	window = SDL_CreateWindow("Initializing Vulkan...", x, y, pixel_xres, pixel_yres, mode);
+	SDL_SysWMinfo sys_info;
+	SDL_VERSION(&sys_info.version);
+	SDL_GetWindowWMInfo(window, &sys_info);
+	Display *display = sys_info.info.x11.display;
+	Window x11_window = sys_info.info.x11.window;
+
+	ILOG("Display: %p", display);
+
+	init_glslang();
+
+	g_LogOptions.breakOnError = true;
+	g_LogOptions.breakOnWarning = true;
+	g_LogOptions.msgBoxOnError = false;
+
+	Version gitVer(PPSSPP_GIT_VERSION);
+
+	vulkan_ = new VulkanContext();
+	if (vulkan_->InitError().size()) {
+		*error_message = vulkan_->InitError();
+		delete vulkan_;
+		vulkan_ = nullptr;
+		return false;
+	}
+
+	int vulkanFlags = VULKAN_FLAG_PRESENT_MAILBOX;
+	// vulkanFlags |= VULKAN_FLAG_VALIDATE;
+	VulkanContext::CreateInfo info{};
+	info.app_name = "PPSSPP";
+	info.app_ver = gitVer.ToInteger();
+	info.flags = vulkanFlags;
+	if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
+		*error_message = vulkan_->InitError();
+		delete vulkan_;
+		vulkan_ = nullptr;
+		return false;
+	}
+	vulkan_->ChooseDevice(vulkan_->GetBestPhysicalDevice());
+	if (vulkan_->CreateDevice() != VK_SUCCESS) {
+		*error_message = vulkan_->InitError();
+		delete vulkan_;
+		vulkan_ = nullptr;
+		return false;
+	}
+
+	vulkan_->InitSurface(WINDOWSYSTEM_XLIB, (void *)display, (void *)(intptr_t)x11_window, pixel_xres, pixel_yres);
+
+	if (!vulkan_->InitObjects()) {
+		*error_message = vulkan_->InitError();
+		Shutdown();
+		return false;
+	}
+
+	draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
+	bool success = draw_->CreatePresets();
+	assert(success);
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+
+	return true;
+}
+
+void SDLVulkanGraphicsContext::Shutdown() {
+	if (draw_)
+		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+	delete draw_;
+	draw_ = nullptr;
+	vulkan_->WaitUntilQueueIdle();
+	vulkan_->DestroyObjects();
+	vulkan_->DestroyDevice();
+	vulkan_->DestroyDebugMsgCallback();
+	vulkan_->DestroyInstance();
+	delete vulkan_;
+	vulkan_ = nullptr;
+	finalize_glslang();
+}
 
 int getDisplayNumber(void) {
 	int displayNumber = 0;
@@ -545,6 +663,12 @@ int main(int argc, char *argv[]) {
 	putenv((char*)"SDL_VIDEO_CENTERED=1");
 	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
 
+	if (VulkanMayBeAvailable()) {
+		printf("Vulkan might be available.\n");
+	} else {
+		printf("Vulkan is not available.\n");
+	}
+
 	int set_xres = -1;
 	int set_yres = -1;
 	bool portrait = false;
@@ -593,6 +717,7 @@ int main(int argc, char *argv[]) {
 
 	bool joystick_enabled = true;
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) < 0) {
+		fprintf(stderr, "Failed to initialize SDL with joystick support. Retrying without.\n");
 		joystick_enabled = false;
 		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 			fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
@@ -600,6 +725,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	// TODO: How do we get this into the GraphicsContext?
 #ifdef USING_EGL
 	if (EGL_Open())
 		return 1;
@@ -623,12 +749,6 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetSwapInterval(1);
-
-#ifdef USING_GLES2
-	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN;
-#else
-	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
-#endif
 
 	// Is resolution is too low to run windowed
 	if (g_DesktopWidth < 480 * 2 && g_DesktopHeight < 272 * 2) {
@@ -694,109 +814,6 @@ int main(int argc, char *argv[]) {
 	int x = SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber());
 	int y = SDL_WINDOWPOS_UNDEFINED;
 
-	struct GLVersionPair {
-		int major;
-		int minor;
-	};
-	GLVersionPair attemptVersions[] = {
-#ifdef USING_GLES2
-		{3, 2}, {3, 1}, {3, 0}, {2, 0},
-#else
-		{4, 6}, {4, 5}, {4, 4}, {4, 3}, {4, 2}, {4, 1}, {4, 0},
-		{3, 3}, {3, 2}, {3, 1}, {3, 0},
-#endif
-	};
-
-	SDL_Window *window = nullptr;
-	SDL_GLContext glContext = nullptr;
-	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
-		const auto &ver = attemptVersions[i];
-		// Make sure to request a somewhat modern GL context at least - the
-		// latest supported by MacOS X (really, really sad...)
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, ver.major);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, ver.minor);
-#ifdef USING_GLES2
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-		SetGLCoreContext(false);
-#else
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-		SetGLCoreContext(true);
-#endif
-
-		window = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
-		if (!window) {
-			NativeShutdown();
-			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-			continue;
-		}
-
-		glContext = SDL_GL_CreateContext(window);
-		if (glContext != nullptr) {
-			// Victory, got one.
-			break;
-		}
-
-		// Let's keep trying.  To be safe, destroy the window - docs say needed to change profile.
-		// in practice, it doesn't seem to matter, but maybe it differs by platform.
-		SDL_DestroyWindow(window);
-	}
-
-	if (glContext == nullptr) {
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 0);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-		SetGLCoreContext(false);
-
-		window = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
-		if (window == nullptr) {
-			NativeShutdown();
-			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-			SDL_Quit();
-			return 2;
-		}
-
-		glContext = SDL_GL_CreateContext(window);
-		if (glContext == nullptr) {
-			NativeShutdown();
-			fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
-			SDL_Quit();
-			return 2;
-		}
-	}
-
-#ifdef USING_EGL
-	EGL_Init();
-#endif
-
-	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
-
-#ifdef MOBILE_DEVICE
-	SDL_ShowCursor(SDL_DISABLE);
-#endif
-
-
-#ifndef USING_GLES2
-	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
-	// glewExperimental allows us to force GLEW to search for the pointers anyway.
-	if (gl_extensions.IsCoreContext)
-		glewExperimental = true;
-	if (GLEW_OK != glewInit()) {
-		printf("Failed to initialize glew!\n");
-		return 1;
-	}
-	// Unfortunately, glew will generate an invalid enum error, ignore.
-	if (gl_extensions.IsCoreContext)
-		glGetError();
-
-	if (GLEW_VERSION_2_0) {
-		printf("OpenGL 2.0 or higher.\n");
-	} else {
-		printf("Sorry, this program requires OpenGL 2.0.\n");
-		return 1;
-	}
-#endif
-
-
 	pixel_in_dps_x = (float)pixel_xres / dp_xres;
 	pixel_in_dps_y = (float)pixel_yres / dp_yres;
 	g_dpi_scale_x = dp_xres / (float)pixel_xres;
@@ -807,21 +824,35 @@ int main(int argc, char *argv[]) {
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
-	GraphicsContext *graphicsContext;
+	GraphicsContext *graphicsContext = nullptr;
+	SDL_Window *window = nullptr;
+	std::string error_message;
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
-		graphicsContext = new SDLGLGraphicsContext(window);
+		SDLGLGraphicsContext *ctx = new SDLGLGraphicsContext();
+		if (!ctx->Init(window, x, y, mode, &error_message)) {
+			printf("GL init error '%s' - falling back to GL\n", error_message.c_str());
+		}
+		graphicsContext = ctx;
 	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
 		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
-		std::string error_message;
-		if (!ctx->Init(window, &error_message)) {
+		if (!ctx->Init(window, x, y, mode, &error_message)) {
 			printf("Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
 			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
 			delete ctx;
-			graphicsContext = new SDLGLGraphicsContext(window);
+			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
+			glctx->Init(window, x, y, mode, &error_message);
+			graphicsContext = glctx;
 		} else {
 			graphicsContext = ctx;
 		}
 	}
+
+	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
+
+#ifdef MOBILE_DEVICE
+	SDL_ShowCursor(SDL_DISABLE);
+#endif
+
 	NativeInitGraphics(graphicsContext);
 
 	NativeResized();
@@ -1054,16 +1085,12 @@ int main(int argc, char *argv[]) {
 	}
 	delete joystick;
 	NativeShutdownGraphics();
-	SDL_GL_DeleteContext(glContext);
 	graphicsContext->Shutdown();
 	NativeShutdown();
 	delete graphicsContext;
 
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
-#ifdef USING_EGL
-	EGL_Close();
-#endif
 	SDL_Quit();
 #if PPSSPP_PLATFORM(RPI)
 	bcm_host_deinit();
