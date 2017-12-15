@@ -917,7 +917,7 @@ namespace MainWindow
 			EmuThread_Stop();
 			coreState = CORE_POWERUP;
 			ResetUIState();
-			EmuThread_Start();
+			EmuThread_Start(false);
 			InputDevice::BeginPolling();
 			break;
 

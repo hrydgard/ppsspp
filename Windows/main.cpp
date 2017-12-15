@@ -529,8 +529,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		MainWindow::Minimize();
 	}
 
-	// Emu thread is always running!
-	EmuThread_Start();
+	// Emu thread (and render thread, if any) is always running!
+	EmuThread_Start(false);  //  g_Config.iGPUBackend == GPU_BACKEND_VULKAN);
 	InputDevice::BeginPolling();
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);

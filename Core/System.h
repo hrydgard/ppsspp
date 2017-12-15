@@ -78,8 +78,6 @@ void Core_UpdateDebugStats(bool collectStats);
 
 void Audio_Init();
 void Audio_Shutdown();
-
-bool IsOnSeparateCPUThread();
 bool IsAudioInitialised();
 
 void UpdateLoadedFile(FileLoader *fileLoader);

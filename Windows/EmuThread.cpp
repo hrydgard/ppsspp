@@ -10,6 +10,7 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/GraphicsContext.h"
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"
@@ -27,7 +28,17 @@ static std::mutex emuThreadLock;
 static std::thread emuThread;
 static std::atomic<int> emuThreadState;
 
+static std::mutex renderThreadLock;
+static std::thread renderThread;
+static std::atomic<int> renderThreadReady;
+
+static bool useRenderThread;
+
 extern std::vector<std::wstring> GetWideCmdLine();
+
+class GraphicsContext;
+
+static GraphicsContext *g_graphicsContext;
 
 enum EmuThreadStatus : int {
 	THREAD_NONE = 0,
@@ -38,10 +49,15 @@ enum EmuThreadStatus : int {
 };
 
 void EmuThreadFunc();
+void RenderThreadFunc();
 
-void EmuThread_Start() {
+void EmuThread_Start(bool separateRenderThread) {
 	std::lock_guard<std::mutex> guard(emuThreadLock);
 	emuThread = std::thread(&EmuThreadFunc);
+	useRenderThread = separateRenderThread;
+	if (useRenderThread) {
+		renderThread = std::thread(&RenderThreadFunc);
+	}
 }
 
 void EmuThread_Stop() {
@@ -56,12 +72,28 @@ void EmuThread_Stop() {
 	Core_Stop();
 	Core_WaitInactive(800);
 	emuThread.join();
+  if (useRenderThread) {
+    renderThread.join();
+  }
 
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
 bool EmuThread_Ready() {
 	return emuThreadState == THREAD_CORE_LOOP;
+}
+
+void RenderThreadFunc() {
+	setCurrentThreadName("Render");
+	while (!g_graphicsContext) {
+		sleep_ms(50);
+		continue;
+	}
+	g_graphicsContext->InitFromThread();
+	while (true) {
+		g_graphicsContext->ThreadFrame();
+		break;
+	}
 }
 
 void EmuThreadFunc() {
@@ -174,5 +206,4 @@ shutdown:
 	NativeShutdown();
 	emuThreadState = THREAD_END;
 }
-
 
