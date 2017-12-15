@@ -10,6 +10,7 @@ namespace Draw {
 class WindowsGLContext : public WindowsGraphicsContext {
 public:
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
+
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
 	void SwapBuffers() override;
@@ -18,7 +19,6 @@ public:
 	// not the rendering thread or CPU thread.
 	void Pause() override;
 	void Resume() override;
-
 	void Resize() override;
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
