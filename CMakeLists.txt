@@ -106,9 +106,10 @@ else()
 	message("Normal Build")
 endif()
 
-if(LINUX)
-	message("Using direct to display extension...")
+if(LINUX AND VULKAN)
+	message("Using XCB extension...")
 	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 endif()
 
 # Doesn't link on some platforms
@@ -1668,6 +1669,12 @@ if(ANDROID)
 endif()
 
 set(CoreExtraLibs ${CoreExtraLibs} armips)
+
+# needed for VK_USE_PLATFORM_XCB_KHR only
+#if(VULKAN AND NOT WIN32)
+#	target_link_libraries(native X11-xcb X11)
+#endif()
+
 
 set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
 
