@@ -51,11 +51,11 @@
 typedef unsigned int SpvId;
 
 #define SPV_VERSION 0x10100
-#define SPV_REVISION 5
+#define SPV_REVISION 6
 
 static const unsigned int SpvMagicNumber = 0x07230203;
 static const unsigned int SpvVersion = 0x00010100;
-static const unsigned int SpvRevision = 5;
+static const unsigned int SpvRevision = 6;
 static const unsigned int SpvOpCodeMask = 0xffff;
 static const unsigned int SpvWordCountShift = 16;
 
@@ -383,6 +383,10 @@ typedef enum SpvDecoration_ {
     SpvDecorationInputAttachmentIndex = 43,
     SpvDecorationAlignment = 44,
     SpvDecorationMaxByteOffset = 45,
+    SpvDecorationOverrideCoverageNV = 5248,
+    SpvDecorationPassthroughNV = 5250,
+    SpvDecorationViewportRelativeNV = 5252,
+    SpvDecorationSecondaryViewportRelativeNV = 5256,
     SpvDecorationMax = 0x7fffffff,
 } SpvDecoration;
 
@@ -436,6 +440,13 @@ typedef enum SpvBuiltIn_ {
     SpvBuiltInBaseVertex = 4424,
     SpvBuiltInBaseInstance = 4425,
     SpvBuiltInDrawIndex = 4426,
+    SpvBuiltInDeviceIndex = 4438,
+    SpvBuiltInViewIndex = 4440,
+    SpvBuiltInViewportMaskNV = 5253,
+    SpvBuiltInSecondaryPositionNV = 5257,
+    SpvBuiltInSecondaryViewportMaskNV = 5258,
+    SpvBuiltInPositionPerViewNV = 5261,
+    SpvBuiltInViewportMaskPerViewNV = 5262,
     SpvBuiltInMax = 0x7fffffff,
 } SpvBuiltIn;
 
@@ -621,6 +632,18 @@ typedef enum SpvCapability_ {
     SpvCapabilitySubgroupBallotKHR = 4423,
     SpvCapabilityDrawParameters = 4427,
     SpvCapabilitySubgroupVoteKHR = 4431,
+    SpvCapabilityStorageUniformBufferBlock16 = 4433,
+    SpvCapabilityStorageUniform16 = 4434,
+    SpvCapabilityStoragePushConstant16 = 4435,
+    SpvCapabilityStorageInputOutput16 = 4436,
+    SpvCapabilityDeviceGroup = 4437,
+    SpvCapabilityMultiView = 4439,
+    SpvCapabilitySampleMaskOverrideCoverageNV = 5249,
+    SpvCapabilityGeometryShaderPassthroughNV = 5251,
+    SpvCapabilityShaderViewportIndexLayerNV = 5254,
+    SpvCapabilityShaderViewportMaskNV = 5255,
+    SpvCapabilityShaderStereoViewNV = 5259,
+    SpvCapabilityPerViewAttributesNV = 5260,
     SpvCapabilityMax = 0x7fffffff,
 } SpvCapability;
 

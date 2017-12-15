@@ -24,6 +24,7 @@
 #define VKICD_H
 
 #include "vulkan.h"
+#include <stdbool.h>
 
 // Loader-ICD version negotiation API.  Versions add the following features:
 //   Version 0 - Initial.  Doesn't support vk_icdGetInstanceProcAddr

@@ -140,8 +140,6 @@ typedef struct VkLayerInstanceDispatchTable_ {
 
     // ---- VK_KHX_external_memory_capabilities extension commands
     PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHX GetPhysicalDeviceExternalBufferPropertiesKHX;
-    PFN_vkGetPhysicalDeviceProperties2KHX GetPhysicalDeviceProperties2KHX;
-    PFN_vkGetPhysicalDeviceImageFormatProperties2KHX GetPhysicalDeviceImageFormatProperties2KHX;
 
     // ---- VK_KHX_external_semaphore_capabilities extension commands
     PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX GetPhysicalDeviceExternalSemaphorePropertiesKHX;
@@ -349,12 +347,12 @@ typedef struct VkLayerDispatchTable_ {
     PFN_vkCmdDispatchBaseKHX CmdDispatchBaseKHX;
 
     // ---- VK_KHX_external_memory_win32 extension commands
-#ifdef VK_USE_PLATFORM_WIN32_KHR
+#ifdef VK_USE_PLATFORM_WIN32_KHX
     PFN_vkGetMemoryWin32HandleKHX GetMemoryWin32HandleKHX;
-#endif // VK_USE_PLATFORM_WIN32_KHR
-#ifdef VK_USE_PLATFORM_WIN32_KHR
+#endif // VK_USE_PLATFORM_WIN32_KHX
+#ifdef VK_USE_PLATFORM_WIN32_KHX
     PFN_vkGetMemoryWin32HandlePropertiesKHX GetMemoryWin32HandlePropertiesKHX;
-#endif // VK_USE_PLATFORM_WIN32_KHR
+#endif // VK_USE_PLATFORM_WIN32_KHX
 
     // ---- VK_KHX_external_memory_fd extension commands
     PFN_vkGetMemoryFdKHX GetMemoryFdKHX;
@@ -391,8 +389,15 @@ typedef struct VkLayerDispatchTable_ {
     PFN_vkRegisterDisplayEventEXT RegisterDisplayEventEXT;
     PFN_vkGetSwapchainCounterEXT GetSwapchainCounterEXT;
 
+    // ---- VK_GOOGLE_display_timing extension commands
+    PFN_vkGetRefreshCycleDurationGOOGLE GetRefreshCycleDurationGOOGLE;
+    PFN_vkGetPastPresentationTimingGOOGLE GetPastPresentationTimingGOOGLE;
+
     // ---- VK_EXT_discard_rectangles extension commands
     PFN_vkCmdSetDiscardRectangleEXT CmdSetDiscardRectangleEXT;
+
+    // ---- VK_EXT_hdr_metadata extension commands
+    PFN_vkSetHdrMetadataEXT SetHdrMetadataEXT;
 } VkLayerDispatchTable;
 
 
