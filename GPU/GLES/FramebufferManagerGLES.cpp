@@ -98,7 +98,10 @@ void FramebufferManagerGLES::CompileDraw2DProgram() {
 		queries.push_back({ &u_draw2d_tex, "u_tex" });
 		std::vector<GLRProgram::Initializer> initializers;
 		initializers.push_back({ &u_draw2d_tex, 0 });
-		draw2dprogram_ = render_->CreateProgram(shaders, {}, queries, initializers, false);
+		std::vector<GLRProgram::Semantic> semantics;
+		semantics.push_back({ 0, "a_position" });
+		semantics.push_back({ 1, "a_texcoord0" });
+		draw2dprogram_ = render_->CreateProgram(shaders, semantics, queries, initializers, false);
 		for (auto shader : shaders)
 			render_->DeleteShader(shader);
 		CompilePostShader();
@@ -334,24 +337,15 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 		}
 	}
 
-	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTexW_ != texWidth || drawPixelsTexH_ != height)) {
+	if (drawPixelsTex_) {
 		render_->DeleteTexture(drawPixelsTex_);
-		drawPixelsTex_ = nullptr;
 	}
 
-	if (!drawPixelsTex_) {
-		drawPixelsTex_ = render_->CreateTexture(GL_TEXTURE_2D);
-		drawPixelsTexW_ = texWidth;
-		drawPixelsTexH_ = height;
+	drawPixelsTex_ = render_->CreateTexture(GL_TEXTURE_2D);
+	drawPixelsTexW_ = texWidth;
+	drawPixelsTexH_ = height;
 
-		render_->BindTexture(0, drawPixelsTex_);
-		render_->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
-
-		// render_->TextureImage(drawPixelsTex_, 0, drawPixelsTexW_, drawPixelsTexH_, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		drawPixelsTexFormat_ = srcPixelFormat;
-	} else {
-		render_->BindTexture(0, drawPixelsTex_);
-	}
+	drawPixelsTexFormat_ = srcPixelFormat;
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
@@ -396,7 +390,8 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 			break;
 		}
 	}
-	render_->TextureImage(drawPixelsTex_, 0, texWidth, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, convBuf);
+	render_->TextureImage(drawPixelsTex_, 0, texWidth, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, convBuf, false);
+	render_->FinalizeTexture(drawPixelsTex_, 0, false);
 }
 
 void FramebufferManagerGLES::SetViewport2D(int x, int y, int w, int h) {
