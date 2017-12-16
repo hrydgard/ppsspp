@@ -150,8 +150,7 @@ void GameSettingsScreen::CreateViews() {
 		verticalLayout->Add(tabHolder);
 		verticalLayout->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0))))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 		root_->Add(verticalLayout);
-	}
-	else {
+	} else {
 		tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 		root_->Add(tabHolder);
 		AddStandardBack(root_);
@@ -198,7 +197,7 @@ void GameSettingsScreen::CreateViews() {
 		renderingBackendChoice->HideChoice(3);
 	}
 
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)" };
+	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
 	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
 		switch (g_Config.iRenderingMode) {
@@ -245,7 +244,7 @@ void GameSettingsScreen::CreateViews() {
 	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
-	static const char *frameSkip[] = { "Off", "1", "2", "3", "4", "5", "6", "7", "8" };
+	static const char *frameSkip[] = { "Off", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
 	frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gr->T("Auto FrameSkip")));
 	frameSkipAuto_->OnClick.Handle(this, &GameSettingsScreen::OnAutoFrameskip);
@@ -286,7 +285,7 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
 #ifndef MOBILE_DEVICE
-	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
+	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
 #else
 	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 #endif
@@ -356,7 +355,7 @@ void GameSettingsScreen::CreateViews() {
 		vtxJit->SetEnabled(false);
 	}*/
 
-	static const char *quality[] = { "Low", "Medium", "High" };
+	static const char *quality[] = { "Low", "Medium", "High"};
 	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
 	beziersChoice->OnChoice.Add([=](EventParams &e) {
 		if (g_Config.iSplineBezierQuality != 0) {
@@ -378,9 +377,9 @@ void GameSettingsScreen::CreateViews() {
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gr->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Scaling")));
 #ifndef MOBILE_DEVICE
-	static const char *texScaleLevelsNPOT[] = { "Auto", "Off", "2x", "3x", "4x", "5x" };
+	static const char *texScaleLevelsNPOT[] = { "Auto", "Off", "2x", "3x", "4x", "5x"};
 #else
-	static const char *texScaleLevelsNPOT[] = { "Auto", "Off", "2x", "3x" };
+	static const char *texScaleLevelsNPOT[] = { "Auto", "Off", "2x", "3x"};
 #endif
 
 	static const char **texScaleLevels = texScaleLevelsNPOT;
@@ -518,7 +517,7 @@ void GameSettingsScreen::CreateViews() {
 
 #if defined(MOBILE_DEVICE)
 	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
-	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
+	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons"};
 	controlsSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), co->GetName(), screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnTiltTypeChange);
 
 	Choice *customizeTilt = controlsSettings->Add(new Choice(co->T("Customize tilt")));
@@ -551,8 +550,7 @@ void GameSettingsScreen::CreateViews() {
 			// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
 			if (!PSP_IsInited()) {
 				enablePauseBtn->SetEnabledPtr(&g_Config.bShowTouchControls);
-			}
-			else {
+			} else {
 				enablePauseBtn->SetEnabled(false);
 			}
 		}
@@ -566,7 +564,7 @@ void GameSettingsScreen::CreateViews() {
 		autoHide->SetEnabledPtr(&g_Config.bShowTouchControls);
 		autoHide->SetFormat("%is");
 		autoHide->SetZeroLabel(co->T("Off"));
-		static const char *touchControlStyles[] = { "Classic", "Thin borders" };
+		static const char *touchControlStyles[] = {"Classic", "Thin borders"};
 		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, co->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), co->GetName(), screenManager()));
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
@@ -603,7 +601,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
 	CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
 	mouseControl->OnClick.Add([=](EventParams &e) {
-		if (g_Config.bMouseControl)
+		if(g_Config.bMouseControl)
 			settingInfo_->Show(co->T("MouseControl Tip", "You can now map mouse in control mapping screen by pressing the 'M' icon."), e.v);
 		return UI::EVENT_CONTINUE;
 	});
