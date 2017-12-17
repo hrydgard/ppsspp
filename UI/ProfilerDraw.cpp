@@ -211,40 +211,44 @@ void DrawProfile(UIContext &ui) {
 		float rowH = 30.0f;
 		float legendHeight = 0.0f;
 		float legendWidth = 80.0f;
-/*		for (int i = 0; i < numCategories; i++) {
-			const char *name = Profiler_GetCategoryName(i);
-			if (!strcmp(name, "timing")) {
-				catStatus[i] = PROFILE_CAT_IGNORE;
-				continue;
-			}
-		}*/
 
 		float legendStartY = 40.0f;
 		float legendStartX = 5.0f;
 
 		int legendNum = 0;
 		float total = 0;
+		float timing = 0;
 
+		u32 fontABGR = 0xFFEFAFBF;
+		ui.DrawTextShadow("Average % of work per frame:", legendStartX, legendStartY + legendNum++ * rowH, fontABGR, ALIGN_VBASELINE);
+		// Average based on low number of frames will jump too much and be hard to read
+		int numberOfFrames = 30;
 		for (int i = 0; i < numCategories; i++) {
 			const char *name = Profiler_GetCategoryName(i);
-			Profiler_GetHistory(i, &history[0], 30);
+			Profiler_GetHistory(i, &history[0], numberOfFrames);
 			float val = 0;
-			for (int n = 0; n < 30; n++) {
+			for (int n = 0; n < numberOfFrames; n++) {
 				val += history[n];
 			}
-			val /= 30;
+			val /= numberOfFrames;
 			float vps, fps, actual_fps;
 			__DisplayGetFPS(&vps, &fps, &actual_fps);
 			val *= 1000.0f; // Value in ms ("%.2f ms")
 			val = (100.0f * val) / (1.0f / fps * 1000.0f); // Value in % ("%.1f%%")
 			total += val;
+			if (val < 0.1f)
+				catStatus[i] = PROFILE_CAT_IGNORE;
+			if (!strcmp(name, "timing"))
+				timing = val;
 			if (catStatus[i] == PROFILE_CAT_VISIBLE) {
 				float y = legendStartY + legendNum++ * rowH;
-				ui.DrawTextShadow(name, legendStartX, y, 0xFFFFFFFF, ALIGN_VBASELINE);
-				ui.DrawTextShadow(StringFromFormat("%.1f%%", val).c_str(), legendStartX + 128, y, 0xFFFFFFFF, ALIGN_VBASELINE);
+				ui.DrawTextShadow(name, legendStartX, y, fontABGR, ALIGN_VBASELINE);
+				ui.DrawTextShadow(StringFromFormat("%.1f%%", val).c_str(), legendStartX + 148, y, fontABGR, ALIGN_VBASELINE);
 			}
 		}
-		ui.DrawTextShadow("Total:", legendStartX, legendStartY + legendNum * rowH, 0xFFFFFFFF, ALIGN_VBASELINE);
-		ui.DrawTextShadow(StringFromFormat("%.1f%%", total).c_str(), legendStartX + 128, legendStartY + legendNum * rowH, 0xFFFFFFFF, ALIGN_VBASELINE);
+		ui.DrawTextShadow("Total:", legendStartX, legendStartY + legendNum * rowH, fontABGR, ALIGN_VBASELINE);
+		ui.DrawTextShadow(StringFromFormat("%.1f%%", total).c_str(), legendStartX + 148, legendStartY + legendNum++ * rowH, fontABGR, ALIGN_VBASELINE);
+		ui.DrawTextShadow("Normal:", legendStartX, legendStartY + legendNum * rowH, fontABGR, ALIGN_VBASELINE);
+		ui.DrawTextShadow(StringFromFormat("%.1f%%", total - timing).c_str(), legendStartX + 148, legendStartY + legendNum * rowH, fontABGR, ALIGN_VBASELINE);
 	}
 }
