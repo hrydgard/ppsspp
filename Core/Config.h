@@ -463,6 +463,7 @@ public:
 
 	// Volatile development settings
 	bool bShowFrameProfiler;
+	bool bSimpleFrameStats;
 
 	std::string currentDirectory;
 	std::string externalDirectory;

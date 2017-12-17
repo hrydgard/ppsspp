@@ -1133,7 +1133,7 @@ void EmuScreen::render() {
 		return;
 
 	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls || loadingView_->GetVisibility() == UI::V_VISIBLE;
-	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler;
+	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats;
 	if (hasVisibleUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
 		renderUI();
 	}
@@ -1192,11 +1192,9 @@ void EmuScreen::renderUI() {
 		DrawFPS(draw2d, screenManager()->getUIContext()->GetBounds());
 	}
 
-#ifdef USE_PROFILER
-	if (g_Config.bShowFrameProfiler && !invalid_) {
+	if ((g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats) && !invalid_) {
 		DrawProfile(*screenManager()->getUIContext());
 	}
-#endif
 
 	screenManager()->getUIContext()->End();
 }

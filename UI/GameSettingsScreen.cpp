@@ -1322,6 +1322,8 @@ void OtherSettingsScreen::CreateViews() {
 	PopupSliderChoice *emulatedSpeed = list->Add(new PopupSliderChoice(&g_Config.iForceMaxEmulatedFPS, 0, 60, gr->T("Force Max Emulated FPS(affects speed in most games!)"), 1, screenManager(), gr->T("FPS, 0:Disabled")));
 	emulatedSpeed->SetFormat("%i FPS");
 	emulatedSpeed->SetZeroLabel(gr->T("Disabled"));
+	list->Add(new CheckBox(&g_Config.bShowFrameProfiler, gr->T("Display frame profiler(heavy!)")));
+	list->Add(new CheckBox(&g_Config.bSimpleFrameStats, gr->T("Display simple frame stats(heavy!)")));
 }
 
 void OtherSettingsScreen::onFinish(DialogResult result) {

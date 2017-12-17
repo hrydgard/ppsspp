@@ -63,6 +63,8 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
 
+	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
+	items->Add(new CheckBox(&g_Config.bSimpleFrameStats, dev->T("Simple Frame Stats"), ""));
 #if !defined(MOBILE_DEVICE)
 	items->Add(new Choice(dev->T("Log View")))->OnClick.Handle(this, &DevMenu::OnLogView);
 #endif
@@ -73,9 +75,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
 	items->Add(new Choice(dev->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
 	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Handle(this, &DevMenu::OnToggleAudioDebug);
-#ifdef USE_PROFILER
-	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
-#endif
+	items->Add(new Choice(" ")); //Workaround for scrollView
 
 	scroll->Add(items);
 	parent->Add(scroll);

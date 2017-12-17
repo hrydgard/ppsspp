@@ -602,22 +602,23 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 	FlushAll();
 
 	SaveStaticRegisters();
-#ifdef USE_PROFILER
-	// When profiling, we can't skip CallSyscall, since it times syscalls.
-	MOVI2R(W0, op.encoding);
-	QuickCallFunction(X1, (void *)&CallSyscall);
-#else
-	// Skip the CallSyscall where possible.
-	void *quickFunc = GetQuickSyscallFunc(op);
-	if (quickFunc) {
-		MOVI2R(X0, (uintptr_t)GetSyscallFuncPointer(op));
-		// Already flushed, so X1 is safe.
-		QuickCallFunction(X1, quickFunc);
-	} else {
+	if (g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats) {
+		// When profiling, we can't skip CallSyscall, since it times syscalls.
 		MOVI2R(W0, op.encoding);
 		QuickCallFunction(X1, (void *)&CallSyscall);
-	}
-#endif
+	} else {
+		// Skip the CallSyscall where possible.
+		void *quickFunc = GetQuickSyscallFunc(op);
+		if (quickFunc) {
+			MOVI2R(X0, (uintptr_t)GetSyscallFuncPointer(op));
+			// Already flushed, so X1 is safe.
+			QuickCallFunction(X1, quickFunc);
+		} else {
+			MOVI2R(W0, op.encoding);
+			QuickCallFunction(X1, (void *)&CallSyscall);
+		}
+	}|
+
 	LoadStaticRegisters();
 	ApplyRoundingMode();
 

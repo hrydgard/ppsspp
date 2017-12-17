@@ -351,6 +351,8 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("ShowDebuggerOnLoad", &g_Config.bShowDebuggerOnLoad, false),
 	ConfigSetting("SimpleUI", &g_Config.bSimpleUI, true),
 	ConfigSetting("SimpleUIhide", &g_Config.bSimpleUIhide, false),
+	ConfigSetting("SimpleUIhide", &g_Config.bShowFrameProfiler, false),
+	ConfigSetting("SimpleUIhide", &g_Config.bSimpleFrameStats, false),
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, false),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
 	ConfigSetting("ForceLagSync", &g_Config.bForceLagSync, false, true, true),
@@ -932,8 +934,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
-
-	bShowFrameProfiler = true;
 
 	IniFile iniFile;
 	if (!iniFile.Load(iniFilename_)) {

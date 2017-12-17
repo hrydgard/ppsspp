@@ -784,17 +784,17 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 4));
 	}
 
-#ifdef USE_PROFILER
-	// When profiling, we can't skip CallSyscall, since it times syscalls.
-	ABI_CallFunctionC(&CallSyscall, op.encoding);
-#else
-	// Skip the CallSyscall where possible.
-	void *quickFunc = GetQuickSyscallFunc(op);
-	if (quickFunc)
-		ABI_CallFunctionP(quickFunc, (void *)GetSyscallFuncPointer(op));
-	else
+	if (g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats) {
+		// When profiling, we can't skip CallSyscall, since it times syscalls.
 		ABI_CallFunctionC(&CallSyscall, op.encoding);
-#endif
+	} else {
+		// Skip the CallSyscall where possible.
+		void *quickFunc = GetQuickSyscallFunc(op);
+		if (quickFunc)
+			ABI_CallFunctionP(quickFunc, (void *)GetSyscallFuncPointer(op));
+		else
+			ABI_CallFunctionC(&CallSyscall, op.encoding);
+	}
 
 	ApplyRoundingMode();
 	WriteSyscallExit();

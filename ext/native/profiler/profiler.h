@@ -4,10 +4,6 @@
 
 // NOTE : This profiler is very single-threaded. Cannot be used from multiple threads yet.
 
-// #define USE_PROFILER
-
-#ifdef USE_PROFILER
-
 class DrawBuffer;
 
 void internal_profiler_init();
@@ -36,11 +32,3 @@ private:
 #define PROFILE_INIT() internal_profiler_init();
 #define PROFILE_THIS_SCOPE(cat) ProfileThis _profile_scoped(cat);
 #define PROFILE_END_FRAME() internal_profiler_end_frame();
-
-#else
-
-#define PROFILE_INIT()
-#define PROFILE_THIS_SCOPE(cat)
-#define PROFILE_END_FRAME()
-
-#endif

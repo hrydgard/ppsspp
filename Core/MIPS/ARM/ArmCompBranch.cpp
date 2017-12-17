@@ -620,25 +620,23 @@ void ArmJit::Comp_Syscall(MIPSOpcode op)
 	FlushAll();
 
 	SaveDowncount();
-#ifdef USE_PROFILER
-	// When profiling, we can't skip CallSyscall, since it times syscalls.
-	gpr.SetRegImm(R0, op.encoding);
-	QuickCallFunction(R1, (void *)&CallSyscall);
-#else
-	// Skip the CallSyscall where possible.
-	void *quickFunc = GetQuickSyscallFunc(op);
-	if (quickFunc)
-	{
-		gpr.SetRegImm(R0, (u32)(intptr_t)GetSyscallFuncPointer(op));
-		// Already flushed, so R1 is safe.
-		QuickCallFunction(R1, quickFunc);
-	}
-	else
-	{
+	if (g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats) {
+		// When profiling, we can't skip CallSyscall, since it times syscalls.
 		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)&CallSyscall);
+	} else {
+		// Skip the CallSyscall where possible.
+		void *quickFunc = GetQuickSyscallFunc(op);
+		if (quickFunc) {
+			gpr.SetRegImm(R0, (u32)(intptr_t)GetSyscallFuncPointer(op));
+			// Already flushed, so R1 is safe.
+			QuickCallFunction(R1, quickFunc);
+		} else {
+			gpr.SetRegImm(R0, op.encoding);
+			QuickCallFunction(R1, (void *)&CallSyscall);
+		}
 	}
-#endif
+
 	ApplyRoundingMode();
 	RestoreDowncount();
 
