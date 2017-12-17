@@ -96,7 +96,7 @@ struct TexCacheEntry {
 	// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
 	const static int FRAMES_REGAIN_TRUST = 1000;
 
-	enum Status {
+	enum TexStatus {
 		STATUS_HASHING = 0x00,
 		STATUS_RELIABLE = 0x01,        // Don't bother rehashing.
 		STATUS_UNRELIABLE = 0x02,      // Always recheck hash.
@@ -156,19 +156,19 @@ struct TexCacheEntry {
 	bool sClamp;
 	bool tClamp;
 
-	Status GetHashStatus() {
-		return Status(status & STATUS_MASK);
+	TexStatus GetHashStatus() {
+		return TexStatus(status & STATUS_MASK);
 	}
-	void SetHashStatus(Status newStatus) {
+	void SetHashStatus(TexStatus newStatus) {
 		status = (status & ~STATUS_MASK) | newStatus;
 	}
-	Status GetAlphaStatus() {
-		return Status(status & STATUS_ALPHA_MASK);
+	TexStatus GetAlphaStatus() {
+		return TexStatus(status & STATUS_ALPHA_MASK);
 	}
-	void SetAlphaStatus(Status newStatus) {
+	void SetAlphaStatus(TexStatus newStatus) {
 		status = (status & ~STATUS_ALPHA_MASK) | newStatus;
 	}
-	void SetAlphaStatus(Status newStatus, int level) {
+	void SetAlphaStatus(TexStatus newStatus, int level) {
 		// For non-level zero, only set more restrictive.
 		if (newStatus == STATUS_ALPHA_UNKNOWN || level == 0) {
 			SetAlphaStatus(newStatus);

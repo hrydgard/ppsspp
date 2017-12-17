@@ -83,7 +83,7 @@ public:
 	}
 	// No destructor needed - we always fully wipe.
 
-	enum Status : uint8_t {
+	enum VAIStatus : uint8_t {
 		VAI_NEW,
 		VAI_HASHING,
 		VAI_RELIABLE,  // cache, don't hash
@@ -104,7 +104,7 @@ public:
 	u16 numVerts = 0;
 	u16 maxIndex = 0;
 	s8 prim = GE_PRIM_INVALID;
-	Status status = VAI_NEW;
+	VAIStatus status = VAI_NEW;
 
 	// ID information
 	int numDraws = 0;

@@ -519,7 +519,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-		TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
+		TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
@@ -748,7 +748,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 		entry->status &= ~TexCacheEntry::STATUS_BAD_MIPS;
 	}
 	if (replaced.Valid()) {
-		entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
+		entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 	}
 
 	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY)) {
@@ -824,7 +824,7 @@ void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteF
 	return tmpTexBufRearrange_.data();
 }
 
-TexCacheEntry::Status TextureCacheGLES::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
+TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -842,7 +842,7 @@ TexCacheEntry::Status TextureCacheGLES::CheckAlpha(const u32 *pixelData, GLenum 
 		break;
 	}
 
-	return (TexCacheEntry::Status)res;
+	return (TexCacheEntry::TexStatus)res;
 }
 
 void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {
@@ -895,7 +895,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, useUnpack ? bufw : w, w, h);
+			TexCacheEntry::TexStatus alphaStatus = CheckAlpha(pixelData, dstFmt, useUnpack ? bufw : w, w, h);
 			entry.SetAlphaStatus(alphaStatus, level);
 		} else {
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
