@@ -238,8 +238,10 @@ void DrawProfile(UIContext &ui) {
 			total += val;
 			if (val < 0.1f)
 				catStatus[i] = PROFILE_CAT_IGNORE;
-			if (!strcmp(name, "timing"))
+			if (!strcmp(name, "timing")) {
 				timing = val;
+				catStatus[i] = PROFILE_CAT_IGNORE;
+			}
 			if (catStatus[i] == PROFILE_CAT_VISIBLE) {
 				float y = legendStartY + legendNum++ * rowH;
 				ui.DrawTextShadow(name, legendStartX, y, fontABGR, ALIGN_VBASELINE);
@@ -247,8 +249,6 @@ void DrawProfile(UIContext &ui) {
 			}
 		}
 		ui.DrawTextShadow("Total:", legendStartX, legendStartY + legendNum * rowH, fontABGR, ALIGN_VBASELINE);
-		ui.DrawTextShadow(StringFromFormat("%.1f%%", total).c_str(), legendStartX + 148, legendStartY + legendNum++ * rowH, fontABGR, ALIGN_VBASELINE);
-		ui.DrawTextShadow("Normal:", legendStartX, legendStartY + legendNum * rowH, fontABGR, ALIGN_VBASELINE);
 		ui.DrawTextShadow(StringFromFormat("%.1f%%", total - timing).c_str(), legendStartX + 148, legendStartY + legendNum * rowH, fontABGR, ALIGN_VBASELINE);
 	}
 }
