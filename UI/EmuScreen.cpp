@@ -226,6 +226,11 @@ void EmuScreen::bootGame(const std::string &filename) {
 		host->NotifyUserMessage(gr->T("BlockTransferRequired", "Warning: This game requires Simulate Block Transfer Mode to be set to On."), 15.0f);
 	}
 
+	if (PSP_CoreParameter().compat.flags().RequireDefaultCPUClock && g_Config.iLockedCPUSpeed != 0) {
+		I18NCategory *gr = GetI18NCategory("Graphics");
+		host->NotifyUserMessage(gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 15.0f);
+	}
+
 	loadingViewColor_->Divert(0xFFFFFFFF, 0.15f);
 	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.15f);
 }
