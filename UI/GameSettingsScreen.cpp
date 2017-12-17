@@ -307,7 +307,7 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	CheckBox *vsync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
 	vsync->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("Vsync Tip", "Avoid tearing screen , always on"));
+		settingInfo_->Show(gr->T("Vsync Tip", "Avoid screen tearing, depends on video driver"));
 		return UI::EVENT_CONTINUE;
 	});
 #endif
@@ -343,7 +343,7 @@ void GameSettingsScreen::CreateViews() {
 
 	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
 	framebufferSlowEffects->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("DisableSlowerEffect Tip", "Improvement performance in some scenarios on old device"));
+		settingInfo_->Show(gr->T("DisableSlowerEffect Tip", "Make special effects look bad to improve performance"));
 		return UI::EVENT_CONTINUE;
 	});
 	framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
