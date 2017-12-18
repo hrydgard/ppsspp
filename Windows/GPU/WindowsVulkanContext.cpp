@@ -46,7 +46,7 @@
 // and use the same render pass configuration (clear to black). However, we can later change this so we switch
 // to a non-clearing render pass in buffered mode, which might be a tiny bit faster.
 
-#include <assert.h>
+#include <cassert>
 #include <crtdbg.h>
 #include <sstream>
 
@@ -93,13 +93,15 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		g_Vulkan = nullptr;
 		return false;
 	}
-
 	// int vulkanFlags = VULKAN_FLAG_PRESENT_FIFO_RELAXED;
-	int vulkanFlags = VULKAN_FLAG_PRESENT_MAILBOX;
+	VulkanContext::CreateInfo info{};
+	info.app_name = "PPSSPP";
+	info.app_ver = gitVer.ToInteger();
+	info.flags = VULKAN_FLAG_PRESENT_MAILBOX;
 	if (g_validate_) {
-		vulkanFlags |= VULKAN_FLAG_VALIDATE;
+		info.flags |= VULKAN_FLAG_VALIDATE;
 	}
-	if (VK_SUCCESS != g_Vulkan->CreateInstance("PPSSPP", gitVer.ToInteger(), vulkanFlags)) {
+	if (VK_SUCCESS != g_Vulkan->CreateInstance(info)) {
 		*error_message = g_Vulkan->InitError();
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
@@ -119,7 +121,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
 	}
-	g_Vulkan->InitSurfaceWin32(hInst, hWnd);
+	g_Vulkan->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
 	if (!g_Vulkan->InitObjects()) {
 		*error_message = g_Vulkan->InitError();
 		Shutdown();
@@ -160,20 +162,14 @@ void WindowsVulkanContext::Shutdown() {
 	finalize_glslang();
 }
 
-void WindowsVulkanContext::SwapBuffers() {
-}
-
 void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroyObjects();
 
-	g_Vulkan->ReinitSurfaceWin32();
+	g_Vulkan->ReinitSurface();
 
 	g_Vulkan->InitObjects();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-}
-
-void WindowsVulkanContext::SwapInterval(int interval) {
 }
 
 void *WindowsVulkanContext::GetAPIContext() {

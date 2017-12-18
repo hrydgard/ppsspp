@@ -1,40 +1,15 @@
-#ifndef UTIL_INIT
-#define UTIL_INIT
+#pragma once
 
-#ifdef __ANDROID__
-#undef NDEBUG   // asserts
-#endif
 #include <cassert>
 #include <string>
 #include <vector>
 #include <utility>
 
 #include "base/logging.h"
-
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#define VK_USE_PLATFORM_WIN32_KHR
-#define NOMINMAX              /* Don't let Windows define min() or max() */
-#define APP_NAME_STR_LEN 80
-#include <Windows.h>
-#elif defined(__ANDROID__)  // _WIN32
-#include <android/native_window_jni.h>
-#define VK_USE_PLATFORM_ANDROID_KHR
-#else
-#define VK_USE_PLATFORM_XCB_KHR
-#include <unistd.h>
-#endif // _WIN32
-
 #include "Common/Vulkan/VulkanLoader.h"
 
 // Amount of time, in nanoseconds, to wait for a command buffer to complete
 #define FENCE_TIMEOUT 10000000000
-
-#if defined(NDEBUG) && defined(__GNUC__)
-#define U_ASSERT_ONLY __attribute__((unused))
-#else
-#define U_ASSERT_ONLY
-#endif
 
 enum {
 	VULKAN_FLAG_VALIDATE = 1,
@@ -54,6 +29,15 @@ enum {
 
 std::string VulkanVendorString(uint32_t vendorId);
 
+// Not all will be usable on all platforms, of course...
+enum WindowSystem {
+#ifdef _WIN32
+	WINDOWSYSTEM_WIN32,
+#endif
+#ifdef __ANDROID__
+	WINDOWSYSTEM_ANDROID,
+#endif
+};
 
 struct VulkanPhysicalDeviceInfo {
 	VkFormat preferredDepthStencilFormat;
@@ -117,7 +101,13 @@ public:
 	VulkanContext();
 	~VulkanContext();
 
-	VkResult CreateInstance(const char *app_name, int app_ver, uint32_t flags);
+	struct CreateInfo {
+		const char *app_name;
+		int app_ver;
+		uint32_t flags;
+	};
+
+	VkResult CreateInstance(const CreateInfo &info);
 	void DestroyInstance();
 
 	int GetBestPhysicalDevice();
@@ -134,13 +124,9 @@ public:
 
 	VkPipelineCache CreatePipelineCache();
 
-#ifdef _WIN32
-	void InitSurfaceWin32(HINSTANCE conn, HWND wnd);
-	void ReinitSurfaceWin32();
-#elif __ANDROID__
-	void InitSurfaceAndroid(ANativeWindow *native_window, int width, int height);
-	void ReinitSurfaceAndroid(int width, int height);
-#endif
+	// The parameters are whatever the chosen window system wants.
+	void InitSurface(WindowSystem winsys, void *data1, void *data2, int width = -1, int height = -1);
+	void ReinitSurface(int width = -1, int height = -1);
 	bool InitQueue();
 	bool InitObjects();
 	bool InitSwapchain();
@@ -238,12 +224,11 @@ private:
 
 	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
 
-#ifdef _WIN32
-	HINSTANCE connection = nullptr;        // hInstance - Windows Instance
-	HWND window = nullptr;          // hWnd - window handle
-#elif __ANDROID__  // _WIN32
-	ANativeWindow *native_window = nullptr;
-#endif // _WIN32
+	WindowSystem winsys_;
+	// Don't use the real types here to avoid having to include platform-specific stuff
+	// that we really don't want in everything that uses VulkanContext.
+	void *winsysData1_;
+	void *winsysData2_;
 
 	VkInstance instance_ = VK_NULL_HANDLE;
 	VkDevice device_ = VK_NULL_HANDLE;
@@ -320,6 +305,3 @@ void finalize_glslang();
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<uint32_t> &spirv, std::string *errorMessage = nullptr);
 
 const char *VulkanResultToString(VkResult res);
-
-#endif // UTIL_INIT
-

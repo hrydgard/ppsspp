@@ -95,13 +95,13 @@ VulkanContext::VulkanContext() {
 	GetInstanceLayerExtensionList(nullptr, instance_extension_properties_);
 }
 
-VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32_t flags) {
+VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	if (!vkCreateInstance) {
 		init_error_ = "Vulkan not loaded - can't create instance";
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
-	flags_ = flags;
+	flags_ = info.flags;
 
 	// List extensions to try to enable.
 	instance_extensions_enabled_.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
@@ -120,9 +120,9 @@ VkResult VulkanContext::CreateInstance(const char *app_name, int app_ver, uint32
 	}
 
 	VkApplicationInfo app_info { VK_STRUCTURE_TYPE_APPLICATION_INFO };
-	app_info.pApplicationName = app_name;
-	app_info.applicationVersion = app_ver;
-	app_info.pEngineName = app_name;
+	app_info.pApplicationName = info.app_name;
+	app_info.applicationVersion = info.app_ver;
+	app_info.pEngineName = info.app_name;
 	// Let's increment this when we make major engine/context changes.
 	app_info.engineVersion = 2;
 	app_info.apiVersion = VK_API_VERSION_1_0;
@@ -583,65 +583,61 @@ void VulkanContext::DestroyDebugMsgCallback() {
 	}
 }
 
+void VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2, int width, int height) {
+	winsys_ = winsys;
+	winsysData1_ = data1;
+	winsysData2_ = data2;
+	ReinitSurface(width, height);
+}
+
+void VulkanContext::ReinitSurface(int width, int height) {
+	if (surface_ != VK_NULL_HANDLE) {
+		ILOG("Destroying Vulkan surface (%d, %d)", width_, height_);
+		vkDestroySurfaceKHR(instance_, surface_, nullptr);
+		surface_ = VK_NULL_HANDLE;
+	}
+
+	ILOG("Creating Vulkan surface (%d, %d)", width, height);
+	switch (winsys_) {
 #ifdef _WIN32
-void VulkanContext::InitSurfaceWin32(HINSTANCE conn, HWND wnd) {
-	connection = conn;
-	window = wnd;
+	case WINDOWSYSTEM_WIN32:
+	{
+		HINSTANCE connection = (HINSTANCE)winsysData1_;
+		HWND window = (HWND)winsysData2_;
 
-	ReinitSurfaceWin32();
-}
+		RECT rc;
+		GetClientRect(window, &rc);
+		width = rc.right - rc.left;
+		height = rc.bottom - rc.top;
 
-void VulkanContext::ReinitSurfaceWin32() {
-	if (surface_ != VK_NULL_HANDLE) {
-		vkDestroySurfaceKHR(instance_, surface_, nullptr);
-		surface_ = VK_NULL_HANDLE;
+		VkWin32SurfaceCreateInfoKHR win32{ VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
+		win32.flags = 0;
+		win32.hwnd = window;
+		win32.hinstance = connection;
+		VkResult res = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
+		assert(res == VK_SUCCESS);
+		break;
 	}
-
-	RECT rc;
-	GetClientRect(window, &rc);
-	width_ = rc.right - rc.left;
-	height_ = rc.bottom - rc.top;
-
-	VkResult U_ASSERT_ONLY res;
-
-	VkWin32SurfaceCreateInfoKHR win32 = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
-	win32.flags = 0;
-	win32.hwnd = window;
-	win32.hinstance = connection;
-	res = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
-
-	assert(res == VK_SUCCESS);
-}
-
-#elif defined(__ANDROID__)
-
-void VulkanContext::InitSurfaceAndroid(ANativeWindow *wnd, int width, int height) {
-	native_window = wnd;
-
-	ReinitSurfaceAndroid(width, height);
-}
-
-void VulkanContext::ReinitSurfaceAndroid(int width, int height) {
-	if (surface_ != VK_NULL_HANDLE) {
-		ILOG("Destroying Android Vulkan surface (%d, %d)", width_, height_);
-		vkDestroySurfaceKHR(instance_, surface_, nullptr);
-		surface_ = VK_NULL_HANDLE;
+#endif
+#if defined(__ANDROID__)
+	case WINDOWSYSTEM_ANDROID:
+	{
+		ANativeWindow *wnd = (ANativeWindow *)winsysData1_;
+		VkAndroidSurfaceCreateInfoKHR android{ VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR };
+		android.flags = 0;
+		android.window = wnd;
+		VkResult res = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
+		assert(res == VK_SUCCESS);
+		break;
 	}
-
-	VkResult U_ASSERT_ONLY res;
-
-	ILOG("Creating Android Vulkan surface (%d, %d)", width, height);
-
-	VkAndroidSurfaceCreateInfoKHR android = { VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR };
-	android.flags = 0;
-	android.window = native_window;
-	res = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
-	assert(res == VK_SUCCESS);
-
+#endif
+	default:
+		_assert_msg_(G3D, false, "Vulkan support for chosen window system not implemented");
+		break;
+	}
 	width_ = width;
 	height_ = height;
 }
-#endif
 
 bool VulkanContext::InitQueue() {
 	// Iterate over each queue to learn whether it supports presenting:
@@ -732,11 +728,8 @@ bool VulkanContext::InitQueue() {
 }
 
 bool VulkanContext::InitSwapchain() {
-	VkResult U_ASSERT_ONLY res;
-
-	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
+	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
 	assert(res == VK_SUCCESS);
-
 	uint32_t presentModeCount;
 	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, nullptr);
 	assert(res == VK_SUCCESS);
