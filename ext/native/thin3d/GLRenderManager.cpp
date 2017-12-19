@@ -215,6 +215,33 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	steps_.push_back(step);
 }
 
+bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+	GLRStep *step = new GLRStep{ GLRStepType::READBACK };
+	step->readback.src = src;
+	step->readback.srcRect = { x, y, w, h };
+	step->readback.aspectMask = aspectBits;
+	step->readback.dstFormat = destFormat;
+	steps_.push_back(step);
+
+	curRenderStep_ = nullptr;
+	FlushSync();
+
+	Draw::DataFormat srcFormat;
+	if (aspectBits & GL_COLOR_BUFFER_BIT) {
+		srcFormat = Draw::DataFormat::R8G8B8A8_UNORM;
+	} else if (aspectBits & GL_STENCIL_BUFFER_BIT) {
+		// Copies from stencil are always S8.
+		srcFormat = Draw::DataFormat::S8;
+	} else if (aspectBits & GL_DEPTH_BUFFER_BIT) {
+		// TODO: Do this properly.
+		srcFormat = Draw::DataFormat::D24_S8;
+	} else {
+		_assert_(false);
+	}
+	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
+	return true;
+}
+
 void GLRenderManager::BeginFrame() {
 	VLOG("BeginFrame");
 
@@ -255,14 +282,18 @@ void GLRenderManager::Finish() {
 	FrameData &frameData = frameData_[curFrame];
 	if (!useThread_) {
 		frameData.steps = std::move(steps_);
+		steps_.clear();
 		frameData.initSteps = std::move(initSteps_);
+		initSteps_.clear();
 		frameData.type = GLRRunType::END;
 		Run(curFrame);
 	} else {
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 		VLOG("PUSH: Frame[%d].readyForRun = true", curFrame);
 		frameData.steps = std::move(steps_);
+		steps_.clear();
 		frameData.initSteps = std::move(initSteps_);
+		initSteps_.clear();
 		frameData.readyForRun = true;
 		frameData.type = GLRRunType::END;
 		frameData.pull_condVar.notify_all();
@@ -340,6 +371,41 @@ void GLRenderManager::Run(int frame) {
 	VLOG("PULL: Finished running frame %d", frame);
 }
 
+void GLRenderManager::FlushSync() {
+	// TODO: Reset curRenderStep_?
+	int curFrame = curFrame_;
+	FrameData &frameData = frameData_[curFrame];
+	if (!useThread_) {
+		frameData.initSteps = std::move(initSteps_);
+		initSteps_.clear();
+		frameData.steps = std::move(steps_);
+		steps_.clear();
+		frameData.type = GLRRunType::SYNC;
+		Run(curFrame);
+	} else {
+		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
+		VLOG("PUSH: Frame[%d].readyForRun = true (sync)", curFrame);
+		frameData.initSteps = std::move(initSteps_);
+		initSteps_.clear();
+		frameData.steps = std::move(steps_);
+		steps_.clear();
+		frameData.readyForRun = true;
+		assert(frameData.readyForFence == false);
+		frameData.type = GLRRunType::SYNC;
+		frameData.pull_condVar.notify_all();
+	}
+
+	if (useThread_) {
+		std::unique_lock<std::mutex> lock(frameData.push_mutex);
+		// Wait for the flush to be hit, since we're syncing.
+		while (!frameData.readyForFence) {
+			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (sync)", curFrame);
+			frameData.push_condVar.wait(lock);
+		}
+		frameData.readyForFence = false;
+	}
+}
+
 void GLRenderManager::EndSyncFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 	Submit(frame, false);
@@ -347,7 +413,6 @@ void GLRenderManager::EndSyncFrame(int frame) {
 	// This is brutal! Should probably wait for a fence instead, not that it'll matter much since we'll
 	// still stall everything.
 	glFinish();
-	// vkDeviceWaitIdle(vulkan_->GetDevice());
 
 	// At this point we can resume filling the command buffers for the current frame since
 	// we know the device is idle - and thus all previously enqueued command buffers have been processed.

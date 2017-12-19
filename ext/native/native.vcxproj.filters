@@ -335,6 +335,9 @@
     <ClInclude Include="thin3d\GLQueueRunner.h">
       <Filter>thin3d</Filter>
     </ClInclude>
+    <ClInclude Include="thin3d\DataFormatGL.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -803,6 +806,9 @@
       <Filter>thin3d</Filter>
     </ClCompile>
     <ClCompile Include="thin3d\GLRenderManager.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\DataFormatGL.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
   </ItemGroup>

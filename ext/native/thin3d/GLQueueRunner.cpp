@@ -1,5 +1,6 @@
 #include "GLQueueRunner.h"
 #include "GLRenderManager.h"
+#include "DataFormatGL.h"
 #include "base/logging.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
@@ -789,6 +790,10 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 		*/
 		break;
 	}
+
+	_dbg_assert_(G3D, srcTex);
+	_dbg_assert_(G3D, dstTex);
+
 #if defined(USING_GLES2)
 #ifndef IOS
 	glCopyImageSubDataOES(
@@ -813,7 +818,49 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 }
 
 void GLQueueRunner::PerformReadback(const GLRStep &pass) {
+	GLRFramebuffer *fb = pass.readback.src;
 
+	fbo_bind_fb_target(true, fb ? fb->handle : 0);
+
+	// Reads from the "bound for read" framebuffer.
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+
+	CHECK_GL_ERROR_IF_DEBUG();
+
+	GLuint internalFormat;
+	GLuint format;
+	GLuint type;
+	int alignment;
+	if (!Draw::Thin3DFormatToFormatAndType(pass.readback.dstFormat, internalFormat, format, type, alignment)) {
+		assert(false);
+	}
+	int pixelStride = pass.readback.srcRect.w;
+	// Apply the correct alignment.
+	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		// Some drivers seem to require we specify this.  See #8254.
+		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
+	}
+
+	GLRect2D rect = pass.readback.srcRect;
+
+	int size = alignment * rect.w * rect.h;
+	if (size > readbackBufferSize_) {
+		delete[] readbackBuffer_;
+		readbackBuffer_ = new uint8_t[size];
+		readbackBufferSize_ = size;
+	}
+
+	glReadPixels(rect.x, rect.y, rect.w, rect.h, format, type, readbackBuffer_);
+
+	#ifdef DEBUG_READ_PIXELS
+	LogReadPixelsError(glGetError());
+	#endif
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	}
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
@@ -841,7 +888,12 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 }
 
 void GLQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
-
+	// TODO: Maybe move data format conversion here, and always read back 8888. Drivers
+	// don't usually provide very optimized implementations.
+	int bpp = Draw::DataFormatSizeInBytes(destFormat);
+	for (int y = 0; y < height; y++) {
+		memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, pixelStride * bpp);
+	}
 }
 
 GLuint GLQueueRunner::AllocTextureName() {

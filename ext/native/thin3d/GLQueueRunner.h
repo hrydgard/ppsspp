@@ -289,6 +289,7 @@ struct GLRStep {
 			int aspectMask;
 			GLRFramebuffer *src;
 			GLRect2D srcRect;
+			Draw::DataFormat dstFormat;
 		} readback;
 		struct {
 			GLint texture;
@@ -354,7 +355,7 @@ private:
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.
-	GLint readbackBuffer_ = 0;
+	uint8_t *readbackBuffer_ = nullptr;
 	int readbackBufferSize_ = 0;
 
 	float maxAnisotropyLevel_ = 0.0f;

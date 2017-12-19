@@ -9,6 +9,7 @@
 #include "math/dataconv.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/DataFormatGL.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
@@ -662,90 +663,6 @@ public:
 	FBColorDepth colorDepth;
 };
 
-
-// TODO: Also output storage format (GL_RGBA8 etc) for modern GL usage.
-static bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint &format, GLuint &type, int &alignment) {
-	alignment = 4;
-	switch (fmt) {
-	case DataFormat::R8G8B8A8_UNORM:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-		break;
-
-	case DataFormat::D32F:
-		internalFormat = GL_DEPTH_COMPONENT;
-		format = GL_DEPTH_COMPONENT;
-		type = GL_FLOAT;
-		break;
-
-#ifndef USING_GLES2
-	case DataFormat::S8:
-		internalFormat = GL_STENCIL_INDEX;
-		format = GL_STENCIL_INDEX;
-		type = GL_UNSIGNED_BYTE;
-		alignment = 1;
-		break;
-#endif
-
-	case DataFormat::R8G8B8_UNORM:
-		internalFormat = GL_RGB;
-		format = GL_RGB;
-		type = GL_UNSIGNED_BYTE;
-		alignment = 1;
-		break;
-
-	case DataFormat::B4G4R4A4_UNORM_PACK16:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_SHORT_4_4_4_4;
-		alignment = 2;
-		break;
-
-	case DataFormat::B5G6R5_UNORM_PACK16:
-		internalFormat = GL_RGB;
-		format = GL_RGB;
-		type = GL_UNSIGNED_SHORT_5_6_5;
-		alignment = 2;
-		break;
-
-	case DataFormat::B5G5R5A1_UNORM_PACK16:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_SHORT_5_5_5_1;
-		alignment = 2;
-		break;
-
-#ifndef USING_GLES2
-	case DataFormat::A4R4G4B4_UNORM_PACK16:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-		alignment = 2;
-		break;
-
-	case DataFormat::R5G6B5_UNORM_PACK16:
-		internalFormat = GL_RGB;
-		format = GL_RGB;
-		type = GL_UNSIGNED_SHORT_5_6_5_REV;
-		alignment = 2;
-		break;
-
-	case DataFormat::A1R5G5B5_UNORM_PACK16:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
-		alignment = 2;
-		break;
-#endif
-
-	default:
-		ELOG("Thin3d GL: Unsupported texture format %d", (int)fmt);
-		return false;
-	}
-	return true;
-}
-
 void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	if (width != width_ || height != height_ || depth != depth_) {
 		// When switching to texStorage we need to handle this correctly.
@@ -811,39 +728,14 @@ static void LogReadPixelsError(GLenum error) {
 
 bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)src;
-	/*
-	fbo_bind_fb_target(true, fb ? fb->handle : 0);
-
-	// Reads from the "bound for read" framebuffer.
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-
-	CHECK_GL_ERROR_IF_DEBUG();
-
-	GLuint internalFormat;
-	GLuint format;
-	GLuint type;
-	int alignment;
-	if (!Thin3DFormatToFormatAndType(dataFormat, internalFormat, format, type, alignment)) {
-		assert(false);
-	}
-	// Apply the correct alignment.
-	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
-	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
-		// Even if not required, some drivers seem to require we specify this.  See #8254.
-		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
-	}
-
-	glReadPixels(x, y, w, h, format, type, pixels);
-#ifdef DEBUG_READ_PIXELS
-	LogReadPixelsError(glGetError());
-#endif
-
-	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
-		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-	}
-	CHECK_GL_ERROR_IF_DEBUG();
-	*/
+	GLuint aspect = 0;
+	if (channelBits & FB_COLOR_BIT)
+		aspect |= GL_COLOR_BUFFER_BIT;
+	if (channelBits & FB_DEPTH_BIT)
+		aspect |= GL_DEPTH_BUFFER_BIT;
+	if (channelBits & FB_STENCIL_BIT)
+		aspect |= GL_STENCIL_BUFFER_BIT;
+	renderManager_.CopyFramebufferToMemorySync(fb->framebuffer, aspect, x, y, w, h, dataFormat, (uint8_t *)pixels, pixelStride);
 	return true;
 }
 
