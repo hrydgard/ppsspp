@@ -298,14 +298,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor);
 
-		if (!useBufferedRendering) {
-			vpAndScissor.scissorY = PSP_CoreParameter().pixelHeight - vpAndScissor.scissorH - vpAndScissor.scissorY;
-		}
 		renderManager->SetScissor(GLRect2D{ vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorW, vpAndScissor.scissorH });
-
-		if (!useBufferedRendering) {
-			vpAndScissor.viewportY = PSP_CoreParameter().pixelHeight - vpAndScissor.viewportH - vpAndScissor.viewportY;
-		}
 		renderManager->SetViewport({
 			vpAndScissor.viewportX, vpAndScissor.viewportY,
 			vpAndScissor.viewportW, vpAndScissor.viewportH,

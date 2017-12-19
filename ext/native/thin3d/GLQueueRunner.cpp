@@ -521,7 +521,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		case GLRRenderCommand::VIEWPORT:
 		{
 			float y = c.viewport.vp.y;
-			if (!curFramebuffer_)
+			if (!curFB_)
 				y = curFBHeight_ - y - c.viewport.vp.h;
 
 			// TODO: Support FP viewports through glViewportArrays
@@ -536,7 +536,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		case GLRRenderCommand::SCISSOR:
 		{
 			int y = c.scissor.rc.y;
-			if (!curFramebuffer_)
+			if (!curFB_)
 				y = curFBHeight_ - y - c.scissor.rc.h;
 			glScissor(c.scissor.rc.x, y, c.scissor.rc.w, c.scissor.rc.h);
 			break;
