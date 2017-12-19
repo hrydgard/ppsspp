@@ -18,7 +18,9 @@
 #include "ppsspp_config.h"
 
 #include <set>
+#include <chrono>
 #include <mutex>
+#include <condition_variable>
 
 #include "base/NativeApp.h"
 #include "base/display.h"
@@ -46,9 +48,9 @@
 // Should this be configurable?  2 hours currently.
 static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
 
-static event m_hStepEvent;
+static std::condition_variable m_StepCond;
 static std::mutex m_hStepMutex;
-static event m_hInactiveEvent;
+static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
 static bool singleStepPending = false;
 static std::set<Core_ShutdownFunc> shutdownFuncs;
@@ -95,7 +97,7 @@ void Core_Halt(const char *msg)  {
 void Core_Stop() {
 	Core_UpdateState(CORE_POWERDOWN);
 	Core_NotifyShutdown();
-	m_hStepEvent.notify_one();
+	m_StepCond.notify_one();
 }
 
 bool Core_IsStepping() {
@@ -112,13 +114,15 @@ bool Core_IsInactive() {
 
 void Core_WaitInactive() {
 	while (Core_IsActive()) {
-		m_hInactiveEvent.wait(m_hInactiveMutex);
+		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
+		m_InactiveCond.wait(guard);
 	}
 }
 
 void Core_WaitInactive(int milliseconds) {
 	if (Core_IsActive()) {
-		m_hInactiveEvent.wait_for(m_hInactiveMutex, milliseconds);
+		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
+		m_InactiveCond.wait_for(guard, std::chrono::milliseconds(milliseconds));
 	}
 }
 
@@ -237,11 +241,11 @@ void Core_RunLoop(GraphicsContext *ctx) {
 
 void Core_DoSingleStep() {
 	singleStepPending = true;
-	m_hStepEvent.notify_one();
+	m_StepCond.notify_one();
 }
 
 void Core_UpdateSingleStep() {
-	m_hStepEvent.notify_one();
+	m_StepCond.notify_one();
 }
 
 void Core_SingleStep() {
@@ -251,7 +255,7 @@ void Core_SingleStep() {
 static inline void CoreStateProcessed() {
 	if (coreStatePending) {
 		coreStatePending = false;
-		m_hInactiveEvent.notify_one();
+		m_InactiveCond.notify_one();
 	}
 }
 
@@ -304,7 +308,10 @@ reswitch:
 			host->SendCoreWait(true);
 #endif
 
-			m_hStepEvent.wait(m_hStepMutex);
+			{
+				std::unique_lock<std::mutex> guard(m_hStepMutex);
+				m_StepCond.wait(guard);
+			}
 
 #if defined(USING_QT_UI) || defined(_DEBUG)
 			host->SendCoreWait(false);
@@ -349,7 +356,6 @@ void Core_EnableStepping(bool step) {
 #if defined(_DEBUG)
 		host->SetDebugMode(true);
 #endif
-		m_hStepEvent.reset();
 		Core_UpdateState(CORE_STEPPING);
 	} else {
 #if defined(_DEBUG)
@@ -357,6 +363,6 @@ void Core_EnableStepping(bool step) {
 #endif
 		coreState = CORE_RUNNING;
 		coreStatePending = false;
-		m_hStepEvent.notify_one();
+		m_StepCond.notify_one();
 	}
 }
