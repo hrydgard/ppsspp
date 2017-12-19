@@ -195,11 +195,16 @@ void UpdateRunLoop() {
 	}
 }
 
+void KeepScreenAwake() {
+#ifdef _WIN32
+	SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+#endif
+}
+
 void Core_RunLoop(GraphicsContext *ctx) {
 	graphicsContext = ctx;
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		time_update();
-#if defined(USING_WIN_UI)
 		double startTime = time_now_d();
 		UpdateRunLoop();
 
@@ -212,15 +217,11 @@ void Core_RunLoop(GraphicsContext *ctx) {
 		if (!windowHidden) {
 			ctx->SwapBuffers();
 		}
-#else
-		UpdateRunLoop();
-#endif
 	}
 
 	while (!coreState && GetUIState() == UISTATE_INGAME) {
 		time_update();
 		UpdateRunLoop();
-#if defined(USING_WIN_UI)
 		if (!windowHidden && !Core_IsStepping()) {
 			ctx->SwapBuffers();
 
@@ -230,12 +231,11 @@ void Core_RunLoop(GraphicsContext *ctx) {
 				// Only resetting it ever prime number seconds in case the call is expensive.
 				// Using a prime number to ensure there's no interaction with other periodic events.
 				if (now - lastKeepAwake > 89.0 || now < lastKeepAwake) {
-					SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+					KeepScreenAwake();
 					lastKeepAwake = now;
 				}
 			}
 		}
-#endif
 	}
 }
 
@@ -260,15 +260,10 @@ static inline void CoreStateProcessed() {
 }
 
 // Many platforms, like Android, do not call this function but handle things on their own.
-// Instead they simply call PSP_RunLoopFor() directly, and forgo the debugging machinery.
+// Instead they simply call NativeRender and NativeUpdate directly.
 void Core_Run(GraphicsContext *ctx) {
-#if defined(_DEBUG)
 	host->UpdateDisassembly();
-#endif
-#if !defined(USING_QT_UI)
-	while (true)
-#endif
-	{
+	while (true) {
 reswitch:
 		if (GetUIState() != UISTATE_INGAME) {
 			CoreStateProcessed();
@@ -276,15 +271,10 @@ reswitch:
 				return;
 			}
 			Core_RunLoop(ctx);
-#if defined(USING_QT_UI)
-			return;
-#else
 			continue;
-#endif
 		}
 
-		switch (coreState)
-		{
+		switch (coreState) {
 		case CORE_RUNNING:
 			// enter a fast runloop
 			Core_RunLoop(ctx);
@@ -302,7 +292,7 @@ reswitch:
 			}
 
 			// wait for step command..
-#if defined(USING_QT_UI) || defined(_DEBUG)
+#if defined(_DEBUG)
 			host->UpdateDisassembly();
 			host->UpdateMemView();
 			host->SendCoreWait(true);
@@ -313,13 +303,7 @@ reswitch:
 				m_StepCond.wait(guard);
 			}
 
-#if defined(USING_QT_UI) || defined(_DEBUG)
 			host->SendCoreWait(false);
-#endif
-#if defined(USING_QT_UI)
-			if (coreState != CORE_STEPPING)
-				return;
-#endif
 			// No step pending?  Let's go back to the wait.
 			if (!singleStepPending || coreState != CORE_STEPPING) {
 				if (coreState == CORE_POWERDOWN) {
@@ -330,10 +314,8 @@ reswitch:
 
 			Core_SingleStep();
 			// update disasm dialog
-#if defined(USING_QT_UI) || defined(_DEBUG)
 			host->UpdateDisassembly();
 			host->UpdateMemView();
-#endif
 			break;
 
 		case CORE_POWERUP:
@@ -353,14 +335,10 @@ reswitch:
 void Core_EnableStepping(bool step) {
 	if (step) {
 		sleep_ms(1);
-#if defined(_DEBUG)
 		host->SetDebugMode(true);
-#endif
 		Core_UpdateState(CORE_STEPPING);
 	} else {
-#if defined(_DEBUG)
 		host->SetDebugMode(false);
-#endif
 		coreState = CORE_RUNNING;
 		coreStatePending = false;
 		m_StepCond.notify_one();
