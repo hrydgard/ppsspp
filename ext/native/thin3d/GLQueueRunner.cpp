@@ -617,12 +617,17 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			break;
 		}
-		case GLRRenderCommand::BIND_INPUT_LAYOUT:
+		case GLRRenderCommand::BIND_VERTEX_BUFFER:
 		{
-			GLRInputLayout *layout = c.inputLayout.inputLayout;
-			int enable, disable;
-				enable = layout->semanticsMask_ & ~attrMask;
-				disable = (~layout->semanticsMask_) & attrMask;
+			// TODO: Add fast path for glBindVertexBuffer
+			GLRInputLayout *layout = c.bindVertexBuffer.inputLayout;
+			GLuint buf = c.bindVertexBuffer.buffer ? c.bindVertexBuffer.buffer->buffer : 0;
+			if (buf != curArrayBuffer) {
+				glBindBuffer(GL_ARRAY_BUFFER, buf);
+				curArrayBuffer = buf;
+			}
+			int enable = layout->semanticsMask_ & ~attrMask;
+			int disable = (~layout->semanticsMask_) & attrMask;
 			for (int i = 0; i < 7; i++) {  // SEM_MAX
 				if (enable & (1 << i)) {
 					glEnableVertexAttribArray(i);
@@ -634,18 +639,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			attrMask = layout->semanticsMask_;
 			for (int i = 0; i < layout->entries.size(); i++) {
 				auto &entry = layout->entries[i];
-				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.inputLayout.offset + entry.offset));
+				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.bindVertexBuffer.offset + entry.offset));
 			}
 			break;
 		}
 		case GLRRenderCommand::BIND_BUFFER:
 		{
 			if (c.bind_buffer.target == GL_ARRAY_BUFFER) {
-				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
-				if (buf != curArrayBuffer) {
-					glBindBuffer(GL_ARRAY_BUFFER, buf);
-					curArrayBuffer = buf;
-				}
+				Crash();
 			} else if (c.bind_buffer.target == GL_ELEMENT_ARRAY_BUFFER) {
 				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
 				if (buf != curElemArrayBuffer) {
@@ -660,6 +661,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		}
 		case GLRRenderCommand::GENMIPS:
 			// TODO: Should we include the texture handle in the command?
+			// Also, should this not be an init command?
 			glGenerateMipmap(GL_TEXTURE_2D);
 			break;
 		case GLRRenderCommand::DRAW:
@@ -668,6 +670,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		case GLRRenderCommand::DRAW_INDEXED:
 			if (c.drawIndexed.instances == 1) {
 				glDrawElements(c.drawIndexed.mode, c.drawIndexed.count, c.drawIndexed.indexType, c.drawIndexed.indices);
+			} else {
+				glDrawElementsInstanced(c.drawIndexed.mode, c.drawIndexed.count, c.drawIndexed.indexType, c.drawIndexed.indices, c.drawIndexed.instances);
 			}
 			break;
 		case GLRRenderCommand::TEXTURESAMPLER:

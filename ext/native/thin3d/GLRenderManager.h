@@ -346,14 +346,6 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void BindVertexBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER };
-		data.bind_buffer.buffer = buffer;
-		data.bind_buffer.target = GL_ARRAY_BUFFER;
-		curRenderStep_->commands.push_back(data);
-	}
-
 	void BindPixelPackBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER };
@@ -370,12 +362,13 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void BindInputLayout(GLRInputLayout *inputLayout, size_t offset) {
+	void BindVertexBuffer(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		assert(inputLayout);
-		GLRRenderData data{ GLRRenderCommand::BIND_INPUT_LAYOUT };
-		data.inputLayout.inputLayout = inputLayout;
-		data.inputLayout.offset = offset;
+		GLRRenderData data{ GLRRenderCommand::BIND_VERTEX_BUFFER };
+		data.bindVertexBuffer.inputLayout = inputLayout;
+		data.bindVertexBuffer.offset = offset;
+		data.bindVertexBuffer.buffer = buffer;
 		curRenderStep_->commands.push_back(data);
 	}
 
@@ -579,13 +572,13 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(GLenum mode, int count, GLenum indexType, void *indices) {
+	void DrawIndexed(GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DRAW_INDEXED };
 		data.drawIndexed.mode = mode;
 		data.drawIndexed.count = count;
 		data.drawIndexed.indexType = indexType;
-		data.drawIndexed.instances = 1;
+		data.drawIndexed.instances = instances;
 		data.drawIndexed.indices = indices;
 		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;

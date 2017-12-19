@@ -405,8 +405,7 @@ public:
 			memcpy(verts[i].pos, &pos_[order[i]], sizeof(Pos));
 			memcpy(verts[i].uv, &uv_[order[i]], sizeof(UV));
 		}
-		render->BindVertexBuffer(bindBuffer);
-		render->BindInputLayout(inputLayout, bindOffset);
+		render->BindVertexBuffer(inputLayout, bindBuffer, bindOffset);
 	}
 
 	void Shade(GLRenderManager *render) {

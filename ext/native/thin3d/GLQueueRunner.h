@@ -45,7 +45,7 @@ enum class GLRRenderCommand : uint8_t {
 	BINDPROGRAM,
 	BINDTEXTURE,
 	BIND_FB_TEXTURE,
-	BIND_INPUT_LAYOUT,
+	BIND_VERTEX_BUFFER,
 	BIND_BUFFER,
 	GENMIPS,
 	DRAW,
@@ -136,8 +136,9 @@ struct GLRRenderData {
 		} program;
 		struct {
 			GLRInputLayout *inputLayout;
+			GLRBuffer *buffer;
 			size_t offset;
-		} inputLayout;
+		} bindVertexBuffer;
 		struct {
 			GLenum wrapS;
 			GLenum wrapT;

@@ -460,8 +460,7 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 	GLRBuffer *buffer;
 	void *dest = drawEngineGL_->GetPushVertexBuffer()->Push(sizeof(verts), &bindOffset, &buffer);
 	memcpy(dest, verts, sizeof(verts));
-	render_->BindVertexBuffer(buffer);
-	render_->BindInputLayout(simple2DInputLayout_, bindOffset);
+	render_->BindVertexBuffer(simple2DInputLayout_, buffer, bindOffset);
 	render_->Draw(GL_TRIANGLE_STRIP, 0, 4);
 }
 

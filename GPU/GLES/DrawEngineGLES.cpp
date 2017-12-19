@@ -514,7 +514,6 @@ void DrawEngineGLES::DoFlush() {
 						size_t vsz = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
 						vai->vbo = render_->CreateBuffer(GL_ARRAY_BUFFER, vsz, GL_STATIC_DRAW);
 						render_->BufferSubdata(vai->vbo, 0, vsz, decoded);
-						render_->BindVertexBuffer(vai->vbo);
 						// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 						// there is no need for the index buffer we built. We can then use glDrawArrays instead
 						// for a very minor speed boost.
@@ -607,16 +606,14 @@ rotateVBO:
 		
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
-		render_->BindVertexBuffer(vertexBuffer);
-		render_->BindInputLayout(inputLayout, vertexBufferOffset);
+		render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset);
 		if (useElements) {
 			if (!indexBuffer) {
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &indexBuffer);
 				render_->BindIndexBuffer(indexBuffer);
 			}
 			if (gstate_c.bezier || gstate_c.spline)
-				// Instanced rendering for instanced tessellation
-				; // glDrawElementsInstanced(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset, numPatches);
+				render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset, numPatches);
 			else
 				render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
 		} else {
@@ -681,14 +678,12 @@ rotateVBO:
 			if (drawIndexed) {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, maxIndex * sizeof(TransformedVertex), &vertexBuffer);
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * numTrans, &indexBuffer);
-				render_->BindVertexBuffer(vertexBuffer);
-				render_->BindInputLayout(softwareInputLayout_, vertexBufferOffset);
+				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset);
 				render_->BindIndexBuffer(indexBuffer);
 				render_->DrawIndexed(glprim[prim], numTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
 			} else {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, numTrans * sizeof(TransformedVertex), &vertexBuffer);
-				render_->BindVertexBuffer(vertexBuffer);
-				render_->BindInputLayout(softwareInputLayout_, vertexBufferOffset);
+				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset);
 				render_->Draw(glprim[prim], 0, numTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
