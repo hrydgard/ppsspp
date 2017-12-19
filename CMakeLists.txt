@@ -825,7 +825,11 @@ endif()
 
 set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp
 	ext/native/thin3d/GLRenderManager.cpp
-	ext/native/thin3d/GLQueueRunner.cpp)
+	ext/native/thin3d/GLRenderManager.h
+	ext/native/thin3d/GLQueueRunner.cpp
+	ext/native/thin3d/GLQueueRunner.h
+	ext/native/thin3d/DataFormatGL.cpp
+	ext/native/thin3d/DataFormatGL.h)
 
 set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
 	ext/native/thin3d/thin3d_vulkan.cpp
