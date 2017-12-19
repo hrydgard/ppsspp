@@ -15,8 +15,6 @@ public:
 		cond_.notify_one();
 	}
 
-	// notify_all is not really possible to implement with win32 events?
-
 	void wait(std::mutex &mtx) {
 		// broken logic
 		std::unique_lock<std::mutex> guard(mtx);

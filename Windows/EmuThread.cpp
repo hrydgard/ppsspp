@@ -1,4 +1,6 @@
 #include <mutex>
+#include <atomic>
+#include <thread>
 
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
@@ -21,20 +23,13 @@
 #include "Core/Config.h"
 #include "thread/threadutil.h"
 
-#include <tchar.h>
-#include <process.h>
-#include <intrin.h>
-
-#pragma intrinsic(_InterlockedExchange)
-
 static std::mutex emuThreadLock;
-static HANDLE emuThread;
-static volatile long emuThreadReady;
+static std::thread emuThread;
+static std::atomic<int> emuThreadState;
 
 extern std::vector<std::wstring> GetWideCmdLine();
 
-enum EmuThreadStatus : long
-{
+enum EmuThreadStatus : int {
 	THREAD_NONE = 0,
 	THREAD_INIT,
 	THREAD_CORE_LOOP,
@@ -42,75 +37,51 @@ enum EmuThreadStatus : long
 	THREAD_END,
 };
 
-HANDLE EmuThread_GetThreadHandle()
-{
+void EmuThreadFunc();
+
+void EmuThread_Start() {
 	std::lock_guard<std::mutex> guard(emuThreadLock);
-	return emuThread;
+	emuThread = std::thread(&EmuThreadFunc);
 }
 
-unsigned int WINAPI TheThread(void *);
-
-void EmuThread_Start()
-{
-	std::lock_guard<std::mutex> guard(emuThreadLock);
-	emuThread = (HANDLE)_beginthreadex(0, 0, &TheThread, 0, 0, 0);
-}
-
-void EmuThread_Stop()
-{
+void EmuThread_Stop() {
 	// Already stopped?
 	{
 		std::lock_guard<std::mutex> guard(emuThreadLock);
-		if (emuThread == NULL || emuThreadReady == THREAD_END)
+		if (emuThreadState == THREAD_END)
 			return;
 	}
 
 	UpdateUIState(UISTATE_EXIT);
 	Core_Stop();
 	Core_WaitInactive(800);
-	if (WAIT_TIMEOUT == WaitForSingleObject(emuThread, 800))
-	{
-		_dbg_assert_msg_(COMMON, false, "Wait for EmuThread timed out.");
-	}
-	{
-		std::lock_guard<std::mutex> guard(emuThreadLock);
-		CloseHandle(emuThread);
-		emuThread = 0;
-	}
+	emuThread.join();
+
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
-bool EmuThread_Ready()
-{
-	return emuThreadReady == THREAD_CORE_LOOP;
+bool EmuThread_Ready() {
+	return emuThreadState == THREAD_CORE_LOOP;
 }
 
-unsigned int WINAPI TheThread(void *)
-{
-	_InterlockedExchange(&emuThreadReady, THREAD_INIT);
+void EmuThreadFunc() {
+	emuThreadState = THREAD_INIT;
 
-	setCurrentThreadName("Emu");  // And graphics...
+	setCurrentThreadName("Emu");
 
 	host = new WindowsHost(MainWindow::GetHInstance(), MainWindow::GetHWND(), MainWindow::GetDisplayHWND());
 	host->SetWindowTitle(nullptr);
 
-	// Convert the command-line arguments to Unicode, then to proper UTF-8 
-	// (the benefit being that we don't have to pollute the UI project with win32 ifdefs and lots of Convert<whatever>To<whatever>).
-	// This avoids issues with PPSSPP inadvertently destroying paths with Unicode glyphs 
-	// (using the ANSI args resulted in Japanese/Chinese glyphs being turned into question marks, at least for me..).
-	// -TheDax
+	// We convert command line arguments to UTF-8 immediately.
 	std::vector<std::wstring> wideArgs = GetWideCmdLine();
 	std::vector<std::string> argsUTF8;
 	for (auto& string : wideArgs) {
 		argsUTF8.push_back(ConvertWStringToUTF8(string));
 	}
-
 	std::vector<const char *> args;
-
 	for (auto& string : argsUTF8) {
 		args.push_back(string.c_str());
 	}
-
 	bool performingRestart = NativeIsRestarting();
 	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", nullptr);
 
@@ -165,7 +136,7 @@ unsigned int WINAPI TheThread(void *)
 		}
 
 		// No safe way out without graphics.
-		ExitProcess(1);
+		exit(1);
 	}
 
 	NativeInitGraphics(graphicsContext);
@@ -179,34 +150,29 @@ unsigned int WINAPI TheThread(void *)
 		goto shutdown;
 	}
 
-	_InterlockedExchange(&emuThreadReady, THREAD_CORE_LOOP);
+	emuThreadState = THREAD_CORE_LOOP;
 
 	if (g_Config.bBrowse)
 		PostMessage(MainWindow::GetHWND(), WM_COMMAND, ID_FILE_LOAD, 0);
 
 	Core_EnableStepping(FALSE);
 
-	while (GetUIState() != UISTATE_EXIT)
-	{
+	while (GetUIState() != UISTATE_EXIT) {
 		// We're here again, so the game quit.  Restart Core_Run() which controls the UI.
 		// This way they can load a new game.
 		if (!Core_IsActive())
 			UpdateUIState(UISTATE_MENU);
-
 		Core_Run(graphicsContext);
 	}
 
 shutdown:
-	_InterlockedExchange(&emuThreadReady, THREAD_SHUTDOWN);
+	emuThreadState = THREAD_SHUTDOWN;
 
 	NativeShutdownGraphics();
 
 	// NativeShutdown deletes the graphics context through host->ShutdownGraphics().
 	NativeShutdown();
-	
-	_InterlockedExchange(&emuThreadReady, THREAD_END);
-
-	return 0;
+	emuThreadState = THREAD_END;
 }
 
 
