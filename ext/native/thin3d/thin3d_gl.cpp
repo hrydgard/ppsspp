@@ -940,13 +940,6 @@ public:
 		render_->DeleteBuffer(buffer_);
 	}
 
-	void Bind(int offset) {
-		Crash();
-		// render_->BindBuffer(buffer_);
-		// TODO: Can't support offset using ES 2.0
-		// glBindBuffer(target_, buffer_);
-	}
-
 	GLRenderManager *render_;
 	GLRBuffer *buffer_;
 	GLuint target_;
@@ -962,7 +955,6 @@ Buffer *OpenGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) {
 	OpenGLBuffer *buf = (OpenGLBuffer *)buffer;
 
-	buf->Bind(0);
 	if (size + offset > buf->totalSize_) {
 		Crash();
 	}
@@ -970,6 +962,7 @@ void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t off
 	uint8_t *dataCopy = new uint8_t[size];
 	memcpy(dataCopy, data, size);
 	// if (flags & UPDATE_DISCARD) we could try to orphan the buffer using glBufferData.
+	// But we're much better off using separate buffers per FrameData...
 	renderManager_.BufferSubdata(buf->buffer_, offset, size, dataCopy);
 }
 
@@ -1097,21 +1090,19 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 }
 
 void OpenGLContext::Draw(int vertexCount, int offset) {
-	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
-	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, 0);
+	_dbg_assert_msg_(G3D, curVBuffers_[0], "Can't call Draw without a vertex buffer");
 	ApplySamplers();
-
+	renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
 	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
-	curVBuffers_[0]->Bind(curVBufferOffsets_[0]);
-	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, 0);
+	_dbg_assert_msg_(G3D, curVBuffers_[0], "Can't call DrawIndexed without a vertex buffer");
+	_dbg_assert_msg_(G3D, curIBuffer_, "Can't call DrawIndexed without an index buffer");
 	ApplySamplers();
-	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
-	curIBuffer_->Bind(curIBufferOffset_);
-
-	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (void *)(intptr_t)offset);
+	renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
+	renderManager_.BindIndexBuffer(curIBuffer_->buffer_);
+	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (void *)(intptr_t)curIBufferOffset_);
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1125,9 +1116,7 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 
 	ApplySamplers();
 
-	renderManager_.BindVertexBuffer(buf);
-	renderManager_.BindInputLayout(curPipeline_->inputLayout->inputLayout_, offset);
-
+	renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, buf, offset);
 	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
 }
 
