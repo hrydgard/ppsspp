@@ -389,6 +389,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	glDisable(GL_STENCIL_TEST);
 	glDisable(GL_BLEND);
 	glDisable(GL_CULL_FACE);
+	glDisable(GL_DITHER);
 	glEnable(GL_SCISSOR_TEST);
 
 	/*
@@ -410,20 +411,29 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	int activeTexture = 0;
 	glActiveTexture(GL_TEXTURE0 + activeTexture);
 
+	// State filtering tracking.
 	int attrMask = 0;
 	int colorMask = -1;
 	int depthMask = -1;
 	int depthFunc = -1;
-	// State filtering tracking.
 	GLuint curArrayBuffer = (GLuint)-1;
 	GLuint curElemArrayBuffer = (GLuint)-1;
+	bool depthEnabled = false;
+	bool blendEnabled = false;
+	bool cullEnabled = false;
+	bool ditherEnabled = false;
+	GLuint blendEqColor = (GLuint)-1;
+	GLuint blendEqAlpha = (GLuint)-1;
 
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
 		switch (c.cmd) {
 		case GLRRenderCommand::DEPTH:
 			if (c.depth.enabled) {
-				glEnable(GL_DEPTH_TEST);
+				if (!depthEnabled) {
+					glEnable(GL_DEPTH_TEST);
+					depthEnabled = true;
+				}
 				if (c.depth.write != depthMask) {
 					glDepthMask(c.depth.write);
 					depthMask = c.depth.write;
@@ -432,17 +442,38 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 					glDepthFunc(c.depth.func);
 					depthFunc = c.depth.func;
 				}
-			} else {
+			} else if (!c.depth.enabled && depthEnabled) {
 				glDisable(GL_DEPTH_TEST);
+				depthEnabled = false;
 			}
+			break;
+		case GLRRenderCommand::STENCILFUNC:
+			if (c.stencilFunc.enabled) {
+				glEnable(GL_STENCIL_TEST);
+				glStencilFunc(c.stencilFunc.func, c.stencilFunc.ref, c.stencilFunc.compareMask);
+			} else {
+				glDisable(GL_STENCIL_TEST);
+			}
+			break;
+		case GLRRenderCommand::STENCILOP:
+			glStencilOp(c.stencilOp.sFail, c.stencilOp.zFail, c.stencilOp.pass);
+			glStencilMask(c.stencilOp.writeMask);
 			break;
 		case GLRRenderCommand::BLEND:
 			if (c.blend.enabled) {
-				glEnable(GL_BLEND);
-				glBlendEquationSeparate(c.blend.funcColor, c.blend.funcAlpha);
+				if (!blendEnabled) {
+					glEnable(GL_BLEND);
+					blendEnabled = true;
+				}
+				if (blendEqColor != c.blend.funcColor || blendEqAlpha != c.blend.funcAlpha) {
+					glBlendEquationSeparate(c.blend.funcColor, c.blend.funcAlpha);
+					blendEqColor = c.blend.funcColor;
+					blendEqAlpha = c.blend.funcAlpha;
+				}
 				glBlendFuncSeparate(c.blend.srcColor, c.blend.dstColor, c.blend.srcAlpha, c.blend.dstAlpha);
-			} else {
+			} else if (!c.blend.enabled && blendEnabled) {
 				glDisable(GL_BLEND);
+				blendEnabled = false;
 			}
 			if (c.blend.mask != colorMask) {
 				glColorMask(c.blend.mask & 1, (c.blend.mask >> 1) & 1, (c.blend.mask >> 2) & 1, (c.blend.mask >> 3) & 1);
@@ -569,18 +600,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			break;
 		}
-		case GLRRenderCommand::STENCILFUNC:
-			if (c.stencilFunc.enabled) {
-				glEnable(GL_STENCIL_TEST);
-				glStencilFunc(c.stencilFunc.func, c.stencilFunc.ref, c.stencilFunc.compareMask);
-			} else {
-				glDisable(GL_STENCIL_TEST);
-			}
-			break;
-		case GLRRenderCommand::STENCILOP:
-			glStencilOp(c.stencilOp.sFail, c.stencilOp.zFail, c.stencilOp.pass);
-			glStencilMask(c.stencilOp.writeMask);
-			break;
 		case GLRRenderCommand::BINDTEXTURE:
 		{
 			GLint slot = c.texture.slot;
@@ -692,16 +711,24 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			break;
 		case GLRRenderCommand::RASTER:
 			if (c.raster.cullEnable) {
-				glEnable(GL_CULL_FACE);
+				if (!cullEnabled) {
+					glEnable(GL_CULL_FACE);
+					cullEnabled = true;
+				}
 				glFrontFace(c.raster.frontFace);
 				glCullFace(c.raster.cullFace);
-			} else {
+			} else if (!c.raster.cullEnable && cullEnabled) {
 				glDisable(GL_CULL_FACE);
+				cullEnabled = false;
 			}
 			if (c.raster.ditherEnable) {
-				glEnable(GL_DITHER);
-			} else {
+				if (!ditherEnabled) {
+					glEnable(GL_DITHER);
+					ditherEnabled = true;
+				}
+			} else if (!c.raster.ditherEnable && ditherEnabled) {
 				glDisable(GL_DITHER);
+				ditherEnabled = false;
 			}
 			break;
 		default:
@@ -858,7 +885,7 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 	glGenRenderbuffersEXT(1, &fbo->z_stencil_buffer);
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
 	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_STENCIL_EXT, fbo->width, fbo->height);
-	//glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH24_STENCIL8, width, height);
+	// glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH24_STENCIL8, width, height);
 
 	// Bind it all together
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
