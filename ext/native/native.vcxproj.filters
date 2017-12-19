@@ -739,10 +739,10 @@
     <ClCompile Include="thread\executor.cpp">
       <Filter>thread</Filter>
     </ClCompile>
-    <ClCompile Include="base\PCMain.cpp">
+    <ClCompile Include="..\..\SDL\SDLMain.cpp">
       <Filter>base</Filter>
     </ClCompile>
-    <ClCompile Include="base\QtMain.cpp">
+    <ClCompile Include="..\..\Qt\QtMain.cpp">
       <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="file\free.cpp">

@@ -696,8 +696,8 @@ elseif(USING_QT_UI)
     qt5_wrap_ui(QT_UI_GEN ${Qt_UI})
     list(APPEND NativeAppSource
       ${QT_UI_GEN}
-      ext/native/base/QtMain.cpp
-      ext/native/base/QtMain.h
+      Qt/QtMain.cpp
+      Qt/QtMain.h
       Qt/mainwindow.cpp
       Qt/mainwindow.h
       Qt/Debugger/ctrldisasmview.cpp
@@ -742,7 +742,7 @@ elseif(TARGET SDL2::SDL2)
 	set(nativeExtra ${nativeExtra}
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
-		ext/native/base/PCMain.cpp)
+		SDL/SDLMain.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)

@@ -111,7 +111,7 @@ void NativeSaveState();  // onDestroy
 void NativePermissionStatus(SystemPermission permission, PermissionStatus status);
 
 // Calls back into Java / SDL
-// These APIs must be implemented by every port (for example app-android.cpp, PCMain.cpp).
+// These APIs must be implemented by every port (for example app-android.cpp, SDLMain.cpp).
 // You are free to call these.
 void SystemToast(const char *text);
 void ShowKeyboard();

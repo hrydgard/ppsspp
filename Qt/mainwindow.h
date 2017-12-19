@@ -14,7 +14,7 @@
 #include "Debugger/debugger_memory.h"
 #include "Debugger/debugger_memorytex.h"
 #include "Debugger/debugger_displaylist.h"
-#include "base/QtMain.h"
+#include "Qt/QtMain.h"
 
 extern bool g_TakeScreenshot;
 
