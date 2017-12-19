@@ -259,13 +259,13 @@ static inline void CoreStateProcessed() {
 	}
 }
 
-// Some platforms, like Android, do not call this function but handle things on their own.
-void Core_Run(GraphicsContext *ctx)
-{
+// Many platforms, like Android, do not call this function but handle things on their own.
+// Instead they simply call PSP_RunLoopFor() directly, and forgo the debugging machinery.
+void Core_Run(GraphicsContext *ctx) {
 #if defined(_DEBUG)
 	host->UpdateDisassembly();
 #endif
-#if !defined(USING_QT_UI) || defined(MOBILE_DEVICE)
+#if !defined(USING_QT_UI)
 	while (true)
 #endif
 	{
@@ -276,7 +276,7 @@ reswitch:
 				return;
 			}
 			Core_RunLoop(ctx);
-#if defined(USING_QT_UI) && !defined(MOBILE_DEVICE)
+#if defined(USING_QT_UI)
 			return;
 #else
 			continue;
@@ -316,7 +316,7 @@ reswitch:
 #if defined(USING_QT_UI) || defined(_DEBUG)
 			host->SendCoreWait(false);
 #endif
-#if defined(USING_QT_UI) && !defined(MOBILE_DEVICE)
+#if defined(USING_QT_UI)
 			if (coreState != CORE_STEPPING)
 				return;
 #endif
