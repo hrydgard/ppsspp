@@ -347,7 +347,6 @@ private:
 
 	GLuint globalVAO_ = 0;
 
-	GLint curFramebuffer_ = 0;
 	int curFBWidth_ = 0;
 	int curFBHeight_ = 0;
 	int targetWidth_ = 0;
