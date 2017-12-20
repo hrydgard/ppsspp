@@ -78,8 +78,6 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 }
 
 void VulkanQueueRunner::InitBackbufferRenderPass() {
-	VkResult U_ASSERT_ONLY res;
-
 	VkAttachmentDescription attachments[2];
 	attachments[0].format = vulkan_->GetSwapchainFormat();
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
@@ -139,7 +137,7 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	rp_info.dependencyCount = 1;
 	rp_info.pDependencies = &dep;
 
-	res = vkCreateRenderPass(vulkan_->GetDevice(), &rp_info, nullptr, &backbufferRenderPass_);
+	VkResult res = vkCreateRenderPass(vulkan_->GetDevice(), &rp_info, nullptr, &backbufferRenderPass_);
 	assert(res == VK_SUCCESS);
 }
 
