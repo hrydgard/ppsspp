@@ -24,8 +24,10 @@
 #include <string>
 #include <codecvt>
 #endif
+
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 #include "math/math_util.h"
 #include "thread/threadutil.h"

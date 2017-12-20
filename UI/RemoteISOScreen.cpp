@@ -17,6 +17,8 @@
 
 #include <algorithm>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 #include "base/timeutil.h"
 #include "ext/vjson/json.h"

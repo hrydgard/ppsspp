@@ -213,7 +213,7 @@ void Core_RunLoop(GraphicsContext *ctx) {
 		double diffTime = time_now_d() - startTime;
 		int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
-			Sleep(sleepTime);
+			sleep_ms(sleepTime);
 		if (!windowHidden) {
 			ctx->SwapBuffers();
 		}
@@ -292,11 +292,9 @@ reswitch:
 			}
 
 			// wait for step command..
-#if defined(_DEBUG)
 			host->UpdateDisassembly();
 			host->UpdateMemView();
 			host->SendCoreWait(true);
-#endif
 
 			{
 				std::unique_lock<std::mutex> guard(m_hStepMutex);

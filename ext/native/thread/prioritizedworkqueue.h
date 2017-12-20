@@ -3,6 +3,7 @@
 #include <vector>
 #include <limits>
 #include <mutex>
+#include <condition_variable>
 
 #include "base/basictypes.h"
 #include "thread/threadutil.h"
