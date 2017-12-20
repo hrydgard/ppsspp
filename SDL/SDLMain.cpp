@@ -589,8 +589,12 @@ int main(int argc, char *argv[]) {
 		int minor;
 	};
 	GLVersionPair attemptVersions[] = {
+#ifdef USING_GLES2
+		{3, 2}, {3, 1}, {3, 0}, {2, 0},
+#else
 		{4, 6}, {4, 5}, {4, 4}, {4, 3}, {4, 2}, {4, 1}, {4, 0},
 		{3, 3}, {3, 2}, {3, 1}, {3, 0},
+#endif
 	};
 
 	SDL_GLContext glContext = nullptr;
@@ -598,17 +602,20 @@ int main(int argc, char *argv[]) {
 		const auto &ver = attemptVersions[i];
 		// Make sure to request a somewhat modern GL context at least - the
 		// latest supported by MacOS X (really, really sad...)
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, ver.major);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, ver.minor);
+#ifdef USING_GLES2
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+		SetGLCoreContext(false);
+#else
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 		SetGLCoreContext(true);
+#endif
 
 		g_Screen = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
 		if (g_Screen == nullptr) {
-			NativeShutdown();
 			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-			SDL_Quit();
-			return 2;
+			continue;
 		}
 
 		glContext = SDL_GL_CreateContext(g_Screen);
