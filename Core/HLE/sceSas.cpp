@@ -30,6 +30,7 @@
 #include <functional>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 #include "base/basictypes.h"
 #include "profiler/profiler.h"

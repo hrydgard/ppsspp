@@ -525,12 +525,9 @@ static ConfigSetting graphicsSettings[] = {
 #endif
 	ReportedConfigSetting("ForceMaxEmulatedFPS", &g_Config.iForceMaxEmulatedFPS, 60, true, true),
 
-	// TODO: Hm, on fast mobile GPUs we should definitely default to at least 4 (setting = 2)...
-#ifdef MOBILE_DEVICE
-	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 0, true, true),
-#else
+	// Most low-performance (and many high performance) mobile GPUs do not support aniso anyway so defaulting to 4 is fine.
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
-#endif
+
 	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, &DefaultVertexCache, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
 	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),

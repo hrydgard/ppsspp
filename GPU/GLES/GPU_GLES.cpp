@@ -342,11 +342,6 @@ void GPU_GLES::CheckGPUFeatures() {
 		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
-#ifdef MOBILE_DEVICE
-	// Arguably, we should turn off GPU_IS_MOBILE on like modern Tegras, etc.
-	features |= GPU_IS_MOBILE;
-#endif
-
 	gstate_c.featureFlags = features;
 }
 

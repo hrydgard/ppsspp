@@ -19,6 +19,7 @@
 #include <thread>
 #include <memory>
 #include <mutex>
+#include <condition_variable>
 
 #include "input/input_state.h"
 #include "thread/threadutil.h"

@@ -18,7 +18,9 @@
 #include "ppsspp_config.h"
 
 #include <set>
+#include <chrono>
 #include <mutex>
+#include <condition_variable>
 
 #include "base/NativeApp.h"
 #include "base/display.h"
@@ -46,9 +48,9 @@
 // Should this be configurable?  2 hours currently.
 static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
 
-static event m_hStepEvent;
+static std::condition_variable m_StepCond;
 static std::mutex m_hStepMutex;
-static event m_hInactiveEvent;
+static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
 static bool singleStepPending = false;
 static std::set<Core_ShutdownFunc> shutdownFuncs;
@@ -95,7 +97,7 @@ void Core_Halt(const char *msg)  {
 void Core_Stop() {
 	Core_UpdateState(CORE_POWERDOWN);
 	Core_NotifyShutdown();
-	m_hStepEvent.notify_one();
+	m_StepCond.notify_one();
 }
 
 bool Core_IsStepping() {
@@ -112,13 +114,15 @@ bool Core_IsInactive() {
 
 void Core_WaitInactive() {
 	while (Core_IsActive()) {
-		m_hInactiveEvent.wait(m_hInactiveMutex);
+		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
+		m_InactiveCond.wait(guard);
 	}
 }
 
 void Core_WaitInactive(int milliseconds) {
 	if (Core_IsActive()) {
-		m_hInactiveEvent.wait_for(m_hInactiveMutex, milliseconds);
+		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
+		m_InactiveCond.wait_for(guard, std::chrono::milliseconds(milliseconds));
 	}
 }
 
@@ -191,11 +195,16 @@ void UpdateRunLoop() {
 	}
 }
 
+void KeepScreenAwake() {
+#ifdef _WIN32
+	SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+#endif
+}
+
 void Core_RunLoop(GraphicsContext *ctx) {
 	graphicsContext = ctx;
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		time_update();
-#if defined(USING_WIN_UI)
 		double startTime = time_now_d();
 		UpdateRunLoop();
 
@@ -204,19 +213,15 @@ void Core_RunLoop(GraphicsContext *ctx) {
 		double diffTime = time_now_d() - startTime;
 		int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
-			Sleep(sleepTime);
+			sleep_ms(sleepTime);
 		if (!windowHidden) {
 			ctx->SwapBuffers();
 		}
-#else
-		UpdateRunLoop();
-#endif
 	}
 
 	while (!coreState && GetUIState() == UISTATE_INGAME) {
 		time_update();
 		UpdateRunLoop();
-#if defined(USING_WIN_UI)
 		if (!windowHidden && !Core_IsStepping()) {
 			ctx->SwapBuffers();
 
@@ -226,22 +231,21 @@ void Core_RunLoop(GraphicsContext *ctx) {
 				// Only resetting it ever prime number seconds in case the call is expensive.
 				// Using a prime number to ensure there's no interaction with other periodic events.
 				if (now - lastKeepAwake > 89.0 || now < lastKeepAwake) {
-					SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+					KeepScreenAwake();
 					lastKeepAwake = now;
 				}
 			}
 		}
-#endif
 	}
 }
 
 void Core_DoSingleStep() {
 	singleStepPending = true;
-	m_hStepEvent.notify_one();
+	m_StepCond.notify_one();
 }
 
 void Core_UpdateSingleStep() {
-	m_hStepEvent.notify_one();
+	m_StepCond.notify_one();
 }
 
 void Core_SingleStep() {
@@ -251,20 +255,15 @@ void Core_SingleStep() {
 static inline void CoreStateProcessed() {
 	if (coreStatePending) {
 		coreStatePending = false;
-		m_hInactiveEvent.notify_one();
+		m_InactiveCond.notify_one();
 	}
 }
 
-// Some platforms, like Android, do not call this function but handle things on their own.
-void Core_Run(GraphicsContext *ctx)
-{
-#if defined(_DEBUG)
+// Many platforms, like Android, do not call this function but handle things on their own.
+// Instead they simply call NativeRender and NativeUpdate directly.
+void Core_Run(GraphicsContext *ctx) {
 	host->UpdateDisassembly();
-#endif
-#if !defined(USING_QT_UI) || defined(MOBILE_DEVICE)
-	while (true)
-#endif
-	{
+	while (true) {
 reswitch:
 		if (GetUIState() != UISTATE_INGAME) {
 			CoreStateProcessed();
@@ -272,15 +271,10 @@ reswitch:
 				return;
 			}
 			Core_RunLoop(ctx);
-#if defined(USING_QT_UI) && !defined(MOBILE_DEVICE)
-			return;
-#else
 			continue;
-#endif
 		}
 
-		switch (coreState)
-		{
+		switch (coreState) {
 		case CORE_RUNNING:
 			// enter a fast runloop
 			Core_RunLoop(ctx);
@@ -298,21 +292,16 @@ reswitch:
 			}
 
 			// wait for step command..
-#if defined(USING_QT_UI) || defined(_DEBUG)
 			host->UpdateDisassembly();
 			host->UpdateMemView();
 			host->SendCoreWait(true);
-#endif
 
-			m_hStepEvent.wait(m_hStepMutex);
+			{
+				std::unique_lock<std::mutex> guard(m_hStepMutex);
+				m_StepCond.wait(guard);
+			}
 
-#if defined(USING_QT_UI) || defined(_DEBUG)
 			host->SendCoreWait(false);
-#endif
-#if defined(USING_QT_UI) && !defined(MOBILE_DEVICE)
-			if (coreState != CORE_STEPPING)
-				return;
-#endif
 			// No step pending?  Let's go back to the wait.
 			if (!singleStepPending || coreState != CORE_STEPPING) {
 				if (coreState == CORE_POWERDOWN) {
@@ -323,10 +312,8 @@ reswitch:
 
 			Core_SingleStep();
 			// update disasm dialog
-#if defined(USING_QT_UI) || defined(_DEBUG)
 			host->UpdateDisassembly();
 			host->UpdateMemView();
-#endif
 			break;
 
 		case CORE_POWERUP:
@@ -346,17 +333,12 @@ reswitch:
 void Core_EnableStepping(bool step) {
 	if (step) {
 		sleep_ms(1);
-#if defined(_DEBUG)
 		host->SetDebugMode(true);
-#endif
-		m_hStepEvent.reset();
 		Core_UpdateState(CORE_STEPPING);
 	} else {
-#if defined(_DEBUG)
 		host->SetDebugMode(false);
-#endif
 		coreState = CORE_RUNNING;
 		coreStatePending = false;
-		m_hStepEvent.notify_one();
+		m_StepCond.notify_one();
 	}
 }
