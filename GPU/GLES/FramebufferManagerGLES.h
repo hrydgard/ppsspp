@@ -36,19 +36,6 @@ class TextureCacheGLES;
 class DrawEngineGLES;
 class ShaderManagerGLES;
 
-// Simple struct for asynchronous PBO readbacks
-struct AsyncPBO {
-	GLRBuffer *buffer;
-	u32 maxSize;
-
-	u32 fb_address;
-	u32 stride;
-	u32 height;
-	u32 size;
-	GEBufferFormat format;
-	bool reading;
-};
-
 class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:
 	FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render);
@@ -67,7 +54,6 @@ public:
 	void EndFrame();
 	void Resized() override;
 	void DeviceLost();
-	void SetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
@@ -77,7 +63,6 @@ public:
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
-	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
 
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
@@ -105,23 +90,21 @@ private:
 	void CompileDraw2DProgram();
 	void CompilePostShader();
 
-	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	GLRenderManager *render_;
 
 	// Used by DrawPixels
-	GLRTexture *drawPixelsTex_;
-	GEBufferFormat drawPixelsTexFormat_;
-	int drawPixelsTexW_;
-	int drawPixelsTexH_;
+	GLRTexture *drawPixelsTex_ = nullptr;
+	GEBufferFormat drawPixelsTexFormat_ = GE_FORMAT_INVALID;
+	int drawPixelsTexW_ = 0;
+	int drawPixelsTexH_ = 0;
 
-	u8 *convBuf_;
-	u32 convBufSize_;
+	u8 *convBuf_ = nullptr;
+	u32 convBufSize_ = 0;
 	GLRProgram *draw2dprogram_ = nullptr;
 	GLRProgram *postShaderProgram_ = nullptr;
-
 
 	GLRProgram *stencilUploadProgram_ = nullptr;
 	int u_stencilUploadTex = -1;
@@ -137,17 +120,13 @@ private:
 	int pixelDeltaLoc_ = -1;
 	int deltaLoc_ = -1;
 
-	TextureCacheGLES *textureCacheGL_;
-	ShaderManagerGLES *shaderManagerGL_;
-	DrawEngineGLES *drawEngineGL_;
+	TextureCacheGLES *textureCacheGL_ = nullptr;
+	ShaderManagerGLES *shaderManagerGL_ = nullptr;
+	DrawEngineGLES *drawEngineGL_ = nullptr;
 
 	struct Simple2DVertex {
 		float pos[3];
 		float uv[2];
 	};
-	GLRInputLayout *simple2DInputLayout_;
-
-	// Not used under ES currently.
-	AsyncPBO *pixelBufObj_; //this isn't that large
-	u8 currentPBO_;
+	GLRInputLayout *simple2DInputLayout_ = nullptr;
 };
