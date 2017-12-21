@@ -240,54 +240,53 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		return false;
 	}
 
-#ifdef USING_QT_UI
+	u8 *flipbuffer = nullptr;
 	if (success) {
-		u8 *flipbuffer = nullptr;
 		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer, w, h);
-		// TODO: Handle other formats (e.g. Direct3D, raw framebuffers.)
-		QImage image(buffer, w, h, QImage::Format_RGB888);
-		success = image.save(filename, fmt == SCREENSHOT_PNG ? "PNG" : "JPG");
-		delete [] flipbuffer;
-	}
-#else
-	if (success) {
-		u8 *flipbuffer = nullptr;
-		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer, w, h);
-		if (buffer == nullptr) {
-			success = false;
+		success = buffer != nullptr;
+		if (success) {
+			if (width)
+				*width = w;
+			if (height)
+				*height = h;
+
+			success = Save888RGBScreenshot(filename, fmt, buffer, w, h);
 		}
-
-		if (width)
-			*width = w;
-		if (height)
-			*height = h;
-
-		if (success && fmt == SCREENSHOT_PNG) {
-			png_image png;
-			memset(&png, 0, sizeof(png));
-			png.version = PNG_IMAGE_VERSION;
-			png.format = PNG_FORMAT_RGB;
-			png.width = w;
-			png.height = h;
-			success = WriteScreenshotToPNG(&png, filename, 0, buffer, w * 3, nullptr);
-			png_image_free(&png);
-
-			if (png.warning_or_error >= 2) {
-				ERROR_LOG(SYSTEM, "Saving screenshot to PNG produced errors.");
-				success = false;
-			}
-		} else if (success && fmt == SCREENSHOT_JPG) {
-			jpge::params params;
-			params.m_quality = 90;
-			success = WriteScreenshotToJPEG(filename, w, h, 3, buffer, params);
-		} else {
-			success = false;
-		}
-		delete [] flipbuffer;
 	}
-#endif
+	delete [] flipbuffer;
+
 	if (!success) {
 		ERROR_LOG(SYSTEM, "Failed to write screenshot.");
 	}
 	return success;
+}
+
+bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
+#ifdef USING_QT_UI
+	QImage image(bufferRGB888, w, h, QImage::Format_RGB888);
+	return image.save(filename, fmt == ScreenshotFormat::PNG ? "PNG" : "JPG");
+#else
+	if (fmt == ScreenshotFormat::PNG) {
+		png_image png;
+		memset(&png, 0, sizeof(png));
+		png.version = PNG_IMAGE_VERSION;
+		png.format = PNG_FORMAT_RGB;
+		png.width = w;
+		png.height = h;
+		bool success = WriteScreenshotToPNG(&png, filename, 0, bufferRGB888, w * 3, nullptr);
+		png_image_free(&png);
+
+		if (png.warning_or_error >= 2) {
+			ERROR_LOG(SYSTEM, "Saving screenshot to PNG produced errors.");
+			success = false;
+		}
+		return success;
+	} else if (fmt == ScreenshotFormat::JPG) {
+		jpge::params params;
+		params.m_quality = 90;
+		return WriteScreenshotToJPEG(filename, w, h, 3, bufferRGB888, params);
+	} else {
+		return false;
+	}
+#endif
 }
