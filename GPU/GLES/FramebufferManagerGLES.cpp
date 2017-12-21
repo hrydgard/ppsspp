@@ -519,21 +519,6 @@ void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFra
 	}
 }
 
-void FramebufferManagerGLES::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-	PROFILE_THIS_SCOPE("gpu-readback");
-	if (vfb) {
-		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-		OptimizeDownloadRange(vfb, x, y, w, h);
-		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-
-		PackFramebufferSync_(nvfb, x, y, w, h);
-
-		textureCacheGL_->ForgetLastTexture();
-		RebindFramebuffer();
-	}
-}
-
 bool FramebufferManagerGLES::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	// When updating VRAM, it need to be exact format.
 	if (!gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
@@ -568,8 +553,6 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 	// Discard the previous contents of this buffer where possible.
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
 		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
-		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
-		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 	} else if (gl_extensions.IsGLES) {
 		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 	}
@@ -708,57 +691,6 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 			case GE_FORMAT_INVALID:
 				// Not possible.
 				break;
-		}
-	}
-}
-
-void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	if (!vfb->fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
-		return;
-	}
-
-	int possibleH = std::max(vfb->height - y, 0);
-	if (h > possibleH) {
-		h = possibleH;
-	}
-
-	bool convert = vfb->format != GE_FORMAT_8888;
-	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
-	const int packWidth = std::min(vfb->fb_stride, std::min(x + w, (int)vfb->width));
-
-	// Pixel size always 4 here because we always request RGBA8888
-	u32 bufSize = packWidth * h * 4;
-	u32 fb_address = 0x04000000 | vfb->fb_address;
-
-	if (gl_extensions.IsGLES && !gl_extensions.GLES3 && packWidth != vfb->fb_stride && h != 1) {
-		// Need to use a temp buffer, since GLES2 doesn't support GL_PACK_ROW_LENGTH.
-		convert = true;
-	}
-
-	int dstByteOffset = y * vfb->fb_stride * dstBpp;
-	u8 *dst = Memory::GetPointer(fb_address + dstByteOffset);
-
-	u8 *packed = nullptr;
-	if (!convert) {
-		packed = (u8 *)dst;
-	} else {
-		// End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
-		if (!convBuf_ || convBufSize_ < bufSize) {
-			delete [] convBuf_;
-			convBuf_ = new u8[bufSize];
-			convBufSize_ = bufSize;
-		}
-		packed = convBuf_;
-	}
-
-	if (packed) {
-		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
-		// Avoid reading the part between width and stride, if possible.
-		int packStride = convert || h == 1 ? packWidth : vfb->fb_stride;
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, y, packWidth, h, Draw::DataFormat::R8G8B8A8_UNORM, packed, packStride);
-		if (convert) {
-			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, packStride, packWidth, h, vfb->format);
 		}
 	}
 }

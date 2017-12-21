@@ -35,7 +35,6 @@
 
 void WindowsGLContext::SwapBuffers() {
 	::SwapBuffers(hDC);
-
 	// Used during fullscreen switching to prevent rendering.
 	if (pauseRequested) {
 		SetEvent(pauseEvent);
@@ -46,10 +45,6 @@ void WindowsGLContext::SwapBuffers() {
 		}
 		pauseRequested = false;
 	}
-
-	// According to some sources, doing this *after* swapbuffers can reduce frame latency
-	// at a large performance cost. So let's not.
-	// glFinish();
 }
 
 void WindowsGLContext::Pause() {
@@ -96,7 +91,7 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 	case GL_DEBUG_SOURCE_APPLICATION_ARB:     sourceFmt = "APPLICATION"; break;
 	case GL_DEBUG_SOURCE_OTHER_ARB:           sourceFmt = "OTHER"; break;
 	}
-	_snprintf(sourceStr, 32, sourceFmt, source);
+	snprintf(sourceStr, sizeof(sourceStr), sourceFmt, source);
 
 	char typeStr[32];
 	const char *typeFmt = "UNDEFINED(0x%04X)";
@@ -108,30 +103,27 @@ void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenu
 	case GL_DEBUG_TYPE_PERFORMANCE_ARB:         typeFmt = "PERFORMANCE"; break;
 	case GL_DEBUG_TYPE_OTHER_ARB:               typeFmt = "OTHER"; break;
 	}
-	_snprintf(typeStr, 32, typeFmt, type);
+	snprintf(typeStr, sizeof(typeStr), typeFmt, type);
 
 	char severityStr[32];
 	const char *severityFmt = "UNDEFINED";
-	switch(severity)
-	{
-	case GL_DEBUG_SEVERITY_HIGH_ARB:   severityFmt = "HIGH";   break;
+	switch (severity) {
+	case GL_DEBUG_SEVERITY_HIGH_ARB:   severityFmt = "HIGH"; break;
 	case GL_DEBUG_SEVERITY_MEDIUM_ARB: severityFmt = "MEDIUM"; break;
 	case GL_DEBUG_SEVERITY_LOW_ARB:    severityFmt = "LOW"; break;
 	}
 
-	_snprintf(severityStr, 32, severityFmt, severity);
-
-	_snprintf(outStr, outStrSize, "OpenGL: %s [source=%s type=%s severity=%s id=%d]\n", msg, sourceStr, typeStr, severityStr, id);
+	snprintf(severityStr, sizeof(severityStr), severityFmt, severity);
+	snprintf(outStr, sizeof(outStr), "OpenGL: %s [source=%s type=%s severity=%s id=%d]\n", msg, sourceStr, typeStr, severityStr, id);
 }
 
 void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 											GLsizei length, const GLchar *message, GLvoid *userParam) {
 	(void)length;
-	FILE *outFile = (FILE*)userParam;
+	FILE *outFile = (FILE *)userParam;
 	char finalMessage[256];
 	FormatDebugOutputARB(finalMessage, 256, source, type, id, severity, message);
 	OutputDebugStringA(finalMessage);
-
 	switch (type) {
 	case GL_DEBUG_TYPE_ERROR_ARB:
 	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
@@ -153,6 +145,7 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 
 bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_message) {
 	glslang::InitializeProcess();
+
 	*error_message = "ok";
 	hWnd = window;
 	GLuint PixelFormat;
@@ -186,7 +179,7 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 		return false;											// Return FALSE
 	}
 
-	if (!(PixelFormat = ChoosePixelFormat(hDC, &pfd)))	{
+	if (!(PixelFormat = ChoosePixelFormat(hDC, &pfd))) {
 		*error_message = "Can't find a suitable PixelFormat.";
 		return false;
 	}
@@ -196,7 +189,7 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 		return false;
 	}
 
-	if (!(hRC = wglCreateContext(hDC)))	{
+	if (!(hRC = wglCreateContext(hDC))) {
 		*error_message = "Can't create a GL rendering context.";
 		return false;
 	}
@@ -225,7 +218,7 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 		HDC dc = GetDC(NULL);
 		u32 colour_depth = GetDeviceCaps(dc, BITSPIXEL);
 		ReleaseDC(NULL, dc);
-		if (colour_depth != 32){
+		if (colour_depth != 32) {
 			MessageBox(0, L"Please switch your display to 32-bit colour mode", L"OpenGL Error", MB_OK);
 			ExitProcess(1);
 		}
@@ -383,12 +376,12 @@ void WindowsGLContext::Shutdown() {
 	if (hRC) {
 		// Are we able to release the DC and RC contexts?
 		if (!wglMakeCurrent(NULL,NULL)) {
-			MessageBox(NULL,L"Release of DC and RC failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL, L"Release of DC and RC failed.", L"SHUTDOWN ERROR", MB_OK | MB_ICONINFORMATION);
 		}
 
 		// Are we able to delete the RC?
 		if (!wglDeleteContext(hRC)) {
-			MessageBox(NULL,L"Release rendering context failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL, L"Release rendering context failed.", L"SHUTDOWN ERROR", MB_OK | MB_ICONINFORMATION);
 		}
 		hRC = NULL;
 	}
@@ -396,7 +389,7 @@ void WindowsGLContext::Shutdown() {
 	if (hDC && !ReleaseDC(hWnd,hDC)) {
 		DWORD err = GetLastError();
 		if (err != ERROR_DC_NOT_FOUND) {
-			MessageBox(NULL,L"Release device context failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL, L"Release device context failed.", L"SHUTDOWN ERROR", MB_OK | MB_ICONINFORMATION);
 		}
 		hDC = NULL;
 	}

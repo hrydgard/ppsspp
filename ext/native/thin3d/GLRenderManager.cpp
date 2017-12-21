@@ -15,21 +15,27 @@ void GLDeleter::Perform() {
 	for (auto shader : shaders) {
 		delete shader;
 	}
+	shaders.clear();
 	for (auto program : programs) {
 		delete program;
 	}
+	programs.clear();
 	for (auto buffer : buffers) {
 		delete buffer;
 	}
+	buffers.clear();
 	for (auto texture : textures) {
 		delete texture;
 	}
+	textures.clear();
 	for (auto inputLayout : inputLayouts) {
 		delete inputLayout;
 	}
+	inputLayouts.clear();
 	for (auto framebuffer : framebuffers) {
 		delete framebuffer;
 	}
+	framebuffers.clear();
 }
 
 GLRenderManager::GLRenderManager() {
@@ -46,6 +52,7 @@ GLRenderManager::~GLRenderManager() {
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 
 	}
+
 	if (!useThread_) {
 		queueRunner_.DestroyDeviceObjects();
 	}
