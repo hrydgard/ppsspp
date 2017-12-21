@@ -238,18 +238,7 @@ void FramebufferManagerGLES::BindPostShader(const PostShaderUniforms &uniforms) 
 
 FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render) :
 	FramebufferManagerCommon(draw),
-	render_(render),
-	drawPixelsTex_(0),
-	drawPixelsTexFormat_(GE_FORMAT_INVALID),
-	convBuf_(nullptr),
-	videoLoc_(-1),
-	timeLoc_(-1),
-	pixelDeltaLoc_(-1),
-	deltaLoc_(-1),
-	textureCacheGL_(nullptr),
-	shaderManagerGL_(nullptr),
-	pixelBufObj_(nullptr),
-	currentPBO_(0)
+	render_(render)
 {
 	needBackBufferYSwap_ = true;
 	needGLESRebinds_ = true;
@@ -315,14 +304,6 @@ void FramebufferManagerGLES::DestroyDeviceObjects() {
 FramebufferManagerGLES::~FramebufferManagerGLES() {
 	DestroyDeviceObjects();
 
-	if (pixelBufObj_) {
-		for (int i = 0; i < MAX_PBO; i++) {
-			if (pixelBufObj_[i].buffer) {
-				render_->DeleteBuffer(pixelBufObj_[i].buffer);
-			}
-		}
-		delete[] pixelBufObj_;
-	}
 	delete [] convBuf_;
 }
 
@@ -540,44 +521,17 @@ void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFra
 
 void FramebufferManagerGLES::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
 	PROFILE_THIS_SCOPE("gpu-readback");
-	if (sync) {
-		// flush async just in case when we go for synchronous update
-		// Doesn't actually pack when sent a null argument.
-		PackFramebufferAsync_(nullptr);
-	}
-
 	if (vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
 		OptimizeDownloadRange(vfb, x, y, w, h);
 		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
-		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
-		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
-
-		if (gl_extensions.IsGLES) {
-			PackFramebufferSync_(nvfb, x, y, w, h);
-		} else {
-			// TODO: Can we fall back to sync without these?
-			if (gl_extensions.ARB_pixel_buffer_object && gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
-				if (!sync) {
-					PackFramebufferAsync_(nvfb);
-				} else {
-					PackFramebufferSync_(nvfb, x, y, w, h);
-				}
-			}
-		}
+		PackFramebufferSync_(nvfb, x, y, w, h);
 
 		textureCacheGL_->ForgetLastTexture();
 		RebindFramebuffer();
 	}
-}
-
-void FramebufferManagerGLES::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
-	PROFILE_THIS_SCOPE("gpu-readback");
-	// Flush async just in case.
-	PackFramebufferAsync_(nullptr);
-	FramebufferManagerCommon::DownloadFramebufferForClut(fb_address, loadBytes);
 }
 
 bool FramebufferManagerGLES::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
@@ -755,117 +709,6 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 				// Not possible.
 				break;
 		}
-	}
-}
-
-void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
-	GLubyte *packed = 0;
-	bool unbind = false;
-	const u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
-	const bool useCPU = gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD);
-
-	// We'll prepare two PBOs to switch between readying and reading
-	if (!pixelBufObj_) {
-		if (!vfb) {
-			// This call is just to flush the buffers.  We don't have any yet,
-			// so there's nothing to do.
-			return;
-		}
-
-		pixelBufObj_ = new AsyncPBO[MAX_PBO]{};
-	}
-
-	// Receive previously requested data from a PBO
-	AsyncPBO &pbo = pixelBufObj_[nextPBO];
-	if (pbo.reading) {
-		render_->BindPixelPackBuffer(pbo.buffer);
-#ifdef USING_GLES2
-		// Not on desktop GL 2.x...
-		packed = (GLubyte *)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, pbo.size, GL_MAP_READ_BIT);
-#else
-		packed = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-#endif
-
-		if (packed) {
-			DEBUG_LOG(FRAMEBUF, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
-			pbo.size, packed, pbo.fb_address, pbo.stride, nextPBO);
-
-			if (useCPU) {
-				u8 *dst = Memory::GetPointer(pbo.fb_address);
-				ConvertFromRGBA8888(dst, packed, pbo.stride, pbo.stride, pbo.stride, pbo.height, pbo.format);
-			} else {
-				// We don't need to convert, GPU already did (or should have)
-				Memory::MemcpyUnchecked(pbo.fb_address, packed, pbo.size);
-			}
-
-			pbo.reading = false;
-		}
-
-		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-		unbind = true;
-	}
-
-	// Order packing/readback of the framebuffer
-	if (vfb) {
-		bool reverseOrder = gstate_c.Supports(GPU_PREFER_REVERSE_COLOR_ORDER);
-		Draw::DataFormat dataFmt = Draw::DataFormat::UNDEFINED;
-		switch (vfb->format) {
-		case GE_FORMAT_4444:
-			dataFmt = (reverseOrder ? Draw::DataFormat::A4R4G4B4_UNORM_PACK16 : Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
-			break;
-		case GE_FORMAT_5551:
-			dataFmt = (reverseOrder ? Draw::DataFormat::A1R5G5B5_UNORM_PACK16 : Draw::DataFormat::B5G5R5A1_UNORM_PACK16);
-			break;
-		case GE_FORMAT_565:
-			dataFmt = (reverseOrder ? Draw::DataFormat::R5G6B5_UNORM_PACK16 : Draw::DataFormat::B5G6R5_UNORM_PACK16);
-			break;
-		case GE_FORMAT_8888:
-			dataFmt = Draw::DataFormat::R8G8B8A8_UNORM;
-			break;
-		};
-
-		if (useCPU) {
-			dataFmt = Draw::DataFormat::R8G8B8A8_UNORM;
-		}
-
-		int pixelSize = (int)DataFormatSizeInBytes(dataFmt);
-		int align = pixelSize;
-
-		// If using the CPU, we need 4 bytes per pixel always.
-		u32 bufSize = vfb->fb_stride * vfb->height * pixelSize;
-		u32 fb_address = (0x04000000) | vfb->fb_address;
-
-		if (!vfb->fbo) {
-			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
-			return;
-		}
-
-		if (pixelBufObj_[currentPBO_].maxSize < bufSize) {
-			if (pixelBufObj_[currentPBO_].buffer) {
-				render_->DeleteBuffer(pixelBufObj_[currentPBO_].buffer);
-			}
-			pixelBufObj_[currentPBO_].buffer = render_->CreateBuffer(GL_PIXEL_PACK_BUFFER, bufSize, GL_DYNAMIC_READ);
-			pixelBufObj_[currentPBO_].maxSize = bufSize;
-		}
-
-		render_->BindPixelPackBuffer(pixelBufObj_[currentPBO_].buffer);
-		// TODO: This is a hack since PBOs have not been implemented in Thin3D yet (and maybe shouldn't? maybe should do this internally?)
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->fb_stride, vfb->height, dataFmt, nullptr, vfb->fb_stride);
-
-		unbind = true;
-
-		pixelBufObj_[currentPBO_].fb_address = fb_address;
-		pixelBufObj_[currentPBO_].size = bufSize;
-		pixelBufObj_[currentPBO_].stride = vfb->fb_stride;
-		pixelBufObj_[currentPBO_].height = vfb->height;
-		pixelBufObj_[currentPBO_].format = vfb->format;
-		pixelBufObj_[currentPBO_].reading = true;
-	}
-
-	currentPBO_ = nextPBO;
-
-	if (unbind) {
-		render_->BindPixelPackBuffer(0);
 	}
 }
 
