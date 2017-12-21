@@ -61,9 +61,6 @@ public:
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
-
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
@@ -90,7 +87,6 @@ private:
 	void CompileDraw2DProgram();
 	void CompilePostShader();
 
-	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	GLRenderManager *render_;

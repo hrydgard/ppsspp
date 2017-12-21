@@ -156,7 +156,7 @@ void DrawEngineGLES::DeviceRestore() {
 void DrawEngineGLES::InitDeviceObjects() {
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
 		frameData_[i].pushVertex = new GLPushBuffer(render_, GL_ARRAY_BUFFER, 1024 * 1024);
-		frameData_[i].pushIndex = new GLPushBuffer(render_, GL_ELEMENT_ARRAY_BUFFER, 512 * 1024);
+		frameData_[i].pushIndex = new GLPushBuffer(render_, GL_ELEMENT_ARRAY_BUFFER, 256 * 1024);
 	}
 
 	int vertexSize = sizeof(TransformedVertex);
