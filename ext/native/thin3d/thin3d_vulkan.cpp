@@ -237,17 +237,6 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 	return ok_;
 }
 
-
-inline VkFormat ConvertVertexDataTypeToVk(DataFormat type) {
-	switch (type) {
-	case DataFormat::R32G32_FLOAT: return VK_FORMAT_R32G32_SFLOAT;
-	case DataFormat::R32G32B32_FLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
-	case DataFormat::R32G32B32A32_FLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
-	case DataFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
-	default: return VK_FORMAT_UNDEFINED;
-	}
-}
-
 class VKInputLayout : public InputLayout {
 public:
 	std::vector<VkVertexInputBindingDescription> bindings;
@@ -604,7 +593,7 @@ VkFormat DataFormatToVulkan(DataFormat format) {
 	}
 }
 
-inline VkSamplerAddressMode AddressModeToVulkan(Draw::TextureAddressMode mode) {
+static inline VkSamplerAddressMode AddressModeToVulkan(Draw::TextureAddressMode mode) {
 	switch (mode) {
 	case TextureAddressMode::CLAMP_TO_BORDER: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 	case TextureAddressMode::CLAMP_TO_EDGE: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -1023,7 +1012,7 @@ void VKTexture::SetImageData(VkCommandBuffer cmd, int x, int y, int z, int width
 	vkTex_->Unlock(cmd);
 }
 
-inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {
+static inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {
 	dest.compareMask = src.compareMask;
 	dest.reference = src.reference;
 	dest.writeMask = src.writeMask;
@@ -1120,24 +1109,6 @@ int VKPipeline::GetUniformLoc(const char *name) {
 	}
 
 	return loc;
-}
-
-inline VkPrimitiveTopology PrimToVK(Primitive prim) {
-	switch (prim) {
-	case Primitive::POINT_LIST: return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-	case Primitive::LINE_LIST: return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-	case Primitive::LINE_LIST_ADJ: return VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY;
-	case Primitive::LINE_STRIP: return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-	case Primitive::LINE_STRIP_ADJ: return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY;
-	case Primitive::TRIANGLE_LIST: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	case Primitive::TRIANGLE_LIST_ADJ: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY;
-	case Primitive::TRIANGLE_STRIP: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-	case Primitive::TRIANGLE_STRIP_ADJ: return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY;
-	case Primitive::TRIANGLE_FAN: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
-	case Primitive::PATCH_LIST: return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
-	default:
-		return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
-	}
 }
 
 void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {

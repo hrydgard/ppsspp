@@ -937,13 +937,18 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 		h = possibleH;
 	}
 
-	// Pixel size always 4 here because we always request RGBA8888
-	u32 bufSize = vfb->fb_stride * h * 4;
-	u32 fb_address = 0x04000000 | vfb->fb_address;
-
 	bool convert = vfb->format != GE_FORMAT_8888;
 	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 	const int packWidth = std::min(vfb->fb_stride, std::min(x + w, (int)vfb->width));
+
+	// Pixel size always 4 here because we always request RGBA8888
+	u32 bufSize = packWidth * h * 4;
+	u32 fb_address = 0x04000000 | vfb->fb_address;
+
+	if (gl_extensions.IsGLES && !gl_extensions.GLES3 && packWidth != vfb->fb_stride && h != 1) {
+		// Need to use a temp buffer, since GLES2 doesn't support GL_PACK_ROW_LENGTH.
+		convert = true;
+	}
 
 	int dstByteOffset = y * vfb->fb_stride * dstBpp;
 	u8 *dst = Memory::GetPointer(fb_address + dstByteOffset);
@@ -963,10 +968,11 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 
 	if (packed) {
 		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
-		int packW = h == 1 ? packWidth : vfb->fb_stride;  // TODO: What's this about?
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, y, packW, h, Draw::DataFormat::R8G8B8A8_UNORM, packed, packW);
+		// Avoid reading the part between width and stride, if possible.
+		int packStride = convert || h == 1 ? packWidth : vfb->fb_stride;
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, y, packWidth, h, Draw::DataFormat::R8G8B8A8_UNORM, packed, packStride);
 		if (convert) {
-			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
+			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, packStride, packWidth, h, vfb->format);
 		}
 	}
 
@@ -1004,22 +1010,25 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
-	int packW = h == 1 ? packWidth : vfb->z_stride;
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, y, packW, h, Draw::DataFormat::D32F, convBuf_, packW);
+	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, y, packWidth, h, Draw::DataFormat::D32F, convBuf_, vfb->z_stride);
 
-	int dstByteOffset = y * vfb->fb_stride * sizeof(u16);
+	int dstByteOffset = y * vfb->z_stride * sizeof(u16);
 	u16 *depth = (u16 *)Memory::GetPointer(z_address + dstByteOffset);
 	GLfloat *packed = (GLfloat *)convBuf_;
 
 	int totalPixels = h == 1 ? packWidth : vfb->z_stride * h;
-	for (int i = 0; i < totalPixels; ++i) {
-		float scaled = FromScaledDepth(packed[i]);
-		if (scaled <= 0.0f) {
-			depth[i] = 0;
-		} else if (scaled >= 65535.0f) {
-			depth[i] = 65535;
-		} else {
-			depth[i] = (int)scaled;
+	for (int yp = 0; yp < h; ++yp) {
+		int row_offset = vfb->z_stride * yp;
+		for (int xp = 0; xp < packWidth; ++xp) {
+			const int i = row_offset + xp;
+			float scaled = FromScaledDepth(packed[i]);
+			if (scaled <= 0.0f) {
+				depth[i] = 0;
+			} else if (scaled >= 65535.0f) {
+				depth[i] = 65535;
+			} else {
+				depth[i] = (int)scaled;
+			}
 		}
 	}
 	CHECK_GL_ERROR_IF_DEBUG();

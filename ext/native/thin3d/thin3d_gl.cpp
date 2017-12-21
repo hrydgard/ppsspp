@@ -903,8 +903,8 @@ bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBit
 	}
 	// Apply the correct alignment.
 	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
-	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && caps_.vendor != GPUVendor::VENDOR_NVIDIA)) {
-		// Some drivers seem to require we specify this.  See #8254.
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		// Even if not required, some drivers seem to require we specify this.  See #8254.
 		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
 	}
 
