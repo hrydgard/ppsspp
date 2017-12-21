@@ -13,12 +13,6 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 add_definitions(-D__STDC_CONSTANT_MACROS)
 
-# Of the CMake platforms, we only support Vulkan on Android and Windows.
-if(ANDROID OR WIN32)
-  set(VULKAN ON)
-else()
-  add_definitions(-DNO_VULKAN)
-endif()
 
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
   set(CLANG ON)
@@ -72,7 +66,33 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
-  set(ANDROID ON)
+	set(ANDROID ON)
+endif()
+
+# Of the CMake platforms, we only support Vulkan on Android and Windows.
+if(ANDROID OR WIN32 OR LINUX)
+  set(VULKAN ON)
+else()
+  add_definitions(-DNO_VULKAN)
+endif()
+
+if(NOT ANDROID)
+	# Use FindVulkan module added with CMAKE 3.7
+	if (NOT CMAKE_VERSION VERSION_LESS 3.7.0)
+		message(STATUS "Using module to find Vulkan")
+		find_package(Vulkan)
+	endif()
+endif()
+
+if(NOT WIN32 AND VULKAN)
+	IF (NOT Vulkan_FOUND)
+		find_library(Vulkan_LIBRARY NAMES vulkan HINTS "$ENV{VULKAN_SDK}/lib" "${CMAKE_SOURCE_DIR}/ext/vulkan" REQUIRED)
+		IF (Vulkan_LIBRARY)
+			set(Vulkan_FOUND ON)
+			MESSAGE("Using bundled Vulkan library version")
+			add_definitions(-DVULKAN_STATIC)
+		ENDIF()
+	ENDIF()
 endif()
 
 if(NOT DEFINED HEADLESS)
@@ -84,6 +104,12 @@ if(GOLD)
 	message("Gold Build")
 else()
 	message("Normal Build")
+endif()
+
+if(LINUX AND VULKAN)
+	message("Using XCB extension...")
+	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 endif()
 
 # Doesn't link on some platforms
@@ -112,6 +138,10 @@ option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" 
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
+
+# Vulkan on Linux options. If none of these are set, X11 is assumed.
+OPTION(USE_D2D_WSI "Build the project using Direct to Display swapchain" OFF)
+OPTION(USE_WAYLAND_WSI "Build the project using Wayland swapchain" OFF)
 
 if(ANDROID)
 	set(CoreLibName ppsspp_jni)
@@ -325,23 +355,19 @@ set(CommonWindows
 	Common/stdafx.h)
 source_group(Windows FILES ${CommonWindows})
 
-if(VULKAN)
-	set(CommonVulkan ${CommonExtra}
-		Common/Vulkan/SPIRVDisasm.cpp
-		Common/Vulkan/SPIRVDisasm.h
-		Common/Vulkan/VulkanContext.cpp
-		Common/Vulkan/VulkanContext.h
-		Common/Vulkan/VulkanDebug.cpp
-		Common/Vulkan/VulkanDebug.h
-		Common/Vulkan/VulkanImage.cpp
-		Common/Vulkan/VulkanImage.h
-		Common/Vulkan/VulkanLoader.cpp
-		Common/Vulkan/VulkanLoader.h
-		Common/Vulkan/VulkanMemory.cpp
-		Common/Vulkan/VulkanMemory.h)
-else()
-	set(CommonVulkan)
-endif()
+set(CommonVulkan ${CommonExtra}
+	Common/Vulkan/SPIRVDisasm.cpp
+	Common/Vulkan/SPIRVDisasm.h
+	Common/Vulkan/VulkanContext.cpp
+	Common/Vulkan/VulkanContext.h
+	Common/Vulkan/VulkanDebug.cpp
+	Common/Vulkan/VulkanDebug.h
+	Common/Vulkan/VulkanImage.cpp
+	Common/Vulkan/VulkanImage.h
+	Common/Vulkan/VulkanLoader.cpp
+	Common/Vulkan/VulkanLoader.h
+	Common/Vulkan/VulkanMemory.cpp
+	Common/Vulkan/VulkanMemory.h)
 
 add_library(Common STATIC
 	${CommonX86}
@@ -808,15 +834,14 @@ if(ANDROID)
 endif()
 
 set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp)
-if(VULKAN)
-  set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
-    ext/native/thin3d/thin3d_vulkan.cpp
+set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
+	ext/native/thin3d/thin3d_vulkan.cpp
 	ext/native/thin3d/VulkanRenderManager.cpp
 	ext/native/thin3d/VulkanRenderManager.h
 	ext/native/thin3d/VulkanQueueRunner.cpp
 	ext/native/thin3d/VulkanQueueRunner.h
 	ext/native/thin3d/DataFormat.h)
-endif()
+
 if(WIN32)
   set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
     ext/native/thin3d/thin3d_d3d9.cpp
@@ -1640,10 +1665,20 @@ endif()
 
 set(CoreExtraLibs ${CoreExtraLibs} armips)
 
+# needed for VK_USE_PLATFORM_XCB_KHR only
+#if(VULKAN AND NOT WIN32)
+#	target_link_libraries(native X11-xcb X11)
+#endif()
+
+
 set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+
+if(VULKAN)
+	target_link_libraries(${CoreLibName} ${Vulkan_LIBRARY})
+endif()
 
 if(FFmpeg_FOUND)
   target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)

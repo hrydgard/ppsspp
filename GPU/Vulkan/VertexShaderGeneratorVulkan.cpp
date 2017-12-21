@@ -169,27 +169,27 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer, bool *use
 	}
 
 	if (useHWTransform)
-		WRITE(p, "layout (location = %d) in vec3 position;\n", PspAttributeLocation::POSITION);
+		WRITE(p, "layout (location = %d) in vec3 position;\n", (int)PspAttributeLocation::POSITION);
 	else
 		// we pass the fog coord in w
-		WRITE(p, "layout (location = %d) in vec4 position;\n", PspAttributeLocation::POSITION);
+		WRITE(p, "layout (location = %d) in vec4 position;\n", (int)PspAttributeLocation::POSITION);
 
 	if (useHWTransform && hasNormal)
-		WRITE(p, "layout (location = %d) in vec3 normal;\n", PspAttributeLocation::NORMAL);
+		WRITE(p, "layout (location = %d) in vec3 normal;\n", (int)PspAttributeLocation::NORMAL);
 
 	bool texcoordInVec3 = false;
 	if (doTexture && hasTexcoord) {
 		if (!useHWTransform && doTextureTransform && !throughmode) {
-			WRITE(p, "layout (location = %d) in vec3 texcoord;\n", PspAttributeLocation::TEXCOORD);
+			WRITE(p, "layout (location = %d) in vec3 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 			texcoordInVec3 = true;
 		}
 		else
-			WRITE(p, "layout (location = %d) in vec2 texcoord;\n", PspAttributeLocation::TEXCOORD);
+			WRITE(p, "layout (location = %d) in vec2 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 	}
 	if (hasColor) {
-		WRITE(p, "layout (location = %d) in vec4 color0;\n", PspAttributeLocation::COLOR0);
+		WRITE(p, "layout (location = %d) in vec4 color0;\n", (int)PspAttributeLocation::COLOR0);
 		if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
-			WRITE(p, "layout (location = %d) in vec3 color1;\n", PspAttributeLocation::COLOR1);
+			WRITE(p, "layout (location = %d) in vec3 color1;\n", (int)PspAttributeLocation::COLOR1);
 	}
 
 	WRITE(p, "layout (location = 1) %sout vec4 v_color0;\n", shading);
