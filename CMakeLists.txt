@@ -355,23 +355,19 @@ set(CommonWindows
 	Common/stdafx.h)
 source_group(Windows FILES ${CommonWindows})
 
-if(VULKAN)
-	set(CommonVulkan ${CommonExtra}
-		Common/Vulkan/SPIRVDisasm.cpp
-		Common/Vulkan/SPIRVDisasm.h
-		Common/Vulkan/VulkanContext.cpp
-		Common/Vulkan/VulkanContext.h
-		Common/Vulkan/VulkanDebug.cpp
-		Common/Vulkan/VulkanDebug.h
-		Common/Vulkan/VulkanImage.cpp
-		Common/Vulkan/VulkanImage.h
-		Common/Vulkan/VulkanLoader.cpp
-		Common/Vulkan/VulkanLoader.h
-		Common/Vulkan/VulkanMemory.cpp
-		Common/Vulkan/VulkanMemory.h)
-else()
-	set(CommonVulkan)
-endif()
+set(CommonVulkan ${CommonExtra}
+	Common/Vulkan/SPIRVDisasm.cpp
+	Common/Vulkan/SPIRVDisasm.h
+	Common/Vulkan/VulkanContext.cpp
+	Common/Vulkan/VulkanContext.h
+	Common/Vulkan/VulkanDebug.cpp
+	Common/Vulkan/VulkanDebug.h
+	Common/Vulkan/VulkanImage.cpp
+	Common/Vulkan/VulkanImage.h
+	Common/Vulkan/VulkanLoader.cpp
+	Common/Vulkan/VulkanLoader.h
+	Common/Vulkan/VulkanMemory.cpp
+	Common/Vulkan/VulkanMemory.h)
 
 add_library(Common STATIC
 	${CommonX86}
@@ -838,15 +834,14 @@ if(ANDROID)
 endif()
 
 set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp)
-if(VULKAN)
-  set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
-    ext/native/thin3d/thin3d_vulkan.cpp
+set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
+	ext/native/thin3d/thin3d_vulkan.cpp
 	ext/native/thin3d/VulkanRenderManager.cpp
 	ext/native/thin3d/VulkanRenderManager.h
 	ext/native/thin3d/VulkanQueueRunner.cpp
 	ext/native/thin3d/VulkanQueueRunner.h
 	ext/native/thin3d/DataFormat.h)
-endif()
+
 if(WIN32)
   set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
     ext/native/thin3d/thin3d_d3d9.cpp
@@ -1679,7 +1674,11 @@ set(CoreExtraLibs ${CoreExtraLibs} armips)
 set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
-	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS} ${Vulkan_LIBRARY})
+	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+
+if(VULKAN)
+	target_link_libraries(${CoreLibName} ${Vulkan_LIBRARY})
+endif()
 
 if(FFmpeg_FOUND)
   target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)

@@ -155,16 +155,13 @@ int8_t EGL_Init() {
 	g_eglContext = eglCreateContext(g_eglDisplay, g_eglConfig, NULL, attributes );
 	if (g_eglContext == EGL_NO_CONTEXT) EGL_ERROR("Unable to create GLES context!", true);
 
-#if !defined(USING_FBDEV)
+#if !defined(USING_FBDEV) && !defined(__APPLE__)
 	//Get the SDL window handle
 	SDL_SysWMinfo sysInfo; //Will hold our Window information
 	SDL_VERSION(&sysInfo.version); //Set SDL version
-#endif
-
-#ifdef USING_FBDEV
-	g_Window = (NativeWindowType)NULL;
-#else
 	g_Window = (NativeWindowType)sysInfo.info.x11.window;
+#else
+	g_Window = (NativeWindowType)NULL;
 #endif
 	g_eglSurface = eglCreateWindowSurface(g_eglDisplay, g_eglConfig, g_Window, 0);
 	if (g_eglSurface == EGL_NO_SURFACE)
@@ -207,7 +204,8 @@ public:
 		delete draw_;
 	}
 
-	bool Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message);
+	// Returns 0 on success.
+	int Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message);
 
 	void Shutdown() override {
 #ifdef USING_EGL
@@ -235,7 +233,8 @@ private:
 	SDL_GLContext glContext = nullptr;
 };
 
-bool SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
+// Returns 0 on success.
+int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
 	struct GLVersionPair {
 		int major;
 		int minor;
@@ -337,6 +336,7 @@ bool SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std
 	bool success = draw_->CreatePresets();
 	assert(success);
 	window_ = window;
+	return 0;
 }
 
 class SDLVulkanGraphicsContext : public GraphicsContext {
@@ -424,6 +424,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		return false;
 	}
 
+#if !defined(__APPLE__)
 	SDL_SysWMinfo sys_info{};
 	SDL_VERSION(&sys_info.version); //Set SDL version
 	if (!SDL_GetWindowWMInfo(window, &sys_info)) {
@@ -440,6 +441,11 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		exit(1);
 		break;
 	}
+#else
+	// Fake to make it build on Apple. This code won't run there though.
+	void *display = nullptr;
+	int x11_window = 0;
+#endif
 	ILOG("Display: %p", display);
 
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
@@ -854,8 +860,8 @@ int main(int argc, char *argv[]) {
 	std::string error_message;
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
 		SDLGLGraphicsContext *ctx = new SDLGLGraphicsContext();
-		if (!ctx->Init(window, x, y, mode, &error_message)) {
-			printf("GL init error '%s' - falling back to GL\n", error_message.c_str());
+		if (ctx->Init(window, x, y, mode, &error_message) != 0) {
+			printf("GL init error '%s'\n", error_message.c_str());
 		}
 		graphicsContext = ctx;
 	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
