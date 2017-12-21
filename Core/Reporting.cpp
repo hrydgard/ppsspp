@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 #include "Core/Reporting.h"
 

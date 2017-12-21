@@ -21,9 +21,7 @@ void VulkanTexture::CreateMappableImage() {
 		vulkan_->Delete().QueueDeleteDeviceMemory(mappableMemory);
 	}
 
-	bool U_ASSERT_ONLY pass;
-
-	VkImageCreateInfo image_create_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+	VkImageCreateInfo image_create_info{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 	image_create_info.imageType = VK_IMAGE_TYPE_2D;
 	image_create_info.format = format_;
 	image_create_info.extent.width = tex_width;
@@ -40,7 +38,7 @@ void VulkanTexture::CreateMappableImage() {
 	image_create_info.flags = 0;
 	image_create_info.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 
-	VkMemoryAllocateInfo mem_alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	VkMemoryAllocateInfo mem_alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	mem_alloc.allocationSize = 0;
 	mem_alloc.memoryTypeIndex = 0;
 
@@ -55,7 +53,7 @@ void VulkanTexture::CreateMappableImage() {
 	mem_alloc.allocationSize = mem_reqs.size;
 
 	// Find the memory type that is host mappable.
-	pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &mem_alloc.memoryTypeIndex);
+	bool pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &mem_alloc.memoryTypeIndex);
 	assert(pass);
 
 	res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mappableMemory);
@@ -264,23 +262,6 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 		return false;
 	}
 
-	// Write a command to transition the image to the requested layout, if it's not already that layout.
-	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
-		switch (initialLayout) {
-		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-			TransitionImageLayout2(cmd, image, 0, numMips, VK_IMAGE_ASPECT_COLOR_BIT,
-				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-				0, VK_ACCESS_TRANSFER_WRITE_BIT);
-			break;
-		default:
-			// If you planned to use UploadMip, you want VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL. After the
-			// upload, you can transition.
-			assert(false);
-			break;
-		}
-	}
-
 	vkGetImageMemoryRequirements(vulkan_->GetDevice(), image, &mem_reqs);
 
 	if (allocator_) {
@@ -311,6 +292,23 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 	if (res != VK_SUCCESS) {
 		assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 		return false;
+	}
+
+	// Write a command to transition the image to the requested layout, if it's not already that layout.
+	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
+		switch (initialLayout) {
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			TransitionImageLayout2(cmd, image, 0, numMips, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0, VK_ACCESS_TRANSFER_WRITE_BIT);
+			break;
+		default:
+			// If you planned to use UploadMip, you want VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL. After the
+			// upload, you can transition.
+			assert(false);
+			break;
+		}
 	}
 
 	// Create the view while we're at it.

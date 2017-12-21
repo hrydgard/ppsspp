@@ -910,12 +910,7 @@ void TextureCacheCommon::NotifyConfigChanged() {
 			}
 		}
 
-		// Mobile devices don't get the higher scale factors, too expensive. Very rough way to decide though...
-		if (!gstate_c.Supports(GPU_IS_MOBILE)) {
-			scaleFactor = std::min(5, scaleFactor);
-		} else {
-			scaleFactor = std::min(3, scaleFactor);
-		}
+		scaleFactor = std::min(5, scaleFactor);
 	} else {
 		scaleFactor = g_Config.iTexScalingLevel;
 	}

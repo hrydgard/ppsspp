@@ -3,24 +3,12 @@
 // Note: SDL1.2 implementation is deprecated and will soon be replaced by SDL2.0.
 // If your platform is not supported, it is suggested to use Qt instead.
 
-#ifdef _WIN32
-#pragma warning(disable:4091)  // workaround bug in VS2015 headers
-
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#include <shlobj.h>
-#include <shlwapi.h>
-#include <ShellAPI.h>
-#else
 #include <unistd.h>
 #include <pwd.h>
-#endif
 
 #include "SDL.h"
-#ifndef _WIN32
 #include "SDL/SDLJoystick.h"
 SDLJoystick *joystick = NULL;
-#endif
 
 #if PPSSPP_PLATFORM(RPI)
 #include <bcm_host.h>
@@ -28,6 +16,7 @@ SDLJoystick *joystick = NULL;
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -41,34 +30,35 @@ SDLJoystick *joystick = NULL;
 #include "base/NKCodeFromSDL.h"
 #include "util/const_map.h"
 #include "util/text/utf8.h"
+#include "util/text/parsers.h"
 #include "math/math_util.h"
+#include "Common/Vulkan/VulkanContext.h"
+#include "Common/Vulkan/VulkanDebug.h"
+#include "math.h"
+
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include "SDL_syswm.h"
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xlib-xcb.h>
+#include "SDL_syswm.h"
+#endif
+
+#if defined(USING_EGL)
+#include "EGL/egl.h"
+#endif
 
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Common/GraphicsContext.h"
 
-class GLDummyGraphicsContext : public DummyGraphicsContext {
-public:
-	GLDummyGraphicsContext() {
-		CheckGLExtensions();
-		draw_ = Draw::T3DCreateGLContext();
-		bool success = draw_->CreatePresets();
-		assert(success);
-	}
-	~GLDummyGraphicsContext() { delete draw_; }
-
-	Draw::DrawContext *GetDrawContext() override {
-		return draw_;
-	}
-private:
-	Draw::DrawContext *draw_;
-};
-
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 
-static SDL_Window* g_Screen = NULL;
 static bool g_ToggleFullScreenNextFrame = false;
 static int g_ToggleFullScreenType;
 static int g_QuitRequested = 0;
@@ -76,16 +66,9 @@ static int g_QuitRequested = 0;
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
 
+static VulkanLogOptions g_LogOptions;
+
 #if defined(USING_EGL)
-#include "EGL/egl.h"
-
-#if !defined(USING_FBDEV)
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#endif
-
-#include "SDL_syswm.h"
-#include "math.h"
 
 static EGLDisplay               g_eglDisplay    = NULL;
 static EGLContext               g_eglContext    = NULL;
@@ -172,16 +155,13 @@ int8_t EGL_Init() {
 	g_eglContext = eglCreateContext(g_eglDisplay, g_eglConfig, NULL, attributes );
 	if (g_eglContext == EGL_NO_CONTEXT) EGL_ERROR("Unable to create GLES context!", true);
 
-#if !defined(USING_FBDEV)
+#if !defined(USING_FBDEV) && !defined(__APPLE__)
 	//Get the SDL window handle
 	SDL_SysWMinfo sysInfo; //Will hold our Window information
 	SDL_VERSION(&sysInfo.version); //Set SDL version
-#endif
-
-#ifdef USING_FBDEV
-	g_Window = (NativeWindowType)NULL;
-#else
 	g_Window = (NativeWindowType)sysInfo.info.x11.window;
+#else
+	g_Window = (NativeWindowType)NULL;
 #endif
 	g_eglSurface = eglCreateWindowSurface(g_eglDisplay, g_eglConfig, g_Window, 0);
 	if (g_eglSurface == EGL_NO_SURFACE)
@@ -215,6 +195,298 @@ void EGL_Close() {
 	g_eglContext = NULL;
 }
 #endif
+
+class SDLGLGraphicsContext : public DummyGraphicsContext {
+public:
+	SDLGLGraphicsContext() {
+	}
+	~SDLGLGraphicsContext() {
+		delete draw_;
+	}
+
+	// Returns 0 on success.
+	int Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message);
+
+	void Shutdown() override {
+#ifdef USING_EGL
+		EGL_Close();
+#else
+		SDL_GL_DeleteContext(glContext);
+#endif
+	}
+
+	void SwapBuffers() override {
+#ifdef USING_EGL
+		eglSwapBuffers(g_eglDisplay, g_eglSurface);
+#else
+		SDL_GL_SwapWindow(window_);
+#endif
+	}
+
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
+
+private:
+	Draw::DrawContext *draw_ = nullptr;
+	SDL_Window *window_;
+	SDL_GLContext glContext = nullptr;
+};
+
+// Returns 0 on success.
+int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
+	struct GLVersionPair {
+		int major;
+		int minor;
+	};
+	GLVersionPair attemptVersions[] = {
+#ifdef USING_GLES2
+		{3, 2}, {3, 1}, {3, 0}, {2, 0},
+#else
+		{4, 6}, {4, 5}, {4, 4}, {4, 3}, {4, 2}, {4, 1}, {4, 0},
+		{3, 3}, {3, 2}, {3, 1}, {3, 0},
+#endif
+	};
+
+#ifdef USING_GLES2
+	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN;
+#else
+	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+#endif
+	SDL_GLContext glContext = nullptr;
+	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
+		const auto &ver = attemptVersions[i];
+		// Make sure to request a somewhat modern GL context at least - the
+		// latest supported by MacOS X (really, really sad...)
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, ver.major);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, ver.minor);
+#ifdef USING_GLES2
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+		SetGLCoreContext(false);
+#else
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		SetGLCoreContext(true);
+#endif
+
+		window = SDL_CreateWindow("PPSSPP", x,y, pixel_xres, pixel_yres, mode);
+		if (!window) {
+			NativeShutdown();
+			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+			continue;
+		}
+
+		glContext = SDL_GL_CreateContext(window);
+		if (glContext != nullptr) {
+			// Victory, got one.
+			break;
+		}
+
+		// Let's keep trying.  To be safe, destroy the window - docs say needed to change profile.
+		// in practice, it doesn't seem to matter, but maybe it differs by platform.
+		SDL_DestroyWindow(window);
+	}
+
+	if (glContext == nullptr) {
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 0);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+		SetGLCoreContext(false);
+
+		window = SDL_CreateWindow("PPSSPP", x,y, pixel_xres, pixel_yres, mode);
+		if (window == nullptr) {
+			NativeShutdown();
+			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+			SDL_Quit();
+			return 2;
+		}
+
+		glContext = SDL_GL_CreateContext(window);
+		if (glContext == nullptr) {
+			NativeShutdown();
+			fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+			SDL_Quit();
+			return 2;
+		}
+	}
+
+#ifdef USING_EGL
+	EGL_Init();
+#endif
+
+#ifndef USING_GLES2
+	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
+	// glewExperimental allows us to force GLEW to search for the pointers anyway.
+	if (gl_extensions.IsCoreContext) {
+		glewExperimental = true;
+	}
+	if (GLEW_OK != glewInit()) {
+		printf("Failed to initialize glew!\n");
+		return 1;
+	}
+	// Unfortunately, glew will generate an invalid enum error, ignore.
+	if (gl_extensions.IsCoreContext)
+		glGetError();
+
+	if (GLEW_VERSION_2_0) {
+		printf("OpenGL 2.0 or higher.\n");
+	} else {
+		printf("Sorry, this program requires OpenGL 2.0.\n");
+		return 1;
+	}
+#endif
+
+	// Finally we can do the regular initialization.
+	CheckGLExtensions();
+	draw_ = Draw::T3DCreateGLContext();
+	bool success = draw_->CreatePresets();
+	assert(success);
+	window_ = window;
+	return 0;
+}
+
+class SDLVulkanGraphicsContext : public GraphicsContext {
+public:
+	SDLVulkanGraphicsContext() {}
+	~SDLVulkanGraphicsContext() {
+		delete draw_;
+	}
+
+	bool Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message);
+
+	void Shutdown() override;
+
+	void SwapBuffers() override {
+		// We don't do it this way.
+	}
+
+	void Resize() override {
+		/*
+		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+		vulkan_->DestroyObjects();
+		// TODO: Take from real window dimensions
+		int width = 1024;
+		int height = 768;
+		vulkan_->ReinitSurface(width, height);
+		vulkan_->InitObjects();
+		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+		*/
+	}
+
+	void SwapInterval(int interval) override {
+	}
+	void *GetAPIContext() override {
+		return vulkan_;
+	}
+
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
+private:
+	Draw::DrawContext *draw_ = nullptr;
+	VulkanContext *vulkan_ = nullptr;
+};
+
+bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
+	window = SDL_CreateWindow("Initializing Vulkan...", x, y, pixel_xres, pixel_yres, mode);
+	if (!window) {
+		fprintf(stderr, "Error creating SDL window: %s\n", SDL_GetError());
+		exit(1);
+	}
+
+	init_glslang();
+
+	g_LogOptions.breakOnError = true;
+	g_LogOptions.breakOnWarning = true;
+	g_LogOptions.msgBoxOnError = false;
+
+	Version gitVer(PPSSPP_GIT_VERSION);
+
+	vulkan_ = new VulkanContext();
+	if (vulkan_->InitError().size()) {
+		*error_message = vulkan_->InitError();
+		delete vulkan_;
+		vulkan_ = nullptr;
+		return false;
+	}
+
+	int vulkanFlags = VULKAN_FLAG_PRESENT_MAILBOX;
+	// vulkanFlags |= VULKAN_FLAG_VALIDATE;
+	VulkanContext::CreateInfo info{};
+	info.app_name = "PPSSPP";
+	info.app_ver = gitVer.ToInteger();
+	info.flags = vulkanFlags;
+	if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
+		*error_message = vulkan_->InitError();
+		delete vulkan_;
+		vulkan_ = nullptr;
+		return false;
+	}
+	vulkan_->ChooseDevice(vulkan_->GetBestPhysicalDevice());
+	if (vulkan_->CreateDevice() != VK_SUCCESS) {
+		*error_message = vulkan_->InitError();
+		delete vulkan_;
+		vulkan_ = nullptr;
+		return false;
+	}
+
+#if !defined(__APPLE__)
+	SDL_SysWMinfo sys_info{};
+	SDL_VERSION(&sys_info.version); //Set SDL version
+	if (!SDL_GetWindowWMInfo(window, &sys_info)) {
+		fprintf(stderr, "Error getting SDL window wm info: %s\n", SDL_GetError());
+		exit(1);
+	}
+	Display *display = sys_info.info.x11.display;
+	Window x11_window = sys_info.info.x11.window;
+	switch (sys_info.subsystem) {
+	case SDL_SYSWM_X11:
+		break;
+	default:
+		fprintf(stderr, "Vulkan subsystem %d not supported\n", sys_info.subsystem);
+		exit(1);
+		break;
+	}
+#else
+	// Fake to make it build on Apple. This code won't run there though.
+	void *display = nullptr;
+	int x11_window = 0;
+#endif
+	ILOG("Display: %p", display);
+
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+	vulkan_->InitSurface(WINDOWSYSTEM_XLIB, (void*)display, (void *)(intptr_t)x11_window, pixel_xres, pixel_yres);
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+	vulkan_->InitSurface(WINDOWSYSTEM_XCB, (void*)XGetXCBConnection(display), (void *)(intptr_t)x11_window, pixel_xres, pixel_yres);
+#endif
+
+	if (!vulkan_->InitObjects()) {
+		*error_message = vulkan_->InitError();
+		Shutdown();
+		return false;
+	}
+
+	draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
+	bool success = draw_->CreatePresets();
+	assert(success);
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+
+	return true;
+}
+
+void SDLVulkanGraphicsContext::Shutdown() {
+	if (draw_)
+		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+	delete draw_;
+	draw_ = nullptr;
+	vulkan_->WaitUntilQueueIdle();
+	vulkan_->DestroyObjects();
+	vulkan_->DestroyDevice();
+	vulkan_->DestroyDebugMsgCallback();
+	vulkan_->DestroyInstance();
+	delete vulkan_;
+	vulkan_ = nullptr;
+	finalize_glslang();
+}
 
 int getDisplayNumber(void) {
 	int displayNumber = 0;
@@ -399,11 +671,11 @@ static float parseFloat(const char *str) {
 	}
 }
 
-void ToggleFullScreenIfFlagSet() {
+void ToggleFullScreenIfFlagSet(SDL_Window *window) {
 	if (g_ToggleFullScreenNextFrame) {
 		g_ToggleFullScreenNextFrame = false;
 
-		Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
+		Uint32 window_flags = SDL_GetWindowFlags(window);
 		if (g_ToggleFullScreenType == -1) {
 			window_flags ^= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		} else if (g_ToggleFullScreenType == 1) {
@@ -411,7 +683,7 @@ void ToggleFullScreenIfFlagSet() {
 		} else {
 			window_flags &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
 		}
-		SDL_SetWindowFullscreen(g_Screen, window_flags);
+		SDL_SetWindowFullscreen(window, window_flags);
 	}
 }
 
@@ -419,57 +691,20 @@ void ToggleFullScreenIfFlagSet() {
 #undef main
 #endif
 int main(int argc, char *argv[]) {
+	glslang::InitializeProcess();
+
 #if PPSSPP_PLATFORM(RPI)
 	bcm_host_init();
 #endif
 	putenv((char*)"SDL_VIDEO_CENTERED=1");
 	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
 
-	std::string app_name;
-	std::string app_name_nice;
-	std::string version;
-	bool landscape;
-	NativeGetAppInfo(&app_name, &app_name_nice, &landscape, &version);
-
-	bool joystick_enabled = true;
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) < 0) {
-		joystick_enabled = false;
-		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
-			fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
-			return 1;
-		}
+	if (VulkanMayBeAvailable()) {
+		printf("Vulkan might be available.\n");
+	} else {
+		printf("Vulkan is not available.\n");
 	}
 
-#ifdef USING_EGL
-	if (EGL_Open())
-		return 1;
-#endif
-
-	// Get the video info before doing anything else, so we don't get skewed resolution results.
-	// TODO: support multiple displays correctly
-	SDL_DisplayMode displayMode;
-	int should_be_zero = SDL_GetCurrentDisplayMode(0, &displayMode);
-	if (should_be_zero != 0) {
-		fprintf(stderr, "Could not get display mode: %s\n", SDL_GetError());
-		return 1;
-	}
-	g_DesktopWidth = displayMode.w;
-	g_DesktopHeight = displayMode.h;
-
-	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetSwapInterval(1);
-
-	Uint32 mode;
-#ifdef USING_GLES2
-	mode = SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN;
-#else
-	mode = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
-#endif
 	int set_xres = -1;
 	int set_yres = -1;
 	bool portrait = false;
@@ -481,6 +716,7 @@ int main(int argc, char *argv[]) {
 	int remain_argc = 1;
 	const char *remain_argv[256] = { argv[0] };
 
+	Uint32 mode = 0;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
@@ -508,6 +744,47 @@ int main(int argc, char *argv[]) {
 			remain_argv[remain_argc++] = argv[i];
 		}
 	}
+
+	std::string app_name;
+	std::string app_name_nice;
+	std::string version;
+	bool landscape;
+	NativeGetAppInfo(&app_name, &app_name_nice, &landscape, &version);
+
+	bool joystick_enabled = true;
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) < 0) {
+		fprintf(stderr, "Failed to initialize SDL with joystick support. Retrying without.\n");
+		joystick_enabled = false;
+		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
+			fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
+			return 1;
+		}
+	}
+
+	// TODO: How do we get this into the GraphicsContext?
+#ifdef USING_EGL
+	if (EGL_Open())
+		return 1;
+#endif
+
+	// Get the video info before doing anything else, so we don't get skewed resolution results.
+	// TODO: support multiple displays correctly
+	SDL_DisplayMode displayMode;
+	int should_be_zero = SDL_GetCurrentDisplayMode(0, &displayMode);
+	if (should_be_zero != 0) {
+		fprintf(stderr, "Could not get display mode: %s\n", SDL_GetError());
+		return 1;
+	}
+	g_DesktopWidth = displayMode.w;
+	g_DesktopHeight = displayMode.h;
+
+	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetSwapInterval(1);
 
 	// Is resolution is too low to run windowed
 	if (g_DesktopWidth < 480 * 2 && g_DesktopHeight < 272 * 2) {
@@ -552,12 +829,6 @@ int main(int argc, char *argv[]) {
 	dp_xres = (float)pixel_xres * dpi_scale;
 	dp_yres = (float)pixel_yres * dpi_scale;
 
-#ifdef _MSC_VER
-	// VFSRegister("temp/", new DirectoryAssetReader("E:\\Temp\\"));
-	TCHAR path[MAX_PATH];
-	SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, path);
-	PathAppend(path, (app_name + "\\").c_str());
-#else
 	// Mac / Linux
 	char path[2048];
 	const char *the_path = getenv("HOME");
@@ -569,13 +840,8 @@ int main(int argc, char *argv[]) {
 	strcpy(path, the_path);
 	if (path[strlen(path)-1] != '/')
 		strcat(path, "/");
-#endif
 
-#ifdef _WIN32
-	NativeInit(remain_argc, (const char **)remain_argv, path, "D:\\", nullptr);
-#else
 	NativeInit(remain_argc, (const char **)remain_argv, path, "/tmp", nullptr);
-#endif
 
 	// Use the setting from the config when initing the window.
 	if (g_Config.bFullScreen)
@@ -583,100 +849,6 @@ int main(int argc, char *argv[]) {
 
 	int x = SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber());
 	int y = SDL_WINDOWPOS_UNDEFINED;
-
-	struct GLVersionPair {
-		int major;
-		int minor;
-	};
-	GLVersionPair attemptVersions[] = {
-		{4, 6}, {4, 5}, {4, 4}, {4, 3}, {4, 2}, {4, 1}, {4, 0},
-		{3, 3}, {3, 2}, {3, 1}, {3, 0},
-	};
-
-	SDL_GLContext glContext = nullptr;
-	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
-		const auto &ver = attemptVersions[i];
-		// Make sure to request a somewhat modern GL context at least - the
-		// latest supported by MacOS X (really, really sad...)
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, ver.major);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, ver.minor);
-		SetGLCoreContext(true);
-
-		g_Screen = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
-		if (g_Screen == nullptr) {
-			NativeShutdown();
-			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-			SDL_Quit();
-			return 2;
-		}
-
-		glContext = SDL_GL_CreateContext(g_Screen);
-		if (glContext != nullptr) {
-			// Victory, got one.
-			break;
-		}
-
-		// Let's keep trying.  To be safe, destroy the window - docs say needed to change profile.
-		// in practice, it doesn't seem to matter, but maybe it differs by platform.
-		SDL_DestroyWindow(g_Screen);
-	}
-
-	if (glContext == nullptr) {
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 0);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 0);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-		SetGLCoreContext(false);
-
-		g_Screen = SDL_CreateWindow(app_name_nice.c_str(), x,y, pixel_xres, pixel_yres, mode);
-		if (g_Screen == nullptr) {
-			NativeShutdown();
-			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-			SDL_Quit();
-			return 2;
-		}
-
-		glContext = SDL_GL_CreateContext(g_Screen);
-		if (glContext == nullptr) {
-			NativeShutdown();
-			fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
-			SDL_Quit();
-			return 2;
-		}
-	}
-
-#ifdef USING_EGL
-	EGL_Init();
-#endif
-
-	SDL_SetWindowTitle(g_Screen, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
-
-#ifdef MOBILE_DEVICE
-	SDL_ShowCursor(SDL_DISABLE);
-#endif
-
-
-#ifndef USING_GLES2
-	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
-	// glewExperimental allows us to force GLEW to search for the pointers anyway.
-	if (gl_extensions.IsCoreContext)
-		glewExperimental = true;
-	if (GLEW_OK != glewInit()) {
-		printf("Failed to initialize glew!\n");
-		return 1;
-	}
-	// Unfortunately, glew will generate an invalid enum error, ignore.
-	if (gl_extensions.IsCoreContext)
-		glGetError();
-
-	if (GLEW_VERSION_2_0) {
-		printf("OpenGL 2.0 or higher.\n");
-	} else {
-		printf("Sorry, this program requires OpenGL 2.0.\n");
-		return 1;
-	}
-#endif
-
 
 	pixel_in_dps_x = (float)pixel_xres / dp_xres;
 	pixel_in_dps_y = (float)pixel_yres / dp_yres;
@@ -688,9 +860,35 @@ int main(int argc, char *argv[]) {
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
-	glslang::InitializeProcess();
+	GraphicsContext *graphicsContext = nullptr;
+	SDL_Window *window = nullptr;
+	std::string error_message;
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		SDLGLGraphicsContext *ctx = new SDLGLGraphicsContext();
+		if (ctx->Init(window, x, y, mode, &error_message) != 0) {
+			printf("GL init error '%s'\n", error_message.c_str());
+		}
+		graphicsContext = ctx;
+	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
+		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
+		if (!ctx->Init(window, x, y, mode, &error_message)) {
+			printf("Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
+			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+			delete ctx;
+			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
+			glctx->Init(window, x, y, mode, &error_message);
+			graphicsContext = glctx;
+		} else {
+			graphicsContext = ctx;
+		}
+	}
 
-	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
+	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
+
+#ifdef MOBILE_DEVICE
+	SDL_ShowCursor(SDL_DISABLE);
+#endif
+
 	NativeInitGraphics(graphicsContext);
 
 	NativeResized();
@@ -721,18 +919,14 @@ int main(int argc, char *argv[]) {
 
 	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
-#ifndef _WIN32
 	if (joystick_enabled) {
 		joystick = new SDLJoystick();
 	} else {
 		joystick = nullptr;
 	}
-#endif
 	EnableFZ();
 
 	int framecount = 0;
-	float t = 0;
-	float lastT = 0;
 	bool mouseDown = false;
 
 	while (true) {
@@ -751,7 +945,7 @@ int main(int argc, char *argv[]) {
 				switch (event.window.event) {
 				case SDL_WINDOWEVENT_RESIZED:
 				{
-					Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
+					Uint32 window_flags = SDL_GetWindowFlags(window);
 					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 
 					pixel_xres = event.window.data1;
@@ -893,11 +1087,9 @@ int main(int argc, char *argv[]) {
 				}
 				break;
 			default:
-#ifndef _WIN32
 				if (joystick) {
 					joystick->ProcessInput(event);
 				}
-#endif
 				break;
 			}
 		}
@@ -921,44 +1113,25 @@ int main(int argc, char *argv[]) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
 
-#ifdef USING_EGL
-		eglSwapBuffers(g_eglDisplay, g_eglSurface);
-#else
-		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0) {
-			SDL_GL_SwapWindow(g_Screen);
-			lastT = t;
-		}
-#endif
+		graphicsContext->SwapBuffers();
 
-		ToggleFullScreenIfFlagSet();
+		ToggleFullScreenIfFlagSet(window);
 		time_update();
-		t = time_now();
 		framecount++;
 	}
-#ifndef _WIN32
 	delete joystick;
-#endif
 	NativeShutdownGraphics();
 	graphicsContext->Shutdown();
 	NativeShutdown();
 	delete graphicsContext;
-	glslang::FinalizeProcess();
-	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
-	// The speed difference is only really noticable on Linux. On Windows you do notice it though
-#ifndef MOBILE_DEVICE
-	exit(0);
-#endif
+
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
-#ifdef USING_EGL
-	EGL_Close();
-#endif
-	SDL_GL_DeleteContext(glContext);
 	SDL_Quit();
 #if PPSSPP_PLATFORM(RPI)
 	bcm_host_deinit();
 #endif
 
-	exit(0);
+	glslang::FinalizeProcess();
 	return 0;
 }

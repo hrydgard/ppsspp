@@ -284,13 +284,17 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	g_LogOptions.breakOnWarning = true;
 	g_LogOptions.msgBoxOnError = false;
 
-	ILOG("Creating vulkan context");
+	ILOG("Creating Vulkan context");
 	Version gitVer(PPSSPP_GIT_VERSION);
 
 	if (!g_Vulkan) {
 		g_Vulkan = new VulkanContext();
 	}
-	if (VK_SUCCESS != g_Vulkan->CreateInstance("PPSSPP", gitVer.ToInteger(), VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED)) {
+	VulkanContext::CreateInfo info{};
+	info.app_name = "PPSSPP";
+	info.app_ver = gitVer.ToInteger();
+	info.flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED;
+	if (VK_SUCCESS != g_Vulkan->CreateInstance(info)) {
 		ELOG("Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
 		System_SendMessage("toast", "No Vulkan compatible device found. Using OpenGL instead.");
 		delete g_Vulkan;
@@ -310,7 +314,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	g_Vulkan->ChooseDevice(physicalDevice);
 	// Here we can enable device extensions if we like.
 
-	ILOG("Creating vulkan device");
+	ILOG("Creating Vulkan device");
 	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
 		ILOG("Failed to create vulkan device: %s", g_Vulkan->InitError().c_str());
 		System_SendMessage("toast", "No Vulkan driver found. Using OpenGL instead.");
@@ -326,7 +330,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 		height = pixel_yres;
 	}
 	ILOG("InitSurfaceAndroid: width=%d height=%d", width, height);
-	g_Vulkan->InitSurfaceAndroid(wnd, width, height);
+	g_Vulkan->InitSurface(WINDOWSYSTEM_ANDROID, (void *)wnd, nullptr, width, height);
 	if (g_validate_) {
 		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
@@ -386,7 +390,7 @@ void AndroidVulkanContext::Resize() {
 	g_Vulkan->DestroyObjects();
 
 	// backbufferResize updated these values.	TODO: Notify another way?
-	g_Vulkan->ReinitSurfaceAndroid(pixel_xres, pixel_yres);
+	g_Vulkan->ReinitSurface(pixel_xres, pixel_yres);
 	g_Vulkan->InitObjects();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	ILOG("AndroidVulkanContext::Resize end (%d, %d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
