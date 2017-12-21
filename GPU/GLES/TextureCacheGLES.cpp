@@ -229,13 +229,9 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 		ConvertRGB565ToBGR565((u16 *)dst, (const u16 *)src, numPixels);
 		break;
 	default:
-		if (UseBGRA8888()) {
-			ConvertRGBA8888ToBGRA8888(dst, src, numPixels);
-		} else {
-			// No need to convert RGBA8888, right order already
-			if (dst != src)
+		// No need to convert RGBA8888, right order already
+		if (dst != src)
 				memcpy(dst, src, numPixels * sizeof(u32));
-		}
 		break;
 	}
 }
@@ -270,7 +266,7 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
 
 	// Avoid a copy when we don't need to convert colors.
-	if (UseBGRA8888() || clutFormat != GE_CMODE_32BIT_ABGR8888) {
+	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
 		const int numColors = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutMaxBytes_ / sizeof(u32)) : (clutMaxBytes_ / sizeof(u16));
 		ConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormat(clutFormat), numColors);
 		clutBuf_ = clutBufConverted_;
@@ -537,13 +533,13 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	InvalidateLastTexture();
 }
 
-ReplacedTextureFormat FromGLESFormat(GLenum fmt, bool useBGRA = false) {
+ReplacedTextureFormat FromGLESFormat(GLenum fmt) {
 	// TODO: 16-bit formats are incorrect, since swizzled.
 	switch (fmt) {
 	case GL_UNSIGNED_SHORT_5_6_5: return ReplacedTextureFormat::F_0565_ABGR;
 	case GL_UNSIGNED_SHORT_5_5_5_1: return ReplacedTextureFormat::F_1555_ABGR;
 	case GL_UNSIGNED_SHORT_4_4_4_4: return ReplacedTextureFormat::F_4444_ABGR;
-	case GL_UNSIGNED_BYTE: default: return useBGRA ? ReplacedTextureFormat::F_8888_BGRA : ReplacedTextureFormat::F_8888;
+	case GL_UNSIGNED_BYTE: default: return ReplacedTextureFormat::F_8888;
 	}
 }
 
@@ -820,7 +816,7 @@ void *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteF
 	}
 
 	tmpTexBufRearrange_.resize(std::max(w, bufw) * h);
-	DecodeTextureLevel((u8 *)tmpTexBufRearrange_.data(), decPitch, format, clutformat, texaddr, level, bufw, true, UseBGRA8888(), false);
+	DecodeTextureLevel((u8 *)tmpTexBufRearrange_.data(), decPitch, format, clutformat, texaddr, level, bufw, true, false, false);
 	return tmpTexBufRearrange_.data();
 }
 
@@ -849,7 +845,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	bool useUnpack = false;
-	bool useBGRA;
 	u32 *pixelData;
 
 	CHECK_GL_ERROR_IF_DEBUG();
@@ -870,7 +865,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		dstFmt = ToGLESFormat(replaced.Format(level));
 
 		texByteAlign = bpp;
-		useBGRA = false;
 	} else {
 		PROFILE_THIS_SCOPE("decodetex");
 
@@ -889,7 +883,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		// Textures are always aligned to 16 bytes bufw, so this could safely be 4 always.
 		texByteAlign = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-		useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
 
 		pixelData = (u32 *)finalBuf;
 
@@ -912,7 +905,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			replacedInfo.isVideo = videos_.find(entry.addr & 0x3FFFFFFF) != videos_.end();
 			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 			replacedInfo.scaleFactor = scaleFactor;
-			replacedInfo.fmt = FromGLESFormat(dstFmt, useBGRA);
+			replacedInfo.fmt = FromGLESFormat(dstFmt);
 
 			int bpp = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
 			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, (useUnpack ? bufw : w) * bpp, level, w, h);
@@ -926,9 +919,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 
 	GLuint components2 = components;
-	if (useBGRA) {
-		components2 = GL_BGRA_EXT;
-	}
 
 	if (replaceImages) {
 		PROFILE_THIS_SCOPE("repltex");

@@ -759,12 +759,6 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 		u32 *dst32 = (u32 *)dst;
 		if (src == dst) {
 			return;
-		} else if (UseBGRA8888()) {
-			for (u32 y = 0; y < height; ++y) {
-				ConvertBGRA8888ToRGBA8888(dst32, src32, width);
-				src32 += srcStride;
-				dst32 += dstStride;
-			}
 		} else {
 			// Here let's assume they don't intersect
 			for (u32 y = 0; y < height; ++y) {
@@ -778,13 +772,7 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 		u16 *dst16 = (u16 *)dst;
 		switch (format) {
 			case GE_FORMAT_565: // BGR 565
-				if (UseBGRA8888()) {
-					for (u32 y = 0; y < height; ++y) {
-						ConvertBGRA8888ToRGB565(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				} else {
+				{
 					for (u32 y = 0; y < height; ++y) {
 						ConvertRGBA8888ToRGB565(dst16, src32, width);
 						src32 += srcStride;
@@ -793,13 +781,7 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 				}
 				break;
 			case GE_FORMAT_5551: // ABGR 1555
-				if (UseBGRA8888()) {
-					for (u32 y = 0; y < height; ++y) {
-						ConvertBGRA8888ToRGBA5551(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				} else {
+				{
 					for (u32 y = 0; y < height; ++y) {
 						ConvertRGBA8888ToRGBA5551(dst16, src32, width);
 						src32 += srcStride;
@@ -808,13 +790,7 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 				}
 				break;
 			case GE_FORMAT_4444: // ABGR 4444
-				if (UseBGRA8888()) {
-					for (u32 y = 0; y < height; ++y) {
-						ConvertBGRA8888ToRGBA4444(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				} else {
+				{
 					for (u32 y = 0; y < height; ++y) {
 						ConvertRGBA8888ToRGBA4444(dst16, src32, width);
 						src32 += srcStride;
@@ -871,7 +847,7 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			DEBUG_LOG(FRAMEBUF, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
 			pbo.size, packed, pbo.fb_address, pbo.stride, nextPBO);
 
-			if (useCPU || (UseBGRA8888() && pbo.format == GE_FORMAT_8888)) {
+			if (useCPU) {
 				u8 *dst = Memory::GetPointer(pbo.fb_address);
 				ConvertFromRGBA8888(dst, packed, pbo.stride, pbo.stride, pbo.stride, pbo.height, pbo.format);
 			} else {
@@ -891,22 +867,22 @@ void FramebufferManagerGLES::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		bool reverseOrder = gstate_c.Supports(GPU_PREFER_REVERSE_COLOR_ORDER);
 		Draw::DataFormat dataFmt = Draw::DataFormat::UNDEFINED;
 		switch (vfb->format) {
-		case GE_FORMAT_4444: // 16 bit RGBA
+		case GE_FORMAT_4444:
 			dataFmt = (reverseOrder ? Draw::DataFormat::A4R4G4B4_UNORM_PACK16 : Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
 			break;
-		case GE_FORMAT_5551: // 16 bit RGBA
+		case GE_FORMAT_5551:
 			dataFmt = (reverseOrder ? Draw::DataFormat::A1R5G5B5_UNORM_PACK16 : Draw::DataFormat::B5G5R5A1_UNORM_PACK16);
 			break;
-		case GE_FORMAT_565: // 16 bit RGB
+		case GE_FORMAT_565:
 			dataFmt = (reverseOrder ? Draw::DataFormat::R5G6B5_UNORM_PACK16 : Draw::DataFormat::B5G6R5_UNORM_PACK16);
 			break;
-		case GE_FORMAT_8888: // 32 bit RGBA
-			dataFmt = UseBGRA8888() ? Draw::DataFormat::B8G8R8A8_UNORM : Draw::DataFormat::R8G8B8A8_UNORM;
+		case GE_FORMAT_8888:
+			dataFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 			break;
 		};
 
 		if (useCPU) {
-			dataFmt = UseBGRA8888() ? Draw::DataFormat::B8G8R8A8_UNORM : Draw::DataFormat::R8G8B8A8_UNORM;
+			dataFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		}
 
 
@@ -966,7 +942,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 	u32 bufSize = vfb->fb_stride * h * 4;
 	u32 fb_address = 0x04000000 | vfb->fb_address;
 
-	bool convert = vfb->format != GE_FORMAT_8888 || UseBGRA8888();
+	bool convert = vfb->format != GE_FORMAT_8888;
 	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 	const int packWidth = std::min(vfb->fb_stride, std::min(x + w, (int)vfb->width));
 
@@ -990,7 +966,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 		DEBUG_LOG(FRAMEBUF, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
 
 		int packW = h == 1 ? packWidth : vfb->fb_stride;  // TODO: What's this about?
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, y, packW, h, UseBGRA8888() ? Draw::DataFormat::B8G8R8A8_UNORM : Draw::DataFormat::R8G8B8A8_UNORM, packed, packW);
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, y, packW, h, Draw::DataFormat::R8G8B8A8_UNORM, packed, packW);
 
 		if (convert) {
 			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
