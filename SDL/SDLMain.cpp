@@ -248,6 +248,11 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 #endif
 	};
 
+#ifdef USING_GLES2
+	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN;
+#else
+	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+#endif
 	SDL_GLContext glContext = nullptr;
 	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
 		const auto &ver = attemptVersions[i];
