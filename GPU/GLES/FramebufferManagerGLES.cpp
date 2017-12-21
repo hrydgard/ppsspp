@@ -945,7 +945,7 @@ void FramebufferManagerGLES::PackFramebufferSync_(VirtualFramebuffer *vfb, int x
 	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 	const int packWidth = std::min(vfb->fb_stride, std::min(x + w, (int)vfb->width));
 
-	if (gl_extensions.IsGLES && !gl_extensions.GLES3 && (packWidth != vfb->fb_stride)) {
+	if (gl_extensions.IsGLES && !gl_extensions.GLES3 && packWidth != vfb->fb_stride && h != 1) {
 		// Need to use a temp buffer, since GLES2 doesn't support GL_PACK_ROW_LENGTH.
 		convert = true;
 	}
