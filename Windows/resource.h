@@ -334,6 +334,7 @@
 #define ID_FILE_DUMPAUDIO                40167
 #define ID_HELP_GITHUB                   40168
 #define IDC_GEDBG_RECORD                 40169
+#define ID_GEDBG_EXPORT_IMAGE            40170
 #define ID_SIMPLEUI_TOGGLE               40200
 #define ID_SIMPLEUI_HIDE                 40201
 
@@ -348,7 +349,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40170
+#define _APS_NEXT_COMMAND_VALUE         40171
 #define _APS_NEXT_CONTROL_VALUE         1200
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

@@ -110,6 +110,11 @@ struct SimpleGLWindow {
 		hoverCallback_ = hoverCallback;
 	}
 
+	void SetRightClickMenu(HMENU menu, std::function<void(int)> callback) {
+		rightClickCallback_ = callback;
+		rightClickMenu_ = menu;
+	}
+
 	static void RegisterClass();
 protected:
 	void SetupGL();
@@ -122,6 +127,7 @@ protected:
 	bool DragEnd(int mouseX, int mouseY);
 	bool Hover(int mouseX, int mouseY);
 	bool Leave();
+	bool RightClick(int mouseX, int mouseY);
 	bool ToggleZoom();
 	const u8 *Reformat(const u8 *data, Format fmt, u32 numPixels);
 
@@ -157,4 +163,6 @@ protected:
 	u32 reformatBufSize_;
 
 	std::function<void(int, int)> hoverCallback_;
+	std::function<void(int)> rightClickCallback_;
+	HMENU rightClickMenu_;
 };
