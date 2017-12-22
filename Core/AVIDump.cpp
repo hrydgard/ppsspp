@@ -174,7 +174,7 @@ void AVIDump::AddFrame()
 	u32 h = buf.GetHeight();
 	CheckResolution(w, h);
 	u8 *flipbuffer = nullptr;
-	const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer, w, h);
+	const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
 
 #ifdef USE_FFMPEG
 

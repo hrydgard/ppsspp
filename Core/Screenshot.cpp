@@ -125,11 +125,13 @@ static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int con
 }
 #endif
 
-static bool ConvertPixelTo888RGB(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, const void *buffer, int offset, bool rev) {
+static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, u8 &a, const void *buffer, int offset, bool rev) {
 	const u8 *buf8 = (const u8 *)buffer;
 	const u16 *buf16 = (const u16 *)buffer;
 	const u32 *buf32 = (const u32 *)buffer;
 	const float *fbuf = (const float *)buffer;
+
+	// NOTE: a and r might be the same channel.  This is used for RGB.
 
 	u32 src;
 	double fsrc;
@@ -139,6 +141,7 @@ static bool ConvertPixelTo888RGB(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, 
 		if (rev) {
 			src = bswap16(src);
 		}
+		a = 255;
 		r = Convert5To8((src >> 0) & 0x1F);
 		g = Convert6To8((src >> 5) & 0x3F);
 		b = Convert5To8((src >> 11) & 0x1F);
@@ -148,6 +151,7 @@ static bool ConvertPixelTo888RGB(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, 
 		if (rev) {
 			src = bswap16(src);
 		}
+		a = (src >> 15) ? 255 : 0;
 		r = Convert5To8((src >> 0) & 0x1F);
 		g = Convert5To8((src >> 5) & 0x1F);
 		b = Convert5To8((src >> 10) & 0x1F);
@@ -157,6 +161,7 @@ static bool ConvertPixelTo888RGB(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, 
 		if (rev) {
 			src = bswap16(src);
 		}
+		a = Convert4To8((src >> 12) & 0xF);
 		r = Convert4To8((src >> 0) & 0xF);
 		g = Convert4To8((src >> 4) & 0xF);
 		b = Convert4To8((src >> 8) & 0xF);
@@ -166,54 +171,62 @@ static bool ConvertPixelTo888RGB(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, 
 		if (rev) {
 			src = bswap32(src);
 		}
+		a = (src >> 24) & 0xFF;
 		r = (src >> 0) & 0xFF;
 		g = (src >> 8) & 0xFF;
 		b = (src >> 16) & 0xFF;
 		break;
 	case GPU_DBG_FORMAT_FLOAT:
 		fsrc = fbuf[offset];
-		r = fsrc >= 1.0 ? 255 : (fsrc < 0.0 ? 0 : (int)(fsrc * 255.0));
+		r = 255;
 		g = 0;
 		b = 0;
+		a = fsrc >= 1.0 ? 255 : (fsrc < 0.0 ? 0 : (int)(fsrc * 255.0));
 		break;
 	case GPU_DBG_FORMAT_16BIT:
 		src = buf16[offset];
-		r = src >> 8;
+		r = 255;
 		g = 0;
 		b = 0;
+		a = src >> 8;
 		break;
 	case GPU_DBG_FORMAT_8BIT:
 		src = buf8[offset];
-		r = src;
+		r = 255;
 		g = 0;
 		b = 0;
+		a = src;
 		break;
 	case GPU_DBG_FORMAT_24BIT_8X:
 		src = buf32[offset];
-		r = (src >> 16) & 0xFF;
+		r = 255;
 		g = 0;
 		b = 0;
+		a = (src >> 16) & 0xFF;
 		break;
 	case GPU_DBG_FORMAT_24X_8BIT:
 		src = buf32[offset];
-		r = (src >> 24) & 0xFF;
+		r = 255;
 		g = 0;
 		b = 0;
+		a = (src >> 24) & 0xFF;
 		break;
 	case GPU_DBG_FORMAT_24BIT_8X_DIV_256:
 		src = buf32[offset]& 0x00FFFFFF;
 		src = src - 0x800000 + 0x8000;
-		r = (src >> 8) & 0xFF;
+		r = 255;
 		g = 0;
 		b = 0;
+		a = (src >> 8) & 0xFF;
 		break;
 	case GPU_DBG_FORMAT_FLOAT_DIV_256:
 		fsrc = fbuf[offset];
 		src = (int)(fsrc * 16777215.0);
 		src = src - 0x800000 + 0x8000;
-		r = (src >> 8) & 0xFF;
+		r = 255;
 		g = 0;
 		b = 0;
+		a = (src >> 8) & 0xFF;
 		break;
 	default:
 		_assert_msg_(SYSTEM, false, "Unsupported framebuffer format for screenshot: %d", fmt);
@@ -223,24 +236,27 @@ static bool ConvertPixelTo888RGB(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, 
 	return true;
 }
 
-const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u32 &h) {
+const u8 *ConvertBufferToScreenshot(const GPUDebugBuffer &buf, bool alpha, u8 *&temp, u32 &w, u32 &h) {
+	int pixelSize = alpha ? 4 : 3;
+	GPUDebugBufferFormat nativeFmt = alpha ? GPU_DBG_FORMAT_8888 : GPU_DBG_FORMAT_888_RGB;
+
 	w = std::min(w, buf.GetStride());
 	h = std::min(h, buf.GetHeight());
 
 	// The temp buffer will be freed by the caller if set, and can be the return value.
-	if (buf.GetFlipped() || buf.GetFormat() != GPU_DBG_FORMAT_888_RGB) {
-		temp = new u8[3 * w * h];
+	if (buf.GetFlipped() || buf.GetFormat() != nativeFmt) {
+		temp = new u8[pixelSize * w * h];
 	} else {
 		temp = nullptr;
 	}
 
 	const u8 *buffer = buf.GetData();
-	if (buf.GetFlipped() && buf.GetFormat() == GPU_DBG_FORMAT_888_RGB) {
+	if (buf.GetFlipped() && buf.GetFormat() == nativeFmt) {
 		// Silly OpenGL reads upside down, we flip to another buffer for simplicity.
 		for (u32 y = 0; y < h; y++) {
-			memcpy(temp + y * w * 3, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * 3, w * 3);
+			memcpy(temp + y * w * pixelSize, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * pixelSize, w * pixelSize);
 		}
-	} else if (buf.GetFormat() < GPU_DBG_FORMAT_FLOAT) {
+	} else if (buf.GetFormat() < GPU_DBG_FORMAT_FLOAT && buf.GetFormat() != nativeFmt) {
 		// Let's boil it down to how we need to interpret the bits.
 		int baseFmt = buf.GetFormat() & ~(GPU_DBG_FORMAT_REVERSE_FLAG | GPU_DBG_FORMAT_BRSWAP_FLAG);
 		bool rev = (buf.GetFormat() & GPU_DBG_FORMAT_REVERSE_FLAG) != 0;
@@ -252,21 +268,22 @@ const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u3
 			for (u32 x = 0; x < w; x++) {
 				u8 *dst;
 				if (flip) {
-					dst = &temp[(h - y - 1) * w * 3 + x * 3];
+					dst = &temp[(h - y - 1) * w * pixelSize + x * pixelSize];
 				} else {
-					dst = &temp[y * w * 3 + x * 3];
+					dst = &temp[y * w * pixelSize + x * pixelSize];
 				}
 
 				u8 &r = brswap ? dst[2] : dst[0];
 				u8 &g = dst[1];
 				u8 &b = brswap ? dst[0] : dst[2];
+				u8 &a = alpha ? dst[3] : r;
 
-				if (!ConvertPixelTo888RGB(GPUDebugBufferFormat(baseFmt), r, g, b, buffer, y * buf.GetStride() + x, rev)) {
+				if (!ConvertPixelTo8888RGBA(GPUDebugBufferFormat(baseFmt), r, g, b, a, buffer, y * buf.GetStride() + x, rev)) {
 					return nullptr;
 				}
 			}
 		}
-	} else if (buf.GetFormat() != GPU_DBG_FORMAT_888_RGB) {
+	} else if (buf.GetFormat() != nativeFmt) {
 		bool flip = buf.GetFlipped();
 
 		// This is pretty inefficient.
@@ -274,12 +291,13 @@ const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u3
 			for (u32 x = 0; x < w; x++) {
 				u8 *dst;
 				if (flip) {
-					dst = &temp[(h - y - 1) * w * 3 + x * 3];
+					dst = &temp[(h - y - 1) * w * pixelSize + x * pixelSize];
 				} else {
-					dst = &temp[y * w * 3 + x * 3];
+					dst = &temp[y * w * pixelSize + x * pixelSize];
 				}
 
-				if (!ConvertPixelTo888RGB(buf.GetFormat(), dst[0], dst[1], dst[2], buffer, y * buf.GetStride() + x, false)) {
+				u8 &a = alpha ? dst[3] : dst[0];
+				if (!ConvertPixelTo8888RGBA(buf.GetFormat(), dst[0], dst[1], dst[2], a, buffer, y * buf.GetStride() + x, false)) {
 					return nullptr;
 				}
 			}
@@ -316,7 +334,7 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 
 	u8 *flipbuffer = nullptr;
 	if (success) {
-		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer, w, h);
+		const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
 		success = buffer != nullptr;
 		if (success) {
 			if (width)
@@ -362,5 +380,27 @@ bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *
 	} else {
 		return false;
 	}
+#endif
+}
+
+bool Save8888RGBAScreenshot(const char *filename, const u8 *buffer, int w, int h) {
+#ifdef USING_QT_UI
+	QImage image(buffer, w, h, QImage::Format_RGBA8888);
+	return image.save(filename, "PNG");
+#else
+	png_image png;
+	memset(&png, 0, sizeof(png));
+	png.version = PNG_IMAGE_VERSION;
+	png.format = PNG_FORMAT_RGBA;
+	png.width = w;
+	png.height = h;
+	bool success = WriteScreenshotToPNG(&png, filename, 0, buffer, w * 4, nullptr);
+	png_image_free(&png);
+
+	if (png.warning_or_error >= 2) {
+		ERROR_LOG(SYSTEM, "Saving screenshot to PNG produced errors.");
+		success = false;
+	}
+	return success;
 #endif
 }
