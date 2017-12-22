@@ -1967,8 +1967,11 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 	} else {
 		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
 	}
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w);
-	return true;
+	// No need to free on failure, that's the caller's job (it likely will reuse a buffer.)
+	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w);
+	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
+	RebindFramebuffer();
+	return retval;
 }
 
 bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {
@@ -1993,21 +1996,22 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	}
 
 	bool flipY = (g_Config.iGPUBackend == GPU_BACKEND_OPENGL && !useBufferedRendering_) ? true : false;
+	// No need to free on failure, the caller/destructor will do that.  Usually this is a reused buffer, anyway.
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT, flipY);
-	if (draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, w,h, Draw::DataFormat::S8, buffer.GetData(), w)) {
-		return true;
-	} else {
-		buffer.Free();
-		return false;
-	}
+	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, w,h, Draw::DataFormat::S8, buffer.GetData(), w);
+	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
+	RebindFramebuffer();
+	return retval;
 }
 
 bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	int w, h;
 	draw_->GetFramebufferDimensions(nullptr, &w, &h);
 	buffer.Allocate(w, h, GE_FORMAT_8888, false, true);
-	draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
-	return true;
+	bool retval = draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
+	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
+	RebindFramebuffer();
+	return retval;
 }
 
 // This function takes an already correctly-sized framebuffer and packs it into RAM.
@@ -2110,7 +2114,7 @@ void FramebufferManagerCommon::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	} else {
-		// Should this even happen?
+		// Should this even happen?  It could while debugging, but maybe we can just skip binding at all.
 		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
