@@ -229,13 +229,18 @@ void CGEDebugger::PreviewExport(const GPUDebugBuffer *dbgBuffer) {
 	std::string fn;
 	if (W32Util::BrowseForFileName(false, GetDlgHandle(), L"Save Preview Image...", nullptr, filter, L"png", fn)) {
 		ScreenshotFormat fmt = fn.find(".jpg") != fn.npos ? ScreenshotFormat::JPG : ScreenshotFormat::PNG;
+		bool saveAlpha = fmt == ScreenshotFormat::PNG;
 
 		u8 *flipbuffer = nullptr;
 		u32 w = (u32)-1;
 		u32 h = (u32)-1;
-		const u8 *buffer = ConvertBufferTo888RGB(*dbgBuffer, flipbuffer, w, h);
+		const u8 *buffer = ConvertBufferToScreenshot(*dbgBuffer, saveAlpha, flipbuffer, w, h);
 		if (buffer != nullptr) {
-			Save888RGBScreenshot(fn.c_str(), fmt, buffer, w, h);
+			if (saveAlpha) {
+				Save8888RGBAScreenshot(fn.c_str(), buffer, w, h);
+			} else {
+				Save888RGBScreenshot(fn.c_str(), fmt, buffer, w, h);
+			}
 		}
 		delete [] flipbuffer;
 	}
