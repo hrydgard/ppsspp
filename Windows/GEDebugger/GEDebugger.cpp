@@ -21,12 +21,15 @@
 #include <vector>
 
 #include "Common/ColorConv.h"
+#include "Core/Config.h"
+#include "Core/Screenshot.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/TabDisplayLists.h"
 #include "Windows/GEDebugger/TabState.h"
 #include "Windows/GEDebugger/TabVertices.h"
+#include "Windows/W32Util/ShellUtil.h"
 #include "Windows/InputBox.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
@@ -38,9 +41,10 @@
 #include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
-#include "Core/Config.h"
 #include <windowsx.h>
 #include <commctrl.h>
+
+const int POPUP_SUBMENU_ID_GEDBG_PREVIEW = 10;
 
 using namespace GPUBreakpoints;
 using namespace GPUStepping;
@@ -145,18 +149,44 @@ CGEDebugger::~CGEDebugger() {
 
 void CGEDebugger::SetupPreviews() {
 	if (primaryWindow == nullptr) {
+		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_PREVIEW);
+
 		primaryWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_FRAME));
 		primaryWindow->Initialize(SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER);
 		primaryWindow->SetHoverCallback([&] (int x, int y) {
 			PrimaryPreviewHover(x, y);
 		});
+		primaryWindow->SetRightClickMenu(subMenu, [&] (int cmd) {
+			switch (cmd) {
+			case ID_GEDBG_EXPORT_IMAGE:
+				PreviewExport(primaryBuffer_);
+				break;
+			default:
+				break;
+			}
+
+			return true;
+		});
 		primaryWindow->Clear();
 	}
 	if (secondWindow == nullptr) {
+		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_PREVIEW);
+
 		secondWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_TEX));
 		secondWindow->Initialize(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
 		secondWindow->SetHoverCallback([&] (int x, int y) {
 			SecondPreviewHover(x, y);
+		});
+		secondWindow->SetRightClickMenu(subMenu, [&] (int cmd) {
+			switch (cmd) {
+			case ID_GEDBG_EXPORT_IMAGE:
+				PreviewExport(secondBuffer_);
+				break;
+			default:
+				break;
+			}
+
+			return true;
 		});
 		secondWindow->Clear();
 	}
@@ -191,6 +221,23 @@ void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, wchar_t desc[256
 		_snwprintf(desc, 256, L"CLUT: 0x%08x (%d)", state.getClutAddress(), state.getClutPaletteFormat());
 	} else {
 		_snwprintf(desc, 256, L"Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+	}
+}
+
+void CGEDebugger::PreviewExport(const GPUDebugBuffer *dbgBuffer) {
+	const TCHAR *filter = L"PNG Image (*.png)\0*.png\0JPEG Image (*.jpg)\0*.jpg\0All files\0*.*\0\0";
+	std::string fn;
+	if (W32Util::BrowseForFileName(false, GetDlgHandle(), L"Save Preview Image...", nullptr, filter, L"png", fn)) {
+		ScreenshotFormat fmt = fn.find(".jpg") != fn.npos ? ScreenshotFormat::JPG : ScreenshotFormat::PNG;
+
+		u8 *flipbuffer = nullptr;
+		u32 w = (u32)-1;
+		u32 h = (u32)-1;
+		const u8 *buffer = ConvertBufferTo888RGB(*dbgBuffer, flipbuffer, w, h);
+		if (buffer != nullptr) {
+			Save888RGBScreenshot(fn.c_str(), fmt, buffer, w, h);
+		}
+		delete [] flipbuffer;
 	}
 }
 

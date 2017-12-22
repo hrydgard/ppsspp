@@ -19,9 +19,9 @@
 
 struct GPUDebugBuffer;
 
-enum ScreenshotFormat {
-	SCREENSHOT_PNG,
-	SCREENSHOT_JPG,
+enum class ScreenshotFormat {
+	PNG,
+	JPG,
 };
 
 enum ScreenshotType {
@@ -37,3 +37,4 @@ const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u3
 
 // Can only be used while in game.
 bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type, int *width = nullptr, int *height = nullptr, int maxRes = -1);
+bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h);

@@ -125,33 +125,129 @@ static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int con
 }
 #endif
 
-const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u32 &h) {
-	// The temp buffer will be freed by the caller if set, and can be the return value.
-	temp = nullptr;
+static bool ConvertPixelTo888RGB(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, const void *buffer, int offset, bool rev) {
+	const u8 *buf8 = (const u8 *)buffer;
+	const u16 *buf16 = (const u16 *)buffer;
+	const u32 *buf32 = (const u32 *)buffer;
+	const float *fbuf = (const float *)buffer;
 
+	u32 src;
+	double fsrc;
+	switch (fmt) {
+	case GPU_DBG_FORMAT_565:
+		src = buf16[offset];
+		if (rev) {
+			src = bswap16(src);
+		}
+		r = Convert5To8((src >> 0) & 0x1F);
+		g = Convert6To8((src >> 5) & 0x3F);
+		b = Convert5To8((src >> 11) & 0x1F);
+		break;
+	case GPU_DBG_FORMAT_5551:
+		src = buf16[offset];
+		if (rev) {
+			src = bswap16(src);
+		}
+		r = Convert5To8((src >> 0) & 0x1F);
+		g = Convert5To8((src >> 5) & 0x1F);
+		b = Convert5To8((src >> 10) & 0x1F);
+		break;
+	case GPU_DBG_FORMAT_4444:
+		src = buf16[offset];
+		if (rev) {
+			src = bswap16(src);
+		}
+		r = Convert4To8((src >> 0) & 0xF);
+		g = Convert4To8((src >> 4) & 0xF);
+		b = Convert4To8((src >> 8) & 0xF);
+		break;
+	case GPU_DBG_FORMAT_8888:
+		src = buf32[offset];
+		if (rev) {
+			src = bswap32(src);
+		}
+		r = (src >> 0) & 0xFF;
+		g = (src >> 8) & 0xFF;
+		b = (src >> 16) & 0xFF;
+		break;
+	case GPU_DBG_FORMAT_FLOAT:
+		fsrc = fbuf[offset];
+		r = fsrc >= 1.0 ? 255 : (fsrc < 0.0 ? 0 : (int)(fsrc * 255.0));
+		g = 0;
+		b = 0;
+		break;
+	case GPU_DBG_FORMAT_16BIT:
+		src = buf16[offset];
+		r = src >> 8;
+		g = 0;
+		b = 0;
+		break;
+	case GPU_DBG_FORMAT_8BIT:
+		src = buf8[offset];
+		r = src;
+		g = 0;
+		b = 0;
+		break;
+	case GPU_DBG_FORMAT_24BIT_8X:
+		src = buf32[offset];
+		r = (src >> 16) & 0xFF;
+		g = 0;
+		b = 0;
+		break;
+	case GPU_DBG_FORMAT_24X_8BIT:
+		src = buf32[offset];
+		r = (src >> 24) & 0xFF;
+		g = 0;
+		b = 0;
+		break;
+	case GPU_DBG_FORMAT_24BIT_8X_DIV_256:
+		src = buf32[offset]& 0x00FFFFFF;
+		src = src - 0x800000 + 0x8000;
+		r = (src >> 8) & 0xFF;
+		g = 0;
+		b = 0;
+		break;
+	case GPU_DBG_FORMAT_FLOAT_DIV_256:
+		fsrc = fbuf[offset];
+		src = (int)(fsrc * 16777215.0);
+		src = src - 0x800000 + 0x8000;
+		r = (src >> 8) & 0xFF;
+		g = 0;
+		b = 0;
+		break;
+	default:
+		_assert_msg_(SYSTEM, false, "Unsupported framebuffer format for screenshot: %d", fmt);
+		return false;
+	}
+
+	return true;
+}
+
+const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u32 &h) {
 	w = std::min(w, buf.GetStride());
 	h = std::min(h, buf.GetHeight());
+
+	// The temp buffer will be freed by the caller if set, and can be the return value.
+	if (buf.GetFlipped() || buf.GetFormat() != GPU_DBG_FORMAT_888_RGB) {
+		temp = new u8[3 * w * h];
+	} else {
+		temp = nullptr;
+	}
 
 	const u8 *buffer = buf.GetData();
 	if (buf.GetFlipped() && buf.GetFormat() == GPU_DBG_FORMAT_888_RGB) {
 		// Silly OpenGL reads upside down, we flip to another buffer for simplicity.
-		temp = new u8[3 * w * h];
 		for (u32 y = 0; y < h; y++) {
 			memcpy(temp + y * w * 3, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * 3, w * 3);
 		}
-		buffer = temp;
-	} else if (buf.GetFormat() != GPU_DBG_FORMAT_888_RGB) {
+	} else if (buf.GetFormat() < GPU_DBG_FORMAT_FLOAT) {
 		// Let's boil it down to how we need to interpret the bits.
 		int baseFmt = buf.GetFormat() & ~(GPU_DBG_FORMAT_REVERSE_FLAG | GPU_DBG_FORMAT_BRSWAP_FLAG);
 		bool rev = (buf.GetFormat() & GPU_DBG_FORMAT_REVERSE_FLAG) != 0;
 		bool brswap = (buf.GetFormat() & GPU_DBG_FORMAT_BRSWAP_FLAG) != 0;
 		bool flip = buf.GetFlipped();
 
-		temp = new u8[3 * w * h];
-
 		// This is pretty inefficient.
-		const u16 *buf16 = (const u16 *)buffer;
-		const u32 *buf32 = (const u32 *)buffer;
 		for (u32 y = 0; y < h; y++) {
 			for (u32 x = 0; x < w; x++) {
 				u8 *dst;
@@ -165,54 +261,32 @@ const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u3
 				u8 &g = dst[1];
 				u8 &b = brswap ? dst[0] : dst[2];
 
-				u32 src;
-				switch (baseFmt) {
-				case GPU_DBG_FORMAT_565:
-					src = buf16[y * buf.GetStride() + x];
-					if (rev) {
-						src = bswap16(src);
-					}
-					r = Convert5To8((src >> 0) & 0x1F);
-					g = Convert6To8((src >> 5) & 0x3F);
-					b = Convert5To8((src >> 11) & 0x1F);
-					break;
-				case GPU_DBG_FORMAT_5551:
-					src = buf16[y * buf.GetStride() + x];
-					if (rev) {
-						src = bswap16(src);
-					}
-					r = Convert5To8((src >> 0) & 0x1F);
-					g = Convert5To8((src >> 5) & 0x1F);
-					b = Convert5To8((src >> 10) & 0x1F);
-					break;
-				case GPU_DBG_FORMAT_4444:
-					src = buf16[y * buf.GetStride() + x];
-					if (rev) {
-						src = bswap16(src);
-					}
-					r = Convert4To8((src >> 0) & 0xF);
-					g = Convert4To8((src >> 4) & 0xF);
-					b = Convert4To8((src >> 8) & 0xF);
-					break;
-				case GPU_DBG_FORMAT_8888:
-					src = buf32[y * buf.GetStride() + x];
-					if (rev) {
-						src = bswap32(src);
-					}
-					r = (src >> 0) & 0xFF;
-					g = (src >> 8) & 0xFF;
-					b = (src >> 16) & 0xFF;
-					break;
-				default:
-					ERROR_LOG(G3D, "Unsupported framebuffer format for screenshot: %d", buf.GetFormat());
+				if (!ConvertPixelTo888RGB(GPUDebugBufferFormat(baseFmt), r, g, b, buffer, y * buf.GetStride() + x, rev)) {
 					return nullptr;
 				}
 			}
 		}
-		buffer = temp;
+	} else if (buf.GetFormat() != GPU_DBG_FORMAT_888_RGB) {
+		bool flip = buf.GetFlipped();
+
+		// This is pretty inefficient.
+		for (u32 y = 0; y < h; y++) {
+			for (u32 x = 0; x < w; x++) {
+				u8 *dst;
+				if (flip) {
+					dst = &temp[(h - y - 1) * w * 3 + x * 3];
+				} else {
+					dst = &temp[y * w * 3 + x * 3];
+				}
+
+				if (!ConvertPixelTo888RGB(buf.GetFormat(), dst[0], dst[1], dst[2], buffer, y * buf.GetStride() + x, false)) {
+					return nullptr;
+				}
+			}
+		}
 	}
 
-	return buffer;
+	return temp ? temp : buffer;
 }
 
 bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
@@ -240,54 +314,53 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		return false;
 	}
 
-#ifdef USING_QT_UI
+	u8 *flipbuffer = nullptr;
 	if (success) {
-		u8 *flipbuffer = nullptr;
 		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer, w, h);
-		// TODO: Handle other formats (e.g. Direct3D, raw framebuffers.)
-		QImage image(buffer, w, h, QImage::Format_RGB888);
-		success = image.save(filename, fmt == SCREENSHOT_PNG ? "PNG" : "JPG");
-		delete [] flipbuffer;
-	}
-#else
-	if (success) {
-		u8 *flipbuffer = nullptr;
-		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer, w, h);
-		if (buffer == nullptr) {
-			success = false;
+		success = buffer != nullptr;
+		if (success) {
+			if (width)
+				*width = w;
+			if (height)
+				*height = h;
+
+			success = Save888RGBScreenshot(filename, fmt, buffer, w, h);
 		}
-
-		if (width)
-			*width = w;
-		if (height)
-			*height = h;
-
-		if (success && fmt == SCREENSHOT_PNG) {
-			png_image png;
-			memset(&png, 0, sizeof(png));
-			png.version = PNG_IMAGE_VERSION;
-			png.format = PNG_FORMAT_RGB;
-			png.width = w;
-			png.height = h;
-			success = WriteScreenshotToPNG(&png, filename, 0, buffer, w * 3, nullptr);
-			png_image_free(&png);
-
-			if (png.warning_or_error >= 2) {
-				ERROR_LOG(SYSTEM, "Saving screenshot to PNG produced errors.");
-				success = false;
-			}
-		} else if (success && fmt == SCREENSHOT_JPG) {
-			jpge::params params;
-			params.m_quality = 90;
-			success = WriteScreenshotToJPEG(filename, w, h, 3, buffer, params);
-		} else {
-			success = false;
-		}
-		delete [] flipbuffer;
 	}
-#endif
+	delete [] flipbuffer;
+
 	if (!success) {
 		ERROR_LOG(SYSTEM, "Failed to write screenshot.");
 	}
 	return success;
+}
+
+bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h) {
+#ifdef USING_QT_UI
+	QImage image(bufferRGB888, w, h, QImage::Format_RGB888);
+	return image.save(filename, fmt == ScreenshotFormat::PNG ? "PNG" : "JPG");
+#else
+	if (fmt == ScreenshotFormat::PNG) {
+		png_image png;
+		memset(&png, 0, sizeof(png));
+		png.version = PNG_IMAGE_VERSION;
+		png.format = PNG_FORMAT_RGB;
+		png.width = w;
+		png.height = h;
+		bool success = WriteScreenshotToPNG(&png, filename, 0, bufferRGB888, w * 3, nullptr);
+		png_image_free(&png);
+
+		if (png.warning_or_error >= 2) {
+			ERROR_LOG(SYSTEM, "Saving screenshot to PNG produced errors.");
+			success = false;
+		}
+		return success;
+	} else if (fmt == ScreenshotFormat::JPG) {
+		jpge::params params;
+		params.m_quality = 90;
+		return WriteScreenshotToJPEG(filename, w, h, 3, bufferRGB888, params);
+	} else {
+		return false;
+	}
+#endif
 }

@@ -80,6 +80,7 @@ private:
 	void DescribeSecondPreview(const GPUgstate &state, wchar_t desc[256]);
 	void PrimaryPreviewHover(int x, int y);
 	void SecondPreviewHover(int x, int y);
+	void PreviewExport(const GPUDebugBuffer *buffer);
 	void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, wchar_t desc[256]);
 	void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, wchar_t desc[256]);
 
