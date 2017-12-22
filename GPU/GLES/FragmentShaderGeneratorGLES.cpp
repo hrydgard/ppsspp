@@ -57,7 +57,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 
 	if (gl_extensions.IsGLES) {
 		// ES doesn't support dual source alpha :(
-		if (gstate_c.featureFlags & GPU_SUPPORTS_GLSL_ES_300) {
+		if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300)) {
 			WRITE(p, "#version 300 es\n");  // GLSL ES 3.0
 			fragColor0 = "fragColor0";
 			texture = "texture";
@@ -90,8 +90,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
 		highpTexcoord = highpFog;
 
-		if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
-			if ((gstate_c.featureFlags & GPU_SUPPORTS_GLSL_ES_300) != 0 && gl_extensions.EXT_shader_framebuffer_fetch) {
+		if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
+			if (gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300) && gl_extensions.EXT_shader_framebuffer_fetch) {
 				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
 				lastFragData = "fragColor0";
 			} else if (gl_extensions.EXT_shader_framebuffer_fetch) {
@@ -534,7 +534,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
-			if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
+			if (gstate_c.Supports(GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)) {
 				WRITE(p, "  lowp vec4 destColor = %s;\n", lastFragData);
 			} else if (!texelFetch) {
 				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", texture);
