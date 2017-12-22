@@ -246,7 +246,7 @@ void GameSettingsScreen::CreateViews() {
 	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
-	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
+	static const char *frameSkip[] = { "Off", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
 	frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gr->T("Auto FrameSkip")));
 	frameSkipAuto_->OnClick.Handle(this, &GameSettingsScreen::OnAutoFrameskip);
@@ -289,7 +289,7 @@ void GameSettingsScreen::CreateViews() {
 #ifndef MOBILE_DEVICE
 	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
 #else
-	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
+	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 #endif
 	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gr->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gr->GetName(), screenManager()));
 	resolutionChoice_->OnChoice.Handle(this, &GameSettingsScreen::OnResolutionChange);
@@ -307,7 +307,11 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 #ifdef _WIN32
-	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+	CheckBox *vsync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+	vsync->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("Vsync Tip", "Avoid screen tearing, depends on video driver"));
+		return UI::EVENT_CONTINUE;
+	});
 #endif
 
 	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
@@ -340,6 +344,10 @@ void GameSettingsScreen::CreateViews() {
 	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
+	framebufferSlowEffects->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("DisableSlowerEffect Tip", "Make special effects look bad to improve performance"));
+		return UI::EVENT_CONTINUE;
+	});
 	framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	// Seems solid, so we hide the setting.
@@ -371,9 +379,9 @@ void GameSettingsScreen::CreateViews() {
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gr->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Scaling")));
 #ifndef MOBILE_DEVICE
-	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x", "4x", "5x"};
+	static const char *texScaleLevelsNPOT[] = { "Auto", "Off", "2x", "3x", "4x", "5x"};
 #else
-	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x"};
+	static const char *texScaleLevelsNPOT[] = { "Auto", "Off", "2x", "3x"};
 #endif
 
 	static const char **texScaleLevels = texScaleLevelsNPOT;
@@ -679,7 +687,7 @@ void GameSettingsScreen::CreateViews() {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
-		static const char *screenRotation[] = {"Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
+		static const char *screenRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
 		PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, co->T("Screen Rotation"), screenRotation, 1, ARRAY_SIZE(screenRotation), co->GetName(), screenManager()));
 		rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
 
@@ -697,9 +705,11 @@ void GameSettingsScreen::CreateViews() {
 	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Clear UI background")));
-	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
+	}
+	else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
 		backgroundChoice_ = systemSettings->Add(new Choice(sy->T("Set UI background...")));
-	} else {
+	}
+	else {
 		backgroundChoice_ = nullptr;
 	}
 	if (backgroundChoice_ != nullptr) {
@@ -731,9 +741,11 @@ void GameSettingsScreen::CreateViews() {
 				SavePathInMyDocumentChoice->SetEnabled(false);
 			else
 				SavePathInOtherChoice->SetEnabled(true);
-		} else
+		}
+		else
 			SavePathInMyDocumentChoice->SetEnabled(false);
-	} else {
+	}
+	else {
 		if (installed_ && (result == S_OK)) {
 			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
 			if (!inputFile.fail() && inputFile.is_open()) {
@@ -750,7 +762,8 @@ void GameSettingsScreen::CreateViews() {
 				}
 			}
 			inputFile.close();
-		} else if (result != S_OK)
+		}
+		else if (result != S_OK)
 			SavePathInMyDocumentChoice->SetEnabled(false);
 	}
 #endif
@@ -759,14 +772,14 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")));
 #endif
 
-//#ifndef __ANDROID__
+	//#ifndef __ANDROID__
 	systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats (experimental, see forums)")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
-//#endif
+	//#endif
 	systemSettings->SetSpacing(0);
 
 	systemSettings->Add(new ItemHeader(sy->T("PSP Settings")));
-	static const char *models[] = {"PSP-1000" , "PSP-2000/3000"};
+	static const char *models[] = { "PSP-1000" , "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), sy->GetName(), screenManager()))->SetEnabled(!PSP_IsInited());
 	// TODO: Come up with a way to display a keyboard for mobile users,
 	// so until then, this is Windows/Desktop only.
@@ -786,9 +799,9 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bSaveLoadResetsAVdumping, sy->T("Reset Recording on Save/Load State")));
 #endif
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Day Light Saving")));
-	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
+	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, sy->T("Date Format"), dateFormat, 1, 3, sy->GetName(), screenManager()));
-	static const char *timeFormat[] = { "12HR", "24HR"};
+	static const char *timeFormat[] = { "12HR", "24HR" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, sy->T("Time Format"), timeFormat, 1, 2, sy->GetName(), screenManager()));
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, sy->GetName(), screenManager()));
@@ -833,7 +846,8 @@ static void RecreateActivity() {
 		ILOG("Sending recreate");
 		System_SendMessage("recreate", "");
 		ILOG("Got back from recreate");
-	} else {
+	}
+	else {
 		I18NCategory *gr = GetI18NCategory("Graphics");
 		System_SendMessage("toast", gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
 	}
@@ -901,7 +915,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	else {
 		std::ofstream myfile;
 		myfile.open(PPSSPPpath + "installed.txt");
-		if (myfile.is_open()){
+		if (myfile.is_open()) {
 			myfile.close();
 		}
 
@@ -963,7 +977,8 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 		}
 
 		NativeMessageReceived("bgImage_updated", "");
-	} else {
+	}
+	else {
 		if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
 			System_SendMessage("bgImage_browse", "");
 		}
@@ -1048,7 +1063,8 @@ void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 		// the GPU backend code.
 		g_Config.Save();
 		System_SendMessage("graphics_restart", "");
-	} else {
+	}
+	else {
 		g_Config.iGPUBackend = (int)GetGPUBackend();
 	}
 }
@@ -1172,12 +1188,12 @@ UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e) {
 
 //when the tilt event type is modified, we need to reset all tilt settings.
 //refer to the ResetTiltEvents() function for a detailed explanation.
-UI::EventReturn GameSettingsScreen::OnTiltTypeChange(UI::EventParams &e){
+UI::EventReturn GameSettingsScreen::OnTiltTypeChange(UI::EventParams &e) {
 	TiltEventProcessor::ResetTiltEvents();
 	return UI::EVENT_DONE;
 };
 
-UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e){
+UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e) {
 	screenManager()->push(new TiltAnalogSettingsScreen());
 	return UI::EVENT_DONE;
 };
@@ -1275,13 +1291,13 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 	{
 		screenManager()->push(
 			new PromptScreen(dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
-			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
+				std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
 	}
 	else
 	{
 		screenManager()->push(
 			new PromptScreen(dev->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), di->T("OK"), di->T("Cancel"),
-			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
+				std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
 	}
 
 	return UI::EVENT_DONE;
@@ -1369,7 +1385,7 @@ void ProAdhocServerScreen::CreateViews() {
 	leftColumn->Add(new ItemHeader(sy->T("proAdhocServer Address:")));
 	addrView_ = new TextView(tempProAdhocServer, ALIGN_LEFT, false);
 	leftColumn->Add(addrView_);
-	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 120, 10, NONE, NONE,10));
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 120, 10, NONE, NONE, 10));
 	rightColumn->Add(new Button("0"))->OnClick.Handle(this, &ProAdhocServerScreen::On0Click);
 	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &ProAdhocServerScreen::On1Click);
 	rightColumn->Add(new Button("2"))->OnClick.Handle(this, &ProAdhocServerScreen::On2Click);
@@ -1460,7 +1476,7 @@ UI::EventReturn ProAdhocServerScreen::OnPointClick(UI::EventParams &e) {
 
 UI::EventReturn ProAdhocServerScreen::OnDeleteClick(UI::EventParams &e) {
 	if (tempProAdhocServer.length() > 0)
-		tempProAdhocServer.erase(tempProAdhocServer.length() -1, 1);
+		tempProAdhocServer.erase(tempProAdhocServer.length() - 1, 1);
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
@@ -1499,7 +1515,8 @@ void SettingInfoMessage::Show(const std::string &text, UI::View *refView) {
 		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
 		if (b.y >= cutOffY_) {
 			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
-		} else {
+		}
+		else {
 			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
 		}
 	}
@@ -1519,7 +1536,8 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 	float alpha = MAX_ALPHA;
 	if (timeShown_ == 0.0 || sinceShow > timeToShow + FADE_TIME) {
 		alpha = 0.0f;
-	} else if (sinceShow > timeToShow) {
+	}
+	else if (sinceShow > timeToShow) {
 		alpha = MAX_ALPHA - MAX_ALPHA * (float)((sinceShow - timeToShow) / FADE_TIME);
 	}
 
