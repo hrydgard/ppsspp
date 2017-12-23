@@ -115,6 +115,7 @@ struct SimpleGLWindow {
 		hoverCallback_ = hoverCallback;
 	}
 
+	// Called first with 0 that it's opening, then the selected item.
 	void SetRightClickMenu(HMENU menu, std::function<void(int)> callback) {
 		rightClickCallback_ = callback;
 		rightClickMenu_ = menu;

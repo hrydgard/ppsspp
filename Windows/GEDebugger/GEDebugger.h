@@ -109,6 +109,7 @@ private:
 	const GPUDebugBuffer *secondBuffer_ = nullptr;
 
 	bool updating_ = false;
+	int previewsEnabled_ = 3;
 	int minWidth_;
 	int minHeight_;
 };

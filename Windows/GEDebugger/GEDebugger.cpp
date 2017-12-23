@@ -157,10 +157,18 @@ void CGEDebugger::SetupPreviews() {
 			PrimaryPreviewHover(x, y);
 		});
 		primaryWindow->SetRightClickMenu(subMenu, [&] (int cmd) {
+			HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_PREVIEW);
 			switch (cmd) {
+			case 0:
+				// Setup.
+				CheckMenuItem(subMenu, ID_GEDBG_ENABLE_PREVIEW, MF_BYCOMMAND | ((previewsEnabled_ & 1) ? MF_CHECKED : MF_UNCHECKED));
+				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(primaryBuffer_);
 				break;
+			case ID_GEDBG_ENABLE_PREVIEW:
+				previewsEnabled_ ^= 1;
+				primaryWindow->Redraw();
 			default:
 				break;
 			}
@@ -181,10 +189,18 @@ void CGEDebugger::SetupPreviews() {
 			SecondPreviewHover(x, y);
 		});
 		secondWindow->SetRightClickMenu(subMenu, [&] (int cmd) {
+			HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_PREVIEW);
 			switch (cmd) {
+			case 0:
+				// Setup.
+				CheckMenuItem(subMenu, ID_GEDBG_ENABLE_PREVIEW, MF_BYCOMMAND | ((previewsEnabled_ & 2) ? MF_CHECKED : MF_UNCHECKED));
+				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(secondBuffer_);
 				break;
+			case ID_GEDBG_ENABLE_PREVIEW:
+				previewsEnabled_ ^= 2;
+				secondWindow->Redraw();
 			default:
 				break;
 			}

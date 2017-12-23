@@ -563,6 +563,7 @@ bool SimpleGLWindow::RightClick(int mouseX, int mouseY) {
 	POINT pt{mouseX, mouseY};
 	ClientToScreen(hWnd_, &pt);
 
+	rightClickCallback_(0);
 	int result = TrackPopupMenuEx(rightClickMenu_, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, hWnd_, 0);
 	if (result != 0) {
 		rightClickCallback_(result);

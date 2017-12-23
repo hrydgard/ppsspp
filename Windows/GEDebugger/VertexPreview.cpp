@@ -176,6 +176,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		ERROR_LOG(G3D, "Invalid debugging environment, shutting down?");
 		return;
 	}
+	which &= previewsEnabled_;
 	if (count == 0 || which == 0) {
 		return;
 	}
