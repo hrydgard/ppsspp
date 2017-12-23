@@ -189,8 +189,9 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquation(GL_FUNC_ADD);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glViewport((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
-	glScissor((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
+	// The surface is upside down, so vertical offsets are negated.
+	glViewport((GLint)x, (GLint)-(y + fh - primaryWindow->Height()), (GLsizei)fw, (GLsizei)fh);
+	glScissor((GLint)x, (GLint)-(y + fh - primaryWindow->Height()), (GLsizei)fw, (GLsizei)fh);
 	BindPreviewProgram(previewProgram);
 
 	// TODO: Probably there's a better way and place to do this.
@@ -277,8 +278,9 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquation(GL_FUNC_ADD);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glViewport((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
-	glScissor((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
+	// The surface is upside down, so vertical offsets are flipped.
+	glViewport((GLint)x, (GLint)-(y + fh - secondWindow->Height()), (GLsizei)fw, (GLsizei)fh);
+	glScissor((GLint)x, (GLint)-(y + fh - secondWindow->Height()), (GLsizei)fw, (GLsizei)fh);
 	BindPreviewProgram(texPreviewProgram);
 
 	if (texPreviewVao == 0 && gl_extensions.ARB_vertex_array_object) {
