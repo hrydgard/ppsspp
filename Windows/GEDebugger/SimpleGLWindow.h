@@ -81,6 +81,7 @@ struct SimpleGLWindow {
 	}
 
 	void Swap() {
+		swapped_ = true;
 		SwapBuffers(hDC_);
 	}
 
@@ -105,6 +106,10 @@ struct SimpleGLWindow {
 	}
 
 	void GetContentSize(float &x, float &y, float &fw, float &fh);
+
+	void SetRedrawCallback(std::function<void()> callback) {
+		redrawCallback_ = callback;
+	}
 
 	void SetHoverCallback(std::function<void(int, int)> hoverCallback) {
 		hoverCallback_ = hoverCallback;
@@ -134,7 +139,7 @@ protected:
 	HWND hWnd_;
 	HDC hDC_;
 	HGLRC hGLRC_;
-	bool valid_;
+	bool valid_ = false;
 	// Width and height of the window.
 	int w_;
 	int h_;
@@ -143,25 +148,28 @@ protected:
 	int th_;
 	bool tflipped_;
 
-	GLSLProgram *drawProgram_;
-	GLuint vao_;
-	GLuint ibuf_;
-	GLuint vbuf_;
-	GLuint checker_;
-	GLuint tex_;
-	u32 flags_;
+	GLSLProgram *drawProgram_ = nullptr;
+	GLuint vao_ = 0;
+	GLuint ibuf_ = 0;
+	GLuint vbuf_ = 0;
+	GLuint checker_ = 0;
+	GLuint tex_ = 0;
+	u32 flags_ = 0;
 	// Disable shrink (toggled by double click.)
-	bool zoom_;
-	bool dragging_;
+	bool zoom_ = false;
+	bool dragging_ = false;
+	bool inRedrawCallback_ = false;
+	bool swapped_ = false;
 	int dragStartX_;
 	int dragStartY_;
 	u32 dragLastUpdate_;
 	// Offset to position the texture is drawn at.
-	int offsetX_;
-	int offsetY_;
-	u32 *reformatBuf_;
-	u32 reformatBufSize_;
+	int offsetX_ = 0;
+	int offsetY_ = 0;
+	u32 *reformatBuf_ = nullptr;
+	u32 reformatBufSize_ = 0;
 
+	std::function<void()> redrawCallback_;
 	std::function<void(int, int)> hoverCallback_;
 	std::function<void(int)> rightClickCallback_;
 	HMENU rightClickMenu_;

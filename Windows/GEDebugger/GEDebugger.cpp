@@ -167,6 +167,9 @@ void CGEDebugger::SetupPreviews() {
 
 			return true;
 		});
+		primaryWindow->SetRedrawCallback([&] {
+			HandleRedraw(1);
+		});
 		primaryWindow->Clear();
 	}
 	if (secondWindow == nullptr) {
@@ -187,6 +190,9 @@ void CGEDebugger::SetupPreviews() {
 			}
 
 			return true;
+		});
+		secondWindow->SetRedrawCallback([&] {
+			HandleRedraw(2);
 		});
 		secondWindow->Clear();
 	}
@@ -258,19 +264,18 @@ void CGEDebugger::UpdatePreviews() {
 		state = gpuDebug->GetGState();
 	}
 
+	updating_ = true;
 	UpdateTextureLevel(textureLevel_);
 	UpdatePrimaryPreview(state);
 	UpdateSecondPreview(state);
 
+	u32 primOp = PrimPreviewOp();
+	if (primOp != 0) {
+		UpdatePrimPreview(primOp, 3);
+	}
+
 	DisplayList list;
 	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
-		const u32 op = Memory::Read_U32(list.pc);
-		const u32 cmd = op >> 24;
-		// TODO: Bezier/spline?
-		if (cmd == GE_CMD_PRIM && !showClut_) {
-			UpdatePrimPreview(op);
-		}
-
 		displayList->setDisplayList(list);
 	}
 
@@ -282,6 +287,7 @@ void CGEDebugger::UpdatePreviews() {
 	matrices->Update();
 	lists->Update();
 	watch->Update();
+	updating_ = false;
 }
 
 u32 CGEDebugger::TexturePreviewFlags(const GPUgstate &state) {
