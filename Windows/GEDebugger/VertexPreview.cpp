@@ -151,7 +151,21 @@ static void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<
 	count *= 3;
 }
 
-void CGEDebugger::UpdatePrimPreview(u32 op) {
+u32 CGEDebugger::PrimPreviewOp() {
+	DisplayList list;
+	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
+		const u32 op = Memory::Read_U32(list.pc);
+		const u32 cmd = op >> 24;
+		// TODO: Bezier/spline?
+		if (cmd == GE_CMD_PRIM && !showClut_) {
+			return op;
+		}
+	}
+
+	return 0;
+}
+
+void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 	const u32 prim_type = (op >> 16) & 0x7;
 	int count = op & 0xFFFF;
 	if (prim_type >= 7) {
@@ -162,7 +176,8 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 		ERROR_LOG(G3D, "Invalid debugging environment, shutting down?");
 		return;
 	}
-	if (count == 0) {
+	which &= previewsEnabled_;
+	if (count == 0 || which == 0) {
 		return;
 	}
 
@@ -182,17 +197,6 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	float fw, fh;
 	float x, y;
 
-	primaryWindow->Begin();
-	primaryWindow->GetContentSize(x, y, fw, fh);
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquation(GL_FUNC_ADD);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glViewport((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
-	glScissor((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
-	BindPreviewProgram(previewProgram);
-
 	// TODO: Probably there's a better way and place to do this.
 	u16 minIndex = 0;
 	u16 maxIndex = count - 1;
@@ -209,124 +213,155 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 		}
 	}
 
-	const float invTexWidth = 1.0f / gstate_c.curTextureWidth;
-	const float invTexHeight = 1.0f / gstate_c.curTextureHeight;
+	auto wrapCoord = [](float &coord) {
+		if (coord < 0.0f) {
+			coord += ceilf(-coord);
+		}
+		if (coord > 1.0f) {
+			coord -= floorf(coord);
+		}
+	};
+
+	const float invTexWidth = 1.0f / gpuDebug->GetGState().getTextureWidth(0);
+	const float invTexHeight = 1.0f / gpuDebug->GetGState().getTextureHeight(0);
+	const float invRealTexWidth = 1.0f / gstate_c.curTextureWidth;
+	const float invRealTexHeight = 1.0f / gstate_c.curTextureHeight;
+	bool clampS = gpuDebug->GetGState().isTexCoordClampedS();
+	bool clampT = gpuDebug->GetGState().isTexCoordClampedT();
 	for (u16 i = minIndex; i <= maxIndex; ++i) {
 		vertices[i].u *= invTexWidth;
 		vertices[i].v *= invTexHeight;
-		if (vertices[i].u > 1.0f || vertices[i].u < 0.0f)
-			vertices[i].u -= floor(vertices[i].u);
-		if (vertices[i].v > 1.0f || vertices[i].v < 0.0f)
-			vertices[i].v -= floor(vertices[i].v);
+		if (!clampS)
+			wrapCoord(vertices[i].u);
+		if (!clampT)
+			wrapCoord(vertices[i].v);
 	}
 
-	if (previewVao == 0 && gl_extensions.ARB_vertex_array_object) {
-		glGenVertexArrays(1, &previewVao);
-		glBindVertexArray(previewVao);
-		glEnableVertexAttribArray(previewProgram->a_position);
+	if (which & 1) {
+		primaryWindow->Begin();
+		primaryWindow->GetContentSize(x, y, fw, fh);
 
-		glGenBuffers(1, &ibuf);
-		glGenBuffers(1, &vbuf);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
-		glBindBuffer(GL_ARRAY_BUFFER, vbuf);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquation(GL_FUNC_ADD);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		// The surface is upside down, so vertical offsets are negated.
+		glViewport((GLint)x, (GLint)-(y + fh - primaryWindow->Height()), (GLsizei)fw, (GLsizei)fh);
+		glScissor((GLint)x, (GLint)-(y + fh - primaryWindow->Height()), (GLsizei)fw, (GLsizei)fh);
+		BindPreviewProgram(previewProgram);
 
-		glVertexAttribPointer(previewProgram->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (void *)(2 * sizeof(float)));
+		if (previewVao == 0 && gl_extensions.ARB_vertex_array_object) {
+			glGenVertexArrays(1, &previewVao);
+			glBindVertexArray(previewVao);
+			glEnableVertexAttribArray(previewProgram->a_position);
+
+			glGenBuffers(1, &ibuf);
+			glGenBuffers(1, &vbuf);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+			glBindBuffer(GL_ARRAY_BUFFER, vbuf);
+
+			glVertexAttribPointer(previewProgram->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (void *)(2 * sizeof(float)));
+		}
+
+		if (vbuf != 0) {
+			glBindBuffer(GL_ARRAY_BUFFER, vbuf);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GPUDebugVertex), vertices.data(), GL_STREAM_DRAW);
+		}
+
+		if (ibuf != 0 && !indices.empty()) {
+			glBindVertexArray(previewVao);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u16), indices.data(), GL_STREAM_DRAW);
+		}
+
+		float scale[] = {
+			480.0f / (float)PSP_CoreParameter().renderWidth,
+			272.0f / (float)PSP_CoreParameter().renderHeight,
+		};
+
+		Matrix4x4 ortho;
+		ortho.setOrtho(-(float)gstate_c.curRTOffsetX, (primaryWindow->TexWidth() - (int)gstate_c.curRTOffsetX) * scale[0], primaryWindow->TexHeight() * scale[1], 0, -1, 1);
+		glUniformMatrix4fv(previewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
+		if (previewVao != 0) {
+			glBindVertexArray(previewVao);
+		} else {
+			glEnableVertexAttribArray(previewProgram->a_position);
+			glVertexAttribPointer(previewProgram->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (float *)vertices.data() + 2);
+		}
+
+		if (indices.empty()) {
+			glDrawArrays(glprim[prim], 0, count);
+		} else {
+			glDrawElements(glprim[prim], count, GL_UNSIGNED_SHORT, previewVao != 0 ? 0 : indices.data());
+		}
+
+		if (previewVao == 0) {
+			glDisableVertexAttribArray(previewProgram->a_position);
+		}
+
+		primaryWindow->End();
 	}
 
-	if (vbuf != 0) {
-		glBindBuffer(GL_ARRAY_BUFFER, vbuf);
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GPUDebugVertex), vertices.data(), GL_STREAM_DRAW);
+	if (which & 2) {
+		secondWindow->Begin();
+		secondWindow->GetContentSize(x, y, fw, fh);
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquation(GL_FUNC_ADD);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		// The surface is upside down, so vertical offsets are flipped.
+		glViewport((GLint)x, (GLint)-(y + fh - secondWindow->Height()), (GLsizei)fw, (GLsizei)fh);
+		glScissor((GLint)x, (GLint)-(y + fh - secondWindow->Height()), (GLsizei)fw, (GLsizei)fh);
+		BindPreviewProgram(texPreviewProgram);
+
+		if (texPreviewVao == 0 && gl_extensions.ARB_vertex_array_object) {
+			glGenVertexArrays(1, &texPreviewVao);
+			glBindVertexArray(texPreviewVao);
+			glEnableVertexAttribArray(texPreviewProgram->a_position);
+
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+			glBindBuffer(GL_ARRAY_BUFFER, vbuf);
+
+			glVertexAttribPointer(texPreviewProgram->a_position, 2, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), 0);
+		}
+
+		// TODO: For some reason we have to re-upload the data?
+		if (vbuf != 0) {
+			glBindBuffer(GL_ARRAY_BUFFER, vbuf);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GPUDebugVertex), vertices.data(), GL_STREAM_DRAW);
+		}
+
+		if (ibuf != 0 && !indices.empty()) {
+			glBindVertexArray(texPreviewVao);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u16), indices.data(), GL_STREAM_DRAW);
+		}
+
+		Matrix4x4 ortho;
+		ortho.setOrtho(0.0f - (float)gstate_c.curTextureXOffset * invRealTexWidth, 1.0f - (float)gstate_c.curTextureXOffset * invRealTexWidth, 1.0f - (float)gstate_c.curTextureYOffset * invRealTexHeight, 0.0f - (float)gstate_c.curTextureYOffset * invRealTexHeight, -1.0f, 1.0f);
+		glUniformMatrix4fv(texPreviewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
+		if (texPreviewVao != 0) {
+			glBindVertexArray(texPreviewVao);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+			glBindBuffer(GL_ARRAY_BUFFER, vbuf);
+			glEnableVertexAttribArray(texPreviewProgram->a_position);
+			glVertexAttribPointer(texPreviewProgram->a_position, 2, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), 0);
+		} else {
+			glEnableVertexAttribArray(texPreviewProgram->a_position);
+			glVertexAttribPointer(texPreviewProgram->a_position, 2, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (float *)vertices.data());
+		}
+
+		if (indices.empty()) {
+			glDrawArrays(glprim[prim], 0, count);
+		} else {
+			glDrawElements(glprim[prim], count, GL_UNSIGNED_SHORT, texPreviewVao != 0 ? 0 : indices.data());
+		}
+
+		if (texPreviewVao == 0) {
+			glDisableVertexAttribArray(previewProgram->a_position);
+		}
+
+		secondWindow->End();
 	}
-
-	if (ibuf != 0 && !indices.empty()) {
-		glBindVertexArray(previewVao);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u16), indices.data(), GL_STREAM_DRAW);
-	}
-
-	float scale[] = {
-		480.0f / (float)PSP_CoreParameter().renderWidth,
-		272.0f / (float)PSP_CoreParameter().renderHeight,
-	};
-
-	Matrix4x4 ortho;
-	ortho.setOrtho(-(float)gstate_c.curRTOffsetX, (primaryWindow->TexWidth() - (int)gstate_c.curRTOffsetX) * scale[0], primaryWindow->TexHeight() * scale[1], 0, -1, 1);
-	glUniformMatrix4fv(previewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
-	if (previewVao != 0) {
-		glBindVertexArray(previewVao);
-	} else {
-		glEnableVertexAttribArray(previewProgram->a_position);
-		glVertexAttribPointer(previewProgram->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (float *)vertices.data() + 2);
-	}
-
-	if (indices.empty()) {
-		glDrawArrays(glprim[prim], 0, count);
-	} else {
-		glDrawElements(glprim[prim], count, GL_UNSIGNED_SHORT, previewVao != 0 ? 0 : indices.data());
-	}
-
-	if (previewVao == 0) {
-		glDisableVertexAttribArray(previewProgram->a_position);
-	}
-
-	primaryWindow->End();
-
-	secondWindow->Begin();
-	secondWindow->GetContentSize(x, y, fw, fh);
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquation(GL_FUNC_ADD);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glViewport((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
-	glScissor((GLint)x, (GLint)y, (GLsizei)fw, (GLsizei)fh);
-	BindPreviewProgram(texPreviewProgram);
-
-	if (texPreviewVao == 0 && gl_extensions.ARB_vertex_array_object) {
-		glGenVertexArrays(1, &texPreviewVao);
-		glBindVertexArray(texPreviewVao);
-		glEnableVertexAttribArray(texPreviewProgram->a_position);
-
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
-		glBindBuffer(GL_ARRAY_BUFFER, vbuf);
-
-		glVertexAttribPointer(texPreviewProgram->a_position, 2, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), 0);
-	}
-
-	// TODO: For some reason we have to re-upload the data?
-	if (vbuf != 0) {
-		glBindBuffer(GL_ARRAY_BUFFER, vbuf);
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GPUDebugVertex), vertices.data(), GL_STREAM_DRAW);
-	}
-
-	if (ibuf != 0 && !indices.empty()) {
-		glBindVertexArray(texPreviewVao);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u16), indices.data(), GL_STREAM_DRAW);
-	}
-
-	ortho.setOrtho(0.0f - (float)gstate_c.curTextureXOffset * invTexWidth, 1.0f - (float)gstate_c.curTextureXOffset * invTexWidth, 1.0f - (float)gstate_c.curTextureYOffset * invTexHeight, 0.0f - (float)gstate_c.curTextureYOffset * invTexHeight, -1.0f, 1.0f);
-	glUniformMatrix4fv(texPreviewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
-	if (texPreviewVao != 0) {
-		glBindVertexArray(texPreviewVao);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
-		glBindBuffer(GL_ARRAY_BUFFER, vbuf);
-		glEnableVertexAttribArray(texPreviewProgram->a_position);
-		glVertexAttribPointer(texPreviewProgram->a_position, 2, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), 0);
-	} else {
-		glEnableVertexAttribArray(texPreviewProgram->a_position);
-		glVertexAttribPointer(texPreviewProgram->a_position, 2, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (float *)vertices.data());
-	}
-
-	if (indices.empty()) {
-		glDrawArrays(glprim[prim], 0, count);
-	} else {
-		glDrawElements(glprim[prim], count, GL_UNSIGNED_SHORT, texPreviewVao != 0 ? 0 : indices.data());
-	}
-
-	if (texPreviewVao == 0) {
-		glDisableVertexAttribArray(previewProgram->a_position);
-	}
-
-	secondWindow->End();
 }
 
 void CGEDebugger::CleanupPrimPreview() {
@@ -335,5 +370,16 @@ void CGEDebugger::CleanupPrimPreview() {
 	}
 	if (texPreviewProgram) {
 		glsl_destroy(texPreviewProgram);
+	}
+}
+
+void CGEDebugger::HandleRedraw(int which) {
+	if (updating_) {
+		return;
+	}
+
+	u32 op = PrimPreviewOp();
+	if (op) {
+		UpdatePrimPreview(op, which);
 	}
 }

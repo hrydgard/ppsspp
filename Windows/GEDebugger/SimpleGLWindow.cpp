@@ -68,8 +68,7 @@ static const char basic_vs[] =
 	"}\n";
 
 SimpleGLWindow::SimpleGLWindow(HWND wnd)
-	: hWnd_(wnd), valid_(false), drawProgram_(nullptr), vao_(0), tex_(0), flags_(0), zoom_(false),
-	  dragging_(false), offsetX_(0), offsetY_(0), reformatBuf_(nullptr), hoverCallback_(nullptr) {
+	: hWnd_(wnd) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR) this);
 }
 
@@ -365,10 +364,23 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 void SimpleGLWindow::Redraw(bool andSwap) {
 	DrawChecker();
 
-	if (tw_ == 0 && th_ == 0) {
+	auto swapWithCallback = [andSwap, this]() {
 		if (andSwap) {
-			Swap();
+			swapped_ = false;
+			if (redrawCallback_ && !inRedrawCallback_) {
+				inRedrawCallback_ = true;
+				redrawCallback_();
+				inRedrawCallback_ = false;
+			}
+			// In case the callback swaps, don't do it twice.
+			if (!swapped_) {
+				Swap();
+			}
 		}
+	};
+
+	if (tw_ == 0 && th_ == 0) {
+		swapWithCallback();
 		return;
 	}
 
@@ -412,7 +424,7 @@ void SimpleGLWindow::Redraw(bool andSwap) {
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, vao_ ? 0 : indices);
 
 	if (andSwap) {
-		Swap();
+		swapWithCallback();
 	}
 }
 
@@ -423,7 +435,9 @@ void SimpleGLWindow::Clear() {
 }
 
 void SimpleGLWindow::Begin() {
-	Redraw(false);
+	if (!inRedrawCallback_) {
+		Redraw(false);
+	}
 
 	if (vao_) {
 		glBindVertexArray(0);
@@ -549,6 +563,7 @@ bool SimpleGLWindow::RightClick(int mouseX, int mouseY) {
 	POINT pt{mouseX, mouseY};
 	ClientToScreen(hWnd_, &pt);
 
+	rightClickCallback_(0);
 	int result = TrackPopupMenuEx(rightClickMenu_, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, hWnd_, 0);
 	if (result != 0) {
 		rightClickCallback_(result);

@@ -157,15 +157,26 @@ void CGEDebugger::SetupPreviews() {
 			PrimaryPreviewHover(x, y);
 		});
 		primaryWindow->SetRightClickMenu(subMenu, [&] (int cmd) {
+			HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_PREVIEW);
 			switch (cmd) {
+			case 0:
+				// Setup.
+				CheckMenuItem(subMenu, ID_GEDBG_ENABLE_PREVIEW, MF_BYCOMMAND | ((previewsEnabled_ & 1) ? MF_CHECKED : MF_UNCHECKED));
+				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(primaryBuffer_);
 				break;
+			case ID_GEDBG_ENABLE_PREVIEW:
+				previewsEnabled_ ^= 1;
+				primaryWindow->Redraw();
 			default:
 				break;
 			}
 
 			return true;
+		});
+		primaryWindow->SetRedrawCallback([&] {
+			HandleRedraw(1);
 		});
 		primaryWindow->Clear();
 	}
@@ -178,15 +189,26 @@ void CGEDebugger::SetupPreviews() {
 			SecondPreviewHover(x, y);
 		});
 		secondWindow->SetRightClickMenu(subMenu, [&] (int cmd) {
+			HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_PREVIEW);
 			switch (cmd) {
+			case 0:
+				// Setup.
+				CheckMenuItem(subMenu, ID_GEDBG_ENABLE_PREVIEW, MF_BYCOMMAND | ((previewsEnabled_ & 2) ? MF_CHECKED : MF_UNCHECKED));
+				break;
 			case ID_GEDBG_EXPORT_IMAGE:
 				PreviewExport(secondBuffer_);
 				break;
+			case ID_GEDBG_ENABLE_PREVIEW:
+				previewsEnabled_ ^= 2;
+				secondWindow->Redraw();
 			default:
 				break;
 			}
 
 			return true;
+		});
+		secondWindow->SetRedrawCallback([&] {
+			HandleRedraw(2);
 		});
 		secondWindow->Clear();
 	}
@@ -258,19 +280,18 @@ void CGEDebugger::UpdatePreviews() {
 		state = gpuDebug->GetGState();
 	}
 
+	updating_ = true;
 	UpdateTextureLevel(textureLevel_);
 	UpdatePrimaryPreview(state);
 	UpdateSecondPreview(state);
 
+	u32 primOp = PrimPreviewOp();
+	if (primOp != 0) {
+		UpdatePrimPreview(primOp, 3);
+	}
+
 	DisplayList list;
 	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
-		const u32 op = Memory::Read_U32(list.pc);
-		const u32 cmd = op >> 24;
-		// TODO: Bezier/spline?
-		if (cmd == GE_CMD_PRIM && !showClut_) {
-			UpdatePrimPreview(op);
-		}
-
 		displayList->setDisplayList(list);
 	}
 
@@ -282,6 +303,7 @@ void CGEDebugger::UpdatePreviews() {
 	matrices->Update();
 	lists->Update();
 	watch->Update();
+	updating_ = false;
 }
 
 u32 CGEDebugger::TexturePreviewFlags(const GPUgstate &state) {
