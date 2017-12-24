@@ -190,9 +190,9 @@ private:
 
 	VulkanContext *const vulkan_;
 	std::vector<Slab> slabs_;
-	size_t lastSlab_;
+	size_t lastSlab_ = 0;
 	size_t minSlabSize_;
 	const size_t maxSlabSize_;
-	uint32_t memoryTypeIndex_;
-	bool destroyed_;
+	uint32_t memoryTypeIndex_ = UNDEFINED_MEMORY_TYPE;
+	bool destroyed_ = false;
 };
