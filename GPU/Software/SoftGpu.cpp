@@ -471,10 +471,33 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
-		if (data != 0)
+		if (data == 0) {
+			currentList->bboxResult = false;
+		} else if (((data & 7) == 0) && data <= 64) {  // Sanity check
 			DEBUG_LOG(G3D, "Unsupported bounding box: %06x", data);
-		// bounding box test. Let's assume the box was within the drawing region.
-		currentList->bboxResult = true;
+			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+			if (!control_points) {
+				ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Invalid verts in bounding box check");
+				currentList->bboxResult = true;
+				return;
+			}
+
+			if (gstate.vertType & GE_VTYPE_IDX_MASK) {
+				ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
+				// Data seems invalid. Let's assume the box test passed.
+				currentList->bboxResult = true;
+				return;
+			}
+
+			// Test if the bounding box is within the drawing region.
+			int bytesRead;
+			currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, data, gstate.vertType, &bytesRead);
+			AdvanceVerts(gstate.vertType, data, bytesRead);
+		} else {
+			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
+			// Data seems invalid. Let's assume the box test passed.
+			currentList->bboxResult = true;
+		}
 		break;
 
 	case GE_CMD_VERTEXTYPE:
