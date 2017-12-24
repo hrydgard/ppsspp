@@ -779,6 +779,7 @@ void VKContext::BeginFrame() {
 	// OK, we now know that nothing is reading from this frame's data pushbuffer,
 	push_->Reset();
 	push_->Begin(vulkan_);
+	allocator_->Begin();
 
 	frame.descSets_.clear();
 	VkResult result = vkResetDescriptorPool(device_, frame.descriptorPool, 0);
@@ -792,6 +793,7 @@ void VKContext::WaitRenderCompletion(Framebuffer *fbo) {
 void VKContext::EndFrame() {
 	// Stop collecting data in the frame's data pushbuffer.
 	push_->End();
+	allocator_->End();
 
 	renderManager_.Finish();
 

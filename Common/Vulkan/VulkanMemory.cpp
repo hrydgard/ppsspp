@@ -157,7 +157,7 @@ void VulkanPushBuffer::Unmap() {
 }
 
 VulkanDeviceAllocator::VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize)
-	: vulkan_(vulkan), lastSlab_(0), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE), destroyed_(false) {
+	: vulkan_(vulkan), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize) {
 	assert((minSlabSize_ & (SLAB_GRAIN_SIZE - 1)) == 0);
 }
 
@@ -290,7 +290,7 @@ int VulkanDeviceAllocator::ComputeUsagePercent() const {
 			blocksUsed += slabs_[i].usage[j] != 0 ? 1 : 0;
 		}
 	}
-	return 100 * blocksUsed / blockSum;
+	return blockSum == 0 ? 0 : 100 * blocksUsed / blockSum;
 }
 
 void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
