@@ -169,6 +169,9 @@ void CGEDebugger::SetupPreviews() {
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
 				primaryWindow->Redraw();
+			case ID_GEDBG_REPLACEMENT_FILENAME:
+				ShowReplacementFilename();
+				break;
 			default:
 				break;
 			}
@@ -201,6 +204,9 @@ void CGEDebugger::SetupPreviews() {
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
 				secondWindow->Redraw();
+			case ID_GEDBG_REPLACEMENT_FILENAME:
+				ShowReplacementFilename();
+				break;
 			default:
 				break;
 			}
@@ -266,6 +272,16 @@ void CGEDebugger::PreviewExport(const GPUDebugBuffer *dbgBuffer) {
 		}
 		delete [] flipbuffer;
 	}
+}
+
+void CGEDebugger::ShowReplacementFilename() {
+		primaryBuffer_ = nullptr;
+		GPU_GetCurrentTexture(primaryBuffer_, textureLevel_);
+		const auto state = gpuDebug->GetGState();
+		u32 texAddr = state.getTextureAddress(textureLevel_);
+		std::string filename = gpuDebug->PrintReplacementInfo(texAddr);
+		InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Filename", filename, filename);
+
 }
 
 void CGEDebugger::UpdatePreviews() {

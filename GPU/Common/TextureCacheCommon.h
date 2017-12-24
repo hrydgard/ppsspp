@@ -208,6 +208,7 @@ public:
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
 	void NotifyConfigChanged();
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
+	std::string GetTextureReplacementInfo(u32 texAddr);
 
 	int AttachedDrawingHeight();
 

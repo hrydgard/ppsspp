@@ -18,6 +18,7 @@
 #include <algorithm>
 #include "Common/ColorConv.h"
 #include "Common/MemoryUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
@@ -1698,4 +1699,16 @@ void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
 
 void TextureCacheCommon::ClearNextFrame() {
 	clearCacheNextFrame_ = true;
+}
+
+std::string TextureCacheCommon::GetTextureReplacementInfo(u32 texAddr) {
+	std::string filename = "";
+	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
+		if (iter->second->addr == texAddr) {
+			filename = StringFromFormat("%08x%08x%08x", iter->second->addr, iter->second->CacheKey(), iter->second->fullhash);
+			break;
+		}
+	}
+	NOTICE_LOG(G3D, "Filename for replacement(Address, Clut Hash, Texture Hash): %s",filename.c_str());
+	return filename;
 }

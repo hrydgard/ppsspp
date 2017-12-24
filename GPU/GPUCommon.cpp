@@ -2415,6 +2415,10 @@ bool GPUCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	return framebufferManager_ ? framebufferManager_->GetOutputFramebuffer(buffer) : false;
 }
 
+std::string GPUCommon::PrintReplacementInfo(u32 texAddr) {
+	return textureCache_->GetTextureReplacementInfo(texAddr);
+}
+
 std::vector<FramebufferInfo> GPUCommon::GetFramebufferList() {
 	return framebufferManager_->GetFramebufferList();
 }
