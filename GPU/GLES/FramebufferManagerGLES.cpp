@@ -529,7 +529,7 @@ void FramebufferManagerGLES::BlitFramebufferDepth(VirtualFramebuffer *src, Virtu
 			// Let's only do this if not clearing depth.
 			glstate.scissorTest.force(false);
 			draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::FB_DEPTH_BIT, Draw::FB_BLIT_NEAREST);
-			// WARNING: If we set dst->depthUpdated here, our optimization above would be pointless.
+			dst->last_frame_depth_updated = gpuStats.numFlips;
 			glstate.scissorTest.restore();
 		}
 	}
