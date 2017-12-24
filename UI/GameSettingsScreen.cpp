@@ -99,8 +99,9 @@ bool CheckSupportInstancedTessellationGLES() {
 	bool instanceRendering = gl_extensions.GLES3 || (canUseInstanceID && canDefInstanceID);
 
 	bool textureFloat = gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float;
+	bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
 
-	return instanceRendering && vertexTexture && textureFloat;
+	return instanceRendering && vertexTexture && textureFloat && hasTexelFetch;
 #endif
 }
 

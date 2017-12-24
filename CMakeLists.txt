@@ -84,7 +84,7 @@ if(NOT ANDROID)
 	endif()
 endif()
 
-if(NOT WIN32 AND VULKAN)
+if(VULKAN AND NOT WIN32 AND NOT ANDROID)
 	IF (NOT Vulkan_FOUND)
 		find_library(Vulkan_LIBRARY NAMES vulkan HINTS "$ENV{VULKAN_SDK}/lib" "${CMAKE_SOURCE_DIR}/ext/vulkan" REQUIRED)
 		IF (Vulkan_LIBRARY)
@@ -1676,7 +1676,7 @@ set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-gl
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
-if(VULKAN)
+if(VULKAN AND NOT ANDROID AND NOT WIN32)
 	target_link_libraries(${CoreLibName} ${Vulkan_LIBRARY})
 endif()
 

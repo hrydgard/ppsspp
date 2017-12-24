@@ -114,7 +114,7 @@ LinkedShader::LinkedShader(VShaderID VSID, Shader *vs, FShaderID FSID, Shader *f
 	glBindAttribLocation(program, ATTR_COLOR1, "color1");
 
 #if !defined(USING_GLES2)
-	if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
+	if (gstate_c.Supports(GPU_SUPPORTS_DUALSOURCE_BLEND)) {
 		// Dual source alpha
 		glBindFragDataLocationIndexed(program, 0, 0, "fragColor0");
 		glBindFragDataLocationIndexed(program, 0, 1, "fragColor1");
@@ -123,7 +123,7 @@ LinkedShader::LinkedShader(VShaderID VSID, Shader *vs, FShaderID FSID, Shader *f
 	}
 #elif !defined(IOS)
 	if (gl_extensions.GLES3) {
-		if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
+		if (gstate_c.Supports(GPU_SUPPORTS_DUALSOURCE_BLEND)) {
 			glBindFragDataLocationIndexedEXT(program, 0, 0, "fragColor0");
 			glBindFragDataLocationIndexedEXT(program, 0, 1, "fragColor1");
 		}

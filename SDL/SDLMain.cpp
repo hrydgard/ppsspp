@@ -36,15 +36,17 @@ SDLJoystick *joystick = NULL;
 #include "Common/Vulkan/VulkanDebug.h"
 #include "math.h"
 
+#if !defined(__APPLE__)
+#include "SDL_syswm.h"
+#endif
+
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include "SDL_syswm.h"
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xlib-xcb.h>
-#include "SDL_syswm.h"
 #endif
 
 #if defined(USING_EGL)

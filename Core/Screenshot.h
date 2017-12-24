@@ -33,8 +33,9 @@ enum ScreenshotType {
 	SCREENSHOT_RENDER,
 };
 
-const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u32 &h);
+const u8 *ConvertBufferToScreenshot(const GPUDebugBuffer &buf, bool alpha, u8 *&temp, u32 &w, u32 &h);
 
 // Can only be used while in game.
 bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type, int *width = nullptr, int *height = nullptr, int maxRes = -1);
 bool Save888RGBScreenshot(const char *filename, ScreenshotFormat fmt, const u8 *bufferRGB888, int w, int h);
+bool Save8888RGBAScreenshot(const char *filename, const u8 *bufferRGBA8888, int w, int h);
