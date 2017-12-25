@@ -161,7 +161,7 @@ public:
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games
 
-	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering 2 = Read Framebuffer to memory (CPU) 3 = Read Framebuffer to memory (GPU)
+	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
 	int iBufFilter; // 1 = linear, 2 = nearest
 	int iSmallDisplayZoomType;  // Used to fit display into screen 0 = stretch, 1 = partial stretch, 2 = auto scaling, 3 = manual scaling.
