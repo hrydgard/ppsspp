@@ -109,6 +109,7 @@ endif()
 if(LINUX AND VULKAN)
 	message("Using XCB extension...")
 	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+	add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
 	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 endif()
 

@@ -174,8 +174,12 @@ extern PFN_vkCmdExecuteCommands vkCmdExecuteCommands;
 extern PFN_vkCreateAndroidSurfaceKHR vkCreateAndroidSurfaceKHR;
 #elif defined(_WIN32)
 extern PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
-#elif defined(VK_USE_PLATFORM_XLIB_KHR)
+#endif
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
 extern PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
+#endif
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+extern PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR;
 #endif
 
 extern PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR;
@@ -191,8 +195,6 @@ extern PFN_vkDestroySwapchainKHR vkDestroySwapchainKHR;
 extern PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR;
 extern PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR;
 extern PFN_vkQueuePresentKHR vkQueuePresentKHR;
-
-#endif
 
 // And the DEBUG_REPORT extension. Since we load this dynamically even in static
 // linked mode, we have to rename it :(

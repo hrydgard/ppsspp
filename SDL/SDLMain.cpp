@@ -438,27 +438,27 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		fprintf(stderr, "Error getting SDL window wm info: %s\n", SDL_GetError());
 		exit(1);
 	}
-	Display *display = sys_info.info.x11.display;
-	Window x11_window = sys_info.info.x11.window;
 	switch (sys_info.subsystem) {
 	case SDL_SYSWM_X11:
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+		vulkan_->InitSurface(WINDOWSYSTEM_XLIB, (void*)sys_info.info.x11.display,
+				(void *)(intptr_t)sys_info.info.x11.window, pixel_xres, pixel_yres);
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+		vulkan_->InitSurface(WINDOWSYSTEM_XCB, (void*)XGetXCBConnection(sys_info.info.x11.display),
+				(void *)(intptr_t)sys_info.info.x11.window, pixel_xres, pixel_yres);
+#endif
 		break;
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+	case SDL_SYSWM_WAYLAND:
+		vulkan_->InitSurface(WINDOWSYSTEM_WAYLAND, (void*)sys_info.info.wl.display,
+				(void *)sys_info.info.wl.surface, pixel_xres, pixel_yres);
+		break;
+#endif
 	default:
 		fprintf(stderr, "Vulkan subsystem %d not supported\n", sys_info.subsystem);
 		exit(1);
 		break;
 	}
-#else
-	// Fake to make it build on Apple. This code won't run there though.
-	void *display = nullptr;
-	int x11_window = 0;
-#endif
-	ILOG("Display: %p", display);
-
-#if defined(VK_USE_PLATFORM_XLIB_KHR)
-	vulkan_->InitSurface(WINDOWSYSTEM_XLIB, (void*)display, (void *)(intptr_t)x11_window, pixel_xres, pixel_yres);
-#elif defined(VK_USE_PLATFORM_XCB_KHR)
-	vulkan_->InitSurface(WINDOWSYSTEM_XCB, (void*)XGetXCBConnection(display), (void *)(intptr_t)x11_window, pixel_xres, pixel_yres);
 #endif
 
 	if (!vulkan_->InitObjects()) {
