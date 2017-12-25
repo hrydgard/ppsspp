@@ -322,6 +322,12 @@ void AddTextureChangeTempBreakpoint() {
 	textureChangeTemp = true;
 }
 
+void AddAnyTempBreakpoint() {
+	for (int i = 0; i < 256; ++i) {
+		AddCmdBreakpoint(i, true);
+	}
+}
+
 void RemoveAddressBreakpoint(u32 addr) {
 	std::lock_guard<std::mutex> guard(breaksLock);
 
