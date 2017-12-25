@@ -275,13 +275,10 @@ void CGEDebugger::PreviewExport(const GPUDebugBuffer *dbgBuffer) {
 }
 
 void CGEDebugger::ShowReplacementFilename() {
-		primaryBuffer_ = nullptr;
-		GPU_GetCurrentTexture(primaryBuffer_, textureLevel_);
 		const auto state = gpuDebug->GetGState();
 		u32 texAddr = state.getTextureAddress(textureLevel_);
 		std::string filename = gpuDebug->PrintReplacementInfo(texAddr);
 		InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Filename", filename, filename);
-
 }
 
 void CGEDebugger::UpdatePreviews() {
