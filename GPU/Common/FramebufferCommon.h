@@ -385,7 +385,6 @@ protected:
 	u32 framebufRangeEnd_ = 0;
 
 	bool useBufferedRendering_ = false;
-	bool updateVRAM_ = false;
 	bool usePostShader_ = false;
 	bool postShaderAtOutputResolution_ = false;
 	bool postShaderIsUpscalingFilter_ = false;

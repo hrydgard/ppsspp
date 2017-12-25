@@ -255,17 +255,11 @@ void GPU_GLES::CheckGPUFeatures() {
 
 	bool useCPU = false;
 	if (!gl_extensions.IsGLES) {
-		// Urrgh, we don't even define FB_READFBOMEMORY_CPU on mobile
-#ifndef USING_GLES2
-		useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
-#endif
 		// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
 		// This causes glitches in games that expect the exact values.
 		// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
-		if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-			if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || gl_extensions.ver[0] < 3) {
-				useCPU = true;
-			}
+		if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || !gl_extensions.VersionGEThan(3, 0)) {
+			useCPU = true;
 		}
 	} else {
 		useCPU = true;
