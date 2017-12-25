@@ -789,8 +789,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		}
 
 		case IROp::Break:
-			Crash();
-			break;
+			if (!g_Config.bIgnoreBadMemAccess) {
+				Core_EnableStepping(true);
+				host->SetDebugMode(true);
+			}
+			return mips->pc + 4;
 
 		case IROp::SetCtrlVFPU:
 			mips->vfpuCtrl[inst->dest] = constPool[inst->src1];
