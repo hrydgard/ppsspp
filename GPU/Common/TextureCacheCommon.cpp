@@ -719,10 +719,6 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
-		// Apply to non-buffered and buffered mode only.
-		if (!(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE))
-			return false;
-
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
 		if (framebuffer->fb_stride != entry->bufw) {
 			WARN_LOG_REPORT_ONCE(diffStrides1, G3D, "Render to texture with different strides %d != %d", entry->bufw, framebuffer->fb_stride);

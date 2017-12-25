@@ -980,6 +980,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (iAnisotropyLevel > 4) {
 		iAnisotropyLevel = 4;
 	}
+	if (iRenderingMode != FB_NON_BUFFERED_MODE && iRenderingMode != FB_BUFFERED_MODE) {
+		g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	}
 
 	// Check for an old dpad setting
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
