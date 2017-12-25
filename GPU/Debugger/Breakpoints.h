@@ -38,6 +38,8 @@ namespace GPUBreakpoints {
 	void AddTextureBreakpoint(u32 addr, bool temp = false);
 	void AddTextureChangeTempBreakpoint();
 	void AddRenderTargetBreakpoint(u32 addr, bool temp = false);
+	// Quick way to trigger GE debugger statically.
+	void AddAnyTempBreakpoint();
 
 	void RemoveAddressBreakpoint(u32 addr);
 	void RemoveCmdBreakpoint(u8 cmd);

@@ -116,6 +116,7 @@ namespace MainWindow
 	static bool g_IgnoreWM_SIZE = false;
 	static bool inFullscreenResize = false;
 	static bool inResizeMove = false;
+	static bool hasFocus = true;
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
@@ -379,6 +380,7 @@ namespace MainWindow
 
 	void Minimize() {
 		ShowWindow(hwndMain, SW_MINIMIZE);
+		InputDevice::LoseFocus();
 	}
 
 	RECT DetermineWindowRectangle() {
@@ -688,7 +690,9 @@ namespace MainWindow
 				bool pause = true;
 				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 					WindowsRawInput::GainFocus();
-					InputDevice::GainFocus();
+					if (!IsIconic(GetHWND())) {
+						InputDevice::GainFocus();
+					}
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
 				}
@@ -701,14 +705,16 @@ namespace MainWindow
 					}
 				}
 
-				if (wParam == WA_ACTIVE) {
+				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 					NativeMessageReceived("got_focus", "");
+					hasFocus = true;
 					trapMouse = true;
 				}
 				if (wParam == WA_INACTIVE) {
 					NativeMessageReceived("lost_focus", "");
 					WindowsRawInput::LoseFocus();
 					InputDevice::LoseFocus();
+					hasFocus = false;
 					trapMouse = false;
 				}
 			}
@@ -740,6 +746,9 @@ namespace MainWindow
 				} else if (!inResizeMove) {
 					HandleSizeChange(wParam);
 				}
+				if (hasFocus) {
+					InputDevice::GainFocus();
+				}
 				break;
 
 			case SIZE_MINIMIZED:
@@ -747,6 +756,7 @@ namespace MainWindow
 				if (!g_Config.bPauseWhenMinimized) {
 					NativeMessageReceived("window minimized", "true");
 				}
+				InputDevice::LoseFocus();
 				break;
 			default:
 				break;
