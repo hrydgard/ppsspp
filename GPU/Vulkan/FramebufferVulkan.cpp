@@ -412,6 +412,7 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	if (matchingDepthBuffer && matchingRenderSize && matchingSize) {
 		// TODO: Currently, this copies depth AND stencil, which is a problem.  See #9740.
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT);
+		dst->last_frame_depth_updated = gpuStats.numFlips;
 	} else if (matchingDepthBuffer && matchingSize) {
 		/*
 		int w = std::min(src->renderWidth, dst->renderWidth);

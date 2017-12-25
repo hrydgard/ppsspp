@@ -443,7 +443,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->drawnFormat = params.fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		SetColorUpdated(vfb, skipDrawReason);
-		vfb->depthUpdated = false;
 
 		u32 byteSize = FramebufferByteSize(vfb);
 		u32 fb_address_mem = (params.fb_address & 0x3FFFFFFF) | 0x04000000;
@@ -591,7 +590,8 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 
 	// Copy depth pixel value from the read framebuffer to the draw framebuffer
 	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
-		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
+		bool hasNewerDepth = prevVfb->last_frame_depth_render != 0 && prevVfb->last_frame_depth_render >= vfb->last_frame_depth_updated;
+		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !hasNewerDepth || isClearingDepth) {
 			// If depth wasn't updated, then we're at least "two degrees" away from the data.
 			// This is an optimization: it probably doesn't need to be copied in this case.
 		} else {

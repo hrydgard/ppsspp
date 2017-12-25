@@ -79,9 +79,10 @@ struct VirtualFramebuffer {
 	int last_frame_displayed;
 	int last_frame_clut;
 	int last_frame_failed;
+	int last_frame_depth_updated;
+	int last_frame_depth_render;
 	u32 clutUpdatedBytes;
 	bool memoryUpdated;
-	bool depthUpdated;
 	bool firstFrameSaved;
 
 	u32 fb_address;
@@ -283,7 +284,8 @@ public:
 
 	void SetDepthUpdated() {
 		if (currentRenderVfb_) {
-			currentRenderVfb_->depthUpdated = true;
+			currentRenderVfb_->last_frame_depth_render = gpuStats.numFlips;
+			currentRenderVfb_->last_frame_depth_updated = gpuStats.numFlips;
 		}
 	}
 	void SetColorUpdated(int skipDrawReason) {
