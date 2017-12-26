@@ -87,12 +87,6 @@ else()
 	message("Normal Build")
 endif()
 
-if(UNIX AND NOT APPLE AND VULKAN)
-	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
-	add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
-	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
-endif()
-
 # Doesn't link on some platforms
 #if(NOT DEFINED UNITTEST)
 #	set(UNITTEST OFF)
@@ -119,10 +113,20 @@ option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" 
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
+option(USE_WAYLAND_WSI "Set to ON to require Wayland support for Vulkan" ${USE_WAYLAND_WSI})
 
-# Vulkan on Linux options. If none of these are set, X11 is assumed.
-OPTION(USE_D2D_WSI "Build the project using Direct to Display swapchain" OFF)
-OPTION(USE_WAYLAND_WSI "Build the project using Wayland swapchain" OFF)
+if(UNIX AND NOT APPLE AND VULKAN)
+	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
+	find_package(Wayland)
+	if (USE_WAYLAND_WSI AND NOT WAYLAND_FOUND)
+		message(FATAL_ERROR "Could not find libwayland, but USE_WAYLAND_WSI was enabled. Failing.")
+	endif()
+	if (WAYLAND_FOUND)
+		include_directories(${WAYLAND_INCLUDE_DIR})
+		add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
+	endif()
+endif()
 
 if(ANDROID)
 	set(CoreLibName ppsspp_jni)
