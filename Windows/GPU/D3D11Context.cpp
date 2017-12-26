@@ -10,6 +10,7 @@
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 #include "Windows/GPU/D3D11Context.h"
 #include "Windows/W32Util/Misc.h"
 #include "thin3d/thin3d.h"
@@ -140,6 +141,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 #endif
 
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_);
+	SetGPUBackend(GPUBackend::DIRECT3D11);
 	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
 	assert(success);
 

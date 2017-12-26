@@ -51,6 +51,7 @@
 #include <sstream>
 
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanDebug.h"
@@ -131,6 +132,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	bool splitSubmit = g_Config.bGfxDebugSplitSubmit;
 
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, splitSubmit);
+	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
 	assert(success);  // Doesn't fail, we include the compiler.
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());

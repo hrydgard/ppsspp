@@ -33,9 +33,9 @@ QTM_USE_NAMESPACE
 #include "base/NKCodeFromQt.h"
 
 #include "Common/GraphicsContext.h"
-#include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 
 // Input
 void SimulateGamepad();
@@ -44,6 +44,7 @@ class QtDummyGraphicsContext : public DummyGraphicsContext {
 public:
 	QtDummyGraphicsContext() {
 		draw_ = Draw::T3DCreateGLContext();
+		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
 		assert(success);
 	}

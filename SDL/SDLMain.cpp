@@ -340,6 +340,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	// Finally we can do the regular initialization.
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
+	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();
 	assert(success);
 	window_ = window;
@@ -468,6 +469,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 	}
 
 	draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
+	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
 	assert(success);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());

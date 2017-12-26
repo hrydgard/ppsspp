@@ -135,6 +135,7 @@ bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, in
 	gl->MakeCurrent();
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
+	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();  // There will always be a GLSL compiler capable of compiling these.
 	assert(success);
 	return true;
@@ -161,6 +162,7 @@ public:
 	AndroidJavaEGLGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
+		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
 		assert(success);
 	}
@@ -339,6 +341,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	bool success = true;
 	if (g_Vulkan->InitObjects()) {
 		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, g_Config.bGfxDebugSplitSubmit);
+		SetGPUBackend(GPUBackend::VULKAN);
 		success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
 		assert(success);
 		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());

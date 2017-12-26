@@ -21,6 +21,7 @@
 #include "gfx_es2/gpu_features.h"
 
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Common/GraphicsContext.h"
 
 #include <sys/types.h>
@@ -39,6 +40,7 @@ public:
 	IOSDummyGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
+		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
 		assert(success);
 	}

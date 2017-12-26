@@ -9,6 +9,7 @@
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 #include "Common/OSVersion.h"
 #include "Windows/GPU/D3D9Context.h"
 #include "Windows/W32Util/Misc.h"
@@ -165,6 +166,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		//deviceEx->SetMaximumFrameLatency(1);
 	}
 	draw_ = Draw::T3DCreateDX9Context(d3d_, d3dEx_, adapterId_, device_, deviceEx_);
+	SetGPUBackend(GPUBackend::DIRECT3D9);
 	if (!draw_->CreatePresets()) {
 		// Shader compiler not installed? Return an error so we can fall back to GL.
 		device_->Release();
