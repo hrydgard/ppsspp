@@ -162,7 +162,6 @@ bool FramebufferManagerCommon::UpdateSize() {
 void FramebufferManagerCommon::BeginFrame() {
 	DecimateFBOs();
 	currentRenderVfb_ = nullptr;
-	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 }
 
 void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -195,8 +194,7 @@ u32 FramebufferManagerCommon::FramebufferByteSize(const VirtualFramebuffer *vfb)
 }
 
 bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const {
-	return updateVRAM_ ||
-		(PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) ||
+	return (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) ||
 		(PSP_CoreParameter().compat.flags().ForceRangeDownload && vfb->fb_address >= 0x001F3A80 && vfb->fb_address <= 0x001FE7C0) ||
 		(PSP_CoreParameter().compat.flags().Force04Download && vfb->fb_address >= 0x00000000 && vfb->fb_address <= 0x00400000); // Should be vfb->fb_address >= 0x00154000 && vfb->fb_address <= 0x00158000, but nah, let's make it less safe, but more universal
 }
@@ -460,7 +458,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfbs_.push_back(vfb);
 		currentRenderVfb_ = vfb;
 
-		if (useBufferedRendering_ && !updateVRAM_ && !g_Config.bDisableSlowFramebufEffects) {
+		if (useBufferedRendering_ && !g_Config.bDisableSlowFramebufEffects) {
 			gpu->PerformMemoryUpload(fb_address_mem, byteSize);
 			NotifyStencilUpload(fb_address_mem, byteSize, true);
 			// TODO: Is it worth trying to upload the depth buffer?
@@ -1213,7 +1211,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 }
 
 bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool isMemset, u32 skipDrawReason) {
-	if (updateVRAM_ || size == 0) {
+	if (size == 0) {
 		return false;
 	}
 
@@ -1583,7 +1581,7 @@ void FramebufferManagerCommon::OptimizeDownloadRange(VirtualFramebuffer * vfb, i
 }
 
 bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp, u32 skipDrawReason) {
-	if (!useBufferedRendering_ || updateVRAM_) {
+	if (!useBufferedRendering_) {
 		return false;
 	}
 

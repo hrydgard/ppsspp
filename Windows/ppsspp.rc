@@ -504,10 +504,8 @@ BEGIN
 
         POPUP "Rendering Mode"
         BEGIN
-            MENUITEM "Non-Buffered Rendering",                    ID_OPTIONS_NONBUFFEREDRENDERING
-            MENUITEM "Buffered Rendering",                        ID_OPTIONS_BUFFEREDRENDERING
-            MENUITEM "Read Framebuffers To Memory (CPU)",         ID_OPTIONS_READFBOTOMEMORYCPU
-            MENUITEM "Read Framebuffers To Memory (GPU)",         ID_OPTIONS_READFBOTOMEMORYGPU
+            MENUITEM "Non-Buffered Rendering",              ID_OPTIONS_NONBUFFEREDRENDERING
+            MENUITEM "Buffered Rendering",                  ID_OPTIONS_BUFFEREDRENDERING
         END
         POPUP "Frame Skipping"
         BEGIN

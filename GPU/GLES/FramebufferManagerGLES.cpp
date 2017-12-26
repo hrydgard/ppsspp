@@ -1039,11 +1039,6 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 void FramebufferManagerGLES::EndFrame() {
 	CHECK_GL_ERROR_IF_DEBUG();
 
-	// We flush to memory last requested framebuffer, if any.
-	// Only do this in the read-framebuffer modes.
-	if (updateVRAM_)
-		PackFramebufferAsync_(nullptr);
-
 	// Let's explicitly invalidate any temp FBOs used during this frame.
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
 		for (auto temp : tempFBOs_) {

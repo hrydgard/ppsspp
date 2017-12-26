@@ -200,20 +200,14 @@ void GameSettingsScreen::CreateViews() {
 			renderingBackendChoice->HideChoice(3);
 		}
 	
-		static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)" };
+		static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering"};
 		PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
 		renderingModeChoice->OnChoice.Add([=](EventParams &e) {
 			switch (g_Config.iRenderingMode) {
 			case FB_NON_BUFFERED_MODE:
-				settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but nothing may draw in some games"), e.v);
+				settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"), e.v);
 				break;
 			case FB_BUFFERED_MODE:
-				break;
-#ifndef USING_GLES2
-			case FB_READFBOMEMORY_CPU:
-#endif
-			case FB_READFBOMEMORY_GPU:
-				settingInfo_->Show(gr->T("RenderingMode ReadFromMemory Tip", "Causes crashes in many games, not recommended"), e.v);
 				break;
 			}
 			return UI::EVENT_CONTINUE;
