@@ -43,6 +43,9 @@ enum WindowSystem {
 #ifdef VK_USE_PLATFORM_XCB_KHR
 	WINDOWSYSTEM_XCB,
 #endif
+#ifdef VK_USE_PLATFORM_WAYLAND_KHR
+	WINDOWSYSTEM_WAYLAND,
+#endif
 };
 
 struct VulkanPhysicalDeviceInfo {

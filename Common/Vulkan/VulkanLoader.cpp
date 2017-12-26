@@ -23,8 +23,6 @@
 #include <dlfcn.h>
 #endif
 
-#ifndef VULKAN_STATIC
-
 PFN_vkCreateInstance vkCreateInstance;
 PFN_vkDestroyInstance vkDestroyInstance;
 PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
@@ -167,8 +165,12 @@ PFN_vkCmdExecuteCommands vkCmdExecuteCommands;
 PFN_vkCreateAndroidSurfaceKHR vkCreateAndroidSurfaceKHR;
 #elif defined(_WIN32)
 PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
-#elif defined(VK_USE_PLATFORM_XLIB_KHR)
+#endif
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
 PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
+#endif
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR;
 #endif
 
 PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR;
@@ -183,7 +185,6 @@ PFN_vkDestroySwapchainKHR vkDestroySwapchainKHR;
 PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR;
 PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR;
 PFN_vkQueuePresentKHR vkQueuePresentKHR;
-#endif
 
 // And the DEBUG_REPORT extension. We dynamically load this.
 PFN_vkCreateDebugReportCallbackEXT dyn_vkCreateDebugReportCallbackEXT;
@@ -207,9 +208,6 @@ static const char *so_names[] = {
 };
 
 bool VulkanMayBeAvailable() {
-#ifdef VULKAN_STATIC
-	return true;
-#else
 	if (vulkanLibrary)
 		return true;
 	bool available = false;
@@ -231,11 +229,9 @@ bool VulkanMayBeAvailable() {
 	}
 #endif
 	return available;
-#endif
 }
 
 bool VulkanLoad() {
-#ifndef VULKAN_STATIC
 	if (!vulkanLibrary) {
 #ifndef _WIN32
 		for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
@@ -260,12 +256,10 @@ bool VulkanLoad() {
 	LOAD_GLOBAL_FUNC(vkEnumerateInstanceLayerProperties);
 
 	WLOG("Vulkan base functions loaded.");
-#endif
 	return true;
 }
 
 void VulkanLoadInstanceFunctions(VkInstance instance) {
-#ifndef VULKAN_STATIC
 	// OK, let's use the above functions to get the rest.
 	LOAD_INSTANCE_FUNC(instance, vkDestroyInstance);
 	LOAD_INSTANCE_FUNC(instance, vkEnumeratePhysicalDevices);
@@ -415,12 +409,15 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 	LOAD_INSTANCE_FUNC(instance, vkCreateWin32SurfaceKHR);
 #elif defined(__ANDROID__)
 	LOAD_INSTANCE_FUNC(instance, vkCreateAndroidSurfaceKHR);
-#elif defined(VK_USE_PLATFORM_XLIB_KHR)
+#endif
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
 	LOAD_INSTANCE_FUNC(instance, vkCreateXlibSurfaceKHR);
+#endif
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+	LOAD_INSTANCE_FUNC(instance, vkCreateWaylandSurfaceKHR);
 #endif
 
 	LOAD_INSTANCE_FUNC(instance, vkDestroySurfaceKHR);
-#endif
 
 	dyn_vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
 	dyn_vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
@@ -433,18 +430,15 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 // good for multi-device.
 void VulkanLoadDeviceFunctions(VkDevice device) {
 	WLOG("Vulkan device functions loaded.");
-#ifndef VULKAN_STATIC
 	// TODO: Move more functions VulkanLoadInstanceFunctions to here.
 	LOAD_DEVICE_FUNC(device, vkCreateSwapchainKHR);
 	LOAD_DEVICE_FUNC(device, vkDestroySwapchainKHR);
 	LOAD_DEVICE_FUNC(device, vkGetSwapchainImagesKHR);
 	LOAD_DEVICE_FUNC(device, vkAcquireNextImageKHR);
 	LOAD_DEVICE_FUNC(device, vkQueuePresentKHR);
-#endif
 }
 
 void VulkanFree() {
-#ifndef VULKAN_STATIC
 	if (vulkanLibrary) {
 #ifdef _WIN32
 		FreeLibrary(vulkanLibrary);
@@ -453,5 +447,4 @@ void VulkanFree() {
 #endif
 		vulkanLibrary = nullptr;
 	}
-#endif
 }
