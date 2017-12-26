@@ -243,7 +243,7 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 
 		if (yes) {
 			// Change the config to D3D and restart.
-			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
+			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D9;
 			g_Config.Save();
 
 			W32Util::ExitAndRestart();

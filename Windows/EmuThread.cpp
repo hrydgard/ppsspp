@@ -106,19 +106,19 @@ void EmuThreadFunc() {
 		const char *defaultErrorOpenGL = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to DirectX 9?\n\nError message:";
 		const char *defaultErrorDirect3D9 = "Failed initializing graphics. Try upgrading your graphics drivers and directx 9 runtime.\n\nWould you like to try switching to OpenGL?\n\nError message:";
 		const char *genericError;
-		int nextBackend = GPU_BACKEND_DIRECT3D9;
+		GPUBackend nextBackend = GPUBackend::DIRECT3D9;
 		switch (g_Config.iGPUBackend) {
-		case GPU_BACKEND_DIRECT3D9:
-			nextBackend = GPU_BACKEND_OPENGL;
+		case (int)GPUBackend::DIRECT3D9:
+			nextBackend = GPUBackend::OPENGL;
 			genericError = err->T("GenericDirect3D9Error", defaultErrorDirect3D9);
 			break;
-		case GPU_BACKEND_VULKAN:
-			nextBackend = GPU_BACKEND_OPENGL;
+		case (int)GPUBackend::VULKAN:
+			nextBackend = GPUBackend::OPENGL;
 			genericError = err->T("GenericVulkanError", defaultErrorVulkan);
 			break;
-		case GPU_BACKEND_OPENGL:
+		case (int)GPUBackend::OPENGL:
 		default:
-			nextBackend = GPU_BACKEND_DIRECT3D9;
+			nextBackend = GPUBackend::DIRECT3D9;
 			genericError = err->T("GenericOpenGLError", defaultErrorOpenGL);
 			break;
 		}
@@ -129,7 +129,7 @@ void EmuThreadFunc() {
 
 		if (yes) {
 			// Change the config to the alternative and restart.
-			g_Config.iGPUBackend = nextBackend;
+			g_Config.iGPUBackend = (int)nextBackend;
 			g_Config.Save();
 
 			W32Util::ExitAndRestart();

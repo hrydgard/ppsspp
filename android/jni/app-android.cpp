@@ -1125,7 +1125,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 retry:
 
-	bool vulkan = g_Config.iGPUBackend == GPU_BACKEND_VULKAN;
+	bool vulkan = g_Config.iGPUBackend == (int)GPUBackend::VULKAN;
 
 	int tries = 0;
 	AndroidGraphicsContext *graphicsContext;
@@ -1140,8 +1140,8 @@ retry:
 
 		if (!exitRenderLoop && (vulkan && tries < 2)) {
 			ILOG("Trying again, this time with OpenGL.");
-			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
-			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);  // Wait, why do we need a separate enum here?
+			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 			tries++;
 			goto retry;
 		}
