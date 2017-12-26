@@ -69,8 +69,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
 	set(ANDROID ON)
 endif()
 
-# Of the CMake platforms, we only support Vulkan on Android and Windows.
-if(ANDROID OR WIN32 OR LINUX)
+# We only support Vulkan on Unix, Android and Windows.
+if(ANDROID OR WIN32 OR (UNIX AND NOT APPLE))
   set(VULKAN ON)
 else()
   add_definitions(-DNO_VULKAN)
@@ -106,8 +106,7 @@ else()
 	message("Normal Build")
 endif()
 
-if(LINUX AND VULKAN)
-	message("Using XCB extension...")
+if(UNIX AND NOT APPLE AND VULKAN)
 	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
 	add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
 	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
