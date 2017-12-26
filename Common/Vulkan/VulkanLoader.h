@@ -25,13 +25,10 @@
 #define NOMINMAX
 #endif
 
-#ifndef VULKAN_STATIC
 #define VK_NO_PROTOTYPES
-#endif
 
 #include "ext/vulkan/vulkan.h"
 
-#ifndef VULKAN_STATIC
 extern PFN_vkCreateInstance vkCreateInstance;
 extern PFN_vkDestroyInstance vkDestroyInstance;
 extern PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
