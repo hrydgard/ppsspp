@@ -25,6 +25,7 @@ QTM_USE_NAMESPACE
 #include "base/timeutil.h"
 #include "file/zip_read.h"
 #include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "thin3d/thin3d.h"
@@ -43,6 +44,7 @@ void SimulateGamepad();
 class QtDummyGraphicsContext : public DummyGraphicsContext {
 public:
 	QtDummyGraphicsContext() {
+		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
 		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
