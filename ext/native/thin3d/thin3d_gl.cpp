@@ -16,10 +16,6 @@
 
 #include "thin3d/GLRenderManager.h"
 
-#ifdef IOS
-extern void bindDefaultFBO();
-#endif
-
 // #define DEBUG_READ_PIXELS 1
 
 namespace Draw {
