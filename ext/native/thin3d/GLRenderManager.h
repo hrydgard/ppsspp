@@ -113,6 +113,7 @@ public:
 	}
 	GLuint texture;
 	GLenum target;
+	// TODO: Move sampler params here so we can move the dirty-tracking from TextureCacheGLES to here.
 };
 
 class GLRBuffer {
