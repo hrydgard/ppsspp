@@ -1739,7 +1739,6 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 	const int end = 12 * 8 - (op & 0x7F);
 	int i = 0;
 
-	// TODO: Validate what should happen when explicitly setting num to 96 or higher.
 	bool fastLoad = !debugRecording_ && end > 0;
 	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
 		fastLoad = false;
