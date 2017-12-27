@@ -241,10 +241,13 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
 		if (gstate.isModeClear()) {
 			key.cullMode = VK_CULL_MODE_NONE;
+			// TODO: Or does it always clamp?
+			key.depthClampEnable = false;
 		} else {
 			// Set cull
 			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 			key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
+			key.depthClampEnable = gstate.isClippingEnabled() && gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP);
 		}
 	}
 

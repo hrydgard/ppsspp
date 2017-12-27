@@ -373,6 +373,7 @@ int main(int argc, const char* argv[])
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bBlockTransferGPU = true;
 	g_Config.iSplineBezierQuality = 2;
+	g_Config.bHighQualityDepth = true;
 
 #ifdef _WIN32
 	InitSysDirectories();

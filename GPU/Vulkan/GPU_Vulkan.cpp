@@ -209,6 +209,9 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	if (vulkan_->GetFeaturesEnabled().wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;
 	}
+	if (vulkan_->GetFeaturesEnabled().depthClamp) {
+		features |= GPU_SUPPORTS_DEPTH_CLAMP;
+	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
 		switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
 		case VULKAN_VENDOR_NVIDIA:

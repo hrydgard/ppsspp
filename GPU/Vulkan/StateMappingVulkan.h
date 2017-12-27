@@ -20,7 +20,7 @@ struct VulkanDynamicState {
 // Let's pack this tight using bitfields.
 // If an enable flag is set to 0, all the data fields for that section should
 // also be set to 0.
-// ~54 bits.
+// ~64 bits.
 // Can't use enums unfortunately, they end up signed and breaking values above half their ranges.
 struct VulkanPipelineRasterStateKey {
 	// Blend
@@ -37,6 +37,7 @@ struct VulkanPipelineRasterStateKey {
 	unsigned int colorWriteMask : 4;
 
 	// Depth/Stencil
+	unsigned int depthClampEnable : 1;
 	unsigned int depthTestEnable : 1;
 	unsigned int depthWriteEnable : 1;
 	unsigned int depthCompareOp : 3;  // VkCompareOp 

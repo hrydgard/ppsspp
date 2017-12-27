@@ -188,7 +188,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	rs.lineWidth = lineWidth;
 	rs.rasterizerDiscardEnable = false;
 	rs.polygonMode = VK_POLYGON_MODE_FILL;
-	rs.depthClampEnable = false;
+	rs.depthClampEnable = key.depthClampEnable;
 
 	VkPipelineMultisampleStateCreateInfo ms = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
 	ms.pSampleMask = nullptr;
