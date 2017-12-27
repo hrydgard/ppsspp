@@ -111,9 +111,17 @@ public:
 			glDeleteTextures(1, &texture);
 		}
 	}
-	GLuint texture;
-	GLenum target;
-	// TODO: Move sampler params here so we can move the dirty-tracking from TextureCacheGLES to here.
+	GLuint texture = 0;
+	// Could also trust OpenGL defaults I guess..
+	GLenum target = 0xFFFF;
+	GLenum wrapS = 0xFFFF;
+	GLenum wrapT = 0xFFFF;
+	GLenum magFilter = 0xFFFF;
+	GLenum minFilter = 0xFFFF;
+	float anisotropy = -100000.0f;
+	float minLod = -100000.0f;
+	float maxLod = 100000.0f;
+	float lodBias = 0.0f;
 };
 
 class GLRBuffer {

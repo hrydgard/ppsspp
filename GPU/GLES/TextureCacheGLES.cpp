@@ -130,7 +130,7 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		float maxLod = 0.0f;
 		if (maxLevel != 0) {
 			// TODO: What about a swap of autoMip mode?
-			if (force || entry.lodBias != lodBias) {
+			if (true) {
 				if (mode == GE_TEXLEVEL_MODE_AUTO) {
 					minLod = 0.0f;
 					maxLod = (float)maxLevel;
@@ -147,7 +147,6 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 					minLod = 0.0f;
 					maxLod = (float)maxLevel;
 				}
-				entry.lodBias = lodBias;
 			}
 		} else {
 			minLod = 0.0f;
@@ -156,14 +155,8 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		render_->SetTextureLod(minLod, maxLod, lodBias);
 	}
 
-	if (force || entry.minFilt != minFilt || entry.magFilt != magFilt || entry.sClamp != sClamp || entry.tClamp != tClamp) {
-		float aniso = 0.0f;
-		render_->SetTextureSampler(sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
-		entry.minFilt = minFilt;
-		entry.magFilt = magFilt;
-		entry.sClamp = sClamp;
-		entry.tClamp = tClamp;
-	}
+	float aniso = 0.0f;
+	render_->SetTextureSampler(sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
