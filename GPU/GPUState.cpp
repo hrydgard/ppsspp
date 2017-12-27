@@ -111,6 +111,8 @@ void GPUgstate::Reset() {
 	memset(gstate.projMatrix, 0, sizeof(gstate.projMatrix));
 	memset(gstate.tgenMatrix, 0, sizeof(gstate.tgenMatrix));
 	memset(gstate.boneMatrix, 0, sizeof(gstate.boneMatrix));
+
+	savedContextVersion = 1;
 }
 
 void GPUgstate::Save(u32_le *ptr) {
