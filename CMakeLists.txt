@@ -115,7 +115,7 @@ option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_WAYLAND_WSI "Set to ON to require Wayland support for Vulkan" ${USE_WAYLAND_WSI})
 
-if(UNIX AND NOT APPLE AND VULKAN)
+if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
 	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 	find_package(Wayland)
