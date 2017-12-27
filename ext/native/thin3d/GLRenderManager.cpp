@@ -379,6 +379,11 @@ void GLRenderManager::Run(int frame) {
 }
 
 void GLRenderManager::FlushSync() {
+	// Need to flush any pushbuffers to VRAM before submitting draw calls.
+	for (auto iter : frameData_[curFrame_].activePushBuffers) {
+		iter->Flush();
+	}
+
 	// TODO: Reset curRenderStep_?
 	int curFrame = curFrame_;
 	FrameData &frameData = frameData_[curFrame];
@@ -463,6 +468,14 @@ void GLPushBuffer::Unmap() {
 	// At least if it's close.
 	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].deviceMemory, false);
 	writePtr_ = nullptr;
+}
+
+void GLPushBuffer::Flush() {
+	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].deviceMemory, false);
+	// Here we will submit all the draw calls, with the already known buffer and offsets.
+	// Might as well reset the write pointer here and start over the current buffer.
+	writePtr_ = buffers_[buf_].deviceMemory;
+	offset_ = 0;
 }
 
 bool GLPushBuffer::AddBuffer() {

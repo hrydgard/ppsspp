@@ -3,6 +3,7 @@
 #include <thread>
 #include <map>
 #include <vector>
+#include <set>
 #include <string>
 #include <mutex>
 #include <condition_variable>
@@ -14,6 +15,7 @@
 #include "GLQueueRunner.h"
 
 class GLRInputLayout;
+class GLPushBuffer;
 
 class GLRFramebuffer {
 public:
@@ -596,6 +598,17 @@ public:
 		queueRunner_.Resize(width, height);
 	}
 
+	// When using legacy functionality for push buffers (glBufferData), we need to flush them
+	// before actually making the glDraw* calls. It's best if the render manager handles that.
+	void RegisterPushBuffer(int frame, GLPushBuffer *buffer) {
+		frameData_[frame].activePushBuffers.insert(buffer);
+	}
+	void UnregisterPushBuffer(int frame, GLPushBuffer *buffer) {
+		auto iter = frameData_[frame].activePushBuffers.find(buffer);
+		_assert_(iter != frameData_[frame].activePushBuffers.end());
+		frameData_[frame].activePushBuffers.erase(iter);
+	}
+
 private:
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
@@ -629,6 +642,7 @@ private:
 		uint32_t curSwapchainImage = -1;
 		
 		GLDeleter deleter;
+		std::set<GLPushBuffer *> activePushBuffers;
 	};
 
 	FrameData frameData_[MAX_INFLIGHT_FRAMES];
@@ -748,6 +762,8 @@ public:
 	}
 
 	size_t GetTotalSize() const;
+
+	void Flush();
 
 private:
 	bool AddBuffer();
